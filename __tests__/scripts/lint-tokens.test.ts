@@ -147,6 +147,8 @@ describe('lint-tokens / isAllowed', () => {
     expect(isAllowed('app/globals.css')).toBe(true)
     expect(isAllowed('components/landing/landing.css')).toBe(true)
     expect(isAllowed('components/ui/icons.tsx')).toBe(true)
+    // Fixed-dark waitlist/signup marketing surface (not theme-aware).
+    expect(isAllowed('app/signup/[[...signup]]/page.tsx')).toBe(true)
   })
 
   it('rejects business code paths', () => {

@@ -52,6 +52,11 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   /^components\/landing\/landing\.css$/,
   // Pre-existing SVG icon set (raw colors are the SVG's payload).
   /^components\/ui\/icons\.tsx$/,
+  // Waitlist/signup is a fixed-dark marketing surface (matches the landing
+  // aesthetic: near-black bg + white/alpha glass + zinc text). It is
+  // intentionally NOT theme-aware, so semantic tokens (which adapt to
+  // light/dark) don't model it — same rationale as landing.css.
+  /^app\/signup\/\[\[\.\.\.signup\]\]\/page\.tsx$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
