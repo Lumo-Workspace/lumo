@@ -1,6 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
+import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { createFromAutomation, createTask } from './task-creation.service'
 import {
   reopen,
@@ -84,8 +85,24 @@ async function getTaskDetail(taskId: string) {
           ? { ...pr, state: update.state, mergedAt: update.mergedAt }
           : pr
       })
-      if ([...updates.values()].some(u => u.state === 'merged')) {
+      const states = [...updates.values()].map(u => u.state)
+      const merged = states.includes('merged')
+      if (merged) {
         taskStatus = 'DONE'
+      }
+      // Reconciliation path for lineage closure: when the poller is the first
+      // to observe a PR reaching a terminal state (a missed/late webhook),
+      // stamp the task's edges too — idempotent with the webhook path. A merge
+      // wins over a close; the service maps the state to a verdict. Only fires
+      // when a state actually changed (updates.size > 0), so it stays off the
+      // hot read path.
+      const terminalState = merged
+        ? 'merged'
+        : states.includes('closed')
+          ? 'closed'
+          : null
+      if (terminalState) {
+        stampLineageInBackground(s => s.stampForPrState(task.id, terminalState))
       }
     }
   }

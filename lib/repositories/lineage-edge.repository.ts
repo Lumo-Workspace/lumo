@@ -17,6 +17,30 @@ export interface CreateLineageEdgeInput {
   outcome?: LineageOutcome
 }
 
+/** A closing verdict that can be stamped onto an edge — everything but the
+ * UNKNOWN birth state, which `stampOutcomeByTask` never targets. */
+export type StampableOutcome = Exclude<LineageOutcome, 'UNKNOWN'>
+
+/** Outcomes a stamp may overwrite, keyed by the stamp target. Encodes a
+ * monotonic precedence ladder so a late or weak signal never downgrades a
+ * stronger verdict, and stamping is idempotent under redelivery (a merge seen
+ * by both the webhook and the poller stamps once, then no-ops):
+ *   UNKNOWN → REJECTED → MERGED   (advance only)
+ *   MERGED  → REWORKED            (lateral: merged work that had to be redone)
+ *
+ * REWORKED is intentionally terminal — it is not in any target's source set,
+ * so re-completing a reopened task does NOT restamp those edges back to MERGED.
+ * The verdict records a historical fact ("this merged work had to be redone")
+ * that a later success does not erase. Consequence: a fragment that fed
+ * reworked-then-remerged work is not counted toward merge contribution. That
+ * undercount is accepted for the MVP; revisit if the flywheel signal needs it.
+ * (Guarded by the "REWORKED is sticky" test.) */
+const STAMPABLE_FROM: Record<StampableOutcome, LineageOutcome[]> = {
+  REJECTED: ['UNKNOWN'],
+  MERGED: ['UNKNOWN', 'REJECTED'],
+  REWORKED: ['MERGED'],
+}
+
 /** Polymorphic fragment identity (type + id), used to scope aggregate queries. */
 export interface FragmentRef {
   fragmentType: LineageFragmentType
@@ -115,6 +139,26 @@ export const lineageEdgeRepository = {
     return fragments
       .map(f => byKey.get(fragmentKey(f.fragmentType, f.fragmentId)))
       .filter((e): e is FragmentStats => e !== undefined)
+  },
+
+  /**
+   * Stamp a closing `outcome` onto every edge of a task whose current outcome
+   * is eligible to advance (see {@link STAMPABLE_FROM}). Returns Prisma's
+   * `{ count }` of rows changed. Idempotent: re-stamping the same verdict
+   * matches nothing the second time. Coarse by design — edges are keyed by
+   * `taskId`, not by the specific PR/session, so this stamps relevance
+   * (was-in-context + outcome co-occurred), not causality (DoD ③).
+   */
+  async stampOutcomeByTask(
+    taskId: string,
+    outcome: StampableOutcome,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.lineageEdge.updateMany({
+      where: { taskId, outcome: { in: STAMPABLE_FROM[outcome] } },
+      data: { outcome },
+    })
   },
 
   /**
