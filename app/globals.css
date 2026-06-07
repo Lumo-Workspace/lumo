@@ -453,7 +453,9 @@ html {
      :root and a dark step in .dark. To retune the app's overall lightness /
      surface separation / neutral cast, edit these 13 steps — nothing else.
      No .dark override (primitives are identical in both schemes; the SEMANTIC
-     layer is what remaps per mode). Allowlisted in token-parity.test.ts. */
+     layer is what remaps per mode). Allowlisted in token-parity.test.ts.
+     gray-4 / -5 / -8 are reserved headroom — no semantic token maps to them
+     yet; they keep the scale perceptually even (LUM-294). */
   --gray-0: oklch(1 0 0);
   --gray-1: oklch(0.984 0.004 255);
   --gray-2: oklch(0.967 0.006 255);
@@ -632,6 +634,9 @@ html {
   --input: var(--gray-10);
   /* --ring / --sidebar-ring intentionally omitted here — they derive from the
      single :root --focus-ring, identical across light/dark (LUM-262). */
+  /* sidebar shares the card tier (gray-11) in dark — the prior ~0.009-L split
+     (sidebar 0.1684 vs card 0.1776) collapsed under the uniform ramp; the two
+     read as one surface separated by sidebar-border (LUM-294). */
   --sidebar: var(--gray-11);
   --sidebar-foreground: var(--gray-0);
   --sidebar-primary: var(--gray-0);
