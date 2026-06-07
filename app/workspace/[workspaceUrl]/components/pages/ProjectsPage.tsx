@@ -254,7 +254,7 @@ export function ProjectsPage({
                 })}
               />
               {open && query.trim() && (
-                <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>
+                <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-dropdown overflow-hidden'>
                   {filtered.length === 0 ? (
                     <p className='px-3 py-2.5 text-xs text-zinc-400'>
                       {intl.formatMessage({ id: 'projects.searchNoMatch' })}

@@ -125,7 +125,7 @@ function ConfirmDialog({
     <div
       role='dialog'
       aria-modal='true'
-      className='fixed inset-0 z-50 flex items-center justify-center bg-black/30'
+      className='fixed inset-0 z-modal flex items-center justify-center bg-black/30'
     >
       <div className='w-96 rounded bg-background p-4 shadow-lg'>
         <h2 className='mb-2 text-lg font-semibold'>{title}</h2>
