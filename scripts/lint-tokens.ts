@@ -101,6 +101,11 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // Landing marketing surface — an intentional brand fork (LUM-288), same
   // rationale as components/landing/landing.css; its components carry brand hex.
   /^components\/landing\//,
+  // Vendored shadcn NavigationMenu — its indicator uses a `z-[1]` LOCAL stacking
+  // value (raise the arrow above the viewport within its own context); the
+  // semantic z scale (z-base=0 … z-toast=60) has no "+1 above sibling" tier, so
+  // this is a documented local-stacking carve-out (LUM-285), not a global tier.
+  /^components\/ui\/navigation-menu\.tsx$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
