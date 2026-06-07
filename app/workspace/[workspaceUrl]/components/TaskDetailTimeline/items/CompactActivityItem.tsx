@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from 'react'
 import type { TimelineActivityEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
+import { TAG_COLORS } from './tag-colors'
 import { API_STATUS_LABEL } from '../../../utils'
 import { StatusIcon } from '../../StatusIcon'
 import { PRIORITY_CONFIG, PriorityIcon } from '../../fields/shared'
@@ -79,21 +80,12 @@ function resolveActor(
   return { name: 'Unknown', isAgent: false, imageUrl: undefined, initials: '?' }
 }
 
-const TAG_COLORS = [
-  { bg: '#fff1f0', text: '#f5222d' },
-  { bg: '#fff7e6', text: '#fa8c16' },
-  { bg: '#fffbe6', text: '#d4a012' },
-  { bg: '#f6ffed', text: '#52c41a' },
-  { bg: '#e6f7ff', text: '#1890ff' },
-  { bg: '#f9f0ff', text: '#722ed1' },
-]
-
 function InlineTagBadge({ name }: { name: string }) {
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
   const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
   return (
     <span
-      className='inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap align-middle'
+      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap align-middle'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {name}
@@ -348,7 +340,7 @@ function formatActivityText(
           <AlertTriangle className='h-3.5 w-3.5 text-red-500' />
           <span>{label}</span>
           {eventCount !== null ? (
-            <span className='text-zinc-400'>· {eventCount} events</span>
+            <span className='text-muted-foreground'>· {eventCount} events</span>
           ) : null}
         </span>
       )
@@ -398,7 +390,7 @@ export function CompactActivityItem({
   )
 
   return (
-    <div className='flex gap-2.5 py-2 text-caption text-zinc-500 dark:text-zinc-400'>
+    <div className='flex gap-2.5 py-2 text-caption text-muted-foreground'>
       <CommentAvatar
         isAgent={actor.isAgent}
         imageUrl={actor.imageUrl}
@@ -406,12 +398,12 @@ export function CompactActivityItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2'>
-          <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+          <span className='font-medium text-foreground'>
             {actor.name}
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+              <span className='text-[11px] text-muted-foreground'>
                 {formatTimeAgo(entry.createdAt, intl.locale)}
               </span>
             </TooltipTrigger>

@@ -37,14 +37,14 @@ export function WebLinkSection({ taskId }: Props): React.ReactElement {
       addSlot={addSlot}
     >
       {loading ? (
-        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-muted-foreground text-center'>
           {intl.formatMessage({
             id: 'common.loading',
             defaultMessage: 'Loading…',
           })}
         </div>
       ) : webLinks.length === 0 ? (
-        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-muted-foreground text-center'>
           {intl.formatMessage({
             id: 'task.webLinks.empty',
             defaultMessage: 'No web links',

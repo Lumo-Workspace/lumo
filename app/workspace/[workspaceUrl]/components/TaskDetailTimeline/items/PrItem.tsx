@@ -45,7 +45,7 @@ export function PrItem({ entry }: PrItemProps) {
     },
     PR_UNLINKED: {
       icon: Unlink,
-      color: 'text-zinc-400',
+      color: 'text-muted-foreground',
       label: intl.formatMessage(
         { id: 'activity.prUnlinked', defaultMessage: 'PR #{n} unlinked' },
         { n: prNumber }
@@ -55,20 +55,20 @@ export function PrItem({ entry }: PrItemProps) {
 
   const c = config[entry.type] ?? {
     icon: GitPullRequest,
-    color: 'text-zinc-400',
+    color: 'text-muted-foreground',
     label: entry.type,
   }
   const Icon = c.icon
 
   return (
-    <div className='flex items-start gap-2.5 py-2 px-3 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'>
+    <div className='flex items-start gap-2.5 py-2 px-3 rounded-md bg-muted border border-border'>
       <Icon size={16} className={`mt-0.5 shrink-0 ${c.color}`} />
       <div className='flex-1 min-w-0'>
-        <p className='text-caption text-zinc-700 dark:text-zinc-300'>
+        <p className='text-caption text-foreground'>
           {c.label}
         </p>
         {prTitle && (
-          <p className='text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate'>
+          <p className='text-[11px] text-muted-foreground mt-0.5 truncate'>
             {prTitle}
           </p>
         )}
