@@ -570,6 +570,7 @@ export type AgentRunItem = AgentRunHookEventItem | AgentRunMemoryItem
 
 export interface AgentRunSession {
   sessionId: string | null
+  agent: TaskArtifactAgent
   runNumber: number
   startedAt: string
   lastActivityAt: string

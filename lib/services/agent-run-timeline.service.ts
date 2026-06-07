@@ -35,6 +35,7 @@ export type AgentRunItem = AgentRunHookEvent | AgentRunMemoryItem
 
 export interface AgentRunSession {
   sessionId: string | null
+  agent: TaskArtifactAgent
   runNumber: number
   startedAt: string
   lastActivityAt: string
@@ -117,6 +118,7 @@ export const agentRunTimelineService = {
 
       return {
         sessionId: s.id,
+        agent: s.agent,
         runNumber: i + 1,
         startedAt: s.startedAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
@@ -145,6 +147,7 @@ export const agentRunTimelineService = {
       const last = items[items.length - 1]?.createdAt ?? first
       runs.push({
         sessionId: null,
+        agent: 'CLAUDE_CODE',
         runNumber: runs.length + 1,
         startedAt: first,
         lastActivityAt: last,
