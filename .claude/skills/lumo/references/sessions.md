@@ -2,26 +2,28 @@
 
 ## Session Management
 
-### Auto-bind at session start (from local git)
+### Suggest-on-start from local git (no auto-bind)
 
 When a session starts **without** a bound task, the `session-start` hook tries to
-infer the task from local git before falling back to the "请告诉我任务编号" prompt:
+infer the task from local git so it can **suggest** one — it never binds for you
+(LUM-302):
 
 - It reads the **current branch name** first (e.g. `lumo/LUM-145-...`), then the
   **most recent commit subjects** (e.g. `... [LUM-145]`), extracting the first
   `LUM-<n>`.
-- On a hit it binds the session to that task automatically (same `bind-task`
-  endpoint as `session attach`) and prints a single line:
-  `已自动绑定 LUM-145 - <title>（依据分支名/最近 commit）。如果不对，回复"不是"我就帮你解绑。`
-  The freshly-bound task's memory is injected too.
+- On a hit it prints a single suggestion line and stops — the session stays
+  **unbound** and no context is injected yet:
+  `检测到 LUM-145（依据分支名/最近 commit）。运行 lumo session attach LUM-145 绑定。`
+  No task title is shown here because nothing was fetched; the title, memory,
+  and PR-review todos appear only once you actually attach.
 - No match (detached HEAD, a non-lumo branch with no tagged commits, not a git
-  repo) or a failed bind (unknown task) → it degrades silently to the normal
-  unbound prompt.
+  repo) → it degrades to the normal unbound prompt.
 
-**Agent guidance:** if the user responds "不是" / "不对" / "wrong task" to an
-auto-bind line, run `lumo session detach` to clear the binding (then `session
-attach <LUM-N>` if they name the right one). No detach is needed when the
-auto-bound task is correct.
+**Agent guidance:** when you see a suggestion line, confirm the inferred task is
+the one the user wants, then run `lumo session attach <LUM-N>` (followed by
+`lumo task context <LUM-N>` to load the background). `session attach` is the
+**only** path that binds — there is nothing to "undo" if the inference is wrong;
+just attach the correct task instead.
 
 ### Layer 2 project-memory review at session start
 
@@ -62,7 +64,7 @@ lumo session attach LUM-42            # already on LUM-7 → prompts (TTY) / ref
 lumo session attach LUM-42 --force    # overwrite without confirmation
 ```
 
-**Agent guidance:** when `session attach` reports the session is already bound to a different task, **ask the user** whether to switch before re-running with `--force`. Don't auto-`--force` — the existing binding may be intentional (e.g. an auto-bind from the branch name). Alternatively run `lumo session detach` first, then a clean `session attach`.
+**Agent guidance:** when `session attach` reports the session is already bound to a different task, **ask the user** whether to switch before re-running with `--force`. Don't auto-`--force` — the existing binding may be intentional (e.g. a manual attach the user ran earlier). Alternatively run `lumo session detach` first, then a clean `session attach`.
 
 ### Parallel sessions
 
