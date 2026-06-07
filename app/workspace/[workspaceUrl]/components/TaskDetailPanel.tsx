@@ -260,8 +260,8 @@ export function TaskDetailPanel({
         />
 
         {task.pullRequests && task.pullRequests.length > 0 && (
-          <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-            <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-2'>
+          <div className='pt-3 border-t border-border'>
+            <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2'>
               <GitPullRequest size={12} />
               Pull Requests
             </p>
@@ -274,13 +274,13 @@ export function TaskDetailPanel({
                       href={pr.url}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium truncate block'
+                      className='text-xs text-foreground hover:underline font-medium truncate block'
                     >
                       #{pr.number} {pr.title}
                     </a>
                     <div className='flex items-center gap-1.5 mt-0.5'>
                       <PrStateBadge state={pr.state} />
-                      <span className='text-[10px] text-zinc-400 dark:text-zinc-500 font-mono truncate'>
+                      <span className='text-[10px] text-muted-foreground font-mono truncate'>
                         {pr.headBranch}
                       </span>
                     </div>
@@ -296,7 +296,7 @@ export function TaskDetailPanel({
         {/* Description */}
         <div className='pt-4'>
           {desc.descriptionLoading ? (
-            <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
+            <Spinner className='size-4 text-muted-foreground' />
           ) : (
             <>
               {!task.description && (
@@ -351,7 +351,7 @@ export function TaskDetailPanel({
                 <button
                   key={doc.id}
                   type='button'
-                  className='flex items-center gap-2 w-full text-left text-xs py-1 px-2 rounded hover:bg-muted transition-colors'
+                  className='flex items-center gap-2 w-full text-left text-xs py-1 px-2 rounded-sm hover:bg-muted transition-colors'
                   onClick={() => {
                     window.location.href = `/workspace/${workspaceUrl}/documents/${doc.slug}`
                   }}

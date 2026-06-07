@@ -56,7 +56,7 @@ export function CommentSection({
   return (
     <>
       <div className='mt-8 pt-6'>
-        <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
+        <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4'>
           {intl.formatMessage({
             id: 'task.comments',
             defaultMessage: 'Comments',
@@ -67,10 +67,10 @@ export function CommentSection({
           <div className='space-y-3'>
             {[1, 2].map(i => (
               <div key={i} className='flex gap-2.5'>
-                <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+                <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
                 <div className='flex-1 space-y-1.5 pt-0.5'>
-                  <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/3' />
-                  <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-2/3' />
+                  <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/3' />
+                  <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
                 </div>
               </div>
             ))}
@@ -94,7 +94,7 @@ export function CommentSection({
                 />
 
                 {(comment.replies?.length ?? 0) > 0 && (
-                  <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
+                  <div className='ml-9 mt-3 space-y-3 border-l-2 border-border pl-3'>
                     {comment.replies!.map(reply => (
                       <ReplyItem
                         key={reply.id}
@@ -138,7 +138,7 @@ export function CommentSection({
               {user?.initials ?? '?'}
             </AvatarFallback>
           </Avatar>
-          <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+          <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
             <CommentEditor
               onCommit={html => tc.setCommentBody(html)}
               onSubmit={tc.submitComment}
