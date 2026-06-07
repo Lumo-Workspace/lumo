@@ -197,3 +197,25 @@ describe('memoryRepository.findBySourceSessionId', () => {
     )
   })
 })
+
+describe('memoryRepository.findContentByIds', () => {
+  it('returns an empty map without querying for empty ids', async () => {
+    const m = await memoryRepository.findContentByIds([])
+    expect(m.size).toBe(0)
+    expect(mockFindMany).not.toHaveBeenCalled()
+  })
+
+  it('stringifies JSON content keyed by id; passes strings through', async () => {
+    mockFindMany.mockResolvedValue([
+      { id: 'm1', content: { trigger: 'x', outcome: 'y' } },
+      { id: 'm2', content: 'plain' },
+    ])
+    const m = await memoryRepository.findContentByIds(['m1', 'm2'])
+    expect(m.get('m1')).toBe('{"trigger":"x","outcome":"y"}')
+    expect(m.get('m2')).toBe('plain')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ['m1', 'm2'] } },
+      select: { id: true, content: true },
+    })
+  })
+})

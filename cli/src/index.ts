@@ -261,8 +261,16 @@ session
     '--dry-run',
     'Print the draft but do not post or advance the watermark'
   )
+  .option(
+    '--used <indices>',
+    'Mark which injected context fragments you actually used (1-based indices, comma/space separated; "none" for all-unused). Omit to skip recording.'
+  )
   .action(
-    wrap(options => sessionWrap(options as { yes?: boolean; dryRun?: boolean }))
+    wrap(options =>
+      sessionWrap(
+        options as { yes?: boolean; dryRun?: boolean; used?: string }
+      )
+    )
   )
 
 const task = program

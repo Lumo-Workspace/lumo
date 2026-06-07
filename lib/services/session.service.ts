@@ -3,6 +3,8 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import type { LineageFragmentType } from '@prisma/client'
 import type { Prisma } from '@prisma/client'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
@@ -110,6 +112,35 @@ interface PostProgressCommentInput {
   body: string
   watermark: string
   waitUntil: (promise: Promise<unknown>) => void
+}
+
+export interface FragmentUsageCandidate {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  label: string
+  used: boolean | null
+}
+
+export interface FragmentUsageDraft {
+  taskIdentifier: string | null
+  candidates: FragmentUsageCandidate[]
+  alreadyVoted: boolean
+}
+
+interface ApplyFragmentUsageInput {
+  identity: VerifyApiKeyResult
+  sessionId: string
+  usedRefs: { fragmentType: LineageFragmentType; fragmentId: string }[]
+}
+
+const USAGE_LABEL_MAX = 60
+
+/** One-line, length-capped snippet of a memory's content for a vote label. */
+function labelSnippet(content: string): string {
+  const oneLine = content.replace(/\s+/g, ' ').trim()
+  return oneLine.length > USAGE_LABEL_MAX
+    ? `${oneLine.slice(0, USAGE_LABEL_MAX)}…`
+    : oneLine
 }
 
 /** Tag attached to a task that's repeatedly failing (LUM-153). Plain tag, not
@@ -437,6 +468,85 @@ export const sessionService = {
 
     await sessionRepository.setLastMemoryReviewAt(sessionId, new Date(watermark))
     return { deleted: toDelete.length, promoted: toPromote.length }
+  },
+
+  /**
+   * Assemble the fragment-usage draft for `lumo session wrap` (LUM-300): the
+   * context fragments this session consumed (its lineage edges) so the agent can
+   * vote which it actually used. MEMORY fragments get a content snippet label;
+   * others a typed id slice. `alreadyVoted` is true once any edge carries a
+   * usedAt. Empty payload when the session is missing/unowned.
+   */
+  async getFragmentUsageDraft({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<FragmentUsageDraft> {
+    const empty: FragmentUsageDraft = {
+      taskIdentifier: null,
+      candidates: [],
+      alreadyVoted: false,
+    }
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return empty
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return empty
+
+    const edges = await lineageEdgeRepository.findSessionFragmentEdges(sessionId)
+    const memIds = edges
+      .filter(e => e.fragmentType === 'MEMORY')
+      .map(e => e.fragmentId)
+    const contentById = await memoryRepository.findContentByIds(memIds)
+
+    const candidates: FragmentUsageCandidate[] = edges.map(e => {
+      const content = contentById.get(e.fragmentId)
+      const label =
+        e.fragmentType === 'MEMORY' && content
+          ? `[MEMORY] "${labelSnippet(content)}"`
+          : `[${e.fragmentType}] ${e.fragmentId.slice(0, 8)}`
+      return {
+        fragmentType: e.fragmentType,
+        fragmentId: e.fragmentId,
+        label,
+        used: e.used,
+      }
+    })
+    return {
+      taskIdentifier: ctx.taskIdentifier,
+      candidates,
+      alreadyVoted: edges.some(e => e.usedAt !== null),
+    }
+  },
+
+  /**
+   * Apply an agent usage vote (LUM-300): stamp used=true/false on this session's
+   * lineage edges. Session-scoped — a missing/unowned session is a no-op so the
+   * endpoint can't touch other sessions' edges.
+   */
+  async applyFragmentUsage({
+    identity,
+    sessionId,
+    usedRefs,
+  }: ApplyFragmentUsageInput): Promise<{ used: number; unused: number }> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return { used: 0, unused: 0 }
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return { used: 0, unused: 0 }
+
+    return lineageEdgeRepository.applyUsageVote(sessionId, usedRefs)
   },
 
   /**

@@ -90,9 +90,9 @@ lumo session detach
 
 When to suggest: the user wants to stop tagging the current session with the active task (e.g., switching to unrelated exploratory work without binding to a different task).
 
-### `lumo session wrap [--yes] [--dry-run]` — wrap-up panel: progress comment + memory review + blocked-tag prompt
+### `lumo session wrap [--yes] [--dry-run] [--used <indices>]` — wrap-up panel: progress comment + memory review + fragment-usage vote + blocked-tag prompt
 
-Session-end wrap-up panel with **three sections, run in order**:
+Session-end wrap-up panel with **four sections, run in order**:
 
 **1. 进度评论** — reads back the current Claude Code session's per-turn
 `turnSummary` rows (the one-line Chinese summaries written each STOP), aggregates
@@ -112,7 +112,21 @@ Out-of-range indices are ignored. Deletes/promotes run server-side, scoped to
 memories this session created (you can't touch other sessions' memories through
 this panel). With no new memories the section prints "(无内容)" and does nothing.
 
-**3. 卡住检测 (blocked-tag prompt, LUM-153)** — if the **same kind of failure
+**3. 上下文使用投票 (fragment-usage vote, LUM-300)** — lists the context
+fragments this session **consumed** (its lineage edges: memory / slack / web /
+figma / PR / review-todo / session), numbered from 1 with a content snippet
+label. The agent records which it **actually used** via
+`lumo session wrap --used <indices>` (1-based, comma/space separated; `--used
+none` = used nothing). Voted fragments get `used=true`, the rest of the
+session's fragments `used=false`. **Without `--used` the section only lists the
+candidates and writes nothing** (edges stay `null` = not voted — honest, not
+"unused"). A session that already voted (`usedAt` set) is skipped. **Why:** it
+upgrades the flywheel signal from "co-loaded" (constant, no information) to
+"actually used" (varies → discriminative); `task context` then prefers each
+fragment's usage-based merge rate, falling back to the weaker presence rate when
+usage samples are thin. With no consumed fragments the section prints "(无内容)".
+
+**4. 卡住检测 (blocked-tag prompt, LUM-153)** — if the **same kind of failure
 recurred ≥ 3 times** in this session (server-aggregated from
 `POST_TOOL_USE_FAILURE` events grouped by tool name, plus `STOP_FAILURE`
 turn-level failures), the section surfaces the dominant failure (`卡在 <tool>
@@ -130,10 +144,17 @@ suggestion and moves on rather than silently flipping board state. When there's
 nothing to prompt, the section prints "(无内容)".
 
 ```bash
-lumo session wrap            # interactive: preview each section, choose per-section
-lumo session wrap --yes      # progress posted + memories kept; blocked tag NOT auto-applied (needs interactive y)
-lumo session wrap --dry-run  # print all drafts only; never posts, never mutates, never advances watermarks
+lumo session wrap                  # interactive: preview each section, choose per-section
+lumo session wrap --yes            # progress posted + memories kept; blocked tag NOT auto-applied (needs interactive y)
+lumo session wrap --yes --used 1,3 # also record fragments 1 & 3 as used (the rest used=false)
+lumo session wrap --used none      # record that none of the injected fragments were used
+lumo session wrap --dry-run        # print all drafts only; never posts, never mutates, never advances watermarks
 ```
+
+The usage vote is a two-step flow for agents: run `lumo session wrap` once to
+see the numbered fragment list, decide which you actually used, then re-run with
+`--used <indices>`. Re-running is safe — the other sections are watermark-guarded
+(progress won't double-post, reviewed memories won't re-list).
 
 - Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code) and a bound
   task (`lumo session attach <LUM-N>` first). With no bound task or no new turn

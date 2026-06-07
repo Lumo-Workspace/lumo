@@ -9,6 +9,9 @@ jest.mock('@/cli/src/commands/wrap/progress-comment-section', () => ({
 jest.mock('@/cli/src/commands/wrap/memory-review-section', () => ({
   MemoryReviewSection: jest.fn().mockImplementation(() => ({ tag: 'review' })),
 }))
+jest.mock('@/cli/src/commands/wrap/fragment-usage-section', () => ({
+  FragmentUsageSection: jest.fn().mockImplementation(() => ({ tag: 'usage' })),
+}))
 jest.mock('@/cli/src/commands/wrap/blocked-prompt-section', () => ({
   BlockedPromptSection: jest.fn().mockImplementation(() => ({ tag: 'blocked' })),
 }))
@@ -17,6 +20,7 @@ import { readCredentials } from '@/cli/src/lib/config'
 import { runWrapPanel } from '@/cli/src/lib/wrap-panel'
 import { ProgressCommentSection } from '@/cli/src/commands/wrap/progress-comment-section'
 import { MemoryReviewSection } from '@/cli/src/commands/wrap/memory-review-section'
+import { FragmentUsageSection } from '@/cli/src/commands/wrap/fragment-usage-section'
 import { BlockedPromptSection } from '@/cli/src/commands/wrap/blocked-prompt-section'
 import { sessionWrap } from '@/cli/src/commands/session-wrap'
 
@@ -50,18 +54,19 @@ it('exits 1 when not logged in', async () => {
   expect(code).toBe(1)
 })
 
-it('runs the panel with progress + memory-review + blocked-prompt sections and passes opts', async () => {
+it('runs the panel with progress + memory-review + fragment-usage + blocked-prompt sections and passes opts', async () => {
   process.env.CLAUDE_CODE_SESSION_ID = 'sess_1'
-  await sessionWrap({ yes: true })
+  await sessionWrap({ yes: true, used: '1,3' })
   const expectedArgs = {
     creds: { token: 't', apiUrl: 'https://x', workspaceSlug: 'lumo' },
     sessionId: 'sess_1',
   }
   expect(ProgressCommentSection).toHaveBeenCalledWith(expectedArgs)
   expect(MemoryReviewSection).toHaveBeenCalledWith(expectedArgs)
+  expect(FragmentUsageSection).toHaveBeenCalledWith({ ...expectedArgs, used: '1,3' })
   expect(BlockedPromptSection).toHaveBeenCalledWith(expectedArgs)
   expect(mockRun).toHaveBeenCalledWith(
-    [{ tag: 'progress' }, { tag: 'review' }, { tag: 'blocked' }],
+    [{ tag: 'progress' }, { tag: 'review' }, { tag: 'usage' }, { tag: 'blocked' }],
     { yes: true, dryRun: false }
   )
 })
