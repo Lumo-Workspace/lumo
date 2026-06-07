@@ -422,6 +422,8 @@ export const sessionRepository = {
         summary: true,
         summaryType: true,
         summaryGeneratedAt: true,
+        usageByModel: true,
+        loopCount: true,
       },
     })
   },

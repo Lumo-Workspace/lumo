@@ -507,6 +507,15 @@ export interface TimelineResponse {
 
 // ── Agent Run timeline (Claude Code hook events grouped by Session) ──────────
 
+export interface ModelCost {
+  model: string
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+  total: number
+}
+
 // Mirror of the Prisma `HookEventType` enum. The backend
 // (agent-run-timeline.service) forwards the raw enum value verbatim, so this
 // union MUST stay in sync with prisma/schema.prisma — any value missing here
@@ -548,6 +557,8 @@ export interface AgentRunHookEventItem {
    *  Null for non-stop events and for stop events that haven't been
    *  processed yet (or failed extraction). */
   turnSummary: string | null
+  /** Per-turn per-model cost (STOP rows only); null elsewhere. */
+  turnCost: { byModel: ModelCost[] } | null
   createdAt: string
 }
 
@@ -577,11 +588,19 @@ export interface AgentRunSession {
   toolCallCount: number
   eventCount: number
   memoryCount: number
+  /** Per-run cost split by model; null when nothing captured. */
+  cost: { byModel: ModelCost[]; loopCount: number | null } | null
   items: AgentRunItem[]
 }
 
 export interface AgentRunTimelineResponse {
   runs: AgentRunSession[]
+  totals: {
+    runCount: number
+    turnCount: number
+    loopCount: number
+    byModel: ModelCost[]
+  }
 }
 
 // ── Lineage (read-only causal-trail panel, LUM-297) ──────────────────────────

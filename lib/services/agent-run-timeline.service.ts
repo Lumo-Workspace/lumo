@@ -1,6 +1,11 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import {
+  toModelCosts,
+  mergeModelCosts,
+  type ModelCost,
+} from '@/lib/services/model-cost'
 import type {
   HookEventType,
   MemoryCategory,
@@ -19,6 +24,8 @@ export interface AgentRunHookEvent {
   /** LLM-generated turn summary, only populated for STOP / STOP_FAILURE
    *  events that have been processed by the turn-summary service. */
   turnSummary: string | null
+  /** Per-turn per-model cost (STOP rows only); null elsewhere. */
+  turnCost: { byModel: ModelCost[] } | null
   createdAt: string
 }
 
@@ -42,11 +49,19 @@ export interface AgentRunSession {
   toolCallCount: number
   eventCount: number
   memoryCount: number
+  /** Per-run cost split by model; null when nothing captured. */
+  cost: { byModel: ModelCost[]; loopCount: number | null } | null
   items: AgentRunItem[]
 }
 
 export interface AgentRunTimelineResult {
   runs: AgentRunSession[]
+  totals: {
+    runCount: number
+    turnCount: number
+    loopCount: number
+    byModel: ModelCost[]
+  }
 }
 
 export const agentRunTimelineService = {
@@ -79,6 +94,15 @@ export const agentRunTimelineService = {
         toolName: ev.toolName,
         payload: ev.payload,
         turnSummary: ev.turnSummary,
+        turnCost:
+          ev.type === 'STOP' || ev.type === 'STOP_FAILURE'
+            ? (() => {
+                const byModel = toModelCosts(
+                  ev.usageByModel as Record<string, never> | null
+                )
+                return byModel ? { byModel } : null
+              })()
+            : null,
         createdAt: ev.createdAt.toISOString(),
       })
       eventsBySession.set(key, list)
@@ -114,6 +138,9 @@ export const agentRunTimelineService = {
       const toolCallCount = sessionEvents.filter(
         e => e.type === 'PRE_TOOL_USE'
       ).length
+      const costByModel = toModelCosts(
+        s.usageByModel as Record<string, never> | null
+      )
 
       return {
         sessionId: s.id,
@@ -127,6 +154,9 @@ export const agentRunTimelineService = {
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,
+        cost: costByModel
+          ? { byModel: costByModel, loopCount: s.loopCount }
+          : null,
         items,
       }
     })
@@ -153,6 +183,7 @@ export const agentRunTimelineService = {
           .length,
         eventCount: orphanEvents.length,
         memoryCount: orphanMemories.length,
+        cost: null,
         items,
       })
     }
@@ -167,7 +198,23 @@ export const agentRunTimelineService = {
     })
 
     // Newest run first.
-    return { runs: nonEmptyRuns.reverse() }
+    const ordered = nonEmptyRuns.reverse()
+    const totals = {
+      runCount: ordered.length,
+      turnCount: ordered.reduce(
+        (n, r) =>
+          n +
+          r.items.filter(
+            i =>
+              i.kind === 'hook' &&
+              (i.type === 'STOP' || i.type === 'STOP_FAILURE')
+          ).length,
+        0
+      ),
+      loopCount: ordered.reduce((n, r) => n + (r.cost?.loopCount ?? 0), 0),
+      byModel: mergeModelCosts(ordered.map(r => r.cost?.byModel ?? null)),
+    }
+    return { runs: ordered, totals }
   },
 }
 
