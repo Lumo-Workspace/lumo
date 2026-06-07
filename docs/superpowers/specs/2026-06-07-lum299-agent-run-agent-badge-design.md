@@ -8,7 +8,7 @@
 
 The "Agent 运行" (Agent Run) tab on the task detail page lists each run as
 `Run #N` with a start timestamp, duration, tool-call count, and memory count.
-It does **not** show *which* coding agent produced the run. As Lumo grows to
+It does **not** show _which_ coding agent produced the run. As Lumo grows to
 support more than one CLI (Codex, Cursor, Gemini CLI, GitHub Copilot, Windsurf
 in addition to Claude Code), a user looking at the history cannot tell at a
 glance which agent did which run.
@@ -55,12 +55,12 @@ schema change, no migration, no new i18n keys.**
 
 ## Changes (4 layers, bottom-up)
 
-| Layer | File | Change |
-| --- | --- | --- |
-| Repository | `lib/repositories/session.repository.ts` → `listForTask` | Add `agent: true` to the `select`. |
-| Service | `lib/services/agent-run-timeline.service.ts` | Add `agent: TaskArtifactAgent` to the `AgentRunSession` interface; populate `agent: s.agent` in the per-session map; set `agent: 'CLAUDE_CODE'` on the orphan bucket. |
-| Frontend type | `app/workspace/[workspaceUrl]/types.ts` → `AgentRunSession` | Add the matching `agent: TaskArtifactAgent` field. |
-| Component | `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render `<AgentBadge agent={run.agent} />` in the run header row immediately after the `Run #N` pill (left cluster), before the start-time label. |
+| Layer         | File                                                                        | Change                                                                                                                                                                |
+| ------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository    | `lib/repositories/session.repository.ts` → `listForTask`                    | Add `agent: true` to the `select`.                                                                                                                                    |
+| Service       | `lib/services/agent-run-timeline.service.ts`                                | Add `agent: TaskArtifactAgent` to the `AgentRunSession` interface; populate `agent: s.agent` in the per-session map; set `agent: 'CLAUDE_CODE'` on the orphan bucket. |
+| Frontend type | `app/workspace/[workspaceUrl]/types.ts` → `AgentRunSession`                 | Add the matching `agent: TaskArtifactAgent` field.                                                                                                                    |
+| Component     | `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render `<AgentBadge agent={run.agent} />` in the run header row immediately after the `Run #N` pill (left cluster), before the start-time label.                      |
 
 The two `AgentRunSession` interfaces (service wire-type and frontend type) are
 intentionally separate copies today; both must gain the field to stay in sync.

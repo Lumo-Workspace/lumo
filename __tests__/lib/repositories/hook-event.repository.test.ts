@@ -10,6 +10,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
@@ -45,6 +46,7 @@ describe('hookEventRepository.createHookEvent', () => {
         toolName: 'Read',
         filePath: '/tmp/x',
         payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
+        usageByModel: Prisma.DbNull,
       },
       select: { id: true },
     })

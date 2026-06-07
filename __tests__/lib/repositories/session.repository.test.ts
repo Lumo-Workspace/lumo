@@ -27,7 +27,10 @@ jest.mock('@/lib/db/prisma', () => {
 })
 
 import { prisma } from '@/lib/db/prisma'
-import { sessionRepository } from '@/lib/repositories/session.repository'
+import {
+  sessionRepository,
+  diffUsageByModel,
+} from '@/lib/repositories/session.repository'
 
 const upsert = prisma.session.upsert as jest.Mock
 const findMany = prisma.session.findMany as jest.Mock
@@ -36,7 +39,7 @@ const now = new Date('2026-04-23T10:00:00Z')
 
 beforeEach(() => {
   jest.clearAllMocks()
-  upsert.mockResolvedValue({ id: 'sess_1' })
+  upsert.mockResolvedValue({ id: 'sess_1', taskId: null })
   findMany.mockResolvedValue([])
 })
 
@@ -213,56 +216,6 @@ describe('sessionRepository.upsertForHookEvent', () => {
     })
     const args = upsert.mock.calls[0][0]
     expect(args.update).not.toHaveProperty('agent')
-  })
-
-  it('OVERWRITES token columns (not increment) and bumps loopCount on STOP with usage', async () => {
-    await sessionRepository.upsertForHookEvent({
-      id: 'sess_1',
-      workspaceId: 'ws_1',
-      workspaceMemberId: 'wm_1',
-      cwd: '/repo',
-      now,
-      usage: {
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadTokens: 200,
-        cacheCreationTokens: 100,
-      },
-      isStop: true,
-    })
-
-    const args = upsert.mock.calls[0][0]
-    // Token columns must be plain numbers (OVERWRITE), NOT { increment: N }
-    expect(args.update.inputTokens).toBe(1000)
-    expect(args.update.outputTokens).toBe(500)
-    expect(args.update.cacheReadTokens).toBe(200)
-    expect(args.update.cacheCreationTokens).toBe(100)
-    // loopCount must be { increment: 1 } on STOP
-    expect(args.update.loopCount).toEqual({ increment: 1 })
-  })
-
-  it('includes token values and loopCount:1 in the CREATE branch when usage + isStop are present', async () => {
-    await sessionRepository.upsertForHookEvent({
-      id: 'sess_1',
-      workspaceId: 'ws_1',
-      workspaceMemberId: 'wm_1',
-      cwd: '/repo',
-      now,
-      usage: {
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadTokens: 200,
-        cacheCreationTokens: 100,
-      },
-      isStop: true,
-    })
-
-    const args = upsert.mock.calls[0][0]
-    expect(args.create.inputTokens).toBe(1000)
-    expect(args.create.outputTokens).toBe(500)
-    expect(args.create.cacheReadTokens).toBe(200)
-    expect(args.create.cacheCreationTokens).toBe(100)
-    expect(args.create.loopCount).toBe(1)
   })
 
   it('does not set token columns or loopCount on update when neither usage nor isStop are provided', async () => {
@@ -472,5 +425,116 @@ describe('sessionRepository.linkToWorktreeByCwd', () => {
       where: { workspaceId: 'ws_1', cwd: '/repo/.worktrees/x' },
       data: { worktreeId: 'wt_1' },
     })
+  })
+})
+
+describe('diffUsageByModel', () => {
+  it('subtracts prior cumulative per field per model, clamped to >= 0', () => {
+    const prior = {
+      opus: { input: 100, output: 10, cacheRead: 5, cacheCreation: 2 },
+    }
+    const next = {
+      opus: { input: 250, output: 25, cacheRead: 5, cacheCreation: 4 },
+      sonnet: { input: 30, output: 3, cacheRead: 0, cacheCreation: 0 },
+    }
+    expect(diffUsageByModel(prior, next)).toEqual({
+      opus: { input: 150, output: 15, cacheRead: 0, cacheCreation: 2 },
+      sonnet: { input: 30, output: 3, cacheRead: 0, cacheCreation: 0 },
+    })
+  })
+
+  it('returns full next when prior is null (first STOP)', () => {
+    const next = {
+      opus: { input: 100, output: 10, cacheRead: 5, cacheCreation: 2 },
+    }
+    expect(diffUsageByModel(null, next)).toEqual(next)
+  })
+
+  it('clamps a shrunk cumulative (compaction) to 0', () => {
+    const prior = {
+      opus: { input: 100, output: 10, cacheRead: 5, cacheCreation: 2 },
+    }
+    const next = {
+      opus: { input: 80, output: 8, cacheRead: 4, cacheCreation: 1 },
+    }
+    expect(diffUsageByModel(prior, next)).toEqual({
+      opus: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    })
+  })
+})
+
+describe('sessionRepository.upsertForHookEvent — STOP with usage', () => {
+  const findUnique = prisma.session.findUnique as jest.Mock
+  const upsert = prisma.session.upsert as jest.Mock
+
+  const stopArgs = {
+    id: 'sess_1',
+    workspaceId: 'ws_1',
+    workspaceMemberId: 'wm_1',
+    cwd: '/repo',
+    now,
+    usage: {
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 200,
+      cacheCreationTokens: 100,
+      byModel: {
+        opus: { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100 },
+      },
+    },
+    isStop: true,
+  }
+
+  it('overwrites flat columns + usageByModel, bumps loopCount, returns the per-turn delta', async () => {
+    findUnique.mockResolvedValue({
+      usageByModel: {
+        opus: { input: 400, output: 200, cacheRead: 50, cacheCreation: 40 },
+      },
+    })
+    upsert.mockResolvedValue({ id: 'sess_1', taskId: 'task_42' })
+
+    const result = await sessionRepository.upsertForHookEvent(stopArgs)
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.update.inputTokens).toBe(1000)
+    expect(args.update.outputTokens).toBe(500)
+    expect(args.update.cacheReadTokens).toBe(200)
+    expect(args.update.cacheCreationTokens).toBe(100)
+    expect(args.update.loopCount).toEqual({ increment: 1 })
+    expect(args.update.usageByModel).toEqual(stopArgs.usage.byModel)
+    expect(result).toEqual({
+      taskId: 'task_42',
+      turnUsageByModel: {
+        opus: { input: 600, output: 300, cacheRead: 150, cacheCreation: 60 },
+      },
+    })
+  })
+
+  it('on first STOP (no prior row) the delta is the full cumulative', async () => {
+    findUnique.mockResolvedValue(null)
+    upsert.mockResolvedValue({ id: 'sess_1', taskId: null })
+
+    const result = await sessionRepository.upsertForHookEvent(stopArgs)
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.usageByModel).toEqual(stopArgs.usage.byModel)
+    expect(args.create.loopCount).toBe(1)
+    expect(result.turnUsageByModel).toEqual(stopArgs.usage.byModel)
+  })
+
+  it('STOP without usage still bumps loopCount and returns null delta', async () => {
+    upsert.mockResolvedValue({ id: 'sess_1', taskId: null })
+    const result = await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      isStop: true,
+    })
+    expect((upsert.mock.calls[0][0] as any).update.loopCount).toEqual({
+      increment: 1,
+    })
+    expect(result.turnUsageByModel).toBeNull()
   })
 })

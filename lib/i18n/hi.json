@@ -1399,10 +1399,18 @@
   "lineage.chip.live": "लाइव",
   "lineage.chip.notPerFragment": "प्रति-अंश नहीं",
   "lineage.chip.loopsNa": "loops n/a",
-  "lineage.token.input": "input",
-  "lineage.token.output": "output",
-  "lineage.token.cacheCreate": "cache-create",
-  "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "सभी {count} अंश दिखाएँ",
-  "lineage.fragments.collapse": "समेटें"
+  "lineage.fragments.collapse": "समेटें",
+  "agentRun.summary": "{runs, plural, one {# रन} other {# रन}} · {turns, plural, one {# चक्र} other {# चक्र}} · {models, plural, one {# model} other {# models}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, one {# लूप} other {# लूप}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "इस ट्रेल पर कोई लागत दर्ज नहीं",
+  "tokenCost.loops": "{n, plural, one {# लूप} other {# लूप}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "models की कीमत तुलनीय नहीं · कुल नहीं"
 }

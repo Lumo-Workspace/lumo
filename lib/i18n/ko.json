@@ -1399,10 +1399,18 @@
   "lineage.chip.live": "실시간",
   "lineage.chip.notPerFragment": "조각 단위 아님",
   "lineage.chip.loopsNa": "loops n/a",
-  "lineage.token.input": "input",
-  "lineage.token.output": "output",
-  "lineage.token.cacheCreate": "cache-create",
-  "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "{count}개 조각 모두 보기",
-  "lineage.fragments.collapse": "접기"
+  "lineage.fragments.collapse": "접기",
+  "agentRun.summary": "{runs, plural, other {# 회 실행}} · {turns, plural, other {# 턴}} · {models, plural, other {# model}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, other {# 루프}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "이 경로에 기록된 비용이 없습니다",
+  "tokenCost.loops": "{n, plural, other {# 루프}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "model 간 가격 비교 불가 · 합계 없음"
 }

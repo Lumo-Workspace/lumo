@@ -310,7 +310,10 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
   if (typeof transcriptPath !== 'string' || !transcriptPath) return body
   const usage = sumTranscriptUsage(transcriptPath)
   if (!usage) return body
-  return JSON.stringify({ ...parsed, _lumo_usage: usage })
+  return JSON.stringify({
+    ...parsed,
+    _lumo_usage: { ...usage.total, byModel: usage.byModel },
+  })
 }
 
 /**

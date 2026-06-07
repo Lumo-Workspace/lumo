@@ -1,6 +1,7 @@
 import type { HookEventType, Prisma, TaskArtifactAgent } from '@prisma/client'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
@@ -22,6 +23,7 @@ interface InjectedUsage {
   outputTokens: number
   cacheReadTokens: number
   cacheCreationTokens: number
+  byModel: Record<string, ModelUsage>
 }
 
 function extractInjectedUsage(payload: unknown): InjectedUsage | null {
@@ -31,11 +33,26 @@ function extractInjectedUsage(payload: unknown): InjectedUsage | null {
   const o = u as Record<string, unknown>
   const num = (v: unknown) =>
     typeof v === 'number' && Number.isFinite(v) ? v : 0
+  const byModel: Record<string, ModelUsage> = {}
+  const raw = o['byModel']
+  if (raw && typeof raw === 'object') {
+    for (const [model, mv] of Object.entries(raw as Record<string, unknown>)) {
+      if (!mv || typeof mv !== 'object') continue
+      const m = mv as Record<string, unknown>
+      byModel[model] = {
+        input: num(m['input']),
+        output: num(m['output']),
+        cacheRead: num(m['cacheRead']),
+        cacheCreation: num(m['cacheCreation']),
+      }
+    }
+  }
   return {
     inputTokens: num(o.inputTokens),
     outputTokens: num(o.outputTokens),
     cacheReadTokens: num(o.cacheReadTokens),
     cacheCreationTokens: num(o.cacheCreationTokens),
+    byModel,
   }
 }
 
@@ -111,6 +128,7 @@ export const hookEventService = {
     const usage = isStop ? extractInjectedUsage(payload) : null
 
     let taskId: string | null = null
+    let turnUsageByModel: Record<string, ModelUsage> | null = null
     if (sessionId) {
       const session = await sessionRepository.upsertForHookEvent({
         id: sessionId,
@@ -123,6 +141,7 @@ export const hookEventService = {
         isStop,
       })
       taskId = session.taskId
+      turnUsageByModel = session.turnUsageByModel
     }
 
     const toolName = extractStringField(payload, 'tool_name')
@@ -136,6 +155,10 @@ export const hookEventService = {
       toolName,
       filePath,
       payload,
+      usageByModel:
+        turnUsageByModel != null
+          ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
+          : null,
     })
 
     // Surface the validated sessionId/taskId plus the extracted toolName/filePath

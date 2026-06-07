@@ -21,7 +21,10 @@ describe('formatSuggestLine', () => {
   })
 
   it('cites the recent-commit basis when matched from the log', () => {
-    const line = formatSuggestLine(SID, { identifier: 'LUM-7', source: 'commit' })
+    const line = formatSuggestLine(SID, {
+      identifier: 'LUM-7',
+      source: 'commit',
+    })
     expect(line).toContain('依据最近 commit')
     expect(line).toContain('lumo session attach LUM-7')
   })
@@ -117,6 +120,8 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
     expect(ctx).toContain('## 续上次进度')
     expect(ctx).toContain('上次干到：cross-branch carry-over')
     expect(ctx).toContain('- ship it')
-    expect(ctx.indexOf('续上次进度')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+    expect(ctx.indexOf('续上次进度')).toBeLessThan(
+      ctx.indexOf('Relevant Memory')
+    )
   })
 })

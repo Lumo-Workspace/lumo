@@ -1399,10 +1399,18 @@
   "lineage.chip.live": "live",
   "lineage.chip.notPerFragment": "nicht pro Fragment",
   "lineage.chip.loopsNa": "loops n/a",
-  "lineage.token.input": "input",
-  "lineage.token.output": "output",
-  "lineage.token.cacheCreate": "cache-create",
-  "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "Alle {count} Fragmente anzeigen",
-  "lineage.fragments.collapse": "Einklappen"
+  "lineage.fragments.collapse": "Einklappen",
+  "agentRun.summary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}} · {models, plural, one {# model} other {# models}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "Keine erfassten Kosten auf diesem Pfad",
+  "tokenCost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "models nicht vergleichbar · kein Gesamt"
 }

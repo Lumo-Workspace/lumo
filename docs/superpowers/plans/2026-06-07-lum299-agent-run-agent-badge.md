@@ -14,13 +14,13 @@
 
 ## File Structure
 
-| File | Responsibility | Change |
-| --- | --- | --- |
-| `lib/repositories/session.repository.ts` | Prisma access for sessions | Add `agent: true` to `listForTask`'s `select` |
-| `lib/services/agent-run-timeline.service.ts` | Build the run timeline wire-format | Add `agent` to `AgentRunSession`; populate from session; `CLAUDE_CODE` for orphan bucket |
-| `app/workspace/[workspaceUrl]/types.ts` | Client copy of the wire-format | Add matching `agent` field to `AgentRunSession` |
-| `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render one run row | Render `<AgentBadge agent={run.agent} />` after the `Run #N` pill |
-| `__tests__/lib/services/agent-run-timeline.service.test.ts` | Unit test (new) | Assert agent pass-through + orphan fallback |
+| File                                                                        | Responsibility                     | Change                                                                                   |
+| --------------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `lib/repositories/session.repository.ts`                                    | Prisma access for sessions         | Add `agent: true` to `listForTask`'s `select`                                            |
+| `lib/services/agent-run-timeline.service.ts`                                | Build the run timeline wire-format | Add `agent` to `AgentRunSession`; populate from session; `CLAUDE_CODE` for orphan bucket |
+| `app/workspace/[workspaceUrl]/types.ts`                                     | Client copy of the wire-format     | Add matching `agent` field to `AgentRunSession`                                          |
+| `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render one run row                 | Render `<AgentBadge agent={run.agent} />` after the `Run #N` pill                        |
+| `__tests__/lib/services/agent-run-timeline.service.test.ts`                 | Unit test (new)                    | Assert agent pass-through + orphan fallback                                              |
 
 There are two intentionally-separate `AgentRunSession` declarations (server wire-type in the service file, client copy in `types.ts`). **Both** must gain the `agent` field to stay in sync.
 
@@ -29,6 +29,7 @@ There are two intentionally-separate `AgentRunSession` declarations (server wire
 ## Task 1: Select `agent` in the session repository
 
 **Files:**
+
 - Modify: `lib/repositories/session.repository.ts` (the `listForTask` method, around lines 345-360)
 
 This is an additive `select` field. It has no consumer yet, so it is safe and tsc-neutral on its own; Task 2 depends on it (the service's `s.agent` access only type-checks once this field is selected, because Prisma's `select` narrows the return type).
@@ -101,6 +102,7 @@ git -C /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-299-agent-badge commit -m 
 ## Task 2: Thread `agent` through the timeline service + types (TDD)
 
 **Files:**
+
 - Create: `__tests__/lib/services/agent-run-timeline.service.test.ts`
 - Modify: `lib/services/agent-run-timeline.service.ts` (interface ~line 36-46; session map ~line 108-132; orphan bucket ~line 142-158)
 - Modify: `app/workspace/[workspaceUrl]/types.ts` (the `AgentRunSession` interface, lines 571-581)
@@ -139,8 +141,7 @@ import { agentRunTimelineService } from '@/lib/services/agent-run-timeline.servi
 
 const mockListSessions = sessionRepository.listForTask as jest.Mock
 const mockFindEvents = hookEventRepository.findByTaskId as jest.Mock
-const mockFindMemories =
-  memoryRepository.findByTaskIdWithSession as jest.Mock
+const mockFindMemories = memoryRepository.findByTaskIdWithSession as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -228,39 +229,35 @@ export interface AgentRunSession {
 (b) In the linked-session map (the `orderedSessions.map(...)` return object), add `agent: s.agent` next to `sessionId`:
 
 ```ts
-      return {
-        sessionId: s.id,
-        agent: s.agent,
-        runNumber: i + 1,
-        startedAt: s.startedAt.toISOString(),
-        lastActivityAt: s.lastActivityAt.toISOString(),
-        durationMs: Math.max(
-          0,
-          s.lastActivityAt.getTime() - s.startedAt.getTime()
-        ),
-        toolCallCount,
-        eventCount: sessionEvents.length,
-        memoryCount: sessionMemories.length,
-        items,
-      }
+return {
+  sessionId: s.id,
+  agent: s.agent,
+  runNumber: i + 1,
+  startedAt: s.startedAt.toISOString(),
+  lastActivityAt: s.lastActivityAt.toISOString(),
+  durationMs: Math.max(0, s.lastActivityAt.getTime() - s.startedAt.getTime()),
+  toolCallCount,
+  eventCount: sessionEvents.length,
+  memoryCount: sessionMemories.length,
+  items,
+}
 ```
 
 (c) In the orphan bucket (the `runs.push({ sessionId: null, ... })` call), add `agent: 'CLAUDE_CODE'` — the orphan bucket has no Session row, and `CLAUDE_CODE` is the accurate default today since only Claude Code emits hooks:
 
 ```ts
-      runs.push({
-        sessionId: null,
-        agent: 'CLAUDE_CODE',
-        runNumber: runs.length + 1,
-        startedAt: first,
-        lastActivityAt: last,
-        durationMs: new Date(last).getTime() - new Date(first).getTime(),
-        toolCallCount: orphanEvents.filter(e => e.type === 'PRE_TOOL_USE')
-          .length,
-        eventCount: orphanEvents.length,
-        memoryCount: orphanMemories.length,
-        items,
-      })
+runs.push({
+  sessionId: null,
+  agent: 'CLAUDE_CODE',
+  runNumber: runs.length + 1,
+  startedAt: first,
+  lastActivityAt: last,
+  durationMs: new Date(last).getTime() - new Date(first).getTime(),
+  toolCallCount: orphanEvents.filter(e => e.type === 'PRE_TOOL_USE').length,
+  eventCount: orphanEvents.length,
+  memoryCount: orphanMemories.length,
+  items,
+})
 ```
 
 - [ ] **Step 4: Mirror the field in the frontend type**
@@ -312,6 +309,7 @@ git -C /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-299-agent-badge commit -m 
 ## Task 3: Render the badge in the run header row
 
 **Files:**
+
 - Modify: `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx`
 
 The existing `AgentBadge` component (`app/workspace/[workspaceUrl]/components/AgentBadge.tsx`) already renders the brand icon + localized label and has a `safeAgent` guard, so no new styling or i18n is needed. Per the spec's placement decision (Variant A), the badge goes immediately after the `Run #N` pill, before the start-time label.
@@ -408,6 +406,7 @@ Then open a PR titled `feat: show producing agent badge on each Agent 运行 run
 ## Self-Review
 
 **Spec coverage:**
+
 - Repo select (`agent: true`) → Task 1. ✔
 - Service interface + populate + orphan `CLAUDE_CODE` fallback → Task 2 (Step 3). ✔
 - Frontend type sync → Task 2 (Step 4). ✔

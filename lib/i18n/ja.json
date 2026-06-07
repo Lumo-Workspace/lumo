@@ -1399,10 +1399,18 @@
   "lineage.chip.live": "リアルタイム",
   "lineage.chip.notPerFragment": "フラグメント単位ではない",
   "lineage.chip.loopsNa": "loops n/a",
-  "lineage.token.input": "input",
-  "lineage.token.output": "output",
-  "lineage.token.cacheCreate": "cache-create",
-  "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "{count} 件すべてを表示",
-  "lineage.fragments.collapse": "折りたたむ"
+  "lineage.fragments.collapse": "折りたたむ",
+  "agentRun.summary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}} · {models, plural, other {# model}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, other {# ループ}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "このトレイルにはコストが記録されていません",
+  "tokenCost.loops": "{n, plural, other {# ループ}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "model 間で価格比較不可 · 合計なし"
 }

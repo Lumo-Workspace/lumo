@@ -50,6 +50,9 @@ describe('augmentBodyWithUsage', () => {
       outputTokens: 30,
       cacheReadTokens: 7,
       cacheCreationTokens: 4,
+      byModel: {
+        unknown: { input: 150, output: 30, cacheRead: 7, cacheCreation: 4 },
+      },
     })
     // original fields preserved
     expect(result.session_id).toBe('sess-abc')
@@ -74,6 +77,9 @@ describe('augmentBodyWithUsage', () => {
       outputTokens: 7,
       cacheReadTokens: 0,
       cacheCreationTokens: 0,
+      byModel: {
+        unknown: { input: 42, output: 7, cacheRead: 0, cacheCreation: 0 },
+      },
     })
   })
 
@@ -110,5 +116,55 @@ describe('augmentBodyWithUsage', () => {
   it('returns body unchanged when transcript_path is an empty string', () => {
     const body = JSON.stringify({ transcript_path: '' })
     expect(augmentBodyWithUsage('stop', body)).toBe(body)
+  })
+
+  it('groups _lumo_usage by model when assistant entries carry model strings', () => {
+    const transcriptPath = writeTranscript([
+      {
+        type: 'assistant',
+        message: {
+          model: 'claude-opus-4-8',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 10,
+            cache_read_input_tokens: 5,
+            cache_creation_input_tokens: 2,
+          },
+        },
+      },
+      {
+        type: 'assistant',
+        message: {
+          model: 'claude-sonnet-4-6',
+          usage: {
+            input_tokens: 30,
+            output_tokens: 3,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+          },
+        },
+      },
+    ])
+    const result = JSON.parse(
+      augmentBodyWithUsage(
+        'stop',
+        JSON.stringify({ transcript_path: transcriptPath })
+      )
+    )
+    expect(result._lumo_usage.byModel).toEqual({
+      'claude-opus-4-8': {
+        input: 100,
+        output: 10,
+        cacheRead: 5,
+        cacheCreation: 2,
+      },
+      'claude-sonnet-4-6': {
+        input: 30,
+        output: 3,
+        cacheRead: 0,
+        cacheCreation: 0,
+      },
+    })
+    expect(result._lumo_usage.inputTokens).toBe(130)
   })
 })

@@ -15,6 +15,7 @@ function makeEvent(type: string): AgentRunHookEventItem {
     toolName: null,
     payload: {},
     turnSummary: null,
+    turnCost: null,
     createdAt: new Date('2026-05-29T10:00:00Z').toISOString(),
   }
 }
