@@ -4,12 +4,16 @@ import {
   taskContextService,
   type PreviousSessionRecovery,
 } from '@/lib/services/task-context.service'
+import { lineageService } from '@/lib/services/lineage.service'
+import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
+import { waitUntil } from '@vercel/functions'
 
 export async function POST(request: Request) {
   return handleHookRequest(request, 'SESSION_START', {
     afterRecord: async ctx => {
       if (!ctx.sessionId) return
-      const binding = await sessionRepository.findTaskBinding(ctx.sessionId)
+      const sessionId = ctx.sessionId
+      const binding = await sessionRepository.findTaskBinding(sessionId)
       let memorySection = ''
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
@@ -21,21 +25,47 @@ export async function POST(request: Request) {
           taskContextService.buildReviewTodosSectionForTask(binding.taskId),
           taskContextService.buildPreviousSessionRecoveryForTask(
             binding.taskId,
-            ctx.sessionId
+            sessionId
           ),
           taskContextService.buildLayer2ReviewSectionForTask(
             binding.taskId,
-            ctx.sessionId
+            sessionId
           ),
         ])
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
-        reviewTodosSection = todos
+        reviewTodosSection = todos.section
         previousSession = previous
-        layer2ReviewSection = layer2Review
+        layer2ReviewSection = layer2Review.section
+
+        // LUM-276: record one lineage edge per fragment this session consumed.
+        // Fire-and-forget — must not block or fail the context injection.
+        const fragments: FragmentRef[] = [
+          ...sections.fragments,
+          ...todos.fragments,
+          ...layer2Review.fragments,
+          ...(previous
+            ? [
+                {
+                  fragmentType: 'SESSION' as const,
+                  fragmentId: previous.sessionId,
+                },
+              ]
+            : []),
+        ]
+        if (fragments.length > 0) {
+          waitUntil(
+            lineageService.recordSessionStartEdges({
+              workspaceId: ctx.workspaceId,
+              taskId: binding.taskId,
+              sessionId,
+              fragments,
+            })
+          )
+        }
       }
       return {
-        sessionId: ctx.sessionId,
+        sessionId,
         taskBinding: binding,
         memorySection,
         linkedResourcesSection,

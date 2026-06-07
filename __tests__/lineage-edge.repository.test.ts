@@ -53,6 +53,7 @@ describe('lineageEdgeRepository', () => {
 
       expect(result).toEqual({ count: 2 })
       expect(mockCreateMany).toHaveBeenCalledWith({
+        skipDuplicates: true,
         data: [
           {
             workspaceId: 'ws-1',
@@ -88,6 +89,7 @@ describe('lineageEdgeRepository', () => {
       ])
 
       expect(mockCreateMany).toHaveBeenCalledWith({
+        skipDuplicates: true,
         data: [
           {
             workspaceId: 'ws-1',
@@ -100,6 +102,24 @@ describe('lineageEdgeRepository', () => {
           },
         ],
       })
+    })
+
+    it('passes skipDuplicates: true so re-injection is idempotent at the DB layer', async () => {
+      mockCreateMany.mockResolvedValue({ count: 1 })
+
+      await lineageEdgeRepository.createMany([
+        {
+          workspaceId: 'ws-1',
+          taskId: 't-1',
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          sessionId: 's-1',
+        },
+      ])
+
+      expect(mockCreateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true })
+      )
     })
 
     it('uses the transaction client when one is passed', async () => {

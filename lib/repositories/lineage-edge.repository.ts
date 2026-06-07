@@ -80,7 +80,12 @@ export const lineageEdgeRepository = {
    * Batch-insert lineage edges. No-op (returns `{ count: 0 }`) for an empty
    * batch so callers can pass the result of a filter without guarding. Optional
    * `sessionId`/`runId` default to NULL; `outcome` is omitted unless provided so
-   * the column default (UNKNOWN) applies.
+   * the column default (UNKNOWN) applies. `skipDuplicates` makes re-injection of
+   * the same (sessionId, taskId, fragmentType, fragmentId) a no-op — session-start
+   * fires more than once per session (resume/clear/compact).
+   * Dedup applies only to session-bound rows: Postgres treats NULLs as distinct,
+   * so edges with `sessionId = null` (future runId-only edges) are exempt from
+   * the unique constraint.
    */
   async createMany(
     inputs: CreateLineageEdgeInput[],
@@ -89,6 +94,7 @@ export const lineageEdgeRepository = {
     if (inputs.length === 0) return { count: 0 }
     const client = tx ?? prisma
     return client.lineageEdge.createMany({
+      skipDuplicates: true,
       data: inputs.map(i => ({
         workspaceId: i.workspaceId,
         taskId: i.taskId,
