@@ -260,4 +260,40 @@ export const lineageEdgeRepository = {
       orderBy: { includedAt: 'asc' },
     })
   },
+
+  /**
+   * List a task's edges (oldest first) with the run and session cost columns
+   * needed by the lineage audit view (`lumo task lineage <id>`). Separate from
+   * `listByTask` so the lighter query stays available for callers that don't
+   * need cost. The selected shape is accepted directly by `getEdgeCost`.
+   */
+  async listByTaskWithCost(taskId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.lineageEdge.findMany({
+      where: { taskId },
+      orderBy: { includedAt: 'asc' },
+      include: {
+        run: {
+          select: {
+            id: true,
+            inputTokens: true,
+            outputTokens: true,
+            cacheReadTokens: true,
+            cacheCreationTokens: true,
+            loopCount: true,
+          },
+        },
+        session: {
+          select: {
+            id: true,
+            inputTokens: true,
+            outputTokens: true,
+            cacheReadTokens: true,
+            cacheCreationTokens: true,
+            loopCount: true,
+          },
+        },
+      },
+    })
+  },
 }

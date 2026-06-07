@@ -312,6 +312,42 @@ describe('lineageEdgeRepository', () => {
     })
   })
 
+  describe('listByTaskWithCost', () => {
+    it('queries edges for the task, oldest first, with run+session cost included', async () => {
+      mockFindMany.mockResolvedValue([])
+
+      const result = await lineageEdgeRepository.listByTaskWithCost('tsk_1')
+
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: { taskId: 'tsk_1' },
+        orderBy: { includedAt: 'asc' },
+        include: {
+          run: {
+            select: {
+              id: true,
+              inputTokens: true,
+              outputTokens: true,
+              cacheReadTokens: true,
+              cacheCreationTokens: true,
+              loopCount: true,
+            },
+          },
+          session: {
+            select: {
+              id: true,
+              inputTokens: true,
+              outputTokens: true,
+              cacheReadTokens: true,
+              cacheCreationTokens: true,
+              loopCount: true,
+            },
+          },
+        },
+      })
+      expect(result).toEqual([])
+    })
+  })
+
   describe('mergeRateByFragments', () => {
     it('returns [] and does not query for an empty fragment list', async () => {
       const result = await lineageEdgeRepository.mergeRateByFragments([])

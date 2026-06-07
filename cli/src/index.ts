@@ -39,6 +39,7 @@ import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
 import { taskCommentList } from './commands/task-comment-list'
 import { taskPrShow } from './commands/task-pr-show'
+import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -418,6 +419,13 @@ taskPr
     'Show the synced PR record (diff/review comments when available)'
   )
   .action(wrap((id, num) => taskPrShow(id as string, num as string)))
+
+task
+  .command('lineage <identifier>')
+  .description(
+    "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
+  )
+  .action(wrap(id => taskLineage(id as string)))
 
 const taskMemory = task
   .command('memory')
