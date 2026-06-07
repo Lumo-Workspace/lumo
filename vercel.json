@@ -5,6 +5,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/backfill-lineage-outcomes",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/summaries/generate",
       "schedule": "0 8 * * *"
     },

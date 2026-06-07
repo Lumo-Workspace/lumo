@@ -250,6 +250,31 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * Self-heal sweep for the lineage backfill (LUM-296). Stamps MERGED onto
+   * every edge whose task is DONE and whose current outcome is still eligible
+   * to advance (see {@link STAMPABLE_FROM}). This is the reconciliation path
+   * for edges born *after* their task reached a terminal state: the
+   * event-forward triggers (PR webhook / task→DONE) fired before the edge
+   * existed and never re-fire, leaving it permanently UNKNOWN without this.
+   *
+   * System-wide (no workspace filter) — the caller is a system cron. Reuses the
+   * same STAMPABLE_FROM.MERGED set as stampOutcomeByTask, so it is monotonic
+   * (REWORKED is never in that set → reopened-then-remerged history is
+   * preserved) and idempotent (a re-run after a full sweep changes nothing).
+   * Returns Prisma's `{ count }` of rows changed.
+   */
+  async stampDoneTaskEdges(tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.lineageEdge.updateMany({
+      where: {
+        outcome: { in: STAMPABLE_FROM.MERGED },
+        task: { status: 'DONE' },
+      },
+      data: { outcome: 'MERGED' },
+    })
+  },
+
+  /**
    * List all edges for a task, oldest first. Backs the lineage audit view
    * (`lumo task lineage <id>`).
    */

@@ -327,6 +327,19 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * Lightweight status read for the lineage birth-time backfill (LUM-296).
+   * Selects only `status` to avoid hydrating the full detail graph on the hot
+   * session-start path. Returns null when the task doesn't exist.
+   */
+  async getStatus(id: string): Promise<TaskStatus | null> {
+    const row = await prisma.task.findUnique({
+      where: { id },
+      select: { status: true },
+    })
+    return row?.status ?? null
+  },
+
   /** Find a task by ID with update-related relations (project + team). */
   async findForUpdate(id: string) {
     return prisma.task.findUnique({
