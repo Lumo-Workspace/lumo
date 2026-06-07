@@ -29,8 +29,8 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
         <span
           className={
             hasMemory
-              ? 'text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300'
-              : 'text-[11px] font-medium uppercase tracking-wide text-muted-foreground'
+              ? 'text-caption font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300'
+              : 'text-caption font-medium uppercase tracking-wide text-muted-foreground'
           }
         >
           {intl.formatMessage(
@@ -38,7 +38,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             { n: turnNumber }
           )}
         </span>
-        <span className='text-[11px] tabular-nums text-muted-foreground'>
+        <span className='text-caption tabular-nums text-muted-foreground'>
           {timeRange}
         </span>
         {!turn.terminated && (
@@ -50,7 +50,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           </span>
         )}
         {turn.cost && (
-          <span className='ml-auto shrink-0 text-right text-[11px] text-muted-foreground tabular-nums'>
+          <span className='ml-auto shrink-0 text-right text-caption text-muted-foreground tabular-nums'>
             {turn.cost.byModel.length === 1
               ? intl.formatMessage(
                   {
@@ -71,7 +71,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
                   )
                   .join(' · ')}
             {turn.cost.byModel.length === 1 && (
-              <span className='block text-[9px] text-muted-foreground/60'>
+              <span className='block text-[10px] text-muted-foreground/60'>
                 {turn.cost.byModel[0]!.model.replace(/^claude-/, '')}
               </span>
             )}
@@ -83,7 +83,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           condensed to a one-line headline. Full text stays visible in
           the expanded STOP event row. */}
       {turn.summary && (
-        <p className='mb-2 px-1 text-sm text-foreground truncate'>
+        <p className='mb-2 px-1 text-body text-foreground truncate'>
           {turn.summary}
         </p>
       )}
@@ -98,7 +98,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
       ) : (
         <div className='flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/60 px-4 py-2'>
           <MoonStar className='size-3.5 text-muted-foreground shrink-0' />
-          <span className='text-xs text-muted-foreground'>
+          <span className='text-caption text-muted-foreground'>
             {turn.summary
               ? intl.formatMessage({
                   id: 'agentRun.silentTurnWithSummary',
@@ -120,8 +120,8 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             onClick={() => setExpanded(v => !v)}
             className={
               hasMemory
-                ? 'flex items-center gap-1 text-[11px] text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors'
-                : 'flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors'
+                ? 'flex items-center gap-1 text-caption text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors'
+                : 'flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors'
             }
           >
             {expanded ? (
