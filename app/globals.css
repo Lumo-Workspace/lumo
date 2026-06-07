@@ -468,9 +468,10 @@ html {
   --gray-11: oklch(0.172 0.004 255);
   --gray-12: oklch(0.145 0.002 255);
 
-  /* Base tokens — oklch (single color model, shared with landing.css).
-     Each value is the exact oklch equivalent of its former hex; verified
-     to round-trip back to the same 8-bit sRGB hex (LUM-257). */
+  /* Base semantic tokens. Neutral surfaces/text derive from the primitive
+     --gray ramp above (var(--gray-N), a different step per mode); chromatic
+     tokens further below stay literal oklch (single color model, shared with
+     landing.css; contrast-tuned per mode, LUM-257/LUM-294). */
   --background: var(--gray-0);
   --foreground: var(--gray-10);
   --card: var(--gray-0);

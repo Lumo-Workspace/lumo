@@ -54,8 +54,9 @@ type Mode = 'light' | 'dark'
 /**
  * Resolve a token to its value in a mode: .dark override if present, else :root.
  * LUM-294: neutral tokens (e.g. --background) now derive from the primitive
- * --gray-* ramp, so follow one level of var(--gray-N) indirection to the ramp's
- * oklch literal (the ramp is defined in :root, mode-independent).
+ * --gray-* ramp, so follow var() indirection recursively until an oklch literal
+ * is reached (today neutral tokens point one level deep at the :root-only,
+ * mode-independent --gray-* ramp).
  */
 function resolve(token: string, mode: Mode): string {
   const value =
