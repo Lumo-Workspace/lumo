@@ -25,11 +25,32 @@ jest.mock('@/components/ui/alert-dialog', () => ({
   AlertDialogTitle: () => null,
 }))
 jest.mock('@/components/ui/spinner', () => ({ Spinner: () => null }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/fields/StatusSelect', () => ({ StatusSelect: () => null }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/fields/PrioritySelect', () => ({ PrioritySelect: () => null }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/fields/AssigneeSelect', () => ({ AssigneeSelect: () => null }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/fields/DueDatePicker', () => ({ DueDatePicker: () => null }))
-jest.mock('@/app/workspace/[workspaceUrl]/components/fields/ProjectSelect', () => ({ ProjectSelect: () => null }))
+jest.mock('@/app/workspace/[workspaceUrl]/components/StatusBadge', () => ({
+  StatusBadge: () => null,
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/components/PriorityBadge', () => ({
+  PriorityBadge: () => null,
+}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/fields/StatusSelect',
+  () => ({ StatusSelect: () => null })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/fields/PrioritySelect',
+  () => ({ PrioritySelect: () => null })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/fields/AssigneeSelect',
+  () => ({ AssigneeSelect: () => null })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/fields/DueDatePicker',
+  () => ({ DueDatePicker: () => null })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/fields/ProjectSelect',
+  () => ({ ProjectSelect: () => null })
+)
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTableSort', () => ({
   cmpStatus: () => 0,
   cmpPriority: () => 0,
@@ -51,7 +72,17 @@ describe('createTaskColumns', () => {
       onTaskClick: noop,
       onDeleteTask: asyncNoop,
       members: [],
-      visibleColumns: ['select','identifier','title','status','priority','dueDate','assignee','updatedAt','actions'],
+      visibleColumns: [
+        'select',
+        'identifier',
+        'title',
+        'status',
+        'priority',
+        'dueDate',
+        'assignee',
+        'updatedAt',
+        'actions',
+      ],
     })
     const ids = cols.map(colId)
     expect(ids).not.toContain('project')
@@ -66,7 +97,18 @@ describe('createTaskColumns', () => {
       onDeleteTask: asyncNoop,
       members: [],
       projects: [],
-      visibleColumns: ['select','identifier','title','project','status','priority','dueDate','assignee','updatedAt','actions'],
+      visibleColumns: [
+        'select',
+        'identifier',
+        'title',
+        'project',
+        'status',
+        'priority',
+        'dueDate',
+        'assignee',
+        'updatedAt',
+        'actions',
+      ],
     })
     expect(cols.map(colId)).toContain('project')
   })
@@ -76,8 +118,8 @@ describe('createTaskColumns', () => {
       onTaskClick: noop,
       onDeleteTask: asyncNoop,
       members: [],
-      visibleColumns: ['actions','title','select'],
+      visibleColumns: ['actions', 'title', 'select'],
     })
-    expect(cols.map(colId)).toEqual(['select','title','actions'])
+    expect(cols.map(colId)).toEqual(['select', 'title', 'actions'])
   })
 })

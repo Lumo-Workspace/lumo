@@ -18,7 +18,9 @@ import {
   WorkspaceMemberInfo,
   ApiProject,
 } from '../../types'
-import { API_STATUS_LABEL, formatDueDate, isOverdue } from '../../utils'
+import { formatDueDate, isOverdue } from '../../utils'
+import { StatusBadge } from '../StatusBadge'
+import { PriorityBadge } from '../PriorityBadge'
 import { StatusSelect } from '../fields/StatusSelect'
 import { PrioritySelect } from '../fields/PrioritySelect'
 import { AssigneeSelect } from '../fields/AssigneeSelect'
@@ -53,7 +55,11 @@ import { Trash2 } from 'lucide-react'
 import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
 import { formatTimestamp } from '@/lib/utils/formatTimestamp'
 import { Spinner } from '@/components/ui/spinner'
-import { type ColumnId, orderColumns, COLUMN_GRID_WIDTH } from './columnTemplate'
+import {
+  type ColumnId,
+  orderColumns,
+  COLUMN_GRID_WIDTH,
+} from './columnTemplate'
 
 // ─── Ghost trigger style for inline pickers ───────────────────────────────────
 const GHOST_TRIGGER =
@@ -336,8 +342,18 @@ export interface CreateTaskColumnsOptions {
 }
 
 // ─── Column definitions ───────────────────────────────────────────────────────
-export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<ApiTask>[] {
-  const { onTaskClick, onDeleteTask, members, intl, updateTask, visibleColumns, projects = [] } = options
+export function createTaskColumns(
+  options: CreateTaskColumnsOptions
+): ColumnDef<ApiTask>[] {
+  const {
+    onTaskClick,
+    onDeleteTask,
+    members,
+    intl,
+    updateTask,
+    visibleColumns,
+    projects = [],
+  } = options
 
   const memberByActorId = new Map(
     members.filter(m => m.actorId).map(m => [m.actorId!, m])
@@ -359,7 +375,8 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
         { id: 'time.mAgo', defaultMessage: '{m}m ago' },
         { m }
       ) ?? `${m}m ago`,
-    today: intl?.formatMessage({ id: 'time.today', defaultMessage: 'Today' }) ??
+    today:
+      intl?.formatMessage({ id: 'time.today', defaultMessage: 'Today' }) ??
       'Today',
     yesterday:
       intl?.formatMessage({
@@ -518,13 +535,23 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
         stopPropagation: true,
       },
       sortingFn: (a, b) =>
-        (a.original.project?.name ?? '').localeCompare(b.original.project?.name ?? ''),
+        (a.original.project?.name ?? '').localeCompare(
+          b.original.project?.name ?? ''
+        ),
       header: ({ column }) => (
         <SortableColHeader
-          label={intl?.formatMessage({ id: 'task.project', defaultMessage: 'Project' }) ?? 'Project'}
+          label={
+            intl?.formatMessage({
+              id: 'task.project',
+              defaultMessage: 'Project',
+            }) ?? 'Project'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
-          tooltip={intl?.formatMessage({ id: 'tasks.tooltip.project', defaultMessage: 'Project this task belongs to.' })}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.project',
+            defaultMessage: 'Project this task belongs to.',
+          })}
         />
       ),
       cell: ({ row }) => {
@@ -539,7 +566,11 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
             />
           )
         }
-        return <span className='text-caption text-muted-foreground'>{task.project?.name ?? '—'}</span>
+        return (
+          <span className='text-caption text-muted-foreground'>
+            {task.project?.name ?? '—'}
+          </span>
+        )
       },
     },
 
@@ -582,13 +613,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
             />
           )
         }
-        return (
-          <div className='flex items-center gap-2 text-muted-foreground'>
-            <span className='text-caption'>
-              {API_STATUS_LABEL[task.status] ?? task.status}
-            </span>
-          </div>
-        )
+        return <StatusBadge status={task.status} />
       },
     },
 
@@ -630,9 +655,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
             />
           )
         }
-        return (
-          <span className='text-caption text-muted-foreground'>{task.priority}</span>
-        )
+        return <PriorityBadge priority={task.priority} variant='icon' />
       },
     },
 
@@ -737,7 +760,9 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
           ? memberByActorId.get(assigneeActorId)
           : null
         return member ? (
-          <span className='text-caption text-muted-foreground'>{member.name}</span>
+          <span className='text-caption text-muted-foreground'>
+            {member.name}
+          </span>
         ) : (
           <span className='text-caption text-muted-foreground'>—</span>
         )
