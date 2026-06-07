@@ -20,7 +20,7 @@ const STATUS_LABEL_ID: Record<string, string> = {
 export function StatusBadge({
   status,
   label,
-  size = 14,
+  size = 16,
 }: {
   status: string
   label?: string
