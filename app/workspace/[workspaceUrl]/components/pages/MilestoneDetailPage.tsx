@@ -129,8 +129,8 @@ export function MilestoneDetailPage({
         }
       >
         <div className='flex-1 space-y-6 p-4 md:p-8' aria-busy='true'>
-          <div className='h-8 w-1/3 animate-pulse rounded bg-muted/50' />
-          <div className='h-4 w-1/4 animate-pulse rounded bg-muted/50' />
+          <div className='h-8 w-1/3 animate-pulse rounded-sm bg-muted/50' />
+          <div className='h-4 w-1/4 animate-pulse rounded-sm bg-muted/50' />
           <div className='h-40 animate-pulse rounded-lg border border-border bg-muted/50' />
         </div>
       </DetailLayout>
