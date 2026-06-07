@@ -348,6 +348,27 @@ describe('lineageEdgeRepository', () => {
     })
   })
 
+  describe('countResolvedTasks', () => {
+    it('counts distinct taskIds with at least one non-UNKNOWN edge', async () => {
+      mockGroupBy.mockResolvedValue([
+        { taskId: 't1' },
+        { taskId: 't2' },
+        { taskId: 't3' },
+      ])
+      const n = await lineageEdgeRepository.countResolvedTasks()
+      expect(n).toBe(3)
+      expect(mockGroupBy).toHaveBeenCalledWith({
+        by: ['taskId'],
+        where: { outcome: { not: 'UNKNOWN' } },
+      })
+    })
+
+    it('returns 0 when there are no resolved edges', async () => {
+      mockGroupBy.mockResolvedValue([])
+      expect(await lineageEdgeRepository.countResolvedTasks()).toBe(0)
+    })
+  })
+
   describe('mergeRateByFragments', () => {
     it('returns [] and does not query for an empty fragment list', async () => {
       const result = await lineageEdgeRepository.mergeRateByFragments([])

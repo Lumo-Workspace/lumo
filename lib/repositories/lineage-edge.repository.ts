@@ -230,6 +230,21 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * universe for presence-variance gating: the count of distinct tasks that
+   * have at least one resolved (non-UNKNOWN) edge. Matches mergeRateByFragments'
+   * `resolved` definition (global, NOT workspace-scoped) so equality checks
+   * (resolvedTasks === universe) line up exactly.
+   */
+  async countResolvedTasks(tx?: Prisma.TransactionClient): Promise<number> {
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['taskId'],
+      where: { outcome: { not: 'UNKNOWN' } },
+    })
+    return rows.length
+  },
+
+  /**
    * Stamp a closing `outcome` onto every edge of a task whose current outcome
    * is eligible to advance (see {@link STAMPABLE_FROM}). Returns Prisma's
    * `{ count }` of rows changed. Idempotent: re-stamping the same verdict
