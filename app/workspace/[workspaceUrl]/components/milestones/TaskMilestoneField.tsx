@@ -8,6 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { FieldValueSkeleton } from '../fields'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useFormatDate } from '../../hooks/useFormatDate'
@@ -79,9 +80,9 @@ export function TaskMilestoneField({
         if (open) setHasOpened(true)
       }}
     >
-      <SelectTrigger className={triggerClassName}>
+      <SelectTrigger className={cn('max-w-full', triggerClassName)}>
         {triggerName ? (
-          <span className='truncate'>
+          <span className='min-w-0 truncate'>
             {triggerName}
             {loaded?.targetDate
               ? ` · ${fmtDate(loaded.targetDate, DATE_OPTS)}`
