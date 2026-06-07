@@ -6,7 +6,7 @@ const mem = (id: string, scope: 'PROJECT' | 'TASK'): RenderableMemory => ({
   id,
   scope,
   category: 'TRAP',
-  content: { trigger: id, mitigation: id },
+  content: { trigger: id, outcome: id },
 })
 
 const identityResolve = async (_t: string, id: string) => id
@@ -112,5 +112,36 @@ describe('rankSessionStartCards', () => {
       }
     )
     expect(out.memories.map(m => m.id)).toEqual(['mem-p'])
+  })
+
+  it('dedupes a promoted memory and still scores the survivor by canonical id', async () => {
+    // 'mem-t' (task) is the promoted dup of 'mem-p' (project); their shared
+    // canonical 'mem-p' has a high merge stat, so the surviving 'mem-p' must
+    // outrank the cold 'mem-other'.
+    const resolveCanonical = async (_t: string, id: string) =>
+      id === 'mem-t' ? 'mem-p' : id
+    const mergeRateByFragments = async (): Promise<FragmentMergeRate[]> => [
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'mem-p',
+        resolvedTasks: 5,
+        mergedTasks: 5,
+      },
+    ]
+    const out = await rankSessionStartCards(
+      {
+        memories: [
+          mem('mem-other', 'PROJECT'),
+          mem('mem-p', 'PROJECT'),
+          mem('mem-t', 'TASK'),
+        ],
+        slack: [],
+        web: [],
+        figma: [],
+        prs: [],
+      },
+      { resolveCanonical, mergeRateByFragments }
+    )
+    expect(out.memories.map(m => m.id)).toEqual(['mem-p', 'mem-other'])
   })
 })

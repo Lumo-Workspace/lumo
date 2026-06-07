@@ -17,6 +17,11 @@ export interface SessionStartCards<
   F extends { id: string },
   P extends { id: string },
 > {
+  /**
+   * Project-scope memories MUST come before task-scope ones: dedup is keep-first
+   * by canonical id, so the promoted PROJECT row only wins when it precedes its
+   * TASK source.
+   */
   memories: RenderableMemory[]
   slack: S[]
   web: W[]
