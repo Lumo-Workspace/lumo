@@ -32,7 +32,7 @@ export function AgentRunMemberStats({
       className='rounded-lg border border-border'
       data-testid='agent-run-member-stats'
     >
-      <div className='px-3 py-2 border-b border-border text-xs text-muted-foreground'>
+      <div className='px-3 py-2 border-b border-border text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'agentRun.byMember',
           defaultMessage: '按人统计',
@@ -52,8 +52,8 @@ export function AgentRunMemberStats({
                   {initialsOf(m.name)}
                 </AvatarFallback>
               </Avatar>
-              <span className='text-xs font-medium'>{m.name}</span>
-              <span className='ml-auto text-[11px] text-muted-foreground tabular-nums'>
+              <span className='text-caption font-medium'>{m.name}</span>
+              <span className='ml-auto text-caption text-muted-foreground tabular-nums'>
                 {intl.formatMessage(
                   {
                     id: 'agentRun.memberSummary',

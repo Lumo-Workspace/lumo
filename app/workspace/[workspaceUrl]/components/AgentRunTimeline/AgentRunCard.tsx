@@ -16,7 +16,7 @@ interface AgentRunCardProps {
 
 export function AgentRunCard({
   run,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: AgentRunCardProps) {
   const intl = useIntl()
   const [expanded, setExpanded] = useState(defaultExpanded)
@@ -42,7 +42,7 @@ export function AgentRunCard({
         ) : (
           <ChevronRight className='size-4 text-muted-foreground shrink-0' />
         )}
-        <span className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold shrink-0'>
+        <span className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-caption font-semibold shrink-0'>
           <Bot className='size-3' />
           {intl.formatMessage(
             { id: 'agentRun.runNumber', defaultMessage: 'Run #{n}' },
@@ -50,10 +50,10 @@ export function AgentRunCard({
           )}
         </span>
         <AgentBadge agent={run.agent} />
-        <span className='text-xs text-muted-foreground shrink-0'>
+        <span className='text-caption text-muted-foreground shrink-0'>
           {startLabel}
         </span>
-        <span className='ml-auto flex items-center gap-3 text-[11px] text-muted-foreground shrink-0'>
+        <span className='ml-auto flex items-center gap-3 text-caption text-muted-foreground shrink-0'>
           <span>{durationLabel}</span>
           <span>·</span>
           <span>
