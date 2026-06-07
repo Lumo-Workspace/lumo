@@ -1404,5 +1404,17 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "展開全部 {count} 筆",
-  "lineage.fragments.collapse": "收合"
+  "lineage.fragments.collapse": "收合",
+  "agentRun.summary": "{runs} 次執行 · {turns} 輪 · {models} 個 model",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n} 次循環",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "此條線索暫無採集到的成本",
+  "tokenCost.loops": "{n} 次循環",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "跨 model 不可比 · 不合計"
 }

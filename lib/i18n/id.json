@@ -1404,5 +1404,17 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "Tampilkan semua {count} fragmen",
-  "lineage.fragments.collapse": "Ciutkan"
+  "lineage.fragments.collapse": "Ciutkan",
+  "agentRun.summary": "{runs, plural, other {# eksekusi}} · {turns, plural, other {# giliran}} · {models, plural, other {# model}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, other {# putaran}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "Tidak ada biaya yang tercatat pada jalur ini",
+  "tokenCost.loops": "{n, plural, other {# putaran}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "models tidak dapat dibandingkan harganya · tidak ada total"
 }

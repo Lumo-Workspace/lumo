@@ -1404,5 +1404,17 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "Hiện tất cả {count} mảnh",
-  "lineage.fragments.collapse": "Thu gọn"
+  "lineage.fragments.collapse": "Thu gọn",
+  "agentRun.summary": "{runs, plural, other {# lần chạy}} · {turns, plural, other {# lượt}} · {models, plural, other {# model}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, other {# vòng lặp}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "Không có chi phí nào được ghi lại trên lộ trình này",
+  "tokenCost.loops": "{n, plural, other {# vòng lặp}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "các model không thể so sánh giá · không có tổng"
 }

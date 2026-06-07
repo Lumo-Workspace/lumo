@@ -1404,5 +1404,17 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "Tunjukkan semua {count} serpihan",
-  "lineage.fragments.collapse": "Runtuhkan"
+  "lineage.fragments.collapse": "Runtuhkan",
+  "agentRun.summary": "{runs, plural, other {# jalankan}} · {turns, plural, other {# pusingan}} · {models, plural, other {# model}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, other {# gelung}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "Tiada kos yang dirakam pada laluan ini",
+  "tokenCost.loops": "{n, plural, other {# gelung}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "models tidak boleh dibandingkan harga · tiada jumlah"
 }

@@ -1404,5 +1404,17 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "Afficher les {count} fragments",
-  "lineage.fragments.collapse": "Réduire"
+  "lineage.fragments.collapse": "Réduire",
+  "agentRun.summary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}} · {models, plural, one {# model} other {# models}}",
+  "agentRun.cost.perRunTok": "{tok} tok",
+  "agentRun.cost.loops": "{n, plural, one {# boucle} other {# boucles}}",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "Aucun coût capturé sur cette piste",
+  "tokenCost.loops": "{n, plural, one {# boucle} other {# boucles}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "models non comparables · pas de total"
 }
