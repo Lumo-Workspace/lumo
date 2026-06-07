@@ -14,10 +14,10 @@ import { join } from 'node:path'
 // Comments are stripped before parsing so a `{`/`}` or `@theme inline` literal
 // inside a CSS comment can't corrupt the brace scan (a recurring globals.css
 // guard-test hazard — LUM-261).
-const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  ''
-)
+const css = readFileSync(
+  join(__dirname, '../../app/globals.css'),
+  'utf8'
+).replace(/\/\*[\s\S]*?\*\//g, '')
 
 /** Body of the first `selector { … }` rule, brace-depth aware (not `[^}]*`). */
 function blockBody(selector: string): string {
@@ -61,19 +61,47 @@ const SINGLE_SOURCE_ALLOWLIST: Record<string, string> = {
   // / -border are translucent color-mix() of the accent that re-resolve over
   // --background automatically, so they need no per-mode override.
   'info-foreground': 'near-black on solid accent, both modes (LUM-258)',
-  'info-subtle': 'translucent color-mix, re-resolves over --background (LUM-258)',
-  'info-border': 'translucent color-mix, re-resolves over --background (LUM-258)',
+  'info-subtle':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
+  'info-border':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
   'warning-foreground': 'near-black on solid accent, both modes (LUM-258)',
-  'warning-subtle': 'translucent color-mix, re-resolves over --background (LUM-258)',
-  'warning-border': 'translucent color-mix, re-resolves over --background (LUM-258)',
+  'warning-subtle':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
+  'warning-border':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
   'success-foreground': 'near-black on solid accent, both modes (LUM-258)',
-  'success-subtle': 'translucent color-mix, re-resolves over --background (LUM-258)',
-  'success-border': 'translucent color-mix, re-resolves over --background (LUM-258)',
+  'success-subtle':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
+  'success-border':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
   'danger-foreground': 'near-black on solid accent, both modes (LUM-258)',
-  'danger-subtle': 'translucent color-mix, re-resolves over --background (LUM-258)',
-  'danger-border': 'translucent color-mix, re-resolves over --background (LUM-258)',
+  'danger-subtle':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
+  'danger-border':
+    'translucent color-mix, re-resolves over --background (LUM-258)',
   // LUM-263: urgent red clears contrast on both backgrounds with one value.
   'priority-urgent': 'red-500 passes 3:1 on both backgrounds (LUM-263)',
+  // LUM-294: primitive neutral ramp — mode-independent raw grayscale seeds. The
+  // semantic neutral tokens (background/card/muted/border/sidebar*/…) derive
+  // from these via var(--gray-N) and keep their own per-mode overrides, so only
+  // the ramp steps themselves are single-source.
+  'gray-0': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-1': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-2': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-3': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-4': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-5': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-6': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-7': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-8': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-9': 'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-10':
+    'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-11':
+    'primitive neutral ramp step, mode-independent raw value (LUM-294)',
+  'gray-12':
+    'primitive neutral ramp step, mode-independent raw value (LUM-294)',
 }
 
 describe('token :root ↔ .dark parity', () => {

@@ -445,27 +445,53 @@ html {
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Base tokens — oklch (single color model, shared with landing.css).
-     Each value is the exact oklch equivalent of its former hex; verified
-     to round-trip back to the same 8-bit sRGB hex (LUM-257). */
-  --background: oklch(1 0 0); /* #ffffff */
-  --foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --card: oklch(1 0 0); /* #ffffff */
-  --card-foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --popover: oklch(1 0 0); /* #ffffff */
-  --popover-foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --primary: oklch(0.2178 0 0); /* #1a1a1a */
-  --primary-foreground: oklch(1 0 0); /* #ffffff */
-  --secondary: oklch(0.9842 0.0034 247.858); /* #f8fafc */
-  --secondary-foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --muted: oklch(0.9683 0.0069 247.896); /* #f1f5f9 */
-  --muted-foreground: oklch(0.5544 0.0407 257.417); /* #64748b */
-  --accent: oklch(0.9674 0.0013 286.375); /* #f4f4f5 */
-  --accent-foreground: oklch(0.2103 0.0059 285.885); /* #18181b */
+  /* ── Primitive neutral ramp (LUM-294) ──────────────────────────────────────
+     Mode-INDEPENDENT raw grayscale seeds — one cool neutral hue (255) with a
+     gentle chroma taper. The single source for every neutral SURFACE/TEXT color:
+     the semantic neutral tokens below (--background, --card, --muted, --border,
+     --sidebar*, …) are all var(--gray-N) references that pick a light step in
+     :root and a dark step in .dark. To retune the app's overall lightness /
+     surface separation / neutral cast, edit these 13 steps — nothing else.
+     No .dark override (primitives are identical in both schemes; the SEMANTIC
+     layer is what remaps per mode). Allowlisted in token-parity.test.ts.
+     gray-4 / -5 / -8 are reserved headroom — no semantic token maps to them
+     yet; they keep the scale perceptually even (LUM-294). */
+  --gray-0: oklch(1 0 0);
+  --gray-1: oklch(0.984 0.004 255);
+  --gray-2: oklch(0.967 0.006 255);
+  --gray-3: oklch(0.928 0.01 255);
+  --gray-4: oklch(0.845 0.013 255);
+  --gray-5: oklch(0.705 0.02 255);
+  --gray-6: oklch(0.627 0.022 255);
+  --gray-7: oklch(0.554 0.03 255);
+  --gray-8: oklch(0.37 0.018 255);
+  --gray-9: oklch(0.283 0.01 255);
+  --gray-10: oklch(0.218 0.006 255);
+  --gray-11: oklch(0.172 0.004 255);
+  --gray-12: oklch(0.145 0.002 255);
+
+  /* Base semantic tokens. Neutral surfaces/text derive from the primitive
+     --gray ramp above (var(--gray-N), a different step per mode); chromatic
+     tokens further below stay literal oklch (single color model, shared with
+     landing.css; contrast-tuned per mode, LUM-257/LUM-294). */
+  --background: var(--gray-0);
+  --foreground: var(--gray-10);
+  --card: var(--gray-0);
+  --card-foreground: var(--gray-10);
+  --popover: var(--gray-0);
+  --popover-foreground: var(--gray-10);
+  --primary: var(--gray-10);
+  --primary-foreground: var(--gray-0);
+  --secondary: var(--gray-1);
+  --secondary-foreground: var(--gray-10);
+  --muted: var(--gray-2);
+  --muted-foreground: var(--gray-7);
+  --accent: var(--gray-2);
+  --accent-foreground: var(--gray-10);
   --destructive: oklch(0.6368 0.2078 25.331); /* #ef4444 */
   --destructive-foreground: oklch(1 0 0); /* #ffffff */
-  --border: oklch(0.9288 0.0126 255.508); /* #e2e8f0 */
-  --input: oklch(1 0 0); /* #ffffff */
+  --border: var(--gray-3);
+  --input: var(--gray-0);
   /* Focus ring — single source of truth (LUM-262). One brand-blue focus accent
      for the whole app. --ring (generic) and --sidebar-ring both derive from it
      so focus state reads as one consistent, explainable color language instead
@@ -486,13 +512,13 @@ html {
   --elevation-3:
     0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18);
 
-  --sidebar: oklch(0.9846 0.0017 247.839); /* #f9fafb */
-  --sidebar-foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --sidebar-primary: oklch(0.2178 0 0); /* #1a1a1a */
-  --sidebar-primary-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-accent: oklch(0.967 0.0029 264.542); /* #f3f4f6 */
-  --sidebar-accent-foreground: oklch(0.2178 0 0); /* #1a1a1a */
-  --sidebar-border: oklch(0.9276 0.0058 264.531); /* #e5e7eb */
+  --sidebar: var(--gray-1);
+  --sidebar-foreground: var(--gray-10);
+  --sidebar-primary: var(--gray-10);
+  --sidebar-primary-foreground: var(--gray-0);
+  --sidebar-accent: var(--gray-2);
+  --sidebar-accent-foreground: var(--gray-10);
+  --sidebar-border: var(--gray-3);
   --sidebar-ring: var(--focus-ring); /* unified focus accent (LUM-262) */
 
   /* Semantic task-status colors — oklch (single color model, LUM-257), single
@@ -588,33 +614,36 @@ html {
 }
 
 .dark {
-  --background: oklch(0.1448 0 0); /* #0a0a0a */
-  --foreground: oklch(1 0 0); /* #ffffff */
-  --card: oklch(0.1776 0 0); /* #111111 */
-  --card-foreground: oklch(1 0 0); /* #ffffff */
-  --popover: oklch(0.2178 0 0); /* #1a1a1a */
-  --popover-foreground: oklch(1 0 0); /* #ffffff */
-  --primary: oklch(1 0 0); /* #ffffff */
-  --primary-foreground: oklch(0.1448 0 0); /* #0a0a0a */
-  --secondary: oklch(0.2178 0 0); /* #1a1a1a */
-  --secondary-foreground: oklch(1 0 0); /* #ffffff */
-  --muted: oklch(0.2178 0 0); /* #1a1a1a */
-  --muted-foreground: oklch(0.6268 0 0); /* #888888 */
-  --accent: oklch(0.2739 0.0055 286.033); /* #27272a */
-  --accent-foreground: oklch(0.9674 0.0013 286.375); /* #f4f4f5 */
+  --background: var(--gray-12);
+  --foreground: var(--gray-0);
+  --card: var(--gray-11);
+  --card-foreground: var(--gray-0);
+  --popover: var(--gray-10);
+  --popover-foreground: var(--gray-0);
+  --primary: var(--gray-0);
+  --primary-foreground: var(--gray-12);
+  --secondary: var(--gray-10);
+  --secondary-foreground: var(--gray-0);
+  --muted: var(--gray-10);
+  --muted-foreground: var(--gray-6);
+  --accent: var(--gray-9);
+  --accent-foreground: var(--gray-2);
   --destructive: oklch(0.6368 0.2078 25.331); /* #ef4444 */
   --destructive-foreground: oklch(1 0 0); /* #ffffff */
-  --border: oklch(0.285 0 0); /* #2a2a2a */
-  --input: oklch(0.2178 0 0); /* #1a1a1a */
+  --border: var(--gray-9);
+  --input: var(--gray-10);
   /* --ring / --sidebar-ring intentionally omitted here — they derive from the
      single :root --focus-ring, identical across light/dark (LUM-262). */
-  --sidebar: oklch(0.1684 0 0); /* #0f0f0f */
-  --sidebar-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-primary: oklch(1 0 0); /* #ffffff */
-  --sidebar-primary-foreground: oklch(0.1448 0 0); /* #0a0a0a */
-  --sidebar-accent: oklch(0.2178 0 0); /* #1a1a1a */
-  --sidebar-accent-foreground: oklch(1 0 0); /* #ffffff */
-  --sidebar-border: oklch(0.285 0 0); /* #2a2a2a */
+  /* sidebar shares the card tier (gray-11) in dark — the prior ~0.009-L split
+     (sidebar 0.1684 vs card 0.1776) collapsed under the uniform ramp; the two
+     read as one surface separated by sidebar-border (LUM-294). */
+  --sidebar: var(--gray-11);
+  --sidebar-foreground: var(--gray-0);
+  --sidebar-primary: var(--gray-0);
+  --sidebar-primary-foreground: var(--gray-12);
+  --sidebar-accent: var(--gray-10);
+  --sidebar-accent-foreground: var(--gray-0);
+  --sidebar-border: var(--gray-9);
 
   /* Elevation — stronger on dark, where shadows barely register (LUM-261). */
   --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.5);
@@ -1199,7 +1228,8 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
 
 .comment-highlight--active {
   background-color: color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background-color var(--transition-duration-slow) var(--ease-standard);
+  transition: background-color var(--transition-duration-slow)
+    var(--ease-standard);
 }
 
 /* Resolved threads keep their span (resolve is reversible) but drop the visible

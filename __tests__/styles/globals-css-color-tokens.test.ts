@@ -19,13 +19,11 @@ it('app/globals.css never wraps a CSS var in hsl()/rgb()', () => {
   expect(offenders).toEqual([])
 })
 
-// LUM-257: base design tokens are a single color model — oklch — shared with
-// the landing palette (components/landing/landing.css). oklch is perceptually
-// uniform, so it's a clean derivation base for the semantic layer, and
-// `var(--token)` stays valid wherever it's used directly in raw CSS. Guard
-// against a regression back to hex (which reintroduces the LUM-240 hazard and
-// splits the model in two again).
-const COLOR_TOKENS = [
+// LUM-294: neutral semantic tokens DERIVE from the primitive --gray-* ramp —
+// they are per-mode var(--gray-N) references, not literal oklch. The ramp steps
+// carry the literal oklch (asserted separately below). Chromatic tokens stay
+// literal oklch (contrast-tuned per mode, LUM-257).
+const NEUTRAL_TOKENS = [
   'background',
   'foreground',
   'card',
@@ -40,13 +38,8 @@ const COLOR_TOKENS = [
   'muted-foreground',
   'accent',
   'accent-foreground',
-  'destructive',
-  'destructive-foreground',
   'border',
   'input',
-  // LUM-262: --ring / --sidebar-ring are no longer per-token oklch literals —
-  // they derive from the single --focus-ring source (guarded separately below).
-  'focus-ring',
   'sidebar',
   'sidebar-foreground',
   'sidebar-primary',
@@ -54,11 +47,18 @@ const COLOR_TOKENS = [
   'sidebar-accent',
   'sidebar-accent-foreground',
   'sidebar-border',
+] as const
+
+const CHROMATIC_TOKENS = [
+  'destructive',
+  'destructive-foreground',
+  // LUM-262: single brand-blue focus accent (kept oklch, defined once in :root).
+  'focus-ring',
   'status-todo',
   'status-in-progress',
   'status-in-review',
   'status-done',
-  // LUM-258 semantic feedback colors (solid oklch accents + near-black foregrounds).
+  // LUM-258 semantic feedback colors.
   'info',
   'info-foreground',
   'warning',
@@ -67,18 +67,38 @@ const COLOR_TOKENS = [
   'success-foreground',
   'danger',
   'danger-foreground',
-  // LUM-263 priority colors (oklch; light contrast-corrected, dark bright).
+  // LUM-263 priority colors.
   'priority-urgent',
   'priority-high',
   'priority-medium',
   'priority-low',
 ] as const
 
-describe.each(COLOR_TOKENS)('--%s', token => {
-  // Every definition of the token (it appears in both :root and .dark).
-  const defs = [
-    ...css.matchAll(new RegExp(`--${token}:\\s*([^;]+);`, 'g')),
-  ].map(m => (m[1] ?? '').trim())
+const RAMP_TOKENS = Array.from({ length: 13 }, (_, i) => `gray-${i}`)
+
+/** Every definition of a token (`--token: …;`), trimmed. */
+function defsOf(token: string): string[] {
+  return [...css.matchAll(new RegExp(`--${token}:\\s*([^;]+);`, 'g'))].map(m =>
+    (m[1] ?? '').trim()
+  )
+}
+
+describe.each(NEUTRAL_TOKENS)('neutral --%s', token => {
+  const defs = defsOf(token)
+
+  it('is defined at least once', () => {
+    expect(defs.length).toBeGreaterThan(0)
+  })
+
+  it('every definition derives from the gray ramp (var(--gray-N))', () => {
+    for (const value of defs) {
+      expect(value).toMatch(/^var\(--gray-\d+\)$/)
+    }
+  })
+})
+
+describe.each(CHROMATIC_TOKENS)('chromatic --%s', token => {
+  const defs = defsOf(token)
 
   it('is defined at least once', () => {
     expect(defs.length).toBeGreaterThan(0)
@@ -89,6 +109,19 @@ describe.each(COLOR_TOKENS)('--%s', token => {
       expect(value).toMatch(/^oklch\(/)
       expect(value).not.toMatch(/#[0-9a-fA-F]{3,8}/)
     }
+  })
+})
+
+describe.each(RAMP_TOKENS)('ramp --%s', token => {
+  const defs = defsOf(token)
+
+  it('is defined exactly once (mode-independent primitive, no .dark override)', () => {
+    expect(defs).toHaveLength(1)
+  })
+
+  it('is a literal oklch() value, never a hex literal', () => {
+    expect(defs[0]).toMatch(/^oklch\(/)
+    expect(defs[0]).not.toMatch(/#[0-9a-fA-F]{3,8}/)
   })
 })
 
