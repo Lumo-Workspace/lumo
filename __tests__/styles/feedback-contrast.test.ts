@@ -21,10 +21,10 @@ import { join } from 'node:path'
 const TEXT_AA = 4.5
 const GRAPHICS = 3.0
 
-const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  ''
-)
+const css = readFileSync(
+  join(__dirname, '../../app/globals.css'),
+  'utf8'
+).replace(/\/\*[\s\S]*?\*\//g, '')
 
 function blockBody(selector: string): string {
   const re = new RegExp(`(?:^|\\n)${selector.replace('.', '\\.')}\\s*\\{`)
@@ -51,19 +51,26 @@ function rawValue(block: string, token: string): string | null {
 
 type Mode = 'light' | 'dark'
 
-/** Resolve a token to its value in a mode: .dark override if present, else :root. */
+/**
+ * Resolve a token to its value in a mode: .dark override if present, else :root.
+ * LUM-294: neutral tokens (e.g. --background) now derive from the primitive
+ * --gray-* ramp, so follow one level of var(--gray-N) indirection to the ramp's
+ * oklch literal (the ramp is defined in :root, mode-independent).
+ */
 function resolve(token: string, mode: Mode): string {
   const value =
-    mode === 'dark' ? rawValue(DARK, token) ?? rawValue(ROOT, token) : rawValue(ROOT, token)
+    mode === 'dark'
+      ? (rawValue(DARK, token) ?? rawValue(ROOT, token))
+      : rawValue(ROOT, token)
   if (value == null) throw new Error(`token --${token} not defined`)
+  const ref = value.match(/^var\(--([a-z0-9-]+)\)$/)
+  if (ref?.[1]) return resolve(ref[1], mode)
   return value
 }
 
 /** Parse `oklch(L C H)` (L in 0..1, C, H in degrees) → [L, C, H]. */
 function parseOklch(value: string): [number, number, number] {
-  const m = value.match(
-    /oklch\(\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)/
-  )
+  const m = value.match(/oklch\(\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)/)
   if (!m) throw new Error(`not a plain oklch() value: ${value}`)
   return [Number(m[1]), Number(m[2]), Number(m[3])]
 }
@@ -116,7 +123,9 @@ describe('oklch contrast pipeline', () => {
   })
 
   it('a colour has 1:1 contrast with itself', () => {
-    expect(contrastRatio('oklch(0.62 0.2 25)', 'oklch(0.62 0.2 25)')).toBeCloseTo(1, 5)
+    expect(
+      contrastRatio('oklch(0.62 0.2 25)', 'oklch(0.62 0.2 25)')
+    ).toBeCloseTo(1, 5)
   })
 })
 
@@ -153,8 +162,14 @@ const GRAPHIC_TOKENS = [
 
 describe('status / priority tokens meet 3:1 graphics contrast on --background', () => {
   it.each(GRAPHIC_TOKENS)('--%s vs --background (light + dark)', token => {
-    const light = contrastRatio(resolve(token, 'light'), resolve('background', 'light'))
-    const dark = contrastRatio(resolve(token, 'dark'), resolve('background', 'dark'))
+    const light = contrastRatio(
+      resolve(token, 'light'),
+      resolve('background', 'light')
+    )
+    const dark = contrastRatio(
+      resolve(token, 'dark'),
+      resolve('background', 'dark')
+    )
     expect(light).toBeGreaterThanOrEqual(GRAPHICS)
     expect(dark).toBeGreaterThanOrEqual(GRAPHICS)
   })
