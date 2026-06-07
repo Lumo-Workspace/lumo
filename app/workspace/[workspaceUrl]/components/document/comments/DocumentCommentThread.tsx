@@ -149,12 +149,12 @@ function Row({
                   type='button'
                   aria-hidden='true'
                   tabIndex={-1}
-                  className='fixed inset-0 z-10 cursor-default'
+                  className='fixed inset-0 z-sticky cursor-default'
                   onClick={() => setMenuOpen(false)}
                 />
                 <div
                   role='menu'
-                  className='absolute right-0 z-20 mt-1 min-w-[7rem] overflow-hidden rounded-md border bg-popover py-1 shadow-elevation-2'
+                  className='absolute right-0 z-dropdown mt-1 min-w-[7rem] overflow-hidden rounded-md border bg-popover py-1 shadow-elevation-2'
                 >
                   <button
                     type='button'

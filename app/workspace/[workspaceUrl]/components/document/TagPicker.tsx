@@ -203,7 +203,7 @@ export function TagPicker({
         />
       </div>
       {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (
-        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-md z-50 py-1'>
+        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-md z-dropdown py-1'>
           {filteredSuggestions.slice(0, 5).map(tag => (
             <button
               key={tag.id}

@@ -68,7 +68,7 @@ export function AlignMenu({
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
       {open && (
-        <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+        <div role='menu' className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
           {options.map(o => (
             <button
               key={o.id}

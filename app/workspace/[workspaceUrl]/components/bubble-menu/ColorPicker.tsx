@@ -66,7 +66,7 @@ export function ColorPicker({
         <TooltipContent>Text color</TooltipContent>
       </Tooltip>
       {open && (
-        <div role='menu' className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-elevation-3 p-2'>
+        <div role='menu' className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-dropdown w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-elevation-3 p-2'>
           {/* Font colors */}
           <div className='text-[10px] font-medium text-muted-foreground mb-1'>
             Font color
