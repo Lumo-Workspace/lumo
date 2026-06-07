@@ -143,7 +143,7 @@ function renderLine(
     return (
       <h3
         key={index}
-        className='text-sm font-semibold text-zinc-800 dark:text-zinc-200 mt-3 first:mt-0'
+        className='text-sm font-semibold text-foreground mt-3 first:mt-0'
       >
         {enrich(trimmed.slice(3))}
       </h3>
@@ -155,9 +155,9 @@ function renderLine(
     return (
       <li
         key={index}
-        className='flex gap-2 text-sm text-zinc-700 dark:text-zinc-300'
+        className='flex gap-2 text-sm text-foreground'
       >
-        <span className='text-zinc-400 shrink-0'>•</span>
+        <span className='text-muted-foreground shrink-0'>•</span>
         <span>{enrich(trimmed.slice(2))}</span>
       </li>
     )
@@ -169,9 +169,9 @@ function renderLine(
     return (
       <li
         key={index}
-        className='flex gap-2 text-sm text-zinc-700 dark:text-zinc-300'
+        className='flex gap-2 text-sm text-foreground'
       >
-        <span className='text-zinc-400 shrink-0'>{numberedMatch[1]}.</span>
+        <span className='text-muted-foreground shrink-0'>{numberedMatch[1]}.</span>
         <span>{enrich(numberedMatch[2] ?? '')}</span>
       </li>
     )
@@ -179,7 +179,7 @@ function renderLine(
 
   // Plain paragraph
   return (
-    <p key={index} className='text-sm text-zinc-700 dark:text-zinc-300'>
+    <p key={index} className='text-sm text-foreground'>
       {enrich(trimmed)}
     </p>
   )

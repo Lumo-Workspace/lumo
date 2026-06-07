@@ -147,11 +147,11 @@ export function ProjectRiskOverrideCard({
 
   if (!expanded) {
     return (
-      <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-2'>
-        <p className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+      <div className='rounded-lg border border-border p-4 space-y-2'>
+        <p className='text-xs font-semibold text-foreground'>
           {intl.formatMessage({ id: 'summary.riskThresholds' })}
         </p>
-        <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+        <p className='text-xs text-muted-foreground'>
           {intl.formatMessage({ id: 'summary.riskThresholds.usingDefaults' })}
         </p>
         <button
@@ -168,14 +168,14 @@ export function ProjectRiskOverrideCard({
   }
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3'>
-      <p className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+    <div className='rounded-lg border border-border p-4 space-y-3'>
+      <p className='text-xs font-semibold text-foreground'>
         {intl.formatMessage({ id: 'summary.riskThresholds' })}
       </p>
       <div className='space-y-2'>
         {FIELDS.map(f => (
           <div key={f.key} className='flex items-center justify-between gap-2'>
-            <label className='text-xs text-zinc-600 dark:text-zinc-400'>
+            <label className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: f.labelId })}
             </label>
             <input
@@ -184,7 +184,7 @@ export function ProjectRiskOverrideCard({
               placeholder={String(workspaceDefaults[f.key])}
               onChange={e => update(f.key, e.target.value)}
               disabled={saving}
-              className='w-20 h-7 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 text-xs text-right text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50'
+              className='w-20 h-7 rounded-sm border border-border bg-transparent px-2 text-xs text-right text-foreground outline-none focus:ring-1 focus:ring-ring disabled:opacity-50'
             />
           </div>
         ))}
@@ -194,7 +194,7 @@ export function ProjectRiskOverrideCard({
           type='button'
           onClick={resetAll}
           disabled={saving}
-          className='text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+          className='text-xs text-muted-foreground hover:text-foreground'
         >
           {intl.formatMessage({
             id: 'summary.riskThresholds.resetToWorkspace',
@@ -204,7 +204,7 @@ export function ProjectRiskOverrideCard({
           type='button'
           onClick={handleSave}
           disabled={saving}
-          className='text-xs bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded px-2 py-1 disabled:opacity-50'
+          className='text-xs bg-foreground text-background rounded-sm px-2 py-1 disabled:opacity-50'
         >
           {saving
             ? intl.formatMessage({ id: 'common.saving' })

@@ -32,7 +32,7 @@ export function RefreshReportButton({
         { id: 'summary.cooldown' },
         { seconds: cooldownSeconds }
       )
-      icon = <RefreshCw size={14} className='text-zinc-400' />
+      icon = <RefreshCw size={14} className='text-muted-foreground' />
       break
     default:
       label = intl.formatMessage({ id: 'summary.refreshReport' })

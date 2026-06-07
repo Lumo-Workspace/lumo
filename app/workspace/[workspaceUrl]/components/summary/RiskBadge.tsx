@@ -32,9 +32,9 @@ const STYLES: Record<
     labelKey: 'summary.riskLevel.atRisk',
   },
   null: {
-    dot: 'bg-zinc-400',
+    dot: 'bg-muted-foreground',
     bg: 'bg-transparent',
-    text: 'text-zinc-500 dark:text-zinc-400',
+    text: 'text-muted-foreground',
     labelKey: 'summary.riskLevel.unassessed',
   },
 }

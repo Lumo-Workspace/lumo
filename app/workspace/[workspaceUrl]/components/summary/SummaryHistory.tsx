@@ -47,7 +47,7 @@ export function SummaryHistory({
       {revealed && (
         <div className='space-y-1'>
           {loading && (
-            <p className='text-xs text-zinc-400 dark:text-zinc-500 py-2'>
+            <p className='text-xs text-muted-foreground py-2'>
               {intl.formatMessage({
                 id: 'common.loading',
                 defaultMessage: 'Loading…',
@@ -56,7 +56,7 @@ export function SummaryHistory({
           )}
 
           {!loading && history.length === 0 && (
-            <p className='text-xs text-zinc-400 dark:text-zinc-500 py-2'>
+            <p className='text-xs text-muted-foreground py-2'>
               No history available.
             </p>
           )}
@@ -74,29 +74,29 @@ export function SummaryHistory({
             return (
               <div
                 key={entry.id}
-                className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden'
+                className='border border-border rounded-lg overflow-hidden'
               >
                 <button
                   onClick={() => handleToggleEntry(entry.id)}
-                  className='w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
+                  className='w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors'
                 >
                   <div className='flex flex-col items-center gap-1 shrink-0 mt-0.5'>
-                    <span className='size-2 rounded-full bg-zinc-300 dark:bg-zinc-600' />
-                    <span className='w-px flex-1 bg-zinc-200 dark:bg-zinc-700' />
+                    <span className='size-2 rounded-full bg-muted-foreground' />
+                    <span className='w-px flex-1 bg-border' />
                   </div>
                   <div className='flex-1 min-w-0 space-y-1'>
-                    <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+                    <p className='text-xs text-muted-foreground'>
                       {formattedDate}
                     </p>
-                    <p className='text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2'>
+                    <p className='text-sm text-foreground line-clamp-2'>
                       {entry.tldr}
                     </p>
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div className='border-t border-zinc-200 dark:border-zinc-800 px-4 py-3'>
-                    <p className='text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+                  <div className='border-t border-border px-4 py-3'>
+                    <p className='text-sm text-foreground whitespace-pre-wrap'>
                       {entry.report}
                     </p>
                   </div>

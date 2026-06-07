@@ -84,13 +84,13 @@ export function TopBlockersList({
   }
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
-      <div className='px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
-        <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
+    <div className='rounded-lg border border-border overflow-hidden'>
+      <div className='px-4 py-3 border-b border-border'>
+        <p className='text-sm font-semibold text-foreground'>
           {intl.formatMessage({ id: 'summary.topBlockers' })}
         </p>
       </div>
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-zinc-100 dark:divide-zinc-800'>
+      <div className='grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-border'>
         {groups
           .filter(g => g.items.length > 0)
           .map(g => {
@@ -99,7 +99,7 @@ export function TopBlockersList({
             const hidden = g.items.length - visible.length
             return (
               <div key={g.key} className='p-4 space-y-2'>
-                <div className='flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+                <div className='flex items-center gap-2 text-xs font-medium text-muted-foreground'>
                   <g.Icon className='h-3.5 w-3.5' />
                   {intl.formatMessage({ id: g.labelKey })} ({g.items.length})
                 </div>
@@ -115,7 +115,7 @@ export function TopBlockersList({
                           {item.label}
                         </button>
                       ) : (
-                        <span className='text-sm text-zinc-700 dark:text-zinc-300'>
+                        <span className='text-sm text-foreground'>
                           {item.label}
                         </span>
                       )}
@@ -128,7 +128,7 @@ export function TopBlockersList({
                     onClick={() =>
                       setExpanded(prev => ({ ...prev, [g.key]: true }))
                     }
-                    className='text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    className='text-xs text-muted-foreground hover:text-foreground'
                   >
                     {intl.formatMessage(
                       { id: 'summary.showMore' },

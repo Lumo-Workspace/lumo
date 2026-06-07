@@ -36,8 +36,8 @@ export function StatusDistributionChart({
   )
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 space-y-3'>
-      <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+    <div className='rounded-lg border border-border bg-muted p-4 space-y-3'>
+      <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
         {intl.formatMessage({ id: 'summary.statusDistribution' })}
       </p>
 
@@ -57,7 +57,7 @@ export function StatusDistributionChart({
           })}
         </div>
       ) : (
-        <div className='h-3 rounded-full bg-zinc-200 dark:bg-zinc-800' />
+        <div className='h-3 rounded-full bg-muted' />
       )}
 
       <div className='flex flex-wrap gap-x-4 gap-y-1.5'>
@@ -68,10 +68,10 @@ export function StatusDistributionChart({
               <span
                 className={`inline-block size-2 rounded-full ${STATUS_BG_CLASS[key]}`}
               />
-              <span className='text-xs text-zinc-600 dark:text-zinc-400'>
+              <span className='text-xs text-muted-foreground'>
                 {STATUS_LABELS[key]}
               </span>
-              <span className='text-xs font-medium text-zinc-800 dark:text-zinc-200'>
+              <span className='text-xs font-medium text-foreground'>
                 {count}
               </span>
             </div>
