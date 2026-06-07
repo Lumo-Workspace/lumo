@@ -7,9 +7,16 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
 import { ContextTab } from './ContextTab'
+import { LineageTab } from './LineageTab'
 import { MemoryTab } from '../memory/MemoryTab'
 
-type TabValue = 'comments' | 'activity' | 'context' | 'agent' | 'memory'
+type TabValue =
+  | 'comments'
+  | 'activity'
+  | 'context'
+  | 'agent'
+  | 'memory'
+  | 'lineage'
 
 interface PullRequestSummary {
   id: string
@@ -113,6 +120,15 @@ export function TimelineTabs({
             defaultMessage: 'Memory',
           })}
         </button>
+        <button
+          className={tabClass(activeTab === 'lineage')}
+          onClick={() => setActiveTab('lineage')}
+        >
+          {intl.formatMessage({
+            id: 'task.lineage',
+            defaultMessage: 'Lineage',
+          })}
+        </button>
       </div>
 
       {activeTab === 'activity' && (
@@ -152,6 +168,12 @@ export function TimelineTabs({
           parentId={taskId}
           enabled={activeTab === 'memory'}
           memberNames={memoryMemberNames}
+        />
+      )}
+      {activeTab === 'lineage' && (
+        <LineageTab
+          taskIdentifier={taskIdentifier}
+          enabled={activeTab === 'lineage'}
         />
       )}
     </div>

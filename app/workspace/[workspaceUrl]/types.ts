@@ -583,3 +583,54 @@ export interface AgentRunSession {
 export interface AgentRunTimelineResponse {
   runs: AgentRunSession[]
 }
+
+// ── Lineage (read-only causal-trail panel, LUM-297) ──────────────────────────
+// Standalone client copy of lib/services/lineage.service.ts `LineageDto`. The
+// service is server-only (Prisma graph), so it cannot be imported into the
+// client bundle — keep this shape in sync with that DTO if the API changes.
+export type LineageOutcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
+
+export interface LineageTokens {
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+  total: number
+}
+
+export interface LineageFragment {
+  fragmentType: string
+  fragmentId: string
+  sourceLabel: string
+  outcome: LineageOutcome
+}
+
+export interface LineageGroup {
+  kind: 'run' | 'session' | 'orphan'
+  runId: string | null
+  sessionId: string | null
+  label: string
+  includedAt: string
+  cost: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreation: number
+    total: number
+    loopCount: number
+  } | null
+  fragments: LineageFragment[]
+}
+
+export interface LineageResponse {
+  task: { identifier: string; title: string; status: string }
+  totals: {
+    runCount: number
+    fragmentCount: number
+    edgeCount: number
+    tokens: LineageTokens
+    loopCount: number
+    outcomes: Record<LineageOutcome, number>
+  }
+  groups: LineageGroup[]
+}
