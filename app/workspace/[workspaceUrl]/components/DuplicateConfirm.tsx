@@ -33,7 +33,7 @@ const PRIORITY_LABEL: Record<string, string> = {
 function scoreBadgeClass(score: number): string {
   if (score >= 0.8) return 'text-red-600 dark:text-red-400'
   if (score >= 0.6) return 'text-amber-600 dark:text-amber-400'
-  return 'text-zinc-500 dark:text-zinc-400'
+  return 'text-muted-foreground'
 }
 
 interface DuplicateConfirmProps {
@@ -76,7 +76,7 @@ export function DuplicateConfirm({
           return (
             <div
               key={match.taskId}
-              className='flex items-center gap-3 px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50'
+              className='flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-muted/50'
             >
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-2 mb-1'>
@@ -88,11 +88,11 @@ export function DuplicateConfirm({
                       { score: Math.round(match.score * 100) }
                     )}
                   </span>
-                  <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
+                  <span className='text-sm font-medium text-foreground truncate'>
                     {match.title}
                   </span>
                 </div>
-                <div className='flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500'>
+                <div className='flex items-center gap-1 text-xs text-muted-foreground'>
                   <span>{identifier}</span>
                   <span>·</span>
                   <span>{STATUS_LABEL[match.status] ?? match.status}</span>
