@@ -43,7 +43,7 @@ export function SlackIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-zinc-400' />
+    <Loader2 size={16} className='animate-spin text-muted-foreground' />
   ) : status?.connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'slack.connected' })} />
   ) : isOwner ? (
@@ -70,12 +70,12 @@ export function SlackIntegrationCard({
       >
         {status?.connected ? (
           <>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+            <p className='text-xs text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'slack.connectedTo' },
                 {
                   teamName: (
-                    <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+                    <span className='font-medium text-foreground'>
                       {status.slackTeamName}
                     </span>
                   ),
@@ -83,7 +83,7 @@ export function SlackIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+            <p className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'slack.channelNote' })}
             </p>
           </>

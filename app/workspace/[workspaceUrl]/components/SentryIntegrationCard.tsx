@@ -49,7 +49,7 @@ export function SentryIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-zinc-400' />
+    <Loader2 size={16} className='animate-spin text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'sentry.connected' })} />
   ) : isOwner ? (
@@ -78,12 +78,12 @@ export function SentryIntegrationCard({
       >
         {connected ? (
           <>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+            <p className='text-xs text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'sentry.connectedTo' },
                 {
                   orgSlug: (
-                    <span className='font-medium text-zinc-700 dark:text-zinc-300 font-mono'>
+                    <span className='font-medium text-foreground font-mono'>
                       {status?.orgSlug}
                     </span>
                   ),
@@ -91,7 +91,7 @@ export function SentryIntegrationCard({
               )}
             </p>
 
-            <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+            <p className='text-xs text-muted-foreground'>
               {status?.lastWebhookAt
                 ? intl.formatMessage(
                     { id: 'sentry.lastWebhook' },

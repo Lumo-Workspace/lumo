@@ -91,7 +91,7 @@ export function LinkSlackPopover({
       <PopoverContent align='end' className='w-80 p-0'>
         {connected ? (
           <>
-            <div className='p-2 border-b border-zinc-100 dark:border-zinc-800'>
+            <div className='p-2 border-b border-border'>
               <input
                 type='url'
                 value={permalink}
@@ -106,7 +106,7 @@ export function LinkSlackPopover({
                 placeholder={intl.formatMessage({
                   id: 'task.contextLink.slack.placeholder',
                 })}
-                className='w-full text-sm bg-transparent outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 px-1 py-1 disabled:opacity-50'
+                className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
                 autoFocus
               />
             </div>
@@ -121,7 +121,7 @@ export function LinkSlackPopover({
           </>
         ) : (
           <div className='p-3 space-y-2'>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+            <p className='text-xs text-muted-foreground'>
               {intl.formatMessage({
                 id: 'task.contextLink.slack.errors.workspaceNotConnected',
               })}
