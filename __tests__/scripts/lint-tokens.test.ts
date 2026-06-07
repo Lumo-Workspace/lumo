@@ -173,6 +173,29 @@ describe('lint-tokens / isAllowed', () => {
         'app/workspace/[workspaceUrl]/components/bubble-menu/editor-colors.ts'
       )
     ).toBe(true)
+    // Document tag color palettes (payload hex hashed onto tags).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/document/tag-colors.ts'
+      )
+    ).toBe(true)
+    // Payload color constants (DB-stored data hex, not tokens).
+    expect(isAllowed('lib/constants/colors.ts')).toBe(true)
+    // Agent brand colors (per-agent badge accent).
+    expect(
+      isAllowed('app/workspace/[workspaceUrl]/components/AgentBadge.tsx')
+    ).toBe(true)
+    // Vendor brand logo SVGs (brand hex is the icon payload).
+    expect(
+      isAllowed('app/workspace/[workspaceUrl]/components/SlackIcon.tsx')
+    ).toBe(true)
+    expect(isAllowed('components/icons/SlackIcon.tsx')).toBe(true)
+    // Email templates (inline hex required — no CSS vars in email).
+    expect(
+      isAllowed('lib/integrations/email/templates/invite.ts')
+    ).toBe(true)
+    // Landing marketing surface (intentional brand fork).
+    expect(isAllowed('components/landing/ui/button.tsx')).toBe(true)
   })
 
   it('rejects business code paths', () => {

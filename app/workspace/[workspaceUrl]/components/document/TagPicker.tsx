@@ -5,17 +5,11 @@ import { useIntl } from 'react-intl'
 import { X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
+import { TAG_PICKER_COLORS } from './tag-colors'
 
 // ── Tag color helpers ─────────────────────────────────────────────────────
 
-const DEFAULT_COLORS = [
-  { bg: '#fff1f0', text: '#f5222d' }, // red
-  { bg: '#fff7e6', text: '#fa8c16' }, // orange
-  { bg: '#fffbe6', text: '#d4a012' }, // yellow
-  { bg: '#f6ffed', text: '#52c41a' }, // green
-  { bg: '#e6f7ff', text: '#1890ff' }, // blue
-  { bg: '#f9f0ff', text: '#722ed1' }, // purple
-]
+const DEFAULT_COLORS = TAG_PICKER_COLORS
 
 function getTagColor(tag: ApiTag): { bg: string; text: string } {
   if (tag.color) {
@@ -36,7 +30,7 @@ export function TagBadgeNew({ tag }: TagBadgeNewProps) {
   const color = getTagColor(tag)
   return (
     <span
-      className='inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap'
+      className='inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap'
       style={{ backgroundColor: color.bg, color: color.text }}
     >
       {tag.name}
@@ -199,11 +193,11 @@ export function TagPicker({
                 })
               : ''
           }
-          className='bg-transparent text-xs outline-none min-w-[80px] flex-1 placeholder:text-zinc-400 dark:placeholder:text-zinc-500'
+          className='bg-transparent text-xs outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
         />
       </div>
       {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (
-        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-md z-dropdown py-1'>
+        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-elevation-2 z-dropdown py-1'>
           {filteredSuggestions.slice(0, 5).map(tag => (
             <button
               key={tag.id}
