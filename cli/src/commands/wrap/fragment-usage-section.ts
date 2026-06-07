@@ -39,7 +39,7 @@ export class FragmentUsageSection implements WrapSection {
       creds: Credentials
       sessionId: string
       /** Raw --used value; undefined when the flag was not provided. */
-      used?: string
+      used?: string | undefined
     }
   ) {}
 
