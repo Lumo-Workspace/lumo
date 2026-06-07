@@ -102,7 +102,7 @@ export const TYPE_TIERS = [
   'caption',
 ] as const
 
-/** Elevation shadow utilities. */
+/** Elevation depth tiers (rendered with shadow-elevation-* utilities). */
 export const ELEVATIONS = ['elevation-1', 'elevation-2', 'elevation-3'] as const
 
 /** Radius tiers (`rounded-${tier}`). */
