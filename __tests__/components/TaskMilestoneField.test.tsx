@@ -95,4 +95,18 @@ describe('TaskMilestoneField', () => {
     renderField({ value: null, milestone: null })
     expect(screen.getByText('Milestone')).toBeInTheDocument()
   })
+
+  // Regression guard for LUM-306: a long milestone name overflowed the 288px
+  // sidebar because the value span (a flex child of the SelectTrigger) carried
+  // `truncate`'s white-space:nowrap with min-width:auto, so it refused to shrink
+  // and never ellipsised. The span must keep both `min-w-0` (lets it shrink
+  // below its content) and `truncate` for the ellipsis to take effect.
+  it('renders the milestone name in a shrinkable, truncating span', () => {
+    const longName = 'Context Lineage (System of Record) for the platform'
+    renderField({ value: 'ms_1', milestone: { id: 'ms_1', name: longName } })
+    const span = screen.getByText(longName)
+    expect(span.tagName).toBe('SPAN')
+    expect(span).toHaveClass('min-w-0')
+    expect(span).toHaveClass('truncate')
+  })
 })
