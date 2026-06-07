@@ -1241,3 +1241,35 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
   flex: 1;
   word-break: break-word;
 }
+
+/* ── Reduced motion (LUM-289) — vestibular-safety global degradation ──────────
+   When the OS "reduce motion" setting is on, collapse the LUM-284 motion tokens
+   and neutralize animations/transitions site-wide (this file is imported by the
+   root layout and re-imports landing.css, so the universal reset also covers the
+   landing decorative loops — wave-left/right, float-slow/medium, blob).
+
+   NEAR-ZERO duration, NOT `animation: none`, on purpose: entrance animations
+   like .animate-appear / .animate-appear-zoom / .animate-fade-in-up start from
+   opacity:0 and rely on their `forwards` fill to become visible (the landing
+   hero text is class opacity-0 + animate-appear). Killing the animation outright
+   would leave that content permanently invisible. A 0.01ms duration makes them
+   snap instantly to their final visible state; iteration-count:1 stops infinite
+   decorative loops after a single frame; transitions become instant. 0.01ms (not
+   0s) keeps animationend / transitionend events firing for any JS that awaits
+   them. Tokens collapse so anything reading them inline degrades too. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-duration-fast: 0.01ms;
+    --transition-duration-base: 0.01ms;
+    --transition-duration-slow: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
