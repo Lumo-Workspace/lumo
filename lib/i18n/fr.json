@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# tâche} other {# tâches}}",
   "trust.badge.weak": " · faible",
   "trust.tooltip.usage": "Utilisé dans {resolved} tâches résolues · {merged} fusionnées · signal d'utilisation réel",
-  "trust.tooltip.presence": "Co-chargé dans {resolved} tâches résolues · {merged} fusionnées · co-chargement uniquement, signal faible"
+  "trust.tooltip.presence": "Co-chargé dans {resolved} tâches résolues · {merged} fusionnées · co-chargement uniquement, signal faible",
+  "agentRun.byMember": "Par personne",
+  "agentRun.memberSummary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}}"
 }

@@ -685,6 +685,8 @@
   "agentRun.event.fileChangedFallback": "文件变更",
   "agentRun.event.configChangeFallback": "配置变更",
   "agentRun.summary": "{runs} 次运行 · {turns} 轮 · {models} 个 model",
+  "agentRun.byMember": "按人统计",
+  "agentRun.memberSummary": "{runs} 次运行 · {turns} 轮",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n} 次循环",
   "task.edited": "已编辑",

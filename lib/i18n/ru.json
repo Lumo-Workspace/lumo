@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# задача} few {# задачи} other {# задач}}",
   "trust.badge.weak": " · слабый",
   "trust.tooltip.usage": "Использован в {resolved} завершённых задачах · {merged} влито · реальный сигнал использования",
-  "trust.tooltip.presence": "Совместно загружен в {resolved} завершённых задачах · {merged} влито · только совместная загрузка, слабый сигнал"
+  "trust.tooltip.presence": "Совместно загружен в {resolved} завершённых задачах · {merged} влито · только совместная загрузка, слабый сигнал",
+  "agentRun.byMember": "По участникам",
+  "agentRun.memberSummary": "{runs, plural, one {# запуск} few {# запуска} other {# запусков}} · {turns, plural, one {# ход} few {# хода} other {# ходов}}"
 }

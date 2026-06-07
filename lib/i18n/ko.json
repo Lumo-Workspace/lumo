@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n}개 작업",
   "trust.badge.weak": " · 약함",
   "trust.tooltip.usage": "{resolved}개의 완료된 작업에서 사용 · {merged}개 병합 · 실제 사용 신호",
-  "trust.tooltip.presence": "{resolved}개의 완료된 작업과 함께 로드 · {merged}개 병합 · 공동 로드만, 약한 신호"
+  "trust.tooltip.presence": "{resolved}개의 완료된 작업과 함께 로드 · {merged}개 병합 · 공동 로드만, 약한 신호",
+  "agentRun.byMember": "사용자별",
+  "agentRun.memberSummary": "{runs, plural, other {# 회 실행}} · {turns, plural, other {# 턴}}"
 }

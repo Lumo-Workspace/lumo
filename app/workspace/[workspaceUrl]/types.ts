@@ -597,6 +597,19 @@ export interface AgentRunSession {
   items: AgentRunItem[]
 }
 
+/** Per-person token spend on a task (LUM-307). One entry per workspace member
+ *  with captured cost; resolved Clerk name + avatar for display. */
+export interface AgentRunMemberStat {
+  workspaceMemberId: string
+  clerkId: string | null
+  name: string
+  imageUrl: string
+  runCount: number
+  turnCount: number
+  loopCount: number
+  byModel: ModelCost[]
+}
+
 export interface AgentRunTimelineResponse {
   runs: AgentRunSession[]
   totals: {
@@ -605,6 +618,9 @@ export interface AgentRunTimelineResponse {
     loopCount: number
     byModel: ModelCost[]
   }
+  /** Token spend grouped by owning member, sorted by spend desc; empty when
+   *  no run captured usage. */
+  perMember: AgentRunMemberStat[]
 }
 
 // ── Lineage (read-only causal-trail panel, LUM-297) ──────────────────────────

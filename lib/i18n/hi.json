@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# कार्य} other {# कार्य}}",
   "trust.badge.weak": " · कमज़ोर",
   "trust.tooltip.usage": "{resolved} हल किए गए कार्यों में उपयोग · {merged} मर्ज · वास्तविक उपयोग संकेत",
-  "trust.tooltip.presence": "{resolved} हल किए गए कार्यों के साथ सह-लोड · {merged} मर्ज · केवल सह-लोड, कमज़ोर संकेत"
+  "trust.tooltip.presence": "{resolved} हल किए गए कार्यों के साथ सह-लोड · {merged} मर्ज · केवल सह-लोड, कमज़ोर संकेत",
+  "agentRun.byMember": "व्यक्ति अनुसार",
+  "agentRun.memberSummary": "{runs, plural, one {# रन} other {# रन}} · {turns, plural, one {# चक्र} other {# चक्र}}"
 }

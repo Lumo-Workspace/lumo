@@ -7,6 +7,7 @@ import {
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
+import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
 import type { HookEventType, MemoryCategory } from '@prisma/client'
 import { TaskArtifactAgent } from '@prisma/client'
 
@@ -53,6 +54,28 @@ export interface AgentRunSession {
   items: AgentRunItem[]
 }
 
+/**
+ * Per-person token spend on a task (LUM-307). One entry per workspace member
+ * who has at least one run with captured cost — the natural attribution unit
+ * is the run (= a Session), since a Session is owned end-to-end by one member.
+ * Members whose runs captured no usage (historical / pre-LUM-281 rows) are
+ * omitted, mirroring `totals.byModel`, rather than shown as a row of zeros.
+ */
+export interface AgentRunMemberCost {
+  workspaceMemberId: string
+  clerkId: string | null
+  runCount: number
+  turnCount: number
+  loopCount: number
+  byModel: ModelCost[]
+}
+
+/** Wire shape: aggregation + Clerk-resolved display name / avatar. */
+export interface AgentRunMemberStat extends AgentRunMemberCost {
+  name: string
+  imageUrl: string
+}
+
 export interface AgentRunTimelineResult {
   runs: AgentRunSession[]
   totals: {
@@ -61,6 +84,88 @@ export interface AgentRunTimelineResult {
     loopCount: number
     byModel: ModelCost[]
   }
+  /** Token spend grouped by the member who owns each run. Sorted by spend
+   *  desc; empty when no run on this task captured usage. */
+  perMember: AgentRunMemberStat[]
+}
+
+/** Per-run input to {@link aggregateRunsByMember}; null member = orphan run. */
+export interface MemberRunInput {
+  workspaceMemberId: string | null
+  clerkId: string | null
+  turnCount: number
+  loopCount: number | null
+  byModel: ModelCost[] | null
+}
+
+/**
+ * Group runs by workspace member and sum their token cost. Pure — no I/O, so
+ * the grouping rules are unit-testable in isolation from the DB and Clerk:
+ *  - runs with no member (unlinked / orphan sessions) are dropped;
+ *  - a member whose merged cost is empty (all runs captured no usage) is
+ *    omitted entirely, so callers render nothing rather than a zero row;
+ *  - clerkId is backfilled from the first run that carries one;
+ *  - output is sorted by total spend desc, tie-broken by member id for
+ *    deterministic ordering across requests.
+ */
+export function aggregateRunsByMember(
+  runs: MemberRunInput[]
+): AgentRunMemberCost[] {
+  const acc = new Map<
+    string,
+    {
+      clerkId: string | null
+      runCount: number
+      turnCount: number
+      loopCount: number
+      lists: (ModelCost[] | null)[]
+    }
+  >()
+  for (const r of runs) {
+    if (!r.workspaceMemberId) continue
+    const cur = acc.get(r.workspaceMemberId) ?? {
+      clerkId: null,
+      runCount: 0,
+      turnCount: 0,
+      loopCount: 0,
+      lists: [],
+    }
+    cur.runCount += 1
+    cur.turnCount += r.turnCount
+    cur.loopCount += r.loopCount ?? 0
+    cur.lists.push(r.byModel)
+    if (!cur.clerkId && r.clerkId) cur.clerkId = r.clerkId
+    acc.set(r.workspaceMemberId, cur)
+  }
+
+  const out: AgentRunMemberCost[] = []
+  for (const [workspaceMemberId, v] of acc) {
+    const byModel = mergeModelCosts(v.lists)
+    if (byModel.length === 0) continue
+    out.push({
+      workspaceMemberId,
+      clerkId: v.clerkId,
+      runCount: v.runCount,
+      turnCount: v.turnCount,
+      loopCount: v.loopCount,
+      byModel,
+    })
+  }
+
+  const spend = (m: AgentRunMemberCost) =>
+    m.byModel.reduce((n, c) => n + c.total, 0)
+  return out.sort((a, b) => {
+    const d = spend(b) - spend(a)
+    if (d !== 0) return d
+    return a.workspaceMemberId.localeCompare(b.workspaceMemberId)
+  })
+}
+
+/** STOP / STOP_FAILURE items on a run = its turn count. */
+function countTurns(run: AgentRunSession): number {
+  return run.items.filter(
+    i => i.kind === 'hook' && (i.type === 'STOP' || i.type === 'STOP_FAILURE')
+  ).length
 }
 
 export const agentRunTimelineService = {
@@ -127,6 +232,18 @@ export const agentRunTimelineService = {
     const orderedSessions = [...sessions].sort(
       (a, b) => a.startedAt.getTime() - b.startedAt.getTime()
     )
+
+    // sessionId -> owning member, for the per-person cost rollup below.
+    const memberBySession = new Map<
+      string,
+      { workspaceMemberId: string | null; clerkId: string | null }
+    >()
+    for (const s of orderedSessions) {
+      memberBySession.set(s.id, {
+        workspaceMemberId: s.workspaceMemberId ?? null,
+        clerkId: s.member?.clerkId ?? null,
+      })
+    }
 
     const runs: AgentRunSession[] = orderedSessions.map((s, i) => {
       const sessionEvents = eventsBySession.get(s.id) ?? []
@@ -202,20 +319,34 @@ export const agentRunTimelineService = {
     const ordered = nonEmptyRuns.reverse()
     const totals = {
       runCount: ordered.length,
-      turnCount: ordered.reduce(
-        (n, r) =>
-          n +
-          r.items.filter(
-            i =>
-              i.kind === 'hook' &&
-              (i.type === 'STOP' || i.type === 'STOP_FAILURE')
-          ).length,
-        0
-      ),
+      turnCount: ordered.reduce((n, r) => n + countTurns(r), 0),
       loopCount: ordered.reduce((n, r) => n + (r.cost?.loopCount ?? 0), 0),
       byModel: mergeModelCosts(ordered.map(r => r.cost?.byModel ?? null)),
     }
-    return { runs: ordered, totals }
+
+    // Per-person rollup: attribute each run to its owning member (orphan runs
+    // with sessionId=null have no member and are dropped by the aggregator).
+    const memberCosts = aggregateRunsByMember(
+      ordered.map(r => {
+        const owner = r.sessionId ? memberBySession.get(r.sessionId) : undefined
+        return {
+          workspaceMemberId: owner?.workspaceMemberId ?? null,
+          clerkId: owner?.clerkId ?? null,
+          turnCount: countTurns(r),
+          loopCount: r.cost?.loopCount ?? null,
+          byModel: r.cost?.byModel ?? null,
+        }
+      })
+    )
+    const enriched = await enrichClerkUsers(
+      memberCosts.map(m => m.clerkId).filter((c): c is string => c !== null)
+    )
+    const perMember: AgentRunMemberStat[] = memberCosts.map(m => {
+      const user = m.clerkId ? enriched.get(m.clerkId) : undefined
+      return { ...m, name: user?.name ?? 'Unknown', imageUrl: user?.imageUrl ?? '' }
+    })
+
+    return { runs: ordered, totals, perMember }
   },
 }
 

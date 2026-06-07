@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# tarea} other {# tareas}}",
   "trust.badge.weak": " · débil",
   "trust.tooltip.usage": "Usado en {resolved} tareas resueltas · {merged} fusionadas · señal de uso real",
-  "trust.tooltip.presence": "Cargado junto en {resolved} tareas resueltas · {merged} fusionadas · solo co-carga, señal débil"
+  "trust.tooltip.presence": "Cargado junto en {resolved} tareas resueltas · {merged} fusionadas · solo co-carga, señal débil",
+  "agentRun.byMember": "Por persona",
+  "agentRun.memberSummary": "{runs, plural, one {# ejecución} other {# ejecuciones}} · {turns, plural, one {# turno} other {# turnos}}"
 }
