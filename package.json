@@ -8,9 +8,10 @@
     "cli"
   ],
   "scripts": {
-    "predev": "tsx scripts/fix-nodemodules-selflink.ts",
+    "predev": "npm run build:shared && tsx scripts/fix-nodemodules-selflink.ts",
     "dev": "next dev",
-    "prebuild": "tsx scripts/fix-nodemodules-selflink.ts",
+    "build:shared": "tsc -b shared",
+    "prebuild": "npm run build:shared && tsx scripts/fix-nodemodules-selflink.ts",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
