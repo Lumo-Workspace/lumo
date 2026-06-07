@@ -92,7 +92,7 @@
   "priority.preferenceRecorded": "Préférence enregistrée",
   "priority.recommended": "Recommandé : {priority}",
   "priority.similarTasks": "{count} tâches similaires :",
-  "priority.urgent": "Urgent",
+  "priority.urgent": "Urgente",
   "aiDesc.generating": "Génération de la description...",
   "aiDesc.preview": "Aperçu généré par l'IA",
   "aiDesc.useThis": "Utiliser celui-ci",
