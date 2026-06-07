@@ -8,7 +8,7 @@ export interface ModelCost {
   total: number
 }
 
-interface ModelUsage {
+export interface ModelUsage {
   input: number
   output: number
   cacheRead: number

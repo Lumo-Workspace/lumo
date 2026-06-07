@@ -5,6 +5,7 @@ import {
   toModelCosts,
   mergeModelCosts,
   type ModelCost,
+  type ModelUsage,
 } from '@/lib/services/model-cost'
 import type {
   HookEventType,
@@ -98,7 +99,7 @@ export const agentRunTimelineService = {
           ev.type === 'STOP' || ev.type === 'STOP_FAILURE'
             ? (() => {
                 const byModel = toModelCosts(
-                  ev.usageByModel as Record<string, never> | null
+                  ev.usageByModel as Record<string, ModelUsage> | null
                 )
                 return byModel ? { byModel } : null
               })()
@@ -139,7 +140,7 @@ export const agentRunTimelineService = {
         e => e.type === 'PRE_TOOL_USE'
       ).length
       const costByModel = toModelCosts(
-        s.usageByModel as Record<string, never> | null
+        s.usageByModel as Record<string, ModelUsage> | null
       )
 
       return {

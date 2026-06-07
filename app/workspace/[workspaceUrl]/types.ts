@@ -507,6 +507,9 @@ export interface TimelineResponse {
 
 // ── Agent Run timeline (Claude Code hook events grouped by Session) ──────────
 
+// Client copy of lib/services/model-cost.ts `ModelCost`. Kept here because
+// lib/services/* is server-only by convention (may later acquire Prisma/Node
+// imports), so it can't be imported into the client bundle. Keep fields in sync.
 export interface ModelCost {
   model: string
   input: number

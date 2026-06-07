@@ -137,6 +137,12 @@ it('leaves cost null when a session captured no usage', async () => {
       createdAt: t0,
     },
   ])
-  const { runs } = await agentRunTimelineService.getTimeline('task_1')
+  const { runs, totals } = await agentRunTimelineService.getTimeline('task_1')
   expect(runs[0]!.cost).toBeNull()
+  expect(totals).toEqual({
+    runCount: 1,
+    turnCount: 0,
+    loopCount: 0,
+    byModel: [],
+  })
 })
