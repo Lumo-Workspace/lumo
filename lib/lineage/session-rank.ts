@@ -53,16 +53,21 @@ export async function rankSessionStartCards<
   deps: SessionRankDeps
 ): Promise<SessionStartCards<S, W, F, P>> {
   try {
-    // 1. Dedup memories by canonical id. orderedMemories is project-first, so
+    // 1. Dedup memories by canonical id. Resolve all canonicals in parallel
+    //    (session-start is latency-budgeted — avoid serial round-trips), then
+    //    keep-first in the original order. orderedMemories is project-first, so
     //    keep-first retains the promoted PROJECT row and drops the TASK dup.
+    const canonicalIds = await Promise.all(
+      cards.memories.map(m => deps.resolveCanonical('MEMORY', m.id))
+    )
     const resolved: { memory: RenderableMemory; canonicalId: string }[] = []
     const seen = new Set<string>()
-    for (const memory of cards.memories) {
-      const canonicalId = await deps.resolveCanonical('MEMORY', memory.id)
-      if (seen.has(canonicalId)) continue
+    cards.memories.forEach((memory, i) => {
+      const canonicalId = canonicalIds[i] as string
+      if (seen.has(canonicalId)) return
       seen.add(canonicalId)
       resolved.push({ memory, canonicalId })
-    }
+    })
 
     // 2. Score every fragment in one query. Memory by canonical id; the other
     //    types never re-key, so their raw id is the lineage key.
