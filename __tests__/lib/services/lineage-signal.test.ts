@@ -101,4 +101,28 @@ describe('assembleLineageSection', () => {
     )
     expect(out).toContain('- [WEB_LINK] weblink1 — 出现在 3 个已闭合任务·3 merged (100%)')
   })
+
+  it('dedupes fragments that resolve to the same canonical id (first wins)', async () => {
+    const out = await assembleLineageSection(
+      [
+        { type: 'MEMORY', id: 'mem-a' },
+        { type: 'MEMORY', id: 'mem-b' },
+      ],
+      new Map([
+        ['mem-a', 'first label wins'],
+        ['mem-b', 'second label loses'],
+      ]),
+      {
+        resolveCanonicalFragment: async (_t, _id) => 'mem-canon', // both collapse
+        mergeRateByFragments: async () => [
+          { fragmentType: 'MEMORY', fragmentId: 'mem-canon', resolvedTasks: 4, mergedTasks: 3 },
+        ],
+      }
+    )
+    // Exactly one signal line, using the first fragment's label
+    expect(out).toContain('- [MEMORY] "first label wins" — 出现在 4 个已闭合任务·3 merged (75%)')
+    expect(out).not.toContain('second label loses')
+    const lineCount = out.split('\n').filter(l => l.startsWith('- ')).length
+    expect(lineCount).toBe(1)
+  })
 })
