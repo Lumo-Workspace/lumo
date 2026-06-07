@@ -30,7 +30,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           className={
             hasMemory
               ? 'text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300'
-              : 'text-[11px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'
+              : 'text-[11px] font-medium uppercase tracking-wide text-muted-foreground'
           }
         >
           {intl.formatMessage(
@@ -38,11 +38,11 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             { n: turnNumber }
           )}
         </span>
-        <span className='text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500'>
+        <span className='text-[11px] tabular-nums text-muted-foreground'>
           {timeRange}
         </span>
         {!turn.terminated && (
-          <span className='text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 px-1.5 py-px rounded bg-amber-50 dark:bg-amber-950/40'>
+          <span className='text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 px-1.5 py-px rounded-sm bg-amber-50 dark:bg-amber-950/40'>
             {intl.formatMessage({
               id: 'agentRun.unterminatedTurn',
               defaultMessage: '未终止',
@@ -55,7 +55,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           condensed to a one-line headline. Full text stays visible in
           the expanded STOP event row. */}
       {turn.summary && (
-        <p className='mb-2 px-1 text-sm text-zinc-700 dark:text-zinc-300 truncate'>
+        <p className='mb-2 px-1 text-sm text-foreground truncate'>
           {turn.summary}
         </p>
       )}
@@ -68,9 +68,9 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
           ))}
         </div>
       ) : (
-        <div className='flex items-center gap-2 rounded-md border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/30 px-4 py-2'>
-          <MoonStar className='size-3.5 text-zinc-400 shrink-0' />
-          <span className='text-xs text-zinc-500 dark:text-zinc-400'>
+        <div className='flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/60 px-4 py-2'>
+          <MoonStar className='size-3.5 text-muted-foreground shrink-0' />
+          <span className='text-xs text-muted-foreground'>
             {turn.summary
               ? intl.formatMessage({
                   id: 'agentRun.silentTurnWithSummary',
@@ -93,7 +93,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
             className={
               hasMemory
                 ? 'flex items-center gap-1 text-[11px] text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors'
-                : 'flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+                : 'flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors'
             }
           >
             {expanded ? (
@@ -138,7 +138,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
               className={
                 hasMemory
                   ? 'mt-2 ml-4 pl-3 border-l-2 border-violet-200 dark:border-violet-900/60'
-                  : 'mt-2 ml-4 pl-3 border-l-2 border-zinc-200 dark:border-zinc-800'
+                  : 'mt-2 ml-4 pl-3 border-l-2 border-border'
               }
             >
               {turn.events.map(ev => (
