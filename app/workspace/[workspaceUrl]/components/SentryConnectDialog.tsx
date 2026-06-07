@@ -67,7 +67,7 @@ export function SentryConnectDialog({
             <p className='font-medium'>
               {intl.formatMessage({ id: 'sentry.connectStep1Title' })}
             </p>
-            <p className='mt-1 text-xs text-zinc-500'>
+            <p className='mt-1 text-xs text-muted-foreground'>
               <FormattedMessage
                 id='sentry.connectStep1Desc'
                 values={{
@@ -76,11 +76,11 @@ export function SentryConnectDialog({
               />
             </p>
             <div className='mt-2 flex items-center gap-2'>
-              <code className='flex-1 rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 font-mono text-xs break-all'>
+              <code className='flex-1 rounded-md bg-muted px-2 py-1 font-mono text-xs break-all'>
                 {webhookUrl}
               </code>
               <button
-                className='text-xs px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700'
+                className='text-xs px-2 py-1 rounded-md border border-border'
                 onClick={() => navigator.clipboard.writeText(webhookUrl)}
               >
                 {intl.formatMessage({ id: 'common.copy' })}
@@ -94,25 +94,25 @@ export function SentryConnectDialog({
             </p>
             <div className='mt-2 space-y-2'>
               <label className='block'>
-                <span className='text-xs text-zinc-600 dark:text-zinc-300'>
+                <span className='text-xs text-foreground'>
                   {intl.formatMessage({ id: 'sentry.connectOrgSlugLabel' })}
                 </span>
                 <input
-                  className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-sm'
+                  className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm'
                   value={orgSlug}
                   onChange={e => setOrgSlug(e.target.value)}
                   placeholder='acme-inc'
                 />
               </label>
               <label className='block'>
-                <span className='text-xs text-zinc-600 dark:text-zinc-300'>
+                <span className='text-xs text-foreground'>
                   {intl.formatMessage({
                     id: 'sentry.connectClientSecretLabel',
                   })}
                 </span>
                 <input
                   type='password'
-                  className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-sm'
+                  className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm'
                   value={clientSecret}
                   onChange={e => setClientSecret(e.target.value)}
                 />
@@ -122,14 +122,14 @@ export function SentryConnectDialog({
 
           <div className='flex justify-end gap-2 pt-2'>
             <button
-              className='text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700'
+              className='text-xs px-3 py-1.5 rounded-md border border-border'
               onClick={() => onOpenChange(false)}
               disabled={submitting}
             >
               {intl.formatMessage({ id: 'common.cancel' })}
             </button>
             <button
-              className='text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 disabled:opacity-50'
+              className='text-xs px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
               onClick={submit}
               disabled={submitting || !orgSlug || !clientSecret}
             >

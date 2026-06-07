@@ -94,17 +94,17 @@ export function IntegrationCard({
   const hasMenu = Boolean(onReconnect || onDisconnect)
 
   return (
-    <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
-      <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
+    <div className='rounded-xl border border-border overflow-hidden'>
+      <div className='flex items-center justify-between px-6 py-5 bg-card'>
         <div className='flex items-center gap-3 min-w-0'>
-          <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300'>
+          <div className='size-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-foreground'>
             {icon}
           </div>
           <div className='min-w-0'>
-            <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+            <p className='text-sm font-semibold text-foreground'>
               {title}
             </p>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+            <p className='text-xs text-muted-foreground'>
               {description}
             </p>
           </div>
@@ -160,7 +160,7 @@ export function IntegrationCard({
         </div>
       </div>
       {bodyVisible ? (
-        <div className='border-t border-zinc-100 dark:border-zinc-800 px-6 py-5 bg-zinc-50 dark:bg-zinc-900/50 space-y-4'>
+        <div className='border-t border-border px-6 py-5 bg-muted/50 space-y-4'>
           {children}
         </div>
       ) : null}

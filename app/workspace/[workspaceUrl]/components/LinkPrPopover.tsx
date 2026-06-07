@@ -123,7 +123,7 @@ export function LinkPrPopover({
           />
         </PopoverTrigger>
         <PopoverContent align='end' className='w-80 p-0'>
-          <div className='p-2 border-b border-zinc-100 dark:border-zinc-800'>
+          <div className='p-2 border-b border-border'>
             <input
               ref={inputRef}
               type='text'
@@ -132,7 +132,7 @@ export function LinkPrPopover({
               })}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className='w-full text-sm bg-transparent outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 px-1 py-1'
+              className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1'
             />
           </div>
 
@@ -142,16 +142,16 @@ export function LinkPrPopover({
               <button
                 onClick={() => handleLink({ url: query.trim() })}
                 disabled={linking}
-                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50'
+                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50'
               >
-                <LinkIcon size={14} className='shrink-0 text-zinc-400' />
-                <span className='text-zinc-700 dark:text-zinc-300'>
+                <LinkIcon size={14} className='shrink-0 text-muted-foreground' />
+                <span className='text-foreground'>
                   {intl.formatMessage({ id: 'linkPr.linkFromUrl' })}
                 </span>
                 {linking && (
                   <Loader2
                     size={12}
-                    className='ml-auto animate-spin text-zinc-400'
+                    className='ml-auto animate-spin text-muted-foreground'
                   />
                 )}
               </button>
@@ -160,7 +160,7 @@ export function LinkPrPopover({
             {/* Loading */}
             {loading && !isUrl && (
               <div className='flex items-center justify-center py-4'>
-                <Loader2 size={14} className='animate-spin text-zinc-400' />
+                <Loader2 size={14} className='animate-spin text-muted-foreground' />
               </div>
             )}
 
@@ -174,24 +174,24 @@ export function LinkPrPopover({
                     key={pr.id}
                     onClick={() => handleLink({ prId: pr.id })}
                     disabled={linking}
-                    className='w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50'
+                    className='w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50'
                   >
                     <div className='min-w-0 flex-1'>
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-[11px] text-zinc-400 shrink-0'>
+                        <span className='text-[11px] text-muted-foreground shrink-0'>
                           {pr.repo}
                         </span>
-                        <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
+                        <span className='text-xs font-medium text-foreground'>
                           #{pr.number}
                         </span>
                       </div>
-                      <p className='text-xs text-zinc-600 dark:text-zinc-400 truncate mt-0.5'>
+                      <p className='text-xs text-muted-foreground truncate mt-0.5'>
                         {pr.title}
                       </p>
                       <div className='flex items-center gap-1.5 mt-1'>
                         <PrStateBadge state={pr.state} />
                         {linkedToOther && (
-                          <span className='text-[10px] text-zinc-400'>
+                          <span className='text-[10px] text-muted-foreground'>
                             {intl.formatMessage(
                               { id: 'linkPr.linkedTo' },
                               {
@@ -208,14 +208,14 @@ export function LinkPrPopover({
 
             {/* Empty state */}
             {!loading && !isUrl && query.trim() && results.length === 0 && (
-              <div className='px-3 py-4 text-xs text-zinc-400 text-center'>
+              <div className='px-3 py-4 text-xs text-muted-foreground text-center'>
                 {intl.formatMessage({ id: 'linkPr.empty' })}
               </div>
             )}
 
             {/* Initial state */}
             {!query.trim() && (
-              <div className='px-3 py-4 text-xs text-zinc-400 text-center'>
+              <div className='px-3 py-4 text-xs text-muted-foreground text-center'>
                 {intl.formatMessage({ id: 'linkPr.initial' })}
               </div>
             )}
@@ -242,7 +242,7 @@ export function LinkPrPopover({
                   identifier: conflict?.taskIdentifier ?? '',
                   title: conflict?.taskTitle ?? '',
                   strong: chunks => (
-                    <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+                    <span className='font-medium text-foreground'>
                       {chunks}
                     </span>
                   ),

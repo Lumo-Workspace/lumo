@@ -122,7 +122,7 @@ export function LinkDocPopover({
         <SectionAddButton label={label} />
       </PopoverTrigger>
       <PopoverContent align='end' className='w-96 p-0'>
-        <div className='p-2 border-b border-zinc-100 dark:border-zinc-800'>
+        <div className='p-2 border-b border-border'>
           <input
             type='text'
             value={query}
@@ -137,7 +137,7 @@ export function LinkDocPopover({
             placeholder={intl.formatMessage({
               id: 'task.contextLink.doc.placeholder',
             })}
-            className='w-full text-sm bg-transparent outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 px-1 py-1 disabled:opacity-50'
+            className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
             autoFocus
           />
         </div>
@@ -148,21 +148,21 @@ export function LinkDocPopover({
                 type='button'
                 onClick={() => attachAndClose({ documentId: r.id })}
                 disabled={submitting}
-                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50'
+                className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50'
               >
                 {r.emoji ? (
                   <span className='shrink-0'>{r.emoji}</span>
                 ) : (
-                  <FileText size={14} className='shrink-0 text-zinc-400' />
+                  <FileText size={14} className='shrink-0 text-muted-foreground' />
                 )}
-                <span className='text-zinc-700 dark:text-zinc-300 truncate'>
+                <span className='text-foreground truncate'>
                   {r.title}
                 </span>
               </button>
             </li>
           ))}
           {showEmpty && (
-            <li className='px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+            <li className='px-3 py-2 text-xs text-muted-foreground text-center'>
               {intl.formatMessage({ id: 'task.contextLink.doc.searchEmpty' })}
             </li>
           )}

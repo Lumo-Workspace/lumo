@@ -90,7 +90,7 @@ export function GitHubIntegrationCard({
           <>
             {/* Authorized repos */}
             <div>
-              <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2'>
+              <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2'>
                 {intl.formatMessage({ id: 'github.authorizedRepos' })}
               </p>
 
@@ -99,15 +99,15 @@ export function GitHubIntegrationCard({
                   {status.repositories.map(repo => (
                     <li
                       key={repo}
-                      className='flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm'
+                      className='flex items-center justify-between px-3 py-2 rounded-lg bg-card border border-border text-sm'
                     >
-                      <span className='text-zinc-700 dark:text-zinc-300 font-mono text-xs'>
+                      <span className='text-foreground font-mono text-xs'>
                         {repo}
                       </span>
                       {isOwner && (
                         <button
                           onClick={() => handleRemoveRepo(repo)}
-                          className='text-zinc-400 hover:text-red-500 transition-colors ml-3 shrink-0'
+                          className='text-muted-foreground hover:text-red-500 transition-colors ml-3 shrink-0'
                           title={intl.formatMessage({
                             id: 'github.removeRepo',
                           })}
@@ -119,7 +119,7 @@ export function GitHubIntegrationCard({
                   ))}
                 </ul>
               ) : (
-                <p className='text-xs text-zinc-400 dark:text-zinc-500 italic'>
+                <p className='text-xs text-muted-foreground italic'>
                   {intl.formatMessage({ id: 'github.noRepos' })}
                 </p>
               )}
@@ -186,7 +186,7 @@ export function GitHubIntegrationCard({
 
           {loadingRepos ? (
             <div className='flex items-center justify-center py-8'>
-              <Loader2 size={20} className='animate-spin text-zinc-400' />
+              <Loader2 size={20} className='animate-spin text-muted-foreground' />
             </div>
           ) : (
             <ul className='max-h-72 overflow-y-auto space-y-1'>
@@ -196,14 +196,14 @@ export function GitHubIntegrationCard({
                   <li key={repo.fullName}>
                     <button
                       onClick={() => handleAddRepo(repo.fullName)}
-                      className='w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left'
+                      className='w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left'
                     >
-                      <GitBranch size={14} className='text-zinc-400 shrink-0' />
-                      <span className='text-sm text-zinc-700 dark:text-zinc-300 font-mono'>
+                      <GitBranch size={14} className='text-muted-foreground shrink-0' />
+                      <span className='text-sm text-foreground font-mono'>
                         {repo.fullName}
                       </span>
                       {repo.private && (
-                        <span className='ml-auto text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'>
+                        <span className='ml-auto text-[10px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground'>
                           {intl.formatMessage({ id: 'github.private' })}
                         </span>
                       )}
@@ -213,7 +213,7 @@ export function GitHubIntegrationCard({
               {availableRepos.filter(
                 r => !status?.repositories?.includes(r.fullName)
               ).length === 0 && (
-                <p className='text-xs text-zinc-400 text-center py-6'>
+                <p className='text-xs text-muted-foreground text-center py-6'>
                   {intl.formatMessage({ id: 'github.allReposAdded' })}
                 </p>
               )}
