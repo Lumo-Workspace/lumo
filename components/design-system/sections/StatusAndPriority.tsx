@@ -46,7 +46,10 @@ export function StatusAndPriority() {
         {STATUS_TOKENS.map(token => (
           <VariantCell key={token} label={token}>
             <span className='flex items-center gap-2 text-body text-foreground'>
-              <span className={`inline-block size-3 rounded-full bg-${token}`} />
+              <span
+                className='inline-block size-3 rounded-full'
+                style={{ backgroundColor: `var(--${token})` }}
+              />
               {token.replace('status-', '')}
             </span>
           </VariantCell>
@@ -59,7 +62,10 @@ export function StatusAndPriority() {
         {PRIORITY_TOKENS.map(token => (
           <VariantCell key={token} label={token}>
             <span className='flex items-center gap-2 text-body text-foreground'>
-              <span className={`inline-block size-3 rounded-full bg-${token}`} />
+              <span
+                className='inline-block size-3 rounded-full'
+                style={{ backgroundColor: `var(--${token})` }}
+              />
               {token.replace('priority-', '')}
             </span>
           </VariantCell>

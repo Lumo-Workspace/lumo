@@ -6,7 +6,7 @@ export interface TokenGroup {
   /** Anchor id + nav label. */
   id: string
   title: string
-  /** Utility base names: `name` → `bg-${name}` / `text-${name}`. */
+  /** Token base names: `name` → `var(--${name})` (see Swatch). */
   tokens: string[]
 }
 
