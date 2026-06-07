@@ -27,7 +27,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 
-export type Rule = 'hex' | 'palette' | 'radius' | 'shadow'
+export type Rule = 'hex' | 'palette' | 'radius' | 'shadow' | 'zindex'
 
 export type Violation = {
   file: string
@@ -104,6 +104,11 @@ const BARE_ROUNDED_RE = /\brounded(?![-\w])/g
 const SHADOW_RE =
   /(?<![-\w])shadow(?:-(?:xs|sm|md|lg|xl|2xl)|-\[[^\]]*\])?(?![-\w])/g
 
+// Arbitrary Tailwind z-index utility (z-[1], z-[100], z-[calc(...)]). Named
+// tiers (z-dropdown / z-modal / ...) and the default scale (z-10/z-50) are
+// allowed; only the arbitrary escape hatch bypasses the semantic z scale.
+const Z_ARBITRARY_RE = /\bz-\[[^\]]+\]/g
+
 const BASELINE_FILE = 'scripts/lint-tokens.baseline.json'
 
 function normalizePath(p: string): string {
@@ -173,6 +178,16 @@ export function detectViolations(
         rule: 'shadow',
       })
     }
+    Z_ARBITRARY_RE.lastIndex = 0
+    while ((m = Z_ARBITRARY_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'zindex',
+      })
+    }
   }
   return out
 }
@@ -182,6 +197,7 @@ const RULE_LABELS: Record<Rule, string> = {
   palette: 'palette class',
   radius: 'bare rounded ',
   shadow: 'raw shadow   ',
+  zindex: 'arbitrary z  ',
 }
 
 export function countByFile(violations: Violation[]): Baseline {

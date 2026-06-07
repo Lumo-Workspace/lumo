@@ -188,6 +188,34 @@ describe('lint-tokens / countByFile', () => {
   })
 })
 
+describe('lint-tokens zindex rule', () => {
+  it('flags arbitrary z-[..] utilities in business code', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `const a = <div className="z-[100] flex" />\nconst b = <div className="z-[1]" />`
+    )
+    const zindex = v.filter((x) => x.rule === 'zindex')
+    expect(zindex.map((x) => x.match)).toEqual(['z-[100]', 'z-[1]'])
+  })
+
+  it('does NOT flag named z utilities', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `<div className="z-50 z-dropdown z-modal z-10" />`
+    )
+    expect(v.filter((x) => x.rule === 'zindex')).toHaveLength(0)
+  })
+
+  it('respects the allowlist and skips test files', () => {
+    expect(
+      detectViolations('app/globals.css', 'z-[100]').filter((x) => x.rule === 'zindex')
+    ).toHaveLength(0)
+    expect(
+      detectViolations('components/foo.test.tsx', 'z-[100]').filter((x) => x.rule === 'zindex')
+    ).toHaveLength(0)
+  })
+})
+
 describe('lint-tokens / findRegressions', () => {
   it('flags files whose violation count grew', () => {
     const r = findRegressions(
