@@ -56,7 +56,7 @@ export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
 
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
-  'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+  'h-7 text-xs border-none shadow-none bg-transparent hover:bg-muted px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
 
 // ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export function FieldValueSkeleton({
 }) {
   return (
     <div className='flex h-7 items-center px-2' aria-hidden='true'>
-      <Skeleton className={cn('h-3.5 rounded', widthClassName)} />
+      <Skeleton className={cn('h-3.5 rounded-sm', widthClassName)} />
     </div>
   )
 }
@@ -83,7 +83,7 @@ export function FieldValueSkeleton({
 // ─── SeparatorDot ──────────────────────────────────────────────────────────────
 
 export function SeparatorDot() {
-  return <span className='text-zinc-200 dark:text-zinc-700 select-none'>·</span>
+  return <span className='text-muted-foreground select-none'>·</span>
 }
 
 // ─── PriorityIcon ──────────────────────────────────────────────────────────────
