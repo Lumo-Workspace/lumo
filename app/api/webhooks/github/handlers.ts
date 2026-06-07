@@ -13,6 +13,7 @@ import type { Task, Project } from '@prisma/client'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
+import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,19 +133,10 @@ export async function handlePullRequest(
   if (!task) return
 
   // Close the task's lineage edges when this PR reaches a terminal state
-  // (merged → MERGED, closed → REJECTED). Fire-and-forget; the stamp is
-  // idempotent so redelivery or the getTaskDetail poller double-firing is
-  // harmless. Dynamic import keeps the lineage repository→prisma chain out of
-  // every test module that loads these webhook handlers.
+  // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
+  // redelivery or the getTaskDetail poller double-firing is harmless.
   if (state !== 'open') {
-    waitUntil(
-      (async () => {
-        const { lineageOutcomeService } = await import(
-          '@/lib/services/lineage-outcome.service'
-        )
-        await lineageOutcomeService.stampForPrState(task.id, state)
-      })().catch(() => {})
-    )
+    stampLineageInBackground(s => s.stampForPrState(task.id, state))
   }
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)

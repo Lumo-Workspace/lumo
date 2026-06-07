@@ -8,6 +8,7 @@ import {
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
+import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -307,17 +308,9 @@ export async function updateTaskWithSideEffects(
 
     // Close the lineage edges: DONE is the task-level success terminal, so
     // stamp every still-open edge MERGED (LUM-277, DoD ③). Idempotent and
-    // coarse by design (keyed by taskId). Same dynamic-import rationale as
-    // the consolidation/complexity side effects above; self-caught so a
-    // stamp failure never rolls back the completion.
-    waitUntil(
-      (async () => {
-        const { lineageOutcomeService } = await import(
-          '@/lib/services/lineage-outcome.service'
-        )
-        await lineageOutcomeService.stampForTaskDone(taskId)
-      })().catch(() => {})
-    )
+    // coarse by design (keyed by taskId). Detached so a stamp failure never
+    // rolls back the completion.
+    stampLineageInBackground(s => s.stampForTaskDone(taskId))
 
     // Auto-add to the team's ACTIVE sprint when the task finished with no
     // sprint binding and the team opted into `sprintAutoAddCompleted`. The
@@ -369,14 +362,7 @@ export async function reopen(
   })
 
   // Reopening a DONE task means its merged work had to be redone: stamp the
-  // task's MERGED edges REWORKED (LUM-277). Fire-and-forget + dynamic import,
-  // self-caught so a stamp failure never fails the reopen.
-  waitUntil(
-    (async () => {
-      const { lineageOutcomeService } = await import(
-        '@/lib/services/lineage-outcome.service'
-      )
-      await lineageOutcomeService.stampForTaskReopened(taskId)
-    })().catch(() => {})
-  )
+  // task's MERGED edges REWORKED (LUM-277). Detached so a stamp failure never
+  // fails the reopen.
+  stampLineageInBackground(s => s.stampForTaskReopened(taskId))
 }

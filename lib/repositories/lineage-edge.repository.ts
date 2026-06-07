@@ -26,7 +26,15 @@ export type StampableOutcome = Exclude<LineageOutcome, 'UNKNOWN'>
  * stronger verdict, and stamping is idempotent under redelivery (a merge seen
  * by both the webhook and the poller stamps once, then no-ops):
  *   UNKNOWN → REJECTED → MERGED   (advance only)
- *   MERGED  → REWORKED            (lateral: merged work that had to be redone) */
+ *   MERGED  → REWORKED            (lateral: merged work that had to be redone)
+ *
+ * REWORKED is intentionally terminal — it is not in any target's source set,
+ * so re-completing a reopened task does NOT restamp those edges back to MERGED.
+ * The verdict records a historical fact ("this merged work had to be redone")
+ * that a later success does not erase. Consequence: a fragment that fed
+ * reworked-then-remerged work is not counted toward merge contribution. That
+ * undercount is accepted for the MVP; revisit if the flywheel signal needs it.
+ * (Guarded by the "REWORKED is sticky" test.) */
 const STAMPABLE_FROM: Record<StampableOutcome, LineageOutcome[]> = {
   REJECTED: ['UNKNOWN'],
   MERGED: ['UNKNOWN', 'REJECTED'],

@@ -20,12 +20,19 @@ jest.mock('@vercel/functions', () => ({
 async function flushWaitUntil() {
   await Promise.all(waitUntilPromises.splice(0))
 }
-jest.mock('@/lib/services/lineage-outcome.service', () => ({
-  lineageOutcomeService: {
+jest.mock('@/lib/services/lineage-outcome.service', () => {
+  const service = {
     stampForTaskDone: jest.fn().mockResolvedValue({ count: 0 }),
     stampForTaskReopened: jest.fn().mockResolvedValue({ count: 0 }),
-  },
-}))
+  }
+  return {
+    lineageOutcomeService: service,
+    // Mirror the real helper: invoke the callback against the (mocked) service
+    // so tests can assert the stamp without a waitUntil flush.
+    stampLineageInBackground: (stamp: (s: typeof service) => Promise<unknown>) =>
+      void stamp(service),
+  }
+})
 // DONE also fires Layer 2 / complexity / sprint side effects via dynamic
 // import; mock them so those chains stay out of this module.
 jest.mock('@/lib/services/memory/layer2.service', () => ({

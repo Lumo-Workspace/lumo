@@ -1,4 +1,7 @@
-import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
+import {
+  lineageOutcomeService,
+  stampLineageInBackground,
+} from '@/lib/services/lineage-outcome.service'
 
 // ── Mock the repository ─────────────────────────────────────────────────────
 
@@ -7,6 +10,16 @@ const mockStampOutcomeByTask = jest.fn()
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: {
     stampOutcomeByTask: (...args: any[]) => mockStampOutcomeByTask(...args),
+  },
+}))
+
+// Capture the promise handed to waitUntil so the detach-and-swallow behavior
+// can be asserted directly.
+const waitUntilPromises: Array<Promise<unknown>> = []
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    waitUntilPromises.push(p)
+    return p
   },
 }))
 
@@ -66,6 +79,28 @@ describe('lineageOutcomeService', () => {
 
       expect(result).toEqual({ count: 1 })
       expect(mockStampOutcomeByTask).toHaveBeenCalledWith('t-1', 'REWORKED')
+    })
+  })
+
+  describe('stampLineageInBackground', () => {
+    it('runs the stamp against the service under waitUntil', async () => {
+      mockStampOutcomeByTask.mockResolvedValue({ count: 3 })
+
+      stampLineageInBackground(s => s.stampForTaskDone('t-1'))
+      await Promise.all(waitUntilPromises.splice(0))
+
+      expect(mockStampOutcomeByTask).toHaveBeenCalledWith('t-1', 'MERGED')
+    })
+
+    it('swallows a rejected stamp so the caller never sees the error', async () => {
+      mockStampOutcomeByTask.mockRejectedValue(new Error('db down'))
+
+      stampLineageInBackground(s => s.stampForTaskDone('t-1'))
+
+      // The promise handed to waitUntil must resolve, not reject.
+      await expect(
+        Promise.all(waitUntilPromises.splice(0))
+      ).resolves.toBeDefined()
     })
   })
 })

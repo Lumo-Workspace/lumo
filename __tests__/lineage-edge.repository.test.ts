@@ -254,6 +254,19 @@ describe('lineageEdgeRepository', () => {
       })
     })
 
+    it('keeps REWORKED sticky — re-completion does not restamp it to MERGED', async () => {
+      // Re-completing a reopened task calls stampOutcomeByTask(_, 'MERGED').
+      // REWORKED must be absent from MERGED's source set, so an already-REWORKED
+      // edge is left untouched (the verdict records that the work had to be
+      // redone, which a later success does not erase).
+      mockUpdateMany.mockResolvedValue({ count: 0 })
+
+      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'MERGED')
+
+      const where = mockUpdateMany.mock.calls[0][0].where
+      expect(where.outcome.in).not.toContain('REWORKED')
+    })
+
     it('uses the transaction client when one is passed', async () => {
       const txUpdateMany = jest.fn().mockResolvedValue({ count: 1 })
       const tx = { lineageEdge: { updateMany: txUpdateMany } } as any

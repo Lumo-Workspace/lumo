@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 
 /**
@@ -42,4 +43,23 @@ export const lineageOutcomeService = {
   async stampForTaskReopened(taskId: string) {
     return lineageEdgeRepository.stampOutcomeByTask(taskId, 'REWORKED')
   },
+}
+
+/**
+ * Run a lineage-outcome stamp as a detached, best-effort side effect. Stamping
+ * must never block or fail its caller — a webhook ack, a task update, a task
+ * read — so the work runs under `waitUntil` and any error is swallowed: a
+ * missed stamp is self-healing (the poller or a later transition re-stamps,
+ * and the stamp is idempotent). This is the single place that owns that
+ * detach-and-swallow policy; every trigger site funnels through it.
+ *
+ * (No dynamic import is needed here: `lineageOutcomeService`'s only transitive
+ * dependency is the lineage repository → Prisma, which every trigger module
+ * already pulls in statically — unlike the AI-SDK-backed layer2/complexity
+ * side effects, which must defer their imports.)
+ */
+export function stampLineageInBackground(
+  stamp: (service: typeof lineageOutcomeService) => Promise<unknown>
+): void {
+  waitUntil(Promise.resolve(stamp(lineageOutcomeService)).catch(() => {}))
 }
