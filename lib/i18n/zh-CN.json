@@ -1404,5 +1404,14 @@
   "lineage.token.cacheCreate": "cache-create",
   "lineage.token.cacheRead": "cache-read",
   "lineage.fragments.showAll": "展开全部 {count} 条",
-  "lineage.fragments.collapse": "收起"
+  "lineage.fragments.collapse": "收起",
+  "tokenCost.unit": "tok",
+  "tokenCost.output": "output",
+  "tokenCost.input": "input",
+  "tokenCost.cacheCreate": "cache-create",
+  "tokenCost.cacheRead": "cache-read",
+  "tokenCost.none": "此条线索暂无采集到的成本",
+  "tokenCost.loops": "{n, plural, other {# loops}}",
+  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.mixedNoTotal": "跨 model 不可比 · 不合计"
 }
