@@ -497,7 +497,14 @@ html {
   --destructive-foreground: oklch(1 0 0); /* #ffffff */
   --border: oklch(0.9288 0.0126 255.508); /* #e2e8f0 */
   --input: oklch(1 0 0); /* #ffffff */
-  --ring: oklch(0.7118 0.0129 286.067); /* #a1a1aa */
+  /* Focus ring — single source of truth (LUM-262). One brand-blue focus accent
+     for the whole app. --ring (generic) and --sidebar-ring both derive from it
+     so focus state reads as one consistent, explainable color language instead
+     of the old grey-vs-blue split. Defined once here with no .dark override —
+     the focus blue is identical in both modes (blue-500 interactive accent,
+     same hue family as --info). */
+  --focus-ring: oklch(0.6231 0.188 259.813); /* #3b82f6 */
+  --ring: var(--focus-ring);
   --radius: 0.75rem;
 
   /* Elevation — semantic shadow tiers (LUM-261). Exposed as
@@ -505,8 +512,10 @@ html {
      ev1 resting raised (card/panel), ev2 anchored overlay
      (popover/dropdown), ev3 top floating (dialog/sheet/toast). */
   --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.1);
-  --elevation-2: 0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12);
-  --elevation-3: 0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18);
+  --elevation-2:
+    0 2px 4px -1px rgb(0 0 0 / 0.08), 0 4px 8px -1px rgb(0 0 0 / 0.12);
+  --elevation-3:
+    0 8px 16px -4px rgb(0 0 0 / 0.12), 0 12px 24px -6px rgb(0 0 0 / 0.18);
 
   --sidebar: oklch(0.9846 0.0017 247.839); /* #f9fafb */
   --sidebar-foreground: oklch(0.2178 0 0); /* #1a1a1a */
@@ -515,7 +524,7 @@ html {
   --sidebar-accent: oklch(0.967 0.0029 264.542); /* #f3f4f6 */
   --sidebar-accent-foreground: oklch(0.2178 0 0); /* #1a1a1a */
   --sidebar-border: oklch(0.9276 0.0058 264.531); /* #e5e7eb */
-  --sidebar-ring: oklch(0.5461 0.2152 262.881); /* #2563eb */
+  --sidebar-ring: var(--focus-ring); /* unified focus accent (LUM-262) */
 
   /* Semantic task-status colors — oklch (single color model, LUM-257), single
      source of truth for .mention-task chips, <StatusIcon>, status dots/chips,
@@ -524,10 +533,18 @@ html {
      darkened for todo (#d1d5dc was ~1.5:1 on white) and done (#41b40f was
      ~2.7:1); blue/magenta already pass. The bright .dark counterparts live in
      the .dark block below — keep both. */
-  --status-todo: oklch(0.6488 0.0146 262.359); /* #8a8f98 light grey, 3.3:1 on #fff */
-  --status-in-progress: oklch(0.6187 0.2067 259.232); /* #2b7fff brand blue, 3.8:1 */
-  --status-in-review: oklch(0.6232 0.2868 312.148); /* #bf2bff brand magenta, 4.2:1 */
-  --status-done: oklch(0.6271 0.1699 149.214); /* #16a34a light green, 3.3:1 on #fff */
+  --status-todo: oklch(
+    0.6488 0.0146 262.359
+  ); /* #8a8f98 light grey, 3.3:1 on #fff */
+  --status-in-progress: oklch(
+    0.6187 0.2067 259.232
+  ); /* #2b7fff brand blue, 3.8:1 */
+  --status-in-review: oklch(
+    0.6232 0.2868 312.148
+  ); /* #bf2bff brand magenta, 4.2:1 */
+  --status-done: oklch(
+    0.6271 0.1699 149.214
+  ); /* #16a34a light green, 3.3:1 on #fff */
 
   /* Semantic feedback colors (LUM-258). Accent = left border / icon / emphasis;
      -foreground = near-black text on a solid accent fill (AA-verified, never
@@ -575,7 +592,8 @@ html {
   --destructive-foreground: oklch(1 0 0); /* #ffffff */
   --border: oklch(0.285 0 0); /* #2a2a2a */
   --input: oklch(0.2178 0 0); /* #1a1a1a */
-  --ring: oklch(0.5517 0.0138 285.938); /* #71717a */
+  /* --ring / --sidebar-ring intentionally omitted here — they derive from the
+     single :root --focus-ring, identical across light/dark (LUM-262). */
   --sidebar: oklch(0.1684 0 0); /* #0f0f0f */
   --sidebar-foreground: oklch(1 0 0); /* #ffffff */
   --sidebar-primary: oklch(1 0 0); /* #ffffff */
@@ -583,20 +601,27 @@ html {
   --sidebar-accent: oklch(0.2178 0 0); /* #1a1a1a */
   --sidebar-accent-foreground: oklch(1 0 0); /* #ffffff */
   --sidebar-border: oklch(0.285 0 0); /* #2a2a2a */
-  --sidebar-ring: oklch(0.5461 0.2152 262.881); /* #2563eb */
 
   /* Elevation — stronger on dark, where shadows barely register (LUM-261). */
   --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.5);
-  --elevation-2: 0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55);
-  --elevation-3: 0 8px 16px -4px rgb(0 0 0 / 0.55), 0 12px 24px -6px rgb(0 0 0 / 0.65);
+  --elevation-2:
+    0 2px 4px -1px rgb(0 0 0 / 0.45), 0 4px 8px -1px rgb(0 0 0 / 0.55);
+  --elevation-3:
+    0 8px 16px -4px rgb(0 0 0 / 0.55), 0 12px 24px -6px rgb(0 0 0 / 0.65);
 
   /* Status colors — oklch, brand palette on the dark background (#0a0a0a). todo
      and done keep their bright brand hex here (~13:1 / ~7:1); the darkened light
      values in :root would be too dim on dark. blue/magenta are shared. */
-  --status-todo: oklch(0.872 0.0106 261.787); /* #d1d5dc dark: brand neutral, ~13:1 */
-  --status-in-progress: oklch(0.6187 0.2067 259.232); /* #2b7fff shared, 5.3:1 */
+  --status-todo: oklch(
+    0.872 0.0106 261.787
+  ); /* #d1d5dc dark: brand neutral, ~13:1 */
+  --status-in-progress: oklch(
+    0.6187 0.2067 259.232
+  ); /* #2b7fff shared, 5.3:1 */
   --status-in-review: oklch(0.6232 0.2868 312.148); /* #bf2bff shared, 4.7:1 */
-  --status-done: oklch(0.6776 0.2108 139.367); /* #41b40f dark: brand green, ~7:1 */
+  --status-done: oklch(
+    0.6776 0.2108 139.367
+  ); /* #41b40f dark: brand green, ~7:1 */
 
   /* Semantic feedback accents — brighter in dark, mirroring the prior callout
      dark palette. -foreground / -subtle / -border are NOT overridden: foreground
