@@ -49,7 +49,12 @@ export const COLOR_GROUPS: TokenGroup[] = [
   {
     id: 'color-priority',
     title: 'Priority',
-    tokens: ['priority-low', 'priority-medium', 'priority-high', 'priority-urgent'],
+    tokens: [
+      'priority-low',
+      'priority-medium',
+      'priority-high',
+      'priority-urgent',
+    ],
   },
   {
     id: 'color-feedback',
@@ -74,6 +79,11 @@ export const COLOR_GROUPS: TokenGroup[] = [
     ],
   },
   {
+    id: 'color-chart',
+    title: 'Data viz',
+    tokens: ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'],
+  },
+  {
     id: 'color-sidebar',
     title: 'Sidebar',
     tokens: [
@@ -90,7 +100,9 @@ export const COLOR_GROUPS: TokenGroup[] = [
 ]
 
 /** Flattened color token names — consumed by the parity guard. */
-export const CATALOG_COLOR_TOKENS: string[] = COLOR_GROUPS.flatMap(g => g.tokens)
+export const CATALOG_COLOR_TOKENS: string[] = COLOR_GROUPS.flatMap(
+  g => g.tokens
+)
 
 /** Semantic type-scale tiers (globals.css `--text-*` base tiers). */
 export const TYPE_TIERS = [
