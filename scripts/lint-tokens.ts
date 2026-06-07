@@ -65,6 +65,10 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // decorative category colors, not semantic, so the hex stops are payload.
   // Isolated to this module so the rest of the timeline stays tokenized.
   /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
+  // Tag color presets the user picks from (bright categorical palette) +
+  // the custom-hex input's example placeholder — the raw hex IS the payload
+  // stored on the tag, not a semantic token. Confined to this module.
+  /\/pages\/tag-color-presets\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const

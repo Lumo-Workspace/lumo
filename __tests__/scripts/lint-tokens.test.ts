@@ -159,6 +159,12 @@ describe('lint-tokens / isAllowed', () => {
         'app/workspace/[workspaceUrl]/components/TaskDetailTimeline/items/tag-colors.ts'
       )
     ).toBe(true)
+    // Tag color presets module (payload hex the user picks from).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/pages/tag-color-presets.ts'
+      )
+    ).toBe(true)
   })
 
   it('rejects business code paths', () => {
