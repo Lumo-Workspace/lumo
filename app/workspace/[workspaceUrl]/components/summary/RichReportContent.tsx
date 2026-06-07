@@ -54,12 +54,7 @@ function enrichText(
   const segments = splitByPattern(text, PRIORITY_RE, (match, i) => {
     const priority = PRIORITY_KEYWORDS[match]
     if (!priority) return match
-    return (
-      <span key={`p-${i}`} className='inline-flex items-center gap-0.5'>
-        <PriorityBadge priority={priority} />
-        <span className='text-xs font-medium'>{match}</span>
-      </span>
-    )
+    return <PriorityBadge key={`p-${i}`} priority={priority} variant='icon' />
   })
 
   if (!namePattern) return segments

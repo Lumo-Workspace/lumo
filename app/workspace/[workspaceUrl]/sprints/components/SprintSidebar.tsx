@@ -16,11 +16,8 @@ import {
 } from '@/lib/services/sprint-breakdown'
 import { DatePickerField, startOfDay } from './DatePickerField'
 import type { ApiTask, WorkspaceMemberInfo } from '../../types'
-import {
-  PriorityIcon,
-  PRIORITY_CONFIG,
-  MemberAvatar,
-} from '../../components/fields/shared'
+import { MemberAvatar } from '../../components/fields/shared'
+import { PriorityBadge } from '../../components/PriorityBadge'
 import { RiskBadge } from '../../components/summary/RiskBadge'
 import type { RiskAssessment, TopBlockers } from '@/types/summary'
 
@@ -241,10 +238,7 @@ export function SprintSidebar({
             {byPriority.map(bucket => (
               <div key={bucket.priority} className='flex flex-col gap-1'>
                 <div className='flex items-center justify-between text-xs'>
-                  <span className='flex items-center gap-1.5'>
-                    <PriorityIcon priority={bucket.priority} />
-                    <span>{PRIORITY_CONFIG[bucket.priority].label}</span>
-                  </span>
+                  <PriorityBadge priority={bucket.priority} variant='icon' />
                   <span className='text-muted-foreground tabular-nums'>
                     {bucket.done} / {bucket.total}
                   </span>
