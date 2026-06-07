@@ -28,7 +28,6 @@
   "app/workspace/[workspaceUrl]/components/DuplicateConfirm.tsx": 10,
   "app/workspace/[workspaceUrl]/components/DuplicateWarning.tsx": 5,
   "app/workspace/[workspaceUrl]/components/extract/BatchExtractButton.tsx": 5,
-  "app/workspace/[workspaceUrl]/components/fields/AssigneeSelect.tsx": 1,
   "app/workspace/[workspaceUrl]/components/FigmaIcon.tsx": 5,
   "app/workspace/[workspaceUrl]/components/FigmaIntegrationCard.tsx": 5,
   "app/workspace/[workspaceUrl]/components/ForecastPanel.tsx": 22,
@@ -99,6 +98,5 @@
   "lib/editor/nodes/task-item-node-view.tsx": 1,
   "lib/editor/slash-command-list.tsx": 1,
   "lib/integrations/email/templates/invite.ts": 13,
-  "lib/services/member.service.ts": 1,
   "lib/services/sentry.service.ts": 1
 }

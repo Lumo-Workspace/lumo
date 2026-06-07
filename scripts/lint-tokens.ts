@@ -75,6 +75,10 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // the custom-hex input's example placeholder — the raw hex IS the payload
   // stored on the tag, not a semantic token. Confined to this module.
   /\/pages\/tag-color-presets\.ts$/,
+  // Default coding-agent avatar color — a payload hex stored on the actor /
+  // sent to the client (member.service + AssigneeSelect default), not a CSS
+  // token. Single source of truth confined to this module.
+  /^lib\/constants\/avatar\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const

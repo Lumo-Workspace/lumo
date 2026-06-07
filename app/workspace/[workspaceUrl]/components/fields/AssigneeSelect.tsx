@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useIntl } from 'react-intl'
+import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import { UserCircle2, Bot } from 'lucide-react'
 import {
   Select,
@@ -53,7 +54,7 @@ export function AssigneeSelect({
         {
           actorId: value,
           name: assignee.agent?.name ?? 'Coding Agent',
-          avatarColor: '#6366f1',
+          avatarColor: DEFAULT_AGENT_AVATAR_COLOR,
         },
       ]
     }
