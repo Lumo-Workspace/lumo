@@ -35,7 +35,7 @@ interface Props {
  * Overlay shown on top of a task-list toolbar when the user has at least
  * one task selected. Renders the bulk pickers + delete + cancel actions.
  *
- * Caller is responsible for the absolute positioning (`absolute inset-0 z-20`)
+ * Caller is responsible for the absolute positioning (`absolute inset-0 z-sticky`)
  * so this can sit inside the same `relative` parent as the page's toolbar.
  */
 export function BulkActionBar({
@@ -47,7 +47,7 @@ export function BulkActionBar({
 }: Props) {
   const intl = useIntl()
   return (
-    <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
+    <div className='absolute inset-0 z-sticky flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
       <span className='text-xs font-medium text-foreground'>
         {intl.formatMessage(
           { id: 'common.selected', defaultMessage: '{count} selected' },

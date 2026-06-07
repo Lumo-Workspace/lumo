@@ -96,11 +96,11 @@ export function TaskDrawer({
     >
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay
-          className='fixed inset-0 z-40 bg-black/10 dark:bg-black/30'
+          className='fixed inset-0 z-overlay bg-black/10 dark:bg-black/30'
           onClick={onClose}
         />
         <DrawerPrimitive.Content
-          className='fixed right-0 top-0 bottom-0 z-50 bg-card border-l border-border flex flex-col shadow-elevation-3 outline-none w-full md:w-[520px]'
+          className='fixed right-0 top-0 bottom-0 z-modal bg-card border-l border-border flex flex-col shadow-elevation-3 outline-none w-full md:w-[520px]'
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}

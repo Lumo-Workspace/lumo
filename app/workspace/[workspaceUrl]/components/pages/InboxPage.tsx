@@ -371,7 +371,7 @@ export function InboxPage({
         className='w-px shrink-0 relative cursor-col-resize group'
         onMouseDown={handleDividerMouseDown}
       >
-        <div className='absolute inset-y-0 -left-1 -right-1 z-10' />
+        <div className='absolute inset-y-0 -left-1 -right-1 z-sticky' />
         <div className='h-full w-px bg-muted group-hover:bg-muted-foreground transition-colors' />
       </div>
 

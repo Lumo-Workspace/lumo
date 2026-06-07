@@ -254,7 +254,7 @@ export function ProjectsPage({
                 })}
               />
               {open && query.trim() && (
-                <div className='absolute top-full mt-1 w-full bg-card border border-border rounded-md shadow-elevation-3 z-50 overflow-hidden'>
+                <div className='absolute top-full mt-1 w-full bg-card border border-border rounded-md shadow-elevation-3 z-dropdown overflow-hidden'>
                   {filtered.length === 0 ? (
                     <p className='px-3 py-2.5 text-xs text-muted-foreground'>
                       {intl.formatMessage({ id: 'projects.searchNoMatch' })}
@@ -296,7 +296,7 @@ export function ProjectsPage({
           so it never pushes the table headers down). */}
       <div className='h-12 shrink-0 relative'>
         {selectedCount > 0 && (
-          <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
+          <div className='absolute inset-0 z-sticky flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
             <span className='text-xs font-medium text-foreground'>
               {intl.formatMessage(
                 { id: 'common.selected' },
@@ -358,7 +358,7 @@ export function ProjectsPage({
           }
         >
           <table className='w-full border-collapse'>
-            <thead className='sticky top-0 bg-card z-10'>
+            <thead className='sticky top-0 bg-card z-sticky'>
               <tr>
                 <th className='py-3 px-4 w-10'>
                   <Checkbox
