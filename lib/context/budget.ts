@@ -1,7 +1,7 @@
 // lib/context/budget.ts
 
 /**
- * Rough token estimate: char-count / 4, rounded up. Stable proxy that avoids a
+ * Rough token estimate: char-count / 4, rounded-sm up. Stable proxy that avoids a
  * tokenizer dependency; mirrors the heuristic memory rendering has always used.
  */
 export function estimateTokens(text: string): number {

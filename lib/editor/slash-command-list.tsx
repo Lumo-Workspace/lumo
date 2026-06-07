@@ -95,7 +95,7 @@ export const SlashCommandList = forwardRef<
   let globalIndex = 0
 
   return (
-    <div className='z-50 w-56 rounded-lg border bg-popover shadow-lg overflow-hidden'>
+    <div className='z-50 w-56 rounded-lg border bg-popover shadow-elevation-3 overflow-hidden'>
       <div
         className='max-h-64 overflow-y-auto p-1'
         role='listbox'

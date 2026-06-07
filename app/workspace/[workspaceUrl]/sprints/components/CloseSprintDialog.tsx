@@ -41,7 +41,7 @@ function DecisionToggle({
       <button
         type='button'
         onClick={() => onChange('moveToNext')}
-        className={`rounded border px-2 py-0.5 ${
+        className={`rounded-sm border px-2 py-0.5 ${
           value === 'moveToNext'
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-input hover:bg-muted'
@@ -52,7 +52,7 @@ function DecisionToggle({
       <button
         type='button'
         onClick={() => onChange('backToBacklog')}
-        className={`rounded border px-2 py-0.5 ${
+        className={`rounded-sm border px-2 py-0.5 ${
           value === 'backToBacklog'
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-input hover:bg-muted'
@@ -183,7 +183,7 @@ export function CloseSprintDialog({
                 {tasks.map(task => (
                   <div
                     key={task.id}
-                    className='flex w-full items-center justify-between gap-2 rounded border p-2 min-w-0'
+                    className='flex w-full items-center justify-between gap-2 rounded-sm border p-2 min-w-0'
                   >
                     <span className='text-sm truncate flex-1 min-w-0'>
                       {task.title}

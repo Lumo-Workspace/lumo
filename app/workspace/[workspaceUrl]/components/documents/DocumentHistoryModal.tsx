@@ -68,7 +68,7 @@ export function DocumentHistoryModal({
         defaultMessage: 'Version history',
       })}
     >
-      <div className='flex h-[80vh] w-full max-w-5xl overflow-hidden rounded-lg bg-background shadow-xl'>
+      <div className='flex h-[80vh] w-full max-w-5xl overflow-hidden rounded-lg bg-background shadow-elevation-3'>
         {/* Left: timeline */}
         <aside className='w-72 shrink-0 overflow-y-auto border-r border-border p-2'>
           <h2 className='px-2 py-2 text-sm font-semibold'>

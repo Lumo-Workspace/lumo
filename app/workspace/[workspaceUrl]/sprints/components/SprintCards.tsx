@@ -447,7 +447,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
     <div className='space-y-6'>
       {/* No current and no upcoming — let the user create one explicitly. */}
       {noUpcoming && (
-        <div className='rounded border border-dashed p-4 flex items-center justify-between gap-3'>
+        <div className='rounded-sm border border-dashed p-4 flex items-center justify-between gap-3'>
           <p className='text-sm text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.landing.noUpcoming' })}
           </p>

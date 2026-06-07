@@ -136,7 +136,7 @@ export function AppSidebar({
                     <img
                       src={workspaceLogoUrl}
                       alt={workspaceName}
-                      className='size-8 rounded object-contain shrink-0'
+                      className='size-8 rounded-sm object-contain shrink-0'
                     />
                   ) : user?.imageUrl ? (
                     <img
@@ -280,7 +280,7 @@ export function AppSidebar({
                       {intl.formatMessage({ id: 'sidebar.drafts' })}
                     </span>
                     {draftCount > 0 && (
-                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-zinc-400 hover:bg-zinc-400 text-white rounded-full justify-center'>
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-muted-foreground hover:bg-muted-foreground text-white rounded-full justify-center'>
                         {draftCount > 99 ? '99+' : draftCount}
                       </Badge>
                     )}

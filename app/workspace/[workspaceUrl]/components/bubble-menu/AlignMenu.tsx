@@ -59,7 +59,7 @@ export function AlignMenu({
               e.preventDefault()
               setOpen(o => !o)
             }}
-            className='flex items-center gap-1 px-1.5 h-7 rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
+            className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
           >
             {current.icon}
             <ChevronDown size={12} />
@@ -68,7 +68,7 @@ export function AlignMenu({
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
       {open && (
-        <div role='menu' className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+        <div role='menu' className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'>
           {options.map(o => (
             <button
               key={o.id}

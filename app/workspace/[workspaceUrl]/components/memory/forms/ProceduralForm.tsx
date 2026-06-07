@@ -86,7 +86,7 @@ export function ProceduralForm({
               type='button'
               variant='ghost'
               size='icon'
-              className='shrink-0 text-zinc-400 hover:text-red-500'
+              className='shrink-0 text-muted-foreground hover:text-red-500'
               onClick={() => removeStep(i)}
               aria-label={`remove-step-${i}`}
             >

@@ -106,12 +106,12 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
         </p>
       </header>
 
-      <section className='rounded border bg-muted/30 p-3'>
+      <section className='rounded-sm border bg-muted/30 p-3'>
         <p className='text-sm font-medium'>{tldrText}</p>
       </section>
 
       {/* Stats card */}
-      <section className='rounded border p-3 flex flex-col gap-3'>
+      <section className='rounded-sm border p-3 flex flex-col gap-3'>
         <div className='grid grid-cols-3 gap-3 text-center'>
           <div>
             <p className='text-xl font-bold tabular-nums'>{total}</p>
