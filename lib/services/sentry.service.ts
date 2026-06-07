@@ -1,4 +1,5 @@
 import { encrypt, decrypt } from '@/lib/crypto'
+import { DEFAULT_BUG_TAG_COLOR } from '@/lib/constants/colors'
 import { sentryRepository } from '@/lib/repositories/sentry.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -144,7 +145,7 @@ export const sentryService = {
       const created = await tagRepository.create({
         workspaceId,
         name: 'bug',
-        color: '#ef4444',
+        color: DEFAULT_BUG_TAG_COLOR,
       })
       return created.id
     } catch (err) {

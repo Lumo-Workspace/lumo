@@ -83,6 +83,24 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // written into the document (TipTap marks), so the raw hex is payload data,
   // not a CSS token. Confined to this module.
   /\/bubble-menu\/editor-colors\.ts$/,
+  // Document tag color palettes (hashed onto tag badges / picker presets) —
+  // payload hex stored on the tag, not a CSS token. Confined to this module.
+  /\/document\/tag-colors\.ts$/,
+  // Payload color constants (e.g. the default Sentry "bug" tag color) — hex
+  // stored as data in the DB, not a CSS token. Confined to this module.
+  /^lib\/constants\/colors\.ts$/,
+  // Agent brand colors (AGENT_META) — each coding agent's brand hex, payload
+  // rendered as the badge accent, not a semantic token.
+  /\/AgentBadge\.tsx$/,
+  // Vendor brand logo SVGs — the fixed brand hex IS the icon's payload, same
+  // rationale as components/ui/icons.tsx.
+  /\/(Slack|Figma|GoogleDrive)Icon\.tsx$/,
+  // HTML email templates — email clients can't use CSS vars, so inline hex is
+  // required; these are not theme-aware app surfaces.
+  /^lib\/integrations\/email\/templates\//,
+  // Landing marketing surface — an intentional brand fork (LUM-288), same
+  // rationale as components/landing/landing.css; its components carry brand hex.
+  /^components\/landing\//,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
