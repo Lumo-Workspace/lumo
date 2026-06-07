@@ -114,6 +114,7 @@ describe('prCommentMirrorRepository', () => {
         comment: { deletedAt: null },
       },
       select: {
+        id: true,
         pullRequestId: true,
         externalSource: true,
         externalUrl: true,

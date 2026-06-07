@@ -167,6 +167,9 @@ export const prCommentMirrorRepository = {
         comment: { deletedAt: null },
       },
       select: {
+        // The mirror row id is the stable handle the task-context fragment
+        // manifest references for each review-todo (LUM-274).
+        id: true,
         pullRequestId: true,
         externalSource: true,
         externalUrl: true,
