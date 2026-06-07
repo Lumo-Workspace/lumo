@@ -63,7 +63,7 @@ import {
 
 // ─── Ghost trigger style for inline pickers ───────────────────────────────────
 const GHOST_TRIGGER =
-  'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-caption'
+  'h-7 px-2 border-0 bg-transparent hover:bg-muted shadow-none text-caption'
 
 // ─── Update patch type ────────────────────────────────────────────────────────
 export type TaskPatch = Partial<{
@@ -194,7 +194,7 @@ function TitleCell({
       </span>
       {childCount > 0 && (
         <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0'>
-          <span className='inline-block w-8 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+          <span className='inline-block w-8 h-1 bg-muted rounded-full overflow-hidden'>
             <span
               className='block h-full bg-blue-500 rounded-full'
               style={{
@@ -213,7 +213,7 @@ function TitleCell({
               e.stopPropagation()
               onDetailsClick()
             }}
-            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0'
+            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 shrink-0'
             aria-label={
               intl?.formatMessage({
                 id: 'task.openDetails',

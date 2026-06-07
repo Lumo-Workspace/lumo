@@ -147,7 +147,7 @@ export function SummaryCard({
             type='button'
             onClick={regenerate}
             disabled={loading}
-            className='rounded border border-border bg-background px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50'
+            className='rounded-sm border border-border bg-background px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50'
           >
             {buttonLabel}
           </button>
@@ -155,7 +155,7 @@ export function SummaryCard({
       </header>
 
       {error && (
-        <p className='mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900'>
+        <p className='mb-3 rounded-sm border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900'>
           {error}
         </p>
       )}
@@ -175,7 +175,7 @@ export function SummaryCard({
 function TypeBadge({ type }: { type: string }) {
   const icon = TYPE_ICONS[type] ?? '•'
   return (
-    <span className='ml-2 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
+    <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
       <span aria-hidden>{icon}</span>
       {type}
     </span>
@@ -195,7 +195,7 @@ function SummaryBody({ summary }: { summary: unknown }) {
   const shape = coerceShape(summary)
   if (!shape) {
     return (
-      <pre className='overflow-x-auto rounded bg-muted/40 p-3 text-xs'>
+      <pre className='overflow-x-auto rounded-sm bg-muted/40 p-3 text-xs'>
         {JSON.stringify(summary, null, 2)}
       </pre>
     )
@@ -507,7 +507,7 @@ function StatusChip({ status }: { status: DebugStatus }) {
         : 'bg-red-100 text-red-900 border-red-300'
   return (
     <span
-      className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
+      className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
     >
       {status}
     </span>
@@ -528,7 +528,7 @@ function SeverityGroup({
       ? 'border-l-4 border-red-400'
       : tone === 'improvements'
         ? 'border-l-4 border-amber-400'
-        : 'border-l-4 border-zinc-300'
+        : 'border-l-4 border-border'
   return (
     <div className={`pl-3 ${toneClass}`}>
       <p className='mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>

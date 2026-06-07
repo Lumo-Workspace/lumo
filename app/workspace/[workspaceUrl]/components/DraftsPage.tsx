@@ -54,8 +54,8 @@ export function DraftsPage({
   const tabCls = (active: boolean) =>
     `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
       active
-        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+        ? 'bg-muted text-foreground'
+        : 'text-muted-foreground hover:text-foreground'
     }`
 
   return (
@@ -71,7 +71,7 @@ export function DraftsPage({
             >
               {intl.formatMessage({ id: 'drafts.tabTasks' })}
               {taskDrafts.length > 0 && (
-                <span className='ml-1.5 text-xs text-zinc-400'>
+                <span className='ml-1.5 text-xs text-muted-foreground'>
                   {taskDrafts.length}
                 </span>
               )}
@@ -82,7 +82,7 @@ export function DraftsPage({
             >
               {intl.formatMessage({ id: 'drafts.tabProjects' })}
               {projectDrafts.length + ideaProjects.length > 0 && (
-                <span className='ml-1.5 text-xs text-zinc-400'>
+                <span className='ml-1.5 text-xs text-muted-foreground'>
                   {projectDrafts.length + ideaProjects.length}
                 </span>
               )}
@@ -143,11 +143,11 @@ export function DraftsPage({
                   {ideaProjects.map(project => (
                     <div
                       key={project.id}
-                      className='group flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
+                      className='group flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer hover:bg-muted transition-colors'
                       onClick={() => onOpenIdeaProject(project)}
                     >
                       <div className='flex-1 min-w-0'>
-                        <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
+                        <p className='text-sm font-medium text-foreground truncate'>
                           {project.name}
                         </p>
                         <p className='text-xs text-amber-600 dark:text-amber-400 mt-0.5'>
@@ -225,28 +225,28 @@ function DraftCard({
   const { fmtTimestamp } = useFormatDate()
   return (
     <div
-      className='group flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
+      className='group flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer hover:bg-muted transition-colors'
       onClick={onClick}
     >
       <div className='flex-1 min-w-0'>
-        <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
+        <p className='text-sm font-medium text-foreground truncate'>
           {title || intl.formatMessage({ id: 'drafts.untitled' })}
         </p>
         {subtitle && (
-          <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate'>
+          <p className='text-xs text-muted-foreground mt-0.5 truncate'>
             {subtitle}
           </p>
         )}
       </div>
       <div className='flex items-center gap-2'>
-        <span className='flex items-center gap-1 text-xs text-zinc-400'>
+        <span className='flex items-center gap-1 text-xs text-muted-foreground'>
           <Clock className='size-3' />
           {fmtTimestamp(updatedAt)}
         </span>
         <Button
           variant='ghost'
           size='sm'
-          className='h-7 w-7 p-0 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
+          className='h-7 w-7 p-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
           onClick={e => {
             e.stopPropagation()
             onDelete()
@@ -266,11 +266,11 @@ function DraftCard({
 function EmptyState({ intl }: { intl: ReturnType<typeof useIntl> }) {
   return (
     <div className='flex flex-col items-center justify-center py-16 text-center'>
-      <FileEdit className='size-12 text-zinc-200 dark:text-zinc-700 mb-4' />
-      <p className='text-sm font-medium text-zinc-500 dark:text-zinc-400'>
+      <FileEdit className='size-12 text-muted-foreground mb-4' />
+      <p className='text-sm font-medium text-muted-foreground'>
         {intl.formatMessage({ id: 'drafts.empty' })}
       </p>
-      <p className='text-xs text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs'>
+      <p className='text-xs text-muted-foreground mt-1 max-w-xs'>
         {intl.formatMessage({ id: 'drafts.emptyDescription' })}
       </p>
     </div>
