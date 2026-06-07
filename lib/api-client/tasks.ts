@@ -87,7 +87,9 @@ export const tasksClient = {
       q.set('assigneeActorIds', filters.assigneeActorIds.join(','))
     if (filters.tagIds?.length) q.set('tagIds', filters.tagIds.join(','))
     const qs = q.toString()
-    return apiFetch<T>(qs ? `${API.tasks.workspace}?${qs}` : API.tasks.workspace)
+    return apiFetch<T>(
+      qs ? `${API.tasks.workspace}?${qs}` : API.tasks.workspace
+    )
   },
 
   getById<T>(id: string) {
@@ -151,6 +153,11 @@ export const tasksClient = {
 
   getAgentRuns<T>(taskId: string) {
     return apiFetch<T>(API.tasks.agentRuns(taskId))
+  },
+
+  // Lineage endpoint is keyed by task identifier (LUM-42), not the cuid.
+  getLineage<T>(identifier: string) {
+    return apiFetch<T>(API.tasks.lineage(encodeURIComponent(identifier)))
   },
 
   forecast<T>(taskId: string) {

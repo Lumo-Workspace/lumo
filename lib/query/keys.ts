@@ -88,6 +88,8 @@ export const queryKeys = {
 
   timeline: (taskId: string) => ['timeline', taskId] as const,
 
+  lineage: (identifier: string) => ['lineage', identifier] as const,
+
   tags: () => ['tags'] as const,
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,

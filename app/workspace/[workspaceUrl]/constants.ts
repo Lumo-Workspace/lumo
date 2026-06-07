@@ -9,6 +9,7 @@ export const API = {
       `/api/tasks/${taskId}/comments/${commentId}`,
     timeline: (taskId: string) => `/api/tasks/${taskId}/timeline`,
     agentRuns: (taskId: string) => `/api/tasks/${taskId}/agent-runs`,
+    lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
