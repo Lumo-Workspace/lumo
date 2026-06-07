@@ -196,6 +196,8 @@ describe('lint-tokens / isAllowed', () => {
     ).toBe(true)
     // Landing marketing surface (intentional brand fork).
     expect(isAllowed('components/landing/ui/button.tsx')).toBe(true)
+    // Vendored shadcn NavigationMenu (local z-[1] stacking carve-out).
+    expect(isAllowed('components/ui/navigation-menu.tsx')).toBe(true)
   })
 
   it('rejects business code paths', () => {
