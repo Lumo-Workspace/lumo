@@ -44,7 +44,9 @@ const COLOR_TOKENS = [
   'destructive-foreground',
   'border',
   'input',
-  'ring',
+  // LUM-262: --ring / --sidebar-ring are no longer per-token oklch literals —
+  // they derive from the single --focus-ring source (guarded separately below).
+  'focus-ring',
   'sidebar',
   'sidebar-foreground',
   'sidebar-primary',
@@ -52,7 +54,6 @@ const COLOR_TOKENS = [
   'sidebar-accent',
   'sidebar-accent-foreground',
   'sidebar-border',
-  'sidebar-ring',
   'status-todo',
   'status-in-progress',
   'status-in-review',
@@ -83,6 +84,30 @@ describe.each(COLOR_TOKENS)('--%s', token => {
       expect(value).toMatch(/^oklch\(/)
       expect(value).not.toMatch(/#[0-9a-fA-F]{3,8}/)
     }
+  })
+})
+
+// LUM-262: focus ring is a single source of truth. --focus-ring holds the one
+// brand-blue focus accent (guarded as oklch in COLOR_TOKENS above, defined once
+// in :root so it's identical across light/dark). Both --ring (generic) and
+// --sidebar-ring derive from it via var(), so the app has exactly one focus
+// color language instead of the old grey-vs-blue split. Guard that neither
+// re-splits into its own literal value or a per-mode override again.
+describe('focus ring derives from a single --focus-ring source', () => {
+  it.each(['ring', 'sidebar-ring'])(
+    '--%s is defined exactly once as var(--focus-ring)',
+    token => {
+      const defs = [
+        ...css.matchAll(new RegExp(`--${token}:\\s*([^;]+);`, 'g')),
+      ].map(m => (m[1] ?? '').trim())
+      expect(defs).toHaveLength(1) // no .dark override — single source, both modes
+      expect(defs[0]).toBe('var(--focus-ring)')
+    }
+  )
+
+  it('--focus-ring is defined once (no per-mode override)', () => {
+    const defs = [...css.matchAll(/--focus-ring:\s*([^;]+);/g)]
+    expect(defs).toHaveLength(1)
   })
 })
 
@@ -136,11 +161,16 @@ describe('callout variants are token-driven', () => {
     ['warning', 'warning'],
     ['success', 'success'],
     ['error', 'danger'], // error variant maps to the danger token family
-  ])('callout[data-variant=%s] drives border-left from var(--%s)', (variant, token) => {
-    const rule =
-      css.match(new RegExp(`\\.callout\\[data-variant='${variant}'\\]\\s*\\{[^}]*\\}`))?.[0] ?? ''
-    expect(rule).toContain(`background-color: var(--${token}-subtle)`)
-    expect(rule).toContain(`border-color: var(--${token}-border)`)
-    expect(rule).toContain(`border-left-color: var(--${token})`)
-  })
+  ])(
+    'callout[data-variant=%s] drives border-left from var(--%s)',
+    (variant, token) => {
+      const rule =
+        css.match(
+          new RegExp(`\\.callout\\[data-variant='${variant}'\\]\\s*\\{[^}]*\\}`)
+        )?.[0] ?? ''
+      expect(rule).toContain(`background-color: var(--${token}-subtle)`)
+      expect(rule).toContain(`border-color: var(--${token}-border)`)
+      expect(rule).toContain(`border-left-color: var(--${token})`)
+    }
+  )
 })
