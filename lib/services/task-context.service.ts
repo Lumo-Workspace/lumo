@@ -67,6 +67,36 @@ export interface PreviousSessionRecovery {
   lastActivityAt: string
 }
 
+/**
+ * The kinds of context fragment a task assembly can carry. One value per
+ * source the agent is shown. UPPER_SNAKE mirrors the underlying model names so
+ * a future LineageEdge fragment-type enum (LUM-275) can adopt them verbatim.
+ */
+export type ContextFragmentType =
+  | 'MEMORY'
+  | 'SLACK_CONTEXT'
+  | 'WEB_LINK'
+  | 'FIGMA_LINK'
+  | 'ARTIFACT'
+  | 'DOCUMENT'
+  | 'COMMENT'
+  | 'PULL_REQUEST'
+  | 'PR_REVIEW_TODO'
+  | 'SESSION'
+
+/**
+ * A single addressable piece of the assembled task context. `id` is the
+ * source record's stable handle — the cuid for every type except `SESSION`,
+ * which uses the session UUID. This flat manifest is what lineage
+ * edge-recording (LUM-275+) joins a run back to; the rendered `*Section`
+ * strings stay the agent-facing surface. The cuid is "stable" only within a
+ * record's lifetime — surviving consolidation/edit drift is LUM-280.
+ */
+export interface ContextFragment {
+  type: ContextFragmentType
+  id: string
+}
+
 export interface TaskContext {
   task: {
     id: string
@@ -107,6 +137,13 @@ export interface TaskContext {
   /** Pre-rendered "## PR Review 待办" markdown; empty when no review comments. */
   prReviewTodosSection: string
   sessions: SessionContext[]
+  /**
+   * Flat, render-independent manifest of every fragment that fed the sections
+   * above (and the sessions list), each keyed by its stable id. Ordered by
+   * section, memory first. The prerequisite for lineage edge-recording
+   * (LUM-274 缺口 A) — consumers join a run to the fragments it was shown.
+   */
+  fragments: ContextFragment[]
 }
 
 const NO_SUMMARY = '(no summary)'
@@ -278,6 +315,107 @@ function mirrorBodyToText(html: string): string {
     .trim()
 }
 
+/**
+ * Fetch a task's relevant memories and order them for rendering: project
+ * memories first (broader applicability, survive task archival), then task
+ * memories. Shared by `buildMemorySectionForTask` (which budgets + renders)
+ * and `getContextForIdentifier` (which budgets + renders AND derives the memory
+ * fragment ids), so the ordering/shape lives in exactly one place.
+ */
+async function fetchOrderedTaskMemories(
+  taskId: string,
+  projectId: string
+): Promise<RenderableMemory[]> {
+  const [taskMemories, projectMemories] = await Promise.all([
+    memoryRepository.findActiveTaskMemories(taskId),
+    memoryRepository.findActiveProjectMemories(projectId),
+  ])
+  return [
+    ...projectMemories.map(m => ({
+      id: m.id,
+      scope: 'PROJECT' as const,
+      category: m.category,
+      content: m.content,
+    })),
+    ...taskMemories.map(m => ({
+      id: m.id,
+      scope: 'TASK' as const,
+      category: m.category,
+      content: m.content,
+    })),
+  ]
+}
+
+/**
+ * Collect a task's PR review todos plus, in lockstep, the stable mirror-row id
+ * behind each surviving todo. Includes every line-level comment (REVIEW_LINE)
+ * and every `changes_requested` review summary; plain comment / approval /
+ * dismissal summaries and tombstoned rows are dropped. Reviewer handles are
+ * resolved from the GITHUB_USER pseudo-actor's `externalIdentity` (no Clerk
+ * call). `fragmentIds[i]` is the mirror id of `todos[i]` — the two arrays stay
+ * index-aligned so `getContextForIdentifier` can surface a fragment per
+ * rendered todo without re-deriving the filter. Empty arrays when the task has
+ * no qualifying review comments.
+ */
+async function collectReviewTodos(
+  taskId: string
+): Promise<{ todos: ReviewTodoItem[]; fragmentIds: string[] }> {
+  const empty = { todos: [], fragmentIds: [] }
+  const prs = await pullRequestRepository.listIdAndNumberByTask(taskId)
+  if (prs.length === 0) return empty
+
+  const prNumberById = new Map(prs.map(p => [p.id, p.number]))
+  const mirrors = await prCommentMirrorRepository.listReviewTodosForPrs(
+    prs.map(p => p.id)
+  )
+  if (mirrors.length === 0) return empty
+
+  // Resolve reviewer GitHub handles in one batch (GITHUB_USER actors only).
+  const actorIds = [
+    ...new Set(
+      mirrors
+        .map(m => m.comment.authorActorId)
+        .filter((id): id is string => id !== null)
+    ),
+  ]
+  const identities = await actorRepository.findGithubIdentitiesByIds(actorIds)
+  const loginByActorId = new Map(
+    identities
+      .filter(a => a.externalIdentity?.startsWith('github:'))
+      .map(a => [a.id, a.externalIdentity!.slice('github:'.length)])
+  )
+
+  const todos: ReviewTodoItem[] = []
+  const fragmentIds: string[] = []
+  for (const m of mirrors) {
+    // Keep line-level comments; for review summaries keep only changes_requested.
+    if (
+      m.externalSource === 'REVIEW' &&
+      !m.comment.body.includes(REVIEW_HEADER.CHANGES_REQUESTED)
+    ) {
+      continue
+    }
+    const text = mirrorBodyToText(m.comment.body)
+    // A line comment with no body after stripping is still actionable
+    // (the file:line is the ask); a review summary with no body is just the
+    // "changes requested" signal — both are worth surfacing.
+    todos.push({
+      kind: m.externalSource === 'REVIEW_LINE' ? 'line' : 'overall',
+      prNumber: prNumberById.get(m.pullRequestId) ?? 0,
+      filePath: m.filePath,
+      line: m.lineEnd ?? m.lineStart,
+      text,
+      url: m.externalUrl,
+      author: m.comment.authorActorId
+        ? (loginByActorId.get(m.comment.authorActorId) ?? null)
+        : null,
+    })
+    fragmentIds.push(m.id)
+  }
+
+  return { todos, fragmentIds }
+}
+
 /** Global session-start injection budget shared by memory + linked resources. */
 const SESSION_START_BUDGET_TOKENS = 2500
 
@@ -295,27 +433,8 @@ export const taskContextService = {
     const task = await taskRepository.findById(taskId)
     if (!task) return ''
 
-    const [taskMemories, projectMemories] = await Promise.all([
-      memoryRepository.findActiveTaskMemories(taskId),
-      memoryRepository.findActiveProjectMemories(task.projectId),
-    ])
-
-    // Project memories first (broader applicability, survive task archival),
-    // then task memories. applyTokenBudget drops the tail on overflow.
-    const ordered: RenderableMemory[] = [
-      ...projectMemories.map(m => ({
-        id: m.id,
-        scope: 'PROJECT' as const,
-        category: m.category,
-        content: m.content,
-      })),
-      ...taskMemories.map(m => ({
-        id: m.id,
-        scope: 'TASK' as const,
-        category: m.category,
-        content: m.content,
-      })),
-    ]
+    // applyTokenBudget drops the tail on overflow.
+    const ordered = await fetchOrderedTaskMemories(taskId, task.projectId)
     // Wrap in an explicit trust boundary before the section leaves the
     // service: this string is auto-injected into the agent via SessionStart
     // `additionalContext` and is authored by arbitrary workspace members, so
@@ -404,56 +523,7 @@ export const taskContextService = {
    * (auto-injected as `additionalContext`).
    */
   async buildReviewTodosSectionForTask(taskId: string): Promise<string> {
-    const prs = await pullRequestRepository.listIdAndNumberByTask(taskId)
-    if (prs.length === 0) return ''
-
-    const prNumberById = new Map(prs.map(p => [p.id, p.number]))
-    const mirrors = await prCommentMirrorRepository.listReviewTodosForPrs(
-      prs.map(p => p.id)
-    )
-    if (mirrors.length === 0) return ''
-
-    // Resolve reviewer GitHub handles in one batch (GITHUB_USER actors only).
-    const actorIds = [
-      ...new Set(
-        mirrors
-          .map(m => m.comment.authorActorId)
-          .filter((id): id is string => id !== null)
-      ),
-    ]
-    const identities = await actorRepository.findGithubIdentitiesByIds(actorIds)
-    const loginByActorId = new Map(
-      identities
-        .filter(a => a.externalIdentity?.startsWith('github:'))
-        .map(a => [a.id, a.externalIdentity!.slice('github:'.length)])
-    )
-
-    const todos: ReviewTodoItem[] = []
-    for (const m of mirrors) {
-      // Keep line-level comments; for review summaries keep only changes_requested.
-      if (
-        m.externalSource === 'REVIEW' &&
-        !m.comment.body.includes(REVIEW_HEADER.CHANGES_REQUESTED)
-      ) {
-        continue
-      }
-      const text = mirrorBodyToText(m.comment.body)
-      // A line comment with no body after stripping is still actionable
-      // (the file:line is the ask); a review summary with no body is just the
-      // "changes requested" signal — both are worth surfacing.
-      todos.push({
-        kind: m.externalSource === 'REVIEW_LINE' ? 'line' : 'overall',
-        prNumber: prNumberById.get(m.pullRequestId) ?? 0,
-        filePath: m.filePath,
-        line: m.lineEnd ?? m.lineStart,
-        text,
-        url: m.externalUrl,
-        author: m.comment.authorActorId
-          ? (loginByActorId.get(m.comment.authorActorId) ?? null)
-          : null,
-      })
-    }
-
+    const { todos } = await collectReviewTodos(taskId)
     return renderPrReviewTodosSection(todos)
   },
 
@@ -611,16 +681,42 @@ export const taskContextService = {
     const prs = await pullRequestRepository.listByTask(resolved.id)
     const prSection = renderPRSection(prs)
 
-    const prReviewTodosSection =
-      await taskContextService.buildReviewTodosSectionForTask(resolved.id)
+    // collectReviewTodos returns the rendered todos AND their stable mirror
+    // ids in lockstep, so the fragment manifest references exactly the todos
+    // the agent sees (post-filter), without re-deriving the filter here.
+    const { todos: reviewTodos, fragmentIds: reviewTodoIds } =
+      await collectReviewTodos(resolved.id)
+    const prReviewTodosSection = renderPrReviewTodosSection(reviewTodos)
 
-    const memorySection = await taskContextService.buildMemorySectionForTask(
-      full.id
+    // Inline the memory build (rather than calling buildMemorySectionForTask)
+    // so the fragment ids come from the *budgeted* set — the memories that
+    // actually survive into the rendered section, i.e. what the agent sees.
+    const budgetedMemories = applyTokenBudget(
+      await fetchOrderedTaskMemories(full.id, full.projectId)
+    )
+    const memorySection = wrapUntrustedMemory(
+      renderMemorySection(budgetedMemories)
     )
 
     const milestone = full.milestoneId
       ? await milestoneRepository.findById(full.milestoneId)
       : null
+
+    // Flat fragment manifest, section order (memory first). Each id is the
+    // source record's stable handle — cuid for every type, session UUID for
+    // SESSION. The prerequisite for lineage edge-recording (LUM-274 缺口 A).
+    const fragments: ContextFragment[] = [
+      ...budgetedMemories.map(m => ({ type: 'MEMORY' as const, id: m.id })),
+      ...slackContexts.map(s => ({ type: 'SLACK_CONTEXT' as const, id: s.id })),
+      ...webLinks.map(w => ({ type: 'WEB_LINK' as const, id: w.id })),
+      ...figmaLinks.map(f => ({ type: 'FIGMA_LINK' as const, id: f.id })),
+      ...artifacts.map(a => ({ type: 'ARTIFACT' as const, id: a.id })),
+      ...docs.map(d => ({ type: 'DOCUMENT' as const, id: d.id })),
+      ...comments.map(c => ({ type: 'COMMENT' as const, id: c.id })),
+      ...prs.map(p => ({ type: 'PULL_REQUEST' as const, id: p.id })),
+      ...reviewTodoIds.map(id => ({ type: 'PR_REVIEW_TODO' as const, id })),
+      ...sessions.map(s => ({ type: 'SESSION' as const, id: s.id })),
+    ]
 
     return {
       task: {
@@ -668,6 +764,7 @@ export const taskContextService = {
         headline: summaryHeadline(s.summary),
         unresolved: summaryUnresolved(s.summary, s.summaryType),
       })),
+      fragments,
     }
   },
 }
