@@ -153,7 +153,7 @@ export function MembersPage() {
       <div className='max-w-5xl mx-auto px-6 py-8'>
         {/* Header */}
         <div className='flex items-center justify-between mb-8'>
-          <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
+          <h1 className='text-xl font-semibold text-foreground'>
             {intl.formatMessage({ id: 'members.title' })}
           </h1>
           <Button
@@ -169,39 +169,39 @@ export function MembersPage() {
         {/* Active members */}
         <section className='mb-8'>
           <div className='flex items-center gap-2 mb-3'>
-            <span className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
+            <span className='text-sm font-medium text-foreground'>
               {intl.formatMessage({ id: 'members.active' })}
             </span>
-            <span className='text-xs text-zinc-400'>{members.length}</span>
+            <span className='text-xs text-muted-foreground'>{members.length}</span>
           </div>
 
-          <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
+          <div className='rounded-lg border border-border overflow-hidden'>
             {/* Table header */}
-            <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800'>
-              <span className='text-xs font-medium text-zinc-500'>
+            <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
+              <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colName' })}
               </span>
-              <span className='text-xs font-medium text-zinc-500'>
+              <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colEmail' })}
               </span>
-              <span className='text-xs font-medium text-zinc-500'>
+              <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colRole' })}
               </span>
-              <span className='text-xs font-medium text-zinc-500'>
+              <span className='text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'members.colJoined' })}
               </span>
               <span />
             </div>
 
             {members.length === 0 ? (
-              <div className='px-4 py-6 text-sm text-zinc-400 text-center'>
+              <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
                 {intl.formatMessage({ id: 'common.loading' })}
               </div>
             ) : (
               members.map(m => (
                 <div
                   key={m.id}
-                  className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/50 last:border-0'
+                  className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
                 >
                   {/* Name + avatar */}
                   <div className='flex items-center gap-2.5 min-w-0'>
@@ -213,17 +213,17 @@ export function MembersPage() {
                         referrerPolicy='no-referrer'
                       />
                     ) : (
-                      <div className='size-7 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 shrink-0 uppercase'>
+                      <div className='size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-foreground shrink-0 uppercase'>
                         {getInitials(m.name)}
                       </div>
                     )}
-                    <span className='text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate'>
+                    <span className='text-sm font-medium text-foreground truncate'>
                       {m.name}
                     </span>
                   </div>
 
                   {/* Email */}
-                  <span className='text-sm text-zinc-500 dark:text-zinc-400 truncate'>
+                  <span className='text-sm text-muted-foreground truncate'>
                     {m.email ?? '—'}
                   </span>
 
@@ -239,7 +239,7 @@ export function MembersPage() {
                       updatingRoleId === m.id
                     }
                   >
-                    <SelectTrigger className='h-7 w-24 text-xs border-zinc-200 dark:border-zinc-700 focus:ring-1'>
+                    <SelectTrigger className='h-7 w-24 text-xs border-border focus:ring-1'>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -253,7 +253,7 @@ export function MembersPage() {
                   </Select>
 
                   {/* Joined */}
-                  <span className='text-sm text-zinc-400 shrink-0 whitespace-nowrap'>
+                  <span className='text-sm text-muted-foreground shrink-0 whitespace-nowrap'>
                     {formatDate(m.joinedAt, intl.locale)}
                   </span>
 
@@ -264,7 +264,7 @@ export function MembersPage() {
                         <Button
                           variant='ghost'
                           size='icon'
-                          className='h-6 w-6 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 shrink-0'
+                          className='h-6 w-6 text-muted-foreground hover:text-foreground shrink-0'
                         >
                           <MoreHorizontal size={13} />
                         </Button>
@@ -291,58 +291,58 @@ export function MembersPage() {
         {(invites.length > 0 || loadingInvites) && (
           <section>
             <div className='flex items-center gap-2 mb-3'>
-              <span className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
+              <span className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'members.invited' })}
               </span>
-              <span className='text-xs text-zinc-400'>{invites.length}</span>
+              <span className='text-xs text-muted-foreground'>{invites.length}</span>
             </div>
 
-            <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
+            <div className='rounded-lg border border-border overflow-hidden'>
               {/* Table header — same columns as Active */}
-              <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800'>
-                <span className='text-xs font-medium text-zinc-500'>
+              <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-muted border-b border-border'>
+                <span className='text-xs font-medium text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colName' })}
                 </span>
-                <span className='text-xs font-medium text-zinc-500'>
+                <span className='text-xs font-medium text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colEmail' })}
                 </span>
-                <span className='text-xs font-medium text-zinc-500'>
+                <span className='text-xs font-medium text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colRole' })}
                 </span>
-                <span className='text-xs font-medium text-zinc-500'>
+                <span className='text-xs font-medium text-muted-foreground'>
                   {intl.formatMessage({ id: 'members.colSent' })}
                 </span>
                 <span />
               </div>
 
               {loadingInvites && invites.length === 0 ? (
-                <div className='px-4 py-6 text-sm text-zinc-400 text-center'>
+                <div className='px-4 py-6 text-sm text-muted-foreground text-center'>
                   {intl.formatMessage({ id: 'common.loading' })}
                 </div>
               ) : (
                 invites.map(inv => (
                   <div
                     key={inv.id}
-                    className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/50 last:border-0'
+                    className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 items-center px-4 py-3 border-b border-border/50 last:border-0'
                   >
                     {/* Name — show email with avatar (no real name yet) */}
                     <div className='flex items-center gap-2.5 min-w-0'>
-                      <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-semibold text-zinc-400 shrink-0 uppercase'>
+                      <div className='size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground shrink-0 uppercase'>
                         {inv.email[0]}
                       </div>
-                      <span className='text-sm text-zinc-700 dark:text-zinc-300 truncate'>
+                      <span className='text-sm text-foreground truncate'>
                         {inv.email}
                       </span>
                     </div>
 
                     {/* Email */}
-                    <span className='text-sm text-zinc-500 dark:text-zinc-400 truncate'>
+                    <span className='text-sm text-muted-foreground truncate'>
                       {inv.email}
                     </span>
 
                     {/* Role — always disabled for pending invites */}
                     <Select value='MEMBER' disabled>
-                      <SelectTrigger className='h-7 w-24 text-xs border-zinc-200 dark:border-zinc-700'>
+                      <SelectTrigger className='h-7 w-24 text-xs border-border'>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -353,7 +353,7 @@ export function MembersPage() {
                     </Select>
 
                     {/* Sent date */}
-                    <span className='text-sm text-zinc-400 whitespace-nowrap'>
+                    <span className='text-sm text-muted-foreground whitespace-nowrap'>
                       {formatDate(inv.createdAt, intl.locale)}
                     </span>
 
@@ -363,7 +363,7 @@ export function MembersPage() {
                         <Button
                           variant='ghost'
                           size='icon'
-                          className='h-6 w-6 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 shrink-0'
+                          className='h-6 w-6 text-muted-foreground hover:text-foreground shrink-0'
                           disabled={resendingToken === inv.token}
                         >
                           {resendingToken === inv.token ? (
@@ -427,7 +427,7 @@ export function MembersPage() {
                       addEmailField()
                     }
                   }}
-                  className='flex-1 h-9 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 placeholder:text-zinc-400'
+                  className='flex-1 h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground'
                   autoFocus={i === emailInputs.length - 1 && i > 0}
                 />
                 {emailInputs.length > 1 && (
@@ -435,7 +435,7 @@ export function MembersPage() {
                     type='button'
                     variant='ghost'
                     size='icon'
-                    className='h-9 w-9 shrink-0 text-zinc-400'
+                    className='h-9 w-9 shrink-0 text-muted-foreground'
                     onClick={() => removeEmail(field.id)}
                   >
                     <X size={14} />
@@ -448,7 +448,7 @@ export function MembersPage() {
               <button
                 type='button'
                 onClick={addEmailField}
-                className='text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1 mt-1 transition-colors'
+                className='text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mt-1 transition-colors'
               >
                 <Plus size={12} />
                 {intl.formatMessage({ id: 'members.addAnother' })}

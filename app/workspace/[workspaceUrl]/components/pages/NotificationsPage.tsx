@@ -46,24 +46,24 @@ export function NotificationsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-foreground mb-1'>
           {intl.formatMessage({ id: 'notifications.title' })}
         </h1>
-        <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
+        <p className='text-sm text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'notifications.subtitle' })}
         </p>
 
         {/* In-App Notifications */}
-        <h2 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2'>
+        <h2 className='text-sm font-semibold text-foreground mb-2'>
           {intl.formatMessage({ id: 'notifications.inApp' })}
         </h2>
-        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900 mb-6'>
+        <div className='border border-border rounded-lg overflow-hidden bg-card mb-6'>
           {NOTIFY_EVENTS.map((evt, i) => (
             <div
               key={evt.inAppKey}
-              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-border' : ''}`}
             >
-              <p className='text-sm text-zinc-700 dark:text-zinc-300'>
+              <p className='text-sm text-foreground'>
                 {intl.formatMessage({ id: evt.labelId })}
               </p>
               <Switch
@@ -76,16 +76,16 @@ export function NotificationsPage() {
         </div>
 
         {/* Slack Notifications */}
-        <h2 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2'>
+        <h2 className='text-sm font-semibold text-foreground mb-2'>
           {intl.formatMessage({ id: 'notifications.slack' })}
         </h2>
-        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900'>
+        <div className='border border-border rounded-lg overflow-hidden bg-card'>
           {NOTIFY_EVENTS.map((evt, i) => (
             <div
               key={evt.slackKey}
-              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+              className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-border' : ''}`}
             >
-              <p className='text-sm text-zinc-700 dark:text-zinc-300'>
+              <p className='text-sm text-foreground'>
                 {intl.formatMessage({ id: evt.labelId })}
               </p>
               <Switch
