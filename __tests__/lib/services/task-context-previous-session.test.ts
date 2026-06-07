@@ -80,6 +80,7 @@ describe('buildPreviousSessionRecoveryForTask', () => {
     ])
     const out = await taskContextService.buildPreviousSessionRecoveryForTask('t1', 'cur')
     expect(out).toEqual({
+      sessionId: 'prev',
       headline: 'real headline',
       unresolved: ['finish API'],
       durationMs: 23 * 60_000,

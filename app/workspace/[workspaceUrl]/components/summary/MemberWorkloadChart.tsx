@@ -40,7 +40,7 @@ export function MemberWorkloadChart({ workload }: MemberWorkloadChartProps) {
               </div>
               <div className='h-2 bg-muted rounded-full overflow-hidden'>
                 <div
-                  className='h-full bg-blue-500 rounded-full transition-all'
+                  className='h-full bg-chart-1 rounded-full transition-all'
                   style={{
                     width: `${(member.assigned / maxAssigned) * 100}%`,
                   }}

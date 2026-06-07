@@ -143,6 +143,12 @@ const GRAPHIC_TOKENS = [
   'priority-high',
   'priority-medium',
   'priority-low',
+  // Data-viz categorical palette (LUM-290) — rendered as bars/lines/segments.
+  'chart-1',
+  'chart-2',
+  'chart-3',
+  'chart-4',
+  'chart-5',
 ] as const
 
 describe('status / priority tokens meet 3:1 graphics contrast on --background', () => {

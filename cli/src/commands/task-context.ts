@@ -28,6 +28,7 @@ interface TaskContextResponse {
   commentsSection?: string
   prSection?: string
   prReviewTodosSection?: string
+  lineageSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -176,22 +177,28 @@ export function formatTaskContextMarkdown(
     lines.push('')
     lines.push('_No prior coding sessions for this task._')
     lines.push('')
-    return lines.join('\n')
+  } else {
+    lines.push(`## Previous Sessions (${data.sessions.length})`)
+    lines.push('')
+
+    for (const s of data.sessions) {
+      const shortId = s.id.slice(0, 8)
+      const ago = relativeTime(new Date(s.lastActivityAt), now)
+      const dur = formatDuration(s.durationMs)
+      lines.push(`### Session ${shortId} · ${ago} · ${dur}`)
+      lines.push(`**Summary**: ${sanitizeField(s.headline)}`)
+      if (s.unresolved.length > 0) {
+        lines.push('**Unresolved**:')
+        for (const u of s.unresolved) lines.push(`- ${sanitizeField(u)}`)
+      }
+      lines.push('')
+    }
   }
 
-  lines.push(`## Previous Sessions (${data.sessions.length})`)
-  lines.push('')
-
-  for (const s of data.sessions) {
-    const shortId = s.id.slice(0, 8)
-    const ago = relativeTime(new Date(s.lastActivityAt), now)
-    const dur = formatDuration(s.durationMs)
-    lines.push(`### Session ${shortId} · ${ago} · ${dur}`)
-    lines.push(`**Summary**: ${sanitizeField(s.headline)}`)
-    if (s.unresolved.length > 0) {
-      lines.push('**Unresolved**:')
-      for (const u of s.unresolved) lines.push(`- ${sanitizeField(u)}`)
-    }
+  // Flywheel signal goes last so it reads as a closing "historical payoff"
+  // footer (LUM-278). Server returns "" below the cold-start floor.
+  if (data.lineageSection && data.lineageSection.trim().length > 0) {
+    lines.push(sanitizeField(data.lineageSection.trimEnd()))
     lines.push('')
   }
 

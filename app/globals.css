@@ -553,6 +553,21 @@ html {
   ); /* yellow-600 darkened to clear WCAG 3:1 graphics on #fff (was L0.681=2.93:1, now 3.18:1) — LUM-286 */
   --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
 
+  /* Data-visualization categorical palette (LUM-290). Five distinct hues spread
+     around the wheel for multi-series charts (bars / lines / segments). Like
+     --status-* / --priority-*, this is a sanctioned CATEGORICAL palette, NOT a
+     semantic UI token — colors key off series index, not UI roles, so charts
+     are exempt from the `brand` lint rule by consuming these tokens. Consumption
+     convention: series i uses --chart-((i-1) % 5 + 1); single-series charts use
+     --chart-1. Each renders as a graphical object, so LIGHT values are darkened
+     to clear WCAG 3:1 on #fff; the brighter .dark counterparts (3:1 on #0a0a0a)
+     live in the .dark block — keep both. Verified by feedback-contrast.test.ts. */
+  --chart-1: oklch(0.623 0.19 259); /* blue,   3.68:1 on #fff */
+  --chart-2: oklch(0.6 0.165 152); /* green,  3.64:1 on #fff */
+  --chart-3: oklch(0.64 0.15 70); /* amber,  3.46:1 on #fff */
+  --chart-4: oklch(0.62 0.2 303); /* violet, 3.98:1 on #fff */
+  --chart-5: oklch(0.63 0.2 16); /* rose,   3.87:1 on #fff */
+
   /* highlight.js syntax palette (LUM-288). A categorical color set — one color
      per syntax category, mirroring GitHub's light theme — consumed by the
      .hljs-* rules above via var(). Like --priority-*, this is a sanctioned
@@ -637,6 +652,14 @@ html {
   --priority-high: oklch(0.705 0.213 47.604); /* orange-500 */
   --priority-medium: oklch(0.795 0.184 86.047); /* yellow-500 */
   --priority-low: oklch(0.705 0.015 286.067); /* zinc-400 */
+
+  /* Data-viz palette — brighter shades on the dark background (#0a0a0a), each
+     clearing 3:1 there (7–11:1). Same hues as :root, lightened for dark. */
+  --chart-1: oklch(0.715 0.165 259); /* blue,   7.63:1 on #0a0a0a */
+  --chart-2: oklch(0.76 0.165 152); /* green,  9.84:1 */
+  --chart-3: oklch(0.81 0.15 70); /* amber, 10.69:1 */
+  --chart-4: oklch(0.72 0.18 303); /* violet, 7.44:1 */
+  --chart-5: oklch(0.72 0.175 16); /* rose,   7.36:1 */
 
   /* highlight.js syntax palette — bright GitHub-dark variants (LUM-288). */
   --hljs-comment: #8b949e;
@@ -738,6 +761,14 @@ html {
   --color-priority-high: var(--priority-high);
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--priority-low);
+
+  /* Data-viz categorical palette utilities (LUM-290): generates
+     .bg-chart-1 / .text-chart-2 / .fill-chart-3 / .stroke-chart-4 / etc. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   /* Motion tokens (LUM-284): single source for transition duration and easing.
      duration-* utilities resolve named values from --transition-duration-*;

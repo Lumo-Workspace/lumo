@@ -294,3 +294,58 @@ describe('formatTaskContextMarkdown — milestone', () => {
     }
   })
 })
+
+describe('formatTaskContextMarkdown — lineageSection', () => {
+  const LINEAGE_NOW = new Date('2026-06-06T00:00:00Z')
+
+  it('appends lineageSection at the very end when sessions is empty', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        sessions: [],
+        lineageSection:
+          '## 飞轮信号 · 历史 merge 贡献\n\n- [MEMORY] "x" — 出现在 3 个已闭合任务·3 merged (100%)',
+      } as any,
+      LINEAGE_NOW
+    )
+    expect(out).toContain('## Previous Sessions (0)')
+    expect(out.indexOf('飞轮信号')).toBeGreaterThan(out.indexOf('Previous Sessions'))
+    expect(out).toContain('出现在 3 个已闭合任务·3 merged (100%)')
+  })
+
+  it('appends lineageSection after a non-empty sessions block', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        sessions: [
+          {
+            id: 'abcdef1234',
+            startedAt: '2026-06-05T00:00:00Z',
+            lastActivityAt: '2026-06-05T01:00:00Z',
+            durationMs: 3600000,
+            eventCount: 1,
+            summaryType: null,
+            headline: 'did things',
+            unresolved: [],
+          },
+        ],
+        lineageSection:
+          '## 飞轮信号 · 历史 merge 贡献\n\n- [PR] #1 — 出现在 4 个已闭合任务·3 merged (75%)',
+      } as any,
+      LINEAGE_NOW
+    )
+    expect(out.indexOf('飞轮信号')).toBeGreaterThan(out.indexOf('Previous Sessions (1)'))
+  })
+
+  it('omits the lineage block when lineageSection is absent/empty', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        sessions: [],
+        lineageSection: '',
+      } as any,
+      LINEAGE_NOW
+    )
+    expect(out).not.toContain('飞轮信号')
+  })
+})

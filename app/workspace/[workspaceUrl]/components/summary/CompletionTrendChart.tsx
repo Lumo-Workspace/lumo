@@ -36,7 +36,7 @@ export function CompletionTrendChart({ trend }: CompletionTrendChartProps) {
               >
                 <div className='flex-1 w-full flex items-end'>
                   <div
-                    className='w-full bg-green-400 rounded-t transition-all'
+                    className='w-full bg-chart-1 rounded-t transition-all'
                     style={{ height: `${heightPct}%` }}
                     title={`${entry.completed} completed`}
                   />

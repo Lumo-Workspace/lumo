@@ -1,3 +1,4 @@
+import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
@@ -12,6 +13,9 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { assembleLineageSection } from '@/lib/services/lineage-signal'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
@@ -61,6 +65,8 @@ export interface SessionContext {
 }
 
 export interface PreviousSessionRecovery {
+  /** The prior session's id — recorded as a SESSION lineage fragment (LUM-276). */
+  sessionId: string
   headline: string
   unresolved: string[]
   durationMs: number
@@ -136,6 +142,12 @@ export interface TaskContext {
   prSection: string
   /** Pre-rendered "## PR Review 待办" markdown; empty when no review comments. */
   prReviewTodosSection: string
+  /**
+   * Pre-rendered "## 飞轮信号 · 历史 merge 贡献" block appended at the very end
+   * of the context handoff. Empty string when no fragment clears the cold-start
+   * sample floor (LUM-278 DoD⑤). Caliber is fixed server-side.
+   */
+  lineageSection: string
   sessions: SessionContext[]
   /**
    * Flat, render-independent manifest of every fragment that fed the sections
@@ -455,8 +467,12 @@ export const taskContextService = {
    */
   async buildSessionStartSections(
     taskId: string
-  ): Promise<{ memorySection: string; linkedResourcesSection: string }> {
-    const empty = { memorySection: '', linkedResourcesSection: '' }
+  ): Promise<{
+    memorySection: string
+    linkedResourcesSection: string
+    fragments: FragmentRef[]
+  }> {
+    const empty = { memorySection: '', linkedResourcesSection: '', fragments: [] as FragmentRef[] }
     const task = await taskRepository.findById(taskId)
     if (!task) return empty
 
@@ -504,9 +520,21 @@ export const taskContextService = {
       .filter(s => s !== '')
       .join('\n\n')
 
+    const fragments: FragmentRef[] = [
+      ...orderedMemories.map(m => ({
+        fragmentType: 'MEMORY' as const,
+        fragmentId: m.id,
+      })),
+      ...slack.map(s => ({ fragmentType: 'SLACK_CONTEXT' as const, fragmentId: s.id })),
+      ...web.map(w => ({ fragmentType: 'WEB_LINK' as const, fragmentId: w.id })),
+      ...figma.map(f => ({ fragmentType: 'FIGMA' as const, fragmentId: f.id })),
+      ...prs.map(p => ({ fragmentType: 'PR' as const, fragmentId: p.id })),
+    ]
+
     return {
       memorySection: wrapUntrustedMemory(memoryOut),
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
+      fragments,
     }
   },
 
@@ -522,9 +550,17 @@ export const taskContextService = {
    * Shared by `getContextForIdentifier` (on-demand) and the session-start hook
    * (auto-injected as `additionalContext`).
    */
-  async buildReviewTodosSectionForTask(taskId: string): Promise<string> {
-    const { todos } = await collectReviewTodos(taskId)
-    return renderPrReviewTodosSection(todos)
+  async buildReviewTodosSectionForTask(
+    taskId: string
+  ): Promise<{ section: string; fragments: FragmentRef[] }> {
+    const { todos, fragmentIds } = await collectReviewTodos(taskId)
+    return {
+      section: renderPrReviewTodosSection(todos),
+      fragments: fragmentIds.map(id => ({
+        fragmentType: 'PR_REVIEW_TODO' as const,
+        fragmentId: id,
+      })),
+    }
   },
 
   /**
@@ -548,6 +584,7 @@ export const taskContextService = {
       const headline = summaryHeadline(s.summary)
       if (headline === NO_SUMMARY) continue
       return {
+        sessionId: s.id,
         headline,
         unresolved: summaryUnresolved(s.summary, s.summaryType),
         durationMs: Math.max(
@@ -583,19 +620,20 @@ export const taskContextService = {
   async buildLayer2ReviewSectionForTask(
     taskId: string,
     currentSessionId: string
-  ): Promise<string> {
+  ): Promise<{ section: string; fragments: FragmentRef[] }> {
+    const empty = { section: '', fragments: [] as FragmentRef[] }
     const task = await taskRepository.findById(taskId)
-    if (!task) return ''
+    if (!task) return empty
 
     const prevSessionId =
       await sessionRepository.findPreviousSessionIdForMember(currentSessionId)
-    if (!prevSessionId) return ''
+    if (!prevSessionId) return empty
 
     const promoted = await memoryRepository.findProjectMemoriesBySession(
       prevSessionId,
       task.projectId
     )
-    if (promoted.length === 0) return ''
+    if (promoted.length === 0) return empty
 
     const ordered: RenderableMemory[] = promoted.map(m => ({
       id: m.id,
@@ -603,7 +641,14 @@ export const taskContextService = {
       category: m.category,
       content: m.content,
     }))
-    return renderLayer2ReviewSection(applyTokenBudget(ordered))
+    const survivors = applyTokenBudget(ordered)
+    return {
+      section: renderLayer2ReviewSection(survivors),
+      fragments: survivors.map(m => ({
+        fragmentType: 'MEMORY' as const,
+        fragmentId: m.id,
+      })),
+    }
   },
 
   /**
@@ -718,6 +763,23 @@ export const taskContextService = {
       ...sessions.map(s => ({ type: 'SESSION' as const, id: s.id })),
     ]
 
+    // Trailing flywheel signal (LUM-278). Reads accumulated lineage edges,
+    // task-deduped, gated on a cold-start sample floor. Best-effort: any
+    // failure degrades to "" inside assembleLineageSection.
+    const memoryContentById = new Map<string, string>(
+      budgetedMemories.map(m => [m.id, typeof m.content === 'string' ? m.content : ''])
+    )
+    const lineageSection = await assembleLineageSection(
+      fragments,
+      memoryContentById,
+      {
+        resolveCanonicalFragment: (type, id) =>
+          memoryProvenanceRepository.resolveCanonicalFragment(type, id),
+        mergeRateByFragments: refs =>
+          lineageEdgeRepository.mergeRateByFragments(refs),
+      }
+    )
+
     return {
       task: {
         id: full.id,
@@ -764,6 +826,7 @@ export const taskContextService = {
         headline: summaryHeadline(s.summary),
         unresolved: summaryUnresolved(s.summary, s.summaryType),
       })),
+      lineageSection,
       fragments,
     }
   },
