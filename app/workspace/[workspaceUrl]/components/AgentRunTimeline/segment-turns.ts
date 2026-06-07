@@ -41,6 +41,9 @@ export interface Turn {
    *     malformed payload, or STOP_FAILURE which uses error fields).
    */
   summary: string | null
+  /** Per-turn per-model cost from the terminating STOP; null if unterminated
+   *  or no usage captured. */
+  cost: { byModel: import('../../types').ModelCost[] } | null
 }
 
 /**
@@ -77,6 +80,7 @@ export function segmentIntoTurns(items: AgentRunItem[]): Turn[] {
         memories: [],
         terminated: true,
         summary: extractTurnSummary(item),
+        cost: item.turnCost ?? null,
       })
       currentEvents = []
     }
@@ -92,6 +96,7 @@ export function segmentIntoTurns(items: AgentRunItem[]): Turn[] {
       memories: [],
       terminated: false,
       summary: null,
+      cost: null,
     })
   }
 

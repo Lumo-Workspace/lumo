@@ -25,7 +25,7 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
   return (
     <div className='my-3'>
       {/* Header — different visual weight for sedimented vs silent turns */}
-      <div className='flex items-center gap-2 mb-2 px-1'>
+      <div className='flex items-start gap-2 mb-2 px-1'>
         <span
           className={
             hasMemory
@@ -47,6 +47,23 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
               id: 'agentRun.unterminatedTurn',
               defaultMessage: '未终止',
             })}
+          </span>
+        )}
+        {turn.cost && (
+          <span className='ml-auto shrink-0 text-right text-[11px] text-muted-foreground tabular-nums'>
+            {turn.cost.byModel.length === 1
+              ? `${intl.formatNumber(turn.cost.byModel[0]!.total, { notation: 'compact', maximumFractionDigits: 1 })} tok`
+              : turn.cost.byModel
+                  .map(
+                    m =>
+                      `${m.model.replace(/^claude-/, '')} ${intl.formatNumber(m.total, { notation: 'compact', maximumFractionDigits: 1 })}`
+                  )
+                  .join(' · ')}
+            {turn.cost.byModel.length === 1 && (
+              <span className='block text-[9px] text-muted-foreground/60'>
+                {turn.cost.byModel[0]!.model.replace(/^claude-/, '')}
+              </span>
+            )}
           </span>
         )}
       </div>

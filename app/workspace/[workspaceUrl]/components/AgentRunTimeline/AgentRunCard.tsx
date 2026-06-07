@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, Bot } from 'lucide-react'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { TurnCard } from './TurnCard'
+import { TokenCostBreakdown } from '../TokenCostBreakdown'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -77,11 +78,56 @@ export function AgentRunCard({
               </span>
             </>
           )}
+          {run.cost && (
+            <>
+              <span>·</span>
+              <span className='text-foreground font-semibold tabular-nums'>
+                {run.cost.byModel.length === 1
+                  ? intl.formatMessage(
+                      {
+                        id: 'agentRun.cost.perRunTok',
+                        defaultMessage: '{tok} tok',
+                      },
+                      { tok: fmtCompact(intl, run.cost.byModel[0]!.total) }
+                    )
+                  : run.cost.byModel
+                      .map(
+                        m =>
+                          `${shortModel(m.model)} ${fmtCompact(intl, m.total)}`
+                      )
+                      .join(' · ')}
+              </span>
+              {typeof run.cost.loopCount === 'number' && (
+                <>
+                  <span>·</span>
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        id: 'agentRun.cost.loops',
+                        defaultMessage:
+                          '{n, plural, one {# loop} other {# loops}}',
+                      },
+                      { n: run.cost.loopCount }
+                    )}
+                  </span>
+                </>
+              )}
+            </>
+          )}
         </span>
       </button>
 
       {expanded && (
         <div className='border-t border-border/80 px-4 py-2'>
+          {run.cost && (
+            <div className='mb-2'>
+              <TokenCostBreakdown
+                variant='compact'
+                models={run.cost.byModel}
+                loopCount={run.cost.loopCount}
+              />
+            </div>
+          )}
           {run.items.length === 0 ? (
             <p className='py-3 text-xs text-muted-foreground italic'>
               {intl.formatMessage({
@@ -109,4 +155,12 @@ function formatDuration(ms: number): string {
   const min = Math.floor(sec / 60)
   const rem = sec % 60
   return rem === 0 ? `${min}m` : `${min}m ${rem}s`
+}
+
+function fmtCompact(intl: ReturnType<typeof useIntl>, n: number): string {
+  return intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
+}
+
+function shortModel(model: string): string {
+  return model.replace(/^claude-/, '')
 }
