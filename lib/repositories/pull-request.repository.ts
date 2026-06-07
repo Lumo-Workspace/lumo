@@ -117,12 +117,14 @@ export const pullRequestRepository = {
 
   /**
    * All PRs linked to a task, newest first, shaped for the context-tiering
-   * renderer (LUM-122): only the fields the inline card needs.
+   * renderer (LUM-122): the inline-card fields plus the cuid `id` so the
+   * task-context fragment manifest can reference each PR (LUM-274).
    */
   async listByTask(taskId: string) {
     return prisma.pullRequest.findMany({
       where: { taskId },
       select: {
+        id: true,
         number: true,
         title: true,
         state: true,
@@ -135,8 +137,8 @@ export const pullRequestRepository = {
   /**
    * `(id, number)` for every PR linked to a task, newest first. The id is the
    * join key for fetching mirrored review comments; the number labels todos
-   * when a task spans more than one PR. (`listByTask` omits the id by design,
-   * so the review-todo builder uses this instead.)
+   * when a task spans more than one PR. Lighter than `listByTask` (no
+   * title/state/ci) — the review-todo builder only needs the join key + number.
    */
   async listIdAndNumberByTask(taskId: string) {
     return prisma.pullRequest.findMany({

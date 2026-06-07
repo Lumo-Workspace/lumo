@@ -35,7 +35,7 @@ export const commentRepository = {
   async listAllForTask(taskId: string) {
     return prisma.comment.findMany({
       where: { taskId, deletedAt: null },
-      select: { authorActorId: true, body: true, createdAt: true },
+      select: { id: true, authorActorId: true, body: true, createdAt: true },
       orderBy: { createdAt: 'asc' as const },
     })
   },
