@@ -58,17 +58,19 @@ const SEGMENTS: {
   },
 ]
 
-// One per-model block: total heading (2xl when single model, smaller when
-// stacked), the proportional bar, and the four detail rows. Hoisted to module
+// One per-model block: total heading (sized by variant — see headlineSize),
+// the proportional bar, and the four detail rows. Hoisted to module
 // scope so it keeps a stable component identity across renders (defining it
 // inside the parent would remount the subtree on every render).
 function ModelGroup({
   m,
   multi,
+  variant,
   intl,
 }: {
   m: ModelCost
   multi: boolean
+  variant: 'full' | 'compact'
   intl: IntlShape
 }) {
   const fmt = (n: number) =>
@@ -78,13 +80,22 @@ function ModelGroup({
     defaultMessage: 'tok',
   })
 
+  // Headline size on the semantic tier scale: the summary (full) total is the
+  // focal number; a single run's (compact) total is secondary so it sits a tier
+  // down and reads as detail rather than re-stating the summary.
+  const headlineSize = multi
+    ? 'text-body-strong'
+    : variant === 'full'
+      ? 'text-heading'
+      : 'text-title'
+
   return (
     <div className='py-2 first:pt-0 border-t border-border/60 first:border-t-0'>
       <div className='flex items-center gap-2'>
-        {m.model && <span className='text-xs font-semibold'>{m.model}</span>}
-        <span
-          className={`${multi ? 'text-sm' : 'text-2xl'} ml-auto font-bold tabular-nums tracking-tight`}
-        >
+        {m.model && (
+          <span className='text-caption font-semibold'>{m.model}</span>
+        )}
+        <span className={`${headlineSize} ml-auto tabular-nums`}>
           {fmt(m.total)}{' '}
           <span className='text-[10px] font-normal text-muted-foreground/60'>
             {unit}
@@ -104,7 +115,7 @@ function ModelGroup({
           )
         })}
       </div>
-      <div className='mt-2 flex flex-col gap-0.5'>
+      <div className='mt-2 flex flex-col gap-0.5 text-caption'>
         {SEGMENTS.map(seg => (
           <div
             key={seg.key}
@@ -172,7 +183,13 @@ export function TokenCostBreakdown({
         })}
       </div>
       {models.map(m => (
-        <ModelGroup key={m.model || 'single'} m={m} multi={multi} intl={intl} />
+        <ModelGroup
+          key={m.model || 'single'}
+          m={m}
+          multi={multi}
+          variant={variant}
+          intl={intl}
+        />
       ))}
       <div className='mt-2 flex flex-wrap gap-1'>
         <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>

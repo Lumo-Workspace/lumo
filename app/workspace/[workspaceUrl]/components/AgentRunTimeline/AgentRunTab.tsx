@@ -23,7 +23,7 @@ export function AgentRunTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-xs text-muted-foreground'>
+      <div className='py-8 text-center text-caption text-muted-foreground'>
         {intl.formatMessage({
           id: 'agentRun.loading',
           defaultMessage: '加载中…',
@@ -33,7 +33,9 @@ export function AgentRunTab({
   }
 
   if (error) {
-    return <div className='py-8 text-center text-xs text-red-500'>{error}</div>
+    return (
+      <div className='py-8 text-center text-caption text-red-500'>{error}</div>
+    )
   }
 
   const runs = data?.runs ?? []
@@ -42,13 +44,13 @@ export function AgentRunTab({
     return (
       <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
         <Bot className='size-6' />
-        <p className='text-xs'>
+        <p className='text-caption'>
           {intl.formatMessage({
             id: 'agentRun.empty',
             defaultMessage: '此任务还没有 Agent 运行记录',
           })}
         </p>
-        <p className='text-[11px] text-muted-foreground max-w-xs text-center'>
+        <p className='text-caption text-muted-foreground max-w-xs text-center'>
           {intl.formatMessage(
             {
               id: 'agentRun.emptyHint',
@@ -67,7 +69,7 @@ export function AgentRunTab({
     <div className='space-y-3'>
       {totals.byModel.length > 0 && (
         <div className='rounded-lg border border-border'>
-          <div className='px-3 py-2 border-b border-border text-xs text-muted-foreground'>
+          <div className='px-3 py-2 border-b border-border text-caption text-muted-foreground'>
             {intl.formatMessage(
               {
                 id: 'agentRun.summary',
@@ -89,11 +91,11 @@ export function AgentRunTab({
         </div>
       )}
       <AgentRunMemberStats members={data?.perMember ?? []} />
-      {runs.map((run, i) => (
+      {runs.map(run => (
         <AgentRunCard
           key={run.sessionId ?? `unlinked-${run.runNumber}`}
           run={run}
-          defaultExpanded={i === 0}
+          defaultExpanded={false}
         />
       ))}
     </div>

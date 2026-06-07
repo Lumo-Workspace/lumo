@@ -8,9 +8,11 @@ import type { ApiStatus } from '../types'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className='flex items-baseline justify-between py-1'>
-      <span className='text-xs text-muted-foreground'>{label}</span>
-      <span className='text-sm text-foreground tabular-nums'>
+    <div className='flex items-baseline justify-between gap-2 py-1'>
+      <span className='shrink-0 text-caption text-muted-foreground'>
+        {label}
+      </span>
+      <span className='text-right text-body-strong text-foreground tabular-nums'>
         {value}
       </span>
     </div>
@@ -43,10 +45,10 @@ export function ForecastPanel({
   if (forecast.insufficientData) {
     return (
       <section className='mt-6 pt-6 border-t border-border'>
-        <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2'>
+        <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-2'>
           {title}
         </p>
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'forecast.insufficient' })}
         </p>
       </section>
@@ -90,11 +92,11 @@ export function ForecastPanel({
 
   return (
     <section className='mt-6 pt-6 border-t border-border'>
-      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1'>
+      <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-1'>
         {title}
       </p>
       {hasCohortMetrics && (
-        <p className='text-xs text-muted-foreground mb-2'>
+        <p className='text-caption text-muted-foreground mb-2'>
           {intl.formatMessage(
             { id: 'forecast.basis' },
             { count: forecast.cohortSize }
@@ -127,7 +129,7 @@ export function ForecastPanel({
             label={intl.formatMessage({ id: 'forecast.metricTokens' })}
             value={tokenRange(forecast.tokenCost)}
           />
-          <p className='text-xs text-muted-foreground mt-1'>
+          <p className='text-caption text-muted-foreground mt-1'>
             {intl.formatMessage(
               { id: 'forecast.tokenBasis' },
               { count: forecast.tokenCostBasis }
@@ -141,7 +143,7 @@ export function ForecastPanel({
           <button
             type='button'
             onClick={() => setShowSources(v => !v)}
-            className='mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors'
+            className='mt-2 text-caption text-muted-foreground hover:text-foreground transition-colors'
           >
             {intl.formatMessage({ id: 'forecast.viewSources' })}
           </button>
@@ -150,7 +152,7 @@ export function ForecastPanel({
               {forecast.sources.map(s => (
                 <li
                   key={s.taskId}
-                  className='text-xs text-muted-foreground'
+                  className='text-caption text-muted-foreground'
                 >
                   {s.identifier} · {s.title}
                 </li>
