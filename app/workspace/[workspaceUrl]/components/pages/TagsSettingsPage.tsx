@@ -25,16 +25,7 @@ import { Input } from '@/components/ui/input'
 import { tagsClient } from '@/lib/api-client'
 import type { ApiTagWithCounts } from '../../types'
 import { TagBadgeNew } from '../document/TagPicker'
-
-// ── Color presets (bright dopamine palette) ──────────────────────────────
-const PRESET_COLORS = [
-  '#f5222d', // red
-  '#fa8c16', // orange
-  '#d4a012', // yellow
-  '#52c41a', // green
-  '#1890ff', // blue
-  '#722ed1', // purple
-]
+import { PRESET_COLORS, CUSTOM_COLOR_PLACEHOLDER } from './tag-color-presets'
 
 interface TagFormState {
   name: string
@@ -153,7 +144,7 @@ export function TagsSettingsPage() {
     <div className='max-w-2xl mx-auto px-8 py-10'>
       {/* Header */}
       <div className='flex items-center justify-between mb-1'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
+        <h1 className='text-xl font-semibold text-foreground'>
           {intl.formatMessage({ id: 'settings.tags.title' })}
         </h1>
         <Button size='sm' className='gap-1.5' onClick={openCreate}>
@@ -174,9 +165,9 @@ export function TagsSettingsPage() {
         <div className='text-center py-12'>
           <TagIcon
             size={32}
-            className='mx-auto mb-3 text-zinc-300 dark:text-zinc-600'
+            className='mx-auto mb-3 text-muted-foreground'
           />
-          <p className='text-sm font-medium text-zinc-500'>
+          <p className='text-sm font-medium text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.tags.empty' })}
           </p>
           <p className='text-xs text-muted-foreground mt-1'>
@@ -184,7 +175,7 @@ export function TagsSettingsPage() {
           </p>
         </div>
       ) : (
-        <div className='border rounded-lg divide-y divide-zinc-100 dark:divide-zinc-800 border-zinc-200 dark:border-zinc-800'>
+        <div className='border rounded-lg divide-y divide-border border-border'>
           {tags.map(tag => (
             <div
               key={tag.id}
@@ -205,13 +196,13 @@ export function TagsSettingsPage() {
               </span>
               <button
                 onClick={() => openEdit(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all'
+                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground transition-all'
               >
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => setDeleteTag(tag)}
-                className='opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-400 hover:text-red-500 transition-all'
+                className='opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-red-500 transition-all'
               >
                 <Trash2 size={14} />
               </button>
@@ -233,7 +224,7 @@ export function TagsSettingsPage() {
           <div className='space-y-4 py-2'>
             {/* Name */}
             <div>
-              <label className='text-xs font-medium text-zinc-500 mb-1.5 block'>
+              <label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
                 {intl.formatMessage({ id: 'settings.tags.name' })}
               </label>
               <Input
@@ -259,7 +250,7 @@ export function TagsSettingsPage() {
             </div>
             {/* Color */}
             <div>
-              <label className='text-xs font-medium text-zinc-500 mb-1.5 block'>
+              <label className='text-xs font-medium text-muted-foreground mb-1.5 block'>
                 {intl.formatMessage({ id: 'settings.tags.color' })}
               </label>
               <div className='flex items-center gap-2 flex-wrap'>
@@ -268,9 +259,9 @@ export function TagsSettingsPage() {
                   onClick={() => setForm(prev => ({ ...prev, color: null }))}
                   className={`size-6 rounded-full border-2 transition-all ${
                     form.color === null
-                      ? 'border-zinc-900 dark:border-zinc-100 scale-110'
-                      : 'border-zinc-200 dark:border-zinc-700'
-                  } bg-gradient-to-br from-zinc-200 to-zinc-400 dark:from-zinc-600 dark:to-zinc-400`}
+                      ? 'border-foreground scale-110'
+                      : 'border-border'
+                  } bg-gradient-to-br from-muted to-muted-foreground`}
                   title='Auto'
                 />
                 {/* Presets */}
@@ -280,8 +271,8 @@ export function TagsSettingsPage() {
                     onClick={() => setForm(prev => ({ ...prev, color: c }))}
                     className={`size-6 rounded-full border-2 transition-all ${
                       form.color === c
-                        ? 'border-zinc-900 dark:border-zinc-100 scale-110'
-                        : 'border-zinc-200 dark:border-zinc-700'
+                        ? 'border-foreground scale-110'
+                        : 'border-border'
                     }`}
                     style={{ backgroundColor: c }}
                   />
@@ -301,13 +292,13 @@ export function TagsSettingsPage() {
                       color: v || null,
                     }))
                   }}
-                  placeholder='#3730a3'
+                  placeholder={CUSTOM_COLOR_PLACEHOLDER}
                   className='w-28 h-7 text-xs font-mono'
                   maxLength={7}
                 />
                 {form.color && (
                   <span
-                    className='size-5 rounded border border-zinc-200 dark:border-zinc-700 shrink-0'
+                    className='size-5 rounded-sm border border-border shrink-0'
                     style={{ backgroundColor: form.color }}
                   />
                 )}

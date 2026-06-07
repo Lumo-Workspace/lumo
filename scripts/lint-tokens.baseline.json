@@ -66,7 +66,6 @@
   "app/workspace/[workspaceUrl]/components/Modal.tsx": 18,
   "app/workspace/[workspaceUrl]/components/modals/NewProjectModal.tsx": 8,
   "app/workspace/[workspaceUrl]/components/modals/NewTaskModal.tsx": 3,
-  "app/workspace/[workspaceUrl]/components/pages/TagsSettingsPage.tsx": 39,
   "app/workspace/[workspaceUrl]/components/pr-helpers.tsx": 1,
   "app/workspace/[workspaceUrl]/components/ProjectSlackDialog.tsx": 27,
   "app/workspace/[workspaceUrl]/components/SentryConnectDialog.tsx": 18,
