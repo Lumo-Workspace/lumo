@@ -83,10 +83,10 @@ export function ReplyItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
-          <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+          <span className='text-xs font-semibold text-foreground'>
             {ra.name}
           </span>
-          <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+          <span className='text-[11px] text-muted-foreground'>
             {fmtTimestamp(reply.createdAt)}
             {rWasEdited &&
               ` · ${intl.formatMessage({ id: 'comment.edited', defaultMessage: 'edited' })}`}
@@ -117,7 +117,7 @@ export function ReplyItem({
               />
             )}
             <div
-              className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+              className='prose prose-sm dark:prose-invert max-w-none text-foreground'
               dangerouslySetInnerHTML={{ __html: reply.body }}
             />
           </>

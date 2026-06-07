@@ -83,10 +83,10 @@ export function TaskDetailComments({
         <div className='space-y-3'>
           {[1, 2].map(i => (
             <div key={i} className='flex gap-2.5'>
-              <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+              <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
               <div className='flex-1 space-y-1.5 pt-0.5'>
-                <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/3' />
-                <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-2/3' />
+                <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/3' />
+                <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
               </div>
             </div>
           ))}
@@ -119,10 +119,10 @@ export function TaskDetailComments({
                   />
                   <div className='flex-1 min-w-0'>
                     <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
-                      <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                      <span className='text-xs font-semibold text-foreground'>
                         {ca.name}
                       </span>
-                      <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                      <span className='text-[11px] text-muted-foreground'>
                         {fmtTimestamp(comment.createdAt)}
                         {wasEdited &&
                           ` · ${intl.formatMessage({ id: 'task.edited' })}`}
@@ -130,7 +130,7 @@ export function TaskDetailComments({
                     </div>
 
                     {isEditing ? (
-                      <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                      <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                         <div
                           className='px-3 pt-2 pb-1 text-sm'
                           onKeyDown={e => {
@@ -180,7 +180,7 @@ export function TaskDetailComments({
                       </div>
                     ) : (
                       <div
-                        className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                        className='prose prose-sm dark:prose-invert max-w-none text-foreground'
                         dangerouslySetInnerHTML={{ __html: comment.body }}
                       />
                     )}
@@ -192,7 +192,7 @@ export function TaskDetailComments({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                             onClick={() =>
                               copyLink(
                                 `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
@@ -209,7 +209,7 @@ export function TaskDetailComments({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                             onClick={() => {
                               if (isReplying) {
                                 tc.cancelReply()
@@ -230,7 +230,7 @@ export function TaskDetailComments({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                                 onClick={() => tc.startEditing(comment)}
                               >
                                 <Pencil size={12} />
@@ -243,14 +243,14 @@ export function TaskDetailComments({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
                                 disabled={isDeleting}
                                 onClick={() =>
                                   tc.setConfirmDeleteId(comment.id)
                                 }
                               >
                                 {isDeleting ? (
-                                  <Spinner className='size-3 text-zinc-400' />
+                                  <Spinner className='size-3 text-muted-foreground' />
                                 ) : (
                                   <Trash2 size={12} />
                                 )}
@@ -268,7 +268,7 @@ export function TaskDetailComments({
 
                 {/* ── Replies ── */}
                 {(comment.replies?.length ?? 0) > 0 && (
-                  <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
+                  <div className='ml-9 mt-3 space-y-3 border-l-2 border-border pl-3'>
                     {comment.replies!.map(reply => {
                       const ra = resolveCommentAuthor(
                         reply,
@@ -297,17 +297,17 @@ export function TaskDetailComments({
                           />
                           <div className='flex-1 min-w-0'>
                             <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
-                              <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                              <span className='text-xs font-semibold text-foreground'>
                                 {ra.name}
                               </span>
-                              <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                              <span className='text-[11px] text-muted-foreground'>
                                 {fmtTimestamp(reply.createdAt)}
                                 {rWasEdited &&
                                   ` · ${intl.formatMessage({ id: 'task.edited' })}`}
                               </span>
                             </div>
                             {rIsEditing ? (
-                              <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                              <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                                 <div
                                   className='px-3 pt-2 pb-1 text-sm'
                                   onKeyDown={e => {
@@ -400,19 +400,19 @@ export function TaskDetailComments({
                                             reply.quotedCommentId!
                                           )
                                         }
-                                        className='mb-1.5 w-full text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                                        className='mb-1.5 w-full text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
                                       >
-                                        <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                                        <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
                                           {qName}
                                         </p>
-                                        <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                                        <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
                                           {qText}
                                         </p>
                                       </button>
                                     )
                                   })()}
                                 <div
-                                  className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                                  className='prose prose-sm dark:prose-invert max-w-none text-foreground'
                                   dangerouslySetInnerHTML={{
                                     __html: reply.body,
                                   }}
@@ -425,7 +425,7 @@ export function TaskDetailComments({
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button
-                                    className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                    className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                                     onClick={() =>
                                       copyLink(
                                         `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${reply.id}`
@@ -444,7 +444,7 @@ export function TaskDetailComments({
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button
-                                    className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                    className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                                     onClick={() => {
                                       if (tc.replyingToId === comment.id) {
                                         tc.cancelReply()
@@ -465,7 +465,7 @@ export function TaskDetailComments({
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
-                                        className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                        className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                                         onClick={() => tc.startEditing(reply)}
                                       >
                                         <Pencil size={12} />
@@ -480,14 +480,14 @@ export function TaskDetailComments({
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
-                                        className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                        className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
                                         disabled={rIsDeleting}
                                         onClick={() =>
                                           tc.setConfirmDeleteId(reply.id)
                                         }
                                       >
                                         {rIsDeleting ? (
-                                          <Spinner className='size-3 text-zinc-400' />
+                                          <Spinner className='size-3 text-muted-foreground' />
                                         ) : (
                                           <Trash2 size={12} />
                                         )}
@@ -518,19 +518,19 @@ export function TaskDetailComments({
                         {user?.initials ?? '?'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                    <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
                       {tc.replyingToComment && (
                         <button
                           type='button'
                           onClick={() =>
                             tc.scrollToComment(tc.replyingToComment!.id)
                           }
-                          className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                          className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
                         >
-                          <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                          <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
                             {tc.replyingToComment.authorName}
                           </p>
-                          <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                          <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
                             {typeof document !== 'undefined'
                               ? (() => {
                                   const d = document.createElement('div')
@@ -572,7 +572,7 @@ export function TaskDetailComments({
                       </div>
                       <div className='flex items-center justify-between px-2 pb-2'>
                         <button
-                          className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                          className='text-[11px] text-muted-foreground hover:text-foreground transition-colors'
                           onClick={() => tc.cancelReply()}
                         >
                           {intl.formatMessage({ id: 'common.cancel' })}
@@ -607,7 +607,7 @@ export function TaskDetailComments({
             {user?.initials ?? '?'}
           </AvatarFallback>
         </Avatar>
-        <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+        <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
           <div
             className='px-3 pt-2 pb-1 text-sm'
             onKeyDown={e => {
