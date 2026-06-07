@@ -36,6 +36,16 @@ do `generate + tsc` atomically once at the end.
 in first) — `cli/` has no jest config, and running from the main checkout hits
 the `cli/package.json` haste collision and silently runs the wrong tests.
 
+**Never run `npm install` / `npm ci` inside a worktree.** The worktree shares
+the main checkout's `node_modules` via a symlink; npm does not respect the link
+— it deletes it and reifies a full standalone `node_modules` (thousands of
+packages, ~1 min, and the shared prisma-client is gone). Run installs only in
+the main checkout, then re-create the symlink if npm replaced it. (Older npm
+could instead plant a self-referential `node_modules/node_modules` in the shared
+tree, which hard-panics Turbopack's `next build`; the `prebuild`/`predev`/
+`preanalyze` guard — `scripts/fix-nodemodules-selflink.ts` — removes that link
+automatically, but the rule above avoids the whole mess.)
+
 ## `lumo worktree rm <LUM-N>`
 
 Removes the worktree for a task. Requires `--yes`. Refuses a dirty worktree

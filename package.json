@@ -8,7 +8,9 @@
     "cli"
   ],
   "scripts": {
+    "predev": "tsx scripts/fix-nodemodules-selflink.ts",
     "dev": "next dev",
+    "prebuild": "tsx scripts/fix-nodemodules-selflink.ts",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
@@ -27,6 +29,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "preanalyze": "tsx scripts/fix-nodemodules-selflink.ts",
     "analyze": "cross-env ANALYZE=true next build",
     "prepare": "husky",
     "mcp": "tsx mcp/server.ts"
