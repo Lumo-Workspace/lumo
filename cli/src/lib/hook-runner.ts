@@ -5,6 +5,7 @@ import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { formatDuration, relativeTime } from './format'
+import { sumTranscriptUsage } from './transcript-usage'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -254,10 +255,7 @@ export interface AutoBindAttempt {
  */
 export interface AutoBindDeps {
   extractTask: () => GitTaskMatch | null
-  bindTask: (
-    sessionId: string,
-    identifier: string
-  ) => Promise<AutoBindAttempt>
+  bindTask: (sessionId: string, identifier: string) => Promise<AutoBindAttempt>
 }
 
 /**
@@ -370,6 +368,28 @@ async function postBindTask(
 }
 
 /**
+ * For stop/stop-failure hooks, read the transcript named in the payload and
+ * fold cumulative token totals into the body under `_lumo_usage` so the server
+ * can persist them on the Session. Best-effort: returns the body unchanged on
+ * any failure (no transcript_path, unreadable, unparseable, no usage). The
+ * hook is never blocked or failed by this.
+ */
+export function augmentBodyWithUsage(path: HookPath, body: string): string {
+  if (path !== 'stop' && path !== 'stop-failure') return body
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(body || '{}')
+  } catch {
+    return body
+  }
+  const transcriptPath = parsed['transcript_path']
+  if (typeof transcriptPath !== 'string' || !transcriptPath) return body
+  const usage = sumTranscriptUsage(transcriptPath)
+  if (!usage) return body
+  return JSON.stringify({ ...parsed, _lumo_usage: usage })
+}
+
+/**
  * POST the hook body to /api/hooks/<path> with a short timeout. All errors
  * — credential missing, network failure, timeout, non-2xx — are routed to
  * hook.log and then the caller exits 0.
@@ -428,11 +448,13 @@ export async function runHookWithBody(
     const agentEnum = agentToken ? normalizeAgent(agentToken) : null
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
 
+    const outgoingBody = augmentBodyWithUsage(path, body) || '{}'
+
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers,
-        body: body || '{}',
+        body: outgoingBody,
         signal: controller.signal,
       })
       if (!res.ok) {

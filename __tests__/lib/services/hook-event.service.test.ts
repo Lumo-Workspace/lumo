@@ -76,13 +76,15 @@ describe('hookEventService.recordHookEvent', () => {
       },
     })
 
-    expect(sess.upsertForHookEvent).toHaveBeenCalledWith({
-      id: 'sess_abc',
-      workspaceId: 'ws_1',
-      workspaceMemberId: 'wm_1',
-      cwd: '/repo',
-      now: expect.any(Date),
-    })
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sess_abc',
+        workspaceId: 'ws_1',
+        workspaceMemberId: 'wm_1',
+        cwd: '/repo',
+        now: expect.any(Date),
+      })
+    )
     expect(repo.createHookEvent).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
@@ -236,6 +238,89 @@ describe('hookEventService.recordHookEvent', () => {
     expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: null })
     )
+  })
+
+  it('forwards usage + isStop:true to upsertForHookEvent on STOP with _lumo_usage', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'STOP',
+      payload: {
+        session_id: 'sess_abc',
+        _lumo_usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheReadTokens: 200,
+          cacheCreationTokens: 100,
+        },
+      },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.isStop).toBe(true)
+    expect(arg.usage).toEqual({
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 200,
+      cacheCreationTokens: 100,
+    })
+  })
+
+  it('forwards usage + isStop:true to upsertForHookEvent on STOP_FAILURE with _lumo_usage', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'STOP_FAILURE',
+      payload: {
+        session_id: 'sess_abc',
+        _lumo_usage: {
+          inputTokens: 800,
+          outputTokens: 400,
+          cacheReadTokens: 150,
+          cacheCreationTokens: 50,
+        },
+      },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.isStop).toBe(true)
+    expect(arg.usage).toEqual({
+      inputTokens: 800,
+      outputTokens: 400,
+      cacheReadTokens: 150,
+      cacheCreationTokens: 50,
+    })
+  })
+
+  it('ignores _lumo_usage on non-stop events — forwards usage:null even when _lumo_usage is present', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        tool_name: 'Read',
+        _lumo_usage: {
+          inputTokens: 9999,
+          outputTokens: 9999,
+          cacheReadTokens: 9999,
+          cacheCreationTokens: 9999,
+        },
+      },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.isStop).toBe(false)
+    expect(arg.usage).toBeNull()
+  })
+
+  it('forwards usage:null + isStop:false to upsertForHookEvent on PRE_TOOL_USE without _lumo_usage', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.isStop).toBe(false)
+    expect(arg.usage).toBeNull()
   })
 
   it('reads filePath from tool_response.filePath when tool_input is absent', async () => {

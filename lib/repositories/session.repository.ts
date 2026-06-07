@@ -14,6 +14,18 @@ interface UpsertSessionData {
    */
   agent?: TaskArtifactAgent
   now: Date
+  /** Cumulative session token totals from the CLI transcript (STOP only). */
+  usage?:
+    | {
+        inputTokens: number
+        outputTokens: number
+        cacheReadTokens: number
+        cacheCreationTokens: number
+      }
+    | null
+    | undefined
+  /** True when this event is a STOP/STOP_FAILURE -> bump loopCount. */
+  isStop?: boolean | undefined
 }
 
 interface UpsertWithTaskIdData {
@@ -30,6 +42,11 @@ export const sessionRepository = {
    * bump lastActivityAt and eventCount. cwd is backfilled if the first event
    * didn't include it but a later one does. Returns the row's current taskId
    * so the caller can tag the HookEvent without a second query.
+   *
+   * When `usage` is present (STOP events), cumulative token columns are
+   * OVERWRITTEN (not incremented) — the CLI re-reads the whole transcript each
+   * STOP, so the latest value is the running total. `isStop` increments
+   * loopCount.
    */
   async upsertForHookEvent(data: UpsertSessionData) {
     const setOnUpdate: Prisma.SessionUpdateInput = {
@@ -37,6 +54,15 @@ export const sessionRepository = {
       eventCount: { increment: 1 },
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
+    if (data.usage) {
+      // Cumulative totals -> OVERWRITE, not increment (the CLI re-reads the whole
+      // transcript each STOP, so the latest value is the running total).
+      setOnUpdate.inputTokens = data.usage.inputTokens
+      setOnUpdate.outputTokens = data.usage.outputTokens
+      setOnUpdate.cacheReadTokens = data.usage.cacheReadTokens
+      setOnUpdate.cacheCreationTokens = data.usage.cacheCreationTokens
+    }
+    if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
 
     return prisma.session.upsert({
       where: { id: data.id },
@@ -50,6 +76,15 @@ export const sessionRepository = {
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
+        ...(data.usage
+          ? {
+              inputTokens: data.usage.inputTokens,
+              outputTokens: data.usage.outputTokens,
+              cacheReadTokens: data.usage.cacheReadTokens,
+              cacheCreationTokens: data.usage.cacheCreationTokens,
+            }
+          : {}),
+        ...(data.isStop ? { loopCount: 1 } : {}),
       },
       update: setOnUpdate,
       select: { id: true, taskId: true },

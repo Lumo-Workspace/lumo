@@ -125,3 +125,7 @@ export {
   type TiptapNode,
   type TiptapDoc,
 } from './markdown-tiptap'
+
+// ── Stream-json run usage parser ──────────────────────────────────────────────
+export { parseStreamJsonUsage } from './stream-json-usage'
+export type { RunUsage } from './stream-json-usage'

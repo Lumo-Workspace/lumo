@@ -21,6 +21,7 @@ export async function handleNoCommits(
   await transitionAgentStatus(ctx.taskId, ctx.task.project.id, 'COMPLETED')
   await markRunCompleted(ctx.currentRunId, {
     durationMs: Date.now() - ctx.agentStartedAt,
+    usage: ctx.usage,
   })
   await pushAgentEvent(ctx.taskId, {
     type: 'agent:failed',
@@ -41,6 +42,7 @@ export async function handleFollowUpNoChanges(
     prNumber,
     prUrl,
     branchName: ctx.branchName,
+    usage: ctx.usage,
   })
   await pushAgentEvent(ctx.taskId, { type: 'agent:done', prUrl, prNumber })
   return { outcome: 'done', prUrl, prNumber }

@@ -214,6 +214,87 @@ describe('sessionRepository.upsertForHookEvent', () => {
     const args = upsert.mock.calls[0][0]
     expect(args.update).not.toHaveProperty('agent')
   })
+
+  it('OVERWRITES token columns (not increment) and bumps loopCount on STOP with usage', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage: {
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        cacheCreationTokens: 100,
+      },
+      isStop: true,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    // Token columns must be plain numbers (OVERWRITE), NOT { increment: N }
+    expect(args.update.inputTokens).toBe(1000)
+    expect(args.update.outputTokens).toBe(500)
+    expect(args.update.cacheReadTokens).toBe(200)
+    expect(args.update.cacheCreationTokens).toBe(100)
+    // loopCount must be { increment: 1 } on STOP
+    expect(args.update.loopCount).toEqual({ increment: 1 })
+  })
+
+  it('includes token values and loopCount:1 in the CREATE branch when usage + isStop are present', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage: {
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        cacheCreationTokens: 100,
+      },
+      isStop: true,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.inputTokens).toBe(1000)
+    expect(args.create.outputTokens).toBe(500)
+    expect(args.create.cacheReadTokens).toBe(200)
+    expect(args.create.cacheCreationTokens).toBe(100)
+    expect(args.create.loopCount).toBe(1)
+  })
+
+  it('does not set token columns or loopCount on update when neither usage nor isStop are provided', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.update).not.toHaveProperty('inputTokens')
+    expect(args.update).not.toHaveProperty('outputTokens')
+    expect(args.update).not.toHaveProperty('cacheReadTokens')
+    expect(args.update).not.toHaveProperty('cacheCreationTokens')
+    expect(args.update).not.toHaveProperty('loopCount')
+  })
+
+  it('does not set token columns in CREATE when usage is absent', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.create).not.toHaveProperty('inputTokens')
+    expect(args.create).not.toHaveProperty('loopCount')
+  })
 })
 
 describe('sessionRepository.upsertWithTaskId', () => {

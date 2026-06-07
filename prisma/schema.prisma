@@ -878,7 +878,12 @@ model AgentRun {
   summary      String?
   steps        Json? // JSON array of { text, elapsedMs, status } persisted for resume after refresh
   changedFiles Json?
-  durationMs   Int?
+  durationMs          Int?
+  inputTokens         Int? // claude stream-json result usage.input_tokens
+  outputTokens        Int? // usage.output_tokens
+  cacheReadTokens     Int? // usage.cache_read_input_tokens
+  cacheCreationTokens Int? // usage.cache_creation_input_tokens
+  loopCount           Int? // stream-json result num_turns
   prNumber     Int?
   prUrl        String?
   branchName   String?
@@ -1451,6 +1456,15 @@ model Session {
   startedAt             DateTime          @default(now())
   lastActivityAt        DateTime
   eventCount            Int               @default(0)
+  // Per-session cost (LUM-281). Token columns hold CUMULATIVE totals summed by
+  // the CLI from the Stop-hook transcript and overwritten on each STOP (not
+  // incremented). loopCount counts STOP/STOP_FAILURE events = turns. All null
+  // until the first STOP carrying usage; historical rows stay null (no backfill).
+  inputTokens         Int?
+  outputTokens        Int?
+  cacheReadTokens     Int?
+  cacheCreationTokens Int?
+  loopCount           Int?
   // Session summary — generated on demand via Claude. The generation flow is a
   // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
   // model fills a type-specific template. `summary` holds the structured output

@@ -17,6 +17,28 @@ interface RecordHookEventInput {
   agent?: TaskArtifactAgent
 }
 
+interface InjectedUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheCreationTokens: number
+}
+
+function extractInjectedUsage(payload: unknown): InjectedUsage | null {
+  if (!payload || typeof payload !== 'object') return null
+  const u = (payload as Record<string, unknown>)['_lumo_usage']
+  if (!u || typeof u !== 'object') return null
+  const o = u as Record<string, unknown>
+  const num = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) ? v : 0
+  return {
+    inputTokens: num(o.inputTokens),
+    outputTokens: num(o.outputTokens),
+    cacheReadTokens: num(o.cacheReadTokens),
+    cacheCreationTokens: num(o.cacheCreationTokens),
+  }
+}
+
 function extractStringField(payload: unknown, field: string): string | null {
   if (payload && typeof payload === 'object') {
     const value = (payload as Record<string, unknown>)[field]
@@ -85,6 +107,9 @@ export const hookEventService = {
     // longer carries a per-session sentinel. If session_id is missing
     // (malformed or non-Claude-Code client), record the event unlinked
     // (matches Day 3 tolerance) with no taskId tag.
+    const isStop = type === 'STOP' || type === 'STOP_FAILURE'
+    const usage = isStop ? extractInjectedUsage(payload) : null
+
     let taskId: string | null = null
     if (sessionId) {
       const session = await sessionRepository.upsertForHookEvent({
@@ -94,6 +119,8 @@ export const hookEventService = {
         cwd,
         ...(agent !== undefined ? { agent } : {}),
         now: new Date(),
+        usage,
+        isStop,
       })
       taskId = session.taskId
     }

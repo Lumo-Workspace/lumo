@@ -14,6 +14,11 @@ const customJestConfig = {
     '<rootDir>/.claude/worktrees/',
     '<rootDir>/.auto-claude/worktrees/',
   ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/.worktrees/',
+    '<rootDir>/.claude/worktrees/',
+    '<rootDir>/.auto-claude/worktrees/',
+  ],
   collectCoverageFrom: [
     'app/**/*.{js,jsx,ts,tsx}',
     'components/**/*.{js,jsx,ts,tsx}',
