@@ -1,6 +1,7 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
+import { logger } from '@/lib/logger'
 
 export interface SessionStartEdgeInput {
   workspaceId: string
@@ -61,8 +62,8 @@ export const lineageService = {
         }))
       )
     } catch (err) {
-      // Best-effort: mirror _handler/task-state.service error logging.
-      console.error('lineageService.recordSessionStartEdges failed:', err)
+      // Best-effort: log and swallow.
+      logger.error('lineageService.recordSessionStartEdges failed', err)
     }
   },
 }

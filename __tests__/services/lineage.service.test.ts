@@ -7,10 +7,12 @@ jest.mock('@/lib/repositories/memory-provenance.repository', () => ({
     resolveCanonicalFragment: jest.fn(async (_type: string, id: string) => id),
   },
 }))
+jest.mock('@/lib/logger', () => ({ logger: { error: jest.fn() } }))
 
 import { lineageService } from '@/lib/services/lineage.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
+import { logger } from '@/lib/logger'
 
 const mockCreateMany = lineageEdgeRepository.createMany as jest.Mock
 const mockResolve = memoryProvenanceRepository.resolveCanonicalFragment as jest.Mock
@@ -84,7 +86,6 @@ describe('lineageService.recordSessionStartEdges', () => {
   })
 
   it('swallows a repository failure (best-effort side effect)', async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
     mockCreateMany.mockRejectedValueOnce(new Error('db down'))
     await expect(
       lineageService.recordSessionStartEdges({
@@ -94,7 +95,6 @@ describe('lineageService.recordSessionStartEdges', () => {
         fragments: [{ fragmentType: 'PR', fragmentId: 'pr-1' }],
       })
     ).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalled()
-    errorSpy.mockRestore()
+    expect(logger.error as jest.Mock).toHaveBeenCalled()
   })
 })
