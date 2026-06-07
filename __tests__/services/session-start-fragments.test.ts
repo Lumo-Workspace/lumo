@@ -65,6 +65,31 @@ describe('buildSessionStartSections — fragment manifest', () => {
     )
   })
 
+  it('keeps overflowed memories in the manifest (budget degrades them to a one-line manifest, never drops them)', async () => {
+    // Each memory renders to >2500 tokens (~4000 tokens each, based on
+    // estimateMemoryItemTokens = ceil((json.length + 20) / 4)) on its own, so
+    // the second overflows the shared SESSION_START_BUDGET_TOKENS budget and is
+    // degraded to a one-line manifest — but it is still injected, so it must
+    // still appear in the fragment manifest (LUM-276 anti-bias guarantee).
+    const big = (n: number) => ({
+      id: `mem-${n}`,
+      category: 'TRAP' as const,
+      content: { trigger: 'T'.repeat(8000), outcome: 'O'.repeat(8000) },
+    })
+    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
+      big(1),
+      big(2),
+    ])
+    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([])
+    ;(taskWebLinkRepository.listByTask as jest.Mock).mockResolvedValue([])
+
+    const out = await taskContextService.buildSessionStartSections('t-1')
+    expect(out.fragments).toEqual([
+      { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-2' },
+    ])
+  })
+
   it('returns an empty manifest when the task has nothing attached', async () => {
     ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([])
     ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([])
