@@ -305,6 +305,20 @@ export async function updateTaskWithSideEffects(
       })()
     )
 
+    // Close the lineage edges: DONE is the task-level success terminal, so
+    // stamp every still-open edge MERGED (LUM-277, DoD ③). Idempotent and
+    // coarse by design (keyed by taskId). Same dynamic-import rationale as
+    // the consolidation/complexity side effects above; self-caught so a
+    // stamp failure never rolls back the completion.
+    waitUntil(
+      (async () => {
+        const { lineageOutcomeService } = await import(
+          '@/lib/services/lineage-outcome.service'
+        )
+        await lineageOutcomeService.stampForTaskDone(taskId)
+      })().catch(() => {})
+    )
+
     // Auto-add to the team's ACTIVE sprint when the task finished with no
     // sprint binding and the team opted into `sprintAutoAddCompleted`. The
     // service self-gates (toggle off / sprints disabled / no active sprint →
@@ -353,4 +367,16 @@ export async function reopen(
     actorId: opts.actorId,
     payload: { reason: opts.reason, reopened: true },
   })
+
+  // Reopening a DONE task means its merged work had to be redone: stamp the
+  // task's MERGED edges REWORKED (LUM-277). Fire-and-forget + dynamic import,
+  // self-caught so a stamp failure never fails the reopen.
+  waitUntil(
+    (async () => {
+      const { lineageOutcomeService } = await import(
+        '@/lib/services/lineage-outcome.service'
+      )
+      await lineageOutcomeService.stampForTaskReopened(taskId)
+    })().catch(() => {})
+  )
 }

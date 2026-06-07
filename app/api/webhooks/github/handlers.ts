@@ -131,6 +131,22 @@ export async function handlePullRequest(
 
   if (!task) return
 
+  // Close the task's lineage edges when this PR reaches a terminal state
+  // (merged → MERGED, closed → REJECTED). Fire-and-forget; the stamp is
+  // idempotent so redelivery or the getTaskDetail poller double-firing is
+  // harmless. Dynamic import keeps the lineage repository→prisma chain out of
+  // every test module that loads these webhook handlers.
+  if (state !== 'open') {
+    waitUntil(
+      (async () => {
+        const { lineageOutcomeService } = await import(
+          '@/lib/services/lineage-outcome.service'
+        )
+        await lineageOutcomeService.stampForPrState(task.id, state)
+      })().catch(() => {})
+    )
+  }
+
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
   const taskUrl = buildTaskUrl(workspaceSlug, task.team.identifier, task.number)

@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
@@ -84,8 +85,30 @@ async function getTaskDetail(taskId: string) {
           ? { ...pr, state: update.state, mergedAt: update.mergedAt }
           : pr
       })
-      if ([...updates.values()].some(u => u.state === 'merged')) {
+      const states = [...updates.values()].map(u => u.state)
+      if (states.includes('merged')) {
         taskStatus = 'DONE'
+      }
+      // Reconciliation path for lineage closure: when the poller is the first
+      // to observe a PR reaching a terminal state (a missed/late webhook),
+      // stamp the task's edges too. Prefer the success terminal if any PR
+      // merged, else REJECTED for a close. Fire-and-forget + dynamic import;
+      // idempotent with the webhook path. Only fires when a state actually
+      // changed (updates.size > 0), so it stays off the hot read path.
+      const terminalState = states.includes('merged')
+        ? 'merged'
+        : states.includes('closed')
+          ? 'closed'
+          : null
+      if (terminalState) {
+        waitUntil(
+          (async () => {
+            const { lineageOutcomeService } = await import(
+              '@/lib/services/lineage-outcome.service'
+            )
+            await lineageOutcomeService.stampForPrState(task.id, terminalState)
+          })().catch(() => {})
+        )
       }
     }
   }

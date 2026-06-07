@@ -5,6 +5,7 @@ import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repositor
 const mockCreateMany = jest.fn()
 const mockGroupBy = jest.fn()
 const mockFindMany = jest.fn()
+const mockUpdateMany = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -12,6 +13,7 @@ jest.mock('@/lib/db/prisma', () => ({
       createMany: (...args: any[]) => mockCreateMany(...args),
       groupBy: (...args: any[]) => mockGroupBy(...args),
       findMany: (...args: any[]) => mockFindMany(...args),
+      updateMany: (...args: any[]) => mockUpdateMany(...args),
     },
   },
 }))
@@ -211,6 +213,55 @@ describe('lineageEdgeRepository', () => {
 
       expect(result).toHaveLength(1)
       expect(result[0]?.fragmentId).toBe('pr-7')
+    })
+  })
+
+  describe('stampOutcomeByTask', () => {
+    it('stamps MERGED over UNKNOWN/REJECTED edges (advancing the ladder)', async () => {
+      mockUpdateMany.mockResolvedValue({ count: 3 })
+
+      const result = await lineageEdgeRepository.stampOutcomeByTask(
+        't-1',
+        'MERGED'
+      )
+
+      expect(result).toEqual({ count: 3 })
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: { taskId: 't-1', outcome: { in: ['UNKNOWN', 'REJECTED'] } },
+        data: { outcome: 'MERGED' },
+      })
+    })
+
+    it('stamps REJECTED only over UNKNOWN edges (never downgrades a verdict)', async () => {
+      mockUpdateMany.mockResolvedValue({ count: 1 })
+
+      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'REJECTED')
+
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: { taskId: 't-1', outcome: { in: ['UNKNOWN'] } },
+        data: { outcome: 'REJECTED' },
+      })
+    })
+
+    it('stamps REWORKED only over already-MERGED edges (lateral move)', async () => {
+      mockUpdateMany.mockResolvedValue({ count: 2 })
+
+      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'REWORKED')
+
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: { taskId: 't-1', outcome: { in: ['MERGED'] } },
+        data: { outcome: 'REWORKED' },
+      })
+    })
+
+    it('uses the transaction client when one is passed', async () => {
+      const txUpdateMany = jest.fn().mockResolvedValue({ count: 1 })
+      const tx = { lineageEdge: { updateMany: txUpdateMany } } as any
+
+      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'MERGED', tx)
+
+      expect(txUpdateMany).toHaveBeenCalledTimes(1)
+      expect(mockUpdateMany).not.toHaveBeenCalled()
     })
   })
 
