@@ -569,6 +569,19 @@ html {
   --danger-subtle: color-mix(in srgb, var(--danger) 10%, transparent);
   --danger-border: color-mix(in srgb, var(--danger) 28%, transparent);
 
+  /* Semantic priority colors (LUM-263). Single source for PriorityBadge /
+     PriorityIcon / PrioritySelect (was raw text-red-500/orange-500/yellow-500/
+     zinc-400). Like the status tokens, LIGHT mode is the graphics-contrast
+     offender, so high/medium/low are darkened here to clear WCAG 3:1 on #fff;
+     the bright dark-mode counterparts live in the .dark block. urgent (red)
+     passes both modes, so it has no .dark override. */
+  --priority-urgent: oklch(
+    0.6369 0.2079 25.334
+  ); /* #ef4444 red-500, 3.7:1 on #fff */
+  --priority-high: oklch(0.646 0.222 41.116); /* #ea580c orange-600, ~3.4:1 */
+  --priority-medium: oklch(0.681 0.162 75.834); /* #ca8a04 yellow-600, ~3.1:1 */
+  --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
+
   --font-inter: 'Inter', sans-serif;
   --font-source-code-pro: 'Source Code Pro', monospace;
 }
@@ -631,6 +644,13 @@ html {
   --warning: oklch(0.8369 0.1644 84.421); /* #fbbf24 */
   --success: oklch(0.8003 0.1821 151.707); /* #4ade80 */
   --danger: oklch(0.7106 0.1662 22.222); /* #f87171 */
+
+  /* Priority — bright shades on the dark background (#0a0a0a); these already
+     clear 3:1 there, so they restore the original light/dark-identical look the
+     raw Tailwind classes had. urgent is shared from :root. */
+  --priority-high: oklch(0.705 0.213 47.604); /* orange-500 */
+  --priority-medium: oklch(0.795 0.184 86.047); /* yellow-500 */
+  --priority-low: oklch(0.705 0.015 286.067); /* zinc-400 */
 }
 
 @theme inline {
@@ -698,6 +718,12 @@ html {
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-subtle: var(--danger-subtle);
   --color-danger-border: var(--danger-border);
+
+  /* Semantic priority utilities: generates .text-priority-urgent / etc. */
+  --color-priority-urgent: var(--priority-urgent);
+  --color-priority-high: var(--priority-high);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--priority-low);
 
   /* ── Semantic typography scale (LUM-260) ────────────────────────────────
      One Tailwind v4 font-size token per tier emits a `text-{tier}` utility

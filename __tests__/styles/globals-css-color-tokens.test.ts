@@ -67,6 +67,11 @@ const COLOR_TOKENS = [
   'success-foreground',
   'danger',
   'danger-foreground',
+  // LUM-263 priority colors (oklch; light contrast-corrected, dark bright).
+  'priority-urgent',
+  'priority-high',
+  'priority-medium',
+  'priority-low',
 ] as const
 
 describe.each(COLOR_TOKENS)('--%s', token => {
@@ -147,6 +152,28 @@ describe('.dark feedback accent overrides', () => {
       expect(darkBlock).toMatch(new RegExp(`--${c}:\\s*oklch\\(`))
     }
   )
+})
+
+// LUM-263: priority colors mirror the status approach — light mode is the
+// contrast offender for small graphics, so high/medium/low are darkened in
+// :root and kept bright in .dark. urgent (red) passes both modes (single def).
+describe('priority color tokens (globals.css)', () => {
+  const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
+  const darkBlock = css.slice(
+    css.indexOf('.dark {'),
+    css.indexOf('@theme inline')
+  )
+
+  it.each(['priority-high', 'priority-medium', 'priority-low'])(
+    '.dark redefines --%s (brighter on the dark background)',
+    token => {
+      expect(darkBlock).toMatch(new RegExp(`--${token}:\\s*oklch\\(`))
+    }
+  )
+
+  it('--priority-urgent has no .dark override (red passes both modes)', () => {
+    expect(darkBlock).not.toMatch(/--priority-urgent:/)
+  })
 })
 
 // LUM-258: callout variants are token-driven; the duplicated .dark callout
