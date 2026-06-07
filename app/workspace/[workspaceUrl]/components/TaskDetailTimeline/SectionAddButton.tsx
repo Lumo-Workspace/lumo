@@ -15,7 +15,7 @@ export const SectionAddButton = forwardRef<HTMLButtonElement, Props>(
         type='button'
         aria-label={label}
         title={label}
-        className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+        className='text-muted-foreground hover:text-foreground transition-colors'
         {...rest}
       >
         <Plus size={14} />

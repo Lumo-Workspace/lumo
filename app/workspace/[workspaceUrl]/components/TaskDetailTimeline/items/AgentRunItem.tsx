@@ -65,16 +65,16 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
 
   const c = config[entry.type] ?? {
     icon: Bot,
-    color: 'text-zinc-400',
+    color: 'text-muted-foreground',
     label: entry.type,
   }
   const Icon = c.icon
 
   return (
-    <div className='flex items-start gap-2.5 py-2 px-3 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'>
+    <div className='flex items-start gap-2.5 py-2 px-3 rounded-md bg-muted border border-border'>
       <Icon size={16} className={`mt-0.5 shrink-0 ${c.color}`} />
       <div className='flex-1 min-w-0'>
-        <p className='text-caption text-zinc-700 dark:text-zinc-300'>
+        <p className='text-caption text-foreground'>
           {c.label}
         </p>
         {payload.errorCode != null && (
@@ -88,7 +88,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
           </p>
         )}
       </div>
-      <span className='text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0'>
+      <span className='text-[11px] text-muted-foreground shrink-0'>
         {new Date(entry.createdAt).toLocaleTimeString(intl.locale, {
           hour: '2-digit',
           minute: '2-digit',

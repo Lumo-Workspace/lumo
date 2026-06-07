@@ -68,7 +68,7 @@ export function WebLinkCard({
   }
 
   const cardInner = (
-    <div className='border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 overflow-hidden'>
+    <div className='border border-border rounded-md bg-card overflow-hidden'>
       {hasRichPreview ? (
         /* Rich variant */
         <div className='flex gap-3 p-3'>
@@ -77,12 +77,12 @@ export function WebLinkCard({
               src={safeImage}
               alt=''
               referrerPolicy='no-referrer'
-              className='w-[120px] h-[72px] object-cover rounded flex-shrink-0'
+              className='w-[120px] h-[72px] object-cover rounded-sm flex-shrink-0'
             />
           )}
           <div className='flex-1 min-w-0'>
             <div className='flex items-start justify-between gap-1'>
-              <p className='text-body-strong text-zinc-800 dark:text-zinc-100 truncate'>
+              <p className='text-body-strong text-foreground truncate'>
                 {link.title}
               </p>
               <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
@@ -96,7 +96,7 @@ export function WebLinkCard({
                     id: 'task.webLinks.card.refresh',
                     defaultMessage: 'Refresh preview',
                   })}
-                  className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                 >
                   <RefreshCw size={14} />
                 </button>
@@ -110,18 +110,18 @@ export function WebLinkCard({
                     id: 'task.webLinks.card.delete',
                     defaultMessage: 'Delete',
                   })}
-                  className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
             {(link.note ?? link.description) && (
-              <p className='mt-0.5 text-caption text-zinc-500 dark:text-zinc-400 line-clamp-2'>
+              <p className='mt-0.5 text-caption text-muted-foreground line-clamp-2'>
                 {link.note ?? link.description}
               </p>
             )}
-            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-muted-foreground'>
               {link.domain}
               {now != null &&
                 ` · ${relativeAgo(new Date(link.createdAt), now)}`}
@@ -139,21 +139,21 @@ export function WebLinkCard({
               className='w-4 h-4 mt-0.5 flex-shrink-0'
             />
           ) : (
-            <Link size={14} className='mt-0.5 flex-shrink-0 text-zinc-400' />
+            <Link size={14} className='mt-0.5 flex-shrink-0 text-muted-foreground' />
           )}
           <div className='flex-1 min-w-0'>
             <div className='flex items-start justify-between gap-1'>
               <div className='min-w-0'>
-                <p className='text-caption text-zinc-600 dark:text-zinc-400'>
+                <p className='text-caption text-muted-foreground'>
                   {link.domain}
                 </p>
-                <p className='text-caption text-zinc-400 dark:text-zinc-500 truncate'>
+                <p className='text-caption text-muted-foreground truncate'>
                   {link.url}
                 </p>
                 <p
                   className={`mt-0.5 text-caption ${
                     link.loading
-                      ? 'text-zinc-400 dark:text-zinc-500'
+                      ? 'text-muted-foreground'
                       : 'text-amber-600 dark:text-amber-400'
                   }`}
                 >
@@ -180,7 +180,7 @@ export function WebLinkCard({
                       id: 'task.webLinks.card.refresh',
                       defaultMessage: 'Refresh preview',
                     })}
-                    className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                   >
                     <RefreshCw size={14} />
                   </button>
@@ -194,14 +194,14 @@ export function WebLinkCard({
                       id: 'task.webLinks.card.delete',
                       defaultMessage: 'Delete',
                     })}
-                    className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
               )}
             </div>
-            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-muted-foreground'>
               {now != null ? relativeAgo(new Date(link.createdAt), now) : ''}
             </p>
           </div>

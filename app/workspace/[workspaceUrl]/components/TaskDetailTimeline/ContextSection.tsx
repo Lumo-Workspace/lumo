@@ -37,7 +37,7 @@ export function ContextSection({
   return (
     <AccordionItem
       value={value}
-      className='border border-zinc-200 dark:border-zinc-800 rounded-md mb-2 last:mb-0'
+      className='border border-border rounded-md mb-2 last:mb-0'
     >
       <div
         className='flex items-center pr-2 cursor-pointer'
@@ -48,7 +48,7 @@ export function ContextSection({
             {icon}
             <span className='font-medium'>{label}</span>
             <span
-              className='text-caption text-zinc-500 tabular-nums'
+              className='text-caption text-muted-foreground tabular-nums'
               aria-label={`${count} items`}
             >
               {count}

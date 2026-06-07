@@ -5,7 +5,7 @@ import React from 'react'
  *   *bold* → <strong>
  *   _italic_ → <em>
  *   <@U123> → @<userId or resolved name from map>
- *   <#C123|name> → #name
+ *   <#CHANNEL|name> → #name
  *   <http://example.com|label> → <a>label</a>
  * Other mrkdwn (block quotes, lists) is rendered as plain text.
  */

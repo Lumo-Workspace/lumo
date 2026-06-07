@@ -153,6 +153,12 @@ describe('lint-tokens / isAllowed', () => {
     expect(
       isAllowed('components/ui/shadcn-io/aurora-background/index.tsx')
     ).toBe(true)
+    // Categorical tag palette module (decorative hex stops are payload).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/TaskDetailTimeline/items/tag-colors.ts'
+      )
+    ).toBe(true)
   })
 
   it('rejects business code paths', () => {

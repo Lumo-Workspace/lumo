@@ -224,9 +224,9 @@ export function ActivityTimeline({
       <div className='space-y-3 py-4'>
         {[1, 2, 3].map(i => (
           <div key={i} className='flex gap-2.5'>
-            <div className='size-5 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+            <div className='size-5 rounded-full bg-muted animate-pulse shrink-0' />
             <div className='flex-1 space-y-1.5 pt-0.5'>
-              <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-2/3' />
+              <div className='h-2.5 bg-muted rounded-sm animate-pulse w-2/3' />
             </div>
           </div>
         ))}
@@ -236,7 +236,7 @@ export function ActivityTimeline({
 
   if (entries.length === 0) {
     return (
-      <p className='text-caption text-zinc-400 dark:text-zinc-500 py-4'>
+      <p className='text-caption text-muted-foreground py-4'>
         {intl.formatMessage({
           id: 'activity.empty',
           defaultMessage: 'No activity yet',
@@ -257,8 +257,8 @@ export function ActivityTimeline({
               onClick={() => handleFilter(cat.id)}
               className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
                 isActive
-                  ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
-                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                  ? 'bg-foreground text-background'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
               {intl.formatMessage({
@@ -276,7 +276,7 @@ export function ActivityTimeline({
           <Button
             variant='ghost'
             size='sm'
-            className='text-caption text-zinc-400 hover:text-zinc-600'
+            className='text-caption text-muted-foreground hover:text-foreground'
             disabled={loadingMore}
             onClick={onLoadMore}
           >
@@ -295,10 +295,10 @@ export function ActivityTimeline({
           <div key={group.dateKey}>
             {/* Date header */}
             <div className='flex items-center gap-2 mb-1.5'>
-              <span className='text-[11px] font-medium text-zinc-400 dark:text-zinc-500 whitespace-nowrap'>
+              <span className='text-[11px] font-medium text-muted-foreground whitespace-nowrap'>
                 {formatDateHeader(group.dateKey, intl)}
               </span>
-              <div className='flex-1 h-px bg-zinc-150 dark:bg-zinc-800' />
+              <div className='flex-1 h-px bg-border' />
             </div>
             {/* Entries with left timeline line */}
             <div className='space-y-0.5'>
@@ -317,7 +317,7 @@ export function ActivityTimeline({
 
       {/* Empty filter result */}
       {filteredEntries.length === 0 && entries.length > 0 && (
-        <p className='text-caption text-zinc-400 dark:text-zinc-500 py-4 text-center'>
+        <p className='text-caption text-muted-foreground py-4 text-center'>
           {intl.formatMessage({
             id: 'activity.filter.noResults',
             defaultMessage: 'No matching activities',

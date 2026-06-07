@@ -61,6 +61,10 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // ARE the visual payload (not semantic colors), same rationale as the
   // icon set above.
   /^components\/ui\/shadcn-io\/aurora-background\/index\.tsx$/,
+  // Categorical tag palette (six fixed hues hashed onto inline tag badges) —
+  // decorative category colors, not semantic, so the hex stops are payload.
+  // Isolated to this module so the rest of the timeline stays tokenized.
+  /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
