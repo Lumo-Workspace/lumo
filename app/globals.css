@@ -725,6 +725,20 @@ html {
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--priority-low);
 
+  /* Motion tokens (LUM-284): single source for transition duration and easing.
+     duration-* utilities resolve named values from --transition-duration-*;
+     ease-* from --ease-* (Tailwind v4 native namespaces).
+       duration-fast   hover / color / small state changes
+       duration-base   default; popover / dropdown / menus
+       duration-slow   collapse-expand / highlight fade / larger moves
+       ease-standard   calm decelerate; default for most transitions
+       ease-emphasized snappier settle; entering surfaces */
+  --transition-duration-fast: 150ms;
+  --transition-duration-base: 200ms;
+  --transition-duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ── Semantic typography scale (LUM-260) ────────────────────────────────
      One Tailwind v4 font-size token per tier emits a `text-{tier}` utility
      that bundles font-size + line-height + font-weight + letter-spacing.
