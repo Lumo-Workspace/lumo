@@ -51,6 +51,9 @@ export interface AgentRunSession {
   memoryCount: number
   /** Per-run cost split by model; null when nothing captured. */
   cost: { byModel: ModelCost[]; loopCount: number | null } | null
+  /** Owning member (Clerk-resolved name + avatar) shown in the run header;
+   *  null for orphan / unlinked runs with no member (LUM-308). */
+  member: { workspaceMemberId: string; name: string; imageUrl: string } | null
   items: AgentRunItem[]
 }
 
@@ -274,6 +277,7 @@ export const agentRunTimelineService = {
         cost: costByModel
           ? { byModel: costByModel, loopCount: s.loopCount }
           : null,
+        member: null, // resolved after Clerk enrichment below
         items,
       }
     })
@@ -302,6 +306,7 @@ export const agentRunTimelineService = {
         eventCount: orphanEvents.length,
         memoryCount: orphanMemories.length,
         cost: null,
+        member: null,
         items,
       })
     }
@@ -324,11 +329,17 @@ export const agentRunTimelineService = {
       byModel: mergeModelCosts(ordered.map(r => r.cost?.byModel ?? null)),
     }
 
+    // Resolve the owning member of each run once; reused for both the run
+    // header (member field) and the per-person rollup below.
+    const runOwners = ordered.map(r =>
+      r.sessionId ? (memberBySession.get(r.sessionId) ?? null) : null
+    )
+
     // Per-person rollup: attribute each run to its owning member (orphan runs
     // with sessionId=null have no member and are dropped by the aggregator).
     const memberCosts = aggregateRunsByMember(
-      ordered.map(r => {
-        const owner = r.sessionId ? memberBySession.get(r.sessionId) : undefined
+      ordered.map((r, i) => {
+        const owner = runOwners[i]
         return {
           workspaceMemberId: owner?.workspaceMemberId ?? null,
           clerkId: owner?.clerkId ?? null,
@@ -338,15 +349,38 @@ export const agentRunTimelineService = {
         }
       })
     )
-    const enriched = await enrichClerkUsers(
-      memberCosts.map(m => m.clerkId).filter((c): c is string => c !== null)
-    )
-    const perMember: AgentRunMemberStat[] = memberCosts.map(m => {
-      const user = m.clerkId ? enriched.get(m.clerkId) : undefined
-      return { ...m, name: user?.name ?? 'Unknown', imageUrl: user?.imageUrl ?? '' }
+
+    // Enrich every clerkId that owns a run OR carries cost — the run header
+    // shows the person even on runs that captured no usage, so we can't scope
+    // enrichment to cost-bearing members alone.
+    const clerkIds = new Set<string>()
+    for (const o of runOwners) if (o?.clerkId) clerkIds.add(o.clerkId)
+    for (const m of memberCosts) if (m.clerkId) clerkIds.add(m.clerkId)
+    const enriched = await enrichClerkUsers([...clerkIds])
+
+    const display = (clerkId: string | null) => {
+      const user = clerkId ? enriched.get(clerkId) : undefined
+      return { name: user?.name ?? 'Unknown', imageUrl: user?.imageUrl ?? '' }
+    }
+
+    const runsWithMember: AgentRunSession[] = ordered.map((r, i) => {
+      const owner = runOwners[i]
+      if (!owner?.workspaceMemberId) return r
+      return {
+        ...r,
+        member: {
+          workspaceMemberId: owner.workspaceMemberId,
+          ...display(owner.clerkId),
+        },
+      }
     })
 
-    return { runs: ordered, totals, perMember }
+    const perMember: AgentRunMemberStat[] = memberCosts.map(m => ({
+      ...m,
+      ...display(m.clerkId),
+    }))
+
+    return { runs: runsWithMember, totals, perMember }
   },
 }
 

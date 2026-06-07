@@ -594,6 +594,9 @@ export interface AgentRunSession {
   memoryCount: number
   /** Per-run cost split by model; null when nothing captured. */
   cost: { byModel: ModelCost[]; loopCount: number | null } | null
+  /** Owning member (Clerk-resolved name + avatar) shown in the run header;
+   *  null for orphan / unlinked runs with no member (LUM-308). */
+  member: { workspaceMemberId: string; name: string; imageUrl: string } | null
   items: AgentRunItem[]
 }
 

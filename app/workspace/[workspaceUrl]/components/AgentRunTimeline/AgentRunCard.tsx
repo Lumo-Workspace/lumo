@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Bot } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
+import { initialsOf } from '../initials'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -49,6 +51,20 @@ export function AgentRunCard({
             { n: run.runNumber }
           )}
         </span>
+        {run.member && (
+          <span
+            className='flex items-center gap-1.5 shrink-0'
+            data-testid='run-member'
+          >
+            <Avatar className='size-5'>
+              <AvatarImage src={run.member.imageUrl || undefined} />
+              <AvatarFallback className='text-[9px]'>
+                {initialsOf(run.member.name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className='text-caption font-medium'>{run.member.name}</span>
+          </span>
+        )}
         <AgentBadge agent={run.agent} />
         <span className='text-caption text-muted-foreground shrink-0'>
           {startLabel}
