@@ -67,7 +67,7 @@ export function AcceptInviteClient({
         <h2 className='text-lg font-semibold'>
           {intl.formatMessage({ id: 'invite.accepted.title' })}
         </h2>
-        <p className='text-sm text-slate-500'>
+        <p className='text-sm text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.accepted.body' })}
         </p>
         <Button onClick={() => router.push(`/workspace/${workspaceSlug}`)}>
@@ -83,7 +83,7 @@ export function AcceptInviteClient({
         <h2 className='text-lg font-semibold'>
           {intl.formatMessage({ id: 'invite.expired.title' })}
         </h2>
-        <p className='text-sm text-slate-500'>
+        <p className='text-sm text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.expired.body' })}
         </p>
       </>
@@ -96,7 +96,7 @@ export function AcceptInviteClient({
         <h2 className='text-lg font-semibold'>
           {intl.formatMessage({ id: 'invite.revoked.title' })}
         </h2>
-        <p className='text-sm text-slate-500'>
+        <p className='text-sm text-muted-foreground'>
           {intl.formatMessage({ id: 'invite.revoked.body' })}
         </p>
       </>
@@ -114,7 +114,7 @@ export function AcceptInviteClient({
           )}
         </h2>
         <div className='flex justify-center'>
-          <Spinner className='size-5 text-slate-400' />
+          <Spinner className='size-5 text-muted-foreground' />
         </div>
       </>
     )
@@ -126,7 +126,7 @@ export function AcceptInviteClient({
         <h2 className='text-lg font-semibold text-red-600'>
           {intl.formatMessage({ id: 'invite.error.title' })}
         </h2>
-        <p className='text-sm text-slate-500'>{error}</p>
+        <p className='text-sm text-muted-foreground'>{error}</p>
         <Button variant='outline' onClick={() => setError(null)}>
           {intl.formatMessage({ id: 'invite.error.tryAgain' })}
         </Button>
@@ -144,12 +144,12 @@ export function AcceptInviteClient({
           values={{
             inviterName,
             workspaceName: (
-              <span className='text-slate-900'>{workspaceName}</span>
+              <span className='text-foreground'>{workspaceName}</span>
             ),
           }}
         />
       </h2>
-      <p className='text-sm text-slate-500'>
+      <p className='text-sm text-muted-foreground'>
         {intl.formatMessage({ id: 'invite.signup.body' })}
       </p>
       <div className='flex flex-col gap-2'>

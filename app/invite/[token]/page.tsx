@@ -27,8 +27,8 @@ export default async function InvitePage({ params }: PageProps) {
     isExpired && invite.status === 'PENDING' ? 'EXPIRED' : invite.status
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4'>
-      <div className='w-full max-w-md bg-white rounded-xl shadow-xl p-8 text-center space-y-6'>
+    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted py-12 px-4'>
+      <div className='w-full max-w-md bg-card rounded-xl shadow-elevation-3 p-8 text-center space-y-6'>
         <Image
           src='/logo-dark.svg'
           alt='Lumo'

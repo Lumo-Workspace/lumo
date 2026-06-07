@@ -67,7 +67,7 @@ function WorkspaceStep({
   const isValid = name.trim().length >= 2 && slug.length >= 2
 
   return (
-    <Card className='w-full max-w-md shadow-xl'>
+    <Card className='w-full max-w-md shadow-elevation-3'>
       <CardHeader className='text-center space-y-6'>
         <div className='flex justify-center'>
           <Image
@@ -79,14 +79,14 @@ function WorkspaceStep({
             priority
           />
         </div>
-        <CardTitle className='text-sm font-normal text-slate-900'>
+        <CardTitle className='text-sm font-normal text-foreground'>
           {intl.formatMessage({ id: 'onboarding.workspace.title' })}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className='space-y-4'>
           <div className='space-y-1.5'>
-            <Label htmlFor='ws-name' className='text-xs text-slate-500'>
+            <Label htmlFor='ws-name' className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'onboarding.workspace.nameLabel' })}
             </Label>
             <Input
@@ -102,11 +102,11 @@ function WorkspaceStep({
             />
           </div>
           <div className='space-y-1.5'>
-            <Label htmlFor='ws-url' className='text-xs text-slate-500'>
+            <Label htmlFor='ws-url' className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
             <div className='flex items-center border border-input rounded-md focus-within:ring-2 focus-within:ring-ring overflow-hidden bg-white'>
-              <span className='px-3 text-sm text-slate-400 bg-slate-50 border-r border-input h-9 flex items-center shrink-0 select-none'>
+              <span className='px-3 text-sm text-muted-foreground bg-muted border-r border-input h-9 flex items-center shrink-0 select-none'>
                 lumo.app/
               </span>
               <input
@@ -128,7 +128,7 @@ function WorkspaceStep({
             type='button'
             disabled={isSubmitting || !isValid}
             onClick={handleSubmit}
-            className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
+            className='w-full h-12 text-base font-normal'
           >
             {isSubmitting
               ? intl.formatMessage({ id: 'common.creating' })
@@ -196,7 +196,7 @@ function InviteStep({
   const handleSkip = () => router.push(`/workspace/${workspaceSlug}`)
 
   return (
-    <Card className='w-full max-w-md shadow-xl'>
+    <Card className='w-full max-w-md shadow-elevation-3'>
       <CardHeader className='text-center space-y-6'>
         <div className='flex justify-center'>
           <Image
@@ -209,10 +209,10 @@ function InviteStep({
           />
         </div>
         <div>
-          <CardTitle className='text-sm font-normal text-slate-900'>
+          <CardTitle className='text-sm font-normal text-foreground'>
             {intl.formatMessage({ id: 'onboarding.invite.title' })}
           </CardTitle>
-          <p className='text-xs text-slate-400 mt-1'>
+          <p className='text-xs text-muted-foreground mt-1'>
             {intl.formatMessage({ id: 'onboarding.invite.subtitle' })}
           </p>
         </div>
@@ -241,7 +241,7 @@ function InviteStep({
                   <Button
                     variant='ghost'
                     size='icon'
-                    className='h-9 w-9 shrink-0 text-slate-400'
+                    className='h-9 w-9 shrink-0 text-muted-foreground'
                     onClick={() => removeEmail(i)}
                     disabled={isSending}
                   >
@@ -256,7 +256,7 @@ function InviteStep({
             <button
               onClick={addEmail}
               disabled={isSending}
-              className='flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors'
+              className='flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors'
             >
               <Plus size={12} />
               {intl.formatMessage({ id: 'onboarding.invite.addAnother' })}
@@ -268,7 +268,7 @@ function InviteStep({
           <Button
             disabled={isSending || !allValid}
             onClick={handleSend}
-            className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
+            className='w-full h-12 text-base font-normal'
           >
             {isSending
               ? intl.formatMessage({ id: 'common.sending' })
@@ -278,7 +278,7 @@ function InviteStep({
           <button
             onClick={handleSkip}
             disabled={isSending}
-            className='w-full text-center text-xs text-slate-400 hover:text-slate-600 transition-colors py-1'
+            className='w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1'
           >
             {intl.formatMessage({ id: 'onboarding.invite.skip' })}
           </button>
@@ -300,7 +300,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4'>
+    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted py-12 px-4'>
       {step === 'workspace' ? (
         <WorkspaceStep onCreated={handleWorkspaceCreated} />
       ) : (
