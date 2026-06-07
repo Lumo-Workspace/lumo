@@ -183,7 +183,7 @@ export function ProjectOverviewTab({
         <div className='flex gap-10'>
           {/* ── Left: Description ── */}
           <div className='flex-1 min-w-0'>
-            <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
+            <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3'>
               {intl.formatMessage({
                 id: 'project.description',
                 defaultMessage: 'Description',
@@ -208,7 +208,7 @@ export function ProjectOverviewTab({
           <div className='w-56 shrink-0 space-y-6'>
             {/* Owner */}
             <div className='space-y-2'>
-              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'project.owner',
                   defaultMessage: 'Owner',
@@ -245,7 +245,7 @@ export function ProjectOverviewTab({
 
             {/* Repositories */}
             <div className='space-y-2'>
-              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'project.repositories',
                   defaultMessage: 'Repositories',
@@ -258,19 +258,19 @@ export function ProjectOverviewTab({
                   {repositories.map(repo => (
                     <li
                       key={repo.id}
-                      className='group flex items-start gap-2 rounded-md px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800'
+                      className='group flex items-start gap-2 rounded-md px-2 py-1.5 bg-muted/50 border border-border'
                     >
                       <GitBranch
                         size={13}
-                        className='text-zinc-400 shrink-0 mt-0.5'
+                        className='text-muted-foreground shrink-0 mt-0.5'
                       />
                       <div className='flex-1 min-w-0'>
                         <div className='flex items-center gap-1.5 h-[18px]'>
-                          <span className='text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate'>
+                          <span className='text-xs font-medium text-foreground truncate'>
                             {repo.name}
                           </span>
                           {repo.isDefault && (
-                            <span className='inline-flex items-center h-[18px] px-1 rounded text-[10px] leading-none bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 shrink-0'>
+                            <span className='inline-flex items-center h-[18px] px-1 rounded-sm text-[10px] leading-none bg-muted text-muted-foreground shrink-0'>
                               {intl.formatMessage({
                                 id: 'project.default',
                                 defaultMessage: 'Default',
@@ -278,7 +278,7 @@ export function ProjectOverviewTab({
                             </span>
                           )}
                         </div>
-                        <span className='text-[11px] text-zinc-400 dark:text-zinc-500 font-mono truncate block'>
+                        <span className='text-[11px] text-muted-foreground font-mono truncate block'>
                           {repo.fullName}
                         </span>
                       </div>
@@ -287,7 +287,7 @@ export function ProjectOverviewTab({
                           href={`https://github.com/${repo.fullName}`}
                           target='_blank'
                           rel='noopener noreferrer'
-                          className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                          className='p-0.5 text-muted-foreground hover:text-foreground'
                           title={intl.formatMessage({
                             id: 'project.openOnGithub',
                             defaultMessage: 'Open on GitHub',
@@ -298,7 +298,7 @@ export function ProjectOverviewTab({
                         {!repo.isDefault && (
                           <button
                             onClick={() => handleSetDefault(repo.id)}
-                            className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                            className='p-0.5 text-muted-foreground hover:text-foreground'
                             title={intl.formatMessage({
                               id: 'project.setAsDefault',
                               defaultMessage: 'Set as default',
@@ -309,7 +309,7 @@ export function ProjectOverviewTab({
                         )}
                         <button
                           onClick={() => handleRemoveRepo(repo.id)}
-                          className='p-0.5 text-zinc-400 hover:text-red-500'
+                          className='p-0.5 text-muted-foreground hover:text-red-500'
                           title={intl.formatMessage({
                             id: 'project.removeRepo',
                             defaultMessage: 'Remove',
@@ -326,7 +326,7 @@ export function ProjectOverviewTab({
               {/* Add repository picker */}
               <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
                 <PopoverTrigger asChild>
-                  <button className='flex items-center gap-1.5 w-full h-7 px-2 rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors'>
+                  <button className='flex items-center gap-1.5 w-full h-7 px-2 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors'>
                     <Plus size={11} />
                     {intl.formatMessage({
                       id: 'project.addRepository',
@@ -416,19 +416,19 @@ export function ProjectOverviewTab({
                                 ) : (
                                   <GitBranch
                                     size={12}
-                                    className='text-zinc-400 shrink-0'
+                                    className='text-muted-foreground shrink-0'
                                   />
                                 )}
                                 <div className='flex-1 min-w-0'>
                                   <div className='truncate font-medium'>
                                     {repo.fullName.split('/')[1]}
                                   </div>
-                                  <div className='truncate text-zinc-400 font-mono'>
+                                  <div className='truncate text-muted-foreground font-mono'>
                                     {repo.fullName}
                                   </div>
                                 </div>
                                 {repo.private && (
-                                  <span className='text-[10px] text-zinc-400 shrink-0'>
+                                  <span className='text-[10px] text-muted-foreground shrink-0'>
                                     {intl.formatMessage({
                                       id: 'project.private',
                                       defaultMessage: 'private',
