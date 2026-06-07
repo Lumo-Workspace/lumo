@@ -57,6 +57,10 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // intentionally NOT theme-aware, so semantic tokens (which adapt to
   // light/dark) don't model it — same rationale as landing.css.
   /^app\/signup\/\[\[\.\.\.signup\]\]\/page\.tsx$/,
+  // Vendored shadcn-io decorative block: the rainbow gradient hex stops
+  // ARE the visual payload (not semantic colors), same rationale as the
+  // icon set above.
+  /^components\/ui\/shadcn-io\/aurora-background\/index\.tsx$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const

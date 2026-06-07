@@ -32,12 +32,12 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                     : isPausedStep
                       ? 'bg-amber-400'
                       : isPending
-                        ? 'bg-zinc-300 dark:bg-zinc-600'
+                        ? 'bg-muted-foreground'
                         : 'bg-blue-500'
                 )}
               />
               {i < steps.length - 1 && (
-                <div className='w-px h-3.5 bg-zinc-200 dark:bg-zinc-700 mt-0.5' />
+                <div className='w-px h-3.5 bg-border mt-0.5' />
               )}
             </div>
 
@@ -52,8 +52,8 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                       : isPausedStep
                         ? 'text-amber-700 dark:text-amber-300 font-medium'
                         : isPending
-                          ? 'text-zinc-400 dark:text-zinc-500'
-                          : 'text-zinc-500 dark:text-zinc-400'
+                          ? 'text-muted-foreground'
+                          : 'text-muted-foreground'
                   )}
                 >
                   {isPausedStep
@@ -61,13 +61,13 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                     : step.text}
                 </span>
                 {step.subText && (
-                  <span className='text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight block mt-0.5'>
+                  <span className='text-[10px] text-muted-foreground leading-tight block mt-0.5'>
                     {step.subText}
                   </span>
                 )}
               </div>
               {isPending ? (
-                <span className='shrink-0 text-[10px] text-zinc-400 font-mono mt-0.5'>
+                <span className='shrink-0 text-[10px] text-muted-foreground font-mono mt-0.5'>
                   —
                 </span>
               ) : isPausedStep ? (
@@ -75,7 +75,7 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                   Paused
                 </span>
               ) : (
-                <span className='shrink-0 text-[10px] text-zinc-400 font-mono mt-0.5'>
+                <span className='shrink-0 text-[10px] text-muted-foreground font-mono mt-0.5'>
                   {formatStepElapsed(step.elapsedMs)}
                 </span>
               )}

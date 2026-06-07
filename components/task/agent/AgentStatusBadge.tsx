@@ -30,8 +30,8 @@ export function AgentStatusBadge({
     {
       SUBMITTED: {
         label: 'Submitted',
-        dot: 'bg-zinc-400',
-        text: 'text-zinc-500',
+        dot: 'bg-muted-foreground',
+        text: 'text-muted-foreground',
       },
       WORKING: {
         label: 'Working',
@@ -60,8 +60,8 @@ export function AgentStatusBadge({
       },
       CANCELED: {
         label: 'Canceled',
-        dot: 'bg-zinc-400',
-        text: 'text-zinc-500',
+        dot: 'bg-muted-foreground',
+        text: 'text-muted-foreground',
       },
     }
   const cfg = configs[status] ?? configs['SUBMITTED']!

@@ -341,11 +341,11 @@ function AgentPanelInner({
     <div className='space-y-2'>
       {/* Header */}
       <div className='flex items-center justify-between'>
-        <div className='flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+        <div className='flex items-center gap-1.5 text-xs font-medium text-muted-foreground'>
           <Bot size={13} />
           {task.assignee?.agent?.name ?? 'Agent'}
           {currentRunNumber > 0 && (
-            <span className='text-zinc-400 font-normal'>
+            <span className='text-muted-foreground font-normal'>
               · Session #{currentRunNumber}
               {(isDone || isPaused || isFailed) && ' · Latest'}
             </span>
@@ -426,11 +426,11 @@ function AgentPanelInner({
 
       {/* ── Running: live log (shown when no structured steps yet) ── */}
       {isRunning && steps.length === 0 && logs.length > 0 && (
-        <div className='rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 max-h-32 overflow-y-auto p-2 space-y-1'>
+        <div className='rounded-md bg-muted border border-border max-h-32 overflow-y-auto p-2 space-y-1'>
           {logs.map(log => (
             <div
               key={log.id}
-              className='text-[11px] text-zinc-500 dark:text-zinc-400 font-mono leading-tight'
+              className='text-[11px] text-muted-foreground font-mono leading-tight'
             >
               {log.message}
             </div>
@@ -469,7 +469,7 @@ function AgentPanelInner({
         <Button
           size='sm'
           variant='ghost'
-          className='w-full h-7 text-xs gap-1.5 text-zinc-400 hover:text-red-500'
+          className='w-full h-7 text-xs gap-1.5 text-muted-foreground hover:text-red-500'
           disabled={cancelling}
           onClick={handleCancel}
         >
@@ -485,11 +485,11 @@ function AgentPanelInner({
       {/* Active branch */}
       {!isDone && !isPaused && activeBranch && (
         <div className='space-y-1'>
-          <p className='text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
+          <p className='text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>
             Branch
           </p>
-          <div className='flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300'>
-            <GitBranch size={12} className='shrink-0 text-zinc-400' />
+          <div className='flex items-center gap-1.5 text-xs text-foreground'>
+            <GitBranch size={12} className='shrink-0 text-muted-foreground' />
             <span className='font-mono truncate'>
               {activeBranch.branchName}
             </span>
@@ -500,7 +500,7 @@ function AgentPanelInner({
       {/* Active PR */}
       {!isDone && task.pullRequests?.find(pr => pr.state === 'open') && (
         <div className='space-y-1'>
-          <p className='text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
+          <p className='text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>
             Pull Request
           </p>
           <a

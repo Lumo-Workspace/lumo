@@ -29,7 +29,7 @@ const RUN_STATUS_CONFIG: Record<
 > = {
   COMPLETED: { label: 'Done', color: 'text-emerald-600', icon: CheckCircle2 },
   FAILED: { label: 'Failed', color: 'text-red-600', icon: XCircle },
-  CANCELED: { label: 'Canceled', color: 'text-zinc-500', icon: Ban },
+  CANCELED: { label: 'Canceled', color: 'text-muted-foreground', icon: Ban },
   WORKING: { label: 'Working', color: 'text-blue-600', icon: Loader2 },
 }
 
@@ -45,7 +45,7 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
     <div className='space-y-1'>
       <button
         onClick={() => setExpanded(!expanded)}
-        className='flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors w-full'
+        className='flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full'
       >
         <ChevronDown
           size={12}
@@ -69,27 +69,29 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
               <div key={run.id} className='space-y-1'>
                 <button
                   onClick={() => setExpandedRunId(isOpen ? null : run.id)}
-                  className='flex items-center gap-2 w-full text-left text-[11px] rounded px-1.5 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                  className='flex items-center gap-2 w-full text-left text-[11px] rounded-sm px-1.5 py-1 hover:bg-muted transition-colors'
                 >
                   <StatusIcon size={11} className={cn('shrink-0', cfg.color)} />
-                  <span className='font-medium text-zinc-600 dark:text-zinc-300'>
+                  <span className='font-medium text-foreground'>
                     Session #{run.runNumber}
                   </span>
                   <span className={cn('font-medium', cfg.color)}>
                     {cfg.label}
                   </span>
-                  <span className='text-zinc-400 ml-auto'>
+                  <span className='text-muted-foreground ml-auto'>
                     {formatRelativeTime(run.startedAt)}
                   </span>
                   {run.prNumber && (
-                    <span className='text-zinc-400'>PR #{run.prNumber}</span>
+                    <span className='text-muted-foreground'>
+                      PR #{run.prNumber}
+                    </span>
                   )}
                 </button>
 
                 {isOpen && (
-                  <div className='ml-5 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-2 space-y-1.5 text-[11px]'>
+                  <div className='ml-5 rounded-sm border border-border bg-muted p-2 space-y-1.5 text-[11px]'>
                     {run.trigger && (
-                      <p className='text-zinc-500'>
+                      <p className='text-muted-foreground'>
                         Trigger: {TRIGGER_LABELS[run.trigger] ?? run.trigger}
                       </p>
                     )}
@@ -99,12 +101,10 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
                       </pre>
                     )}
                     {run.summary && (
-                      <p className='text-zinc-600 dark:text-zinc-300'>
-                        {run.summary}
-                      </p>
+                      <p className='text-foreground'>{run.summary}</p>
                     )}
                     {run.durationMs != null && (
-                      <p className='text-zinc-400'>
+                      <p className='text-muted-foreground'>
                         Duration: {formatDuration(run.durationMs)}
                       </p>
                     )}

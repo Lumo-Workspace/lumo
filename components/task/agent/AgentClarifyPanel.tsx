@@ -76,7 +76,7 @@ export function AgentClarifyPanel({
           value={reply}
           onChange={e => setReply(e.target.value)}
           placeholder='Reply to continue...'
-          className='min-h-[56px] text-xs resize-none bg-white/70 dark:bg-zinc-900/50 border-amber-200 dark:border-amber-800 focus-visible:ring-amber-400'
+          className='min-h-[56px] text-xs resize-none bg-background/70 dark:bg-background/50 border-amber-200 dark:border-amber-800 focus-visible:ring-amber-400'
           onKeyDown={e => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
           }}
