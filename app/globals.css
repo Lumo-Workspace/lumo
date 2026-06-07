@@ -685,6 +685,25 @@ html {
   --shadow-elevation-2: var(--elevation-2);
   --shadow-elevation-3: var(--elevation-3);
 
+  /* Semantic z-index scale (LUM-285) ───────────────────────────────────────
+     Emits z-base / z-sticky / z-overlay / z-modal / z-dropdown / z-toast /
+     z-max utilities; also referenceable as var(--z-index-tier) in raw CSS.
+     The ORDER is load-bearing: dropdown(50) sits ABOVE modal(45) so menus /
+     selects / popovers opened INSIDE a dialog render above it; modal(45) sits
+     above its overlay(40). dropdown is pinned at 50 so the prior z-50 floating
+     layers keep byte-identical stacking. This scale governs cross-component /
+     portaled layering only - a component that owns its own stacking context
+     may use small scoped integers for its own children (see the editor-table
+     handles below and components/ui/sidebar/frame.tsx).
+     Full reference: docs/superpowers/specs/2026-06-06-lum285-z-index-tokens-design.md */
+  --z-index-base: 0;
+  --z-index-sticky: 10;
+  --z-index-overlay: 40;
+  --z-index-modal: 45;
+  --z-index-dropdown: 50;
+  --z-index-toast: 60;
+  --z-index-max: 9999;
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
