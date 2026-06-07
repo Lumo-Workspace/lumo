@@ -7,11 +7,8 @@ import {
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
-import type {
-  HookEventType,
-  MemoryCategory,
-  TaskArtifactAgent,
-} from '@prisma/client'
+import type { HookEventType, MemoryCategory } from '@prisma/client'
+import { TaskArtifactAgent } from '@prisma/client'
 
 // Wire-format types returned to the client. Kept separate from Prisma
 // row shapes so the API surface stays decoupled from schema changes.
@@ -43,6 +40,7 @@ export type AgentRunItem = AgentRunHookEvent | AgentRunMemoryItem
 
 export interface AgentRunSession {
   sessionId: string | null
+  agent: TaskArtifactAgent
   runNumber: number
   startedAt: string
   lastActivityAt: string
@@ -145,6 +143,7 @@ export const agentRunTimelineService = {
 
       return {
         sessionId: s.id,
+        agent: s.agent,
         runNumber: i + 1,
         startedAt: s.startedAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
@@ -176,6 +175,7 @@ export const agentRunTimelineService = {
       const last = items[items.length - 1]?.createdAt ?? first
       runs.push({
         sessionId: null,
+        agent: TaskArtifactAgent.CLAUDE_CODE,
         runNumber: runs.length + 1,
         startedAt: first,
         lastActivityAt: last,

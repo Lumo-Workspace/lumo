@@ -416,6 +416,7 @@ export const sessionRepository = {
       take: limit,
       select: {
         id: true,
+        agent: true,
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,

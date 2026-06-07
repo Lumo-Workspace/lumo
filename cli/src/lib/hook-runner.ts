@@ -237,55 +237,44 @@ function sessionContextEnvelope(
 }
 
 /**
- * Result of an attempt to bind a session to an inferred task. `ok: false`
- * covers every failure (task not found, network error, timeout) and routes
- * the caller back to the unbound prompt.
- */
-export interface AutoBindAttempt {
-  ok: boolean
-  taskIdentifier?: string | undefined
-  taskTitle?: string | undefined
-  memorySection?: string | undefined
-  previousSession?: PreviousSessionCard | null | undefined
-}
-
-/**
  * Dependencies for `resolveSessionStartStdout`, injected so the orchestration
- * can be unit-tested without touching git or the network.
+ * can be unit-tested without touching git. The only signal we need is the
+ * task inferred from local git; binding is no longer done automatically
+ * (LUM-302 — detect-and-suggest, never auto-bind).
  */
-export interface AutoBindDeps {
+export interface SessionStartDeps {
   extractTask: () => GitTaskMatch | null
-  bindTask: (sessionId: string, identifier: string) => Promise<AutoBindAttempt>
 }
 
 /**
- * The single status line printed after a successful auto-bind. Explains which
- * git signal (branch name vs recent commit) it relied on and how to undo it.
+ * The single line printed when a task is inferred from local git at session
+ * start. We deliberately do NOT bind — we point the user at the explicit
+ * `lumo session attach` so binding stays a confirmed, manual action. The basis
+ * (branch name vs recent commit) is shown so the inference is auditable. No
+ * task title is available here because nothing was fetched; the title and
+ * context surface only once the user actually attaches.
  */
-export function formatAutoBindLine(
+export function formatSuggestLine(
   sessionId: string,
-  match: GitTaskMatch,
-  result: AutoBindAttempt
+  match: GitTaskMatch
 ): string {
   const basis = match.source === 'branch' ? '分支名' : '最近 commit'
-  const identifier = result.taskIdentifier ?? match.identifier
-  return `[Lumo] session_id=${sessionId} | 已自动绑定 ${identifier} - ${sanitizeField(
-    result.taskTitle ?? ''
-  )}（依据${basis}）。如果不对，回复"不是"我就帮你解绑。`
+  return `[Lumo] session_id=${sessionId} | 检测到 ${match.identifier}（依据${basis}）。运行 lumo session attach ${match.identifier} 绑定。`
 }
 
 /**
- * Build the stdout lines for a session-start response, including the LUM-145
- * auto-bind behavior: when the server reports no binding, infer the task from
- * local git and bind it; on a hit, print the auto-bind line (plus the freshly
- * bound task's memory). Falls back to the unbound prompt when nothing matches
- * or the bind fails. Bound sessions reuse the existing formatting.
+ * Build the stdout lines for a session-start response. When the server reports
+ * the session is already bound, reuse the bound formatting (status line +
+ * injected context). When it's unbound, infer the task from local git and — on
+ * a hit — print a one-line *suggestion* to run `lumo session attach` (LUM-302:
+ * detect-and-suggest, never auto-bind). No match falls back to the generic
+ * unbound prompt.
  */
-export async function resolveSessionStartStdout(
+export function resolveSessionStartStdout(
   responseBody: unknown,
-  deps: AutoBindDeps,
+  deps: SessionStartDeps,
   now: Date = new Date()
-): Promise<string[]> {
+): string[] {
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as SessionStartBody
   if (!body.sessionId) return []
@@ -299,72 +288,7 @@ export async function resolveSessionStartStdout(
 
   const match = deps.extractTask()
   if (!match) return [unboundPromptLine(sessionId)]
-
-  const result = await deps.bindTask(sessionId, match.identifier)
-  if (!result.ok) return [unboundPromptLine(sessionId)]
-
-  const lines = [formatAutoBindLine(sessionId, match, result)]
-  const card = renderRecoveryCard(
-    result.previousSession,
-    result.taskIdentifier ?? match.identifier,
-    now
-  )
-  // bind-task only returns memory + previousSession (not reviewTodosSection) —
-  // the auto-bind endpoint never built PR-review todos. Keep that scope here;
-  // surfacing review todos on the auto-bind path is a separate change.
-  const envelope = sessionContextEnvelope([card, result.memorySection])
-  if (envelope) lines.push(envelope)
-  return lines
-}
-
-/**
- * POST the inferred task binding to the same `bind-task` endpoint that
- * `lumo session attach` uses. Guarded by the same short timeout as the hook
- * POST so the extra round trip can never make session-start hang. Any
- * failure (404 unknown task, network, timeout, non-2xx) returns
- * `{ ok: false }`, which routes the caller back to the unbound prompt.
- */
-async function postBindTask(
-  sessionId: string,
-  identifier: string,
-  token: string,
-  apiUrl: string
-): Promise<AutoBindAttempt> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(
-      sessionId
-    )}/bind-task`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ taskIdentifier: identifier }),
-      signal: controller.signal,
-    })
-    if (!res.ok) return { ok: false }
-    const body = (await res.json()) as {
-      taskIdentifier?: string
-      taskTitle?: string
-      memorySection?: string
-      previousSession?: PreviousSessionCard | null
-    }
-    return {
-      ok: true,
-      taskIdentifier: body.taskIdentifier,
-      taskTitle: body.taskTitle,
-      memorySection: body.memorySection,
-      previousSession: body.previousSession ?? undefined,
-    }
-  } catch (err) {
-    logHookError('[session-start] auto-bind', err)
-    return { ok: false }
-  } finally {
-    clearTimeout(timer)
-  }
+  return [formatSuggestLine(sessionId, match)]
 }
 
 /**
@@ -464,18 +388,16 @@ export async function runHookWithBody(
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
       } else if (path === 'session-start' || path === 'pre-tool-use') {
         // Paths that turn the response body into stdout for Claude Code:
-        //   session-start → bind status + injected context (incl. LUM-145
-        //                   auto-bind from local git when unbound)
+        //   session-start → bind status + injected context, or (when unbound)
+        //                   a LUM-302 suggest line inferred from local git
         //   pre-tool-use  → parallel-edit collision warning (LUM-150 ③)
         // Only after a 2xx so a transient server failure emits nothing.
         try {
           const responseBody = await res.json()
           const lines =
             path === 'session-start'
-              ? await resolveSessionStartStdout(responseBody, {
+              ? resolveSessionStartStdout(responseBody, {
                   extractTask: () => extractTaskFromGit(),
-                  bindTask: (sessionId, identifier) =>
-                    postBindTask(sessionId, identifier, creds.token, apiUrl),
                 })
               : formatHookStdoutLines(path, responseBody)
           for (const line of lines) {
