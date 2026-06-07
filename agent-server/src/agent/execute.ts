@@ -19,7 +19,7 @@ import {
 import { htmlToMarkdown } from './markdown.js'
 import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp.js'
 import { buildAgentContext } from './context-builder.js'
-import type { RunUsage } from '@lumo/shared'
+import { parseStreamJsonUsage, type RunUsage } from '@lumo/shared'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -65,6 +65,7 @@ interface RunContext {
   gitName: string
   gitEmail: string
   actorName?: string
+  usage?: RunUsage | null | undefined
 }
 
 type ChangedFile = {
@@ -607,6 +608,7 @@ async function handleNoCommits(
   await transitionAgentStatus(ctx.taskId, ctx.task.project.id, 'COMPLETED')
   await markRunCompleted(ctx.currentRunId, {
     durationMs: Date.now() - ctx.agentStartedAt,
+    usage: ctx.usage,
   })
   await pushAgentEvent(ctx.taskId, {
     type: 'agent:failed',
@@ -636,6 +638,7 @@ async function handleFollowUpNoChanges(ctx: RunContext): Promise<AgentResult> {
     prNumber,
     prUrl,
     branchName: ctx.branchName,
+    usage: ctx.usage,
   })
   await pushAgentEvent(ctx.taskId, { type: 'agent:done', prUrl, prNumber })
   return { outcome: 'done', prUrl, prNumber }
@@ -753,6 +756,7 @@ async function completeAgentRun(params: {
   agentSummary?: string | null
   agentChangedFiles?: ChangedFile[]
   agentDurationMs: number
+  agentUsage?: RunUsage | null | undefined
   prUpsertData?: {
     workspaceId: string
     number: number
@@ -775,6 +779,7 @@ async function completeAgentRun(params: {
     prNumber: params.prUpsertData?.number,
     prUrl: params.prUpsertData?.url,
     branchName: params.branchName,
+    usage: params.agentUsage,
   })
   await notifyAgentVerify(params.taskId)
 }
@@ -881,6 +886,7 @@ async function reuseExistingPR(
     agentSummary: runMeta.summary,
     agentChangedFiles: runMeta.changedFiles,
     agentDurationMs: Date.now() - ctx.agentStartedAt,
+    agentUsage: ctx.usage,
   })
   return { prUrl, prNumber }
 }
@@ -920,6 +926,7 @@ async function createNewPR(
     agentSummary: runMeta.summary,
     agentChangedFiles: runMeta.changedFiles,
     agentDurationMs: Date.now() - ctx.agentStartedAt,
+    agentUsage: ctx.usage,
     prUpsertData: {
       workspaceId: ctx.task.project.workspaceId,
       number: pr.number,
@@ -1165,6 +1172,18 @@ export async function executeAgent({
       `[Agent] Agent finished for task ${taskId}, exit code ${exitCode}${timedOut ? ' (timed out)' : ''}`
     )
 
+    // Capture the agent stdout for usage/token-cost parsing.
+    // result.stdout is populated by e2b from the onStdout stream above.
+    // Fall back to reading the sandbox file as belt-and-suspenders.
+    let claudeStdout = result.stdout ?? ''
+    if (!claudeStdout) {
+      try {
+        claudeStdout = await sandbox.files.read('/tmp/agent-stdout.log')
+      } catch {
+        // best-effort — leave cost null if the log can't be read
+      }
+    }
+
     // Process completion directly — no callback needed
     await processAgentCompletion({
       runId: ctx.currentRunId,
@@ -1173,6 +1192,7 @@ export async function executeAgent({
       timedOut,
       stderr,
       branchExistsOnRemote,
+      resultLine: claudeStdout,
     })
 
     return { outcome: 'started' }
@@ -1196,9 +1216,14 @@ export async function processAgentCompletion(params: {
   timedOut: boolean
   stderr: string
   branchExistsOnRemote: boolean
+  resultLine?: string | undefined
 }): Promise<void> {
   const { runId, taskId, exitCode, timedOut, stderr, branchExistsOnRemote } =
     params
+
+  const usage = params.resultLine
+    ? parseStreamJsonUsage(params.resultLine)
+    : null
 
   const task = await loadTask(taskId)
   const run = await prisma.agentRun.findUnique({
@@ -1285,6 +1310,7 @@ export async function processAgentCompletion(params: {
     agentStartedAt: run.startedAt.getTime(),
     gitName,
     gitEmail,
+    usage,
   }
 
   runStepTimers.set(runId, Date.now())
