@@ -56,9 +56,9 @@ export function TaskDetailSidebar({
   const projectRepositories = task.project?.repositories
 
   return (
-    <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
+    <div className='w-72 shrink-0 border-l border-border overflow-y-auto px-5 py-6 bg-muted/50'>
       {/* Properties */}
-      <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
+      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3'>
         {intl.formatMessage({ id: 'task.properties' })}
       </p>
       <div className='flex flex-col gap-0.5 mb-8'>
@@ -195,7 +195,7 @@ export function TaskDetailSidebar({
                         allTags={allTags}
                         onChange={onTagsChange}
                         onCreateTag={onCreateTag}
-                        triggerClassName='min-h-7 px-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        triggerClassName='min-h-7 px-2 rounded-md hover:bg-muted'
                       />
                     ),
                   },
@@ -204,7 +204,7 @@ export function TaskDetailSidebar({
           ] as { label: string; node: React.ReactNode }[]
         ).map(({ label, node }) => (
           <div key={label} className='flex items-center gap-2 -ml-2'>
-            <span className='w-16 shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500 pl-2'>
+            <span className='w-16 shrink-0 text-[11px] text-muted-foreground pl-2'>
               {label}
             </span>
             <div className='flex-1 min-w-0'>{node}</div>

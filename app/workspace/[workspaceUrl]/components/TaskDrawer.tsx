@@ -100,7 +100,7 @@ export function TaskDrawer({
           onClick={onClose}
         />
         <DrawerPrimitive.Content
-          className='fixed right-0 top-0 bottom-0 z-modal bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none w-full md:w-[520px]'
+          className='fixed right-0 top-0 bottom-0 z-modal bg-card border-l border-border flex flex-col shadow-elevation-3 outline-none w-full md:w-[520px]'
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}
@@ -118,7 +118,7 @@ export function TaskDrawer({
                 onClose()
                 router.push(taskUrl(source))
               }}
-              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              className='h-7 w-7 text-muted-foreground hover:text-foreground'
               title={intl.formatMessage({ id: 'taskDrawer.openFull' })}
             >
               <SquareArrowOutUpRight size={14} />
@@ -130,7 +130,7 @@ export function TaskDrawer({
                     variant='ghost'
                     size='icon'
                     onClick={handleCopyLink}
-                    className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                    className='h-7 w-7 text-muted-foreground hover:text-foreground'
                   >
                     {copied ? <Check size={14} /> : <LinkIcon size={14} />}
                   </Button>
@@ -143,7 +143,7 @@ export function TaskDrawer({
                 variant='ghost'
                 size='icon'
                 onClick={onClose}
-                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                className='h-7 w-7 text-muted-foreground hover:text-foreground'
               >
                 <X size={14} />
               </Button>
