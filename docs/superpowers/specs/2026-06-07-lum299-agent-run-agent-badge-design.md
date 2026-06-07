@@ -41,6 +41,9 @@ schema change, no migration, no new i18n keys.**
 ## Decisions
 
 1. **Display form:** icon + text, by reusing `<AgentBadge agent={…} />`.
+   **Placement (Variant A):** immediately after the `Run #N` pill in the left
+   cluster of the run header row, before the start-time label — so the agent
+   reads as a pair with the run number.
 2. **Orphan / "Unlinked" run** (the trailing bucket with `sessionId === null`,
    built from hook events whose session never linked): **fall back to
    `CLAUDE_CODE`**. This keeps `AgentRunSession.agent` a non-nullable
@@ -57,7 +60,7 @@ schema change, no migration, no new i18n keys.**
 | Repository | `lib/repositories/session.repository.ts` → `listForTask` | Add `agent: true` to the `select`. |
 | Service | `lib/services/agent-run-timeline.service.ts` | Add `agent: TaskArtifactAgent` to the `AgentRunSession` interface; populate `agent: s.agent` in the per-session map; set `agent: 'CLAUDE_CODE'` on the orphan bucket. |
 | Frontend type | `app/workspace/[workspaceUrl]/types.ts` → `AgentRunSession` | Add the matching `agent: TaskArtifactAgent` field. |
-| Component | `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render `<AgentBadge agent={run.agent} />` in the run header row, next to the start-time label. |
+| Component | `app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx` | Render `<AgentBadge agent={run.agent} />` in the run header row immediately after the `Run #N` pill (left cluster), before the start-time label. |
 
 The two `AgentRunSession` interfaces (service wire-type and frontend type) are
 intentionally separate copies today; both must gain the field to stay in sync.
