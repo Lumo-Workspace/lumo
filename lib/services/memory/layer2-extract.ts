@@ -31,6 +31,10 @@ export const layer2OperationSchema = z.discriminatedUnion('type', [
     type: z.literal('ADD'),
     category: memoryCategorySchema,
     content: z.unknown(),
+    // LUM-280: ids of the source TASK memories this promotion was synthesized
+    // from. Optional — the model may omit them; apply-side hard-validates each
+    // against the consolidation input window and drops anything not present.
+    sourceMemoryIds: z.array(z.string().min(1)).optional(),
   }),
   z.object({
     type: z.literal('UPDATE'),
