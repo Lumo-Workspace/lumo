@@ -148,3 +148,39 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
     expect(result).toEqual(rows)
   })
 })
+
+describe('hookEventRepository.findTurnUsageByTask', () => {
+  it('queries STOP/STOP_FAILURE turns for the task (own-taskId precedence) and selects only sessionId + usageByModel', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await hookEventRepository.findTurnUsageByTask('tsk_1')
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        type: { in: ['STOP', 'STOP_FAILURE'] },
+        OR: [
+          { taskId: 'tsk_1' },
+          { taskId: null, session: { taskId: 'tsk_1' } },
+        ],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, usageByModel: true },
+    })
+  })
+
+  it('returns the per-turn delta rows verbatim', async () => {
+    const rows = [
+      {
+        sessionId: 'sess_1',
+        usageByModel: {
+          'claude-x': { input: 10, output: 5, cacheRead: 2, cacheCreation: 1 },
+        },
+      },
+    ]
+    mockFindMany.mockResolvedValue(rows)
+
+    const result = await hookEventRepository.findTurnUsageByTask('tsk_1')
+
+    expect(result).toEqual(rows)
+  })
+})

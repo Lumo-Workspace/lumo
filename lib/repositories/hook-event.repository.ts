@@ -162,6 +162,28 @@ export const hookEventRepository = {
   },
 
   /**
+   * Per-turn token deltas (LUM-298) for a task, used by the lineage cost view
+   * (LUM-301) to attribute "what this task actually burned" instead of a
+   * session's ever-growing cumulative columns. Returns one row per STOP /
+   * STOP_FAILURE turn that carries a `usageByModel` delta, with the session it
+   * fired in so the caller can sum per session group.
+   *
+   * Same task-attribution precedence as `findByTaskId`: an event's own taskId
+   * wins; only NULL-taskId events fall through to their session's binding (the
+   * `taskId IS NULL` guard stops a re-tagged event leaking into the old task).
+   */
+  async findTurnUsageByTask(taskId: string) {
+    return prisma.hookEvent.findMany({
+      where: {
+        type: { in: ['STOP', 'STOP_FAILURE'] },
+        OR: [{ taskId }, { taskId: null, session: { taskId } }],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, usageByModel: true },
+    })
+  },
+
+  /**
    * Turn summaries for a session, oldest-first. Only STOP / STOP_FAILURE rows
    * carry a turnSummary; `turnSummary IS NOT NULL` drops turns the LLM skipped.
    * `since` (the session's lastProgressCommentAt watermark) excludes already-

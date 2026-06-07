@@ -3,6 +3,9 @@ import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
 import { getEdgeCost } from '@/lib/repositories/lineage-cost'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { toModelCosts } from '@/lib/services/model-cost'
+import type { ModelUsage } from '@/lib/services/model-cost'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType, LineageOutcome } from '@prisma/client'
@@ -51,7 +54,13 @@ export interface LineageDto {
     runCount: number
     fragmentCount: number
     edgeCount: number
-    tokens: { input: number; output: number; cacheRead: number; cacheCreation: number; total: number }
+    tokens: {
+      input: number
+      output: number
+      cacheRead: number
+      cacheCreation: number
+      total: number
+    }
     loopCount: number
     outcomes: Record<LineageOutcome, number>
   }
@@ -149,10 +158,47 @@ export const lineageService = {
     // would also drag that graph (and the @ai-sdk/gateway jest trap) into every
     // test that loads this service. See project_ai_sdk_gateway_jest_trap.
     const { taskService } = await import('@/lib/services/task.service')
-    const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
+    const resolved = await taskService.resolveIdentifier(
+      workspaceId,
+      identifier
+    )
     if (!resolved) return null
 
     const edges = await lineageEdgeRepository.listByTaskWithCost(resolved.id)
+
+    // Session-group cost source (LUM-301): sum this task's per-turn token
+    // deltas (HookEvent.usageByModel, LUM-298) per session. Session cost
+    // columns are cumulative and keep growing after the task is done — reading
+    // them attributed unrelated later work to this task and drifted the total
+    // up forever. The per-turn deltas, scoped to the turns tagged to this task,
+    // are bounded and stop accruing once the task's work stops.
+    const turnRows = await hookEventRepository.findTurnUsageByTask(resolved.id)
+    const costBySession = new Map<string, LineageCost>()
+    for (const row of turnRows) {
+      if (!row.sessionId) continue
+      const acc = costBySession.get(row.sessionId) ?? {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 0,
+        loopCount: 0,
+      }
+      // Each STOP turn tagged to this task counts as one loop — a bounded,
+      // task-scoped substitute for the cumulative Session.loopCount.
+      acc.loopCount += 1
+      const costs = toModelCosts(
+        row.usageByModel as Record<string, ModelUsage> | null
+      )
+      for (const c of costs ?? []) {
+        acc.input += c.input
+        acc.output += c.output
+        acc.cacheRead += c.cacheRead
+        acc.cacheCreation += c.cacheCreation
+        acc.total += c.total
+      }
+      costBySession.set(row.sessionId, acc)
+    }
 
     // 1. Canonicalize each fragment id (MEMORY may drift across consolidation).
     //    Zip edge+canonical so later steps never index a parallel array under
@@ -193,29 +239,21 @@ export const lineageService = {
       const gkey = e.runId ?? e.sessionId ?? ORPHAN
       let g = groups.get(gkey)
       if (!g) {
-        // Resolve cost once per group. For run groups every edge shares the
-        // same run, so the cost is identical. For session groups we snapshot
-        // from the first (oldest) edge — session cost columns are cumulative
-        // and may not be finalized mid-session; the audit view shows the value
-        // as of the first injection. getEdgeCost prefers run over session,
-        // matching the run-first grouping key.
-        const c = getEdgeCost({
-          runId: e.runId,
-          run: e.run,
-          sessionId: e.sessionId,
-          session: e.session,
-        })
-        g = {
-          kind: e.runId ? 'run' : e.sessionId ? 'session' : 'orphan',
-          runId: e.runId,
-          sessionId: e.sessionId,
-          label: e.runId
-            ? `Run ${e.runId.slice(0, 8)}`
-            : e.sessionId
-              ? `Session ${e.sessionId.slice(0, 8)}`
-              : 'Unattributed',
-          includedAt: e.includedAt.toISOString(),
-          cost: c
+        // Resolve cost once per group.
+        //  - Run groups: AgentRun cost columns are immutable per-run snapshots
+        //    (LUM-281), so getEdgeCost(run) is correct and identical across the
+        //    run's edges.
+        //  - Session groups: use the per-turn delta sum (costBySession) instead
+        //    of the cumulative Session columns (LUM-301 — see above).
+        let cost: LineageCost | null
+        if (e.runId) {
+          const c = getEdgeCost({
+            runId: e.runId,
+            run: e.run,
+            sessionId: e.sessionId,
+            session: e.session,
+          })
+          cost = c
             ? {
                 input: c.inputTokens,
                 output: c.outputTokens,
@@ -228,7 +266,23 @@ export const lineageService = {
                   c.cacheCreationTokens,
                 loopCount: c.loopCount,
               }
-            : null,
+            : null
+        } else if (e.sessionId) {
+          cost = costBySession.get(e.sessionId) ?? null
+        } else {
+          cost = null
+        }
+        g = {
+          kind: e.runId ? 'run' : e.sessionId ? 'session' : 'orphan',
+          runId: e.runId,
+          sessionId: e.sessionId,
+          label: e.runId
+            ? `Run ${e.runId.slice(0, 8)}`
+            : e.sessionId
+              ? `Session ${e.sessionId.slice(0, 8)}`
+              : 'Unattributed',
+          includedAt: e.includedAt.toISOString(),
+          cost,
           fragments: [],
         }
         groups.set(gkey, g)
@@ -245,7 +299,13 @@ export const lineageService = {
     const groupList = order.map(k => groups.get(k)!)
 
     // 4. Totals — cost summed ONCE per group.
-    const tokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, total: 0 }
+    const tokens = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+      total: 0,
+    }
     let loopCount = 0
     let runCount = 0
     for (const g of groupList) {
