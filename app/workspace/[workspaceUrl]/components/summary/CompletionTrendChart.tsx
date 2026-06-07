@@ -15,13 +15,13 @@ export function CompletionTrendChart({ trend }: CompletionTrendChartProps) {
   const maxCompleted = Math.max(...last7.map(d => d.completed), 1)
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 space-y-3'>
-      <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+    <div className='rounded-lg border border-border bg-muted p-4 space-y-3'>
+      <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
         {intl.formatMessage({ id: 'summary.completionTrend' })}
       </p>
 
       {last7.length === 0 ? (
-        <p className='text-xs text-zinc-400 dark:text-zinc-500'>No data</p>
+        <p className='text-xs text-muted-foreground'>No data</p>
       ) : (
         <div className='flex items-end gap-1 h-20'>
           {last7.map(entry => {
@@ -41,7 +41,7 @@ export function CompletionTrendChart({ trend }: CompletionTrendChartProps) {
                     title={`${entry.completed} completed`}
                   />
                 </div>
-                <span className='text-[10px] text-zinc-400 dark:text-zinc-500'>
+                <span className='text-[10px] text-muted-foreground'>
                   {dayAbbr}
                 </span>
               </div>

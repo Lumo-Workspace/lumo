@@ -16,16 +16,16 @@ interface StatCardProps {
 
 function StatCard({ label, value, valueClassName }: StatCardProps) {
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 flex flex-col gap-1'>
+    <div className='rounded-lg border border-border bg-muted p-4 flex flex-col gap-1'>
       <span
         className={cn(
           'text-2xl font-bold',
-          valueClassName ?? 'text-zinc-900 dark:text-zinc-100'
+          valueClassName ?? 'text-foreground'
         )}
       >
         {value}
       </span>
-      <span className='text-xs text-zinc-500 dark:text-zinc-400'>{label}</span>
+      <span className='text-xs text-muted-foreground'>{label}</span>
     </div>
   )
 }
@@ -59,7 +59,7 @@ export function StatsCardRow({ stats }: StatsCardRowProps) {
         label={intl.formatMessage({ id: 'summary.overdue' })}
         value={overdue}
         valueClassName={
-          overdue > 0 ? 'text-amber-500' : 'text-zinc-900 dark:text-zinc-100'
+          overdue > 0 ? 'text-amber-500' : 'text-foreground'
         }
       />
       <StatCard

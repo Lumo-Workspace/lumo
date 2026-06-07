@@ -75,9 +75,9 @@ export function ProjectsAtGlanceList({
   ]
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
-      <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
-        <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
+    <div className='rounded-lg border border-border overflow-hidden'>
+      <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
+        <p className='text-sm font-semibold text-foreground'>
           {intl.formatMessage({ id: 'summary.projectsAtGlance' })}
         </p>
         <div className='flex gap-1'>
@@ -88,8 +88,8 @@ export function ProjectsAtGlanceList({
               onClick={() => setFilter(f.key)}
               className={`text-xs px-2 py-1 rounded-md ${
                 filter === f.key
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               {intl.formatMessage({ id: f.labelKey })} ({f.count})
@@ -99,14 +99,14 @@ export function ProjectsAtGlanceList({
       </div>
 
       {visible.length === 0 ? (
-        <div className='px-4 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400'>
+        <div className='px-4 py-6 text-center text-xs text-muted-foreground'>
           {intl.formatMessage({
             id: 'summary.noProjectsMatchFilter',
             defaultMessage: 'No projects match this filter',
           })}
         </div>
       ) : (
-        <div className='divide-y divide-zinc-100 dark:divide-zinc-800'>
+        <div className='divide-y divide-border'>
           {visible.map(p => {
             const pct =
               p.totalTasks > 0
@@ -122,7 +122,7 @@ export function ProjectsAtGlanceList({
                 type='button'
                 data-testid='project-row'
                 onClick={() => onNavigate(p.projectId)}
-                className='w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
+                className='w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-muted transition-colors'
               >
                 <RiskBadge
                   level={p.risk?.level ?? null}
@@ -132,24 +132,24 @@ export function ProjectsAtGlanceList({
                 <div className='flex-1 min-w-0'>
                   <p
                     data-testid='project-row-name'
-                    className='text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate'
+                    className='text-sm font-medium text-foreground truncate'
                   >
                     {p.projectName}
                   </p>
                   {reasonLine && (
-                    <p className='text-xs text-zinc-500 dark:text-zinc-400 truncate'>
+                    <p className='text-xs text-muted-foreground truncate'>
                       {reasonLine}
                     </p>
                   )}
-                  <div className='mt-1.5 h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden'>
+                  <div className='mt-1.5 h-1.5 w-full rounded-full bg-muted overflow-hidden'>
                     <div
                       className='h-full rounded-full bg-indigo-500'
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
-                <div className='shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400 w-20'>
-                  <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+                <div className='shrink-0 text-right text-xs text-muted-foreground w-20'>
+                  <span className='font-medium text-foreground'>
                     {p.completedTasks}/{p.totalTasks}
                   </span>
                 </div>

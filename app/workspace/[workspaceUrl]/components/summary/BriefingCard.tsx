@@ -49,22 +49,22 @@ export function BriefingCard({
       : null
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3'>
+    <div className='rounded-lg border border-border p-4 space-y-3'>
       <header className='flex items-center justify-between'>
         <RiskBadge level={risk?.level ?? null} showLabel />
         {formattedDate && (
-          <span className='text-xs text-zinc-400 dark:text-zinc-500'>
+          <span className='text-xs text-muted-foreground'>
             {formattedDate}
           </span>
         )}
       </header>
 
       {tldr ? (
-        <p className='text-base font-medium text-zinc-800 dark:text-zinc-200'>
+        <p className='text-base font-medium text-foreground'>
           {tldr}
         </p>
       ) : (
-        <p className='text-sm text-zinc-400 dark:text-zinc-500 italic'>
+        <p className='text-sm text-muted-foreground italic'>
           {intl.formatMessage({
             id: 'summary.noReport',
             defaultMessage:
@@ -77,7 +77,7 @@ export function BriefingCard({
         <>
           {parsed.todayFocus.length > 0 && (
             <section>
-              <h3 className='text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2'>
+              <h3 className='text-xs uppercase tracking-wider text-muted-foreground mb-2'>
                 {intl.formatMessage({ id: 'summary.todayFocus' })}
               </h3>
               <ul className='space-y-1.5'>
@@ -95,7 +95,7 @@ export function BriefingCard({
           )}
 
           {parsed.riskNarrative && (
-            <section className='rounded bg-zinc-50 dark:bg-zinc-900/50 p-3 text-xs text-zinc-600 dark:text-zinc-400'>
+            <section className='rounded-sm bg-muted/50 p-3 text-xs text-muted-foreground'>
               <RichReportContent
                 markdown={parsed.riskNarrative}
                 members={members}
@@ -118,14 +118,14 @@ export function BriefingCard({
           <button
             type='button'
             onClick={() => setExpanded(v => !v)}
-            className='text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+            className='text-xs text-muted-foreground hover:text-foreground'
           >
             {expanded
               ? intl.formatMessage({ id: 'summary.hideFullReport' })
               : intl.formatMessage({ id: 'summary.showFullReport' })}
           </button>
           {expanded && (
-            <div className='border-t border-zinc-100 dark:border-zinc-800 pt-3'>
+            <div className='border-t border-border pt-3'>
               <RichReportContent
                 markdown={parsed.raw}
                 members={members}
