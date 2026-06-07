@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Lelaran",
   "forecast.metricPrs": "PR digabung",
   "forecast.metricCycle": "Kitaran",
+  "forecast.metricTokens": "Kos token",
+  "forecast.tokenBasis": "Berdasarkan {count, plural, other {# tugasan}} dengan data kos",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
   "forecast.cycleHours": "{median} jam ({low}–{high} jam)",

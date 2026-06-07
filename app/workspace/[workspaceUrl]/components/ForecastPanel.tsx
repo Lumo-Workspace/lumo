@@ -71,18 +71,36 @@ export function ForecastPanel({
       }
     )
   }
+  const compact = (n: number) =>
+    intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
+  const tokenRange = (iv: Interval) =>
+    intl.formatMessage(
+      { id: 'forecast.range' },
+      {
+        median: compact(iv.median),
+        low: compact(iv.p25),
+        high: compact(iv.p75),
+      }
+    )
+
+  // The similarity-cohort track (iterations/PRs/cycle) and the project-wide
+  // token track are independent; either may be empty. Show the "based on N
+  // similar tasks" basis only when the cohort track actually produced metrics.
+  const hasCohortMetrics = !!forecast.iterations
 
   return (
     <section className='mt-6 pt-6 border-t border-border'>
       <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1'>
         {title}
       </p>
-      <p className='text-xs text-muted-foreground mb-2'>
-        {intl.formatMessage(
-          { id: 'forecast.basis' },
-          { count: forecast.cohortSize }
-        )}
-      </p>
+      {hasCohortMetrics && (
+        <p className='text-xs text-muted-foreground mb-2'>
+          {intl.formatMessage(
+            { id: 'forecast.basis' },
+            { count: forecast.cohortSize }
+          )}
+        </p>
+      )}
 
       {forecast.iterations && (
         <ForecastRow
@@ -101,6 +119,21 @@ export function ForecastPanel({
           label={intl.formatMessage({ id: 'forecast.metricCycle' })}
           value={cycleText(forecast.cycleHours)}
         />
+      )}
+
+      {forecast.tokenCost && (
+        <>
+          <ForecastRow
+            label={intl.formatMessage({ id: 'forecast.metricTokens' })}
+            value={tokenRange(forecast.tokenCost)}
+          />
+          <p className='text-xs text-muted-foreground mt-1'>
+            {intl.formatMessage(
+              { id: 'forecast.tokenBasis' },
+              { count: forecast.tokenCostBasis }
+            )}
+          </p>
+        </>
       )}
 
       {forecast.sources.length > 0 && (

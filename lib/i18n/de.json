@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Iterationen",
   "forecast.metricPrs": "Gemergte PRs",
   "forecast.metricCycle": "Zyklus",
+  "forecast.metricTokens": "Token-Kosten",
+  "forecast.tokenBasis": "Basierend auf {count, plural, one {# Aufgabe} other {# Aufgaben}} mit Kostendaten",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} T ({low}–{high} T)",
   "forecast.cycleHours": "{median} Std. ({low}–{high} Std.)",

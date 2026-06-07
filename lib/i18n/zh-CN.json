@@ -1352,6 +1352,8 @@
   "forecast.metricIterations": "迭代轮次",
   "forecast.metricPrs": "合并 PR 数",
   "forecast.metricCycle": "周期",
+  "forecast.metricTokens": "Token 成本",
+  "forecast.tokenBasis": "基于 {count} 个有成本数据的任务",
   "forecast.range": "{median}(常见 {low}–{high})",
   "forecast.cycleDays": "{median} 天(常见 {low}–{high} 天)",
   "forecast.cycleHours": "{median} 小时(常见 {low}–{high} 小时)",

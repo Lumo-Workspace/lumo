@@ -37,7 +37,16 @@ describe('loadForecastInputs', () => {
         number: 42,
         team: { identifier: 'LUM' },
         taskTags: [{ tag: { name: 'auth' } }, { tag: { name: 'api' } }],
-        agentRuns: [{ startedAt: new Date(0), finishedAt: new Date(1) }],
+        sessions: [
+          {
+            startedAt: new Date(0),
+            lastActivityAt: new Date(1),
+            inputTokens: 10,
+            outputTokens: 20,
+            cacheReadTokens: 30,
+            cacheCreationTokens: 40,
+          },
+        ],
         pullRequests: [{ mergedAt: new Date(2) }],
       },
     ])
@@ -55,7 +64,9 @@ describe('loadForecastInputs', () => {
       id: 't2',
       identifier: 'LUM-42',
       tags: ['auth', 'api'],
+      runs: [{ startedAt: new Date(0), finishedAt: new Date(1) }],
       mergedPrAt: [new Date(2)],
+      tokenCost: 100, // 10 + 20 + 30 + 40
     })
 
     expect(findMany).toHaveBeenCalledWith(
@@ -64,9 +75,41 @@ describe('loadForecastInputs', () => {
           projectId: 'p1',
           status: 'DONE',
           id: { not: 't1' },
-          agentRuns: { some: {} },
+          sessions: { some: {} },
         }),
       })
     )
+  })
+
+  it('maps tokenCost to null when no session carries usage', async () => {
+    findUnique.mockResolvedValue({
+      id: 't1',
+      title: 'Target',
+      projectId: 'p1',
+      taskTags: [],
+    })
+    findMany.mockResolvedValue([
+      {
+        id: 't2',
+        title: 'Older',
+        number: 42,
+        team: { identifier: 'LUM' },
+        taskTags: [],
+        sessions: [
+          {
+            startedAt: new Date(0),
+            lastActivityAt: new Date(1),
+            inputTokens: null,
+            outputTokens: null,
+            cacheReadTokens: null,
+            cacheCreationTokens: null,
+          },
+        ],
+        pullRequests: [],
+      },
+    ])
+
+    const result = await forecastRepository.loadForecastInputs('t1')
+    expect(result!.candidates[0]!.tokenCost).toBeNull()
   })
 })

@@ -4,8 +4,10 @@ import type { ForecastInputs, ForecastCandidate } from '@/lib/forecast/types'
 export const forecastRepository = {
   /**
    * Load the target task plus all DONE candidate tasks in the same project
-   * that have at least one agent run (real execution data). Returns null if
-   * the target task does not exist.
+   * that have at least one Claude Code session (real execution data). Returns
+   * null if the target task does not exist. Sessions — not the legacy AgentRun
+   * model — are where execution history lives today, so cohorts built off
+   * AgentRun were near-empty (see LUM-304).
    */
   async loadForecastInputs(taskId: string): Promise<ForecastInputs | null> {
     const target = await prisma.task.findUnique({
@@ -24,7 +26,7 @@ export const forecastRepository = {
         projectId: target.projectId,
         status: 'DONE',
         id: { not: taskId },
-        agentRuns: { some: {} },
+        sessions: { some: {} },
       },
       select: {
         id: true,
@@ -32,7 +34,19 @@ export const forecastRepository = {
         number: true,
         team: { select: { identifier: true } },
         taskTags: { select: { tag: { select: { name: true } } } },
-        agentRuns: { select: { startedAt: true, finishedAt: true } },
+        // Session has no finishedAt; lastActivityAt is the completion proxy.
+        // Token columns are cumulative per-session totals (LUM-281), null until
+        // a STOP carries usage; summed here into a per-task tokenCost.
+        sessions: {
+          select: {
+            startedAt: true,
+            lastActivityAt: true,
+            inputTokens: true,
+            outputTokens: true,
+            cacheReadTokens: true,
+            cacheCreationTokens: true,
+          },
+        },
         pullRequests: {
           where: { state: 'merged' },
           select: { mergedAt: true },
@@ -40,17 +54,34 @@ export const forecastRepository = {
       },
     })
 
-    const candidates: ForecastCandidate[] = rows.map(r => ({
-      id: r.id,
-      title: r.title,
-      identifier: `${r.team.identifier}-${r.number}`,
-      tags: r.taskTags.map(tt => tt.tag.name),
-      agentRuns: r.agentRuns.map(a => ({
-        startedAt: a.startedAt,
-        finishedAt: a.finishedAt,
-      })),
-      mergedPrAt: r.pullRequests.map(p => p.mergedAt),
-    }))
+    const candidates: ForecastCandidate[] = rows.map(r => {
+      // A task has cost data only if at least one session carries usage.
+      const hasUsage = r.sessions.some(s => s.outputTokens !== null)
+      const tokenCost = hasUsage
+        ? r.sessions.reduce(
+            (sum, s) =>
+              sum +
+              (s.inputTokens ?? 0) +
+              (s.outputTokens ?? 0) +
+              (s.cacheReadTokens ?? 0) +
+              (s.cacheCreationTokens ?? 0),
+            0
+          )
+        : null
+
+      return {
+        id: r.id,
+        title: r.title,
+        identifier: `${r.team.identifier}-${r.number}`,
+        tags: r.taskTags.map(tt => tt.tag.name),
+        runs: r.sessions.map(s => ({
+          startedAt: s.startedAt,
+          finishedAt: s.lastActivityAt,
+        })),
+        mergedPrAt: r.pullRequests.map(p => p.mergedAt),
+        tokenCost,
+      }
+    })
 
     return {
       target: {

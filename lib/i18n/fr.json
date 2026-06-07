@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Itérations",
   "forecast.metricPrs": "PR fusionnées",
   "forecast.metricCycle": "Cycle",
+  "forecast.metricTokens": "Coût en tokens",
+  "forecast.tokenBasis": "Basé sur {count, plural, one {# tâche} other {# tâches}} avec données de coût",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} j ({low}–{high} j)",
   "forecast.cycleHours": "{median} h ({low}–{high} h)",

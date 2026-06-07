@@ -5,6 +5,8 @@ const en: Record<string, string> = {
   'forecast.basis': 'Based on {count} tasks',
   'forecast.range': '{median} ({low}–{high})',
   'forecast.metricIterations': 'Iterations',
+  'forecast.metricTokens': 'Token cost',
+  'forecast.tokenBasis': 'Based on {count} tasks with cost data',
   'forecast.viewSources': 'View sources',
 }
 
@@ -19,6 +21,7 @@ jest.mock('react-intl', () => ({
       if (!values) return tpl
       return tpl.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ''))
     },
+    formatNumber: (n: number) => String(n),
   }),
 }))
 
@@ -44,6 +47,20 @@ const INSUFFICIENT: TaskForecast = {
   iterations: null,
   mergedPrs: null,
   cycleHours: null,
+  tokenCost: null,
+  tokenCostBasis: 0,
+  sources: [],
+}
+
+// Cohort track empty, but a project-wide token forecast is available.
+const TOKEN_ONLY: TaskForecast = {
+  insufficientData: false,
+  cohortSize: 0,
+  iterations: null,
+  mergedPrs: null,
+  cycleHours: null,
+  tokenCost: { p25: 14_000_000, median: 30_000_000, p75: 41_000_000 },
+  tokenCostBasis: 22,
   sources: [],
 }
 
@@ -57,6 +74,18 @@ describe('ForecastPanel', () => {
     render(<ForecastPanel taskId='task_1' status='IN_PROGRESS' />)
     expect(screen.getByText('Not enough history yet')).toBeInTheDocument()
     expect(useTaskForecastMock).toHaveBeenCalledWith('task_1')
+  })
+
+  it('renders a token-cost forecast with its basis caveat when cohort is empty', () => {
+    mockForecast = TOKEN_ONLY
+    render(<ForecastPanel taskId='task_1' status='IN_PROGRESS' />)
+    expect(screen.getByText('Token cost')).toBeInTheDocument()
+    expect(
+      screen.getByText('Based on 22 tasks with cost data')
+    ).toBeInTheDocument()
+    // No similarity-cohort basis line when there are no cohort metrics.
+    expect(screen.queryByText('Based on 0 tasks')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not enough history yet')).not.toBeInTheDocument()
   })
 
   it('renders nothing for a DONE task — a delivered task has no forecast', () => {

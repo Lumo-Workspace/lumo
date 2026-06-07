@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "迭代輪次",
   "forecast.metricPrs": "合併 PR 數",
   "forecast.metricCycle": "週期",
+  "forecast.metricTokens": "Token 成本",
+  "forecast.tokenBasis": "基於 {count} 個有成本資料的任務",
   "forecast.range": "{median}(常見 {low}–{high})",
   "forecast.cycleDays": "{median} 天(常見 {low}–{high} 天)",
   "forecast.cycleHours": "{median} 小時(常見 {low}–{high} 小時)",

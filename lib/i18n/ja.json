@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "反復回数",
   "forecast.metricPrs": "マージ済み PR 数",
   "forecast.metricCycle": "サイクル",
+  "forecast.metricTokens": "トークンコスト",
+  "forecast.tokenBasis": "コストデータがある{count, plural, other {#件のタスク}}に基づく",
   "forecast.range": "{median}(目安 {low}–{high})",
   "forecast.cycleDays": "{median}日(目安 {low}–{high}日)",
   "forecast.cycleHours": "{median}時間(目安 {low}–{high}時間)",
