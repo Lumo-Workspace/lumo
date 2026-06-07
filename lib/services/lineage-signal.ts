@@ -232,52 +232,45 @@ export async function assembleLineageSection(
     if (inputs.length === 0) return ''
 
     const refs = inputs.map(i => i.ref)
-    const [universe, presenceStats, usageStats] = await Promise.all([
+    const [universe, presence, usage] = await Promise.all([
       deps.countResolvedTasks(),
       deps.mergeRateByFragments(refs),
       deps.usageMergeRateByFragments(refs),
     ])
-    const presenceByKey = new Map(
-      presenceStats.map(s => [`${s.fragmentType}::${s.fragmentId}`, s])
-    )
-    const usageByKey = new Map(
-      usageStats.map(s => [`${s.fragmentType}::${s.fragmentId}`, s])
-    )
+    const { verdicts, excludedZeroVariance } = computeFragmentTrust(refs, {
+      universe,
+      presence,
+      usage,
+    })
 
     const usageEntries: UsageSignalEntry[] = []
     const presenceEntries: LineageSignalEntry[] = []
-    let excludedCount = 0
     const seen = new Set<string>()
     for (const input of inputs) {
       const key = `${input.ref.fragmentType}::${input.ref.fragmentId}`
       if (seen.has(key)) continue
       seen.add(key)
-
-      // Prefer the real "agent used it" signal once it has enough sample.
-      const usage = usageByKey.get(key)
-      if (usage && usage.usedResolvedTasks >= LINEAGE_MIN_USED_TASKS) {
+      const v = verdicts.get(key)
+      if (!v) continue
+      if (v.kind === 'usage') {
         usageEntries.push({
           label: input.label,
-          usedResolvedTasks: usage.usedResolvedTasks,
-          usedMergedTasks: usage.usedMergedTasks,
+          usedResolvedTasks: v.resolvedTasks,
+          usedMergedTasks: v.mergedTasks,
         })
-        continue
+      } else {
+        presenceEntries.push({
+          label: input.label,
+          resolvedTasks: v.resolvedTasks,
+          mergedTasks: v.mergedTasks,
+        })
       }
-
-      // Fall back to presence — but drop zero-variance "always loaded" fragments.
-      const stat = presenceByKey.get(key)
-      if (!stat) continue
-      if (universe > 0 && stat.resolvedTasks === universe) {
-        excludedCount++
-        continue
-      }
-      presenceEntries.push({
-        label: input.label,
-        resolvedTasks: stat.resolvedTasks,
-        mergedTasks: stat.mergedTasks,
-      })
     }
-    return renderLineageSection(usageEntries, presenceEntries, excludedCount)
+    return renderLineageSection(
+      usageEntries,
+      presenceEntries,
+      excludedZeroVariance
+    )
   } catch (err) {
     logger.error('assembleLineageSection failed; omitting flywheel signal', err)
     return ''
