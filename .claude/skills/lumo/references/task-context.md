@@ -22,6 +22,7 @@ The command prints a markdown document to stdout containing:
 5. **Previous sessions** — ordered newest-first, each with:
    - A headline summary of what was done
    - Unresolved items (carry-over TODOs from that session)
+6. **飞轮信号 · 历史 merge 贡献** — appended at the very end. For each context fragment with enough history, a one-line historical merge-contribution signal (e.g. `出现在 5 个已闭合任务·4 merged (80%)`), computed from accumulated lineage edges. Denominator = distinct tasks where the fragment appeared with a resolved (non-UNKNOWN) outcome; only fragments with ≥3 such tasks are shown (cold-start gate), so the block is often absent early on. This is **historical correlation, not causation** — don't read it as a prediction.
 
 ### How to use the context
 
