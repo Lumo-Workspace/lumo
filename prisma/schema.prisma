@@ -1892,6 +1892,11 @@ model LineageEdge {
   // Starts UNKNOWN at birth; stamped MERGED/REJECTED/REWORKED when the edge
   // closes (PR merged / task done) — see DoD ③ in the milestone goal.
   outcome      LineageOutcome      @default(UNKNOWN)
+  // LUM-300 usage vote: null = not voted, true = agent reported using this
+  // fragment, false = injected but unused. usedAt also marks "has this session
+  // voted?" (avoids a separate Session watermark column).
+  used         Boolean?
+  usedAt       DateTime?
   updatedAt    DateTime            @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
