@@ -33,6 +33,100 @@ export interface UsageSignalEntry {
   usedMergedTasks: number
 }
 
+/** A per-fragment trust verdict derived from lineage edges, calibrated per
+ * LUM-300: a strong `usage` signal (agent voted it used) preferred over a weak
+ * `presence` signal (merely co-loaded). Unqualified fragments get NO verdict. */
+export interface TrustVerdict {
+  kind: 'usage' | 'presence'
+  /** Denominator: distinct resolved tasks (usage → used-resolved). */
+  resolvedTasks: number
+  /** Numerator: distinct merged tasks (usage → used-merged). */
+  mergedTasks: number
+  /** Math.round(merged / resolved * 100). */
+  pct: number
+}
+
+/** Pre-fetched aggregate inputs for {@link computeFragmentTrust}. */
+export interface TrustStats {
+  /** countResolvedTasks() — global distinct tasks with a resolved edge. */
+  universe: number
+  presence: FragmentMergeRate[]
+  usage: FragmentUsageRate[]
+}
+
+export interface FragmentTrustResult {
+  /** Qualifying verdicts keyed by `${fragmentType}::${fragmentId}`, insertion
+   * order = first-seen order of `refs`. */
+  verdicts: Map<string, TrustVerdict>
+  /** Count of deduped fragments dropped for zero presence-variance (appeared in
+   * every resolved task). Backs the CLI's "已排除 N 个全量加载" note. */
+  excludedZeroVariance: number
+}
+
+function trustKey(fragmentType: string, fragmentId: string): string {
+  return `${fragmentType}::${fragmentId}`
+}
+
+/**
+ * Pure trust scoring. Iterates `refs` (deduped, first-seen order), and for each:
+ *   1. usage signal if usedResolvedTasks >= LINEAGE_MIN_USED_TASKS → kind 'usage'
+ *   2. else presence: needs a stat, NOT zero-variance (resolvedTasks===universe
+ *      when universe>0 → excluded+counted), and resolvedTasks >= the cold-start
+ *      floor → kind 'presence'
+ *   3. else no verdict.
+ * No I/O — all gating lives here so the CLI markdown and web badge never drift.
+ */
+export function computeFragmentTrust(
+  refs: FragmentRef[],
+  stats: TrustStats
+): FragmentTrustResult {
+  const presenceByKey = new Map(
+    stats.presence.map(s => [trustKey(s.fragmentType, s.fragmentId), s])
+  )
+  const usageByKey = new Map(
+    stats.usage.map(s => [trustKey(s.fragmentType, s.fragmentId), s])
+  )
+
+  const verdicts = new Map<string, TrustVerdict>()
+  let excludedZeroVariance = 0
+  const seen = new Set<string>()
+
+  for (const ref of refs) {
+    const key = trustKey(ref.fragmentType, ref.fragmentId)
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const usage = usageByKey.get(key)
+    if (usage && usage.usedResolvedTasks >= LINEAGE_MIN_USED_TASKS) {
+      verdicts.set(key, {
+        kind: 'usage',
+        resolvedTasks: usage.usedResolvedTasks,
+        mergedTasks: usage.usedMergedTasks,
+        pct: Math.round(
+          (usage.usedMergedTasks / usage.usedResolvedTasks) * 100
+        ),
+      })
+      continue
+    }
+
+    const stat = presenceByKey.get(key)
+    if (!stat) continue
+    if (stats.universe > 0 && stat.resolvedTasks === stats.universe) {
+      excludedZeroVariance++
+      continue
+    }
+    if (stat.resolvedTasks < LINEAGE_MIN_RESOLVED_TASKS) continue
+    verdicts.set(key, {
+      kind: 'presence',
+      resolvedTasks: stat.resolvedTasks,
+      mergedTasks: stat.mergedTasks,
+      pct: Math.round((stat.mergedTasks / stat.resolvedTasks) * 100),
+    })
+  }
+
+  return { verdicts, excludedZeroVariance }
+}
+
 /**
  * Pure render: usage signal first (strong), presence fallback (weak), then the
  * zero-variance-exclusion note. Returns "" only when there's nothing to say.
