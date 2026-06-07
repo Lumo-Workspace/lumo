@@ -44,9 +44,9 @@ MemoryTab → useFragmentTrust(ids) ─┐
                                    ├─→ GET /api/lineage/fragment-trust?ids=…
 MemoryListItem ← verdict map ──────┘        ↓ (thin route: auth → zod → service)
                                      lineageService.fragmentTrustForMemories(memoryIds)
-                                            ↓ resolveCanonicalFragment('MEMORY', id) 逐个
-                                     computeFragmentTrust(refs, deps)  ← 纯函数（抽出）
-                                            ↑ 同一函数也被 CLI 的 assembleLineageSection 复用
+                                            ↓ resolveCanonicalFragment('MEMORY', id) 逐个 + 取 stats（I/O）
+                                     computeFragmentTrust(refs, stats)  ← 纯函数（抽出，无 I/O）
+                                            ↑ 同一纯函数也被 CLI 的 assembleLineageSection 复用
 ```
 
 **核心动作**：把现在埋在 `lib/services/lineage-signal.ts` 里「计算 + 渲染 markdown」耦合的逻辑，抽出一个**纯计算函数**，让 CLI（markdown）和 Web（badge）走**同一口径**，杜绝两边算法漂移。
