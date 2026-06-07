@@ -30,7 +30,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "preanalyze": "tsx scripts/fix-nodemodules-selflink.ts",
-    "analyze": "cross-env ANALYZE=true next build",
+    "analyze": "next build --experimental-analyze",
     "prepare": "husky",
     "mcp": "tsx mcp/server.ts"
   },
