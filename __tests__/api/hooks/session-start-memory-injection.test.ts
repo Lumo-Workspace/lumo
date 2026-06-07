@@ -18,6 +18,10 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildLayer2ReviewSectionForTask: jest.fn().mockResolvedValue({ section: '', fragments: [] }),
   },
 }))
+jest.mock('@/lib/services/lineage.service', () => ({
+  lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: (p: Promise<unknown>) => p }))
 
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
@@ -77,6 +81,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
       memorySection: '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n',
       linkedResourcesSection: '',
+      fragments: [],
     })
 
     const req = post({ sessionId: 's-1' })
@@ -104,6 +109,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       memorySection: 'MEM',
       linkedResourcesSection:
         '<untrusted-linked-context>\n## Pull Requests\n- #7 x\n</untrusted-linked-context>',
+      fragments: [],
     })
     ;(
       taskContextService.buildReviewTodosSectionForTask as jest.Mock
@@ -144,6 +150,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
       memorySection: '',
       linkedResourcesSection: '',
+      fragments: [],
     })
 
     const req = post({ sessionId: 's-3' })
