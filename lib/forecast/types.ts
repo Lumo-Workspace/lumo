@@ -11,8 +11,16 @@ export interface ForecastCandidate {
   title: string
   identifier: string // `${team.identifier}-${number}`, e.g. "LUM-42"
   tags: string[]
-  agentRuns: { startedAt: Date; finishedAt: Date | null }[]
+  // Source-agnostic execution runs. Today these are Claude Code Sessions
+  // (finishedAt = session.lastActivityAt); historically they were AgentRuns.
+  // The repository owns the source→run mapping so this layer stays agnostic.
+  runs: { startedAt: Date; finishedAt: Date | null }[]
   mergedPrAt: (Date | null)[] // mergedAt of each merged PR
+  // Total token cost = sum of input+output+cache tokens across the task's
+  // sessions. null when no session carries usage data (historical rows, or
+  // sessions that never reached a STOP with usage). Only ~10% of tasks have
+  // this today, so the token forecast is computed project-wide, not per-cohort.
+  tokenCost: number | null
 }
 
 export interface ForecastInputs {
@@ -25,6 +33,7 @@ export interface CandidateMetrics {
   iterations: number
   mergedPrs: number
   cycleHours: number | null
+  tokenCost: number | null
 }
 
 /** A historical task that contributed to the interval (explainability). */
@@ -44,5 +53,12 @@ export interface TaskForecast {
   iterations: Interval | null
   mergedPrs: Interval | null
   cycleHours: Interval | null
+  // Token-cost forecast, computed project-wide over completed tasks that carry
+  // usage data (NOT the similarity cohort — no a-priori feature predicts cost,
+  // so the broader, more stable sample wins). null when fewer than the minimum
+  // such tasks exist. tokenCostBasis = how many tasks fed the interval (shown
+  // as an honest "based on N tasks with cost data" caveat).
+  tokenCost: Interval | null
+  tokenCostBasis: number
   sources: ForecastSource[]
 }

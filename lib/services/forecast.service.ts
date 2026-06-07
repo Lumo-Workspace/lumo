@@ -2,7 +2,11 @@ import { forecastRepository } from '@/lib/repositories/forecast.repository'
 import { scoreCandidate } from '@/lib/forecast/score'
 import { extractMetrics } from '@/lib/forecast/metrics'
 import { interval } from '@/lib/forecast/percentile'
-import type { TaskForecast, ForecastSource } from '@/lib/forecast/types'
+import type {
+  TaskForecast,
+  ForecastSource,
+  ForecastCandidate,
+} from '@/lib/forecast/types'
 
 const SCORE_THRESHOLD = 0.3
 const MAX_COHORT = 20
@@ -14,17 +18,47 @@ const EMPTY: TaskForecast = {
   iterations: null,
   mergedPrs: null,
   cycleHours: null,
+  tokenCost: null,
+  tokenCostBasis: 0,
   sources: [],
+}
+
+/**
+ * Token-cost forecast, computed project-wide over ALL completed candidate
+ * tasks that carry usage data — deliberately NOT restricted to the similarity
+ * cohort. Offline analysis (LUM-304) showed no a-priori task feature predicts
+ * cost, so a narrow same-title cohort adds noise rather than signal; the larger
+ * project-wide sample is the more honest, more stable basis. Only ~10% of tasks
+ * have cost data today, so this surfaces a count caveat instead of pretending
+ * to per-task precision.
+ */
+function tokenForecast(candidates: ForecastCandidate[]): {
+  tokenCost: TaskForecast['tokenCost']
+  tokenCostBasis: number
+} {
+  const costs = candidates
+    .map(c => c.tokenCost)
+    .filter((v): v is number => v !== null)
+  if (costs.length < MIN_COHORT) return { tokenCost: null, tokenCostBasis: 0 }
+  return { tokenCost: interval(costs), tokenCostBasis: costs.length }
 }
 
 export const forecastService = {
   /**
    * Retrieve a delivery forecast for a task from similar completed tasks'
    * real execution data. Deterministic — no LLM, no hidden points.
+   *
+   * Two independent tracks:
+   *  - iterations / mergedPrs / cycleHours: from the similarity cohort
+   *    (same-project completed tasks scoring ≥ threshold on title+tags).
+   *  - tokenCost: project-wide over tasks with usage data (see tokenForecast).
+   * The panel is shown when EITHER track produces output.
    */
   async getTaskForecast(taskId: string): Promise<TaskForecast> {
     const inputs = await forecastRepository.loadForecastInputs(taskId)
     if (!inputs) return EMPTY
+
+    const { tokenCost, tokenCostBasis } = tokenForecast(inputs.candidates)
 
     const cohort = inputs.candidates
       .map(c => ({ candidate: c, score: scoreCandidate(inputs.target, c) }))
@@ -45,13 +79,18 @@ export const forecastService = {
       }
     })
 
+    // Too few similar tasks for the cohort metrics — but a project-wide token
+    // forecast may still be available, so only declare "insufficient" when
+    // BOTH tracks are empty.
     if (sources.length < MIN_COHORT) {
       return {
-        insufficientData: true,
+        insufficientData: tokenCost === null,
         cohortSize: sources.length,
         iterations: null,
         mergedPrs: null,
         cycleHours: null,
+        tokenCost,
+        tokenCostBasis,
         sources: sources.slice(0, 2),
       }
     }
@@ -67,6 +106,8 @@ export const forecastService = {
       mergedPrs: interval(sources.map(s => s.mergedPrs)),
       cycleHours:
         cycleValues.length >= MIN_COHORT ? interval(cycleValues) : null,
+      tokenCost,
+      tokenCostBasis,
       sources,
     }
   },

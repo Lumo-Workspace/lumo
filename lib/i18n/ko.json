@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "반복 횟수",
   "forecast.metricPrs": "병합된 PR 수",
   "forecast.metricCycle": "주기",
+  "forecast.metricTokens": "토큰 비용",
+  "forecast.tokenBasis": "비용 데이터가 있는 작업 {count, plural, other {#개}} 기준",
   "forecast.range": "{median} (보통 {low}–{high})",
   "forecast.cycleDays": "{median}일 (보통 {low}–{high}일)",
   "forecast.cycleHours": "{median}시간 (보통 {low}–{high}시간)",

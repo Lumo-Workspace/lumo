@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "पुनरावृत्तियाँ",
   "forecast.metricPrs": "मर्ज किए गए PR",
   "forecast.metricCycle": "चक्र",
+  "forecast.metricTokens": "टोकन लागत",
+  "forecast.tokenBasis": "लागत डेटा वाले {count, plural, one {# कार्य} other {# कार्यों}} पर आधारित",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} दिन ({low}–{high} दिन)",
   "forecast.cycleHours": "{median} घंटे ({low}–{high} घंटे)",

@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Iterasi",
   "forecast.metricPrs": "PR yang digabung",
   "forecast.metricCycle": "Siklus",
+  "forecast.metricTokens": "Biaya token",
+  "forecast.tokenBasis": "Berdasarkan {count, plural, other {# tugas}} dengan data biaya",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
   "forecast.cycleHours": "{median} jam ({low}–{high} jam)",

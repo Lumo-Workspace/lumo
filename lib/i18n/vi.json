@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Số vòng lặp",
   "forecast.metricPrs": "PR đã hợp nhất",
   "forecast.metricCycle": "Chu kỳ",
+  "forecast.metricTokens": "Chi phí token",
+  "forecast.tokenBasis": "Dựa trên {count, plural, other {# nhiệm vụ}} có dữ liệu chi phí",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} ngày ({low}–{high} ngày)",
   "forecast.cycleHours": "{median} giờ ({low}–{high} giờ)",

@@ -7,8 +7,9 @@ function candidate(over: Partial<ForecastCandidate>): ForecastCandidate {
     title: 'x',
     identifier: 'LUM-1',
     tags: [],
-    agentRuns: [],
+    runs: [],
     mergedPrAt: [],
+    tokenCost: null,
     ...over,
   }
 }
@@ -16,10 +17,10 @@ function candidate(over: Partial<ForecastCandidate>): ForecastCandidate {
 const h = (n: number) => new Date(2026, 0, 1, n, 0, 0) // n-th hour of the day
 
 describe('extractMetrics', () => {
-  it('counts agent runs as iterations', () => {
+  it('counts runs (sessions) as iterations', () => {
     const m = extractMetrics(
       candidate({
-        agentRuns: [
+        runs: [
           { startedAt: h(0), finishedAt: h(1) },
           { startedAt: h(2), finishedAt: h(3) },
         ],
@@ -30,7 +31,7 @@ describe('extractMetrics', () => {
 
   it('counts merged PRs', () => {
     const m = extractMetrics(
-      candidate({ mergedPrAt: [h(5), h(6)], agentRuns: [{ startedAt: h(0), finishedAt: h(1) }] })
+      candidate({ mergedPrAt: [h(5), h(6)], runs: [{ startedAt: h(0), finishedAt: h(1) }] })
     )
     expect(m.mergedPrs).toBe(2)
   })
@@ -38,7 +39,7 @@ describe('extractMetrics', () => {
   it('anchors cycle from first run start to latest merged PR', () => {
     const m = extractMetrics(
       candidate({
-        agentRuns: [
+        runs: [
           { startedAt: h(1), finishedAt: h(2) },
           { startedAt: h(3), finishedAt: h(4) },
         ],
@@ -48,10 +49,10 @@ describe('extractMetrics', () => {
     expect(m.cycleHours).toBeCloseTo(4)
   })
 
-  it('falls back to latest finishedAt when there is no merged PR', () => {
+  it('falls back to latest run finish when there is no merged PR', () => {
     const m = extractMetrics(
       candidate({
-        agentRuns: [
+        runs: [
           { startedAt: h(1), finishedAt: h(2) },
           { startedAt: h(3), finishedAt: h(7) },
         ],
@@ -61,15 +62,20 @@ describe('extractMetrics', () => {
     expect(m.cycleHours).toBeCloseTo(6)
   })
 
-  it('returns null cycle when no merged PR and no finishedAt', () => {
+  it('returns null cycle when no merged PR and no run finish', () => {
     const m = extractMetrics(
-      candidate({ agentRuns: [{ startedAt: h(1), finishedAt: null }] })
+      candidate({ runs: [{ startedAt: h(1), finishedAt: null }] })
     )
     expect(m.cycleHours).toBeNull()
   })
 
-  it('returns null cycle when there are no agent runs', () => {
-    const m = extractMetrics(candidate({ agentRuns: [], mergedPrAt: [h(5)] }))
+  it('returns null cycle when there are no runs', () => {
+    const m = extractMetrics(candidate({ runs: [], mergedPrAt: [h(5)] }))
     expect(m.cycleHours).toBeNull()
+  })
+
+  it('passes through tokenCost', () => {
+    expect(extractMetrics(candidate({ tokenCost: 1234 })).tokenCost).toBe(1234)
+    expect(extractMetrics(candidate({ tokenCost: null })).tokenCost).toBeNull()
   })
 })

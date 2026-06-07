@@ -17,18 +17,20 @@ function cand(
   id: string,
   runs: number,
   prs: number,
-  end: number
+  end: number,
+  tokenCost: number | null = null
 ): ForecastCandidate {
   return {
     id,
     title: 'Add OAuth login',
     identifier: `LUM-${id}`,
     tags: ['auth'],
-    agentRuns: Array.from({ length: runs }, (_, i) => ({
+    runs: Array.from({ length: runs }, (_, i) => ({
       startedAt: h(i),
       finishedAt: h(i + 1),
     })),
     mergedPrAt: Array.from({ length: prs }, () => h(end)),
+    tokenCost,
   }
 }
 
@@ -85,12 +87,60 @@ it('excludes candidates below the score threshold', async () => {
   expect(f.insufficientData).toBe(true)
 })
 
+it('surfaces a project-wide token forecast even when the cohort is too small', async () => {
+  // None of these match the target title → cohort is empty, but all carry cost
+  // data, so the token track still produces a forecast.
+  const dissimilar = (id: string, cost: number): ForecastCandidate => ({
+    ...cand(id, 1, 1, 1, cost),
+    title: 'totally unrelated chore',
+    tags: [],
+  })
+  load.mockResolvedValue({
+    target,
+    candidates: [dissimilar('1', 100), dissimilar('2', 200), dissimilar('3', 300)],
+  })
+  const f = await forecastService.getTaskForecast('tgt')
+  expect(f.cohortSize).toBe(0)
+  expect(f.insufficientData).toBe(false)
+  expect(f.iterations).toBeNull()
+  expect(f.tokenCost).toEqual({ p25: 150, median: 200, p75: 250 })
+  expect(f.tokenCostBasis).toBe(3)
+})
+
+it('stays insufficient when cohort < 3 AND no token data', async () => {
+  load.mockResolvedValue({
+    target,
+    candidates: [cand('1', 2, 1, 5), cand('2', 3, 1, 6)],
+  })
+  const f = await forecastService.getTaskForecast('tgt')
+  expect(f.insufficientData).toBe(true)
+  expect(f.tokenCost).toBeNull()
+  expect(f.tokenCostBasis).toBe(0)
+})
+
+it('computes tokenCost from all candidates with data, ignoring the cohort filter', async () => {
+  load.mockResolvedValue({
+    target,
+    candidates: [
+      cand('1', 1, 1, 1, 100),
+      cand('2', 2, 1, 2, 200),
+      cand('3', 3, 2, 3, 300),
+      // below score threshold but still feeds the project-wide token sample
+      { ...cand('4', 1, 1, 1, 400), title: 'zzzzzzz', tags: [] },
+    ],
+  })
+  const f = await forecastService.getTaskForecast('tgt')
+  expect(f.cohortSize).toBe(3) // similarity track excludes the 4th
+  expect(f.tokenCostBasis).toBe(4) // token track includes all 4
+  expect(f.tokenCost).toEqual({ p25: 175, median: 250, p75: 325 })
+})
+
 it('returns null cycleHours when fewer than 3 candidates have a cycle', async () => {
   load.mockResolvedValue({
     target,
     candidates: [
-      { ...cand('1', 1, 0, 0), agentRuns: [{ startedAt: h(0), finishedAt: null }] },
-      { ...cand('2', 1, 0, 0), agentRuns: [{ startedAt: h(0), finishedAt: null }] },
+      { ...cand('1', 1, 0, 0), runs: [{ startedAt: h(0), finishedAt: null }] },
+      { ...cand('2', 1, 0, 0), runs: [{ startedAt: h(0), finishedAt: null }] },
       cand('3', 2, 1, 3),
     ],
   })

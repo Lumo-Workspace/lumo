@@ -1348,6 +1348,8 @@
   "forecast.metricIterations": "Итерации",
   "forecast.metricPrs": "Влитые PR",
   "forecast.metricCycle": "Цикл",
+  "forecast.metricTokens": "Стоимость токенов",
+  "forecast.tokenBasis": "На основе {count, plural, one {# задачи} few {# задач} many {# задач} other {# задачи}} с данными о стоимости",
   "forecast.range": "{median} ({low}–{high})",
   "forecast.cycleDays": "{median} дн. ({low}–{high} дн.)",
   "forecast.cycleHours": "{median} ч ({low}–{high} ч)",
