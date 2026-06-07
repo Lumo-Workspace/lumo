@@ -5,6 +5,7 @@ import { sessionService } from '@/lib/services/session.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
+// Keep in sync with the LineageFragmentType enum in prisma/schema.prisma.
 const FRAGMENT_TYPES = [
   'MEMORY',
   'SLACK_CONTEXT',
