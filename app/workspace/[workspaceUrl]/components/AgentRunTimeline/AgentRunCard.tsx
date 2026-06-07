@@ -81,7 +81,7 @@ export function AgentRunCard({
           {run.cost && (
             <>
               <span>·</span>
-              <span className='text-foreground font-semibold tabular-nums'>
+              <span className='tabular-nums'>
                 {run.cost.byModel.length === 1
                   ? intl.formatMessage(
                       {

@@ -52,7 +52,18 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
         {turn.cost && (
           <span className='ml-auto shrink-0 text-right text-[11px] text-muted-foreground tabular-nums'>
             {turn.cost.byModel.length === 1
-              ? `${intl.formatNumber(turn.cost.byModel[0]!.total, { notation: 'compact', maximumFractionDigits: 1 })} tok`
+              ? intl.formatMessage(
+                  {
+                    id: 'agentRun.cost.perRunTok',
+                    defaultMessage: '{tok} tok',
+                  },
+                  {
+                    tok: intl.formatNumber(turn.cost.byModel[0]!.total, {
+                      notation: 'compact',
+                      maximumFractionDigits: 1,
+                    }),
+                  }
+                )
               : turn.cost.byModel
                   .map(
                     m =>
