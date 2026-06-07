@@ -1,5 +1,5 @@
 import { apiFetch } from './base'
-import type { TrustVerdict } from '@/lib/services/lineage-signal'
+import type { TrustVerdict } from '@/types/lineage'
 
 export const lineageClient = {
   /** Batched per-memory trust verdicts (LUM-303). Empty for ids with no signal. */

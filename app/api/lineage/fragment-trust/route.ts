@@ -10,6 +10,8 @@ const bodySchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
+  // workspace-scoping not needed: trust stats are intentionally global (see lineage-edge.repository)
+  void identity
 
   let ids: string[]
   try {

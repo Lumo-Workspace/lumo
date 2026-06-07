@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { NextResponse } from 'next/server'
 import { POST } from '@/app/api/lineage/fragment-trust/route'
 import { requireIdentity } from '@/lib/auth/identity'
 import { lineageService } from '@/lib/services/lineage.service'
@@ -41,6 +42,15 @@ describe('POST /api/lineage/fragment-trust', () => {
   it('400s on an invalid body', async () => {
     const res = await POST(req({ ids: 'not-an-array' }))
     expect(res.status).toBe(400)
+    expect(svc.fragmentTrustForMemories).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when identity fails', async () => {
+    auth.mockResolvedValue(
+      NextResponse.json({ error: 'x' }, { status: 401 }) as never
+    )
+    const res = await POST(req({ ids: ['a'] }))
+    expect(res.status).toBe(401)
     expect(svc.fragmentTrustForMemories).not.toHaveBeenCalled()
   })
 })

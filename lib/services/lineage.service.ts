@@ -9,8 +9,8 @@ import type { ModelUsage } from '@/lib/services/model-cost'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType, LineageOutcome } from '@prisma/client'
-import { computeFragmentTrust } from '@/lib/services/lineage-signal'
-import type { TrustVerdict } from '@/lib/services/lineage-signal'
+import { computeFragmentTrust, trustKey } from '@/lib/services/lineage-signal'
+import type { TrustVerdict } from '@/types/lineage'
 
 export interface SessionStartEdgeInput {
   workspaceId: string
@@ -377,7 +377,7 @@ export const lineageService = {
       })
       const out: Record<string, TrustVerdict> = {}
       for (const p of pairs) {
-        const v = verdicts.get(`MEMORY::${p.canonical}`)
+        const v = verdicts.get(trustKey('MEMORY', p.canonical))
         if (v) out[p.id] = v
       }
       return out
