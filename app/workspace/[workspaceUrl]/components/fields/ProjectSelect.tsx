@@ -37,7 +37,7 @@ export function ProjectSelect({
             {project ? (
               <span>{project.name}</span>
             ) : (
-              <span className='text-zinc-400'>{placeholder}</span>
+              <span className='text-muted-foreground'>{placeholder}</span>
             )}
           </SelectTrigger>
         </TooltipTrigger>

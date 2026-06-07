@@ -47,7 +47,13 @@ export type Baseline = Record<string, number>
  * this list.
  */
 export const ALLOWLIST: ReadonlyArray<RegExp> = [
-  // Token definitions: every value here IS a hex literal by design.
+  // Token-definition files: hex literals here are by design, in three
+  // sanctioned categories — (a) the `/* #rrggbb */` round-trip comments next to
+  // the oklch base tokens (LUM-257), (b) the named --hljs-* categorical syntax
+  // palette mirroring GitHub's themes (LUM-288), and (c) the elevation rgba
+  // shadow tiers. The .landing brand fork (LUM-288) is likewise an intentional
+  // token override scoped to .landing DOM. New ad-hoc hex in either file is NOT
+  // covered by this rationale — hoist it into a documented token instead.
   /^app\/globals\.css$/,
   /^components\/landing\/landing\.css$/,
   // Pre-existing SVG icon set (raw colors are the SVG's payload).
@@ -65,6 +71,14 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // decorative category colors, not semantic, so the hex stops are payload.
   // Isolated to this module so the rest of the timeline stays tokenized.
   /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
+  // Tag color presets the user picks from (bright categorical palette) +
+  // the custom-hex input's example placeholder — the raw hex IS the payload
+  // stored on the tag, not a semantic token. Confined to this module.
+  /\/pages\/tag-color-presets\.ts$/,
+  // Default coding-agent avatar color — a payload hex stored on the actor /
+  // sent to the client (member.service + AssigneeSelect default), not a CSS
+  // token. Single source of truth confined to this module.
+  /^lib\/constants\/avatar\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const

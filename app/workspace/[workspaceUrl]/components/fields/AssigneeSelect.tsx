@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useIntl } from 'react-intl'
+import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import { UserCircle2, Bot } from 'lucide-react'
 import {
   Select,
@@ -53,7 +54,7 @@ export function AssigneeSelect({
         {
           actorId: value,
           name: assignee.agent?.name ?? 'Coding Agent',
-          avatarColor: '#6366f1',
+          avatarColor: DEFAULT_AGENT_AVATAR_COLOR,
         },
       ]
     }
@@ -79,7 +80,7 @@ export function AssigneeSelect({
                 <span>{assigneeMember.name}</span>
               </div>
             ) : (
-              <div className='flex items-center gap-1.5 text-zinc-400'>
+              <div className='flex items-center gap-1.5 text-muted-foreground'>
                 <UserCircle2 size={16} />
                 <span>No assignee</span>
               </div>
@@ -105,8 +106,8 @@ export function AssigneeSelect({
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
-            <UserCircle2 size={16} className='text-zinc-400 shrink-0' />
-            <span className='text-zinc-400'>No assignee</span>
+            <UserCircle2 size={16} className='text-muted-foreground shrink-0' />
+            <span className='text-muted-foreground'>No assignee</span>
           </div>
         </SelectItem>
         {/* Agent options hidden — agent features disabled for now */}

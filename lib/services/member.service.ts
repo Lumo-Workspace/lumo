@@ -1,4 +1,5 @@
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import type { WorkspaceRole } from '@prisma/client'
 
 // ── Member Service ─────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ export const memberService = {
     return agentActors.map(a => ({
       actorId: a.id,
       name: a.agent?.name ?? 'Agent',
-      avatarColor: a.agent?.avatarColor ?? '#6366f1',
+      avatarColor: a.agent?.avatarColor ?? DEFAULT_AGENT_AVATAR_COLOR,
       type: a.agent?.type ?? 'CODING',
     }))
   },

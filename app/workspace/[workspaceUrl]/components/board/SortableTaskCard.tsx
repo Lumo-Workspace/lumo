@@ -60,9 +60,9 @@ function CardShell({
       {...drag.listeners}
       onClick={onClick}
       className={cn(
-        'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow',
+        'bg-card border border-border p-3 rounded-lg shadow-elevation-1 hover:shadow-elevation-2 transition-shadow',
         cursorClass,
-        isOverlay && 'shadow-xl border-blue-500/50 rotate-2 cursor-grabbing',
+        isOverlay && 'shadow-elevation-3 border-blue-500/50 rotate-2 cursor-grabbing',
         needsAttention && 'border-l-3 border-l-orange-400'
       )}
     >
@@ -149,9 +149,9 @@ export function ProjectTaskCard({
     >
       <div className='flex justify-between items-start mb-2'>
         {task.number === 0 ? (
-          <Spinner className='size-3 text-zinc-400' />
+          <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+          <span className='text-xs font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
@@ -164,7 +164,7 @@ export function ProjectTaskCard({
               e.stopPropagation()
               onParentClick?.(task.parent!.id)
             }}
-            className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+            className='text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm hover:text-foreground transition-colors'
           >
             ↑ {task.parent.teamIdentifier}-{task.parent.number}
           </button>
@@ -175,7 +175,7 @@ export function ProjectTaskCard({
       </h4>
       {(task._count?.children ?? 0) > 0 && (
         <div className='flex items-center gap-1.5 mt-1.5'>
-          <div className='flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+          <div className='flex-1 h-1 bg-muted rounded-full overflow-hidden'>
             <div
               className='h-full bg-blue-500 rounded-full transition-all'
               style={{
@@ -183,7 +183,7 @@ export function ProjectTaskCard({
               }}
             />
           </div>
-          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums'>
+          <span className='text-[10px] text-muted-foreground tabular-nums'>
             {task.childrenDoneCount ?? 0}/{task._count?.children ?? 0}
           </span>
         </div>
@@ -227,7 +227,7 @@ export function ProjectTaskCard({
             </HoverCardContent>
           </HoverCard>
         ) : (
-          <UserCircle2 size={16} className='text-zinc-300 dark:text-zinc-600' />
+          <UserCircle2 size={16} className='text-muted-foreground' />
         )}
 
         {/* ── Right: date ── */}
@@ -236,7 +236,7 @@ export function ProjectTaskCard({
             'text-[10px]',
             task.dueDate && isOverdue(task.dueDate)
               ? 'text-red-500 font-medium'
-              : 'text-zinc-400'
+              : 'text-muted-foreground'
           )}
         >
           {task.dueDate
@@ -263,9 +263,9 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
         {task.number === 0 ? (
-          <Spinner className='size-3 text-zinc-400' />
+          <Spinner className='size-3 text-muted-foreground' />
         ) : (
-          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+          <span className='text-xs font-mono text-muted-foreground'>
             {task.teamIdentifier}-{task.number}
           </span>
         )}
@@ -276,7 +276,7 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
       </h4>
       {(task._count?.children ?? 0) > 0 && (
         <div className='flex items-center gap-1.5 mt-1.5'>
-          <div className='flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+          <div className='flex-1 h-1 bg-muted rounded-full overflow-hidden'>
             <div
               className='h-full bg-blue-500 rounded-full transition-all'
               style={{
@@ -284,13 +284,13 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
               }}
             />
           </div>
-          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums'>
+          <span className='text-[10px] text-muted-foreground tabular-nums'>
             {task.childrenDoneCount ?? 0}/{task._count?.children ?? 0}
           </span>
         </div>
       )}
       <div className='flex justify-between items-center'>
-        <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
+        <span className='text-[10px] text-muted-foreground truncate max-w-[140px]'>
           {projectName}
         </span>
         <span
@@ -298,7 +298,7 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
             'text-[10px]',
             task.dueDate && isOverdue(task.dueDate)
               ? 'text-red-500 font-medium'
-              : 'text-zinc-400'
+              : 'text-muted-foreground'
           )}
         >
           {task.dueDate

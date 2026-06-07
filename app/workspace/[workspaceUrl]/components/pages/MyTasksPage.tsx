@@ -226,7 +226,7 @@ export function MyTasksPage({
       </header>
 
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
-      <div className='h-12 shrink-0 relative bg-white dark:bg-zinc-950'>
+      <div className='h-12 shrink-0 relative bg-card'>
         <TaskListToolbar
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}

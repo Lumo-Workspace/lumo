@@ -59,50 +59,52 @@ html {
   line-height: 1.2;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s ease-in-out;
+  transition: opacity var(--transition-duration-fast) var(--ease-standard);
 }
 .code-block-wrapper:hover .code-block-language-select,
 .code-block-language-select:focus {
   opacity: 1;
 }
 
-/* highlight.js token theme — adaptive via .dark overrides below.
-   Light palette mirrors GitHub light; .dark mirrors GitHub dark. */
+/* highlight.js token theme. Colors come from the --hljs-* categorical palette
+   (defined in :root / .dark below) — light mirrors GitHub light, dark mirrors
+   GitHub dark. The dark variants resolve automatically through the redefined
+   custom properties, so these rules carry no per-mode override of their own. */
 .hljs-comment,
 .hljs-quote {
-  color: #6a737d;
+  color: var(--hljs-comment);
   font-style: italic;
 }
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-type {
-  color: #d73a49;
+  color: var(--hljs-keyword);
 }
 .hljs-string,
 .hljs-attr,
 .hljs-template-tag,
 .hljs-regexp,
 .hljs-addition {
-  color: #032f62;
+  color: var(--hljs-string);
 }
 .hljs-number,
 .hljs-meta,
 .hljs-built_in,
 .hljs-builtin-name,
 .hljs-symbol {
-  color: #005cc5;
+  color: var(--hljs-number);
 }
 .hljs-title,
 .hljs-section,
 .hljs-function .hljs-title,
 .hljs-name {
-  color: #6f42c1;
+  color: var(--hljs-title);
 }
 .hljs-attribute,
 .hljs-variable,
 .hljs-tag {
-  color: #e36209;
+  color: var(--hljs-attribute);
 }
 .hljs-emphasis {
   font-style: italic;
@@ -111,46 +113,7 @@ html {
   font-weight: 600;
 }
 .hljs-deletion {
-  color: #b31d28;
-}
-
-.dark .hljs-comment,
-.dark .hljs-quote {
-  color: #8b949e;
-}
-.dark .hljs-keyword,
-.dark .hljs-selector-tag,
-.dark .hljs-literal,
-.dark .hljs-type {
-  color: #ff7b72;
-}
-.dark .hljs-string,
-.dark .hljs-attr,
-.dark .hljs-template-tag,
-.dark .hljs-regexp,
-.dark .hljs-addition {
-  color: #a5d6ff;
-}
-.dark .hljs-number,
-.dark .hljs-meta,
-.dark .hljs-built_in,
-.dark .hljs-builtin-name,
-.dark .hljs-symbol {
-  color: #79c0ff;
-}
-.dark .hljs-title,
-.dark .hljs-section,
-.dark .hljs-function .hljs-title,
-.dark .hljs-name {
-  color: #d2a8ff;
-}
-.dark .hljs-attribute,
-.dark .hljs-variable,
-.dark .hljs-tag {
-  color: #ffa657;
-}
-.dark .hljs-deletion {
-  color: #ffa198;
+  color: var(--hljs-deletion);
 }
 
 /* ── Callout block (CalloutNodeView) ───────────────────────────── */
@@ -243,7 +206,7 @@ html {
   cursor: pointer;
   color: var(--muted-foreground);
   border-radius: 0.25rem;
-  transition: transform 0.15s ease;
+  transition: transform var(--transition-duration-fast) var(--ease-standard);
 }
 .toggle-chevron:hover {
   color: var(--foreground);
@@ -585,8 +548,25 @@ html {
     0.6369 0.2079 25.334
   ); /* #ef4444 red-500, 3.7:1 on #fff */
   --priority-high: oklch(0.646 0.222 41.116); /* #ea580c orange-600, ~3.4:1 */
-  --priority-medium: oklch(0.681 0.162 75.834); /* #ca8a04 yellow-600, ~3.1:1 */
+  --priority-medium: oklch(
+    0.66 0.162 75.834
+  ); /* yellow-600 darkened to clear WCAG 3:1 graphics on #fff (was L0.681=2.93:1, now 3.18:1) — LUM-286 */
   --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
+
+  /* highlight.js syntax palette (LUM-288). A categorical color set — one color
+     per syntax category, mirroring GitHub's light theme — consumed by the
+     .hljs-* rules above via var(). Like --priority-*, this is a sanctioned
+     palette exception, NOT a semantic UI token: the colors key off code-syntax
+     categories, not UI roles, so they stay as the upstream GitHub hex (legible
+     against that reference) rather than oklch. The bright GitHub-dark
+     counterparts live in the .dark block. */
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #d73a49;
+  --hljs-string: #032f62;
+  --hljs-number: #005cc5;
+  --hljs-title: #6f42c1;
+  --hljs-attribute: #e36209;
+  --hljs-deletion: #b31d28;
 
   --font-inter: 'Inter', sans-serif;
   --font-source-code-pro: 'Source Code Pro', monospace;
@@ -657,6 +637,15 @@ html {
   --priority-high: oklch(0.705 0.213 47.604); /* orange-500 */
   --priority-medium: oklch(0.795 0.184 86.047); /* yellow-500 */
   --priority-low: oklch(0.705 0.015 286.067); /* zinc-400 */
+
+  /* highlight.js syntax palette — bright GitHub-dark variants (LUM-288). */
+  --hljs-comment: #8b949e;
+  --hljs-keyword: #ff7b72;
+  --hljs-string: #a5d6ff;
+  --hljs-number: #79c0ff;
+  --hljs-title: #d2a8ff;
+  --hljs-attribute: #ffa657;
+  --hljs-deletion: #ffa198;
 }
 
 @theme inline {
@@ -750,6 +739,20 @@ html {
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--priority-low);
 
+  /* Motion tokens (LUM-284): single source for transition duration and easing.
+     duration-* utilities resolve named values from --transition-duration-*;
+     ease-* from --ease-* (Tailwind v4 native namespaces).
+       duration-fast   hover / color / small state changes
+       duration-base   default; popover / dropdown / menus
+       duration-slow   collapse-expand / highlight fade / larger moves
+       ease-standard   calm decelerate; default for most transitions
+       ease-emphasized snappier settle; entering surfaces */
+  --transition-duration-fast: 150ms;
+  --transition-duration-base: 200ms;
+  --transition-duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ── Semantic typography scale (LUM-260) ────────────────────────────────
      One Tailwind v4 font-size token per tier emits a `text-{tier}` utility
      that bundles font-size + line-height + font-weight + letter-spacing.
@@ -795,6 +798,22 @@ html {
 
   --spacing-container: 1280px;
   --spacing-container-lg: 1536px;
+
+  /* Control size / density tiers (LUM-287). Single semantic source for control
+     height + inline padding; the two are SEPARATE axes because Input is
+     height-md but padding-sm. Values are 1:1 with the prior raw utilities
+     (h-8/9/10, px-3/4/8) for zero visual change — e.g. px-control-inset-lg
+     (2rem) backs Button lg's former px-8, and w-control-md backs the square
+     icon button. Emits h-control-* / w-control-* / px-control-inset-* via the
+     Tailwind v4 --spacing- namespace.
+     Reference: docs/design-system/control-size-scale.md */
+  --spacing-control-sm: 2rem;
+  --spacing-control-md: 2.25rem;
+  --spacing-control-lg: 2.5rem;
+
+  --spacing-control-inset-sm: 0.75rem;
+  --spacing-control-inset-md: 1rem;
+  --spacing-control-inset-lg: 2rem;
 
   --animate-appear: appear 0.6s forwards ease-out;
   --animate-appear-zoom: appear-zoom 0.6s forwards ease-out;
@@ -1112,7 +1131,7 @@ body {
 .toc-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 9999px;
-  transition: background 0.3s ease;
+  transition: background var(--transition-duration-slow) var(--ease-standard);
 }
 .toc-scroll.scrollbar-visible,
 .toc-scroll:hover {
@@ -1149,7 +1168,7 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
 
 .comment-highlight--active {
   background-color: color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background-color 0.3s ease;
+  transition: background-color var(--transition-duration-slow) var(--ease-standard);
 }
 
 /* Resolved threads keep their span (resolve is reversible) but drop the visible
