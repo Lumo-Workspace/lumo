@@ -21,7 +21,7 @@ export function AgentRunTab({
 
   if (loading && !data) {
     return (
-      <div className='py-8 text-center text-xs text-zinc-400'>
+      <div className='py-8 text-center text-xs text-muted-foreground'>
         {intl.formatMessage({
           id: 'agentRun.loading',
           defaultMessage: '加载中…',
@@ -38,7 +38,7 @@ export function AgentRunTab({
 
   if (runs.length === 0) {
     return (
-      <div className='py-12 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500'>
+      <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
         <Bot className='size-6' />
         <p className='text-xs'>
           {intl.formatMessage({
@@ -46,7 +46,7 @@ export function AgentRunTab({
             defaultMessage: '此任务还没有 Agent 运行记录',
           })}
         </p>
-        <p className='text-[11px] text-zinc-300 dark:text-zinc-600 max-w-xs text-center'>
+        <p className='text-[11px] text-muted-foreground max-w-xs text-center'>
           {intl.formatMessage(
             {
               id: 'agentRun.emptyHint',

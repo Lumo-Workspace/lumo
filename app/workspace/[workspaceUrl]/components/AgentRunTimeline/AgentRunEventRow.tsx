@@ -33,15 +33,15 @@ export function AgentRunEventRow({ event }: AgentRunEventRowProps) {
         className={`mt-1.5 size-2 shrink-0 rounded-full ${style.dot}`}
         aria-hidden
       />
-      <span className='shrink-0 text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500 mt-0.5'>
+      <span className='shrink-0 text-[11px] tabular-nums text-muted-foreground mt-0.5'>
         {time}
       </span>
       <span
-        className={`shrink-0 px-1.5 py-px rounded text-[10px] font-medium uppercase tracking-wide ${style.pill}`}
+        className={`shrink-0 px-1.5 py-px rounded-sm text-[10px] font-medium uppercase tracking-wide ${style.pill}`}
       >
         {label}
       </span>
-      <span className='min-w-0 flex-1 text-xs text-zinc-700 dark:text-zinc-300 break-all font-mono'>
+      <span className='min-w-0 flex-1 text-xs text-foreground break-all font-mono'>
         {summary}
       </span>
     </div>

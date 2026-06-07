@@ -149,7 +149,7 @@ export function SubtasksSection({
 
   return (
     <div className='pt-4'>
-      <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
+      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2'>
         Subtasks
       </p>
 
@@ -162,14 +162,14 @@ export function SubtasksSection({
             return (
               <li
                 key={child.id}
-                className='group flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                className='group flex items-center gap-2 text-sm text-foreground py-1 rounded-sm px-1 -mx-1 hover:bg-muted transition-colors'
               >
                 {isDone ? (
-                  <span className='size-4 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0'>
+                  <span className='size-4 rounded-sm bg-emerald-500 text-white flex items-center justify-center shrink-0'>
                     <Check className='size-3' strokeWidth={3} />
                   </span>
                 ) : (
-                  <span className='size-4 rounded border border-zinc-300 dark:border-zinc-600 shrink-0' />
+                  <span className='size-4 rounded-sm border border-border shrink-0' />
                 )}
                 {isEditing ? (
                   <input
@@ -182,7 +182,7 @@ export function SubtasksSection({
                       if (e.key === 'Enter') saveEdit(child.id)
                       if (e.key === 'Escape') setEditingId(null)
                     }}
-                    className='flex-1 text-sm px-1 py-0 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400'
+                    className='flex-1 text-sm px-1 py-0 rounded-sm border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
                   />
                 ) : (
                   <>
@@ -199,7 +199,7 @@ export function SubtasksSection({
                       className={cn(
                         'truncate cursor-pointer',
                         isDone &&
-                          'line-through text-zinc-400 dark:text-zinc-500'
+                          'line-through text-muted-foreground'
                       )}
                     >
                       {task.teamIdentifier}-{child.number} · {child.title}
@@ -208,7 +208,7 @@ export function SubtasksSection({
                       <DropdownMenuTrigger asChild>
                         <button
                           onClick={e => e.stopPropagation()}
-                          className='ml-auto p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0'
+                          className='ml-auto p-0.5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0'
                         >
                           <MoreHorizontal className='size-3.5' />
                         </button>
@@ -258,12 +258,12 @@ export function SubtasksSection({
                 type='text'
                 value={draft.title}
                 onChange={e => handleDraftTitleChange(draft.id, e.target.value)}
-                className='flex-1 text-sm px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400'
+                className='flex-1 text-sm px-2 py-1 rounded-sm border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               />
               <button
                 onClick={() => handleDeleteDraft(draft.id)}
                 aria-label={intl.formatMessage({ id: 'subtask.removeDraft' })}
-                className='p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                className='p-1 text-muted-foreground hover:text-foreground'
               >
                 <X className='size-3.5' />
               </button>
@@ -306,7 +306,7 @@ export function SubtasksSection({
         <button
           onClick={handleBreakDown}
           disabled={isGenerating}
-          className='flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors disabled:opacity-50'
+          className='flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50'
         >
           {isGenerating ? (
             <>

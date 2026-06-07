@@ -68,7 +68,7 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
           title={intl.formatMessage({ id: 'summary.dashboard' })}
         />
         <div className='flex items-center justify-center py-16'>
-          <p className='text-sm text-zinc-400 dark:text-zinc-500'>
+          <p className='text-sm text-muted-foreground'>
             {intl.formatMessage({
               id: 'common.loading',
               defaultMessage: 'Loading…',

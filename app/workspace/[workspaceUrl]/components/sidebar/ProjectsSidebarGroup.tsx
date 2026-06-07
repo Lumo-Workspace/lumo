@@ -212,7 +212,7 @@ export function ProjectsSidebarGroup({
               : intl.formatMessage({ id: 'sidebar.expandProjects' })
           }
           className={cn(
-            'absolute left-2 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/70 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+            'absolute left-2 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
             // Hidden until mount so we avoid the FolderKanban → Caret flash
             // when `storedExpanded` resolves to true on first paint.
             !mounted
@@ -233,7 +233,7 @@ export function ProjectsSidebarGroup({
           onClick={handleNewProject}
           aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
           title={intl.formatMessage({ id: 'sidebar.newProject' })}
-          className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
+          className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
         >
           <Plus size={14} />
         </button>
@@ -328,7 +328,7 @@ function SortableProjectItem({
         aria-label={reorderLabel}
         {...attributes}
         {...listeners}
-        className='absolute right-1 top-1/2 flex size-5 -translate-y-1/2 cursor-grab items-center justify-center rounded text-sidebar-foreground/40 opacity-0 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/project:opacity-100 active:cursor-grabbing'
+        className='absolute right-1 top-1/2 flex size-5 -translate-y-1/2 cursor-grab items-center justify-center rounded-sm text-sidebar-foreground/40 opacity-0 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/project:opacity-100 active:cursor-grabbing'
       >
         <GripVertical size={12} />
       </button>

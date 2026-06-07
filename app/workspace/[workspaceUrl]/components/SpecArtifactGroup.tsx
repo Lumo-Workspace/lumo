@@ -68,7 +68,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
               {intl.formatMessage({ id: 'taskArtifact.crossAgent' })}
             </span>
           )}
-          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded inline-flex items-center gap-1'>
+          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-sm inline-flex items-center gap-1'>
             <Sparkle className='size-3 fill-current' />
             {intl.formatMessage(
               { id: 'taskArtifact.sourceCount' },
@@ -79,7 +79,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
         <button
           type='button'
           onClick={() => setAdding(true)}
-          className='text-xs text-foreground border border-border rounded px-2.5 py-1 inline-flex items-center gap-1 hover:bg-accent'
+          className='text-xs text-foreground border border-border rounded-sm px-2.5 py-1 inline-flex items-center gap-1 hover:bg-accent'
         >
           <Plus className='size-3' />
           {intl.formatMessage({ id: 'taskArtifact.add' })}
@@ -108,7 +108,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
                   ) : (
                     <ChevronRight className='size-3.5 text-muted-foreground shrink-0' />
                   )}
-                  <span className='text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded shrink-0'>
+                  <span className='text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-sm shrink-0'>
                     {a.kind}
                   </span>
                   <span className='text-sm text-foreground truncate'>
@@ -218,25 +218,25 @@ function ManualAddForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
       />
       <textarea
         value={content}
         onChange={e => setContent(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addContent' })}
         rows={5}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none font-mono'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none font-mono'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
@@ -274,7 +274,7 @@ function ManualAddForm({
               setSaving(false)
             }
           }}
-          className='text-xs bg-primary text-primary-foreground rounded px-2.5 py-1 disabled:opacity-40'
+          className='text-xs bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
         >
           {intl.formatMessage({ id: 'taskArtifact.save' })}
         </button>
@@ -308,24 +308,24 @@ function EditForm({
         value={kind}
         onChange={e => setKind(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addKind' })}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.addTitle' })}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
       />
       <input
         value={source}
         onChange={e => setSource(e.target.value)}
         placeholder={intl.formatMessage({ id: 'taskArtifact.editSource' })}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
       />
       <select
         value={agent}
         onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
-        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        className='w-full text-sm bg-transparent border border-input rounded-sm px-2 py-1 outline-none'
         aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
       >
         {Object.values(TaskArtifactAgent).map(value => (
@@ -362,7 +362,7 @@ function EditForm({
               setSaving(false)
             }
           }}
-          className='text-xs bg-primary text-primary-foreground rounded px-2.5 py-1 disabled:opacity-40'
+          className='text-xs bg-primary text-primary-foreground rounded-sm px-2.5 py-1 disabled:opacity-40'
         >
           {intl.formatMessage({ id: 'taskArtifact.save' })}
         </button>

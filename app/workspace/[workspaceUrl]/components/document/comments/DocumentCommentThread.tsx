@@ -139,7 +139,7 @@ function Row({
               data-testid={`comment-menu-${c.id}`}
               aria-label={intl.formatMessage({ id: 'common.moreActions' })}
               onClick={() => setMenuOpen(o => !o)}
-              className='flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+              className='flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
             >
               <MoreHorizontal className='size-4' />
             </button>
@@ -149,12 +149,12 @@ function Row({
                   type='button'
                   aria-hidden='true'
                   tabIndex={-1}
-                  className='fixed inset-0 z-10 cursor-default'
+                  className='fixed inset-0 z-sticky cursor-default'
                   onClick={() => setMenuOpen(false)}
                 />
                 <div
                   role='menu'
-                  className='absolute right-0 z-20 mt-1 min-w-[7rem] overflow-hidden rounded-md border bg-popover py-1 shadow-md'
+                  className='absolute right-0 z-dropdown mt-1 min-w-[7rem] overflow-hidden rounded-md border bg-popover py-1 shadow-elevation-2'
                 >
                   <button
                     type='button'

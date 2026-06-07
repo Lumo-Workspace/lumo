@@ -34,7 +34,7 @@ export function SprintProgressChart({ sprintId }: { sprintId: string }) {
   if (isLoading || !burnup) {
     return (
       <Card title={title}>
-        <div className='h-[120px] animate-pulse rounded bg-muted' />
+        <div className='h-[120px] animate-pulse rounded-sm bg-muted' />
       </Card>
     )
   }

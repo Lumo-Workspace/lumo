@@ -45,8 +45,8 @@ export function DocumentStatsFooter({ stats }: DocumentStatsFooterProps) {
   }
 
   return (
-    <div className='sticky bottom-0 z-10 h-0 pointer-events-none'>
-      <div className='absolute bottom-4 right-4 pointer-events-auto select-none rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur'>
+    <div className='sticky bottom-0 z-sticky h-0 pointer-events-none'>
+      <div className='absolute bottom-4 right-4 pointer-events-auto select-none rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs text-muted-foreground shadow-elevation-1 backdrop-blur'>
         {parts.join(' · ')}
       </div>
     </div>

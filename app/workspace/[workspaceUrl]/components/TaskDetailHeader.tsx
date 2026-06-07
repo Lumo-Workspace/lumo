@@ -60,7 +60,7 @@ export function TaskDetailHeader({
 
   return (
     <>
-      <div className='flex items-center justify-between px-5 h-10 border-b border-zinc-100 dark:border-zinc-800 shrink-0 text-sm'>
+      <div className='flex items-center justify-between px-5 h-10 border-b border-border shrink-0 text-sm'>
         <div className='flex items-center gap-1.5'>
           <button
             onClick={() => {
@@ -72,14 +72,14 @@ export function TaskDetailHeader({
                 )
               }
             }}
-            className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+            className='flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors'
           >
             <span>{sourceLabel}</span>
           </button>
-          <span className='text-zinc-300 dark:text-zinc-600'>&rsaquo;</span>
-          <span className='text-zinc-500 font-medium'>{taskIdentifier}</span>
-          <span className='text-zinc-300 dark:text-zinc-600'>&middot;</span>
-          <span className='text-zinc-700 dark:text-zinc-300 truncate max-w-xs'>
+          <span className='text-muted-foreground'>&rsaquo;</span>
+          <span className='text-muted-foreground font-medium'>{taskIdentifier}</span>
+          <span className='text-muted-foreground'>&middot;</span>
+          <span className='text-foreground truncate max-w-xs'>
             {taskTitle}
           </span>
           <DropdownMenu>
@@ -88,7 +88,7 @@ export function TaskDetailHeader({
                 variant='ghost'
                 size='icon'
                 aria-label={intl.formatMessage({ id: 'task.moreOptions' })}
-                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                className='h-6 w-6 text-muted-foreground hover:text-foreground'
               >
                 <MoreHorizontal size={14} />
               </Button>
@@ -111,7 +111,7 @@ export function TaskDetailHeader({
               size='icon'
               onClick={onCopyTaskLink}
               aria-label={intl.formatMessage({ id: 'task.copyLink' })}
-              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              className='h-7 w-7 text-muted-foreground hover:text-foreground'
             >
               {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}
             </Button>

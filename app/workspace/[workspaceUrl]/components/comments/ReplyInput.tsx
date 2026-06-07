@@ -43,7 +43,7 @@ export function ReplyInput({
           {user?.initials ?? '?'}
         </AvatarFallback>
       </Avatar>
-      <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+      <div className='flex-1 min-w-0 border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
         {tc.replyingToComment && (
           <CommentQuote
             authorName={tc.replyingToComment.authorName}
@@ -62,7 +62,7 @@ export function ReplyInput({
         />
         <div className='flex items-center justify-between px-2 pb-2'>
           <button
-            className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+            className='text-[11px] text-muted-foreground hover:text-foreground transition-colors'
             onClick={() => tc.cancelReply()}
           >
             {intl.formatMessage({ id: 'common.cancel' })}

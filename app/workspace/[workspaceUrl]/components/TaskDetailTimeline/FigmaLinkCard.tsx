@@ -77,11 +77,11 @@ export function FigmaLinkCard({
   }
 
   const cardInner = (
-    <div className='border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 overflow-hidden'>
+    <div className='border border-border rounded-md bg-card overflow-hidden'>
       <div className='flex gap-3 p-3'>
         {/* Thumbnail or placeholder */}
         {link.loading ? (
-          <div className='w-[120px] h-[72px] rounded flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 animate-pulse' />
+          <div className='w-[120px] h-[72px] rounded-sm flex-shrink-0 bg-muted animate-pulse' />
         ) : safeThumbnail ? (
           /* Figma CDN thumbnails — use <img> to avoid next.config changes */
           // eslint-disable-next-line @next/next/no-img-element
@@ -89,10 +89,10 @@ export function FigmaLinkCard({
             src={safeThumbnail}
             alt=''
             referrerPolicy='no-referrer'
-            className='w-[120px] h-[72px] object-cover rounded flex-shrink-0'
+            className='w-[120px] h-[72px] object-cover rounded-sm flex-shrink-0'
           />
         ) : (
-          <div className='w-[120px] h-[72px] rounded flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center'>
+          <div className='w-[120px] h-[72px] rounded-sm flex-shrink-0 bg-muted flex items-center justify-center'>
             <FigmaIcon className='w-6 h-6 opacity-30' />
           </div>
         )}
@@ -100,9 +100,9 @@ export function FigmaLinkCard({
         <div className='flex-1 min-w-0'>
           <div className='flex items-start justify-between gap-1'>
             <div className='min-w-0'>
-              <p className='text-body-strong text-zinc-800 dark:text-zinc-100 truncate'>
+              <p className='text-body-strong text-foreground truncate'>
                 {link.loading ? (
-                  <span className='text-zinc-400 dark:text-zinc-500'>
+                  <span className='text-muted-foreground'>
                     {intl.formatMessage({
                       id: 'task.figma.card.loading',
                       defaultMessage: 'Loading…',
@@ -115,7 +115,7 @@ export function FigmaLinkCard({
                 )}
               </p>
               {!link.loading && (
-                <p className='text-caption text-zinc-500 dark:text-zinc-400 truncate'>
+                <p className='text-caption text-muted-foreground truncate'>
                   {frameName}
                 </p>
               )}
@@ -134,7 +134,7 @@ export function FigmaLinkCard({
                       id: 'task.figma.card.refresh',
                       defaultMessage: 'Refresh designs',
                     })}
-                    className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                    className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                   >
                     <RefreshCw size={14} />
                   </button>
@@ -149,7 +149,7 @@ export function FigmaLinkCard({
                     id: 'task.figma.card.delete',
                     defaultMessage: 'Remove',
                   })}
-                  className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                  className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
                 >
                   <Trash2 size={14} />
                 </button>
@@ -164,7 +164,7 @@ export function FigmaLinkCard({
           )}
 
           {!link.loading && (
-            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-muted-foreground'>
               {intl.formatMessage(
                 {
                   id: 'task.figma.lastSynced',

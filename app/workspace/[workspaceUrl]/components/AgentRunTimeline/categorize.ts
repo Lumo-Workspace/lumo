@@ -5,9 +5,9 @@ import type { AgentRunHookEventItem, AgentRunHookEventType } from '../../types'
  * Visual category for a single agent hook event. Drives icon color and
  * dot color in the timeline. Categories are grouped by "actor":
  *   - Agent (blue family)   — read/write/exec/plan/other tool calls
- *   - Human (zinc)          — prompts and explicit user input
+ *   - Human (muted)         — prompts and explicit user input
  *   - System (violet/amber) — memory sediment, permission interception
- *   - Boundary (zinc-300)   — session/subagent lifecycle markers
+ *   - Boundary (muted)      — session/subagent lifecycle markers
  */
 export type EventCategory =
   | 'tool_read'
@@ -117,8 +117,8 @@ export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
     pill: 'text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40',
   },
   tool_plan: {
-    dot: 'bg-slate-500',
-    pill: 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40',
+    dot: 'bg-muted-foreground',
+    pill: 'text-muted-foreground bg-muted',
   },
   tool_other: {
     dot: 'bg-blue-400',
@@ -137,20 +137,20 @@ export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
     pill: 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40',
   },
   human_input: {
-    dot: 'bg-zinc-500',
-    pill: 'text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800',
+    dot: 'bg-muted-foreground',
+    pill: 'text-muted-foreground bg-muted',
   },
   turn_end: {
-    dot: 'bg-zinc-300 dark:bg-zinc-700',
-    pill: 'text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-900',
+    dot: 'bg-muted-foreground',
+    pill: 'text-muted-foreground bg-muted',
   },
   turn_failure: {
     dot: 'bg-red-500',
     pill: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40',
   },
   session_boundary: {
-    dot: 'bg-zinc-300 dark:bg-zinc-700',
-    pill: 'text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-900',
+    dot: 'bg-muted-foreground',
+    pill: 'text-muted-foreground bg-muted',
   },
   subagent_boundary: {
     dot: 'bg-sky-500',

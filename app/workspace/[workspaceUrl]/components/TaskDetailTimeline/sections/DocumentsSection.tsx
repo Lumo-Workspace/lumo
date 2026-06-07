@@ -100,7 +100,7 @@ export function DocumentsSection({
         id: 'task.context.section.documents',
         defaultMessage: 'Documents',
       })}
-      icon={<FileText size={14} className='text-zinc-500 dark:text-zinc-400' />}
+      icon={<FileText size={14} className='text-muted-foreground' />}
       count={documents.length}
       addSlot={addSlot}
     >
@@ -108,7 +108,7 @@ export function DocumentsSection({
         {intl.formatMessage({ id: 'taskArtifact.docsRefOnly' })}
       </p>
       {sorted.length === 0 ? (
-        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-muted-foreground text-center'>
           {intl.formatMessage({
             id: 'task.context.documents.empty',
             defaultMessage: 'No documents mention this task',
@@ -121,15 +121,15 @@ export function DocumentsSection({
               {doc.emoji ? (
                 <span>{doc.emoji}</span>
               ) : (
-                <FileText size={12} className='text-zinc-400' />
+                <FileText size={12} className='text-muted-foreground' />
               )}
               <Link
                 href={`/workspace/${workspaceUrl}/documents/${doc.slug}`}
-                className='flex-1 text-zinc-700 dark:text-zinc-300 hover:underline truncate'
+                className='flex-1 text-foreground hover:underline truncate'
               >
                 {doc.title}
               </Link>
-              <span className='shrink-0 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted'>
+              <span className='shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted'>
                 {doc.source === 'CONTENT'
                   ? intl.formatMessage({
                       id: 'task.context.documents.source.content',
@@ -154,7 +154,7 @@ export function DocumentsSection({
                     id: 'task.contextLink.doc.detachAction',
                     defaultMessage: 'Remove document',
                   })}
-                  className='p-0.5 rounded text-zinc-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-opacity'
+                  className='p-0.5 rounded-sm text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground transition-opacity'
                 >
                   <X size={12} />
                 </button>

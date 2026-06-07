@@ -181,7 +181,7 @@ export function LogoUploader({
               className='size-full object-contain'
             />
           ) : (
-            <div className='size-full bg-zinc-800 dark:bg-zinc-700 flex items-center justify-center text-sm font-bold text-white'>
+            <div className='size-full bg-muted-foreground flex items-center justify-center text-sm font-bold text-white'>
               {initials || '?'}
             </div>
           )}

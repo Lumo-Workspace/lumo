@@ -472,7 +472,7 @@ export function NewTaskModal({
               )}
               <input
                 autoFocus
-                className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
+                className='w-full bg-transparent border-none p-0 text-xl font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
                 placeholder={intl.formatMessage({
                   id: 'newTask.titlePlaceholder',
                 })}

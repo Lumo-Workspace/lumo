@@ -251,7 +251,7 @@ export function DueDatePicker({
               <>
                 <button
                   type='button'
-                  className='flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                  className='flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors'
                   onClick={() => {
                     onChange(null)
                     setOpen(false)
@@ -260,12 +260,12 @@ export function DueDatePicker({
                   <X className='size-3' />
                   {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
                 </button>
-                <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+                <div className='border-b border-border my-0.5' />
               </>
             )}
             <button
               type='button'
-              className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+              className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted transition-colors'
               onClick={openDialog}
             >
               <span className='flex items-center gap-2'>
@@ -273,7 +273,7 @@ export function DueDatePicker({
                 {intl.formatMessage({ id: 'dueDate.custom' })}
               </span>
             </button>
-            <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+            <div className='border-b border-border my-0.5' />
             {now != null &&
               quickOptions.map(({ key, msgId }) => {
                 const d = computeQuickDate(key, now)
@@ -281,7 +281,7 @@ export function DueDatePicker({
                   <button
                     key={key}
                     type='button'
-                    className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                    className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted transition-colors'
                     onClick={() => pickDate(d)}
                   >
                     <span>{intl.formatMessage({ id: msgId })}</span>
@@ -312,7 +312,7 @@ export function DueDatePicker({
               value={dateInput}
               onChange={handleDateInputChange}
               placeholder='MM/DD/YYYY'
-              className='w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
+              className='w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
             />
           </div>
           <div>
@@ -334,7 +334,7 @@ export function DueDatePicker({
               fixedWeeks
             />
           </div>
-          <div className='flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
+          <div className='flex flex-wrap gap-2 border-t border-border pt-3'>
             {quickOptions.map(({ key, msgId }) => (
               <Button
                 key={key}

@@ -34,7 +34,7 @@ export function ActorMention({
   return (
     <HoverCard openDelay={300} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <span className='inline-flex items-center text-zinc-800 dark:text-zinc-200 font-medium cursor-pointer hover:underline'>
+        <span className='inline-flex items-center text-foreground font-medium cursor-pointer hover:underline'>
           @{name}
         </span>
       </HoverCardTrigger>
@@ -53,7 +53,7 @@ export function ActorMention({
             </Avatar>
           )}
           <div className='min-w-0'>
-            <span className='block text-body-strong text-zinc-900 dark:text-zinc-100 truncate'>
+            <span className='block text-body-strong text-foreground truncate'>
               {name}
             </span>
             {isAgent && (
@@ -62,12 +62,12 @@ export function ActorMention({
               </span>
             )}
             {email && (
-              <span className='block text-caption text-zinc-500 dark:text-zinc-400 truncate'>
+              <span className='block text-caption text-muted-foreground truncate'>
                 {email}
               </span>
             )}
             {role && !isAgent && (
-              <span className='block text-caption text-zinc-500 dark:text-zinc-400 capitalize'>
+              <span className='block text-caption text-muted-foreground capitalize'>
                 {role.toLowerCase()}
               </span>
             )}

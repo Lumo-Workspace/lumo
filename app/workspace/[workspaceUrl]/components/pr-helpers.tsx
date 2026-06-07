@@ -44,7 +44,7 @@ export function CiIcon({ status }: { status: string | null }) {
     labelId = 'task.ciFailure'
   } else if (status === 'pending') {
     trigger = (
-      <Loader2 size={13} className='text-zinc-400 shrink-0 animate-spin' />
+      <Loader2 size={13} className='text-muted-foreground shrink-0 animate-spin' />
     )
     labelId = 'task.ciPending'
   } else {

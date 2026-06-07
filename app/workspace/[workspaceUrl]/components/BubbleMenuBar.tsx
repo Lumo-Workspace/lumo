@@ -234,9 +234,9 @@ export function BubbleMenuBar({
     return (
       <div
         ref={linkPanelRef}
-        className='flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
+        className='flex items-center gap-1.5 px-2 py-1 bg-card border border-border rounded-lg shadow-elevation-3'
       >
-        <Link2 size={13} className='shrink-0 text-zinc-400' />
+        <Link2 size={13} className='shrink-0 text-muted-foreground' />
         <input
           ref={linkInputRef}
           type='url'
@@ -253,7 +253,7 @@ export function BubbleMenuBar({
             }
           }}
           placeholder='https://'
-          className='w-52 text-xs bg-transparent outline-none text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400'
+          className='w-52 text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground'
         />
         <button
           type='button'
@@ -261,7 +261,7 @@ export function BubbleMenuBar({
             e.preventDefault()
             applyLink()
           }}
-          className='text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors px-1'
+          className='text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-1'
         >
           {intl.formatMessage({ id: 'editor.link.apply' })}
         </button>
@@ -275,7 +275,7 @@ export function BubbleMenuBar({
                   editor.chain().focus().unsetLink().run()
                   setLinkOpen(false)
                 }}
-                className='text-zinc-400 hover:text-destructive transition-colors'
+                className='text-muted-foreground hover:text-destructive transition-colors'
               >
                 <Link2Off size={13} />
               </button>
@@ -292,7 +292,7 @@ export function BubbleMenuBar({
   // Unified in-table toolbar — stable shape regardless of selection.
   if (state.isTable) {
     return (
-      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-card border border-border rounded-lg shadow-elevation-3'>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={state.isBold}
@@ -358,7 +358,7 @@ export function BubbleMenuBar({
   }
 
   return (
-    <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+    <div className='flex items-center gap-0.5 px-1.5 py-1 bg-card border border-border rounded-lg shadow-elevation-3'>
       {/* Text style dropdown — custom, no portal to avoid first-render position bug */}
       <div ref={styleRef} className='relative'>
         <Tooltip>
@@ -372,7 +372,7 @@ export function BubbleMenuBar({
                 e.preventDefault()
                 setStyleOpen(o => !o)
               }}
-              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
+              className='flex items-center gap-1 px-1.5 h-7 rounded-sm text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
             >
               {intl.formatMessage({ id: activeStyle.id })}
               <ChevronDown size={12} />
@@ -385,7 +385,7 @@ export function BubbleMenuBar({
         {styleOpen && (
           <div
             role='menu'
-            className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+            className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
           >
             {TEXT_STYLES.map((style, i) => (
               <button
@@ -506,7 +506,7 @@ export function BubbleMenuBar({
                 setListOpen(o => !o)
               }}
               className={cn(
-                'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
+                'flex items-center gap-1 px-1.5 h-7 rounded-sm transition-colors',
                 state.isBulletList || state.isOrderedList || state.isTaskList
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -529,7 +529,7 @@ export function BubbleMenuBar({
         {listOpen && (
           <div
             role='menu'
-            className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+            className='absolute top-full left-0 mt-1 z-dropdown min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
           >
             {LIST_STYLES.map(style => {
               const active = style.isActive(editor)

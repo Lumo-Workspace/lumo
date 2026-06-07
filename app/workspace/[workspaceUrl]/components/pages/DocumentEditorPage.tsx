@@ -630,7 +630,7 @@ export function DocumentEditorPage({
                   {doc.project && (
                     <>
                       <span className='text-border'>·</span>
-                      <span className='border border-border rounded px-1.5 py-px shrink-0'>
+                      <span className='border border-border rounded-sm px-1.5 py-px shrink-0'>
                         {doc.project.name}
                       </span>
                     </>

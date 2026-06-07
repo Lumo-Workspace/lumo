@@ -358,7 +358,7 @@ export function ShareDialog({
 
             {/* Search dropdown */}
             {searchResults.length > 0 && (
-              <div className='absolute left-0 right-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto'>
+              <div className='absolute left-0 right-0 top-full mt-1 z-dropdown bg-popover border rounded-md shadow-elevation-2 max-h-48 overflow-y-auto'>
                 {searchResults.map(m => (
                   <button
                     key={m.id}

@@ -40,7 +40,7 @@ export function Modal({
   if (!isOpen) return null
 
   return (
-    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4'>
+    <div className='fixed inset-0 z-modal flex items-end sm:items-center justify-center sm:p-4'>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -55,11 +55,11 @@ export function Modal({
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ duration: 0.2 }}
         style={{ width: '100%', maxWidth: 860 }}
-        className='relative bg-white dark:bg-zinc-950 rounded-t-xl sm:rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col w-full max-h-[90vh]'
+        className='relative bg-card rounded-t-xl sm:rounded-xl shadow-elevation-3 border border-border overflow-hidden flex flex-col w-full max-h-[90vh]'
       >
         {/* Header */}
-        <div className='px-6 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-900 shrink-0'>
-          <h3 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+        <div className='px-6 py-4 flex items-center justify-between border-b border-border shrink-0'>
+          <h3 className='text-lg font-semibold text-foreground'>
             {title}
           </h3>
           <div className='flex items-center gap-1'>
@@ -68,7 +68,7 @@ export function Modal({
                 variant='ghost'
                 size='icon'
                 onClick={handleToggleExpand}
-                className='h-7 w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                className='h-7 w-7 text-muted-foreground hover:text-foreground'
                 title={expanded ? 'Collapse' : 'Expand'}
               >
                 {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -78,7 +78,7 @@ export function Modal({
               variant='ghost'
               size='icon'
               onClick={onClose}
-              className='h-7 w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+              className='h-7 w-7 text-muted-foreground hover:text-foreground'
             >
               <X size={18} />
             </Button>
@@ -106,7 +106,7 @@ export function Modal({
 
         {/* Footer */}
         {footer && (
-          <div className='px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end shrink-0'>
+          <div className='px-6 py-4 bg-muted/50 border-t border-border flex items-center justify-end shrink-0'>
             {footer}
           </div>
         )}

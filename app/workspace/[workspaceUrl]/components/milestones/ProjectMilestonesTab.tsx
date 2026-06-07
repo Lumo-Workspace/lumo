@@ -69,7 +69,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
           aria-pressed={filter === f.key}
           onClick={() => setFilter(f.key)}
           className={cn(
-            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+            'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
             filter === f.key
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground'

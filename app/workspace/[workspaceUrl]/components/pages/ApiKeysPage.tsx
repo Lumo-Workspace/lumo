@@ -39,10 +39,10 @@ export function ApiKeysPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-foreground mb-1'>
           {intl.formatMessage({ id: 'apiKeys.title' })}
         </h1>
-        <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
+        <p className='text-sm text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'apiKeys.subtitle' })}
         </p>
 
@@ -70,12 +70,12 @@ export function ApiKeysPage() {
 
         {/* Key list */}
         {loading ? (
-          <div className='flex items-center gap-2 text-sm text-zinc-400'>
+          <div className='flex items-center gap-2 text-sm text-muted-foreground'>
             <Loader2 size={14} className='animate-spin' />
             {intl.formatMessage({ id: 'common.loading' })}
           </div>
         ) : keys.length === 0 ? (
-          <div className='flex flex-col items-center gap-2 py-12 text-zinc-400'>
+          <div className='flex flex-col items-center gap-2 py-12 text-muted-foreground'>
             <Key size={28} />
             <p className='text-sm'>
               {intl.formatMessage({ id: 'apiKeys.empty' })}
@@ -86,13 +86,13 @@ export function ApiKeysPage() {
             {keys.map(k => (
               <li
                 key={k.id}
-                className='flex items-center justify-between px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                className='flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card'
               >
                 <div>
-                  <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+                  <p className='text-sm font-medium text-foreground'>
                     {k.label}
                   </p>
-                  <p className='text-xs text-zinc-400 font-mono mt-0.5'>
+                  <p className='text-xs text-muted-foreground font-mono mt-0.5'>
                     {k.keyPrefix}…
                     {k.lastUsedAt && (
                       <span className='font-sans ml-3'>
@@ -107,7 +107,7 @@ export function ApiKeysPage() {
                 <Button
                   variant='ghost'
                   size='sm'
-                  className='text-zinc-400 hover:text-destructive'
+                  className='text-muted-foreground hover:text-destructive'
                   onClick={() => setRevokeTarget(k)}
                 >
                   <Trash2 size={14} />

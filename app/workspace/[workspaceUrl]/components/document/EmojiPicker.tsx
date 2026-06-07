@@ -74,7 +74,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
             <button
               key={emoji}
               type='button'
-              className='text-xl p-1.5 rounded hover:bg-muted transition-colors'
+              className='text-xl p-1.5 rounded-sm hover:bg-muted transition-colors'
               onClick={() => {
                 onChange(emoji)
                 setOpen(false)

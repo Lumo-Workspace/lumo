@@ -56,7 +56,7 @@ export function EditorSuggestionPopup({
   return createPortal(
     <div
       ref={ref}
-      className={cn('fixed z-50', className)}
+      className={cn('fixed z-dropdown', className)}
       style={{ top: pos.top, left: pos.left }}
     >
       {children}

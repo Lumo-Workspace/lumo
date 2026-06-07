@@ -46,13 +46,13 @@ export function PullRequestsSection({
       value='pullRequests'
       label={intl.formatMessage({ id: 'task.pullRequests' })}
       icon={
-        <GithubIcon size={14} className='text-zinc-700 dark:text-zinc-300' />
+        <GithubIcon size={14} className='text-foreground' />
       }
       count={pullRequests.length}
       addSlot={addSlot}
     >
       {pullRequests.length === 0 ? (
-        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-muted-foreground text-center'>
           {intl.formatMessage({ id: 'task.noPullRequests' })}
         </div>
       ) : (
@@ -65,7 +65,7 @@ export function PullRequestsSection({
                   href={pr.url}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-caption text-zinc-700 dark:text-zinc-300 hover:underline leading-snug block'
+                  className='text-caption text-foreground hover:underline leading-snug block'
                 >
                   #{pr.number} {pr.title}
                 </a>
@@ -75,7 +75,7 @@ export function PullRequestsSection({
               </div>
               <button
                 onClick={() => onUnlinkPr(pr.id)}
-                className='shrink-0 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-all'
+                className='shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all'
                 title={intl.formatMessage({ id: 'task.unlinkPr' })}
               >
                 <X size={12} />

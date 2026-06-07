@@ -153,6 +153,26 @@ describe('lint-tokens / isAllowed', () => {
     expect(
       isAllowed('components/ui/shadcn-io/aurora-background/index.tsx')
     ).toBe(true)
+    // Categorical tag palette module (decorative hex stops are payload).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/TaskDetailTimeline/items/tag-colors.ts'
+      )
+    ).toBe(true)
+    // Tag color presets module (payload hex the user picks from).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/pages/tag-color-presets.ts'
+      )
+    ).toBe(true)
+    // Default agent avatar color (payload hex, not a token).
+    expect(isAllowed('lib/constants/avatar.ts')).toBe(true)
+    // Editor font/highlight palettes (payload hex written into the document).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/bubble-menu/editor-colors.ts'
+      )
+    ).toBe(true)
   })
 
   it('rejects business code paths', () => {
@@ -179,6 +199,34 @@ describe('lint-tokens / countByFile', () => {
 
   it('returns empty object for no violations', () => {
     expect(countByFile([])).toEqual({})
+  })
+})
+
+describe('lint-tokens zindex rule', () => {
+  it('flags arbitrary z-[..] utilities in business code', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `const a = <div className="z-[100] flex" />\nconst b = <div className="z-[1]" />`
+    )
+    const zindex = v.filter((x) => x.rule === 'zindex')
+    expect(zindex.map((x) => x.match)).toEqual(['z-[100]', 'z-[1]'])
+  })
+
+  it('does NOT flag named z utilities', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `<div className="z-50 z-dropdown z-modal z-10" />`
+    )
+    expect(v.filter((x) => x.rule === 'zindex')).toHaveLength(0)
+  })
+
+  it('respects the allowlist and skips test files', () => {
+    expect(
+      detectViolations('app/globals.css', 'z-[100]').filter((x) => x.rule === 'zindex')
+    ).toHaveLength(0)
+    expect(
+      detectViolations('components/foo.test.tsx', 'z-[100]').filter((x) => x.rule === 'zindex')
+    ).toHaveLength(0)
   })
 })
 

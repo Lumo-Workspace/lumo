@@ -267,7 +267,7 @@ export function InboxPage({
               variant='ghost'
               size='sm'
               onClick={onMarkAllRead}
-              className='h-7 text-xs gap-1.5 text-zinc-500'
+              className='h-7 text-xs gap-1.5 text-muted-foreground'
             >
               <CheckCheck size={13} />
               {intl.formatMessage({
@@ -290,18 +290,18 @@ export function InboxPage({
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className='flex gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-900'
+                  className='flex gap-3 px-4 py-3 border-b border-border'
                 >
-                  <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+                  <div className='size-7 rounded-full bg-muted animate-pulse shrink-0' />
                   <div className='flex-1 space-y-1.5'>
-                    <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-3/4' />
-                    <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/2' />
+                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-3/4' />
+                    <div className='h-2.5 bg-muted rounded-sm animate-pulse w-1/2' />
                   </div>
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 p-4'>
+            <div className='flex flex-col items-center justify-center h-full gap-3 text-muted-foreground p-4'>
               <p className='text-sm text-center'>{error}</p>
               <Button variant='outline' size='sm' onClick={onRetry}>
                 {intl.formatMessage({
@@ -351,7 +351,7 @@ export function InboxPage({
 
               {/* Empty state */}
               {notifications.length === 0 && (
-                <div className='flex flex-col items-center justify-center py-16 gap-2 text-zinc-400'>
+                <div className='flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground'>
                   <Inbox size={24} className='text-muted-foreground/30' />
                   <p className='text-xs text-muted-foreground'>
                     {intl.formatMessage({
@@ -371,8 +371,8 @@ export function InboxPage({
         className='w-px shrink-0 relative cursor-col-resize group'
         onMouseDown={handleDividerMouseDown}
       >
-        <div className='absolute inset-y-0 -left-1 -right-1 z-10' />
-        <div className='h-full w-px bg-zinc-100 dark:bg-zinc-900 group-hover:bg-zinc-300 dark:group-hover:bg-zinc-700 transition-colors' />
+        <div className='absolute inset-y-0 -left-1 -right-1 z-sticky' />
+        <div className='h-full w-px bg-muted group-hover:bg-muted-foreground transition-colors' />
       </div>
 
       {/* ── Right column: task detail panel ── */}
@@ -389,7 +389,7 @@ export function InboxPage({
             >
               <Loader2
                 size={20}
-                className='animate-spin text-zinc-300 dark:text-zinc-600'
+                className='animate-spin text-muted-foreground'
               />
             </motion.div>
           ) : panelTask ? (
@@ -425,7 +425,7 @@ export function InboxPage({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0 } }}
               transition={{ duration: 0.1 }}
-              className='absolute inset-0 flex items-center justify-center text-zinc-400'
+              className='absolute inset-0 flex items-center justify-center text-muted-foreground'
             >
               <p className='text-sm'>
                 {intl.formatMessage({

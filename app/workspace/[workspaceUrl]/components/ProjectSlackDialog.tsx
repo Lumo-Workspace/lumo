@@ -298,7 +298,7 @@ export function ProjectSlackDialog({
 
         {loadState.phase === 'loading' && (
           <div className='flex items-center justify-center py-8'>
-            <Loader2 size={20} className='animate-spin text-zinc-400' />
+            <Loader2 size={20} className='animate-spin text-muted-foreground' />
           </div>
         )}
 
@@ -318,7 +318,7 @@ export function ProjectSlackDialog({
             {/* Not-connected state */}
             {loadState.availableChannels.length === 0 &&
               !loadState.savedChannel && (
-                <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                <p className='text-sm text-muted-foreground'>
                   Slack is not connected to this workspace.{' '}
                   <a
                     href={`/workspace/${workspaceUrl}/settings/integrations`}
@@ -336,10 +336,10 @@ export function ProjectSlackDialog({
                 {/* Toggle */}
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+                    <p className='text-sm font-medium text-foreground'>
                       Project notifications
                     </p>
-                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                    <p className='text-xs text-muted-foreground'>
                       Send notifications to a Slack channel.
                     </p>
                   </div>
@@ -353,7 +353,7 @@ export function ProjectSlackDialog({
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
                     <div className='flex items-center justify-between'>
-                      <label className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+                      <label className='text-xs font-medium text-muted-foreground'>
                         Channel
                       </label>
                       {!showCreate && (
@@ -376,7 +376,7 @@ export function ProjectSlackDialog({
                               }
                             }, 50)
                           }}
-                          className='flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+                          className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
                         >
                           <Plus size={12} />
                           Create channel
@@ -449,7 +449,7 @@ export function ProjectSlackDialog({
                             loadState.availableChannels
                           )
                         }
-                        className='w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400'
+                        className='w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
                       >
                         <option value=''>
                           {intl.formatMessage({ id: 'slack.selectChannel' })}
@@ -466,7 +466,7 @@ export function ProjectSlackDialog({
 
                   {/* Event checklist */}
                   <div className='space-y-2'>
-                    <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+                    <p className='text-xs font-medium text-muted-foreground'>
                       {intl.formatMessage({ id: 'slack.notifyOn' })}
                     </p>
                     {ALL_SLACK_EVENTS.map(event => (
@@ -478,9 +478,9 @@ export function ProjectSlackDialog({
                           type='checkbox'
                           checked={selectedEvents.includes(event)}
                           onChange={() => toggleEvent(event)}
-                          className='rounded border-zinc-300 dark:border-zinc-600 text-zinc-900'
+                          className='rounded-sm border-border text-foreground'
                         />
-                        <span className='text-sm text-zinc-700 dark:text-zinc-300'>
+                        <span className='text-sm text-foreground'>
                           {SLACK_EVENT_LABELS[event]}
                         </span>
                       </label>

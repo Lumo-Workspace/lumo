@@ -33,7 +33,7 @@ function InlineExtractButton({ onClick }: { onClick: () => Promise<void> }) {
       type='button'
       onClick={go}
       disabled={pending}
-      className='inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100'
+      className='inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100'
       aria-label='→ task'
     >
       → task

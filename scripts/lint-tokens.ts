@@ -27,7 +27,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 
-export type Rule = 'hex' | 'palette' | 'radius' | 'shadow'
+export type Rule = 'hex' | 'palette' | 'radius' | 'shadow' | 'zindex'
 
 export type Violation = {
   file: string
@@ -47,7 +47,13 @@ export type Baseline = Record<string, number>
  * this list.
  */
 export const ALLOWLIST: ReadonlyArray<RegExp> = [
-  // Token definitions: every value here IS a hex literal by design.
+  // Token-definition files: hex literals here are by design, in three
+  // sanctioned categories — (a) the `/* #rrggbb */` round-trip comments next to
+  // the oklch base tokens (LUM-257), (b) the named --hljs-* categorical syntax
+  // palette mirroring GitHub's themes (LUM-288), and (c) the elevation rgba
+  // shadow tiers. The .landing brand fork (LUM-288) is likewise an intentional
+  // token override scoped to .landing DOM. New ad-hoc hex in either file is NOT
+  // covered by this rationale — hoist it into a documented token instead.
   /^app\/globals\.css$/,
   /^components\/landing\/landing\.css$/,
   // Pre-existing SVG icon set (raw colors are the SVG's payload).
@@ -61,6 +67,22 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // ARE the visual payload (not semantic colors), same rationale as the
   // icon set above.
   /^components\/ui\/shadcn-io\/aurora-background\/index\.tsx$/,
+  // Categorical tag palette (six fixed hues hashed onto inline tag badges) —
+  // decorative category colors, not semantic, so the hex stops are payload.
+  // Isolated to this module so the rest of the timeline stays tokenized.
+  /\/TaskDetailTimeline\/items\/tag-colors\.ts$/,
+  // Tag color presets the user picks from (bright categorical palette) +
+  // the custom-hex input's example placeholder — the raw hex IS the payload
+  // stored on the tag, not a semantic token. Confined to this module.
+  /\/pages\/tag-color-presets\.ts$/,
+  // Default coding-agent avatar color — a payload hex stored on the actor /
+  // sent to the client (member.service + AssigneeSelect default), not a CSS
+  // token. Single source of truth confined to this module.
+  /^lib\/constants\/avatar\.ts$/,
+  // Rich-text editor font/highlight color palettes — users pick a hex that's
+  // written into the document (TipTap marks), so the raw hex is payload data,
+  // not a CSS token. Confined to this module.
+  /\/bubble-menu\/editor-colors\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
@@ -99,6 +121,11 @@ const BARE_ROUNDED_RE = /\brounded(?![-\w])/g
 // shadow-elevation-1 / shadow-none / shadow-mockup are left alone.
 const SHADOW_RE =
   /(?<![-\w])shadow(?:-(?:xs|sm|md|lg|xl|2xl)|-\[[^\]]*\])?(?![-\w])/g
+
+// Arbitrary Tailwind z-index utility (z-[1], z-[100], z-[calc(...)]). Named
+// tiers (z-dropdown / z-modal / ...) and the default scale (z-10/z-50) are
+// allowed; only the arbitrary escape hatch bypasses the semantic z scale.
+const Z_ARBITRARY_RE = /\bz-\[[^\]]+\]/g
 
 const BASELINE_FILE = 'scripts/lint-tokens.baseline.json'
 
@@ -169,6 +196,16 @@ export function detectViolations(
         rule: 'shadow',
       })
     }
+    Z_ARBITRARY_RE.lastIndex = 0
+    while ((m = Z_ARBITRARY_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'zindex',
+      })
+    }
   }
   return out
 }
@@ -178,6 +215,7 @@ const RULE_LABELS: Record<Rule, string> = {
   palette: 'palette class',
   radius: 'bare rounded ',
   shadow: 'raw shadow   ',
+  zindex: 'arbitrary z  ',
 }
 
 export function countByFile(violations: Violation[]): Baseline {

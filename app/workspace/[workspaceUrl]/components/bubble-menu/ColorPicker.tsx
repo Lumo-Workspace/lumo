@@ -9,37 +9,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-const FONT_COLORS = [
-  { label: 'Default', value: '' },
-  { label: 'Gray', value: '#8c8c8c' },
-  { label: 'Red', value: '#d83931' },
-  { label: 'Orange', value: '#de7802' },
-  { label: 'Yellow', value: '#dc9b04' },
-  { label: 'Green', value: '#21a121' },
-  { label: 'Blue', value: '#245bdb' },
-  { label: 'Purple', value: '#6425d0' },
-]
-
-const BG_COLORS_LIGHT = [
-  { label: 'None', value: '' },
-  { label: 'Light Red', value: '#fde8e8' },
-  { label: 'Light Orange', value: '#fef0e1' },
-  { label: 'Light Yellow', value: '#fefce8' },
-  { label: 'Light Green', value: '#e8fde8' },
-  { label: 'Light Blue', value: '#e8f0fe' },
-  { label: 'Light Purple', value: '#f0e8fe' },
-]
-
-const BG_COLORS_DARK = [
-  { label: 'Gray', value: '#e2e2e2' },
-  { label: 'Red', value: '#f9b4b4' },
-  { label: 'Orange', value: '#fdd09b' },
-  { label: 'Yellow', value: '#fef08a' },
-  { label: 'Green', value: '#b4f9b4' },
-  { label: 'Blue', value: '#b4d0fe' },
-  { label: 'Purple', value: '#d0b4fe' },
-]
+import {
+  FONT_COLORS,
+  BG_COLORS_LIGHT,
+  BG_COLORS_DARK,
+} from './editor-colors'
 
 export interface ColorPickerProps {
   editor: Editor
@@ -77,7 +51,7 @@ export function ColorPicker({
               e.preventDefault()
               setOpen(o => !o)
             }}
-            className='flex items-center justify-center size-7 rounded transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            className='flex items-center justify-center size-7 rounded-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground'
           >
             <Baseline
               size={14}
@@ -92,7 +66,7 @@ export function ColorPicker({
         <TooltipContent>Text color</TooltipContent>
       </Tooltip>
       {open && (
-        <div role='menu' className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-lg p-2'>
+        <div role='menu' className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-dropdown w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-elevation-3 p-2'>
           {/* Font colors */}
           <div className='text-[10px] font-medium text-muted-foreground mb-1'>
             Font color
@@ -113,10 +87,10 @@ export function ColorPicker({
                   setOpen(false)
                 }}
                 className={cn(
-                  'flex items-center justify-center size-5 rounded text-[11px] font-bold border transition-colors',
+                  'flex items-center justify-center size-5 rounded-sm text-[11px] font-bold border transition-colors',
                   currentColor === c.value || (!currentColor && !c.value)
                     ? 'border-blue-500'
-                    : 'border-transparent hover:border-zinc-300 dark:hover:border-zinc-600'
+                    : 'border-transparent hover:border-muted-foreground'
                 )}
                 style={{ color: c.value || undefined }}
                 title={c.label}
@@ -150,18 +124,18 @@ export function ColorPicker({
                   setOpen(false)
                 }}
                 className={cn(
-                  'size-5 rounded border transition-colors',
+                  'size-5 rounded-sm border transition-colors',
                   currentHighlight === c.value ||
                     (!currentHighlight && !c.value)
                     ? 'border-blue-500'
-                    : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
+                    : 'border-border hover:border-muted-foreground'
                 )}
                 style={{ backgroundColor: c.value || 'transparent' }}
                 title={c.label}
               >
                 {!c.value && (
                   <span className='block w-full h-full relative'>
-                    <span className='absolute inset-0 flex items-center justify-center text-[8px] text-zinc-400'>
+                    <span className='absolute inset-0 flex items-center justify-center text-[8px] text-muted-foreground'>
                       ∅
                     </span>
                   </span>
@@ -181,10 +155,10 @@ export function ColorPicker({
                   setOpen(false)
                 }}
                 className={cn(
-                  'size-5 rounded border transition-colors',
+                  'size-5 rounded-sm border transition-colors',
                   currentHighlight === c.value
                     ? 'border-blue-500'
-                    : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
+                    : 'border-border hover:border-muted-foreground'
                 )}
                 style={{ backgroundColor: c.value }}
                 title={c.label}

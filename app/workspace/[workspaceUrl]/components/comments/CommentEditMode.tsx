@@ -50,7 +50,7 @@ export function CommentEditMode({
 }: Props) {
   const intl = useIntl()
   return (
-    <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+    <div className='border border-border rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all'>
       <div
         className='px-3 pt-2 pb-1 text-sm'
         onKeyDown={e => {

@@ -103,12 +103,12 @@ export function AiDescriptionPrompt({
   // Preview state
   if (state === 'preview' && preview) {
     return (
-      <div className='rounded-lg border border-indigo-300 bg-white p-4 dark:border-indigo-800 dark:bg-zinc-900'>
+      <div className='rounded-lg border border-indigo-300 bg-card p-4 dark:border-indigo-800'>
         <div className='mb-2 text-xs font-semibold text-indigo-500'>
           ✦ {intl.formatMessage({ id: 'aiDesc.preview' })}
         </div>
         <div
-          className='prose prose-sm max-w-none text-zinc-700 dark:prose-invert dark:text-zinc-300'
+          className='prose prose-sm max-w-none text-foreground dark:prose-invert'
           dangerouslySetInnerHTML={{ __html: preview }}
         />
         <div className='mt-3 flex gap-2'>
@@ -129,7 +129,7 @@ export function AiDescriptionPrompt({
           <button
             type='button'
             onClick={handleCancel}
-            className='rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 transition-colors'
+            className='rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors'
           >
             {intl.formatMessage({ id: 'aiDesc.cancel' })}
           </button>
@@ -182,7 +182,7 @@ export function AiDescriptionPrompt({
           <div className='text-sm font-semibold text-indigo-600 dark:text-indigo-400'>
             {intl.formatMessage({ id: 'aiDesc.generate' })}
           </div>
-          <div className='text-xs text-zinc-400 dark:text-zinc-500'>
+          <div className='text-xs text-muted-foreground'>
             {intl.formatMessage({ id: 'aiDesc.generateHint' })}
           </div>
         </div>

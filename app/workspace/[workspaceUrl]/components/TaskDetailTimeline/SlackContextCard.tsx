@@ -56,14 +56,14 @@ export function SlackContextCard({
   }
 
   return (
-    <div className='border border-zinc-200 dark:border-zinc-800 rounded-md p-3 bg-white dark:bg-zinc-950'>
-      <div className='flex items-center gap-2 text-caption text-zinc-500'>
+    <div className='border border-border rounded-md p-3 bg-card'>
+      <div className='flex items-center gap-2 text-caption text-muted-foreground'>
         <MessageSquare size={14} />
         <a
           href={context.permalink}
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-zinc-700 dark:hover:text-zinc-300'
+          className='hover:text-foreground'
         >
           #{context.slackChannelName ?? 'channel'}
         </a>
@@ -84,7 +84,7 @@ export function SlackContextCard({
               id: 'slackContext.refresh',
               defaultMessage: 'Refresh',
             })}
-            className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+            className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
           >
             <RefreshCw size={14} />
           </button>
@@ -95,7 +95,7 @@ export function SlackContextCard({
               id: 'slackContext.unlink',
               defaultMessage: 'Remove',
             })}
-            className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+            className='p-1 rounded-sm hover:bg-muted disabled:opacity-50'
           >
             <Trash2 size={14} />
           </button>
@@ -103,7 +103,7 @@ export function SlackContextCard({
       </div>
 
       {root && (
-        <div className='mt-2 text-body text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+        <div className='mt-2 text-body text-foreground whitespace-pre-wrap'>
           <SlackMrkdwn text={root.text} userMap={userMap} />
         </div>
       )}
@@ -112,7 +112,7 @@ export function SlackContextCard({
         <div className='mt-2'>
           <button
             onClick={() => setExpanded(e => !e)}
-            className='text-caption text-zinc-500 hover:text-zinc-700'
+            className='text-caption text-muted-foreground hover:text-foreground'
           >
             {expanded ? '▼' : '▶'}{' '}
             {intl.formatMessage(
@@ -124,13 +124,13 @@ export function SlackContextCard({
             )}
           </button>
           {expanded && (
-            <div className='mt-2 pl-3 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2'>
+            <div className='mt-2 pl-3 border-l-2 border-border space-y-2'>
               {replies.map(m => (
                 <div key={m.ts} className='text-body'>
                   <span className='font-medium'>
                     {m.userName ?? `@${m.userId}`}
                   </span>
-                  <span className='ml-2 text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+                  <span className='ml-2 text-foreground whitespace-pre-wrap'>
                     <SlackMrkdwn text={m.text} userMap={userMap} />
                   </span>
                 </div>

@@ -93,7 +93,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     if (!items.length) {
       return (
-        <div className='px-3 py-2 text-xs text-zinc-400'>
+        <div className='px-3 py-2 text-xs text-muted-foreground'>
           {intl.formatMessage({ id: 'mention.empty' })}
         </div>
       )
@@ -109,8 +109,8 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       const rowCls = cn(
         'w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors',
         isSelected
-          ? 'bg-zinc-100 dark:bg-zinc-800'
-          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+          ? 'bg-muted'
+          : 'hover:bg-muted'
       )
 
       if (item.type === 'user') {
@@ -140,7 +140,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <span className='text-zinc-800 dark:text-zinc-200 truncate'>
+            <span className='text-foreground truncate'>
               {item.label}
             </span>
           </button>
@@ -160,10 +160,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           className={rowCls}
         >
           <StatusIcon status={item.status} size={14} />
-          <span className='text-xs text-zinc-400 shrink-0 font-medium'>
+          <span className='text-xs text-muted-foreground shrink-0 font-medium'>
             {item.label}
           </span>
-          <span className='text-zinc-800 dark:text-zinc-200 truncate'>
+          <span className='text-foreground truncate'>
             {item.title}
           </span>
         </button>
@@ -182,7 +182,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             role='group'
             aria-label={intl.formatMessage({ id: 'mention.users' })}
           >
-            <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
+            <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>
               {intl.formatMessage({ id: 'mention.users' })}
             </div>
             {users.map((item, i) => renderItem(item, userOffset + i))}
@@ -195,9 +195,9 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           >
             <div
               className={cn(
-                'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400',
+                'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
                 users.length > 0 &&
-                  'mt-1 border-t border-zinc-100 dark:border-zinc-800 pt-2'
+                  'mt-1 border-t border-border pt-2'
               )}
             >
               {intl.formatMessage({ id: 'mention.tasks' })}

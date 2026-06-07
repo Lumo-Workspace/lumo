@@ -51,7 +51,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             {intl.formatMessage({ id: 'sentry.mappingsTitle' })}
           </DialogTitle>
         </DialogHeader>
-        <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+        <p className='text-xs text-muted-foreground'>
           <FormattedMessage
             id='sentry.mappingsDesc'
             values={{
@@ -62,26 +62,26 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
 
         <div className='mt-3 space-y-2'>
           {loading ? (
-            <div className='text-xs text-zinc-500'>
+            <div className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'common.loading' })}
             </div>
           ) : mappings.length === 0 ? (
-            <div className='text-xs text-zinc-500'>
+            <div className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
             </div>
           ) : (
             mappings.map(m => (
               <div
                 key={m.id}
-                className='flex items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-xs'
+                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs'
               >
                 <div>
                   <span className='font-mono'>{m.sentryProjectSlug}</span>
-                  <span className='mx-2 text-zinc-400'>→</span>
+                  <span className='mx-2 text-muted-foreground'>→</span>
                   <span>{projectName(m.projectId)}</span>
                 </div>
                 <button
-                  className='text-red-500 hover:bg-red-500/10 p-1 rounded'
+                  className='text-red-500 hover:bg-red-500/10 p-1 rounded-sm'
                   onClick={() => removeMapping(m.id)}
                   aria-label={intl.formatMessage({
                     id: 'sentry.mappingsRemoveAriaLabel',
@@ -94,28 +94,28 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        <div className='mt-4 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
+        <div className='mt-4 border-t border-border pt-3'>
           <p className='text-xs font-medium'>
             {intl.formatMessage({ id: 'sentry.addMapping' })}
           </p>
           <div className='mt-2 flex items-end gap-2'>
             <label className='flex-1'>
-              <span className='text-xs text-zinc-600 dark:text-zinc-300'>
+              <span className='text-xs text-foreground'>
                 {intl.formatMessage({ id: 'sentry.sentrySlugLabel' })}
               </span>
               <input
-                className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-xs font-mono'
+                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs font-mono'
                 value={newSlug}
                 onChange={e => setNewSlug(e.target.value)}
                 placeholder='frontend'
               />
             </label>
             <label className='flex-1'>
-              <span className='text-xs text-zinc-600 dark:text-zinc-300'>
+              <span className='text-xs text-foreground'>
                 {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}
               </span>
               <select
-                className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-xs'
+                className='mt-1 w-full rounded-md border border-border bg-transparent px-2 py-1 text-xs'
                 value={newProjectId}
                 onChange={e => setNewProjectId(e.target.value)}
               >
@@ -128,7 +128,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
               </select>
             </label>
             <button
-              className='text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 disabled:opacity-50'
+              className='text-xs px-3 py-1.5 rounded-md bg-foreground text-background disabled:opacity-50'
               disabled={submitting || !newSlug || !newProjectId}
               onClick={handleAdd}
             >

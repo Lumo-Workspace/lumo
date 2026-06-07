@@ -39,7 +39,7 @@ export function CodeBlock({ lines }: CodeBlockProps) {
                   ? intl.formatMessage({ id: 'cli.copied' })
                   : intl.formatMessage({ id: 'cli.copy' })
               }
-              className='shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+              className='shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
             >
               {isCopied ? <Check size={12} /> : <Copy size={12} />}
             </button>
