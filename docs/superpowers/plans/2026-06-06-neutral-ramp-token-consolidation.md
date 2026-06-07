@@ -354,7 +354,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] **Step 1: Run the full styles suite**
 
 Run: `npm test -- __tests__/styles`
-Expected: PASS — all of parity, color-tokens, contrast, typography, status, chart, hljs, motion, control-size, z-index, reduced-motion, radius-elevation, **design-system-catalog-parity**.
+Expected: every suite passes **except one pre-existing, unrelated failure** that must remain unchanged: `design-system-catalog-parity.test.ts` ("every globals.css `--color-*` token is in the catalog registry") fails because `--color-chart-1…5` (registered in `@theme inline` since LUM-290) were never added to `CATALOG_COLOR_TOKENS`. This is red on `origin/main` too — **do NOT fix it here** (out of scope; tracked separately). Confirm it is the ONLY failure and that its failure is identical to base (`git stash` your changes is unnecessary — just verify the failing assertion is the chart-token one, not anything touching neutrals/gray). Our change adds no `--color-gray-*` registration, so it cannot affect this test.
 
 - [ ] **Step 2: Verify muted-foreground contrast (not covered by a guard test)**
 
