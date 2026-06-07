@@ -14,6 +14,7 @@ import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { assembleLineageSection } from '@/lib/services/lineage-signal'
+import { rankSessionStartCards } from '@/lib/lineage/session-rank'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
@@ -465,14 +466,16 @@ export const taskContextService = {
    * resource fetch failing is isolated — that section renders empty, the rest
    * still inject.
    */
-  async buildSessionStartSections(
-    taskId: string
-  ): Promise<{
+  async buildSessionStartSections(taskId: string): Promise<{
     memorySection: string
     linkedResourcesSection: string
     fragments: FragmentRef[]
   }> {
-    const empty = { memorySection: '', linkedResourcesSection: '', fragments: [] as FragmentRef[] }
+    const empty = {
+      memorySection: '',
+      linkedResourcesSection: '',
+      fragments: [] as FragmentRef[],
+    }
     const task = await taskRepository.findById(taskId)
     if (!task) return empty
 
@@ -483,10 +486,24 @@ export const taskContextService = {
       await Promise.all([
         safe(memoryRepository.findActiveTaskMemories(taskId), []),
         safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
-        safe(taskSlackContextRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof taskSlackContextRepository.listByTask>>),
-        safe(taskWebLinkRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof taskWebLinkRepository.listByTask>>),
-        safe(taskFigmaLinkService.listForTask(taskId), [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>),
-        safe(pullRequestRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>),
+        safe(
+          taskSlackContextRepository.listByTask(taskId),
+          [] as Awaited<
+            ReturnType<typeof taskSlackContextRepository.listByTask>
+          >
+        ),
+        safe(
+          taskWebLinkRepository.listByTask(taskId),
+          [] as Awaited<ReturnType<typeof taskWebLinkRepository.listByTask>>
+        ),
+        safe(
+          taskFigmaLinkService.listForTask(taskId),
+          [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>
+        ),
+        safe(
+          pullRequestRepository.listByTask(taskId),
+          [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>
+        ),
       ])
 
     const orderedMemories: RenderableMemory[] = [
@@ -504,14 +521,27 @@ export const taskContextService = {
       })),
     ]
 
+    // LUM-279: reorder each section by historical merge contribution (high-merge
+    // survives the budget, proven-low degrades first) and collapse pre/post-
+    // consolidation memory dups. Never throws — falls back to the fixed order.
+    const ranked = await rankSessionStartCards(
+      { memories: orderedMemories, slack, web, figma, prs },
+      {
+        resolveCanonical: (type, id) =>
+          memoryProvenanceRepository.resolveCanonicalFragment(type, id),
+        mergeRateByFragments: refs =>
+          lineageEdgeRepository.mergeRateByFragments(refs),
+      }
+    )
+
     // Priority order: memory > PR > Slack > Figma > web.
     const [memoryOut, prOut, slackOut, figmaOut, webOut] = allocateBudget(
       [
-        memoryBudgetSection(orderedMemories),
-        prBudgetSection(prs as unknown as PRCard[]),
-        slackBudgetSection(slack as unknown as SlackContextCard[]),
-        figmaBudgetSection(figma),
-        webLinkBudgetSection(web as unknown as WebLinkCard[]),
+        memoryBudgetSection(ranked.memories),
+        prBudgetSection(ranked.prs as unknown as PRCard[]),
+        slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
+        figmaBudgetSection(ranked.figma),
+        webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
       ],
       SESSION_START_BUDGET_TOKENS
     ) as [string, string, string, string, string]
@@ -521,14 +551,26 @@ export const taskContextService = {
       .join('\n\n')
 
     const fragments: FragmentRef[] = [
-      ...orderedMemories.map(m => ({
+      ...ranked.memories.map(m => ({
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,
       })),
-      ...slack.map(s => ({ fragmentType: 'SLACK_CONTEXT' as const, fragmentId: s.id })),
-      ...web.map(w => ({ fragmentType: 'WEB_LINK' as const, fragmentId: w.id })),
-      ...figma.map(f => ({ fragmentType: 'FIGMA' as const, fragmentId: f.id })),
-      ...prs.map(p => ({ fragmentType: 'PR' as const, fragmentId: p.id })),
+      ...ranked.slack.map(s => ({
+        fragmentType: 'SLACK_CONTEXT' as const,
+        fragmentId: s.id,
+      })),
+      ...ranked.web.map(w => ({
+        fragmentType: 'WEB_LINK' as const,
+        fragmentId: w.id,
+      })),
+      ...ranked.figma.map(f => ({
+        fragmentType: 'FIGMA' as const,
+        fragmentId: f.id,
+      })),
+      ...ranked.prs.map(p => ({
+        fragmentType: 'PR' as const,
+        fragmentId: p.id,
+      })),
     ]
 
     return {
@@ -767,7 +809,10 @@ export const taskContextService = {
     // task-deduped, gated on a cold-start sample floor. Best-effort: any
     // failure degrades to "" inside assembleLineageSection.
     const memoryContentById = new Map<string, string>(
-      budgetedMemories.map(m => [m.id, typeof m.content === 'string' ? m.content : ''])
+      budgetedMemories.map(m => [
+        m.id,
+        typeof m.content === 'string' ? m.content : '',
+      ])
     )
     const lineageSection = await assembleLineageSection(
       fragments,
