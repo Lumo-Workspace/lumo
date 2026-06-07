@@ -194,6 +194,26 @@ describe('assembleLineageSection — zero-variance exclusion', () => {
     expect(out).not.toContain('已排除')
   })
 
+  it('excludes one and keeps another end-to-end (partial exclusion)', async () => {
+    const out = await assembleLineageSection(
+      [
+        { type: 'MEMORY', id: 'always' },
+        { type: 'MEMORY', id: 'selective' },
+      ],
+      new Map([
+        ['always', 'always loaded'],
+        ['selective', 'selective mem'],
+      ]),
+      deps(5, [
+        { fragmentType: 'MEMORY', fragmentId: 'always', resolvedTasks: 5, mergedTasks: 5 },
+        { fragmentType: 'MEMORY', fragmentId: 'selective', resolvedTasks: 4, mergedTasks: 3 },
+      ])
+    )
+    expect(out).toContain('- [MEMORY] "selective mem" — 出现在 4 个已闭合任务·3 merged (75%)')
+    expect(out).not.toContain('always loaded')
+    expect(out).toContain('已排除 1 个全量加载')
+  })
+
   it('does NOT exclude when universe is 0 (no resolved edges)', async () => {
     const out = await assembleLineageSection(
       [{ type: 'MEMORY', id: 'mem-1' }],
