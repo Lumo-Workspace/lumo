@@ -301,6 +301,10 @@ export async function processAgentCompletion(params: {
 }): Promise<void> {
   const { runId, taskId, exitCode, timedOut, stderr, branchExistsOnRemote } =
     params
+  // Cost is recorded only on the successful completion path via ctx.usage
+  // (passed into markRunCompleted by completeAgentRun in github-pr.ts).
+  // Failure/cancel/clarify paths intentionally do not persist usage —
+  // known limitation, scoped out of LUM-281.
   const usage = params.resultLine
     ? parseStreamJsonUsage(params.resultLine)
     : null

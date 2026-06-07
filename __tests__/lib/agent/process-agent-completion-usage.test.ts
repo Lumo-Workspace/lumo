@@ -1,8 +1,16 @@
 /**
  * @jest-environment node
  *
- * Verifies that resultLine from the sandbox callback is parsed into a RunUsage
- * object and threaded through RunContext into every markRunCompleted call.
+ * Verifies that processAgentCompletion parses `resultLine` via
+ * parseStreamJsonUsage and places the resulting RunUsage (or null) onto the
+ * RunContext that is passed into processPostAgent.
+ *
+ * What is NOT tested here:
+ * - The downstream persistence of ctx.usage by markRunCompleted is exercised
+ *   by the three call sites in lib/agent/github-pr.ts (completeAgentRun →
+ *   markRunCompleted).
+ * - The parsing logic itself is unit-tested in
+ *   __tests__/shared/stream-json-usage.test.ts.
  */
 
 // ── Heavy dependencies mocked before import ──────────────────────────────
@@ -71,12 +79,13 @@ jest.mock('@/lib/agent/generate-spec', () => ({
 // ── Now import real code ─────────────────────────────────────────────────
 
 import { processAgentCompletion } from '@/lib/agent/execute'
-import { loadTask, markRunCompleted } from '@/lib/agent/run-lifecycle'
+import { loadTask } from '@/lib/agent/run-lifecycle'
 import { prisma } from '@/lib/db/prisma'
 import { processPostAgent } from '@/lib/agent/post-agent'
 
 const mockLoadTask = loadTask as jest.Mock
-const mockMarkRunCompleted = markRunCompleted as jest.Mock
+// markRunCompleted is mocked (via jest.mock above) to prevent real DB calls,
+// but is not asserted here — its usage threading is covered at the call sites.
 const mockProcessPostAgent = processPostAgent as jest.Mock
 const mockAgentRunFindUnique = prisma.agentRun.findUnique as jest.Mock
 const mockClarifyFindFirst = prisma.agentClarify.findFirst as jest.Mock
@@ -144,12 +153,11 @@ function setupSuccess() {
     prUrl: 'u',
     prNumber: 1,
   })
-  mockMarkRunCompleted.mockResolvedValue(undefined)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-describe('processAgentCompletion — usage threading', () => {
+describe('processAgentCompletion — usage parsed onto RunContext', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })

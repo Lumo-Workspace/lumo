@@ -11,6 +11,8 @@ const bodySchema = z.object({
   timedOut: z.boolean(),
   stderr: z.string(),
   branchExistsOnRemote: z.boolean(),
+  // Empty string = no stream-json result line was found (agent crashed/timed
+  // out before emitting one); consumer treats falsy as null.
   resultLine: z.string().optional(),
 })
 
