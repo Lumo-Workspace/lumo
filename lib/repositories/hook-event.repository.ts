@@ -51,7 +51,7 @@ export const hookEventRepository = {
         usageByModel:
           data.usageByModel != null
             ? (data.usageByModel as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
+            : Prisma.DbNull,
       },
       select: { id: true },
     })
