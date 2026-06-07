@@ -52,11 +52,12 @@ import { taskContextService } from '@/lib/services/task-context.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/services/lineage-signal'
 
 const memRow = (id: string, category = 'TRAP') => ({
   id,
   category,
-  content: { trigger: id, mitigation: id },
+  content: { trigger: id, outcome: id },
 })
 
 describe('buildSessionStartSections — lineage-aware ranking', () => {
@@ -73,8 +74,8 @@ describe('buildSessionStartSections — lineage-aware ranking', () => {
       {
         fragmentType: 'MEMORY',
         fragmentId: 'mem-hot',
-        resolvedTasks: 4,
-        mergedTasks: 4,
+        resolvedTasks: LINEAGE_MIN_RESOLVED_TASKS + 1,
+        mergedTasks: LINEAGE_MIN_RESOLVED_TASKS + 1,
       },
     ])
 
@@ -105,6 +106,8 @@ describe('buildSessionStartSections — lineage-aware ranking', () => {
     expect(out.fragments).toEqual([
       { fragmentType: 'MEMORY', fragmentId: 'mem-p' },
     ])
+    expect(out.memorySection).toContain('mem-p')
+    expect(out.memorySection).not.toContain('mem-t')
   })
 
   it('falls back to fixed order (project-first) when the merge-rate query throws', async () => {
