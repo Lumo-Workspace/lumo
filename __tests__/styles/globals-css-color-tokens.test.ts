@@ -157,8 +157,7 @@ describe('.dark feedback accent overrides', () => {
 // LUM-263: priority colors mirror the status approach — light mode is the
 // contrast offender for small graphics, so high/medium/low are darkened in
 // :root and kept bright in .dark. urgent (red) passes both modes (single def).
-describe('priority color tokens (globals.css)', () => {
-  const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
+describe('priority color tokens', () => {
   const darkBlock = css.slice(
     css.indexOf('.dark {'),
     css.indexOf('@theme inline')
