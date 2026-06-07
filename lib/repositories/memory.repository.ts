@@ -130,6 +130,26 @@ export const memoryRepository = {
   },
 
   /**
+   * Content for a set of memory ids, keyed by id (LUM-300 usage-vote labels).
+   * Missing ids are simply absent from the map. Empty input → empty map.
+   */
+  async findContentByIds(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map()
+    const rows = await prisma.memory.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, content: true },
+    })
+    // content is structured JSON (per category); stringify so callers get a
+    // human-recognizable label. Plain-string content (rare) passes through.
+    return new Map(
+      rows.map(r => [
+        r.id,
+        typeof r.content === 'string' ? r.content : JSON.stringify(r.content),
+      ])
+    )
+  },
+
+  /**
    * PROJECT-scope memories a specific session consolidated into a project
    * (Layer 2 stamps `sourceSessionId` on its ADDs since LUM-165). Scoped to
    * the project so a previous session that touched a different project's
