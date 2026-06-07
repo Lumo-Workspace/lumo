@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n} tác vụ",
   "trust.badge.weak": " · yếu",
   "trust.tooltip.usage": "Đã dùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · tín hiệu sử dụng thực",
-  "trust.tooltip.presence": "Tải cùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · chỉ co-load, tín hiệu yếu"
+  "trust.tooltip.presence": "Tải cùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · chỉ co-load, tín hiệu yếu",
+  "agentRun.byMember": "Theo người",
+  "agentRun.memberSummary": "{runs, plural, other {# lần chạy}} · {turns, plural, other {# lượt}}"
 }

@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# tugasan} other {# tugasan}}",
   "trust.badge.weak": " · lemah",
   "trust.tooltip.usage": "Digunakan dalam {resolved} tugasan selesai · {merged} digabung · isyarat penggunaan sebenar",
-  "trust.tooltip.presence": "Dimuatkan bersama dalam {resolved} tugasan selesai · {merged} digabung · hanya co-load, isyarat lemah"
+  "trust.tooltip.presence": "Dimuatkan bersama dalam {resolved} tugasan selesai · {merged} digabung · hanya co-load, isyarat lemah",
+  "agentRun.byMember": "Mengikut orang",
+  "agentRun.memberSummary": "{runs, plural, other {# jalankan}} · {turns, plural, other {# pusingan}}"
 }

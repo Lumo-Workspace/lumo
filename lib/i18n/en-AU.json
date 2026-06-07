@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# task} other {# tasks}}",
   "trust.badge.weak": " · weak",
   "trust.tooltip.usage": "Used in {resolved} resolved tasks · {merged} merged · real-usage signal",
-  "trust.tooltip.presence": "Co-loaded in {resolved} resolved tasks · {merged} merged · co-load only, weak signal"
+  "trust.tooltip.presence": "Co-loaded in {resolved} resolved tasks · {merged} merged · co-load only, weak signal",
+  "agentRun.byMember": "By person",
+  "agentRun.memberSummary": "{runs, plural, one {# run} other {# runs}} · {turns, plural, one {# turn} other {# turns}}"
 }

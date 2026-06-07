@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# tugas} other {# tugas}}",
   "trust.badge.weak": " · lemah",
   "trust.tooltip.usage": "Digunakan dalam {resolved} tugas terselesaikan · {merged} digabung · sinyal penggunaan nyata",
-  "trust.tooltip.presence": "Dimuat bersama dalam {resolved} tugas terselesaikan · {merged} digabung · hanya co-load, sinyal lemah"
+  "trust.tooltip.presence": "Dimuat bersama dalam {resolved} tugas terselesaikan · {merged} digabung · hanya co-load, sinyal lemah",
+  "agentRun.byMember": "Per orang",
+  "agentRun.memberSummary": "{runs, plural, other {# eksekusi}} · {turns, plural, other {# giliran}}"
 }

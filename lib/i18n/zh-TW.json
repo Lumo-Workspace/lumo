@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n} 個任務",
   "trust.badge.weak": " · 弱",
   "trust.tooltip.usage": "用過的 {resolved} 個已關閉任務·{merged} merged · 真實使用訊號",
-  "trust.tooltip.presence": "共同載入的 {resolved} 個已關閉任務·{merged} merged · 僅共同載入，弱訊號"
+  "trust.tooltip.presence": "共同載入的 {resolved} 個已關閉任務·{merged} merged · 僅共同載入，弱訊號",
+  "agentRun.byMember": "按人統計",
+  "agentRun.memberSummary": "{runs} 次執行 · {turns} 輪"
 }

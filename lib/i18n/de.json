@@ -1418,5 +1418,7 @@
   "trust.badge.meta": "· {n, plural, one {# Aufgabe} other {# Aufgaben}}",
   "trust.badge.weak": " · schwach",
   "trust.tooltip.usage": "Verwendet in {resolved} abgeschlossenen Aufgaben · {merged} zusammengeführt · echtes Nutzungssignal",
-  "trust.tooltip.presence": "Zusammen geladen in {resolved} abgeschlossenen Aufgaben · {merged} zusammengeführt · nur Co-Load, schwaches Signal"
+  "trust.tooltip.presence": "Zusammen geladen in {resolved} abgeschlossenen Aufgaben · {merged} zusammengeführt · nur Co-Load, schwaches Signal",
+  "agentRun.byMember": "Nach Person",
+  "agentRun.memberSummary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}}"
 }

@@ -417,6 +417,10 @@ export const sessionRepository = {
       select: {
         id: true,
         agent: true,
+        workspaceMemberId: true,
+        // clerkId feeds the per-person token rollup (LUM-307); resolved to a
+        // display name + avatar in the service via enrichClerkUsers.
+        member: { select: { clerkId: true } },
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,
