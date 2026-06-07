@@ -291,4 +291,64 @@ describe('lineageEdgeRepository', () => {
       })
     })
   })
+
+  describe('mergeRateByFragments', () => {
+    it('returns [] and does not query for an empty fragment list', async () => {
+      const result = await lineageEdgeRepository.mergeRateByFragments([])
+      expect(result).toEqual([])
+      expect(mockGroupBy).not.toHaveBeenCalled()
+    })
+
+    it('groups by fragment + task + outcome scoped to the requested fragments', async () => {
+      mockGroupBy.mockResolvedValue([])
+      await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+      ])
+      expect(mockGroupBy).toHaveBeenCalledWith({
+        by: ['fragmentType', 'fragmentId', 'taskId', 'outcome'],
+        where: { OR: [{ fragmentType: 'MEMORY', fragmentId: 'mem-1' }] },
+        _count: { _all: true },
+      })
+    })
+
+    it('dedupes by task: many edges for one task count as one resolved/merged task', async () => {
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'MERGED', _count: { _all: 2 } },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'UNKNOWN', _count: { _all: 1 } },
+      ])
+      const result = await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+      ])
+      expect(result).toEqual([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 1, mergedTasks: 1 },
+      ])
+    })
+
+    it('excludes UNKNOWN-only tasks from the denominator', async () => {
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'MERGED', _count: { _all: 1 } },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'B', outcome: 'REJECTED', _count: { _all: 1 } },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'C', outcome: 'UNKNOWN', _count: { _all: 3 } },
+      ])
+      const result = await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+      ])
+      expect(result).toEqual([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 2, mergedTasks: 1 },
+      ])
+    })
+
+    it('omits fragments with no edges and preserves requested order', async () => {
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'PR', fragmentId: 'pr-7', taskId: 'A', outcome: 'MERGED', _count: { _all: 1 } },
+      ])
+      const result = await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+        { fragmentType: 'PR', fragmentId: 'pr-7' },
+      ])
+      expect(result).toEqual([
+        { fragmentType: 'PR', fragmentId: 'pr-7', resolvedTasks: 1, mergedTasks: 1 },
+      ])
+    })
+  })
 })

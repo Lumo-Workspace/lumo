@@ -12,6 +12,9 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { assembleLineageSection } from '@/lib/services/lineage-signal'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
@@ -136,6 +139,12 @@ export interface TaskContext {
   prSection: string
   /** Pre-rendered "## PR Review 待办" markdown; empty when no review comments. */
   prReviewTodosSection: string
+  /**
+   * Pre-rendered "## 飞轮信号 · 历史 merge 贡献" block appended at the very end
+   * of the context handoff. Empty string when no fragment clears the cold-start
+   * sample floor (LUM-278 DoD⑤). Caliber is fixed server-side.
+   */
+  lineageSection: string
   sessions: SessionContext[]
   /**
    * Flat, render-independent manifest of every fragment that fed the sections
@@ -718,6 +727,23 @@ export const taskContextService = {
       ...sessions.map(s => ({ type: 'SESSION' as const, id: s.id })),
     ]
 
+    // Trailing flywheel signal (LUM-278). Reads accumulated lineage edges,
+    // task-deduped, gated on a cold-start sample floor. Best-effort: any
+    // failure degrades to "" inside assembleLineageSection.
+    const memoryContentById = new Map<string, string>(
+      budgetedMemories.map(m => [m.id, typeof m.content === 'string' ? m.content : ''])
+    )
+    const lineageSection = await assembleLineageSection(
+      fragments,
+      memoryContentById,
+      {
+        resolveCanonicalFragment: (type, id) =>
+          memoryProvenanceRepository.resolveCanonicalFragment(type, id),
+        mergeRateByFragments: refs =>
+          lineageEdgeRepository.mergeRateByFragments(refs),
+      }
+    )
+
     return {
       task: {
         id: full.id,
@@ -764,6 +790,7 @@ export const taskContextService = {
         headline: summaryHeadline(s.summary),
         unresolved: summaryUnresolved(s.summary, s.summaryType),
       })),
+      lineageSection,
       fragments,
     }
   },
