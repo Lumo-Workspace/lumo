@@ -29,6 +29,7 @@ import {
   checkoutBranch,
 } from './sandbox'
 import { processPostAgent } from './post-agent'
+import { parseStreamJsonUsage, type RunUsage } from '@lumo/shared'
 
 // ── Re-exports for external consumers ────────────────────────────────────
 
@@ -70,6 +71,7 @@ export interface RunContext {
   agentStartedAt: number
   gitName: string
   gitEmail: string
+  usage?: RunUsage | null | undefined
 }
 
 export type ChangedFile = {
@@ -295,9 +297,13 @@ export async function processAgentCompletion(params: {
   timedOut: boolean
   stderr: string
   branchExistsOnRemote: boolean
+  resultLine?: string | undefined
 }): Promise<void> {
   const { runId, taskId, exitCode, timedOut, stderr, branchExistsOnRemote } =
     params
+  const usage = params.resultLine
+    ? parseStreamJsonUsage(params.resultLine)
+    : null
 
   const task = await loadTask(taskId)
   const run = await prisma.agentRun.findUnique({
@@ -390,6 +396,7 @@ export async function processAgentCompletion(params: {
     agentStartedAt: run.startedAt.getTime(),
     gitName,
     gitEmail,
+    usage,
   }
 
   // Initialize step timer for post-processing stages

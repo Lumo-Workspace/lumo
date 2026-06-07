@@ -11,6 +11,7 @@ const bodySchema = z.object({
   timedOut: z.boolean(),
   stderr: z.string(),
   branchExistsOnRemote: z.boolean(),
+  resultLine: z.string().optional(),
 })
 
 /**

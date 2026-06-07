@@ -6,6 +6,7 @@ import { transitionAgentStatus } from './state-machine'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import { notifyAgentVerify } from '@/lib/services/notification.service'
 import type { RunContext, ChangedFile } from './execute'
+import type { RunUsage } from '@lumo/shared'
 
 // ── GitHub helpers ─────────────────────────────────────────────────────────
 
@@ -241,6 +242,7 @@ export async function completeAgentRun(params: {
   agentSummary?: string | null
   agentChangedFiles?: ChangedFile[]
   agentDurationMs: number
+  agentUsage?: RunUsage | null | undefined
   prUpsertData?: {
     workspaceId: string
     number: number
@@ -263,6 +265,7 @@ export async function completeAgentRun(params: {
     prNumber: params.prUpsertData?.number,
     prUrl: params.prUpsertData?.url,
     branchName: params.branchName,
+    usage: params.agentUsage,
   })
   await notifyAgentVerify(params.taskId)
 }
@@ -300,6 +303,7 @@ export async function reuseExistingPR(
     agentSummary: runMeta.summary,
     agentChangedFiles: runMeta.changedFiles,
     agentDurationMs: Date.now() - ctx.agentStartedAt,
+    agentUsage: ctx.usage,
   })
   return { prUrl, prNumber }
 }
@@ -332,6 +336,7 @@ export async function createNewPR(
     agentSummary: runMeta.summary,
     agentChangedFiles: runMeta.changedFiles,
     agentDurationMs: Date.now() - ctx.agentStartedAt,
+    agentUsage: ctx.usage,
     prUpsertData: {
       workspaceId: ctx.task.project.workspaceId,
       number: pr.number,

@@ -146,6 +146,22 @@ try:
 except:
     pass
 
+result_line = ""
+try:
+    with open("/tmp/agent-stdout.log") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(obj, dict) and obj.get("type") == "result":
+                result_line = line  # keep the LAST result line
+except Exception:
+    pass
+
 payload = json.dumps({
     "runId": ${JSON.stringify(ctx.currentRunId)},
     "taskId": ${JSON.stringify(ctx.taskId)},
@@ -153,6 +169,7 @@ payload = json.dumps({
     "timedOut": exit_code == 124,
     "stderr": stderr,
     "branchExistsOnRemote": ${JSON.stringify(branchExistsOnRemote)},
+    "resultLine": result_line,
 })
 
 req = urllib.request.Request(
