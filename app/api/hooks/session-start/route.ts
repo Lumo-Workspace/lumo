@@ -30,9 +30,9 @@ export async function POST(request: Request) {
         ])
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
-        reviewTodosSection = todos
+        reviewTodosSection = todos.section
         previousSession = previous
-        layer2ReviewSection = layer2Review
+        layer2ReviewSection = layer2Review.section
       }
       return {
         sessionId: ctx.sessionId,

@@ -13,9 +13,9 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildSessionStartSections: jest.fn(),
-    buildReviewTodosSectionForTask: jest.fn().mockResolvedValue(''),
+    buildReviewTodosSectionForTask: jest.fn().mockResolvedValue({ section: '', fragments: [] }),
     buildPreviousSessionRecoveryForTask: jest.fn().mockResolvedValue(null),
-    buildLayer2ReviewSectionForTask: jest.fn().mockResolvedValue(''),
+    buildLayer2ReviewSectionForTask: jest.fn().mockResolvedValue({ section: '', fragments: [] }),
   },
 }))
 
@@ -50,6 +50,21 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     jest.resetAllMocks()
     mockVerify.mockResolvedValue(identity)
     mockRecord.mockResolvedValue({ id: 'he_1', sessionId: 's-1', taskId: null })
+    // Restore default resolutions reset by resetAllMocks().
+    ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
+      section: '',
+      fragments: [],
+    })
+    ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
+      section: '',
+      fragments: [],
+    })
+    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
+    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      memorySection: '',
+      linkedResourcesSection: '',
+      fragments: [],
+    })
   })
 
   it('returns memorySection when session has a bound task', async () => {
@@ -92,7 +107,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     })
     ;(
       taskContextService.buildReviewTodosSectionForTask as jest.Mock
-    ).mockResolvedValue('TODOS')
+    ).mockResolvedValue({ section: 'TODOS', fragments: [] })
 
     const req = post({ sessionId: 's-4' })
     const res = await POST(req)

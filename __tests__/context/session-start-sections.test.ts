@@ -45,7 +45,8 @@ describe('buildSessionStartSections (LUM-147)', () => {
 
   it('returns empty strings when the task has no memory and no linked resources', async () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
-    expect(out).toEqual({ memorySection: '', linkedResourcesSection: '' })
+    expect(out).toMatchObject({ memorySection: '', linkedResourcesSection: '' })
+    expect(out.fragments).toEqual([])
   })
 
   it('renders a PR linked section wrapped in the untrusted-linked boundary', async () => {
@@ -84,7 +85,8 @@ describe('buildSessionStartSections (LUM-147)', () => {
     const { taskRepository } = require('@/lib/repositories/task.repository')
     ;(taskRepository.findById as jest.Mock).mockResolvedValueOnce(null)
     const out = await taskContextService.buildSessionStartSections('nope')
-    expect(out).toEqual({ memorySection: '', linkedResourcesSection: '' })
+    expect(out).toMatchObject({ memorySection: '', linkedResourcesSection: '' })
+    expect(out.fragments).toEqual([])
   })
 
   it('degrades over-budget cards to a manifest list (端到端超额→清单)', async () => {

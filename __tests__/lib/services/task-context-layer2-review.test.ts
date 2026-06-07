@@ -60,25 +60,25 @@ beforeEach(() => {
 describe('buildLayer2ReviewSectionForTask', () => {
   it('returns "" when the task is gone', async () => {
     findById.mockResolvedValue(null)
-    expect(
-      await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
-    ).toBe('')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    expect(out.section).toBe('')
+    expect(out.fragments).toEqual([])
     expect(findPrev).not.toHaveBeenCalled()
   })
 
   it('returns "" when there is no preceding session', async () => {
     findPrev.mockResolvedValue(null)
-    expect(
-      await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
-    ).toBe('')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    expect(out.section).toBe('')
+    expect(out.fragments).toEqual([])
     expect(findBySession).not.toHaveBeenCalled()
   })
 
   it('returns "" when the previous session promoted nothing into this project', async () => {
     findBySession.mockResolvedValue([])
-    expect(
-      await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
-    ).toBe('')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    expect(out.section).toBe('')
+    expect(out.fragments).toEqual([])
   })
 
   it('queries the previous session, scoped to the task project', async () => {
@@ -102,11 +102,12 @@ describe('buildLayer2ReviewSectionForTask', () => {
       't1',
       'cur'
     )
-    expect(out).toContain('待核对')
-    expect(out).toContain('enum mid-migration')
-    expect(out).toContain('id: mem_42')
-    expect(out).toContain('lumo memory rm')
+    expect(out.section).toContain('待核对')
+    expect(out.section).toContain('enum mid-migration')
+    expect(out.section).toContain('id: mem_42')
+    expect(out.section).toContain('lumo memory rm')
     // Member-authored bodies are wrapped as untrusted.
-    expect(out).toContain('<untrusted-team-memory>')
+    expect(out.section).toContain('<untrusted-team-memory>')
+    expect(out.fragments).toEqual([{ fragmentType: 'MEMORY', fragmentId: 'mem_42' }])
   })
 })
