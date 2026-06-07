@@ -4,11 +4,8 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
-import type {
-  LineageFragment,
-  LineageOutcome,
-  LineageTokens,
-} from '../../types'
+import { TokenCostBreakdown } from '../TokenCostBreakdown'
+import type { LineageFragment, LineageOutcome } from '../../types'
 
 interface LineageTabProps {
   taskIdentifier: string
@@ -34,51 +31,6 @@ const OUTCOME_BADGE: Record<LineageOutcome, string> = {
   REJECTED: 'bg-danger-subtle border border-danger-border text-foreground',
   UNKNOWN: 'border border-border text-muted-foreground',
 }
-
-// Token breakdown segments, in bar order. Colors are the LUM-290 chart palette
-// (static literal classes so Tailwind emits them); cache-read is muted because
-// it dominates the count (~90%) without representing ~90% of real spend.
-const TOKEN_SEGMENTS: {
-  key: keyof Pick<
-    LineageTokens,
-    'output' | 'input' | 'cacheCreation' | 'cacheRead'
-  >
-  bar: string
-  dot: string
-  labelId: string
-  defaultLabel: string
-  muted?: boolean
-}[] = [
-  {
-    key: 'output',
-    bar: 'bg-chart-1',
-    dot: 'bg-chart-1',
-    labelId: 'lineage.token.output',
-    defaultLabel: 'output',
-  },
-  {
-    key: 'input',
-    bar: 'bg-chart-2',
-    dot: 'bg-chart-2',
-    labelId: 'lineage.token.input',
-    defaultLabel: 'input',
-  },
-  {
-    key: 'cacheCreation',
-    bar: 'bg-chart-3',
-    dot: 'bg-chart-3',
-    labelId: 'lineage.token.cacheCreate',
-    defaultLabel: 'cache-create',
-  },
-  {
-    key: 'cacheRead',
-    bar: 'bg-chart-4/40',
-    dot: 'bg-chart-4/40',
-    labelId: 'lineage.token.cacheRead',
-    defaultLabel: 'cache-read',
-    muted: true,
-  },
-]
 
 const COLLAPSED_FRAGMENT_COUNT = 10
 
@@ -134,9 +86,6 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
   const { totals } = data
   const { tokens } = totals
 
-  const fmt = (n: number) =>
-    intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
-
   // "107 MERGED · 2 REWORKED" — fixed order, zeros omitted. Outcome enum values
   // are raw data (like fragmentType), mirrored from the API/CLI verbatim.
   const outcomeSummary = OUTCOME_ORDER.filter(o => totals.outcomes[o] > 0)
@@ -146,13 +95,6 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
   const visibleFragments = showAllFragments
     ? fragments
     : fragments.slice(0, COLLAPSED_FRAGMENT_COUNT)
-
-  const chips = [
-    { id: 'lineage.chip.sessionLevel', defaultMessage: '会话级' },
-    { id: 'lineage.chip.live', defaultMessage: '实时' },
-    { id: 'lineage.chip.notPerFragment', defaultMessage: '非每片段' },
-    { id: 'lineage.chip.loopsNa', defaultMessage: 'loops n/a' },
-  ]
 
   return (
     <div className='rounded-lg border border-border text-xs'>
@@ -172,92 +114,45 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
         )}
       </div>
 
-      {/* Cost block (变体1: total as heading) */}
-      <div className='px-3 py-3 border-b border-border'>
-        <div className='text-[10px] uppercase tracking-wider text-muted-foreground/60'>
-          {intl.formatMessage({
-            id: 'lineage.cost.label',
-            defaultMessage: 'Cost',
-          })}
-        </div>
-
+      {/* Cost block — reuses the shared breakdown. Lineage is session-level &
+          flat, so pass a single unnamed model group + loopCount=null so the
+          component renders identically to before (2xl total, "loops n/a").
+          Empty state kept inline to preserve the lineage-specific i18n key. */}
+      <div className='border-b border-border'>
         {tokens.total > 0 ? (
-          <>
-            <div className='text-2xl font-bold tabular-nums tracking-tight'>
-              {fmt(tokens.total)}{' '}
-              <span className='text-xs font-normal text-muted-foreground/60'>
-                {intl.formatMessage({
-                  id: 'lineage.cost.unit',
-                  defaultMessage: 'tok',
-                })}
-              </span>
-            </div>
-
-            {/* Caliber chips — all static. `loops n/a` is hardcoded: the API
-                coalesces a null loopCount to 0, so a numeric value would be a
-                lie; we never render one (see LUM-281 follow-up). */}
-            <div className='mt-1.5 flex flex-wrap gap-1'>
-              {chips.map(c => (
-                <span
-                  key={c.id}
-                  className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'
-                >
-                  {intl.formatMessage({
-                    id: c.id,
-                    defaultMessage: c.defaultMessage,
-                  })}
-                </span>
-              ))}
-            </div>
-
-            {/* Breakdown bar */}
-            <div className='mt-2.5 flex h-2 overflow-hidden rounded-full'>
-              {TOKEN_SEGMENTS.map(seg => {
-                const value = tokens[seg.key]
-                if (value <= 0) return null
-                const pct = (value / tokens.total) * 100
-                return (
-                  <div
-                    key={seg.key}
-                    className={seg.bar}
-                    style={{ width: `${pct}%` }}
-                  />
-                )
+          <TokenCostBreakdown
+            variant='full'
+            loopCount={null}
+            models={[
+              {
+                model: '',
+                input: tokens.input,
+                output: tokens.output,
+                cacheRead: tokens.cacheRead,
+                cacheCreation: tokens.cacheCreation,
+                total: tokens.total,
+              },
+            ]}
+            chips={[
+              { id: 'lineage.chip.sessionLevel', defaultMessage: '会话级' },
+              { id: 'lineage.chip.live', defaultMessage: '实时' },
+              { id: 'lineage.chip.notPerFragment', defaultMessage: '非每片段' },
+            ]}
+          />
+        ) : (
+          <div className='px-3 py-3'>
+            <div className='text-[10px] uppercase tracking-wider text-muted-foreground/60'>
+              {intl.formatMessage({
+                id: 'lineage.cost.label',
+                defaultMessage: 'Cost',
               })}
             </div>
-
-            {/* Four detail rows */}
-            <div className='mt-2 flex flex-col gap-0.5'>
-              {TOKEN_SEGMENTS.map(seg => (
-                <div
-                  key={seg.key}
-                  className={`flex items-center justify-between ${
-                    seg.muted
-                      ? 'text-muted-foreground/60'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  <span className='flex items-center gap-1.5'>
-                    <span
-                      className={`size-1.5 rounded-full ${seg.dot}`}
-                      aria-hidden
-                    />
-                    {intl.formatMessage({
-                      id: seg.labelId,
-                      defaultMessage: seg.defaultLabel,
-                    })}
-                  </span>
-                  <span className='tabular-nums'>{fmt(tokens[seg.key])}</span>
-                </div>
-              ))}
+            <div className='mt-1 text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'lineage.cost.none',
+                defaultMessage: '此条线索暂无采集到的成本',
+              })}
             </div>
-          </>
-        ) : (
-          <div className='mt-1 text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'lineage.cost.none',
-              defaultMessage: '此条线索暂无采集到的成本',
-            })}
           </div>
         )}
       </div>
