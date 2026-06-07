@@ -774,6 +774,22 @@ html {
   --spacing-container: 1280px;
   --spacing-container-lg: 1536px;
 
+  /* Control size / density tiers (LUM-287). Single semantic source for control
+     height + inline padding; the two are SEPARATE axes because Input is
+     height-md but padding-sm. Values are 1:1 with the prior raw utilities
+     (h-8/9/10, px-3/4/8) for zero visual change — e.g. px-control-inset-lg
+     (2rem) backs Button lg's former px-8, and w-control-md backs the square
+     icon button. Emits h-control-* / w-control-* / px-control-inset-* via the
+     Tailwind v4 --spacing- namespace.
+     Reference: docs/design-system/control-size-scale.md */
+  --spacing-control-sm: 2rem;
+  --spacing-control-md: 2.25rem;
+  --spacing-control-lg: 2.5rem;
+
+  --spacing-control-inset-sm: 0.75rem;
+  --spacing-control-inset-md: 1rem;
+  --spacing-control-inset-lg: 2rem;
+
   --animate-appear: appear 0.6s forwards ease-out;
   --animate-appear-zoom: appear-zoom 0.6s forwards ease-out;
 
