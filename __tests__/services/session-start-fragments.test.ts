@@ -38,6 +38,14 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     findPreviousSessionIdForMember: jest.fn().mockResolvedValue(null),
   },
 }))
+jest.mock('@/lib/repositories/memory-provenance.repository', () => ({
+  memoryProvenanceRepository: {
+    resolveCanonicalFragment: jest.fn(async (_t: string, id: string) => id),
+  },
+}))
+jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
+  lineageEdgeRepository: { mergeRateByFragments: jest.fn(async () => []) },
+}))
 
 import { taskContextService } from '@/lib/services/task-context.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
@@ -45,8 +53,14 @@ import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.reposito
 
 describe('buildSessionStartSections — fragment manifest', () => {
   it('records every candidate memory + linked resource (overflow degrades to manifest, not dropped)', async () => {
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
-      { id: 'mem-p', category: 'TRAP', content: { trigger: 'x', mitigation: 'y' } },
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'mem-p',
+        category: 'TRAP',
+        content: { trigger: 'x', mitigation: 'y' },
+      },
     ])
     ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([
       { id: 'mem-t', category: 'DECISION', content: { what: 'a', why: 'b' } },
@@ -76,11 +90,12 @@ describe('buildSessionStartSections — fragment manifest', () => {
       category: 'TRAP' as const,
       content: { trigger: 'T'.repeat(8000), outcome: 'O'.repeat(8000) },
     })
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
-      big(1),
-      big(2),
-    ])
-    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([])
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([big(1), big(2)])
+    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue(
+      []
+    )
     ;(taskWebLinkRepository.listByTask as jest.Mock).mockResolvedValue([])
 
     const out = await taskContextService.buildSessionStartSections('t-1')
@@ -91,8 +106,12 @@ describe('buildSessionStartSections — fragment manifest', () => {
   })
 
   it('returns an empty manifest when the task has nothing attached', async () => {
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([])
-    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([])
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([])
+    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue(
+      []
+    )
     ;(taskWebLinkRepository.listByTask as jest.Mock).mockResolvedValue([])
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([])
@@ -101,15 +120,26 @@ describe('buildSessionStartSections — fragment manifest', () => {
 
 describe('buildLayer2ReviewSectionForTask — fragment manifest', () => {
   it('records only the budget survivors as MEMORY fragments', async () => {
-    ;(memoryRepository.findProjectMemoriesBySession as jest.Mock).mockResolvedValue([
-      { id: 'mem-a', category: 'TRAP', content: { trigger: 't', mitigation: 'm' } },
+    ;(
+      memoryRepository.findProjectMemoriesBySession as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'mem-a',
+        category: 'TRAP',
+        content: { trigger: 't', mitigation: 'm' },
+      },
     ])
     const { sessionRepository } = jest.requireMock(
       '@/lib/repositories/session.repository'
     )
     sessionRepository.findPreviousSessionIdForMember.mockResolvedValue('prev-s')
 
-    const out = await taskContextService.buildLayer2ReviewSectionForTask('t-1', 'cur-s')
-    expect(out.fragments).toEqual([{ fragmentType: 'MEMORY', fragmentId: 'mem-a' }])
+    const out = await taskContextService.buildLayer2ReviewSectionForTask(
+      't-1',
+      'cur-s'
+    )
+    expect(out.fragments).toEqual([
+      { fragmentType: 'MEMORY', fragmentId: 'mem-a' },
+    ])
   })
 })
