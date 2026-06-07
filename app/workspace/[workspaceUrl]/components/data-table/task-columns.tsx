@@ -466,7 +466,7 @@ export function createTaskColumns(
                 <ChevronRight
                   size={14}
                   className={cn(
-                    'transition-transform duration-150',
+                    'transition-transform duration-fast',
                     isExpanded && 'rotate-90'
                   )}
                 />

@@ -110,7 +110,7 @@ export function TaskDetailComments({
                 {/* ── Top-level comment ── */}
                 <div
                   id={`comment-${comment.id}`}
-                  className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                  className={`group flex gap-2.5 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                 >
                   <CommentAvatar
                     isAgent={ca.isAgent}
@@ -287,7 +287,7 @@ export function TaskDetailComments({
                         <div
                           key={reply.id}
                           id={`comment-${reply.id}`}
-                          className={`group flex gap-2 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                          className={`group flex gap-2 rounded-md transition-colors duration-slow ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                         >
                           <CommentAvatar
                             isAgent={ra.isAgent}
