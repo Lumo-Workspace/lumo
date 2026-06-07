@@ -1,5 +1,6 @@
 'use client'
 
+import { useTheme } from 'next-themes'
 import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -18,16 +19,20 @@ import { cn } from '@/lib/utils'
 export function Swatch({ name }: { name: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [value, setValue] = useState<string>('')
+  const { resolvedTheme } = useTheme()
 
   const isBorder = name.endsWith('-border')
   const isForeground = name.endsWith('-foreground')
   const cssVar = `var(--${name})`
 
+  // Re-resolve the computed value whenever the theme flips — the swatch fill
+  // repaints on its own (it's a CSS var) but the displayed value string would
+  // otherwise stay stale at its mount-time (light-mode) value.
   useEffect(() => {
     if (!ref.current) return
     const cs = getComputedStyle(ref.current)
     setValue(isBorder ? cs.borderColor : cs.backgroundColor)
-  }, [isBorder])
+  }, [isBorder, resolvedTheme])
 
   return (
     <div className='flex flex-col gap-1.5'>
