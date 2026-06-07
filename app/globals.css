@@ -445,6 +445,29 @@ html {
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* ── Primitive neutral ramp (LUM-294) ──────────────────────────────────────
+     Mode-INDEPENDENT raw grayscale seeds — one cool neutral hue (255) with a
+     gentle chroma taper. The single source for every neutral SURFACE/TEXT color:
+     the semantic neutral tokens below (--background, --card, --muted, --border,
+     --sidebar*, …) are all var(--gray-N) references that pick a light step in
+     :root and a dark step in .dark. To retune the app's overall lightness /
+     surface separation / neutral cast, edit these 13 steps — nothing else.
+     No .dark override (primitives are identical in both schemes; the SEMANTIC
+     layer is what remaps per mode). Allowlisted in token-parity.test.ts. */
+  --gray-0: oklch(1 0 0);
+  --gray-1: oklch(0.984 0.004 255);
+  --gray-2: oklch(0.967 0.006 255);
+  --gray-3: oklch(0.928 0.01 255);
+  --gray-4: oklch(0.845 0.013 255);
+  --gray-5: oklch(0.705 0.02 255);
+  --gray-6: oklch(0.627 0.022 255);
+  --gray-7: oklch(0.554 0.03 255);
+  --gray-8: oklch(0.37 0.018 255);
+  --gray-9: oklch(0.283 0.01 255);
+  --gray-10: oklch(0.218 0.006 255);
+  --gray-11: oklch(0.172 0.004 255);
+  --gray-12: oklch(0.145 0.002 255);
+
   /* Base tokens — oklch (single color model, shared with landing.css).
      Each value is the exact oklch equivalent of its former hex; verified
      to round-trip back to the same 8-bit sRGB hex (LUM-257). */
@@ -1199,7 +1222,8 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
 
 .comment-highlight--active {
   background-color: color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background-color var(--transition-duration-slow) var(--ease-standard);
+  transition: background-color var(--transition-duration-slow)
+    var(--ease-standard);
 }
 
 /* Resolved threads keep their span (resolve is reversible) but drop the visible
