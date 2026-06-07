@@ -117,4 +117,30 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
     await POST(post({}))
     expect(lineageService.recordSessionStartEdges).not.toHaveBeenCalled()
   })
+
+  it('does not record edges when bound but all builders return empty fragments', async () => {
+    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
+      bound: true,
+      taskId: 'task-1',
+    })
+    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      memorySection: '',
+      linkedResourcesSection: '',
+      fragments: [],
+    })
+    ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
+      section: '',
+      fragments: [],
+    })
+    ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
+      section: '',
+      fragments: [],
+    })
+    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(
+      null
+    )
+
+    await POST(post({ sessionId: 's-1' }))
+    expect(lineageService.recordSessionStartEdges).not.toHaveBeenCalled()
+  })
 })
