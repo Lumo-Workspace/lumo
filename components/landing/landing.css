@@ -1,5 +1,17 @@
 /*
  * Landing page scoped design tokens.
+ *
+ * INTENTIONAL BRAND FORK (LUM-288). The marketing surface has its own visual
+ * identity, so .landing redefines the base palette rather than consuming the
+ * app's neutral product tokens: an orange brand --primary, a zinc neutral ramp
+ * (the app uses a slate ramp), and a brighter marketing --background. Every
+ * override below differs from app/globals.css in at least one mode — there are
+ * no redundant (both-mode-identical) overrides to drop.
+ *
+ * Scope: these only take effect inside `.landing` DOM (and `.dark .landing`),
+ * so they never leak into the app shell. --radius is deliberately NOT forked —
+ * it inherits the app's 0.75rem so corner rounding stays consistent app-wide.
+ *
  * Utilities and @theme extensions live in globals.css (need Tailwind context).
  */
 
@@ -24,11 +36,13 @@
   --accent: oklch(0.927 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Known landing choice (carried from the brand kit): -foreground equals
+     --destructive, used by the soft `bg-destructive/30` button/badge variant.
+     Not the app's contrasting-foreground contract — left as-is, out of scope. */
   --destructive-foreground: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
-  --radius: 0.625rem;
 
   /* Illustrations */
   --light: var(--brand);
