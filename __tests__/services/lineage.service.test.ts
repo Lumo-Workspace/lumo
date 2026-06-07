@@ -84,6 +84,7 @@ describe('lineageService.recordSessionStartEdges', () => {
   })
 
   it('swallows a repository failure (best-effort side effect)', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
     mockCreateMany.mockRejectedValueOnce(new Error('db down'))
     await expect(
       lineageService.recordSessionStartEdges({
@@ -93,5 +94,7 @@ describe('lineageService.recordSessionStartEdges', () => {
         fragments: [{ fragmentType: 'PR', fragmentId: 'pr-1' }],
       })
     ).resolves.toBeUndefined()
+    expect(errorSpy).toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })
