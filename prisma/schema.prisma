@@ -1899,6 +1899,7 @@ model LineageEdge {
   session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   run       AgentRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
+  @@unique([sessionId, taskId, fragmentType, fragmentId])
   @@index([fragmentType, fragmentId])
   @@index([taskId])
   @@index([workspaceId])
