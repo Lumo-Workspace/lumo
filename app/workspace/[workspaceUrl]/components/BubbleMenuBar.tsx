@@ -385,7 +385,7 @@ export function BubbleMenuBar({
         {styleOpen && (
           <div
             role='menu'
-            className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+            className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
           >
             {TEXT_STYLES.map((style, i) => (
               <button
@@ -529,7 +529,7 @@ export function BubbleMenuBar({
         {listOpen && (
           <div
             role='menu'
-            className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+            className='absolute top-full left-0 mt-1 z-dropdown min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
           >
             {LIST_STYLES.map(style => {
               const active = style.isActive(editor)
