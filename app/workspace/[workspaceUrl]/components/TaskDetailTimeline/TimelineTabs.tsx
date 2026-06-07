@@ -3,6 +3,9 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
+import { useAgentRuns } from '../../hooks/useAgentRuns'
+import { useMemories } from '../../hooks/useMemories'
+import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
@@ -58,6 +61,29 @@ export function TimelineTabs({
     enabled: activeTab === 'activity',
   })
 
+  // Presence probes for the Agent Run / Memory / Lineage tabs. These three are
+  // empty for most tasks, so rather than always offering a tab that only
+  // reveals an empty state, we hide the tab entirely until it has content.
+  //
+  // The probes run regardless of which tab is active (enabled: true). They
+  // share React Query cache keys with the tab panels below, so this adds no
+  // extra network request when the tab is later opened — it just warms the
+  // cache so the panel paints instantly. Presence is derived from the *same*
+  // data each panel uses to decide its own empty state, so the tab bar can
+  // never drift out of sync with the panel (show a tab that then says "empty",
+  // or hide one that has content).
+  const agentRuns = useAgentRuns({ taskId, enabled: true })
+  const taskMemories = useMemories({
+    scope: 'task',
+    parentId: taskId,
+    enabled: true,
+  })
+  const lineage = useTaskLineage({ identifier: taskIdentifier, enabled: true })
+
+  const hasAgentRuns = (agentRuns.data?.runs.length ?? 0) > 0
+  const hasMemories = taskMemories.memories.length > 0
+  const hasLineage = (lineage.data?.groups.length ?? 0) > 0
+
   // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
   // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
   const memoryMemberNames = useMemo(
@@ -102,33 +128,39 @@ export function TimelineTabs({
             defaultMessage: 'Context',
           })}
         </button>
-        <button
-          className={tabClass(activeTab === 'agent')}
-          onClick={() => setActiveTab('agent')}
-        >
-          {intl.formatMessage({
-            id: 'task.agentRun',
-            defaultMessage: 'Agent 运行',
-          })}
-        </button>
-        <button
-          className={tabClass(activeTab === 'memory')}
-          onClick={() => setActiveTab('memory')}
-        >
-          {intl.formatMessage({
-            id: 'memory.tab.title',
-            defaultMessage: 'Memory',
-          })}
-        </button>
-        <button
-          className={tabClass(activeTab === 'lineage')}
-          onClick={() => setActiveTab('lineage')}
-        >
-          {intl.formatMessage({
-            id: 'task.lineage',
-            defaultMessage: 'Lineage',
-          })}
-        </button>
+        {hasAgentRuns && (
+          <button
+            className={tabClass(activeTab === 'agent')}
+            onClick={() => setActiveTab('agent')}
+          >
+            {intl.formatMessage({
+              id: 'task.agentRun',
+              defaultMessage: 'Agent 运行',
+            })}
+          </button>
+        )}
+        {hasMemories && (
+          <button
+            className={tabClass(activeTab === 'memory')}
+            onClick={() => setActiveTab('memory')}
+          >
+            {intl.formatMessage({
+              id: 'memory.tab.title',
+              defaultMessage: 'Memory',
+            })}
+          </button>
+        )}
+        {hasLineage && (
+          <button
+            className={tabClass(activeTab === 'lineage')}
+            onClick={() => setActiveTab('lineage')}
+          >
+            {intl.formatMessage({
+              id: 'task.lineage',
+              defaultMessage: 'Lineage',
+            })}
+          </button>
+        )}
       </div>
 
       {activeTab === 'activity' && (
