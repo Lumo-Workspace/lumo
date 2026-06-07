@@ -64,16 +64,16 @@ export function DuplicateWarning({
                 key={task.id}
                 type='button'
                 onClick={() => window.open(url, '_blank')}
-                className='w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors'
+                className='w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors'
               >
                 <span className='text-amber-600 dark:text-amber-500 font-medium tabular-nums shrink-0'>
                   {Math.round(score * 100)}%
                 </span>
-                <span className='truncate text-zinc-700 dark:text-zinc-300'>
+                <span className='truncate text-foreground'>
                   {task.title}
                 </span>
-                <span className='text-zinc-400 shrink-0'>{identifier}</span>
-                <ExternalLink className='size-3 text-zinc-400 shrink-0 ml-auto' />
+                <span className='text-muted-foreground shrink-0'>{identifier}</span>
+                <ExternalLink className='size-3 text-muted-foreground shrink-0 ml-auto' />
               </button>
             )
           })}

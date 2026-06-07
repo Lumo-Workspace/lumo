@@ -223,7 +223,7 @@ export function MentionInput({
           placeholder={placeholder}
           disabled={disabled}
           autoFocus={autoFocus}
-          className='w-full bg-transparent border-none p-0 text-lg font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
+          className='w-full bg-transparent border-none p-0 text-lg font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
         />
       </PopoverAnchor>
       <PopoverContent

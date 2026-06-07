@@ -43,7 +43,7 @@ export function FigmaIntegrationCard({
   }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-zinc-400' />
+    <Loader2 size={16} className='animate-spin text-muted-foreground' />
   ) : connected ? (
     <ConnectedDot label={intl.formatMessage({ id: 'figma.connected' })} />
   ) : (
@@ -76,9 +76,9 @@ export function FigmaIntegrationCard({
       >
         {connected ? (
           <>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+            <p className='text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'figma.connectedAs' })}{' '}
-              <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+              <span className='font-medium text-foreground'>
                 @{status?.handle}
               </span>
               {status?.email ? ` (${status.email})` : ''}

@@ -69,7 +69,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         </span>
         {item.badge && (
           <span
-            className={`shrink-0 rounded px-1.5 text-[10px] ${
+            className={`shrink-0 rounded-sm px-1.5 text-[10px] ${
               item.status === 'error'
                 ? 'bg-red-50 text-red-700'
                 : 'bg-muted text-muted-foreground'
@@ -115,7 +115,7 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
         )}
       </div>
       <pre
-        className={`overflow-x-auto whitespace-pre-wrap break-words rounded border p-2 font-mono text-xs leading-relaxed ${variantClass}`}
+        className={`overflow-x-auto whitespace-pre-wrap break-words rounded-sm border p-2 font-mono text-xs leading-relaxed ${variantClass}`}
       >
         {block.variant === 'diff' ? renderDiff(block.text) : block.text}
       </pre>

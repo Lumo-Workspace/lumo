@@ -137,7 +137,7 @@ export function BulkAssigneePicker({
                 onPick(null)
                 setOpen(false)
               }}
-              className='gap-2 text-zinc-400'
+              className='gap-2 text-muted-foreground'
             >
               {intl.formatMessage({
                 id: 'task.unassigned',

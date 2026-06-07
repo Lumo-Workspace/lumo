@@ -68,7 +68,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
 
   if (loading) {
     return (
-      <div className='py-8 text-center text-xs text-zinc-400'>
+      <div className='py-8 text-center text-xs text-muted-foreground'>
         {intl.formatMessage({ id: 'agentRun.loading', defaultMessage: '加载中…' })}
       </div>
     )
@@ -85,7 +85,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
           too would duplicate both the "no memories" label and the add action. */}
       {visibleMemories.length > 0 && (
         <div className='flex items-center justify-between'>
-          <span className='text-xs text-zinc-400'>
+          <span className='text-xs text-muted-foreground'>
             {intl.formatMessage(
               { id: 'memory.tab.count', defaultMessage: '{count} memories' },
               { count: visibleMemories.length }
@@ -99,7 +99,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
       )}
 
       {visibleMemories.length === 0 ? (
-        <div className='py-12 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500'>
+        <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
           <Brain className='size-6' />
           <p className='text-sm font-medium'>{intl.formatMessage({ id: 'memory.tab.empty.title' })}</p>
           <p className='text-[11px] max-w-xs text-center'>

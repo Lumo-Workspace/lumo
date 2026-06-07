@@ -166,7 +166,7 @@ export function MemoryEditDialog({
 
         {mode === 'create' && !state && (
           <div className='space-y-2'>
-            <p className='text-sm text-zinc-500'>
+            <p className='text-sm text-muted-foreground'>
               {intl.formatMessage({ id: 'memory.dialog.categoryStep' })}
             </p>
             <div className='grid grid-cols-2 gap-2'>

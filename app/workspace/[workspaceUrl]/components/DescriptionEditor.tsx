@@ -623,7 +623,7 @@ export function DescriptionEditor({
       {mentionPopup && (
         <EditorSuggestionPopup
           anchorRect={mentionPopup.rect}
-          className='w-[260px] max-h-[320px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
+          className='w-[260px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-lg shadow-elevation-3'
         >
           <MentionList
             ref={mentionListRef}

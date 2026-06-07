@@ -74,7 +74,7 @@ export function CadencePanel({ team }: { team: Team }) {
   const disabled = !enabled
 
   return (
-    <section className='flex flex-col gap-4 rounded border p-4'>
+    <section className='flex flex-col gap-4 rounded-sm border p-4'>
       <header className='flex items-center justify-between'>
         <h3 className='font-semibold'>{team.name}</h3>
       </header>
