@@ -178,7 +178,7 @@ function TreeItemRow({
               <ChevronRight
                 size={12}
                 className={cn(
-                  'absolute text-muted-foreground opacity-0 transition-all duration-150 group-hover:opacity-100',
+                  'absolute text-muted-foreground opacity-0 transition-all duration-fast group-hover:opacity-100',
                   isExpanded && 'rotate-90'
                 )}
               />

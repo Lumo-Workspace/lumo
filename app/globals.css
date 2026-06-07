@@ -57,7 +57,7 @@ html {
   line-height: 1.2;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s ease-in-out;
+  transition: opacity var(--transition-duration-fast) var(--ease-standard);
 }
 .code-block-wrapper:hover .code-block-language-select,
 .code-block-language-select:focus {
@@ -204,7 +204,7 @@ html {
   cursor: pointer;
   color: var(--muted-foreground);
   border-radius: 0.25rem;
-  transition: transform 0.15s ease;
+  transition: transform var(--transition-duration-fast) var(--ease-standard);
 }
 .toggle-chevron:hover {
   color: var(--foreground);
@@ -714,6 +714,20 @@ html {
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--priority-low);
 
+  /* Motion tokens (LUM-284): single source for transition duration and easing.
+     duration-* utilities resolve named values from --transition-duration-*;
+     ease-* from --ease-* (Tailwind v4 native namespaces).
+       duration-fast   hover / color / small state changes
+       duration-base   default; popover / dropdown / menus
+       duration-slow   collapse-expand / highlight fade / larger moves
+       ease-standard   calm decelerate; default for most transitions
+       ease-emphasized snappier settle; entering surfaces */
+  --transition-duration-fast: 150ms;
+  --transition-duration-base: 200ms;
+  --transition-duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ── Semantic typography scale (LUM-260) ────────────────────────────────
      One Tailwind v4 font-size token per tier emits a `text-{tier}` utility
      that bundles font-size + line-height + font-weight + letter-spacing.
@@ -1076,7 +1090,7 @@ body {
 .toc-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 9999px;
-  transition: background 0.3s ease;
+  transition: background var(--transition-duration-slow) var(--ease-standard);
 }
 .toc-scroll.scrollbar-visible,
 .toc-scroll:hover {
@@ -1113,7 +1127,7 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
 
 .comment-highlight--active {
   background-color: color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background-color 0.3s ease;
+  transition: background-color var(--transition-duration-slow) var(--ease-standard);
 }
 
 /* Resolved threads keep their span (resolve is reversible) but drop the visible
