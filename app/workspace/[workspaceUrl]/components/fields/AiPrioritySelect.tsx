@@ -49,12 +49,12 @@ export function AiPrioritySelect({
           }
         )}
       </div>
-      <div className='text-zinc-400 italic'>
+      <div className='text-muted-foreground italic'>
         &quot;{suggestion.reason}&quot;
       </div>
       {suggestion.stats.total > 0 && (
         <>
-          <div className='text-zinc-400'>
+          <div className='text-muted-foreground'>
             {intl.formatMessage(
               { id: 'priority.similarTasks' },
               { count: suggestion.stats.total }
@@ -64,7 +64,7 @@ export function AiPrioritySelect({
               .join(', ')}
           </div>
           {suggestion.similarTasks.map(t => (
-            <div key={t.id} className='text-zinc-500'>
+            <div key={t.id} className='text-muted-foreground'>
               • #{t.number} {t.title} — {t.priority}
             </div>
           ))}
@@ -107,7 +107,7 @@ export function AiPrioritySelect({
       </Select>
 
       {isLoadingSuggestion && (
-        <Loader2 className='size-3 animate-spin text-zinc-400' />
+        <Loader2 className='size-3 animate-spin text-muted-foreground' />
       )}
 
       {!isLoadingSuggestion && suggestion && !overrideRecorded && (

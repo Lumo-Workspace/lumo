@@ -54,7 +54,7 @@ export function SprintSelect({
             {selected ? (
               <span>{selected.name}</span>
             ) : (
-              <span className='text-zinc-400'>{noSprintLabel}</span>
+              <span className='text-muted-foreground'>{noSprintLabel}</span>
             )}
           </SelectTrigger>
         </TooltipTrigger>
