@@ -29,7 +29,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `doc*`                                                                            | [references/docs.md](references/docs.md)                       |
 | `sprint*`                                                                         | [references/sprints.md](references/sprints.md)                 |
 | `task/project memory`, `memory promote/rm`                                        | [references/memory.md](references/memory.md)                   |
-| `session attach/status/detach/wrap`, auto-bind, Layer-2 review                    | [references/sessions.md](references/sessions.md)               |
+| `session attach/status/detach/wrap`, git-suggest on start, Layer-2 review         | [references/sessions.md](references/sessions.md)               |
 | `worktree add/rm/list` (local dev tooling)                                        | [references/worktree.md](references/worktree.md)               |
 
 ## Command catalog
@@ -99,7 +99,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo session attach <id>` — bind this session to a task (then run `task context`)
 - `lumo session status` / `lumo session detach` — show / clear binding
 - `lumo session wrap [--yes] [--dry-run]` — end-of-session panel: progress comment + memory review + blocked-tag prompt
-- Auto-bind at session start + Layer-2 project-memory review — see the reference
+- Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
 **Worktrees (local dev tooling)** — see [worktree.md](references/worktree.md)
 
@@ -116,4 +116,4 @@ Typical flow when a user says "help me with LUM-42":
 3. Review unresolved items, PR-review todos, and the task description
 4. Begin working on the task
 
-**Auto-bind:** session-start may already bind the task from the git branch / recent commits and print `已自动绑定 LUM-N …`. If the user says "不是"/"不对"/"wrong task", run `lumo session detach` (then `session attach <LUM-N>` if they name the right one). See [sessions.md](references/sessions.md) for the full session-start behavior.
+**Git-suggest at start:** when the session is unbound, session-start may infer the task from the git branch / recent commits and print a suggestion — `检测到 LUM-N … 运行 lumo session attach LUM-N 绑定。` — **without** binding. Confirm it's the right task, then run `lumo session attach <LUM-N>` yourself (binding only happens on an explicit attach). See [sessions.md](references/sessions.md) for the full session-start behavior.
