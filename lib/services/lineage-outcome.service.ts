@@ -43,6 +43,16 @@ export const lineageOutcomeService = {
   async stampForTaskReopened(taskId: string) {
     return lineageEdgeRepository.stampOutcomeByTask(taskId, 'REWORKED')
   },
+
+  /**
+   * Sweep every DONE task's still-open lineage edges to MERGED (LUM-296, DoD
+   * ③/⑤). Reconciles edges born *after* their task's terminal event — which the
+   * event-forward triggers can never reach. Called by the resident cron; its
+   * first post-deploy run backfills the existing UNKNOWN backlog. Idempotent.
+   */
+  async sweepDoneTaskEdges() {
+    return lineageEdgeRepository.stampDoneTaskEdges()
+  },
 }
 
 /**

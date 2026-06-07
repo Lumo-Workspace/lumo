@@ -6,10 +6,12 @@ import {
 // ── Mock the repository ─────────────────────────────────────────────────────
 
 const mockStampOutcomeByTask = jest.fn()
+const mockStampDoneTaskEdges = jest.fn()
 
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: {
     stampOutcomeByTask: (...args: any[]) => mockStampOutcomeByTask(...args),
+    stampDoneTaskEdges: (...args: any[]) => mockStampDoneTaskEdges(...args),
   },
 }))
 
@@ -26,6 +28,7 @@ jest.mock('@vercel/functions', () => ({
 beforeEach(() => {
   jest.clearAllMocks()
   mockStampOutcomeByTask.mockResolvedValue({ count: 0 })
+  mockStampDoneTaskEdges.mockResolvedValue({ count: 0 })
 })
 
 describe('lineageOutcomeService', () => {
@@ -79,6 +82,17 @@ describe('lineageOutcomeService', () => {
 
       expect(result).toEqual({ count: 1 })
       expect(mockStampOutcomeByTask).toHaveBeenCalledWith('t-1', 'REWORKED')
+    })
+  })
+
+  describe('sweepDoneTaskEdges', () => {
+    it('delegates to the repository sweep and returns its count', async () => {
+      mockStampDoneTaskEdges.mockResolvedValue({ count: 546 })
+
+      const result = await lineageOutcomeService.sweepDoneTaskEdges()
+
+      expect(result).toEqual({ count: 546 })
+      expect(mockStampDoneTaskEdges).toHaveBeenCalledTimes(1)
     })
   })
 
