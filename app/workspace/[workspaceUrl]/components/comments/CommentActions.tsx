@@ -40,7 +40,7 @@ export function CommentActions({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
             onClick={onCopyLink}
           >
             <LinkIcon size={12} />
@@ -51,7 +51,7 @@ export function CommentActions({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
             onClick={onReply}
           >
             <Reply size={12} />
@@ -64,7 +64,7 @@ export function CommentActions({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors'
                 onClick={onEdit}
               >
                 <Pencil size={12} />
@@ -77,12 +77,12 @@ export function CommentActions({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40'
                 disabled={isDeleting}
                 onClick={onRequestDelete}
               >
                 {isDeleting ? (
-                  <Spinner className='size-3 text-zinc-400' />
+                  <Spinner className='size-3 text-muted-foreground' />
                 ) : (
                   <Trash2 size={12} />
                 )}

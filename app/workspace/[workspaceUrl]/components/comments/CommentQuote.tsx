@@ -19,14 +19,14 @@ interface Props {
 export function CommentQuote({ authorName, text, onClick, variant }: Props) {
   const wrapperClass =
     variant === 'in-input'
-      ? 'mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
-      : 'mb-1.5 w-full text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+      ? 'mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
+      : 'mb-1.5 w-full text-left border-l-2 border-border pl-2.5 py-0.5 hover:border-muted-foreground hover:bg-muted rounded-r transition-colors'
   return (
     <button type='button' onClick={onClick} className={wrapperClass}>
-      <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+      <p className='text-[11px] font-semibold text-muted-foreground mb-0.5'>
         {authorName}
       </p>
-      <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+      <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
         {text}
       </p>
     </button>
