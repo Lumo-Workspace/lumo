@@ -432,15 +432,27 @@ export function createTaskColumns(
     identifier: {
       id: 'identifier',
       accessorFn: row => `${row.teamIdentifier}-${row.number}`,
+      enableSorting: true,
       meta: {
-        headerClassName: 'w-24 px-8',
+        headerClassName: 'px-3',
         cellClassName: 'px-3',
         gridWidth: COLUMN_GRID_WIDTH.identifier,
       },
-      header: () => (
-        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-          ID
-        </span>
+      // Sort by team identifier first, then by task number numerically (so
+      // LUM-10 sorts after LUM-9, not lexicographically before it).
+      sortingFn: (a, b) => {
+        const team = (a.original.teamIdentifier ?? '').localeCompare(
+          b.original.teamIdentifier ?? ''
+        )
+        if (team !== 0) return team
+        return (a.original.number ?? 0) - (b.original.number ?? 0)
+      },
+      header: ({ column }) => (
+        <SortableColHeader
+          label='ID'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          sorted={column.getIsSorted()}
+        />
       ),
       cell: ({ row, table }) => {
         const task = row.original
@@ -727,20 +739,35 @@ export function createTaskColumns(
     // ── Assignee ───────────────────────────────────────────────────────────
     assignee: {
       id: 'assignee',
-      enableSorting: false,
+      enableSorting: true,
       meta: {
-        headerClassName: 'w-24 px-8',
+        headerClassName: 'px-8 whitespace-nowrap',
         cellClassName: 'px-8',
         stopPropagation: true,
         gridWidth: COLUMN_GRID_WIDTH.assignee,
       },
-      header: () => (
-        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-          {intl?.formatMessage({
-            id: 'task.assignee',
-            defaultMessage: 'Assignee',
-          }) ?? 'Assignee'}
-        </span>
+      // Sort by the assignee's display name; unassigned rows (empty string)
+      // collate first in ascending order.
+      sortingFn: (a, b) => {
+        const an = a.original.assignee?.id
+          ? (memberByActorId.get(a.original.assignee.id)?.name ?? '')
+          : ''
+        const bn = b.original.assignee?.id
+          ? (memberByActorId.get(b.original.assignee.id)?.name ?? '')
+          : ''
+        return an.localeCompare(bn)
+      },
+      header: ({ column }) => (
+        <SortableColHeader
+          label={
+            intl?.formatMessage({
+              id: 'task.assignee',
+              defaultMessage: 'Assignee',
+            }) ?? 'Assignee'
+          }
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          sorted={column.getIsSorted()}
+        />
       ),
       cell: ({ row }) => {
         const task = row.original

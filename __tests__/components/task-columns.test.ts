@@ -123,3 +123,74 @@ describe('createTaskColumns', () => {
     expect(cols.map(colId)).toEqual(['select', 'title', 'actions'])
   })
 })
+
+// sortingFn only reads `.original`, so a `{ original }` stub is enough to drive it.
+const row = (original: Partial<ApiTask>) => ({ original }) as never
+
+const buildCols = (members: unknown[] = []) =>
+  createTaskColumns({
+    onTaskClick: noop,
+    onDeleteTask: asyncNoop,
+    members: members as never,
+    visibleColumns: ['identifier', 'assignee'],
+  })
+
+const getSortFn = (id: string, members: unknown[] = []) => {
+  const col = buildCols(members).find(c => colId(c) === id)
+  const fn = col?.sortingFn
+  if (typeof fn !== 'function') throw new Error(`no sortingFn for ${id}`)
+  return (a: unknown, b: unknown) =>
+    (fn as (a: never, b: never, id: string) => number)(
+      a as never,
+      b as never,
+      id
+    )
+}
+
+describe('identifier sorting', () => {
+  it('sorts by task number numerically, not lexicographically', () => {
+    const fn = getSortFn('identifier')
+    const a = row({ teamIdentifier: 'LUM', number: 9 })
+    const b = row({ teamIdentifier: 'LUM', number: 10 })
+    // Lexicographic on "LUM-9" vs "LUM-10" would put 10 first ('1' < '9');
+    // numeric sort must keep 9 before 10.
+    expect(fn(a, b)).toBeLessThan(0)
+    expect(fn(b, a)).toBeGreaterThan(0)
+  })
+
+  it('orders by team identifier first, task number second', () => {
+    const fn = getSortFn('identifier')
+    // ABC-100 must come before LUM-1: team is the primary key, so the larger
+    // number under an earlier team still sorts first.
+    const abc = row({ teamIdentifier: 'ABC', number: 100 })
+    const lum = row({ teamIdentifier: 'LUM', number: 1 })
+    expect(fn(abc, lum)).toBeLessThan(0)
+  })
+})
+
+describe('assignee sorting', () => {
+  const members = [
+    { actorId: 'u1', name: 'Alice' },
+    { actorId: 'u2', name: 'Bob' },
+  ]
+
+  it('is sortable (enableSorting not disabled)', () => {
+    const col = buildCols(members).find(c => colId(c) === 'assignee')
+    expect(col?.enableSorting).not.toBe(false)
+  })
+
+  it('sorts by assignee display name', () => {
+    const fn = getSortFn('assignee', members)
+    const alice = row({ assignee: { id: 'u1' } } as Partial<ApiTask>)
+    const bob = row({ assignee: { id: 'u2' } } as Partial<ApiTask>)
+    expect(fn(alice, bob)).toBeLessThan(0)
+    expect(fn(bob, alice)).toBeGreaterThan(0)
+  })
+
+  it('collates unassigned rows before assigned ones', () => {
+    const fn = getSortFn('assignee', members)
+    const none = row({ assignee: null } as Partial<ApiTask>)
+    const alice = row({ assignee: { id: 'u1' } } as Partial<ApiTask>)
+    expect(fn(none, alice)).toBeLessThan(0)
+  })
+})
