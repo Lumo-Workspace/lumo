@@ -6,6 +6,9 @@ import type {
 import type { ContextFragmentType } from '@/lib/services/task-context.service'
 import { toLineageFragmentType } from '@/lib/lineage/fragment-type'
 import { logger } from '@/lib/logger'
+import type { TrustVerdict } from '@/types/lineage'
+
+export type { TrustVerdict }
 
 /**
  * Cold-start gate: a fragment must have appeared in at least this many RESOLVED
@@ -31,6 +34,87 @@ export interface UsageSignalEntry {
   label: string
   usedResolvedTasks: number
   usedMergedTasks: number
+}
+
+/** Pre-fetched aggregate inputs for {@link computeFragmentTrust}. */
+export interface TrustStats {
+  /** countResolvedTasks() — global distinct tasks with a resolved edge. */
+  universe: number
+  presence: FragmentMergeRate[]
+  usage: FragmentUsageRate[]
+}
+
+export interface FragmentTrustResult {
+  /** Qualifying verdicts keyed by `${fragmentType}::${fragmentId}`, insertion
+   * order = first-seen order of `refs`. */
+  verdicts: Map<string, TrustVerdict>
+  /** Count of deduped fragments dropped for zero presence-variance (appeared in
+   * every resolved task). Backs the CLI's "已排除 N 个全量加载" note. */
+  excludedZeroVariance: number
+}
+
+export function trustKey(fragmentType: string, fragmentId: string): string {
+  return `${fragmentType}::${fragmentId}`
+}
+
+/**
+ * Pure trust scoring. Iterates `refs` (deduped, first-seen order), and for each:
+ *   1. usage signal if usedResolvedTasks >= LINEAGE_MIN_USED_TASKS → kind 'usage'
+ *   2. else presence: needs a stat, NOT zero-variance (resolvedTasks===universe
+ *      when universe>0 → excluded+counted), and resolvedTasks >= the cold-start
+ *      floor → kind 'presence'
+ *   3. else no verdict.
+ * No I/O — all gating lives here so the CLI markdown and web badge never drift.
+ */
+export function computeFragmentTrust(
+  refs: FragmentRef[],
+  stats: TrustStats
+): FragmentTrustResult {
+  const presenceByKey = new Map(
+    stats.presence.map(s => [trustKey(s.fragmentType, s.fragmentId), s])
+  )
+  const usageByKey = new Map(
+    stats.usage.map(s => [trustKey(s.fragmentType, s.fragmentId), s])
+  )
+
+  const verdicts = new Map<string, TrustVerdict>()
+  let excludedZeroVariance = 0
+  const seen = new Set<string>()
+
+  for (const ref of refs) {
+    const key = trustKey(ref.fragmentType, ref.fragmentId)
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const usage = usageByKey.get(key)
+    if (usage && usage.usedResolvedTasks >= LINEAGE_MIN_USED_TASKS) {
+      verdicts.set(key, {
+        kind: 'usage',
+        resolvedTasks: usage.usedResolvedTasks,
+        mergedTasks: usage.usedMergedTasks,
+        pct: Math.round(
+          (usage.usedMergedTasks / usage.usedResolvedTasks) * 100
+        ),
+      })
+      continue
+    }
+
+    const stat = presenceByKey.get(key)
+    if (!stat) continue
+    if (stats.universe > 0 && stat.resolvedTasks === stats.universe) {
+      excludedZeroVariance++
+      continue
+    }
+    if (stat.resolvedTasks < LINEAGE_MIN_RESOLVED_TASKS) continue
+    verdicts.set(key, {
+      kind: 'presence',
+      resolvedTasks: stat.resolvedTasks,
+      mergedTasks: stat.mergedTasks,
+      pct: Math.round((stat.mergedTasks / stat.resolvedTasks) * 100),
+    })
+  }
+
+  return { verdicts, excludedZeroVariance }
 }
 
 /**
@@ -138,52 +222,45 @@ export async function assembleLineageSection(
     if (inputs.length === 0) return ''
 
     const refs = inputs.map(i => i.ref)
-    const [universe, presenceStats, usageStats] = await Promise.all([
+    const [universe, presence, usage] = await Promise.all([
       deps.countResolvedTasks(),
       deps.mergeRateByFragments(refs),
       deps.usageMergeRateByFragments(refs),
     ])
-    const presenceByKey = new Map(
-      presenceStats.map(s => [`${s.fragmentType}::${s.fragmentId}`, s])
-    )
-    const usageByKey = new Map(
-      usageStats.map(s => [`${s.fragmentType}::${s.fragmentId}`, s])
-    )
+    const { verdicts, excludedZeroVariance } = computeFragmentTrust(refs, {
+      universe,
+      presence,
+      usage,
+    })
 
     const usageEntries: UsageSignalEntry[] = []
     const presenceEntries: LineageSignalEntry[] = []
-    let excludedCount = 0
     const seen = new Set<string>()
     for (const input of inputs) {
-      const key = `${input.ref.fragmentType}::${input.ref.fragmentId}`
+      const key = trustKey(input.ref.fragmentType, input.ref.fragmentId)
       if (seen.has(key)) continue
       seen.add(key)
-
-      // Prefer the real "agent used it" signal once it has enough sample.
-      const usage = usageByKey.get(key)
-      if (usage && usage.usedResolvedTasks >= LINEAGE_MIN_USED_TASKS) {
+      const v = verdicts.get(key)
+      if (!v) continue
+      if (v.kind === 'usage') {
         usageEntries.push({
           label: input.label,
-          usedResolvedTasks: usage.usedResolvedTasks,
-          usedMergedTasks: usage.usedMergedTasks,
+          usedResolvedTasks: v.resolvedTasks,
+          usedMergedTasks: v.mergedTasks,
         })
-        continue
+      } else {
+        presenceEntries.push({
+          label: input.label,
+          resolvedTasks: v.resolvedTasks,
+          mergedTasks: v.mergedTasks,
+        })
       }
-
-      // Fall back to presence — but drop zero-variance "always loaded" fragments.
-      const stat = presenceByKey.get(key)
-      if (!stat) continue
-      if (universe > 0 && stat.resolvedTasks === universe) {
-        excludedCount++
-        continue
-      }
-      presenceEntries.push({
-        label: input.label,
-        resolvedTasks: stat.resolvedTasks,
-        mergedTasks: stat.mergedTasks,
-      })
     }
-    return renderLineageSection(usageEntries, presenceEntries, excludedCount)
+    return renderLineageSection(
+      usageEntries,
+      presenceEntries,
+      excludedZeroVariance
+    )
   } catch (err) {
     logger.error('assembleLineageSection failed; omitting flywheel signal', err)
     return ''

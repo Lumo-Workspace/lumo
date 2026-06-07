@@ -1412,5 +1412,9 @@
   "tokenCost.none": "No captured cost on this trail",
   "tokenCost.loops": "{n, plural, one {# loop} other {# loops}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models not price-comparable · no total"
+  "tokenCost.mixedNoTotal": "models not price-comparable · no total",
+  "trust.badge.meta": "· {n, plural, one {# task} other {# tasks}}",
+  "trust.badge.weak": " · weak",
+  "trust.tooltip.usage": "Used in {resolved} resolved tasks · {merged} merged · real-usage signal",
+  "trust.tooltip.presence": "Co-loaded in {resolved} resolved tasks · {merged} merged · co-load only, weak signal"
 }

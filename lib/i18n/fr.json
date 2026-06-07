@@ -1412,5 +1412,9 @@
   "tokenCost.none": "Aucun coût capturé sur cette piste",
   "tokenCost.loops": "{n, plural, one {# boucle} other {# boucles}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models non comparables · pas de total"
+  "tokenCost.mixedNoTotal": "models non comparables · pas de total",
+  "trust.badge.meta": "· {n, plural, one {# tâche} other {# tâches}}",
+  "trust.badge.weak": " · faible",
+  "trust.tooltip.usage": "Utilisé dans {resolved} tâches résolues · {merged} fusionnées · signal d'utilisation réel",
+  "trust.tooltip.presence": "Co-chargé dans {resolved} tâches résolues · {merged} fusionnées · co-chargement uniquement, signal faible"
 }

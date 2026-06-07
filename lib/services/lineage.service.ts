@@ -9,6 +9,8 @@ import type { ModelUsage } from '@/lib/services/model-cost'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType, LineageOutcome } from '@prisma/client'
+import { computeFragmentTrust, trustKey } from '@/lib/services/lineage-signal'
+import type { TrustVerdict } from '@/types/lineage'
 
 export interface SessionStartEdgeInput {
   workspaceId: string
@@ -335,6 +337,53 @@ export const lineageService = {
         outcomes,
       },
       groups: groupList,
+    }
+  },
+
+  /**
+   * Per-memory trust verdicts for the web badge (LUM-303). Resolves each memory
+   * id to its canonical fragment (matching how edges were keyed at birth),
+   * scores via the shared `computeFragmentTrust`, and maps verdicts back to the
+   * ORIGINAL ids the UI knows. Unqualified ids are omitted. Best-effort: any
+   * failure degrades to `{}` so the memory tab never breaks on the decoration.
+   */
+  async fragmentTrustForMemories(
+    memoryIds: string[]
+  ): Promise<Record<string, TrustVerdict>> {
+    if (memoryIds.length === 0) return {}
+    try {
+      const pairs = await Promise.all(
+        memoryIds.map(async id => ({
+          id,
+          canonical: await memoryProvenanceRepository.resolveCanonicalFragment(
+            'MEMORY',
+            id
+          ),
+        }))
+      )
+      const refs: FragmentRef[] = pairs.map(p => ({
+        fragmentType: 'MEMORY',
+        fragmentId: p.canonical,
+      }))
+      const [universe, presence, usage] = await Promise.all([
+        lineageEdgeRepository.countResolvedTasks(),
+        lineageEdgeRepository.mergeRateByFragments(refs),
+        lineageEdgeRepository.usageMergeRateByFragments(refs),
+      ])
+      const { verdicts } = computeFragmentTrust(refs, {
+        universe,
+        presence,
+        usage,
+      })
+      const out: Record<string, TrustVerdict> = {}
+      for (const p of pairs) {
+        const v = verdicts.get(trustKey('MEMORY', p.canonical))
+        if (v) out[p.id] = v
+      }
+      return out
+    } catch (err) {
+      logger.error('fragmentTrustForMemories failed; returning empty', err)
+      return {}
     }
   },
 }

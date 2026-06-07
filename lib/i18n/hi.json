@@ -1412,5 +1412,9 @@
   "tokenCost.none": "इस ट्रेल पर कोई लागत दर्ज नहीं",
   "tokenCost.loops": "{n, plural, one {# लूप} other {# लूप}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models की कीमत तुलनीय नहीं · कुल नहीं"
+  "tokenCost.mixedNoTotal": "models की कीमत तुलनीय नहीं · कुल नहीं",
+  "trust.badge.meta": "· {n, plural, one {# कार्य} other {# कार्य}}",
+  "trust.badge.weak": " · कमज़ोर",
+  "trust.tooltip.usage": "{resolved} हल किए गए कार्यों में उपयोग · {merged} मर्ज · वास्तविक उपयोग संकेत",
+  "trust.tooltip.presence": "{resolved} हल किए गए कार्यों के साथ सह-लोड · {merged} मर्ज · केवल सह-लोड, कमज़ोर संकेत"
 }
