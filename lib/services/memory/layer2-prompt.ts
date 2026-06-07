@@ -51,7 +51,7 @@ You are writing for another agent that loads this into context later — every w
 
 # Operations
 
-- ADD: a new PROJECT-scope memory. Provide category + content. The promoted lesson should be a synthesis — write it generally enough to apply to any task, not as a copy of one TASK row's text.
+- ADD: a new PROJECT-scope memory. Provide category + content. The promoted lesson should be a synthesis — write it generally enough to apply to any task, not as a copy of one TASK row's text. Also set "sourceMemoryIds": the exact id=… values of the TASK-scope memories below that this lesson is synthesized from (the recurrence evidence). Use only ids that appear in the "Recent TASK-scope memories" list — never invent one. This is required for lineage; an ADD with no real source ids loses its provenance.
 - UPDATE: refine an existing PROJECT-scope memory with a full replacement content object (same category as the existing row). Use this when recent TASK rows expand or sharpen an existing PROJECT lesson.
 - NOOP: nothing new to consolidate this run. Output a single { type: "NOOP" } if you don't see new recurring patterns and existing PROJECT memories already cover what's recurring.
 
@@ -110,6 +110,7 @@ Existing PROJECT memories: (none)
 Output:
   { "operations": [
     { "type": "ADD", "category": "TRAP",
+      "sourceMemoryIds": ["mem_1", "mem_2"],
       "content": {
         "summary": "Enum value + use in one migration fails",
         "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",

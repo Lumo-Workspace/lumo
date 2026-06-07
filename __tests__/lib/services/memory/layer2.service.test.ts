@@ -133,6 +133,25 @@ describe('layer2Service.runForProject', () => {
     )
     expect(result).toEqual({ added: 1, updated: 0, noop: 0, skipped: 0 })
   })
+
+  it('forwards the input-window task memory ids as validSourceMemoryIds', async () => {
+    getInput.mockResolvedValue({
+      ...makeInput(),
+      taskMemories: [
+        { id: 'mem_a', taskId: 'task_a', category: 'TRAP', content: {} },
+      ],
+    })
+    extract.mockResolvedValue([
+      { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+
+    await layer2Service.runForProject('proj_1', null)
+
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ validSourceMemoryIds: ['mem_a'] })
+    )
+  })
 })
 
 describe('layer2Service.triggerForTaskCompletion', () => {

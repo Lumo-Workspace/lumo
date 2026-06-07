@@ -131,6 +131,7 @@ async function runForProject(
         id: m.id,
         category: m.category,
       })),
+      validSourceMemoryIds: input.taskMemories.map(m => m.id),
       sourceSessionId,
     })
 
