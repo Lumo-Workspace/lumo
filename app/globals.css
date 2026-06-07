@@ -579,7 +579,9 @@ html {
     0.6369 0.2079 25.334
   ); /* #ef4444 red-500, 3.7:1 on #fff */
   --priority-high: oklch(0.646 0.222 41.116); /* #ea580c orange-600, ~3.4:1 */
-  --priority-medium: oklch(0.681 0.162 75.834); /* #ca8a04 yellow-600, ~3.1:1 */
+  --priority-medium: oklch(
+    0.66 0.162 75.834
+  ); /* yellow-600 darkened to clear WCAG 3:1 graphics on #fff (was L0.681=2.93:1, now 3.18:1) — LUM-286 */
   --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
 
   --font-inter: 'Inter', sans-serif;
