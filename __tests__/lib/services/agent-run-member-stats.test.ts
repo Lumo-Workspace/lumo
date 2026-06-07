@@ -203,7 +203,9 @@ describe('getTimeline — perMember', () => {
       ])
     )
 
-    const { perMember } = await agentRunTimelineService.getTimeline('task_1')
+    const { perMember, runs } = await agentRunTimelineService.getTimeline(
+      'task_1'
+    )
 
     expect(enrich).toHaveBeenCalledWith(['clerk_1'])
     expect(perMember).toHaveLength(1)
@@ -217,6 +219,12 @@ describe('getTimeline — perMember', () => {
       loopCount: 1,
     })
     expect(perMember[0]!.byModel[0]!.total).toBe(170)
+    // The owning member is also stamped on the run for the run-header avatar.
+    expect(runs[0]!.member).toEqual({
+      workspaceMemberId: 'm1',
+      name: 'Ada Lovelace',
+      imageUrl: 'http://img/ada.png',
+    })
   })
 
   it('returns an empty perMember list when no session has captured cost', async () => {
@@ -246,9 +254,17 @@ describe('getTimeline — perMember', () => {
       },
     ])
 
-    const { perMember } = await agentRunTimelineService.getTimeline('task_1')
+    const { perMember, runs } = await agentRunTimelineService.getTimeline(
+      'task_1'
+    )
     expect(perMember).toEqual([])
-    // No clerk ids to resolve → no Clerk round-trip.
-    expect(enrich).toHaveBeenCalledWith([])
+    // The run captured no cost, but its owner is still resolved so the run
+    // header can show who ran it (LUM-308).
+    expect(enrich).toHaveBeenCalledWith(['clerk_1'])
+    expect(runs[0]!.member).toEqual({
+      workspaceMemberId: 'm1',
+      name: 'Unknown',
+      imageUrl: '',
+    })
   })
 })

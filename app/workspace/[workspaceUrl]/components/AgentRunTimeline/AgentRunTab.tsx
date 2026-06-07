@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl'
 import { Bot } from 'lucide-react'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { AgentRunCard } from './AgentRunCard'
-import { AgentRunMemberStats } from './AgentRunMemberStats'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 
 interface AgentRunTabProps {
@@ -87,10 +86,10 @@ export function AgentRunTab({
             variant='full'
             models={totals.byModel}
             loopCount={totals.loopCount}
+            perMember={data?.perMember ?? []}
           />
         </div>
       )}
-      <AgentRunMemberStats members={data?.perMember ?? []} />
       {runs.map(run => (
         <AgentRunCard
           key={run.sessionId ?? `unlinked-${run.runNumber}`}
