@@ -26,23 +26,32 @@ export const PRIORITY_CONFIG: Record<
   URGENT: {
     label: 'Urgent',
     Icon: BatteryWarning,
-    iconColor: 'text-red-500',
+    iconColor: 'text-priority-urgent',
   },
   HIGH: {
     label: 'High',
     Icon: BatteryLow,
-    iconColor: 'text-orange-500',
+    iconColor: 'text-priority-high',
   },
   MEDIUM: {
     label: 'Medium',
     Icon: BatteryMedium,
-    iconColor: 'text-yellow-500',
+    iconColor: 'text-priority-medium',
   },
   LOW: {
     label: 'Low',
     Icon: BatteryFull,
-    iconColor: 'text-zinc-400',
+    iconColor: 'text-priority-low',
   },
+}
+
+/** react-intl message ids for priority labels (LUM-263). `label` above stays
+ *  the English fallback consumed by the inline selects. */
+export const PRIORITY_LABEL_ID: Record<ApiPriority, string> = {
+  URGENT: 'priority.urgent',
+  HIGH: 'priority.high',
+  MEDIUM: 'priority.medium',
+  LOW: 'priority.low',
 }
 
 /** Shared trigger class for all inline task-field selects */
