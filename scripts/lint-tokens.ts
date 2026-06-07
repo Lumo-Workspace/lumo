@@ -47,7 +47,13 @@ export type Baseline = Record<string, number>
  * this list.
  */
 export const ALLOWLIST: ReadonlyArray<RegExp> = [
-  // Token definitions: every value here IS a hex literal by design.
+  // Token-definition files: hex literals here are by design, in three
+  // sanctioned categories — (a) the `/* #rrggbb */` round-trip comments next to
+  // the oklch base tokens (LUM-257), (b) the named --hljs-* categorical syntax
+  // palette mirroring GitHub's themes (LUM-288), and (c) the elevation rgba
+  // shadow tiers. The .landing brand fork (LUM-288) is likewise an intentional
+  // token override scoped to .landing DOM. New ad-hoc hex in either file is NOT
+  // covered by this rationale — hoist it into a documented token instead.
   /^app\/globals\.css$/,
   /^components\/landing\/landing\.css$/,
   // Pre-existing SVG icon set (raw colors are the SVG's payload).
