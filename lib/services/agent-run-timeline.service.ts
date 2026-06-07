@@ -1,11 +1,8 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import type {
-  HookEventType,
-  MemoryCategory,
-  TaskArtifactAgent,
-} from '@prisma/client'
+import type { HookEventType, MemoryCategory } from '@prisma/client'
+import { TaskArtifactAgent } from '@prisma/client'
 
 // Wire-format types returned to the client. Kept separate from Prisma
 // row shapes so the API surface stays decoupled from schema changes.
@@ -147,7 +144,7 @@ export const agentRunTimelineService = {
       const last = items[items.length - 1]?.createdAt ?? first
       runs.push({
         sessionId: null,
-        agent: 'CLAUDE_CODE',
+        agent: TaskArtifactAgent.CLAUDE_CODE,
         runNumber: runs.length + 1,
         startedAt: first,
         lastActivityAt: last,

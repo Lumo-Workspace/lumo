@@ -77,5 +77,9 @@ describe('agentRunTimelineService.getTimeline — agent identity', () => {
     const orphan = runs.find(r => r.sessionId === null)
     expect(orphan).toBeDefined()
     expect(orphan!.agent).toBe('CLAUDE_CODE')
+    // The orphan run only survives the service's nonEmptyRuns filter because
+    // its PRE_TOOL_USE event gives it toolCallCount > 0 — assert that here so
+    // the test fails loudly if the filter or event-type mapping ever changes.
+    expect(orphan!.toolCallCount).toBeGreaterThan(0)
   })
 })
