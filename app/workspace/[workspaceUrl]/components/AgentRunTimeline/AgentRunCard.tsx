@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, Bot } from 'lucide-react'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
 import { TurnCard } from './TurnCard'
+import { AgentBadge } from '../AgentBadge'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -47,6 +48,7 @@ export function AgentRunCard({
             { n: run.runNumber }
           )}
         </span>
+        <AgentBadge agent={run.agent} />
         <span className='text-xs text-muted-foreground shrink-0'>
           {startLabel}
         </span>
