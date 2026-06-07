@@ -47,8 +47,8 @@ export function BulkActionBar({
 }: Props) {
   const intl = useIntl()
   return (
-    <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
-      <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
+    <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
+      <span className='text-xs font-medium text-foreground'>
         {intl.formatMessage(
           { id: 'common.selected', defaultMessage: '{count} selected' },
           { count }

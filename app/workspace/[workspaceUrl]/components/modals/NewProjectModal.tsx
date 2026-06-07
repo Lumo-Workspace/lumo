@@ -144,7 +144,7 @@ export function NewProjectModal({
             )}
             <input
               autoFocus
-              className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
+              className='w-full bg-transparent border-none p-0 text-xl font-medium text-foreground placeholder:text-muted-foreground focus:ring-0 outline-none'
               placeholder={intl.formatMessage({
                 id: 'newProject.namePlaceholder',
               })}
@@ -156,7 +156,7 @@ export function NewProjectModal({
               }}
             />
             <textarea
-              className={`w-full bg-transparent border-none p-0 text-sm text-zinc-600 dark:text-zinc-400 placeholder:text-zinc-400 focus:ring-0 outline-none resize-none leading-relaxed font-sans ${expanded ? 'flex-1 min-h-0' : 'min-h-[80px]'}`}
+              className={`w-full bg-transparent border-none p-0 text-sm text-muted-foreground placeholder:text-muted-foreground focus:ring-0 outline-none resize-none leading-relaxed font-sans ${expanded ? 'flex-1 min-h-0' : 'min-h-[80px]'}`}
               placeholder={intl.formatMessage({
                 id: 'newProject.descPlaceholder',
               })}
@@ -167,7 +167,7 @@ export function NewProjectModal({
               <Button
                 variant='outline'
                 size='sm'
-                className='gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400'
+                className='gap-1.5 text-xs font-medium text-muted-foreground'
               >
                 <Sparkles size={13} className='text-violet-500' />
                 {intl.formatMessage({ id: 'newProject.refineWithAI' })}

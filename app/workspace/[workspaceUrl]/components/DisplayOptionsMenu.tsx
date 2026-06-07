@@ -150,7 +150,7 @@ export function DisplayOptionsMenu({
         <Button
           variant='ghost'
           size='sm'
-          className='h-8 gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+          className='h-8 gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground'
         >
           <SlidersHorizontal size={14} />
           {intl.formatMessage({
@@ -161,7 +161,7 @@ export function DisplayOptionsMenu({
       </PopoverTrigger>
       <PopoverContent align='end' className='w-56 p-2'>
         <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
+          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
             {intl.formatMessage({
               id: 'display.section.ordering',
               defaultMessage: 'Ordering',
@@ -171,7 +171,7 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <Info
                 size={12}
-                className='text-zinc-400 dark:text-zinc-500 cursor-help'
+                className='text-muted-foreground cursor-help'
               />
             </TooltipTrigger>
             <TooltipContent side='top'>
@@ -187,15 +187,15 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onOrderingChange(opt)}
-                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
               >
-                <span className='text-zinc-700 dark:text-zinc-300'>
+                <span className='text-foreground'>
                   {orderingLabels[opt]}
                 </span>
                 {ordering === opt && (
                   <Check
                     size={14}
-                    className='text-zinc-500 dark:text-zinc-400'
+                    className='text-muted-foreground'
                   />
                 )}
               </button>
@@ -204,10 +204,10 @@ export function DisplayOptionsMenu({
           </Tooltip>
         ))}
 
-        <div className='my-1.5 border-t border-zinc-100 dark:border-zinc-800' />
+        <div className='my-1.5 border-t border-border' />
 
         <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
+          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
             {intl.formatMessage({
               id: 'display.section.completed',
               defaultMessage: 'Completed issues',
@@ -217,7 +217,7 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <Info
                 size={12}
-                className='text-zinc-400 dark:text-zinc-500 cursor-help'
+                className='text-muted-foreground cursor-help'
               />
             </TooltipTrigger>
             <TooltipContent side='top'>
@@ -233,15 +233,15 @@ export function DisplayOptionsMenu({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onCompletedFilterChange(opt)}
-                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
               >
-                <span className='text-zinc-700 dark:text-zinc-300'>
+                <span className='text-foreground'>
                   {completedFilterLabels[opt]}
                 </span>
                 {completedFilter === opt && (
                   <Check
                     size={14}
-                    className='text-zinc-500 dark:text-zinc-400'
+                    className='text-muted-foreground'
                   />
                 )}
               </button>
@@ -252,18 +252,18 @@ export function DisplayOptionsMenu({
           </Tooltip>
         ))}
 
-        <div className='my-1.5 border-t border-zinc-100 dark:border-zinc-800' />
+        <div className='my-1.5 border-t border-border' />
 
         <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
+          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
             {intl.formatMessage({
               id: 'display.section.subtasks',
               defaultMessage: 'Subtasks',
             })}
           </p>
         </div>
-        <label className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer'>
-          <span className='text-zinc-700 dark:text-zinc-300'>
+        <label className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors cursor-pointer'>
+          <span className='text-foreground'>
             {intl.formatMessage({
               id: 'display.showSubtasks',
               defaultMessage: 'Show subtasks',

@@ -50,7 +50,7 @@ export function MilestoneCard({
   const archived = !!milestone.archivedAt
 
   return (
-    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors'>
+    <div className='rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors'>
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 items-center gap-2'>
           {milestone.health && (
@@ -103,7 +103,7 @@ export function MilestoneCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className='mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400'>
+      <div className='mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground'>
         <span
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_CLASS[milestone.status]}`}
         >

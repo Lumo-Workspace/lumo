@@ -85,19 +85,19 @@ export function MemoryCard({
   }
 
   return (
-    <div className='rounded-md border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900'>
+    <div className='rounded-md border border-border bg-card px-4 py-3'>
       <div className='mb-1.5 flex items-start justify-between gap-2'>
         <span className='flex shrink-0 items-center gap-1.5'>
           <span
             aria-hidden
             className={`size-[7px] shrink-0 rounded-full ${style.dot}`}
           />
-          <span className='text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+          <span className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({ id: style.labelId })}
           </span>
         </span>
         {source ? (
-          <span className='shrink-0 text-[10px] text-zinc-400 transition-opacity group-hover:opacity-0 dark:text-zinc-500'>
+          <span className='shrink-0 text-[10px] text-muted-foreground transition-opacity group-hover:opacity-0'>
             {source}
           </span>
         ) : showSedimentedLabel ? (
@@ -114,10 +114,10 @@ export function MemoryCard({
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className='mt-2.5'>
-      <p className='text-[10px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+      <p className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
         {label}
       </p>
-      <div className='mt-0.5 text-sm text-zinc-700 dark:text-zinc-300'>
+      <div className='mt-0.5 text-sm text-foreground'>
         {children}
       </div>
     </div>
@@ -127,7 +127,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 /** The card title: medium weight (not bold), capped at two lines. */
 function Title({ children }: { children: ReactNode }) {
   return (
-    <p className='line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100'>
+    <p className='line-clamp-2 text-sm font-medium leading-snug text-foreground'>
       {children}
     </p>
   )
@@ -210,7 +210,7 @@ function MemoryBody({
           <Section label={label('memory.section.trigger')}>{c.trigger}</Section>
           {c.steps && c.steps.length > 0 && (
             <Section label={label('memory.section.steps')}>
-              <ol className='ml-4 list-decimal space-y-0.5 marker:text-zinc-400 dark:marker:text-zinc-600'>
+              <ol className='ml-4 list-decimal space-y-0.5 marker:text-muted-foreground'>
                 {c.steps.map((step, i) => (
                   <li key={`${i}-${step}`}>{step}</li>
                 ))}
