@@ -33,8 +33,8 @@ export function FragmentTrustBadge({
   return (
     <span
       title={tooltip}
-      className={`inline-flex items-baseline gap-1 rounded-sm border bg-muted/50 px-1.5 leading-5 ${
-        isWeak ? 'border-dashed border-border' : 'border-border'
+      className={`inline-flex items-baseline gap-1 rounded-sm border border-border bg-muted/50 px-1.5 leading-5 ${
+        isWeak ? 'border-dashed' : ''
       }`}
     >
       <span
@@ -52,12 +52,11 @@ export function FragmentTrustBadge({
           },
           { n: verdict.resolvedTasks }
         )}
-        {isWeak
-          ? intl.formatMessage({
-              id: 'trust.badge.weak',
-              defaultMessage: ' · weak',
-            })
-          : ''}
+        {isWeak &&
+          intl.formatMessage({
+            id: 'trust.badge.weak',
+            defaultMessage: ' · weak',
+          })}
       </span>
     </span>
   )

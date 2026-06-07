@@ -45,4 +45,13 @@ describe('useFragmentTrust', () => {
       pct: 75,
     })
   })
+
+  it('returns {} when the fetch rejects (never throws)', async () => {
+    client.fragmentTrust.mockRejectedValue(new Error('network'))
+    const { result } = renderHook(() => useFragmentTrust(['a'], true), {
+      wrapper,
+    })
+    await waitFor(() => expect(client.fragmentTrust).toHaveBeenCalled())
+    expect(result.current).toEqual({})
+  })
 })
