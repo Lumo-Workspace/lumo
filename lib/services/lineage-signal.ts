@@ -42,7 +42,7 @@ export interface TrustVerdict {
   resolvedTasks: number
   /** Numerator: distinct merged tasks (usage → used-merged). */
   mergedTasks: number
-  /** Math.round(merged / resolved * 100). */
+  /** Math.round(merged / resolved * 100). Consumed by the web FragmentTrustBadge (LUM-303); the CLI markdown path formats its own percentage line and does not read this. */
   pct: number
 }
 
@@ -63,7 +63,7 @@ export interface FragmentTrustResult {
   excludedZeroVariance: number
 }
 
-function trustKey(fragmentType: string, fragmentId: string): string {
+export function trustKey(fragmentType: string, fragmentId: string): string {
   return `${fragmentType}::${fragmentId}`
 }
 
@@ -247,7 +247,7 @@ export async function assembleLineageSection(
     const presenceEntries: LineageSignalEntry[] = []
     const seen = new Set<string>()
     for (const input of inputs) {
-      const key = `${input.ref.fragmentType}::${input.ref.fragmentId}`
+      const key = trustKey(input.ref.fragmentType, input.ref.fragmentId)
       if (seen.has(key)) continue
       seen.add(key)
       const v = verdicts.get(key)

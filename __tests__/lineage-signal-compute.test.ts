@@ -1,5 +1,6 @@
 import {
   computeFragmentTrust,
+  trustKey,
   LINEAGE_MIN_USED_TASKS,
   LINEAGE_MIN_RESOLVED_TASKS,
 } from '@/lib/services/lineage-signal'
@@ -9,7 +10,7 @@ const ref = (id: string): FragmentRef => ({
   fragmentType: 'MEMORY',
   fragmentId: id,
 })
-const key = (id: string) => `MEMORY::${id}`
+const key = (id: string) => trustKey('MEMORY', id)
 
 describe('computeFragmentTrust', () => {
   it('prefers the usage signal once it clears the usage floor', () => {
