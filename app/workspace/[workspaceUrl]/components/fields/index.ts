@@ -12,5 +12,6 @@ export {
   SeparatorDot,
   PriorityIcon,
   PRIORITY_CONFIG,
+  PRIORITY_LABEL_ID,
   MemberAvatar,
 } from './shared'
