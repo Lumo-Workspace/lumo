@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto'
 import { Prisma } from '@prisma/client'
+import type { RunUsage } from '@lumo/shared'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent, fireAgentEvent } from '@/lib/integrations/pusher'
 import { userFriendlyError } from './errors'
@@ -92,6 +93,7 @@ export async function markRunCompleted(
     branchName?: string | undefined
     summary?: string | null | undefined
     changedFiles?: unknown
+    usage?: RunUsage | null | undefined
   }
 ) {
   await prisma.agentRun.update({
@@ -105,6 +107,11 @@ export async function markRunCompleted(
       prNumber: data.prNumber ?? null,
       prUrl: data.prUrl ?? null,
       branchName: data.branchName ?? null,
+      inputTokens: data.usage?.inputTokens ?? null,
+      outputTokens: data.usage?.outputTokens ?? null,
+      cacheReadTokens: data.usage?.cacheReadTokens ?? null,
+      cacheCreationTokens: data.usage?.cacheCreationTokens ?? null,
+      loopCount: data.usage?.loopCount ?? null,
       finishedAt: new Date(),
     },
   })

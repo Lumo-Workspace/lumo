@@ -19,6 +19,7 @@ import {
 import { htmlToMarkdown } from './markdown.js'
 import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp.js'
 import { buildAgentContext } from './context-builder.js'
+import type { RunUsage } from '@lumo/shared'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -206,6 +207,7 @@ async function markRunCompleted(
     branchName?: string | undefined
     summary?: string | null | undefined
     changedFiles?: unknown
+    usage?: RunUsage | null | undefined
   }
 ) {
   await prisma.agentRun.update({
@@ -219,6 +221,11 @@ async function markRunCompleted(
       prNumber: data.prNumber ?? null,
       prUrl: data.prUrl ?? null,
       branchName: data.branchName ?? null,
+      inputTokens: data.usage?.inputTokens ?? null,
+      outputTokens: data.usage?.outputTokens ?? null,
+      cacheReadTokens: data.usage?.cacheReadTokens ?? null,
+      cacheCreationTokens: data.usage?.cacheCreationTokens ?? null,
+      loopCount: data.usage?.loopCount ?? null,
       finishedAt: new Date(),
     },
   })
