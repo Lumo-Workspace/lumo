@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl'
 import { MoreHorizontal } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { MemoryCard } from './MemoryCard'
+import { FragmentTrustBadge } from './FragmentTrustBadge'
 import { AgentBadge } from '../AgentBadge'
+import type { TrustVerdict } from '@/types/lineage'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -29,6 +31,8 @@ interface MemoryListItemProps {
   /** Task scope shows "Promote"; project scope hides it. */
   canPromote: boolean
   memberName?: string | undefined
+  /** Trust verdict for this memory (LUM-303); undefined → no badge. */
+  trust?: TrustVerdict | undefined
   onEdit: (memory: MemoryRow) => void
   onPromote: (memory: MemoryRow) => void
   onDelete: (memory: MemoryRow) => void
@@ -38,6 +42,7 @@ export function MemoryListItem({
   memory,
   canPromote,
   memberName,
+  trust,
   onEdit,
   onPromote,
   onDelete,
@@ -63,6 +68,7 @@ export function MemoryListItem({
         }}
         source={source ?? <AgentBadge agent={memory.agent} />}
         showSedimentedLabel={false}
+        trustBadge={<FragmentTrustBadge verdict={trust} />}
       />
 
       <div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity'>

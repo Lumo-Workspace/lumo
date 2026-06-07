@@ -52,6 +52,10 @@ interface MemoryCardProps {
    *  "memory sedimented this turn" header and the per-card chip
    *  becomes redundant. */
   showSedimentedLabel?: boolean
+  /** Optional fragment-level trust badge (LUM-303), rendered next to the
+   *  category label. A node, not a value, so MemoryCard stays unaware of
+   *  lineage. Omit → nothing renders. */
+  trustBadge?: ReactNode
 }
 
 interface CategoryStyle {
@@ -73,6 +77,7 @@ export function MemoryCard({
   item,
   source,
   showSedimentedLabel = true,
+  trustBadge,
 }: MemoryCardProps) {
   const intl = useIntl()
   const style = CATEGORY_STYLES[item.category]
@@ -95,6 +100,7 @@ export function MemoryCard({
           <span className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({ id: style.labelId })}
           </span>
+          {trustBadge}
         </span>
         {source ? (
           <span className='shrink-0 text-[10px] text-muted-foreground transition-opacity group-hover:opacity-0'>
@@ -117,9 +123,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
       <p className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
         {label}
       </p>
-      <div className='mt-0.5 text-sm text-foreground'>
-        {children}
-      </div>
+      <div className='mt-0.5 text-sm text-foreground'>{children}</div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { Brain, Plus } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
+import { useFragmentTrust } from '../../hooks/useFragmentTrust'
 import { Button } from '@/components/ui/button'
 import { MemoryListItem } from './MemoryListItem'
 import { MemoryEditDialog, type MemorySubmitPayload } from './MemoryEditDialog'
@@ -24,13 +25,19 @@ type DialogState =
   | { open: true; mode: 'create' }
   | { open: true; mode: 'edit'; editing: MemoryRow }
 
-export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabProps) {
+export function MemoryTab({
+  scope,
+  parentId,
+  enabled,
+  memberNames,
+}: MemoryTabProps) {
   const intl = useIntl()
-  const { memories, loading, error, create, edit, promote, remove, mutating } = useMemories({
-    scope,
-    parentId,
-    enabled,
-  })
+  const { memories, loading, error, create, edit, promote, remove, mutating } =
+    useMemories({
+      scope,
+      parentId,
+      enabled,
+    })
   const [dialog, setDialog] = useState<DialogState>({ open: false })
 
   // Drop rows whose content can't be parsed (e.g. stored before a schema
@@ -51,6 +58,11 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
     [memories]
   )
 
+  const trust = useFragmentTrust(
+    visibleMemories.map(m => m.id),
+    enabled
+  )
+
   const handleSubmit = async (payload: MemorySubmitPayload) => {
     try {
       if (dialog.open && dialog.mode === 'edit') {
@@ -62,14 +74,22 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
     } catch (e) {
       // Keep the dialog open so the user can retry; the mutation failed.
       console.error('Memory mutation failed:', e)
-      toast.error(intl.formatMessage({ id: 'memory.mutation.error', defaultMessage: 'Failed to save memory. Please try again.' }))
+      toast.error(
+        intl.formatMessage({
+          id: 'memory.mutation.error',
+          defaultMessage: 'Failed to save memory. Please try again.',
+        })
+      )
     }
   }
 
   if (loading) {
     return (
       <div className='py-8 text-center text-xs text-muted-foreground'>
-        {intl.formatMessage({ id: 'agentRun.loading', defaultMessage: '加载中…' })}
+        {intl.formatMessage({
+          id: 'agentRun.loading',
+          defaultMessage: '加载中…',
+        })}
       </div>
     )
   }
@@ -91,7 +111,11 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
               { count: visibleMemories.length }
             )}
           </span>
-          <Button size='sm' variant='outline' onClick={() => setDialog({ open: true, mode: 'create' })}>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => setDialog({ open: true, mode: 'create' })}
+          >
             <Plus className='size-3.5 mr-1' />
             {intl.formatMessage({ id: 'memory.action.add' })}
           </Button>
@@ -101,11 +125,17 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
       {visibleMemories.length === 0 ? (
         <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
           <Brain className='size-6' />
-          <p className='text-sm font-medium'>{intl.formatMessage({ id: 'memory.tab.empty.title' })}</p>
+          <p className='text-sm font-medium'>
+            {intl.formatMessage({ id: 'memory.tab.empty.title' })}
+          </p>
           <p className='text-[11px] max-w-xs text-center'>
             {intl.formatMessage({ id: 'memory.tab.empty.description' })}
           </p>
-          <Button size='sm' variant='ghost' onClick={() => setDialog({ open: true, mode: 'create' })}>
+          <Button
+            size='sm'
+            variant='ghost'
+            onClick={() => setDialog({ open: true, mode: 'create' })}
+          >
             {intl.formatMessage({ id: 'memory.tab.empty.cta' })}
           </Button>
         </div>
@@ -116,8 +146,15 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
               key={m.id}
               memory={m}
               canPromote={scope === 'task' && m.scope === 'TASK'}
-              memberName={m.createdByMemberId ? memberNames?.get(m.createdByMemberId) : undefined}
-              onEdit={editing => setDialog({ open: true, mode: 'edit', editing })}
+              memberName={
+                m.createdByMemberId
+                  ? memberNames?.get(m.createdByMemberId)
+                  : undefined
+              }
+              trust={trust[m.id]}
+              onEdit={editing =>
+                setDialog({ open: true, mode: 'edit', editing })
+              }
               onPromote={mem => promote(mem.id)}
               onDelete={mem => remove(mem.id)}
             />
