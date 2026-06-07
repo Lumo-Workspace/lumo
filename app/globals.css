@@ -64,43 +64,45 @@ html {
   opacity: 1;
 }
 
-/* highlight.js token theme — adaptive via .dark overrides below.
-   Light palette mirrors GitHub light; .dark mirrors GitHub dark. */
+/* highlight.js token theme. Colors come from the --hljs-* categorical palette
+   (defined in :root / .dark below) — light mirrors GitHub light, dark mirrors
+   GitHub dark. The dark variants resolve automatically through the redefined
+   custom properties, so these rules carry no per-mode override of their own. */
 .hljs-comment,
 .hljs-quote {
-  color: #6a737d;
+  color: var(--hljs-comment);
   font-style: italic;
 }
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-type {
-  color: #d73a49;
+  color: var(--hljs-keyword);
 }
 .hljs-string,
 .hljs-attr,
 .hljs-template-tag,
 .hljs-regexp,
 .hljs-addition {
-  color: #032f62;
+  color: var(--hljs-string);
 }
 .hljs-number,
 .hljs-meta,
 .hljs-built_in,
 .hljs-builtin-name,
 .hljs-symbol {
-  color: #005cc5;
+  color: var(--hljs-number);
 }
 .hljs-title,
 .hljs-section,
 .hljs-function .hljs-title,
 .hljs-name {
-  color: #6f42c1;
+  color: var(--hljs-title);
 }
 .hljs-attribute,
 .hljs-variable,
 .hljs-tag {
-  color: #e36209;
+  color: var(--hljs-attribute);
 }
 .hljs-emphasis {
   font-style: italic;
@@ -109,46 +111,7 @@ html {
   font-weight: 600;
 }
 .hljs-deletion {
-  color: #b31d28;
-}
-
-.dark .hljs-comment,
-.dark .hljs-quote {
-  color: #8b949e;
-}
-.dark .hljs-keyword,
-.dark .hljs-selector-tag,
-.dark .hljs-literal,
-.dark .hljs-type {
-  color: #ff7b72;
-}
-.dark .hljs-string,
-.dark .hljs-attr,
-.dark .hljs-template-tag,
-.dark .hljs-regexp,
-.dark .hljs-addition {
-  color: #a5d6ff;
-}
-.dark .hljs-number,
-.dark .hljs-meta,
-.dark .hljs-built_in,
-.dark .hljs-builtin-name,
-.dark .hljs-symbol {
-  color: #79c0ff;
-}
-.dark .hljs-title,
-.dark .hljs-section,
-.dark .hljs-function .hljs-title,
-.dark .hljs-name {
-  color: #d2a8ff;
-}
-.dark .hljs-attribute,
-.dark .hljs-variable,
-.dark .hljs-tag {
-  color: #ffa657;
-}
-.dark .hljs-deletion {
-  color: #ffa198;
+  color: var(--hljs-deletion);
 }
 
 /* ── Callout block (CalloutNodeView) ───────────────────────────── */
@@ -584,6 +547,21 @@ html {
   ); /* yellow-600 darkened to clear WCAG 3:1 graphics on #fff (was L0.681=2.93:1, now 3.18:1) — LUM-286 */
   --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
 
+  /* highlight.js syntax palette (LUM-288). A categorical color set — one color
+     per syntax category, mirroring GitHub's light theme — consumed by the
+     .hljs-* rules above via var(). Like --priority-*, this is a sanctioned
+     palette exception, NOT a semantic UI token: the colors key off code-syntax
+     categories, not UI roles, so they stay as the upstream GitHub hex (legible
+     against that reference) rather than oklch. The bright GitHub-dark
+     counterparts live in the .dark block. */
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #d73a49;
+  --hljs-string: #032f62;
+  --hljs-number: #005cc5;
+  --hljs-title: #6f42c1;
+  --hljs-attribute: #e36209;
+  --hljs-deletion: #b31d28;
+
   --font-inter: 'Inter', sans-serif;
   --font-source-code-pro: 'Source Code Pro', monospace;
 }
@@ -653,6 +631,15 @@ html {
   --priority-high: oklch(0.705 0.213 47.604); /* orange-500 */
   --priority-medium: oklch(0.795 0.184 86.047); /* yellow-500 */
   --priority-low: oklch(0.705 0.015 286.067); /* zinc-400 */
+
+  /* highlight.js syntax palette — bright GitHub-dark variants (LUM-288). */
+  --hljs-comment: #8b949e;
+  --hljs-keyword: #ff7b72;
+  --hljs-string: #a5d6ff;
+  --hljs-number: #79c0ff;
+  --hljs-title: #d2a8ff;
+  --hljs-attribute: #ffa657;
+  --hljs-deletion: #ffa198;
 }
 
 @theme inline {
