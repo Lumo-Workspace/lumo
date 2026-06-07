@@ -14,6 +14,10 @@ describe('tierOf', () => {
   it('low (tier 2) below 50% with enough samples', () => {
     expect(tierOf({ resolvedTasks: 4, mergedTasks: 1 })).toBe(2) // 25%
   })
+  it('at the floor with zero merges is proven-low (tier 2), not cold', () => {
+    expect(tierOf({ resolvedTasks: 3, mergedTasks: 0 })).toBe(2)
+    expect(tierOf({ resolvedTasks: 2, mergedTasks: 0 })).toBe(1)
+  })
 })
 
 describe('rankByLineage', () => {
@@ -56,11 +60,6 @@ describe('rankByLineage', () => {
       ])
     )
     expect(out).toEqual(['many', 'few'])
-  })
-
-  it('preserves input order within the cold tier (stable)', () => {
-    const out = rankByLineage(['x', 'y', 'z'], key, stats([]))
-    expect(out).toEqual(['x', 'y', 'z'])
   })
 
   it('is the identity permutation when everything is cold', () => {
