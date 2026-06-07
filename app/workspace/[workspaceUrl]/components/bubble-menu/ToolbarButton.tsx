@@ -44,16 +44,16 @@ export function ToolbarButton({
             if (!disabled) onClick()
           }}
           className={cn(
-            'flex items-center justify-center size-7 rounded transition-colors',
+            'flex items-center justify-center size-7 rounded-sm transition-colors',
             disabled
-              ? 'opacity-40 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
+              ? 'opacity-40 cursor-not-allowed text-muted-foreground'
               : variant === 'destructive'
                 ? active
                   ? 'bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'
                   : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 dark:hover:text-destructive'
                 : active
-                  ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           )}
         >
           {children}
@@ -66,6 +66,6 @@ export function ToolbarButton({
 
 export function Divider() {
   return (
-    <div className='w-px h-4 bg-zinc-200 dark:bg-zinc-700 mx-0.5 shrink-0' />
+    <div className='w-px h-4 bg-border mx-0.5 shrink-0' />
   )
 }

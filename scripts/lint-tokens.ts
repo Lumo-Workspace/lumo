@@ -79,6 +79,10 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   // sent to the client (member.service + AssigneeSelect default), not a CSS
   // token. Single source of truth confined to this module.
   /^lib\/constants\/avatar\.ts$/,
+  // Rich-text editor font/highlight color palettes — users pick a hex that's
+  // written into the document (TipTap marks), so the raw hex is payload data,
+  // not a CSS token. Confined to this module.
+  /\/bubble-menu\/editor-colors\.ts$/,
 ]
 
 const SCAN_DIRS = ['app', 'components', 'lib'] as const
