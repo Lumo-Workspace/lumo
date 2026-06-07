@@ -34,12 +34,34 @@ describe('lint-tokens / detectViolations', () => {
     expect(v.every(x => x.rule === 'palette')).toBe(true)
   })
 
-  it('does NOT flag brand-palette colors (red/blue/violet/...)', () => {
+  it('flags brand-palette colors (red/blue/violet/...) as brand (LUM-290)', () => {
     const v = detectViolations(
       'app/foo.tsx',
       `<div className="text-blue-500 bg-emerald-100 ring-violet-400" />`
     )
+    expect(v.map(x => x.match).sort()).toEqual([
+      'bg-emerald-100',
+      'ring-violet-400',
+      'text-blue-500',
+    ])
+    expect(v.every(x => x.rule === 'brand')).toBe(true)
+  })
+
+  it('does NOT flag the --chart-* token utilities (bg-chart-1, text-chart-5)', () => {
+    const v = detectViolations(
+      'app/foo.tsx',
+      `<div className="bg-chart-1 text-chart-5 fill-chart-3" />`
+    )
     expect(v).toEqual([])
+  })
+
+  it('keeps neutral palettes on the `palette` rule, brand on `brand`', () => {
+    const v = detectViolations(
+      'app/foo.tsx',
+      `<div className="bg-zinc-500 bg-blue-500" />`
+    )
+    const byMatch = Object.fromEntries(v.map(x => [x.match, x.rule]))
+    expect(byMatch).toEqual({ 'bg-zinc-500': 'palette', 'bg-blue-500': 'brand' })
   })
 
   it('does NOT match hex inside identifiers (cmt#abc123, foo#bar)', () => {
