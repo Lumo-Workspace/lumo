@@ -296,7 +296,7 @@ export function ProjectsPage({
           so it never pushes the table headers down). */}
       <div className='h-12 shrink-0 relative'>
         {selectedCount > 0 && (
-          <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
+          <div className='absolute inset-0 z-sticky flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
             <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
               {intl.formatMessage(
                 { id: 'common.selected' },
@@ -358,7 +358,7 @@ export function ProjectsPage({
           }
         >
           <table className='w-full border-collapse'>
-            <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-10'>
+            <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-sticky'>
               <tr>
                 <th className='py-3 px-4 w-10'>
                   <Checkbox

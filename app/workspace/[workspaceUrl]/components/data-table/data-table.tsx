@@ -207,7 +207,7 @@ export function DataTable<TData, TValue>({
       <div role='rowgroup'>
         <div
           role='row'
-          className='grid sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border'
+          className='grid sticky top-0 z-sticky bg-background/80 backdrop-blur-sm border-b border-border'
           style={{ gridTemplateColumns: columnTemplate }}
         >
           {headerGroup?.headers.map(header => (
