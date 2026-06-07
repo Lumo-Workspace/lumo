@@ -822,6 +822,7 @@ export const taskContextService = {
           memoryProvenanceRepository.resolveCanonicalFragment(type, id),
         mergeRateByFragments: refs =>
           lineageEdgeRepository.mergeRateByFragments(refs),
+        countResolvedTasks: () => lineageEdgeRepository.countResolvedTasks(),
       }
     )
 
