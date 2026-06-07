@@ -13,6 +13,7 @@ import type { Task, Project } from '@prisma/client'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
+import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,13 @@ export async function handlePullRequest(
   }
 
   if (!task) return
+
+  // Close the task's lineage edges when this PR reaches a terminal state
+  // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
+  // redelivery or the getTaskDetail poller double-firing is harmless.
+  if (state !== 'open') {
+    stampLineageInBackground(s => s.stampForPrState(task.id, state))
+  }
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)

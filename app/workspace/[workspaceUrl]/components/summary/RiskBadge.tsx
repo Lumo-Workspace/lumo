@@ -9,31 +9,41 @@ interface RiskBadgeProps {
   showLabel?: boolean
 }
 
+// Maps to the semantic feedback tokens (LUM-258/LUM-290), mirroring the callout
+// pattern: -subtle tint + -border border + accent dot. The label stays
+// text-foreground because the bright accents fail AA as text on their own
+// -subtle tint (~2:1) — color is carried by the dot / tint / border, which is
+// accessible. -subtle / -border are translucent color-mix, so a single class
+// adapts to dark with no `dark:` variant.
 const STYLES: Record<
   RiskLevel | 'null',
-  { dot: string; bg: string; text: string; labelKey: string }
+  { dot: string; bg: string; border: string; text: string; labelKey: string }
 > = {
   healthy: {
-    dot: 'bg-emerald-500',
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    text: 'text-emerald-700 dark:text-emerald-300',
+    dot: 'bg-success',
+    bg: 'bg-success-subtle',
+    border: 'border border-success-border',
+    text: 'text-foreground',
     labelKey: 'summary.riskLevel.healthy',
   },
   watch: {
-    dot: 'bg-amber-500',
-    bg: 'bg-amber-50 dark:bg-amber-900/20',
-    text: 'text-amber-700 dark:text-amber-300',
+    dot: 'bg-warning',
+    bg: 'bg-warning-subtle',
+    border: 'border border-warning-border',
+    text: 'text-foreground',
     labelKey: 'summary.riskLevel.watch',
   },
   'at-risk': {
-    dot: 'bg-red-500',
-    bg: 'bg-red-50 dark:bg-red-900/20',
-    text: 'text-red-700 dark:text-red-300',
+    dot: 'bg-danger',
+    bg: 'bg-danger-subtle',
+    border: 'border border-danger-border',
+    text: 'text-foreground',
     labelKey: 'summary.riskLevel.atRisk',
   },
   null: {
     dot: 'bg-muted-foreground',
     bg: 'bg-transparent',
+    border: '',
     text: 'text-muted-foreground',
     labelKey: 'summary.riskLevel.unassessed',
   },
@@ -51,7 +61,7 @@ export function RiskBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full ${padding} ${style.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full ${padding} ${style.bg} ${style.border}`}
     >
       <span className={`${dotSize} rounded-full ${style.dot}`} aria-hidden />
       {showLabel && (

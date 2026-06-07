@@ -1,13 +1,19 @@
 /**
  * Token-discipline lint.
  *
- * Forbids two patterns in business code:
+ * Forbids these patterns in business code:
  *   1. Raw hex literals     (#fff, #1a1a1a, #41B40Faa, ...)
  *   2. Neutral palette classes that overlap with the token system
  *      (text-zinc-500, bg-slate-100, border-gray-200, ...) — these
- *      bypass `--background` / `--foreground` / `--muted` / `--border`
- *      etc. Brand palettes (red/blue/violet/...) are NOT flagged: they
- *      have legitimate non-token uses (chart accents, illustrations).
+ *      bypass `--background` / `--foreground` / `--muted` / `--border`.
+ *   3. Brand palette classes (text-blue-500, bg-emerald-100, ...) — these
+ *      leak ad-hoc Tailwind brand colors past the token system (LUM-290).
+ *      Legitimate categorical color belongs in semantic feedback/status
+ *      tokens or the `--chart-*` data-viz palette (consumed as bg-chart-1
+ *      etc., which are NOT brand classes so they pass). Decorative-payload
+ *      surfaces (icons, illustrations, landing, tag palettes) are carried
+ *      by the ALLOWLIST; the existing brand-color backlog is frozen in the
+ *      baseline so the rule only blocks NEW leaks.
  *
  * Baseline gate
  *   The repo carries ~2 000 pre-existing violations. A strict gate
@@ -27,7 +33,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 
-export type Rule = 'hex' | 'palette' | 'radius' | 'shadow' | 'zindex'
+export type Rule = 'hex' | 'palette' | 'brand' | 'radius' | 'shadow' | 'zindex'
 
 export type Violation = {
   file: string
@@ -129,6 +135,14 @@ const HEX_RE = /(?<!\w)#[0-9a-fA-F]{3,8}\b/g
 const PALETTE_CLASS_RE =
   /\b(?:text|bg|border|ring|fill|stroke|shadow|from|to|via|outline|divide|placeholder|accent|caret|decoration)-(?:zinc|slate|gray|neutral|stone)-(?:50|[1-9]00|950)(?:\/\d+)?\b/g
 
+// Brand palette classes (LUM-290): any Tailwind brand color family on a color
+// utility. These leak ad-hoc color past the token system — use a semantic
+// feedback/status token or the --chart-* palette (bg-chart-1, which is NOT a
+// brand family, so it passes). Neutrals are intentionally excluded here (the
+// `palette` rule owns them); `--chart-*` is a token namespace, not a family.
+const BRAND_CLASS_RE =
+  /\b(?:text|bg|border|ring|fill|stroke|shadow|from|to|via|outline|divide|placeholder|accent|caret|decoration)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|[1-9]00|950)(?:\/\d+)?\b/g
+
 // Bare `rounded` (no tier suffix) bypasses the radius scale — its value
 // (0.25rem) now equals rounded-sm, so it's semantically redundant. Tiered
 // (rounded-md), directional (rounded-l), and arbitrary (rounded-[2px])
@@ -199,6 +213,16 @@ export function detectViolations(
         rule: 'palette',
       })
     }
+    BRAND_CLASS_RE.lastIndex = 0
+    while ((m = BRAND_CLASS_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'brand',
+      })
+    }
     BARE_ROUNDED_RE.lastIndex = 0
     while ((m = BARE_ROUNDED_RE.exec(line)) !== null) {
       out.push({
@@ -236,6 +260,7 @@ export function detectViolations(
 const RULE_LABELS: Record<Rule, string> = {
   hex: 'hex literal  ',
   palette: 'palette class',
+  brand: 'brand class  ',
   radius: 'bare rounded ',
   shadow: 'raw shadow   ',
   zindex: 'arbitrary z  ',
