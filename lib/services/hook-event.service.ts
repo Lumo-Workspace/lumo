@@ -17,11 +17,19 @@ interface RecordHookEventInput {
   agent?: TaskArtifactAgent
 }
 
+interface ModelUsage {
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+}
+
 interface InjectedUsage {
   inputTokens: number
   outputTokens: number
   cacheReadTokens: number
   cacheCreationTokens: number
+  byModel: Record<string, ModelUsage>
 }
 
 function extractInjectedUsage(payload: unknown): InjectedUsage | null {
@@ -31,11 +39,26 @@ function extractInjectedUsage(payload: unknown): InjectedUsage | null {
   const o = u as Record<string, unknown>
   const num = (v: unknown) =>
     typeof v === 'number' && Number.isFinite(v) ? v : 0
+  const byModel: Record<string, ModelUsage> = {}
+  const raw = o['byModel']
+  if (raw && typeof raw === 'object') {
+    for (const [model, mv] of Object.entries(raw as Record<string, unknown>)) {
+      if (!mv || typeof mv !== 'object') continue
+      const m = mv as Record<string, unknown>
+      byModel[model] = {
+        input: num(m['input']),
+        output: num(m['output']),
+        cacheRead: num(m['cacheRead']),
+        cacheCreation: num(m['cacheCreation']),
+      }
+    }
+  }
   return {
     inputTokens: num(o.inputTokens),
     outputTokens: num(o.outputTokens),
     cacheReadTokens: num(o.cacheReadTokens),
     cacheCreationTokens: num(o.cacheCreationTokens),
+    byModel,
   }
 }
 

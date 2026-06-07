@@ -1,6 +1,36 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, TaskArtifactAgent } from '@prisma/client'
 
+export interface ModelUsage {
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+}
+
+/**
+ * Per-turn per-model delta = next cumulative minus prior cumulative, clamped
+ * to >= 0 per field (a transcript can shrink on compaction, which would make a
+ * naive subtraction negative). Models present only in `next` yield their full
+ * value (first turn using that model). Pure + exported for unit testing.
+ */
+export function diffUsageByModel(
+  prior: Record<string, ModelUsage> | null | undefined,
+  next: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = {}
+  for (const [model, n] of Object.entries(next)) {
+    const p = prior?.[model]
+    out[model] = {
+      input: Math.max(0, n.input - (p?.input ?? 0)),
+      output: Math.max(0, n.output - (p?.output ?? 0)),
+      cacheRead: Math.max(0, n.cacheRead - (p?.cacheRead ?? 0)),
+      cacheCreation: Math.max(0, n.cacheCreation - (p?.cacheCreation ?? 0)),
+    }
+  }
+  return out
+}
+
 interface UpsertSessionData {
   id: string
   workspaceId: string
@@ -21,6 +51,8 @@ interface UpsertSessionData {
         outputTokens: number
         cacheReadTokens: number
         cacheCreationTokens: number
+        /** Cumulative per-model map keyed by raw model string. */
+        byModel: Record<string, ModelUsage>
       }
     | null
     | undefined
@@ -49,22 +81,64 @@ export const sessionRepository = {
    * loopCount.
    */
   async upsertForHookEvent(data: UpsertSessionData) {
+    // STOP carrying usage: compute the per-turn per-model delta atomically
+    // against the prior cumulative, then overwrite cumulative columns.
+    if (data.isStop && data.usage) {
+      const usage = data.usage
+      return prisma.$transaction(async tx => {
+        const prior = await tx.session.findUnique({
+          where: { id: data.id },
+          select: { usageByModel: true },
+        })
+        const turnUsageByModel = diffUsageByModel(
+          (prior?.usageByModel as Record<string, ModelUsage> | null) ?? null,
+          usage.byModel
+        )
+        const flat = {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheCreationTokens: usage.cacheCreationTokens,
+          usageByModel: usage.byModel as unknown as Prisma.InputJsonValue,
+        }
+        const row = await tx.session.upsert({
+          where: { id: data.id },
+          create: {
+            id: data.id,
+            workspaceId: data.workspaceId,
+            workspaceMemberId: data.workspaceMemberId,
+            cwd: data.cwd,
+            taskId: null,
+            ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            startedAt: data.now,
+            lastActivityAt: data.now,
+            eventCount: 1,
+            ...flat,
+            loopCount: 1,
+          },
+          update: {
+            lastActivityAt: data.now,
+            eventCount: { increment: 1 },
+            ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...flat,
+            loopCount: { increment: 1 },
+          },
+          select: { id: true, taskId: true },
+        })
+        return { taskId: row.taskId, turnUsageByModel }
+      })
+    }
+
+    // Non-STOP (or STOP without usage): cheap single upsert, no token write.
+    // A STOP without usage still bumps loopCount.
     const setOnUpdate: Prisma.SessionUpdateInput = {
       lastActivityAt: data.now,
       eventCount: { increment: 1 },
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
-    if (data.usage) {
-      // Cumulative totals -> OVERWRITE, not increment (the CLI re-reads the whole
-      // transcript each STOP, so the latest value is the running total).
-      setOnUpdate.inputTokens = data.usage.inputTokens
-      setOnUpdate.outputTokens = data.usage.outputTokens
-      setOnUpdate.cacheReadTokens = data.usage.cacheReadTokens
-      setOnUpdate.cacheCreationTokens = data.usage.cacheCreationTokens
-    }
     if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
 
-    return prisma.session.upsert({
+    const row = await prisma.session.upsert({
       where: { id: data.id },
       create: {
         id: data.id,
@@ -76,19 +150,12 @@ export const sessionRepository = {
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
-        ...(data.usage
-          ? {
-              inputTokens: data.usage.inputTokens,
-              outputTokens: data.usage.outputTokens,
-              cacheReadTokens: data.usage.cacheReadTokens,
-              cacheCreationTokens: data.usage.cacheCreationTokens,
-            }
-          : {}),
         ...(data.isStop ? { loopCount: 1 } : {}),
       },
       update: setOnUpdate,
       select: { id: true, taskId: true },
     })
+    return { taskId: row.taskId, turnUsageByModel: null }
   },
 
   /**
