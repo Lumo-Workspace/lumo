@@ -1,6 +1,7 @@
 import type { HookEventType, Prisma, TaskArtifactAgent } from '@prisma/client'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
@@ -15,13 +16,6 @@ interface RecordHookEventInput {
    * (CLAUDE_CODE) then applies.
    */
   agent?: TaskArtifactAgent
-}
-
-interface ModelUsage {
-  input: number
-  output: number
-  cacheRead: number
-  cacheCreation: number
 }
 
 interface InjectedUsage {
@@ -134,6 +128,7 @@ export const hookEventService = {
     const usage = isStop ? extractInjectedUsage(payload) : null
 
     let taskId: string | null = null
+    let turnUsageByModel: Record<string, ModelUsage> | null = null
     if (sessionId) {
       const session = await sessionRepository.upsertForHookEvent({
         id: sessionId,
@@ -146,6 +141,7 @@ export const hookEventService = {
         isStop,
       })
       taskId = session.taskId
+      turnUsageByModel = session.turnUsageByModel
     }
 
     const toolName = extractStringField(payload, 'tool_name')
@@ -159,6 +155,10 @@ export const hookEventService = {
       toolName,
       filePath,
       payload,
+      usageByModel:
+        turnUsageByModel != null
+          ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
+          : null,
     })
 
     // Surface the validated sessionId/taskId plus the extracted toolName/filePath

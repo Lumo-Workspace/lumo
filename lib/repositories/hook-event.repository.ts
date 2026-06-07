@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
-import type { HookEventType, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { HookEventType } from '@prisma/client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ interface CreateHookEventData {
    * LUM-146 "last file changed"). Null for events that carry no file path.
    */
   filePath?: string | null
+  /** Per-turn per-model token delta (LUM-298). Set only on STOP rows. */
+  usageByModel?: Prisma.InputJsonValue | null
 }
 
 interface FindRecentOtherSessionWritesParams {
@@ -45,6 +48,10 @@ export const hookEventRepository = {
         toolName: data.toolName,
         filePath: data.filePath ?? null,
         payload: data.payload,
+        usageByModel:
+          data.usageByModel != null
+            ? (data.usageByModel as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
       },
       select: { id: true },
     })
@@ -148,6 +155,7 @@ export const hookEventRepository = {
         toolName: true,
         payload: true,
         turnSummary: true,
+        usageByModel: true,
         createdAt: true,
       },
     })

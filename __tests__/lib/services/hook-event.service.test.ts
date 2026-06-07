@@ -40,8 +40,8 @@ beforeEach(() => {
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   repo.createHookEvent.mockResolvedValue({ id: 'he_1' } as never)
   sess.upsertForHookEvent.mockResolvedValue({
-    id: 'sess_1',
     taskId: null,
+    turnUsageByModel: null,
   } as never)
 })
 
@@ -99,6 +99,7 @@ describe('hookEventService.recordHookEvent', () => {
         tool_name: 'Read',
         tool_input: { file_path: '/x' },
       },
+      usageByModel: null,
     })
   })
 
@@ -251,6 +252,7 @@ describe('hookEventService.recordHookEvent', () => {
           outputTokens: 500,
           cacheReadTokens: 200,
           cacheCreationTokens: 100,
+          byModel: {},
         },
       },
     })
@@ -262,6 +264,7 @@ describe('hookEventService.recordHookEvent', () => {
       outputTokens: 500,
       cacheReadTokens: 200,
       cacheCreationTokens: 100,
+      byModel: {},
     })
   })
 
@@ -276,6 +279,7 @@ describe('hookEventService.recordHookEvent', () => {
           outputTokens: 400,
           cacheReadTokens: 150,
           cacheCreationTokens: 50,
+          byModel: {},
         },
       },
     })
@@ -287,6 +291,7 @@ describe('hookEventService.recordHookEvent', () => {
       outputTokens: 400,
       cacheReadTokens: 150,
       cacheCreationTokens: 50,
+      byModel: {},
     })
   })
 
@@ -336,6 +341,88 @@ describe('hookEventService.recordHookEvent', () => {
 
     expect(repo.createHookEvent).toHaveBeenCalledWith(
       expect.objectContaining({ filePath: '/repo/written.ts' })
+    )
+  })
+
+  it('parses byModel from _lumo_usage and forwards it on STOP', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'STOP',
+      payload: {
+        session_id: 'sess_abc',
+        _lumo_usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheReadTokens: 200,
+          cacheCreationTokens: 100,
+          byModel: {
+            'claude-opus-4-8': {
+              input: 1000,
+              output: 500,
+              cacheRead: 200,
+              cacheCreation: 100,
+            },
+          },
+        },
+      },
+    })
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.usage).toEqual({
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 200,
+      cacheCreationTokens: 100,
+      byModel: {
+        'claude-opus-4-8': {
+          input: 1000,
+          output: 500,
+          cacheRead: 200,
+          cacheCreation: 100,
+        },
+      },
+    })
+  })
+
+  it('stores the per-turn delta returned by the session upsert on the HookEvent', async () => {
+    sess.upsertForHookEvent.mockResolvedValue({
+      taskId: 'task_42',
+      turnUsageByModel: {
+        opus: { input: 600, output: 300, cacheRead: 150, cacheCreation: 60 },
+      },
+    } as never)
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'STOP',
+      payload: {
+        session_id: 'sess_abc',
+        _lumo_usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          byModel: {
+            opus: { input: 1, output: 1, cacheRead: 0, cacheCreation: 0 },
+          },
+        },
+      },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usageByModel: {
+          opus: { input: 600, output: 300, cacheRead: 150, cacheCreation: 60 },
+        },
+      })
+    )
+  })
+
+  it('passes usageByModel:null on non-stop events', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ usageByModel: null })
     )
   })
 

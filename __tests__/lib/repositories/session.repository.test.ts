@@ -521,4 +521,20 @@ describe('sessionRepository.upsertForHookEvent — STOP with usage', () => {
     expect(args.create.loopCount).toBe(1)
     expect(result.turnUsageByModel).toEqual(stopArgs.usage.byModel)
   })
+
+  it('STOP without usage still bumps loopCount and returns null delta', async () => {
+    upsert.mockResolvedValue({ id: 'sess_1', taskId: null })
+    const result = await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      isStop: true,
+    })
+    expect((upsert.mock.calls[0][0] as any).update.loopCount).toEqual({
+      increment: 1,
+    })
+    expect(result.turnUsageByModel).toBeNull()
+  })
 })
