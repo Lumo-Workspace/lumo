@@ -3,6 +3,7 @@ import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
 import { getEdgeCost } from '@/lib/repositories/lineage-cost'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType, LineageOutcome } from '@prisma/client'
 
@@ -69,7 +70,8 @@ export const lineageService = {
    * session-start. MEMORY ids are canonicalized (promoted PROJECT id, not the
    * pre-consolidation TASK cuid). Duplicates that collapse after canonicalization
    * are dropped in-memory; the DB unique index + `skipDuplicates` absorb re-fires
-   * of the same session. `outcome` is left UNKNOWN (stamped later by LUM-277);
+   * of the same session. `outcome` is left UNKNOWN at insert; if the task is already DONE it is then
+   * stamped MERGED in the same call (LUM-296), else stamped later by LUM-277.
    * `runId` stays NULL (session-start precedes any agent run).
    *
    * Best-effort: must never throw — it runs inside the hook's `waitUntil` and a
@@ -107,6 +109,19 @@ export const lineageService = {
           sessionId,
         }))
       )
+
+      // LUM-296: edges are usually born *after* the task's terminal event, so
+      // the event-forward outcome triggers (webhook / task→DONE) already fired
+      // and will never re-fire. If the task is already DONE, stamp the new
+      // edges MERGED now. Monotonic + idempotent (stampOutcomeByTask), and
+      // safe for reopened tasks: a reopened task is status != DONE, so its
+      // rework edges correctly stay UNKNOWN until it is DONE again. Stragglers
+      // and edges born before this path shipped (historical backfill) are caught
+      // by the cron sweep.
+      const status = await taskRepository.getStatus(taskId)
+      if (status === 'DONE') {
+        await lineageEdgeRepository.stampOutcomeByTask(taskId, 'MERGED')
+      }
     } catch (err) {
       // Best-effort: log and swallow.
       logger.error('lineageService.recordSessionStartEdges failed', err)
