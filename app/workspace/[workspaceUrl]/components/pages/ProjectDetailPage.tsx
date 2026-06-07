@@ -200,8 +200,8 @@ export function ProjectDetailPage({
             className={cn(
               'px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
               tab === t
-                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             )}
           >
             {intl.formatMessage({

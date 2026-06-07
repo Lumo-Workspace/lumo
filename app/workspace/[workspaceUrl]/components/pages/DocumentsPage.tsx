@@ -350,7 +350,7 @@ export function DocumentsPage({
             className={cn(
               'px-3 py-1 text-xs rounded-md transition-colors',
               filter === f.key
-                ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:text-foreground'
             )}
             onClick={() => setFilter(f.key)}

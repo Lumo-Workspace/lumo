@@ -87,16 +87,16 @@ export function ProfilePage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-foreground mb-1'>
           {intl.formatMessage({ id: 'profile.title' })}
         </h1>
-        <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
+        <p className='text-sm text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'profile.subtitle' })}
         </p>
 
-        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900'>
+        <div className='border border-border rounded-lg overflow-hidden bg-card'>
           {/* Avatar row */}
-          <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
+          <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-3'>
               {isLoaded && user?.imageUrl ? (
                 <img
@@ -110,10 +110,10 @@ export function ProfilePage() {
                 </div>
               )}
               <div>
-                <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+                <p className='text-sm font-medium text-foreground'>
                   {intl.formatMessage({ id: 'profile.avatar' })}
                 </p>
-                <p className='text-xs text-zinc-400'>
+                <p className='text-xs text-muted-foreground'>
                   {intl.formatMessage({ id: 'profile.avatarHint' })}
                 </p>
               </div>
@@ -141,8 +141,8 @@ export function ProfilePage() {
           </div>
 
           {/* Name row */}
-          <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
-            <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0 mr-4'>
+          <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
+            <p className='text-sm font-medium text-foreground shrink-0 mr-4'>
               {intl.formatMessage({ id: 'profile.name' })}
             </p>
             <div className='flex items-center gap-2'>
@@ -176,10 +176,10 @@ export function ProfilePage() {
 
           {/* Email row (read-only) */}
           <div className='flex items-center justify-between px-4 py-3'>
-            <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+            <p className='text-sm font-medium text-foreground'>
               {intl.formatMessage({ id: 'profile.email' })}
             </p>
-            <p className='text-sm text-zinc-400'>
+            <p className='text-sm text-muted-foreground'>
               {isLoaded ? (user?.emailAddresses[0]?.emailAddress ?? '—') : '…'}
             </p>
           </div>

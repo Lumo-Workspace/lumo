@@ -52,8 +52,8 @@ function ThemeOption({
       onClick={() => onSelect(value)}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
         active
-          ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium'
-          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+          ? 'bg-muted text-foreground font-medium'
+          : 'text-muted-foreground hover:bg-muted'
       }`}
     >
       <Icon size={14} />
@@ -89,24 +89,24 @@ export function PreferencesPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-foreground mb-1'>
           {intl.formatMessage({ id: 'preferences.title' })}
         </h1>
-        <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
+        <p className='text-sm text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'preferences.subtitle' })}
         </p>
 
         {/* Appearance */}
-        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900'>
+        <div className='border border-border rounded-lg overflow-hidden bg-card'>
           {/* Theme row */}
-          <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
+          <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-2'>
-              <Sun size={14} className='text-zinc-400' />
-              <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+              <Sun size={14} className='text-muted-foreground' />
+              <p className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'preferences.theme' })}
               </p>
             </div>
-            <div className='flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5'>
+            <div className='flex items-center gap-1 bg-muted rounded-lg p-0.5'>
               <ThemeOption
                 value='light'
                 current={prefs.theme}
@@ -132,10 +132,10 @@ export function PreferencesPage() {
           </div>
 
           {/* Language row */}
-          <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
+          <div className='flex items-center justify-between px-4 py-3 border-b border-border'>
             <div className='flex items-center gap-2'>
-              <Globe size={14} className='text-zinc-400' />
-              <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+              <Globe size={14} className='text-muted-foreground' />
+              <p className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'preferences.language' })}
               </p>
             </div>
@@ -173,8 +173,8 @@ export function PreferencesPage() {
           {/* Timezone row */}
           <div className='flex items-center justify-between px-4 py-3'>
             <div className='flex items-center gap-2'>
-              <Clock size={14} className='text-zinc-400' />
-              <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+              <Clock size={14} className='text-muted-foreground' />
+              <p className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'preferences.timezone' })}
               </p>
             </div>

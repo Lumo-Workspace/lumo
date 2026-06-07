@@ -83,7 +83,7 @@ export function ProjectHeader({
               variant='ghost'
               size='icon'
               onClick={onSlack}
-              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              className='h-6 w-6 text-muted-foreground hover:text-foreground'
               title={intl.formatMessage({
                 id: 'project.slackNotifications',
                 defaultMessage: 'Slack notifications',
@@ -97,7 +97,7 @@ export function ProjectHeader({
               variant='ghost'
               size='icon'
               onClick={onCopyLink}
-              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              className='h-6 w-6 text-muted-foreground hover:text-foreground'
               title={intl.formatMessage({
                 id: 'project.copyLink',
                 defaultMessage: 'Copy link',
@@ -111,7 +111,7 @@ export function ProjectHeader({
               <Button
                 variant='ghost'
                 size='icon'
-                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                className='h-6 w-6 text-muted-foreground hover:text-foreground'
               >
                 <MoreHorizontal size={14} />
               </Button>

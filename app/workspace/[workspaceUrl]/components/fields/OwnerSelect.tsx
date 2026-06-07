@@ -55,12 +55,12 @@ export function OwnerSelect({
                 <span>{owner.name}</span>
               </div>
             ) : inherited ? (
-              <div className='flex items-center gap-1.5 text-zinc-400'>
+              <div className='flex items-center gap-1.5 text-muted-foreground'>
                 <MemberAvatar member={inherited} size='xs' />
                 <span className='italic'>{inherited.name}</span>
               </div>
             ) : (
-              <div className='flex items-center gap-1.5 text-zinc-400'>
+              <div className='flex items-center gap-1.5 text-muted-foreground'>
                 <Eye size={14} />
                 <span>{unassignedLabel}</span>
               </div>
@@ -72,8 +72,8 @@ export function OwnerSelect({
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
-            <Eye size={14} className='text-zinc-400 shrink-0' />
-            <span className='text-zinc-400'>{unassignedLabel}</span>
+            <Eye size={14} className='text-muted-foreground shrink-0' />
+            <span className='text-muted-foreground'>{unassignedLabel}</span>
           </div>
         </SelectItem>
         {members

@@ -88,10 +88,10 @@ function StatusCell({
   status: keyof typeof STATUS_DOT_CLS
 }) {
   return (
-    <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
+    <td className='py-4 px-6 border-b border-border'>
       <div className='flex items-center gap-2'>
         <div className={`size-2 rounded-full ${STATUS_DOT_CLS[status]}`} />
-        <span className='text-xs text-zinc-700 dark:text-zinc-300'>
+        <span className='text-xs text-foreground'>
           {count}
         </span>
       </div>
@@ -254,9 +254,9 @@ export function ProjectsPage({
                 })}
               />
               {open && query.trim() && (
-                <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>
+                <div className='absolute top-full mt-1 w-full bg-card border border-border rounded-md shadow-elevation-3 z-50 overflow-hidden'>
                   {filtered.length === 0 ? (
-                    <p className='px-3 py-2.5 text-xs text-zinc-400'>
+                    <p className='px-3 py-2.5 text-xs text-muted-foreground'>
                       {intl.formatMessage({ id: 'projects.searchNoMatch' })}
                     </p>
                   ) : (
@@ -264,7 +264,7 @@ export function ProjectsPage({
                       <Button
                         key={p.id}
                         variant='ghost'
-                        className='w-full justify-between h-auto px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 rounded-none font-normal gap-2'
+                        className='w-full justify-between h-auto px-3 py-2.5 text-xs text-foreground rounded-none font-normal gap-2'
                         onMouseDown={() => {
                           setQuery('')
                           setOpen(false)
@@ -296,8 +296,8 @@ export function ProjectsPage({
           so it never pushes the table headers down). */}
       <div className='h-12 shrink-0 relative'>
         {selectedCount > 0 && (
-          <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
-            <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
+          <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-muted border-b border-border px-6'>
+            <span className='text-xs font-medium text-foreground'>
               {intl.formatMessage(
                 { id: 'common.selected' },
                 { count: selectedCount }
@@ -358,7 +358,7 @@ export function ProjectsPage({
           }
         >
           <table className='w-full border-collapse'>
-            <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-10'>
+            <thead className='sticky top-0 bg-card z-10'>
               <tr>
                 <th className='py-3 px-4 w-10'>
                   <Checkbox
@@ -466,15 +466,15 @@ export function ProjectsPage({
                 />
               </tr>
             </thead>
-            <tbody className='divide-y divide-zinc-100 dark:divide-zinc-800'>
+            <tbody className='divide-y divide-border'>
               {sorted.map(project => (
                 <tr
                   key={project.id}
                   onClick={() => onSelectProject(project)}
-                  className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer group'
+                  className='hover:bg-muted transition-colors cursor-pointer group'
                 >
                   <td
-                    className='py-4 px-4 border-b border-zinc-200 dark:border-zinc-800'
+                    className='py-4 px-4 border-b border-border'
                     onClick={e => e.stopPropagation()}
                   >
                     <Checkbox
@@ -486,9 +486,9 @@ export function ProjectsPage({
                       )}
                     />
                   </td>
-                  <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
+                  <td className='py-4 px-6 border-b border-border'>
                     <div className='flex items-center gap-3'>
-                      <span className='font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
+                      <span className='font-medium text-foreground group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                         {project.name}
                       </span>
                       {project.isIdea && (
@@ -498,8 +498,8 @@ export function ProjectsPage({
                       )}
                     </div>
                   </td>
-                  <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
-                    <span className='px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[11px] font-medium text-zinc-600 dark:text-zinc-400'>
+                  <td className='py-4 px-6 border-b border-border'>
+                    <span className='px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-muted-foreground'>
                       {project._count.tasks}
                     </span>
                   </td>
@@ -513,10 +513,10 @@ export function ProjectsPage({
                     status='IN_REVIEW'
                   />
                   <StatusCell count={project.doneCount} status='DONE' />
-                  <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300'>
+                  <td className='py-4 px-6 border-b border-border text-xs text-foreground'>
                     {project.owner?.name ?? '—'}
                   </td>
-                  <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
+                  <td className='py-4 px-6 text-right text-muted-foreground text-xs border-b border-border'>
                     <div className='flex items-center justify-end gap-2'>
                       <span>
                         {new Date(project.updatedAt).toLocaleDateString()}
@@ -524,7 +524,7 @@ export function ProjectsPage({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100'
+                            className='size-6 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100'
                             onClick={e => {
                               e.stopPropagation()
                               copyLink(
