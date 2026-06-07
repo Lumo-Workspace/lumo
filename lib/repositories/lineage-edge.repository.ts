@@ -49,6 +49,9 @@ export const lineageEdgeRepository = {
    * the column default (UNKNOWN) applies. `skipDuplicates` makes re-injection of
    * the same (sessionId, taskId, fragmentType, fragmentId) a no-op — session-start
    * fires more than once per session (resume/clear/compact).
+   * Dedup applies only to session-bound rows: Postgres treats NULLs as distinct,
+   * so edges with `sessionId = null` (future runId-only edges) are exempt from
+   * the unique constraint.
    */
   async createMany(
     inputs: CreateLineageEdgeInput[],
