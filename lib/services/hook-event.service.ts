@@ -107,8 +107,8 @@ export const hookEventService = {
     // longer carries a per-session sentinel. If session_id is missing
     // (malformed or non-Claude-Code client), record the event unlinked
     // (matches Day 3 tolerance) with no taskId tag.
-    const usage = extractInjectedUsage(payload)
     const isStop = type === 'STOP' || type === 'STOP_FAILURE'
+    const usage = isStop ? extractInjectedUsage(payload) : null
 
     let taskId: string | null = null
     if (sessionId) {
