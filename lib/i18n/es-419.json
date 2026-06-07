@@ -1412,5 +1412,9 @@
   "tokenCost.none": "No hay costos capturados en esta ruta",
   "tokenCost.loops": "{n, plural, one {# iteración} other {# iteraciones}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models no comparables en precio · sin total"
+  "tokenCost.mixedNoTotal": "models no comparables en precio · sin total",
+  "trust.badge.meta": "· {n, plural, one {# tarea} other {# tareas}}",
+  "trust.badge.weak": " · débil",
+  "trust.tooltip.usage": "Usado en {resolved} tareas resueltas · {merged} fusionadas · señal de uso real",
+  "trust.tooltip.presence": "Cargado junto en {resolved} tareas resueltas · {merged} fusionadas · solo co-carga, señal débil"
 }

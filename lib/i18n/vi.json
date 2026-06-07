@@ -1412,5 +1412,9 @@
   "tokenCost.none": "Không có chi phí nào được ghi lại trên lộ trình này",
   "tokenCost.loops": "{n, plural, other {# vòng lặp}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "các model không thể so sánh giá · không có tổng"
+  "tokenCost.mixedNoTotal": "các model không thể so sánh giá · không có tổng",
+  "trust.badge.meta": "· {n} tác vụ",
+  "trust.badge.weak": " · yếu",
+  "trust.tooltip.usage": "Đã dùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · tín hiệu sử dụng thực",
+  "trust.tooltip.presence": "Tải cùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · chỉ co-load, tín hiệu yếu"
 }

@@ -1412,5 +1412,9 @@
   "tokenCost.none": "このトレイルにはコストが記録されていません",
   "tokenCost.loops": "{n, plural, other {# ループ}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "model 間で価格比較不可 · 合計なし"
+  "tokenCost.mixedNoTotal": "model 間で価格比較不可 · 合計なし",
+  "trust.badge.meta": "· {n} 件のタスク",
+  "trust.badge.weak": " · 弱",
+  "trust.tooltip.usage": "{resolved} 件の解決済みタスクで使用 · {merged} 件マージ · 実使用シグナル",
+  "trust.tooltip.presence": "{resolved} 件の解決済みタスクと共同ロード · {merged} 件マージ · 共同ロードのみ、弱いシグナル"
 }

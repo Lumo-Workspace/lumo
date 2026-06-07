@@ -44,6 +44,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMemories', () => ({
   useMemories: (...a: any[]) => mockUseMemories(...a),
 }))
 
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFragmentTrust', () => ({
+  useFragmentTrust: () => ({}),
+}))
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { MemoryTab } from '@/app/workspace/[workspaceUrl]/components/memory/MemoryTab'
@@ -73,18 +77,31 @@ describe('MemoryTab', () => {
     mockUseMemories.mockReturnValue({ ...hookBase, memories: [] })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
     // The empty state owns the single add CTA.
-    expect(screen.getByRole('button', { name: 'Add the first memory' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Add the first memory' })
+    ).toBeInTheDocument()
     // The header count + its "Add memory" button must NOT also render — that
     // would duplicate the "no memories" message and the add action.
     expect(screen.queryByText('0 memories')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add memory' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Add memory' })
+    ).not.toBeInTheDocument()
   })
 
   it('renders a card per memory row (newest order preserved from hook)', () => {
     mockUseMemories.mockReturnValue({
       ...hookBase,
       memories: [
-        { id: 'm1', scope: 'TASK', category: 'TRAP', content: { trigger: 'do X', outcome: 'breaks' }, taskId: 't1', createdByMemberId: null, createdAt: 'a', updatedAt: 'a' },
+        {
+          id: 'm1',
+          scope: 'TASK',
+          category: 'TRAP',
+          content: { trigger: 'do X', outcome: 'breaks' },
+          taskId: 't1',
+          createdByMemberId: null,
+          createdAt: 'a',
+          updatedAt: 'a',
+        },
       ],
     })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
@@ -95,9 +112,27 @@ describe('MemoryTab', () => {
     mockUseMemories.mockReturnValue({
       ...hookBase,
       memories: [
-        { id: 'good', scope: 'TASK', category: 'TRAP', content: { trigger: 'valid X', outcome: 'breaks' }, taskId: 't1', createdByMemberId: null, createdAt: 'a', updatedAt: 'a' },
+        {
+          id: 'good',
+          scope: 'TASK',
+          category: 'TRAP',
+          content: { trigger: 'valid X', outcome: 'breaks' },
+          taskId: 't1',
+          createdByMemberId: null,
+          createdAt: 'a',
+          updatedAt: 'a',
+        },
         // missing required `outcome` → parseMemoryContent throws → must be dropped
-        { id: 'bad', scope: 'TASK', category: 'TRAP', content: { trigger: 'orphan' }, taskId: 't1', createdByMemberId: null, createdAt: 'a', updatedAt: 'a' },
+        {
+          id: 'bad',
+          scope: 'TASK',
+          category: 'TRAP',
+          content: { trigger: 'orphan' },
+          taskId: 't1',
+          createdByMemberId: null,
+          createdAt: 'a',
+          updatedAt: 'a',
+        },
       ],
     })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
@@ -111,11 +146,25 @@ describe('MemoryTab', () => {
     mockUseMemories.mockReturnValue({
       ...hookBase,
       memories: [
-        { id: 'm1', scope: 'TASK', category: 'TRAP', content: { trigger: 'do X', outcome: 'breaks' }, taskId: 't1', createdByMemberId: 'mem1', createdAt: 'a', updatedAt: 'a' },
+        {
+          id: 'm1',
+          scope: 'TASK',
+          category: 'TRAP',
+          content: { trigger: 'do X', outcome: 'breaks' },
+          taskId: 't1',
+          createdByMemberId: 'mem1',
+          createdAt: 'a',
+          updatedAt: 'a',
+        },
       ],
     })
     render(
-      <MemoryTab scope='task' parentId='t1' enabled memberNames={new Map([['mem1', 'Alice']])} />
+      <MemoryTab
+        scope='task'
+        parentId='t1'
+        enabled
+        memberNames={new Map([['mem1', 'Alice']])}
+      />
     )
     expect(screen.getByText('Added by Alice')).toBeInTheDocument()
   })
@@ -133,32 +182,49 @@ describe('MemoryTab', () => {
   })
 
   it('keeps the dialog open and shows a toast when create rejects', async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
     const rejectedCreate = jest.fn().mockRejectedValue(new Error('boom'))
-    mockUseMemories.mockReturnValue({ ...hookBase, create: rejectedCreate, memories: [] })
+    mockUseMemories.mockReturnValue({
+      ...hookBase,
+      create: rejectedCreate,
+      memories: [],
+    })
 
     render(<MemoryTab scope='task' parentId='t1' enabled />)
 
     // Open create dialog via the empty-state CTA (header is hidden when empty)
-    fireEvent.click(screen.getByRole('button', { name: 'Add the first memory' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add the first memory' })
+    )
 
     // Category step: pick TRAP
     fireEvent.click(screen.getByRole('button', { name: 'Trap' }))
 
     // Fill in the required fields (trigger + outcome)
-    fireEvent.change(screen.getByLabelText(/Trigger/), { target: { value: 'do something' } })
-    fireEvent.change(screen.getByLabelText(/Outcome/), { target: { value: 'it breaks' } })
+    fireEvent.change(screen.getByLabelText(/Trigger/), {
+      target: { value: 'do something' },
+    })
+    fireEvent.change(screen.getByLabelText(/Outcome/), {
+      target: { value: 'it breaks' },
+    })
 
     // Submit — this calls handleSubmit which calls create (which rejects)
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     // After rejection, the dialog should still be present (title still visible)
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith('Memory mutation failed:', expect.any(Error))
+      expect(consoleError).toHaveBeenCalledWith(
+        'Memory mutation failed:',
+        expect.any(Error)
+      )
     })
     // Dialog title should still be in the document (dialog stayed open for retry)
-    expect(screen.getByRole('heading', { name: 'Add memory' })).toBeInTheDocument()
-    expect((toast.error as jest.Mock)).toHaveBeenCalled()
+    expect(
+      screen.getByRole('heading', { name: 'Add memory' })
+    ).toBeInTheDocument()
+    expect(toast.error as jest.Mock).toHaveBeenCalled()
 
     consoleError.mockRestore()
   })

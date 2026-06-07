@@ -1412,5 +1412,9 @@
   "tokenCost.none": "Tiada kos yang dirakam pada laluan ini",
   "tokenCost.loops": "{n, plural, other {# gelung}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models tidak boleh dibandingkan harga · tiada jumlah"
+  "tokenCost.mixedNoTotal": "models tidak boleh dibandingkan harga · tiada jumlah",
+  "trust.badge.meta": "· {n, plural, one {# tugasan} other {# tugasan}}",
+  "trust.badge.weak": " · lemah",
+  "trust.tooltip.usage": "Digunakan dalam {resolved} tugasan selesai · {merged} digabung · isyarat penggunaan sebenar",
+  "trust.tooltip.presence": "Dimuatkan bersama dalam {resolved} tugasan selesai · {merged} digabung · hanya co-load, isyarat lemah"
 }
