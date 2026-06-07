@@ -75,7 +75,7 @@ export function AgentFailedSummary({
               Error detail
             </button>
             {showDetail && (
-              <pre className='mt-1.5 text-[11px] text-red-700 dark:text-red-300 bg-red-100/50 dark:bg-red-950/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all font-mono leading-relaxed'>
+              <pre className='mt-1.5 text-[11px] text-red-700 dark:text-red-300 bg-red-100/50 dark:bg-red-950/40 rounded-sm p-2 overflow-x-auto whitespace-pre-wrap break-all font-mono leading-relaxed'>
                 {detail}
               </pre>
             )}
@@ -83,7 +83,7 @@ export function AgentFailedSummary({
         )}
 
         {latestRun?.durationMs != null && (
-          <div className='flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400'>
+          <div className='flex items-center gap-3 text-[11px] text-muted-foreground'>
             <span className='flex items-center gap-1'>
               <Clock size={10} />
               {formatDuration(latestRun.durationMs)}

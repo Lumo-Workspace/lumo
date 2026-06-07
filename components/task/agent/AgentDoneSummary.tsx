@@ -29,7 +29,7 @@ const FILE_STATUS_ICON: Record<
   modified: {
     icon: FilePenLine,
     label: '',
-    className: 'text-zinc-400',
+    className: 'text-muted-foreground',
   },
   deleted: {
     icon: FileX2,
@@ -86,7 +86,7 @@ export function AgentDoneSummary({
       {/* Changed files */}
       {changedFiles.length > 0 && (
         <div className='space-y-1'>
-          <p className='text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
+          <p className='text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>
             Changed files
           </p>
           <div className='flex flex-wrap gap-1'>
@@ -99,7 +99,7 @@ export function AgentDoneSummary({
                 <span
                   key={f.path}
                   title={f.path}
-                  className='inline-flex items-center gap-1 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-1.5 py-0.5 text-[11px] font-mono text-zinc-600 dark:text-zinc-300'
+                  className='inline-flex items-center gap-1 rounded-md border border-border bg-white dark:bg-muted px-1.5 py-0.5 text-[11px] font-mono text-foreground'
                 >
                   <Icon size={10} className={cn('shrink-0', cfg.className)} />
                   {fileName}
@@ -121,7 +121,7 @@ export function AgentDoneSummary({
       )}
 
       {/* Metrics row */}
-      <div className='flex items-center gap-4 text-[11px] text-zinc-500 dark:text-zinc-400'>
+      <div className='flex items-center gap-4 text-[11px] text-muted-foreground'>
         {latestRun.durationMs != null && (
           <span className='flex items-center gap-1'>
             <Clock size={10} />
@@ -144,7 +144,7 @@ export function AgentDoneSummary({
       <Button
         size='sm'
         variant='ghost'
-        className='w-full h-7 text-xs gap-1.5 text-zinc-400 hover:text-zinc-600'
+        className='w-full h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground'
         disabled={running}
         onClick={onRerun}
       >

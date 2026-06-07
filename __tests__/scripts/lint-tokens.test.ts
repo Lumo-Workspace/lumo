@@ -149,6 +149,10 @@ describe('lint-tokens / isAllowed', () => {
     expect(isAllowed('components/ui/icons.tsx')).toBe(true)
     // Fixed-dark waitlist/signup marketing surface (not theme-aware).
     expect(isAllowed('app/signup/[[...signup]]/page.tsx')).toBe(true)
+    // Vendored shadcn-io decorative block (gradient hex stops are payload).
+    expect(
+      isAllowed('components/ui/shadcn-io/aurora-background/index.tsx')
+    ).toBe(true)
   })
 
   it('rejects business code paths', () => {
