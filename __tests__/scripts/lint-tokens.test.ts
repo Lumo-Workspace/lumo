@@ -167,6 +167,12 @@ describe('lint-tokens / isAllowed', () => {
     ).toBe(true)
     // Default agent avatar color (payload hex, not a token).
     expect(isAllowed('lib/constants/avatar.ts')).toBe(true)
+    // Editor font/highlight palettes (payload hex written into the document).
+    expect(
+      isAllowed(
+        'app/workspace/[workspaceUrl]/components/bubble-menu/editor-colors.ts'
+      )
+    ).toBe(true)
   })
 
   it('rejects business code paths', () => {
