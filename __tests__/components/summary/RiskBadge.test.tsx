@@ -41,4 +41,22 @@ describe('RiskBadge', () => {
     render(<RiskBadge level='healthy' showLabel={false} />)
     expect(screen.queryByText('Healthy')).not.toBeInTheDocument()
   })
+
+  it('maps risk levels to feedback tokens, not raw brand classes (LUM-290)', () => {
+    const cases: Array<[Parameters<typeof RiskBadge>[0]['level'], string]> = [
+      ['healthy', 'success'],
+      ['watch', 'warning'],
+      ['at-risk', 'danger'],
+    ]
+    for (const [level, family] of cases) {
+      const { container, unmount } = render(<RiskBadge level={level} />)
+      const html = container.innerHTML
+      expect(html).toContain(`bg-${family}-subtle`)
+      expect(html).toContain(`bg-${family}`)
+      expect(html).toContain(`border-${family}-border`)
+      // No raw Tailwind brand palette classes survive.
+      expect(html).not.toMatch(/\b(?:bg|text|border)-(emerald|amber|red)-[0-9]/)
+      unmount()
+    }
+  })
 })
