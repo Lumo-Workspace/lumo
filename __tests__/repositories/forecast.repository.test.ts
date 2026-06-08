@@ -2,6 +2,7 @@
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn(), findMany: jest.fn() },
+    notification: { groupBy: jest.fn() },
   },
 }))
 
@@ -10,10 +11,12 @@ import { forecastRepository } from '@/lib/repositories/forecast.repository'
 
 const findUnique = prisma.task.findUnique as jest.Mock
 const findMany = prisma.task.findMany as jest.Mock
+const groupBy = prisma.notification.groupBy as unknown as jest.Mock
 
 beforeEach(() => {
   findUnique.mockReset()
   findMany.mockReset()
+  groupBy.mockReset()
 })
 
 describe('loadForecastInputs', () => {
@@ -50,6 +53,7 @@ describe('loadForecastInputs', () => {
         pullRequests: [{ mergedAt: new Date(2) }],
       },
     ])
+    groupBy.mockResolvedValue([])
 
     const result = await forecastRepository.loadForecastInputs('t1')
     expect(result).not.toBeNull()
@@ -108,8 +112,57 @@ describe('loadForecastInputs', () => {
         pullRequests: [],
       },
     ])
+    groupBy.mockResolvedValue([])
 
     const result = await forecastRepository.loadForecastInputs('t1')
     expect(result!.candidates[0]!.tokenCost).toBeNull()
+  })
+
+  it('counts AGENT_CLARIFY notifications per candidate', async () => {
+    findUnique.mockResolvedValue({
+      id: 't1',
+      title: 'Target',
+      projectId: 'p1',
+      taskTags: [{ tag: { name: 'auth' } }],
+    })
+    findMany.mockResolvedValue([
+      {
+        id: 't2',
+        title: 'Older',
+        number: 42,
+        team: { identifier: 'LUM' },
+        taskTags: [{ tag: { name: 'auth' } }],
+        sessions: [],
+        pullRequests: [],
+      },
+    ])
+    groupBy.mockResolvedValue([{ taskId: 't2', _count: { _all: 3 } }])
+
+    const res = await forecastRepository.loadForecastInputs('t1')
+    expect(res!.candidates[0]!.clarifyRounds).toBe(3)
+  })
+
+  it('defaults clarifyRounds to 0 when a candidate has no clarify notifications', async () => {
+    findUnique.mockResolvedValue({
+      id: 't1',
+      title: 'Target',
+      projectId: 'p1',
+      taskTags: [],
+    })
+    findMany.mockResolvedValue([
+      {
+        id: 't2',
+        title: 'Older',
+        number: 42,
+        team: { identifier: 'LUM' },
+        taskTags: [],
+        sessions: [],
+        pullRequests: [],
+      },
+    ])
+    groupBy.mockResolvedValue([])
+
+    const res = await forecastRepository.loadForecastInputs('t1')
+    expect(res!.candidates[0]!.clarifyRounds).toBe(0)
   })
 })
