@@ -2,7 +2,7 @@ import type { MemoryCategory } from '@prisma/client'
 
 interface ReconcileInput {
   task: { title: string; description: string | null }
-  candidates: Array<{ category: MemoryCategory; scope?: 'TASK' | 'PROJECT'; content: unknown }>
+  candidates: Array<{ category: MemoryCategory; scope?: 'TASK' | 'PROJECT' | undefined; content: unknown }>
   neighborsByCandidate: Array<
     Array<{ id: string; category: MemoryCategory; content: unknown; score: number }>
   >

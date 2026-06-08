@@ -11,7 +11,7 @@ const baseInput = {
   task: { id: 'task_1', title: 'T', description: null, projectId: 'p1', workspaceId: 'w1' },
   turnEvents: [],
   existingMemories: [],
-} as const
+}
 
 beforeEach(() => {
   generateObjectMock.mockReset()
