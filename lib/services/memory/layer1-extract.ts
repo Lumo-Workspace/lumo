@@ -2,7 +2,9 @@ import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { buildLayer1ExtractPrompt } from './layer1-prompt'
+import { buildLayer1ReconcilePrompt } from './layer1-reconcile-prompt'
 import type { Layer1Input } from './layer1-input'
+import type { ScoredNeighbor } from './neighbor-retriever'
 
 // ── Output schema ─────────────────────────────────────────────────────────────
 
@@ -70,6 +72,43 @@ export const layer1CandidatesOutputSchema = z.object({
 export type Layer1Candidate = z.infer<typeof layer1CandidateSchema>
 
 const MODEL_ID = 'deepseek/deepseek-v4-flash'
+
+// ── Pass 2: reconciliation ──────────────────────────────────────────────────
+
+export interface ReconcileLayer1Input {
+  task: { id: string; title: string; description: string | null }
+  candidates: Layer1Candidate[]
+  neighborsByCandidate: ScoredNeighbor[][]
+}
+
+/**
+ * Pass 2: given each candidate and its top-k neighbors, decide the operation
+ * (ADD / UPDATE / DELETE / SUPERSEDE / NOOP). Failures degrade to [].
+ */
+export async function reconcileLayer1Candidates(
+  input: ReconcileLayer1Input
+): Promise<Layer1Operation[]> {
+  const { system, user } = buildLayer1ReconcilePrompt({
+    task: { title: input.task.title, description: input.task.description },
+    candidates: input.candidates,
+    neighborsByCandidate: input.neighborsByCandidate,
+  })
+  try {
+    const { object } = await generateObject({
+      model: gateway(MODEL_ID),
+      schema: layer1OutputSchema,
+      system,
+      prompt: user,
+    })
+    return object.operations
+  } catch (error) {
+    console.error(
+      `[memory.layer1] reconciliation failed task=${input.task.id}:`,
+      error
+    )
+    return []
+  }
+}
 
 /**
  * Pass 1: read the turn and emit candidate facts worth remembering — blind to
