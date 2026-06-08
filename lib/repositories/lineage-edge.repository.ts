@@ -279,6 +279,47 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * Of the given sessions, which already carry a usage vote (any usedAt-stamped
+   * edge)? The automatic audit skips these — a human vote (or a prior auto pass)
+   * is authoritative. This is the LUM-314 idempotency guard.
+   */
+  async findVotedSessionIds(
+    sessionIds: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (sessionIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.findMany({
+      where: { sessionId: { in: sessionIds }, usedAt: { not: null } },
+      select: { sessionId: true },
+      distinct: ['sessionId'],
+    })
+    return new Set(rows.map(r => r.sessionId).filter((s): s is string => !!s))
+  },
+
+  /**
+   * Distinct session ids that (a) belong to a DONE task and (b) have at least
+   * one not-yet-voted edge (usedAt = null). The cron backstop's work-list;
+   * `limit` bounds each run so the first sweeps drain the dormant backlog over a
+   * few hours instead of firing thousands of judge calls at once.
+   */
+  async listUnvotedSessionIdsForDoneTasks(
+    limit: number,
+    tx?: Prisma.TransactionClient
+  ): Promise<string[]> {
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['sessionId'],
+      where: { sessionId: { not: null }, usedAt: null, task: { status: 'DONE' } },
+      orderBy: { sessionId: 'asc' },
+      take: limit,
+    })
+    return rows
+      .map(r => r.sessionId)
+      .filter((s): s is string => s !== null)
+  },
+
+  /**
    * Record a usage vote over a session's edges.
    *
    * - `mode: 'replace'` (default, the manual `session wrap --used` path): voted
