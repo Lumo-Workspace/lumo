@@ -124,6 +124,25 @@ describe('createTaskColumns', () => {
   })
 })
 
+describe('select column alignment', () => {
+  // The select grid track is 40px; the checkbox is 16px. Using px-4 (16px each
+  // side = 32px) leaves only 8px of content box, so the checkbox overflows and
+  // gets left-anchored off-center. The fix centers it within the track instead.
+  it('centers the checkbox in its narrow track instead of left-padding it', () => {
+    const cols = createTaskColumns({
+      onTaskClick: noop,
+      onDeleteTask: asyncNoop,
+      members: [],
+      visibleColumns: ['select'],
+    })
+    const select = cols.find(c => colId(c) === 'select')
+    expect(select?.meta?.cellClassName).toContain('justify-center')
+    expect(select?.meta?.headerClassName).toContain('justify-center')
+    expect(select?.meta?.cellClassName ?? '').not.toContain('px-4')
+    expect(select?.meta?.headerClassName ?? '').not.toContain('px-4')
+  })
+})
+
 // sortingFn only reads `.original`, so a `{ original }` stub is enough to drive it.
 const row = (original: Partial<ApiTask>) => ({ original }) as never
 
