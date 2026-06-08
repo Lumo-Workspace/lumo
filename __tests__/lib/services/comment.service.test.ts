@@ -128,27 +128,38 @@ describe('commentService.createComment', () => {
 describe('commentService.parseMentionedClerkIds', () => {
   it('extracts unique clerkIds from mention chips', () => {
     const body =
-      '<span data-type="mention" data-id="user-1">@Alice</span> and <span data-type="mention" data-id="user-2">@Bob</span>'
+      '<span class="mention" data-id="user-1" data-mention-type="user">@Alice</span> and <span class="mention" data-id="user-2" data-mention-type="user">@Bob</span>'
     const result = commentService.parseMentionedClerkIds(body, 'author-id')
     expect(result).toEqual(['user-1', 'user-2'])
   })
 
   it('excludes the author clerkId', () => {
-    const body = '<span data-type="mention" data-id="author-id">@Me</span>'
+    const body =
+      '<span class="mention" data-id="author-id" data-mention-type="user">@Me</span>'
     const result = commentService.parseMentionedClerkIds(body, 'author-id')
     expect(result).toEqual([])
   })
 
   it('excludes __agent__ pseudo-ID', () => {
-    const body = '<span data-type="mention" data-id="__agent__">@Agent</span>'
+    const body =
+      '<span class="mention" data-id="__agent__" data-mention-type="user">@Agent</span>'
     const result = commentService.parseMentionedClerkIds(body, 'user-1')
     expect(result).toEqual([])
   })
 
   it('deduplicates clerkIds', () => {
     const body =
-      '<span data-type="mention" data-id="user-1">@A</span> <span data-type="mention" data-id="user-1">@A</span>'
+      '<span class="mention" data-id="user-1" data-mention-type="user">@A</span> <span class="mention" data-id="user-1" data-mention-type="user">@A</span>'
     const result = commentService.parseMentionedClerkIds(body, 'author')
     expect(result).toEqual(['user-1'])
+  })
+
+  it('parses user mentions from real editor HTML (regression for data-type bug)', () => {
+    const body =
+      '<p>hi <span class="mention" data-id="user_bob" data-mention-type="user">@Bob</span> ' +
+      'and <span class="mention mention-task" data-id="task_9" data-mention-type="task">LUM-9 Fix</span></p>'
+    expect(commentService.parseMentionedClerkIds(body, 'user_self')).toEqual([
+      'user_bob',
+    ])
   })
 })
