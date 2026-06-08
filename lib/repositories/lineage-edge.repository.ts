@@ -279,24 +279,34 @@ export const lineageEdgeRepository = {
   },
 
   /**
-   * Record an agent usage vote over a session's edges: the voted refs get
-   * used=true, every other edge of the session gets used=false, all stamped
-   * usedAt=now. Last write wins (re-voting overwrites). Returns counts.
+   * Record a usage vote over a session's edges.
+   *
+   * - `mode: 'replace'` (default, the manual `session wrap --used` path): voted
+   *   refs → used=true, every OTHER edge of the session → used=false, all
+   *   stamped usedAt=now. Last write wins.
+   * - `mode: 'additive'` (the automatic LUM-314 judge): voted refs → used=true
+   *   ONLY; every other edge is left untouched (stays NULL). Empty refs is a
+   *   no-op. This guarantees the automatic path NEVER asserts used=false — an
+   *   unproven "not used" is left honestly NULL.
    */
   async applyUsageVote(
     sessionId: string,
     usedRefs: FragmentRef[],
-    tx?: Prisma.TransactionClient
+    opts: { mode?: 'replace' | 'additive'; tx?: Prisma.TransactionClient } = {}
   ): Promise<{ used: number; unused: number }> {
-    const client = tx ?? prisma
+    const mode = opts.mode ?? 'replace'
+    const client = opts.tx ?? prisma
     const now = new Date()
+
     if (usedRefs.length === 0) {
+      if (mode === 'additive') return { used: 0, unused: 0 }
       const r = await client.lineageEdge.updateMany({
         where: { sessionId },
         data: { used: false, usedAt: now },
       })
       return { used: 0, unused: r.count }
     }
+
     const or = usedRefs.map(r => ({
       fragmentType: r.fragmentType,
       fragmentId: r.fragmentId,
@@ -305,6 +315,8 @@ export const lineageEdgeRepository = {
       where: { sessionId, OR: or },
       data: { used: true, usedAt: now },
     })
+    if (mode === 'additive') return { used: usedRes.count, unused: 0 }
+
     const unusedRes = await client.lineageEdge.updateMany({
       where: { sessionId, NOT: { OR: or } },
       data: { used: false, usedAt: now },
