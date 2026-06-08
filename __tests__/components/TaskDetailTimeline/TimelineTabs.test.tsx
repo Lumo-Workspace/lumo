@@ -165,3 +165,81 @@ describe('TimelineTabs tab visibility', () => {
     expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
   })
 })
+
+// Probes return their "not yet resolved" shape: useAgentRuns/useTaskLineage
+// expose `data: null` until the first fetch lands; useMemories signals it via
+// `loading: true`.
+function setProbesUnresolved() {
+  mockAgentRuns.mockReturnValue({ data: null, loading: true, error: null })
+  mockMemories.mockReturnValue({
+    memories: [],
+    loading: true,
+    error: null,
+    create: jest.fn(),
+    edit: jest.fn(),
+    promote: jest.fn(),
+    remove: jest.fn(),
+    mutating: false,
+  })
+  mockLineage.mockReturnValue({ data: null, loading: true, error: null })
+}
+
+describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
+  it('shows the three tabs from SSR presence before the probes resolve', () => {
+    setProbesUnresolved()
+    render(
+      <TimelineTabs
+        {...baseProps}
+        initialTimelinePresence={{
+          hasAgentRuns: true,
+          hasMemories: true,
+          hasLineage: true,
+        }}
+      />
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Agent 运行' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lineage' })).toBeInTheDocument()
+  })
+
+  it('hides the tabs when SSR presence is false and the probes have not resolved', () => {
+    setProbesUnresolved()
+    render(
+      <TimelineTabs
+        {...baseProps}
+        initialTimelinePresence={{
+          hasAgentRuns: false,
+          hasMemories: false,
+          hasLineage: false,
+        }}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
+  })
+
+  it('lets a resolved probe override an over-eager SSR presence', () => {
+    // SSR said "has content" but the probe lands empty — reconcile to the
+    // probe (the source of truth) and hide the tab.
+    setPresence({ agent: false, memory: false, lineage: false })
+    render(
+      <TimelineTabs
+        {...baseProps}
+        initialTimelinePresence={{
+          hasAgentRuns: true,
+          hasMemories: true,
+          hasLineage: true,
+        }}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
+  })
+})

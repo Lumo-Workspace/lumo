@@ -515,6 +515,19 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * Whether the task has any lineage edge (LUM-321 Lineage-tab presence). Same
+   * `taskId` filter as `listByTaskWithCost` — every edge forms a group, so an
+   * existing edge means the panel renders content. Cheap existence check for SSR.
+   */
+  async hasForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.lineageEdge.findFirst({
+      where: { taskId },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * Raw aggregates backing the LUM-314 signal-health view, workspace-scoped.
    * The service derives variance + merge-rate percentages. Four cheap groupBys.
    */

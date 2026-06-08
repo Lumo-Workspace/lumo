@@ -49,6 +49,14 @@ interface TaskDetailPageProps {
   source?: string | undefined
   /** Whether this workspace has a connected Slack integration. */
   slackConnected: boolean
+  /** SSR-computed presence of the Agent Run / Memory / Lineage tabs (LUM-321),
+   *  so the tab bar renders correctly on first paint without waiting for the
+   *  client presence probes. */
+  initialTimelinePresence?: {
+    hasAgentRuns: boolean
+    hasMemories: boolean
+    hasLineage: boolean
+  }
 }
 
 export function TaskDetailPage({
@@ -56,6 +64,7 @@ export function TaskDetailPage({
   workspaceUrl,
   source: sourceProp,
   slackConnected,
+  initialTimelinePresence,
 }: TaskDetailPageProps) {
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const intl = useIntl()
@@ -337,6 +346,7 @@ export function TaskDetailPage({
               taskIdentifier={`${task.teamIdentifier}-${task.number}`}
               workspaceId={task.project.workspaceId ?? ''}
               workspaceUrl={workspaceUrl}
+              initialTimelinePresence={initialTimelinePresence}
               commentsProps={{
                 workspaceUrl,
                 projectName: task.project.name,
