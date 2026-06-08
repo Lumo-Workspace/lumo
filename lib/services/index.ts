@@ -22,6 +22,7 @@ export { slackService } from './slack.service'
 export { sprintService } from './sprint.service'
 export { sprintSummaryService } from './sprint-summary.service'
 export { forecastService } from './forecast.service'
+export { progressService } from './progress.service'
 export {
   retrospectiveService,
   captureRetrospectiveSnapshotInBackground,
