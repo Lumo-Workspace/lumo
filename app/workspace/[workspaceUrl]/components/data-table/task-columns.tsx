@@ -391,8 +391,10 @@ export function createTaskColumns(
       id: 'select',
       enableSorting: false,
       meta: {
-        headerClassName: 'w-10 px-4',
-        cellClassName: 'px-4',
+        // The select track is 40px; center the 16px checkbox in it rather than
+        // padding it (px-4 = 32px > track, which pushes it off-center).
+        headerClassName: 'flex items-center justify-center',
+        cellClassName: 'flex items-center justify-center',
         stopPropagation: true,
         gridWidth: COLUMN_GRID_WIDTH.select,
       },
