@@ -114,12 +114,13 @@ describe('LineageTab', () => {
     expect(screen.getByText('此任务暂无 lineage 记录')).toBeInTheDocument()
   })
 
-  it('renders cost block with the static "loops n/a" chip', () => {
+  it('renders cost block without a "loops n/a" chip (LUM-313)', () => {
     mockHook.mockReturnValue({ data: makeData(), loading: false, error: null })
     render(<LineageTab {...baseProps} />)
-    expect(screen.getByText('loops n/a')).toBeInTheDocument()
+    // The "loops n/a" pill was removed — absence is now silent.
+    expect(screen.queryByText('loops n/a')).not.toBeInTheDocument()
+    // The cost block itself still renders: caliber chip + token-type rows.
     expect(screen.getByText('会话级')).toBeInTheDocument()
-    // Token-type detail rows present.
     expect(screen.getByText('cache-read')).toBeInTheDocument()
   })
 

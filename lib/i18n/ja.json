@@ -1406,6 +1406,7 @@
   "agentRun.summary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# ループ}}",
+  "tokenCost.label": "トークン使用量",
   "tokenCost.unit": "tok",
   "tokenCost.output": "output",
   "tokenCost.input": "input",

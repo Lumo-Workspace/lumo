@@ -14,18 +14,23 @@ export interface CostChip {
 
 interface TokenCostBreakdownProps {
   models: ModelCost[]
-  /** Real loop count → "N loops"; null/undefined → "loops n/a" chip. */
+  /**
+   * Real loop count → "N loops" chip. null/undefined → no chip at all
+   * (LUM-313: a "loops n/a" pill next to the header's turn count read as a
+   * contradiction, so absence is now silent rather than labelled).
+   */
   loopCount?: number | null
   variant: 'full' | 'compact'
   /** Extra caliber chips (e.g. lineage's 会话级/实时). */
   chips?: CostChip[]
   /**
-   * Per-person spend (LUM-308). When provided with at least one member, each
-   * detail row (output/input/…) becomes a disclosure that expands in-place to
-   * a per-member breakdown for that token kind. Rows stay collapsed by default,
-   * so the aggregate view is unchanged; a single contributor still expands to
-   * its one row (LUM-310 — keeps the interaction demoable). Omit entirely to
-   * render plain, non-expandable rows (the per-run / lineage usage).
+   * Per-person spend (LUM-308). When two or more members contributed to a
+   * given token kind, that detail row (output/input/…) becomes a disclosure
+   * that expands in-place to the per-member split. Rows with a single
+   * contributor stay plain — expanding them just restated the line verbatim
+   * (LUM-313). Rows are collapsed by default, so the aggregate view is
+   * unchanged. Omit entirely to render plain, non-expandable rows (the
+   * per-run / lineage usage).
    */
   perMember?: AgentRunMemberStat[]
 }
@@ -124,7 +129,7 @@ function ModelGroup({
   multi: boolean
   variant: 'full' | 'compact'
   intl: IntlShape
-  /** Present only on the aggregate card with >1 contributor → rows expand. */
+  /** Present on the aggregate card; a row expands only where 2+ members split it. */
   perMember?: AgentRunMemberStat[] | undefined
 }) {
   // Which detail rows are currently expanded (by segment key).
@@ -190,7 +195,10 @@ function ModelGroup({
           const rows = expandable
             ? memberBreakdownFor(perMember!, m.model, seg.key)
             : []
-          const canExpand = rows.length > 0
+          // Only expand where the split is informative: 2+ contributors. A
+          // single contributor's row equals the line verbatim (its bar would
+          // always be 100% full), so it stays a plain row (LUM-313).
+          const canExpand = rows.length > 1
           const isOpen = open.has(seg.key)
           const tone = seg.muted
             ? 'text-muted-foreground/60'
@@ -293,6 +301,7 @@ export function TokenCostBreakdown({
 
   const multi = models.length > 1
 
+  // Only label a real loop count; absence is silent (LUM-313 — see loopCount).
   const loopChip =
     typeof loopCount === 'number'
       ? intl.formatMessage(
@@ -302,17 +311,16 @@ export function TokenCostBreakdown({
           },
           { n: loopCount }
         )
-      : intl.formatMessage({
-          id: 'tokenCost.loopsNa',
-          defaultMessage: 'loops n/a',
-        })
+      : null
+
+  const hasFooter = !!loopChip || !!chips?.length || multi
 
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
       <div className='text-[10px] uppercase tracking-wider text-muted-foreground/60'>
         {intl.formatMessage({
-          id: 'lineage.cost.label',
-          defaultMessage: 'Cost',
+          id: 'tokenCost.label',
+          defaultMessage: 'Token usage',
         })}
       </div>
       {models.map(m => (
@@ -325,27 +333,34 @@ export function TokenCostBreakdown({
           perMember={perMember}
         />
       ))}
-      <div className='mt-2 flex flex-wrap gap-1'>
-        <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
-          {loopChip}
-        </span>
-        {chips?.map(c => (
-          <span
-            key={c.id}
-            className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'
-          >
-            {intl.formatMessage({ id: c.id, defaultMessage: c.defaultMessage })}
-          </span>
-        ))}
-        {multi && (
-          <span className='rounded-full border border-warning-border bg-warning-subtle px-1.5 py-px text-[10px] text-foreground'>
-            {intl.formatMessage({
-              id: 'tokenCost.mixedNoTotal',
-              defaultMessage: 'models not price-comparable · no total',
-            })}
-          </span>
-        )}
-      </div>
+      {hasFooter && (
+        <div className='mt-2 flex flex-wrap gap-1'>
+          {loopChip && (
+            <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
+              {loopChip}
+            </span>
+          )}
+          {chips?.map(c => (
+            <span
+              key={c.id}
+              className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'
+            >
+              {intl.formatMessage({
+                id: c.id,
+                defaultMessage: c.defaultMessage,
+              })}
+            </span>
+          ))}
+          {multi && (
+            <span className='rounded-full border border-warning-border bg-warning-subtle px-1.5 py-px text-[10px] text-foreground'>
+              {intl.formatMessage({
+                id: 'tokenCost.mixedNoTotal',
+                defaultMessage: 'models not price-comparable · no total',
+              })}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

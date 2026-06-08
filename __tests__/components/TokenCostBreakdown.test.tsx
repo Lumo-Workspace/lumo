@@ -114,7 +114,7 @@ describe('TokenCostBreakdown', () => {
     expect(screen.queryByText('loops n/a')).not.toBeInTheDocument()
   })
 
-  it('renders "loops n/a" when loopCount is null (lineage path)', () => {
+  it('shows no loop chip when loopCount is null (LUM-313 — absence is silent)', () => {
     render(
       <TokenCostBreakdown
         variant='full'
@@ -122,7 +122,17 @@ describe('TokenCostBreakdown', () => {
         loopCount={null}
       />
     )
-    expect(screen.getByText('loops n/a')).toBeInTheDocument()
+    // Never a "loops n/a" pill — it read as a contradiction next to the
+    // header's turn count. With a single model and no chips, the whole
+    // footer row is omitted, so no loop text appears at all.
+    expect(screen.queryByText('loops n/a')).not.toBeInTheDocument()
+    expect(screen.queryByText(/loop/)).not.toBeInTheDocument()
+  })
+
+  it('labels the section "Token usage", not "Cost" (LUM-313 — no money shown)', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={1} />)
+    expect(screen.getByText('Token usage')).toBeInTheDocument()
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument()
   })
 
   it('stacks per-model groups with NO cross-model total when multi-model', () => {
@@ -167,7 +177,7 @@ describe('TokenCostBreakdown', () => {
       expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
     })
 
-    it('expands for a single contributor too (LUM-310 — keeps it demoable)', () => {
+    it('keeps a single contributor as a plain, non-expandable row (LUM-313)', () => {
       render(
         <TokenCostBreakdown
           variant='full'
@@ -176,11 +186,12 @@ describe('TokenCostBreakdown', () => {
           perMember={[ada]}
         />
       )
-      const line = screen.getByTestId('cost-line-output')
-      fireEvent.click(line)
-      const bd = screen.getByTestId('cost-breakdown-output')
-      expect(within(bd).getByText('Ada')).toBeInTheDocument()
-      expect(within(bd).getByText('120')).toBeInTheDocument()
+      // A lone contributor's row would just restate the line (its bar always
+      // 100% full), so there is no disclosure button and no breakdown.
+      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
+      expect(
+        screen.queryByTestId('cost-breakdown-output')
+      ).not.toBeInTheDocument()
     })
 
     it('expands a line into a per-member breakdown that reconciles with the line total', () => {
