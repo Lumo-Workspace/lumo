@@ -32,13 +32,13 @@
 
 ## 关键决策(已与用户确认)
 
-| 决策         | 结论                                                                           |
-| ------------ | ------------------------------------------------------------------------------ |
-| 分期         | **一锅端** —— 5 型 + bug + 全接入都在 LUM-330(用户接受 bug 修复随大功能一起上) |
-| 数据源       | **混合** —— 人/sprint/项目/里程碑走客户端缓存即时过滤;任务走搜索端点异步查     |
-| @实体语义    | **仅链接,不通知** —— 解析器只提取 `data-mention-type="user"` 的 clerkId        |
-| @agent       | 维持禁用,范围外                                                                |
-| 历史漏发通知 | 不回填,只保证今后正确                                                          |
+| 决策         | 结论                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 分期         | **一锅端** —— 5 型 + bug + 全接入都在 LUM-330(用户接受 bug 修复随大功能一起上)                                                                                                                                            |
+| 数据源       | **改进版混合** —— 人走客户端缓存即时过滤;任务/sprint/项目/里程碑走统一 `mention-search` 服务端端点异步查(原因:sprint 无 workspace 级客户端缓存,只有 `useSprintsForTeam(teamId)` 按团队查,文档/里程碑等面无 teamId 上下文) |
+| @实体语义    | **仅链接,不通知** —— 解析器只提取 `data-mention-type="user"` 的 clerkId                                                                                                                                                   |
+| @agent       | 维持禁用,范围外                                                                                                                                                                                                           |
+| 历史漏发通知 | 不回填,只保证今后正确                                                                                                                                                                                                     |
 
 ## 架构
 
@@ -53,14 +53,17 @@
 ### 2. suggestion / list 泛化
 
 - `MentionItem` 判别联合扩到 5 kind,统一形状 `{ kind, id, label, sublabel?, icon, href }`,每种实体一个 mapper。
-- `buildMentionSuggestion(sources, …)` 吃**一个** `sources`:小实体内存匹配(即时)+ `searchTasks(query)` 异步回调(debounce,结果回填任务分区)。
-- `MentionList` 按 kind 通用渲染,分组 **People / Tasks / Sprints / Projects / Milestones**;任务区有「搜索中…」加载态、无匹配空态。键盘导航已对 items 数组通用。
+- `buildMentionSuggestion(sources, …)` 吃**一个** `sources`:人内存匹配(即时)+ `searchEntities(query)` 异步回调(debounce,结果回填 tasks/sprints/projects/milestones 分区)。
+- `MentionList` 按 kind 通用渲染,分组 **People / Tasks / Sprints / Projects / Milestones**;实体区有「搜索中…」加载态、无匹配空态。键盘导航已对 items 数组通用。
 - 加类型 = 加一个 source mapper + 渲染 token,不改旧分支(OCP)。
 
-### 3. 数据源(混合)
+### 3. 数据源(改进版混合 — 统一搜索端点)
 
-- **新 hook** `useMentionSources()`(`app/workspace/[workspaceUrl]/hooks/`):从现有 React Query 缓存打包 members/sprints/projects/milestones → 映射成 `MentionSource`,并提供 `searchTasks(query)`。返回**单一** `mentionSources` prop。
-- **新任务搜索端点** `GET /api/.../tasks/search?q=`:严格分层 Route → Service → Repository,Prisma `select` 仅 `id/identifier/title/status`,薄 route(auth → 校验 → service → 返回)。`lib/api-client/` 封装 fetch。
+- **新 hook** `useMentionSources()`(`app/workspace/[workspaceUrl]/hooks/`):返回**单一** `mentionSources` prop,内含:
+  - `members: MentionItem[]` —— 从现有 `useMembers` 客户端缓存映射,即时过滤(人最常 @,且 workspace 级已加载)。
+  - `searchEntities(query): Promise<MentionItem[]>` —— 调统一搜索端点,debounce,返回 tasks+sprints+projects+milestones 的混合候选。
+- **新统一端点** `GET /api/workspaces/mention-search?q=&limit=`:严格分层 Route → Service → Repository。Clerk auth(`requireIdentity`)解析 `workspaceId`,Zod 校验 query。Service 并行查四类实体,各 Prisma `select` 精简字段(task: `id/number/title/status/team.identifier`;sprint: `id/number/name/status`;project: `id/name`;milestone: `id/name/slug`),各取前 N,映射成带 `href` 的 `MentionItem`。`lib/api-client/` 封装 fetch。
+- 为何不用纯客户端缓存:sprint 无 workspace 级缓存(只有 `useSprintsForTeam(teamId)`),且文档/里程碑等面无 teamId 上下文 → 统一端点既解决该问题,又让每个编辑器面只需 `members + searchEntities` 一个 prop,全站一致。
 
 ### 4. 通知解析器(修 #1/#5)— 新 `lib/editor/parse-mentions.ts`
 
@@ -94,7 +97,7 @@
 - **解析器单测(核心回归)**:输入用真实 `renderMentionHTML(...)` 全 5 型的输出(不是手写 HTML),验证只有 user 出 id、task/sprint/project/milestone 被忽略、自我 @ 与 `__agent__` 排除、重复去重。——关掉「假 HTML 一直绿」的根因。
 - `useMentionSources` 映射测试。
 - `buildMentionSuggestion` 各 kind 构建测试。
-- 任务搜索 service / repository 测试(`select` 字段、查询行为)。
+- `mention-search` service / repository 测试(四类实体 `select` 字段、各取前 N、映射 href)。
 - `MentionList` 各 kind 渲染测试(jsdom;注意 Radix 在 jsdom 不可开,走受控断言)。
 - **现有 service 测试改写**:它们用假的 `data-type="mention"` HTML——那种格式真实环境不产生,必须换成真实属性输出,否则测了不存在的格式。
 - 验证门:`npx tsc --noEmit`、`npm test`、`npm run i18n:check`、`npm run lint:tokens`、`npm run build`(唯一 CI gate 是 Vercel build)。
@@ -109,5 +112,5 @@
 ## 涉及文件(预估)
 
 - 改:`lib/editor/nodes/mention-with-type.ts`、`app/workspace/[workspaceUrl]/components/mention-suggestion.ts`、`MentionList.tsx`、`DescriptionEditor.tsx`、`comment.service.ts`、`documentComment.service.ts`、各接入面组件、16 个 locale json。
-- 新增:`lib/editor/parse-mentions.ts`、`app/workspace/[workspaceUrl]/hooks/useMentionSources.ts`、任务搜索 route/service/repository/api-client、对应测试。
+- 新增:`lib/editor/parse-mentions.ts`、`app/workspace/[workspaceUrl]/hooks/useMentionSources.ts`、统一 mention-search route/service/repository/api-client(`app/api/workspaces/mention-search/route.ts`、`lib/services/mention-search.service.ts`、`lib/api-client/` 封装)、对应测试。
 - 无 schema 变更、无新增 npm 依赖(`@tiptap/extension-mention`/`suggestion` 已装;图标用现有 lucide / lobehub)。
