@@ -17,6 +17,7 @@ interface LineageFragmentEntry {
   fragmentId: string
   sourceLabel: string
   outcome: Outcome
+  used: boolean | null
 }
 interface LineageGroup {
   kind: 'run' | 'session' | 'orphan'
@@ -40,8 +41,20 @@ export interface LineageResponse {
   groups: LineageGroup[]
 }
 
+/** Local copy — the CLI is a separate package and must NOT import from app types/. */
+export interface UsageSignalHealth {
+  distribution: { used: number; unused: number; abstained: number }
+  perSessionVariance: number
+  votedSessions: number
+  usedMergeRate: number | null
+  baseMergeRate: number | null
+  usedResolvedTasks: number
+  baseResolvedTasks: number
+}
+
 export async function taskLineage(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts?: { signal?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -87,6 +100,30 @@ export async function taskLineage(
 
   const data = (await res.json()) as LineageResponse
   process.stdout.write(formatLineageMarkdown(data))
+
+  if (opts?.signal) {
+    const signalUrl = `${trimTrailingSlash(apiUrl)}/api/lineage/signal`
+    let signalRes: Response
+    try {
+      signalRes = await fetch(signalUrl, {
+        headers: { Authorization: `Bearer ${creds.token}` },
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(
+        `Warning: could not fetch signal health (${msg})\n`
+      )
+      return
+    }
+    if (!signalRes.ok) {
+      process.stderr.write(
+        `Warning: signal health fetch failed (HTTP ${signalRes.status})\n`
+      )
+      return
+    }
+    const signalJson = (await signalRes.json()) as UsageSignalHealth
+    process.stdout.write('\n' + formatSignalHealth(signalJson) + '\n')
+  }
 }
 
 /** Deterministic thousands separator (no locale dependency, test-stable). */
@@ -115,6 +152,10 @@ function fragmentOutcomeCounts(
   }
   for (const f of fragments) c[f.outcome] += 1
   return c
+}
+
+function usageMarker(used: boolean | null): string {
+  return used === true ? '✓' : used === false ? '✗' : '·'
 }
 
 /**
@@ -166,13 +207,32 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push(
       `**Fragments** (${g.fragments.length}${summary ? `: ${summary}` : ''}):`
     )
+    lines.push('_✓ used · · abstained · ✗ unused (manual)_')
     for (const f of g.fragments) {
       lines.push(
-        `- [${f.outcome}] ${f.fragmentType} — ${sanitizeField(f.sourceLabel)}`
+        `- ${usageMarker(f.used)} [${f.outcome}] ${f.fragmentType} — ${sanitizeField(f.sourceLabel)}`
       )
     }
     lines.push('')
   }
 
+  return lines.join('\n')
+}
+
+export function formatSignalHealth(h: UsageSignalHealth): string {
+  const lines: string[] = ['', '## Signal health']
+  lines.push(
+    `- Distribution: used ${h.distribution.used} · null ${h.distribution.abstained} · false ${h.distribution.unused}`
+  )
+  lines.push(
+    `- Per-session variance: ${h.perSessionVariance.toFixed(2)} (${h.votedSessions} voted sessions)`
+  )
+  if (h.usedMergeRate !== null && h.baseMergeRate !== null) {
+    lines.push(
+      `- Used × outcome: merge-rate(used) ${Math.round(h.usedMergeRate * 100)}% vs base ${Math.round(h.baseMergeRate * 100)}%`
+    )
+  } else {
+    lines.push('- Used × outcome: insufficient resolved tasks')
+  }
   return lines.join('\n')
 }

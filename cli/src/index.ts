@@ -433,7 +433,12 @@ task
   .description(
     "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
   )
-  .action(wrap(id => taskLineage(id as string)))
+  .option('--signal', 'Append usage-signal health section (fetches /api/lineage/signal)')
+  .action(
+    wrap((id, options) =>
+      taskLineage(id as string, options as { signal?: boolean })
+    )
+  )
 
 const taskMemory = task
   .command('memory')

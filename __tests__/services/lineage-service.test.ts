@@ -248,3 +248,22 @@ it('deduplicates fragmentCount across groups while edgeCount counts every edge',
   expect(dto!.totals.outcomes.MERGED).toBe(1)
   expect(dto!.totals.outcomes.REWORKED).toBe(1)
 })
+
+it('carries the edge used field onto the fragment entry', async () => {
+  mockLabels.mockResolvedValue(new Map([['MEMORY::mem-new', 'some memory']]))
+  mockEdges.mockResolvedValue([
+    {
+      fragmentType: 'MEMORY',
+      fragmentId: 'mem-new',
+      runId: 'run-1',
+      sessionId: null,
+      outcome: 'MERGED',
+      used: true,
+      includedAt: new Date('2026-06-01T00:00:00Z'),
+      run: { id: 'run-1', ...RUN_COST },
+      session: null,
+    },
+  ])
+  const dto = await lineageService.getLineageForIdentifier('ws', 'mem', 'LUM-1')
+  expect(dto!.groups[0]!.fragments[0]!.used).toBe(true)
+})

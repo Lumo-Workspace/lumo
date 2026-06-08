@@ -20,8 +20,8 @@ const base: LineageResponse = {
       includedAt: '2026-06-01T00:00:00.000Z',
       cost: { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100, total: 1800, loopCount: 4 },
       fragments: [
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', sourceLabel: '[PROJECT] use the service layer', outcome: 'MERGED' },
-        { fragmentType: 'PR', fragmentId: 'pr-1', sourceLabel: '#42 Add table', outcome: 'MERGED' },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', sourceLabel: '[PROJECT] use the service layer', outcome: 'MERGED', used: true },
+        { fragmentType: 'PR', fragmentId: 'pr-1', sourceLabel: '#42 Add table', outcome: 'MERGED', used: null },
       ],
     },
   ],
@@ -73,7 +73,7 @@ describe('formatLineageMarkdown', () => {
           includedAt: '2026-06-02T12:00:00.000Z',
           cost: null,
           fragments: [
-            { fragmentType: 'WEB_LINK', fragmentId: 'web-1', sourceLabel: 'Some article', outcome: 'UNKNOWN' },
+            { fragmentType: 'WEB_LINK', fragmentId: 'web-1', sourceLabel: 'Some article', outcome: 'UNKNOWN', used: null },
           ],
         },
       ],
