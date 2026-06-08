@@ -55,7 +55,7 @@ function ChartContainer({
         data-slot='chart'
         data-chart={chartId}
         className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot]:stroke-transparent [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden",
+          'flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot]:stroke-transparent [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden',
           className
         )}
         {...props}
@@ -135,10 +135,7 @@ function ChartTooltipContent({
   active?: boolean
   payload?: TooltipItem[]
   label?: unknown
-  labelFormatter?: (
-    label: unknown,
-    payload: TooltipItem[]
-  ) => React.ReactNode
+  labelFormatter?: (label: unknown, payload: TooltipItem[]) => React.ReactNode
   hideLabel?: boolean
   hideIndicator?: boolean
   indicator?: 'line' | 'dot' | 'dashed'
@@ -194,7 +191,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
+        'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-elevation-2',
         className
       )}
     >
@@ -246,4 +243,10 @@ function ChartTooltipContent({
   )
 }
 
-export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle, useChart }
+export {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartStyle,
+  useChart,
+}
