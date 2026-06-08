@@ -577,4 +577,17 @@ export const sessionRepository = {
       data: { worktreeId: params.worktreeId },
     })
   },
+
+  /**
+   * Returns the task title for a given session, used by the cron backstop in
+   * the fragment-usage audit (LUM-314). Returns null when the session has no
+   * bound task or the session doesn't exist.
+   */
+  async findTaskTitleForSession(sessionId: string) {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { task: { select: { title: true } } },
+    })
+    return row?.task ?? null
+  },
 }
