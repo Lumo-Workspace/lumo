@@ -27,29 +27,40 @@ export interface NeighborPoolItem {
 export interface NeighborQuery {
   category: MemoryCategory
   text: string
+  /** Present only when an embedding was computed for this candidate. */
+  vector?: number[] | undefined
 }
 
 export interface ScoredNeighbor extends NeighborPoolItem {
   score: number
 }
 
+export type NeighborScope =
+  | { kind: 'TASK'; taskId: string }
+  | { kind: 'PROJECT'; projectId: string }
+
+export interface RetrieveContext {
+  query: NeighborQuery
+  /** In-memory pool for the lexical path. */
+  pool: NeighborPoolItem[]
+  /** DB scope for the embedding path (mirrors the pool's candidate set). */
+  scope: NeighborScope
+  k: number
+}
+
 /**
  * Rank existing memories by similarity to a candidate fact and return the
- * top-k. The ONLY implementation shipped in LUM-324 is lexical
- * (`lexicalNeighborRetriever`); the interface exists so an
- * `EmbeddingNeighborRetriever` (pgvector) can replace it later without
- * touching callers. See the LUM-324 DECISION memory for the swap trigger.
+ * top-k. The lexical implementation (`lexicalNeighborRetriever`) is the
+ * baseline; `EmbeddingNeighborRetriever` (pgvector) slots in via the same
+ * interface. See the LUM-324 DECISION memory for the swap trigger.
  */
 export interface NeighborRetriever {
-  retrieve(
-    query: NeighborQuery,
-    pool: NeighborPoolItem[],
-    k: number
-  ): ScoredNeighbor[]
+  retrieve(ctx: RetrieveContext): Promise<ScoredNeighbor[]>
 }
 
 export const lexicalNeighborRetriever: NeighborRetriever = {
-  retrieve(query, pool, k) {
+  async retrieve(ctx) {
+    const { query, pool, k } = ctx
     const scored: ScoredNeighbor[] = []
     for (const item of pool) {
       const base = bigramSimilarity(
