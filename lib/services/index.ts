@@ -22,6 +22,10 @@ export { slackService } from './slack.service'
 export { sprintService } from './sprint.service'
 export { sprintSummaryService } from './sprint-summary.service'
 export { forecastService } from './forecast.service'
+export {
+  retrospectiveService,
+  captureRetrospectiveSnapshotInBackground,
+} from './retrospective.service'
 export { inviteService } from './invite.service'
 export { mcpConnectionService } from './mcp-connection.service'
 export { memberService } from './member.service'

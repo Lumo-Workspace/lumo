@@ -1,5 +1,13 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import type { Interval } from '@/lib/forecast/types'
+
+/** Converts a nullable Interval to a Prisma-compatible nullable JSON value. */
+function toJsonValue(
+  v: Interval | null
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue {
+  return v !== null ? (v as unknown as Prisma.InputJsonValue) : Prisma.DbNull
+}
 
 export interface SnapshotRow {
   iterations: Interval | null
@@ -51,9 +59,9 @@ export const retrospectiveRepository = {
       await prisma.taskForecastSnapshot.create({
         data: {
           taskId,
-          iterations: p.iterations ?? undefined,
-          clarifyRounds: p.clarifyRounds ?? undefined,
-          tokenCost: p.tokenCost ?? undefined,
+          iterations: toJsonValue(p.iterations),
+          clarifyRounds: toJsonValue(p.clarifyRounds),
+          tokenCost: toJsonValue(p.tokenCost),
           cohortSize: p.cohortSize,
           tokenCostBasis: p.tokenCostBasis,
         },

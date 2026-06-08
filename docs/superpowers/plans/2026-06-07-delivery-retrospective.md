@@ -459,7 +459,7 @@ git commit -m "feat: forecast clarifyRounds interval over cohort [LUM-319]"
 
 - Create: `lib/forecast/retrospective-types.ts`
 
-- [ ] **Step 1: 写类型**
+- [x] **Step 1: 写类型**
 
 ```ts
 import type { Interval } from './types'
@@ -485,12 +485,12 @@ export interface TaskRetrospective {
 }
 ```
 
-- [ ] **Step 2: tsc 校验**
+- [x] **Step 2: tsc 校验**
 
 Run: `npx tsc --noEmit 2>&1 | grep retrospective-types | head`
 Expected: 无输出。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/forecast/retrospective-types.ts
@@ -506,7 +506,7 @@ git commit -m "feat: retrospective domain types [LUM-319]"
 - Create: `lib/repositories/retrospective.repository.ts`
 - Test: `__tests__/repositories/retrospective.repository.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 /** @jest-environment node */
@@ -628,12 +628,12 @@ it('countReferenceLibrary counts DONE tasks with sessions', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx jest __tests__/repositories/retrospective.repository.test.ts`
 Expected: FAIL（模块不存在）。
 
-- [ ] **Step 3: 实现 repository**
+- [x] **Step 3: 实现 repository**
 
 ```ts
 import { prisma } from '@/lib/db/prisma'
@@ -754,12 +754,12 @@ export const retrospectiveRepository = {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx jest __tests__/repositories/retrospective.repository.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/repositories/retrospective.repository.ts __tests__/repositories/retrospective.repository.test.ts
@@ -776,7 +776,7 @@ git commit -m "feat: retrospective repository (snapshot + actuals + ref-library)
 - Modify: `lib/services/index.ts`
 - Test: `__tests__/services/retrospective.service.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 /** @jest-environment node */
@@ -934,12 +934,12 @@ describe('getRetrospective', () => {
 
 > 上面 `clarifyRounds.band` 的注释更正：p75=2、actual=2 → `within`。把该断言写成 `expect(r!.clarifyRounds.band).toBe('within')`。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx jest __tests__/services/retrospective.service.test.ts`
 Expected: FAIL（模块不存在）。
 
-- [ ] **Step 3: 实现 service**
+- [x] **Step 3: 实现 service**
 
 `lib/services/retrospective.service.ts`：
 
@@ -1027,7 +1027,7 @@ export function captureRetrospectiveSnapshotInBackground(taskId: string): void {
 }
 ```
 
-- [ ] **Step 4: 导出 service**
+- [x] **Step 4: 导出 service**
 
 `lib/services/index.ts`，在 `export { forecastService } from './forecast.service'` 之后加：
 
@@ -1038,12 +1038,12 @@ export {
 } from './retrospective.service'
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `npx jest __tests__/services/retrospective.service.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/services/retrospective.service.ts lib/services/index.ts __tests__/services/retrospective.service.test.ts
