@@ -64,7 +64,7 @@
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<ts>_add_task_forecast_snapshot/migration.sql`
 
-- [ ] **Step 1: 加 model + 反向 relation**
+- [x] **Step 1: 加 model + 反向 relation**
 
 在 `prisma/schema.prisma` 的 `model Task { ... }` 内，`sessions Session[]` 那一组 relation 旁加：
 
@@ -93,7 +93,7 @@ model TaskForecastSnapshot {
 }
 ```
 
-- [ ] **Step 2: 生成并应用迁移**
+- [x] **Step 2: 生成并应用迁移**
 
 Run: `npx prisma migrate dev --name add_task_forecast_snapshot`
 Expected: 新建 `task_forecast_snapshots` 表，`prisma generate` 自动跑。
@@ -119,12 +119,12 @@ ALTER TABLE "task_forecast_snapshots" ADD CONSTRAINT "task_forecast_snapshots_ta
   FOREIGN KEY ("taskId") REFERENCES "tasks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ```
 
-- [ ] **Step 3: 确认 client 生成**
+- [x] **Step 3: 确认 client 生成**
 
 Run: `npx prisma generate && npx tsc --noEmit -p tsconfig.json 2>&1 | head -5`
 Expected: 无 `TaskForecastSnapshot does not exist` 类报错。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add prisma/schema.prisma prisma/migrations
