@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/db/prisma'
+import { Prisma } from '@prisma/client'
 import type {
   MemoryCategory,
   MemoryScope,
-  Prisma,
   TaskArtifactAgent,
 } from '@prisma/client'
 
@@ -292,6 +292,112 @@ export const memoryRepository = {
       data: { content },
       select: { id: true },
     })
+  },
+
+  // ---------------------------------------------------------------------------
+  // pgvector raw-SQL — deliberate exception to the "no raw SQL" rule.
+  // The `embedding vector(1024)` column is `Unsupported` in Prisma, so the
+  // typed client cannot read or write it. All raw SQL here is confined to this
+  // repository, and every user-controlled value is bound as a parameter via
+  // Prisma.sql tagged templates — never string-interpolated.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Write (or overwrite) the embedding vector for a memory row.
+   * Vectors + ids are bound as parameters; never interpolated.
+   */
+  async setEmbedding(
+    id: string,
+    vector: number[],
+    tx?: Prisma.TransactionClient
+  ): Promise<void> {
+    const client = tx ?? prisma
+    // Serialize to pgvector text literal, e.g. "[0.1,0.2,0.3]"
+    const lit = `[${vector.join(',')}]`
+    // Both `lit` (the vector literal) and `id` are bound as SQL parameters.
+    await client.$executeRaw(
+      Prisma.sql`UPDATE "memories" SET "embedding" = ${lit}::vector WHERE "id" = ${id}`
+    )
+  },
+
+  /**
+   * Return the k nearest-neighbor memories to `queryVector` within `scope`,
+   * ordered by cosine distance ASC (smallest distance = most similar first).
+   *
+   * Scope mirrors the lexical-pool filters used by `findActiveTaskMemories` /
+   * `findActiveProjectMemories` (no category filter — cross-category corpus
+   * matches the same pool; category preference is handled at reconcile/apply).
+   *
+   * Also runs a cheap EXISTS probe to indicate whether the scope already has
+   * ANY embeddings, so callers can decide whether to fall back to lexical
+   * matching when the corpus is cold.
+   */
+  async findNeighborEmbeddings({
+    scope,
+    queryVector,
+    k,
+  }: {
+    scope:
+      | { kind: 'TASK'; taskId: string }
+      | { kind: 'PROJECT'; projectId: string }
+    queryVector: number[]
+    k: number
+  }): Promise<{
+    neighbors: Array<{
+      id: string
+      category: MemoryCategory
+      content: unknown
+      score: number
+    }>
+    scopeHasEmbeddings: boolean
+  }> {
+    // Build scope WHERE fragment safely via Prisma.sql composition.
+    const scopeWhere =
+      scope.kind === 'TASK'
+        ? Prisma.sql`"taskId" = ${scope.taskId}`
+        : Prisma.sql`"projectId" = ${scope.projectId} AND "scope" = 'PROJECT'`
+
+    const qvLit = `[${queryVector.join(',')}]`
+
+    // Main ANN query — no category filter (review point E).
+    type NeighborRow = {
+      id: string
+      category: MemoryCategory
+      content: unknown
+      distance: number
+    }
+    const rows = await prisma.$queryRaw<NeighborRow[]>(
+      Prisma.sql`
+        SELECT id, category, content, embedding <=> ${qvLit}::vector AS distance
+        FROM "memories"
+        WHERE "embedding" IS NOT NULL AND ${scopeWhere}
+        ORDER BY distance ASC
+        LIMIT ${k}
+      `
+    )
+
+    // EXISTS probe — cheap second query to detect a cold corpus.
+    type ExistsRow = { exists: boolean }
+    const [existsRow] = await prisma.$queryRaw<ExistsRow[]>(
+      Prisma.sql`
+        SELECT EXISTS(
+          SELECT 1 FROM "memories"
+          WHERE "embedding" IS NOT NULL AND ${scopeWhere}
+        ) AS exists
+      `
+    )
+
+    const neighbors = rows.map(r => ({
+      id: r.id,
+      category: r.category,
+      content: r.content,
+      score: 1 - r.distance,
+    }))
+
+    return {
+      neighbors,
+      scopeHasEmbeddings: Boolean(existsRow?.exists),
+    }
   },
 
   /**
