@@ -51,17 +51,15 @@
   /// only — Prisma's typed client can't touch Unsupported columns. LUM-324.
   embedding Unsupported("vector(1024)")?
 ```
-- [ ] **Step 2:** Hand-write `prisma/migrations/<timestamp>_add_memory_embedding/migration.sql`:
+- [ ] **Step 2:** Hand-write `prisma/migrations/<timestamp>_add_memory_embedding/migration.sql`. **NO HNSW index** (review point D): at Lumo's scale — hundreds of memories/project, low thousands total — an exact `ORDER BY embedding <=> $1 LIMIT k` seq scan is fast AND exact, whereas HNSW is *approximate* ANN that would contaminate the LUM-329 recall@k baseline. Add an index only when row counts reach tens of thousands.
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 ALTER TABLE "memories" ADD COLUMN "embedding" vector(1024);
-CREATE INDEX "memories_embedding_hnsw_idx" ON "memories"
-  USING hnsw ("embedding" vector_cosine_ops);
 ```
-- [ ] **Step 3:** Apply to dev via the offline path (export `DATABASE_URL_UNPOOLED` from main `.env.local` first): `npx prisma db execute --file prisma/migrations/<ts>_add_memory_embedding/migration.sql`, then `npx prisma migrate resolve --applied <ts>_add_memory_embedding`, then `npx prisma generate`.
-- [ ] **Step 4:** Verify: `npx prisma migrate status` clean; `npx tsc --noEmit` clean (the `Unsupported` column generates no typed field, so no client breakage). Commit schema + migration.
+- [ ] **Step 3:** Do NOT apply to the dev DB or run `prisma generate` in this task. The `Unsupported("vector")` column is never referenced by the typed client (all embedding I/O is raw SQL), so Tasks 2–6 tsc-pass and unit-test without the column physically existing. **The dev-DB apply + `prisma generate` + `migrate status` are deferred to Task 8** (bundled with the live key-gated verification) to avoid touching the shared dev DB / shared prisma client mid-stream (parallel worktrees). Just commit `schema.prisma` + `migration.sql`.
+- [ ] **Step 4:** `npx tsc --noEmit` clean (schema change alone doesn't break typed code). Commit schema + migration SQL.
 
-> Verification of the column existing is structural (migrate status + a `\d memories` style check via `db execute`); no jest here.
+> Deferring the dev-apply keeps every key-independent task green without racing the shared prisma client; the migration is exercised against the real DB once, in Task 8.
 
 ## Task 2: Embedding wrapper `lib/ai/embedding.ts`
 
@@ -95,8 +93,9 @@ export async function embedTexts(values: string[]): Promise<number[][]> {
 
 - [ ] **Step 1 (failing test):** mock the prisma client's `$queryRaw` / `$executeRaw`. Assert:
   - `setEmbedding(id, vector, tx?)` issues a parameterized `$executeRaw` `UPDATE "memories" SET "embedding" = $1::vector WHERE "id" = $2` with the vector serialized as a pgvector literal (`[v1,v2,...]`).
-  - `findNeighborEmbeddings({ scope:'TASK', taskId, category?, queryVector, k })` issues a parameterized `$queryRaw` ordering by `"embedding" <=> $queryVector::vector`, filters `"embedding" IS NOT NULL` and the right scope (`taskId=$` for TASK; `projectId=$ AND scope='PROJECT'` for PROJECT), `LIMIT k`, and maps rows to `{ id, category, content, score }` (score = `1 - distance` or the raw distance — pick one and document; tests assert the mapping shape).
-- [ ] **Step 2:** Implement both methods with **tagged-template `Prisma.sql` parameters only** (never interpolate the vector or ids into the string). Serialize the vector as a pgvector text literal `[a,b,c]` bound as a single `$n::vector` param. Add a top-of-method comment: deliberate pgvector raw-SQL exception to CLAUDE.md.
+  - `findNeighborEmbeddings({ scope, queryVector, k })` issues a parameterized `$queryRaw` ordering by `"embedding" <=> $queryVector::vector`, filters `"embedding" IS NOT NULL` and the right scope (`taskId=$` for TASK; `projectId=$ AND scope='PROJECT'` for PROJECT). **NO category filter** (review point E): lexical fallback ranks across categories (same-category is only a ranking boost there), so the embedding corpus must also be cross-category — scope must mirror `findActiveTaskMemories(taskId)` / `findActiveProjectMemories(projectId)` *exactly* so "embedding on" and "lexical fallback" search the SAME candidate set. `LIMIT k`. Maps rows to `{ id, category, content, score }` where **score = `1 - cosine_distance`** (so higher = closer; documented).
+  - **Returns `{ neighbors, scopeHasEmbeddings }`** (review point B): `scopeHasEmbeddings` = a cheap `EXISTS(SELECT 1 FROM memories WHERE <scope> AND embedding IS NOT NULL)`. Lets the composite retriever tell "scope not yet backfilled (all NULL)" apart from "scope embedded but no neighbor above floor" — closing the backfill-window duplicate-explosion gap without operational gating.
+- [ ] **Step 2:** Implement both methods with **tagged-template `Prisma.sql` parameters only** (never interpolate the vector or ids into the string). Serialize the vector as a pgvector text literal `[a,b,c]` bound as a single `$n::vector` param. Scope is a discriminated `{ kind:'TASK', taskId } | { kind:'PROJECT', projectId }` mapped to the WHERE clause. Add a top-of-method comment: deliberate pgvector raw-SQL exception to CLAUDE.md, confined to this repository.
 - [ ] **Step 3:** Run test → pass. `npx tsc --noEmit`. Commit.
 
 > Note: these are unit tests over the query-construction (mocked client), not a live DB. Live retrieval is exercised in Task 8.
@@ -106,18 +105,25 @@ export async function embedTexts(values: string[]): Promise<number[][]> {
 **Files:** modify `lib/services/memory/neighbor-retriever.ts` (async interface); new `lib/services/memory/embedding-neighbor-retriever.ts`; tests.
 
 - [ ] **Step 1:** Make `NeighborRetriever.retrieve` return `Promise<ScoredNeighbor[]>`. Update `lexicalNeighborRetriever.retrieve` to `async` (body unchanged; it just becomes awaitable). Update the #426 retriever test to `await`. Run → green.
-- [ ] **Step 2 (failing test):** for `EmbeddingNeighborRetriever`: given a query embedding + scope, it calls `memoryRepository.findNeighborEmbeddings` and returns its rows. For `compositeNeighborRetriever`: when the embedding retriever returns results, use them; when it throws or returns empty AND the query has no embedding (or repo signals unavailable), fall back to `lexicalNeighborRetriever`. Mock the repo + lexical.
-- [ ] **Step 3:** Implement. `EmbeddingNeighborRetriever.retrieve(query, scope, k)` takes a `queryVector` (the service embeds the candidate text and passes it in) — i.e. the interface for the embedding path is `{ category, text, vector }`. Design the query type so lexical (needs `text`) and embedding (needs `vector`) both fit: `NeighborQuery = { category, text, vector?: number[] }`. Composite: if `query.vector` present → try embedding retriever (catch → lexical); else → lexical. Pool is still passed for lexical fallback; embedding path ignores pool (DB-backed) and uses `scope`.
+- [ ] **Step 2 (failing tests — use SYNTHETIC 1024-d vectors with known cosine order, review de-risk):** check in a small fixture of hand-built vectors (e.g. one-hot / orthogonal + near-duplicates) whose pairwise cosine order is known by construction, so the floor/ordering/fallback logic is verified by MATH now, without a key or live DB. Assert:
+  - `EmbeddingNeighborRetriever`: given a query vector + scope, calls `memoryRepository.findNeighborEmbeddings` and returns rows with `score ≥ EMBEDDING_SCORE_FLOOR`, dropping those below; ordering by score desc preserved.
+  - `EMBEDDING_SCORE_FLOOR` is a distinct constant (NOT the lexical 0.3).
+  - `compositeNeighborRetriever` fallback predicate (review point B): falls back to `lexicalNeighborRetriever` when **`query.vector` is absent OR the embedding retriever throws OR `scopeHasEmbeddings === false`**; does NOT fall back when `scopeHasEmbeddings === true` and the (above-floor) neighbor list is simply empty (genuine no-neighbor → empty result, candidate becomes ADD). Mock the repo (return `{neighbors, scopeHasEmbeddings}`) + lexical.
+- [ ] **Step 3:** Implement.
+  - `EMBEDDING_SCORE_FLOOR` (review point A): cosine-similarity baseline for unrelated sentence embeddings runs high (~0.3–0.5), so the lexical 0.3 floor would admit noise. Default **0.6**, marked `// placeholder — calibrate via LUM-329 eval`. `score = 1 - cosine_distance`.
+  - `NeighborQuery = { category, text, vector?: number[] }` (lexical needs `text`, embedding needs `vector`). One call shape `RetrieveContext = { query, pool, scope, k }` (`pool` for lexical, `scope` discriminated TASK/PROJECT for the embedding DB query).
+  - `EmbeddingNeighborRetriever.retrieve(ctx)`: requires `ctx.query.vector`; calls `findNeighborEmbeddings({scope, queryVector, k})`; applies `EMBEDDING_SCORE_FLOOR`; returns `{ neighbors, scopeHasEmbeddings }` upward (or the composite reads it).
+  - `compositeNeighborRetriever.retrieve(ctx)`: if `!ctx.query.vector` → lexical. Else `try { const r = await embedding.retrieve(ctx); if (!r.scopeHasEmbeddings) return lexical.retrieve(ctx); return r.neighbors } catch { return lexical.retrieve(ctx) }`.
 - [ ] **Step 4:** Run → green. tsc. Commit.
 
-> The retriever signature reshapes to carry both `pool` (lexical) and `scope` (embedding DB query). Define `RetrieveContext = { query, pool, scope, k }` to keep one clean call shape. Document it.
+> `RetrieveContext = { query:{category,text,vector?}, pool, scope, k }` is the single call shape. Corpus parity (review point E): the embedding `scope` MUST select the same candidate set as the lexical `pool` (TASK→same-task memories, PROJECT→project PROJECT memories, cross-category) — add an explicit test/comment asserting this so fallback is a transparent degrade, not a corpus switch.
 
 ## Task 5: Write-path embedding stamping (apply, both layers)
 
 **Files:** `lib/services/memory/layer1-apply.ts`, `layer2-apply.ts`; extend their tests.
 
 - [ ] **Step 1 (failing test):** assert that for ADD/UPDATE/SUPERSEDE ops, apply (a) computes an embedding from the validated content via `embedTexts([memoryContentToText(cat, content)])` BEFORE opening the transaction, and (b) inside the tx calls `memoryRepository.setEmbedding(id, vector, tx)` after the content write. Assert that when `embedTexts` throws, the content write still succeeds and embedding is simply skipped (embedding is best-effort; backfill/next-write will fill it). Mock `embedTexts` + repo.
-- [ ] **Step 2:** Restructure apply: collect the ops needing embeddings, `embedTexts(...)` once (batched) outside the tx, map vectors back to ops, then in each plan write content (existing path) + `setEmbedding`. For ADD, the row id isn't known until create returns — call `setEmbedding(created.id, vec, tx)` after create. Wrap the embed call in try/catch → on failure, proceed without embedding (log warn). Keep the atomic content transaction intact.
+- [ ] **Step 2:** Restructure apply: collect the ops needing embeddings. For each, **reuse a caller-supplied vector when present** (review point C — the service passes the candidate vector it already computed for retrieval; reuse for ADD when content deep-equals the candidate); otherwise `embedTexts(...)` the remaining ops' `memoryContentToText(content)` once (batched) outside the tx. Map vectors back to ops, then in each plan write content (existing path) + `setEmbedding`. For ADD, the row id isn't known until create returns — call `setEmbedding(created.id, vec, tx)` after create. Wrap the embed call in try/catch → on failure, proceed without embedding (best-effort; log warn; backfill/next-write fills it). Keep the atomic content transaction intact.
 - [ ] **Step 3:** Run → green. tsc. Commit.
 
 ## Task 6: Service wiring — embed query + async retrieve (both layers)
@@ -125,7 +131,8 @@ export async function embedTexts(values: string[]): Promise<number[][]> {
 **Files:** `lib/services/memory/layer1.service.ts`, `layer2.service.ts`; extend tests.
 
 - [ ] **Step 1 (failing test):** assert the service embeds each candidate's text (`embedTexts`) and passes the vector into the composite retriever, and `await`s retrieval; assert fallback to lexical when `embedTexts` throws (retrieval still returns, no throw — fire-and-forget contract preserved). Mock `embedTexts` + retriever.
-- [ ] **Step 2:** Swap the injected `retriever` to `compositeNeighborRetriever`. Before retrieval, batch-embed all candidate texts (`embedTexts(candidates.map(...))`); per candidate build `{ query: { category, text, vector }, pool: existingMemories, scope, k }` and `await retriever.retrieve(...)`. On embed failure, pass `vector: undefined` → composite uses lexical. L2 scope = `{ kind:'PROJECT', projectId }`; L1 scope = `{ kind:'TASK', taskId }`.
+- [ ] **Step 2:** Swap the injected `retriever` to `compositeNeighborRetriever`. Before retrieval, batch-embed all candidate texts ONCE (`embedTexts(candidates.map(c => memoryContentToText(c.category, c.content)))`) — keep this `candidateVectors` array. Per candidate build `{ query: { category, text, vector }, pool: existingMemories, scope, k }` and `await retriever.retrieve(...)`. On embed failure (whole batch throws), pass `vector: undefined` for all → composite uses lexical. L2 scope = `{ kind:'PROJECT', projectId }`; L1 scope = `{ kind:'TASK', taskId }`.
+  - **Reuse the candidate vector at write time (review point C):** pass `candidateVectors` (aligned to candidates) into `applyLayer{1,2}Operations` so the apply step can REUSE a candidate's already-computed vector instead of re-embedding. For an **ADD** op whose `content` deep-equals the originating candidate's `content`, reuse that candidate's vector (no second `embedTexts` call). For UPDATE/SUPERSEDE (final content may differ from the candidate) and for ADD with mutated content, apply re-embeds (Task 5). Thread a `candidateVectorByContentKey` map (or pass `{op, vector?}` pairs) so apply can look up the reusable vector.
 - [ ] **Step 3:** Run → green. tsc. Full memory suite green. Commit.
 
 ## Task 7: Manual write paths (PATCH route + CLI add) + backfill script
