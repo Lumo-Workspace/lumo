@@ -20,11 +20,12 @@ interface TokenCostBreakdownProps {
   /** Extra caliber chips (e.g. lineage's 会话级/实时). */
   chips?: CostChip[]
   /**
-   * Per-person spend (LUM-308). When provided AND more than one member
-   * contributed, each detail row (output/input/…) becomes a disclosure that
-   * expands to a per-member breakdown for that token kind. Omit (or pass a
-   * single member) to render plain, non-expandable rows — the single-person /
-   * per-run case, where a breakdown would just restate the row.
+   * Per-person spend (LUM-308). When provided with at least one member, each
+   * detail row (output/input/…) becomes a disclosure that expands in-place to
+   * a per-member breakdown for that token kind. Rows stay collapsed by default,
+   * so the aggregate view is unchanged; a single contributor still expands to
+   * its one row (LUM-310 — keeps the interaction demoable). Omit entirely to
+   * render plain, non-expandable rows (the per-run / lineage usage).
    */
   perMember?: AgentRunMemberStat[]
 }
@@ -143,7 +144,7 @@ function ModelGroup({
     defaultMessage: 'tok',
   })
 
-  const expandable = !!perMember && perMember.length > 1
+  const expandable = !!perMember && perMember.length >= 1
 
   // Headline size on the semantic tier scale: the summary (full) total is the
   // focal number; a single run's (compact) total is secondary so it sits a tier
