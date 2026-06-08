@@ -47,10 +47,11 @@ Two failure modes to avoid:
 
 # Categories (pick exactly one per ADD/UPDATE)
 
-- TRAP — a failure mode or pitfall worth warning future-self about. A TRAP describes the PROBLEM ONLY — what goes wrong and why. It must NOT include the solution. If you also know the fix, emit a separate PROCEDURAL memory for the workaround.
-  content shape: { summary?: string, trigger: string, outcome: string }
+- TRAP — a failure mode or pitfall worth warning future-self about, plus its fix when the fix is short. Describe what goes wrong; if you know a one-line fix, put it in \`workaround\` on the SAME memory.
+  content shape: { summary?: string, trigger: string, outcome: string, workaround?: string }
   - \`trigger\`: the situation that causes the problem, tight ("When you ..."). One clause is plenty.
   - \`outcome\`: what goes wrong, in plain terms. Name the error/code if any. A single clause is fine — don't narrate the fallout.
+  - \`workaround\` (optional): the fix in ONE line, when it's a one-liner ("await the delete", "send form-encoded, not JSON"). Omit it if there's no known fix yet — OR if the fix is a genuine multi-step workflow, in which case emit ONE standalone PROCEDURAL instead and leave \`workaround\` off. NEVER do both: a \`workaround\` plus a PROCEDURAL that just restates it is a double-write (one fix, two memories).
 
 - DECISION — an engineering decision made in this task. Treat it as a mini-ADR: a future reader must be able to understand the *forces* that drove the choice, what was rejected, and what the team is now committed to. A decision without these is just a changelog entry.
   content shape: { summary?: string, what: string, why: string, alternatives?: string, implications?: string }
@@ -64,7 +65,7 @@ Two failure modes to avoid:
   - \`rule\`: the rule, stated tight ("All new ... must ...").
   - \`scope\`: where it applies + any exceptions. A few words is enough.
 
-- PROCEDURAL — a workflow / repeatable procedure. This is the ONE category allowed a step list — and the only place a longer body is justified.
+- PROCEDURAL — a workflow / repeatable procedure. This is the ONE category allowed a step list — and the only place a longer body is justified. Emit one ONLY for a genuinely multi-step workflow that stands on its own — never to restate a TRAP's one-line \`workaround\` (a one-line fix belongs inline on the TRAP, not in its own PROCEDURAL).
   content shape: { summary?: string, workflow: string, trigger: string, steps?: string[] }
   - \`workflow\`: what the procedure accomplishes ("How to run a database migration").
   - \`trigger\`: when to use it ("Whenever you ...").
@@ -108,6 +109,7 @@ Rules of thumb (not laws — judge per memory):
 - Self-check before every ADD: "Could a developer learn this by reading the current source code, git log, or existing docs?" If yes, it is NOT memory-worthy — skip it. Memories exist for knowledge that is invisible in the codebase: the *why* behind a choice, the gotcha that only surfaces at runtime, the rule that exists in people's heads but not in code.
 - Each field must be specific and standalone — readable cold by a future agent who never saw this turn. Avoid "this turn", "we just", "the above".
 - All content string fields must be non-empty. \`workaround\` and \`steps\` are optional; if you don't have one, omit the field rather than passing an empty string.
+- One fix, one home. A trap's fix lives in exactly ONE place: inline as the TRAP's \`workaround\` when it's a one-liner, OR — if it's a real multi-step workflow — as a single standalone PROCEDURAL with the TRAP's \`workaround\` left off. Never emit a PROCEDURAL that merely restates a TRAP's \`workaround\`; that is the most common redundancy.
 - If a turn confirms an existing memory, prefer NOOP — do not duplicate. UPDATE is for genuine refinements.
 
 # Length guidance
@@ -134,7 +136,7 @@ export function buildLayer1Prompt(input: BuildPromptInput): BuiltPrompt {
 
   const examples = `# Examples
 
-Example 1 — TRAP + PROCEDURAL from a tool failure (PROJECT scope — toolchain lesson applies to every migration task). Note how tight the bodies are.
+Example 1 — TRAP + a SEPARATE PROCEDURAL, used ONLY because the fix is genuinely multi-step (two migrations). The TRAP has NO \`workaround\` — the fix lives once, in the PROCEDURAL. (PROJECT scope — toolchain lesson applies to every migration task.)
 Turn (excerpt):
   [12:00:01] Bash "npx prisma migrate dev --name add_status" ERR — stderr: P3009: enum can't add value mid-migration
 Existing memories: (none)
@@ -152,6 +154,29 @@ Output:
         "workflow": "Add a new Postgres enum value in Prisma",
         "trigger": "Adding an enum value you need to use in the same change.",
         "steps": ["Migration 1: add the enum value only.", "Migration 2: use it (column default, backfill, etc.)."]
+      } } ] }
+
+Example 1b — TRAP whose fix is a one-liner: put it inline in \`workaround\`, do NOT also emit a PROCEDURAL (PROJECT scope). This is the common case; the separate-PROCEDURAL split in Example 1 is the exception, justified only by the multi-step fix.
+Turn (excerpt):
+  [13:20:00] Bash "curl -d '{...}' .../api/users.info" → invalid_arguments
+  [turn end] "Slack users.info ignores JSON bodies — had to send form-encoded."
+Existing memories: (none)
+
+BAD output (double-write — the fix written twice: once on the TRAP, again as a PROCEDURAL that just restates it):
+  { "operations": [
+    { "type": "ADD", "category": "TRAP", "scope": "PROJECT",
+      "content": { "trigger": "POST Slack users.info/conversations.info with a JSON body.", "outcome": "invalid_arguments — these methods ignore JSON.", "workaround": "Send form-encoded params instead." } },
+    { "type": "ADD", "category": "PROCEDURAL", "scope": "PROJECT",
+      "content": { "workflow": "Call Slack Web API with form-encoded params", "trigger": "Calling users.info/conversations.info.", "steps": ["Set Content-Type to application/x-www-form-urlencoded.", "Send token=...&user=... as form data."] } } ] }
+
+GOOD output (one home — the one-line fix lives on the TRAP, no PROCEDURAL):
+  { "operations": [
+    { "type": "ADD", "category": "TRAP", "scope": "PROJECT",
+      "content": {
+        "summary": "Slack users.info rejects JSON bodies",
+        "trigger": "POST Slack users.info / conversations.info with a JSON body.",
+        "outcome": "invalid_arguments — these methods only parse form-encoded data.",
+        "workaround": "Send form-encoded (token=...&user=...), not JSON."
       } } ] }
 
 Example 2 — CONVENTION from a user instruction (PROJECT scope — applies to every future task)

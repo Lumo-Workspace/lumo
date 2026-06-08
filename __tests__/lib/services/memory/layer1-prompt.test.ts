@@ -241,4 +241,46 @@ describe('buildLayer1Prompt', () => {
       /\{\s*"operations":\s*\[\{\s*"type":\s*"NOOP"\s*\}\]\s*\}/
     )
   })
+
+  // LUM-316: a trap's fix has ONE home. A one-line fix lives inline on the
+  // TRAP as `workaround`; a separate PROCEDURAL is only for a genuine
+  // multi-step workflow. Without this guidance the extractor double-writes
+  // every trap fix as both a `workaround` AND a redundant PROCEDURAL.
+  describe('trap fix lives in one place (LUM-316)', () => {
+    it('documents workaround as part of the TRAP content shape', () => {
+      const out = buildLayer1Prompt({
+        task: baseTask,
+        turnEvents: [],
+        existingMemories: [],
+      })
+      // TRAP shape must now advertise the optional workaround field.
+      expect(out.system).toMatch(
+        /content shape:\s*\{[^}]*trigger[^}]*outcome[^}]*workaround\?/
+      )
+    })
+
+    it('carries the anti-double-write rule (one fix, one home)', () => {
+      const out = buildLayer1Prompt({
+        task: baseTask,
+        turnEvents: [],
+        existingMemories: [],
+      })
+      expect(out.system).toMatch(/one fix, one home/i)
+      expect(out.system).toMatch(/double-write/i)
+      // The PROCEDURAL definition must warn against restating a workaround.
+      expect(out.system).toMatch(/restate[^.]*workaround|workaround[^.]*restate/i)
+    })
+
+    it('shows a TRAP example with an inline workaround and a double-write BAD case', () => {
+      const out = buildLayer1Prompt({
+        task: baseTask,
+        turnEvents: [],
+        existingMemories: [],
+      })
+      // At least one example TRAP carries the fix inline.
+      expect(out.user).toMatch(/"workaround":/)
+      // The contrastive BAD example teaches against the double-write.
+      expect(out.user).toMatch(/double-write/i)
+    })
+  })
 })
