@@ -273,6 +273,28 @@ export const memoryRepository = {
   },
 
   /**
+   * SUPERSEDE seam (LUM-324). A new memory contradicts/replaces an existing
+   * one. INTERIM behavior: overwrite the existing row's content in place —
+   * same write as `updateContent`, but a distinct method so LUM-325 can swap
+   * this body to invalidate-not-delete (keep the old row, stamp invalidatedAt,
+   * insert the replacement, link supersededById) WITHOUT touching any caller.
+   * Preserving the row id keeps provenance / lineage edges pointing at it
+   * intact — the reason SUPERSEDE is not DELETE+ADD.
+   */
+  async supersedeInPlace(
+    id: string,
+    content: Prisma.InputJsonValue,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.memory.update({
+      where: { id },
+      data: { content },
+      select: { id: true },
+    })
+  },
+
+  /**
    * Hard-delete a memory row. Used by Layer 1 DELETE when the LLM retracts an
    * earlier memory because it was contradicted or superseded.
    */
