@@ -17,7 +17,7 @@ interface TriggerInput {
   sessionId: string
 }
 
-const MODEL_ID = 'anthropic/claude-haiku-4-5'
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 const MAX_OUTPUT_TOKENS = 80
 const MAX_SUMMARY_CHARS = 140
 
@@ -43,10 +43,10 @@ const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 C
  *     last_assistant_message first-sentence)
  *   - DB write fails on a deleted row → swallowed inside repo
  *
- * Cost note: one Haiku call per turn (~few hundred input + 80 output
- * tokens). At 2026-04 prices that's ~$0.0005/turn. We do not retry —
- * a stuck call is wasted latency, and the next STOP will produce
- * another summary opportunity.
+ * Cost note: one small-model call per turn (~few hundred input + 80
+ * output tokens), routed to deepseek-v4-flash via the gateway to cut
+ * cost vs Haiku. We do not retry — a stuck call is wasted latency, and
+ * the next STOP will produce another summary opportunity.
  */
 export const turnSummaryService = {
   async generateAndStore(input: TriggerInput): Promise<void> {
