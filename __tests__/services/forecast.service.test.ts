@@ -18,7 +18,8 @@ function cand(
   runs: number,
   prs: number,
   end: number,
-  tokenCost: number | null = null
+  tokenCost: number | null = null,
+  clarify = 0
 ): ForecastCandidate {
   return {
     id,
@@ -31,6 +32,7 @@ function cand(
     })),
     mergedPrAt: Array.from({ length: prs }, () => h(end)),
     tokenCost,
+    clarifyRounds: clarify,
   }
 }
 
@@ -157,4 +159,24 @@ it('returns null cycleHours when fewer than 3 candidates have a cycle', async ()
   expect(f.insufficientData).toBe(false)
   expect(f.iterations).not.toBeNull()
   expect(f.cycleHours).toBeNull()
+})
+
+it('produces a clarifyRounds interval from the cohort', async () => {
+  load.mockResolvedValue({
+    target,
+    candidates: [
+      cand('1', 2, 1, 5, null, 1),
+      cand('2', 3, 1, 6, null, 2),
+      cand('3', 2, 1, 5, null, 3),
+    ],
+  })
+  const f = await forecastService.getTaskForecast('tgt')
+  expect(f.clarifyRounds).not.toBeNull()
+  expect(f.clarifyRounds!.median).toBe(2)
+})
+
+it('returns null clarifyRounds when the cohort is too thin', async () => {
+  load.mockResolvedValue({ target, candidates: [cand('1', 2, 1, 5, null, 1)] })
+  const f = await forecastService.getTaskForecast('tgt')
+  expect(f.clarifyRounds).toBeNull()
 })

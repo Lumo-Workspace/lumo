@@ -54,6 +54,18 @@ export const forecastRepository = {
       },
     })
 
+    // Clarification rounds per candidate = count of AGENT_CLARIFY notifications
+    // (LUM-319). Notification has only a bare taskId (no Task relation), so we
+    // aggregate separately and map back. Tasks with none simply stay at 0.
+    const clarifyCounts = await prisma.notification.groupBy({
+      by: ['taskId'],
+      where: { taskId: { in: rows.map(r => r.id) }, type: 'AGENT_CLARIFY' },
+      _count: { _all: true },
+    })
+    const clarifyByTask = new Map<string, number>(
+      clarifyCounts.map(c => [c.taskId as string, c._count._all])
+    )
+
     const candidates: ForecastCandidate[] = rows.map(r => {
       // A task has cost data only if at least one session carries usage.
       const hasUsage = r.sessions.some(s => s.outputTokens !== null)
@@ -80,6 +92,7 @@ export const forecastRepository = {
         })),
         mergedPrAt: r.pullRequests.map(p => p.mergedAt),
         tokenCost,
+        clarifyRounds: clarifyByTask.get(r.id) ?? 0,
       }
     })
 

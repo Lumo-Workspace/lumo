@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "Used in {resolved} resolved tasks · {merged} merged · real-usage signal",
   "trust.tooltip.presence": "Co-loaded in {resolved} resolved tasks · {merged} merged · co-load only, weak signal",
   "agentRun.byMember": "By person",
-  "agentRun.memberSummary": "{runs, plural, one {# run} other {# runs}} · {turns, plural, one {# turn} other {# turns}}"
+  "agentRun.memberSummary": "{runs, plural, one {# run} other {# runs}} · {turns, plural, one {# turn} other {# turns}}",
+  "retrospective.title": "Delivery retrospective",
+  "retrospective.done": "Done",
+  "retrospective.tokenUsage": "Token usage",
+  "retrospective.predicted": "Forecast {value}",
+  "retrospective.actual": "actual {value}",
+  "retrospective.actualLabel": "actual",
+  "retrospective.delivery": "Delivery",
+  "retrospective.iterations": "Runs",
+  "retrospective.clarifyRounds": "Clarification rounds",
+  "retrospective.noForecast": "no forecast history yet",
+  "retrospective.bandWithin": "within the usual range",
+  "retrospective.bandAbove": "above the usual range",
+  "retrospective.bandBelow": "below the usual range",
+  "retrospective.flywheel": "Added to the reference library for forecasting future similar tasks ({count} now)"
 }

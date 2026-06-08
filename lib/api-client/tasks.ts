@@ -164,6 +164,10 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.forecast(taskId))
   },
 
+  retrospective<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.retrospective(taskId))
+  },
+
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {
     const params = new URLSearchParams()
     if (cursor) params.set('cursor', cursor)

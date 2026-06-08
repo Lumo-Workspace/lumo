@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "Verwendet in {resolved} abgeschlossenen Aufgaben · {merged} zusammengeführt · echtes Nutzungssignal",
   "trust.tooltip.presence": "Zusammen geladen in {resolved} abgeschlossenen Aufgaben · {merged} zusammengeführt · nur Co-Load, schwaches Signal",
   "agentRun.byMember": "Nach Person",
-  "agentRun.memberSummary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}}"
+  "agentRun.memberSummary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}}",
+  "retrospective.title": "Lieferrückblick",
+  "retrospective.done": "Fertig",
+  "retrospective.tokenUsage": "Token-Verbrauch",
+  "retrospective.predicted": "Prognose {value}",
+  "retrospective.actual": "Tatsächlich {value}",
+  "retrospective.actualLabel": "Tatsächlich",
+  "retrospective.delivery": "Lieferung",
+  "retrospective.iterations": "Durchläufe",
+  "retrospective.clarifyRounds": "Klärungsrunden",
+  "retrospective.noForecast": "Noch nicht genug Verlaufsdaten",
+  "retrospective.bandWithin": "Im üblichen Bereich",
+  "retrospective.bandAbove": "Über dem üblichen Bereich",
+  "retrospective.bandBelow": "Unter dem üblichen Bereich",
+  "retrospective.flywheel": "Zur Referenzbibliothek hinzugefügt – wird für zukünftige ähnliche Aufgaben verwendet (jetzt {count})"
 }

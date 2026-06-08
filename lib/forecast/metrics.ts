@@ -32,5 +32,11 @@ export function extractMetrics(c: ForecastCandidate): CandidateMetrics {
     cycleHours = (finish - start) / MS_PER_HOUR
   }
 
-  return { iterations, mergedPrs, cycleHours, tokenCost: c.tokenCost }
+  return {
+    iterations,
+    mergedPrs,
+    cycleHours,
+    tokenCost: c.tokenCost,
+    clarifyRounds: c.clarifyRounds,
+  }
 }

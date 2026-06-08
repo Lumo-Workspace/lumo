@@ -10,6 +10,7 @@ function candidate(over: Partial<ForecastCandidate>): ForecastCandidate {
     runs: [],
     mergedPrAt: [],
     tokenCost: null,
+    clarifyRounds: 0,
     ...over,
   }
 }
@@ -31,7 +32,10 @@ describe('extractMetrics', () => {
 
   it('counts merged PRs', () => {
     const m = extractMetrics(
-      candidate({ mergedPrAt: [h(5), h(6)], runs: [{ startedAt: h(0), finishedAt: h(1) }] })
+      candidate({
+        mergedPrAt: [h(5), h(6)],
+        runs: [{ startedAt: h(0), finishedAt: h(1) }],
+      })
     )
     expect(m.mergedPrs).toBe(2)
   })
@@ -78,4 +82,18 @@ describe('extractMetrics', () => {
     expect(extractMetrics(candidate({ tokenCost: 1234 })).tokenCost).toBe(1234)
     expect(extractMetrics(candidate({ tokenCost: null })).tokenCost).toBeNull()
   })
+})
+
+it('passes clarifyRounds through from the candidate', () => {
+  const c: ForecastCandidate = {
+    id: 'a',
+    title: 'X',
+    identifier: 'LUM-1',
+    tags: [],
+    runs: [],
+    mergedPrAt: [],
+    tokenCost: null,
+    clarifyRounds: 4,
+  }
+  expect(extractMetrics(c).clarifyRounds).toBe(4)
 })
