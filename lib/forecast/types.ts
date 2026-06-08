@@ -5,6 +5,13 @@ export interface Interval {
   p75: number
 }
 
+/**
+ * How much historical evidence backs the forecast. Derived from the sample
+ * sizes feeding the displayed tracks (see deriveConfidence) — NOT a model
+ * probability. Surfaced as a neutral badge so readers can calibrate trust.
+ */
+export type ForecastConfidence = 'low' | 'medium' | 'high'
+
 /** One completed candidate task as loaded from the DB (raw, pre-metrics). */
 export interface ForecastCandidate {
   id: string
@@ -60,5 +67,8 @@ export interface TaskForecast {
   // as an honest "based on N tasks with cost data" caveat).
   tokenCost: Interval | null
   tokenCostBasis: number
+  // Evidence-strength badge, derived from the sample sizes behind the shown
+  // tracks. 'low' when insufficientData (no badge is rendered in that case).
+  confidence: ForecastConfidence
   sources: ForecastSource[]
 }
