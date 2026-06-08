@@ -122,6 +122,7 @@ it('hides zero/no-signal metrics in summary mode (LUM-324 case)', () => {
 it('shows the clarify summary line only when actual > 0', () => {
   render(<ProgressView progress={noForecastWithClarify} agentStatus={null} />)
   expect(screen.getByText('2 clarification rounds')).toBeInTheDocument()
+  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
 })
 
 it('does NOT render summary lines when a forecast is present', () => {
@@ -129,4 +130,24 @@ it('does NOT render summary lines when a forecast is present', () => {
   expect(screen.queryByText(/runs so far/)).not.toBeInTheDocument()
   expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
   expect(screen.getByText('Progress')).toBeInTheDocument()
+})
+
+const tokenBandNoCohort: TaskProgress = {
+  sessionCount: 1,
+  forecast: {} as TaskProgress['forecast'],
+  tokenCost: { forecast: iv(12e6, 22e6, 35e6), actual: 18e6, deltaPct: null, band: 'on-track' },
+  iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
+  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+}
+
+it('renders the token band AND a runs-only summary when token forecast exists but cohort does not', () => {
+  render(<ProgressView progress={tokenBandNoCohort} agentStatus={null} />)
+  // band block present (on-track note)
+  expect(screen.getByText('within range · still accumulating')).toBeInTheDocument()
+  // summary runs line present
+  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
+  // NO duplicate token summary line (band already shows token; showTokenSummary is false)
+  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
+  // not the compare section
+  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
 })

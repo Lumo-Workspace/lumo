@@ -1451,5 +1451,8 @@
   "progress.iterations": "रन",
   "progress.clarifyRounds": "स्पष्टीकरण दौर",
   "progress.predictedRange": "पूर्वानुमान {value}",
-  "progress.soFar": "अब तक {value}"
+  "progress.soFar": "अब तक {value}",
+  "progress.summaryRuns": "अब तक {value} रन",
+  "progress.summaryTokens": "{value} टोकन उपयोग किए गए",
+  "progress.summaryClarify": "{value} स्पष्टीकरण दौर"
 }

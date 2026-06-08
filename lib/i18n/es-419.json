@@ -1451,5 +1451,8 @@
   "progress.iterations": "Ejecuciones",
   "progress.clarifyRounds": "Rondas de aclaración",
   "progress.predictedRange": "Estimación {value}",
-  "progress.soFar": "hasta ahora {value}"
+  "progress.soFar": "hasta ahora {value}",
+  "progress.summaryRuns": "{value} ejecuciones hasta ahora",
+  "progress.summaryTokens": "{value} tokens usados",
+  "progress.summaryClarify": "{value} rondas de aclaración"
 }

@@ -1451,5 +1451,8 @@
   "progress.iterations": "실행 횟수",
   "progress.clarifyRounds": "명확화 라운드",
   "progress.predictedRange": "예측 {value}",
-  "progress.soFar": "현재까지 {value}"
+  "progress.soFar": "현재까지 {value}",
+  "progress.summaryRuns": "지금까지 {value}회 실행",
+  "progress.summaryTokens": "{value} 토큰 사용",
+  "progress.summaryClarify": "확인 {value}회"
 }
