@@ -26,6 +26,13 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   },
 }))
 
+const embedTextsMock = jest.fn().mockResolvedValue([])
+jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
+
+jest.mock('@/lib/services/memory/embedding-neighbor-retriever', () => ({
+  compositeNeighborRetriever: { retrieve: jest.fn().mockResolvedValue([]) },
+}))
+
 import { getLayer2Input } from '@/lib/services/memory/layer2-input'
 import {
   extractLayer2Candidates,
@@ -33,7 +40,12 @@ import {
 } from '@/lib/services/memory/layer2-extract'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { compositeNeighborRetriever } from '@/lib/services/memory/embedding-neighbor-retriever'
 import { layer2Service } from '@/lib/services/memory/layer2.service'
+
+const retrieveMock = compositeNeighborRetriever.retrieve as jest.MockedFunction<
+  typeof compositeNeighborRetriever.retrieve
+>
 
 const getInput = getLayer2Input as jest.MockedFunction<typeof getLayer2Input>
 const extract = extractLayer2Candidates as jest.MockedFunction<
@@ -181,15 +193,44 @@ describe('layer2Service.runForProject', () => {
     extract.mockResolvedValue([{ category: 'TRAP', content: { trigger: 'a2', outcome: 'b2' }, sourceMemoryIds: ['tm_1'] }])
     reconcile.mockResolvedValue([{ type: 'NOOP' }])
     apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
+    embedTextsMock.mockResolvedValue([[0.1, 0.2]])
 
     await layer2Service.runForProject('proj_1')
 
     const reconcileArg = reconcile.mock.calls[0]![0]
     expect(reconcileArg.candidates).toHaveLength(1)
     expect(reconcileArg.neighborsByCandidate).toHaveLength(1)
+    // Retriever was called once (per candidate) with a RetrieveContext with PROJECT scope
+    expect(retrieveMock).toHaveBeenCalledTimes(1)
+    expect(retrieveMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'PROJECT', projectId: 'proj_1' },
+      })
+    )
     expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ validSourceMemoryIds: ['tm_1'] })
     )
+  })
+
+  it('degrades to lexical (vector undefined) when embedTexts rejects, still completes', async () => {
+    getInput.mockResolvedValue({
+      project: { id: 'proj_1', name: 'P', workspaceId: 'ws_1' },
+      taskMemories: [{ id: 'tm_1', taskId: 't1', category: 'TRAP', content: { trigger: 'a', outcome: 'b' } }],
+      existingProjectMemories: [],
+      constitution: { claudeMd: null, agentsMd: null },
+    })
+    extract.mockResolvedValue([{ category: 'TRAP', content: { trigger: 'a', outcome: 'b' } }])
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
+    apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
+    embedTextsMock.mockRejectedValue(new Error('no key'))
+
+    // Must not throw — fire-and-forget contract at the caller level
+    await layer2Service.runForProject('proj_1')
+
+    // Retriever was still called, but with vector: undefined (lexical fallback)
+    expect(retrieveMock).toHaveBeenCalledTimes(1)
+    const ctx = retrieveMock.mock.calls[0]![0]
+    expect(ctx.query.vector).toBeUndefined()
   })
 })
 

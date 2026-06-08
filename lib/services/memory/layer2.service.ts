@@ -4,8 +4,9 @@ import { extractLayer2Candidates, reconcileLayer2Candidates } from './layer2-ext
 import { applyLayer2Operations } from './layer2-apply'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryContentToText } from '@/lib/memory/content-text'
-import { lexicalNeighborRetriever, NEIGHBOR_K } from './neighbor-retriever'
-import type { NeighborRetriever } from './neighbor-retriever'
+import { NEIGHBOR_K } from './neighbor-retriever'
+import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
+import { embedTexts } from '@/lib/ai/embedding'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -13,10 +14,6 @@ import type { NeighborRetriever } from './neighbor-retriever'
  * the next completion can re-acquire it.
  */
 const LAYER2_LEASE_TTL_MS = 60_000
-
-/** Neighbor retriever for reconcile-on-write — LUM-324 ships lexical; swap for
- * an embedding retriever (pgvector) when the LUM-324 DECISION trigger fires. */
-const retriever: NeighborRetriever = lexicalNeighborRetriever
 
 export interface Layer2ProjectResult {
   added: number
@@ -131,12 +128,26 @@ async function runForProject(
       return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
 
+    // Batch-embed candidate texts for semantic retrieval. No key / gateway down →
+    // degrade to lexical (vectors stay undefined). Never throws (fire-and-forget).
+    const candidateTexts = candidates.map(c => memoryContentToText(c.category, c.content))
+    let candidateVectors: (number[] | undefined)[] = candidateTexts.map(() => undefined)
+    try {
+      const vecs = await embedTexts(candidateTexts)
+      if (vecs.length === candidateTexts.length) candidateVectors = vecs
+    } catch (error) {
+      logger.warn(`[memory.layer2] candidate embedding failed, falling back to lexical:`, error instanceof Error ? error.message : error)
+    }
+
     // Retrieve — per candidate, top-k similar existing PROJECT memories.
-    const neighborsByCandidate = candidates.map(c =>
-      retriever.retrieve(
-        { category: c.category, text: memoryContentToText(c.category, c.content) },
-        input.existingProjectMemories,
-        NEIGHBOR_K
+    const neighborsByCandidate = await Promise.all(
+      candidates.map((c, i) =>
+        compositeNeighborRetriever.retrieve({
+          query: { category: c.category, text: candidateTexts[i]!, vector: candidateVectors[i] },
+          pool: input.existingProjectMemories,
+          scope: { kind: 'PROJECT', projectId: input.project.id },
+          k: NEIGHBOR_K,
+        })
       )
     )
 
@@ -151,6 +162,9 @@ async function runForProject(
       return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
 
+    const precomputedEmbeddings = new Map<string, number[]>()
+    candidateTexts.forEach((t, i) => { const v = candidateVectors[i]; if (v) precomputedEmbeddings.set(t, v) })
+
     const result = await applyLayer2Operations({
       operations,
       projectId: input.project.id,
@@ -161,6 +175,7 @@ async function runForProject(
       })),
       validSourceMemoryIds: input.taskMemories.map(m => m.id),
       sourceSessionId,
+      precomputedEmbeddings,
     })
 
     logger.debug(`[memory.layer2] applied project=${projectId}`, result)

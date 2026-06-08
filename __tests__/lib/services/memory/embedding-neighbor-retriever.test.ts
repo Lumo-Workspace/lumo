@@ -8,7 +8,6 @@ import {
   compositeNeighborRetriever,
   EMBEDDING_SCORE_FLOOR,
 } from '@/lib/services/memory/embedding-neighbor-retriever'
-import { lexicalNeighborRetriever } from '@/lib/services/memory/neighbor-retriever'
 
 const find = memoryRepository.findNeighborEmbeddings as jest.Mock
 
