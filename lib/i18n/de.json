@@ -1451,5 +1451,8 @@
   "progress.iterations": "Durchläufe",
   "progress.clarifyRounds": "Klärungsrunden",
   "progress.predictedRange": "Prognose {value}",
-  "progress.soFar": "bisher {value}"
+  "progress.soFar": "bisher {value}",
+  "progress.summaryRuns": "Bisher {value} Durchläufe",
+  "progress.summaryTokens": "{value} Tokens verwendet",
+  "progress.summaryClarify": "{value} Klärungsrunden"
 }

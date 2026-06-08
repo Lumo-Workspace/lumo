@@ -1451,5 +1451,8 @@
   "progress.iterations": "Запуски",
   "progress.clarifyRounds": "Раунды уточнений",
   "progress.predictedRange": "Прогноз {value}",
-  "progress.soFar": "на данный момент {value}"
+  "progress.soFar": "на данный момент {value}",
+  "progress.summaryRuns": "{value} запусков на данный момент",
+  "progress.summaryTokens": "Использовано {value} токенов",
+  "progress.summaryClarify": "{value} раундов уточнений"
 }

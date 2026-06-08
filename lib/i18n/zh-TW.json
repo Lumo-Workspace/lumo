@@ -1451,5 +1451,8 @@
   "progress.iterations": "執行次數",
   "progress.clarifyRounds": "釐清輪次",
   "progress.predictedRange": "預測 {value}",
-  "progress.soFar": "已 {value}"
+  "progress.soFar": "已 {value}",
+  "progress.summaryRuns": "已執行 {value} 次",
+  "progress.summaryTokens": "已用 {value} token",
+  "progress.summaryClarify": "已澄清 {value} 輪"
 }
