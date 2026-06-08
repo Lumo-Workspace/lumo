@@ -4,21 +4,21 @@ import { useIntl } from 'react-intl'
 import { slugify } from '@/lib/utils/slugify'
 import { copyLink } from '@/lib/utils/copyLink'
 import { useFormatDate } from '../../hooks/useFormatDate'
-import type { ApiComment, ApiTask, WorkspaceMemberInfo } from '../../types'
+import type { ApiComment, WorkspaceMemberInfo } from '../../types'
 import { resolveCommentAuthor } from '../comment-utils'
 import { CommentAvatar } from '../CommentAvatar'
 import { CommentActions } from './CommentActions'
 import { CommentEditMode } from './CommentEditMode'
 import type { useTaskComments } from '../../hooks/useTaskComments'
+import type { MentionSources } from '@/types/mention'
 
 interface Props {
   comment: ApiComment
   /** Workspace info needed by `resolveCommentAuthor`. */
   members: WorkspaceMemberInfo[]
-  mentionableMembers: WorkspaceMemberInfo[]
+  mentionSources?: MentionSources
   agentActors: { actorId: string; name: string; avatarColor: string }[]
   currentActorId: string | null | undefined
-  tasks?: ApiTask[] | undefined
   /** For the deep-link copy: workspace slug + project name + team identifier + task #. */
   workspaceUrl: string
   projectName: string
@@ -35,10 +35,9 @@ interface Props {
 export function CommentItem({
   comment,
   members,
-  mentionableMembers,
+  mentionSources,
   agentActors,
   currentActorId,
-  tasks,
   workspaceUrl,
   projectName,
   teamIdentifier,
@@ -87,9 +86,7 @@ export function CommentItem({
             draftBody={tc.editCommentBody}
             saving={tc.savingComment}
             placeholderId='task.editCommentPlaceholder'
-            mentionableMembers={mentionableMembers}
-            tasks={tasks}
-            agentActors={agentActors}
+            {...(mentionSources ? { mentionSources } : {})}
             onChange={html => tc.setEditCommentBody(html)}
             onSave={() => tc.saveEditComment(comment.id)}
             onCancel={() => tc.cancelEditing()}

@@ -15,11 +15,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { isMac } from '@/lib/utils/keyboard'
-import type { ApiTask, WorkspaceMemberInfo } from '../types'
+import type { WorkspaceMemberInfo } from '../types'
 import { CommentEditor } from './comments/CommentEditor'
 import { CommentItem } from './comments/CommentItem'
 import { ReplyItem } from './comments/ReplyItem'
 import { ReplyInput } from './comments/ReplyInput'
+import { useMentionSources } from '../hooks/useMentionSources'
 
 export interface CommentSectionProps {
   workspaceUrl: string
@@ -33,7 +34,6 @@ export interface CommentSectionProps {
     | undefined
   currentActorId: string | null | undefined
   user: { imageUrl?: string; initials?: string } | null | undefined
-  tasks?: ApiTask[] | undefined
   tc: ReturnType<typeof import('../hooks/useTaskComments').useTaskComments>
 }
 
@@ -47,11 +47,11 @@ export function CommentSection({
   agentActors,
   currentActorId,
   user,
-  tasks,
   tc,
 }: CommentSectionProps) {
   const intl = useIntl()
   const resolvedAgentActors = agentActors ?? []
+  const mentionSources = useMentionSources(mentionableMembers)
 
   return (
     <>
@@ -82,10 +82,9 @@ export function CommentSection({
                 <CommentItem
                   comment={comment}
                   members={members}
-                  mentionableMembers={mentionableMembers}
+                  mentionSources={mentionSources}
                   agentActors={resolvedAgentActors}
                   currentActorId={currentActorId}
-                  tasks={tasks}
                   workspaceUrl={workspaceUrl}
                   projectName={projectName}
                   teamIdentifier={teamIdentifier}
@@ -101,10 +100,9 @@ export function CommentSection({
                         reply={reply}
                         parent={comment}
                         members={members}
-                        mentionableMembers={mentionableMembers}
+                        mentionSources={mentionSources}
                         agentActors={resolvedAgentActors}
                         currentActorId={currentActorId}
-                        tasks={tasks}
                         workspaceUrl={workspaceUrl}
                         projectName={projectName}
                         teamIdentifier={teamIdentifier}
@@ -118,9 +116,7 @@ export function CommentSection({
                 {tc.replyingToId === comment.id && (
                   <ReplyInput
                     parentCommentId={comment.id}
-                    mentionableMembers={mentionableMembers}
-                    agentActors={resolvedAgentActors}
-                    tasks={tasks}
+                    mentionSources={mentionSources}
                     user={user}
                     tc={tc}
                   />
@@ -143,9 +139,7 @@ export function CommentSection({
               onCommit={html => tc.setCommentBody(html)}
               onSubmit={tc.submitComment}
               clearRef={tc.clearCommentRef}
-              members={mentionableMembers}
-              {...(tasks ? { tasks } : {})}
-              {...(agentActors ? { agentActors } : {})}
+              mentionSources={mentionSources}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button

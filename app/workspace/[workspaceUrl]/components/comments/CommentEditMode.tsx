@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { isMac } from '@/lib/utils/keyboard'
 import { DescriptionEditor } from '../DescriptionEditor'
-import type { ApiTask, WorkspaceMemberInfo } from '../../types'
+import type { MentionSources } from '@/types/mention'
 
 interface Props {
   /** Stable React key — caller uses `edit-${id}` so toggling between rows
@@ -15,9 +15,7 @@ interface Props {
   draftBody: string | null
   saving: boolean
   placeholderId: 'task.editCommentPlaceholder' | 'task.editReplyPlaceholder'
-  mentionableMembers: WorkspaceMemberInfo[]
-  tasks?: ApiTask[] | undefined
-  agentActors?: { actorId: string; name: string; avatarColor: string }[]
+  mentionSources?: MentionSources
   onChange: (html: string | null) => void
   onSave: () => void
   onCancel: () => void
@@ -40,9 +38,7 @@ export function CommentEditMode({
   draftBody,
   saving,
   placeholderId,
-  mentionableMembers,
-  tasks,
-  agentActors,
+  mentionSources,
   onChange,
   onSave,
   onCancel,
@@ -69,9 +65,7 @@ export function CommentEditMode({
           onCommit={onChange}
           onChange={onChange}
           placeholder={intl.formatMessage({ id: placeholderId })}
-          members={mentionableMembers}
-          {...(tasks ? { tasks } : {})}
-          agentActors={agentActors ?? []}
+          {...(mentionSources ? { mentionSources } : {})}
         />
       </div>
       <div className='flex justify-end gap-2 px-2 pb-2'>

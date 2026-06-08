@@ -4,13 +4,14 @@ import { useIntl } from 'react-intl'
 import { slugify } from '@/lib/utils/slugify'
 import { copyLink } from '@/lib/utils/copyLink'
 import { useFormatDate } from '../../hooks/useFormatDate'
-import type { ApiComment, ApiTask, WorkspaceMemberInfo } from '../../types'
+import type { ApiComment, WorkspaceMemberInfo } from '../../types'
 import { resolveCommentAuthor } from '../comment-utils'
 import { CommentAvatar } from '../CommentAvatar'
 import { CommentActions } from './CommentActions'
 import { CommentEditMode } from './CommentEditMode'
 import { CommentQuote, previewCommentText } from './CommentQuote'
 import type { useTaskComments } from '../../hooks/useTaskComments'
+import type { MentionSources } from '@/types/mention'
 
 interface Props {
   reply: ApiComment
@@ -19,10 +20,9 @@ interface Props {
    * the parent's loaded reply tree. */
   parent: ApiComment
   members: WorkspaceMemberInfo[]
-  mentionableMembers: WorkspaceMemberInfo[]
+  mentionSources?: MentionSources
   agentActors: { actorId: string; name: string; avatarColor: string }[]
   currentActorId: string | null | undefined
-  tasks?: ApiTask[] | undefined
   workspaceUrl: string
   projectName: string
   teamIdentifier: string
@@ -39,10 +39,9 @@ export function ReplyItem({
   reply,
   parent,
   members,
-  mentionableMembers,
+  mentionSources,
   agentActors,
   currentActorId,
-  tasks,
   workspaceUrl,
   projectName,
   teamIdentifier,
@@ -99,9 +98,7 @@ export function ReplyItem({
             draftBody={tc.editCommentBody}
             saving={tc.savingComment}
             placeholderId='task.editReplyPlaceholder'
-            mentionableMembers={mentionableMembers}
-            tasks={tasks}
-            agentActors={agentActors}
+            {...(mentionSources ? { mentionSources } : {})}
             onChange={html => tc.setEditCommentBody(html)}
             onSave={() => tc.saveEditComment(reply.id)}
             onCancel={() => tc.cancelEditing()}
