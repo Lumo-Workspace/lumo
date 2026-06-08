@@ -1,10 +1,9 @@
 export type SummaryKind = 'slack' | 'artifact' | 'document' | 'comments'
 
 // Cheap, fast model — matches the project's sanctioned summarization model
-// (see turn-summary.service.ts / memory/layer2-extract.ts). The plan's
-// `openai/gpt-4o-mini` was a placeholder; the codebase only ever routes the
-// gateway to Anthropic models, and Haiku is the established cheap tier.
-const MODEL_ID = 'anthropic/claude-haiku-4-5'
+// (see turn-summary.service.ts / memory/layer2-extract.ts). Routed through the
+// gateway to deepseek-v4-flash (LUM-320) to cut cost vs the prior Haiku tier.
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
 const MAX_INPUT_CHARS = 24_000
 

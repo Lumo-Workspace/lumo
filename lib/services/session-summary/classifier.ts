@@ -1,18 +1,20 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { generateObject, NoObjectGeneratedError } from 'ai'
+import { gateway } from '@ai-sdk/gateway'
+import { z } from 'zod'
 import type { SessionMetadata } from './compact-events'
-import {
-  CLASSIFIER_TOOL,
-  SESSION_TYPES,
-  type ClassifierOutput,
-  type SessionType,
-} from './types'
+import { SESSION_TYPES, type ClassifierOutput } from './types'
 
-const CLASSIFY_MODEL = 'claude-haiku-4-5-20251001'
+const CLASSIFY_MODEL = 'deepseek/deepseek-v4-flash'
 const CLASSIFY_MAX_TOKENS = 256
+
+const classifierSchema = z.object({
+  type: z.enum(SESSION_TYPES),
+  confidence: z.number().min(0).max(1),
+})
 
 const SYSTEM_PROMPT = `You analyze Claude Code development sessions and classify them into the single type that best describes what the developer was doing.
 
-You will ALWAYS respond by calling the \`classify_session\` tool. Never reply with prose.
+Respond with a JSON object matching the requested schema — a \`type\` and a \`confidence\`. Never reply with prose.
 
 Types:
 - exploration: Purely reading/understanding code, no concrete changes
@@ -37,47 +39,33 @@ export interface ClassifyInput {
 }
 
 /**
- * Runs the classifier call. Always returns a {@link ClassifierOutput} — any
- * malformed model reply is normalized to `{ type: 'mixed', confidence: 0 }`
- * so the orchestrator can fall through to the mixed template rather than
- * throwing. Network-level failures still throw.
+ * Runs the classifier call through the AI gateway. Returns a
+ * {@link ClassifierOutput} — output that cannot be parsed into the schema is
+ * normalized to `{ type: 'mixed', confidence: 0 }` so the orchestrator can fall
+ * through to the mixed template rather than throwing. Genuine API/network
+ * failures still throw so the caller can surface them.
  */
 export async function classifySession(
-  client: Anthropic,
   input: ClassifyInput
 ): Promise<ClassifierOutput> {
-  const message = await client.messages.create({
-    model: CLASSIFY_MODEL,
-    max_tokens: CLASSIFY_MAX_TOKENS,
-    system: SYSTEM_PROMPT,
-    tools: [CLASSIFIER_TOOL],
-    tool_choice: { type: 'tool', name: CLASSIFIER_TOOL.name },
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
-  })
-
-  const toolUse = message.content.find(
-    (b): b is Anthropic.ToolUseBlock =>
-      b.type === 'tool_use' && b.name === CLASSIFIER_TOOL.name
-  )
-  if (!toolUse) {
-    return { type: 'mixed', confidence: 0 }
+  try {
+    const { object } = await generateObject({
+      model: gateway(CLASSIFY_MODEL),
+      schema: classifierSchema,
+      system: SYSTEM_PROMPT,
+      prompt: buildUserPrompt(input),
+      maxOutputTokens: CLASSIFY_MAX_TOKENS,
+    })
+    return object
+  } catch (err) {
+    // Unparseable / schema-mismatch output → fall back to mixed (matches the
+    // original "no tool_use block → mixed" degradation). Re-throw real
+    // API/network errors so the orchestrator can convert them to an HTTP error.
+    if (NoObjectGeneratedError.isInstance(err)) {
+      return { type: 'mixed', confidence: 0 }
+    }
+    throw err
   }
-
-  const raw = toolUse.input as { type?: unknown; confidence?: unknown }
-  const type =
-    typeof raw.type === 'string' && isSessionType(raw.type) ? raw.type : 'mixed'
-  const confidence =
-    typeof raw.confidence === 'number' &&
-    raw.confidence >= 0 &&
-    raw.confidence <= 1
-      ? raw.confidence
-      : 0
-
-  return { type, confidence }
-}
-
-function isSessionType(s: string): s is SessionType {
-  return (SESSION_TYPES as readonly string[]).includes(s)
 }
 
 function buildUserPrompt({
