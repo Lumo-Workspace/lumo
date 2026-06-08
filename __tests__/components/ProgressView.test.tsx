@@ -13,6 +13,9 @@ const en: Record<string, string> = {
   'progress.clarifyRounds': 'Clarification rounds',
   'progress.predictedRange': 'Forecast {value}',
   'progress.soFar': 'so far {value}',
+  'progress.summaryRuns': '{value} runs so far',
+  'progress.summaryTokens': '{value} tokens used',
+  'progress.summaryClarify': '{value} clarification rounds',
 }
 
 jest.mock('react-intl', () => ({
@@ -79,4 +82,51 @@ it('shows the running pulse only when agentStatus is WORKING', () => {
   expect(screen.getByText(en['progress.agentRunning']!)).toBeInTheDocument()
   rerender(<ProgressView progress={onTrack} agentStatus={null} />)
   expect(screen.queryByText(en['progress.agentRunning']!)).not.toBeInTheDocument()
+})
+
+const noForecastWithToken: TaskProgress = {
+  sessionCount: 1,
+  forecast: {} as TaskProgress['forecast'],
+  tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
+  iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
+  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+}
+
+const noForecastMinimal: TaskProgress = {
+  ...noForecastWithToken,
+  tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
+}
+
+const noForecastWithClarify: TaskProgress = {
+  ...noForecastMinimal,
+  clarifyRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
+}
+
+it('renders an in-progress summary (runs + token) when there is no forecast', () => {
+  render(<ProgressView progress={noForecastWithToken} agentStatus={null} />)
+  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
+  expect(screen.getByText('12K tokens used')).toBeInTheDocument()
+  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
+  expect(screen.queryByText('so far 1')).not.toBeInTheDocument()
+  expect(screen.queryByText(/Forecast/)).not.toBeInTheDocument()
+})
+
+it('hides zero/no-signal metrics in summary mode (LUM-324 case)', () => {
+  render(<ProgressView progress={noForecastMinimal} agentStatus={null} />)
+  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
+  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/clarification rounds/)).not.toBeInTheDocument()
+  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
+})
+
+it('shows the clarify summary line only when actual > 0', () => {
+  render(<ProgressView progress={noForecastWithClarify} agentStatus={null} />)
+  expect(screen.getByText('2 clarification rounds')).toBeInTheDocument()
+})
+
+it('does NOT render summary lines when a forecast is present', () => {
+  render(<ProgressView progress={onTrack} agentStatus='WORKING' />)
+  expect(screen.queryByText(/runs so far/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
+  expect(screen.getByText('Progress')).toBeInTheDocument()
 })
