@@ -39,6 +39,11 @@ export const layer1OperationSchema = z.discriminatedUnion('type', [
     id: z.string().min(1),
   }),
   z.object({
+    type: z.literal('SUPERSEDE'),
+    id: z.string().min(1),
+    content: z.unknown(),
+  }),
+  z.object({
     type: z.literal('NOOP'),
   }),
 ])
