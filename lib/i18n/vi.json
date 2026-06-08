@@ -1451,5 +1451,9 @@
   "progress.iterations": "Lần chạy",
   "progress.clarifyRounds": "Vòng làm rõ",
   "progress.predictedRange": "Dự báo {value}",
-  "progress.soFar": "cho đến nay {value}"
+  "progress.soFar": "cho đến nay {value}",
+  "mention.sprints": "Sprint",
+  "mention.projects": "Dự án",
+  "mention.milestones": "Cột mốc",
+  "mention.searching": "Đang tìm kiếm…"
 }

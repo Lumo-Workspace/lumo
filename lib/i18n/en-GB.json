@@ -1451,5 +1451,9 @@
   "progress.iterations": "Runs",
   "progress.clarifyRounds": "Clarification rounds",
   "progress.predictedRange": "Forecast {value}",
-  "progress.soFar": "so far {value}"
+  "progress.soFar": "so far {value}",
+  "mention.sprints": "Sprints",
+  "mention.projects": "Projects",
+  "mention.milestones": "Milestones",
+  "mention.searching": "Searching…"
 }

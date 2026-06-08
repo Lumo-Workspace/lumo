@@ -1451,5 +1451,9 @@
   "progress.iterations": "Запуски",
   "progress.clarifyRounds": "Раунды уточнений",
   "progress.predictedRange": "Прогноз {value}",
-  "progress.soFar": "на данный момент {value}"
+  "progress.soFar": "на данный момент {value}",
+  "mention.sprints": "Спринты",
+  "mention.projects": "Проекты",
+  "mention.milestones": "Вехи",
+  "mention.searching": "Поиск…"
 }

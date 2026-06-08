@@ -1451,5 +1451,9 @@
   "progress.iterations": "執行次數",
   "progress.clarifyRounds": "釐清輪次",
   "progress.predictedRange": "預測 {value}",
-  "progress.soFar": "已 {value}"
+  "progress.soFar": "已 {value}",
+  "mention.sprints": "衝刺",
+  "mention.projects": "專案",
+  "mention.milestones": "里程碑",
+  "mention.searching": "搜尋中…"
 }

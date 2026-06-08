@@ -1451,5 +1451,9 @@
   "progress.iterations": "実行回数",
   "progress.clarifyRounds": "確認ラウンド",
   "progress.predictedRange": "予測 {value}",
-  "progress.soFar": "現在 {value}"
+  "progress.soFar": "現在 {value}",
+  "mention.sprints": "スプリント",
+  "mention.projects": "プロジェクト",
+  "mention.milestones": "マイルストーン",
+  "mention.searching": "検索中…"
 }

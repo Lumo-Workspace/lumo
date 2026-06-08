@@ -1451,5 +1451,9 @@
   "progress.iterations": "रन",
   "progress.clarifyRounds": "स्पष्टीकरण दौर",
   "progress.predictedRange": "पूर्वानुमान {value}",
-  "progress.soFar": "अब तक {value}"
+  "progress.soFar": "अब तक {value}",
+  "mention.sprints": "स्प्रिंट",
+  "mention.projects": "प्रोजेक्ट",
+  "mention.milestones": "मील के पत्थर",
+  "mention.searching": "खोज रहा है…"
 }
