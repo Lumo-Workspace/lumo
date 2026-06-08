@@ -33,7 +33,12 @@ const mockLabels = lineageSourceRepository.labelsByType as jest.Mock
 const mockTurnUsage = hookEventRepository.findTurnUsageByTask as jest.Mock
 
 // One STOP turn's per-model delta summing to 1800 (1000+500+200+100).
-const TURN_DELTA = { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100 }
+const TURN_DELTA = {
+  input: 1000,
+  output: 500,
+  cacheRead: 200,
+  cacheCreation: 100,
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -231,12 +236,10 @@ it('carries the edge used field onto the fragment entry', async () => {
     {
       fragmentType: 'MEMORY',
       fragmentId: 'mem-new',
-      runId: 'run-1',
-      sessionId: null,
+      sessionId: 's-1',
       outcome: 'MERGED',
       used: true,
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: { id: 'run-1', ...RUN_COST },
       session: null,
     },
   ])

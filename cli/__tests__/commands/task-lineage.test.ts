@@ -20,7 +20,6 @@ it('renders a usage marker per fragment', () => {
     groups: [
       {
         kind: 'session',
-        runId: null,
         sessionId: 's1',
         label: 'Session s1',
         includedAt: '',
@@ -70,7 +69,6 @@ it('renders unused marker for used: false', () => {
     groups: [
       {
         kind: 'session',
-        runId: null,
         sessionId: 's2',
         label: 'Session s2',
         includedAt: '',
@@ -96,10 +94,9 @@ it('renders the legend line in a group with fragments', () => {
     totals: BASE_TOTALS,
     groups: [
       {
-        kind: 'run',
-        runId: 'r1',
-        sessionId: null,
-        label: 'Run r1',
+        kind: 'session',
+        sessionId: 's3',
+        label: 'Session s3',
         includedAt: '',
         cost: null,
         fragments: [
