@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "Dalam rentang biasa",
   "retrospective.bandAbove": "Di atas rentang biasa",
   "retrospective.bandBelow": "Di bawah rentang biasa",
-  "retrospective.flywheel": "Ditambahkan ke perpustakaan referensi untuk prediksi tugas serupa di masa mendatang ({count} sekarang)"
+  "retrospective.flywheel": "Ditambahkan ke perpustakaan referensi untuk prediksi tugas serupa di masa mendatang ({count} sekarang)",
+  "progress.title": "Pengiriman sedang berjalan",
+  "progress.agentRunning": "Agent berjalan",
+  "progress.tokenUsage": "Penggunaan token · langsung",
+  "progress.predictedMedian": "Median perkiraan {value}",
+  "progress.usedLabel": "terpakai",
+  "progress.over": "melebihi anggaran",
+  "progress.onTrackNote": "dalam rentang · masih terakumulasi",
+  "progress.sectionLabel": "Progres",
+  "progress.iterations": "Eksekusi",
+  "progress.clarifyRounds": "Putaran klarifikasi",
+  "progress.predictedRange": "Perkiraan {value}",
+  "progress.soFar": "sejauh ini {value}"
 }

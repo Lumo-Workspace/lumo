@@ -12,6 +12,7 @@ export const API = {
     lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
+    progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

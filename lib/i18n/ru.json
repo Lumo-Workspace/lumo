@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "В обычном диапазоне",
   "retrospective.bandAbove": "Выше обычного диапазона",
   "retrospective.bandBelow": "Ниже обычного диапазона",
-  "retrospective.flywheel": "Добавлено в справочную библиотеку для прогнозирования аналогичных задач (сейчас {count})"
+  "retrospective.flywheel": "Добавлено в справочную библиотеку для прогнозирования аналогичных задач (сейчас {count})",
+  "progress.title": "Поставка выполняется",
+  "progress.agentRunning": "Agent работает",
+  "progress.tokenUsage": "Использование токенов · в реальном времени",
+  "progress.predictedMedian": "Прогноз медианы {value}",
+  "progress.usedLabel": "использовано",
+  "progress.over": "превышение бюджета",
+  "progress.onTrackNote": "в диапазоне · накапливается",
+  "progress.sectionLabel": "Прогресс",
+  "progress.iterations": "Запуски",
+  "progress.clarifyRounds": "Раунды уточнений",
+  "progress.predictedRange": "Прогноз {value}",
+  "progress.soFar": "на данный момент {value}"
 }
