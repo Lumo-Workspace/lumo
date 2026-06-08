@@ -10,7 +10,7 @@ const insensitive = (q: string) => ({
  * Returns minimal fields sufficient for the service layer to build mention DTOs
  * with hrefs. All queries are scoped to a workspaceId.
  *
- * Note: Project has no slug field — consumers use the project id to build URLs.
+ * Note: Project has no slug field — consumers slugify the project name to build URLs.
  */
 export const mentionSearchRepository = {
   searchTasks(workspaceId: string, q: string, take: number) {
@@ -28,7 +28,6 @@ export const mentionSearchRepository = {
         title: true,
         status: true,
         team: { select: { identifier: true } },
-        project: { select: { id: true } },
       },
       orderBy: { updatedAt: 'desc' },
       take,
@@ -46,7 +45,6 @@ export const mentionSearchRepository = {
         number: true,
         name: true,
         status: true,
-        team: { select: { id: true } },
       },
       orderBy: { number: 'desc' },
       take,
@@ -78,7 +76,7 @@ export const mentionSearchRepository = {
         id: true,
         name: true,
         slug: true,
-        project: { select: { id: true } },
+        project: { select: { name: true } },
       },
       orderBy: { updatedAt: 'desc' },
       take,
