@@ -22,7 +22,9 @@ describe('buildUsageJudgePrompt', () => {
       eventLog: 'Bash "npx prisma db execute" OK',
     })
     expect(system).toMatch(/evidence/i)
-    expect(system).toMatch(/abstain|NULL|only/i)
+    // Pin the core safety property: abstain-by-default / never assert "not used".
+    expect(system).toMatch(/OMIT|abstain/i)
+    expect(system).toMatch(/never output a ['"]?not used/i)
     expect(user).toContain('MEMORY::m1')
     expect(user).toContain('Prisma drift workaround')
     expect(user).toContain('WEB_LINK::w1')
