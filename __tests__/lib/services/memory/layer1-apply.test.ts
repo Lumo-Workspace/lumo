@@ -6,6 +6,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     create: jest.fn(),
     updateContent: jest.fn(),
     delete: jest.fn(),
+    supersedeInPlace: jest.fn(),
     // Run the plans inline so per-op assertions (repo.create / delete / etc.)
     // still see the calls. The real implementation wraps these in
     // prisma.$transaction; mocking it as a plain runner is enough for unit
@@ -40,6 +41,7 @@ beforeEach(() => {
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
   repo.delete.mockResolvedValue({ id: 'deleted' } as never)
+  repo.supersedeInPlace.mockResolvedValue({ id: 'superseded' } as never)
 })
 
 describe('applyLayer1Operations', () => {
@@ -53,6 +55,7 @@ describe('applyLayer1Operations', () => {
       added: 0,
       updated: 0,
       deleted: 0,
+      superseded: 0,
       noop: 1,
       skipped: 0,
     })
@@ -279,5 +282,55 @@ describe('applyLayer1Operations', () => {
     expect(repo.applyPlansAtomically).toHaveBeenCalledTimes(1)
     expect(repo.create).toHaveBeenCalledTimes(1)
     expect(repo.delete).toHaveBeenCalledTimes(1)
+  })
+
+  it('SUPERSEDE overwrites the target row content in place and counts it', async () => {
+    const supersede = jest
+      .spyOn(memoryRepository, 'supersedeInPlace')
+      .mockResolvedValue({ id: 'mem_old' } as never)
+
+    const result = await applyLayer1Operations({
+      operations: [
+        { type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'REST is fine now', scope: 'all new endpoints' } },
+      ],
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      sessionId: 'sess_1',
+      existingMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
+    })
+
+    expect(result.superseded).toBe(1)
+    expect(supersede).toHaveBeenCalledWith(
+      'mem_old',
+      { rule: 'REST is fine now', scope: 'all new endpoints' },
+      expect.anything()
+    )
+  })
+
+  it('drops SUPERSEDE targeting an unknown id', async () => {
+    const result = await applyLayer1Operations({
+      operations: [{ type: 'SUPERSEDE', id: 'ghost', content: { rule: 'x', scope: 'y' } }],
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      sessionId: 'sess_1',
+      existingMemories: [],
+    })
+    expect(result.superseded).toBe(0)
+    expect(result.skipped).toBe(1)
+  })
+
+  it('drops SUPERSEDE whose content fails the target category schema', async () => {
+    const result = await applyLayer1Operations({
+      operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { what: 'wrong shape for a TRAP' } }],
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      sessionId: 'sess_1',
+      existingMemories: [{ id: 'mem_old', category: 'TRAP' }],
+    })
+    expect(result.superseded).toBe(0)
+    expect(result.skipped).toBe(1)
   })
 })

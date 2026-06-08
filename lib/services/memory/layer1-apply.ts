@@ -24,6 +24,7 @@ export interface ApplyOperationsResult {
   added: number
   updated: number
   deleted: number
+  superseded: number
   noop: number
   /** Operations dropped because content/category/id failed second-pass validation. */
   skipped: number
@@ -48,6 +49,7 @@ export async function applyLayer1Operations(
     added: 0,
     updated: 0,
     deleted: 0,
+    superseded: 0,
     noop: 0,
     skipped: 0,
   }
@@ -74,6 +76,33 @@ export async function applyLayer1Operations(
       plans.push(async tx => {
         await memoryRepository.delete(op.id, tx)
         result.deleted++
+      })
+      continue
+    }
+    if (op.type === 'SUPERSEDE') {
+      const existingCategory = knownCategoryById.get(op.id)
+      if (!existingCategory) {
+        result.skipped++
+        continue
+      }
+      let validated: unknown
+      try {
+        validated = parseMemoryContent(existingCategory, op.content)
+      } catch (error) {
+        logger.warn(
+          `[memory.layer1] dropped SUPERSEDE id=${op.id} (content failed ${existingCategory} schema):`,
+          error instanceof Error ? error.message : error
+        )
+        result.skipped++
+        continue
+      }
+      plans.push(async tx => {
+        await memoryRepository.supersedeInPlace(
+          op.id,
+          validated as Prisma.InputJsonValue,
+          tx
+        )
+        result.superseded++
       })
       continue
     }
