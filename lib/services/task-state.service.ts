@@ -9,6 +9,7 @@ import {
 } from '@/lib/task/state-machine'
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
+import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrospective.service'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -243,9 +244,8 @@ export async function updateTask(
 export function dispatchDoneAudit(taskId: string): void {
   waitUntil(
     (async () => {
-      const { fragmentUsageAuditService } = await import(
-        '@/lib/services/lineage/fragment-usage-audit.service'
-      )
+      const { fragmentUsageAuditService } =
+        await import('@/lib/services/lineage/fragment-usage-audit.service')
       await fragmentUsageAuditService.auditForTask(taskId)
     })()
   )
@@ -311,6 +311,10 @@ export async function updateTaskWithSideEffects(
     // coarse by design (keyed by taskId). Detached so a stamp failure never
     // rolls back the completion.
     stampLineageInBackground(s => s.stampForTaskDone(taskId))
+
+    // LUM-319: 固化交付时 forecast 快照，供「交付回顾」卡对比。keep-first，
+    // fire-and-forget，失败不回滚 completion。
+    captureRetrospectiveSnapshotInBackground(taskId)
 
     // LUM-314: evidence-gated fragment-usage audit (used + outcome land together).
     dispatchDoneAudit(taskId)
