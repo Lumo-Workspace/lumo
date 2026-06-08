@@ -7,18 +7,16 @@ function makeSources(): MentionSources {
       { kind: 'user', id: 'u1', label: 'Alice', imageUrl: null },
       { kind: 'user', id: 'u2', label: 'Bob', imageUrl: null },
     ],
-    searchEntities: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          kind: 'task',
-          id: 't1',
-          label: 'LUM-1',
-          sublabel: 'Fix',
-          status: 'TODO',
-          href: '/x',
-        },
-      ]),
+    searchEntities: jest.fn().mockResolvedValue([
+      {
+        kind: 'task',
+        id: 't1',
+        label: 'LUM-1',
+        sublabel: 'Fix',
+        status: 'TODO',
+        href: '/x',
+      },
+    ]),
   }
 }
 
@@ -62,5 +60,14 @@ it('debounced entity search resolves into onUpdate', async () => {
   await Promise.resolve()
   await Promise.resolve()
   expect(sources.searchEntities).toHaveBeenCalledWith('lum')
+  await Promise.resolve()
+  expect(onUpdate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      loading: false,
+      items: expect.arrayContaining([
+        expect.objectContaining({ kind: 'task', id: 't1' }),
+      ]),
+    })
+  )
   jest.useRealTimers()
 })
