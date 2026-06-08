@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "Im üblichen Bereich",
   "retrospective.bandAbove": "Über dem üblichen Bereich",
   "retrospective.bandBelow": "Unter dem üblichen Bereich",
-  "retrospective.flywheel": "Zur Referenzbibliothek hinzugefügt – wird für zukünftige ähnliche Aufgaben verwendet (jetzt {count})"
+  "retrospective.flywheel": "Zur Referenzbibliothek hinzugefügt – wird für zukünftige ähnliche Aufgaben verwendet (jetzt {count})",
+  "progress.title": "Lieferung läuft",
+  "progress.agentRunning": "Agent aktiv",
+  "progress.tokenUsage": "Token-Nutzung · live",
+  "progress.predictedMedian": "Prognose Median {value}",
+  "progress.usedLabel": "verbraucht",
+  "progress.over": "über Budget",
+  "progress.onTrackNote": "im Bereich · läuft noch",
+  "progress.sectionLabel": "Fortschritt",
+  "progress.iterations": "Durchläufe",
+  "progress.clarifyRounds": "Klärungsrunden",
+  "progress.predictedRange": "Prognose {value}",
+  "progress.soFar": "bisher {value}"
 }

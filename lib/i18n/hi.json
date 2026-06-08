@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "सामान्य सीमा में",
   "retrospective.bandAbove": "सामान्य सीमा से ऊपर",
   "retrospective.bandBelow": "सामान्य सीमा से नीचे",
-  "retrospective.flywheel": "संदर्भ लाइब्रेरी में जोड़ा गया, भविष्य के समान कार्यों के पूर्वानुमान के लिए उपयोग होगा (अभी {count})"
+  "retrospective.flywheel": "संदर्भ लाइब्रेरी में जोड़ा गया, भविष्य के समान कार्यों के पूर्वानुमान के लिए उपयोग होगा (अभी {count})",
+  "progress.title": "डिलीवरी जारी है",
+  "progress.agentRunning": "Agent चल रहा है",
+  "progress.tokenUsage": "token उपयोग · लाइव",
+  "progress.predictedMedian": "पूर्वानुमान माध्यिका {value}",
+  "progress.usedLabel": "उपयोग किया",
+  "progress.over": "बजट से अधिक",
+  "progress.onTrackNote": "सीमा के भीतर · जमा हो रहा है",
+  "progress.sectionLabel": "प्रगति",
+  "progress.iterations": "रन",
+  "progress.clarifyRounds": "स्पष्टीकरण दौर",
+  "progress.predictedRange": "पूर्वानुमान {value}",
+  "progress.soFar": "अब तक {value}"
 }

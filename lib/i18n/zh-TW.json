@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "落在常見區間內",
   "retrospective.bandAbove": "高於常見區間",
   "retrospective.bandBelow": "低於常見區間",
-  "retrospective.flywheel": "已計入參考庫，將用於未來同類任務的預測（現 {count} 個）"
+  "retrospective.flywheel": "已計入參考庫，將用於未來同類任務的預測（現 {count} 個）",
+  "progress.title": "交付進行中",
+  "progress.agentRunning": "Agent 執行中",
+  "progress.tokenUsage": "token 用量 · 即時",
+  "progress.predictedMedian": "預測中位 {value}",
+  "progress.usedLabel": "已用",
+  "progress.over": "已超預算",
+  "progress.onTrackNote": "區間內 · 仍在累計",
+  "progress.sectionLabel": "進度",
+  "progress.iterations": "執行次數",
+  "progress.clarifyRounds": "釐清輪次",
+  "progress.predictedRange": "預測 {value}",
+  "progress.soFar": "已 {value}"
 }

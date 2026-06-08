@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "通常範囲内",
   "retrospective.bandAbove": "通常範囲を超過",
   "retrospective.bandBelow": "通常範囲を下回る",
-  "retrospective.flywheel": "参照ライブラリに追加されました。今後の類似タスクの予測に使用されます（現在 {count} 件）"
+  "retrospective.flywheel": "参照ライブラリに追加されました。今後の類似タスクの予測に使用されます（現在 {count} 件）",
+  "progress.title": "デリバリー進行中",
+  "progress.agentRunning": "Agent 実行中",
+  "progress.tokenUsage": "token 使用量 · ライブ",
+  "progress.predictedMedian": "予測中央値 {value}",
+  "progress.usedLabel": "使用済み",
+  "progress.over": "予算超過",
+  "progress.onTrackNote": "範囲内 · 累積中",
+  "progress.sectionLabel": "進捗",
+  "progress.iterations": "実行回数",
+  "progress.clarifyRounds": "確認ラウンド",
+  "progress.predictedRange": "予測 {value}",
+  "progress.soFar": "現在 {value}"
 }

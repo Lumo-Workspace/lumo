@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "일반 범위 내",
   "retrospective.bandAbove": "일반 범위 초과",
   "retrospective.bandBelow": "일반 범위 미만",
-  "retrospective.flywheel": "참조 라이브러리에 추가되어 향후 유사 작업 예측에 사용됩니다 (현재 {count}개)"
+  "retrospective.flywheel": "참조 라이브러리에 추가되어 향후 유사 작업 예측에 사용됩니다 (현재 {count}개)",
+  "progress.title": "배포 진행 중",
+  "progress.agentRunning": "Agent 실행 중",
+  "progress.tokenUsage": "token 사용량 · 실시간",
+  "progress.predictedMedian": "예측 중앙값 {value}",
+  "progress.usedLabel": "사용됨",
+  "progress.over": "예산 초과",
+  "progress.onTrackNote": "범위 내 · 누적 중",
+  "progress.sectionLabel": "진행 상황",
+  "progress.iterations": "실행 횟수",
+  "progress.clarifyRounds": "명확화 라운드",
+  "progress.predictedRange": "예측 {value}",
+  "progress.soFar": "현재까지 {value}"
 }

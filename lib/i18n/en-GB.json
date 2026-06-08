@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "within the usual range",
   "retrospective.bandAbove": "above the usual range",
   "retrospective.bandBelow": "below the usual range",
-  "retrospective.flywheel": "Added to the reference library for forecasting future similar tasks ({count} now)"
+  "retrospective.flywheel": "Added to the reference library for forecasting future similar tasks ({count} now)",
+  "progress.title": "Delivery in progress",
+  "progress.agentRunning": "Agent running",
+  "progress.tokenUsage": "Token usage · live",
+  "progress.predictedMedian": "Forecast median {value}",
+  "progress.usedLabel": "used",
+  "progress.over": "over budget",
+  "progress.onTrackNote": "within range · still accumulating",
+  "progress.sectionLabel": "Progress",
+  "progress.iterations": "Runs",
+  "progress.clarifyRounds": "Clarification rounds",
+  "progress.predictedRange": "Forecast {value}",
+  "progress.soFar": "so far {value}"
 }

@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "Dentro del rango habitual",
   "retrospective.bandAbove": "Por encima del rango habitual",
   "retrospective.bandBelow": "Por debajo del rango habitual",
-  "retrospective.flywheel": "Agregado a la biblioteca de referencia para pronósticos de tareas similares ({count} ahora)"
+  "retrospective.flywheel": "Agregado a la biblioteca de referencia para pronósticos de tareas similares ({count} ahora)",
+  "progress.title": "Entrega en curso",
+  "progress.agentRunning": "Agent en ejecución",
+  "progress.tokenUsage": "Uso de tokens · en vivo",
+  "progress.predictedMedian": "Mediana estimada {value}",
+  "progress.usedLabel": "usado",
+  "progress.over": "sobre presupuesto",
+  "progress.onTrackNote": "dentro del rango · acumulando",
+  "progress.sectionLabel": "Progreso",
+  "progress.iterations": "Ejecuciones",
+  "progress.clarifyRounds": "Rondas de aclaración",
+  "progress.predictedRange": "Estimación {value}",
+  "progress.soFar": "hasta ahora {value}"
 }

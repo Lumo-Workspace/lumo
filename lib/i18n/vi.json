@@ -1439,5 +1439,17 @@
   "retrospective.bandWithin": "Trong phạm vi thông thường",
   "retrospective.bandAbove": "Vượt phạm vi thông thường",
   "retrospective.bandBelow": "Dưới phạm vi thông thường",
-  "retrospective.flywheel": "Đã thêm vào thư viện tham chiếu để dự báo các tác vụ tương tự trong tương lai ({count} hiện tại)"
+  "retrospective.flywheel": "Đã thêm vào thư viện tham chiếu để dự báo các tác vụ tương tự trong tương lai ({count} hiện tại)",
+  "progress.title": "Đang giao hàng",
+  "progress.agentRunning": "Agent đang chạy",
+  "progress.tokenUsage": "Sử dụng token · trực tiếp",
+  "progress.predictedMedian": "Trung vị dự báo {value}",
+  "progress.usedLabel": "đã dùng",
+  "progress.over": "vượt ngân sách",
+  "progress.onTrackNote": "trong phạm vi · đang tích lũy",
+  "progress.sectionLabel": "Tiến độ",
+  "progress.iterations": "Lần chạy",
+  "progress.clarifyRounds": "Vòng làm rõ",
+  "progress.predictedRange": "Dự báo {value}",
+  "progress.soFar": "cho đến nay {value}"
 }
