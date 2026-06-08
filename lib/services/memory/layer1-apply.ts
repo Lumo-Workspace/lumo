@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
+import { embedTexts } from '@/lib/ai/embedding'
+import { memoryContentToText } from '@/lib/memory/content-text'
 import type { MemoryCategory, Prisma, TaskArtifactAgent } from '@prisma/client'
 import type { Layer1Operation } from './layer1-extract'
 
@@ -18,6 +20,12 @@ interface ApplyOperationsInput {
   agent?: TaskArtifactAgent
   /** Active task memory rows looked up earlier — used to map UPDATE ids to their category for second-pass content validation. */
   existingMemories: Array<{ id: string; category: MemoryCategory }>
+  /**
+   * text → vector for embeddings already computed by the caller (the service
+   * embeds each candidate for retrieval; reuse here so ADD doesn't re-embed).
+   * Keyed by memoryContentToText(category, content). LUM-324.
+   */
+  precomputedEmbeddings?: ReadonlyMap<string, number[]>
 }
 
 export interface ApplyOperationsResult {
@@ -41,6 +49,10 @@ export interface ApplyOperationsResult {
  * The transaction is all-or-nothing: a single bad row would otherwise be
  * isolated by the per-op skip path, so the transaction only fails if Prisma
  * itself errors.
+ *
+ * Embedding stamping (LUM-324): for ADD / UPDATE / SUPERSEDE a best-effort
+ * pgvector embedding is stamped after the content write. The embed call is
+ * issued OUTSIDE the transaction so a gateway failure never aborts the write.
  */
 export async function applyLayer1Operations(
   input: ApplyOperationsInput
@@ -60,8 +72,18 @@ export async function applyLayer1Operations(
   const knownCategoryById = new Map(
     input.existingMemories.map(m => [m.id, m.category])
   )
+
+  // Phase 1: validate each op and collect resolved entries for embedding.
+  // For ADD/UPDATE/SUPERSEDE we capture the text and a plan-builder.
   type Plan = (tx: Prisma.TransactionClient) => Promise<void>
-  const plans: Plan[] = []
+
+  interface ResolvedWriteOp {
+    text: string
+    buildPlan: (vector: number[] | undefined) => Plan
+  }
+
+  const resolvedWrites: ResolvedWriteOp[] = []
+  const deletePlans: Plan[] = []
 
   for (const op of input.operations) {
     if (op.type === 'NOOP') {
@@ -73,7 +95,7 @@ export async function applyLayer1Operations(
         result.skipped++
         continue
       }
-      plans.push(async tx => {
+      deletePlans.push(async tx => {
         await memoryRepository.delete(op.id, tx)
         result.deleted++
       })
@@ -96,13 +118,21 @@ export async function applyLayer1Operations(
         result.skipped++
         continue
       }
-      plans.push(async tx => {
-        await memoryRepository.supersedeInPlace(
-          op.id,
-          validated as Prisma.InputJsonValue,
-          tx
-        )
-        result.superseded++
+      const id = op.id
+      const text = memoryContentToText(existingCategory, validated)
+      resolvedWrites.push({
+        text,
+        buildPlan: (vector) => async tx => {
+          await memoryRepository.supersedeInPlace(
+            id,
+            validated as Prisma.InputJsonValue,
+            tx
+          )
+          result.superseded++
+          if (vector !== undefined) {
+            await memoryRepository.setEmbedding(id, vector, tx)
+          }
+        },
       })
       continue
     }
@@ -125,22 +155,29 @@ export async function applyLayer1Operations(
       // → fall back to TASK to keep pre-scope outputs working.
       const scope = op.scope ?? 'TASK'
       const taskId = scope === 'PROJECT' ? null : input.taskId
-      plans.push(async tx => {
-        await memoryRepository.create(
-          {
-            workspaceId: input.workspaceId,
-            projectId: input.projectId,
-            taskId,
-            scope,
-            category,
-            content: validated as Prisma.InputJsonValue,
-            sourceSessionId: input.sessionId,
-            createdByMemberId: null,
-            ...(input.agent !== undefined ? { agent: input.agent } : {}),
-          },
-          tx
-        )
-        result.added++
+      const text = memoryContentToText(category, validated)
+      resolvedWrites.push({
+        text,
+        buildPlan: (vector) => async tx => {
+          const created = await memoryRepository.create(
+            {
+              workspaceId: input.workspaceId,
+              projectId: input.projectId,
+              taskId,
+              scope,
+              category,
+              content: validated as Prisma.InputJsonValue,
+              sourceSessionId: input.sessionId,
+              createdByMemberId: null,
+              ...(input.agent !== undefined ? { agent: input.agent } : {}),
+            },
+            tx
+          )
+          result.added++
+          if (vector !== undefined) {
+            await memoryRepository.setEmbedding(created.id, vector, tx)
+          }
+        },
       })
       continue
     }
@@ -161,17 +198,60 @@ export async function applyLayer1Operations(
       result.skipped++
       continue
     }
-    plans.push(async tx => {
-      await memoryRepository.updateContent(
-        op.id,
-        validated as Prisma.InputJsonValue,
-        tx
-      )
-      result.updated++
+    const id = op.id
+    const text = memoryContentToText(existingCategory, validated)
+    resolvedWrites.push({
+      text,
+      buildPlan: (vector) => async tx => {
+        await memoryRepository.updateContent(
+          id,
+          validated as Prisma.InputJsonValue,
+          tx
+        )
+        result.updated++
+        if (vector !== undefined) {
+          await memoryRepository.setEmbedding(id, vector, tx)
+        }
+      },
     })
   }
 
-  if (plans.length === 0) return result
+  if (resolvedWrites.length === 0 && deletePlans.length === 0) return result
+
+  // Phase 2: batch-embed texts not already in precomputedEmbeddings.
+  // This happens OUTSIDE the DB transaction so a gateway failure never aborts
+  // the content write (best-effort).
+  const vectorByText = new Map<string, number[]>(input.precomputedEmbeddings ?? [])
+  const missingTexts = resolvedWrites
+    .map(r => r.text)
+    .filter(t => t.length > 0 && !vectorByText.has(t))
+  const uniqueMissingTexts = [...new Set(missingTexts)]
+
+  if (uniqueMissingTexts.length > 0) {
+    try {
+      const vectors = await embedTexts(uniqueMissingTexts)
+      uniqueMissingTexts.forEach((t, i) => {
+        const v = vectors[i]
+        if (v !== undefined) vectorByText.set(t, v)
+      })
+    } catch (err) {
+      logger.warn(
+        '[memory.layer1] embedTexts failed — skipping embedding for this batch:',
+        err instanceof Error ? err.message : err
+      )
+      // vectorByText stays as-is (only precomputed ones if any); all misses
+      // will get undefined vectors → setEmbedding not called → content still writes.
+    }
+  }
+
+  // Phase 3: build final plans with the resolved vectors.
+  const plans: Plan[] = [
+    ...resolvedWrites.map(r => {
+      const vector = r.text.length > 0 ? vectorByText.get(r.text) : undefined
+      return r.buildPlan(vector)
+    }),
+    ...deletePlans,
+  ]
 
   await memoryRepository.applyPlansAtomically(plans)
 

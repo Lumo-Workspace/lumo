@@ -1,12 +1,15 @@
 /**
  * @jest-environment node
  */
+const embedTextsMock = jest.fn().mockResolvedValue([[0.1, 0.2]])
+jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
     delete: jest.fn(),
     supersedeInPlace: jest.fn(),
+    setEmbedding: jest.fn(),
     // Run the plans inline so per-op assertions (repo.create / delete / etc.)
     // still see the calls. The real implementation wraps these in
     // prisma.$transaction; mocking it as a plain runner is enough for unit
@@ -22,6 +25,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { applyLayer1Operations } from '@/lib/services/memory/layer1-apply'
 import type { Layer1Operation } from '@/lib/services/memory/layer1-extract'
+import { memoryContentToText } from '@/lib/memory/content-text'
 
 const repo = memoryRepository as jest.Mocked<typeof memoryRepository>
 
@@ -38,10 +42,12 @@ const baseInput = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  embedTextsMock.mockResolvedValue([[0.1, 0.2]])
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
   repo.delete.mockResolvedValue({ id: 'deleted' } as never)
   repo.supersedeInPlace.mockResolvedValue({ id: 'superseded' } as never)
+  repo.setEmbedding.mockResolvedValue(undefined)
 })
 
 describe('applyLayer1Operations', () => {
@@ -332,5 +338,46 @@ describe('applyLayer1Operations', () => {
     })
     expect(result.superseded).toBe(0)
     expect(result.skipped).toBe(1)
+  })
+
+  it('stamps embedding on ADD using embedTexts, after the content write', async () => {
+    const create = jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
+    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
+    const result = await applyLayer1Operations({
+      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'enum migration', outcome: 'P3009' } }],
+      taskId: 'task_1', projectId: 'proj_1', workspaceId: 'ws_1', sessionId: 'sess_1',
+      existingMemories: [],
+    })
+    expect(result.added).toBe(1)
+    expect(create).toHaveBeenCalled()
+    expect(setEmb).toHaveBeenCalledWith('new_1', expect.any(Array), expect.anything())
+  })
+
+  it('reuses a precomputed vector instead of calling embedTexts', async () => {
+    const text = memoryContentToText('TRAP', { trigger: 'enum migration', outcome: 'P3009' })
+    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
+    jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
+    await applyLayer1Operations({
+      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'enum migration', outcome: 'P3009' } }],
+      taskId: 'task_1', projectId: 'proj_1', workspaceId: 'ws_1', sessionId: 'sess_1',
+      existingMemories: [],
+      precomputedEmbeddings: new Map([[text, [0.5, 0.5]]]),
+    })
+    expect(setEmb).toHaveBeenCalledWith('new_1', [0.5, 0.5], expect.anything())
+    expect(embedTextsMock).not.toHaveBeenCalled()
+  })
+
+  it('still writes content when embedTexts throws (embedding is best-effort)', async () => {
+    embedTextsMock.mockRejectedValueOnce(new Error('no key'))
+    const create = jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
+    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
+    const result = await applyLayer1Operations({
+      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'x', outcome: 'y' } }],
+      taskId: 'task_1', projectId: 'proj_1', workspaceId: 'ws_1', sessionId: 'sess_1',
+      existingMemories: [],
+    })
+    expect(result.added).toBe(1)        // content still written
+    expect(create).toHaveBeenCalled()
+    expect(setEmb).not.toHaveBeenCalled() // embedding skipped
   })
 })
