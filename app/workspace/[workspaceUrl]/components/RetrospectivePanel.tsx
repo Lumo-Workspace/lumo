@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
 import type { Interval } from '@/lib/forecast/types'
+import { rangeBandGeometry } from '@/lib/forecast/range-band'
 import type {
   RetrospectiveMetric,
   VarianceBand,
@@ -46,26 +47,42 @@ function RangeBand({
   forecast: Interval
   actual: number
 }) {
-  const lo = Math.min(forecast.p25, actual)
-  const hi = Math.max(forecast.p75, actual)
-  const span = hi - lo || 1
-  const pct = (v: number) => ((v - lo) / span) * 100
+  const g = rangeBandGeometry(forecast, actual)
   return (
     <div className='relative my-3 h-1.5 rounded-full bg-muted'>
       <div
         className='absolute inset-y-0 rounded-full bg-muted-foreground/25'
-        style={{
-          left: `${pct(forecast.p25)}%`,
-          right: `${100 - pct(forecast.p75)}%`,
-        }}
+        style={{ left: `${g.iqrLeft}%`, right: `${g.iqrRight}%` }}
       />
       <div
         className='absolute -top-1 h-3.5 w-0.5 rounded-sm bg-muted-foreground/50'
-        style={{ left: `${pct(forecast.median)}%` }}
+        style={{ left: `${g.medianPos}%` }}
       />
+      {/* Overflow caret: actual is off the forecast-anchored scale; points the
+          way and the deltaPct pill above carries the exact magnitude. */}
+      {g.overflow === 'right' && (
+        <svg
+          className='absolute top-1/2 right-0 h-2 w-2 -translate-y-1/2 text-info'
+          viewBox='0 0 8 8'
+          fill='currentColor'
+          aria-hidden
+        >
+          <path d='M2 0l4 4-4 4z' />
+        </svg>
+      )}
+      {g.overflow === 'left' && (
+        <svg
+          className='absolute top-1/2 left-0 h-2 w-2 -translate-y-1/2 text-info'
+          viewBox='0 0 8 8'
+          fill='currentColor'
+          aria-hidden
+        >
+          <path d='M6 0L2 4l4 4z' />
+        </svg>
+      )}
       <div
         className='absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-info'
-        style={{ left: `${pct(actual)}%` }}
+        style={{ left: `${g.actualPos}%` }}
       />
     </div>
   )
