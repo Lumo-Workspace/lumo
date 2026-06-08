@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "इस ट्रेल पर कोई लागत दर्ज नहीं",
   "tokenCost.loops": "{n, plural, one {# लूप} other {# लूप}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "लूप उपलब्ध नहीं",
   "tokenCost.mixedNoTotal": "models की कीमत तुलनीय नहीं · कुल नहीं",
   "trust.badge.meta": "· {n, plural, one {# कार्य} other {# कार्य}}",
   "trust.badge.weak": " · कमज़ोर",

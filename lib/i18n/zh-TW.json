@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "此條線索暫無採集到的成本",
   "tokenCost.loops": "{n} 次循環",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "循環數不可用",
   "tokenCost.mixedNoTotal": "跨 model 不可比 · 不合計",
   "trust.badge.meta": "· {n} 個任務",
   "trust.badge.weak": " · 弱",

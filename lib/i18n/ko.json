@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "이 경로에 기록된 비용이 없습니다",
   "tokenCost.loops": "{n, plural, other {# 루프}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "루프 수 없음",
   "tokenCost.mixedNoTotal": "model 간 가격 비교 불가 · 합계 없음",
   "trust.badge.meta": "· {n}개 작업",
   "trust.badge.weak": " · 약함",

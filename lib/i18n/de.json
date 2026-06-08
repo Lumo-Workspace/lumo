@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "Keine erfassten Kosten auf diesem Pfad",
   "tokenCost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "Schleifen k. A.",
   "tokenCost.mixedNoTotal": "models nicht vergleichbar · kein Gesamt",
   "trust.badge.meta": "· {n, plural, one {# Aufgabe} other {# Aufgaben}}",
   "trust.badge.weak": " · schwach",

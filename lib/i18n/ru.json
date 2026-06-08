@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "Затраты на этом пути не зафиксированы",
   "tokenCost.loops": "{n, plural, one {# итерация} few {# итерации} other {# итераций}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "итерации н/д",
   "tokenCost.mixedNoTotal": "models несопоставимы по цене · итог недоступен",
   "trust.badge.meta": "· {n, plural, one {# задача} few {# задачи} other {# задач}}",
   "trust.badge.weak": " · слабый",

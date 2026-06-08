@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "Tidak ada biaya yang tercatat pada jalur ini",
   "tokenCost.loops": "{n, plural, other {# putaran}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "putaran t/a",
   "tokenCost.mixedNoTotal": "models tidak dapat dibandingkan harganya · tidak ada total",
   "trust.badge.meta": "· {n, plural, one {# tugas} other {# tugas}}",
   "trust.badge.weak": " · lemah",
