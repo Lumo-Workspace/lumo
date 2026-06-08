@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { useTaskForecast } from '../hooks/useTaskForecast'
-import type { Interval, ForecastConfidence } from '@/lib/forecast/types'
-import type { ApiStatus } from '../types'
+import type {
+  Interval,
+  ForecastConfidence,
+  TaskForecast,
+} from '@/lib/forecast/types'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
   return (
@@ -25,9 +27,7 @@ const CONFIDENCE_KEY: Record<ForecastConfidence, string> = {
   high: 'forecast.confidenceHigh',
 }
 
-// Neutral evidence-strength badge — intentionally greyscale (no status color):
-// hierarchy comes from the weight/size of the numbers below it, not a coloured
-// pill competing for attention.
+// Neutral evidence-strength badge — intentionally greyscale (no status color).
 function ConfidenceBadge({ level }: { level: ForecastConfidence }) {
   const intl = useIntl()
   return (
@@ -39,27 +39,10 @@ function ConfidenceBadge({ level }: { level: ForecastConfidence }) {
   )
 }
 
-export function ForecastPanel({
-  taskId,
-  status,
-}: {
-  taskId: string
-  status: ApiStatus
-}) {
+/** 交付前的纯预测视图。forecast 由编排器传入（不自取数）。 */
+export function ForecastView({ forecast }: { forecast: TaskForecast }) {
   const intl = useIntl()
   const [showSources, setShowSources] = useState(false)
-  // A delivered task has no forecast to make — skip the fetch (null disables
-  // the query) and render nothing rather than "insufficient data".
-  const isTerminal = status === 'DONE'
-  const { forecast, isLoading, error } = useTaskForecast(
-    isTerminal ? null : taskId
-  )
-
-  if (isTerminal) return null
-
-  // Hide entirely while loading or on error — keeps the sidebar quiet.
-  if (isLoading || error || !forecast) return null
-
   const title = intl.formatMessage({ id: 'forecast.title' })
 
   if (forecast.insufficientData) {
@@ -98,16 +81,9 @@ export function ForecastPanel({
   const tokenRange = (iv: Interval) =>
     intl.formatMessage(
       { id: 'forecast.range' },
-      {
-        median: compact(iv.median),
-        low: compact(iv.p25),
-        high: compact(iv.p75),
-      }
+      { median: compact(iv.median), low: compact(iv.p25), high: compact(iv.p75) }
     )
 
-  // The similarity-cohort track (iterations/PRs/cycle) and the project-wide
-  // token track are independent; either may be empty. Show the "based on N
-  // similar tasks" basis only when the cohort track actually produced metrics.
   const hasCohortMetrics = !!forecast.iterations
 
   return (
