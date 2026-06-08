@@ -26,6 +26,7 @@ export const queryKeys = {
     my: () => ['tasks', 'my'] as const,
     detail: (id: string) => ['tasks', 'detail', id] as const,
     forecast: (id: string) => ['tasks', 'forecast', id] as const,
+    retrospective: (id: string) => ['tasks', 'retrospective', id] as const,
     byProject: (projectId: string) =>
       ['tasks', 'byProject', projectId] as const,
     byWorkspace: (workspaceId: string, filtersKey: string) =>

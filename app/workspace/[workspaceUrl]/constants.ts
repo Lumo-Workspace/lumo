@@ -11,6 +11,7 @@ export const API = {
     agentRuns: (taskId: string) => `/api/tasks/${taskId}/agent-runs`,
     lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
+    retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

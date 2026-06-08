@@ -1059,7 +1059,7 @@ git commit -m "feat: retrospective service capture + get [LUM-319]"
 - Modify: `lib/services/task-state.service.ts`
 - Test: `__tests__/services/retrospective-hook.test.ts`
 
-- [ ] **Step 1: 写失败测试（后台包装调用 captureSnapshot）**
+- [x] **Step 1: 写失败测试（后台包装调用 captureSnapshot）**
 
 ```ts
 /** @jest-environment node */
@@ -1090,12 +1090,12 @@ it('schedules captureSnapshot via waitUntil', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败/通过基线**
+- [x] **Step 2: 运行测试确认失败/通过基线**
 
 Run: `npx jest __tests__/services/retrospective-hook.test.ts`
 Expected: PASS（验证后台包装已能工作 —— Task 7 已实现）。若 FAIL 说明导出/包装有误，修正后再继续。
 
-- [ ] **Step 3: 接进 task-state.service**
+- [x] **Step 3: 接进 task-state.service**
 
 `lib/services/task-state.service.ts` 顶部 import 区，在 `import { stampLineageInBackground } from ...` 之后加：
 
@@ -1111,12 +1111,12 @@ import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrosp
 captureRetrospectiveSnapshotInBackground(taskId)
 ```
 
-- [ ] **Step 4: 回归 task-state 测试**
+- [x] **Step 4: 回归 task-state 测试**
 
 Run: `npx jest __tests__/lib/services/task-state.service.test.ts`
 Expected: PASS（既有用例不受影响；retrospective import 仅 prisma 依赖，不破 jest 环境）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/services/task-state.service.ts __tests__/services/retrospective-hook.test.ts
@@ -1135,7 +1135,7 @@ git commit -m "feat: capture forecast snapshot on task DONE [LUM-319]"
 - Modify: `lib/query/keys.ts`
 - Create: `app/workspace/[workspaceUrl]/hooks/useTaskRetrospective.ts`
 
-- [ ] **Step 1: 路由**（仿 forecast route，瘦）
+- [x] **Step 1: 路由**（仿 forecast route，瘦）
 
 `app/api/tasks/[id]/retrospective/route.ts`：
 
@@ -1179,7 +1179,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 ```
 
-- [ ] **Step 2: API path**
+- [x] **Step 2: API path**
 
 `app/workspace/[workspaceUrl]/constants.ts`，`tasks:` 内 `forecast:` 那行之后加：
 
@@ -1187,7 +1187,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
 ```
 
-- [ ] **Step 3: client 方法**
+- [x] **Step 3: client 方法**
 
 `lib/api-client/tasks.ts`，`forecast<T>` 方法之后加：
 
@@ -1197,7 +1197,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   },
 ```
 
-- [ ] **Step 4: query key**
+- [x] **Step 4: query key**
 
 `lib/query/keys.ts`，`tasks:` 内 `forecast:` 那行之后加：
 
@@ -1205,7 +1205,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     retrospective: (id: string) => ['tasks', 'retrospective', id] as const,
 ```
 
-- [ ] **Step 5: hook**（仿 useTaskForecast）
+- [x] **Step 5: hook**（仿 useTaskForecast）
 
 `app/workspace/[workspaceUrl]/hooks/useTaskRetrospective.ts`：
 
@@ -1237,12 +1237,12 @@ export function useTaskRetrospective(taskId: string | null) {
 }
 ```
 
-- [ ] **Step 6: tsc 校验**
+- [x] **Step 6: tsc 校验**
 
 Run: `npx tsc --noEmit 2>&1 | grep -i retrospective | head`
 Expected: 无输出。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add "app/api/tasks/[id]/retrospective/route.ts" "app/workspace/[workspaceUrl]/constants.ts" lib/api-client/tasks.ts lib/query/keys.ts "app/workspace/[workspaceUrl]/hooks/useTaskRetrospective.ts"
