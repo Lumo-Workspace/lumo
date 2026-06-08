@@ -155,7 +155,19 @@ describe('TokenCostBreakdown', () => {
       expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
     })
 
-    it('keeps rows non-expandable for a single contributor', () => {
+    it('keeps rows non-expandable when perMember is empty', () => {
+      render(
+        <TokenCostBreakdown
+          variant='full'
+          models={[opus]}
+          loopCount={1}
+          perMember={[]}
+        />
+      )
+      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
+    })
+
+    it('expands for a single contributor too (LUM-310 — keeps it demoable)', () => {
       render(
         <TokenCostBreakdown
           variant='full'
@@ -164,7 +176,11 @@ describe('TokenCostBreakdown', () => {
           perMember={[ada]}
         />
       )
-      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
+      const line = screen.getByTestId('cost-line-output')
+      fireEvent.click(line)
+      const bd = screen.getByTestId('cost-breakdown-output')
+      expect(within(bd).getByText('Ada')).toBeInTheDocument()
+      expect(within(bd).getByText('120')).toBeInTheDocument()
     })
 
     it('expands a line into a per-member breakdown that reconciles with the line total', () => {
