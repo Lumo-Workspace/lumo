@@ -44,7 +44,7 @@ developer could learn from the source, git log, or docs. When unsure, don't.
 
 ### Which category
 
-- `trap` — a pitfall. Describe the PROBLEM ONLY (`--trigger`, `--outcome`); put any fix in a separate `procedural`.
+- `trap` — a pitfall. Describe the problem (`--trigger`, `--outcome`); put a **one-line fix** inline via `--workaround`. Only when the fix is a genuine multi-step workflow, omit `--workaround` and add a separate `procedural` instead — never both (a `procedural` that just restates a trap's `--workaround` is a double-write).
 - `decision` — an engineering decision (`--what` + `--why`, optional `--alternatives`/`--implications`).
 - `convention` — a team rule (`--rule` + `--applies` = where it applies).
 - `procedural` — a reusable workflow (`--workflow` + `--trigger` + `--step`…).
