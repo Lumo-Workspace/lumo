@@ -527,4 +527,66 @@ export const lineageEdgeRepository = {
       },
     })
   },
+
+  /**
+   * Raw aggregates backing the LUM-314 signal-health view, workspace-scoped.
+   * The service derives variance + merge-rate percentages. Four cheap groupBys.
+   */
+  async usageSignalAggregates(workspaceId: string) {
+    const distRows = await prisma.lineageEdge.groupBy({
+      by: ['used'],
+      where: { workspaceId },
+      _count: { _all: true },
+    })
+    const distribution = { used: 0, unused: 0, abstained: 0 }
+    for (const r of distRows) {
+      const n = r._count._all
+      if (r.used === true) distribution.used += n
+      else if (r.used === false) distribution.unused += n
+      else distribution.abstained += n
+    }
+
+    const perSessionRows = await prisma.lineageEdge.groupBy({
+      by: ['sessionId', 'used'],
+      where: { workspaceId, sessionId: { not: null } },
+      _count: { _all: true },
+    })
+    const bySession = new Map<string, { injected: number; used: number; voted: boolean }>()
+    for (const r of perSessionRows) {
+      if (!r.sessionId) continue
+      const acc = bySession.get(r.sessionId) ?? { injected: 0, used: 0, voted: false }
+      acc.injected += r._count._all
+      if (r.used === true) acc.used += r._count._all
+      if (r.used !== null) acc.voted = true
+      bySession.set(r.sessionId, acc)
+    }
+    const perSession = [...bySession.entries()]
+      .filter(([, v]) => v.voted)
+      .map(([sessionId, v]) => ({ sessionId, injected: v.injected, used: v.used }))
+
+    const usedTasks = await taskMergeRows({ workspaceId, used: true })
+    const baseTasks = await taskMergeRows({
+      workspaceId,
+      outcome: { not: 'UNKNOWN' as const },
+    })
+
+    return { distribution, perSession, usedTasks, baseTasks }
+  },
+}
+
+async function taskMergeRows(
+  where: Prisma.LineageEdgeWhereInput
+): Promise<{ taskId: string; resolved: boolean; merged: boolean }[]> {
+  const rows = await prisma.lineageEdge.groupBy({
+    by: ['taskId', 'outcome'],
+    where,
+  })
+  const byTask = new Map<string, { resolved: boolean; merged: boolean }>()
+  for (const r of rows) {
+    const acc = byTask.get(r.taskId) ?? { resolved: false, merged: false }
+    if (r.outcome !== 'UNKNOWN') acc.resolved = true
+    if (r.outcome === 'MERGED') acc.merged = true
+    byTask.set(r.taskId, acc)
+  }
+  return [...byTask.entries()].map(([taskId, v]) => ({ taskId, ...v }))
 }
