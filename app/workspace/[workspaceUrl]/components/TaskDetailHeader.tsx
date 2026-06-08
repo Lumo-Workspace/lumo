@@ -26,7 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { slugify } from '@/lib/utils/slugify'
+import { taskSourcePath } from '../utils'
 
 interface TaskDetailHeaderProps {
   workspaceUrl: string
@@ -64,24 +64,18 @@ export function TaskDetailHeader({
         <div className='flex items-center gap-1.5'>
           <button
             onClick={() => {
-              if (from === 'my-tasks') {
-                router.push(`/workspace/${workspaceUrl}/my-tasks`)
-              } else {
-                router.push(
-                  `/workspace/${workspaceUrl}/projects/${slugify(projectName)}`
-                )
-              }
+              router.push(taskSourcePath(workspaceUrl, from, projectName))
             }}
             className='flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors'
           >
             <span>{sourceLabel}</span>
           </button>
           <span className='text-muted-foreground'>&rsaquo;</span>
-          <span className='text-muted-foreground font-medium'>{taskIdentifier}</span>
-          <span className='text-muted-foreground'>&middot;</span>
-          <span className='text-foreground truncate max-w-xs'>
-            {taskTitle}
+          <span className='text-muted-foreground font-medium'>
+            {taskIdentifier}
           </span>
+          <span className='text-muted-foreground'>&middot;</span>
+          <span className='text-foreground truncate max-w-xs'>{taskTitle}</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

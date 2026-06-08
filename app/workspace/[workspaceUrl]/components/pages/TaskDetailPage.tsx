@@ -128,6 +128,8 @@ export function TaskDetailPage({
   const actions = useTaskDetailActions({
     task,
     taskFullUrl,
+    workspaceUrl,
+    from,
     handlePatch,
   })
 
