@@ -103,9 +103,9 @@ fragments. Never emit "unused".
   stamping is already idempotent (STAMPABLE_FROM ladder). For usage:
   - **Already-voted guard**: a session with any `usedAt` set is skipped (covers human votes
     and prior auto runs).
-  - **Concurrency claim**: a lightweight per-session claim (same pattern as the Layer-2
-    `tryClaimLayer2Lease`) prevents two concurrent fires from double-judging a session before
-    either writes.
+  - **No schema column for concurrency.** Idempotency comes from the already-voted guard (a
+    session with any usedAt-stamped edge is skipped) plus the idempotent additive write; a rare
+    concurrent double-fire only wastes one cheap Haiku call, never corrupts data.
 - The additive write itself is idempotent (re-stamping the same true refs is a no-op).
 - `reopen → re-DONE`: new sessions enter the not-yet-voted set and get audited; old ones skip.
 
