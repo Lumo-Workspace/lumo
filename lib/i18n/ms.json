@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "Tiada kos yang dirakam pada laluan ini",
   "tokenCost.loops": "{n, plural, other {# gelung}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "gelung t/a",
   "tokenCost.mixedNoTotal": "models tidak boleh dibandingkan harga · tiada jumlah",
   "trust.badge.meta": "· {n, plural, one {# tugasan} other {# tugasan}}",
   "trust.badge.weak": " · lemah",

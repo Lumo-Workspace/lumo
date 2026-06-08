@@ -84,7 +84,9 @@ export interface AgentRunTimelineResult {
   totals: {
     runCount: number
     turnCount: number
-    loopCount: number
+    /** Sum of per-run loop counts, or null when no run captured one. Null
+     *  renders as "loops n/a" rather than a misleading 0. */
+    loopCount: number | null
     byModel: ModelCost[]
   }
   /** Token spend grouped by the member who owns each run. Sorted by spend
@@ -322,10 +324,17 @@ export const agentRunTimelineService = {
 
     // Newest run first.
     const ordered = nonEmptyRuns.reverse()
+    // Sum only runs that captured a loop count; stay null when none did, so the
+    // aggregate badge shows "loops n/a" instead of a misleading 0 (LUM-311).
+    const capturedLoops = ordered
+      .map(r => r.cost?.loopCount)
+      .filter((n): n is number => typeof n === 'number')
     const totals = {
       runCount: ordered.length,
       turnCount: ordered.reduce((n, r) => n + countTurns(r), 0),
-      loopCount: ordered.reduce((n, r) => n + (r.cost?.loopCount ?? 0), 0),
+      loopCount: capturedLoops.length
+        ? capturedLoops.reduce((n, c) => n + c, 0)
+        : null,
       byModel: mergeModelCosts(ordered.map(r => r.cost?.byModel ?? null)),
     }
 

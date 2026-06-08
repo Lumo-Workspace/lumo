@@ -1413,7 +1413,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "No hay costes capturados en esta ruta",
   "tokenCost.loops": "{n, plural, one {# iteración} other {# iteraciones}}",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "iteraciones n/d",
   "tokenCost.mixedNoTotal": "models no comparables en precio · sin total",
   "trust.badge.meta": "· {n, plural, one {# tarea} other {# tareas}}",
   "trust.badge.weak": " · débil",

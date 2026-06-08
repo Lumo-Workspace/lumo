@@ -1415,7 +1415,7 @@
   "tokenCost.cacheRead": "cache-read",
   "tokenCost.none": "此条线索暂无采集到的成本",
   "tokenCost.loops": "{n} 次循环",
-  "tokenCost.loopsNa": "loops n/a",
+  "tokenCost.loopsNa": "循环数不可用",
   "tokenCost.mixedNoTotal": "跨 model 不可比 · 不合计",
   "trust.badge.meta": "· {n} 个任务",
   "trust.badge.weak": " · 弱",
