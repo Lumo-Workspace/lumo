@@ -4,46 +4,52 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 type MentionAttrs = ProseMirrorNode['attrs']
 
+const ENTITY_TYPES = new Set(['task', 'sprint', 'project', 'milestone'])
+
 /** Pure: the DOM-spec array a mention node's renderHTML returns. */
 export function renderMentionHTML(
   attrs: MentionAttrs,
   HTMLAttributes: Record<string, unknown>
 ): readonly [string, Record<string, any>, string] {
-  const isTask = attrs.mentionType === 'task'
-  if (isTask) {
-    const label = attrs.label ?? attrs.id
-    const title = attrs.mentionTitle ?? ''
-    const text = title ? `${label} ${title}` : label
+  const type = attrs.mentionType ?? 'user'
+
+  if (!ENTITY_TYPES.has(type)) {
     return [
       'span',
-      mergeAttributes(HTMLAttributes, {
-        class: 'mention mention-task',
-        'data-mention-type': 'task',
-        ...(attrs.mentionStatus
-          ? { 'data-mention-status': attrs.mentionStatus }
-          : {}),
-      }),
-      text,
+      mergeAttributes(HTMLAttributes, { class: 'mention mention-user' }),
+      `@${attrs.label ?? attrs.id}`,
     ]
   }
+
+  const label = attrs.label ?? attrs.id
+  const text =
+    type === 'task' && attrs.mentionTitle
+      ? `${label} ${attrs.mentionTitle}`
+      : label
   return [
-    'span',
-    mergeAttributes(HTMLAttributes, { class: 'mention' }),
-    `@${attrs.label ?? attrs.id}`,
+    'a',
+    mergeAttributes(HTMLAttributes, {
+      class: `mention mention-${type}`,
+      ...(attrs.mentionHref ? { href: attrs.mentionHref } : {}),
+      ...(attrs.mentionStatus
+        ? { 'data-mention-status': attrs.mentionStatus }
+        : {}),
+    }),
+    text,
   ]
 }
 
 /** Pure: the plain-text representation a mention node's renderText returns. */
 export function renderMentionText(attrs: MentionAttrs): string {
-  const isTask = attrs.mentionType === 'task'
-  if (isTask) {
-    const label = attrs.label ?? attrs.id
-    return attrs.mentionTitle ? `${label} ${attrs.mentionTitle}` : label
-  }
-  return `@${attrs.label ?? attrs.id}`
+  const type = attrs.mentionType ?? 'user'
+  if (!ENTITY_TYPES.has(type)) return `@${attrs.label ?? attrs.id}`
+  const label = attrs.label ?? attrs.id
+  return type === 'task' && attrs.mentionTitle
+    ? `${label} ${attrs.mentionTitle}`
+    : label
 }
 
-/** Mention node extended with type / title / status attributes. */
+/** Mention node extended with type / title / status / href attributes. */
 export const MentionWithType = Mention.extend({
   addAttributes() {
     return {
@@ -57,7 +63,9 @@ export const MentionWithType = Mention.extend({
         default: null,
         parseHTML: el => el.getAttribute('data-mention-title') ?? null,
         renderHTML: attrs =>
-          attrs.mentionTitle ? { 'data-mention-title': attrs.mentionTitle } : {},
+          attrs.mentionTitle
+            ? { 'data-mention-title': attrs.mentionTitle }
+            : {},
       },
       mentionStatus: {
         default: null,
@@ -66,6 +74,12 @@ export const MentionWithType = Mention.extend({
           attrs.mentionStatus
             ? { 'data-mention-status': attrs.mentionStatus }
             : {},
+      },
+      mentionHref: {
+        default: null,
+        parseHTML: el => el.getAttribute('data-href') ?? null,
+        renderHTML: attrs =>
+          attrs.mentionHref ? { 'data-href': attrs.mentionHref } : {},
       },
     }
   },
