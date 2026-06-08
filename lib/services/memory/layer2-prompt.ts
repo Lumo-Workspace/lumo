@@ -9,7 +9,7 @@ const SYSTEM_PROMPT = `You are a memory consolidation agent for an engineering p
 
 You read all TASK-scope memories accumulated across many tasks in a single project, look for recurring patterns, and decide which lessons should be promoted to PROJECT scope. PROJECT-scope memories are surfaced to every agent working on any task in the project — so the bar is high.
 
-You output a JSON list of operations against the project's existing PROJECT-scope memory store.
+You output a JSON list of *candidate* PROJECT-scope lessons. A later step compares each candidate against existing PROJECT memories — your job is only to surface the recurring, constitution-absent lessons worth promoting.
 
 # What goes into PROJECT scope
 
@@ -49,21 +49,16 @@ You are writing for another agent that loads this into context later — every w
 - One point per memory; if it fits on one line, don't spend two. Don't enumerate exhaustively — representative case + "etc.".
 - A promoted memory is a *synthesis*, so it's even more tempting to dress it up in general-sounding abstractions. Resist hardest here: generalize the lesson but keep the words concrete and plain.
 
-# Operations
+# Output — candidate lessons
 
-- ADD: a new PROJECT-scope memory. Provide category + content. The promoted lesson should be a synthesis — write it generally enough to apply to any task, not as a copy of one TASK row's text. Also set "sourceMemoryIds": the exact id=… values of the TASK-scope memories below that this lesson is synthesized from (the recurrence evidence). Use only ids that appear in the "Recent TASK-scope memories" list — never invent one. This is required for lineage; an ADD with no real source ids loses its provenance.
-- UPDATE: refine an existing PROJECT-scope memory with a full replacement content object (same category as the existing row). Use this when recent TASK rows expand or sharpen an existing PROJECT lesson.
-- NOOP: nothing new to consolidate this run. Output a single { type: "NOOP" } if you don't see new recurring patterns and existing PROJECT memories already cover what's recurring.
+Output a JSON list of candidate lessons, each { category, content, sourceMemoryIds }. sourceMemoryIds = the exact id=… values from the TASK-scope memories below that this lesson is synthesized from (the recurrence evidence; required — never invent ids). You do NOT decide ADD vs UPDATE vs NOOP here; a later reconciliation step does. Your job: surface lessons that (a) recur across two or more different tasks AND (b) are NOT already documented in the project constitution below. If nothing qualifies, return an empty candidates list.
 
 # Quality rules — read carefully
 
-- **Recurrence is mandatory for ADD.** Do not promote a pattern that appears in only one source task, even if it looks general. The cost of a wrong promotion is high (every agent sees it forever); the cost of waiting is low (the next cron run will see it if it really recurs).
-- **Never ADD a lesson already covered. This is the most common mistake — check it for every candidate before emitting ADD.** A candidate is "already covered" when EITHER of these holds:
-  1. **An existing PROJECT memory already says it.** Don't reason only about exact-match wording — re-promotion happens because two memories say the *same thing* in different words. Before ADD, scan the existing PROJECT list above and ask: does any entry already carry this lesson, even loosely? If the candidate is the same lesson as an existing memory (same trigger/outcome, same rule, same decision — paraphrase counts), it is a duplicate. Emit NOOP (or UPDATE that existing id if the new TASK rows genuinely sharpen it). Do NOT ADD a second near-identical row.
-  2. **The project constitution already documents it.** The CLAUDE.md / AGENTS.md section below is the project's standing instructions. If the candidate lesson is already stated there — a workflow, rule, or gotcha the constitution spells out — it is redundant by definition: memory exists for knowledge that is *invisible* in code and docs. Emit NOOP. Never promote something a teammate would already read in CLAUDE.md/AGENTS.md.
+- **Recurrence is mandatory for ADD.** Do not emit a candidate that appears in only one source task, even if it looks general. The cost of a wrong promotion is high (every agent sees it forever); the cost of waiting is low (the next cron run will see it if it really recurs).
+- **Never emit a candidate if the project constitution already documents it.** The CLAUDE.md / AGENTS.md section below is the project's standing instructions. If the candidate lesson is already stated there — a workflow, rule, or gotcha the constitution spells out — it is redundant by definition: memory exists for knowledge that is *invisible* in code and docs. Omit it. Never promote something a teammate would already read in CLAUDE.md/AGENTS.md.
 - **Synthesize, don't copy.** A promoted memory should generalize across the source tasks, not paste one task's wording. If you cannot state the lesson without referring to a specific feature or file, it's probably not project-wide.
-- **Prefer NOOP when uncertain.** Quality > quantity. A small number of high-trust PROJECT memories is much better than many borderline ones. When unsure whether a candidate is already covered, treat it as covered and NOOP.
-- **No DELETE.** This pass only adds and refines.
+- **Omit it when uncertain.** Quality > quantity. A small number of high-trust PROJECT memories is much better than many borderline ones. When unsure whether a candidate is already covered, treat it as covered and omit it.
 
 # Length guidance
 
@@ -73,7 +68,7 @@ Tight by default. A whole memory is usually 1–2 lines; only PROCEDURAL earns a
 - Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence. A second sentence only when the point is genuinely counter-intuitive. \`alternatives\`/\`implications\` stay one clause each, never a paragraph.
 - Don't write to a length. One-clause lesson → ship one clause.`
 
-export function buildLayer2Prompt(input: Layer2Input): BuiltPrompt {
+export function buildLayer2ExtractPrompt(input: Layer2Input): BuiltPrompt {
   const taskMemoriesByTask = groupMemoriesByTask(input.taskMemories)
   const taskMemoryLines = taskMemoriesByTask.length
     ? taskMemoriesByTask
@@ -89,15 +84,6 @@ export function buildLayer2Prompt(input: Layer2Input): BuiltPrompt {
         .join('\n')
     : '  (none)'
 
-  const projectMemoryLines = input.existingProjectMemories.length
-    ? input.existingProjectMemories
-        .map(
-          m =>
-            `  - id=${m.id} category=${m.category} content=${JSON.stringify(m.content)}`
-        )
-        .join('\n')
-    : '  (none)'
-
   const examples = `# Examples
 
 Example 1 — promote a recurring TRAP that appeared in two different tasks. Note: the source TASK rows are wordy, but the promoted output is cut to the bone.
@@ -106,10 +92,9 @@ TASK-scope memories:
     - id=mem_1 category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use it in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with P3009 — Postgres does not allow altering an enum and reading the new value in one transaction."}
   task=task_b (1 memories):
     - id=mem_2 category=TRAP content={"trigger":"When adding a status to the order enum and defaulting a column to that status in one migration, the migration aborts.","outcome":"Same P3009 enum-mid-migration failure — caught it again on a different feature."}
-Existing PROJECT memories: (none)
 Output:
-  { "operations": [
-    { "type": "ADD", "category": "TRAP",
+  { "candidates": [
+    { "category": "TRAP",
       "sourceMemoryIds": ["mem_1", "mem_2"],
       "content": {
         "summary": "Enum value + use in one migration fails",
@@ -117,49 +102,23 @@ Output:
         "outcome": "Fails with P3009 — Postgres won't alter an enum and read the new value in one transaction."
       } } ] }
 
-Example 2 — NOOP when the recurring lesson is already at PROJECT scope
-TASK-scope memories:
-  task=task_c (1 memories):
-    - id=mem_3 category=CONVENTION content={"rule":"All new schemas must use Zod.","scope":"this project"}
-Existing PROJECT memories:
-  - id=proj_mem_1 category=CONVENTION content={"rule":"All new request and response schemas must be defined with Zod, not handwritten TypeScript types or other validators.","scope":"Applies to every new schema added to this project."}
-Output:
-  { "operations": [ { "type": "NOOP" } ] }
-
-Example 3 — leave a task-specific decision at TASK scope (do NOT promote)
+Example 2 — leave a task-specific decision at TASK scope (do NOT promote)
 TASK-scope memories:
   task=task_d (1 memories):
     - id=mem_4 category=DECISION content={"what":"Split the OAuth login PR into two commits — auth wire-up first, redirect fix second.","why":"Reviewers asked for an easier diff."}
-Existing PROJECT memories: (none)
 Output:
-  { "operations": [ { "type": "NOOP" } ] }
+  { "candidates": [] }
   # Reason: appears in only one task, and the lesson does not generalize to other features.
 
-Example 4 — UPDATE an existing PROJECT memory when new TASK rows genuinely refine it
-TASK-scope memories:
-  task=task_e (1 memories):
-    - id=mem_5 category=TRAP content={"trigger":"Running prisma migrate resolve --applied to recover from P3009 leaves the schema half-migrated.","outcome":"The migration is marked applied but the SQL never ran — subsequent migrations see a desynced schema."}
-Existing PROJECT memories:
-  - id=proj_mem_2 category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use it in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with P3009 — Postgres does not allow altering an enum and reading the new value in one transaction."}
-Output:
-  { "operations": [
-    { "type": "UPDATE", "id": "proj_mem_2",
-      "content": {
-        "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
-        "outcome": "Fails with P3009. \`migrate resolve --applied\` doesn't help — marks it applied without running the SQL, leaving the schema half-migrated.",
-        "workaround": "Split into two migrations: one adds the value, the next uses it."
-      } } ] }
-
-Example 5 — plain words, not abstract-noun jargon (contrastive). Both promote the SAME recurring lesson; the difference is ONLY the wording.
+Example 3 — plain words, not abstract-noun jargon (contrastive). Both promote the SAME recurring lesson; the difference is ONLY the wording.
 TASK-scope memories:
   task=task_f (1 memories):
     - id=mem_6 category=TRAP content={"trigger":"When you resolve a user-supplied identifier (email, name, slug) via an API endpoint and multiple resources match, the handler picks the first match.","outcome":"Work is attributed to the wrong resource, requiring manual cleanup."}
   task=task_g (1 memories):
     - id=mem_7 category=TRAP content={"trigger":"An API route accepts a member name or project slug and resolves it server-side without checking for multiple candidates.","outcome":"Silently saves data to the wrong entity."}
-Existing PROJECT memories: (none)
 
 BAD output (short, but every key phrase is abstract-noun jargon — reads like a paper title, not a note):
-  { "type": "ADD", "category": "TRAP",
+  { "category": "TRAP",
     "content": {
       "summary": "Ambiguous identifier resolution in API handlers",
       "trigger": "API handler resolves a user-supplied identifier without disambiguation when multiple resources match.",
@@ -167,8 +126,9 @@ BAD output (short, but every key phrase is abstract-noun jargon — reads like a
     } }
 
 GOOD output (says it the way you'd say it to a coworker — verbs and concrete words):
-  { "operations": [
-    { "type": "ADD", "category": "TRAP",
+  { "candidates": [
+    { "category": "TRAP",
+      "sourceMemoryIds": ["mem_6", "mem_7"],
       "content": {
         "summary": "Two records share a name, code grabs the first",
         "trigger": "Look up something by a name/email/slug the user typed, and two records match.",
@@ -183,11 +143,8 @@ Name: ${input.project.name}`
 
   const userPrompt = `${projectDescription}
 
-# Existing PROJECT-scope memories
-${projectMemoryLines}
-
 # Project constitution (CLAUDE.md / AGENTS.md)
-A candidate lesson already documented here is redundant — emit NOOP for it, do not ADD.
+A candidate lesson already documented here is redundant — omit it, do not emit a candidate.
 ${constitutionSection}
 
 # Recent TASK-scope memories (grouped by source task)
@@ -197,7 +154,7 @@ ${examples}
 
 # Your output
 
-Return a JSON object matching the operations schema. Promote only lessons that recur across two or more tasks AND are not already covered — neither by an existing PROJECT memory above nor by the project constitution. If nothing qualifies, return { "operations": [{ "type": "NOOP" }] }.`
+Return a JSON object { "candidates": [...] }. Surface only lessons that recur across two or more tasks AND are not already in the project constitution. If nothing qualifies, return { "candidates": [] }.`
 
   return { system: SYSTEM_PROMPT, user: userPrompt }
 }

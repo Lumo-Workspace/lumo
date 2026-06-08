@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
-import { buildLayer2Prompt } from './layer2-prompt'
+import { buildLayer2ExtractPrompt } from './layer2-prompt'
 import type { Layer2Input } from './layer2-input'
 
 // ── Output schema ─────────────────────────────────────────────────────────────
@@ -60,31 +60,41 @@ export const layer2OutputSchema = z.object({
 export type Layer2Operation = z.infer<typeof layer2OperationSchema>
 export type Layer2Output = z.infer<typeof layer2OutputSchema>
 
-// ── Extraction call ───────────────────────────────────────────────────────────
+// ── Pass 1: candidate extraction ───────────────────────────────────────────
 
 const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
-/**
- * Call the Layer 2 LLM and return the parsed operations list. Failures
- * (LLM error, schema mismatch) degrade to an empty list — the caller can
- * no-op safely. No retry: the next cron run is always coming.
- */
-export async function extractLayer2Operations(
-  input: Layer2Input
-): Promise<Layer2Operation[]> {
-  const { system, user } = buildLayer2Prompt(input)
+export const layer2CandidateSchema = z.object({
+  category: memoryCategorySchema,
+  content: z.unknown(),
+  sourceMemoryIds: z.array(z.string().min(1)).optional(),
+})
+export const layer2CandidatesOutputSchema = z.object({
+  candidates: z.array(layer2CandidateSchema),
+})
+export type Layer2Candidate = z.infer<typeof layer2CandidateSchema>
 
+/**
+ * Pass 1: scan recurring TASK-scope memories and emit candidate PROJECT
+ * lessons — blind to existing PROJECT memories (reconciliation is Pass 2).
+ * Each candidate carries sourceMemoryIds (recurrence evidence / provenance).
+ * Failures degrade to [].
+ */
+export async function extractLayer2Candidates(
+  input: Layer2Input
+): Promise<Layer2Candidate[]> {
+  const { system, user } = buildLayer2ExtractPrompt(input)
   try {
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
-      schema: layer2OutputSchema,
+      schema: layer2CandidatesOutputSchema,
       system,
       prompt: user,
     })
-    return object.operations
+    return object.candidates
   } catch (error) {
     console.error(
-      `[memory.layer2] extraction failed project=${input.project.id}:`,
+      `[memory.layer2] candidate extraction failed project=${input.project.id}:`,
       error
     )
     return []
