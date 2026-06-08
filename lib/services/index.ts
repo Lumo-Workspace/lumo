@@ -28,30 +28,6 @@ export { memberService } from './member.service'
 export { viewService } from './view.service'
 export { draftService } from './draft.service'
 export { summaryService } from './summary.service'
-export { agentService } from './agent.service'
-export { generateSpecDraft } from './spec-generation.service'
-export { resumeAgent } from './clarification.service'
-export {
-  executeAgent,
-  processAgentCompletion,
-  handleAgentComment,
-  extractAgentInstruction,
-  buildAgentSpec,
-  buildAgentContext,
-  transitionAgentStatus,
-  clearAgentStatus,
-  isValidTransition,
-  AgentError,
-  userFriendlyError,
-} from './agent-orchestration.service'
-export type {
-  AgentResult,
-  ExecuteAgentOptions,
-  HandleAgentCommentOptions,
-  AgentStatusValue,
-  TransitionOptions,
-  AgentErrorCode,
-} from './agent-orchestration.service'
 export { notificationService } from './notification.service'
 export {
   shouldNotify,
@@ -61,10 +37,6 @@ export {
   notifyActor,
   notifyChannel,
   notifyStatusChange,
-  notifyAgentClarify,
-  notifyAgentVerify,
-  notifyAgentFailed,
-  notifyAgentDone,
   notifyWorkspaceOwners,
   notifyTaskInReview,
 } from './notification.service'
@@ -78,11 +50,6 @@ export { tagService } from './tag.service'
 export type { CreateTagInput, UpdateTagInput } from './tag.service'
 export { timelineService } from './timeline.service'
 export type { TimelineEntry } from './timeline.service'
-export {
-  handleClarifyResponse,
-  handleAuthorizeResponse,
-  handleVerifyResponse,
-} from './notification-response.service'
 export { quickDispatchService } from './quick-dispatch.service'
 export type { ActionResult } from './quick-dispatch.service'
 export { preferenceService } from './preference.service'

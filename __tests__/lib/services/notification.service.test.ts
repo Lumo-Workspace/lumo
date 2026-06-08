@@ -4,31 +4,22 @@ import { notificationService } from '@/lib/services/notification.service'
 
 const mockFindByRecipient = jest.fn()
 const mockFindById = jest.fn()
-const mockFindForRespond = jest.fn()
 const mockUpdateRead = jest.fn()
 const mockMarkAllRead = jest.fn()
-const mockMarkActionTaken = jest.fn()
 const mockDeleteById = jest.fn()
-const mockReplyClarify = jest.fn()
 const mockBatchFetchTasksByIds = jest.fn()
 const mockBatchFetchCommentsByIds = jest.fn()
-const mockBatchFetchClarifyByIds = jest.fn()
 
 jest.mock('@/lib/repositories/notification.repository', () => ({
   notificationRepository: {
     findByRecipient: (...args: any[]) => mockFindByRecipient(...args),
     findById: (...args: any[]) => mockFindById(...args),
-    findForRespond: (...args: any[]) => mockFindForRespond(...args),
     updateRead: (...args: any[]) => mockUpdateRead(...args),
     markAllRead: (...args: any[]) => mockMarkAllRead(...args),
-    markActionTaken: (...args: any[]) => mockMarkActionTaken(...args),
     deleteById: (...args: any[]) => mockDeleteById(...args),
-    replyClarify: (...args: any[]) => mockReplyClarify(...args),
     batchFetchTasksByIds: (...args: any[]) => mockBatchFetchTasksByIds(...args),
     batchFetchCommentsByIds: (...args: any[]) =>
       mockBatchFetchCommentsByIds(...args),
-    batchFetchClarifyByIds: (...args: any[]) =>
-      mockBatchFetchClarifyByIds(...args),
   },
 }))
 
@@ -154,118 +145,6 @@ describe('notificationService', () => {
     })
   })
 
-  describe('loadForRespond', () => {
-    it('returns notification when valid', async () => {
-      const notification = {
-        id: 'n1',
-        type: 'AGENT_CLARIFY',
-        requiresAction: true,
-        actionTakenAt: null,
-        recipientActorId: 'actor-1',
-        taskId: 'task-1',
-        clarifyId: 'c1',
-      }
-      mockFindForRespond.mockResolvedValue(notification)
-
-      const result = await notificationService.loadForRespond('n1', 'actor-1')
-
-      expect(result).toEqual(notification)
-    })
-
-    it('throws 404 when notification not found', async () => {
-      mockFindForRespond.mockResolvedValue(null)
-
-      await expect(
-        notificationService.loadForRespond('nonexistent', 'actor-1')
-      ).rejects.toMatchObject({ message: 'Not found', status: 404 })
-    })
-
-    it('throws 403 when user does not own notification', async () => {
-      mockFindForRespond.mockResolvedValue({
-        id: 'n1',
-        recipientActorId: 'other-actor',
-        requiresAction: true,
-        actionTakenAt: null,
-        taskId: 'task-1',
-      })
-
-      await expect(
-        notificationService.loadForRespond('n1', 'actor-1')
-      ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
-    })
-
-    it('throws 409 when notification does not require action', async () => {
-      mockFindForRespond.mockResolvedValue({
-        id: 'n1',
-        recipientActorId: 'actor-1',
-        requiresAction: false,
-        actionTakenAt: null,
-        taskId: 'task-1',
-      })
-
-      await expect(
-        notificationService.loadForRespond('n1', 'actor-1')
-      ).rejects.toMatchObject({
-        message: 'This notification does not require an action',
-        status: 409,
-      })
-    })
-
-    it('throws 409 when action already taken', async () => {
-      mockFindForRespond.mockResolvedValue({
-        id: 'n1',
-        recipientActorId: 'actor-1',
-        requiresAction: true,
-        actionTakenAt: new Date(),
-        taskId: 'task-1',
-      })
-
-      await expect(
-        notificationService.loadForRespond('n1', 'actor-1')
-      ).rejects.toMatchObject({
-        message: 'Action already taken',
-        status: 409,
-      })
-    })
-
-    it('throws 422 when no task linked', async () => {
-      mockFindForRespond.mockResolvedValue({
-        id: 'n1',
-        recipientActorId: 'actor-1',
-        requiresAction: true,
-        actionTakenAt: null,
-        taskId: null,
-      })
-
-      await expect(
-        notificationService.loadForRespond('n1', 'actor-1')
-      ).rejects.toMatchObject({
-        message: 'No task linked',
-        status: 422,
-      })
-    })
-  })
-
-  describe('markActionTaken', () => {
-    it('delegates to repository', async () => {
-      mockMarkActionTaken.mockResolvedValue(undefined)
-
-      await notificationService.markActionTaken('n1')
-
-      expect(mockMarkActionTaken).toHaveBeenCalledWith('n1')
-    })
-  })
-
-  describe('replyClarify', () => {
-    it('delegates to repository', async () => {
-      mockReplyClarify.mockResolvedValue(undefined)
-
-      await notificationService.replyClarify('c1', 'The answer is blue')
-
-      expect(mockReplyClarify).toHaveBeenCalledWith('c1', 'The answer is blue')
-    })
-  })
-
   describe('batchFetchRelatedData', () => {
     it('fetches all related data in parallel', async () => {
       mockBatchFetchTasksByIds.mockResolvedValue([
@@ -274,30 +153,23 @@ describe('notificationService', () => {
       mockBatchFetchCommentsByIds.mockResolvedValue([
         { id: 'com-1', body: '<p>Hello</p>' },
       ])
-      mockBatchFetchClarifyByIds.mockResolvedValue([
-        { id: 'c1', question: 'Q?', context: null },
-      ])
 
       const result = await notificationService.batchFetchRelatedData(
         ['task-1'],
-        ['com-1'],
-        ['c1']
+        ['com-1']
       )
 
       expect(result.taskMap.get('task-1')).toBeDefined()
       expect(result.commentMap.get('com-1')).toBe('<p>Hello</p>')
-      expect(result.clarifyMap.get('c1')).toBeDefined()
     })
 
     it('skips fetch for empty ID arrays', async () => {
-      const result = await notificationService.batchFetchRelatedData([], [], [])
+      const result = await notificationService.batchFetchRelatedData([], [])
 
       expect(mockBatchFetchTasksByIds).not.toHaveBeenCalled()
       expect(mockBatchFetchCommentsByIds).not.toHaveBeenCalled()
-      expect(mockBatchFetchClarifyByIds).not.toHaveBeenCalled()
       expect(result.taskMap.size).toBe(0)
       expect(result.commentMap.size).toBe(0)
-      expect(result.clarifyMap.size).toBe(0)
     })
   })
 })

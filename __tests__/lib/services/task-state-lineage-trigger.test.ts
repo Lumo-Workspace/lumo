@@ -33,16 +33,11 @@ jest.mock('@/lib/services/lineage-outcome.service', () => {
       void stamp(service),
   }
 })
-// DONE also fires Layer 2 / complexity / sprint side effects via dynamic
+// DONE also fires Layer 2 / sprint side effects via dynamic
 // import; mock them so those chains stay out of this module.
 jest.mock('@/lib/services/memory/layer2.service', () => ({
   layer2Service: {
     triggerForTaskCompletion: jest.fn().mockResolvedValue(undefined),
-  },
-}))
-jest.mock('@/lib/services/task-complexity.service', () => ({
-  taskComplexityService: {
-    sedimentForTask: jest.fn().mockResolvedValue(undefined),
   },
 }))
 jest.mock('@/lib/services/sprint.service', () => ({

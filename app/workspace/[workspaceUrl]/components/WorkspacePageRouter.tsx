@@ -414,7 +414,6 @@ export function WorkspacePageRouter(props: Props) {
           onMarkOneUnread={notifications.markOneUnread}
           onDeleteOne={notifications.deleteNotification}
           onMarkAllRead={notifications.markAllRead}
-          onRespondToNotification={notifications.respondToNotification}
           onUpdateTaskStatus={async (taskId, status) => {
             await taskHandlers.handleUpdateTask(taskId, { status })
           }}

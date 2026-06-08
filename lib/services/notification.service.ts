@@ -16,13 +16,6 @@ export {
 } from '@/lib/notifications/notifyTaskChange'
 export type { TaskNotificationCtx } from '@/lib/notifications/notifyTaskChange'
 
-export {
-  notifyAgentClarify,
-  notifyAgentVerify,
-  notifyAgentFailed,
-  notifyAgentDone,
-} from '@/lib/notifications/notifyAgentActions'
-
 export { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 export { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 
@@ -84,44 +77,6 @@ export const notificationService = {
   },
 
   /**
-   * Load a notification for responding, with ownership and action checks.
-   * Throws on not found, forbidden, not actionable, or already actioned.
-   */
-  async loadForRespond(notificationId: string, recipientActorId: string) {
-    const notification =
-      await notificationRepository.findForRespond(notificationId)
-    if (!notification) {
-      throw Object.assign(new Error('Not found'), { status: 404 })
-    }
-    if (notification.recipientActorId !== recipientActorId) {
-      throw Object.assign(new Error('Forbidden'), { status: 403 })
-    }
-    if (!notification.requiresAction) {
-      throw Object.assign(
-        new Error('This notification does not require an action'),
-        { status: 409 }
-      )
-    }
-    if (notification.actionTakenAt) {
-      throw Object.assign(new Error('Action already taken'), { status: 409 })
-    }
-    if (!notification.taskId) {
-      throw Object.assign(new Error('No task linked'), { status: 422 })
-    }
-    return notification
-  },
-
-  /** Mark a notification as action-taken. */
-  async markActionTaken(notificationId: string) {
-    await notificationRepository.markActionTaken(notificationId)
-  },
-
-  /** Record a reply to a clarify request. */
-  async replyClarify(clarifyId: string, reply: string) {
-    await notificationRepository.replyClarify(clarifyId, reply)
-  },
-
-  /**
    * Enrich raw notifications with actor info (Clerk), task info, and comment preview.
    * Returns fully enriched notification objects ready for the API response.
    */
@@ -154,13 +109,6 @@ export const notificationService = {
         rawNotifications.map(n => n.commentId).filter(Boolean) as string[]
       ),
     ]
-    const clarifyIds = [
-      ...new Set(
-        rawNotifications
-          .filter(n => n.type === 'AGENT_CLARIFY' && n.clarifyId)
-          .map(n => n.clarifyId) as string[]
-      ),
-    ]
     const sprintIds = [
       ...new Set(
         rawNotifications.map(n => n.sprintId).filter(Boolean) as string[]
@@ -190,14 +138,9 @@ export const notificationService = {
       ])
     )
 
-    // Batch-fetch tasks, comments, clarifies, sprints
-    const { taskMap, commentMap, clarifyMap, sprintMap } =
-      await this.batchFetchRelatedData(
-        taskIds,
-        commentIds,
-        clarifyIds,
-        sprintIds
-      )
+    // Batch-fetch tasks, comments, sprints
+    const { taskMap, commentMap, sprintMap } =
+      await this.batchFetchRelatedData(taskIds, commentIds, sprintIds)
 
     return rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
@@ -211,10 +154,6 @@ export const notificationService = {
           actor = { name: n.trigger.agent.name, imageUrl: null }
         }
       }
-      const clarify =
-        n.type === 'AGENT_CLARIFY' && n.clarifyId
-          ? (clarifyMap.get(n.clarifyId) ?? null)
-          : null
       return {
         id: n.id,
         type: n.type,
@@ -251,31 +190,27 @@ export const notificationService = {
               .replace(/\s+/g, ' ')
               .trim() ?? null)
           : null,
-        clarifyQuestion: clarify?.question ?? null,
-        clarifyContext: clarify?.context ?? null,
+        clarifyQuestion: null,
+        clarifyContext: null,
       }
     })
   },
 
   /**
    * Batch-fetch related data for notification enrichment.
-   * Returns maps for tasks, comments, clarifies, and sprints keyed by ID.
+   * Returns maps for tasks, comments, and sprints keyed by ID.
    */
   async batchFetchRelatedData(
     taskIds: string[],
     commentIds: string[],
-    clarifyIds: string[],
     sprintIds: string[] = []
   ) {
-    const [tasks, comments, clarifies, sprints] = await Promise.all([
+    const [tasks, comments, sprints] = await Promise.all([
       taskIds.length > 0
         ? notificationRepository.batchFetchTasksByIds(taskIds)
         : [],
       commentIds.length > 0
         ? notificationRepository.batchFetchCommentsByIds(commentIds)
-        : [],
-      clarifyIds.length > 0
-        ? notificationRepository.batchFetchClarifyByIds(clarifyIds)
         : [],
       sprintIds.length > 0
         ? notificationRepository.batchFetchSprintsByIds(sprintIds)
@@ -285,7 +220,6 @@ export const notificationService = {
     return {
       taskMap: new Map(tasks.map(t => [t.id, t])),
       commentMap: new Map(comments.map(c => [c.id, c.body])),
-      clarifyMap: new Map(clarifies.map(c => [c.id, c])),
       sprintMap: new Map(sprints.map(s => [s.id, s])),
     }
   },

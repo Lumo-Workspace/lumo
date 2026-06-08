@@ -13,10 +13,9 @@ const base: LineageResponse = {
   },
   groups: [
     {
-      kind: 'run',
-      runId: 'run-12345678',
-      sessionId: null,
-      label: 'Run run-1234',
+      kind: 'session',
+      sessionId: 'sess-12345678',
+      label: 'Session sess-1234',
       includedAt: '2026-06-01T00:00:00.000Z',
       cost: { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100, total: 1800, loopCount: 4 },
       fragments: [
@@ -33,7 +32,7 @@ describe('formatLineageMarkdown', () => {
     expect(out).toContain('# Lineage: LUM-1')
     expect(out).toContain('Add lineage')
     expect(out).toContain('1,800') // grouped-thousands cost
-    expect(out).toContain('Run run-1234')
+    expect(out).toContain('Session sess-1234')
     expect(out).toContain('[MERGED] MEMORY')
     expect(out).toContain('use the service layer')
     expect(out).toContain('[MERGED] PR')
@@ -67,7 +66,6 @@ describe('formatLineageMarkdown', () => {
       groups: [
         {
           kind: 'session',
-          runId: null,
           sessionId: 'sess-abcd',
           label: 'Session sess-abc',
           includedAt: '2026-06-02T12:00:00.000Z',

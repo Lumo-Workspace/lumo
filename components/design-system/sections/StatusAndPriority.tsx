@@ -1,16 +1,5 @@
-import { AgentStatusBadge } from '@/components/task/agent/AgentStatusBadge'
-
 import { Section } from '../primitives/Section'
 import { VariantCell, VariantGrid } from '../primitives/VariantGrid'
-
-const AGENT_STATUSES = [
-  'SUBMITTED',
-  'WORKING',
-  'INPUT_REQUIRED',
-  'COMPLETED',
-  'FAILED',
-  'CANCELED',
-] as const
 
 const STATUS_TOKENS = [
   'status-todo',
@@ -30,16 +19,6 @@ export function StatusAndPriority() {
   return (
     <Section id='status-priority' title='Status & priority'>
       <h3 className='mb-3 text-body-strong text-foreground'>
-        AgentStatusBadge
-      </h3>
-      <VariantGrid>
-        {AGENT_STATUSES.map(status => (
-          <VariantCell key={status} label={status}>
-            <AgentStatusBadge status={status} />
-          </VariantCell>
-        ))}
-      </VariantGrid>
-      <h3 className='mt-8 mb-3 text-body-strong text-foreground'>
         Status colors
       </h3>
       <VariantGrid>

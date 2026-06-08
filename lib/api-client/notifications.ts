@@ -20,11 +20,4 @@ export const notificationsClient = {
   deleteOne(id: string) {
     return apiFetch<void>(API.notifications.markOne(id), { method: 'DELETE' })
   },
-
-  respond<T>(id: string, data: unknown) {
-    return apiFetch<T>(API.notifications.respond(id), {
-      method: 'POST',
-      body: data,
-    })
-  },
 }

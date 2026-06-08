@@ -116,7 +116,6 @@ export default function DashboardApp() {
     markOneUnread,
     deleteOne: deleteNotification,
     markAllRead,
-    respondToNotification,
   } = useRealtimeNotifications()
   const {
     documents,
@@ -407,7 +406,6 @@ export default function DashboardApp() {
                   markOneUnread,
                   deleteNotification,
                   markAllRead,
-                  respondToNotification,
                 }}
                 taskHandlers={taskHandlers}
                 projectHandlers={projectHandlers}

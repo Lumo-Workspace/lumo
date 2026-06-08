@@ -2,7 +2,6 @@ import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repositor
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
-import { getEdgeCost } from '@/lib/repositories/lineage-cost'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { toModelCosts } from '@/lib/services/model-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
@@ -41,8 +40,7 @@ export interface LineageFragmentEntry {
   outcome: LineageOutcome
 }
 export interface LineageGroup {
-  kind: 'run' | 'session' | 'orphan'
-  runId: string | null
+  kind: 'session' | 'orphan'
   sessionId: string | null
   label: string
   includedAt: string
@@ -52,7 +50,7 @@ export interface LineageGroup {
 export interface LineageDto {
   task: { identifier: string; title: string; status: string }
   totals: {
-    /** Distinct cost-bearing groups (runs + sessions; excludes the orphan bucket). */
+    /** Distinct cost-bearing session groups (excludes the orphan bucket). */
     runCount: number
     fragmentCount: number
     edgeCount: number
@@ -83,7 +81,6 @@ export const lineageService = {
    * are dropped in-memory; the DB unique index + `skipDuplicates` absorb re-fires
    * of the same session. `outcome` is left UNKNOWN at insert; if the task is already DONE it is then
    * stamped MERGED in the same call (LUM-296), else stamped later by LUM-277.
-   * `runId` stays NULL (session-start precedes any agent run).
    *
    * Best-effort: must never throw — it runs inside the hook's `waitUntil` and a
    * failure must not affect context injection.
@@ -141,8 +138,8 @@ export const lineageService = {
 
   /**
    * Aggregate a task's LineageEdge rows into its causal trail: fragments
-   * (canonicalized + source-labelled) grouped by the run/session that consumed
-   * them, with cost attributed ONCE per group (never per edge — a run that
+   * (canonicalized + source-labelled) grouped by the session that consumed
+   * them, with cost attributed ONCE per group (never per edge — a session that
    * injected many fragments must not multiply its token cost). Returns null
    * when the identifier doesn't resolve (caller → 404).
    */
@@ -227,7 +224,7 @@ export const lineageService = {
     const labelFor = (type: string, id: string): string =>
       labels.get(`${type}::${id}`) ?? `${type} (source removed)`
 
-    // 3. Group by run ?? session ?? orphan, preserving first-seen order
+    // 3. Group by session ?? orphan, preserving first-seen order
     //    (edges arrive oldest-first).
     const order: string[] = []
     const groups = new Map<string, LineageGroup>()
@@ -238,51 +235,21 @@ export const lineageService = {
       outcomes[e.outcome] += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
 
-      const gkey = e.runId ?? e.sessionId ?? ORPHAN
+      const gkey = e.sessionId ?? ORPHAN
       let g = groups.get(gkey)
       if (!g) {
-        // Resolve cost once per group.
-        //  - Run groups: AgentRun cost columns are immutable per-run snapshots
-        //    (LUM-281), so getEdgeCost(run) is correct and identical across the
-        //    run's edges.
-        //  - Session groups: use the per-turn delta sum (costBySession) instead
-        //    of the cumulative Session columns (LUM-301 — see above).
-        let cost: LineageCost | null
-        if (e.runId) {
-          const c = getEdgeCost({
-            runId: e.runId,
-            run: e.run,
-            sessionId: e.sessionId,
-            session: e.session,
-          })
-          cost = c
-            ? {
-                input: c.inputTokens,
-                output: c.outputTokens,
-                cacheRead: c.cacheReadTokens,
-                cacheCreation: c.cacheCreationTokens,
-                total:
-                  c.inputTokens +
-                  c.outputTokens +
-                  c.cacheReadTokens +
-                  c.cacheCreationTokens,
-                loopCount: c.loopCount,
-              }
-            : null
-        } else if (e.sessionId) {
-          cost = costBySession.get(e.sessionId) ?? null
-        } else {
-          cost = null
-        }
+        // Resolve cost once per group: session groups use the per-turn delta
+        // sum (costBySession) instead of the cumulative Session columns
+        // (LUM-301 — see above). Orphan edges carry no cost.
+        const cost: LineageCost | null = e.sessionId
+          ? (costBySession.get(e.sessionId) ?? null)
+          : null
         g = {
-          kind: e.runId ? 'run' : e.sessionId ? 'session' : 'orphan',
-          runId: e.runId,
+          kind: e.sessionId ? 'session' : 'orphan',
           sessionId: e.sessionId,
-          label: e.runId
-            ? `Run ${e.runId.slice(0, 8)}`
-            : e.sessionId
-              ? `Session ${e.sessionId.slice(0, 8)}`
-              : 'Unattributed',
+          label: e.sessionId
+            ? `Session ${e.sessionId.slice(0, 8)}`
+            : 'Unattributed',
           includedAt: e.includedAt.toISOString(),
           cost,
           fragments: [],

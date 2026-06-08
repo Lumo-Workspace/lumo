@@ -31,7 +31,7 @@ describe('lineageEdgeRepository', () => {
       expect(mockCreateMany).not.toHaveBeenCalled()
     })
 
-    it('maps inputs, defaulting sessionId/runId to null and omitting outcome', async () => {
+    it('maps inputs, defaulting sessionId to null and omitting outcome', async () => {
       mockCreateMany.mockResolvedValue({ count: 2 })
 
       const result = await lineageEdgeRepository.createMany([
@@ -47,7 +47,6 @@ describe('lineageEdgeRepository', () => {
           fragmentType: 'PR_REVIEW_TODO',
           fragmentId: 'todo-9',
           sessionId: 'sess-1',
-          runId: 'run-1',
         },
       ])
 
@@ -61,7 +60,6 @@ describe('lineageEdgeRepository', () => {
             fragmentType: 'MEMORY',
             fragmentId: 'mem-1',
             sessionId: null,
-            runId: null,
           },
           {
             workspaceId: 'ws-1',
@@ -69,7 +67,6 @@ describe('lineageEdgeRepository', () => {
             fragmentType: 'PR_REVIEW_TODO',
             fragmentId: 'todo-9',
             sessionId: 'sess-1',
-            runId: 'run-1',
           },
         ],
       })
@@ -97,7 +94,6 @@ describe('lineageEdgeRepository', () => {
             fragmentType: 'MEMORY',
             fragmentId: 'mem-1',
             sessionId: null,
-            runId: null,
             outcome: 'MERGED',
           },
         ],
@@ -313,7 +309,7 @@ describe('lineageEdgeRepository', () => {
   })
 
   describe('listByTaskWithCost', () => {
-    it('queries edges for the task, oldest first, with run+session cost included', async () => {
+    it('queries edges for the task, oldest first, with session cost included', async () => {
       mockFindMany.mockResolvedValue([])
 
       const result = await lineageEdgeRepository.listByTaskWithCost('tsk_1')
@@ -322,16 +318,6 @@ describe('lineageEdgeRepository', () => {
         where: { taskId: 'tsk_1' },
         orderBy: { includedAt: 'asc' },
         include: {
-          run: {
-            select: {
-              id: true,
-              inputTokens: true,
-              outputTokens: true,
-              cacheReadTokens: true,
-              cacheCreationTokens: true,
-              loopCount: true,
-            },
-          },
           session: {
             select: {
               id: true,

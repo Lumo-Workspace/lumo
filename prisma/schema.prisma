@@ -466,8 +466,6 @@ model Task {
   comments          Comment[]
   pullRequests      PullRequest[]
   branches          TaskBranch[]
-  clarifies         AgentClarify[]
-  agentRuns         AgentRun[]
   sessions          Session[]
   activities        TaskActivity[]
   documentMentions  DocumentMention[]
@@ -863,58 +861,6 @@ model TaskBranch {
   @@unique([taskId, repo, branchName])
   @@index([taskId])
   @@map("task_branches")
-}
-
-model AgentRun {
-  id           String      @id @default(cuid())
-  taskId       String
-  runNumber    Int
-  status       AgentStatus // WORKING while active, terminal when done
-  trigger      String? // "initial"|"retry"|"comment"|"confirm_spec"|"clarify_reply"|"send_back"
-  errorCode    String?
-  errorMessage String?
-  sandboxId    String?
-  mcpToken     String?     @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
-  summary      String?
-  steps        Json? // JSON array of { text, elapsedMs, status } persisted for resume after refresh
-  changedFiles Json?
-  durationMs          Int?
-  inputTokens         Int? // claude stream-json result usage.input_tokens
-  outputTokens        Int? // usage.output_tokens
-  cacheReadTokens     Int? // usage.cache_read_input_tokens
-  cacheCreationTokens Int? // usage.cache_creation_input_tokens
-  loopCount           Int? // stream-json result num_turns
-  prNumber     Int?
-  prUrl        String?
-  branchName   String?
-  startedAt    DateTime    @default(now())
-  finishedAt   DateTime?
-
-  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  clarifies    AgentClarify[]
-  lineageEdges LineageEdge[]
-
-  @@unique([taskId, runNumber])
-  @@index([taskId])
-  @@map("agent_runs")
-}
-
-model AgentClarify {
-  id         String    @id @default(cuid())
-  taskId     String
-  agentRunId String?
-  question   String
-  context    String?
-  reply      String?
-  repliedAt  DateTime?
-  createdAt  DateTime  @default(now())
-
-  task     Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  agentRun AgentRun? @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
-
-  @@index([taskId])
-  @@index([agentRunId])
-  @@map("agent_clarifies")
 }
 
 model WorkspaceInvite {
@@ -1896,7 +1842,6 @@ model LineageEdge {
   fragmentType LineageFragmentType
   fragmentId   String
   sessionId    String?
-  runId        String?
   includedAt   DateTime            @default(now())
   // Starts UNKNOWN at birth; stamped MERGED/REJECTED/REWORKED when the edge
   // closes (PR merged / task done) — see DoD ③ in the milestone goal.
@@ -1911,7 +1856,6 @@ model LineageEdge {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  run       AgentRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, taskId, fragmentType, fragmentId])
   @@index([fragmentType, fragmentId])

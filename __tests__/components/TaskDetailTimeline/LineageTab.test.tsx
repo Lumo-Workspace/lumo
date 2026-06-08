@@ -68,7 +68,6 @@ function makeData(overrides: Partial<LineageResponse> = {}): LineageResponse {
     groups: [
       {
         kind: 'session',
-        runId: null,
         sessionId: 'sess-1',
         label: 'Session sess-1',
         includedAt: '2026-01-01T00:00:00.000Z',
@@ -146,7 +145,6 @@ describe('LineageTab', () => {
         groups: [
           {
             kind: 'session',
-            runId: null,
             sessionId: 'sess-1',
             label: 'Session sess-1',
             includedAt: '2026-01-01T00:00:00.000Z',

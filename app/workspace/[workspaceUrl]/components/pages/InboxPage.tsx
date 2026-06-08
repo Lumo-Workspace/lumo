@@ -44,11 +44,6 @@ interface InboxPageProps {
   onMarkOneUnread: (id: string) => void
   onDeleteOne: (id: string) => void
   onMarkAllRead: () => void
-  onRespondToNotification: (
-    id: string,
-    action: 'reply' | 'confirm' | 'send_back' | 'approve' | 'deny',
-    reply?: string
-  ) => void
   onUpdateTaskStatus: (taskId: string, status: ApiStatus) => Promise<void>
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
@@ -76,7 +71,6 @@ export function InboxPage({
   onMarkOneUnread,
   onDeleteOne,
   onMarkAllRead,
-  onRespondToNotification,
   onUpdateTaskStatus,
   members,
   projects,
@@ -241,7 +235,6 @@ export function InboxPage({
       onTaskAction={(status: ApiStatus) => {
         if (n.taskId) onUpdateTaskStatus(n.taskId, status)
       }}
-      onRespond={onRespondToNotification}
     />
   )
 

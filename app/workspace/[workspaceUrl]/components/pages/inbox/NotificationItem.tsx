@@ -58,7 +58,6 @@ export function NotificationItem({
   onMarkUnread,
   onDelete,
   onTaskAction,
-  onRespond: _onRespond,
 }: NotificationItemProps) {
   const intlLocal = useIntl()
   const { actor, task, sprint, type, commentPreview, createdAt, read } =
