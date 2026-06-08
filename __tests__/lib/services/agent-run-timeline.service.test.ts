@@ -142,9 +142,59 @@ it('leaves cost null when a session captured no usage', async () => {
   expect(totals).toEqual({
     runCount: 1,
     turnCount: 0,
-    loopCount: 0,
+    // No run captured a loop count → aggregate stays null ("loops n/a"),
+    // not a misleading 0 (which would read as "ran 0 loops"). LUM-311.
+    loopCount: null,
     byModel: [],
   })
+})
+
+it('sums only runs with a captured loop count, ignoring null ones', async () => {
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_with',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: 3,
+      usageByModel: {
+        opus: { input: 10, output: 5, cacheRead: 0, cacheCreation: 0 },
+      },
+    },
+    {
+      id: 'sess_without',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: null,
+      usageByModel: null,
+    },
+  ])
+  events.mockResolvedValue([
+    {
+      id: 'e1',
+      sessionId: 'sess_with',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+    {
+      id: 'e2',
+      sessionId: 'sess_without',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+  ])
+  const { totals } = await agentRunTimelineService.getTimeline('task_1')
+  // Only sess_with contributes; the null run is skipped, not coerced to 0.
+  expect(totals.loopCount).toBe(3)
 })
 
 describe('agentRunTimelineService.getTimeline — agent identity', () => {
