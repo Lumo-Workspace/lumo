@@ -236,6 +236,22 @@ export async function updateTask(
 }
 
 /**
+ * Fire the LUM-314 fragment-usage audit for a just-completed task. Dynamic
+ * import keeps the judge's @ai-sdk/gateway graph out of this module's static
+ * graph (jest trap). Best-effort — the service swallows its own errors.
+ */
+export function dispatchDoneAudit(taskId: string): void {
+  waitUntil(
+    (async () => {
+      const { fragmentUsageAuditService } = await import(
+        '@/lib/services/lineage/fragment-usage-audit.service'
+      )
+      await fragmentUsageAuditService.auditForTask(taskId)
+    })()
+  )
+}
+
+/**
  * `updateTask` + fan-out to activity events, real-time push, and
  * notifications. The dispatch call is fire-and-forget — failures there
  * don't roll back the update.
@@ -311,6 +327,9 @@ export async function updateTaskWithSideEffects(
     // coarse by design (keyed by taskId). Detached so a stamp failure never
     // rolls back the completion.
     stampLineageInBackground(s => s.stampForTaskDone(taskId))
+
+    // LUM-314: evidence-gated fragment-usage audit (used + outcome land together).
+    dispatchDoneAudit(taskId)
 
     // Auto-add to the team's ACTIVE sprint when the task finished with no
     // sprint binding and the team opted into `sprintAutoAddCompleted`. The
