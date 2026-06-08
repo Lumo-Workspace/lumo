@@ -2,7 +2,9 @@ import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { buildLayer2ExtractPrompt } from './layer2-prompt'
+import { buildLayer2ReconcilePrompt } from './layer2-reconcile-prompt'
 import type { Layer2Input } from './layer2-input'
+import type { ScoredNeighbor } from './neighbor-retriever'
 
 // ── Output schema ─────────────────────────────────────────────────────────────
 
@@ -95,6 +97,44 @@ export async function extractLayer2Candidates(
   } catch (error) {
     console.error(
       `[memory.layer2] candidate extraction failed project=${input.project.id}:`,
+      error
+    )
+    return []
+  }
+}
+
+// ── Pass 2: reconciliation ──────────────────────────────────────────────────
+
+export interface ReconcileLayer2Input {
+  project: { id: string; name: string }
+  candidates: Layer2Candidate[]
+  neighborsByCandidate: ScoredNeighbor[][]
+}
+
+/**
+ * Pass 2: given each candidate PROJECT lesson and its top-k neighbors (existing
+ * PROJECT memories), decide the operation (ADD / UPDATE / SUPERSEDE / NOOP — no
+ * DELETE at Layer 2). Failures degrade to [].
+ */
+export async function reconcileLayer2Candidates(
+  input: ReconcileLayer2Input
+): Promise<Layer2Operation[]> {
+  const { system, user } = buildLayer2ReconcilePrompt({
+    project: input.project,
+    candidates: input.candidates,
+    neighborsByCandidate: input.neighborsByCandidate,
+  })
+  try {
+    const { object } = await generateObject({
+      model: gateway(MODEL_ID),
+      schema: layer2OutputSchema,
+      system,
+      prompt: user,
+    })
+    return object.operations
+  } catch (error) {
+    console.error(
+      `[memory.layer2] reconciliation failed project=${input.project.id}:`,
       error
     )
     return []
