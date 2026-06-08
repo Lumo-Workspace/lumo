@@ -20,11 +20,13 @@ const memoryCategorySchema = z.enum([
  *   writes PROJECT, so there is no scope field on the op.
  * - UPDATE refines an existing PROJECT-scope memory (same id+content shape
  *   as Layer 1 UPDATE). Same-category replacement only.
+ * - SUPERSEDE is the contradiction path: when a new observation directly
+ *   contradicts an existing PROJECT memory, SUPERSEDE atomically replaces the
+ *   old content via supersedeInPlace (soft-retract + new version). Like
+ *   UPDATE, content must validate against the existing row's category.
+ *   Layer 2 still has NO hard DELETE — retracting without a replacement is
+ *   deferred to a user action or a future clean-up pass.
  * - NOOP signals "nothing new to consolidate this run".
- *
- * No DELETE: Layer 2 only adds and refines. Retracting a PROJECT memory is
- * deferred — it should come from a user action or a future contradiction
- * pass, not from a periodic consolidation job.
  */
 export const layer2OperationSchema = z.discriminatedUnion('type', [
   z.object({
@@ -38,6 +40,11 @@ export const layer2OperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('UPDATE'),
+    id: z.string().min(1),
+    content: z.unknown(),
+  }),
+  z.object({
+    type: z.literal('SUPERSEDE'),
     id: z.string().min(1),
     content: z.unknown(),
   }),

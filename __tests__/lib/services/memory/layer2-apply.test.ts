@@ -5,6 +5,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
+    supersedeInPlace: jest.fn(),
     // Run the plans inline so per-op assertions still see the calls. The
     // real implementation wraps these in prisma.$transaction; mocking it as
     // a plain runner is enough for unit tests.
@@ -45,6 +46,7 @@ beforeEach(() => {
   jest.spyOn(console, 'warn').mockImplementation(() => {})
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
+  repo.supersedeInPlace.mockResolvedValue({ id: 'superseded' } as never)
 })
 
 describe('applyLayer2Operations', () => {
@@ -54,7 +56,7 @@ describe('applyLayer2Operations', () => {
       ...baseInput,
       operations: ops,
     })
-    expect(result).toEqual({ added: 0, updated: 0, noop: 1, skipped: 0 })
+    expect(result).toEqual({ added: 0, updated: 0, noop: 1, skipped: 0, superseded: 0 })
     expect(repo.applyPlansAtomically).not.toHaveBeenCalled()
   })
 
@@ -195,6 +197,31 @@ describe('applyLayer2Operations', () => {
       operations: ops,
     })
     expect(result).toMatchObject({ added: 1, noop: 2 })
+  })
+
+  it('SUPERSEDE overwrites the target PROJECT memory in place and counts it', async () => {
+    const supersede = jest
+      .spyOn(memoryRepository, 'supersedeInPlace')
+      .mockResolvedValue({ id: 'mem_old' } as never)
+    const result = await applyLayer2Operations({
+      operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new', scope: 'all' } }],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      existingProjectMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
+    })
+    expect(result.superseded).toBe(1)
+    expect(supersede).toHaveBeenCalledWith('mem_old', { rule: 'new', scope: 'all' }, expect.anything())
+  })
+
+  it('drops SUPERSEDE targeting an unknown id', async () => {
+    const result = await applyLayer2Operations({
+      operations: [{ type: 'SUPERSEDE', id: 'ghost', content: { rule: 'x', scope: 'y' } }],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      existingProjectMemories: [],
+    })
+    expect(result.superseded).toBe(0)
+    expect(result.skipped).toBe(1)
   })
 })
 

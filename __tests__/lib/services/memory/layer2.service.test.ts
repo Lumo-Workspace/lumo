@@ -78,7 +78,7 @@ describe('layer2Service.runForProject', () => {
   it('releases the lease after a successful run', async () => {
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([{ type: 'NOOP' }])
-    apply.mockResolvedValue({ added: 0, updated: 0, noop: 1, skipped: 0 })
+    apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
 
     await layer2Service.runForProject('proj_1')
 
@@ -121,7 +121,7 @@ describe('layer2Service.runForProject', () => {
         content: { trigger: 't', outcome: 'o' },
       },
     ])
-    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+    apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
 
     const result = await layer2Service.runForProject('proj_1')
 
@@ -144,7 +144,7 @@ describe('layer2Service.runForProject', () => {
     extract.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
-    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+    apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
 
     await layer2Service.runForProject('proj_1', null)
 
@@ -158,7 +158,7 @@ describe('layer2Service.triggerForTaskCompletion', () => {
   it("runs the pipeline for the task's project", async () => {
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([{ type: 'NOOP' }])
-    apply.mockResolvedValue({ added: 0, updated: 0, noop: 1, skipped: 0 })
+    apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
 
     await layer2Service.triggerForTaskCompletion({
       taskId: 'task_1',
@@ -176,7 +176,7 @@ describe('layer2Service.triggerForTaskCompletion', () => {
     extract.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
-    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+    apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
 
     await layer2Service.triggerForTaskCompletion({
       taskId: 'task_1',
@@ -194,7 +194,7 @@ describe('layer2Service.triggerForTaskCompletion', () => {
     extract.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
-    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+    apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
 
     await layer2Service.triggerForTaskCompletion({
       taskId: 'task_1',
