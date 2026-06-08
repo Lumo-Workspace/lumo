@@ -13,7 +13,8 @@ jest.mock('@/lib/services/memory/layer2-input', () => ({
   getLayer2Input: jest.fn(),
 }))
 jest.mock('@/lib/services/memory/layer2-extract', () => ({
-  extractLayer2Operations: jest.fn(),
+  extractLayer2Candidates: jest.fn(),
+  reconcileLayer2Candidates: jest.fn(),
 }))
 jest.mock('@/lib/services/memory/layer2-apply', () => ({
   applyLayer2Operations: jest.fn(),
@@ -26,14 +27,20 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 }))
 
 import { getLayer2Input } from '@/lib/services/memory/layer2-input'
-import { extractLayer2Operations } from '@/lib/services/memory/layer2-extract'
+import {
+  extractLayer2Candidates,
+  reconcileLayer2Candidates,
+} from '@/lib/services/memory/layer2-extract'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { layer2Service } from '@/lib/services/memory/layer2.service'
 
 const getInput = getLayer2Input as jest.MockedFunction<typeof getLayer2Input>
-const extract = extractLayer2Operations as jest.MockedFunction<
-  typeof extractLayer2Operations
+const extract = extractLayer2Candidates as jest.MockedFunction<
+  typeof extractLayer2Candidates
+>
+const reconcile = reconcileLayer2Candidates as jest.MockedFunction<
+  typeof reconcileLayer2Candidates
 >
 const apply = applyLayer2Operations as jest.MockedFunction<
   typeof applyLayer2Operations
@@ -71,13 +78,15 @@ describe('layer2Service.runForProject', () => {
     expect(result).toBeNull()
     expect(getInput).not.toHaveBeenCalled()
     expect(extract).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
     expect(apply).not.toHaveBeenCalled()
     expect(repo.releaseLayer2Lease).not.toHaveBeenCalled()
   })
 
   it('releases the lease after a successful run', async () => {
     getInput.mockResolvedValue(makeInput())
-    extract.mockResolvedValue([{ type: 'NOOP' }])
+    extract.mockResolvedValue([{ category: 'TRAP', content: { trigger: 't', outcome: 'o' } }])
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
     apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
 
     await layer2Service.runForProject('proj_1')
@@ -98,23 +107,28 @@ describe('layer2Service.runForProject', () => {
     const result = await layer2Service.runForProject('proj_1')
     expect(result).toBeNull()
     expect(extract).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
     expect(apply).not.toHaveBeenCalled()
   })
 
-  it('returns a zero-result row when extraction yields no ops', async () => {
+  it('returns a zero-result row when extraction yields no candidates', async () => {
     // The LLM call can degrade to an empty list on failure. Returning a
     // structured zero-result (instead of null) lets the caller distinguish
     // "ran but produced nothing" from "had nothing to run on".
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([])
     const result = await layer2Service.runForProject('proj_1')
-    expect(result).toEqual({ added: 0, updated: 0, noop: 0, skipped: 0 })
+    expect(result).toEqual({ added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 })
+    expect(reconcile).not.toHaveBeenCalled()
     expect(apply).not.toHaveBeenCalled()
   })
 
   it('runs the full pipeline on the happy path', async () => {
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([
+      { category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    reconcile.mockResolvedValue([
       {
         type: 'ADD',
         category: 'TRAP',
@@ -131,7 +145,7 @@ describe('layer2Service.runForProject', () => {
         workspaceId: 'ws_1',
       })
     )
-    expect(result).toEqual({ added: 1, updated: 0, noop: 0, skipped: 0 })
+    expect(result).toEqual({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
   })
 
   it('forwards the input-window task memory ids as validSourceMemoryIds', async () => {
@@ -142,6 +156,9 @@ describe('layer2Service.runForProject', () => {
       ],
     })
     extract.mockResolvedValue([
+      { category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    reconcile.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
     apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
@@ -152,12 +169,35 @@ describe('layer2Service.runForProject', () => {
       expect.objectContaining({ validSourceMemoryIds: ['mem_a'] })
     )
   })
+
+  it('runs extract → reconcile → apply and feeds neighbors per candidate', async () => {
+    // getLayer2Input → input with one existing PROJECT memory in the pool + one task memory
+    getInput.mockResolvedValue({
+      project: { id: 'proj_1', name: 'P', workspaceId: 'ws_1' },
+      taskMemories: [{ id: 'tm_1', taskId: 't1', category: 'TRAP', content: { trigger: 'a', outcome: 'b' } }],
+      existingProjectMemories: [{ id: 'pm_1', category: 'TRAP', content: { trigger: 'a', outcome: 'b' } }],
+      constitution: { claudeMd: null, agentsMd: null },
+    })
+    extract.mockResolvedValue([{ category: 'TRAP', content: { trigger: 'a2', outcome: 'b2' }, sourceMemoryIds: ['tm_1'] }])
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
+    apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
+
+    await layer2Service.runForProject('proj_1')
+
+    const reconcileArg = reconcile.mock.calls[0]![0]
+    expect(reconcileArg.candidates).toHaveLength(1)
+    expect(reconcileArg.neighborsByCandidate).toHaveLength(1)
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ validSourceMemoryIds: ['tm_1'] })
+    )
+  })
 })
 
 describe('layer2Service.triggerForTaskCompletion', () => {
   it("runs the pipeline for the task's project", async () => {
     getInput.mockResolvedValue(makeInput())
-    extract.mockResolvedValue([{ type: 'NOOP' }])
+    extract.mockResolvedValue([{ category: 'TRAP', content: { trigger: 't', outcome: 'o' } }])
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
     apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
 
     await layer2Service.triggerForTaskCompletion({
@@ -174,6 +214,9 @@ describe('layer2Service.triggerForTaskCompletion', () => {
     // the promoted PROJECT memories so the next session-start can review them.
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([
+      { category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    reconcile.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
     apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })
@@ -192,6 +235,9 @@ describe('layer2Service.triggerForTaskCompletion', () => {
   it('passes sourceSessionId=null when the trigger omits it (Web UI path)', async () => {
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([
+      { category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    reconcile.mockResolvedValue([
       { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
     ])
     apply.mockResolvedValue({ added: 1, updated: 0, superseded: 0, noop: 0, skipped: 0 })

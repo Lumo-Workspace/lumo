@@ -1,8 +1,11 @@
 import { logger } from '@/lib/logger'
 import { getLayer2Input } from './layer2-input'
-import { extractLayer2Operations } from './layer2-extract'
+import { extractLayer2Candidates, reconcileLayer2Candidates } from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { memoryContentToText } from '@/lib/memory/content-text'
+import { lexicalNeighborRetriever, NEIGHBOR_K } from './neighbor-retriever'
+import type { NeighborRetriever } from './neighbor-retriever'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -11,9 +14,14 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
  */
 const LAYER2_LEASE_TTL_MS = 60_000
 
+/** Neighbor retriever for reconcile-on-write — LUM-324 ships lexical; swap for
+ * an embedding retriever (pgvector) when the LUM-324 DECISION trigger fires. */
+const retriever: NeighborRetriever = lexicalNeighborRetriever
+
 export interface Layer2ProjectResult {
   added: number
   updated: number
+  superseded: number
   noop: number
   skipped: number
 }
@@ -32,8 +40,9 @@ interface TriggerForTaskCompletionInput {
 /**
  * Layer 2 memory consolidation: scans recent TASK-scope memories in a
  * project, identifies recurring lessons, and promotes them to PROJECT
- * scope via the
- *   getLayer2Input → extractLayer2Operations → applyLayer2Operations
+ * scope via the two-pass
+ *   getLayer2Input → extractLayer2Candidates → retrieveNeighbors →
+ *   reconcileLayer2Candidates → applyLayer2Operations
  * pipeline.
  *
  * Triggered when a task transitions to DONE — that's the natural moment
@@ -115,12 +124,31 @@ async function runForProject(
       return null
     }
 
-    const operations = await extractLayer2Operations(input)
-    if (operations.length === 0) {
-      logger.debug(
-        `[memory.layer2] no-ops project=${projectId} (LLM returned empty list)`
+    // Pass 1 — candidate project lessons, blind to existing PROJECT memories.
+    const candidates = await extractLayer2Candidates(input)
+    if (candidates.length === 0) {
+      logger.debug(`[memory.layer2] no-candidates project=${projectId}`)
+      return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
+    }
+
+    // Retrieve — per candidate, top-k similar existing PROJECT memories.
+    const neighborsByCandidate = candidates.map(c =>
+      retriever.retrieve(
+        { category: c.category, text: memoryContentToText(c.category, c.content) },
+        input.existingProjectMemories,
+        NEIGHBOR_K
       )
-      return { added: 0, updated: 0, noop: 0, skipped: 0 }
+    )
+
+    // Pass 2 — reconcile each candidate against its neighbors.
+    const operations = await reconcileLayer2Candidates({
+      project: { id: input.project.id, name: input.project.name },
+      candidates,
+      neighborsByCandidate,
+    })
+    if (operations.length === 0) {
+      logger.debug(`[memory.layer2] no-ops project=${projectId}`)
+      return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
 
     const result = await applyLayer2Operations({
@@ -136,10 +164,10 @@ async function runForProject(
     })
 
     logger.debug(`[memory.layer2] applied project=${projectId}`, result)
-
     return {
       added: result.added,
       updated: result.updated,
+      superseded: result.superseded,
       noop: result.noop,
       skipped: result.skipped,
     }
