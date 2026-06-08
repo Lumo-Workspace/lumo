@@ -53,6 +53,7 @@ const INSUFFICIENT: TaskForecast = {
   cycleHours: null,
   tokenCost: null,
   tokenCostBasis: 0,
+  clarifyRounds: null,
   confidence: 'low',
   sources: [],
 }
@@ -66,6 +67,7 @@ const TOKEN_ONLY: TaskForecast = {
   cycleHours: null,
   tokenCost: { p25: 14_000_000, median: 30_000_000, p75: 41_000_000 },
   tokenCostBasis: 22,
+  clarifyRounds: null,
   confidence: 'high',
   sources: [],
 }

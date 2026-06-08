@@ -141,7 +141,7 @@ git commit -m "feat: add TaskForecastSnapshot model [LUM-319]"
 - Modify: `lib/forecast/metrics.ts`
 - Test: `__tests__/lib/forecast/metrics.test.ts`（若不存在则 Create）
 
-- [ ] **Step 1: 扩展类型**
+- [x] **Step 1: 扩展类型**
 
 `lib/forecast/types.ts`：
 
@@ -167,7 +167,7 @@ clarifyRounds: number
 clarifyRounds: Interval | null
 ```
 
-- [ ] **Step 2: 写失败测试（metrics 透传）**
+- [x] **Step 2: 写失败测试（metrics 透传）**
 
 `__tests__/lib/forecast/metrics.test.ts` 加（文件已存在则追加一个 it）：
 
@@ -190,12 +190,12 @@ it('passes clarifyRounds through from the candidate', () => {
 })
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 Run: `npx jest __tests__/lib/forecast/metrics.test.ts -t clarifyRounds`
 Expected: FAIL（`clarifyRounds` 未在返回值 / 类型不匹配）。
 
-- [ ] **Step 4: 实现透传**
+- [x] **Step 4: 实现透传**
 
 `lib/forecast/metrics.ts` 的 `return { ... }` 改为：
 
@@ -209,12 +209,12 @@ return {
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `npx jest __tests__/lib/forecast/metrics.test.ts -t clarifyRounds`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/forecast/types.ts lib/forecast/metrics.ts __tests__/lib/forecast/metrics.test.ts
@@ -232,7 +232,7 @@ git commit -m "feat: thread clarifyRounds through forecast metrics [LUM-319]"
 
 Notification 与 Task **无 relation**（裸 `taskId`），用 `prisma.notification.groupBy` 计数，不能走 Task select 的 `_count`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `__tests__/repositories/forecast.repository.test.ts` 顶部 mock 加 `notification`：
 
@@ -303,12 +303,12 @@ it('defaults clarifyRounds to 0 when a candidate has no clarify notifications', 
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx jest __tests__/repositories/forecast.repository.test.ts -t clarify`
 Expected: FAIL（`clarifyRounds` 为 undefined / groupBy 未调用）。
 
-- [ ] **Step 3: 实现计数**
+- [x] **Step 3: 实现计数**
 
 `lib/repositories/forecast.repository.ts`，在 `const rows = await prisma.task.findMany(...)` 之后、`const candidates = rows.map(...)` 之前插入：
 
@@ -334,14 +334,14 @@ const clarifyByTask = new Map<string, number>(
 
 > 注：`groupBy` 在 `rows` 为空时传 `taskId: { in: [] }`，Prisma 返回 `[]`，安全。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx jest __tests__/repositories/forecast.repository.test.ts`
 Expected: PASS（含原有用例 —— 它们构造的候选行没有 notifications，groupBy mock 默认需返回 `[]`；在已存在用例的 mock 里补 `groupBy.mockResolvedValue([])`，见下）。
 
 > 若原有用例因 `groupBy` 未 mock 而报 `groupBy is not a function`：在那些 it 里、`findMany.mockResolvedValue(...)` 之后加一行 `groupBy.mockResolvedValue([])`。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/repositories/forecast.repository.ts __tests__/repositories/forecast.repository.test.ts
@@ -357,7 +357,7 @@ git commit -m "feat: count AGENT_CLARIFY notifications per forecast candidate [L
 - Modify: `lib/services/forecast.service.ts`
 - Test: `__tests__/services/forecast.service.test.ts`
 
-- [ ] **Step 1: 更新测试 helper + 写失败断言**
+- [x] **Step 1: 更新测试 helper + 写失败断言**
 
 `__tests__/services/forecast.service.test.ts` 的 `cand(...)` helper 加可选参 `clarify` 并写入返回对象：
 
@@ -412,12 +412,12 @@ it('returns null clarifyRounds when the cohort is too thin', async () => {
 
 > 任何直接断言整个 `TaskForecast` 形状 / 使用 `EMPTY` 的既有用例，给期望值补 `clarifyRounds: null`。
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx jest __tests__/services/forecast.service.test.ts -t clarifyRounds`
 Expected: FAIL（`clarifyRounds` 不存在于返回值）。
 
-- [ ] **Step 3: 实现区间**
+- [x] **Step 3: 实现区间**
 
 `lib/services/forecast.service.ts`：
 
@@ -439,12 +439,12 @@ const clarifyValues = sources.map((_, i) => cohort[i]!.candidate.clarifyRounds)
 
 > `clarifyValues` 长度 = `sources.length ≥ MIN_COHORT`，故 `interval` 永不空数组。`cohort` 与 `sources` 同序同长（sources 由 cohort.map 生成）。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npx jest __tests__/services/forecast.service.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/services/forecast.service.ts __tests__/services/forecast.service.test.ts
