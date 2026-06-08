@@ -30,6 +30,14 @@ interface PullRequestSummary {
   ciStatus: string | null
 }
 
+/** Server-computed presence of the three "rare" tabs, so the tab bar can paint
+ *  on first render instead of waiting for the client probes (LUM-321). */
+interface TimelinePresence {
+  hasAgentRuns: boolean
+  hasMemories: boolean
+  hasLineage: boolean
+}
+
 interface TimelineTabsProps {
   taskId: string
   taskIdentifier: string
@@ -40,6 +48,8 @@ interface TimelineTabsProps {
   pullRequests: PullRequestSummary[]
   onLinkPr: () => void
   onUnlinkPr: (prId: string) => void
+  /** SSR presence seed; the probes below reconcile it once they resolve. */
+  initialTimelinePresence?: TimelinePresence | undefined
 }
 
 export function TimelineTabs({
@@ -52,6 +62,7 @@ export function TimelineTabs({
   pullRequests,
   onLinkPr,
   onUnlinkPr,
+  initialTimelinePresence,
 }: TimelineTabsProps) {
   const intl = useIntl()
   const [activeTab, setActiveTab] = useState<TabValue>('comments')
@@ -80,9 +91,20 @@ export function TimelineTabs({
   })
   const lineage = useTaskLineage({ identifier: taskIdentifier, enabled: true })
 
-  const hasAgentRuns = (agentRuns.data?.runs.length ?? 0) > 0
-  const hasMemories = taskMemories.memories.length > 0
-  const hasLineage = (lineage.data?.groups.length ?? 0) > 0
+  // Until a probe resolves, fall back to the SSR-seeded presence so the tab
+  // bar paints correctly on first render (no pop-in); once a probe lands it
+  // becomes the source of truth and reconciles any drift. useAgentRuns /
+  // useTaskLineage signal "not yet resolved" via data===null; useMemories has
+  // no null sentinel, so its initial load is read from `loading`.
+  const hasAgentRuns = agentRuns.data
+    ? agentRuns.data.runs.length > 0
+    : (initialTimelinePresence?.hasAgentRuns ?? false)
+  const hasMemories = taskMemories.loading
+    ? (initialTimelinePresence?.hasMemories ?? false)
+    : taskMemories.memories.length > 0
+  const hasLineage = lineage.data
+    ? lineage.data.groups.length > 0
+    : (initialTimelinePresence?.hasLineage ?? false)
 
   // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
   // for manually-created memories (createdByMemberId is a WorkspaceMember.id).

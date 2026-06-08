@@ -162,6 +162,23 @@ export const hookEventRepository = {
   },
 
   /**
+   * Whether the task has any tool-use event (LUM-321 tab presence). Mirrors the
+   * `toolCallCount` source in agentRunTimelineService — PRE_TOOL_USE events
+   * under the same task-attribution precedence as `findByTaskId` — so the
+   * SSR-computed Agent Run tab visibility can't drift from the run timeline.
+   */
+  async hasToolUseForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.hookEvent.findFirst({
+      where: {
+        type: 'PRE_TOOL_USE',
+        OR: [{ taskId }, { taskId: null, session: { taskId } }],
+      },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * Per-turn token deltas (LUM-298) for a task, used by the lineage cost view
    * (LUM-301) to attribute "what this task actually burned" instead of a
    * session's ever-growing cumulative columns. Returns one row per STOP /

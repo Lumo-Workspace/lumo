@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
+import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
 import { TaskDetailPage } from '../../components/pages/TaskDetailPage'
 import { slugify } from '@/lib/utils/slugify'
 
@@ -73,6 +74,11 @@ export default async function MyTaskDetailPage({
     )
   }
 
+  // Compute the rare-tab presence server-side so the tab bar paints on first
+  // render instead of popping in after the client probes round-trip (LUM-321).
+  const initialTimelinePresence =
+    await taskTimelinePresenceService.getPresence(rawTask.id)
+
   const task = {
     ...rawTask,
     teamIdentifier: rawTask.team.identifier,
@@ -93,6 +99,7 @@ export default async function MyTaskDetailPage({
       workspaceUrl={workspaceUrl}
       source='my-tasks'
       slackConnected={workspace.slackIntegration !== null}
+      initialTimelinePresence={initialTimelinePresence}
     />
   )
 }

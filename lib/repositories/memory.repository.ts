@@ -183,6 +183,19 @@ export const memoryRepository = {
   },
 
   /**
+   * Whether the task has any memory (LUM-321 Memory-tab presence). Same `taskId`
+   * filter as `listForTask`, kept adjacent so the cheap SSR existence check and
+   * the panel's list can't drift apart.
+   */
+  async hasForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.memory.findFirst({
+      where: { taskId },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * Patch content and/or scope and/or taskId in one write. Undefined fields
    * are omitted so a content-only edit never touches scope. Returns the full
    * row for the HTTP response.
