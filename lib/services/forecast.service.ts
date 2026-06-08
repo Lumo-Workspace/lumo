@@ -2,6 +2,7 @@ import { forecastRepository } from '@/lib/repositories/forecast.repository'
 import { scoreCandidate } from '@/lib/forecast/score'
 import { extractMetrics } from '@/lib/forecast/metrics'
 import { interval } from '@/lib/forecast/percentile'
+import { deriveConfidence } from '@/lib/forecast/confidence'
 import type {
   TaskForecast,
   ForecastSource,
@@ -20,6 +21,7 @@ const EMPTY: TaskForecast = {
   cycleHours: null,
   tokenCost: null,
   tokenCostBasis: 0,
+  confidence: 'low',
   sources: [],
 }
 
@@ -83,6 +85,8 @@ export const forecastService = {
     // forecast may still be available, so only declare "insufficient" when
     // BOTH tracks are empty.
     if (sources.length < MIN_COHORT) {
+      // Cohort metrics are absent here, so only the token track (if any) backs
+      // the badge.
       return {
         insufficientData: tokenCost === null,
         cohortSize: sources.length,
@@ -91,6 +95,7 @@ export const forecastService = {
         cycleHours: null,
         tokenCost,
         tokenCostBasis,
+        confidence: deriveConfidence(tokenCost ? [tokenCostBasis] : []),
         sources: sources.slice(0, 2),
       }
     }
@@ -108,6 +113,11 @@ export const forecastService = {
         cycleValues.length >= MIN_COHORT ? interval(cycleValues) : null,
       tokenCost,
       tokenCostBasis,
+      // Both tracks may back the badge; take the strongest leg.
+      confidence: deriveConfidence([
+        sources.length,
+        ...(tokenCost ? [tokenCostBasis] : []),
+      ]),
       sources,
     }
   },

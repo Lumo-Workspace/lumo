@@ -8,6 +8,10 @@ const en: Record<string, string> = {
   'forecast.metricTokens': 'Token cost',
   'forecast.tokenBasis': 'Based on {count} tasks with cost data',
   'forecast.viewSources': 'View sources',
+  'forecast.confidence': 'Confidence',
+  'forecast.confidenceLow': 'Low',
+  'forecast.confidenceMedium': 'Medium',
+  'forecast.confidenceHigh': 'High',
 }
 
 jest.mock('react-intl', () => ({
@@ -49,6 +53,7 @@ const INSUFFICIENT: TaskForecast = {
   cycleHours: null,
   tokenCost: null,
   tokenCostBasis: 0,
+  confidence: 'low',
   sources: [],
 }
 
@@ -61,6 +66,7 @@ const TOKEN_ONLY: TaskForecast = {
   cycleHours: null,
   tokenCost: { p25: 14_000_000, median: 30_000_000, p75: 41_000_000 },
   tokenCostBasis: 22,
+  confidence: 'high',
   sources: [],
 }
 
@@ -86,6 +92,17 @@ describe('ForecastPanel', () => {
     // No similarity-cohort basis line when there are no cohort metrics.
     expect(screen.queryByText('Based on 0 tasks')).not.toBeInTheDocument()
     expect(screen.queryByText('Not enough history yet')).not.toBeInTheDocument()
+  })
+
+  it('renders the confidence badge derived from sample size', () => {
+    mockForecast = TOKEN_ONLY
+    render(<ForecastPanel taskId='task_1' status='IN_PROGRESS' />)
+    expect(screen.getByText(/Confidence · High/)).toBeInTheDocument()
+  })
+
+  it('shows no confidence badge for the insufficient-data state', () => {
+    render(<ForecastPanel taskId='task_1' status='IN_PROGRESS' />)
+    expect(screen.queryByText(/Confidence/)).not.toBeInTheDocument()
   })
 
   it('renders nothing for a DONE task — a delivered task has no forecast', () => {

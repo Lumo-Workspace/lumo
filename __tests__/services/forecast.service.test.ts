@@ -34,7 +34,12 @@ function cand(
   }
 }
 
-const target = { id: 'tgt', title: 'Add OAuth login', tags: ['auth'], projectId: 'p1' }
+const target = {
+  id: 'tgt',
+  title: 'Add OAuth login',
+  tags: ['auth'],
+  projectId: 'p1',
+}
 
 it('returns insufficientData when the task is missing', async () => {
   load.mockResolvedValue(null)
@@ -58,11 +63,7 @@ it('returns insufficientData (with ≤2 sources) when cohort < 3', async () => {
 it('computes intervals when cohort ≥ 3', async () => {
   load.mockResolvedValue({
     target,
-    candidates: [
-      cand('1', 1, 1, 1),
-      cand('2', 2, 1, 2),
-      cand('3', 3, 2, 3),
-    ],
+    candidates: [cand('1', 1, 1, 1), cand('2', 2, 1, 2), cand('3', 3, 2, 3)],
   })
   const f = await forecastService.getTaskForecast('tgt')
   expect(f.insufficientData).toBe(false)
@@ -71,6 +72,8 @@ it('computes intervals when cohort ≥ 3', async () => {
   expect(f.mergedPrs).toEqual({ p25: 1, median: 1, p75: 1.5 })
   expect(f.cycleHours).not.toBeNull()
   expect(f.sources).toHaveLength(3)
+  // 3 tasks back the cohort, no token data → weakest tier.
+  expect(f.confidence).toBe('low')
 })
 
 it('excludes candidates below the score threshold', async () => {
@@ -97,7 +100,11 @@ it('surfaces a project-wide token forecast even when the cohort is too small', a
   })
   load.mockResolvedValue({
     target,
-    candidates: [dissimilar('1', 100), dissimilar('2', 200), dissimilar('3', 300)],
+    candidates: [
+      dissimilar('1', 100),
+      dissimilar('2', 200),
+      dissimilar('3', 300),
+    ],
   })
   const f = await forecastService.getTaskForecast('tgt')
   expect(f.cohortSize).toBe(0)
@@ -105,6 +112,8 @@ it('surfaces a project-wide token forecast even when the cohort is too small', a
   expect(f.iterations).toBeNull()
   expect(f.tokenCost).toEqual({ p25: 150, median: 200, p75: 250 })
   expect(f.tokenCostBasis).toBe(3)
+  // Cohort empty; only the 3-task token basis backs the badge → low.
+  expect(f.confidence).toBe('low')
 })
 
 it('stays insufficient when cohort < 3 AND no token data', async () => {

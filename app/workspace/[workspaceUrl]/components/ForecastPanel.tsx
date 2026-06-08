@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTaskForecast } from '../hooks/useTaskForecast'
-import type { Interval } from '@/lib/forecast/types'
+import type { Interval, ForecastConfidence } from '@/lib/forecast/types'
 import type { ApiStatus } from '../types'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
@@ -16,6 +16,26 @@ function ForecastRow({ label, value }: { label: string; value: string }) {
         {value}
       </span>
     </div>
+  )
+}
+
+const CONFIDENCE_KEY: Record<ForecastConfidence, string> = {
+  low: 'forecast.confidenceLow',
+  medium: 'forecast.confidenceMedium',
+  high: 'forecast.confidenceHigh',
+}
+
+// Neutral evidence-strength badge — intentionally greyscale (no status color):
+// hierarchy comes from the weight/size of the numbers below it, not a coloured
+// pill competing for attention.
+function ConfidenceBadge({ level }: { level: ForecastConfidence }) {
+  const intl = useIntl()
+  return (
+    <span className='shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-muted-foreground'>
+      {intl.formatMessage({ id: 'forecast.confidence' })}
+      {' · '}
+      {intl.formatMessage({ id: CONFIDENCE_KEY[level] })}
+    </span>
   )
 }
 
@@ -92,9 +112,12 @@ export function ForecastPanel({
 
   return (
     <section className='mt-6 pt-6 border-t border-border'>
-      <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-1'>
-        {title}
-      </p>
+      <div className='flex items-center justify-between gap-2 mb-1'>
+        <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider'>
+          {title}
+        </p>
+        <ConfidenceBadge level={forecast.confidence} />
+      </div>
       {hasCohortMetrics && (
         <p className='text-caption text-muted-foreground mb-2'>
           {intl.formatMessage(
