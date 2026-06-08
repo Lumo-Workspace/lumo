@@ -139,4 +139,117 @@ export const lineageSourceRepository = {
 
     return out
   },
+
+  /**
+   * Richer per-type text for the LUM-314 usage judge — same batched per-type
+   * query shape as `labelsByType`, but returns fuller content (untruncated todo
+   * bodies, title+url for links) so the judge has enough to trace a fragment to
+   * a concrete action. Deleted sources are simply absent from the map.
+   */
+  async contentByType(
+    refsByType: Map<LineageFragmentType, string[]>
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    const ids = (t: LineageFragmentType): string[] => refsByType.get(t) ?? []
+
+    const memIds = ids('MEMORY')
+    if (memIds.length > 0) {
+      const rows = await prisma.memory.findMany({
+        where: { id: { in: memIds } },
+        select: { id: true, scope: true, category: true, content: true },
+      })
+      for (const r of rows) {
+        out.set(
+          key('MEMORY', r.id),
+          memoryManifestLine({
+            id: r.id,
+            scope: r.scope,
+            category: r.category,
+            content: r.content,
+          }).replace(/^- /, '')
+        )
+      }
+    }
+
+    const slackIds = ids('SLACK_CONTEXT')
+    if (slackIds.length > 0) {
+      const rows = await prisma.taskSlackContext.findMany({
+        where: { id: { in: slackIds } },
+        select: { id: true, slackChannelName: true, permalink: true },
+      })
+      for (const r of rows) {
+        out.set(
+          key('SLACK_CONTEXT', r.id),
+          r.slackChannelName ? `#${r.slackChannelName}` : r.permalink
+        )
+      }
+    }
+
+    const webIds = ids('WEB_LINK')
+    if (webIds.length > 0) {
+      const rows = await prisma.taskWebLink.findMany({
+        where: { id: { in: webIds } },
+        select: { id: true, title: true, url: true },
+      })
+      for (const r of rows) {
+        out.set(
+          key('WEB_LINK', r.id),
+          r.title ? `${r.title} — ${r.url}` : r.url
+        )
+      }
+    }
+
+    const figmaIds = ids('FIGMA')
+    if (figmaIds.length > 0) {
+      const rows = await prisma.taskFigmaLink.findMany({
+        where: { id: { in: figmaIds } },
+        select: { id: true, fileName: true, frameName: true },
+      })
+      for (const r of rows) {
+        out.set(
+          key('FIGMA', r.id),
+          r.frameName ? `${r.fileName} / ${r.frameName}` : r.fileName
+        )
+      }
+    }
+
+    const prIds = ids('PR')
+    if (prIds.length > 0) {
+      const rows = await prisma.pullRequest.findMany({
+        where: { id: { in: prIds } },
+        select: { id: true, number: true, title: true },
+      })
+      for (const r of rows) {
+        out.set(key('PR', r.id), `#${r.number} ${r.title}`)
+      }
+    }
+
+    const todoIds = ids('PR_REVIEW_TODO')
+    if (todoIds.length > 0) {
+      const rows = await prisma.prCommentMirror.findMany({
+        where: { id: { in: todoIds } },
+        select: { id: true, filePath: true, comment: { select: { body: true } } },
+      })
+      for (const r of rows) {
+        const loc = r.filePath ? `${r.filePath}: ` : ''
+        out.set(key('PR_REVIEW_TODO', r.id), loc + stripHtml(r.comment.body))
+      }
+    }
+
+    const sessionIds = ids('SESSION')
+    if (sessionIds.length > 0) {
+      const rows = await prisma.session.findMany({
+        where: { id: { in: sessionIds } },
+        select: { id: true, summaryType: true },
+      })
+      for (const r of rows) {
+        out.set(
+          key('SESSION', r.id),
+          `Session ${r.id.slice(0, 8)}${r.summaryType ? ` (${r.summaryType})` : ''}`
+        )
+      }
+    }
+
+    return out
+  },
 }

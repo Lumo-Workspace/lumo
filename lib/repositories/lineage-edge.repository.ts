@@ -276,24 +276,75 @@ export const lineageEdgeRepository = {
   },
 
   /**
-   * Record an agent usage vote over a session's edges: the voted refs get
-   * used=true, every other edge of the session gets used=false, all stamped
-   * usedAt=now. Last write wins (re-voting overwrites). Returns counts.
+   * Of the given sessions, which already carry a usage vote (any usedAt-stamped
+   * edge)? The automatic audit skips these — a human vote (or a prior auto pass)
+   * is authoritative. This is the LUM-314 idempotency guard.
+   */
+  async findVotedSessionIds(
+    sessionIds: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (sessionIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.findMany({
+      where: { sessionId: { in: sessionIds }, usedAt: { not: null } },
+      select: { sessionId: true },
+      distinct: ['sessionId'],
+    })
+    return new Set(rows.map(r => r.sessionId).filter((s): s is string => !!s))
+  },
+
+  /**
+   * Distinct session ids that (a) belong to a DONE task and (b) have at least
+   * one not-yet-voted edge (usedAt = null). The cron backstop's work-list;
+   * `limit` bounds each run so the first sweeps drain the dormant backlog over a
+   * few hours instead of firing thousands of judge calls at once.
+   */
+  async listUnvotedSessionIdsForDoneTasks(
+    limit: number,
+    tx?: Prisma.TransactionClient
+  ): Promise<string[]> {
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['sessionId'],
+      where: { sessionId: { not: null }, usedAt: null, task: { status: 'DONE' } },
+      orderBy: { sessionId: 'asc' },
+      take: limit,
+    })
+    return rows
+      .map(r => r.sessionId)
+      .filter((s): s is string => s !== null)
+  },
+
+  /**
+   * Record a usage vote over a session's edges.
+   *
+   * - `mode: 'replace'` (default, the manual `session wrap --used` path): voted
+   *   refs → used=true, every OTHER edge of the session → used=false, all
+   *   stamped usedAt=now. Last write wins.
+   * - `mode: 'additive'` (the automatic LUM-314 judge): voted refs → used=true
+   *   ONLY; every other edge is left untouched (stays NULL). Empty refs is a
+   *   no-op. This guarantees the automatic path NEVER asserts used=false — an
+   *   unproven "not used" is left honestly NULL.
    */
   async applyUsageVote(
     sessionId: string,
     usedRefs: FragmentRef[],
-    tx?: Prisma.TransactionClient
+    opts: { mode?: 'replace' | 'additive'; tx?: Prisma.TransactionClient } = {}
   ): Promise<{ used: number; unused: number }> {
-    const client = tx ?? prisma
+    const mode = opts.mode ?? 'replace'
+    const client = opts.tx ?? prisma
     const now = new Date()
+
     if (usedRefs.length === 0) {
+      if (mode === 'additive') return { used: 0, unused: 0 }
       const r = await client.lineageEdge.updateMany({
         where: { sessionId },
         data: { used: false, usedAt: now },
       })
       return { used: 0, unused: r.count }
     }
+
     const or = usedRefs.map(r => ({
       fragmentType: r.fragmentType,
       fragmentId: r.fragmentId,
@@ -302,6 +353,8 @@ export const lineageEdgeRepository = {
       where: { sessionId, OR: or },
       data: { used: true, usedAt: now },
     })
+    if (mode === 'additive') return { used: usedRes.count, unused: 0 }
+
     const unusedRes = await client.lineageEdge.updateMany({
       where: { sessionId, NOT: { OR: or } },
       data: { used: false, usedAt: now },
@@ -460,4 +513,66 @@ export const lineageEdgeRepository = {
       },
     })
   },
+
+  /**
+   * Raw aggregates backing the LUM-314 signal-health view, workspace-scoped.
+   * The service derives variance + merge-rate percentages. Four cheap groupBys.
+   */
+  async usageSignalAggregates(workspaceId: string) {
+    const distRows = await prisma.lineageEdge.groupBy({
+      by: ['used'],
+      where: { workspaceId },
+      _count: { _all: true },
+    })
+    const distribution = { used: 0, unused: 0, abstained: 0 }
+    for (const r of distRows) {
+      const n = r._count._all
+      if (r.used === true) distribution.used += n
+      else if (r.used === false) distribution.unused += n
+      else distribution.abstained += n
+    }
+
+    const perSessionRows = await prisma.lineageEdge.groupBy({
+      by: ['sessionId', 'used'],
+      where: { workspaceId, sessionId: { not: null } },
+      _count: { _all: true },
+    })
+    const bySession = new Map<string, { injected: number; used: number; voted: boolean }>()
+    for (const r of perSessionRows) {
+      if (!r.sessionId) continue
+      const acc = bySession.get(r.sessionId) ?? { injected: 0, used: 0, voted: false }
+      acc.injected += r._count._all
+      if (r.used === true) acc.used += r._count._all
+      if (r.used !== null) acc.voted = true
+      bySession.set(r.sessionId, acc)
+    }
+    const perSession = [...bySession.entries()]
+      .filter(([, v]) => v.voted)
+      .map(([sessionId, v]) => ({ sessionId, injected: v.injected, used: v.used }))
+
+    const usedTasks = await taskMergeRows({ workspaceId, used: true })
+    const baseTasks = await taskMergeRows({
+      workspaceId,
+      outcome: { not: 'UNKNOWN' as const },
+    })
+
+    return { distribution, perSession, usedTasks, baseTasks }
+  },
+}
+
+async function taskMergeRows(
+  where: Prisma.LineageEdgeWhereInput
+): Promise<{ taskId: string; resolved: boolean; merged: boolean }[]> {
+  const rows = await prisma.lineageEdge.groupBy({
+    by: ['taskId', 'outcome'],
+    where,
+  })
+  const byTask = new Map<string, { resolved: boolean; merged: boolean }>()
+  for (const r of rows) {
+    const acc = byTask.get(r.taskId) ?? { resolved: false, merged: false }
+    if (r.outcome !== 'UNKNOWN') acc.resolved = true
+    if (r.outcome === 'MERGED') acc.merged = true
+    byTask.set(r.taskId, acc)
+  }
+  return [...byTask.entries()].map(([taskId, v]) => ({ taskId, ...v }))
 }

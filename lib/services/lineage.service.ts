@@ -38,6 +38,7 @@ export interface LineageFragmentEntry {
   fragmentId: string
   sourceLabel: string
   outcome: LineageOutcome
+  used: boolean | null
 }
 export interface LineageGroup {
   kind: 'session' | 'orphan'
@@ -262,6 +263,7 @@ export const lineageService = {
         fragmentId: cid,
         sourceLabel: labelFor(e.fragmentType, cid),
         outcome: e.outcome,
+        used: e.used,
       })
     }
 

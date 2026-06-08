@@ -309,6 +309,17 @@ export const taskRepository = {
     return row?.status ?? null
   },
 
+  /**
+   * Lightweight title+status read for the fragment-usage audit (LUM-314).
+   * Returns null when the task doesn't exist.
+   */
+  async getTitleAndStatus(taskId: string) {
+    return prisma.task.findUnique({
+      where: { id: taskId },
+      select: { title: true, status: true },
+    })
+  },
+
   /** Find a task by ID with update-related relations (project + team). */
   async findForUpdate(id: string) {
     return prisma.task.findUnique({

@@ -1,0 +1,112 @@
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import {
+  compactEvents,
+  type RawEvent,
+} from '@/lib/services/session-summary/compact-events'
+import { logger } from '@/lib/logger'
+import type { LineageFragmentType } from '@prisma/client'
+import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
+
+/**
+ * Audit one session: which injected fragments did the agent actually use?
+ * Evidence-gated — the judge sees the fragments + the session's event log and
+ * votes used=true ONLY with concrete evidence; everything else stays NULL.
+ * Additive vote: never writes false. Best-effort, never throws.
+ */
+async function auditSession(
+  sessionId: string,
+  taskTitle: string
+): Promise<void> {
+  const edges = await lineageEdgeRepository.findSessionFragmentEdges(sessionId)
+  if (edges.length === 0) return
+
+  const refsByType = new Map<LineageFragmentType, string[]>()
+  for (const e of edges) {
+    const arr = refsByType.get(e.fragmentType) ?? []
+    arr.push(e.fragmentId)
+    refsByType.set(e.fragmentType, arr)
+  }
+  const contentMap = await lineageSourceRepository.contentByType(refsByType)
+  const fragments: JudgeFragment[] = edges.map(e => ({
+    fragmentType: e.fragmentType,
+    fragmentId: e.fragmentId,
+    content: contentMap.get(`${e.fragmentType}::${e.fragmentId}`) ?? e.fragmentId,
+  }))
+
+  const events = await sessionRepository.listEventsForSession(sessionId)
+  const eventLog = compactEvents(events as unknown as RawEvent[], {
+    maxToolCalls: 200,
+  }).text
+  if (eventLog.trim().length === 0) return
+
+  // Dynamic import keeps the @ai-sdk/gateway static graph out of this service's
+  // (and its callers') jest path — see project_ai_sdk_gateway_jest_trap.
+  const { judgeFragmentUsage } = await import(
+    '@/lib/services/lineage/usage-judge'
+  )
+  const confirmed = await judgeFragmentUsage({ taskTitle, fragments, eventLog })
+  if (confirmed.length === 0) return
+
+  await lineageEdgeRepository.applyUsageVote(
+    sessionId,
+    confirmed.map(c => ({ fragmentType: c.fragmentType, fragmentId: c.fragmentId })),
+    { mode: 'additive' }
+  )
+  logger.debug(
+    `[lineage.usageAudit] session=${sessionId} voted used=${confirmed.length}/${edges.length}`
+  )
+}
+
+export const fragmentUsageAuditService = {
+  /**
+   * Audit every not-yet-voted session of a task. Fired from task→DONE (and the
+   * cron backstop). Idempotent via the voted-session guard. Best-effort.
+   */
+  async auditForTask(taskId: string): Promise<void> {
+    try {
+      const task = await taskRepository.getTitleAndStatus(taskId)
+      if (!task) return
+      const sessions = await sessionRepository.listForTask(taskId)
+      const ids = sessions.map(s => s.id)
+      if (ids.length === 0) return
+      const voted = await lineageEdgeRepository.findVotedSessionIds(ids)
+      for (const id of ids) {
+        if (voted.has(id)) continue
+        try {
+          await auditSession(id, task.title)
+        } catch (err) {
+          logger.error(`[lineage.usageAudit] session=${id} failed`, err)
+        }
+      }
+    } catch (err) {
+      logger.error(`[lineage.usageAudit] task=${taskId} failed`, err)
+    }
+  },
+
+  /**
+   * Cron backstop: audit up to `limit` not-yet-voted sessions of DONE tasks.
+   * Returns how many sessions it processed (logged, never silently truncated).
+   * Drains the dormant production backlog over time.
+   */
+  async auditDoneTaskSessions(
+    limit: number
+  ): Promise<{ processed: number; sessionIds: string[] }> {
+    const sessionIds =
+      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
+    for (const id of sessionIds) {
+      try {
+        const edges = await lineageEdgeRepository.findSessionFragmentEdges(id)
+        if (edges.length === 0) continue
+        const task = await sessionRepository.findTaskTitleForSession(id)
+        if (!task) continue
+        await auditSession(id, task.title)
+      } catch (err) {
+        logger.error(`[lineage.usageAudit] cron session=${id} failed`, err)
+      }
+    }
+    return { processed: sessionIds.length, sessionIds }
+  },
+}
