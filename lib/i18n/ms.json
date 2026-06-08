@@ -1406,6 +1406,7 @@
   "agentRun.summary": "{runs, plural, other {# jalankan}} · {turns, plural, other {# pusingan}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# gelung}}",
+  "tokenCost.label": "Penggunaan token",
   "tokenCost.unit": "tok",
   "tokenCost.output": "output",
   "tokenCost.input": "input",

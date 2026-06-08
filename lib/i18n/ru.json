@@ -1406,6 +1406,7 @@
   "agentRun.summary": "{runs, plural, one {# запуск} few {# запуска} other {# запусков}} · {turns, plural, one {# ход} few {# хода} other {# ходов}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# итерация} few {# итерации} other {# итераций}}",
+  "tokenCost.label": "Использование токенов",
   "tokenCost.unit": "tok",
   "tokenCost.output": "output",
   "tokenCost.input": "input",

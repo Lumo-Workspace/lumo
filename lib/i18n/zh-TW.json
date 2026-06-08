@@ -1406,6 +1406,7 @@
   "agentRun.summary": "{runs} 次執行 · {turns} 輪 · {models} 個 model",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n} 次循環",
+  "tokenCost.label": "Token 用量",
   "tokenCost.unit": "tok",
   "tokenCost.output": "output",
   "tokenCost.input": "input",

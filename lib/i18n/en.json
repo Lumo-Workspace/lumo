@@ -1412,6 +1412,7 @@
   "editor.mermaid.error": "Diagram error",
   "editor.mermaid.empty": "Empty diagram — click to edit",
   "editor.mermaid.sourceLabel": "Mermaid diagram source",
+  "tokenCost.label": "Token usage",
   "tokenCost.unit": "tok",
   "tokenCost.output": "output",
   "tokenCost.input": "input",
