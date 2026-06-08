@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "Utilisé dans {resolved} tâches résolues · {merged} fusionnées · signal d'utilisation réel",
   "trust.tooltip.presence": "Co-chargé dans {resolved} tâches résolues · {merged} fusionnées · co-chargement uniquement, signal faible",
   "agentRun.byMember": "Par personne",
-  "agentRun.memberSummary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}}"
+  "agentRun.memberSummary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}}",
+  "retrospective.title": "Rétrospective de livraison",
+  "retrospective.done": "Terminé",
+  "retrospective.tokenUsage": "Utilisation des tokens",
+  "retrospective.predicted": "Prévision {value}",
+  "retrospective.actual": "réel {value}",
+  "retrospective.actualLabel": "réel",
+  "retrospective.delivery": "Livraison",
+  "retrospective.iterations": "Exécutions",
+  "retrospective.clarifyRounds": "Cycles de clarification",
+  "retrospective.noForecast": "Pas encore assez d'historique",
+  "retrospective.bandWithin": "Dans la plage habituelle",
+  "retrospective.bandAbove": "Au-dessus de la plage habituelle",
+  "retrospective.bandBelow": "En dessous de la plage habituelle",
+  "retrospective.flywheel": "Ajouté à la bibliothèque de référence pour les prévisions de tâches similaires ({count} maintenant)"
 }

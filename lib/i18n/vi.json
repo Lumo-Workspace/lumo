@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "Đã dùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · tín hiệu sử dụng thực",
   "trust.tooltip.presence": "Tải cùng trong {resolved} tác vụ đã giải quyết · {merged} đã hợp nhất · chỉ co-load, tín hiệu yếu",
   "agentRun.byMember": "Theo người",
-  "agentRun.memberSummary": "{runs, plural, other {# lần chạy}} · {turns, plural, other {# lượt}}"
+  "agentRun.memberSummary": "{runs, plural, other {# lần chạy}} · {turns, plural, other {# lượt}}",
+  "retrospective.title": "Nhìn lại bàn giao",
+  "retrospective.done": "Hoàn thành",
+  "retrospective.tokenUsage": "Lượng token sử dụng",
+  "retrospective.predicted": "Dự báo {value}",
+  "retrospective.actual": "thực tế {value}",
+  "retrospective.actualLabel": "thực tế",
+  "retrospective.delivery": "Bàn giao",
+  "retrospective.iterations": "Số lần chạy",
+  "retrospective.clarifyRounds": "Vòng làm rõ",
+  "retrospective.noForecast": "Chưa đủ lịch sử dự báo",
+  "retrospective.bandWithin": "Trong phạm vi thông thường",
+  "retrospective.bandAbove": "Vượt phạm vi thông thường",
+  "retrospective.bandBelow": "Dưới phạm vi thông thường",
+  "retrospective.flywheel": "Đã thêm vào thư viện tham chiếu để dự báo các tác vụ tương tự trong tương lai ({count} hiện tại)"
 }

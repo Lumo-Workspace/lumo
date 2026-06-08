@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "用過的 {resolved} 個已關閉任務·{merged} merged · 真實使用訊號",
   "trust.tooltip.presence": "共同載入的 {resolved} 個已關閉任務·{merged} merged · 僅共同載入，弱訊號",
   "agentRun.byMember": "按人統計",
-  "agentRun.memberSummary": "{runs} 次執行 · {turns} 輪"
+  "agentRun.memberSummary": "{runs} 次執行 · {turns} 輪",
+  "retrospective.title": "交付回顧",
+  "retrospective.done": "已完成",
+  "retrospective.tokenUsage": "Token 用量",
+  "retrospective.predicted": "預測 {value}",
+  "retrospective.actual": "實際 {value}",
+  "retrospective.actualLabel": "實際",
+  "retrospective.delivery": "交付",
+  "retrospective.iterations": "執行次數",
+  "retrospective.clarifyRounds": "澄清輪次",
+  "retrospective.noForecast": "歷史資料不足，無法預測",
+  "retrospective.bandWithin": "落在常見區間內",
+  "retrospective.bandAbove": "高於常見區間",
+  "retrospective.bandBelow": "低於常見區間",
+  "retrospective.flywheel": "已計入參考庫，將用於未來同類任務的預測（現 {count} 個）"
 }

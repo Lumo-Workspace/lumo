@@ -1261,7 +1261,7 @@ git commit -m "feat: retrospective API route + client + hook [LUM-319]"
 
 i18n key 在 Task 11 补；本任务先用 key 调用 `intl.formatMessage`，Task 11 落英文 + 全 locale。
 
-- [ ] **Step 1: 写失败测试（jsdom，带 QueryClientProvider）**
+- [x] **Step 1: 写失败测试（jsdom，带 QueryClientProvider）**
 
 ```tsx
 import { render, screen, waitFor } from '@testing-library/react'
@@ -1361,12 +1361,12 @@ it('degrades a row to actual-only when its forecast is null', async () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npx jest __tests__/components/RetrospectivePanel.test.tsx`
 Expected: FAIL（组件不存在 / key 未定义）。
 
-- [ ] **Step 3: 实现组件**
+- [x] **Step 3: 实现组件**
 
 `app/workspace/[workspaceUrl]/components/RetrospectivePanel.tsx`：
 
@@ -1594,7 +1594,7 @@ export function RetrospectivePanel({
 
 > 配色 class（`bg-success-subtle`/`text-success`/`bg-warning-subtle`/`text-warning`/`bg-info`/`text-info`）须已存在于设计系统 token（见 memory「Semantic feedback tokens」）。若某 class 不存在，用 `bg-[color-mix(...)]` 或就近的 feedback token 替代，**勿引入裸 hex**（会触发 token-lint）。先 `grep -rn "success-subtle\|text-success\|bg-info" app components` 确认命名，对不上则按实际 token 名调整。
 
-- [ ] **Step 4: 挂载到侧栏**
+- [x] **Step 4: 挂载到侧栏**
 
 `app/workspace/[workspaceUrl]/components/TaskDetailSidebar.tsx`：
 
@@ -1612,12 +1612,12 @@ import { RetrospectivePanel } from './RetrospectivePanel'
 
 > 二者按 status 互斥（ForecastPanel 在 DONE 返回 null，RetrospectivePanel 在非 DONE 返回 null），可安全并列。
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `npx jest __tests__/components/RetrospectivePanel.test.tsx`
 Expected: PASS（依赖 Task 11 的 key；若此刻 key 未落，先在 Task 11 完成后回跑。建议顺序：先做 Task 11 的 en.json，再回本步）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "app/workspace/[workspaceUrl]/components/RetrospectivePanel.tsx" "app/workspace/[workspaceUrl]/components/TaskDetailSidebar.tsx" __tests__/components/RetrospectivePanel.test.tsx
@@ -1633,7 +1633,7 @@ git commit -m "feat: RetrospectivePanel + sidebar mount [LUM-319]"
 - Modify: `lib/i18n/en.json`
 - Modify: 其余 15 locale（`npm run i18n:sync` 起手）
 
-- [ ] **Step 1: 加 en.json key**
+- [x] **Step 1: 加 en.json key**
 
 `lib/i18n/en.json` 加（放在 `forecast.*` 附近）：
 
@@ -1654,26 +1654,26 @@ git commit -m "feat: RetrospectivePanel + sidebar mount [LUM-319]"
   "retrospective.flywheel": "Added to the reference library for forecasting future similar tasks ({count} now)"
 ```
 
-- [ ] **Step 2: scaffold 其余 locale**
+- [x] **Step 2: scaffold 其余 locale**
 
 Run: `npm run i18n:sync`
 Expected: 15 个 locale 文件被回填 `[TODO:<locale>] …` 占位，parity 测可过。
 
-- [ ] **Step 3: 替换占位为真翻译**
+- [x] **Step 3: 替换占位为真翻译**
 
 逐个 locale 把 `retrospective.*` 的 `[TODO:…]` 换成真翻译（zh-CN 用截图原文："交付回顾 / 已完成 / token 用量 / 预测 {value} / 实际 {value} / 实际 / 交付 / 运行次数 / 澄清轮次 / 无足量历史预测 / 落在常见区间内 / 高于常见区间 / 低于常见区间 / 已计入参考库，将用于未来同类任务的预测（现 {count} 个）"）。**不留任何 `[TODO:` 标记**。
 
-- [ ] **Step 4: parity + drift 校验**
+- [x] **Step 4: parity + drift 校验**
 
 Run: `npm run i18n:check && npx jest -t "locale" 2>&1 | tail -5`
 Expected: 无 drift；locale parity 测 PASS。
 
-- [ ] **Step 5: 回跑组件测试**
+- [x] **Step 5: 回跑组件测试**
 
 Run: `npx jest __tests__/components/RetrospectivePanel.test.tsx`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/i18n

@@ -1425,5 +1425,19 @@
   "trust.badge.meta": "· {n} 个任务",
   "trust.badge.weak": " · 弱",
   "trust.tooltip.usage": "用过的 {resolved} 个已闭合任务·{merged} merged · 真实使用信号",
-  "trust.tooltip.presence": "共同加载的 {resolved} 个已闭合任务·{merged} merged · 仅共同加载，弱信号"
+  "trust.tooltip.presence": "共同加载的 {resolved} 个已闭合任务·{merged} merged · 仅共同加载，弱信号",
+  "retrospective.title": "交付回顾",
+  "retrospective.done": "已完成",
+  "retrospective.tokenUsage": "token 用量",
+  "retrospective.predicted": "预测 {value}",
+  "retrospective.actual": "实际 {value}",
+  "retrospective.actualLabel": "实际",
+  "retrospective.delivery": "交付",
+  "retrospective.iterations": "运行次数",
+  "retrospective.clarifyRounds": "澄清轮次",
+  "retrospective.noForecast": "无足量历史预测",
+  "retrospective.bandWithin": "落在常见区间内",
+  "retrospective.bandAbove": "高于常见区间",
+  "retrospective.bandBelow": "低于常见区间",
+  "retrospective.flywheel": "已计入参考库，将用于未来同类任务的预测（现 {count} 个）"
 }

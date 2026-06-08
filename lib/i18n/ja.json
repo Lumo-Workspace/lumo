@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "{resolved} 件の解決済みタスクで使用 · {merged} 件マージ · 実使用シグナル",
   "trust.tooltip.presence": "{resolved} 件の解決済みタスクと共同ロード · {merged} 件マージ · 共同ロードのみ、弱いシグナル",
   "agentRun.byMember": "ユーザー別",
-  "agentRun.memberSummary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}}"
+  "agentRun.memberSummary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}}",
+  "retrospective.title": "デリバリー振り返り",
+  "retrospective.done": "完了",
+  "retrospective.tokenUsage": "トークン使用量",
+  "retrospective.predicted": "予測 {value}",
+  "retrospective.actual": "実績 {value}",
+  "retrospective.actualLabel": "実績",
+  "retrospective.delivery": "デリバリー",
+  "retrospective.iterations": "実行回数",
+  "retrospective.clarifyRounds": "確認ラウンド数",
+  "retrospective.noForecast": "予測の履歴がまだ不足しています",
+  "retrospective.bandWithin": "通常範囲内",
+  "retrospective.bandAbove": "通常範囲を超過",
+  "retrospective.bandBelow": "通常範囲を下回る",
+  "retrospective.flywheel": "参照ライブラリに追加されました。今後の類似タスクの予測に使用されます（現在 {count} 件）"
 }

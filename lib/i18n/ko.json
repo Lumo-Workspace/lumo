@@ -1425,5 +1425,19 @@
   "trust.tooltip.usage": "{resolved}개의 완료된 작업에서 사용 · {merged}개 병합 · 실제 사용 신호",
   "trust.tooltip.presence": "{resolved}개의 완료된 작업과 함께 로드 · {merged}개 병합 · 공동 로드만, 약한 신호",
   "agentRun.byMember": "사용자별",
-  "agentRun.memberSummary": "{runs, plural, other {# 회 실행}} · {turns, plural, other {# 턴}}"
+  "agentRun.memberSummary": "{runs, plural, other {# 회 실행}} · {turns, plural, other {# 턴}}",
+  "retrospective.title": "전달 회고",
+  "retrospective.done": "완료",
+  "retrospective.tokenUsage": "토큰 사용량",
+  "retrospective.predicted": "예측 {value}",
+  "retrospective.actual": "실제 {value}",
+  "retrospective.actualLabel": "실제",
+  "retrospective.delivery": "전달",
+  "retrospective.iterations": "실행 횟수",
+  "retrospective.clarifyRounds": "명확화 라운드",
+  "retrospective.noForecast": "아직 예측 기록이 부족합니다",
+  "retrospective.bandWithin": "일반 범위 내",
+  "retrospective.bandAbove": "일반 범위 초과",
+  "retrospective.bandBelow": "일반 범위 미만",
+  "retrospective.flywheel": "참조 라이브러리에 추가되어 향후 유사 작업 예측에 사용됩니다 (현재 {count}개)"
 }
