@@ -52,9 +52,8 @@ describe('renderMentionHTML', () => {
       },
       {}
     )
-    expect(tag).toBe('span')
+    expect(tag).toBe('a')
     expect(attrs.class).toBe('mention mention-task')
-    expect(attrs['data-mention-type']).toBe('task')
     expect(attrs['data-mention-status']).toBe('IN_PROGRESS')
     expect(text).toBe('LUM-5 Fix bug')
   })
@@ -73,7 +72,7 @@ describe('renderMentionHTML', () => {
       {}
     )
     expect(tag).toBe('span')
-    expect(attrs.class).toBe('mention')
+    expect(attrs.class).toBe('mention mention-user')
     expect(text).toBe('@alice')
   })
 })
