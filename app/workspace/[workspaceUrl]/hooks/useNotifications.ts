@@ -104,33 +104,6 @@ export function useNotifications() {
     [queryClient, queryKey, updateLocal]
   )
 
-  const respondToNotification = useCallback(
-    async (
-      id: string,
-      action: 'reply' | 'confirm' | 'send_back' | 'approve' | 'deny',
-      reply?: string
-    ) => {
-      updateLocal(prev => ({
-        ...prev,
-        notifications: prev.notifications.map(n =>
-          n.id === id
-            ? { ...n, actionTakenAt: new Date().toISOString(), read: true }
-            : n
-        ),
-      }))
-      try {
-        await notificationsClient.respond(
-          id,
-          action === 'reply' ? { action, reply } : { action }
-        )
-        await fetchNotifications()
-      } catch {
-        await fetchNotifications()
-      }
-    },
-    [updateLocal, fetchNotifications]
-  )
-
   const markAllRead = useCallback(async () => {
     const snapshot = queryClient.getQueryData<NotificationsData>(queryKey)
     updateLocal(prev => ({
@@ -156,6 +129,5 @@ export function useNotifications() {
     markOneUnread,
     deleteOne,
     markAllRead,
-    respondToNotification,
   }
 }

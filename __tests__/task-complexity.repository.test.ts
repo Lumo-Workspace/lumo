@@ -1,15 +1,11 @@
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
 
-const mockAgentRunFindMany = jest.fn()
 const mockUpsert = jest.fn()
 const mockFindUnique = jest.fn()
 const mockFindMany = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
-    agentRun: {
-      findMany: (...a: any[]) => mockAgentRunFindMany(...a),
-    },
     taskComplexity: {
       upsert: (...a: any[]) => mockUpsert(...a),
       findUnique: (...a: any[]) => mockFindUnique(...a),
@@ -21,15 +17,6 @@ jest.mock('@/lib/db/prisma', () => ({
 beforeEach(() => jest.clearAllMocks())
 
 describe('taskComplexityRepository', () => {
-  it('listRunSignalsForTask 只取已完成 run 的信号字段', async () => {
-    mockAgentRunFindMany.mockResolvedValueOnce([])
-    await taskComplexityRepository.listRunSignalsForTask('t1')
-    expect(mockAgentRunFindMany).toHaveBeenCalledWith({
-      where: { taskId: 't1', finishedAt: { not: null } },
-      select: { durationMs: true, changedFiles: true },
-    })
-  })
-
   it('upsert 按 taskId,update 路径刷新 computedAt', async () => {
     mockUpsert.mockResolvedValueOnce({ id: 'c1' })
     await taskComplexityRepository.upsert({

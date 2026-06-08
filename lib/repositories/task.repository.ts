@@ -88,17 +88,6 @@ const TASK_DETAIL_INCLUDE = {
     },
     orderBy: { createdAt: 'desc' as const },
   },
-  clarifies: {
-    select: {
-      id: true,
-      question: true,
-      context: true,
-      reply: true,
-      repliedAt: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'desc' as const },
-  },
   parent: {
     select: {
       id: true,
@@ -110,26 +99,6 @@ const TASK_DETAIL_INCLUDE = {
   children: {
     select: { id: true, title: true, number: true, status: true },
     orderBy: { number: 'asc' as const },
-  },
-  agentRuns: {
-    select: {
-      id: true,
-      runNumber: true,
-      status: true,
-      trigger: true,
-      errorCode: true,
-      errorMessage: true,
-      summary: true,
-      steps: true,
-      changedFiles: true,
-      durationMs: true,
-      prNumber: true,
-      prUrl: true,
-      branchName: true,
-      startedAt: true,
-      finishedAt: true,
-    },
-    orderBy: { runNumber: 'desc' as const },
   },
   sprint: {
     select: {

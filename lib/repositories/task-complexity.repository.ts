@@ -9,14 +9,6 @@ export interface TaskComplexityUpsert {
 }
 
 export const taskComplexityRepository = {
-  /** 该 task 所有已完成 AgentRun 的复杂度信号字段。 */
-  async listRunSignalsForTask(taskId: string) {
-    return prisma.agentRun.findMany({
-      where: { taskId, finishedAt: { not: null } },
-      select: { durationMs: true, changedFiles: true },
-    })
-  },
-
   async upsert(data: TaskComplexityUpsert) {
     const { taskId, ...rest } = data
     return prisma.taskComplexity.upsert({

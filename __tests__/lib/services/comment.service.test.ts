@@ -152,15 +152,3 @@ describe('commentService.parseMentionedClerkIds', () => {
     expect(result).toEqual(['user-1'])
   })
 })
-
-describe('commentService.hasAgentMention', () => {
-  it('returns true when body contains agent mention', () => {
-    const body = '<span data-type="mention" data-id="__agent__">@Agent</span>'
-    expect(commentService.hasAgentMention(body)).toBe(true)
-  })
-
-  it('returns false when no agent mention', () => {
-    const body = '<span data-type="mention" data-id="user-1">@Alice</span>'
-    expect(commentService.hasAgentMention(body)).toBe(false)
-  })
-})

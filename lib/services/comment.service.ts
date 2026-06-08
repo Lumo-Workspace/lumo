@@ -114,11 +114,6 @@ export const commentService = {
   /** Re-export for tests / callers. */
   buildCommentsSummaryInput,
 
-  /** Check if comment body contains an @agent mention. */
-  hasAgentMention(body: string): boolean {
-    return body.includes('data-id="__agent__"')
-  },
-
   /**
    * Fire-and-forget: if the task's thread now exceeds the inline threshold,
    * recompute and cache its comments summary. Short threads (<= 3) are
@@ -277,21 +272,6 @@ export const commentService = {
         } satisfies TaskActivityEvent,
       ])
     )
-
-    // Handle @agent mention — delegate to orchestrator
-    if (commentService.hasAgentMention(createInput.body)) {
-      const { handleAgentComment } = await import('@/lib/agent/comment-handler')
-      waitUntil(
-        handleAgentComment({
-          taskId: createInput.taskId,
-          commentId: comment.id,
-          commentBody: createInput.body,
-          actorClerkId: authorClerkId,
-        }).catch(err =>
-          console.error('[comment/@agent] handleAgentComment failed:', err)
-        )
-      )
-    }
 
     // Fire-and-forget: TASK_MENTIONED notifications for @mention chips
     commentService

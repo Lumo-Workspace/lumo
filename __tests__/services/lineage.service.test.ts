@@ -67,7 +67,7 @@ describe('lineageService.recordSessionStartEdges', () => {
     expect(mockCreateMany).not.toHaveBeenCalled()
   })
 
-  it('stamps workspace/task/session and leaves runId/outcome unset', async () => {
+  it('stamps workspace/task/session and leaves outcome unset', async () => {
     await lineageService.recordSessionStartEdges({
       workspaceId: 'ws-1',
       taskId: 't-1',
@@ -200,8 +200,6 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
       fragmentId: 'm1',
       includedAt: new Date('2024-01-01T00:00:00Z'),
       outcome: 'MERGED',
-      runId: null,
-      run: null,
       sessionId: 's-1',
       // Cumulative session columns are huge & still growing — the OLD bug source.
       session: {

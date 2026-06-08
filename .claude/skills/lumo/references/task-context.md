@@ -114,14 +114,14 @@ lumo task pr show LUM-42 128
 Read-only audit view over the task's `LineageEdge` rows. Given a task
 identifier (`LUM-N`), prints the causal trail:
 
-- **Totals banner** — distinct runs/sessions, fragment count, edge count,
+- **Totals banner** — distinct sessions, fragment count, edge count,
   total tokens (input/output/cache split) and loops, and the outcome
   distribution.
-- **One block per run/session** — the group's cost shown **once** (token/loop),
+- **One block per session** — the group's cost shown **once** (token/loop),
   the date it consumed context, then each context fragment as
   `[OUTCOME] TYPE — <source label>`, plus a per-group outcome summary.
 
-Cost is attributed once per run/session (a run that injected many fragments is
+Cost is attributed once per session (a session that injected many fragments is
 not double-counted). Fragment ids are canonical — MEMORY fragments survive
 consolidation drift.
 

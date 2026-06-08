@@ -269,37 +269,6 @@ export interface ApiNotification {
   clarifyContext: string | null
 }
 
-export interface ApiAgentRun {
-  id: string
-  runNumber: number
-  status: AgentStatusValue
-  trigger: string | null
-  errorCode: string | null
-  errorMessage: string | null
-  summary: string | null
-  steps:
-    | { key: string; text: string; elapsedMs: number; status: string }[]
-    | null
-  changedFiles:
-    | { path: string; status: 'added' | 'modified' | 'deleted' }[]
-    | null
-  durationMs: number | null
-  prNumber: number | null
-  prUrl: string | null
-  branchName: string | null
-  startedAt: string
-  finishedAt: string | null
-}
-
-export interface ApiAgentClarify {
-  id: string
-  question: string
-  context: string | null
-  reply: string | null
-  repliedAt: string | null
-  createdAt: string
-}
-
 export interface TaskDetail {
   id: string
   title: string
@@ -334,8 +303,6 @@ export interface TaskDetail {
   agentStatus?: string | null
   agentError?: string | null
   inputReason?: string | null
-  clarifies?: ApiAgentClarify[]
-  agentRuns?: ApiAgentRun[]
   spec?: string | null
   tags?: ApiTag[]
   sprintId?: string | null
@@ -648,8 +615,7 @@ export interface LineageFragment {
 }
 
 export interface LineageGroup {
-  kind: 'run' | 'session' | 'orphan'
-  runId: string | null
+  kind: 'session' | 'orphan'
   sessionId: string | null
   label: string
   includedAt: string

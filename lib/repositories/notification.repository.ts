@@ -104,49 +104,6 @@ export const notificationRepository = {
     return prisma.notification.createMany({ data })
   },
 
-  // ── AgentClarify operations ───────────────────────────────────────────────
-
-  /** Find a pending (unreplied) clarify for a task. */
-  async findPendingClarify(taskId: string) {
-    return prisma.agentClarify.findFirst({
-      where: { taskId, reply: null },
-      orderBy: { createdAt: 'desc' },
-    })
-  },
-
-  /** Find a clarify by ID with reply fields (used for polling). */
-  async findClarifyForPoll(id: string) {
-    return prisma.agentClarify.findUnique({
-      where: { id },
-      select: { taskId: true, reply: true, repliedAt: true },
-    })
-  },
-
-  /** Create a new agent clarify record. */
-  async createClarify(data: {
-    taskId: string
-    question: string
-    context?: string | null
-  }) {
-    return prisma.agentClarify.create({ data })
-  },
-
-  /** Record a reply to a clarify. */
-  async replyClarify(id: string, reply: string) {
-    return prisma.agentClarify.update({
-      where: { id },
-      data: { reply, repliedAt: new Date() },
-    })
-  },
-
-  /** Batch-fetch clarify records by IDs (for notification enrichment). */
-  async batchFetchClarifyByIds(ids: string[]) {
-    return prisma.agentClarify.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, question: true, context: true },
-    })
-  },
-
   // ── Batch-fetch helpers for notification enrichment ────────────────────────
 
   /** Batch-fetch tasks by IDs with team identifier (for notification display). */

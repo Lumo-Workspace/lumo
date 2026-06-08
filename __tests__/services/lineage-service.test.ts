@@ -32,13 +32,8 @@ const mockCanon =
 const mockLabels = lineageSourceRepository.labelsByType as jest.Mock
 const mockTurnUsage = hookEventRepository.findTurnUsageByTask as jest.Mock
 
-const RUN_COST = {
-  inputTokens: 1000,
-  outputTokens: 500,
-  cacheReadTokens: 200,
-  cacheCreationTokens: 100,
-  loopCount: 4,
-}
+// One STOP turn's per-model delta summing to 1800 (1000+500+200+100).
+const TURN_DELTA = { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100 }
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -70,39 +65,39 @@ it('returns null when the identifier does not resolve', async () => {
   expect(dto).toBeNull()
 })
 
-it('counts a run cost ONCE even when the run injected multiple fragments', async () => {
+it('counts a session cost ONCE even when the session injected multiple fragments', async () => {
   mockEdges.mockResolvedValue([
     {
       fragmentType: 'MEMORY',
       fragmentId: 'mem-old',
-      runId: 'run-1',
       sessionId: 's-1',
       outcome: 'MERGED',
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: { id: 'run-1', ...RUN_COST },
       session: null,
     },
     {
       fragmentType: 'PR',
       fragmentId: 'pr-1',
-      runId: 'run-1',
       sessionId: 's-1',
       outcome: 'MERGED',
       includedAt: new Date('2026-06-01T00:01:00Z'),
-      run: { id: 'run-1', ...RUN_COST },
       session: null,
     },
+  ])
+  // One STOP turn this session spent on this task → cost 1800, loopCount 1.
+  mockTurnUsage.mockResolvedValue([
+    { sessionId: 's-1', usageByModel: { m: TURN_DELTA } },
   ])
 
   const dto = await lineageService.getLineageForIdentifier('ws', 'mem', 'LUM-1')
 
   expect(dto).not.toBeNull()
   expect(dto!.groups).toHaveLength(1)
-  expect(dto!.groups[0]!.kind).toBe('run')
+  expect(dto!.groups[0]!.kind).toBe('session')
   expect(dto!.groups[0]!.fragments).toHaveLength(2)
-  // cost attributed once: 1000+500+200+100 = 1800, not doubled
+  // cost attributed once per session: 1000+500+200+100 = 1800, not doubled
   expect(dto!.totals.tokens.total).toBe(1800)
-  expect(dto!.totals.loopCount).toBe(4)
+  expect(dto!.totals.loopCount).toBe(1)
   expect(dto!.totals.runCount).toBe(1)
   expect(dto!.totals.edgeCount).toBe(2)
 })
@@ -112,11 +107,9 @@ it('applies canonical fragment resolution and source labels', async () => {
     {
       fragmentType: 'MEMORY',
       fragmentId: 'mem-old',
-      runId: 'run-1',
-      sessionId: null,
+      sessionId: 's-1',
       outcome: 'MERGED',
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: { id: 'run-1', ...RUN_COST },
       session: null,
     },
   ])
@@ -134,11 +127,9 @@ it('uses a fallback label when the source row is gone, and sources session cost 
     {
       fragmentType: 'WEB_LINK',
       fragmentId: 'web-gone',
-      runId: null,
       sessionId: 's-1',
       outcome: 'UNKNOWN',
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: null,
       session: {
         id: 's-1',
         inputTokens: 9_000_000,
@@ -174,7 +165,7 @@ it('returns empty groups for a task with no edges', async () => {
   expect(dto!.totals.runCount).toBe(0)
 })
 
-it('puts edges with no run or session in an orphan group with null cost, excluded from runCount', async () => {
+it('puts edges with no session in an orphan group with null cost, excluded from runCount', async () => {
   mockLabels.mockResolvedValue(
     new Map([['SLACK_CONTEXT::slack-1', '#general']])
   )
@@ -182,11 +173,9 @@ it('puts edges with no run or session in an orphan group with null cost, exclude
     {
       fragmentType: 'SLACK_CONTEXT',
       fragmentId: 'slack-1',
-      runId: null,
       sessionId: null,
       outcome: 'UNKNOWN',
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: null,
       session: null,
     },
   ])
@@ -207,44 +196,31 @@ it('deduplicates fragmentCount across groups while edgeCount counts every edge',
     {
       fragmentType: 'MEMORY',
       fragmentId: 'mem-old',
-      runId: 'run-1',
-      sessionId: null,
+      sessionId: 's-1',
       outcome: 'MERGED',
       includedAt: new Date('2026-06-01T00:00:00Z'),
-      run: {
-        id: 'run-1',
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadTokens: 200,
-        cacheCreationTokens: 100,
-        loopCount: 4,
-      },
       session: null,
     },
     {
       fragmentType: 'MEMORY',
       fragmentId: 'mem-new',
-      runId: 'run-2',
-      sessionId: null,
+      sessionId: 's-2',
       outcome: 'REWORKED',
       includedAt: new Date('2026-06-02T00:00:00Z'),
-      run: {
-        id: 'run-2',
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadTokens: 200,
-        cacheCreationTokens: 100,
-        loopCount: 4,
-      },
       session: null,
     },
+  ])
+  // Each session spent one STOP turn on this task → 1800 each, 3600 total.
+  mockTurnUsage.mockResolvedValue([
+    { sessionId: 's-1', usageByModel: { m: TURN_DELTA } },
+    { sessionId: 's-2', usageByModel: { m: TURN_DELTA } },
   ])
   const dto = await lineageService.getLineageForIdentifier('ws', 'mem', 'LUM-1')
   // mem-old canonicalizes to mem-new (see beforeEach), so both edges point at one fragment
   expect(dto!.totals.edgeCount).toBe(2)
   expect(dto!.totals.fragmentCount).toBe(1)
   expect(dto!.totals.runCount).toBe(2)
-  expect(dto!.totals.tokens.total).toBe(3600) // two distinct runs, each 1800
+  expect(dto!.totals.tokens.total).toBe(3600) // two distinct sessions, each 1800
   expect(dto!.totals.outcomes.MERGED).toBe(1)
   expect(dto!.totals.outcomes.REWORKED).toBe(1)
 })

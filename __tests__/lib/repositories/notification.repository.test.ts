@@ -8,12 +8,6 @@ const mockNotificationUpdate = jest.fn()
 const mockNotificationUpdateMany = jest.fn()
 const mockNotificationDelete = jest.fn()
 
-const mockClarifyFindFirst = jest.fn()
-const mockClarifyFindUnique = jest.fn()
-const mockClarifyFindMany = jest.fn()
-const mockClarifyCreate = jest.fn()
-const mockClarifyUpdate = jest.fn()
-
 const mockTaskFindMany = jest.fn()
 const mockCommentFindMany = jest.fn()
 
@@ -25,13 +19,6 @@ jest.mock('@/lib/db/prisma', () => ({
       update: (...args: any[]) => mockNotificationUpdate(...args),
       updateMany: (...args: any[]) => mockNotificationUpdateMany(...args),
       delete: (...args: any[]) => mockNotificationDelete(...args),
-    },
-    agentClarify: {
-      findFirst: (...args: any[]) => mockClarifyFindFirst(...args),
-      findUnique: (...args: any[]) => mockClarifyFindUnique(...args),
-      findMany: (...args: any[]) => mockClarifyFindMany(...args),
-      create: (...args: any[]) => mockClarifyCreate(...args),
-      update: (...args: any[]) => mockClarifyUpdate(...args),
     },
     task: {
       findMany: (...args: any[]) => mockTaskFindMany(...args),
@@ -193,85 +180,6 @@ describe('notificationRepository', () => {
       expect(mockNotificationDelete).toHaveBeenCalledWith({
         where: { id: 'n1' },
       })
-    })
-  })
-
-  // ── AgentClarify operations ─────────────────────────────────────────────
-
-  describe('findPendingClarify', () => {
-    it('finds unreplied clarify for task', async () => {
-      mockClarifyFindFirst.mockResolvedValue({ id: 'c1', taskId: 'task-1' })
-
-      const result = await notificationRepository.findPendingClarify('task-1')
-
-      expect(mockClarifyFindFirst).toHaveBeenCalledWith({
-        where: { taskId: 'task-1', reply: null },
-        orderBy: { createdAt: 'desc' },
-      })
-      expect(result).toEqual({ id: 'c1', taskId: 'task-1' })
-    })
-  })
-
-  describe('findClarifyForPoll', () => {
-    it('finds clarify with reply fields', async () => {
-      mockClarifyFindUnique.mockResolvedValue({
-        taskId: 'task-1',
-        reply: 'answer',
-        repliedAt: new Date(),
-      })
-
-      const result = await notificationRepository.findClarifyForPoll('c1')
-
-      expect(mockClarifyFindUnique).toHaveBeenCalledWith({
-        where: { id: 'c1' },
-        select: { taskId: true, reply: true, repliedAt: true },
-      })
-      expect(result?.reply).toBe('answer')
-    })
-  })
-
-  describe('createClarify', () => {
-    it('creates clarify record', async () => {
-      const clarifyData = {
-        taskId: 'task-1',
-        question: 'What color?',
-        context: 'For the button',
-      }
-      mockClarifyCreate.mockResolvedValue({ id: 'c-new', ...clarifyData })
-
-      const result = await notificationRepository.createClarify(clarifyData)
-
-      expect(mockClarifyCreate).toHaveBeenCalledWith({ data: clarifyData })
-      expect(result.id).toBe('c-new')
-    })
-  })
-
-  describe('replyClarify', () => {
-    it('updates clarify with reply and repliedAt', async () => {
-      mockClarifyUpdate.mockResolvedValue({ id: 'c1', reply: 'Blue' })
-
-      await notificationRepository.replyClarify('c1', 'Blue')
-
-      expect(mockClarifyUpdate).toHaveBeenCalledWith({
-        where: { id: 'c1' },
-        data: { reply: 'Blue', repliedAt: expect.any(Date) },
-      })
-    })
-  })
-
-  describe('batchFetchClarifyByIds', () => {
-    it('fetches clarifies by IDs with question and context', async () => {
-      mockClarifyFindMany.mockResolvedValue([
-        { id: 'c1', question: 'Q1', context: null },
-      ])
-
-      const result = await notificationRepository.batchFetchClarifyByIds(['c1'])
-
-      expect(mockClarifyFindMany).toHaveBeenCalledWith({
-        where: { id: { in: ['c1'] } },
-        select: { id: true, question: true, context: true },
-      })
-      expect(result).toHaveLength(1)
     })
   })
 

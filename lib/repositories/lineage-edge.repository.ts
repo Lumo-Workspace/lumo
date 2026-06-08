@@ -13,7 +13,6 @@ export interface CreateLineageEdgeInput {
   fragmentType: LineageFragmentType
   fragmentId: string
   sessionId?: string | null
-  runId?: string | null
   outcome?: LineageOutcome
 }
 
@@ -96,13 +95,12 @@ export const lineageEdgeRepository = {
   /**
    * Batch-insert lineage edges. No-op (returns `{ count: 0 }`) for an empty
    * batch so callers can pass the result of a filter without guarding. Optional
-   * `sessionId`/`runId` default to NULL; `outcome` is omitted unless provided so
+   * `sessionId` defaults to NULL; `outcome` is omitted unless provided so
    * the column default (UNKNOWN) applies. `skipDuplicates` makes re-injection of
    * the same (sessionId, taskId, fragmentType, fragmentId) a no-op — session-start
    * fires more than once per session (resume/clear/compact).
    * Dedup applies only to session-bound rows: Postgres treats NULLs as distinct,
-   * so edges with `sessionId = null` (future runId-only edges) are exempt from
-   * the unique constraint.
+   * so edges with `sessionId = null` are exempt from the unique constraint.
    */
   async createMany(
     inputs: CreateLineageEdgeInput[],
@@ -118,7 +116,6 @@ export const lineageEdgeRepository = {
         fragmentType: i.fragmentType,
         fragmentId: i.fragmentId,
         sessionId: i.sessionId ?? null,
-        runId: i.runId ?? null,
         ...(i.outcome ? { outcome: i.outcome } : {}),
       })),
     })
@@ -440,10 +437,9 @@ export const lineageEdgeRepository = {
   },
 
   /**
-   * List a task's edges (oldest first) with the run and session cost columns
-   * needed by the lineage audit view (`lumo task lineage <id>`). Separate from
-   * `listByTask` so the lighter query stays available for callers that don't
-   * need cost. The selected shape is accepted directly by `getEdgeCost`.
+   * List a task's edges (oldest first) with the session cost columns needed by
+   * the lineage audit view (`lumo task lineage <id>`). Separate from `listByTask`
+   * so the lighter query stays available for callers that don't need cost.
    */
   async listByTaskWithCost(taskId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
@@ -451,16 +447,6 @@ export const lineageEdgeRepository = {
       where: { taskId },
       orderBy: { includedAt: 'asc' },
       include: {
-        run: {
-          select: {
-            id: true,
-            inputTokens: true,
-            outputTokens: true,
-            cacheReadTokens: true,
-            cacheCreationTokens: true,
-            loopCount: true,
-          },
-        },
         session: {
           select: {
             id: true,

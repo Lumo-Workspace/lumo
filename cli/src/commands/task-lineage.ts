@@ -19,8 +19,7 @@ interface LineageFragmentEntry {
   outcome: Outcome
 }
 interface LineageGroup {
-  kind: 'run' | 'session' | 'orphan'
-  runId: string | null
+  kind: 'session' | 'orphan'
   sessionId: string | null
   label: string
   includedAt: string
@@ -130,7 +129,7 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   if (data.groups.length === 0) {
     lines.push(
       '_No lineage edges recorded yet. Lineage is captured when a ' +
-        "session-bound run consumes this task's context; once that happens " +
+        "bound session consumes this task's context; once that happens " +
         '(and a PR merges / the task closes), the causal trail and its cost ' +
         'will appear here._'
     )

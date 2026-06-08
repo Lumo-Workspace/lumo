@@ -57,26 +57,6 @@ export default async function ProjectTaskIdentifierPage({
       team: { select: { identifier: true } },
       sprint: { select: { id: true, name: true, status: true } },
       milestone: { select: { id: true, name: true, status: true } },
-      agentRuns: {
-        select: {
-          id: true,
-          runNumber: true,
-          status: true,
-          trigger: true,
-          errorCode: true,
-          errorMessage: true,
-          summary: true,
-          steps: true,
-          changedFiles: true,
-          durationMs: true,
-          prNumber: true,
-          prUrl: true,
-          branchName: true,
-          startedAt: true,
-          finishedAt: true,
-        },
-        orderBy: { runNumber: 'desc' as const },
-      },
     },
   })
   if (!rawTask) notFound()
@@ -86,17 +66,6 @@ export default async function ProjectTaskIdentifierPage({
     teamIdentifier: rawTask.team.identifier,
     updatedAt: rawTask.updatedAt.toISOString(),
     createdAt: rawTask.createdAt.toISOString(),
-    agentRuns: rawTask.agentRuns.map(r => ({
-      ...r,
-      startedAt: r.startedAt.toISOString(),
-      finishedAt: r.finishedAt?.toISOString() ?? null,
-      steps: r.steps as
-        | { key: string; text: string; elapsedMs: number; status: string }[]
-        | null,
-      changedFiles: r.changedFiles as
-        | { path: string; status: 'added' | 'modified' | 'deleted' }[]
-        | null,
-    })),
     project: {
       ...rawTask.project,
       repositories: rawTask.project.repositories?.map(r => ({

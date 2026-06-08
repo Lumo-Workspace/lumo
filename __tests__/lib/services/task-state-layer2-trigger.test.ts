@@ -26,11 +26,6 @@ jest.mock('@/lib/services/memory/layer2.service', () => ({
     triggerForTaskCompletion: jest.fn().mockResolvedValue(undefined),
   },
 }))
-jest.mock('@/lib/services/task-complexity.service', () => ({
-  taskComplexityService: {
-    sedimentForTask: jest.fn().mockResolvedValue(undefined),
-  },
-}))
 jest.mock('@/lib/services/task-notifications.service', () => ({
   dispatchUpdateTaskSideEffects: jest.fn(),
 }))
