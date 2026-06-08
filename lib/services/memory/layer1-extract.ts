@@ -52,7 +52,7 @@ export type Layer1Output = z.infer<typeof layer1OutputSchema>
 
 // ── Extraction call ───────────────────────────────────────────────────────────
 
-const MODEL_ID = 'anthropic/claude-haiku-4-5'
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
 /**
  * Call the Layer 1 LLM and return the parsed operations list. Failures

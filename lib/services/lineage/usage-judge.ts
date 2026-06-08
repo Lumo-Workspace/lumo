@@ -3,7 +3,7 @@ import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import type { LineageFragmentType } from '@prisma/client'
 
-const MODEL_ID = 'anthropic/claude-haiku-4-5'
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
 const FRAGMENT_TYPES = [
   'MEMORY',

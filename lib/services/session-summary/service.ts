@@ -10,7 +10,10 @@ import { classifySession } from './classifier'
 import { generateStructuredSummary, type TemplateKind } from './templates'
 import type { SessionSummaryPayload, SessionType } from './types'
 
-const CLASSIFY_MODEL = 'claude-haiku-4-5-20251001'
+// Classifier routed through the gateway to deepseek-v4-flash (LUM-320) to cut
+// cost. Content generation stays on Opus — it's the quality-critical structured
+// summary and was never part of the Haiku→DeepSeek cost migration.
+const CLASSIFY_MODEL = 'deepseek/deepseek-v4-flash'
 const CONTENT_MODEL = 'claude-opus-4-7'
 
 // Classifier confidence below this threshold collapses to the mixed template,
@@ -68,7 +71,7 @@ export const sessionSummaryService = {
 
     let classification
     try {
-      classification = await classifySession(client, {
+      classification = await classifySession({
         metadata,
         sessionStartedAt: session.startedAt,
       })
