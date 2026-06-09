@@ -116,6 +116,27 @@ describe('MentionWithType', () => {
   })
 })
 
+describe('MentionWithType suggestion guard', () => {
+  function pluginCount(extension: typeof MentionWithType) {
+    const editor = new Editor({
+      extensions: [Document, Paragraph, Text, extension],
+    })
+    const n = editor.state.plugins.length
+    editor.destroy()
+    return n
+  }
+
+  it('registers no extra suggestion plugin when no suggestion is configured', () => {
+    const bare = pluginCount(MentionWithType)
+    const configured = pluginCount(
+      MentionWithType.configure({
+        suggestion: { char: '@', render: () => ({}) },
+      })
+    )
+    expect(configured).toBeGreaterThan(bare)
+  })
+})
+
 describe('MentionWithType parseHTML round-trip', () => {
   const userHTML =
     '<p><span class="mention mention-user" data-id="user_a" data-label="Alice" data-mention-type="user">@Alice</span></p>'
