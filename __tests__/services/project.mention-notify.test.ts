@@ -13,6 +13,19 @@ const mockFindNameAndSlug = jest.fn()
 const mockPushWorkspaceEvent = jest.fn()
 const mockNotifyMentionDelta = jest.fn()
 
+// Collect fire-and-forget promises so the test can await them before asserting
+// (the notify resolution runs inside an async waitUntil callback).
+const mockBackgroundPromises: Promise<unknown>[] = []
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    mockBackgroundPromises.push(Promise.resolve(p))
+  },
+}))
+
+async function flushBackground() {
+  await Promise.all(mockBackgroundPromises)
+}
+
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     findById: (...a: unknown[]) => mockFindById(...a),
@@ -53,6 +66,7 @@ const span = (clerkId: string) =>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockBackgroundPromises.length = 0
   mockFindById.mockResolvedValue({
     id: 'p1',
     workspaceId: 'ws1',
@@ -75,6 +89,7 @@ describe('updateProject @mention notifications', () => {
     await projectService.updateProject('p1', 'ws', 'mem1', {
       description: span('u1'),
     })
+    await flushBackground()
 
     expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
     const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
@@ -92,6 +107,7 @@ describe('updateProject @mention notifications', () => {
   it('does not fire when description is not part of the update', async () => {
     const projectService = await getService()
     await projectService.updateProject('p1', 'ws', 'mem1', { name: 'Renamed' })
+    await flushBackground()
     expect(mockNotifyMentionDelta).not.toHaveBeenCalled()
   })
 })

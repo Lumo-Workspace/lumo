@@ -15,6 +15,7 @@ import {
 import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
 import { getActorClerkId } from '@/lib/actor'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@vercel/functions'
 import type { MilestoneStatus } from '@prisma/client'
 
@@ -212,34 +213,47 @@ export const milestoneService = {
     const updated = await milestoneRepository.update(milestoneId, data)
 
     // Notify users newly @-mentioned in the milestone description (delta only).
+    // Resolution + send is fully fire-and-forget so a lookup failure never
+    // breaks the save — nothing notify-related is awaited on the path to return.
+    // (The `getProject` auth call above stays on the main path; only the
+    // notify-specific lookups move into the background callback.)
     if (input.description !== undefined) {
-      const authorActor = await memberRepository.findActorByMemberId(memberId)
-      const [authorClerkId, ws] = await Promise.all([
-        authorActor ? getActorClerkId(authorActor.id) : Promise.resolve(null),
-        workspaceRepository.findNameAndSlug(project.workspaceId),
-      ])
-      if (authorActor?.id && authorClerkId && ws?.slug) {
-        const milestoneUrl = buildMilestoneUrl(ws.slug, project.name, updated.slug)
-        const newHtml = input.description
-        waitUntil(
-          notifyMentionDelta({
-            oldHtml: oldDescription ?? '',
-            newHtml,
-            authorClerkId,
-            authorActorId: authorActor.id,
-            workspaceId: project.workspaceId,
-            notificationType: 'MILESTONE_MENTIONED',
-            ref: { milestoneId: updated.id },
-            slackEvent: 'comment_mention',
-            slackPayload: {
-              taskTitle: project.name,
-              taskUrl: milestoneUrl,
-              commentBody: (newHtml ?? '').replace(/<[^>]+>/g, '').slice(0, 200),
-            },
-            waitUntil,
-          })
-        )
-      }
+      const newHtml = input.description
+      waitUntil(
+        (async () => {
+          const authorActor =
+            await memberRepository.findActorByMemberId(memberId)
+          const [authorClerkId, ws] = await Promise.all([
+            authorActor
+              ? getActorClerkId(authorActor.id)
+              : Promise.resolve(null),
+            workspaceRepository.findNameAndSlug(project.workspaceId),
+          ])
+          if (authorActor?.id && authorClerkId && ws?.slug) {
+            const milestoneUrl = buildMilestoneUrl(
+              ws.slug,
+              project.name,
+              updated.slug
+            )
+            await notifyMentionDelta({
+              oldHtml: oldDescription ?? '',
+              newHtml,
+              authorClerkId,
+              authorActorId: authorActor.id,
+              workspaceId: project.workspaceId,
+              notificationType: 'MILESTONE_MENTIONED',
+              ref: { milestoneId: updated.id },
+              slackEvent: 'comment_mention',
+              slackPayload: {
+                taskTitle: project.name,
+                taskUrl: milestoneUrl,
+                commentBody: htmlToPreview(newHtml),
+              },
+              waitUntil,
+            })
+          }
+        })().catch(() => {})
+      )
     }
 
     // Kick off retro generation without blocking the HTTP response. The

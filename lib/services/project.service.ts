@@ -6,6 +6,7 @@ import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
 import { getActorClerkId } from '@/lib/actor'
 import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@vercel/functions'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -225,34 +226,41 @@ export const projectService = {
     }
 
     // Notify users newly @-mentioned in the project description (delta only).
+    // Resolution + send is fully fire-and-forget so a lookup failure never
+    // breaks the save — nothing notify-related is awaited on the path to return.
     if (input.description !== undefined) {
-      const authorActor = await memberRepository.findActorByMemberId(memberId)
-      const [authorClerkId, ws] = await Promise.all([
-        authorActor ? getActorClerkId(authorActor.id) : Promise.resolve(null),
-        workspaceRepository.findNameAndSlug(project.workspaceId),
-      ])
-      if (authorActor?.id && authorClerkId && ws?.slug) {
-        const projectUrl = buildProjectUrl(ws.slug, updated.name)
-        const newHtml = input.description
-        waitUntil(
-          notifyMentionDelta({
-            oldHtml: oldDescription ?? '',
-            newHtml,
-            authorClerkId,
-            authorActorId: authorActor.id,
-            workspaceId: project.workspaceId,
-            notificationType: 'PROJECT_MENTIONED',
-            ref: { projectId: project.id },
-            slackEvent: 'comment_mention',
-            slackPayload: {
-              taskTitle: updated.name,
-              taskUrl: projectUrl,
-              commentBody: (newHtml ?? '').replace(/<[^>]+>/g, '').slice(0, 200),
-            },
-            waitUntil,
-          })
-        )
-      }
+      const newHtml = input.description
+      waitUntil(
+        (async () => {
+          const authorActor =
+            await memberRepository.findActorByMemberId(memberId)
+          const [authorClerkId, ws] = await Promise.all([
+            authorActor
+              ? getActorClerkId(authorActor.id)
+              : Promise.resolve(null),
+            workspaceRepository.findNameAndSlug(project.workspaceId),
+          ])
+          if (authorActor?.id && authorClerkId && ws?.slug) {
+            const projectUrl = buildProjectUrl(ws.slug, updated.name)
+            await notifyMentionDelta({
+              oldHtml: oldDescription ?? '',
+              newHtml,
+              authorClerkId,
+              authorActorId: authorActor.id,
+              workspaceId: project.workspaceId,
+              notificationType: 'PROJECT_MENTIONED',
+              ref: { projectId: project.id },
+              slackEvent: 'comment_mention',
+              slackPayload: {
+                taskTitle: updated.name,
+                taskUrl: projectUrl,
+                commentBody: htmlToPreview(newHtml),
+              },
+              waitUntil,
+            })
+          }
+        })().catch(() => {})
+      )
     }
 
     const { owner, ...rest } = updated

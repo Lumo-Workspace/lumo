@@ -20,6 +20,7 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
@@ -577,9 +578,7 @@ export const documentService = {
               slackPayload: {
                 taskTitle: updatedTitle,
                 taskUrl: docUrl,
-                commentBody: (newContent ?? '')
-                  .replace(/<[^>]+>/g, '')
-                  .slice(0, 200),
+                commentBody: htmlToPreview(newContent),
               },
               waitUntil,
             })

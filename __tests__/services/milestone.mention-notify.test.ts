@@ -9,6 +9,19 @@ const mockGetActorClerkId = jest.fn()
 const mockFindNameAndSlug = jest.fn()
 const mockNotifyMentionDelta = jest.fn()
 
+// Collect fire-and-forget promises so the test can await them before asserting
+// (the notify resolution runs inside an async waitUntil callback).
+const mockBackgroundPromises: Promise<unknown>[] = []
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    mockBackgroundPromises.push(Promise.resolve(p))
+  },
+}))
+
+async function flushBackground() {
+  await Promise.all(mockBackgroundPromises)
+}
+
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: {
     findById: (...a: unknown[]) => mockMilestoneFindById(...a),
@@ -47,6 +60,7 @@ const span = (clerkId: string) =>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockBackgroundPromises.length = 0
   mockMilestoneFindById.mockResolvedValue({
     id: 'm1',
     projectId: 'proj1',
@@ -77,6 +91,7 @@ describe('updateMilestone @mention notifications', () => {
     await milestoneService.updateMilestone('m1', 'mem1', {
       description: span('u1'),
     })
+    await flushBackground()
 
     expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
     const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
@@ -94,6 +109,7 @@ describe('updateMilestone @mention notifications', () => {
   it('does not fire when description is not part of the update', async () => {
     const milestoneService = await getService()
     await milestoneService.updateMilestone('m1', 'mem1', { name: 'Renamed' })
+    await flushBackground()
     expect(mockNotifyMentionDelta).not.toHaveBeenCalled()
   })
 })
