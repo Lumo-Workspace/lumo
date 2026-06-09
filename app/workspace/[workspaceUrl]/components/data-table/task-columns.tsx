@@ -184,7 +184,8 @@ function TitleCell({
         <span className='w-3 h-px bg-muted-foreground/30 inline-block shrink-0' />
       )}
       <span
-        className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors cursor-text flex-1 min-w-0'
+        className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors cursor-text flex-1 min-w-0 truncate'
+        title={task.title}
         onClick={e => {
           e.stopPropagation()
           startEdit()
