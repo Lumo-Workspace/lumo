@@ -1,3 +1,14 @@
+const mockCanonicalize = jest.fn()
+jest.mock('@/lib/services/memory/canonicalize-language', () => ({
+  canonicalizeToEnglish: (...a: any[]) => mockCanonicalize(...a),
+}))
+const mockResolveDedup = jest.fn()
+jest.mock('@/lib/services/memory/manual-dedup', () => ({
+  resolveManualDedup: (...a: any[]) => mockResolveDedup(...a),
+}))
+const mockUpdateContent = jest.fn()
+const mockSupersede = jest.fn()
+
 const mockListForProject = jest.fn()
 const mockListForTask = jest.fn()
 const mockCreate = jest.fn()
@@ -15,6 +26,8 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     delete: (...a: any[]) => mockDelete(...a),
     findByIdWithWorkspace: (...a: any[]) => mockFindByIdWithWorkspace(...a),
     setEmbedding: (...a: any[]) => mockSetEmbedding(...a),
+    updateContent: (...a: any[]) => mockUpdateContent(...a),
+    supersede: (...a: any[]) => mockSupersede(...a),
   },
 }))
 
@@ -30,6 +43,14 @@ beforeEach(() => {
   // Default: embed succeeds with a 2-d stub vector
   mockEmbedTexts.mockResolvedValue([[0.1, 0.2]])
   mockSetEmbedding.mockResolvedValue(undefined)
+  // Default: pass-through canonicalize + ADD
+  mockCanonicalize.mockImplementation(async (_cat: any, content: any) => content)
+  mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
+  mockUpdateContent.mockResolvedValue({ id: 'u1' })
+  mockSupersede.mockResolvedValue({ newId: 'sup1' })
+  // Default: empty pool for list calls
+  mockListForProject.mockResolvedValue([])
+  mockListForTask.mockResolvedValue([])
 })
 
 describe('listProjectMemories', () => {
@@ -99,7 +120,7 @@ describe('createForProject', () => {
       content: { summary: 'trap', trigger: 'x', outcome: 'y' },
       actorMemberId: 'mem1',
     })
-    expect(result).toEqual({ id: 'm1' })
+    expect(result).toEqual({ outcome: 'ADD', memory: { id: 'm1' } })
     expect(mockSetEmbedding).not.toHaveBeenCalled()
   })
 })
@@ -153,7 +174,7 @@ describe('createForTask', () => {
       content: { summary: 'my decision', what: 'a', why: 'b' },
       actorMemberId: 'mem1',
     })
-    expect(result).toEqual({ id: 'm2' })
+    expect(result).toEqual({ outcome: 'ADD', memory: { id: 'm2' } })
     expect(mockSetEmbedding).not.toHaveBeenCalled()
   })
 })
@@ -298,5 +319,79 @@ describe('agent forwarding', () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ agent: undefined })
     )
+  })
+})
+
+describe('createForProject — canonicalize + dedup', () => {
+  it('canonicalizes content before storing (ADD path)', async () => {
+    mockCanonicalize.mockResolvedValue({ trigger: 'EN trigger', outcome: 'EN outcome' })
+    mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
+    mockCreate.mockResolvedValue({ id: 'm1' })
+    await memoryManagementService.createForProject({
+      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: '触发', outcome: '后果' }, actorMemberId: 'mem1',
+    })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '触发', outcome: '后果' })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ content: { trigger: 'EN trigger', outcome: 'EN outcome' } })
+    )
+  })
+
+  it('NOOP → no create, returns the duplicate neighbor id', async () => {
+    mockResolveDedup.mockResolvedValue({ kind: 'NOOP', id: 'dup1' })
+    const r = await memoryManagementService.createForProject({
+      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+    })
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(r).toEqual({ outcome: 'NOOP', memory: { id: 'dup1' } })
+  })
+
+  it('UPDATE → updateContent on the neighbor, returns its id', async () => {
+    mockResolveDedup.mockResolvedValue({ kind: 'UPDATE', id: 'n1', content: { trigger: 't', outcome: 'o' } })
+    const r = await memoryManagementService.createForProject({
+      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+    })
+    expect(mockUpdateContent).toHaveBeenCalledWith('n1', { trigger: 't', outcome: 'o' })
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(r).toEqual({ outcome: 'UPDATE', memory: { id: 'n1' } })
+  })
+
+  it('SUPERSEDE → supersede on the neighbor, returns the new id', async () => {
+    mockResolveDedup.mockResolvedValue({ kind: 'SUPERSEDE', id: 'n1', content: { trigger: 't', outcome: 'o' } })
+    mockSupersede.mockResolvedValue({ newId: 'new9' })
+    const r = await memoryManagementService.createForProject({
+      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+    })
+    expect(mockSupersede).toHaveBeenCalledWith('n1', { trigger: 't', outcome: 'o' })
+    expect(r).toEqual({ outcome: 'SUPERSEDE', memory: { id: 'new9' } })
+  })
+})
+
+describe('createForTask — canonicalize + dedup', () => {
+  it('ADD — canonicalizes content before storing', async () => {
+    mockCanonicalize.mockResolvedValue({ trigger: 'EN trigger', outcome: 'EN outcome' })
+    mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
+    mockCreate.mockResolvedValue({ id: 'mt1' })
+    await memoryManagementService.createForTask({
+      taskId: 't1', projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: '触发', outcome: '后果' }, actorMemberId: 'mem1',
+    })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '触发', outcome: '后果' })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'TASK', taskId: 't1', content: { trigger: 'EN trigger', outcome: 'EN outcome' } })
+    )
+  })
+
+  it('NOOP → no create, returns the duplicate neighbor id', async () => {
+    mockResolveDedup.mockResolvedValue({ kind: 'NOOP', id: 'dup1' })
+    const r = await memoryManagementService.createForTask({
+      taskId: 't1', projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+    })
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(r).toEqual({ outcome: 'NOOP', memory: { id: 'dup1' } })
   })
 })
