@@ -149,6 +149,8 @@ describe('MentionWithType parseHTML round-trip', () => {
     expect(nodes[0]).toMatchObject({ mentionType: 'user', label: 'Alice' })
     expect(nodes[1]).toMatchObject({
       mentionType: 'task',
+      label: 'LUM-5',
+      id: '5',
       mentionHref: '/x',
       mentionStatus: 'IN_PROGRESS',
       mentionTitle: 'Fix bug',
