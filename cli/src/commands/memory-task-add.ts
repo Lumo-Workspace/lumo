@@ -88,9 +88,30 @@ export async function memoryTaskAdd(
     return 1
   }
 
-  process.stdout.write(
-    `Added ${built.category} memory to ${identifier}` +
-      `${identifierArg ? '' : ' (from bound session)'}\n` +
-      'Tip: only useful for this task? If it generalizes, use `lumo project memory add` or `lumo memory promote` later.\n'
-  )
+  const boundSuffix = identifierArg ? '' : ' (from bound session)'
+
+  let outcome = 'ADD'
+  let memId = ''
+  try {
+    const b = (await res.json()) as { outcome?: string; memory?: { id?: string } }
+    if (typeof b.outcome === 'string') outcome = b.outcome
+    if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
+  } catch { /* keep defaults */ }
+
+  switch (outcome) {
+    case 'NOOP':
+      process.stdout.write(`Skipped — duplicate of existing memory ${memId}, nothing written${boundSuffix}\n`)
+      break
+    case 'UPDATE':
+      process.stdout.write(`Merged into existing memory ${memId} (near-duplicate)${boundSuffix}\n`)
+      break
+    case 'SUPERSEDE':
+      process.stdout.write(`Superseded an existing memory; new version ${memId}${boundSuffix}\n`)
+      break
+    default:
+      process.stdout.write(
+        `Added ${built.category} memory to ${identifier}${boundSuffix}\n` +
+          'Tip: only useful for this task? If it generalizes, use `lumo project memory add` or `lumo memory promote` later.\n'
+      )
+  }
 }
