@@ -9,6 +9,8 @@ import {
   dispatchTaskUpdateNotifications,
 } from '@/lib/services/notification.service'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import type {
   UpdateTaskInput,
@@ -268,6 +270,40 @@ export function dispatchUpdateTaskSideEffects(opts: {
 
   if (activityEvents.length > 0) {
     waitUntil(dispatchEvents(activityEvents))
+  }
+
+  // ── Fire-and-forget: notify users newly @-mentioned in the description ────
+  // Same guard as the task:description_changed activity event. The helper
+  // no-ops when the old/new mention sets are equal, so no extra equality
+  // check is needed here.
+  if (
+    input.description !== undefined &&
+    result.changedFields.includes('description')
+  ) {
+    const taskUrl = buildTaskUrl(
+      taskCheck.project.workspace?.slug ?? '',
+      taskCheck.project.name,
+      result.task.team.identifier,
+      result.task.number
+    )
+    waitUntil(
+      notifyMentionDelta({
+        oldHtml: (taskCheck.description as string | null | undefined) ?? '',
+        newHtml: input.description,
+        authorClerkId: actorClerkId,
+        authorActorId: actorId ?? '',
+        workspaceId: taskCheck.project.workspaceId,
+        notificationType: 'TASK_MENTIONED',
+        ref: { taskId },
+        slackEvent: 'comment_mention',
+        slackPayload: {
+          taskTitle: result.task.title,
+          taskUrl,
+          commentBody: htmlToPreview(input.description),
+        },
+        waitUntil,
+      })
+    )
   }
 
   // Push real-time events (fire-and-forget)
