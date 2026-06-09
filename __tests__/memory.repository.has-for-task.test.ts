@@ -11,14 +11,14 @@ const mockFindFirst = prisma.memory.findFirst as jest.Mock
 beforeEach(() => jest.clearAllMocks())
 
 describe('memoryRepository.hasForTask', () => {
-  it('checks existence with the same task filter as listForTask', async () => {
+  it('checks existence with the same active task filter as listForTask', async () => {
     mockFindFirst.mockResolvedValue({ id: 'm1' })
 
     const result = await memoryRepository.hasForTask('task-1')
 
     expect(result).toBe(true)
     expect(mockFindFirst).toHaveBeenCalledWith({
-      where: { taskId: 'task-1' },
+      where: { taskId: 'task-1', status: 'ACTIVE' },
       select: { id: true },
     })
   })

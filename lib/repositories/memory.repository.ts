@@ -38,7 +38,7 @@ export const memoryRepository = {
    */
   async findActiveTaskMemories(taskId: string) {
     return prisma.memory.findMany({
-      where: { taskId },
+      where: { taskId, status: 'ACTIVE' },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -56,7 +56,7 @@ export const memoryRepository = {
    */
   async findActiveProjectMemories(projectId: string) {
     return prisma.memory.findMany({
-      where: { projectId, scope: 'PROJECT' },
+      where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -79,7 +79,7 @@ export const memoryRepository = {
    */
   async findRecentTaskScopeMemoriesByProject(projectId: string, limit: number) {
     return prisma.memory.findMany({
-      where: { projectId, scope: 'TASK', taskId: { not: null } },
+      where: { projectId, scope: 'TASK', taskId: { not: null }, status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
@@ -122,6 +122,7 @@ export const memoryRepository = {
     return prisma.memory.findMany({
       where: {
         sourceSessionId: sessionId,
+        status: 'ACTIVE',
         ...(since ? { createdAt: { gt: since } } : {}),
       },
       orderBy: { createdAt: 'asc' },
@@ -158,7 +159,12 @@ export const memoryRepository = {
    */
   async findProjectMemoriesBySession(sessionId: string, projectId: string) {
     return prisma.memory.findMany({
-      where: { sourceSessionId: sessionId, projectId, scope: 'PROJECT' },
+      where: {
+        sourceSessionId: sessionId,
+        projectId,
+        scope: 'PROJECT',
+        status: 'ACTIVE',
+      },
       orderBy: { createdAt: 'asc' },
       select: MEMORY_ROW_SELECT,
     })
@@ -167,7 +173,7 @@ export const memoryRepository = {
   /** All PROJECT-scope memories for a project, newest first. Management UI. */
   async listForProject(projectId: string) {
     return prisma.memory.findMany({
-      where: { projectId, scope: 'PROJECT' },
+      where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
       select: MEMORY_ROW_SELECT,
     })
@@ -176,7 +182,7 @@ export const memoryRepository = {
   /** All memories for a task, newest first. Management UI. */
   async listForTask(taskId: string) {
     return prisma.memory.findMany({
-      where: { taskId },
+      where: { taskId, status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
       select: MEMORY_ROW_SELECT,
     })
@@ -189,7 +195,7 @@ export const memoryRepository = {
    */
   async hasForTask(taskId: string): Promise<boolean> {
     const row = await prisma.memory.findFirst({
-      where: { taskId },
+      where: { taskId, status: 'ACTIVE' },
       select: { id: true },
     })
     return row !== null
@@ -273,25 +279,70 @@ export const memoryRepository = {
   },
 
   /**
-   * SUPERSEDE seam (LUM-324). A new memory contradicts/replaces an existing
-   * one. INTERIM behavior: overwrite the existing row's content in place —
-   * same write as `updateContent`, but a distinct method so LUM-325 can swap
-   * this body to invalidate-not-delete (keep the old row, stamp invalidatedAt,
-   * insert the replacement, link supersededById) WITHOUT touching any caller.
-   * Preserving the row id keeps provenance / lineage edges pointing at it
-   * intact — the reason SUPERSEDE is not DELETE+ADD.
+   * SUPERSEDE seam (LUM-325, Option B — invalidate-not-delete). A new memory
+   * contradicts/replaces an existing one. Instead of overwriting the old row's
+   * content in place (LUM-324 interim, which destroyed history), this:
+   *   1. reads the old row's scope/ownership fields,
+   *   2. INSERTs a fresh ACTIVE row carrying the new content (status + validFrom
+   *      come from column defaults; sourceSessionId/agent/creator copied from the
+   *      old row so the replacement doesn't pollute the current session's wrap
+   *      review),
+   *   3. flips the old row to SUPERSEDED — content PRESERVED for audit + lineage
+   *      — stamping supersededAt + supersededById,
+   *   4. writes a MemoryProvenance(parent=old, child=new) edge so the existing
+   *      `resolveCanonicalFragment` rolls lineage edges keyed by the old id up to
+   *      the new active row (the same mechanism as Layer-2 promotion — keeps the
+   *      flywheel merge-rate signal joined across the supersede).
+   * Returns the NEW row id: the new content's embedding belongs on the new
+   * active row, so the caller must `setEmbedding(newId, …)` (the old row's stale
+   * embedding is harmless — the active filter excludes it from retrieval).
    */
-  async supersedeInPlace(
-    id: string,
+  async supersede(
+    oldId: string,
     content: Prisma.InputJsonValue,
     tx?: Prisma.TransactionClient
-  ) {
+  ): Promise<{ newId: string }> {
     const client = tx ?? prisma
-    return client.memory.update({
-      where: { id },
-      data: { content },
+    const old = await client.memory.findUniqueOrThrow({
+      where: { id: oldId },
+      select: {
+        workspaceId: true,
+        projectId: true,
+        taskId: true,
+        scope: true,
+        category: true,
+        agent: true,
+        sourceSessionId: true,
+        createdByMemberId: true,
+      },
+    })
+    const created = await client.memory.create({
+      data: {
+        workspaceId: old.workspaceId,
+        projectId: old.projectId,
+        taskId: old.taskId,
+        scope: old.scope,
+        category: old.category,
+        agent: old.agent,
+        content,
+        sourceSessionId: old.sourceSessionId,
+        createdByMemberId: old.createdByMemberId,
+      },
       select: { id: true },
     })
+    await client.memory.update({
+      where: { id: oldId },
+      data: {
+        status: 'SUPERSEDED',
+        supersededAt: new Date(),
+        supersededById: created.id,
+      },
+      select: { id: true },
+    })
+    await client.memoryProvenance.create({
+      data: { parentMemoryId: oldId, childMemoryId: created.id },
+    })
+    return { newId: created.id }
   },
 
   // ---------------------------------------------------------------------------
@@ -370,7 +421,7 @@ export const memoryRepository = {
       Prisma.sql`
         SELECT id, category, content, embedding <=> ${qvLit}::vector AS distance
         FROM "memories"
-        WHERE "embedding" IS NOT NULL AND ${scopeWhere}
+        WHERE "embedding" IS NOT NULL AND "status" = 'ACTIVE' AND ${scopeWhere}
         ORDER BY distance ASC
         LIMIT ${k}
       `
@@ -382,7 +433,7 @@ export const memoryRepository = {
       Prisma.sql`
         SELECT EXISTS(
           SELECT 1 FROM "memories"
-          WHERE "embedding" IS NOT NULL AND ${scopeWhere}
+          WHERE "embedding" IS NOT NULL AND "status" = 'ACTIVE' AND ${scopeWhere}
         ) AS exists
       `
     )

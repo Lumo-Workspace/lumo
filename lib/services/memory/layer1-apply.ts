@@ -3,6 +3,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
+import { resolveGuardedSupersedeIds } from './supersede-guard'
 import type { MemoryCategory, Prisma, TaskArtifactAgent } from '@prisma/client'
 import type { Layer1Operation } from './layer1-extract'
 
@@ -73,6 +74,15 @@ export async function applyLayer1Operations(
     input.existingMemories.map(m => [m.id, m.category])
   )
 
+  // A-MEM reuse guardrail (LUM-325): resolve which SUPERSEDE targets are
+  // high-trust (usage signal) up front, in one batched lineage lookup outside
+  // the transaction. Guarded targets keep their existing ACTIVE row.
+  const guardedSupersedeIds = await resolveGuardedSupersedeIds(
+    input.operations
+      .filter(op => op.type === 'SUPERSEDE')
+      .map(op => op.id)
+  )
+
   // Phase 1: validate each op and collect resolved entries for embedding.
   // For ADD/UPDATE/SUPERSEDE we capture the text and a plan-builder.
   type Plan = (tx: Prisma.TransactionClient) => Promise<void>
@@ -102,6 +112,13 @@ export async function applyLayer1Operations(
       continue
     }
     if (op.type === 'SUPERSEDE') {
+      if (guardedSupersedeIds.has(op.id)) {
+        logger.info(
+          `[memory.layer1] guarded SUPERSEDE id=${op.id} — high-trust (usage) memory left active`
+        )
+        result.skipped++
+        continue
+      }
       const existingCategory = knownCategoryById.get(op.id)
       if (!existingCategory) {
         result.skipped++
@@ -123,14 +140,16 @@ export async function applyLayer1Operations(
       resolvedWrites.push({
         text,
         buildPlan: (vector) => async tx => {
-          await memoryRepository.supersedeInPlace(
+          // Option B: new ACTIVE row carries the new content; embedding belongs
+          // on that new row, not the superseded original.
+          const { newId } = await memoryRepository.supersede(
             id,
             validated as Prisma.InputJsonValue,
             tx
           )
           result.superseded++
           if (vector !== undefined) {
-            await memoryRepository.setEmbedding(id, vector, tx)
+            await memoryRepository.setEmbedding(newId, vector, tx)
           }
         },
       })

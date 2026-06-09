@@ -4,6 +4,7 @@ import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
+import { resolveGuardedSupersedeIds } from './supersede-guard'
 import type { MemoryCategory, Prisma } from '@prisma/client'
 import type { Layer2Operation } from './layer2-extract'
 
@@ -84,6 +85,14 @@ export async function applyLayer2Operations(
   )
   const validSourceIds = new Set(input.validSourceMemoryIds ?? [])
 
+  // A-MEM reuse guardrail (LUM-325): high-trust (usage) SUPERSEDE targets are
+  // resolved up front in one batched lineage lookup and left ACTIVE.
+  const guardedSupersedeIds = await resolveGuardedSupersedeIds(
+    input.operations
+      .filter(op => op.type === 'SUPERSEDE')
+      .map(op => op.id)
+  )
+
   // Phase 1: validate each op and collect resolved entries for embedding.
   type Plan = (tx: Prisma.TransactionClient) => Promise<void>
 
@@ -100,6 +109,13 @@ export async function applyLayer2Operations(
       continue
     }
     if (op.type === 'SUPERSEDE') {
+      if (guardedSupersedeIds.has(op.id)) {
+        logger.info(
+          `[memory.layer2] guarded SUPERSEDE id=${op.id} — high-trust (usage) memory left active`
+        )
+        result.skipped++
+        continue
+      }
       const existingCategory = knownCategoryById.get(op.id)
       if (!existingCategory) {
         result.skipped++
@@ -121,14 +137,16 @@ export async function applyLayer2Operations(
       resolvedWrites.push({
         text,
         buildPlan: (vector) => async tx => {
-          await memoryRepository.supersedeInPlace(
+          // Option B: new ACTIVE row carries the new content; embedding belongs
+          // on that new row, not the superseded original.
+          const { newId } = await memoryRepository.supersede(
             id,
             validated as Prisma.InputJsonValue,
             tx
           )
           result.superseded++
           if (vector !== undefined) {
-            await memoryRepository.setEmbedding(id, vector, tx)
+            await memoryRepository.setEmbedding(newId, vector, tx)
           }
         },
       })

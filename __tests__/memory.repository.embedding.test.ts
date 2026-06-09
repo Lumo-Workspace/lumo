@@ -67,6 +67,26 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
     expect(JSON.stringify(secondSql.values)).toContain('task_1')
   })
 
+  it('filters both the ANN query and the EXISTS probe to status=ACTIVE (LUM-325)', async () => {
+    ;(prisma.$queryRaw as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ exists: false }])
+
+    await memoryRepository.findNeighborEmbeddings({
+      scope: { kind: 'TASK', taskId: 'task_1' },
+      queryVector: [0.1, 0.2],
+      k: 10,
+    })
+
+    const allCalls = (prisma.$queryRaw as jest.Mock).mock.calls
+    const annSql = allCalls[0]![0] as { strings: string[]; values: unknown[] }
+    const existsSql = allCalls[1]![0] as { strings: string[]; values: unknown[] }
+    // The active filter is a static literal (not a bound param), so it lives in
+    // the SQL strings — superseded/archived rows must never reach retrieval.
+    expect(annSql.strings.join('')).toContain(`"status" = 'ACTIVE'`)
+    expect(existsSql.strings.join('')).toContain(`"status" = 'ACTIVE'`)
+  })
+
   it('PROJECT scope: scopeHasEmbeddings=false when EXISTS probe returns false', async () => {
     ;(prisma.$queryRaw as jest.Mock)
       .mockResolvedValueOnce([]) // no neighbors

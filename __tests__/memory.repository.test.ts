@@ -25,7 +25,7 @@ describe('memoryRepository.listForProject', () => {
     const rows = await memoryRepository.listForProject('p1')
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { projectId: 'p1', scope: 'PROJECT' },
+        where: { projectId: 'p1', scope: 'PROJECT', status: 'ACTIVE' },
         orderBy: { createdAt: 'desc' },
       })
     )
@@ -46,6 +46,7 @@ describe('memoryRepository.findProjectMemoriesBySession (LUM-165)', () => {
           sourceSessionId: 'sess_prev',
           projectId: 'proj_1',
           scope: 'PROJECT',
+          status: 'ACTIVE',
         },
         orderBy: { createdAt: 'asc' },
       })
@@ -60,7 +61,7 @@ describe('memoryRepository.listForTask', () => {
     await memoryRepository.listForTask('t1')
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { taskId: 't1' },
+        where: { taskId: 't1', status: 'ACTIVE' },
         orderBy: { createdAt: 'desc' },
       })
     )
@@ -179,7 +180,7 @@ describe('memoryRepository.findBySourceSessionId', () => {
     const rows = await memoryRepository.findBySourceSessionId('s1')
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { sourceSessionId: 's1' },
+        where: { sourceSessionId: 's1', status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
       })
     )
@@ -192,7 +193,7 @@ describe('memoryRepository.findBySourceSessionId', () => {
     await memoryRepository.findBySourceSessionId('s1', since)
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { sourceSessionId: 's1', createdAt: { gt: since } },
+        where: { sourceSessionId: 's1', status: 'ACTIVE', createdAt: { gt: since } },
       })
     )
   })

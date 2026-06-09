@@ -1499,6 +1499,17 @@ enum MemoryScope {
   PROJECT
 }
 
+/// Memory lifecycle status (LUM-325, MemGPT-style tiering / Zep bi-temporal
+/// invalidate-not-delete). ACTIVE rows are the only ones injected/reconciled;
+/// SUPERSEDED rows are kept for audit + flywheel lineage (a SUPERSEDE op flips
+/// the old row here and writes the new content to a fresh ACTIVE row).
+/// ARCHIVED is reserved for cold eviction (LUM-328) — unused in LUM-325.
+enum MemoryStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
 model Memory {
   id                String            @id @default(cuid())
   workspaceId       String
@@ -1512,6 +1523,14 @@ model Memory {
   createdByMemberId String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+  /// Lifecycle (LUM-325). Only ACTIVE rows are injected/reconciled; SUPERSEDED
+  /// rows are retained for audit + lineage. validFrom = when this row became the
+  /// live truth (backfilled to createdAt for pre-LUM-325 rows). supersededAt /
+  /// supersededById are stamped on the OLD row when a SUPERSEDE replaces it.
+  status            MemoryStatus      @default(ACTIVE)
+  validFrom         DateTime          @default(now())
+  supersededAt      DateTime?
+  supersededById    String?
   /// 1024-dim semantic embedding of memoryContentToText(content), model
   /// alibaba/qwen3-embedding-0.6b. Read/written ONLY via parameterized raw SQL
   /// in memory.repository.ts — Prisma's typed client can't touch Unsupported
@@ -1524,8 +1543,8 @@ model Memory {
   session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
   createdByMember WorkspaceMember? @relation("MemoryCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
 
-  @@index([projectId, scope])
-  @@index([taskId])
+  @@index([projectId, scope, status])
+  @@index([taskId, status])
   @@map("memories")
 }
 
