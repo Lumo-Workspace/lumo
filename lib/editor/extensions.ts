@@ -15,6 +15,8 @@ import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import { CharacterCount } from '@tiptap/extension-character-count'
 import type { Extensions } from '@tiptap/core'
+import type { SuggestionOptions } from '@tiptap/suggestion'
+import { MentionWithType } from './nodes/mention-with-type'
 import { TaskLink } from './marks/task-link'
 import { CommentMark } from './marks/comment-mark'
 import { CodeBlock } from './nodes/code-block'
@@ -23,7 +25,9 @@ import { Mermaid } from './nodes/mermaid'
 import { ToggleExtensions } from './nodes/toggle'
 import { TaskView } from './nodes/task-view'
 
-export function getBaseExtensions(): Extensions {
+export function getBaseExtensions(opts?: {
+  mentionSuggestion?: Partial<SuggestionOptions>
+}): Extensions {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4] },
@@ -60,5 +64,11 @@ export function getBaseExtensions(): Extensions {
     // CJK-aware word + reading-time math lives in lib/editor/reading-stats.ts;
     // we read characters() from this extension's storage.
     CharacterCount,
+    // Single mention node for the whole base. The read-only viewer gets the
+    // bare node (parse + render only); editors pass a suggestion to enable the
+    // '@' dropdown. Always exactly one 'mention' node — never registered twice.
+    opts?.mentionSuggestion
+      ? MentionWithType.configure({ suggestion: opts.mentionSuggestion })
+      : MentionWithType,
   ]
 }

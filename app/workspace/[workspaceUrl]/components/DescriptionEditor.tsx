@@ -27,7 +27,6 @@ import {
   SlashCommandList,
   type SlashCommandListRef,
 } from '@/lib/editor/slash-command-list'
-import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
 import { isMac } from '@/lib/utils/keyboard'
 import { commentIdFromEventTarget } from './document/comments/anchor-dom'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
@@ -240,7 +239,19 @@ export function DescriptionEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      ...getBaseExtensions(),
+      ...getBaseExtensions(
+        mentionSources
+          ? {
+              mentionSuggestion: buildMentionSuggestion(
+                mentionSources,
+                setMentionPopup,
+                setMentionPopup,
+                () => setMentionPopup(null),
+                mentionListRef
+              ),
+            }
+          : undefined
+      ),
       Placeholder.configure({ placeholder: () => placeholderRef.current }),
       SlashCommandExtension.configure({
         suggestion: buildSlashCommandSuggestion(
@@ -251,19 +262,6 @@ export function DescriptionEditor({
           id => intl.formatMessage({ id })
         ),
       }),
-      ...(mentionSources
-        ? [
-            MentionWithType.configure({
-              suggestion: buildMentionSuggestion(
-                mentionSources,
-                setMentionPopup,
-                setMentionPopup,
-                () => setMentionPopup(null),
-                mentionListRef
-              ),
-            }),
-          ]
-        : []),
       ...(menuElement
         ? [
             BubbleMenu.configure({
