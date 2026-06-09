@@ -1,0 +1,99 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
+
+// next/jest uses SWC: factory closures may only reference `mock`-prefixed vars.
+const mockMilestoneFindById = jest.fn()
+const mockMilestoneUpdate = jest.fn()
+const mockGetProject = jest.fn()
+const mockFindActorByMemberId = jest.fn()
+const mockGetActorClerkId = jest.fn()
+const mockFindNameAndSlug = jest.fn()
+const mockNotifyMentionDelta = jest.fn()
+
+jest.mock('@/lib/repositories/milestone.repository', () => ({
+  milestoneRepository: {
+    findById: (...a: unknown[]) => mockMilestoneFindById(...a),
+    update: (...a: unknown[]) => mockMilestoneUpdate(...a),
+  },
+}))
+jest.mock('@/lib/services/project.service', () => ({
+  projectService: {
+    getProject: (...a: unknown[]) => mockGetProject(...a),
+  },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: (...a: unknown[]) => mockFindActorByMemberId(...a),
+  },
+}))
+jest.mock('@/lib/actor', () => ({
+  getActorClerkId: (...a: unknown[]) => mockGetActorClerkId(...a),
+}))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findNameAndSlug: (...a: unknown[]) => mockFindNameAndSlug(...a),
+  },
+}))
+jest.mock('@/lib/services/mention-notify.service', () => ({
+  notifyMentionDelta: (...a: unknown[]) => mockNotifyMentionDelta(...a),
+}))
+
+async function getService() {
+  const mod = await import('@/lib/services/milestone.service')
+  return mod.milestoneService
+}
+
+const span = (clerkId: string) =>
+  `<span class="mention" data-mention-type="user" data-id="${clerkId}">@u</span>`
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockMilestoneFindById.mockResolvedValue({
+    id: 'm1',
+    projectId: 'proj1',
+    description: '',
+    status: 'PLANNED',
+    archivedAt: null,
+  })
+  mockGetProject.mockResolvedValue({
+    id: 'proj1',
+    workspaceId: 'ws1',
+    name: 'Proj',
+    teamId: 'team1',
+  })
+  mockMilestoneUpdate.mockResolvedValue({
+    id: 'm1',
+    slug: 'milestone-slug',
+    status: 'PLANNED',
+  })
+  mockFindActorByMemberId.mockResolvedValue({ id: 'a1' })
+  mockGetActorClerkId.mockResolvedValue('author')
+  mockFindNameAndSlug.mockResolvedValue({ name: 'WS', slug: 'ws' })
+  mockNotifyMentionDelta.mockResolvedValue(undefined)
+})
+
+describe('updateMilestone @mention notifications', () => {
+  it('fires notifyMentionDelta with MILESTONE_MENTIONED when description changes', async () => {
+    const milestoneService = await getService()
+    await milestoneService.updateMilestone('m1', 'mem1', {
+      description: span('u1'),
+    })
+
+    expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
+    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
+    expect(arg).toMatchObject({
+      notificationType: 'MILESTONE_MENTIONED',
+      ref: { milestoneId: 'm1' },
+      oldHtml: '',
+      newHtml: span('u1'),
+      workspaceId: 'ws1',
+      authorActorId: 'a1',
+      authorClerkId: 'author',
+    })
+  })
+
+  it('does not fire when description is not part of the update', async () => {
+    const milestoneService = await getService()
+    await milestoneService.updateMilestone('m1', 'mem1', { name: 'Renamed' })
+    expect(mockNotifyMentionDelta).not.toHaveBeenCalled()
+  })
+})
