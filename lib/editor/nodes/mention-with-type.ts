@@ -85,11 +85,13 @@ export const MentionWithType = Mention.extend({
   },
   addProseMirrorPlugins() {
     // Only attach the suggestion plugin when a real suggestion (one with a
-    // render handler) is configured. The default Mention suggestion has no
-    // render, so a bare node — used by the read-only viewer and by editors
-    // that don't pass mentionSources — stays a pure render/parse node and
-    // never fires tiptap's default '@' suggestion.
-    if (!this.options.suggestion?.render) return []
+    // render handler) is configured, or when a non-empty plural `suggestions`
+    // array is configured. The default Mention suggestion has no render, so a
+    // bare node — used by the read-only viewer and by editors that don't pass
+    // mentionSources — stays a pure render/parse node and never fires
+    // tiptap's default '@' suggestion.
+    if (!this.options.suggestion?.render && !this.options.suggestions?.length)
+      return []
     return this.parent?.() ?? []
   },
   parseHTML() {
