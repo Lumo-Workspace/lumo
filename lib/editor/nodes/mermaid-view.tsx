@@ -5,6 +5,15 @@ import { useIntl } from 'react-intl'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import { renderMermaid } from '../mermaid-render'
 
+// Monotonic per-render suffix. mermaid.render(id, …) embeds `id` in the output
+// SVG, which we inject into the live DOM; its `removeExistingElements` step then
+// does `getElementById(id).remove()` on the NEXT render. A stable id would make
+// mermaid delete the diagram currently on screen (and, when the source is
+// unchanged, the re-rendered string is byte-identical so React skips the DOM
+// write — leaving a blank box). A fresh id per render avoids the collision.
+// Bumped only inside an effect, never during render, so render stays pure.
+let renderSeq = 0
+
 /**
  * Dual-state node view for the Mermaid block. Default state renders the
  * diagram SVG; clicking (only while editable) opens a source textarea that
@@ -19,8 +28,10 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
   const source = (node.attrs.source as string) ?? ''
 
   // useId is pure (no Math.random in render, per the React rules). Strip the
-  // colons next-id emits so it's a valid mermaid/DOM id.
-  const domId = `mermaid-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  // colons next-id emits so it's a valid mermaid/DOM id. This is only a stable
+  // BASE; each render appends a fresh suffix (see renderSeq) before handing the
+  // id to mermaid, so no two renders share an id.
+  const baseId = `mermaid-${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(source)
@@ -32,8 +43,10 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
   useEffect(() => {
     if (editing || source.trim() === '') return
     let cancelled = false
+    // Fresh id per render run (effect, not render body — render stays pure).
+    const renderId = `${baseId}-${(renderSeq += 1)}`
     ;(async () => {
-      const result = await renderMermaid(domId, source, theme)
+      const result = await renderMermaid(renderId, source, theme)
       if (cancelled) return
       if (result.ok) {
         setSvg(result.svg)
@@ -46,7 +59,7 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
     return () => {
       cancelled = true
     }
-  }, [source, theme, editing, domId])
+  }, [source, theme, editing, baseId])
 
   // Keep the draft in sync if the source changes externally (undo, collab)
   // while not actively editing.
