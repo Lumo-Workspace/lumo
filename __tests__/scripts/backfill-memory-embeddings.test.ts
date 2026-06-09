@@ -80,20 +80,48 @@ describe('backfillMemoryEmbeddings — multiple batches', () => {
 })
 
 describe('backfillMemoryEmbeddings — dryRun', () => {
-  it('does not call store when dryRun=true', async () => {
+  it('counts embeddable rows but calls neither embed nor store', async () => {
     const deps = makeDeps({ dryRun: true })
     deps.fetchUnembeddedBatch
       .mockResolvedValueOnce([makeRow('r1', 'trap one'), makeRow('r2', 'trap two')])
       .mockResolvedValueOnce([])
 
-    deps.embed.mockResolvedValueOnce([[0.1, 0.2], [0.3, 0.4]])
-
     const result = await backfillMemoryEmbeddings(deps)
 
     expect(result.processed).toBe(2)
-    expect(result.embedded).toBe(2) // still counted
+    expect(result.embedded).toBe(2) // counted as "would embed"
     expect(result.failedBatches).toBe(0)
+    expect(deps.embed).not.toHaveBeenCalled() // dry-run never hits the gateway
     expect(deps.store).not.toHaveBeenCalled()
+  })
+
+  it('terminates via keyset pagination even though dry-run stores nothing (regression: IS-NULL-only fetch would loop forever)', async () => {
+    // A real keyset paginator over a fixed dataset. With the old IS-NULL-only
+    // query + no store, this would re-return the same rows forever in dry-run.
+    const dataset = [
+      makeRow('a1', 'one'),
+      makeRow('a2', 'two'),
+      makeRow('a3', 'three'),
+      makeRow('a4', 'four'),
+    ]
+    const fetchUnembeddedBatch = jest.fn(
+      async (limit: number, afterId?: string) => {
+        const start = afterId
+          ? dataset.findIndex(r => r.id === afterId) + 1
+          : 0
+        return dataset.slice(start, start + limit)
+      }
+    )
+    const deps = makeDeps({ dryRun: true, batchSize: 2, fetchUnembeddedBatch })
+
+    const result = await backfillMemoryEmbeddings(deps)
+
+    expect(result.processed).toBe(4)
+    expect(result.embedded).toBe(4)
+    expect(deps.embed).not.toHaveBeenCalled()
+    expect(deps.store).not.toHaveBeenCalled()
+    // 2 data batches (a1-a2, a3-a4) + 1 empty terminator = 3 fetches
+    expect(fetchUnembeddedBatch).toHaveBeenCalledTimes(3)
   })
 })
 

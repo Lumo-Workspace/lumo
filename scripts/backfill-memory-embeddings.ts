@@ -16,11 +16,16 @@ import type { MemoryCategory } from '@prisma/client'
 
 export interface BackfillDeps {
   /**
-   * Fetch the next batch of rows where embedding IS NULL.
-   * Ordered oldest-first so progress is deterministic across runs.
+   * Fetch the next batch of rows where embedding IS NULL, keyset-paginated by
+   * id: return rows with `id > afterId` (or from the start when afterId is
+   * undefined), ordered by id ASC. Keyset (not OFFSET) keeps the loop
+   * terminating in BOTH modes — including dry-run (nothing is stored, so an
+   * IS-NULL-only query would re-return the same rows forever) and rows with
+   * empty content that are skipped without being stored.
    */
   fetchUnembeddedBatch: (
-    limit: number
+    limit: number,
+    afterId?: string
   ) => Promise<Array<{ id: string; category: MemoryCategory; content: unknown }>>
   /** Embed N texts, returning one 1024-d vector per text (order-preserving). */
   embed: (texts: string[]) => Promise<number[][]>
@@ -68,12 +73,18 @@ export async function backfillMemoryEmbeddings(
 
   const result: BackfillResult = { processed: 0, embedded: 0, failedBatches: 0 }
 
+  // Keyset cursor by id — advances every iteration regardless of whether rows
+  // were stored, so the loop always terminates (dry-run stores nothing; empty-
+  // text rows are skipped without storing).
+  let afterId: string | undefined = undefined
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const batch = await fetchUnembeddedBatch(batchSize)
+    const batch = await fetchUnembeddedBatch(batchSize, afterId)
     if (batch.length === 0) break
 
     result.processed += batch.length
+    afterId = batch[batch.length - 1]!.id
     log(`Fetched batch of ${batch.length} rows (total processed so far: ${result.processed})`)
 
     // Compute text for each row; rows with empty text are skipped (nothing to embed).
@@ -89,6 +100,14 @@ export async function backfillMemoryEmbeddings(
 
     if (textByIndex.size === 0) {
       log('Batch had no embeddable text — skipping embed call.')
+      continue
+    }
+
+    // Dry-run is a count preview: never calls the model or writes. Counting the
+    // embeddable rows is enough; advancing afterId guarantees termination.
+    if (dryRun) {
+      result.embedded += textByIndex.size
+      log(`[dry-run] Would embed ${result.embedded} rows so far.`)
       continue
     }
 
@@ -113,17 +132,11 @@ export async function backfillMemoryEmbeddings(
       const row = batch[rowIndex]
       if (row === undefined) continue
 
-      if (!dryRun) {
-        await store(row.id, vector)
-      }
+      await store(row.id, vector)
       result.embedded++
     }
 
-    log(
-      dryRun
-        ? `[dry-run] Would embed ${result.embedded} rows so far.`
-        : `Embedded ${result.embedded} rows so far.`
-    )
+    log(`Embedded ${result.embedded} rows so far.`)
   }
 
   return result
@@ -135,6 +148,11 @@ export async function backfillMemoryEmbeddings(
 
 if (require.main === module) {
   ;(async () => {
+    // Load env (DATABASE_URL, AI_GATEWAY_API_KEY) BEFORE importing the prisma
+    // client — its PrismaPg adapter reads DATABASE_URL at module-eval time, so
+    // dotenv must run first or the connection string is empty. Honors
+    // DOTENV_CONFIG_PATH for non-default env files (e.g. a worktree).
+    await import('dotenv/config')
     // Lazy-import so tests never load prisma/ai-sdk.
     const { prisma } = await import('@/lib/db/prisma')
     const { Prisma } = await import('@prisma/client')
@@ -153,17 +171,21 @@ if (require.main === module) {
     )
 
     const result = await backfillMemoryEmbeddings({
-      fetchUnembeddedBatch: async (limit: number) => {
+      fetchUnembeddedBatch: async (limit: number, afterId?: string) => {
         // pgvector column is Unsupported → must use raw SQL.
         // deliberate pgvector exception to the "no raw SQL" rule, same
         // as the comment block in memory.repository.ts.
+        // Keyset pagination by id (not OFFSET) — see BackfillDeps docstring.
         type Row = { id: string; category: string; content: unknown }
+        const cursor = afterId
+          ? Prisma.sql`AND "id" > ${afterId}`
+          : Prisma.empty
         const rows = await prisma.$queryRaw<Row[]>(
           Prisma.sql`
             SELECT id, category, content
             FROM "memories"
-            WHERE "embedding" IS NULL
-            ORDER BY "createdAt" ASC
+            WHERE "embedding" IS NULL ${cursor}
+            ORDER BY "id" ASC
             LIMIT ${limit}
           `
         )
