@@ -1455,5 +1455,8 @@
   "mention.sprints": "Sprints",
   "mention.projects": "Proyectos",
   "mention.milestones": "Hitos",
-  "mention.searching": "Buscando…"
+  "mention.searching": "Buscando…",
+  "progress.summaryRuns": "{value} ejecuciones hasta ahora",
+  "progress.summaryTokens": "{value} tokens usados",
+  "progress.summaryClarify": "{value} rondas de aclaración"
 }

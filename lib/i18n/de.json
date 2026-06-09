@@ -1455,5 +1455,8 @@
   "mention.sprints": "Sprints",
   "mention.projects": "Projekte",
   "mention.milestones": "Meilensteine",
-  "mention.searching": "Suche…"
+  "mention.searching": "Suche…",
+  "progress.summaryRuns": "Bisher {value} Durchläufe",
+  "progress.summaryTokens": "{value} Tokens verwendet",
+  "progress.summaryClarify": "{value} Klärungsrunden"
 }

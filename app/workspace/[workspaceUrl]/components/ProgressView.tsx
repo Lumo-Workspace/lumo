@@ -1,7 +1,11 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import type { ProgressMetric, TaskProgress } from '@/lib/forecast/progress-types'
+import type {
+  ProgressMetric,
+  TaskProgress,
+} from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
 
 function compact(intl: ReturnType<typeof useIntl>, n: number) {
@@ -62,7 +66,16 @@ function ProgressCompareRow({
   )
 }
 
-/** 交付中态：活预测 + 累计 actual 的实时 burn 对比。 */
+// 无预测时的中性进行态摘要行：左对齐自然语言事实句，不走 forecast 对比框架。
+function SummaryLine({ children }: { children: ReactNode }) {
+  return (
+    <li className='py-1 text-body-strong text-foreground tabular-nums'>
+      {children}
+    </li>
+  )
+}
+
+/** 交付中态：活预测 + 累计 actual 的实时 burn 对比；无预测时降级为中性进行态摘要。 */
 export function ProgressView({
   progress,
   agentStatus,
@@ -73,8 +86,15 @@ export function ProgressView({
   const intl = useIntl()
   const { tokenCost, iterations, clarifyRounds } = progress
   const running = agentStatus === 'WORKING'
-  const showToken = !!tokenCost.forecast && tokenCost.actual !== null
   const tokenOver = tokenCost.band === 'over'
+
+  // token 是独立轨道；cohort 指标 iterations/clarifyRounds 同生同灭（判一个即可）。
+  const hasTokenBand = !!tokenCost.forecast && tokenCost.actual !== null
+  const hasCohortForecast = !!iterations.forecast
+  const showTokenSummary =
+    !hasTokenBand && tokenCost.actual !== null && tokenCost.actual > 0
+  const showClarifySummary =
+    clarifyRounds.actual !== null && clarifyRounds.actual > 0
 
   return (
     <section className='mt-6 border-t border-border pt-6'>
@@ -90,7 +110,7 @@ export function ProgressView({
         )}
       </div>
 
-      {showToken && tokenCost.forecast && (
+      {hasTokenBand && tokenCost.forecast && (
         <div className='mb-4'>
           <p className='mb-2 text-caption text-muted-foreground'>
             {intl.formatMessage({ id: 'progress.tokenUsage' })}
@@ -127,19 +147,46 @@ export function ProgressView({
         </div>
       )}
 
-      <div className='border-t border-border pt-3'>
-        <p className='mb-1 text-caption text-muted-foreground'>
-          {intl.formatMessage({ id: 'progress.sectionLabel' })}
-        </p>
-        <ProgressCompareRow
-          label={intl.formatMessage({ id: 'progress.iterations' })}
-          metric={iterations}
-        />
-        <ProgressCompareRow
-          label={intl.formatMessage({ id: 'progress.clarifyRounds' })}
-          metric={clarifyRounds}
-        />
-      </div>
+      {hasCohortForecast ? (
+        <div className='border-t border-border pt-3'>
+          <p className='mb-1 text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'progress.sectionLabel' })}
+          </p>
+          <ProgressCompareRow
+            label={intl.formatMessage({ id: 'progress.iterations' })}
+            metric={iterations}
+          />
+          <ProgressCompareRow
+            label={intl.formatMessage({ id: 'progress.clarifyRounds' })}
+            metric={clarifyRounds}
+          />
+        </div>
+      ) : (
+        <ul className='border-t border-border pt-3'>
+          <SummaryLine>
+            {intl.formatMessage(
+              { id: 'progress.summaryRuns' },
+              { value: iterations.actual ?? 0 }
+            )}
+          </SummaryLine>
+          {showTokenSummary && (
+            <SummaryLine>
+              {intl.formatMessage(
+                { id: 'progress.summaryTokens' },
+                { value: compact(intl, tokenCost.actual as number) }
+              )}
+            </SummaryLine>
+          )}
+          {showClarifySummary && (
+            <SummaryLine>
+              {intl.formatMessage(
+                { id: 'progress.summaryClarify' },
+                { value: clarifyRounds.actual as number }
+              )}
+            </SummaryLine>
+          )}
+        </ul>
+      )}
     </section>
   )
 }

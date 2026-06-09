@@ -1455,5 +1455,8 @@
   "mention.sprints": "Sprint",
   "mention.projects": "Projek",
   "mention.milestones": "Tonggak",
-  "mention.searching": "Mencari…"
+  "mention.searching": "Mencari…",
+  "progress.summaryRuns": "{value} larian setakat ini",
+  "progress.summaryTokens": "{value} token digunakan",
+  "progress.summaryClarify": "{value} pusingan penjelasan"
 }

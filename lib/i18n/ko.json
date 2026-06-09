@@ -1455,5 +1455,8 @@
   "mention.sprints": "스프린트",
   "mention.projects": "프로젝트",
   "mention.milestones": "마일스톤",
-  "mention.searching": "검색 중…"
+  "mention.searching": "검색 중…",
+  "progress.summaryRuns": "지금까지 {value}회 실행",
+  "progress.summaryTokens": "{value} 토큰 사용",
+  "progress.summaryClarify": "확인 {value}회"
 }

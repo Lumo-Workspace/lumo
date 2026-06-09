@@ -1455,5 +1455,8 @@
   "mention.sprints": "衝刺",
   "mention.projects": "專案",
   "mention.milestones": "里程碑",
-  "mention.searching": "搜尋中…"
+  "mention.searching": "搜尋中…",
+  "progress.summaryRuns": "已執行 {value} 次",
+  "progress.summaryTokens": "已用 {value} token",
+  "progress.summaryClarify": "已澄清 {value} 輪"
 }

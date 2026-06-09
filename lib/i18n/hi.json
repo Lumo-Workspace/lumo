@@ -1455,5 +1455,8 @@
   "mention.sprints": "स्प्रिंट",
   "mention.projects": "प्रोजेक्ट",
   "mention.milestones": "मील के पत्थर",
-  "mention.searching": "खोज रहा है…"
+  "mention.searching": "खोज रहा है…",
+  "progress.summaryRuns": "अब तक {value} रन",
+  "progress.summaryTokens": "{value} टोकन उपयोग किए गए",
+  "progress.summaryClarify": "{value} स्पष्टीकरण दौर"
 }

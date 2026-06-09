@@ -1455,5 +1455,8 @@
   "mention.sprints": "スプリント",
   "mention.projects": "プロジェクト",
   "mention.milestones": "マイルストーン",
-  "mention.searching": "検索中…"
+  "mention.searching": "検索中…",
+  "progress.summaryRuns": "これまで {value} 回実行",
+  "progress.summaryTokens": "{value} トークン使用",
+  "progress.summaryClarify": "確認 {value} 回"
 }
