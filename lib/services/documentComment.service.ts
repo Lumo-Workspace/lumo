@@ -1,6 +1,5 @@
 import { documentCommentRepository } from '@/lib/repositories/documentComment.repository'
 import { documentRepository } from '@/lib/repositories/document.repository'
-import { memberRepository, notificationRepository } from '@/lib/repositories'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { pushDocumentEvent } from '@/lib/integrations/pusher/server'
 import {
@@ -9,11 +8,9 @@ import {
   removeCommentSpan,
 } from '@/lib/editor/comment-mark-html'
 import type { DocumentCommentStatus } from '@prisma/client'
-import { shouldNotifyBatch } from '@/lib/services/notification.service'
-import { sendDMNotification } from '@/lib/integrations/slack'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
-import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 
 type WaitUntil = (p: Promise<unknown>) => void
 
@@ -71,14 +68,6 @@ export const documentCommentService = {
     } = params
 
     const authorClerkId = await getActorClerkId(authorActorId)
-    const mentionedIds = parseMentionedUserClerkIds(body, authorClerkId ?? '')
-    if (mentionedIds.length === 0) return
-
-    const members = await memberRepository.findByWorkspaceAndClerkIds(
-      workspaceId,
-      mentionedIds
-    )
-    if (members.length === 0) return
 
     const docUrl = buildDocumentUrl(workspaceSlug, docSlug)
     const mentionPayload = {
@@ -87,44 +76,19 @@ export const documentCommentService = {
       commentBody: body.replace(/<[^>]+>/g, '').slice(0, 200),
     }
 
-    const recipientActors = members
-      .map(m => m.actor?.id)
-      .filter((actorId): actorId is string => !!actorId)
-
-    // Batch preference checks for inApp and slack channels
-    const [inAppAllowed, slackAllowed] = await Promise.all([
-      shouldNotifyBatch(recipientActors, 'inApp', 'DOCUMENT_COMMENT_MENTIONED'),
-      shouldNotifyBatch(recipientActors, 'slack', 'DOCUMENT_COMMENT_MENTIONED'),
-    ])
-
-    // Slack DM — only to users who have slack mention enabled
-    for (const m of members) {
-      if (m.actor?.id && slackAllowed.has(m.actor.id)) {
-        waitUntil(
-          sendDMNotification(
-            workspaceId,
-            m.clerkId,
-            'comment_mention',
-            mentionPayload
-          )
-        )
-      }
-    }
-
-    // Inbox notifications — only for users who have inApp mention enabled
-    const inAppRecipients = recipientActors.filter(id => inAppAllowed.has(id))
-    if (inAppRecipients.length === 0) return
-
-    await notificationRepository.createMany(
-      inAppRecipients.map(recipientActorId => ({
-        workspaceId,
-        recipientActorId,
-        type: 'DOCUMENT_COMMENT_MENTIONED' as const,
-        documentId,
-        documentCommentId,
-        triggerActorId: authorActorId,
-      }))
-    )
+    // DM + inbox + realtime via the shared core (comment create ⇒ oldHtml = '').
+    await notifyMentionDelta({
+      oldHtml: '',
+      newHtml: body,
+      authorClerkId: authorClerkId ?? '',
+      authorActorId,
+      workspaceId,
+      notificationType: 'DOCUMENT_COMMENT_MENTIONED',
+      ref: { documentId, documentCommentId },
+      slackEvent: 'comment_mention',
+      slackPayload: mentionPayload,
+      waitUntil,
+    })
   },
 
   async getComments(documentId: string, memberId: string, workspaceId: string) {

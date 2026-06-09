@@ -10,6 +10,10 @@ jest.mock('@/lib/repositories/document.repository')
 jest.mock('@/lib/integrations/pusher/server', () => ({
   pushDocumentEvent: jest.fn().mockResolvedValue(undefined),
 }))
+// notifyMentionDelta pushes a realtime inbox event to inApp-enabled recipients.
+jest.mock('@/lib/integrations/pusher', () => ({
+  pushUserEvent: jest.fn().mockResolvedValue(undefined),
+}))
 jest.mock('@/lib/repositories', () => ({
   memberRepository: {
     findByWorkspaceAndClerkIds: jest.fn().mockResolvedValue([]),
