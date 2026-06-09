@@ -84,6 +84,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       taskNumber: task.number,
       teamIdentifier: task.team?.identifier ?? '',
       workspaceSlug: task.project.workspace?.slug ?? '',
+      projectName: task.project.name,
       waitUntil,
     })
 

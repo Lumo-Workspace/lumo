@@ -30,6 +30,7 @@ export function buildTaskNotificationCtx(
     projectId: string
     number: number
     project: {
+      name: string
       workspaceId: string
       workspace?: { slug: string } | null
     }
@@ -47,7 +48,12 @@ export function buildTaskNotificationCtx(
     workspaceId: task.project.workspaceId,
     taskTitle: updated.title,
     taskIdentifier,
-    taskUrl: buildTaskUrl(workspaceSlug, updated.team.identifier, task.number),
+    taskUrl: buildTaskUrl(
+      workspaceSlug,
+      task.project.name,
+      updated.team.identifier,
+      task.number
+    ),
     projectId: task.projectId,
     triggerActorId,
     triggerClerkId,

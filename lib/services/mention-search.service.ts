@@ -33,7 +33,7 @@ export const mentionSearchService = {
         label: identifier,
         sublabel: t.title,
         status: t.status,
-        href: `/workspace/${workspaceSlug}/tasks/${identifier}`,
+        href: `/workspace/${workspaceSlug}/projects/${slugify(t.project.name)}/tasks/${identifier}`,
       })
     }
     for (const s of sprints) {

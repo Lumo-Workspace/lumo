@@ -211,7 +211,7 @@ async function runOutboundCreate(commentId: string) {
     // Re-use existingMirror — do NOT call reserve() again.
     const retryTask = await taskRepository.findForComment(comment.taskId)
     const retryCommentUrl = retryTask
-      ? `${buildTaskUrl(retryTask.project.workspace.slug, retryTask.team.identifier, retryTask.number)}#comment-${commentId}`
+      ? `${buildTaskUrl(retryTask.project.workspace.slug, retryTask.project.name, retryTask.team.identifier, retryTask.number)}#comment-${commentId}`
       : ''
     const { body: retryBody } = await buildOutboundBody(
       comment,
@@ -285,7 +285,7 @@ async function runOutboundCreate(commentId: string) {
 
   const task = await taskRepository.findForComment(comment.taskId)
   const commentUrl = task
-    ? `${buildTaskUrl(task.project.workspace.slug, task.team.identifier, task.number)}#comment-${commentId}`
+    ? `${buildTaskUrl(task.project.workspace.slug, task.project.name, task.team.identifier, task.number)}#comment-${commentId}`
     : ''
   const { body, bodyHash } = await buildOutboundBody(
     comment,
@@ -382,7 +382,7 @@ async function runOutboundUpdate(commentId: string) {
 
   const updateTask = await taskRepository.findForComment(comment.taskId)
   const updateCommentUrl = updateTask
-    ? `${buildTaskUrl(updateTask.project.workspace.slug, updateTask.team.identifier, updateTask.number)}#comment-${commentId}`
+    ? `${buildTaskUrl(updateTask.project.workspace.slug, updateTask.project.name, updateTask.team.identifier, updateTask.number)}#comment-${commentId}`
     : ''
   const { body, bodyHash } = await buildOutboundBody(
     comment,

@@ -31,7 +31,7 @@ export async function notifyTaskInReview(params: {
       title: true,
       number: true,
       projectId: true,
-      project: { select: { ownerId: true } },
+      project: { select: { name: true, ownerId: true } },
       team: {
         select: {
           identifier: true,
@@ -51,6 +51,7 @@ export async function notifyTaskInReview(params: {
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
   const taskUrl = buildTaskUrl(
     task.team.workspace.slug,
+    task.project.name,
     task.team.identifier,
     task.number
   )

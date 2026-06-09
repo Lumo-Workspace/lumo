@@ -54,7 +54,7 @@ async function findTaskForBranch(
   workspaceId: string
 ): Promise<
   | (Task & {
-      project: Pick<Project, 'ownerId' | 'workspaceId'>
+      project: Pick<Project, 'name' | 'ownerId' | 'workspaceId'>
       team: { identifier: string }
     })
   | null
@@ -141,7 +141,12 @@ export async function handlePullRequest(
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
-  const taskUrl = buildTaskUrl(workspaceSlug, task.team.identifier, task.number)
+  const taskUrl = buildTaskUrl(
+    workspaceSlug,
+    task.project.name,
+    task.team.identifier,
+    task.number
+  )
 
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {

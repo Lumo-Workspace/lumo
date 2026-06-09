@@ -45,6 +45,7 @@ export interface TaskUpdateResult {
 /** Minimal shape of a task detail needed by updateTaskWithSideEffects. */
 export interface TaskDetailForUpdate {
   project: {
+    name: string
     workspaceId: string
     workspace?: { slug: string } | null
   }

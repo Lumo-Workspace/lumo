@@ -36,6 +36,7 @@ export const mentionSearchRepository = {
         title: true,
         status: true,
         team: { select: { identifier: true } },
+        project: { select: { name: true } },
       },
       orderBy: { updatedAt: 'desc' },
       take,

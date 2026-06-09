@@ -231,7 +231,7 @@ export const githubRepository = {
         team: { identifier: teamIdentifier, workspaceId },
       },
       include: {
-        project: { select: { ownerId: true, workspaceId: true } },
+        project: { select: { name: true, ownerId: true, workspaceId: true } },
         team: { select: { identifier: true } },
       },
     })
