@@ -83,6 +83,15 @@ export const MentionWithType = Mention.extend({
       },
     }
   },
+  parseHTML() {
+    // The custom renderHTML below emits `<a class="mention mention-*">` (entities)
+    // and `<span class="mention mention-user">` (people) WITHOUT a
+    // `data-type="mention"` attribute, so the default Mention parse rule
+    // (span[data-type="mention"]) never matches. Claim our own serialized DOM
+    // by class instead, so stored content round-trips in both the editor and
+    // the read-only viewer.
+    return [{ tag: 'a.mention' }, { tag: 'span.mention' }]
+  },
   renderHTML({ node, HTMLAttributes }) {
     return renderMentionHTML(node.attrs, HTMLAttributes)
   },
