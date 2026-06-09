@@ -1004,4 +1004,94 @@ export const evalSet: EvalCase[] = [
     expectedOp: 'ADD',
     note: 'Different PROCEDURAL (two test roots).',
   },
+
+  // ── CROSS-LANGUAGE (ZH candidate ↔ EN existing) — LUM-336 ──────────────────
+  // Purpose: measure raw cross-language cosine so we can document that
+  // English-canonicalization (not the raw embedding) is what makes dedup work.
+  {
+    id: 'xlang-prisma-drift-dup-01',
+    category: 'TRAP',
+    existing: {
+      summary: 'Vercel CI does NOT run prisma migrate deploy — prod schema drifts',
+      trigger: 'Merging a schema-change PR',
+      outcome: 'App reads columns absent in prod → 500s until you migrate deploy manually',
+    },
+    candidate: {
+      summary: 'Vercel CI 不会自动跑 prisma migrate deploy，生产 schema 漂移',
+      trigger: '合并带 schema 变更的 PR',
+      outcome: '应用读取生产环境不存在的列 → 500，直到手动 migrate deploy',
+    },
+    relationship: 'DUPLICATE',
+    expectedOp: 'NOOP',
+    note: 'Cross-language duplicate (ZH translation of the EN trap).',
+  },
+  {
+    id: 'xlang-tag-ops-dup-02',
+    category: 'CONVENTION',
+    existing: {
+      rule: 'Use tagIds for full replacement; addTagIds / removeTagIds for partial mutations',
+      scope: 'Document and task tag operation schemas',
+    },
+    candidate: {
+      rule: '用 tagIds 做整体替换；addTagIds / removeTagIds 做局部增删',
+      scope: '文档和任务的标签操作 schema',
+    },
+    relationship: 'DUPLICATE',
+    expectedOp: 'NOOP',
+    note: 'Cross-language duplicate (ZH translation of the EN convention).',
+  },
+  {
+    id: 'xlang-embedding-floor-dup-03',
+    category: 'DECISION',
+    existing: {
+      summary: 'The embedding path needs its own higher floor',
+      what: 'Embedding cosine uses a separate, higher floor than the lexical 0.3',
+      why: 'Unrelated sentence embeddings sit around 0.3–0.5 cosine, so 0.3 admits noise',
+    },
+    candidate: {
+      summary: 'embedding 路径需要独立的更高 floor 值',
+      what: 'embedding cosine 使用独立的更高 floor，而非与词法相同的 0.3',
+      why: '无关句子的 embedding 余弦值约在 0.3–0.5 之间，0.3 会引入噪声',
+    },
+    relationship: 'DUPLICATE',
+    expectedOp: 'NOOP',
+    note: 'Cross-language duplicate (ZH translation of the EN decision).',
+  },
+  {
+    id: 'xlang-worktree-loop-dup-04',
+    category: 'PROCEDURAL',
+    existing: {
+      summary: 'Worktree-per-task dev loop',
+      workflow:
+        'lumo worktree add scaffolds .worktrees/<id> with a node_modules symlink off origin/main; run jest inside the worktree',
+      trigger: 'Starting isolated work on a task',
+    },
+    candidate: {
+      summary: '每个任务独立 worktree 的开发流程',
+      workflow:
+        'lumo worktree add 在 .worktrees/<id> 下搭建环境，node_modules 通过 symlink 指向 origin/main；在 worktree 内运行 jest',
+      trigger: '开始对某个任务进行隔离开发',
+    },
+    relationship: 'DUPLICATE',
+    expectedOp: 'NOOP',
+    note: 'Cross-language duplicate (ZH translation of the EN procedural).',
+  },
+  {
+    id: 'xlang-reconcile-nodelete-refine-05',
+    category: 'DECISION',
+    existing: {
+      summary:
+        'Reconcile-on-write uses a two-stage Extract→Retrieve→Reconcile→Apply pipeline',
+      what: 'Extraction is blind to existing memories; a second pass reconciles each candidate against its neighbors',
+      why: 'Keeps retrieval cheap (no LLM) and isolates the LLM call to reconciliation',
+    },
+    candidate: {
+      summary: 'reconcile-on-write 两阶段流水线，且第二层不开放 DELETE 操作',
+      what: '提取阶段对已有记忆视而不见；第二遍 reconcile 将每个候选与邻居对比。第二层（项目级）只允许 ADD/UPDATE/SUPERSEDE/NOOP，不允许 DELETE',
+      why: '保持检索无 LLM 开销，且单次 session 不应硬删跨 session 的项目级记忆',
+    },
+    relationship: 'REFINEMENT',
+    expectedOp: 'UPDATE',
+    note: 'Cross-language refinement: ZH candidate adds the L2 no-DELETE constraint to the EN pipeline decision.',
+  },
 ]

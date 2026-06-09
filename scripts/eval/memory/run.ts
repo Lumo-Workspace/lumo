@@ -138,6 +138,25 @@ function lexicalRecall(): { at1: number; at3: number; at10: number } {
   }
 }
 
+function crossLingualReport(model: string): {
+  n: number
+  meanRaw: number
+  minRaw: number
+  belowFloor: number
+} {
+  const xlang = evalSet.filter(c => c.id.startsWith('xlang-'))
+  const raws: number[] = []
+  for (const c of xlang) {
+    const cand = fx.cases[c.id]!.candidate[model]!
+    const exist = fx.cases[c.id]!.existing[model]!
+    raws.push(cosineSimilarity(cand, exist))
+  }
+  const mean = raws.length ? raws.reduce((a, b) => a + b, 0) / raws.length : 0
+  const min = raws.length ? Math.min(...raws) : 0
+  const belowFloor = raws.filter(r => r < 0.78).length
+  return { n: raws.length, meanRaw: mean, minRaw: min, belowFloor }
+}
+
 async function main(): Promise<void> {
   const models = fx.models
   const arByModel = Object.fromEntries(models.map(m => [m, arForModel(m)]))
@@ -165,6 +184,14 @@ async function main(): Promise<void> {
   }
   log(
     `\n  lexical recall@1/@3/@10 = ${lex.at1.toFixed(3)}/${lex.at3.toFixed(3)}/${lex.at10.toFixed(3)}  vs  embedding(${PROD_MODEL}) recall@1/@10 = ${prod.recallAt1.toFixed(3)}/${prod.recallAt10.toFixed(3)}`
+  )
+
+  const xl = crossLingualReport(PROD_MODEL)
+  log(
+    `\n  cross-lingual RAW cosine (${PROD_MODEL}, n=${xl.n}): mean=${xl.meanRaw.toFixed(3)} min=${xl.minRaw.toFixed(3)} below-0.78=${xl.belowFloor}/${xl.n}`
+  )
+  log(
+    `    → ${xl.belowFloor > 0 ? 'cross-language synonyms fall below the floor; LUM-336 canonicalizes manual content to English so dedup runs same-language.' : 'cross-language synonyms clear the floor at this model.'}`
   )
 
   let sf: ReturnType<typeof scoreSfRun> | null = null

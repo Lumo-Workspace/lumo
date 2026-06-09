@@ -34,4 +34,13 @@ describe('eval-set corpus', () => {
     // every positive case competes against ≥40 other existing members
     expect(evalSet.filter(isPositiveCase).length).toBeGreaterThanOrEqual(35)
   })
+
+  it('includes cross-language (ZH↔EN) duplicate cases', () => {
+    const xlang = evalSet.filter(c => c.id.startsWith('xlang-'))
+    expect(xlang.length).toBeGreaterThanOrEqual(5)
+    for (const c of xlang) {
+      const text = JSON.stringify(c.candidate)
+      expect(/[一-鿿]/.test(text)).toBe(true)
+    }
+  })
 })
