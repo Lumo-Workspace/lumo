@@ -60,8 +60,30 @@ export function NotificationItem({
   onTaskAction,
 }: NotificationItemProps) {
   const intlLocal = useIntl()
-  const { actor, task, sprint, type, commentPreview, createdAt, read } =
-    notification
+  const {
+    actor,
+    task,
+    sprint,
+    project,
+    milestone,
+    document,
+    type,
+    commentPreview,
+    createdAt,
+    read,
+  } = notification
+
+  // URL of the mentioned entity for project/milestone/document mention
+  // notifications. Task/sprint notifications keep the existing in-page
+  // detail-panel selection flow (no href), so this stays null for them.
+  const entityUrl =
+    type === 'PROJECT_MENTIONED'
+      ? (project?.url ?? null)
+      : type === 'MILESTONE_MENTIONED'
+        ? (milestone?.url ?? null)
+        : type === 'DOCUMENT_MENTIONED' || type === 'DOCUMENT_COMMENT_MENTIONED'
+          ? (document?.url ?? null)
+          : null
 
   // Track which review action was taken this session so buttons stay visible
   // after clicking instead of disappearing when read flips to true.
@@ -126,6 +148,22 @@ export function NotificationItem({
     SPRINT_CLOSED: intlLocal.formatMessage({
       id: 'notification.verb.sprintClosed',
       defaultMessage: 'closed sprint',
+    }),
+    PROJECT_MENTIONED: intlLocal.formatMessage({
+      id: 'notification.verb.projectMentioned',
+      defaultMessage: 'mentioned you in',
+    }),
+    MILESTONE_MENTIONED: intlLocal.formatMessage({
+      id: 'notification.verb.milestoneMentioned',
+      defaultMessage: 'mentioned you in',
+    }),
+    DOCUMENT_MENTIONED: intlLocal.formatMessage({
+      id: 'notification.verb.documentMentioned',
+      defaultMessage: 'mentioned you in',
+    }),
+    DOCUMENT_COMMENT_MENTIONED: intlLocal.formatMessage({
+      id: 'notification.verb.documentCommentMentioned',
+      defaultMessage: 'mentioned you in a comment on',
     }),
   }
   const verb =
@@ -204,6 +242,29 @@ export function NotificationItem({
                       defaultMessage: 'a sprint',
                     })}
                 </span>
+              ) : type === 'PROJECT_MENTIONED' && project ? (
+                <a
+                  href={entityUrl ?? undefined}
+                  className='font-medium hover:underline'
+                >
+                  {project.name}
+                </a>
+              ) : type === 'MILESTONE_MENTIONED' && milestone ? (
+                <a
+                  href={entityUrl ?? undefined}
+                  className='font-medium hover:underline'
+                >
+                  {milestone.name}
+                </a>
+              ) : (type === 'DOCUMENT_MENTIONED' ||
+                  type === 'DOCUMENT_COMMENT_MENTIONED') &&
+                document ? (
+                <a
+                  href={entityUrl ?? undefined}
+                  className='font-medium hover:underline'
+                >
+                  {document.title}
+                </a>
               ) : (
                 <>
                   <span className='font-medium'>
