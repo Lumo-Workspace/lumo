@@ -95,6 +95,8 @@ export const notificationRepository = {
       type: NotificationType
       taskId?: string | null
       sprintId?: string | null
+      projectId?: string | null
+      milestoneId?: string | null
       triggerActorId: string | null
       commentId?: string
       documentId?: string | null
