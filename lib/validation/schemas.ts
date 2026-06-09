@@ -1,5 +1,24 @@
 import { z } from 'zod'
 
+/**
+ * Max length for rich-text body fields (HTML serialized client-side).
+ *
+ * Task / Milestone / Project descriptions and Document content all share this
+ * single cap — they live in unbounded Postgres `text` columns and use the same
+ * rich-text editor. Keep this the single source of truth — do not reintroduce
+ * per-field literals.
+ *
+ * 3M chars is a deliberate guardrail, NOT a storage limit: it sits well under
+ * the platform request-body limit (Vercel serverless ~4.5MB) so a request this
+ * large is rejected at the edge anyway, while still bounding parse/memory cost
+ * (UTF-16 → ~6MB) and never rejecting a realistic document.
+ *
+ * Note: AI-input guards (suggestPriority, generateDescription, priority-override
+ * snapshots) intentionally keep a smaller, separate bound — they gate what is
+ * sent to an LLM, not what is persisted.
+ */
+const RICH_TEXT_MAX_LENGTH = 3_000_000
+
 // ─── Reserved slugs (routes that conflict with workspace URLs) ──────────────
 
 const RESERVED_SLUGS = [
@@ -65,13 +84,13 @@ export const createProjectSchema = z.object({
     .trim()
     .min(1, 'Name is required')
     .max(200, 'Name must be at most 200 characters'),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
   isIdea: z.boolean().optional().default(false),
 })
 
 export const updateProjectSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  description: z.string().max(2000).nullable().optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   isIdea: z.boolean().optional(),
   ownerId: z.string().nullable().optional(),
   riskOverdueRatio: z.number().min(0).max(1).nullable().optional(),
@@ -115,7 +134,7 @@ export const createTaskSchema = z.object({
     .trim()
     .min(1, 'Title is required')
     .max(500, 'Title must be at most 500 characters'),
-  description: z.string().max(10000).nullable().optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   status: z
     .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
     .optional()
@@ -137,8 +156,8 @@ export const createTaskSchema = z.object({
 export const updateTaskSchema = z
   .object({
     title: z.string().trim().min(1).max(500).optional(),
-    description: z.string().max(10000).nullable().optional(),
-    spec: z.string().max(20000).nullable().optional(),
+    description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
+    spec: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeActorId: z.string().nullable().optional(),
@@ -170,7 +189,7 @@ export const cliCreateTaskSchema = z.object({
     .trim()
     .min(1, 'Title is required')
     .max(500, 'Title must be at most 500 characters'),
-  description: z.string().max(10000).nullable().optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   priority: z
     .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
     .optional()
@@ -198,7 +217,7 @@ export const cliUpdateTaskSchema = z
       .min(1, 'Title cannot be empty')
       .max(500, 'Title must be at most 500 characters')
       .optional(),
-    description: z.string().max(10000).nullable().optional(),
+    description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
     status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
@@ -296,7 +315,7 @@ export const createDocumentCommentSchema = z
      * Full document HTML with the new comment mark applied client-side.
      * Required for top-level (anchored) comments; omitted for replies.
      */
-    content: z.string().max(500000).optional(),
+    content: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
   })
   .refine(v => v.from === undefined || v.to === undefined || v.to >= v.from, {
     message: 'to must be >= from',
@@ -351,7 +370,7 @@ export const createDocumentSchema = z.object({
     .enum(['PRIVATE', 'SHARED', 'WORKSPACE'])
     .optional()
     .default('PRIVATE'),
-  contentMarkdown: z.string().max(500000).optional(),
+  contentMarkdown: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
   templateId: z.string().cuid().optional(),
   ...tagIdsShape,
 })
@@ -359,8 +378,8 @@ export const createDocumentSchema = z.object({
 export const updateDocumentSchema = z
   .object({
     title: z.string().trim().min(1).max(500).optional(),
-    content: z.string().max(500000).nullable().optional(),
-    contentMarkdown: z.string().max(500000).optional(),
+    content: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
+    contentMarkdown: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
     emoji: z.string().max(10).nullable().optional(),
     visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
     projectId: z.string().cuid().nullable().optional(),
@@ -505,7 +524,7 @@ const executeCreateActionSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   projectId: z.string().min(1, 'Project ID is required'),
   assigneeActorId: z.string().nullable().optional(),
-  description: z.string().max(10000).optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
   dueDate: z.string().datetime().nullable().optional(),
 })
 
@@ -526,7 +545,7 @@ export const executeQuickDispatchSchema = z.object({
 
 export const taskDraftDataSchema = z.object({
   title: z.string().max(500).optional(),
-  description: z.string().max(10000).optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   projectId: z.string().optional(),
@@ -537,7 +556,7 @@ export const taskDraftDataSchema = z.object({
 
 export const projectDraftDataSchema = z.object({
   name: z.string().max(200).optional(),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).optional(),
 })
 
 export const upsertDraftSchema = z.object({
@@ -580,14 +599,14 @@ export const createMilestoneSchema = z.object({
     .trim()
     .min(1, 'Name is required')
     .max(120, 'Name must be at most 120 characters'),
-  description: z.string().max(2000).nullable().optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   startDate: z.coerce.date().optional(),
   targetDate: z.coerce.date().optional(),
 })
 
 export const updateMilestoneSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
-  description: z.string().max(2000).nullable().optional(),
+  description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']).optional(),
   startDate: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),

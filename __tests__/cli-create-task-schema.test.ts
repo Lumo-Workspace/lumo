@@ -53,10 +53,18 @@ describe('cliCreateTaskSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects description over 10000 chars', () => {
+  it('accepts a long, document-sized description', () => {
     const result = cliCreateTaskSchema.safeParse({
       title: 't',
-      description: 'x'.repeat(10001),
+      description: 'x'.repeat(100000),
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects description over 3000000 chars', () => {
+    const result = cliCreateTaskSchema.safeParse({
+      title: 't',
+      description: 'x'.repeat(3000001),
     })
     expect(result.success).toBe(false)
   })
