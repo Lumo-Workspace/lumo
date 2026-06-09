@@ -94,6 +94,9 @@ enum NotificationType {
   SPRINT_STARTED
   SPRINT_CLOSED
   DOCUMENT_COMMENT_MENTIONED
+  PROJECT_MENTIONED // @mentioned in a project description
+  MILESTONE_MENTIONED // @mentioned in a milestone description
+  DOCUMENT_MENTIONED // @mentioned in a document body
 }
 
 enum CommentType {
@@ -710,6 +713,8 @@ model Notification {
   sprintId          String?
   documentId        String?
   documentCommentId String?
+  projectId         String?
+  milestoneId       String?
   triggerActorId    String? // Actor.id — who/what triggered it; null for system
   read              Boolean          @default(false)
   requiresAction    Boolean          @default(false) // AGENT_CLARIFY / AGENT_AUTHORIZE / AGENT_VERIFY
