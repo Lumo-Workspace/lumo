@@ -19,6 +19,7 @@ import {
   useMilestoneByProjectAndSlug,
 } from '../../hooks/useMilestone'
 import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
+import { useMembers } from '../../hooks/useMembers'
 import { useProjects } from '../../hooks/useProjects'
 import { DetailLayout } from '../DetailLayout'
 import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
@@ -48,6 +49,12 @@ export function MilestoneDetailPage({
   const segment = params.milestoneId
   const isCuid = MILESTONE_CUID_RE.test(segment ?? '')
   const { projects } = useProjects()
+  // Members power @-mentioning people in the milestone description. useMembers'
+  // query is disabled by default, so fetch on mount (mirrors SprintDetailClient).
+  const { members, fetchMembers } = useMembers()
+  useEffect(() => {
+    void fetchMembers()
+  }, [fetchMembers])
   const project = useMemo(
     () => findProjectForMilestoneSegment(projects, params.projectSlug),
     [projects, params.projectSlug]
@@ -215,6 +222,7 @@ export function MilestoneDetailPage({
       <MilestoneDetailTabs
         milestone={milestone}
         onUpdate={handleUpdate}
+        members={members}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={toggleSidebar}
         onOpenTask={onOpenTask ?? (() => {})}

@@ -39,6 +39,7 @@ const milestone = {
 
 const baseProps = {
   onUpdate: () => {},
+  members: [],
   sidebarCollapsed: false,
   onToggleSidebar: () => {},
   onOpenTask: () => {},
