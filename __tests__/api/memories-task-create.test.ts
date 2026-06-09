@@ -34,13 +34,15 @@ it('201 creates a task memory bound to the task', async () => {
     project: { workspaceId: 'w1' },
   })
   ;(memoryManagementService.createForTask as jest.Mock).mockResolvedValue({
-    id: 'mem1',
+    outcome: 'ADD',
+    memory: { id: 'mem1' },
   })
   const res = await POST(
     body({ category: 'DECISION', content: { what: 'a', why: 'b' } }),
     params('t1')
   )
   expect(res.status).toBe(201)
+  expect(await res.json()).toEqual({ memory: { id: 'mem1' }, outcome: 'ADD' })
   expect(memoryManagementService.createForTask).toHaveBeenCalledWith(
     expect.objectContaining({
       taskId: 't1',
@@ -49,6 +51,25 @@ it('201 creates a task memory bound to the task', async () => {
       actorMemberId: 'm1',
     })
   )
+})
+
+it('201 propagates non-ADD outcome (NOOP)', async () => {
+  ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
+  ;(taskRepository.findWithProjectWorkspaceId as jest.Mock).mockResolvedValue({
+    id: 't1',
+    projectId: 'p1',
+    project: { workspaceId: 'w1' },
+  })
+  ;(memoryManagementService.createForTask as jest.Mock).mockResolvedValue({
+    outcome: 'NOOP',
+    memory: { id: 'dup1' },
+  })
+  const res = await POST(
+    body({ category: 'DECISION', content: { what: 'a', why: 'b' } }),
+    params('t1')
+  )
+  expect(res.status).toBe(201)
+  expect(await res.json()).toEqual({ memory: { id: 'dup1' }, outcome: 'NOOP' })
 })
 
 it('404 when the task does not exist', async () => {
@@ -93,7 +114,8 @@ it('201 forwards agent to createForTask when valid agent is provided', async () 
     project: { workspaceId: 'w1' },
   })
   ;(memoryManagementService.createForTask as jest.Mock).mockResolvedValue({
-    id: 'mem2',
+    outcome: 'ADD',
+    memory: { id: 'mem2' },
   })
   const res = await POST(
     body({

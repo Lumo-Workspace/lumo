@@ -5,6 +5,8 @@ import type {
   TaskArtifactAgent,
 } from '@prisma/client'
 
+export type CreateOutcome = 'ADD' | 'UPDATE' | 'SUPERSEDE' | 'NOOP'
+
 export interface MemoryRow {
   id: string
   scope: MemoryScope
@@ -34,7 +36,7 @@ export const memoriesClient = {
   createForProject(
     projectId: string,
     body: CreateBody
-  ): Promise<{ memory: { id: string } }> {
+  ): Promise<{ memory: { id: string }; outcome: CreateOutcome }> {
     return apiFetch(`/api/projects/${projectId}/memories`, {
       method: 'POST',
       body,
@@ -44,7 +46,7 @@ export const memoriesClient = {
   createForTask(
     taskId: string,
     body: CreateBody
-  ): Promise<{ memory: { id: string } }> {
+  ): Promise<{ memory: { id: string }; outcome: CreateOutcome }> {
     return apiFetch(`/api/tasks/${taskId}/memories`, { method: 'POST', body })
   },
 

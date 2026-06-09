@@ -29,7 +29,7 @@ it('resolves LUM-N then POSTs the assembled content (201)', async () => {
   const calls: Array<{ url: string; init?: any }> = []
   mockFetchSequence([
     (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
-    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem1' } }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem1' }, outcome: 'ADD' }) } },
   ])
   const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o' } as any)
   expect(code).toBeUndefined()
@@ -39,6 +39,28 @@ it('resolves LUM-N then POSTs the assembled content (201)', async () => {
   expect(out).toHaveBeenCalledWith(expect.stringMatching(/Added TRAP memory to LUM-1/))
 })
 
+it('prints "Skipped" line when outcome is NOOP', async () => {
+  const out = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  mockFetchSequence([
+    () => { return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
+    () => { return { ok: true, status: 201, json: async () => ({ memory: { id: 'm1' }, outcome: 'NOOP' }) } },
+  ])
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o' } as any)
+  expect(code).toBeUndefined()
+  expect(out).toHaveBeenCalledWith(expect.stringMatching(/Skipped — duplicate of existing memory m1, nothing written/))
+})
+
+it('prints "Merged" line when outcome is UPDATE', async () => {
+  const out = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  mockFetchSequence([
+    () => { return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
+    () => { return { ok: true, status: 201, json: async () => ({ memory: { id: 'm1' }, outcome: 'UPDATE' }) } },
+  ])
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o' } as any)
+  expect(code).toBeUndefined()
+  expect(out).toHaveBeenCalledWith(expect.stringMatching(/Merged into existing memory m1 \(near-duplicate\)/))
+})
+
 it('falls back to the session-bound task when <task> is omitted', async () => {
   process.env.CLAUDE_CODE_SESSION_ID = 'sess1'
   jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
@@ -46,7 +68,7 @@ it('falls back to the session-bound task when <task> is omitted', async () => {
   mockFetchSequence([
     (url) => { calls.push(url); return { ok: true, status: 200, json: async () => ({ taskIdentifier: 'LUM-9' }) } }, // session
     (url) => { calls.push(url); return { ok: true, status: 200, json: async () => ({ id: 'task9' }) } }, // resolve
-    (url) => { calls.push(url); return { ok: true, status: 201, json: async () => ({ memory: { id: 'm' } }) } }, // post
+    (url) => { calls.push(url); return { ok: true, status: 201, json: async () => ({ memory: { id: 'm' }, outcome: 'ADD' }) } }, // post
   ])
   const code = await memoryTaskAdd(undefined, { category: 'trap', trigger: 't', outcome: 'o' } as any)
   expect(code).toBeUndefined()
@@ -68,7 +90,7 @@ it('sends agent: CODEX when --agent codex is passed', async () => {
   const calls: Array<{ url: string; init?: any }> = []
   mockFetchSequence([
     (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
-    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem2' } }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem2' }, outcome: 'ADD' }) } },
   ])
   const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o', agent: 'codex' } as any)
   expect(code).toBeUndefined()
@@ -80,7 +102,7 @@ it('resolves gemini alias → GEMINI_CLI in POST body', async () => {
   const calls: Array<{ url: string; init?: any }> = []
   mockFetchSequence([
     (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
-    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem3' } }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem3' }, outcome: 'ADD' }) } },
   ])
   const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o', agent: 'gemini' } as any)
   expect(code).toBeUndefined()
@@ -92,7 +114,7 @@ it('omits agent key when --agent is not passed', async () => {
   const calls: Array<{ url: string; init?: any }> = []
   mockFetchSequence([
     (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
-    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem4' } }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem4' }, outcome: 'ADD' }) } },
   ])
   const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o' } as any)
   expect(code).toBeUndefined()

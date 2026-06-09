@@ -67,5 +67,25 @@ export async function memoryProjectAdd(
     console.error(m ? `Error: ${sanitizeField(m)}` : `Error: memory add failed (HTTP ${res.status})`)
     return 1
   }
-  process.stdout.write(`Added ${built.category} PROJECT memory${echoSuffix}\n`)
+  let outcome = 'ADD'
+  let memId = ''
+  try {
+    const b = (await res.json()) as { outcome?: string; memory?: { id?: string } }
+    if (typeof b.outcome === 'string') outcome = b.outcome
+    if (b.memory && typeof b.memory.id === 'string') memId = b.memory.id
+  } catch { /* keep defaults */ }
+
+  switch (outcome) {
+    case 'NOOP':
+      process.stdout.write(`Skipped — duplicate of existing memory ${memId}, nothing written${echoSuffix}\n`)
+      break
+    case 'UPDATE':
+      process.stdout.write(`Merged into existing memory ${memId} (near-duplicate)${echoSuffix}\n`)
+      break
+    case 'SUPERSEDE':
+      process.stdout.write(`Superseded an existing memory; new version ${memId}${echoSuffix}\n`)
+      break
+    default:
+      process.stdout.write(`Added ${built.category} PROJECT memory${echoSuffix}\n`)
+  }
 }

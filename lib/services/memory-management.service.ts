@@ -2,12 +2,32 @@ import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
+import { canonicalizeToEnglish } from './memory/canonicalize-language'
+import { resolveManualDedup } from './memory/manual-dedup'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 import type { Prisma } from '@prisma/client'
 
 function httpError(message: string, status: number): Error {
   return Object.assign(new Error(message), { status })
+}
+
+export type CreateOutcome = 'ADD' | 'UPDATE' | 'SUPERSEDE' | 'NOOP'
+export interface CreateMemoryResult {
+  outcome: CreateOutcome
+  memory: { id: string }
+}
+
+/** Embed the (canonical) candidate text once for retrieval; undefined on failure
+ * (retrieval then degrades to lexical). Never throws. */
+async function embedCandidate(text: string): Promise<number[] | undefined> {
+  if (!text) return undefined
+  try {
+    const [v] = await embedTexts([text])
+    return v
+  } catch {
+    return undefined
+  }
 }
 
 interface CreateForProjectInput {
@@ -76,50 +96,139 @@ export const memoryManagementService = {
     return memoryRepository.listForTask(taskId)
   },
 
-  async createForProject(input: CreateForProjectInput) {
+  // NOTE: createForTask mirrors createForProject (differs only in scope/taskId/
+  // pool source). Keep the two in sync when changing the canonicalize/dedup flow.
+  async createForProject(
+    input: CreateForProjectInput
+  ): Promise<CreateMemoryResult> {
+    const content = await canonicalizeToEnglish(input.category, input.content)
+    const text = memoryContentToText(input.category, content)
+    const vector = await embedCandidate(text)
+    const pool = (await memoryRepository.listForProject(input.projectId)).map(
+      m => ({ id: m.id, category: m.category, content: m.content })
+    )
+    const resolution = await resolveManualDedup({
+      category: input.category,
+      content,
+      candidateText: text,
+      candidateVector: vector,
+      pool,
+      scope: { kind: 'PROJECT', projectId: input.projectId },
+    })
+
+    if (resolution.kind === 'NOOP') {
+      return { outcome: 'NOOP', memory: { id: resolution.id } }
+    }
+    if (resolution.kind === 'UPDATE') {
+      await memoryRepository.updateContent(
+        resolution.id,
+        resolution.content as Prisma.InputJsonValue
+      )
+      await stampEmbeddingBestEffort(resolution.id, input.category, resolution.content)
+      return { outcome: 'UPDATE', memory: { id: resolution.id } }
+    }
+    if (resolution.kind === 'SUPERSEDE') {
+      const { newId } = await memoryRepository.supersede(
+        resolution.id,
+        resolution.content as Prisma.InputJsonValue
+      )
+      await stampEmbeddingBestEffort(newId, input.category, resolution.content)
+      return { outcome: 'SUPERSEDE', memory: { id: newId } }
+    }
+    // ADD
     const created = await memoryRepository.create({
       workspaceId: input.workspaceId,
       projectId: input.projectId,
       taskId: null,
       scope: 'PROJECT',
       category: input.category,
-      content: input.content as Prisma.InputJsonValue,
+      content: content as Prisma.InputJsonValue,
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
       agent: input.agent,
     })
-    // Best-effort embedding — fire-and-forget (await so errors surface in warn)
-    await stampEmbeddingBestEffort(created.id, input.category, input.content)
-    return created
+    // Reuse the vector already computed for dedup retrieval (same text) instead
+    // of re-embedding. If that embed failed (vector undefined), fall back to a
+    // best-effort stamp (which no-ops again on a repeat gateway failure).
+    if (vector !== undefined) {
+      await memoryRepository.setEmbedding(created.id, vector)
+    } else {
+      await stampEmbeddingBestEffort(created.id, input.category, content)
+    }
+    return { outcome: 'ADD', memory: { id: created.id } }
   },
 
-  async createForTask(input: CreateForTaskInput) {
+  async createForTask(
+    input: CreateForTaskInput
+  ): Promise<CreateMemoryResult> {
+    const content = await canonicalizeToEnglish(input.category, input.content)
+    const text = memoryContentToText(input.category, content)
+    const vector = await embedCandidate(text)
+    const pool = (await memoryRepository.listForTask(input.taskId)).map(m => ({
+      id: m.id,
+      category: m.category,
+      content: m.content,
+    }))
+    const resolution = await resolveManualDedup({
+      category: input.category,
+      content,
+      candidateText: text,
+      candidateVector: vector,
+      pool,
+      scope: { kind: 'TASK', taskId: input.taskId },
+    })
+
+    if (resolution.kind === 'NOOP') {
+      return { outcome: 'NOOP', memory: { id: resolution.id } }
+    }
+    if (resolution.kind === 'UPDATE') {
+      await memoryRepository.updateContent(
+        resolution.id,
+        resolution.content as Prisma.InputJsonValue
+      )
+      await stampEmbeddingBestEffort(resolution.id, input.category, resolution.content)
+      return { outcome: 'UPDATE', memory: { id: resolution.id } }
+    }
+    if (resolution.kind === 'SUPERSEDE') {
+      const { newId } = await memoryRepository.supersede(
+        resolution.id,
+        resolution.content as Prisma.InputJsonValue
+      )
+      await stampEmbeddingBestEffort(newId, input.category, resolution.content)
+      return { outcome: 'SUPERSEDE', memory: { id: newId } }
+    }
     const created = await memoryRepository.create({
       workspaceId: input.workspaceId,
       projectId: input.projectId,
       taskId: input.taskId,
       scope: 'TASK',
       category: input.category,
-      content: input.content as Prisma.InputJsonValue,
+      content: content as Prisma.InputJsonValue,
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
       agent: input.agent,
     })
-    await stampEmbeddingBestEffort(created.id, input.category, input.content)
-    return created
+    // Reuse the vector already computed for dedup retrieval (same text) instead
+    // of re-embedding. If that embed failed (vector undefined), fall back to a
+    // best-effort stamp (which no-ops again on a repeat gateway failure).
+    if (vector !== undefined) {
+      await memoryRepository.setEmbedding(created.id, vector)
+    } else {
+      await stampEmbeddingBestEffort(created.id, input.category, content)
+    }
+    return { outcome: 'ADD', memory: { id: created.id } }
   },
 
   async editContent(memoryId: string, content: MemoryContent) {
-    // Look up the category so stampEmbeddingBestEffort can compute the text.
-    // findByIdWithWorkspace already selects category.
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
-    // Uses update() (not updateContent()) so the full row is returned for the
-    // HTTP response; updateContent() returns only { id }.
+    const canonical = existing
+      ? await canonicalizeToEnglish(existing.category, content)
+      : content
     const updated = await memoryRepository.update(memoryId, {
-      content: content as Prisma.InputJsonValue,
+      content: canonical as Prisma.InputJsonValue,
     })
     if (existing) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, content)
+      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
     }
     return updated
   },
@@ -130,18 +239,19 @@ export const memoryManagementService = {
     if (existing.scope === 'PROJECT') {
       throw httpError('Memory is already project-scoped', 409)
     }
+    const canonical =
+      content !== undefined
+        ? await canonicalizeToEnglish(existing.category, content)
+        : undefined
     const updated = await memoryRepository.update(memoryId, {
       scope: 'PROJECT',
       taskId: null,
-      ...(content !== undefined
-        ? { content: content as Prisma.InputJsonValue }
+      ...(canonical !== undefined
+        ? { content: canonical as Prisma.InputJsonValue }
         : {}),
     })
-    // Stamp embedding if content changed; if only scope changed there is no
-    // new text to embed (content unchanged), so skip to avoid a redundant
-    // re-embed (the row already has an embedding if it was stamped on create).
-    if (content !== undefined) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, content)
+    if (canonical !== undefined) {
+      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
     }
     return updated
   },

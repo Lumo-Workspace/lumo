@@ -27,7 +27,10 @@ function buildScored(model: string): {
 } {
   const floorCases: FloorCase[] = []
   const ranked: ScoredItem[][] = []
-  for (const c of evalSet) {
+  // Exclude cross-lingual cases (xlang-*) to measure same-language AR only,
+  // consistent with the calibration corpus in run.ts.
+  const sameLang = evalSet.filter(c => !c.id.startsWith('xlang-'))
+  for (const c of sameLang) {
     const q = fx.cases[c.id]!.candidate[model]!
     const items: ScoredItem[] = []
     let positiveScore: number | null = null
@@ -36,7 +39,7 @@ function buildScored(model: string): {
       items.push({ id: c.id, score: positiveScore, isPositive: true })
     }
     const distractorScores: number[] = []
-    for (const other of evalSet) {
+    for (const other of sameLang) {
       if (other.id === c.id) continue
       const score = cosineSimilarity(q, fx.cases[other.id]!.existing[model]!)
       distractorScores.push(score)

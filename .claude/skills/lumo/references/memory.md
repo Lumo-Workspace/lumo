@@ -34,6 +34,28 @@ When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
 `lumo task memory add --category trap --trigger ... --outcome ...` records onto
 the bound task; `lumo project memory add ...` records onto its project.
 
+### Reconcile-on-write & deduplication
+
+`memory add` does **not** unconditionally insert a new row. Before writing it:
+
+1. Retrieves the nearest existing memories in the store (embedding similarity).
+2. If a near-duplicate is found — including a **cross-language match** (e.g. you
+   supply content in Chinese but an equivalent English memory already exists) —
+   an LLM decides the outcome; otherwise the new memory is inserted directly.
+
+The command prints **one** of these outcome lines:
+
+| Output line | Meaning |
+|---|---|
+| `Added <CATEGORY> <SCOPE> memory …` | No near-duplicate found; stored as a new row. |
+| `Merged into existing memory <id> (near-duplicate) …` | Near-duplicate found; the existing row was refined/updated in-place (UPDATE). |
+| `Superseded an existing memory; new version <id> …` | New content contradicts an old memory; old row invalidated, new row created (SUPERSEDE). |
+| `Skipped — duplicate of existing memory <id>, nothing written …` | Exact or near-exact duplicate; no write performed (NOOP). |
+
+Content is **always normalized to English** before storing — the memory store has
+a single canonical language. If you supply text in another language the CLI
+translates it automatically; the stored memory will be in English.
+
 ### When to record a memory (worthiness)
 
 Record only knowledge that is **invisible in the codebase** — the _why_ behind a

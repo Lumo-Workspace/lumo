@@ -9,6 +9,11 @@
 import fixture from './vectors.fixture.json'
 import { evalSet } from './eval-set'
 import { isPositiveCase } from './types'
+
+// Same-language subset: exclude cross-lingual pairs (xlang-*) from AR
+// calibration. The xlang cases are retained in evalSet so fixture-gen.ts
+// still embeds them and crossLingualReport() can consume them.
+const sameLangSet = evalSet.filter(c => !c.id.startsWith('xlang-'))
 import { bigramSimilarity } from '@/lib/similarity'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import {
@@ -57,7 +62,7 @@ function arForModel(model: string): ArResult {
   const floorCases: FloorCase[] = []
   const ranked: ScoredItem[][] = []
   const sepCases: SeparationCase[] = []
-  for (const c of evalSet) {
+  for (const c of sameLangSet) {
     const q = fx.cases[c.id]!.candidate[model]!
     let positiveScore: number | null = null
     const items: ScoredItem[] = []
@@ -66,7 +71,7 @@ function arForModel(model: string): ArResult {
       items.push({ id: c.id, score: positiveScore, isPositive: true })
     }
     const distractorScores: number[] = []
-    for (const other of evalSet) {
+    for (const other of sameLangSet) {
       if (other.id === c.id) continue
       const s = cosineSimilarity(q, fx.cases[other.id]!.existing[model]!)
       distractorScores.push(s)
@@ -104,7 +109,7 @@ function arForModel(model: string): ArResult {
 // over a small pool both lexical and embedding tend to reach recall@10=1.0.
 function lexicalRecall(): { at1: number; at3: number; at10: number } {
   const ranked: ScoredItem[][] = []
-  for (const c of evalSet) {
+  for (const c of sameLangSet) {
     const qText = memoryContentToText(c.category, c.candidate)
     const items: ScoredItem[] = []
     if (isPositiveCase(c)) {
@@ -117,7 +122,7 @@ function lexicalRecall(): { at1: number; at3: number; at10: number } {
         isPositive: true,
       })
     }
-    for (const other of evalSet) {
+    for (const other of sameLangSet) {
       if (other.id === c.id) continue
       items.push({
         id: other.id,
@@ -138,18 +143,37 @@ function lexicalRecall(): { at1: number; at3: number; at10: number } {
   }
 }
 
+function crossLingualReport(model: string): {
+  n: number
+  meanRaw: number
+  minRaw: number
+  belowFloor: number
+} {
+  const xlang = evalSet.filter(c => c.id.startsWith('xlang-'))
+  const raws: number[] = []
+  for (const c of xlang) {
+    const cand = fx.cases[c.id]!.candidate[model]!
+    const exist = fx.cases[c.id]!.existing[model]!
+    raws.push(cosineSimilarity(cand, exist))
+  }
+  const mean = raws.length ? raws.reduce((a, b) => a + b, 0) / raws.length : 0
+  const min = raws.length ? Math.min(...raws) : 0
+  const belowFloor = raws.filter(r => r < 0.78).length
+  return { n: raws.length, meanRaw: mean, minRaw: min, belowFloor }
+}
+
 async function main(): Promise<void> {
   const models = fx.models
   const arByModel = Object.fromEntries(models.map(m => [m, arForModel(m)]))
   const prod = arByModel[PROD_MODEL]!
   const lex = lexicalRecall()
-  const nPos = evalSet.filter(isPositiveCase).length
+  const nPos = sameLangSet.filter(isPositiveCase).length
 
   // eslint-disable-next-line no-console
   const log = console.log
   log('=== LUM-329 Memory Eval ===\n')
   log(
-    `— AR (offline, deterministic; n=${nPos} positives, ${evalSet.length} cases) —`
+    `— AR (offline, deterministic; n=${nPos} positives, ${sameLangSet.length} same-language cases) —`
   )
   for (const m of models) {
     const a = arByModel[m]!
@@ -165,6 +189,14 @@ async function main(): Promise<void> {
   }
   log(
     `\n  lexical recall@1/@3/@10 = ${lex.at1.toFixed(3)}/${lex.at3.toFixed(3)}/${lex.at10.toFixed(3)}  vs  embedding(${PROD_MODEL}) recall@1/@10 = ${prod.recallAt1.toFixed(3)}/${prod.recallAt10.toFixed(3)}`
+  )
+
+  const xl = crossLingualReport(PROD_MODEL)
+  log(
+    `\n  cross-lingual RAW cosine (${PROD_MODEL}, n=${xl.n}): mean=${xl.meanRaw.toFixed(3)} min=${xl.minRaw.toFixed(3)} below-0.78=${xl.belowFloor}/${xl.n}`
+  )
+  log(
+    `    → ${xl.belowFloor > 0 ? 'cross-language synonyms fall below the floor; LUM-336 canonicalizes manual content to English so dedup runs same-language.' : 'cross-language synonyms clear the floor at this model.'}`
   )
 
   let sf: ReturnType<typeof scoreSfRun> | null = null
