@@ -13,6 +13,9 @@ const INAPP_MAP: Partial<Record<NotificationType, string>> = {
   TASK_SPEC_READY: 'notifyInAppAssigned',
   TASK_MENTIONED: 'notifyInAppMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifyInAppMention',
+  PROJECT_MENTIONED: 'notifyInAppMention',
+  MILESTONE_MENTIONED: 'notifyInAppMention',
+  DOCUMENT_MENTIONED: 'notifyInAppMention',
   AGENT_DONE: 'notifyInAppAgentDone',
   AGENT_FAILED: 'notifyInAppAgentDone',
   AGENT_VERIFY: 'notifyInAppAgentDone',
@@ -28,12 +31,23 @@ const SLACK_MAP: Partial<Record<NotificationType, string>> = {
   TASK_SPEC_READY: 'notifySlackAssigned',
   TASK_MENTIONED: 'notifySlackMention',
   DOCUMENT_COMMENT_MENTIONED: 'notifySlackMention',
+  PROJECT_MENTIONED: 'notifySlackMention',
+  MILESTONE_MENTIONED: 'notifySlackMention',
+  DOCUMENT_MENTIONED: 'notifySlackMention',
   AGENT_DONE: 'notifySlackAgentDone',
   AGENT_FAILED: 'notifySlackAgentDone',
   AGENT_VERIFY: 'notifySlackAgentDone',
   AGENT_CLARIFY: 'notifySlackAgentInput',
   AGENT_AUTHORIZE: 'notifySlackAgentInput',
 }
+
+export const MENTION_NOTIFICATION_TYPES = [
+  'TASK_MENTIONED',
+  'DOCUMENT_COMMENT_MENTIONED',
+  'PROJECT_MENTIONED',
+  'MILESTONE_MENTIONED',
+  'DOCUMENT_MENTIONED',
+] as const satisfies readonly NotificationType[]
 
 // requiresAction types are never silenced
 const ALWAYS_NOTIFY: Set<NotificationType> = new Set([
