@@ -37,6 +37,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 jest.mock('@/lib/repositories/notification.repository', () => ({
   notificationRepository: { create: jest.fn() },
 }))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findNameAndSlug: jest.fn(async () => ({ name: 'WS', slug: 'ws' })),
+  },
+}))
 jest.mock('@/lib/services/notification.service', () => ({
   buildTaskNotificationCtx: (...a: unknown[]) =>
     mockBuildTaskNotificationCtx(...a),

@@ -245,7 +245,7 @@ export const milestoneService = {
               ref: { milestoneId: updated.id },
               slackEvent: 'comment_mention',
               slackPayload: {
-                taskTitle: project.name,
+                taskTitle: updated.name,
                 taskUrl: milestoneUrl,
                 commentBody: htmlToPreview(newHtml),
               },

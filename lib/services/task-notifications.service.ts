@@ -1,6 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
 import { sendChannelNotification } from '@/lib/integrations/slack'
@@ -280,29 +281,36 @@ export function dispatchUpdateTaskSideEffects(opts: {
     input.description !== undefined &&
     result.changedFields.includes('description')
   ) {
-    const taskUrl = buildTaskUrl(
-      taskCheck.project.workspace?.slug ?? '',
-      taskCheck.project.name,
-      result.task.team.identifier,
-      result.task.number
-    )
+    const newHtml = input.description
     waitUntil(
-      notifyMentionDelta({
-        oldHtml: (taskCheck.description as string | null | undefined) ?? '',
-        newHtml: input.description,
-        authorClerkId: actorClerkId,
-        authorActorId: actorId ?? '',
-        workspaceId: taskCheck.project.workspaceId,
-        notificationType: 'TASK_MENTIONED',
-        ref: { taskId },
-        slackEvent: 'comment_mention',
-        slackPayload: {
-          taskTitle: result.task.title,
-          taskUrl,
-          commentBody: htmlToPreview(input.description),
-        },
-        waitUntil,
-      })
+      (async () => {
+        const ws = await workspaceRepository.findNameAndSlug(
+          taskCheck.project.workspaceId
+        )
+        if (!ws?.slug) return
+        const taskUrl = buildTaskUrl(
+          ws.slug,
+          taskCheck.project.name,
+          result.task.team.identifier,
+          result.task.number
+        )
+        await notifyMentionDelta({
+          oldHtml: (taskCheck.description as string | null | undefined) ?? '',
+          newHtml,
+          authorClerkId: actorClerkId,
+          authorActorId: actorId ?? '',
+          workspaceId: taskCheck.project.workspaceId,
+          notificationType: 'TASK_MENTIONED',
+          ref: { taskId },
+          slackEvent: 'comment_mention',
+          slackPayload: {
+            taskTitle: result.task.title,
+            taskUrl,
+            commentBody: htmlToPreview(newHtml),
+          },
+          waitUntil,
+        })
+      })().catch(() => {})
     )
   }
 
