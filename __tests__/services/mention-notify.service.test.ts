@@ -3,11 +3,11 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 // next/jest uses SWC, whose jest transform only allows factory closures to
 // reference variables prefixed with `mock` (it hoists jest.mock above these
 // declarations). Hence the `mock`-prefixed names below.
-const mockFindByWorkspaceAndClerkIds = jest.fn()
-const mockCreateMany = jest.fn()
-const mockShouldNotifyBatch = jest.fn()
-const mockSendDMNotification = jest.fn()
-const mockPushUserEvent = jest.fn()
+const mockFindByWorkspaceAndClerkIds = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockCreateMany = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockShouldNotifyBatch = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockSendDMNotification = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockPushUserEvent = jest.fn<(...args: any[]) => Promise<unknown>>()
 
 jest.mock('@/lib/repositories', () => ({
   memberRepository: { findByWorkspaceAndClerkIds: (...a: unknown[]) => mockFindByWorkspaceAndClerkIds(...a) },
@@ -63,7 +63,7 @@ describe('notifyMentionDelta', () => {
     await notifyMentionDelta({ ...base, oldHtml: '', newHtml: span('u1') })
     expect(mockFindByWorkspaceAndClerkIds).toHaveBeenCalledWith('ws1', ['u1'])
     expect(mockCreateMany).toHaveBeenCalledTimes(1)
-    const rows = mockCreateMany.mock.calls[0][0] as Array<Record<string, unknown>>
+    const rows = mockCreateMany.mock.calls[0]![0] as Array<Record<string, unknown>>
     expect(rows[0]).toMatchObject({ type: 'PROJECT_MENTIONED', projectId: 'p1', recipientActorId: 'a1' })
   })
 
@@ -90,7 +90,7 @@ describe('notifyMentionDelta', () => {
     )
     await notifyMentionDelta({ ...base, oldHtml: '', newHtml: span('u1') + span('u2') })
     expect(mockSendDMNotification).toHaveBeenCalledTimes(2)
-    const rows = mockCreateMany.mock.calls[0][0] as Array<Record<string, unknown>>
+    const rows = mockCreateMany.mock.calls[0]![0] as Array<Record<string, unknown>>
     expect(rows.map(r => r.recipientActorId)).toEqual(['a1'])
   })
 })

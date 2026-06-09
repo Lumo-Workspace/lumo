@@ -9,7 +9,7 @@ jest.mock('react-intl', () => ({
 
 // useMentionSources is exercised separately; here we only assert what the tab
 // forwards into it (the real @people fix is passing members, not []).
-const mockUseMentionSources = jest.fn(() => [])
+const mockUseMentionSources = jest.fn((_members: unknown) => [])
 jest.mock(
   '@/app/workspace/[workspaceUrl]/hooks/useMentionSources',
   () => ({

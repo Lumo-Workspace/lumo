@@ -3,15 +3,15 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 // next/jest uses SWC, whose jest transform only allows factory closures to
 // reference variables prefixed with `mock` (it hoists jest.mock above these
 // declarations). Hence the `mock`-prefixed names below.
-const mockFindById = jest.fn()
-const mockUpdate = jest.fn()
-const mockFindByActorId = jest.fn()
-const mockFindActorByMemberId = jest.fn()
-const mockMemberFindById = jest.fn()
-const mockGetActorClerkId = jest.fn()
-const mockFindNameAndSlug = jest.fn()
-const mockPushWorkspaceEvent = jest.fn()
-const mockNotifyMentionDelta = jest.fn()
+const mockFindById = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockUpdate = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockFindByActorId = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockFindActorByMemberId = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockMemberFindById = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockGetActorClerkId = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockFindNameAndSlug = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockPushWorkspaceEvent = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockNotifyMentionDelta = jest.fn<(...args: any[]) => Promise<unknown>>()
 
 // Collect fire-and-forget promises so the test can await them before asserting
 // (the notify resolution runs inside an async waitUntil callback).

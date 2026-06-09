@@ -1,12 +1,12 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 
 // next/jest uses SWC: factory closures may only reference `mock`-prefixed vars.
-const mockNotifyMentionDelta = jest.fn()
-const mockDispatchEvents = jest.fn()
-const mockPushTaskEvent = jest.fn()
-const mockPushProjectEvent = jest.fn()
-const mockBuildTaskNotificationCtx = jest.fn()
-const mockDispatchTaskUpdateNotifications = jest.fn()
+const mockNotifyMentionDelta = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockDispatchEvents = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockPushTaskEvent = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockPushProjectEvent = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockBuildTaskNotificationCtx = jest.fn<(...args: any[]) => any>()
+const mockDispatchTaskUpdateNotifications = jest.fn<(...args: any[]) => any>()
 
 // Collect fire-and-forget promises so the test can await them before asserting
 // (the notify resolution runs inside an async waitUntil callback).

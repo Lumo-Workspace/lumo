@@ -117,13 +117,9 @@ export const notificationService = {
         rawNotifications.map(n => n.sprintId).filter(Boolean) as string[]
       ),
     ]
-    // The Prisma client isn't regenerated this phase, so the row type may not
-    // surface projectId/milestoneId yet — they exist at runtime. Cast minimally.
     const refIdsOf = (key: 'projectId' | 'milestoneId' | 'documentId') => [
       ...new Set(
-        rawNotifications
-          .map(n => (n as Record<string, string | null | undefined>)[key])
-          .filter(Boolean) as string[]
+        rawNotifications.map(n => n[key]).filter(Boolean) as string[]
       ),
     ]
     const projectIds = refIdsOf('projectId')
@@ -171,22 +167,13 @@ export const notificationService = {
     )
 
     return rawNotifications.map(n => {
-      const refIds = n as {
-        projectId?: string | null
-        milestoneId?: string | null
-        documentId?: string | null
-      }
       const task = n.taskId ? taskMap.get(n.taskId) : null
       const sprint = n.sprintId ? sprintMap.get(n.sprintId) : null
-      const project = refIds.projectId
-        ? projectMap.get(refIds.projectId)
+      const project = n.projectId ? projectMap.get(n.projectId) : null
+      const milestone = n.milestoneId
+        ? milestoneMap.get(n.milestoneId)
         : null
-      const milestone = refIds.milestoneId
-        ? milestoneMap.get(refIds.milestoneId)
-        : null
-      const doc = refIds.documentId
-        ? documentMap.get(refIds.documentId)
-        : null
+      const doc = n.documentId ? documentMap.get(n.documentId) : null
       // Resolve actor display info from the trigger relation
       let actor: { name: string; imageUrl: string | null } | null = null
       if (n.trigger) {
@@ -225,9 +212,9 @@ export const notificationService = {
               teamId: sprint.teamId,
             }
           : null,
-        projectId: refIds.projectId ?? null,
-        milestoneId: refIds.milestoneId ?? null,
-        documentId: refIds.documentId ?? null,
+        projectId: n.projectId ?? null,
+        milestoneId: n.milestoneId ?? null,
+        documentId: n.documentId ?? null,
         project: project
           ? {
               id: project.id,
