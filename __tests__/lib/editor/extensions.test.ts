@@ -20,10 +20,15 @@ describe('getBaseExtensions mention node', () => {
     expect(mentionCount(getBaseExtensions())).toBe(1)
   })
 
-  it('includes exactly one mention node when a suggestion is supplied', () => {
+  it('threads the supplied suggestion onto the single mention node', () => {
     const extensions = getBaseExtensions({
       mentionSuggestion: { char: '@', render: () => ({}) },
     })
     expect(mentionCount(extensions)).toBe(1)
+    const mention = extensions.find(e => e.name === 'mention')
+    expect(
+      (mention?.options as { suggestion?: { char?: string } } | undefined)
+        ?.suggestion?.char
+    ).toBe('@')
   })
 })
