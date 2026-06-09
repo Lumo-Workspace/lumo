@@ -2,7 +2,15 @@ import { embedMany } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 
 /** Vercel AI Gateway embedding model. Needs AI_GATEWAY_API_KEY locally; prod
- * authenticates via Vercel OIDC. */
+ * authenticates via Vercel OIDC.
+ *
+ * Model selection confirmed by the LUM-329 eval harness: 0.6b is kept over the
+ * larger qwen3 variants. On the in-domain corpus 0.6b had the BEST rank-1
+ * recall (0.718 vs 4b 0.692, 8b 0.590) and the best separation margin
+ * (mean 0.079 vs 0.078 / 0.071) — the bigger models did NOT discriminate
+ * same-fact-vs-distractor better, while costing 2.5×/4× the dimension
+ * (2560 / 4096 vs 1024). Re-run `scripts/eval/memory/run.ts` to re-compare;
+ * swapping the model also requires changing EMBEDDING_DIM + the pgvector column. */
 export const EMBEDDING_MODEL = 'alibaba/qwen3-embedding-0.6b'
 /** qwen3-embedding-0.6b native output dimension (matches the pgvector column). */
 export const EMBEDDING_DIM = 1024

@@ -52,7 +52,15 @@ export interface RetrieveContext {
  * Rank existing memories by similarity to a candidate fact and return the
  * top-k. The lexical implementation (`lexicalNeighborRetriever`) is the
  * baseline; `EmbeddingNeighborRetriever` (pgvector) slots in via the same
- * interface. See the LUM-324 DECISION memory for the swap trigger.
+ * interface.
+ *
+ * Upgrade trigger (calibrated, LUM-329): recall@k is NOT the discriminating
+ * lever at current pool size — over a ~50-memory scope both lexical and
+ * embedding reach recall@10=1.0 (lexical recall@1/@3 = 0.667/0.923, embedding
+ * recall@1 = 0.718; embedding's edge is ~+0.05 at rank-1 only). So the swap
+ * stays gated on the pool-size heuristic (>50 PROJECT memories), where lexical
+ * bigram discrimination is expected to degrade. Revisit a recall@k threshold
+ * only if a larger eval pool shows lexical recall@10 actually dropping.
  */
 export interface NeighborRetriever {
   retrieve(ctx: RetrieveContext): Promise<ScoredNeighbor[]>
@@ -72,9 +80,7 @@ export const lexicalNeighborRetriever: NeighborRetriever = {
       // only, never displayed. Capping at 1.0 would make the boost a no-op
       // when base already hits the containment ceiling.
       const score =
-        item.category === query.category
-          ? base + SAME_CATEGORY_BOOST
-          : base
+        item.category === query.category ? base + SAME_CATEGORY_BOOST : base
       if (score < SCORE_FLOOR) continue
       scored.push({ ...item, score })
     }
