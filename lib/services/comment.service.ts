@@ -1,14 +1,11 @@
 // lib/services/comment.service.ts
 import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 import { commentRepository } from '@/lib/repositories/comment.repository'
-import { memberRepository, notificationRepository } from '@/lib/repositories'
+import { memberRepository } from '@/lib/repositories'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
-import { shouldNotifyBatch } from '@/lib/services/notification.service'
-import {
-  sendDMNotification,
-  sendChannelNotification,
-} from '@/lib/integrations/slack'
-import { pushTaskEvent, pushUserEvent } from '@/lib/integrations/pusher'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { sendChannelNotification } from '@/lib/integrations/slack'
+import { pushTaskEvent } from '@/lib/integrations/pusher'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
@@ -167,64 +164,30 @@ export const commentService = {
       ),
     }
 
-    const recipientActors = members
-      .map(m => m.actor?.id)
-      .filter((actorId): actorId is string => !!actorId)
-
-    // Batch preference checks for inApp and slack channels
-    const [inAppAllowed, slackAllowed] = await Promise.all([
-      shouldNotifyBatch(recipientActors, 'inApp', 'TASK_MENTIONED'),
-      shouldNotifyBatch(recipientActors, 'slack', 'TASK_MENTIONED'),
-    ])
-
-    // Slack DM — only to users who have slack mention enabled
-    for (const m of members) {
-      if (m.actor?.id && slackAllowed.has(m.actor.id)) {
-        waitUntil(
-          sendDMNotification(
-            workspaceId,
-            m.clerkId,
-            'comment_mention',
-            mentionPayload
-          )
-        )
-      }
-    }
-
-    // Channel notification (project-level, not gated by personal preference)
+    // Channel notification stays here (project-level, comment-only — not gated
+    // by personal preference). Fire regardless of per-user delta.
     waitUntil(
       sendChannelNotification(
         workspaceId,
         'comment_mention',
-        {
-          ...mentionPayload,
-          taskId,
-          taskIdentifier: `${teamIdentifier}-${taskNumber}`,
-        },
+        { ...mentionPayload, taskId, taskIdentifier: `${teamIdentifier}-${taskNumber}` },
         projectId
       )
     )
 
-    // Inbox notifications — only for users who have inApp mention enabled
-    const inAppRecipients = recipientActors.filter(id => inAppAllowed.has(id))
-    if (inAppRecipients.length === 0) return
-
-    // Push real-time notification for inbox recipients
-    for (const m of members) {
-      if (m.clerkId && m.actor?.id && inAppAllowed.has(m.actor.id)) {
-        waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }))
-      }
-    }
-    await notificationRepository.createMany(
-      inAppRecipients.map(recipientActorId => ({
-        workspaceId,
-        recipientActorId,
-        type: 'TASK_MENTIONED' as const,
-        taskId,
-        commentId,
-        triggerActorId: authorActorId,
-      }))
-    )
+    // DM + inbox + realtime via the shared core (comment create ⇒ oldHtml = '').
+    await notifyMentionDelta({
+      oldHtml: '',
+      newHtml: body,
+      authorClerkId,
+      authorActorId,
+      workspaceId,
+      notificationType: 'TASK_MENTIONED',
+      ref: { taskId, commentId },
+      slackEvent: 'comment_mention',
+      slackPayload: mentionPayload,
+      waitUntil,
+    })
   },
 
   /**
