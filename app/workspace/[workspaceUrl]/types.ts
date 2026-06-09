@@ -241,6 +241,10 @@ export interface ApiNotification {
     | 'AGENT_DONE'
     | 'SPRINT_STARTED'
     | 'SPRINT_CLOSED'
+    | 'DOCUMENT_COMMENT_MENTIONED'
+    | 'PROJECT_MENTIONED'
+    | 'MILESTONE_MENTIONED'
+    | 'DOCUMENT_MENTIONED'
   read: boolean
   requiresAction: boolean
   actionTakenAt: string | null
@@ -263,6 +267,12 @@ export interface ApiNotification {
     number: number
     teamId: string
   } | null
+  projectId: string | null
+  milestoneId: string | null
+  documentId: string | null
+  project: { id: string; name: string; url: string } | null
+  milestone: { id: string; name: string; url: string } | null
+  document: { id: string; title: string; url: string } | null
   commentPreview: string | null
   /** Populated for AGENT_CLARIFY notifications */
   clarifyQuestion: string | null
