@@ -7,6 +7,16 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+// useMentionSources is exercised separately; here we only assert what the tab
+// forwards into it (the real @people fix is passing members, not []).
+const mockUseMentionSources = jest.fn((_members: unknown) => [])
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/hooks/useMentionSources',
+  () => ({
+    useMentionSources: (members: unknown) => mockUseMentionSources(members),
+  })
+)
+
 // DescriptionEditor pulls Tiptap — stub it to buttons that fire onCommit.
 jest.mock('@/app/workspace/[workspaceUrl]/components/DescriptionEditor', () => ({
   DescriptionEditor: ({
@@ -30,16 +40,31 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/DescriptionEditor', () => (
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MilestoneOverviewTab } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneOverviewTab'
 
+const members = [
+  { actorId: 'u1', name: 'Ada', email: 'ada@example.com' },
+] as never
+
 function setup(name = 'Beta release', description: string | null = 'Old body') {
   const onUpdate = jest.fn()
   render(
     <MilestoneOverviewTab
       milestone={{ id: 'm1', name, description }}
       onUpdate={onUpdate}
+      members={members}
     />
   )
   return { onUpdate }
 }
+
+beforeEach(() => {
+  mockUseMentionSources.mockClear()
+})
+
+test('forwards real members into useMentionSources (enables @people)', () => {
+  setup()
+  expect(mockUseMentionSources).toHaveBeenCalledWith(members)
+  expect(mockUseMentionSources).not.toHaveBeenCalledWith([])
+})
 
 test('renders the milestone name and current description', () => {
   setup()
@@ -80,6 +105,7 @@ test('archived milestone does not commit name or description edits', () => {
     <MilestoneOverviewTab
       milestone={{ id: 'm1', name: 'Beta release', description: 'Old body' }}
       onUpdate={onUpdate}
+      members={members}
       archived
     />
   )

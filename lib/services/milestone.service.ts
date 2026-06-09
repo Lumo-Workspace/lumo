@@ -5,11 +5,18 @@ import {
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
 } from '@/lib/utils/milestone-slug'
+import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
+import { getActorClerkId } from '@/lib/actor'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
+import { waitUntil } from '@vercel/functions'
 import type { MilestoneStatus } from '@prisma/client'
 
 interface CreateInput {
@@ -174,7 +181,7 @@ export const milestoneService = {
     if (!existing) {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
-    await projectService.getProject(existing.projectId, memberId)
+    const project = await projectService.getProject(existing.projectId, memberId)
     if (existing.archivedAt) {
       throw Object.assign(
         new Error('Milestone is archived; unarchive it before editing'),
@@ -182,6 +189,7 @@ export const milestoneService = {
       )
     }
 
+    const oldDescription = existing.description
     const data: Record<string, unknown> = {}
     if (input.name !== undefined) data.name = input.name
     if (input.description !== undefined) data.description = input.description
@@ -203,6 +211,50 @@ export const milestoneService = {
     }
 
     const updated = await milestoneRepository.update(milestoneId, data)
+
+    // Notify users newly @-mentioned in the milestone description (delta only).
+    // Resolution + send is fully fire-and-forget so a lookup failure never
+    // breaks the save — nothing notify-related is awaited on the path to return.
+    // (The `getProject` auth call above stays on the main path; only the
+    // notify-specific lookups move into the background callback.)
+    if (input.description !== undefined) {
+      const newHtml = input.description
+      waitUntil(
+        (async () => {
+          const authorActor =
+            await memberRepository.findActorByMemberId(memberId)
+          const [authorClerkId, ws] = await Promise.all([
+            authorActor
+              ? getActorClerkId(authorActor.id)
+              : Promise.resolve(null),
+            workspaceRepository.findNameAndSlug(project.workspaceId),
+          ])
+          if (authorActor?.id && authorClerkId && ws?.slug) {
+            const milestoneUrl = buildMilestoneUrl(
+              ws.slug,
+              project.name,
+              updated.slug
+            )
+            await notifyMentionDelta({
+              oldHtml: oldDescription ?? '',
+              newHtml,
+              authorClerkId,
+              authorActorId: authorActor.id,
+              workspaceId: project.workspaceId,
+              notificationType: 'MILESTONE_MENTIONED',
+              ref: { milestoneId: updated.id },
+              slackEvent: 'comment_mention',
+              slackPayload: {
+                taskTitle: updated.name,
+                taskUrl: milestoneUrl,
+                commentBody: htmlToPreview(newHtml),
+              },
+              waitUntil,
+            })
+          }
+        })().catch(() => {})
+      )
+    }
 
     // Kick off retro generation without blocking the HTTP response. The
     // GenerationJob (status: 'pending') created inside the helper is updated to

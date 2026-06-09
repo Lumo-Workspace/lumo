@@ -9,6 +9,10 @@ const mockMarkAllRead = jest.fn()
 const mockDeleteById = jest.fn()
 const mockBatchFetchTasksByIds = jest.fn()
 const mockBatchFetchCommentsByIds = jest.fn()
+const mockBatchFetchSprintsByIds = jest.fn()
+const mockBatchFetchProjectsByIds = jest.fn()
+const mockBatchFetchMilestonesByIds = jest.fn()
+const mockBatchFetchDocumentsByIds = jest.fn()
 
 jest.mock('@/lib/repositories/notification.repository', () => ({
   notificationRepository: {
@@ -20,7 +24,23 @@ jest.mock('@/lib/repositories/notification.repository', () => ({
     batchFetchTasksByIds: (...args: any[]) => mockBatchFetchTasksByIds(...args),
     batchFetchCommentsByIds: (...args: any[]) =>
       mockBatchFetchCommentsByIds(...args),
+    batchFetchSprintsByIds: (...args: any[]) =>
+      mockBatchFetchSprintsByIds(...args),
+    batchFetchProjectsByIds: (...args: any[]) =>
+      mockBatchFetchProjectsByIds(...args),
+    batchFetchMilestonesByIds: (...args: any[]) =>
+      mockBatchFetchMilestonesByIds(...args),
+    batchFetchDocumentsByIds: (...args: any[]) =>
+      mockBatchFetchDocumentsByIds(...args),
   },
+}))
+
+// enrichNotifications calls clerkClient() for HUMAN trigger actors. Stub it out
+// so the tests that exercise entity-reference serialization don't hit Clerk.
+jest.mock('@clerk/nextjs/server', () => ({
+  clerkClient: async () => ({
+    users: { getUserList: async () => ({ data: [] }) },
+  }),
 }))
 
 beforeEach(() => jest.clearAllMocks())
@@ -170,6 +190,111 @@ describe('notificationService', () => {
       expect(mockBatchFetchCommentsByIds).not.toHaveBeenCalled()
       expect(result.taskMap.size).toBe(0)
       expect(result.commentMap.size).toBe(0)
+    })
+  })
+
+  describe('enrichNotifications', () => {
+    const baseRow = {
+      read: false,
+      requiresAction: false,
+      actionTakenAt: null,
+      createdAt: new Date('2026-06-08T00:00:00.000Z'),
+      taskId: null,
+      commentId: null,
+      clarifyId: null,
+      sprintId: null,
+      projectId: null,
+      milestoneId: null,
+      documentId: null,
+      triggerActorId: null,
+      trigger: null,
+    }
+
+    beforeEach(() => {
+      mockBatchFetchTasksByIds.mockResolvedValue([])
+      mockBatchFetchCommentsByIds.mockResolvedValue([])
+      mockBatchFetchSprintsByIds.mockResolvedValue([])
+      mockBatchFetchProjectsByIds.mockResolvedValue([])
+      mockBatchFetchMilestonesByIds.mockResolvedValue([])
+      mockBatchFetchDocumentsByIds.mockResolvedValue([])
+    })
+
+    it('serializes a PROJECT_MENTIONED row into project { id, name, url }', async () => {
+      mockBatchFetchProjectsByIds.mockResolvedValue([
+        { id: 'proj-1', name: 'Apollo', workspace: { slug: 'acme' } },
+      ])
+
+      const [out] = await notificationService.enrichNotifications([
+        {
+          ...baseRow,
+          id: 'n1',
+          type: 'PROJECT_MENTIONED',
+          projectId: 'proj-1',
+        },
+      ] as any)
+
+      expect(mockBatchFetchProjectsByIds).toHaveBeenCalledWith(['proj-1'])
+      expect(out!.projectId).toBe('proj-1')
+      expect(out!.project).toMatchObject({ id: 'proj-1', name: 'Apollo' })
+      expect(out!.project!.url).toContain('/projects/apollo')
+    })
+
+    it('serializes a MILESTONE_MENTIONED row into milestone { id, name, url }', async () => {
+      mockBatchFetchMilestonesByIds.mockResolvedValue([
+        {
+          id: 'ms-1',
+          name: 'Beta',
+          slug: 'beta-1',
+          project: { name: 'Apollo', workspace: { slug: 'acme' } },
+        },
+      ])
+
+      const [out] = await notificationService.enrichNotifications([
+        {
+          ...baseRow,
+          id: 'n2',
+          type: 'MILESTONE_MENTIONED',
+          milestoneId: 'ms-1',
+        },
+      ] as any)
+
+      expect(mockBatchFetchMilestonesByIds).toHaveBeenCalledWith(['ms-1'])
+      expect(out!.milestoneId).toBe('ms-1')
+      expect(out!.milestone).toMatchObject({ id: 'ms-1', name: 'Beta' })
+      expect(out!.milestone!.url).toContain('/milestones/beta-1')
+    })
+
+    it('serializes a DOCUMENT_COMMENT_MENTIONED row into document { id, title, url }', async () => {
+      mockBatchFetchDocumentsByIds.mockResolvedValue([
+        { id: 'doc-1', title: 'Spec', slug: 'spec-7', workspace: { slug: 'acme' } },
+      ])
+
+      const [out] = await notificationService.enrichNotifications([
+        {
+          ...baseRow,
+          id: 'n3',
+          type: 'DOCUMENT_COMMENT_MENTIONED',
+          documentId: 'doc-1',
+        },
+      ] as any)
+
+      expect(mockBatchFetchDocumentsByIds).toHaveBeenCalledWith(['doc-1'])
+      expect(out!.documentId).toBe('doc-1')
+      expect(out!.document).toMatchObject({ id: 'doc-1', title: 'Spec' })
+      expect(out!.document!.url).toContain('/documents/spec-7')
+    })
+
+    it('leaves entity refs null when no id is present', async () => {
+      const [out] = await notificationService.enrichNotifications([
+        { ...baseRow, id: 'n4', type: 'TASK_DONE' },
+      ] as any)
+
+      expect(out!.project).toBeNull()
+      expect(out!.milestone).toBeNull()
+      expect(out!.document).toBeNull()
+      expect(mockBatchFetchProjectsByIds).not.toHaveBeenCalled()
+      expect(mockBatchFetchMilestonesByIds).not.toHaveBeenCalled()
+      expect(mockBatchFetchDocumentsByIds).not.toHaveBeenCalled()
     })
   })
 })

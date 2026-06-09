@@ -1,4 +1,7 @@
 import { notificationRepository } from '@/lib/repositories/notification.repository'
+import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
+import { buildMilestoneUrl } from '@/lib/utils/buildMilestoneUrl'
+import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 
 // ── Re-exported notification orchestration ──────────────────────────────
 
@@ -114,6 +117,14 @@ export const notificationService = {
         rawNotifications.map(n => n.sprintId).filter(Boolean) as string[]
       ),
     ]
+    const refIdsOf = (key: 'projectId' | 'milestoneId' | 'documentId') => [
+      ...new Set(
+        rawNotifications.map(n => n[key]).filter(Boolean) as string[]
+      ),
+    ]
+    const projectIds = refIdsOf('projectId')
+    const milestoneIds = refIdsOf('milestoneId')
+    const documentIds = refIdsOf('documentId')
 
     // Batch-fetch Clerk profiles for HUMAN trigger actors
     const { clerkClient } = await import('@clerk/nextjs/server')
@@ -138,13 +149,31 @@ export const notificationService = {
       ])
     )
 
-    // Batch-fetch tasks, comments, sprints
-    const { taskMap, commentMap, sprintMap } =
-      await this.batchFetchRelatedData(taskIds, commentIds, sprintIds)
+    // Batch-fetch tasks, comments, sprints, and entity references
+    const {
+      taskMap,
+      commentMap,
+      sprintMap,
+      projectMap,
+      milestoneMap,
+      documentMap,
+    } = await this.batchFetchRelatedData(
+      taskIds,
+      commentIds,
+      sprintIds,
+      projectIds,
+      milestoneIds,
+      documentIds
+    )
 
     return rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
       const sprint = n.sprintId ? sprintMap.get(n.sprintId) : null
+      const project = n.projectId ? projectMap.get(n.projectId) : null
+      const milestone = n.milestoneId
+        ? milestoneMap.get(n.milestoneId)
+        : null
+      const doc = n.documentId ? documentMap.get(n.documentId) : null
       // Resolve actor display info from the trigger relation
       let actor: { name: string; imageUrl: string | null } | null = null
       if (n.trigger) {
@@ -183,6 +212,34 @@ export const notificationService = {
               teamId: sprint.teamId,
             }
           : null,
+        projectId: n.projectId ?? null,
+        milestoneId: n.milestoneId ?? null,
+        documentId: n.documentId ?? null,
+        project: project
+          ? {
+              id: project.id,
+              name: project.name,
+              url: buildProjectUrl(project.workspace.slug, project.name),
+            }
+          : null,
+        milestone: milestone
+          ? {
+              id: milestone.id,
+              name: milestone.name,
+              url: buildMilestoneUrl(
+                milestone.project.workspace.slug,
+                milestone.project.name,
+                milestone.slug
+              ),
+            }
+          : null,
+        document: doc
+          ? {
+              id: doc.id,
+              title: doc.title,
+              url: buildDocumentUrl(doc.workspace.slug, doc.slug),
+            }
+          : null,
         commentPreview: n.commentId
           ? (commentMap
               .get(n.commentId)
@@ -203,24 +260,40 @@ export const notificationService = {
   async batchFetchRelatedData(
     taskIds: string[],
     commentIds: string[],
-    sprintIds: string[] = []
+    sprintIds: string[] = [],
+    projectIds: string[] = [],
+    milestoneIds: string[] = [],
+    documentIds: string[] = []
   ) {
-    const [tasks, comments, sprints] = await Promise.all([
-      taskIds.length > 0
-        ? notificationRepository.batchFetchTasksByIds(taskIds)
-        : [],
-      commentIds.length > 0
-        ? notificationRepository.batchFetchCommentsByIds(commentIds)
-        : [],
-      sprintIds.length > 0
-        ? notificationRepository.batchFetchSprintsByIds(sprintIds)
-        : [],
-    ])
+    const [tasks, comments, sprints, projects, milestones, documents] =
+      await Promise.all([
+        taskIds.length > 0
+          ? notificationRepository.batchFetchTasksByIds(taskIds)
+          : [],
+        commentIds.length > 0
+          ? notificationRepository.batchFetchCommentsByIds(commentIds)
+          : [],
+        sprintIds.length > 0
+          ? notificationRepository.batchFetchSprintsByIds(sprintIds)
+          : [],
+        projectIds.length > 0
+          ? notificationRepository.batchFetchProjectsByIds(projectIds)
+          : [],
+        milestoneIds.length > 0
+          ? notificationRepository.batchFetchMilestonesByIds(milestoneIds)
+          : [],
+        documentIds.length > 0
+          ? notificationRepository.batchFetchDocumentsByIds(documentIds)
+          : [],
+      ])
 
     return {
       taskMap: new Map(tasks.map(t => [t.id, t])),
       commentMap: new Map(comments.map(c => [c.id, c.body])),
       sprintMap: new Map(sprints.map(s => [s.id, s])),
+      projectMap: new Map(projects.map(p => [p.id, p])),
+      milestoneMap: new Map(milestones.map(m => [m.id, m])),
+      documentMap: new Map(documents.map(d => [d.id, d])),
     }
   },
 }

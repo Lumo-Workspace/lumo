@@ -1458,5 +1458,9 @@
   "mention.searching": "검색 중…",
   "progress.summaryRuns": "지금까지 {value}회 실행",
   "progress.summaryTokens": "{value} 토큰 사용",
-  "progress.summaryClarify": "확인 {value}회"
+  "progress.summaryClarify": "확인 {value}회",
+  "notification.verb.projectMentioned": "에서 회원님을 언급했습니다",
+  "notification.verb.milestoneMentioned": "에서 회원님을 언급했습니다",
+  "notification.verb.documentMentioned": "에서 회원님을 언급했습니다",
+  "notification.verb.documentCommentMentioned": "에 대한 댓글에서 회원님을 언급했습니다"
 }

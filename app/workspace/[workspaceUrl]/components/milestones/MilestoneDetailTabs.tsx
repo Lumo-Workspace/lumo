@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
-import type { MyTask } from '../../types'
+import type { MyTask, WorkspaceMemberInfo } from '../../types'
 import { MilestoneOverviewTab } from './MilestoneOverviewTab'
 import { MilestoneTasksTab } from './MilestoneTasksTab'
 
@@ -13,6 +13,8 @@ type Tab = 'overview' | 'tasks'
 interface MilestoneDetailTabsProps {
   milestone: ApiMilestone
   onUpdate: (fields: MilestoneUpdateInput) => void
+  /** Workspace members, threaded into the overview tab for @-mentions. */
+  members: WorkspaceMemberInfo[]
   /** Collapse state of the milestone properties rail (owned by the page). */
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
@@ -24,6 +26,7 @@ interface MilestoneDetailTabsProps {
 export function MilestoneDetailTabs({
   milestone,
   onUpdate,
+  members,
   sidebarCollapsed,
   onToggleSidebar,
   onOpenTask,
@@ -56,6 +59,7 @@ export function MilestoneDetailTabs({
           <MilestoneOverviewTab
             milestone={milestone}
             onUpdate={onUpdate}
+            members={members}
             archived={archived}
           />
         </div>

@@ -16,6 +16,12 @@ import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { documentTemplateService } from '@/lib/services/document-template.service'
 import { documentRevisionService } from '@/lib/services/documentRevision.service'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { getActorClerkId } from '@/lib/actor'
+import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
 
@@ -490,6 +496,7 @@ export const documentService = {
     // Downstream calls must use the resolved cuid (`doc.id`), not the raw
     // URL segment, because `findWithPermission` now also accepts a slug.
     const docId = doc.id
+    const oldContent = (doc as { content: string | null }).content
 
     // Sync or incrementally modify tag associations
     if (data.tagIds !== undefined) {
@@ -539,6 +546,44 @@ export const documentService = {
             { forceNewRevision: options.forceNewRevision ?? false }
           )
           .catch(() => {})
+      )
+
+      // Notify users newly @-mentioned in the document body (delta only).
+      // Resolution + send is fully fire-and-forget so a lookup failure never
+      // breaks the save (mirrors the snapshotOnSave pattern above).
+      const newContent = data.content
+      const updatedSlug = updated.slug
+      const updatedTitle = updated.title
+      waitUntil(
+        (async () => {
+          const authorActor =
+            await memberRepository.findActorByMemberId(memberId)
+          const [authorClerkId, ws] = await Promise.all([
+            authorActor
+              ? getActorClerkId(authorActor.id)
+              : Promise.resolve(null),
+            workspaceRepository.findNameAndSlug(workspaceId),
+          ])
+          if (authorActor?.id && authorClerkId && ws?.slug) {
+            const docUrl = buildDocumentUrl(ws.slug, updatedSlug)
+            await notifyMentionDelta({
+              oldHtml: oldContent ?? '',
+              newHtml: newContent,
+              authorClerkId,
+              authorActorId: authorActor.id,
+              workspaceId,
+              notificationType: 'DOCUMENT_MENTIONED',
+              ref: { documentId: docId },
+              slackEvent: 'comment_mention',
+              slackPayload: {
+                taskTitle: updatedTitle,
+                taskUrl: docUrl,
+                commentBody: htmlToPreview(newContent),
+              },
+              waitUntil,
+            })
+          }
+        })().catch(() => {})
       )
     }
 

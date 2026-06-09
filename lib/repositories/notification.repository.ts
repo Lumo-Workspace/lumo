@@ -95,6 +95,8 @@ export const notificationRepository = {
       type: NotificationType
       taskId?: string | null
       sprintId?: string | null
+      projectId?: string | null
+      milestoneId?: string | null
       triggerActorId: string | null
       commentId?: string
       documentId?: string | null
@@ -127,6 +129,45 @@ export const notificationRepository = {
     return prisma.sprint.findMany({
       where: { id: { in: ids } },
       select: { id: true, name: true, number: true, teamId: true },
+    })
+  },
+
+  /** Batch-fetch project info by IDs with workspace slug (for notification display). */
+  async batchFetchProjectsByIds(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.project.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, workspace: { select: { slug: true } } },
+    })
+  },
+
+  /** Batch-fetch milestone info by IDs with project name + workspace slug (for notification display). */
+  async batchFetchMilestonesByIds(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.milestone.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        project: {
+          select: { name: true, workspace: { select: { slug: true } } },
+        },
+      },
+    })
+  },
+
+  /** Batch-fetch document info by IDs with workspace slug (for notification display). */
+  async batchFetchDocumentsByIds(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.document.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        workspace: { select: { slug: true } },
+      },
     })
   },
 }
