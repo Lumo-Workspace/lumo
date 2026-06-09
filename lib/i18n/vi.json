@@ -1458,5 +1458,9 @@
   "mention.searching": "Đang tìm kiếm…",
   "progress.summaryRuns": "{value} lần chạy đến nay",
   "progress.summaryTokens": "Đã dùng {value} token",
-  "progress.summaryClarify": "{value} vòng làm rõ"
+  "progress.summaryClarify": "{value} vòng làm rõ",
+  "notification.verb.projectMentioned": "đã đề cập bạn trong",
+  "notification.verb.milestoneMentioned": "đã đề cập bạn trong",
+  "notification.verb.documentMentioned": "đã đề cập bạn trong",
+  "notification.verb.documentCommentMentioned": "đã đề cập bạn trong một bình luận về"
 }

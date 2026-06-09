@@ -1458,5 +1458,9 @@
   "mention.searching": "Buscando…",
   "progress.summaryRuns": "{value} ejecuciones hasta ahora",
   "progress.summaryTokens": "{value} tokens usados",
-  "progress.summaryClarify": "{value} rondas de aclaración"
+  "progress.summaryClarify": "{value} rondas de aclaración",
+  "notification.verb.projectMentioned": "te mencionó en",
+  "notification.verb.milestoneMentioned": "te mencionó en",
+  "notification.verb.documentMentioned": "te mencionó en",
+  "notification.verb.documentCommentMentioned": "te mencionó en un comentario en"
 }

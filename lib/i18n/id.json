@@ -1458,5 +1458,9 @@
   "mention.searching": "Mencari…",
   "progress.summaryRuns": "{value} proses sejauh ini",
   "progress.summaryTokens": "{value} token terpakai",
-  "progress.summaryClarify": "{value} putaran klarifikasi"
+  "progress.summaryClarify": "{value} putaran klarifikasi",
+  "notification.verb.projectMentioned": "menyebut Anda di",
+  "notification.verb.milestoneMentioned": "menyebut Anda di",
+  "notification.verb.documentMentioned": "menyebut Anda di",
+  "notification.verb.documentCommentMentioned": "menyebut Anda dalam komentar pada"
 }

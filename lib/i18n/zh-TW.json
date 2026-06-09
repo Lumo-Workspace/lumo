@@ -1458,5 +1458,9 @@
   "mention.searching": "搜尋中…",
   "progress.summaryRuns": "已執行 {value} 次",
   "progress.summaryTokens": "已用 {value} token",
-  "progress.summaryClarify": "已澄清 {value} 輪"
+  "progress.summaryClarify": "已澄清 {value} 輪",
+  "notification.verb.projectMentioned": "提到了你：",
+  "notification.verb.milestoneMentioned": "提到了你：",
+  "notification.verb.documentMentioned": "提到了你：",
+  "notification.verb.documentCommentMentioned": "在評論中提到了你："
 }

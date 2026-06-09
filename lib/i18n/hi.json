@@ -1458,5 +1458,9 @@
   "mention.searching": "खोज रहा है…",
   "progress.summaryRuns": "अब तक {value} रन",
   "progress.summaryTokens": "{value} टोकन उपयोग किए गए",
-  "progress.summaryClarify": "{value} स्पष्टीकरण दौर"
+  "progress.summaryClarify": "{value} स्पष्टीकरण दौर",
+  "notification.verb.projectMentioned": "में आपका उल्लेख किया",
+  "notification.verb.milestoneMentioned": "में आपका उल्लेख किया",
+  "notification.verb.documentMentioned": "में आपका उल्लेख किया",
+  "notification.verb.documentCommentMentioned": "पर एक टिप्पणी में आपका उल्लेख किया"
 }

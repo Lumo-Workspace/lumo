@@ -1458,5 +1458,9 @@
   "mention.searching": "Suche…",
   "progress.summaryRuns": "Bisher {value} Durchläufe",
   "progress.summaryTokens": "{value} Tokens verwendet",
-  "progress.summaryClarify": "{value} Klärungsrunden"
+  "progress.summaryClarify": "{value} Klärungsrunden",
+  "notification.verb.projectMentioned": "erwähnt Sie in",
+  "notification.verb.milestoneMentioned": "erwähnt Sie in",
+  "notification.verb.documentMentioned": "erwähnt Sie in",
+  "notification.verb.documentCommentMentioned": "erwähnt Sie in einem Kommentar zu"
 }
