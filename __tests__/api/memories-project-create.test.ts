@@ -32,13 +32,15 @@ it('201 creates a project memory with the actor', async () => {
     workspaceId: 'w1',
   })
   ;(memoryManagementService.createForProject as jest.Mock).mockResolvedValue({
-    id: 'mem1',
+    outcome: 'ADD',
+    memory: { id: 'mem1' },
   })
   const res = await POST(
     body({ category: 'TRAP', content: { trigger: 'x', outcome: 'y' } }),
     params('p1')
   )
   expect(res.status).toBe(201)
+  expect(await res.json()).toEqual({ memory: { id: 'mem1' }, outcome: 'ADD' })
   expect(memoryManagementService.createForProject).toHaveBeenCalledWith(
     expect.objectContaining({
       projectId: 'p1',
@@ -47,6 +49,23 @@ it('201 creates a project memory with the actor', async () => {
       actorMemberId: 'm1',
     })
   )
+})
+
+it('201 propagates non-ADD outcome (NOOP)', async () => {
+  ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
+  ;(projectRepository.findWorkspaceId as jest.Mock).mockResolvedValue({
+    workspaceId: 'w1',
+  })
+  ;(memoryManagementService.createForProject as jest.Mock).mockResolvedValue({
+    outcome: 'NOOP',
+    memory: { id: 'dup1' },
+  })
+  const res = await POST(
+    body({ category: 'TRAP', content: { trigger: 'x', outcome: 'y' } }),
+    params('p1')
+  )
+  expect(res.status).toBe(201)
+  expect(await res.json()).toEqual({ memory: { id: 'dup1' }, outcome: 'NOOP' })
 })
 
 it('404 when the project does not exist', async () => {
@@ -83,7 +102,8 @@ it('201 forwards agent to createForProject when valid agent is provided', async 
     workspaceId: 'w1',
   })
   ;(memoryManagementService.createForProject as jest.Mock).mockResolvedValue({
-    id: 'mem2',
+    outcome: 'ADD',
+    memory: { id: 'mem2' },
   })
   const res = await POST(
     body({

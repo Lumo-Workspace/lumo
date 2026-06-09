@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
-    const memory = await memoryManagementService.createForProject({
+    const result = await memoryManagementService.createForProject({
       projectId: id,
       workspaceId: identity.workspaceId,
       category: parsed.data.category,
@@ -45,7 +45,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       actorMemberId: identity.memberId,
       agent: parsed.data.agent,
     })
-    return NextResponse.json({ memory }, { status: 201 })
+    return NextResponse.json(
+      { memory: result.memory, outcome: result.outcome },
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(
