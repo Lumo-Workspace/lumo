@@ -1,7 +1,12 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { getDefaultTeam } from '@/lib/team'
 import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
+import { getActorClerkId } from '@/lib/actor'
+import { buildProjectUrl } from '@/lib/utils/buildProjectUrl'
+import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { waitUntil } from '@vercel/functions'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -207,6 +212,7 @@ export const projectService = {
       }
     }
 
+    const oldDescription = project.description
     const updated = await projectRepository.update(projectId, data)
 
     // Broadcast so other members / tabs can pick up the change. Idea drafts
@@ -216,6 +222,37 @@ export const projectService = {
         type: 'project-updated',
         projectId: updated.id,
       })
+    }
+
+    // Notify users newly @-mentioned in the project description (delta only).
+    if (input.description !== undefined) {
+      const authorActor = await memberRepository.findActorByMemberId(memberId)
+      const [authorClerkId, ws] = await Promise.all([
+        authorActor ? getActorClerkId(authorActor.id) : Promise.resolve(null),
+        workspaceRepository.findNameAndSlug(project.workspaceId),
+      ])
+      if (authorActor?.id && authorClerkId && ws?.slug) {
+        const projectUrl = buildProjectUrl(ws.slug, updated.name)
+        const newHtml = input.description
+        waitUntil(
+          notifyMentionDelta({
+            oldHtml: oldDescription ?? '',
+            newHtml,
+            authorClerkId,
+            authorActorId: authorActor.id,
+            workspaceId: project.workspaceId,
+            notificationType: 'PROJECT_MENTIONED',
+            ref: { projectId: project.id },
+            slackEvent: 'comment_mention',
+            slackPayload: {
+              taskTitle: updated.name,
+              taskUrl: projectUrl,
+              commentBody: (newHtml ?? '').replace(/<[^>]+>/g, '').slice(0, 200),
+            },
+            waitUntil,
+          })
+        )
+      }
     }
 
     const { owner, ...rest } = updated
