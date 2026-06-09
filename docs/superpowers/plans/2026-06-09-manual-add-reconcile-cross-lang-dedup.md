@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **AMENDED 2026-06-09 (measurement):** The live cross-language eval (Task 8b) measured ZH↔EN synonym cosine = **0.886 (min 0.821), all above the 0.78 floor** — so cross-language dedup already works at the embedding layer and root cause (b) does NOT hold. Effects on this plan: (1) **Task 9b (existing-corpus canonicalization backfill) is DROPPED** — dedup needs no backfill; existing-row normalization is a deferred optional convention follow-up. (2) English-canonicalization (Tasks 1, 3-canon, 4) is KEPT but reframed as a **workspace convention** (single-language store), not a dedup correctness fix. (3) Task 8 was fixed to exclude the xlang cases from the same-language AR calibration (which stays at floor 0.78). Tasks 1–8b as written are otherwise correct; read the goal/architecture below through this amendment.
+
 **Goal:** Make manual `lumo memory add` reconcile against existing memories (hybrid-gated) and normalize all human-written memory content to English, so near-duplicate (incl. cross-language ZH↔EN) facts stop creating second rows.
 
 **Architecture:** Two new gateway-deferring modules — `canonicalize-language.ts` (translate non-English content → English) and `manual-dedup.ts` (retrieve neighbors → minimal LLM reconcile → ADD/UPDATE/SUPERSEDE/NOOP). Both **dynamic-import** the AI gateway *inside their functions*, so static-importing them stays jest-safe. `memory-management.service.ts` calls canonicalize on every human-content write and dedup on the two create paths. The store becomes uniformly English, so dedup degrades to same-language and the existing `EMBEDDING_SCORE_FLOOR=0.78` works as calibrated.
@@ -1267,7 +1269,15 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-## Task 9b: One-time canonicalization backfill of existing non-English rows (closes C2)
+## Task 9b: ~~One-time canonicalization backfill of existing non-English rows (closes C2)~~ — DROPPED
+
+**DROPPED (2026-06-09, see top-of-file amendment).** The measured ZH↔EN cosine (0.886
+> 0.78 floor) means a new English manual add already retrieves existing Chinese rows,
+so dedup needs no backfill. Normalizing existing rows to the canonical language is a
+deferred *optional* convention follow-up, not part of this change. The original task
+text is retained below for history but is NOT implemented.
+
+<details><summary>Original (not implemented)</summary>
 
 **Files:**
 - Create: `scripts/backfill-memory-canonicalize.ts`
@@ -1536,6 +1546,8 @@ cleanup (don't translate rows about to be deleted — but harmless if order flip
 Dry-run: `cd .worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup && DOTENV_CONFIG_PATH=.env.production npx tsx scripts/backfill-memory-canonicalize.ts --dry-run`
 Apply (after user OK): same command without `--dry-run`.
 Expected: dry-run reports `canonicalized=<N>` non-English rows; apply rewrites them.
+
+</details>
 
 ---
 

@@ -2,7 +2,35 @@
 
 **Date:** 2026-06-09
 **Milestone:** Memory v6 — Reconcile-on-Write & Lifecycle
-**Status:** Design approved (brainstorming), pending spec review → implementation plan
+**Status:** Design approved → implemented; **amended mid-implementation by measurement (see Update below)**
+
+## Update (measured, 2026-06-09) — root cause (b) did not hold
+
+The cross-language eval slice (§C) was run live (qwen3-embedding-0.6b). Result for
+5 faithful ZH↔EN synonym pairs: **raw cross-language cosine mean = 0.886, min =
+0.821, below-0.78-floor = 0/5.** qwen3 is strongly multilingual-aligned, so ZH↔EN
+synonyms sit *above* the `EMBEDDING_SCORE_FLOOR = 0.78`.
+
+Consequences (this reverses the design's premise):
+
+1. **Root cause (b) — "cross-language floor misconfig" — is not supported by data.**
+   Cross-language dedup already works at the embedding layer. A new English manual
+   add retrieves an existing Chinese row (cosine ~0.886 > floor) — so the C2
+   "existing-corpus backfill" is also unnecessary for dedup.
+2. **English-canonicalization is therefore a CONVENTION, not a dedup fix** (user
+   decision: keep a single-language store for human readability/consistency, and
+   so the flywheel doesn't split one fact across two language variants). It is no
+   longer justified by the dedup argument.
+3. **Dropped from scope:** the §D existing-corpus backfill (was Task 9b) — dedup
+   doesn't need it; existing-row language normalization is a deferred *optional*
+   convention follow-up, not part of this change.
+4. Same-language LUM-329 calibration is preserved (floor 0.78, F1 0.611, recall@1
+   0.718, n=39) — the xlang cases are excluded from the AR sweep and reported
+   separately.
+
+Net: root cause **(a)** (manual add bypasses reconcile) is the real, dedup-relevant
+fix; **(b)** is reframed — canonicalization stays as a workspace convention. The
+sections below are the as-designed text; read them through this Update.
 
 ## Problem
 
