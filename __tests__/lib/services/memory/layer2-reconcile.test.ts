@@ -28,4 +28,23 @@ describe('reconcileLayer2Candidates', () => {
     generateObjectMock.mockRejectedValue(new Error('down'))
     expect(await reconcileLayer2Candidates({ project: { id: 'p1', name: 'P' }, candidates: [], neighborsByCandidate: [] })).toEqual([])
   })
+
+  // LUM-335: same schema-drift resilience as layer1 — `operation`-keyed alias is
+  // recovered and a single garbage element is dropped without losing the batch.
+  it('recovers an `operation`-keyed op and drops only the garbage element', async () => {
+    generateObjectMock.mockResolvedValue({
+      object: {
+        operations: [
+          { operation: 'SUPERSEDE', id: 'pm_old', content: { rule: 'r' } },
+          { junk: true },
+          { type: 'NOOP' },
+        ],
+      },
+    })
+    const ops = await reconcileLayer2Candidates({ project: { id: 'p1', name: 'P' }, candidates: [], neighborsByCandidate: [] })
+    expect(ops).toEqual([
+      { type: 'SUPERSEDE', id: 'pm_old', content: { rule: 'r' } },
+      { type: 'NOOP' },
+    ])
+  })
 })

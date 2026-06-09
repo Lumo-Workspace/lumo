@@ -3,6 +3,10 @@ import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { buildLayer2ExtractPrompt } from './layer2-prompt'
 import { buildLayer2ReconcilePrompt } from './layer2-reconcile-prompt'
+import {
+  LOOSE_RECONCILE_OUTPUT,
+  parseReconcileOperations,
+} from './reconcile-parse'
 import type { Layer2Input } from './layer2-input'
 import type { ScoredNeighbor } from './neighbor-retriever'
 
@@ -125,13 +129,19 @@ export async function reconcileLayer2Candidates(
     neighborsByCandidate: input.neighborsByCandidate,
   })
   try {
+    // LUM-335: same per-op resilience as layer1 — loose array schema to
+    // generateObject, then strict per-element validation (alias + drop garbage).
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
-      schema: layer2OutputSchema,
+      schema: LOOSE_RECONCILE_OUTPUT,
       system,
       prompt: user,
     })
-    return object.operations
+    return parseReconcileOperations(
+      object.operations,
+      layer2OperationSchema,
+      'memory.layer2'
+    )
   } catch (error) {
     console.error(
       `[memory.layer2] reconciliation failed project=${input.project.id}:`,

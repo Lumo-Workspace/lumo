@@ -3,6 +3,10 @@ import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { buildLayer1ExtractPrompt } from './layer1-prompt'
 import { buildLayer1ReconcilePrompt } from './layer1-reconcile-prompt'
+import {
+  LOOSE_RECONCILE_OUTPUT,
+  parseReconcileOperations,
+} from './reconcile-parse'
 import type { Layer1Input } from './layer1-input'
 import type { ScoredNeighbor } from './neighbor-retriever'
 
@@ -94,13 +98,20 @@ export async function reconcileLayer1Candidates(
     neighborsByCandidate: input.neighborsByCandidate,
   })
   try {
+    // LUM-335: hand generateObject a LOOSE array schema (raw objects) so one
+    // malformed element can't throw and nuke the whole turn; validate each op
+    // individually afterwards (alias `operation`→`type`, drop only garbage).
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
-      schema: layer1OutputSchema,
+      schema: LOOSE_RECONCILE_OUTPUT,
       system,
       prompt: user,
     })
-    return object.operations
+    return parseReconcileOperations(
+      object.operations,
+      layer1OperationSchema,
+      'memory.layer1'
+    )
   } catch (error) {
     console.error(
       `[memory.layer1] reconciliation failed task=${input.task.id}:`,
