@@ -2,11 +2,13 @@
 // Workspace-centric data model. Clerk owns user identity; clerkId is the FK.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
@@ -1510,6 +1512,11 @@ model Memory {
   createdByMemberId String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+  /// 1024-dim semantic embedding of memoryContentToText(content), model
+  /// alibaba/qwen3-embedding-0.6b. Read/written ONLY via parameterized raw SQL
+  /// in memory.repository.ts — Prisma's typed client can't touch Unsupported
+  /// columns. Deliberate pgvector exception to the never-raw-SQL rule. LUM-324.
+  embedding         Unsupported("vector(1024)")?
 
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)

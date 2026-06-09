@@ -1,8 +1,12 @@
 import { logger } from '@/lib/logger'
 import { getLayer2Input } from './layer2-input'
-import { extractLayer2Operations } from './layer2-extract'
+import { extractLayer2Candidates, reconcileLayer2Candidates } from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { memoryContentToText } from '@/lib/memory/content-text'
+import { NEIGHBOR_K } from './neighbor-retriever'
+import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
+import { embedTexts } from '@/lib/ai/embedding'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -14,6 +18,7 @@ const LAYER2_LEASE_TTL_MS = 60_000
 export interface Layer2ProjectResult {
   added: number
   updated: number
+  superseded: number
   noop: number
   skipped: number
 }
@@ -32,8 +37,9 @@ interface TriggerForTaskCompletionInput {
 /**
  * Layer 2 memory consolidation: scans recent TASK-scope memories in a
  * project, identifies recurring lessons, and promotes them to PROJECT
- * scope via the
- *   getLayer2Input → extractLayer2Operations → applyLayer2Operations
+ * scope via the two-pass
+ *   getLayer2Input → extractLayer2Candidates → retrieveNeighbors →
+ *   reconcileLayer2Candidates → applyLayer2Operations
  * pipeline.
  *
  * Triggered when a task transitions to DONE — that's the natural moment
@@ -115,13 +121,49 @@ async function runForProject(
       return null
     }
 
-    const operations = await extractLayer2Operations(input)
-    if (operations.length === 0) {
-      logger.debug(
-        `[memory.layer2] no-ops project=${projectId} (LLM returned empty list)`
-      )
-      return { added: 0, updated: 0, noop: 0, skipped: 0 }
+    // Pass 1 — candidate project lessons, blind to existing PROJECT memories.
+    const candidates = await extractLayer2Candidates(input)
+    if (candidates.length === 0) {
+      logger.debug(`[memory.layer2] no-candidates project=${projectId}`)
+      return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
+
+    // Batch-embed candidate texts for semantic retrieval. No key / gateway down →
+    // degrade to lexical (vectors stay undefined). Never throws (fire-and-forget).
+    const candidateTexts = candidates.map(c => memoryContentToText(c.category, c.content))
+    let candidateVectors: (number[] | undefined)[] = candidateTexts.map(() => undefined)
+    try {
+      const vecs = await embedTexts(candidateTexts)
+      if (vecs.length === candidateTexts.length) candidateVectors = vecs
+    } catch (error) {
+      logger.warn(`[memory.layer2] candidate embedding failed, falling back to lexical:`, error instanceof Error ? error.message : error)
+    }
+
+    // Retrieve — per candidate, top-k similar existing PROJECT memories.
+    const neighborsByCandidate = await Promise.all(
+      candidates.map((c, i) =>
+        compositeNeighborRetriever.retrieve({
+          query: { category: c.category, text: candidateTexts[i]!, vector: candidateVectors[i] },
+          pool: input.existingProjectMemories,
+          scope: { kind: 'PROJECT', projectId: input.project.id },
+          k: NEIGHBOR_K,
+        })
+      )
+    )
+
+    // Pass 2 — reconcile each candidate against its neighbors.
+    const operations = await reconcileLayer2Candidates({
+      project: { id: input.project.id, name: input.project.name },
+      candidates,
+      neighborsByCandidate,
+    })
+    if (operations.length === 0) {
+      logger.debug(`[memory.layer2] no-ops project=${projectId}`)
+      return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
+    }
+
+    const precomputedEmbeddings = new Map<string, number[]>()
+    candidateTexts.forEach((t, i) => { const v = candidateVectors[i]; if (v) precomputedEmbeddings.set(t, v) })
 
     const result = await applyLayer2Operations({
       operations,
@@ -133,13 +175,14 @@ async function runForProject(
       })),
       validSourceMemoryIds: input.taskMemories.map(m => m.id),
       sourceSessionId,
+      precomputedEmbeddings,
     })
 
     logger.debug(`[memory.layer2] applied project=${projectId}`, result)
-
     return {
       added: result.added,
       updated: result.updated,
+      superseded: result.superseded,
       noop: result.noop,
       skipped: result.skipped,
     }

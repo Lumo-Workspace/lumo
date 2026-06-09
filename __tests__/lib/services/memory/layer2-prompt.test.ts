@@ -1,14 +1,13 @@
 /**
  * @jest-environment node
  *
- * Sanity checks on the Layer 2 prompt builder. We don't snapshot the whole
- * prompt — both the system block and the examples are large and we want
- * tests that fail for the right reason. Instead we assert specific
- * invariants that the prompt must keep (grouping, dedup signal,
- * recurrence rule, constitution-coverage NOOP) so a regression in any of
- * those is caught.
+ * Sanity checks on the Layer 2 extract prompt builder. We don't snapshot the
+ * whole prompt — both the system block and the examples are large and we want
+ * tests that fail for the right reason. Instead we assert specific invariants
+ * that the prompt must keep (grouping, recurrence rule, constitution-coverage,
+ * candidate output framing) so a regression in any of those is caught.
  */
-import { buildLayer2Prompt } from '@/lib/services/memory/layer2-prompt'
+import { buildLayer2ExtractPrompt } from '@/lib/services/memory/layer2-prompt'
 import type { Layer2Input } from '@/lib/services/memory/layer2-input'
 
 const baseProject = {
@@ -43,12 +42,12 @@ function input(overrides: Partial<Layer2Input> = {}): Layer2Input {
   }
 }
 
-describe('buildLayer2Prompt', () => {
+describe('buildLayer2ExtractPrompt', () => {
   it('groups TASK memories by source taskId so the LLM can see recurrence', () => {
     // The clustering signal Layer 2 cares about is "same lesson appears in
     // multiple different tasks" — the prompt must surface taskId so the
     // model can count distinct sources.
-    const { user } = buildLayer2Prompt(
+    const { user } = buildLayer2ExtractPrompt(
       input({
         taskMemories: [
           mem({ id: 'm_a1', taskId: 'task_a' }),
@@ -61,8 +60,9 @@ describe('buildLayer2Prompt', () => {
     expect(user).toMatch(/task=task_b \(1 memories\)/)
   })
 
-  it('lists existing PROJECT memories so the LLM can avoid duplicates', () => {
-    const { user } = buildLayer2Prompt(
+  it('does NOT include existing PROJECT memories block (Pass 1 is blind to them)', () => {
+    // Pass 1 must not show existing PROJECT memories — that is Pass 2's job.
+    const { user } = buildLayer2ExtractPrompt(
       input({
         taskMemories: [mem({})],
         existingProjectMemories: [
@@ -74,20 +74,21 @@ describe('buildLayer2Prompt', () => {
         ],
       })
     )
-    expect(user).toMatch(/id=proj_mem_1/)
-    expect(user).toMatch(/use Zod/)
+    expect(user).not.toMatch(/id=proj_mem_1/)
+    expect(user).not.toMatch(/Existing PROJECT-scope memories/)
+    // The prompt must reference candidates output framing instead
+    expect(user).toMatch(/candidates/)
   })
 
-  it('renders "(none)" sections so the LLM does not see a truncated prompt', () => {
+  it('renders "(none)" for task memories section so the LLM does not see a truncated prompt', () => {
     // Empty sections must be obvious. A blank list with no marker can look
     // like a prompt-rendering bug to the model.
-    const { user } = buildLayer2Prompt(input())
+    const { user } = buildLayer2ExtractPrompt(input())
     expect(user).toMatch(/Recent TASK-scope memories[^\n]*\n\s*\(none\)/)
-    expect(user).toMatch(/Existing PROJECT-scope memories[^\n]*\n\s*\(none\)/)
   })
 
   it('includes the project name so the LLM has context about which project it is consolidating', () => {
-    const { user } = buildLayer2Prompt(
+    const { user } = buildLayer2ExtractPrompt(
       input({ project: { ...baseProject, name: 'MyCoolProject' } })
     )
     expect(user).toMatch(/MyCoolProject/)
@@ -96,7 +97,7 @@ describe('buildLayer2Prompt', () => {
   it('documents the optional summary title field and demonstrates it in an example', () => {
     // summary is the card title (LUM-121); the consolidation prompt must
     // teach the LLM to synthesize one when promoting a memory.
-    const { system, user } = buildLayer2Prompt(input())
+    const { system, user } = buildLayer2ExtractPrompt(input())
     expect(system).toMatch(/summary/i)
     expect(system).toMatch(/title/i)
     expect(user).toMatch(/"summary":/)
@@ -106,13 +107,13 @@ describe('buildLayer2Prompt', () => {
     // This is the most important constraint Layer 2 enforces; if it leaks
     // out of the prompt, the LLM will promote single-task patterns and
     // PROJECT scope will fill with noise.
-    const { system } = buildLayer2Prompt(input())
+    const { system } = buildLayer2ExtractPrompt(input())
     expect(system).toMatch(/Recurrence is mandatory for ADD/i)
   })
 
   describe('constitution injection (LUM-137)', () => {
     it('injects CLAUDE.md and AGENTS.md content into the prompt when present', () => {
-      const { user } = buildLayer2Prompt(
+      const { user } = buildLayer2ExtractPrompt(
         input({
           constitution: {
             claudeMd: 'Never use raw SQL — use Prisma for all database access.',
@@ -128,7 +129,7 @@ describe('buildLayer2Prompt', () => {
     })
 
     it('renders the constitution section as "(none)" when both files are absent', () => {
-      const { user } = buildLayer2Prompt(input())
+      const { user } = buildLayer2ExtractPrompt(input())
       expect(user).toMatch(/Project constitution[^\n]*\n[^\n]*\n\s*\(none\)/)
       // A missing file must not leak a stray "## CLAUDE.md" / "## AGENTS.md"
       // header with no body.
@@ -137,7 +138,7 @@ describe('buildLayer2Prompt', () => {
     })
 
     it('renders only the file that is present (partial constitution)', () => {
-      const { user } = buildLayer2Prompt(
+      const { user } = buildLayer2ExtractPrompt(
         input({
           constitution: { claudeMd: 'Use named exports.', agentsMd: null },
         })
@@ -147,18 +148,17 @@ describe('buildLayer2Prompt', () => {
       expect(user).not.toMatch(/## AGENTS\.md/)
     })
 
-    it('instructs the model to NOOP lessons already covered by an existing memory or the constitution', () => {
-      // The core LUM-137 behavior: a candidate already documented at PROJECT
-      // scope OR in CLAUDE.md/AGENTS.md must be NOOP, never ADD.
-      const { system } = buildLayer2Prompt(input())
-      expect(system).toMatch(/Never ADD a lesson already covered/i)
+    it('instructs the model to omit lessons already covered by the constitution', () => {
+      // The constitution-dedup behavior: a candidate already documented in
+      // CLAUDE.md/AGENTS.md must be omitted, never emitted.
+      const { system } = buildLayer2ExtractPrompt(input())
       expect(system).toMatch(/project constitution already documents it/i)
       expect(system).toMatch(/redundant by definition/i)
     })
   })
 
-  it('system prompt instructs ADD to cite sourceMemoryIds', () => {
-    const { system } = buildLayer2Prompt(input())
+  it('system prompt instructs candidates to cite sourceMemoryIds', () => {
+    const { system } = buildLayer2ExtractPrompt(input())
     expect(system).toContain('sourceMemoryIds')
   })
 })

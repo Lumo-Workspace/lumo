@@ -15,7 +15,8 @@
  * against an in-memory repository; only the LLM step is mocked.
  */
 jest.mock('@/lib/services/memory/layer2-extract', () => ({
-  extractLayer2Operations: jest.fn(),
+  extractLayer2Candidates: jest.fn(),
+  reconcileLayer2Candidates: jest.fn(),
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findById: jest.fn() },
@@ -32,14 +33,20 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 }))
 
 import { layer2Service } from '@/lib/services/memory/layer2.service'
-import { extractLayer2Operations } from '@/lib/services/memory/layer2-extract'
+import {
+  extractLayer2Candidates,
+  reconcileLayer2Candidates,
+} from '@/lib/services/memory/layer2-extract'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import type { Layer2Operation } from '@/lib/services/memory/layer2-extract'
+import type { Layer2Operation, Layer2Candidate } from '@/lib/services/memory/layer2-extract'
 import type { Layer2Input } from '@/lib/services/memory/layer2-input'
 
-const mockExtract = extractLayer2Operations as jest.MockedFunction<
-  typeof extractLayer2Operations
+const mockExtractCandidates = extractLayer2Candidates as jest.MockedFunction<
+  typeof extractLayer2Candidates
+>
+const mockReconcile = reconcileLayer2Candidates as jest.MockedFunction<
+  typeof reconcileLayer2Candidates
 >
 const mockProjectRepo = projectRepository as jest.Mocked<
   typeof projectRepository
@@ -137,26 +144,38 @@ describe('layer2 consolidation — concurrent task completions', () => {
       leaseHeld = false
     })
 
-    mockExtract.mockImplementation(async (input: Layer2Input) => {
+    // Pass 1: extract candidates (barrier lives here — this is where the race
+    // would have occurred in the old single-pass design).
+    mockExtractCandidates.mockImplementation(async (_input: Layer2Input) => {
       arrivals += 1
       const myIndex = arrivals
       if (arrivals >= 2) releaseBarrier() // un-serialized: both reached the LLM
       await barrier
 
-      // Faithful LLM behavior: NOOP if the lesson is already in the snapshot;
-      // otherwise promote it (each run synthesizes its own wording).
-      const alreadyPromoted = input.existingProjectMemories.some(
-        m => m.category === 'TRAP'
-      )
-      if (alreadyPromoted) return [{ type: 'NOOP' }] as Layer2Operation[]
       return [
         {
-          type: 'ADD',
-          category: 'TRAP',
+          category: 'TRAP' as const,
           content: {
             trigger: `Ambiguous identifier resolution lesson (synthesis #${myIndex}).`,
             outcome: 'Resolves to the wrong resource.',
           },
+        },
+      ] as Layer2Candidate[]
+    })
+
+    // Pass 2: reconcile — NOOP if the lesson already has a neighbor (already
+    // promoted); otherwise ADD.
+    mockReconcile.mockImplementation(async input => {
+      const firstNeighbors = input.neighborsByCandidate[0] ?? []
+      const alreadyPromoted = firstNeighbors.some(n => n.category === 'TRAP')
+      if (alreadyPromoted) return [{ type: 'NOOP' }] as Layer2Operation[]
+      const firstCandidate = input.candidates[0]
+      if (!firstCandidate) return [{ type: 'NOOP' }] as Layer2Operation[]
+      return [
+        {
+          type: 'ADD',
+          category: 'TRAP' as const,
+          content: firstCandidate.content,
         },
       ] as Layer2Operation[]
     })

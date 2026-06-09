@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
-import { buildLayer2Prompt } from './layer2-prompt'
+import { buildLayer2ExtractPrompt } from './layer2-prompt'
+import { buildLayer2ReconcilePrompt } from './layer2-reconcile-prompt'
 import type { Layer2Input } from './layer2-input'
+import type { ScoredNeighbor } from './neighbor-retriever'
 
 // ── Output schema ─────────────────────────────────────────────────────────────
 
@@ -20,11 +22,13 @@ const memoryCategorySchema = z.enum([
  *   writes PROJECT, so there is no scope field on the op.
  * - UPDATE refines an existing PROJECT-scope memory (same id+content shape
  *   as Layer 1 UPDATE). Same-category replacement only.
+ * - SUPERSEDE is the contradiction path: when a new observation directly
+ *   contradicts an existing PROJECT memory, SUPERSEDE atomically replaces the
+ *   old content via supersedeInPlace (soft-retract + new version). Like
+ *   UPDATE, content must validate against the existing row's category.
+ *   Layer 2 still has NO hard DELETE — retracting without a replacement is
+ *   deferred to a user action or a future clean-up pass.
  * - NOOP signals "nothing new to consolidate this run".
- *
- * No DELETE: Layer 2 only adds and refines. Retracting a PROJECT memory is
- * deferred — it should come from a user action or a future contradiction
- * pass, not from a periodic consolidation job.
  */
 export const layer2OperationSchema = z.discriminatedUnion('type', [
   z.object({
@@ -42,6 +46,11 @@ export const layer2OperationSchema = z.discriminatedUnion('type', [
     content: z.unknown(),
   }),
   z.object({
+    type: z.literal('SUPERSEDE'),
+    id: z.string().min(1),
+    content: z.unknown(),
+  }),
+  z.object({
     type: z.literal('NOOP'),
   }),
 ])
@@ -53,20 +62,68 @@ export const layer2OutputSchema = z.object({
 export type Layer2Operation = z.infer<typeof layer2OperationSchema>
 export type Layer2Output = z.infer<typeof layer2OutputSchema>
 
-// ── Extraction call ───────────────────────────────────────────────────────────
+// ── Pass 1: candidate extraction ───────────────────────────────────────────
 
 const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
-/**
- * Call the Layer 2 LLM and return the parsed operations list. Failures
- * (LLM error, schema mismatch) degrade to an empty list — the caller can
- * no-op safely. No retry: the next cron run is always coming.
- */
-export async function extractLayer2Operations(
-  input: Layer2Input
-): Promise<Layer2Operation[]> {
-  const { system, user } = buildLayer2Prompt(input)
+export const layer2CandidateSchema = z.object({
+  category: memoryCategorySchema,
+  content: z.unknown(),
+  sourceMemoryIds: z.array(z.string().min(1)).optional(),
+})
+export const layer2CandidatesOutputSchema = z.object({
+  candidates: z.array(layer2CandidateSchema),
+})
+export type Layer2Candidate = z.infer<typeof layer2CandidateSchema>
 
+/**
+ * Pass 1: scan recurring TASK-scope memories and emit candidate PROJECT
+ * lessons — blind to existing PROJECT memories (reconciliation is Pass 2).
+ * Each candidate carries sourceMemoryIds (recurrence evidence / provenance).
+ * Failures degrade to [].
+ */
+export async function extractLayer2Candidates(
+  input: Layer2Input
+): Promise<Layer2Candidate[]> {
+  const { system, user } = buildLayer2ExtractPrompt(input)
+  try {
+    const { object } = await generateObject({
+      model: gateway(MODEL_ID),
+      schema: layer2CandidatesOutputSchema,
+      system,
+      prompt: user,
+    })
+    return object.candidates
+  } catch (error) {
+    console.error(
+      `[memory.layer2] candidate extraction failed project=${input.project.id}:`,
+      error
+    )
+    return []
+  }
+}
+
+// ── Pass 2: reconciliation ──────────────────────────────────────────────────
+
+export interface ReconcileLayer2Input {
+  project: { id: string; name: string }
+  candidates: Layer2Candidate[]
+  neighborsByCandidate: ScoredNeighbor[][]
+}
+
+/**
+ * Pass 2: given each candidate PROJECT lesson and its top-k neighbors (existing
+ * PROJECT memories), decide the operation (ADD / UPDATE / SUPERSEDE / NOOP — no
+ * DELETE at Layer 2). Failures degrade to [].
+ */
+export async function reconcileLayer2Candidates(
+  input: ReconcileLayer2Input
+): Promise<Layer2Operation[]> {
+  const { system, user } = buildLayer2ReconcilePrompt({
+    project: input.project,
+    candidates: input.candidates,
+    neighborsByCandidate: input.neighborsByCandidate,
+  })
   try {
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
@@ -77,7 +134,7 @@ export async function extractLayer2Operations(
     return object.operations
   } catch (error) {
     console.error(
-      `[memory.layer2] extraction failed project=${input.project.id}:`,
+      `[memory.layer2] reconciliation failed project=${input.project.id}:`,
       error
     )
     return []
