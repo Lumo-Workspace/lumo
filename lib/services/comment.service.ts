@@ -46,6 +46,7 @@ interface CreateCommentWithSideEffectsInput extends CreateCommentInput {
   taskId: string
   teamIdentifier: string
   workspaceSlug: string
+  projectName: string
   waitUntil: (promise: Promise<unknown>) => void
   mirrorOrigin?: 'inbound' | 'user'
 }
@@ -62,6 +63,7 @@ interface NotifyMentionsParams {
   taskNumber: number
   teamIdentifier: string
   workspaceSlug: string
+  projectName: string
   waitUntil: (promise: Promise<unknown>) => void
 }
 
@@ -137,6 +139,7 @@ export const commentService = {
       taskNumber,
       teamIdentifier,
       workspaceSlug,
+      projectName,
       waitUntil,
     } = params
 
@@ -156,7 +159,12 @@ export const commentService = {
       taskId,
       taskTitle,
       commentBody: body.replace(/<[^>]+>/g, '').slice(0, 200),
-      taskUrl: buildTaskUrl(workspaceSlug, teamIdentifier, taskNumber),
+      taskUrl: buildTaskUrl(
+        workspaceSlug,
+        projectName,
+        teamIdentifier,
+        taskNumber
+      ),
     }
 
     const recipientActors = members
@@ -232,6 +240,7 @@ export const commentService = {
       taskNumber,
       teamIdentifier,
       workspaceSlug,
+      projectName,
       waitUntil,
       mirrorOrigin,
       ...createInput
@@ -274,6 +283,7 @@ export const commentService = {
         taskNumber,
         teamIdentifier,
         workspaceSlug,
+        projectName,
         waitUntil,
       })
       .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
@@ -344,6 +354,7 @@ export const commentService = {
       taskNumber: task.number,
       teamIdentifier: task.team?.identifier ?? '',
       workspaceSlug: task.project?.workspace?.slug ?? '',
+      projectName: task.project?.name ?? '',
       waitUntil: p => {
         void p
       },

@@ -210,6 +210,7 @@ const TASK_COMMENT_SELECT = {
   team: { select: { identifier: true } },
   project: {
     select: {
+      name: true,
       workspaceId: true,
       workspace: { select: { slug: true } },
     },

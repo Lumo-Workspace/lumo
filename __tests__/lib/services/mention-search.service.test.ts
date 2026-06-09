@@ -7,6 +7,7 @@ jest.mock('@/lib/repositories/mention-search.repository', () => ({
         title: 'Fix bug',
         status: 'IN_PROGRESS',
         team: { identifier: 'LUM' },
+        project: { name: 'Lumo' },
       },
     ]),
     searchSprints: jest
@@ -34,7 +35,7 @@ it('maps all four kinds to MentionSearchItem with hrefs', async () => {
     label: 'LUM-42',
     sublabel: 'Fix bug',
     status: 'IN_PROGRESS',
-    href: '/workspace/acme/tasks/LUM-42',
+    href: '/workspace/acme/projects/lumo/tasks/LUM-42',
   })
   expect(byKind.sprint).toMatchObject({
     kind: 'sprint',

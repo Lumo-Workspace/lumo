@@ -406,9 +406,7 @@ export const sessionService = {
       taskIdentifier: ctx.taskIdentifier,
       memories,
       watermark:
-        rows.length > 0
-          ? rows[rows.length - 1]!.createdAt.toISOString()
-          : null,
+        rows.length > 0 ? rows[rows.length - 1]!.createdAt.toISOString() : null,
     }
   },
 
@@ -466,7 +464,10 @@ export const sessionService = {
       await memoryRepository.applyPlansAtomically(plans)
     }
 
-    await sessionRepository.setLastMemoryReviewAt(sessionId, new Date(watermark))
+    await sessionRepository.setLastMemoryReviewAt(
+      sessionId,
+      new Date(watermark)
+    )
     return { deleted: toDelete.length, promoted: toPromote.length }
   },
 
@@ -498,7 +499,8 @@ export const sessionService = {
     )
     if (!ctx) return empty
 
-    const edges = await lineageEdgeRepository.findSessionFragmentEdges(sessionId)
+    const edges =
+      await lineageEdgeRepository.findSessionFragmentEdges(sessionId)
     const memIds = edges
       .filter(e => e.fragmentType === 'MEMORY')
       .map(e => e.fragmentId)
@@ -695,7 +697,8 @@ export const sessionService = {
     // delegation, PR mirroring) off this module's load path so importing
     // session.service in tests / other call sites doesn't pull an ESM chain
     // jest can't parse. Matches the lazy-import pattern in comment.service.ts.
-    const { taskRepository } = await import('@/lib/repositories/task.repository')
+    const { taskRepository } =
+      await import('@/lib/repositories/task.repository')
     const { commentService } = await import('@/lib/services/comment.service')
     const { getHumanActorId } = await import('@/lib/actor')
 
@@ -722,6 +725,7 @@ export const sessionService = {
       taskNumber: task.number,
       teamIdentifier: task.team?.identifier ?? '',
       workspaceSlug: task.project.workspace?.slug ?? '',
+      projectName: task.project.name,
       waitUntil,
     })
 

@@ -142,6 +142,7 @@ export async function createTask(
       number: task.number,
     },
     projectId,
+    projectName: project.name,
     workspaceId: project.workspaceId,
     workspaceSlug: project.workspace?.slug ?? '',
     actorId,

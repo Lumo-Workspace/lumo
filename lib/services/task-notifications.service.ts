@@ -30,6 +30,7 @@ export function dispatchCreateTaskSideEffects(opts: {
     number: number
   }
   projectId: string
+  projectName: string
   workspaceId: string
   workspaceSlug: string
   actorId: string
@@ -39,6 +40,7 @@ export function dispatchCreateTaskSideEffects(opts: {
   const {
     task,
     projectId,
+    projectName,
     workspaceId,
     workspaceSlug,
     actorId,
@@ -60,7 +62,12 @@ export function dispatchCreateTaskSideEffects(opts: {
 
   // ── Fire-and-forget: task_created Slack channel notification ─────────────
   const taskIdentifier = buildTaskIdentifier(task.teamIdentifier, task.number)
-  const taskUrl = buildTaskUrl(workspaceSlug, task.teamIdentifier, task.number)
+  const taskUrl = buildTaskUrl(
+    workspaceSlug,
+    projectName,
+    task.teamIdentifier,
+    task.number
+  )
   waitUntil(
     sendChannelNotification(
       workspaceId,

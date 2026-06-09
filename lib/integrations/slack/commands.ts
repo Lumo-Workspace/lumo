@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
+import { slugify } from '@/lib/utils/slugify'
 import { CommandResult } from './types'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
@@ -37,8 +38,12 @@ async function resolveSlackUser(
 
 const TASK_IDENTIFIER_REGEX = /^([A-Za-z]{1,10})-(\d+)$/
 
-function taskUrl(workspaceSlug: string, identifier: string) {
-  return `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${identifier}`
+function taskUrl(
+  workspaceSlug: string,
+  projectName: string,
+  identifier: string
+) {
+  return `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/projects/${slugify(projectName)}/tasks/${identifier}`
 }
 
 function taskBlocks(task: {
@@ -70,7 +75,7 @@ function taskBlocks(task: {
       accessory: {
         type: 'button',
         text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-        url: taskUrl(task.workspaceSlug, identifier),
+        url: taskUrl(task.workspaceSlug, task.projectName ?? '', identifier),
       },
     },
   ]
@@ -258,7 +263,7 @@ export async function handleCommand(
       const project = await prisma.project.findFirst({
         where: { teamId: team.id },
         orderBy: { updatedAt: 'desc' },
-        select: { id: true },
+        select: { id: true, name: true },
       })
 
       const task = await prisma.task.create({
@@ -275,7 +280,11 @@ export async function handleCommand(
       })
 
       const taskIdentifier = `${team.identifier}-${task.number}`
-      const url = taskUrl(team.workspace.slug, taskIdentifier)
+      const url = taskUrl(
+        team.workspace.slug,
+        project?.name ?? '',
+        taskIdentifier
+      )
       return {
         type: 'blocks',
         blocks: [
@@ -330,6 +339,7 @@ export async function handleCommand(
               workspace: { select: { slug: true } },
             },
           },
+          project: { select: { name: true } },
         },
       })
 
@@ -349,6 +359,7 @@ export async function handleCommand(
             text: { type: 'plain_text', text: 'Open ↗' },
             url: taskUrl(
               t.team.workspace.slug,
+              t.project.name,
               `${t.team.identifier}-${t.number}`
             ),
           },

@@ -309,7 +309,7 @@ describe('githubRepository.findTaskByIdentifier', () => {
         team: { identifier: 'ENG', workspaceId: 'ws-1' },
       },
       include: {
-        project: { select: { ownerId: true, workspaceId: true } },
+        project: { select: { name: true, ownerId: true, workspaceId: true } },
         team: { select: { identifier: true } },
       },
     })
