@@ -9,6 +9,11 @@
 import fixture from './vectors.fixture.json'
 import { evalSet } from './eval-set'
 import { isPositiveCase } from './types'
+
+// Same-language subset: exclude cross-lingual pairs (xlang-*) from AR
+// calibration. The xlang cases are retained in evalSet so fixture-gen.ts
+// still embeds them and crossLingualReport() can consume them.
+const sameLangSet = evalSet.filter(c => !c.id.startsWith('xlang-'))
 import { bigramSimilarity } from '@/lib/similarity'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import {
@@ -57,7 +62,7 @@ function arForModel(model: string): ArResult {
   const floorCases: FloorCase[] = []
   const ranked: ScoredItem[][] = []
   const sepCases: SeparationCase[] = []
-  for (const c of evalSet) {
+  for (const c of sameLangSet) {
     const q = fx.cases[c.id]!.candidate[model]!
     let positiveScore: number | null = null
     const items: ScoredItem[] = []
@@ -66,7 +71,7 @@ function arForModel(model: string): ArResult {
       items.push({ id: c.id, score: positiveScore, isPositive: true })
     }
     const distractorScores: number[] = []
-    for (const other of evalSet) {
+    for (const other of sameLangSet) {
       if (other.id === c.id) continue
       const s = cosineSimilarity(q, fx.cases[other.id]!.existing[model]!)
       distractorScores.push(s)
@@ -104,7 +109,7 @@ function arForModel(model: string): ArResult {
 // over a small pool both lexical and embedding tend to reach recall@10=1.0.
 function lexicalRecall(): { at1: number; at3: number; at10: number } {
   const ranked: ScoredItem[][] = []
-  for (const c of evalSet) {
+  for (const c of sameLangSet) {
     const qText = memoryContentToText(c.category, c.candidate)
     const items: ScoredItem[] = []
     if (isPositiveCase(c)) {
@@ -117,7 +122,7 @@ function lexicalRecall(): { at1: number; at3: number; at10: number } {
         isPositive: true,
       })
     }
-    for (const other of evalSet) {
+    for (const other of sameLangSet) {
       if (other.id === c.id) continue
       items.push({
         id: other.id,
@@ -162,13 +167,13 @@ async function main(): Promise<void> {
   const arByModel = Object.fromEntries(models.map(m => [m, arForModel(m)]))
   const prod = arByModel[PROD_MODEL]!
   const lex = lexicalRecall()
-  const nPos = evalSet.filter(isPositiveCase).length
+  const nPos = sameLangSet.filter(isPositiveCase).length
 
   // eslint-disable-next-line no-console
   const log = console.log
   log('=== LUM-329 Memory Eval ===\n')
   log(
-    `— AR (offline, deterministic; n=${nPos} positives, ${evalSet.length} cases) —`
+    `— AR (offline, deterministic; n=${nPos} positives, ${sameLangSet.length} same-language cases) —`
   )
   for (const m of models) {
     const a = arByModel[m]!
