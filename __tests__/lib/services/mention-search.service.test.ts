@@ -1,16 +1,14 @@
 jest.mock('@/lib/repositories/mention-search.repository', () => ({
   mentionSearchRepository: {
-    searchTasks: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: 't1',
-          number: 42,
-          title: 'Fix bug',
-          status: 'IN_PROGRESS',
-          team: { identifier: 'LUM' },
-        },
-      ]),
+    searchTasks: jest.fn().mockResolvedValue([
+      {
+        id: 't1',
+        number: 42,
+        title: 'Fix bug',
+        status: 'IN_PROGRESS',
+        team: { identifier: 'LUM' },
+      },
+    ]),
     searchSprints: jest
       .fn()
       .mockResolvedValue([
@@ -25,6 +23,7 @@ jest.mock('@/lib/repositories/mention-search.repository', () => ({
   },
 }))
 import { mentionSearchService } from '@/lib/services/mention-search.service'
+import { mentionSearchRepository } from '@/lib/repositories/mention-search.repository'
 
 it('maps all four kinds to MentionSearchItem with hrefs', async () => {
   const items = await mentionSearchService.search('ws1', 'acme', 'x', 5)
@@ -54,6 +53,13 @@ it('maps all four kinds to MentionSearchItem with hrefs', async () => {
   })
 })
 
-it('returns [] for blank query', async () => {
-  expect(await mentionSearchService.search('ws1', 'acme', '   ', 5)).toEqual([])
+it('returns recent entities for a blank query (bare @) instead of []', async () => {
+  const items = await mentionSearchService.search('ws1', 'acme', '   ', 5)
+  // Blank/whitespace query → trimmed to '' → repos queried with '' (recent),
+  // and the mapped results are returned rather than an empty list.
+  expect(items.length).toBeGreaterThan(0)
+  expect(mentionSearchRepository.searchTasks).toHaveBeenCalledWith('ws1', '', 5)
+  expect(items.map(i => i.kind)).toEqual(
+    expect.arrayContaining(['task', 'sprint', 'project', 'milestone'])
+  )
 })

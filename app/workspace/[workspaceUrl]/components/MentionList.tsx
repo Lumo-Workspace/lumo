@@ -109,7 +109,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     if (!items.length) {
       return (
-        <div className='px-3 py-2 text-xs text-muted-foreground'>
+        <div className='px-2 py-2 text-xs text-muted-foreground'>
           {loading
             ? intl.formatMessage({ id: 'mention.searching' })
             : intl.formatMessage({ id: 'mention.empty' })}
@@ -119,9 +119,15 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     const renderRow = (item: MentionItem, flatIndex: number) => {
       const isSelected = flatIndex === selectedIndex
+      // `min-w-0` lets the flex children shrink so `truncate` ellipsizes long
+      // titles/names instead of forcing the row wider than the popup (which
+      // would trigger a horizontal scrollbar). Selected rows get a subtle
+      // inset background + a 2px left accent bar rather than a full-bleed fill.
       const rowCls = cn(
-        'w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors',
-        isSelected ? 'bg-muted' : 'hover:bg-muted'
+        'relative w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left min-w-0 transition-colors',
+        isSelected
+          ? "bg-muted before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-foreground before:content-['']"
+          : 'hover:bg-muted'
       )
       const common = {
         id: optionId(flatIndex),
@@ -149,19 +155,33 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <span className='text-foreground truncate'>{item.label}</span>
+            <span className='min-w-0 truncate text-foreground'>
+              {item.label}
+            </span>
           </button>
         )
       }
 
+      // Tasks carry a short identifier label (e.g. "LUM-42") + a long title
+      // sublabel: keep the id fixed and truncate the title. Sprints/projects/
+      // milestones have no sublabel — their label IS the (possibly long) name,
+      // so it must truncate instead of staying fixed-width.
       return (
         <button key={`${item.kind}-${item.id}`} {...common}>
           <EntityGlyph kind={item.kind} status={item.status} />
-          <span className='text-xs text-muted-foreground shrink-0 font-medium'>
-            {item.label}
-          </span>
-          {item.sublabel && (
-            <span className='text-foreground truncate'>{item.sublabel}</span>
+          {item.sublabel ? (
+            <>
+              <span className='shrink-0 text-xs font-medium text-muted-foreground'>
+                {item.label}
+              </span>
+              <span className='min-w-0 truncate text-foreground'>
+                {item.sublabel}
+              </span>
+            </>
+          ) : (
+            <span className='min-w-0 truncate text-foreground'>
+              {item.label}
+            </span>
           )}
         </button>
       )
@@ -170,7 +190,6 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     let cursor = 0
     return (
       <div
-        className='py-1'
         role='listbox'
         aria-label={intl.formatMessage({ id: 'mention.label' })}
         aria-activedescendant={optionId(selectedIndex)}
@@ -188,10 +207,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             >
               <div
                 className={cn(
-                  'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
+                  'px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80',
                   groupIdx > 0 &&
                     offset > 0 &&
-                    'mt-1 border-t border-border pt-2'
+                    'mt-1 border-t border-border/60 pt-2'
                 )}
               >
                 {intl.formatMessage({ id: labelId })}
@@ -201,7 +220,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           )
         })}
         {loading && (
-          <div className='px-3 py-1.5 text-xs text-muted-foreground'>
+          <div className='px-2 py-1.5 text-xs text-muted-foreground'>
             {intl.formatMessage({ id: 'mention.searching' })}
           </div>
         )}

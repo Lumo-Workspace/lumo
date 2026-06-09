@@ -39,7 +39,6 @@ describe('mentionSearchRepository.searchTasks', () => {
       title: 'Fix login',
       status: 'TODO',
       team: { identifier: 'ENG' },
-      project: { id: 'p1' },
     }
     ;(prisma.task.findMany as jest.Mock).mockResolvedValueOnce([row])
     const result = await mentionSearchRepository.searchTasks('ws1', 'fix', 5)
@@ -86,5 +85,31 @@ describe('mentionSearchRepository.searchMilestones', () => {
     const arg = (prisma.milestone.findMany as jest.Mock).mock.calls[0][0]
     expect(arg.where.project).toMatchObject({ workspaceId: 'ws-xyz' })
     expect(JSON.stringify(arg.where)).toContain('release')
+  })
+})
+
+describe('blank query (recent state)', () => {
+  it('searchTasks omits the name/identifier filter but keeps workspace scope', async () => {
+    await mentionSearchRepository.searchTasks('ws1', '', 5)
+    const arg = (prisma.task.findMany as jest.Mock).mock.calls[0][0]
+    expect(arg.where.OR).toBeUndefined()
+    expect(arg.where.project).toMatchObject({ workspaceId: 'ws1' })
+    expect(arg.orderBy).toMatchObject({ updatedAt: 'desc' })
+  })
+
+  it('searchProjects omits the name filter but keeps workspace scope', async () => {
+    await mentionSearchRepository.searchProjects('ws1', '', 5)
+    const arg = (prisma.project.findMany as jest.Mock).mock.calls[0][0]
+    expect(arg.where.name).toBeUndefined()
+    expect(arg.where).toMatchObject({ workspaceId: 'ws1' })
+  })
+
+  it('searchSprints / searchMilestones omit the name filter when blank', async () => {
+    await mentionSearchRepository.searchSprints('ws1', '', 5)
+    await mentionSearchRepository.searchMilestones('ws1', '', 5)
+    const sprintArg = (prisma.sprint.findMany as jest.Mock).mock.calls[0][0]
+    const msArg = (prisma.milestone.findMany as jest.Mock).mock.calls[0][0]
+    expect(sprintArg.where.name).toBeUndefined()
+    expect(msArg.where.name).toBeUndefined()
   })
 })

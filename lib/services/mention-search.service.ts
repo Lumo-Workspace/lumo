@@ -4,7 +4,8 @@ import type { MentionSearchItem } from '@/types/mention'
 
 /**
  * 统一实体搜索:并行查四类,映射成带应用内相对 href 的 MentionSearchItem[]。
- * 人不在此(走客户端缓存)。空白 query 直接返回 []。
+ * 人不在此(走客户端缓存)。空白 query(bare `@`)返回各类最近 N 条作为
+ * "recent" 建议,而非空列表;一旦输入字符即切回名称精确搜索。
  */
 export const mentionSearchService = {
   async search(
@@ -14,7 +15,6 @@ export const mentionSearchService = {
     perKind: number
   ): Promise<MentionSearchItem[]> {
     const q = query.trim()
-    if (!q) return []
 
     const [tasks, sprints, projects, milestones] = await Promise.all([
       mentionSearchRepository.searchTasks(workspaceId, q, perKind),

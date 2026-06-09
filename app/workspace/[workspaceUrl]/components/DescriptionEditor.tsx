@@ -639,7 +639,7 @@ export function DescriptionEditor({
       {mentionPopup && (
         <EditorSuggestionPopup
           anchorRect={mentionPopup.rect}
-          className='w-[260px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-lg shadow-elevation-3'
+          className='w-[300px] max-h-[340px] overflow-y-auto overflow-x-hidden bg-card border border-border rounded-xl shadow-elevation-3 p-1'
         >
           <MentionList
             ref={mentionListRef}
