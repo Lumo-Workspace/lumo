@@ -17,17 +17,29 @@ const SYSTEM_PROMPT = `You reconcile newly-extracted candidate memories against 
 
 You are given a list of CANDIDATES (new facts just extracted from a coding turn). For each candidate you are shown its NEIGHBORS — the most similar existing memories already on file (with their ids). Decide, per candidate, exactly one operation. Output a flat JSON list of operations across all candidates.
 
+# Output shape (READ THIS)
+Return a JSON object \`{ "operations": [ ... ] }\`. Each element of the array MUST use the key \`"type"\` (NOT \`"operation"\`) to name the op. Concrete literal shapes — copy these key names exactly:
+- ADD:       {"type":"ADD","category":"CONVENTION","scope":"TASK","content":{...}}
+- UPDATE:    {"type":"UPDATE","id":"<neighbor-id>","content":{...}}
+- SUPERSEDE: {"type":"SUPERSEDE","id":"<neighbor-id>","content":{...}}
+- DELETE:    {"type":"DELETE","id":"<neighbor-id>"}
+- NOOP:      {"type":"NOOP"}
+Do NOT emit \`{"operation":...}\` — an element keyed "operation" is dropped and its write is lost.
+
 # Operations
-- ADD — the candidate is genuinely new; no neighbor already says it. Provide { category, content, scope? } (keep the candidate's category/content/scope).
-- UPDATE — a neighbor says ALMOST the same thing and the candidate refines or extends it. Provide the neighbor's id + a full replacement content object (SAME category as that neighbor). Use this for near-duplicates — never emit a second ADD for something a neighbor already covers.
-- SUPERSEDE — a neighbor is now CONTRADICTED or replaced by the candidate (the old fact is wrong/outdated). Provide the neighbor's id + the new content (SAME category as that neighbor). SUPERSEDE is only for same-category contradiction; if the replacement is a different category, emit DELETE on the neighbor + ADD the candidate instead.
-- DELETE — a neighbor is obsolete and the candidate merely confirms it should go (rare). Provide the neighbor's id.
-- NOOP — the candidate is already fully represented by a neighbor; nothing to write. Emitting nothing for a candidate is equivalent — prefer NOOP explicitly when a neighbor already covers it.
+- ADD — the candidate is genuinely new; no neighbor already says it. Provide { type:"ADD", category, content, scope? } (keep the candidate's category/content/scope).
+- UPDATE — a neighbor already covers this topic and the candidate REFINES, extends, or sharpens it (more detail, an extra condition, a corrected nuance — but the SAME underlying fact). Fold it into that neighbor: provide { type:"UPDATE", id:<neighbor-id>, content } with a full replacement content object (SAME category as that neighbor). A refinement of an existing neighbor is an UPDATE, never a fresh ADD.
+- SUPERSEDE — a neighbor is now CONTRADICTED or replaced by the candidate (the old fact is wrong/outdated). Provide { type:"SUPERSEDE", id:<neighbor-id>, content } with the new content (SAME category as that neighbor). SUPERSEDE is only for same-category contradiction; if the replacement is a different category, emit DELETE on the neighbor + ADD the candidate instead.
+- DELETE — a neighbor is obsolete and the candidate merely confirms it should go (rare). Provide { type:"DELETE", id:<neighbor-id> }.
+- NOOP — the candidate is already fully represented by a neighbor; nothing to write. Provide { type:"NOOP" }. Emitting nothing for a candidate is equivalent — prefer NOOP explicitly when a neighbor already covers it.
 
 # Decision rules
-- Near-duplicate (a neighbor already says it) → UPDATE if the candidate adds signal, else NOOP. NEVER ADD.
+- A neighbor already covers this topic →
+  - candidate adds NEW signal (refines/extends/sharpens the same fact) → UPDATE that neighbor. This is the common case; do NOT mistake a refinement for a brand-new fact.
+  - candidate adds nothing → NOOP.
+  - NEVER ADD when a neighbor already covers the topic — that creates a near-duplicate.
 - Contradiction (candidate says the opposite of a neighbor) → SUPERSEDE that neighbor (same category) — do not leave both.
-- No relevant neighbor → ADD.
+- No relevant neighbor at all → ADD.
 - Only reference an id that appears in that candidate's neighbor list. Never invent ids.
 - Content shapes per category are unchanged (TRAP/DECISION/CONVENTION/PROCEDURAL). Keep the same terse, plain-words writing style as the candidates.`
 
@@ -57,7 +69,7 @@ Description: ${description}
 ${blocks.join('\n\n') || '(no candidates)'}
 
 # Your output
-Return { "operations": [...] } — one decision per candidate (ADD / UPDATE / SUPERSEDE / DELETE / NOOP). Reference only neighbor ids shown above.`
+Return { "operations": [...] } — one decision per candidate. Each element is keyed "type" (e.g. {"type":"UPDATE","id":"...","content":{...}} or {"type":"NOOP"}), never "operation". Reference only neighbor ids shown above.`
 
   return { system: SYSTEM_PROMPT, user }
 }

@@ -5,6 +5,21 @@
  * pipeline; here we test only the decision). Requires AI_GATEWAY_API_KEY. The
  * reconcile import is dynamic so this module is never pulled into a jest bundle
  * (the @ai-sdk/gateway TransformStream trap).
+ *
+ * LUM-335 regression: this live runner surfaced the reconcile schema-drift bug
+ * (the model occasionally keyed an op `{"operation":...}` instead of
+ * `{"type":...}`, and `generateObject` threw → the whole turn's writes were
+ * silently dropped). The fix (loose generateObject schema + per-op safeParse
+ * with an `operation`→`type` alias) is pinned by KEYLESS, deterministic unit
+ * tests so CI guards it without a gateway key:
+ *   - __tests__/lib/services/memory/reconcile-parse.test.ts
+ *       (coerceReconcileOperation alias + parseReconcileOperations batch drop)
+ *   - __tests__/lib/services/memory/layer1-reconcile.test.ts
+ *   - __tests__/lib/services/memory/layer2-reconcile.test.ts
+ *       (reconcile path recovers `operation`-keyed ops, drops only garbage)
+ * The refinement-folding prompt change is pinned by
+ *   - __tests__/lib/services/memory/reconcile-prompt.test.ts
+ * This live runner remains the ground-truth check for decision QUALITY.
  */
 import type { EvalCase, ExpectedOp, Relationship } from './types'
 
