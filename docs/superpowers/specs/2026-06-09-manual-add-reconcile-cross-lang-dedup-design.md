@@ -115,19 +115,48 @@ CLI render. Exact shape is pinned in the implementation plan.
   that strategy ① works, satisfying acceptance criterion #2.
 - Key-gated live run; no key → skip (not a failure), per LUM-329 convention.
 
-### D. Data cleanup
+### D. Existing-corpus canonicalization backfill (REQUIRED — closes C2)
 
-Keep auto/EN, delete manual/ZH:
+Canonicalize-on-write only fixes *future* writes. The store is currently a
+**mixed embedding space**: auto/EN rows embedded from English text, manual/ZH
+rows embedded from Chinese text. A new English candidate's query vector is
+compared (`embedding <=> queryVector` in `findNeighborEmbeddings`) against those
+stored vectors — so it scores a low cross-language cosine against the existing
+Chinese rows, falls below the floor, and **is not retrieved**. Result: a manual
+add still duplicates an existing non-English row. This breaks acceptance #1 for
+the existing corpus and is independent of the EN-vs-ZH choice — any canonical
+language needs it.
+
+**Fix:** a one-time, idempotent, resumable backfill (`scripts/backfill-memory-canonicalize.ts`,
+modeled on `scripts/backfill-memory-embeddings.ts` — same DI-testable core +
+keyset-by-id loop). For each ACTIVE row whose flattened content contains CJK:
+translate to English (`canonicalizeToEnglish`), `updateContent` **in place**
+(stable id — preserves lineage edges / usage votes / provenance; this is a
+representation normalization, not a semantic supersede), and re-embed. Rows that
+fail translation (fail-open returns original / still CJK) are skipped and retried
+on the next run. Already-English rows are skipped. Run `--dry-run` first for a
+count; then the live run (key-gated, prod via `.env.production`).
+
+Scope bound (YAGNI): the backfill puts the whole store in one embedding space so
+future manual adds dedup correctly; it does **not** run a historical dedup sweep
+over latent existing duplicates (not in acceptance) — the two known LUM-327 pairs
+are handled by the explicit cleanup below.
+
+### E. Data cleanup
+
+Keep auto/EN, delete manual/ZH (consistent with canonical=English):
 
 - DECISION: keep `cmq72c817` (auto/EN), delete `cmq72b0yy` (manual/ZH)
 - TRAP: keep `cmq72c81k` (auto/EN), delete `cmq72b1us` (manual/ZH)
 
-Before deleting: `lumo project memory list` to verify all 4 ids still exist,
-match the expected scope/category, and haven't been mutated by another session;
-surface the verification to the user and get explicit confirmation before any
-delete. Confirm `lumo memory rm` semantics (invalidate vs hard-delete) first.
+Run AFTER the canonicalization backfill (don't waste a translation on rows about
+to be deleted). Before deleting: `lumo project memory list` to verify all 4 ids
+still exist, match the expected scope/category, and haven't been mutated by
+another session; surface the verification to the user and get explicit
+confirmation before any delete. Confirm `lumo memory rm` semantics (invalidate
+vs hard-delete) first.
 
-### E. Testing / workflow
+### F. Testing / workflow
 
 - Isolated worktree (done) + TDD + subagent execution.
 - Coverage:
@@ -147,9 +176,15 @@ delete. Confirm `lumo memory rm` semantics (invalidate vs hard-delete) first.
 - No change to the 4-category prose schema (LUM-327 closed).
 - No knowledge graph.
 - No change to the auto Stop-hook / Layer-2 consolidation pipeline beyond
-  reusing its reconcile/apply functions.
+  reusing its reconcile/apply functions. (The auto extraction prompt already
+  emits English, so it needs no change to honor canonical=English.)
 - Re-calibrating the floor for cross-language is moot: canonicalization removes
   the cross-language case from the floor's job.
+- No historical dedup sweep over latent existing duplicates beyond the two known
+  LUM-327 pairs (§E). The §D backfill only normalizes the embedding space.
+- Canonical language is fixed to English for this workspace (user decision,
+  aligned with the English-emitting auto path); making it a per-workspace
+  setting is a future generalization, not built now.
 
 ## Acceptance criteria (from task)
 

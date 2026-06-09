@@ -1267,12 +1267,285 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
+## Task 9b: One-time canonicalization backfill of existing non-English rows (closes C2)
+
+**Files:**
+- Create: `scripts/backfill-memory-canonicalize.ts`
+- Test: `__tests__/backfill-memory-canonicalize.test.ts`
+
+**Why:** canonicalize-on-write only fixes future writes. Existing non-English rows
+stay in their original-language embedding space, so a new English manual add scores
+a low cross-language cosine against them, doesn't retrieve them, and duplicates them
+anyway — breaking acceptance #1 for the existing corpus. This backfill translates +
+re-embeds existing ACTIVE non-English rows so the whole store shares one embedding
+space. Modeled on `scripts/backfill-memory-embeddings.ts` (DI-testable core +
+keyset-by-id loop that terminates in dry-run).
+
+- [ ] **Step 1: Write the failing test**
+
+Create `__tests__/backfill-memory-canonicalize.test.ts`:
+
+```ts
+import { canonicalizeBackfill } from '@/scripts/backfill-memory-canonicalize'
+
+const cjkRow = (id: string) => ({ id, category: 'TRAP' as const, content: { trigger: '触发', outcome: '后果' } })
+const enRow = (id: string) => ({ id, category: 'TRAP' as const, content: { trigger: 'trigger', outcome: 'outcome' } })
+
+function fetcherFrom(rows: Array<{ id: string; category: 'TRAP'; content: unknown }>) {
+  return async (limit: number, afterId?: string) => {
+    const start = afterId ? rows.findIndex(r => r.id === afterId) + 1 : 0
+    return rows.slice(start, start + limit)
+  }
+}
+
+it('translates + re-embeds only the CJK rows; skips English rows', async () => {
+  const updated: Array<[string, unknown]> = []
+  const stored: Array<[string, number[]]> = []
+  const result = await canonicalizeBackfill({
+    fetchActiveBatch: fetcherFrom([cjkRow('a'), enRow('b'), cjkRow('c')]),
+    canonicalize: async (_cat, _content) => ({ trigger: 'EN trigger', outcome: 'EN outcome' }),
+    embed: async texts => texts.map(() => [0.1, 0.2]),
+    updateContent: async (id, content) => { updated.push([id, content]) },
+    store: async (id, v) => { stored.push([id, v]) },
+    batchSize: 10,
+  })
+  expect(updated.map(u => u[0])).toEqual(['a', 'c'])
+  expect(stored.map(s => s[0])).toEqual(['a', 'c'])
+  expect(result).toEqual({ processed: 3, canonicalized: 2, skipped: 1, failedBatches: 0 })
+})
+
+it('dry-run counts without writing', async () => {
+  const updated: string[] = []
+  const result = await canonicalizeBackfill({
+    fetchActiveBatch: fetcherFrom([cjkRow('a'), cjkRow('c')]),
+    canonicalize: async () => ({ trigger: 'EN', outcome: 'EN' }),
+    embed: async texts => texts.map(() => [0.1]),
+    updateContent: async id => { updated.push(id) },
+    store: async () => {},
+    dryRun: true,
+    batchSize: 10,
+  })
+  expect(updated).toEqual([])
+  expect(result.canonicalized).toBe(2)
+})
+
+it('fail-open: translation that stays CJK is skipped (retried next run)', async () => {
+  const updated: string[] = []
+  const result = await canonicalizeBackfill({
+    fetchActiveBatch: fetcherFrom([cjkRow('a')]),
+    canonicalize: async (_cat, content) => content, // fail-open returns original (still CJK)
+    embed: async texts => texts.map(() => [0.1]),
+    updateContent: async id => { updated.push(id) },
+    store: async () => {},
+    batchSize: 10,
+  })
+  expect(updated).toEqual([])
+  expect(result).toEqual({ processed: 1, canonicalized: 0, skipped: 1, failedBatches: 0 })
+})
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `cd .worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup && npx jest backfill-memory-canonicalize -i`
+Expected: FAIL — `Cannot find module '@/scripts/backfill-memory-canonicalize'`.
+
+- [ ] **Step 3: Implement**
+
+Create `scripts/backfill-memory-canonicalize.ts`:
+
+```ts
+/**
+ * One-shot, idempotent, resumable backfill (LUM-336): translate existing ACTIVE
+ * memory rows whose content is non-English into English (canonical language) and
+ * re-embed them, so the whole store shares one embedding space and future manual
+ * adds dedup correctly across the existing corpus. In-place update (stable id —
+ * preserves lineage/usage/provenance); this is a representation normalization,
+ * not a semantic supersede. Already-English rows are skipped; rows whose
+ * translation fail-opens (stays CJK) are skipped and retried next run.
+ *
+ * Usage:
+ *   npx tsx scripts/backfill-memory-canonicalize.ts --dry-run
+ *   npx tsx scripts/backfill-memory-canonicalize.ts
+ * Requires DATABASE_URL_UNPOOLED + AI_GATEWAY_API_KEY (or .env.production).
+ */
+import type { MemoryCategory } from '@prisma/client'
+
+export interface CanonicalizeBackfillDeps {
+  fetchActiveBatch: (
+    limit: number,
+    afterId?: string
+  ) => Promise<Array<{ id: string; category: MemoryCategory; content: unknown }>>
+  canonicalize: (category: MemoryCategory, content: unknown) => Promise<unknown>
+  embed: (texts: string[]) => Promise<number[][]>
+  updateContent: (id: string, content: unknown) => Promise<void>
+  store: (id: string, vector: number[]) => Promise<void>
+  batchSize?: number
+  dryRun?: boolean
+  log?: (msg: string) => void
+}
+
+export interface CanonicalizeBackfillResult {
+  processed: number
+  canonicalized: number
+  skipped: number
+  failedBatches: number
+}
+
+export async function canonicalizeBackfill(
+  deps: CanonicalizeBackfillDeps
+): Promise<CanonicalizeBackfillResult> {
+  const { memoryContentToText } = await import('@/lib/memory/content-text')
+  const { containsCjk } = await import('@/lib/services/memory/canonicalize-language')
+
+  const {
+    fetchActiveBatch,
+    canonicalize,
+    embed,
+    updateContent,
+    store,
+    batchSize = 100,
+    dryRun = false,
+    log = () => undefined,
+  } = deps
+
+  const result: CanonicalizeBackfillResult = {
+    processed: 0,
+    canonicalized: 0,
+    skipped: 0,
+    failedBatches: 0,
+  }
+  let afterId: string | undefined = undefined
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const batch = await fetchActiveBatch(batchSize, afterId)
+    if (batch.length === 0) break
+    result.processed += batch.length
+    afterId = batch[batch.length - 1]!.id
+
+    for (const row of batch) {
+      const text = memoryContentToText(row.category, row.content)
+      if (!text || !containsCjk(text)) {
+        result.skipped++
+        continue
+      }
+      if (dryRun) {
+        result.canonicalized++
+        continue
+      }
+      let english: unknown
+      try {
+        english = await canonicalize(row.category, row.content)
+      } catch {
+        result.failedBatches++
+        continue
+      }
+      const englishText = memoryContentToText(row.category, english)
+      // fail-open returned the original (still CJK) → leave for a later run.
+      if (!englishText || containsCjk(englishText)) {
+        result.skipped++
+        continue
+      }
+      await updateContent(row.id, english)
+      try {
+        const [vec] = await embed([englishText])
+        if (vec) await store(row.id, vec)
+      } catch {
+        // content normalized; embedding retried by the NULL-embedding backfill.
+      }
+      result.canonicalized++
+    }
+    log(
+      `processed=${result.processed} canonicalized=${result.canonicalized} skipped=${result.skipped}`
+    )
+  }
+  return result
+}
+
+if (require.main === module) {
+  ;(async () => {
+    await import('dotenv/config')
+    const { prisma } = await import('@/lib/db/prisma')
+    const { Prisma } = await import('@prisma/client')
+    const { embedTexts } = await import('@/lib/ai/embedding')
+    const { memoryRepository } = await import('@/lib/repositories/memory.repository')
+    const { canonicalizeToEnglish } = await import('@/lib/services/memory/canonicalize-language')
+
+    const dryRun = process.argv.includes('--dry-run')
+    // eslint-disable-next-line no-console
+    console.log(`[backfill-canonicalize] mode=${dryRun ? 'DRY-RUN' : 'APPLY'}`)
+
+    const result = await canonicalizeBackfill({
+      fetchActiveBatch: async (limit, afterId) => {
+        type Row = { id: string; category: string; content: unknown }
+        const cursor = afterId ? Prisma.sql`AND "id" > ${afterId}` : Prisma.empty
+        const rows = await prisma.$queryRaw<Row[]>(Prisma.sql`
+          SELECT id, category, content FROM "memories"
+          WHERE "status" = 'ACTIVE' ${cursor}
+          ORDER BY "id" ASC LIMIT ${limit}
+        `)
+        return rows.map(r => ({
+          id: r.id,
+          category: r.category as MemoryCategory,
+          content: r.content,
+        }))
+      },
+      canonicalize: canonicalizeToEnglish,
+      embed: embedTexts,
+      updateContent: (id, content) =>
+        memoryRepository.updateContent(id, content as never).then(() => undefined),
+      store: (id, v) => memoryRepository.setEmbedding(id, v),
+      dryRun,
+      // eslint-disable-next-line no-console
+      log: msg => console.log(`  ${msg}`),
+    })
+
+    // eslint-disable-next-line no-console
+    console.log(`\n[backfill-canonicalize] done — ${JSON.stringify(result)}`)
+    if (dryRun) console.log('Re-run without --dry-run to apply.')
+    await prisma.$disconnect()
+  })().catch(err => {
+    // eslint-disable-next-line no-console
+    console.error(err)
+    process.exit(1)
+  })
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `cd .worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup && npx jest backfill-memory-canonicalize -i`
+Expected: PASS (3 tests).
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd .worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup
+git -C "$PWD" add scripts/backfill-memory-canonicalize.ts __tests__/backfill-memory-canonicalize.test.ts
+git -C "$PWD" commit -m "feat: one-time backfill to canonicalize existing non-English memories [LUM-336]
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+```
+
+- [ ] **Step 6: Live run (KEY-GATED, prod data — user-gated)**
+
+This rewrites prod memory content. Run `--dry-run` first, surface the count to the
+USER, get explicit confirmation, THEN apply. Sequence: run this BEFORE the Task 10
+cleanup (don't translate rows about to be deleted — but harmless if order flips).
+
+Dry-run: `cd .worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup && DOTENV_CONFIG_PATH=.env.production npx tsx scripts/backfill-memory-canonicalize.ts --dry-run`
+Apply (after user OK): same command without `--dry-run`.
+Expected: dry-run reports `canonicalized=<N>` non-English rows; apply rewrites them.
+
+---
+
 ## Task 10: Production data cleanup (MANUAL, user-gated)
 
 **Files:** none (runtime data operation via `lumo` CLI)
 
 The 2 existing LUM-327 duplicate pairs must collapse to 1 + 1. This touches prod data
-— DO NOT delete without explicit user confirmation in-session.
+— DO NOT delete without explicit user confirmation in-session. Run AFTER Task 9b's
+canonicalization backfill.
 
 - [ ] **Step 1: Verify current state**
 
@@ -1358,9 +1631,10 @@ task in review until merged + prod cleanup confirmed.)
 - §B hybrid-gated dedup (create only) → Task 2 (resolver) + Task 3 (wiring). ✅ edit/promote explicitly NOT deduped (Task 4 only canonicalizes). ✅
 - §B CLI feedback → Task 5 (route outcome) + Task 6 (CLI lines) + Task 7 (doc). ✅
 - §C cross-language eval slice (raw vs canonical cosine) → Task 8 + 8b. ✅
-- §D data cleanup keep-EN/delete-ZH → Task 10 (user-gated). ✅
+- §D existing-corpus canonicalization backfill (C2 — without it acceptance #1 fails for the existing non-English corpus) → Task 9b. ✅
+- §E data cleanup keep-EN/delete-ZH → Task 10 (user-gated, runs after Task 9b). ✅
 - §E testing/workflow (worktree, TDD, both jest roots, tsc, dynamic-import gateway, no schema) → Tasks 1–4 (TDD), Task 9 (full verify). ✅
-- Acceptance #1 no second row → Task 2/3 NOOP/UPDATE/SUPERSEDE paths + tests. ✅
+- Acceptance #1 no second row → Task 2/3 NOOP/UPDATE/SUPERSEDE paths + tests (future writes) AND Task 9b backfill (existing non-English corpus — else cross-language dedup misses pre-existing rows). ✅
 - Acceptance #2 cross-language test coverage → Task 8. ✅
 - Acceptance #3 cleanup → Task 10. ✅
 - Acceptance #4 no breakage to auto path / lease / ACTIVE filter → no edits to layer1/layer2 services or repository filters; only additive new modules + service wiring. ✅
