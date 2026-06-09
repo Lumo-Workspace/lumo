@@ -282,6 +282,30 @@ describe('promoteToProject', () => {
   })
 })
 
+describe('editContent — canonicalize', () => {
+  it('canonicalizes the new content before update', async () => {
+    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', category: 'TRAP' })
+    mockCanonicalize.mockResolvedValue({ trigger: 'EN', outcome: 'EN out' })
+    mockUpdate.mockResolvedValue({ id: 'm1' })
+    await memoryManagementService.editContent('m1', { trigger: '中', outcome: '文' })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '中', outcome: '文' })
+    expect(mockUpdate).toHaveBeenCalledWith('m1', { content: { trigger: 'EN', outcome: 'EN out' } })
+  })
+})
+
+describe('promoteToProject — canonicalize on content override', () => {
+  it('canonicalizes the overridden content', async () => {
+    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', category: 'TRAP', scope: 'TASK' })
+    mockCanonicalize.mockResolvedValue({ trigger: 'EN', outcome: 'EN out' })
+    mockUpdate.mockResolvedValue({ id: 'm1' })
+    await memoryManagementService.promoteToProject('m1', { trigger: '中', outcome: '文' })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '中', outcome: '文' })
+    expect(mockUpdate).toHaveBeenCalledWith('m1', expect.objectContaining({
+      scope: 'PROJECT', taskId: null, content: { trigger: 'EN', outcome: 'EN out' },
+    }))
+  })
+})
+
 describe('delete', () => {
   it('hard-deletes via the repository', async () => {
     mockDelete.mockResolvedValue({ id: 'm1' })

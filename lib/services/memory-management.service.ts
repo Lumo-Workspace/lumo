@@ -220,16 +220,15 @@ export const memoryManagementService = {
   },
 
   async editContent(memoryId: string, content: MemoryContent) {
-    // Look up the category so stampEmbeddingBestEffort can compute the text.
-    // findByIdWithWorkspace already selects category.
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
-    // Uses update() (not updateContent()) so the full row is returned for the
-    // HTTP response; updateContent() returns only { id }.
+    const canonical = existing
+      ? await canonicalizeToEnglish(existing.category, content)
+      : content
     const updated = await memoryRepository.update(memoryId, {
-      content: content as Prisma.InputJsonValue,
+      content: canonical as Prisma.InputJsonValue,
     })
     if (existing) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, content)
+      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
     }
     return updated
   },
@@ -240,18 +239,19 @@ export const memoryManagementService = {
     if (existing.scope === 'PROJECT') {
       throw httpError('Memory is already project-scoped', 409)
     }
+    const canonical =
+      content !== undefined
+        ? await canonicalizeToEnglish(existing.category, content)
+        : undefined
     const updated = await memoryRepository.update(memoryId, {
       scope: 'PROJECT',
       taskId: null,
-      ...(content !== undefined
-        ? { content: content as Prisma.InputJsonValue }
+      ...(canonical !== undefined
+        ? { content: canonical as Prisma.InputJsonValue }
         : {}),
     })
-    // Stamp embedding if content changed; if only scope changed there is no
-    // new text to embed (content unchanged), so skip to avoid a redundant
-    // re-embed (the row already has an embedding if it was stamped on create).
-    if (content !== undefined) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, content)
+    if (canonical !== undefined) {
+      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
     }
     return updated
   },
