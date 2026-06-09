@@ -1,0 +1,3 @@
+# Generated, frozen eval fixtures — large numeric vector dumps, never hand-edited.
+# Prettier pretty-printing these balloons the file and the diff.
+scripts/eval/memory/vectors.fixture.json

@@ -7,12 +7,22 @@ import type {
 } from './neighbor-retriever'
 
 /**
- * Cosine-similarity floor for the embedding path. UNRELATED sentence
- * embeddings sit around 0.3–0.5 cosine, so the lexical 0.3 floor would admit
- * noise here — the embedding path needs its own, higher bar.
- * Placeholder — calibrate via the LUM-329 eval harness.
+ * Cosine-similarity floor for the embedding path (qwen3-embedding-0.6b).
+ *
+ * Calibrated by the LUM-329 eval harness over a 54-case in-domain corpus
+ * (39 positive pairs). qwen cosines sit high, so the old 0.6 placeholder admitted
+ * noise: the precision/recall F1 knee sits at 0.78 (P=0.478, R=0.846, F1=0.611),
+ * with F1 within ~0.01 across the 0.76–0.82 band. 0.78 keeps ~85% of same-fact
+ * neighbors while roughly doubling precision vs 0.6.
+ *
+ * Tradeoff note: the SF eval found the reconcile LLM never makes a destructive
+ * error (non-conflict protection 1.000), so a recall-favoring floor (~0.74,
+ * R=0.897) is defensible — but the eval did not measure whether a *distractor*
+ * shown to the LLM provokes a spurious UPDATE, so we hold at the balanced knee.
+ * Re-derive via `npx tsx scripts/eval/memory/run.ts`; the floor is model-coupled,
+ * so a model swap re-opens the sweep.
  */
-export const EMBEDDING_SCORE_FLOOR = 0.6
+export const EMBEDDING_SCORE_FLOOR = 0.78
 
 /** Result the embedding path returns so the composite can tell a cold/cold-
  * starting corpus (fall back to lexical) from a genuinely empty result. */
@@ -21,7 +31,9 @@ interface EmbeddingResult {
   scopeHasEmbeddings: boolean
 }
 
-async function retrieveEmbedding(ctx: RetrieveContext): Promise<EmbeddingResult> {
+async function retrieveEmbedding(
+  ctx: RetrieveContext
+): Promise<EmbeddingResult> {
   const { neighbors, scopeHasEmbeddings } =
     await memoryRepository.findNeighborEmbeddings({
       scope: ctx.scope,
@@ -30,7 +42,12 @@ async function retrieveEmbedding(ctx: RetrieveContext): Promise<EmbeddingResult>
     })
   const filtered = neighbors
     .filter(n => n.score >= EMBEDDING_SCORE_FLOOR)
-    .map(n => ({ id: n.id, category: n.category, content: n.content, score: n.score }))
+    .map(n => ({
+      id: n.id,
+      category: n.category,
+      content: n.content,
+      score: n.score,
+    }))
   return { neighbors: filtered, scopeHasEmbeddings }
 }
 
