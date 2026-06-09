@@ -18,6 +18,7 @@ import { copyLink } from '@/lib/utils/copyLink'
 import { DescriptionEditor } from './DescriptionEditor'
 import { CommentAvatar } from './CommentAvatar'
 import { resolveCommentAuthor } from './comment-utils'
+import { useMentionSources } from '../hooks/useMentionSources'
 
 interface TaskDetailCommentsProps {
   workspaceUrl: string
@@ -75,6 +76,7 @@ export function TaskDetailComments({
 }: TaskDetailCommentsProps) {
   const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
+  const mentionSources = useMentionSources(mentionableMembers)
 
   return (
     <>
@@ -154,7 +156,7 @@ export function TaskDetailComments({
                             placeholder={intl.formatMessage({
                               id: 'task.editCommentPlaceholder',
                             })}
-                            members={mentionableMembers}
+                            mentionSources={mentionSources}
                           />
                         </div>
                         <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -335,7 +337,7 @@ export function TaskDetailComments({
                                     placeholder={intl.formatMessage({
                                       id: 'task.editReplyPlaceholder',
                                     })}
-                                    members={mentionableMembers}
+                                    mentionSources={mentionSources}
                                   />
                                 </div>
                                 <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -567,7 +569,7 @@ export function TaskDetailComments({
                           placeholder={intl.formatMessage({
                             id: 'task.replyPlaceholder',
                           })}
-                          members={mentionableMembers}
+                          mentionSources={mentionSources}
                         />
                       </div>
                       <div className='flex items-center justify-between px-2 pb-2'>
@@ -625,8 +627,7 @@ export function TaskDetailComments({
               placeholder={intl.formatMessage({
                 id: 'task.commentPlaceholder',
               })}
-              members={mentionableMembers}
-              agentActors={agentActors}
+              mentionSources={mentionSources}
             />
           </div>
           <div className='flex justify-end px-2 pb-2'>

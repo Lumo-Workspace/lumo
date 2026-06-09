@@ -1,4 +1,5 @@
 // lib/services/comment.service.ts
+import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { memberRepository, notificationRepository } from '@/lib/repositories'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
@@ -94,21 +95,7 @@ export const commentService = {
 
   /** Parse @mention clerkIds from comment body HTML. Excludes author and __agent__. */
   parseMentionedClerkIds(body: string, authorClerkId: string): string[] {
-    const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
-    const ids: string[] = []
-    let match: RegExpExecArray | null
-    while ((match = mentionRegex.exec(body)) !== null) {
-      const clerkId = match[1]
-      if (
-        clerkId &&
-        clerkId !== authorClerkId &&
-        clerkId !== '__agent__' &&
-        !ids.includes(clerkId)
-      ) {
-        ids.push(clerkId)
-      }
-    }
-    return ids
+    return parseMentionedUserClerkIds(body, authorClerkId)
   },
 
   /** Re-export for tests / callers. */

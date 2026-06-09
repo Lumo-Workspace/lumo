@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -35,9 +36,9 @@ import { useTocSync, type TocItem } from '../hooks/useTocSync'
 import { useEditorStats } from '../hooks/useEditorStats'
 import { useImageUploads } from '../hooks/useImageUploads'
 import type { EditorStats } from '@/lib/editor/reading-stats'
-import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
+import type { MentionSources } from '@/types/mention'
 import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
 import { EditorSuggestionPopup } from './EditorSuggestionPopup'
@@ -55,9 +56,7 @@ interface DescriptionEditorProps {
   onCommit: (html: string | null) => void
   onChange?: (html: string | null) => void
   placeholder?: string
-  members?: WorkspaceMemberInfo[]
-  tasks?: ApiTask[]
-  agentActors?: { actorId: string; name: string }[]
+  mentionSources?: MentionSources
   /** Used as the Blob path segment: documents/{documentId}/… */
   documentId?: string
   /**
@@ -128,9 +127,7 @@ export function DescriptionEditor({
   onCommit,
   onChange,
   placeholder: placeholderProp,
-  members = [],
-  tasks = [],
-  agentActors = [],
+  mentionSources,
   documentId,
   onTocUpdate,
   tocScrollRoot,
@@ -142,6 +139,7 @@ export function DescriptionEditor({
   commentComposerOpen = false,
 }: DescriptionEditorProps) {
   const intl = useIntl()
+  const router = useRouter()
   const placeholder =
     placeholderProp ?? intl.formatMessage({ id: 'task.descriptionPlaceholder' })
   // Tiptap extensions are configured once at editor creation, so the initial
@@ -253,17 +251,19 @@ export function DescriptionEditor({
           id => intl.formatMessage({ id })
         ),
       }),
-      MentionWithType.configure({
-        suggestion: buildMentionSuggestion(
-          members,
-          tasks,
-          agentActors,
-          setMentionPopup,
-          setMentionPopup,
-          () => setMentionPopup(null),
-          mentionListRef
-        ),
-      }),
+      ...(mentionSources
+        ? [
+            MentionWithType.configure({
+              suggestion: buildMentionSuggestion(
+                mentionSources,
+                setMentionPopup,
+                setMentionPopup,
+                () => setMentionPopup(null),
+                mentionListRef
+              ),
+            }),
+          ]
+        : []),
       ...(menuElement
         ? [
             BubbleMenu.configure({
@@ -325,6 +325,22 @@ export function DescriptionEditor({
         event.preventDefault()
         enqueueImageUpload(img)
         return true
+      },
+      handleDOMEvents: {
+        click: (_view, event) => {
+          const target = (event.target as HTMLElement | null)?.closest(
+            '[data-mention-type]'
+          )
+          if (!target) return false
+          const href = target.getAttribute('data-href')
+          const type = target.getAttribute('data-mention-type')
+          if (href && type && type !== 'user') {
+            event.preventDefault()
+            router.push(href)
+            return true
+          }
+          return false
+        },
       },
     },
     onFocus: () => {
@@ -628,6 +644,7 @@ export function DescriptionEditor({
           <MentionList
             ref={mentionListRef}
             items={mentionPopup.items}
+            loading={mentionPopup.loading}
             command={mentionPopup.command}
           />
         </EditorSuggestionPopup>

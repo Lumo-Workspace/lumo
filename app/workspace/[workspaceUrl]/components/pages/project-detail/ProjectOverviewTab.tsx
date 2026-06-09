@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { useMentionSources } from '../../../hooks/useMentionSources'
 import { useIntl } from 'react-intl'
 import {
   Plus,
@@ -64,6 +65,7 @@ export function ProjectOverviewTab({
   onUpdateProject,
 }: ProjectOverviewTabProps) {
   const intl = useIntl()
+  const mentionSources = useMentionSources(members)
 
   // ── Repositories state ────────────────────────────────────────────────────
   const [repositories, setRepositories] = useState<ApiRepository[]>(
@@ -199,7 +201,7 @@ export function ProjectOverviewTab({
                 id: 'project.descriptionPlaceholder',
                 defaultMessage: 'Add a description…',
               })}
-              members={members}
+              mentionSources={mentionSources}
               documentId={project.id}
             />
           </div>

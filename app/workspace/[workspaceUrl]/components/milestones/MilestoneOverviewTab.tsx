@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'
+import { useMentionSources } from '../../hooks/useMentionSources'
 
 interface MilestoneOverviewTabProps {
   milestone: Pick<ApiMilestone, 'id' | 'name' | 'description'>
@@ -18,6 +19,7 @@ export function MilestoneOverviewTab({
   archived = false,
 }: MilestoneOverviewTabProps) {
   const intl = useIntl()
+  const mentionSources = useMentionSources([])
   return (
     <div className='px-4 md:px-8 py-8'>
       <div className='mb-8'>
@@ -58,8 +60,11 @@ export function MilestoneOverviewTab({
         <DescriptionEditor
           key={milestone.id}
           value={milestone.description}
-          onCommit={html => { if (!archived) onUpdate({ description: html || null }) }}
+          onCommit={html => {
+            if (!archived) onUpdate({ description: html || null })
+          }}
           documentId={milestone.id}
+          mentionSources={mentionSources}
         />
       </div>
     </div>

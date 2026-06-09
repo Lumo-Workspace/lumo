@@ -2,7 +2,10 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import type { ProgressMetric, TaskProgress } from '@/lib/forecast/progress-types'
+import type {
+  ProgressMetric,
+  TaskProgress,
+} from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
 
 function compact(intl: ReturnType<typeof useIntl>, n: number) {

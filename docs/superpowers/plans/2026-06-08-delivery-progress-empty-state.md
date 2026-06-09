@@ -25,6 +25,7 @@ No new files. No new dependencies.
 ### Task 1: Failing tests for the no-forecast summary
 
 **Files:**
+
 - Test: `__tests__/components/ProgressView.test.tsx`
 
 - [ ] **Step 1: Extend the inline `en` mock map**
@@ -101,6 +102,7 @@ Expected: the 3 new "summary" tests FAIL (current `ProgressView` renders bare co
 ### Task 2: Implement the no-forecast summary branch in ProgressView
 
 **Files:**
+
 - Modify: `app/workspace/[workspaceUrl]/components/ProgressView.tsx`
 
 - [ ] **Step 1: Replace the file with the summary-aware version**
@@ -112,7 +114,10 @@ Overwrite `app/workspace/[workspaceUrl]/components/ProgressView.tsx` with:
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import type { ProgressMetric, TaskProgress } from '@/lib/forecast/progress-types'
+import type {
+  ProgressMetric,
+  TaskProgress,
+} from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
 
 function compact(intl: ReturnType<typeof useIntl>, n: number) {
@@ -318,6 +323,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 3: Add the 3 i18n keys across all 16 locales
 
 **Files:**
+
 - Modify: every `lib/i18n/*.json`
 
 - [ ] **Step 1: Add keys to `en.json` and `zh-CN.json`**
@@ -344,22 +350,22 @@ In `lib/i18n/zh-CN.json`, after `"progress.soFar"`, add:
 
 Add the same 3 keys (place them next to the other `progress.*` keys) to each file with these values (`{value}` is a placeholder — keep it verbatim):
 
-| locale | summaryRuns | summaryTokens | summaryClarify |
-| --- | --- | --- | --- |
-| `de.json` | `Bisher {value} Durchläufe` | `{value} Tokens verwendet` | `{value} Klärungsrunden` |
-| `en-AU.json` | `{value} runs so far` | `{value} tokens used` | `{value} clarification rounds` |
-| `en-GB.json` | `{value} runs so far` | `{value} tokens used` | `{value} clarification rounds` |
-| `es.json` | `{value} ejecuciones hasta ahora` | `{value} tokens usados` | `{value} rondas de aclaración` |
-| `es-419.json` | `{value} ejecuciones hasta ahora` | `{value} tokens usados` | `{value} rondas de aclaración` |
-| `fr.json` | `{value} exécutions jusqu'ici` | `{value} tokens utilisés` | `{value} tours de clarification` |
-| `hi.json` | `अब तक {value} रन` | `{value} टोकन उपयोग किए गए` | `{value} स्पष्टीकरण दौर` |
-| `id.json` | `{value} proses sejauh ini` | `{value} token terpakai` | `{value} putaran klarifikasi` |
-| `ja.json` | `これまで {value} 回実行` | `{value} トークン使用` | `確認 {value} 回` |
-| `ko.json` | `지금까지 {value}회 실행` | `{value} 토큰 사용` | `확인 {value}회` |
-| `ms.json` | `{value} larian setakat ini` | `{value} token digunakan` | `{value} pusingan penjelasan` |
-| `ru.json` | `{value} запусков на данный момент` | `Использовано {value} токенов` | `{value} раундов уточнений` |
-| `vi.json` | `{value} lần chạy đến nay` | `Đã dùng {value} token` | `{value} vòng làm rõ` |
-| `zh-TW.json` | `已執行 {value} 次` | `已用 {value} token` | `已澄清 {value} 輪` |
+| locale        | summaryRuns                         | summaryTokens                  | summaryClarify                   |
+| ------------- | ----------------------------------- | ------------------------------ | -------------------------------- |
+| `de.json`     | `Bisher {value} Durchläufe`         | `{value} Tokens verwendet`     | `{value} Klärungsrunden`         |
+| `en-AU.json`  | `{value} runs so far`               | `{value} tokens used`          | `{value} clarification rounds`   |
+| `en-GB.json`  | `{value} runs so far`               | `{value} tokens used`          | `{value} clarification rounds`   |
+| `es.json`     | `{value} ejecuciones hasta ahora`   | `{value} tokens usados`        | `{value} rondas de aclaración`   |
+| `es-419.json` | `{value} ejecuciones hasta ahora`   | `{value} tokens usados`        | `{value} rondas de aclaración`   |
+| `fr.json`     | `{value} exécutions jusqu'ici`      | `{value} tokens utilisés`      | `{value} tours de clarification` |
+| `hi.json`     | `अब तक {value} रन`                  | `{value} टोकन उपयोग किए गए`    | `{value} स्पष्टीकरण दौर`         |
+| `id.json`     | `{value} proses sejauh ini`         | `{value} token terpakai`       | `{value} putaran klarifikasi`    |
+| `ja.json`     | `これまで {value} 回実行`           | `{value} トークン使用`         | `確認 {value} 回`                |
+| `ko.json`     | `지금까지 {value}회 실행`           | `{value} 토큰 사용`            | `확인 {value}회`                 |
+| `ms.json`     | `{value} larian setakat ini`        | `{value} token digunakan`      | `{value} pusingan penjelasan`    |
+| `ru.json`     | `{value} запусков на данный момент` | `Использовано {value} токенов` | `{value} раундов уточнений`      |
+| `vi.json`     | `{value} lần chạy đến nay`          | `Đã dùng {value} token`        | `{value} vòng làm rõ`            |
+| `zh-TW.json`  | `已執行 {value} 次`                 | `已用 {value} token`           | `已澄清 {value} 輪`              |
 
 - [ ] **Step 3: Verify locale parity (no drift, no missing keys, no `[TODO:…]`)**
 
@@ -409,6 +415,7 @@ The mock at `/tmp/lum-331-mock.html` shows runs-first; the implementation render
 ## Self-Review
 
 **Spec coverage:**
+
 - "无预测时丢掉 forecast 对比框架，改中性摘要" → Task 2 mode-B `<ul>` summary branch. ✓
 - "只展示有真实信号的累计值，0 值/无信号不渲染" → `showTokenSummary` / `showClarifySummary` guards; runs always shown (≥1 invariant). ✓
 - "有 forecast 时维持原有 band + over 行为不变" → band block + `hasCohortForecast` compare branch are byte-identical to current; Task 1 test 4 guards it. ✓

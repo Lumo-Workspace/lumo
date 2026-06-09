@@ -1452,6 +1452,10 @@
   "progress.clarifyRounds": "Vòng làm rõ",
   "progress.predictedRange": "Dự báo {value}",
   "progress.soFar": "cho đến nay {value}",
+  "mention.sprints": "Sprint",
+  "mention.projects": "Dự án",
+  "mention.milestones": "Cột mốc",
+  "mention.searching": "Đang tìm kiếm…",
   "progress.summaryRuns": "{value} lần chạy đến nay",
   "progress.summaryTokens": "Đã dùng {value} token",
   "progress.summaryClarify": "{value} vòng làm rõ"

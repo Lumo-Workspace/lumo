@@ -334,6 +334,11 @@ html {
   white-space: nowrap;
 }
 
+/* Entity mention chips are anchor elements and should show a pointer cursor. */
+a.mention {
+  cursor: pointer;
+}
+
 /* Task chip — status dot via ::before using Unicode circle.
    Colors come from semantic --status-* tokens (single source of truth, also
    used by <StatusIcon> SVG). */

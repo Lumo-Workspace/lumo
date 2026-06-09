@@ -1452,6 +1452,10 @@
   "progress.clarifyRounds": "Tours de clarification",
   "progress.predictedRange": "Prévision {value}",
   "progress.soFar": "jusqu'ici {value}",
+  "mention.sprints": "Sprints",
+  "mention.projects": "Projets",
+  "mention.milestones": "Jalons",
+  "mention.searching": "Recherche…",
   "progress.summaryRuns": "{value} exécutions jusqu'ici",
   "progress.summaryTokens": "{value} tokens utilisés",
   "progress.summaryClarify": "{value} tours de clarification"

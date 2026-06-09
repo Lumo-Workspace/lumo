@@ -28,16 +28,17 @@
 
 定义「有信号」：`actual != null && actual > 0`。
 
-| 指标 | 有 forecast | 无 forecast 但有信号 | 无信号 |
-| --- | --- | --- | --- |
-| **token**（独立轨道） | 现有 burn block（`RangeBand` + `OverPill` + `onTrackNote`）**原样不动** | 摘要行「已用 {value} token」 | 不渲染 |
-| **iterations + clarify**（同生同灭） | 现有 compare 区（预测区间 · 已N）**原样不动** | 摘要行 | clarify 单独判：`actual > 0` 才渲染 |
+| 指标                                 | 有 forecast                                                             | 无 forecast 但有信号         | 无信号                              |
+| ------------------------------------ | ----------------------------------------------------------------------- | ---------------------------- | ----------------------------------- |
+| **token**（独立轨道）                | 现有 burn block（`RangeBand` + `OverPill` + `onTrackNote`）**原样不动** | 摘要行「已用 {value} token」 | 不渲染                              |
+| **iterations + clarify**（同生同灭） | 现有 compare 区（预测区间 · 已N）**原样不动**                           | 摘要行                       | clarify 单独判：`actual > 0` 才渲染 |
 
 关键不变式：`iterations.actual`（= `sessionCount`）在交付中恒 ≥ 1（`sessionCount === 0` 已被 `DeliveryPanel` 路由到交付前），所以摘要态**永远至少有「已运行 N 次」一行**，不会再出现空壳。
 
 ### 渲染分支组合
 
 ProgressView 顶部计算：
+
 - `hasTokenBand = !!tokenCost.forecast && tokenCost.actual !== null`（即现有 `showToken`）
 - `hasCohortForecast = !!iterations.forecast`（clarify 同生同灭，判一个即可）
 
@@ -65,13 +66,13 @@ ProgressView 顶部计算：
 
 ## i18n
 
-新增 3 个 key（全 16 locale，`npm run i18n:sync` 后补真翻译）。**非 ICU plural**（配合现有 test mock 的朴素 `{var}` 替换，且现有 progress.* key 都不用 ICU）：
+新增 3 个 key（全 16 locale，`npm run i18n:sync` 后补真翻译）。**非 ICU plural**（配合现有 test mock 的朴素 `{var}` 替换，且现有 progress.\* key 都不用 ICU）：
 
-| key | en | zh-CN |
-| --- | --- | --- |
-| `progress.summaryRuns` | `{value} runs so far` | `已运行 {value} 次` |
-| `progress.summaryTokens` | `{value} tokens used` | `已用 {value} token` |
-| `progress.summaryClarify` | `{value} clarification rounds` | `已澄清 {value} 轮` |
+| key                       | en                             | zh-CN                |
+| ------------------------- | ------------------------------ | -------------------- |
+| `progress.summaryRuns`    | `{value} runs so far`          | `已运行 {value} 次`  |
+| `progress.summaryTokens`  | `{value} tokens used`          | `已用 {value} token` |
+| `progress.summaryClarify` | `{value} clarification rounds` | `已澄清 {value} 轮`  |
 
 ## 测试（`__tests__/components/ProgressView.test.tsx`）
 

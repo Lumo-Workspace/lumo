@@ -16,6 +16,7 @@ import {
   ApiProject,
 } from '../types'
 import { DescriptionEditor } from './DescriptionEditor'
+import { useMentionSources } from '../hooks/useMentionSources'
 import { AiDescriptionPrompt } from './AiDescriptionPrompt'
 import { TypographyH3 } from '@/components/ui/typography'
 import { Spinner } from '@/components/ui/spinner'
@@ -56,7 +57,6 @@ export interface TaskDetailPanelProps {
     | ((taskId: string, description: string | null) => void)
     | undefined
   onTasksChanged?: (() => void) | undefined
-  tasks?: ApiTask[]
 }
 
 export function TaskDetailPanel({
@@ -68,7 +68,6 @@ export function TaskDetailPanel({
   onUpdate,
   onDescriptionLoaded,
   onTasksChanged,
-  tasks = [],
 }: TaskDetailPanelProps) {
   // Build a TaskDetail-shaped seed from the list-level initialTask. Memoized
   // so the seed is stable across renders even though initialTask might be a
@@ -140,6 +139,7 @@ export function TaskDetailPanel({
   }, [task.parent, projectName, workspaceUrl, router])
 
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
+  const mentionSources = useMentionSources(mentionableMembers)
 
   // Members with actorId (non-null only) for AssigneeSelect
   const membersWithActorId = useMemo(
@@ -316,8 +316,7 @@ export function TaskDetailPanel({
               <DescriptionEditor
                 value={desc.descriptionValue}
                 onCommit={commitDescription}
-                members={mentionableMembers}
-                tasks={tasks}
+                mentionSources={mentionSources}
               />
               {task.description && (
                 <div className='mt-1 flex justify-end'>
@@ -376,7 +375,6 @@ export function TaskDetailPanel({
         agentActors={agentActors}
         currentActorId={currentMember?.actorId}
         user={user}
-        tasks={tasks}
         tc={tc}
       />
     </div>

@@ -1452,6 +1452,10 @@
   "progress.clarifyRounds": "Putaran klarifikasi",
   "progress.predictedRange": "Perkiraan {value}",
   "progress.soFar": "sejauh ini {value}",
+  "mention.sprints": "Sprint",
+  "mention.projects": "Proyek",
+  "mention.milestones": "Tonggak",
+  "mention.searching": "Mencari…",
   "progress.summaryRuns": "{value} proses sejauh ini",
   "progress.summaryTokens": "{value} token terpakai",
   "progress.summaryClarify": "{value} putaran klarifikasi"

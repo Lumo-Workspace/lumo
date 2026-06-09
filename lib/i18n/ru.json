@@ -1452,6 +1452,10 @@
   "progress.clarifyRounds": "Раунды уточнений",
   "progress.predictedRange": "Прогноз {value}",
   "progress.soFar": "на данный момент {value}",
+  "mention.sprints": "Спринты",
+  "mention.projects": "Проекты",
+  "mention.milestones": "Вехи",
+  "mention.searching": "Поиск…",
   "progress.summaryRuns": "{value} запусков на данный момент",
   "progress.summaryTokens": "Использовано {value} токенов",
   "progress.summaryClarify": "{value} раундов уточнений"

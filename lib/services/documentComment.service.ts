@@ -13,6 +13,7 @@ import { shouldNotifyBatch } from '@/lib/services/notification.service'
 import { sendDMNotification } from '@/lib/integrations/slack'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
+import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 
 type WaitUntil = (p: Promise<unknown>) => void
 
@@ -47,25 +48,6 @@ interface NotifyDocMentionsParams {
   waitUntil: WaitUntil
 }
 
-/** Parse @mention clerkIds from comment body HTML. Excludes author and __agent__. */
-function parseMentionedClerkIds(body: string, authorClerkId: string): string[] {
-  const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
-  const ids: string[] = []
-  let match: RegExpExecArray | null
-  while ((match = mentionRegex.exec(body)) !== null) {
-    const clerkId = match[1]
-    if (
-      clerkId &&
-      clerkId !== authorClerkId &&
-      clerkId !== '__agent__' &&
-      !ids.includes(clerkId)
-    ) {
-      ids.push(clerkId)
-    }
-  }
-  return ids
-}
-
 function notFound(): never {
   throw Object.assign(new Error('Document not found'), { status: 404 })
 }
@@ -89,7 +71,7 @@ export const documentCommentService = {
     } = params
 
     const authorClerkId = await getActorClerkId(authorActorId)
-    const mentionedIds = parseMentionedClerkIds(body, authorClerkId ?? '')
+    const mentionedIds = parseMentionedUserClerkIds(body, authorClerkId ?? '')
     if (mentionedIds.length === 0) return
 
     const members = await memberRepository.findByWorkspaceAndClerkIds(

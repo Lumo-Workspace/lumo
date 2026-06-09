@@ -17,6 +17,7 @@ import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { DocumentToc } from '../document/DocumentToc'
 import { withTitleRoot } from '@/lib/editor/toc-display'
 import { useAutoHideScrollbar } from '../../hooks/useAutoHideScrollbar'
+import { useMentionSources } from '../../hooks/useMentionSources'
 import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
 import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
@@ -102,6 +103,7 @@ export function DocumentEditorPage({
   currentMemberId,
 }: DocumentEditorPageProps) {
   const intl = useIntl()
+  const mentionSources = useMentionSources(members)
   const initialCache = readCache<ApiDocumentDetail>(
     CACHE_KEY.documentDetail(documentId)
   )
@@ -682,6 +684,7 @@ export function DocumentEditorPage({
                     defaultMessage: 'Type / for commands…',
                   })}
                   documentId={doc.id}
+                  mentionSources={mentionSources}
                   onTocUpdate={setTocItems}
                   tocScrollRoot={scrollRoot}
                   onStatsUpdate={setStats}

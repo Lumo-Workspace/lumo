@@ -27,6 +27,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
 import { DescriptionEditor } from '../DescriptionEditor'
+import { useMentionSources } from '../../hooks/useMentionSources'
 // AgentPanel hidden — agent features disabled for now
 import { useTaskComments } from '../../hooks/useTaskComments'
 import { useTaskMutation } from '../../hooks/useTaskMutation'
@@ -146,6 +147,8 @@ export function TaskDetailPage({
     () => members.filter(m => m.clerkId !== user?.id),
     [members, user?.id]
   )
+
+  const mentionSources = useMentionSources(mentionableMembers)
 
   // ── Anchor scroll ──────────────────────────────────────────────────────────
   const hasScrolled = useRef(false)
@@ -302,7 +305,7 @@ export function TaskDetailPage({
               <DescriptionEditor
                 value={desc.descriptionValue}
                 onCommit={actions.commitDescription}
-                members={mentionableMembers}
+                mentionSources={mentionSources}
               />
             )}
 

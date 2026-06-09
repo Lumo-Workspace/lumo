@@ -1452,6 +1452,10 @@
   "progress.clarifyRounds": "澄清轮次",
   "progress.predictedRange": "预测 {value}",
   "progress.soFar": "已 {value}",
+  "mention.sprints": "冲刺",
+  "mention.projects": "项目",
+  "mention.milestones": "里程碑",
+  "mention.searching": "搜索中…",
   "progress.summaryRuns": "已运行 {value} 次",
   "progress.summaryTokens": "已用 {value} token",
   "progress.summaryClarify": "已澄清 {value} 轮"

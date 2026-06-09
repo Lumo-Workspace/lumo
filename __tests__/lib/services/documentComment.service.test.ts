@@ -511,7 +511,7 @@ describe('notifyDocMentions', () => {
     await documentCommentService.notifyDocMentions({
       documentId: 'd1',
       documentCommentId: 'c1',
-      body: '<span data-type="mention" data-id="bob-clerk">@Bob</span> hi',
+      body: '<span class="mention" data-id="bob-clerk" data-mention-type="user">@Bob</span> hi',
       authorActorId: 'a-me',
       workspaceId: 'w1',
       docTitle: 'Spec',
@@ -545,7 +545,7 @@ describe('notifyDocMentions', () => {
     await documentCommentService.notifyDocMentions({
       documentId: 'd1',
       documentCommentId: 'c1',
-      body: '<span data-type="mention" data-id="bob-clerk">@Bob</span> hi',
+      body: '<span class="mention" data-id="bob-clerk" data-mention-type="user">@Bob</span> hi',
       authorActorId: 'a-me',
       workspaceId: 'w1',
       docTitle: 'Spec',
@@ -563,6 +563,25 @@ describe('notifyDocMentions', () => {
         taskUrl: expect.stringContaining('/workspace/acme/documents/spec-3'),
       })
     )
+  })
+
+  it('does NOT notify for task mentions (data-mention-type="task")', async () => {
+    getActorClerkIdMock.mockResolvedValue('author-clerk')
+
+    await documentCommentService.notifyDocMentions({
+      documentId: 'd1',
+      documentCommentId: 'c1',
+      body: '<span class="mention" data-id="task-abc" data-mention-type="task">@TaskTitle</span> hi',
+      authorActorId: 'a-me',
+      workspaceId: 'w1',
+      docTitle: 'Spec',
+      workspaceSlug: 'acme',
+      docSlug: 'spec-3',
+      waitUntil: noop,
+    })
+
+    expect(memberRepoMock.findByWorkspaceAndClerkIds).not.toHaveBeenCalled()
+    expect(notificationRepoMock.createMany).not.toHaveBeenCalled()
   })
 
   it('no-ops when there are no mentions', async () => {
@@ -587,7 +606,7 @@ describe('notifyDocMentions', () => {
     await documentCommentService.notifyDocMentions({
       documentId: 'd1',
       documentCommentId: 'c1',
-      body: '<span data-type="mention" data-id="unknown-clerk">@X</span>',
+      body: '<span class="mention" data-id="unknown-clerk" data-mention-type="user">@X</span>',
       authorActorId: 'a-me',
       workspaceId: 'w1',
       docTitle: 'S',

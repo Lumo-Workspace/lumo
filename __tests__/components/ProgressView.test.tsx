@@ -49,8 +49,18 @@ const onTrack: TaskProgress = {
     deltaPct: null,
     band: 'on-track',
   },
-  iterations: { forecast: iv(1, 2, 3), actual: 2, deltaPct: null, band: 'on-track' },
-  clarifyRounds: { forecast: iv(0, 1, 1), actual: 0, deltaPct: null, band: 'on-track' },
+  iterations: {
+    forecast: iv(1, 2, 3),
+    actual: 2,
+    deltaPct: null,
+    band: 'on-track',
+  },
+  clarifyRounds: {
+    forecast: iv(0, 1, 1),
+    actual: 0,
+    deltaPct: null,
+    band: 'on-track',
+  },
 }
 
 const over: TaskProgress = {
@@ -81,7 +91,9 @@ it('shows the running pulse only when agentStatus is WORKING', () => {
   )
   expect(screen.getByText(en['progress.agentRunning']!)).toBeInTheDocument()
   rerender(<ProgressView progress={onTrack} agentStatus={null} />)
-  expect(screen.queryByText(en['progress.agentRunning']!)).not.toBeInTheDocument()
+  expect(
+    screen.queryByText(en['progress.agentRunning']!)
+  ).not.toBeInTheDocument()
 })
 
 const noForecastWithToken: TaskProgress = {
@@ -135,7 +147,12 @@ it('does NOT render summary lines when a forecast is present', () => {
 const tokenBandNoCohort: TaskProgress = {
   sessionCount: 1,
   forecast: {} as TaskProgress['forecast'],
-  tokenCost: { forecast: iv(12e6, 22e6, 35e6), actual: 18e6, deltaPct: null, band: 'on-track' },
+  tokenCost: {
+    forecast: iv(12e6, 22e6, 35e6),
+    actual: 18e6,
+    deltaPct: null,
+    band: 'on-track',
+  },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
   clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
@@ -143,7 +160,9 @@ const tokenBandNoCohort: TaskProgress = {
 it('renders the token band AND a runs-only summary when token forecast exists but cohort does not', () => {
   render(<ProgressView progress={tokenBandNoCohort} agentStatus={null} />)
   // band block present (on-track note)
-  expect(screen.getByText('within range · still accumulating')).toBeInTheDocument()
+  expect(
+    screen.getByText('within range · still accumulating')
+  ).toBeInTheDocument()
   // summary runs line present
   expect(screen.getByText('1 runs so far')).toBeInTheDocument()
   // NO duplicate token summary line (band already shows token; showTokenSummary is false)

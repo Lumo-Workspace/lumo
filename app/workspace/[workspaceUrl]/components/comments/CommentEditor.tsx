@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { isMac } from '@/lib/utils/keyboard'
-import type { ApiTask, WorkspaceMemberInfo } from '../../types'
+import type { MentionSources } from '@/types/mention'
 import { DescriptionEditor } from '../DescriptionEditor'
 
 interface Props {
@@ -12,9 +12,7 @@ interface Props {
   /** Caller fills this ref with a `clear()` function so it can reset the
    * editor after a successful submit by re-keying it. */
   clearRef: React.MutableRefObject<(() => void) | null>
-  members?: WorkspaceMemberInfo[]
-  tasks?: ApiTask[] | undefined
-  agentActors?: { actorId: string; name: string; avatarColor: string }[]
+  mentionSources?: MentionSources
   /** i18n id for the editor placeholder. Defaults to the new-comment copy
    * ("添加评论…"); reply inputs pass `task.replyPlaceholder` ("添加回复…"). */
   placeholderId?: string | undefined
@@ -32,9 +30,7 @@ export function CommentEditor({
   onCommit,
   onSubmit,
   clearRef,
-  members,
-  tasks,
-  agentActors,
+  mentionSources,
   placeholderId,
 }: Props) {
   const intl = useIntl()
@@ -62,9 +58,7 @@ export function CommentEditor({
         placeholder={intl.formatMessage({
           id: placeholderId ?? 'task.commentPlaceholder',
         })}
-        {...(members ? { members } : {})}
-        {...(tasks ? { tasks } : {})}
-        {...(agentActors ? { agentActors } : {})}
+        {...(mentionSources ? { mentionSources } : {})}
       />
     </div>
   )

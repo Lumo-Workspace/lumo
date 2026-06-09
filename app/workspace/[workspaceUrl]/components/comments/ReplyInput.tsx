@@ -5,7 +5,7 @@ import { Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { isMac } from '@/lib/utils/keyboard'
-import type { ApiTask, WorkspaceMemberInfo } from '../../types'
+import type { MentionSources } from '@/types/mention'
 import { CommentEditor } from './CommentEditor'
 import { CommentQuote, previewCommentText } from './CommentQuote'
 import type { useTaskComments } from '../../hooks/useTaskComments'
@@ -13,9 +13,7 @@ import type { useTaskComments } from '../../hooks/useTaskComments'
 interface Props {
   /** The parent comment id we're replying under. */
   parentCommentId: string
-  mentionableMembers: WorkspaceMemberInfo[]
-  agentActors: { actorId: string; name: string; avatarColor: string }[]
-  tasks?: ApiTask[] | undefined
+  mentionSources?: MentionSources
   user: { imageUrl?: string; initials?: string } | null | undefined
   tc: ReturnType<typeof useTaskComments>
 }
@@ -27,9 +25,7 @@ interface Props {
  */
 export function ReplyInput({
   parentCommentId,
-  mentionableMembers,
-  agentActors,
-  tasks,
+  mentionSources,
   user,
   tc,
 }: Props) {
@@ -56,9 +52,7 @@ export function ReplyInput({
           onCommit={html => tc.setReplyBody(html)}
           onSubmit={() => tc.submitReply(parentCommentId)}
           clearRef={tc.clearReplyRef}
-          members={mentionableMembers}
-          tasks={tasks}
-          agentActors={agentActors}
+          {...(mentionSources ? { mentionSources } : {})}
         />
         <div className='flex items-center justify-between px-2 pb-2'>
           <button

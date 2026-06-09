@@ -30,6 +30,7 @@ import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import { usePrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import { useFormRecovery } from '../../hooks/useFormRecovery'
+import { useMentionSources } from '../../hooks/useMentionSources'
 import { FormRecoveryBanner } from '../FormRecoveryBanner'
 import { CACHE_KEY } from '../../constants'
 import { toast } from 'sonner'
@@ -120,6 +121,7 @@ export function NewTaskModal({
   onDeleteDraft,
 }: NewTaskModalProps) {
   const intl = useIntl()
+  const mentionSources = useMentionSources(members)
   const [title, setTitle] = useState(preFill?.title ?? '')
   const descriptionRef = useRef<string | null>(preFill?.description ?? null)
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
@@ -520,6 +522,7 @@ export function NewTaskModal({
                   placeholder={intl.formatMessage({
                     id: 'newTask.descriptionPlaceholder',
                   })}
+                  mentionSources={mentionSources}
                 />
               </div>
               <div className='flex flex-wrap items-center gap-2 pt-1'>

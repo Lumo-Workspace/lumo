@@ -13,6 +13,8 @@ import { CommentEditMode } from '@/app/workspace/[workspaceUrl]/components/comme
 import { useFormatDate } from '@/app/workspace/[workspaceUrl]/hooks/useFormatDate'
 import { Button } from '@/components/ui/button'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
+import { useMentionSources } from '@/app/workspace/[workspaceUrl]/hooks/useMentionSources'
+import type { MentionSources } from '@/types/mention'
 
 export interface DocumentCommentThreadProps {
   thread: ApiDocumentComment
@@ -32,6 +34,7 @@ function Row({
   c,
   members,
   agentActors,
+  mentionSources,
   currentActorId,
   onEdit,
   onDelete,
@@ -39,6 +42,7 @@ function Row({
   c: ApiDocumentComment
   members: WorkspaceMemberInfo[]
   agentActors: AgentActorInfo[]
+  mentionSources?: MentionSources
   currentActorId: string | null | undefined
   onEdit: (id: string, body: string) => void
   onDelete: (id: string) => void
@@ -98,7 +102,7 @@ function Row({
                 draftBody={draft}
                 saving={false}
                 placeholderId='task.editCommentPlaceholder'
-                mentionableMembers={members}
+                {...(mentionSources ? { mentionSources } : {})}
                 confirmLabelId='common.confirm'
                 onChange={setDraft}
                 onSave={saveEditing}
@@ -199,7 +203,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
   const replyRef = useRef<string | null>(null)
   const replyClearRef = useRef<(() => void) | null>(null)
   const resolved = thread.status === 'RESOLVED'
-  const memberProp = props.members.length ? { members: props.members } : {}
+  const mentionSources = useMentionSources(props.members)
 
   const submitReply = () => {
     const b = replyRef.current?.trim()
@@ -234,6 +238,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
         c={thread}
         members={props.members}
         agentActors={props.agentActors}
+        mentionSources={mentionSources}
         currentActorId={props.currentActorId}
         onEdit={props.onEdit}
         onDelete={props.onDelete}
@@ -245,6 +250,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
             c={rep}
             members={props.members}
             agentActors={props.agentActors}
+            mentionSources={mentionSources}
             currentActorId={props.currentActorId}
             onEdit={props.onEdit}
             onDelete={props.onDelete}
@@ -287,7 +293,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
             onSubmit={submitReply}
             clearRef={replyClearRef}
             placeholderId='task.replyPlaceholder'
-            {...memberProp}
+            mentionSources={mentionSources}
           />
           <div className='mt-1 flex items-center justify-end gap-2'>
             <Button
