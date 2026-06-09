@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mention 下拉样式优化 Mock</title>
+<style>
+  :root {
+    --bg:#fff; --fg:#18181b; --muted:#71717a; --faint:#a1a1aa;
+    --line:#e4e4e7; --line-soft:#f4f4f5; --sel:#f4f4f5; --sel-bar:#18181b;
+    --accent:#2563eb;
+    --status-todo:#d4d4d8; --status-prog:#f59e0b; --status-review:#6366f1; --status-done:#22c55e;
+    --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(0,0,0,.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fafafa;color:var(--fg);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+    -webkit-font-smoothing:antialiased;padding:36px 24px 80px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 28px}
+  .cols{display:grid;grid-template-columns:1fr;gap:32px}
+  @media(min-width:820px){.cols{grid-template-columns:1fr 1fr}}
+  .col-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;margin:0 0 12px}
+
+  /* mock editor field */
+  .field{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px;min-height:46px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .typed{color:var(--fg)} .typed .at{color:var(--accent);font-weight:600}
+  .caret{display:inline-block;width:1px;height:1.05em;background:var(--fg);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ===== dropdown (the fixed version) ===== */
+  .dd{
+    position:absolute;top:42px;left:12px;z-index:5;
+    width:300px;max-height:340px;overflow-y:auto;overflow-x:hidden;  /* ← overflow-x hidden */
+    background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:5px;
+  }
+  .grp + .grp{margin-top:2px}
+  .grp-h{padding:7px 9px 4px;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .grp + .grp .grp-h{border-top:1px solid var(--line-soft);margin-top:3px}
+
+  .row{
+    display:flex;align-items:center;gap:9px;
+    padding:6px 9px;border-radius:8px;cursor:pointer;
+    min-width:0;                       /* ← allow children to shrink */
+  }
+  .row:hover{background:var(--line-soft)}
+  .row.sel{background:var(--sel)}
+  .row.sel{position:relative}
+  .row.sel::before{content:"";position:absolute;left:-1px;top:6px;bottom:6px;width:2px;border-radius:0 2px 2px 0;background:var(--sel-bar)}
+
+  .ic{width:18px;height:18px;flex:0 0 auto;display:grid;place-items:center;color:var(--muted)}
+  .ava{width:20px;height:20px;border-radius:999px;flex:0 0 auto;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff}
+  .dot{width:8px;height:8px;border-radius:999px;flex:0 0 auto}
+  .dot.todo{background:var(--status-todo)} .dot.prog{background:var(--status-prog)}
+  .dot.review{background:var(--status-review)} .dot.done{background:var(--status-done)}
+
+  .id{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto;font-weight:500}
+  .name{color:var(--fg);font-weight:500;flex:0 0 auto;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .title{color:var(--fg);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}  /* ← min-width:0 + truncate */
+  .meta{color:var(--muted);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .recent-h{display:flex;align-items:center;justify-content:space-between}
+  .foot{display:flex;gap:12px;padding:6px 9px 3px;margin-top:3px;border-top:1px solid var(--line-soft);color:var(--faint);font-size:11px}
+  .kbd{font:11px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fff;color:var(--muted)}
+
+  .note{margin-top:30px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--faint);border-radius:8px;background:#fff;color:var(--muted);font-size:12.5px}
+  .note b{color:var(--fg);font-weight:600}
+  .note ul{margin:8px 0 0;padding-left:18px} .note li{margin:4px 0}
+  .bad{color:#b91c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mention 下拉 — 样式优化 + bare @ 近期项</h1>
+  <p class="sub">左:输入 @L 的结果态(修横向滚动 + 降突兀)。右:只打 @ 的「最近」态(新增)。配色压低,灰阶为主,蓝色只给「人」。</p>
+
+  <div class="cols">
+    <!-- LEFT: typed @L -->
+    <div>
+      <p class="col-label">① 输入 @L(结果态)</p>
+      <div class="field">
+        <span class="typed">这块逻辑得请 <span class="at">@L</span></span><span class="caret"></span>
+        <div class="dd">
+          <div class="grp">
+            <div class="grp-h">任务</div>
+            <div class="row sel"><span class="dot prog"></span><span class="id">LUM-330</span><span class="title">Editor: add @-mention support</span></div>
+            <div class="row"><span class="dot todo"></span><span class="id">LUM-332</span><span class="title">只读视图统一渲染 mention(RichTextViewer 复用节点)</span></div>
+            <div class="row"><span class="dot review"></span><span class="id">LUM-324</span><span class="title">Reconcile-on-write memory v6 phase 0</span></div>
+            <div class="row"><span class="dot done"></span><span class="id">LUM-331</span><span class="title">交付中卡片在无预测数据时的兜底</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp-h">项目</div>
+            <div class="row"><span class="ic">▦</span><span class="name">Lumo</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp-h">里程碑</div>
+            <div class="row"><span class="ic">◇</span><span class="title">Memory v6: Reconcile-on-Write &amp; Lifecycle</span></div>
+            <div class="row"><span class="ic">◇</span><span class="name">Agent-Native Milestones</span></div>
+          </div>
+          <div class="foot"><span><span class="kbd">↑</span><span class="kbd">↓</span> 移动</span><span><span class="kbd">↵</span> 选择</span><span><span class="kbd">esc</span> 关闭</span></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:54px">
+        <b>修掉的问题</b>
+        <ul>
+          <li><span class="bad">横向滚动</span> → 标题加 <code>min-w-0</code> 让 truncate 生效 + 容器 <code>overflow-x:hidden</code>;长标题省略号收尾,绝不撑宽。</li>
+          <li><b>突兀感</b> → 行改圆角 + 内边距留白(不再整行满铺高亮);选中态左侧 2px 竖条 + 浅底;分组头更小更淡、用细分隔线而非硬边框。</li>
+          <li>宽度 260→<b>300px</b>,实体名 <code>max-width:55%</code> 后接标题,层次清楚。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RIGHT: bare @ recent -->
+    <div>
+      <p class="col-label">② 只打 @(新增「最近」态)</p>
+      <div class="field">
+        <span class="typed">cc <span class="at">@</span></span><span class="caret"></span>
+        <div class="dd">
+          <div class="grp">
+            <div class="grp-h recent-h"><span>最近</span><span style="font-weight:500;text-transform:none;letter-spacing:0">输入以搜索</span></div>
+            <div class="row sel"><span class="dot prog"></span><span class="id">LUM-330</span><span class="title">Editor: add @-mention support</span></div>
+            <div class="row"><span class="dot todo"></span><span class="id">LUM-332</span><span class="title">只读视图统一渲染 mention</span></div>
+            <div class="row"><span class="ic">▦</span><span class="name">Lumo</span><span class="meta">项目</span></div>
+            <div class="row"><span class="ic">⚡</span><span class="name">Sprint 14</span><span class="meta">冲刺</span></div>
+            <div class="row"><span class="ic">◇</span><span class="title">Memory v6: Reconcile-on-Write</span></div>
+          </div>
+          <div class="foot"><span><span class="kbd">↑</span><span class="kbd">↓</span> 移动</span><span><span class="kbd">↵</span> 选择</span></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:54px">
+        <b>bare @ 的「最近」态</b>
+        <ul>
+          <li>空 query 时不再「无结果」,而是显示<b>最近更新的若干实体</b>(混合任务/项目/sprint/里程碑),右上角提示「输入以搜索」。</li>
+          <li>服务端空 query 改为返回各类「最近 N 条」而非 <code>[]</code>;一旦输入字符即切回精确搜索。</li>
+          <li>有其他成员的工作区,「人」也会出现在最上面(你当前是单人工作区所以人组为空)。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>说明</b> · 图标(▦◇⚡)是占位字符,真做用现有 lucide(FolderKanban / Flag / Layers)+ 任务状态圆点。整体仍是 LUM-330 的同一个 <code>MentionList</code> 组件,只动样式 + 空态数据;不新增组件、不改 @ 行为。
+  </div>
+</div>
+</body>
+</html>

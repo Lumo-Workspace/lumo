@@ -10,6 +10,10 @@ const insensitive = (q: string) => ({
  * Returns minimal fields sufficient for the service layer to build mention DTOs
  * with hrefs. All queries are scoped to a workspaceId.
  *
+ * Blank query (`q === ''`) omits the name filter and returns the most-recent
+ * entities — this powers the "recent" suggestions shown when the user types a
+ * bare `@` before typing anything to search.
+ *
  * Note: Project has no slug field — consumers slugify the project name to build URLs.
  */
 export const mentionSearchRepository = {
@@ -17,10 +21,14 @@ export const mentionSearchRepository = {
     return prisma.task.findMany({
       where: {
         project: { workspaceId },
-        OR: [
-          { title: insensitive(q) },
-          { team: { identifier: insensitive(q) } },
-        ],
+        ...(q
+          ? {
+              OR: [
+                { title: insensitive(q) },
+                { team: { identifier: insensitive(q) } },
+              ],
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -38,7 +46,7 @@ export const mentionSearchRepository = {
     return prisma.sprint.findMany({
       where: {
         team: { workspaceId },
-        name: insensitive(q),
+        ...(q ? { name: insensitive(q) } : {}),
       },
       select: {
         id: true,
@@ -55,7 +63,7 @@ export const mentionSearchRepository = {
     return prisma.project.findMany({
       where: {
         workspaceId,
-        name: insensitive(q),
+        ...(q ? { name: insensitive(q) } : {}),
       },
       select: {
         id: true,
@@ -70,7 +78,7 @@ export const mentionSearchRepository = {
     return prisma.milestone.findMany({
       where: {
         project: { workspaceId },
-        name: insensitive(q),
+        ...(q ? { name: insensitive(q) } : {}),
       },
       select: {
         id: true,
