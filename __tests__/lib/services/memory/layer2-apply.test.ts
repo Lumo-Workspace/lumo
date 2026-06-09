@@ -3,11 +3,15 @@
  */
 const embedTextsMock = jest.fn().mockResolvedValue([[0.1, 0.2]])
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
+const resolveGuardedMock = jest.fn().mockResolvedValue(new Set<string>())
+jest.mock('@/lib/services/memory/supersede-guard', () => ({
+  resolveGuardedSupersedeIds: (...a: unknown[]) => resolveGuardedMock(...a),
+}))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
-    supersedeInPlace: jest.fn(),
+    supersede: jest.fn(),
     setEmbedding: jest.fn(),
     // Run the plans inline so per-op assertions still see the calls. The
     // real implementation wraps these in prisma.$transaction; mocking it as
@@ -49,9 +53,10 @@ beforeEach(() => {
   jest.clearAllMocks()
   embedTextsMock.mockResolvedValue([[0.1, 0.2]])
   jest.spyOn(console, 'warn').mockImplementation(() => {})
+  resolveGuardedMock.mockResolvedValue(new Set<string>())
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
-  repo.supersedeInPlace.mockResolvedValue({ id: 'superseded' } as never)
+  repo.supersede.mockResolvedValue({ newId: 'mem_new' } as never)
   repo.setEmbedding.mockResolvedValue(undefined)
 })
 
@@ -205,10 +210,11 @@ describe('applyLayer2Operations', () => {
     expect(result).toMatchObject({ added: 1, noop: 2 })
   })
 
-  it('SUPERSEDE overwrites the target PROJECT memory in place and counts it', async () => {
-    const supersede = jest
-      .spyOn(memoryRepository, 'supersedeInPlace')
-      .mockResolvedValue({ id: 'mem_old' } as never)
+  it('SUPERSEDE invalidates-not-deletes (new active row) and stamps embedding on the NEW id', async () => {
+    repo.supersede.mockResolvedValue({ newId: 'mem_new' } as never)
+    const setEmb = jest
+      .spyOn(memoryRepository, 'setEmbedding')
+      .mockResolvedValue(undefined)
     const result = await applyLayer2Operations({
       operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new', scope: 'all' } }],
       projectId: 'proj_1',
@@ -216,7 +222,21 @@ describe('applyLayer2Operations', () => {
       existingProjectMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
     })
     expect(result.superseded).toBe(1)
-    expect(supersede).toHaveBeenCalledWith('mem_old', { rule: 'new', scope: 'all' }, expect.anything())
+    expect(repo.supersede).toHaveBeenCalledWith('mem_old', { rule: 'new', scope: 'all' }, expect.anything())
+    expect(setEmb).toHaveBeenCalledWith('mem_new', expect.any(Array), expect.anything())
+  })
+
+  it('GUARDS a high-trust SUPERSEDE target: skips it, leaving the row untouched', async () => {
+    resolveGuardedMock.mockResolvedValue(new Set(['mem_old']))
+    const result = await applyLayer2Operations({
+      operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new', scope: 'all' } }],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      existingProjectMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
+    })
+    expect(result.superseded).toBe(0)
+    expect(result.skipped).toBe(1)
+    expect(repo.supersede).not.toHaveBeenCalled()
   })
 
   it('drops SUPERSEDE targeting an unknown id', async () => {

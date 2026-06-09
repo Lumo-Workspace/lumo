@@ -3,12 +3,16 @@
  */
 const embedTextsMock = jest.fn().mockResolvedValue([[0.1, 0.2]])
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
+const resolveGuardedMock = jest.fn().mockResolvedValue(new Set<string>())
+jest.mock('@/lib/services/memory/supersede-guard', () => ({
+  resolveGuardedSupersedeIds: (...a: unknown[]) => resolveGuardedMock(...a),
+}))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
     delete: jest.fn(),
-    supersedeInPlace: jest.fn(),
+    supersede: jest.fn(),
     setEmbedding: jest.fn(),
     // Run the plans inline so per-op assertions (repo.create / delete / etc.)
     // still see the calls. The real implementation wraps these in
@@ -43,10 +47,11 @@ const baseInput = {
 beforeEach(() => {
   jest.clearAllMocks()
   embedTextsMock.mockResolvedValue([[0.1, 0.2]])
+  resolveGuardedMock.mockResolvedValue(new Set<string>())
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
   repo.delete.mockResolvedValue({ id: 'deleted' } as never)
-  repo.supersedeInPlace.mockResolvedValue({ id: 'superseded' } as never)
+  repo.supersede.mockResolvedValue({ newId: 'mem_new' } as never)
   repo.setEmbedding.mockResolvedValue(undefined)
 })
 
@@ -290,10 +295,14 @@ describe('applyLayer1Operations', () => {
     expect(repo.delete).toHaveBeenCalledTimes(1)
   })
 
-  it('SUPERSEDE overwrites the target row content in place and counts it', async () => {
-    const supersede = jest
-      .spyOn(memoryRepository, 'supersedeInPlace')
-      .mockResolvedValue({ id: 'mem_old' } as never)
+  it('SUPERSEDE invalidates-not-deletes (new active row) and stamps embedding on the NEW id', async () => {
+    // Option B (LUM-325): the old row is kept/flipped inside the repo; apply
+    // hands the new content to supersede() and must stamp the embedding on the
+    // returned NEW row id, not the superseded original.
+    repo.supersede.mockResolvedValue({ newId: 'mem_new' } as never)
+    const setEmb = jest
+      .spyOn(memoryRepository, 'setEmbedding')
+      .mockResolvedValue(undefined)
 
     const result = await applyLayer1Operations({
       operations: [
@@ -307,11 +316,34 @@ describe('applyLayer1Operations', () => {
     })
 
     expect(result.superseded).toBe(1)
-    expect(supersede).toHaveBeenCalledWith(
+    expect(repo.supersede).toHaveBeenCalledWith(
       'mem_old',
       { rule: 'REST is fine now', scope: 'all new endpoints' },
       expect.anything()
     )
+    expect(setEmb).toHaveBeenCalledWith('mem_new', expect.any(Array), expect.anything())
+  })
+
+  it('GUARDS a high-trust SUPERSEDE target: skips it, leaving the row untouched', async () => {
+    // A-MEM reuse guardrail: a usage-trusted memory must not be silently
+    // overwritten. The guard resolves it up front; apply skips the op.
+    resolveGuardedMock.mockResolvedValue(new Set(['mem_old']))
+
+    const result = await applyLayer1Operations({
+      operations: [
+        { type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'REST is fine now', scope: 'all new endpoints' } },
+      ],
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
+      sessionId: 'sess_1',
+      existingMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
+    })
+
+    expect(result.superseded).toBe(0)
+    expect(result.skipped).toBe(1)
+    expect(repo.supersede).not.toHaveBeenCalled()
+    expect(resolveGuardedMock).toHaveBeenCalledWith(['mem_old'])
   })
 
   it('drops SUPERSEDE targeting an unknown id', async () => {
