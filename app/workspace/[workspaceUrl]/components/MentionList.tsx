@@ -48,14 +48,26 @@ function EntityGlyph({
   kind: MentionKind
   status?: string | undefined
 }) {
-  if (kind === 'task') return <StatusIcon status={status ?? 'TODO'} size={14} />
-  if (kind === 'sprint')
-    return <Layers size={14} className='text-muted-foreground' />
-  if (kind === 'project')
-    return <FolderKanban size={14} className='text-muted-foreground' />
-  if (kind === 'milestone')
-    return <Flag size={14} className='text-muted-foreground' />
-  return <ListChecks size={14} className='text-muted-foreground' />
+  // Icons render at 14px but sit inside a fixed `size-5` (20px) slot so the
+  // glyph column lines up with the user Avatar (also `size-5`) — without this
+  // the avatar rows are visibly wider/taller than the icon rows.
+  const icon =
+    kind === 'task' ? (
+      <StatusIcon status={status ?? 'TODO'} size={14} />
+    ) : kind === 'sprint' ? (
+      <Layers size={14} className='text-muted-foreground' />
+    ) : kind === 'project' ? (
+      <FolderKanban size={14} className='text-muted-foreground' />
+    ) : kind === 'milestone' ? (
+      <Flag size={14} className='text-muted-foreground' />
+    ) : (
+      <ListChecks size={14} className='text-muted-foreground' />
+    )
+  return (
+    <span className='flex size-5 shrink-0 items-center justify-center'>
+      {icon}
+    </span>
+  )
 }
 
 export const MentionList = forwardRef<MentionListRef, MentionListProps>(
@@ -124,7 +136,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       // would trigger a horizontal scrollbar). Selected rows get a subtle
       // inset background + a 2px left accent bar rather than a full-bleed fill.
       const rowCls = cn(
-        'relative w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left min-w-0 transition-colors',
+        'relative w-full flex items-center gap-2 rounded-md px-2 py-1.5 min-h-8 text-sm text-left min-w-0 transition-colors',
         isSelected
           ? "bg-muted before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-foreground before:content-['']"
           : 'hover:bg-muted'
@@ -171,7 +183,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           <EntityGlyph kind={item.kind} status={item.status} />
           {item.sublabel ? (
             <>
-              <span className='shrink-0 text-xs font-medium text-muted-foreground'>
+              <span className='shrink-0 font-medium text-muted-foreground'>
                 {item.label}
               </span>
               <span className='min-w-0 truncate text-foreground'>
