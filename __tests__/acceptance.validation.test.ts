@@ -107,7 +107,9 @@ describe('machineVerdictInputSchema (agent-facing — the schema-layer red line)
       machineVerdictInputSchema.safeParse({
         criterionId: 'c-1',
         verdict: 'PASS',
-        evidencePointer: 'jest run #42',
+        // LUM-343 tightened evidence to enumerated pointer shapes — free text
+        // ('jest run #42') is no longer legal evidence.
+        evidencePointer: 'cmd:npx jest#exit=0',
       }).success
     ).toBe(true)
     expect(

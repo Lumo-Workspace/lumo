@@ -12,8 +12,10 @@ export async function notifyWorkspaceOwners(params: {
   taskId: string
   type: NotificationType
   triggerActorId: string | null
+  /** Mark the inbox item as awaiting a human action (AGENT_* escalations). */
+  requiresAction?: boolean
 }): Promise<void> {
-  const { workspaceId, taskId, type, triggerActorId } = params
+  const { workspaceId, taskId, type, triggerActorId, requiresAction } = params
 
   const ownerActors = await prisma.actor.findMany({
     where: { workspaceId, type: 'HUMAN', member: { role: 'OWNER' } },
@@ -29,6 +31,7 @@ export async function notifyWorkspaceOwners(params: {
       type,
       taskId,
       triggerActorId,
+      requiresAction: requiresAction ?? false,
     })),
   })
 

@@ -87,7 +87,10 @@ describe('PUT /api/tasks/[id]/criteria', () => {
 
     const res = await PUT(req(draftBody), params)
 
-    expect(mockDraft).toHaveBeenCalledWith('t-1', draftBody.criteria)
+    expect(mockDraft).toHaveBeenCalledWith('t-1', draftBody.criteria, {
+      actorMemberId: 'member-1',
+      sourceSessionId: null,
+    })
     expect(mockRevise).not.toHaveBeenCalled()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ criteria: [{ id: 'c-1' }], warning: 'w' })
@@ -105,10 +108,34 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       params
     )
 
-    expect(mockRevise).toHaveBeenCalledWith('t-1', body.criteria, {
-      actorMemberId: 'member-1',
-      sourceSessionId: 'sess-1',
-    })
+    expect(mockRevise).toHaveBeenCalledWith(
+      't-1',
+      body.criteria,
+      {
+        actorMemberId: 'member-1',
+        sourceSessionId: 'sess-1',
+      },
+      undefined
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('threads causeTag through a HUMAN_EDIT revision', async () => {
+    mockRevise.mockResolvedValue({ criteria: [], warning: null })
+    const body = {
+      source: 'HUMAN_EDIT',
+      criteria: [{ id: 'c-1', statement: 's', verifierType: 'HUMAN' }],
+      causeTag: 'DRAFT_BLIND_SPOT',
+    }
+
+    const res = await PUT(req(body), params)
+
+    expect(mockRevise).toHaveBeenCalledWith(
+      't-1',
+      body.criteria,
+      expect.anything(),
+      'DRAFT_BLIND_SPOT'
+    )
     expect(res.status).toBe(200)
   })
 

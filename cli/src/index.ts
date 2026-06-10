@@ -13,6 +13,7 @@ import { sessionDetach } from './commands/session-detach'
 import { sessionStatus } from './commands/session-status'
 import { sessionWrap } from './commands/session-wrap'
 import { nextCommand } from './commands/next'
+import { verify } from './commands/verify'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -213,6 +214,21 @@ program
           agent?: string
         }
       )
+    )
+  )
+
+program
+  .command('verify [task]')
+  .description(
+    'Machine verification loop (LUM-343): run every MACHINE criterion checkpointer locally, report structured verdicts to the server (round cap 3), and print next actions. All-pass moves the task to IN_REVIEW. Defaults to the session-bound task.'
+  )
+  .option(
+    '--timeout <seconds>',
+    'Per-checkpointer timeout in seconds (default 600)'
+  )
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      verify(task as string | undefined, options as { timeout?: string })
     )
   )
 
@@ -556,6 +572,10 @@ taskCriteria
   .option(
     '--human',
     'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session 出处'
+  )
+  .option(
+    '--cause <tag>',
+    'Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER'
   )
   .action(
     wrap((taskId: unknown, options: unknown) =>

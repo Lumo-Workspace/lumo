@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "であなたをメンションしました",
   "notification.verb.documentCommentMentioned": "へのコメントであなたをメンションしました",
   "tokenCost.inFlight": "進行中",
-  "tokenCost.inFlightShare": "進行中 {n} を含む"
+  "tokenCost.inFlightShare": "進行中 {n} を含む",
+  "activity.criterionAdded": "受け入れ基準を追加しました",
+  "activity.criterionUpdated": "受け入れ基準を更新しました",
+  "activity.criterionDeleted": "受け入れ基準を削除しました",
+  "activity.verificationRunRecorded": "マシンチェック {verdict}（ラウンド {round}）",
+  "activity.verificationEscalated": "ラウンド {round} でマシン検証の上限に達しました — 人間の対応を要請しました",
+  "activity.filter.verification": "検証"
 }

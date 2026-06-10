@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "đã đề cập bạn trong",
   "notification.verb.documentCommentMentioned": "đã đề cập bạn trong một bình luận về",
   "tokenCost.inFlight": "đang chạy",
-  "tokenCost.inFlightShare": "gồm {n} đang chạy"
+  "tokenCost.inFlightShare": "gồm {n} đang chạy",
+  "activity.criterionAdded": "đã thêm một tiêu chí nghiệm thu",
+  "activity.criterionUpdated": "đã cập nhật một tiêu chí nghiệm thu",
+  "activity.criterionDeleted": "đã xóa một tiêu chí nghiệm thu",
+  "activity.verificationRunRecorded": "kiểm tra máy {verdict} (vòng {round})",
+  "activity.verificationEscalated": "xác minh máy đã hết hạn mức sau vòng {round} — đã yêu cầu con người tiếp quản",
+  "activity.filter.verification": "Xác minh"
 }

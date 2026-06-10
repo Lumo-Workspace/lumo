@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "erwähnt Sie in",
   "notification.verb.documentCommentMentioned": "erwähnt Sie in einem Kommentar zu",
   "tokenCost.inFlight": "laufend",
-  "tokenCost.inFlightShare": "inkl. {n} laufend"
+  "tokenCost.inFlightShare": "inkl. {n} laufend",
+  "activity.criterionAdded": "hat ein Abnahmekriterium hinzugefügt",
+  "activity.criterionUpdated": "hat ein Abnahmekriterium aktualisiert",
+  "activity.criterionDeleted": "hat ein Abnahmekriterium gelöscht",
+  "activity.verificationRunRecorded": "Maschinenprüfung {verdict} (Runde {round})",
+  "activity.verificationEscalated": "maschinelle Verifizierung nach Runde {round} ausgeschöpft — menschliche Übernahme angefordert",
+  "activity.filter.verification": "Verifizierung"
 }

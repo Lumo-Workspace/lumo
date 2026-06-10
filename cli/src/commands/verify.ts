@@ -1,0 +1,299 @@
+import { spawnSync } from 'child_process'
+import { readCredentials } from '../lib/config'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
+import { buildCmdEvidencePointer } from '../../../shared/src/acceptance-evidence'
+import type { CriterionRow } from './task-criteria-list'
+
+export interface VerifyOptions {
+  /** Per-checkpointer timeout in seconds (default 600). */
+  timeout?: string
+}
+
+/** Shape sent to POST /api/tasks/[id]/verify — mirrors machineVerdictInputSchema. */
+interface MachineVerdict {
+  criterionId: string
+  verdict: 'PASS' | 'FAIL'
+  evidencePointer?: string
+  rejectionReason?: string
+  rejectionReasonEnum?: 'CRITERION_UNMET' | 'CHECK_EXECUTION_ERROR'
+}
+
+interface RoundOutcome {
+  round: number
+  maxRounds: number
+  allPassed: boolean
+  escalated: boolean
+  taskStatus: string
+  results: Array<{
+    criterionId: string
+    statement: string
+    verdict: 'PASS' | 'FAIL'
+  }>
+  nextActions: Array<{
+    criterionId: string
+    statement: string
+    checkpointer: string | null
+    rejectionReason: string | null
+  }>
+}
+
+const DEFAULT_TIMEOUT_SECONDS = 600
+const OUTPUT_TAIL_CHARS = 1_500
+const MAX_OUTPUT_BUFFER = 10 * 1024 * 1024
+
+function tail(s: string, max: number): string {
+  return s.length > max ? `…${s.slice(-max)}` : s
+}
+
+/**
+ * Execute one MACHINE checkpointer in the local repo (执行在客户端 — the
+ * server can't run repo tests) and fold the result into a structured verdict.
+ * Exit 0 = PASS with a `cmd:` evidence pointer; non-zero = CRITERION_UNMET;
+ * spawn failure or timeout = CHECK_EXECUTION_ERROR.
+ */
+export function runCheckpointer(
+  criterionId: string,
+  checkpointer: string,
+  timeoutMs: number
+): MachineVerdict {
+  const r = spawnSync(checkpointer, {
+    shell: true,
+    encoding: 'utf8',
+    timeout: timeoutMs,
+    maxBuffer: MAX_OUTPUT_BUFFER,
+    cwd: process.cwd(),
+  })
+
+  if (r.error) {
+    const timedOut =
+      (r.error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ||
+      r.signal === 'SIGTERM'
+    return {
+      criterionId,
+      verdict: 'FAIL',
+      rejectionReason: timedOut
+        ? `checkpointer timed out after ${Math.round(timeoutMs / 1000)}s: ${checkpointer}`
+        : `checkpointer failed to execute: ${r.error.message}`,
+      rejectionReasonEnum: 'CHECK_EXECUTION_ERROR',
+    }
+  }
+
+  const exitCode = r.status ?? 1
+  if (exitCode === 0) {
+    return {
+      criterionId,
+      verdict: 'PASS',
+      evidencePointer: buildCmdEvidencePointer(checkpointer, 0),
+    }
+  }
+
+  const output = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.trim()
+  return {
+    criterionId,
+    verdict: 'FAIL',
+    evidencePointer: buildCmdEvidencePointer(checkpointer, exitCode),
+    rejectionReason: tail(output, OUTPUT_TAIL_CHARS) || `exit code ${exitCode}`,
+    rejectionReasonEnum: 'CRITERION_UNMET',
+  }
+}
+
+/**
+ * `lumo verify [task]` — the machine half of the acceptance loop.
+ *
+ * Runs every MACHINE criterion's checkpointer locally, reports one structured
+ * verdict per criterion to the server (the judge: round numbering, the
+ * 3-round cap, escalation, and the IN_REVIEW transition all live there), and
+ * prints what to do next. Defaults to the session-bound task; an explicit
+ * identifier overrides.
+ */
+export async function verify(
+  identifier: string | undefined,
+  options: VerifyOptions = {}
+): Promise<number | void> {
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${creds.token}`,
+  }
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
+
+  const timeoutSeconds = options.timeout
+    ? parseInt(options.timeout, 10)
+    : DEFAULT_TIMEOUT_SECONDS
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    console.error('Error: --timeout must be a positive number of seconds.')
+    return 1
+  }
+
+  // ── Resolve the task: explicit identifier or the session binding ─────────
+  let taskId = identifier
+  if (!taskId) {
+    if (!sessionId) {
+      console.error(
+        'Error: no task given and $CLAUDE_CODE_SESSION_ID is not set.\n' +
+          'Run `lumo verify <LUM-N>` or run inside a Claude Code session bound via `lumo session attach`.'
+      )
+      return 1
+    }
+    let res: Response
+    try {
+      res = await fetch(
+        `${base}/api/sessions/${encodeURIComponent(sessionId)}`,
+        { headers }
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: could not reach Lumo API (${msg})`)
+      return 1
+    }
+    const data = res.ok
+      ? ((await res.json()) as { taskIdentifier: string | null })
+      : null
+    if (!data?.taskIdentifier) {
+      console.error(
+        'Error: this session is not bound to a task. Run `lumo session attach <LUM-N>` first, or pass the task explicitly: `lumo verify <LUM-N>`.'
+      )
+      return 1
+    }
+    taskId = data.taskIdentifier
+  }
+
+  // ── Load the contract and pick out the MACHINE criteria ─────────────────
+  let criteriaRes: Response
+  try {
+    criteriaRes = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(taskId)}/criteria`,
+      { headers }
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API (${msg})`)
+    return 1
+  }
+  if (criteriaRes.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (criteriaRes.status === 404) {
+    console.error(
+      `Error: task ${taskId} not found in workspace ${creds.workspaceSlug}`
+    )
+    return 1
+  }
+  if (!criteriaRes.ok) {
+    console.error(`Error: could not load criteria (HTTP ${criteriaRes.status})`)
+    return 1
+  }
+  const { criteria } = (await criteriaRes.json()) as {
+    criteria: CriterionRow[]
+  }
+  const machine = criteria.filter(
+    c => c.verifierType === 'MACHINE' && c.checkpointer
+  )
+
+  if (criteria.length === 0) {
+    process.stdout.write(
+      `${taskId} has no acceptance contract yet — draft one with \`lumo task criteria set\` before verifying.\n`
+    )
+    return 1
+  }
+  if (machine.length === 0) {
+    process.stdout.write(
+      `${taskId} has no MACHINE criteria — nothing for the machine loop to run.\n` +
+        `The contract is HUMAN-only; finish your work and hand off for human review (lumo task update ${taskId} --status in_review).\n`
+    )
+    return
+  }
+
+  // ── Execute every checkpointer locally ───────────────────────────────────
+  process.stdout.write(
+    `Verifying ${taskId} — ${machine.length} MACHINE criteria\n`
+  )
+  const results: MachineVerdict[] = []
+  for (const [i, c] of machine.entries()) {
+    process.stdout.write(
+      `\n[${i + 1}/${machine.length}] ${sanitizeField(c.statement)}\n` +
+        `  $ ${sanitizeField(c.checkpointer!)}\n`
+    )
+    const verdict = runCheckpointer(c.id, c.checkpointer!, timeoutSeconds * 1000)
+    results.push(verdict)
+    if (verdict.verdict === 'PASS') {
+      process.stdout.write('  ✓ PASS\n')
+    } else {
+      process.stdout.write(
+        `  ✗ FAIL${verdict.rejectionReason ? ` — ${sanitizeField(tail(verdict.rejectionReason, 400))}` : ''}\n`
+      )
+    }
+  }
+
+  // ── Report the round to the judge ─────────────────────────────────────────
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/tasks/${encodeURIComponent(taskId)}/verify`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results }),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not report the round to Lumo (${msg})`)
+    return 1
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: unknown
+    } | null
+    const detail =
+      body && typeof body.error === 'string' ? sanitizeField(body.error) : ''
+    console.error(
+      `Error: verification round rejected (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`
+    )
+    return 1
+  }
+
+  const outcome = (await res.json()) as RoundOutcome
+  process.stdout.write(
+    `\nRound ${outcome.round}/${outcome.maxRounds} recorded.\n`
+  )
+
+  if (outcome.allPassed) {
+    process.stdout.write(
+      `✓ All MACHINE criteria passed — task is now ${outcome.taskStatus}.\n` +
+        `Stop here: human adjudication (and any HUMAN criteria) take over from this point.\n`
+    )
+    return
+  }
+
+  if (outcome.escalated) {
+    process.stdout.write(
+      `✗ Round ${outcome.round} still has failures — the machine loop is exhausted (cap ${outcome.maxRounds}).\n` +
+        `A human has been notified to take over. STOP retrying lumo verify; fix only what they direct.\n`
+    )
+    return 1
+  }
+
+  process.stdout.write(
+    `✗ ${outcome.nextActions.length} criteria unmet — task stays ${outcome.taskStatus}. Next actions:\n`
+  )
+  for (const a of outcome.nextActions) {
+    process.stdout.write(`  • ${sanitizeField(a.statement)}\n`)
+    if (a.checkpointer) {
+      process.stdout.write(`    check: ${sanitizeField(a.checkpointer)}\n`)
+    }
+    if (a.rejectionReason) {
+      process.stdout.write(
+        `    why: ${sanitizeField(tail(a.rejectionReason, 400))}\n`
+      )
+    }
+  }
+  process.stdout.write(
+    `Fix the failures, then re-run \`lumo verify\` (${outcome.maxRounds - outcome.round} round${outcome.maxRounds - outcome.round === 1 ? '' : 's'} left).\n`
+  )
+  return 1
+}

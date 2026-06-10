@@ -4,6 +4,10 @@ import {
   AcceptanceVerifierType,
   VerificationRejectionReason,
 } from '@prisma/client'
+import {
+  isValidEvidencePointer,
+  EVIDENCE_POINTER_FORMAT_HINT,
+} from '../../shared/src/acceptance-evidence'
 
 /**
  * 3–7 criteria is a SOFT range: outside it we warn, never reject. Hardening
@@ -93,6 +97,22 @@ export type CriteriaSetItem = z.infer<typeof criteriaSetItemSchema>
 export const CRITERIA_SET_HARD_MAX = 50
 
 /**
+ * Why the contract drifted (milestone rule 9). Lives in TaskActivity payloads
+ * only — never a table column. First version is self-drafted and extends
+ * additively; hardening waits for real drift-cause data (same route as the
+ * rejection-reason enum, LUM-341).
+ */
+export const CRITERIA_CAUSE_TAGS = [
+  'NEW_INFO',
+  'SCOPE_CHANGE',
+  'DRAFT_BLIND_SPOT',
+  'GRANULARITY',
+  'OTHER',
+] as const
+
+export type CriteriaCauseTag = (typeof CRITERIA_CAUSE_TAGS)[number]
+
+/**
  * Body of PUT /api/tasks/[id]/criteria. AGENT_DRAFT = the initial contract
  * (rejected by the service once any criteria exist — the agent lock);
  * HUMAN_EDIT = a human contract revision, possibly transcribed by the agent
@@ -104,6 +124,7 @@ export const criteriaSetBodySchema = z
   .object({
     source: z.enum(['AGENT_DRAFT', 'HUMAN_EDIT']),
     criteria: z.array(criteriaSetItemSchema).min(1).max(CRITERIA_SET_HARD_MAX),
+    causeTag: z.enum(CRITERIA_CAUSE_TAGS).optional(),
   })
   .strict()
   .superRefine((body, ctx) => {
@@ -118,6 +139,14 @@ export const criteriaSetBodySchema = z
           })
         }
       })
+      if (body.causeTag !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['causeTag'],
+          message:
+            'causeTag annotates contract drift and only applies to HUMAN_EDIT revisions',
+        })
+      }
     }
   })
 
@@ -152,6 +181,33 @@ export const machineVerdictInputSchema = z
         message: 'A MACHINE PASS verdict must carry an evidencePointer',
       })
     }
+    // Evidence is a pointer, not prose: an agent-authored free-text field on
+    // a high-trust structured channel would be an injection side channel
+    // (agent-containment absorption). Only the enumerated shapes pass.
+    if (v.evidencePointer && !isValidEvidencePointer(v.evidencePointer)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['evidencePointer'],
+        message: EVIDENCE_POINTER_FORMAT_HINT,
+      })
+    }
   })
 
 export type MachineVerdictInput = z.infer<typeof machineVerdictInputSchema>
+
+/**
+ * Body of POST /api/tasks/[id]/verify — one machine round, one verdict per
+ * MACHINE criterion. The server (the judge) re-checks coverage against the
+ * live contract; this schema only bounds the shape. Strict: a body smuggling
+ * `verifierType` (or anything else) is rejected, not stripped.
+ */
+export const machineRoundBodySchema = z
+  .object({
+    results: z
+      .array(machineVerdictInputSchema)
+      .min(1)
+      .max(CRITERIA_SET_HARD_MAX),
+  })
+  .strict()
+
+export type MachineRoundBody = z.infer<typeof machineRoundBodySchema>

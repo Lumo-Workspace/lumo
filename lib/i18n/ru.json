@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "упомянул вас в",
   "notification.verb.documentCommentMentioned": "упомянул вас в комментарии к",
   "tokenCost.inFlight": "выполняется",
-  "tokenCost.inFlightShare": "вкл. {n} в процессе"
+  "tokenCost.inFlightShare": "вкл. {n} в процессе",
+  "activity.criterionAdded": "добавил(а) критерий приёмки",
+  "activity.criterionUpdated": "обновил(а) критерий приёмки",
+  "activity.criterionDeleted": "удалил(а) критерий приёмки",
+  "activity.verificationRunRecorded": "машинная проверка {verdict} (раунд {round})",
+  "activity.verificationEscalated": "машинная верификация исчерпана после раунда {round} — запрошено вмешательство человека",
+  "activity.filter.verification": "Верификация"
 }
