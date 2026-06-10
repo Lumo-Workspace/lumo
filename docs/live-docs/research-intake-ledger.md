@@ -159,6 +159,7 @@
 | [LUM-347](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-347)      | memory/linked context 注入条目级来源标注(agent/user/external)                                         | **DONE** · [PR#449](https://github.com/Lumo-Workspace/lumo/pull/449) + [PR#452](https://github.com/Lumo-Workspace/lumo/pull/452) · 已验收 ✅ |
 | [LUM-348](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-348)      | hook POST 边界 Zod 校验 + 自由文本长度上限                                                            | **DONE** · [PR#453](https://github.com/Lumo-Workspace/lumo/pull/453) · 已验收 ✅                                                             |
 | [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) 评论 | `evidencePointer` 格式收口 + `rejectionReason` 清洗(并入 Acceptance v1,verdict 写路径实现时一并做)    | 待 LUM-343 开工                                                                                                                              |
+| [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352)      | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)       | TODO                                                                                                                                         |
 
 [**LUM-346 验收实证**](https://github.com/Lumo-Workspace/lumo/pull/446) · 2026-06-10
 
