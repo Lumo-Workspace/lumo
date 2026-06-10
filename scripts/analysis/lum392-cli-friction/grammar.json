@@ -132,7 +132,10 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": ["personal", "workspace"],
+          "enum": [
+            "personal",
+            "workspace"
+          ],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive; default: personal)"
         },
@@ -219,7 +222,10 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": ["personal", "workspace"],
+          "enum": [
+            "personal",
+            "workspace"
+          ],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive; default: personal)"
         },
@@ -258,7 +264,11 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": ["personal", "workspace", "all"],
+          "enum": [
+            "personal",
+            "workspace",
+            "all"
+          ],
           "enumCaseInsensitive": true,
           "description": "personal | workspace | all (case-insensitive; default: all)"
         },
@@ -320,6 +330,14 @@
         }
       ],
       "flags": {
+        "--allow-shrink": {
+          "long": "--allow-shrink",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Let the patch through even when it drops tables/rows/headings within the addressed section (default: rejected with 422)"
+        },
         "--content": {
           "long": "--content",
           "short": null,
@@ -354,7 +372,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten."
+      "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed."
     },
     "doc share": {
       "arguments": [
@@ -374,7 +392,11 @@
           "long": "--role",
           "short": null,
           "value": "required",
-          "enum": ["viewer", "editor", "manager"],
+          "enum": [
+            "viewer",
+            "editor",
+            "manager"
+          ],
           "enumCaseInsensitive": true,
           "description": "viewer | editor | manager (case-insensitive; default: viewer)"
         }
@@ -494,6 +516,14 @@
           "enumCaseInsensitive": false,
           "description": "Add tag by id (repeatable)"
         },
+        "--allow-shrink": {
+          "long": "--allow-shrink",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)"
+        },
         "--content": {
           "long": "--content",
           "short": null,
@@ -546,7 +576,10 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": ["personal", "workspace"],
+          "enum": [
+            "personal",
+            "workspace"
+          ],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive)"
         },
@@ -576,7 +609,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
+      "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
     "hook": {
       "arguments": [],
@@ -1364,7 +1397,12 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["planned", "active", "completed", "cancelled"],
+          "enum": [
+            "planned",
+            "active",
+            "completed",
+            "cancelled"
+          ],
           "enumCaseInsensitive": true,
           "description": "New status: planned | active | completed | cancelled (case-insensitive)"
         },
@@ -1457,7 +1495,12 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
           "enumCaseInsensitive": true,
           "description": "trap | decision | convention | procedural (case-insensitive)"
         },
@@ -1550,7 +1593,12 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
@@ -1835,7 +1883,11 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["draft", "active", "closed"],
+          "enum": [
+            "draft",
+            "active",
+            "closed"
+          ],
           "enumCaseInsensitive": true,
           "description": "Filter by status: draft | active | closed (case-insensitive)"
         },
@@ -2261,7 +2313,12 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ],
           "enumCaseInsensitive": true,
           "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
         },
@@ -2603,7 +2660,12 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "todo",
+            "in_progress",
+            "in_review",
+            "done"
+          ],
           "enumCaseInsensitive": true,
           "description": "Filter by status: todo | in_progress | in_review | done (case-insensitive)"
         }
@@ -2661,7 +2723,12 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
           "enumCaseInsensitive": true,
           "description": "trap | decision | convention | procedural (case-insensitive)"
         },
@@ -2754,7 +2821,12 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": ["trap", "decision", "convention", "procedural"],
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
@@ -2902,7 +2974,12 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": ["low", "medium", "high", "urgent"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ],
           "enumCaseInsensitive": true,
           "description": "New priority: low | medium | high | urgent (case-insensitive)"
         },
@@ -2934,7 +3011,12 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enum": [
+            "todo",
+            "in_progress",
+            "in_review",
+            "done"
+          ],
           "enumCaseInsensitive": true,
           "description": "New status: todo | in_progress | in_review | done (case-insensitive)"
         },

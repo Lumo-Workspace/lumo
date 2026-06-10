@@ -95,6 +95,18 @@ export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '')
 }
 
+/**
+ * Pull the `error` field out of a JSON API error body; non-JSON bodies (or
+ * JSON without an `error` string) fall back to the raw text unchanged.
+ */
+export function extractErrorMessage(text: string): string {
+  try {
+    return (JSON.parse(text) as { error?: string }).error ?? text
+  } catch {
+    return text
+  }
+}
+
 export interface VerifyResponse {
   user: { id: string; email: string; name: string }
   workspace: { id: string; slug: string; name: string }

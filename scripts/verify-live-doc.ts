@@ -21,51 +21,23 @@ import * as os from 'os'
 import * as path from 'path'
 
 import { markdownToHtml } from '../shared/src/markdown-tiptap'
+import {
+  compareStructure,
+  hardMismatches,
+  softMismatches,
+} from '../shared/src/html-structure'
 
-export interface StructureCheck {
-  tag: string
-  rendered: number
-  stored: number
-  /** Hard checks fail the run; soft checks only warn. */
-  hard: boolean
-}
-
-const TAG_PATTERNS: Array<{ tag: string; pattern: RegExp; hard: boolean }> = [
-  { tag: 'table', pattern: /<table/g, hard: true },
-  { tag: 'tr', pattern: /<tr/g, hard: true },
-  { tag: 'h1', pattern: /<h1/g, hard: false },
-  { tag: 'h2', pattern: /<h2/g, hard: false },
-  { tag: 'h3', pattern: /<h3/g, hard: false },
-  { tag: 'li', pattern: /<li/g, hard: false },
-  { tag: 'a', pattern: /<a[\s>]/g, hard: false },
-  { tag: 'strong', pattern: /<strong/g, hard: false },
-  { tag: 'code', pattern: /<code/g, hard: false },
-  { tag: 'blockquote', pattern: /<blockquote/g, hard: false },
-]
-
-export function countPattern(html: string, pattern: RegExp): number {
-  return (html.match(pattern) ?? []).length
-}
-
-export function compareStructure(
-  renderedHtml: string,
-  storedHtml: string
-): StructureCheck[] {
-  return TAG_PATTERNS.map(({ tag, pattern, hard }) => ({
-    tag,
-    rendered: countPattern(renderedHtml, pattern),
-    stored: countPattern(storedHtml, pattern),
-    hard,
-  }))
-}
-
-export function hardMismatches(checks: StructureCheck[]): StructureCheck[] {
-  return checks.filter(c => c.hard && c.rendered !== c.stored)
-}
-
-export function softMismatches(checks: StructureCheck[]): StructureCheck[] {
-  return checks.filter(c => !c.hard && c.rendered !== c.stored)
-}
+// Counting/comparison logic is single-sourced in shared/src/html-structure.ts
+// (LUM-410) — the same categories back the server-side structure guard on the
+// document update path, so this script can never drift from the guard.
+// Re-exported so existing consumers/tests keep their import path.
+export {
+  countPattern,
+  compareStructure,
+  hardMismatches,
+  softMismatches,
+  type StructureCheck,
+} from '../shared/src/html-structure'
 
 interface Credentials {
   token: string

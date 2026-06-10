@@ -13,10 +13,12 @@ import {
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import {
   appendToSection,
+  extractSection,
   findSection,
   replaceSection,
   type MarkdownSection,
 } from '@/lib/utils/markdown-sections'
+import { assertNoStructureShrink } from '@/lib/services/document-structure-guard'
 import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
@@ -69,6 +71,12 @@ export interface UpdateDocumentInput {
    * caller's edit base was read at. Mismatch → 409, nothing persisted.
    */
   ifRevision?: number
+  /**
+   * Structure guard override (LUM-410): lets a markdown body update through
+   * even when it drops tables/rows/headings versus the stored body. Without
+   * it a shrinking update is rejected with 422.
+   */
+  allowShrink?: boolean
 }
 
 export interface SectionEditInput {
@@ -78,6 +86,8 @@ export interface SectionEditInput {
   section?: string | undefined
   contentMarkdown: string
   ifRevision?: number | undefined
+  /** Structure guard override (LUM-410) — see UpdateDocumentInput.allowShrink. */
+  allowShrink?: boolean | undefined
 }
 
 interface DocWithShares {
@@ -484,7 +494,15 @@ export const documentService = {
     memberId: string,
     workspaceId: string,
     data: UpdateDocumentInput,
-    options: { forceNewRevision?: boolean } = {}
+    options: {
+      forceNewRevision?: boolean
+      /**
+       * Internal (LUM-410): set by editDocumentSection, which already ran the
+       * structure guard at section scope — the full-document compare would
+       * re-judge structure outside the addressed section.
+       */
+      skipStructureGuard?: boolean
+    } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
       id,
@@ -570,6 +588,27 @@ export const documentService = {
       .contentRevision
     if (data.ifRevision !== undefined && data.ifRevision !== currentRevision) {
       throw revisionConflict(data.ifRevision, currentRevision)
+    }
+
+    // Structure guard (LUM-410): a markdown body update that drops
+    // tables/rows/headings versus the stored body is rejected before anything
+    // (tags included) is touched — the verify-live-doc.ts reconciliation
+    // moved server-side so it holds even when nobody remembers to run it.
+    // Scope: markdown-path writes only. HTML-direct updates are the web
+    // editor (interactive, human-intentional) and revision restores — never
+    // guarded. Section edits arrive with skipStructureGuard after their own
+    // section-scoped check.
+    if (
+      data.contentMarkdown !== undefined &&
+      typeof data.content === 'string' &&
+      !options.skipStructureGuard
+    ) {
+      assertNoStructureShrink({
+        oldHtml: oldContent ?? '',
+        newHtml: data.content,
+        scope: 'document',
+        allowShrink: data.allowShrink,
+      })
     }
 
     // Sync or incrementally modify tag associations
@@ -769,6 +808,19 @@ export const documentService = {
         )
       }
       resolvedHeading = match.section.heading
+      // Structure guard at section scope (LUM-410): for a replace, compare
+      // the render of just the addressed section against the render of its
+      // replacement — structure elsewhere in the document never factors into
+      // the verdict (and stored-HTML drift outside the section can't produce
+      // phantom losses). Appends are pure insertion and can't shrink.
+      if (input.mode === 'replace') {
+        assertNoStructureShrink({
+          oldHtml: markdownToHtml(extractSection(src, match.section)),
+          newHtml: markdownToHtml(input.contentMarkdown),
+          scope: 'section',
+          allowShrink: input.allowShrink,
+        })
+      }
       nextSource =
         input.mode === 'replace'
           ? replaceSection(src, match.section, input.contentMarkdown)
@@ -784,13 +836,21 @@ export const documentService = {
       nextSource = appendToSection(src, null, input.contentMarkdown)
     }
 
-    const updated = await this.updateDocument(doc.id, memberId, workspaceId, {
-      contentMarkdown: nextSource,
-      // Conditional even without a caller-supplied ifRevision: the splice
-      // base is the source read above, so any concurrent body write between
-      // that read and this commit must 409, not last-write-win.
-      ifRevision: input.ifRevision ?? currentRevision,
-    })
+    const updated = await this.updateDocument(
+      doc.id,
+      memberId,
+      workspaceId,
+      {
+        contentMarkdown: nextSource,
+        // Conditional even without a caller-supplied ifRevision: the splice
+        // base is the source read above, so any concurrent body write between
+        // that read and this commit must 409, not last-write-win.
+        ifRevision: input.ifRevision ?? currentRevision,
+      },
+      // Guarded above at section scope (appends can't shrink) — the
+      // full-document compare would also judge structure outside the section.
+      { skipStructureGuard: true }
+    )
     return { ...updated, sectionHeading: resolvedHeading }
   },
 

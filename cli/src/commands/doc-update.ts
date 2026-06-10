@@ -1,5 +1,9 @@
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import {
   resolveDocContent,
   readStdinToString,
@@ -24,6 +28,8 @@ export interface UpdateDocOptions {
   removeTagId?: string[]
   /** Optimistic-concurrency precondition (LUM-409): revision from `doc show`. */
   ifRevision?: string
+  /** Structure guard override (LUM-410): allow dropping tables/rows/headings. */
+  allowShrink?: boolean
 }
 
 export function formatUpdatedDocLine(doc: {
@@ -120,6 +126,7 @@ export async function docUpdate(
     }
     body.ifRevision = Number(opts.ifRevision)
   }
+  if (opts.allowShrink) body.allowShrink = true
 
   // Resolve tag refs into ids
   const deps = { apiUrl, token: creds.token }
@@ -163,8 +170,12 @@ export async function docUpdate(
   if (addTagIds !== undefined) body.addTagIds = addTagIds
   if (removeTagIds !== undefined) body.removeTagIds = removeTagIds
 
-  // --if-revision is a precondition, not a field — alone it's not an update.
-  if (Object.keys(body).filter(k => k !== 'ifRevision').length === 0) {
+  // --if-revision / --allow-shrink are modifiers, not fields — alone they
+  // are not an update.
+  if (
+    Object.keys(body).filter(k => k !== 'ifRevision' && k !== 'allowShrink')
+      .length === 0
+  ) {
     console.error('Error: no fields to update — provide at least one flag')
     return 1
   }
@@ -180,17 +191,23 @@ export async function docUpdate(
   })
   if (!res.ok) {
     const text = await res.text()
+    const message = extractErrorMessage(text)
     if (res.status === 409 && opts.ifRevision !== undefined) {
-      let message = text
-      try {
-        message = (JSON.parse(text) as { error?: string }).error ?? text
-      } catch {
-        // non-JSON error body — print as-is
-      }
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(
         `Hint: re-read the doc (lumo doc show ${reference} --raw), rebase your edit ` +
           `on the current source, then retry with --if-revision <current>.`
+      )
+      return 1
+    }
+    if (res.status === 422) {
+      // Structure guard rejection (LUM-410): the new body drops structure
+      // the stored body has (the message names each category, old→new).
+      console.error(`Error: ${sanitizeField(message)}`)
+      console.error(
+        `Hint: if the deletion is intentional, re-run with --allow-shrink. ` +
+          `Otherwise re-read the current source (lumo doc show ${reference} --raw) ` +
+          `and rebase your edit on it.`
       )
       return 1
     }

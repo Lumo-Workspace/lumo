@@ -137,6 +137,9 @@ describe('section patch (mode: replace)', () => {
       mode: 'replace',
       section: 'A queue',
       contentMarkdown: '## A queue\n\nemptied\n',
+      // This replacement intentionally drops the section's table — the
+      // structure guard (LUM-410) would 422 without the override.
+      allowShrink: true,
     })
 
     const updateData = mockUpdateWithChildrenAndMentions.mock.calls[0]![1]

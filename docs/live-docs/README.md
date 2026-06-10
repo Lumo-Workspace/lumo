@@ -17,8 +17,14 @@ round-trip 非幂等):表格会被拍平成一行一格的纯段落。如果把 
 
 1. 只改本目录下的源文件(查下方映射表找到对应文件);
 2. 上传:`lumo doc update <docId> --file docs/live-docs/<file>.md`
+   — 服务端自 LUM-410 起**内置结构守卫**:新内容相对线上 body 减少了表格/行/标题数时,
+   上传被 422 拒绝并逐类列出缺口(如 `table 1→0, tr 4→0`)。**确属有意删节**(删整节、
+   删表、删行)时加 `--allow-shrink` 放行;否则先怀疑源文件改错或基底 stale(先
+   `lumo doc diff` 对账),不要条件反射加 flag。
 3. 校验:`npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md`
    — 拉存储侧 HTML,断言 `<table>`/`<tr>` 数与源渲染结果一致(不一致退出码非 0)。
+   守卫拦的是"上传瞬间缩水",此脚本对账的是"存储与本地源一致"(能发现 Web 侧漂移),
+   两者互补,保留。
 
 `doc show` 仍可用来**读**(看当前线上内容),只是它的输出不可回传。
 如果线上文档被人在 Web UI 里直接改过,先把改动手工同步进源文件再走上面的流程,

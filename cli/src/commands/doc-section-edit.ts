@@ -1,5 +1,9 @@
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import {
   resolveDocContent,
   readStdinToString,
@@ -27,6 +31,12 @@ export interface DocSectionEditOptions {
   content?: string
   file?: string
   ifRevision?: string
+  /**
+   * Structure guard override (LUM-410): allow a patch that drops
+   * tables/rows/headings within the addressed section. Only `doc patch`
+   * registers the flag — appends are pure insertion and never guarded.
+   */
+  allowShrink?: boolean
 }
 
 export function formatSectionEditLine(args: {
@@ -113,6 +123,7 @@ async function docSectionEdit(
     body.section = opts.section
   }
   if (ifRevision !== undefined) body.ifRevision = ifRevision
+  if (opts.allowShrink) body.allowShrink = true
 
   const res = await fetch(
     `${trimTrailingSlash(apiUrl)}/api/documents/${id}/section`,
@@ -127,18 +138,25 @@ async function docSectionEdit(
   )
   if (!res.ok) {
     const text = await res.text()
-    let message = text
-    try {
-      message = (JSON.parse(text) as { error?: string }).error ?? text
-    } catch {
-      // non-JSON error body — print as-is
-    }
+    const message = extractErrorMessage(text)
     if (res.status === 409) {
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(
         `Hint: re-read the section (lumo doc show ${reference}${
           opts.section ? ` --section "${opts.section}"` : ''
         }), rebase your edit on it, then retry with --if-revision <current>.`
+      )
+      return 1
+    }
+    if (res.status === 422) {
+      // Structure guard rejection (LUM-410): the replacement drops structure
+      // the addressed section has (the message names each category, old→new).
+      console.error(`Error: ${sanitizeField(message)}`)
+      console.error(
+        `Hint: if the deletion is intentional, re-run with --allow-shrink. ` +
+          `Otherwise re-read the section (lumo doc show ${reference}${
+            opts.section ? ` --section "${opts.section}"` : ''
+          }) and rebase your edit on it.`
       )
       return 1
     }

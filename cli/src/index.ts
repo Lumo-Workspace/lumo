@@ -1174,7 +1174,7 @@ doc
 doc
   .command('update <doc>')
   .description(
-    'Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
   )
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
@@ -1211,6 +1211,10 @@ doc
     '--if-revision <n>',
     'Only apply if the doc body is still at this revision (from doc show); mismatch fails with a 409 conflict'
   )
+  .option(
+    '--allow-shrink',
+    'Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)'
+  )
   .action(
     wrap((reference, opts) =>
       docUpdate(reference as string | undefined, opts as Record<string, string>)
@@ -1242,7 +1246,7 @@ doc
 doc
   .command('patch <doc>')
   .description(
-    'Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten.'
+    'Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed.'
   )
   .requiredOption(
     '--section <heading>',
@@ -1253,6 +1257,10 @@ doc
   .option(
     '--if-revision <n>',
     'Only apply if the doc body is still at this revision (from doc show)'
+  )
+  .option(
+    '--allow-shrink',
+    'Let the patch through even when it drops tables/rows/headings within the addressed section (default: rejected with 422)'
   )
   .action(
     wrap((reference, opts) =>
