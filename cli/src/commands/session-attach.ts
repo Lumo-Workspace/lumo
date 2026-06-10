@@ -12,6 +12,8 @@ interface BoundResponse {
   taskTitle: string
   retaggedEventCount: number
   memorySection: string
+  /** Acceptance contract (or draft nudge); absent on older servers. */
+  criteriaSection?: string
 }
 
 /** The session is already bound to a different task; the server refused to
@@ -166,6 +168,11 @@ export async function sessionAttach(
       body.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
   )
+  // Contract first: it's what the upcoming work is judged against (LUM-342).
+  if (body.criteriaSection) {
+    console.log('')
+    console.log(sanitizeField(body.criteriaSection))
+  }
   if (body.memorySection !== '') {
     console.log('')
     console.log(sanitizeField(body.memorySection))

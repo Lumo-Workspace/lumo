@@ -20,6 +20,7 @@ interface TaskContextResponse {
     } | null
   }
   memorySection?: string
+  criteriaSection?: string
   slackContextSection?: string
   webLinkSection?: string
   figmaSection?: string
@@ -121,6 +122,13 @@ export function formatTaskContextMarkdown(
     lines.push(`**Description**: ${sanitizeField(body)}`)
   }
   lines.push('')
+
+  // The acceptance contract leads (LUM-342): it's what the work is judged
+  // against, so it reads as part of the task statement itself.
+  if (data.criteriaSection && data.criteriaSection.trim().length > 0) {
+    lines.push(sanitizeField(data.criteriaSection.trimEnd()))
+    lines.push('')
+  }
 
   // Frontload memory before sessions: it's cold context the agent should see
   // first. Server returns "" when empty, in which case we skip the section.

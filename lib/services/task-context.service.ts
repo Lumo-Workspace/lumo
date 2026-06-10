@@ -7,6 +7,7 @@ import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -37,6 +38,9 @@ import {
   type SlackContextCard,
   type WebLinkCard,
   type PRCard,
+  renderCriteriaSection,
+  criteriaBudgetSection,
+  renderCriteriaDraftNudge,
 } from '@/lib/context/render'
 import {
   stripPrMirrorHeader,
@@ -127,6 +131,13 @@ export interface TaskContext {
    * memory-shape knowledge in the CLI bundle.
    */
   memorySection: string
+  /**
+   * Pre-rendered "## 验收标准（合约）" markdown (LUM-342); empty when the task
+   * has no acceptance criteria. Deliberately NOT in `fragments`: v1 records no
+   * CRITERIA lineage fragment (no LineageFragmentType value exists — adding
+   * one needs a migration plus the LUM-276 write-key==read-key read side).
+   */
+  criteriaSection: string
   /** Pre-rendered "## Slack Context" markdown; empty when no contexts attached. */
   slackContextSection: string
   /** Pre-rendered "## Web Links" markdown; empty when no links attached. */
@@ -456,6 +467,22 @@ export const taskContextService = {
   },
 
   /**
+   * Build the standalone "## 验收标准（合约）" markdown block for a task
+   * (LUM-342): the full unbudgeted contract, or the draft nudge when a
+   * still-open task has none yet. Used by `session attach` — the mid-session
+   * bind is the moment the agent must see the contract (or be told to draft
+   * one before the first line of code). Empty string for missing or DONE
+   * tasks without criteria.
+   */
+  async buildCriteriaSectionForTask(taskId: string): Promise<string> {
+    const task = await taskRepository.findById(taskId)
+    if (!task) return ''
+    const criteria = await acceptanceCriterionRepository.listByTask(taskId)
+    if (criteria.length > 0) return renderCriteriaSection(criteria)
+    return task.status === 'DONE' ? '' : renderCriteriaDraftNudge()
+  },
+
+  /**
    * Build the session-start injection payload for a bound task: memory plus the
    * linked Slack/web/Figma/PR cards, all sharing one global token budget
    * (priority memory > PR > Slack > Figma > web). Overflowed cards degrade to a
@@ -467,11 +494,13 @@ export const taskContextService = {
    * still inject.
    */
   async buildSessionStartSections(taskId: string): Promise<{
+    criteriaSection: string
     memorySection: string
     linkedResourcesSection: string
     fragments: FragmentRef[]
   }> {
     const empty = {
+      criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       fragments: [] as FragmentRef[],
@@ -482,8 +511,14 @@ export const taskContextService = {
     const safe = <T>(p: Promise<T>, fallback: T): Promise<T> =>
       p.catch(() => fallback)
 
-    const [taskMemories, projectMemories, slack, web, figma, prs] =
+    const [criteria, taskMemories, projectMemories, slack, web, figma, prs] =
       await Promise.all([
+        safe(
+          acceptanceCriterionRepository.listByTask(taskId),
+          [] as Awaited<
+            ReturnType<typeof acceptanceCriterionRepository.listByTask>
+          >
+        ),
         safe(memoryRepository.findActiveTaskMemories(taskId), []),
         safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
         safe(
@@ -534,17 +569,31 @@ export const taskContextService = {
       }
     )
 
-    // Priority order: memory > PR > Slack > Figma > web.
-    const [memoryOut, prOut, slackOut, figmaOut, webOut] = allocateBudget(
-      [
-        memoryBudgetSection(ranked.memories),
-        prBudgetSection(ranked.prs as unknown as PRCard[]),
-        slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
-        figmaBudgetSection(ranked.figma),
-        webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
-      ],
-      SESSION_START_BUDGET_TOKENS
-    ) as [string, string, string, string, string]
+    // Priority order: criteria > memory > PR > Slack > Figma > web. The
+    // acceptance contract (LUM-342) outranks everything — it's what the work
+    // is judged against — and at 3–7 short statements it's also the cheapest.
+    const [criteriaOut, memoryOut, prOut, slackOut, figmaOut, webOut] =
+      allocateBudget(
+        [
+          criteriaBudgetSection(criteria),
+          memoryBudgetSection(ranked.memories),
+          prBudgetSection(ranked.prs as unknown as PRCard[]),
+          slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
+          figmaBudgetSection(ranked.figma),
+          webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
+        ],
+        SESSION_START_BUDGET_TOKENS
+      ) as [string, string, string, string, string, string]
+
+    // No criteria on a still-open task → nudge the agent to draft the
+    // contract before the first line of code (the SKILL.md guide has the
+    // how; this makes sure it's seen). DONE tasks skip the nudge.
+    const criteriaSection =
+      criteria.length > 0
+        ? criteriaOut
+        : task.status === 'DONE'
+          ? ''
+          : renderCriteriaDraftNudge()
 
     const linkedJoined = [prOut, slackOut, figmaOut, webOut]
       .filter(s => s !== '')
@@ -574,6 +623,12 @@ export const taskContextService = {
     ]
 
     return {
+      // The contract is trusted task framing (like the description), not
+      // untrusted reference data — no untrusted wrapper, and v1 deliberately
+      // records no CRITERIA lineage fragment (LineageFragmentType has no such
+      // value; adding one means a migration + the LUM-276 write-key==read-key
+      // contract on the read side — deferred rather than half-joined).
+      criteriaSection,
       memorySection: wrapUntrustedMemory(memoryOut),
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       fragments,
@@ -739,6 +794,17 @@ export const taskContextService = {
     const artifacts = await taskArtifactRepository.listByTask(resolved.id)
     const artifactSection = renderArtifactSection(artifacts)
 
+    // Contract — or, on a still-open task without one, the draft nudge:
+    // `task context` is exactly the read-the-context moment the drafting
+    // guide hooks into (draft 3–7 before the first line of code).
+    const criteria = await acceptanceCriterionRepository.listByTask(resolved.id)
+    const criteriaSection =
+      criteria.length > 0
+        ? renderCriteriaSection(criteria)
+        : full.status === 'DONE'
+          ? ''
+          : renderCriteriaDraftNudge()
+
     // Mentioned documents (EXPLICIT + CONTENT, workspace-visibility filtered).
     const docs = (await miscRepository.findDocumentsForContext(
       resolved.id,
@@ -851,6 +917,7 @@ export const taskContextService = {
           : null,
       },
       memorySection,
+      criteriaSection,
       slackContextSection: renderSlackContextSection(
         slackContexts as unknown as SlackContextCard[]
       ),

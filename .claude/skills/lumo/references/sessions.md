@@ -49,6 +49,8 @@ What it does:
 - Calls `POST /api/sessions/<session_id>/bind-task` on the Lumo server, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
 
+- Prints the task's **验收标准（合约）** (acceptance contract, LUM-342) right after the bind confirmation — or, when a still-open task has none, the 草拟提醒 telling you to draft 3–7 criteria before the first line of code (see [criteria.md](criteria.md)). The same section is auto-injected at session start when the session is already bound (highest priority in the injection budget, ahead of memory).
+
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
 #### Overwriting an existing binding (LUM-266)

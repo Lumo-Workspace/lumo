@@ -27,10 +27,31 @@ export function criteriaCountWarning(count: number): string | null {
 }
 
 /**
+ * Shared refinement: a MACHINE criterion must name its executable check — if
+ * no checkpointer can be attached, the drafter demotes it to HUMAN instead of
+ * submitting a MACHINE criterion the loop can never execute. By design this
+ * REJECTS with guidance, never silently rewrites the type (LUM-341 review).
+ */
+const machineRequiresCheckpointer = (
+  c: {
+    verifierType: AcceptanceVerifierType
+    checkpointer?: string | null | undefined
+  },
+  ctx: z.RefinementCtx
+): void => {
+  if (c.verifierType === 'MACHINE' && !c.checkpointer) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['checkpointer'],
+      message:
+        'A MACHINE criterion requires a checkpointer (executable check); draft it as HUMAN if no check can be attached',
+    })
+  }
+}
+
+/**
  * One acceptance criterion as submitted (agent draft, human edit, or
- * review-time addition). A MACHINE criterion must name its executable check —
- * if no checkpointer can be attached, the drafter demotes it to HUMAN instead
- * of submitting a MACHINE criterion the loop can never execute.
+ * review-time addition).
  */
 export const acceptanceCriterionInputSchema = z
   .object({
@@ -42,20 +63,65 @@ export const acceptanceCriterionInputSchema = z
     addedAtRound: z.number().int().min(0).optional(),
   })
   .strict()
-  .superRefine((c, ctx) => {
-    if (c.verifierType === 'MACHINE' && !c.checkpointer) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['checkpointer'],
-        message:
-          'A MACHINE criterion requires a checkpointer (executable check); draft it as HUMAN if no check can be attached',
-      })
-    }
-  })
+  .superRefine(machineRequiresCheckpointer)
 
 export type AcceptanceCriterionInput = z.infer<
   typeof acceptanceCriterionInputSchema
 >
+
+/**
+ * One item of a whole-contract submission (`lumo task criteria set`). Unlike
+ * acceptanceCriterionInputSchema it carries NO source/addedAtRound — the
+ * server decides provenance from the submission mode. `id` references an
+ * existing criterion to keep/update and is only meaningful for HUMAN_EDIT
+ * revisions (the body-level schema rejects it on drafts).
+ */
+export const criteriaSetItemSchema = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    statement: z.string().trim().min(1).max(2_000),
+    verifierType: z.nativeEnum(AcceptanceVerifierType),
+    checkpointer: z.string().trim().min(1).max(2_000).nullish(),
+    evidenceRequired: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine(machineRequiresCheckpointer)
+
+export type CriteriaSetItem = z.infer<typeof criteriaSetItemSchema>
+
+/** Hard sanity ceiling for one submission — NOT the 3–7 soft cap (which only warns). */
+export const CRITERIA_SET_HARD_MAX = 50
+
+/**
+ * Body of PUT /api/tasks/[id]/criteria. AGENT_DRAFT = the initial contract
+ * (rejected by the service once any criteria exist — the agent lock);
+ * HUMAN_EDIT = a human contract revision, possibly transcribed by the agent
+ * from a conversation, expressed as the desired final criteria list.
+ * Transcribing the contract is allowed; transcribing a verdict is not — the
+ * human-verdict write path lives elsewhere and stays closed to agents.
+ */
+export const criteriaSetBodySchema = z
+  .object({
+    source: z.enum(['AGENT_DRAFT', 'HUMAN_EDIT']),
+    criteria: z.array(criteriaSetItemSchema).min(1).max(CRITERIA_SET_HARD_MAX),
+  })
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.source === 'AGENT_DRAFT') {
+      body.criteria.forEach((c, i) => {
+        if (c.id !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['criteria', i, 'id'],
+            message:
+              'AGENT_DRAFT items cannot reference existing criteria ids — the draft is create-only',
+          })
+        }
+      })
+    }
+  })
+
+export type CriteriaSetBody = z.infer<typeof criteriaSetBodySchema>
 
 /**
  * RED LINE (milestone rule 5): an agent can never write a human verdict. This
