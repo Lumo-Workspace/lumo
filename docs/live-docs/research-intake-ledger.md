@@ -121,7 +121,12 @@
 
 ## C. 项目管理与协作(PM / Agent-collaboration domain)
 
-> 本域暂无外部论文条目(首批 11 篇均为 memory/eval 域)。未来吸收对象:human-approval loops、agent observability、长程任务执行(2026 Agent Era survey 指向的方向)。以下为本域已沉淀的内部方法论发现。
+> 未来吸收对象:human-approval loops、agent observability、长程任务执行(2026 Agent Era survey 指向的方向)。除外部条目外,以下为本域已沉淀的内部方法论发现。
+
+**Writing tools for agents** ([Anthropic Engineering blog, 2025-09](https://www.anthropic.com/engineering/writing-tools-for-agents)) — \[采用\] → LUM-392 实测报告 + 三项 CLI 改进 · 2026-06
+
+- Finding: 为 agent 写工具是新型软件契约——按 agent 认知方式整合工作流(`get_customer_context` 式)而非机械包装端点;命名空间划界;返回语义化标识(UUID→自然语言标识显著提升检索精度);token 效率(分页/截断+引导性提示,错误响应给下一步而非裸错误码);工具描述当 prompt 写(微小改进即显著收益,Sonnet 3.5 SWE-bench SOTA 部分来自描述优化)。方法论核心:真实场景 eval + 读 transcript 找摩擦点 + 用 Claude 自动改进工具,闭环迭代。
+- 吸收: Lumo 的 agent 工具面 = lumo CLI + SKILL.md + hook 注入,原则全部可迁移。**形态已对**(task context/session wrap/next 是整合形态;LUM-N 语义标识;命名空间无混淆证据;show/context 分层被 agent 自发用对)→ 缺的是**评估闭环**。落地:用 prod HookEvent(325 session/3332 真实调用)建首个 CLI usage eval(`scripts/analysis/lum392-cli-friction/`,可复跑),实测出最大摩擦不是错误率(2.3%)而是:仪式性状态走步 70 链 145 调用(状态机其实允许直达,纯隐性知识未显性化)、13 次 flag 幻觉(位置参数被猜成具名 flag)、错误信息不指路(~25 次死胡同,`doc move` 文案是内部正面先例)。裁决:错误文案 actionable 化+SKILL.md 显性化补强+padEnd bug=做;`--concise` 分级与分页 audit=缓(p90 8.5k 字符可接受,带触发器);命令合并删除=不做(零使用的 21 命令是人类发起场景,非冗余)。详见[实测报告](https://www.uselumo.ai/workspace/lumo/documents/lumo-cli-agent-lum-392-31)。
 
 **\[内部实证\] 论文吸收工作流** · 2026-06
 
@@ -153,13 +158,13 @@
 
 **落地交付(tag** `agent-containment`**,不开 milestone;三个对口加固 + verdict 收口已全部 DONE):**
 
-| 任务                                                                   | 内容                                                                                                  | 状态 / PR                                                                                                                                    |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [LUM-346](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-346)      | 服务端注入渲染边界给 LLM 产物/外部自由文本过控制字符清洗(`wrapUntrustedMemory`/`wrapUntrustedLinked`) | **DONE** · [PR#446](https://github.com/Lumo-Workspace/lumo/pull/446) · 已验收 ✅                                                             |
-| [LUM-347](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-347)      | memory/linked context 注入条目级来源标注(agent/user/external)                                         | **DONE** · [PR#449](https://github.com/Lumo-Workspace/lumo/pull/449) + [PR#452](https://github.com/Lumo-Workspace/lumo/pull/452) · 已验收 ✅ |
-| [LUM-348](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-348)      | hook POST 边界 Zod 校验 + 自由文本长度上限                                                            | **DONE** · [PR#453](https://github.com/Lumo-Workspace/lumo/pull/453) · 已验收 ✅                                                             |
-| [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) | `evidencePointer` 格式收口:PASS 必带 evidence + `isValidEvidencePointer` 格式校验(`lib/validation/acceptance.ts`),随 verdict 写路径落地 | **DONE** · [PR#458](https://github.com/Lumo-Workspace/lumo/pull/458) · 已验收 ✅ |
-| [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352)      | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)       | TODO                                                                                                                                         |
+| 任务                                                              | 内容                                                                                                                                    | 状态 / PR                                                                                                                                    |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| [LUM-346](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-346) | 服务端注入渲染边界给 LLM 产物/外部自由文本过控制字符清洗(`wrapUntrustedMemory`/`wrapUntrustedLinked`)                                   | **DONE** · [PR#446](https://github.com/Lumo-Workspace/lumo/pull/446) · 已验收 ✅                                                             |
+| [LUM-347](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-347) | memory/linked context 注入条目级来源标注(agent/user/external)                                                                           | **DONE** · [PR#449](https://github.com/Lumo-Workspace/lumo/pull/449) + [PR#452](https://github.com/Lumo-Workspace/lumo/pull/452) · 已验收 ✅ |
+| [LUM-348](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-348) | hook POST 边界 Zod 校验 + 自由文本长度上限                                                                                              | **DONE** · [PR#453](https://github.com/Lumo-Workspace/lumo/pull/453) · 已验收 ✅                                                             |
+| [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) | `evidencePointer` 格式收口:PASS 必带 evidence + `isValidEvidencePointer` 格式校验(`lib/validation/acceptance.ts`),随 verdict 写路径落地 | **DONE** · [PR#458](https://github.com/Lumo-Workspace/lumo/pull/458) · 已验收 ✅                                                             |
+| [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352) | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)                                         | TODO                                                                                                                                         |
 
 [**LUM-346 验收实证**](https://github.com/Lumo-Workspace/lumo/pull/446) · 2026-06-10
 

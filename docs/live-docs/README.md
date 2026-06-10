@@ -26,9 +26,10 @@ round-trip 非幂等):表格会被拍平成一行一格的纯段落。如果把 
 
 ## 映射表
 
-| 源文件 | docId | 线上文档 |
-| --- | --- | --- |
-| [research-intake-ledger.md](research-intake-ledger.md) | `cmq7c5cqi001v04lgwopkrti4` | [Lumo 研究吸收登记册](https://www.uselumo.ai/workspace/lumo/documents/lumo-research-intake-ledger-29) |
+| 源文件                                                         | docId                       | 线上文档                                                                                                            |
+| -------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [research-intake-ledger.md](research-intake-ledger.md)         | `cmq7c5cqi001v04lgwopkrti4` | [Lumo 研究吸收登记册](https://www.uselumo.ai/workspace/lumo/documents/lumo-research-intake-ledger-29)               |
+| [lum392-cli-friction-report.md](lum392-cli-friction-report.md) | `cmq7rxdz0000404jsqu064q0w` | [lumo CLI agent 摩擦点实测报告(LUM-392)](https://www.uselumo.ai/workspace/lumo/documents/lumo-cli-agent-lum-392-31) |
 
 新收编一篇活文档时:把它的权威 md 源放进本目录、在上表加一行、首次上传后跑一次校验脚本。
 
