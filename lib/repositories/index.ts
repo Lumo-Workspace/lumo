@@ -55,3 +55,13 @@ export { taskComplexityRepository } from './task-complexity.repository'
 export type { TaskComplexityUpsert } from './task-complexity.repository'
 export { documentCommentRepository } from './documentComment.repository'
 export type { CreateDocumentCommentData } from './documentComment.repository'
+export { acceptanceCriterionRepository } from './acceptance-criterion.repository'
+export type {
+  CreateAcceptanceCriterionInput,
+  UpdateAcceptanceCriterionInput,
+} from './acceptance-criterion.repository'
+export { verificationRunRepository } from './verification-run.repository'
+export type {
+  CreateVerificationRunInput,
+  VerificationRunRow,
+} from './verification-run.repository'
