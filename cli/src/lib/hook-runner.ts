@@ -141,7 +141,12 @@ export function formatHookStdoutLines(
   )
   const envelope = sessionContextEnvelope([
     card,
+    // Blocker warning right after the card: it can preempt the session's
+    // work entirely (wait for the blocker instead of starting) — LUM-172.
     body.blockerWarningSection,
+    // Acceptance contract next: it's what the session's work is judged
+    // against (LUM-342).
+    body.criteriaSection,
     body.memorySection,
     body.linkedResourcesSection,
     body.reviewTodosSection,
@@ -165,6 +170,7 @@ type SessionStartBody = {
     taskIdentifier?: string
     taskTitle?: string
   }
+  criteriaSection?: string
   memorySection?: string
   linkedResourcesSection?: string
   reviewTodosSection?: string

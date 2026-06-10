@@ -5,6 +5,7 @@ import { useIntl, type IntlShape } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunMemberStat, ModelCost } from '../types'
+import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 import { initialsOf } from './initials'
 
 export interface CostChip {
@@ -163,8 +164,19 @@ function ModelGroup({
   return (
     <div className='py-2 first:pt-0 border-t border-border/60 first:border-t-0'>
       <div className='flex items-center gap-2'>
-        {m.model && (
-          <span className='text-caption font-semibold'>{m.model}</span>
+        {m.model === IN_FLIGHT_MODEL ? (
+          // Mid-turn burn not yet settled into a per-model split (LUM-345);
+          // muted because it's a state, not a model name.
+          <span className='text-caption font-semibold text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'tokenCost.inFlight',
+              defaultMessage: 'in progress',
+            })}
+          </span>
+        ) : (
+          m.model && (
+            <span className='text-caption font-semibold'>{m.model}</span>
+          )
         )}
         <span className={`${headlineSize} ml-auto tabular-nums`}>
           {fmt(m.total)}{' '}
@@ -172,10 +184,28 @@ function ModelGroup({
             {unit}
           </span>
         </span>
+        {m.inFlight && m.model !== IN_FLIGHT_MODEL && (
+          <span className='flex items-center gap-1 text-[10px] text-muted-foreground'>
+            <span
+              className='size-1.5 animate-pulse rounded-full bg-muted-foreground/60'
+              aria-hidden
+            />
+            {intl.formatMessage(
+              {
+                id: 'tokenCost.inFlightShare',
+                defaultMessage: 'incl. {n} in flight',
+              },
+              { n: fmt(m.inFlight.total) }
+            )}
+          </span>
+        )}
       </div>
       <div className='mt-2 flex h-2 overflow-hidden rounded-full'>
         {SEGMENTS.map(seg => {
-          const value = m[seg.key]
+          // The flat fields include the in-flight share; the colored segment
+          // shows only the settled part — the provisional remainder renders
+          // as one striped trailing segment after the loop.
+          const value = m[seg.key] - (m.inFlight?.[seg.key] ?? 0)
           if (value <= 0) return null
           return (
             <div
@@ -185,6 +215,17 @@ function ModelGroup({
             />
           )
         })}
+        {m.inFlight && m.inFlight.total > 0 && (
+          <div
+            data-testid='in-flight-segment'
+            className='animate-pulse'
+            style={{
+              width: `${(m.inFlight.total / m.total) * 100}%`,
+              backgroundImage:
+                'repeating-linear-gradient(45deg, color-mix(in oklch, var(--muted-foreground) 40%, transparent) 0 3px, transparent 3px 6px)',
+            }}
+          />
+        )}
       </div>
       <div className='mt-2 flex flex-col gap-0.5 text-caption'>
         {SEGMENTS.map(seg => {

@@ -81,6 +81,8 @@ describe('taskContextService.buildMemorySectionForTask', () => {
         id: 'mem-p',
         category: 'CONVENTION',
         content: { rule: 'Project rule', scope: 'project' },
+        // Human-recorded row → user-authored source label (LUM-347).
+        createdByMemberId: 'member-1',
       },
     ])
     ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([
@@ -88,6 +90,8 @@ describe('taskContextService.buildMemorySectionForTask', () => {
         id: 'mem-t',
         category: 'CONVENTION',
         content: { rule: 'Task rule', scope: 'task' },
+        // Agent-distilled row → agent-authored source label (LUM-347).
+        createdByMemberId: null,
       },
     ])
 
@@ -95,11 +99,11 @@ describe('taskContextService.buildMemorySectionForTask', () => {
 
     expect(result).toContain('## Relevant Memory')
     expect(result).toContain('### Conventions')
-    expect(result).toContain('[project]')
-    expect(result).toContain('[task]')
+    expect(result).toContain('[project · user-authored]')
+    expect(result).toContain('[task · agent-authored]')
     // Both memories are CONVENTION, so the only thing that can drive order
     // is scope. The service orders PROJECT before TASK.
-    expect(result.indexOf('[project]')).toBeLessThan(result.indexOf('[task]'))
+    expect(result.indexOf('[project ')).toBeLessThan(result.indexOf('[task '))
   })
 
   it('returns "" when task does not exist', async () => {

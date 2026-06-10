@@ -39,6 +39,8 @@ export type BindSessionToTaskResult =
       retaggedEventCount: number
       /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
       memorySection: string
+      /** Rendered acceptance-contract markdown (or the draft nudge for an open task without criteria). Empty string for DONE tasks without criteria (LUM-342). */
+      criteriaSection: string
       /** Recovery card data from the previous session on this task, or null if there is no prior session. */
       previousSession: PreviousSessionRecovery | null
       /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
@@ -231,9 +233,10 @@ export const sessionService = {
         task.id
       )
 
-    const [memorySection, previousSession, blockerWarningSection] =
+    const [memorySection, criteriaSection, previousSession, blockerWarningSection] =
       await Promise.all([
         taskContextService.buildMemorySectionForTask(task.id),
+        taskContextService.buildCriteriaSectionForTask(task.id),
         taskContextService.buildPreviousSessionRecoveryForTask(
           task.id,
           sessionId
@@ -253,6 +256,7 @@ export const sessionService = {
       taskTitle: task.title,
       retaggedEventCount: count,
       memorySection,
+      criteriaSection,
       previousSession,
       blockerWarningSection,
     }

@@ -1462,5 +1462,7 @@
   "notification.verb.projectMentioned": "에서 회원님을 언급했습니다",
   "notification.verb.milestoneMentioned": "에서 회원님을 언급했습니다",
   "notification.verb.documentMentioned": "에서 회원님을 언급했습니다",
-  "notification.verb.documentCommentMentioned": "에 대한 댓글에서 회원님을 언급했습니다"
+  "notification.verb.documentCommentMentioned": "에 대한 댓글에서 회원님을 언급했습니다",
+  "tokenCost.inFlight": "진행 중",
+  "tokenCost.inFlightShare": "진행 중 {n} 포함"
 }

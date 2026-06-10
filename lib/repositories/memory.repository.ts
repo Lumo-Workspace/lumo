@@ -45,6 +45,9 @@ export const memoryRepository = {
         category: true,
         content: true,
         createdAt: true,
+        // LUM-347: null ⇒ agent-distilled, non-null ⇒ human-recorded — the
+        // source-attribution signal for injected memory.
+        createdByMemberId: true,
       },
     })
   },
@@ -63,6 +66,8 @@ export const memoryRepository = {
         category: true,
         content: true,
         createdAt: true,
+        // LUM-347: see findActiveTaskMemories.
+        createdByMemberId: true,
       },
     })
   },

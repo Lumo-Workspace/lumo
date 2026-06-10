@@ -14,6 +14,8 @@ interface BoundResponse {
   memorySection: string
   /** Dependency blocker warning (LUM-172). Absent on older servers. */
   blockerWarningSection?: string
+  /** Acceptance contract (or draft nudge); absent on older servers. */
+  criteriaSection?: string
 }
 
 /** The session is already bound to a different task; the server refused to
@@ -168,10 +170,15 @@ export async function sessionAttach(
       body.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
   )
-  // 告警先于 memory:与 hook 注入顺序一致,短且可操作的信息优先。
+  // 告警先于 contract/memory:与 hook 注入顺序一致,短且可操作的信息优先。
   if (body.blockerWarningSection) {
     console.log('')
     console.log(sanitizeField(body.blockerWarningSection))
+  }
+  // Contract next: it's what the upcoming work is judged against (LUM-342).
+  if (body.criteriaSection) {
+    console.log('')
+    console.log(sanitizeField(body.criteriaSection))
   }
   if (body.memorySection !== '') {
     console.log('')

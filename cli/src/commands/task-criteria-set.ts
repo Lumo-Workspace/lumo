@@ -1,0 +1,158 @@
+import { readCredentials } from '../lib/config'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { readFileUtf8 } from '../lib/doc-input'
+import { checkArtifactFilePath } from '../lib/path-guard'
+import { sanitizeField } from '../lib/sanitize'
+import { formatCriteriaRows, type CriterionRow } from './task-criteria-list'
+
+export interface CriteriaSetOptions {
+  file?: string
+  human?: boolean
+}
+
+interface CriteriaResponse {
+  criteria: CriterionRow[]
+  warning: string | null
+}
+
+/** Client-side shape gate: fail fast on obviously malformed JSON before the
+ * round-trip. Full validation (statement length, MACHINE→checkpointer …)
+ * stays server-side. */
+function parseCriteriaJson(
+  raw: string
+): { ok: true; items: unknown[] } | { ok: false; error: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { ok: false, error: 'file is not valid JSON' }
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return {
+      ok: false,
+      error:
+        'expected a non-empty JSON array of criteria, e.g. [{"statement":"…","verifierType":"MACHINE","checkpointer":"npx jest …"}]',
+    }
+  }
+  return { ok: true, items: parsed }
+}
+
+/**
+ * `lumo task criteria set <task> --file <criteria.json> [--human]`
+ *
+ * Submit a task's whole acceptance contract. Default = the agent's initial
+ * draft (AGENT_DRAFT, locked once submitted — the server rejects a second
+ * agent draft). `--human` records a HUMAN_EDIT revision: the file is the
+ * desired final list, items carrying an `id` keep/update that criterion,
+ * items without `id` are new, and existing criteria missing from the file
+ * are deleted (refused for criteria with recorded verification runs).
+ */
+export async function taskCriteriaSet(
+  identifier: string | undefined,
+  options: CriteriaSetOptions
+): Promise<number | void> {
+  if (!identifier) {
+    console.error(
+      'Error: missing <task>. Usage: lumo task criteria set <LUM-42> --file criteria.json'
+    )
+    return 1
+  }
+  if (!options.file) {
+    console.error('Error: --file <path> is required (a JSON array of criteria).')
+    return 1
+  }
+
+  const verdict = checkArtifactFilePath(options.file)
+  if (!verdict.ok) {
+    if (verdict.reason === 'unreadable') {
+      console.error(`Error: could not read file ${options.file}`)
+    } else {
+      console.error(
+        `Error: refusing to read ${options.file} — ${verdict.detail}. ` +
+          `criteria --file must be a non-sensitive path inside the project directory.`
+      )
+    }
+    return 1
+  }
+
+  let raw: string
+  try {
+    raw = await readFileUtf8(verdict.resolved)
+  } catch {
+    console.error(`Error: could not read file ${options.file}`)
+    return 1
+  }
+  const parsed = parseCriteriaJson(raw)
+  if (!parsed.ok) {
+    console.error(`Error: ${parsed.error}`)
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const base = trimTrailingSlash(apiUrl)
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${creds.token}`,
+    'Content-Type': 'application/json',
+  }
+  // Session 出处 for HUMAN_EDIT transcriptions — the server records the
+  // revision (with this session id) as a task comment.
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
+
+  let res: Response
+  try {
+    res = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(identifier)}/criteria`,
+      {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          source: options.human ? 'HUMAN_EDIT' : 'AGENT_DRAFT',
+          criteria: parsed.items,
+        }),
+      }
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (res.status === 404) {
+    console.error(
+      `Error: task ${identifier} not found in workspace ${creds.workspaceSlug}`
+    )
+    return 1
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: unknown
+    } | null
+    const detail =
+      body && typeof body.error === 'string' ? sanitizeField(body.error) : ''
+    console.error(
+      `Error: criteria set failed (HTTP ${res.status})${detail ? ` — ${detail}` : ''}`
+    )
+    return 1
+  }
+
+  const data = (await res.json()) as CriteriaResponse
+  process.stdout.write(
+    options.human
+      ? `Recorded HUMAN_EDIT contract revision on ${identifier} (${data.criteria.length} criteria)\n`
+      : `Acceptance contract drafted on ${identifier} (${data.criteria.length} criteria) — locked for agent edits; human revisions via --human\n`
+  )
+  process.stdout.write(formatCriteriaRows(data.criteria))
+  if (data.warning) {
+    process.stdout.write(`⚠ ${sanitizeField(data.warning)}\n`)
+  }
+}

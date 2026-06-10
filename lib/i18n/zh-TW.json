@@ -1462,5 +1462,7 @@
   "notification.verb.projectMentioned": "提到了你：",
   "notification.verb.milestoneMentioned": "提到了你：",
   "notification.verb.documentMentioned": "提到了你：",
-  "notification.verb.documentCommentMentioned": "在評論中提到了你："
+  "notification.verb.documentCommentMentioned": "在評論中提到了你：",
+  "tokenCost.inFlight": "進行中",
+  "tokenCost.inFlightShare": "含進行中 {n}"
 }

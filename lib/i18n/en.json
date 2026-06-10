@@ -1462,5 +1462,7 @@
   "tokenCost.none": "No captured cost on this trail",
   "tokenCost.loops": "{n, plural, one {# loop} other {# loops}}",
   "tokenCost.loopsNa": "loops n/a",
-  "tokenCost.mixedNoTotal": "models not price-comparable · no total"
+  "tokenCost.mixedNoTotal": "models not price-comparable · no total",
+  "tokenCost.inFlight": "in progress",
+  "tokenCost.inFlightShare": "incl. {n} in flight"
 }

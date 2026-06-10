@@ -10,15 +10,16 @@ export interface PRCard {
 /** Render a single PR card body (no section heading). */
 export function prCard(pr: PRCard): string {
   const ci = pr.ciStatus ?? 'no CI'
+  // LUM-347: entry-level source attribution — synced GitHub PR metadata.
   return [
-    `- #${pr.number} ${pr.title} — ${pr.state} · ${ci}`,
+    `- [external:github] #${pr.number} ${pr.title} — ${pr.state} · ${ci}`,
     `  ↳ diff: lumo task pr show ${pr.number}`,
   ].join('\n')
 }
 
 /** One-line manifest for an overflowed PR. */
 export function prManifest(pr: PRCard): string {
-  return `- #${pr.number} ${pr.title} — lumo task pr show ${pr.number}`
+  return `- [external:github] #${pr.number} ${pr.title} — lumo task pr show ${pr.number}`
 }
 
 /**

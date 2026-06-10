@@ -1462,5 +1462,7 @@
   "notification.verb.projectMentioned": "であなたをメンションしました",
   "notification.verb.milestoneMentioned": "であなたをメンションしました",
   "notification.verb.documentMentioned": "であなたをメンションしました",
-  "notification.verb.documentCommentMentioned": "へのコメントであなたをメンションしました"
+  "notification.verb.documentCommentMentioned": "へのコメントであなたをメンションしました",
+  "tokenCost.inFlight": "進行中",
+  "tokenCost.inFlightShare": "進行中 {n} を含む"
 }

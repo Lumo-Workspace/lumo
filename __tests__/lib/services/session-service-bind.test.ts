@@ -25,6 +25,7 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
+    buildCriteriaSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))
@@ -70,6 +71,7 @@ beforeEach(() => {
   sessRepo.findForMemberWithBinding.mockResolvedValue(null as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
   ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
+  ;(taskContextService.buildCriteriaSectionForTask as jest.Mock).mockResolvedValue('')
   ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
   ;(
     taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
@@ -105,6 +107,7 @@ describe('sessionService.bindSessionToTask', () => {
       taskTitle: 'Fix login bug',
       retaggedEventCount: 3,
       memorySection: '',
+      criteriaSection: '',
       previousSession: null,
       blockerWarningSection: '',
     })

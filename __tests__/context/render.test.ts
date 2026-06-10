@@ -42,7 +42,7 @@ describe('renderSlackContextSection', () => {
       },
     ] as any)
     expect(out).toContain('## Slack Context')
-    expect(out).toContain('### #design')
+    expect(out).toContain('### [external:slack] #design')
     expect(out).toContain('Decided to ship after review.')
     expect(out).toContain('lumo task slack show clx_a')
     // full thread NOT inlined anymore
@@ -135,7 +135,7 @@ describe('renderWebLinkSection', () => {
       },
     ] as any)
     // no markdown title link, just the raw url + domain
-    expect(out).toContain('- https://example.com/raw — example.com')
+    expect(out).toContain('- [external:web] https://example.com/raw — example.com')
     expect(out).not.toContain('](https://example.com/raw)')
     // unfetched link gets the no-preview hint
     expect(out).toContain('_(no preview available)_')
@@ -158,7 +158,7 @@ describe('renderWebLinkSection', () => {
         fetchError: null,
       },
     ] as any)
-    expect(out).toContain('- https://example.com/ok — example.com')
+    expect(out).toContain('- [external:web] https://example.com/ok — example.com')
     expect(out).not.toContain('_(no preview available)_')
   })
 
@@ -497,18 +497,18 @@ describe('slackCard / slackManifest (LUM-147)', () => {
   it('slackCard renders one card body without the section heading', () => {
     const out = slackCard(card)
     expect(out).not.toContain('## Slack Context')
-    expect(out).toContain('### #eng · Thread (0 messages, fetched 2026-06-01 10:00 UTC)')
+    expect(out).toContain('### [external:slack] #eng · Thread (0 messages, fetched 2026-06-01 10:00 UTC)')
     expect(out).toContain('Decided to ship Friday.')
     expect(out).toContain('↳ 全文: lumo task slack show ctx_1')
   })
 
   it('slackManifest is one line with channel + retrieval command', () => {
-    expect(slackManifest(card)).toBe('- #eng — lumo task slack show ctx_1')
+    expect(slackManifest(card)).toBe('- [external:slack] #eng — lumo task slack show ctx_1')
   })
 
   it('slackManifest falls back to #channel when name is null', () => {
     expect(slackManifest({ ...card, slackChannelName: null })).toBe(
-      '- #channel — lumo task slack show ctx_1'
+      '- [external:slack] #channel — lumo task slack show ctx_1'
     )
   })
 
@@ -534,14 +534,14 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
   it('webLinkCard renders the bullet block without the section heading', () => {
     const out = webLinkCard(link)
     expect(out).not.toContain('## Web Links')
-    expect(out).toContain('- [A Title](https://ex.com/a) — ex.com')
+    expect(out).toContain('- [external:web] [A Title](https://ex.com/a) — ex.com')
     expect(out).toContain('↳ 正文: lumo task web show wl_1')
   })
 
   it('webLinkManifest prefers the title, falls back to the url', () => {
-    expect(webLinkManifest(link)).toBe('- [A Title](https://ex.com/a) — lumo task web show wl_1')
+    expect(webLinkManifest(link)).toBe('- [external:web] [A Title](https://ex.com/a) — lumo task web show wl_1')
     expect(webLinkManifest({ ...link, title: null })).toBe(
-      '- https://ex.com/a — lumo task web show wl_1'
+      '- [external:web] https://ex.com/a — lumo task web show wl_1'
     )
   })
 
@@ -573,18 +573,18 @@ describe('figmaCard / figmaManifest (LUM-147)', () => {
   it('figmaCard renders one link without the section heading', () => {
     const out = figmaCard(link)
     expect(out).not.toContain('## Figma Designs')
-    expect(out).toContain('- **Onboarding · Welcome**')
+    expect(out).toContain('- [external:figma] **Onboarding · Welcome**')
     expect(out).toContain('↳ design context: lumo task figma context cfl_1')
   })
 
   it('figmaManifest is one line: title + retrieval command', () => {
-    expect(figmaManifest(link)).toBe('- Onboarding · Welcome — lumo task figma context cfl_1')
+    expect(figmaManifest(link)).toBe('- [external:figma] Onboarding · Welcome — lumo task figma context cfl_1')
   })
 
   it('figmaManifest marks file-level links', () => {
     const fileLevel = { ...link, frameName: null } as typeof link
     expect(figmaManifest(fileLevel)).toBe(
-      '- Onboarding _(file-level)_ — lumo task figma context cfl_1'
+      '- [external:figma] Onboarding _(file-level)_ — lumo task figma context cfl_1'
     )
   })
 
@@ -607,12 +607,12 @@ describe('prCard / prManifest (LUM-147)', () => {
   it('prCard renders one PR without the section heading', () => {
     const out = prCard(pr)
     expect(out).not.toContain('## Pull Requests')
-    expect(out).toContain('- #42 Fix bug — OPEN · passing')
+    expect(out).toContain('- [external:github] #42 Fix bug — OPEN · passing')
     expect(out).toContain('↳ diff: lumo task pr show 42')
   })
 
   it('prManifest is one line: PR + retrieval command', () => {
-    expect(prManifest(pr)).toBe('- #42 Fix bug — lumo task pr show 42')
+    expect(prManifest(pr)).toBe('- [external:github] #42 Fix bug — lumo task pr show 42')
   })
 
   it('prBudgetSection.render(all) equals the legacy section output', () => {

@@ -10,6 +10,9 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
@@ -57,6 +60,14 @@ jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),
+  // Faithful to the real contract: "" stays "", non-empty gets the boundary —
+  // lets these assembly tests assert the LUM-347 routing without re-testing
+  // the wrapper's own text (covered in __tests__/lib/memory/render.test.ts).
+  wrapUntrustedLinked: jest.fn((s: string) =>
+    s.trim() === ''
+      ? ''
+      : `<untrusted-linked-context>\n${s}\n</untrusted-linked-context>`
+  ),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findDocumentsForContext: jest.fn() },
@@ -150,6 +161,47 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     expect(ctx?.prSection).toContain('lumo task pr show 42')
   })
 
+  it('routes member/externally-authored sections through the untrusted-linked boundary (LUM-347)', async () => {
+    findDocs.mockResolvedValue([
+      {
+        id: 'doc_1',
+        title: 'Design Doc',
+        updatedAt: new Date('2026-05-20T10:00:00Z'),
+        summary: 'How the thing works.',
+        summaryGeneratedAt: new Date('2026-05-21T10:00:00Z'),
+        content: '<p>full body</p>',
+      },
+    ])
+    listComments.mockResolvedValue([
+      { authorActorId: 'a1', body: 'c0', createdAt: new Date() },
+    ])
+    listPRs.mockResolvedValue([
+      { number: 42, title: 'Add the thing', state: 'open', ciStatus: null },
+    ])
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+    if (!ctx) throw new Error('expected context')
+
+    for (const section of [
+      ctx.docSection,
+      ctx.commentsSection,
+      ctx.prSection,
+    ]) {
+      expect(section.startsWith('<untrusted-linked-context>')).toBe(true)
+      expect(section.trimEnd().endsWith('</untrusted-linked-context>')).toBe(
+        true
+      )
+    }
+    // The acceptance-criteria contract (here: the draft nudge on an open task
+    // with no criteria) is a directive surface the agent must honor — it stays
+    // OUTSIDE the boundary (LUM-342 decision).
+    expect(ctx.criteriaSection).not.toContain('<untrusted-linked-context>')
+  })
+
   it('returns empty section strings when there are no docs/comments/prs', async () => {
     findDocs.mockResolvedValue([])
     listComments.mockResolvedValue([])
@@ -241,6 +293,10 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     expect(section).not.toContain('nice')
     // single PR → no [#7] prefix
     expect(section).not.toContain('[#7]')
+    // Review todos are a deliberately actionable surface (the agent is meant
+    // to address them) — wrapping them "do not obey" would contradict their
+    // purpose, so they stay outside the untrusted boundary (LUM-347).
+    expect(section).not.toContain('<untrusted-linked-context>')
   })
 
   it('schedules a lazy summary refresh for a stale document', async () => {

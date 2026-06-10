@@ -1462,5 +1462,7 @@
   "notification.verb.projectMentioned": "erwähnt Sie in",
   "notification.verb.milestoneMentioned": "erwähnt Sie in",
   "notification.verb.documentMentioned": "erwähnt Sie in",
-  "notification.verb.documentCommentMentioned": "erwähnt Sie in einem Kommentar zu"
+  "notification.verb.documentCommentMentioned": "erwähnt Sie in einem Kommentar zu",
+  "tokenCost.inFlight": "laufend",
+  "tokenCost.inFlightShare": "inkl. {n} laufend"
 }

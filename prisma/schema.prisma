@@ -1433,6 +1433,12 @@ model Session {
   /// string -> { input, output, cacheRead, cacheCreation }. Overwritten each
   /// STOP alongside the flat columns. Null until the first STOP carrying usage.
   usageByModel          Json?
+  /// Mid-turn per-model snapshot of the same cumulative map (LUM-345). Written
+  /// by POST_TOOL_BATCH only — STOP never touches it, because the read side
+  /// derives the in-flight share as `live − usageByModel` clamped at zero, so
+  /// a stale snapshot self-heals once the anchor catches up. Null on rows
+  /// predating the feature or from CLIs that don't send mid-turn usage.
+  liveUsageByModel      Json?
   // Session summary — generated on demand via Claude. The generation flow is a
   // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
   // model fills a type-specific template. `summary` holds the structured output

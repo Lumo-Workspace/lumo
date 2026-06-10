@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       if (!ctx.sessionId) return
       const sessionId = ctx.sessionId
       const binding = await sessionRepository.findTaskBinding(sessionId)
+      let criteriaSection = ''
       let memorySection = ''
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
               binding.taskIdentifier
             ),
           ])
+        criteriaSection = sections.criteriaSection
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
         reviewTodosSection = todos.section
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
       return {
         sessionId,
         taskBinding: binding,
+        criteriaSection,
         memorySection,
         linkedResourcesSection,
         reviewTodosSection,

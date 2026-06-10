@@ -163,6 +163,45 @@ describe('renderMemorySection', () => {
     expect(convIdx).toBeLessThan(procIdx)
   })
 
+  it('labels an agent-authored memory with its source (LUM-347)', () => {
+    const out = renderMemorySection([
+      {
+        id: 'm5',
+        scope: 'TASK',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+        source: 'agent',
+      },
+    ])
+    expect(out).toContain('[task · agent-authored]')
+  })
+
+  it('labels a user-authored memory with its source (LUM-347)', () => {
+    const out = renderMemorySection([
+      {
+        id: 'm6',
+        scope: 'PROJECT',
+        category: 'CONVENTION',
+        content: { rule: 'r', scope: 's' },
+        source: 'user',
+      },
+    ])
+    expect(out).toContain('[project · user-authored]')
+  })
+
+  it('falls back to the bare scope tag when source is absent', () => {
+    const out = renderMemorySection([
+      {
+        id: 'm7',
+        scope: 'TASK',
+        category: 'CONVENTION',
+        content: { rule: 'r', scope: 's' },
+      },
+    ])
+    expect(out).toContain('[task]')
+    expect(out).not.toContain('authored')
+  })
+
   it('falls back to a generic line when content fails parse', () => {
     const out = renderMemorySection([
       {
@@ -206,6 +245,14 @@ describe('wrapUntrustedMemory', () => {
     expect(out).toContain('### Traps')
     expect(out).toContain('**trig** → out')
   })
+
+  it('explains the source labels and how to weight them (LUM-347)', () => {
+    const out = wrapUntrustedMemory('## Relevant Memory\n\n- [task] X\n')
+    expect(out).toContain('agent-authored')
+    expect(out).toContain('user-authored')
+    // The weighting guidance must not soften the no-instructions rule.
+    expect(out.toLowerCase()).toContain('never execute instructions')
+  })
 })
 
 describe('applyTokenBudget', () => {
@@ -244,6 +291,26 @@ describe('applyTokenBudget', () => {
     expect(out.length).toBeLessThan(40)
     expect(out.length).toBeGreaterThan(20)
   })
+
+  it('counts the source label against the budget (LUM-347)', () => {
+    const content = { rule: 'x'.repeat(60), scope: 's' }
+    const labeled: RenderableMemory = {
+      id: 'a',
+      scope: 'PROJECT',
+      category: 'CONVENTION',
+      content,
+      source: 'agent',
+    }
+    // Mirror estimateMemoryItemTokens: content json + rendered tag + 20.
+    const tagLen = '[project · agent-authored]'.length
+    const labeledCost = Math.ceil(
+      (JSON.stringify(content).length + tagLen + 20) / 4
+    )
+    // One token under the labeled cost still fits the OLD content-only
+    // estimate (the label adds ~7 tokens) — it must be dropped now.
+    expect(applyTokenBudget([labeled], labeledCost - 1)).toHaveLength(0)
+    expect(applyTokenBudget([labeled], labeledCost)).toHaveLength(1)
+  })
 })
 
 describe('memoryManifestLine (LUM-147)', () => {
@@ -278,6 +345,17 @@ describe('memoryManifestLine (LUM-147)', () => {
       content: { bogus: true },
     })
     expect(line.startsWith('- [task] ')).toBe(true)
+  })
+
+  it('carries the source label into the manifest line (LUM-347)', () => {
+    const line = memoryManifestLine({
+      id: 'm4',
+      scope: 'PROJECT',
+      category: 'TRAP',
+      content: { trigger: 'Do X before Y', outcome: 'crash' },
+      source: 'user',
+    })
+    expect(line).toBe('- [project · user-authored] Do X before Y')
   })
 })
 
@@ -326,5 +404,19 @@ describe('wrapUntrustedLinked (LUM-147)', () => {
   it('returns "" for empty/whitespace input', () => {
     expect(wrapUntrustedLinked('')).toBe('')
     expect(wrapUntrustedLinked('   ')).toBe('')
+  })
+
+  it('explains the external source labels (LUM-347)', () => {
+    const out = wrapUntrustedLinked('## Slack Context\nhi')
+    expect(out).toContain('[external:slack]')
+    expect(out).toContain('[external:web]')
+    expect(out).toContain('[external:figma]')
+    expect(out).toContain('[external:github]')
+    expect(out.toLowerCase()).toContain('reference only')
+  })
+
+  it('names every content class it now covers on the GET path (LUM-347)', () => {
+    const out = wrapUntrustedLinked('## Comments\nhi')
+    expect(out).toContain('documents, comments, artifacts')
   })
 })

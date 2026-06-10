@@ -245,3 +245,56 @@ describe('memberBreakdownFor', () => {
     expect(rows).toEqual([])
   })
 })
+
+describe('in-flight sentinel row (LUM-345)', () => {
+  const inFlight: ModelCost = {
+    model: '__in_flight__',
+    input: 1000,
+    output: 500,
+    cacheRead: 9000,
+    cacheCreation: 100,
+    total: 10600,
+  }
+
+  it('renders the sentinel as a translated state label, never the raw key', () => {
+    render(<TokenCostBreakdown variant='full' models={[inFlight]} />)
+    expect(screen.getByText('in progress')).toBeInTheDocument()
+    expect(screen.queryByText('__in_flight__')).not.toBeInTheDocument()
+  })
+
+  it('renders alongside a real model group', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus, inFlight]} />)
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    expect(screen.getByText('in progress')).toBeInTheDocument()
+  })
+})
+
+describe('per-model in-flight share (LUM-345 follow-up)', () => {
+  const liveOpus: ModelCost = {
+    model: 'claude-opus-4-8',
+    input: 150,
+    output: 80,
+    cacheRead: 40,
+    cacheCreation: 30,
+    total: 300,
+    inFlight: { input: 50, output: 30, cacheRead: 30, cacheCreation: 20, total: 130 },
+  }
+
+  it('annotates a row carrying in-flight burn with the provisional share', () => {
+    render(<TokenCostBreakdown variant='full' models={[liveOpus]} />)
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    expect(screen.getByText(/incl\. 130 in flight/)).toBeInTheDocument()
+  })
+
+  it('renders a provisional bar segment sized to the in-flight share', () => {
+    render(<TokenCostBreakdown variant='full' models={[liveOpus]} />)
+    const seg = screen.getByTestId('in-flight-segment')
+    expect(seg.style.width).toBe(`${(130 / 300) * 100}%`)
+  })
+
+  it('shows neither annotation nor provisional segment on settled rows', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} />)
+    expect(screen.queryByText(/in flight/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('in-flight-segment')).not.toBeInTheDocument()
+  })
+})
