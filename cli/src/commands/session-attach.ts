@@ -52,7 +52,7 @@ type BindOutcome =
  * longer silently clobbers `Session.taskId` (LUM-266): the server returns
  * the current binding and we confirm before overwriting —
  *   - `--force` skips the prompt and overwrites directly;
- *   - on a TTY we ask `已绑定 LUM-X，覆盖为 LUM-Y? [y/N]`;
+ *   - on a TTY we ask `Already bound to LUM-X. Rebind to LUM-Y? [y/N]`;
  *   - off a TTY (the usual agent case) we refuse and point at `--force`.
  */
 export async function sessionAttach(
@@ -142,10 +142,10 @@ export async function sessionAttach(
     }
 
     const answer = await promptLine(
-      `已绑定 ${body.currentTaskIdentifier}，覆盖为 ${identifier}? [y/N] `
+      `Already bound to ${body.currentTaskIdentifier}. Rebind to ${identifier}? [y/N] `
     )
     if (!/^y(es)?$/i.test(answer)) {
-      console.log(`已取消，仍绑定 ${body.currentTaskIdentifier}。`)
+      console.log(`Cancelled — still bound to ${body.currentTaskIdentifier}.`)
       return 0
     }
 
@@ -170,7 +170,8 @@ export async function sessionAttach(
       body.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
   )
-  // 告警先于 contract/memory:与 hook 注入顺序一致,短且可操作的信息优先。
+  // Warnings come before contract/memory: matches the hook injection order —
+  // short, actionable information first.
   if (body.blockerWarningSection) {
     console.log('')
     console.log(sanitizeField(body.blockerWarningSection))

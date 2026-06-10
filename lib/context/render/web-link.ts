@@ -20,7 +20,7 @@ export function webLinkCard(l: WebLinkCard): string {
   const lines: string[] = [titleLine]
   const body = l.note ?? l.description
   if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
-  lines.push(`  ↳ 正文: lumo task web show ${l.id}`)
+  lines.push(`  ↳ body: lumo task web show ${l.id}`)
   return lines.join('\n')
 }
 

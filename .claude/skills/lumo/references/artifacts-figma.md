@@ -2,7 +2,7 @@
 
 ### Task ↔ Spec Artifacts
 
-Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail "规格" (definition) layer and are injected into `lumo task context`.
+Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail definition ("spec") layer and are injected into `lumo task context`.
 
 #### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source> --agent <agent>`
 

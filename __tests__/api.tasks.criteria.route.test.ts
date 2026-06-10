@@ -96,7 +96,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
     expect(await res.json()).toEqual({ criteria: [{ id: 'c-1' }], warning: 'w' })
   })
 
-  it('routes HUMAN_EDIT to reviseAsHuman with member + session 出处', async () => {
+  it('routes HUMAN_EDIT to reviseAsHuman with member + session provenance', async () => {
     mockRevise.mockResolvedValue({ criteria: [], warning: null })
     const body = {
       source: 'HUMAN_EDIT',

@@ -1,11 +1,11 @@
-# lumo verify — machine verification loop（机器验收循环）
+# lumo verify — machine verification loop
 
 `lumo verify` is the machine half of the acceptance system (Acceptance v1,
 LUM-343). It executes every **MACHINE** criterion's checkpointer in the local
 repo, reports one structured PASS/FAIL verdict per criterion to the server,
 and prints what to do next. The judge lives server-side: round numbering, the
 3-round cap, escalation, and the IN_REVIEW transition all happen there
-(执行在客户端，裁判在服务端).
+(execution on the client, adjudication on the server).
 
 ## The claim-done rule
 
@@ -71,7 +71,7 @@ the failures — re-running without changes burns a round and (at round 3)
 pages a human. A FAIL round never changes task status; only an all-pass round
 moves it (to IN_REVIEW, never further).
 
-## lumo task status — the read half（自查入口）
+## lumo task status — the read half (self-check entry point)
 
 `lumo task status [task] [--json]` is the read-only counterpart of the loop
 (LUM-344): pure read, milliseconds, no LLM, never writes — running it costs

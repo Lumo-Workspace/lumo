@@ -2,7 +2,7 @@ import { spawnSync } from 'child_process'
 
 /**
  * A task identifier inferred from local git state, plus where it was found
- * so the auto-bind message can explain its reasoning ("依据分支名/最近 commit").
+ * so the auto-bind message can explain its reasoning ("from branch name" / "from recent commits").
  */
 export interface GitTaskMatch {
   identifier: string

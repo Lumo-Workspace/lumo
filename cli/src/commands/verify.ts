@@ -47,7 +47,7 @@ function tail(s: string, max: number): string {
 }
 
 /**
- * Execute one MACHINE checkpointer in the local repo (执行在客户端 — the
+ * Execute one MACHINE checkpointer in the local repo (runs client-side — the
  * server can't run repo tests) and fold the result into a structured verdict.
  * Exit 0 = PASS with a `cmd:` evidence pointer; non-zero = CRITERION_UNMET;
  * spawn failure or timeout = CHECK_EXECUTION_ERROR.

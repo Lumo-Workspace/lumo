@@ -28,14 +28,14 @@ describe('hook-runner recovery card (formatHookStdoutLines, session-start)', () 
     const lines = formatHookStdoutLines('session-start', body, NOW)
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput.additionalContext as string
 
-    expect(ctx).toContain('## 续上次进度 (上一段 session · 2h ago · 23min)')
-    expect(ctx).toContain('上次干到：wired up the service')
+    expect(ctx).toContain('## Resuming previous session (2h ago · 23min)')
+    expect(ctx).toContain('Last stopped at: wired up the service')
     expect(ctx).toContain('- finish CLI render')
     expect(ctx).toContain('- add tests')
-    expect(ctx.indexOf('续上次进度')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+    expect(ctx.indexOf('Resuming previous session')).toBeLessThan(ctx.indexOf('Relevant Memory'))
   })
 
-  it('omits the "未完成" block when unresolved is empty', () => {
+  it('omits the "Unfinished" block when unresolved is empty', () => {
     const lines = formatHookStdoutLines(
       'session-start',
       boundBody({
@@ -47,8 +47,8 @@ describe('hook-runner recovery card (formatHookStdoutLines, session-start)', () 
       NOW
     )
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput.additionalContext as string
-    expect(ctx).toContain('## 续上次进度 (上一段 session · just now · 1min)')
-    expect(ctx).not.toContain('未完成：')
+    expect(ctx).toContain('## Resuming previous session (just now · 1min)')
+    expect(ctx).not.toContain('Unfinished:')
   })
 
   it('caps unresolved at 5 and appends a "+M more" pointer', () => {
@@ -65,7 +65,7 @@ describe('hook-runner recovery card (formatHookStdoutLines, session-start)', () 
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput.additionalContext as string
     expect(ctx).toContain('- e')
     expect(ctx).not.toContain('- f')
-    expect(ctx).toContain('…(+2 more, 跑 lumo task context LUM-146 查看全部)')
+    expect(ctx).toContain('… (+2 more — run `lumo task context LUM-146` for the full list)')
   })
 
   it('sanitizes ANSI/control chars in headline and unresolved', () => {
@@ -88,7 +88,7 @@ describe('hook-runner recovery card (formatHookStdoutLines, session-start)', () 
     const body = { ...boundBody(null), memorySection: '## Relevant Memory\n- x' }
     const lines = formatHookStdoutLines('session-start', body, NOW)
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput.additionalContext as string
-    expect(ctx).not.toContain('续上次进度')
+    expect(ctx).not.toContain('Resuming previous session')
     expect(ctx).toContain('Relevant Memory')
   })
 })

@@ -202,7 +202,7 @@ describe('sessionAttach', () => {
     })
 
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('已绑定 LUM-7')
+      expect.stringContaining('Already bound to LUM-7')
     )
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     expect(fetchSpy).toHaveBeenLastCalledWith(
@@ -229,7 +229,7 @@ describe('sessionAttach', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('已取消')
+      expect.stringContaining('Cancelled')
     )
     fetchSpy.mockRestore()
   })

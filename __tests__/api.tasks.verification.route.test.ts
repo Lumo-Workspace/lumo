@@ -67,7 +67,7 @@ beforeEach(() => {
 })
 
 describe('POST /api/tasks/[id]/verify', () => {
-  it('records a machine round with the caller attribution and session 出处', async () => {
+  it('records a machine round with the caller attribution and session provenance', async () => {
     const res = await POST(
       req(goodBody, { 'X-Lumo-Session-Id': 'sess-1' }),
       params

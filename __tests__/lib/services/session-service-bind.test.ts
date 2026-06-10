@@ -116,7 +116,7 @@ describe('sessionService.bindSessionToTask', () => {
   it('propagates the blocker warning from taskDependencyService into the bound result (LUM-172)', async () => {
     ;(
       taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
-    ).mockResolvedValue('## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞')
+    ).mockResolvedValue('## ⚠ Dependency alerts\n- This task is blocked by LUM-7')
 
     const result = await sessionService.bindSessionToTask({
       identity,
@@ -129,7 +129,7 @@ describe('sessionService.bindSessionToTask', () => {
     ).toHaveBeenCalledWith('task_1', 'LUM-42')
     if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.blockerWarningSection).toBe(
-      '## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞'
+      '## ⚠ Dependency alerts\n- This task is blocked by LUM-7'
     )
   })
 

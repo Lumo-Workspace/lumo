@@ -404,7 +404,7 @@ describe('taskContextService.getContextForIdentifier', () => {
       summaryType: 'debug',
       summary: { problem: 'race in the queue', status: 'unresolved' },
     })
-    expect(pending).toEqual(['Bug 未解决：race in the queue'])
+    expect(pending).toEqual(['Bug unresolved: race in the queue'])
   })
 
   it('surfaces the problem when a debug session ended partial', async () => {
@@ -412,7 +412,7 @@ describe('taskContextService.getContextForIdentifier', () => {
       summaryType: 'debug',
       summary: { problem: 'race in the queue', status: 'partial' },
     })
-    expect(pending).toEqual(['Bug 仅部分修复：race in the queue'])
+    expect(pending).toEqual(['Bug only partially fixed: race in the queue'])
   })
 
   it('reports no pending for a fixed debug session', async () => {
@@ -428,7 +428,7 @@ describe('taskContextService.getContextForIdentifier', () => {
       summaryType: 'debug',
       summary: { problem: '', status: 'unresolved' },
     })
-    expect(pending).toEqual(['Bug 未解决'])
+    expect(pending).toEqual(['Bug unresolved'])
   })
 
   it('falls back to summary.unresolved for null/unknown summaryType', async () => {

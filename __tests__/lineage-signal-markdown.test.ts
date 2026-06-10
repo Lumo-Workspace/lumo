@@ -35,8 +35,8 @@ describe('assembleLineageSection markdown (post-refactor parity)', () => {
         countResolvedTasks: async () => 10,
       })
     )
-    expect(out).toContain('## 飞轮信号 · 历史 merge 贡献')
-    expect(out).toContain('用过的 4 个已闭合任务·3 merged (75%) · 真实使用信号')
+    expect(out).toContain('## Flywheel signal · historical merge contribution')
+    expect(out).toContain('used in 4 resolved tasks · 3 merged (75%) · real-usage signal')
   })
 
   it('renders presence line + zero-variance note, usage grouped before presence', async () => {
@@ -73,11 +73,11 @@ describe('assembleLineageSection markdown (post-refactor parity)', () => {
         countResolvedTasks: async () => 6,
       })
     )
-    const usageIdx = out.indexOf('真实使用信号')
-    const presenceIdx = out.indexOf('仅共同加载,弱信号')
+    const usageIdx = out.indexOf('real-usage signal')
+    const presenceIdx = out.indexOf('co-load only, weak signal')
     expect(usageIdx).toBeGreaterThan(-1)
     expect(presenceIdx).toBeGreaterThan(usageIdx) // usage grouped first
-    expect(out).toContain('已排除 1 个全量加载')
+    expect(out).toContain('Excluded 1 always-loaded fragment(s)')
   })
 
   it('returns "" when nothing qualifies and nothing excluded', async () => {

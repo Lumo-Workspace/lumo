@@ -76,7 +76,7 @@ function sprintCoverageLines(
     return `  ${num}  ${status}  ${name}   ${s.doneCount}/${s.taskCount} done`
   })
   if (coverage.unsprinted > 0) {
-    const label = '未排期'.padEnd(numW + 2 + statusW + 2 + nameW)
+    const label = 'Unscheduled'.padEnd(numW + 2 + statusW + 2 + nameW)
     rows.push(
       `  ${label}   ${coverage.unsprinted} task${coverage.unsprinted === 1 ? '' : 's'}`
     )

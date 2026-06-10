@@ -1,16 +1,17 @@
-# Acceptance criteria（验收合约）
+# Acceptance criteria (contract)
 
 The acceptance contract is a small set of structured criteria the task's work
 will be verified against (Acceptance v1, LUM-341/342). The agent drafts it;
 the server validates and stores it; verification rounds (`lumo verify`,
-Slice 1 任务 ③) judge against it. Criteria are injected at session start and
-in `lumo task context` as the `## 验收标准（合约）` section.
+Slice 1 task #3) judge against it. Criteria are injected at session start and
+in `lumo task context` as the `## Acceptance criteria (contract)` section.
 
 ## When to draft — the golden rule
 
 **Attach → read context → draft criteria → THEN write the first line of code.**
 
-If `lumo task context` / session-start shows 该任务尚无验收标准 instead of a
+If `lumo task context` / session-start shows the draft reminder ("This task
+has no acceptance criteria yet. …") instead of a
 contract, you MUST draft and submit criteria before starting implementation:
 
 1. Read the task description, comments, linked resources, and memory first —
@@ -38,7 +39,7 @@ to-do list you trim to fit what you built.
   - `MACHINE` = an executable check exists. It **must** carry a `checkpointer`
     (the runnable check: a test command, script, probe…). The checkpointer
     runs on the agent's machine; the structured verdict is reported back to
-    the server (执行在客户端，裁判在服务端).
+    the server (execution on the client, adjudication on the server).
   - `HUMAN` = needs human judgment (UX feel, copy tone, design fidelity).
   - **If you can't attach a checkpointer to a MACHINE criterion, demote it to
     HUMAN** — the server rejects checkpointer-less MACHINE criteria rather
@@ -97,7 +98,7 @@ time, even after the agent lock. The file is the **desired final list**:
 - existing criteria missing from the file are **deleted** — refused with 409
   if the criterion already has verification runs (reword it instead)
 
-The revision is auto-recorded as a task comment with the session 出处
+The revision is auto-recorded as a task comment with the session origin
 (`X-Lumo-Session-Id`). **Transcribing the contract is allowed; transcribing a
 verdict is never** — human verdicts only enter through human-initiated paths
 (web UI / Slack action), and the agent has no write path to them.
@@ -123,10 +124,10 @@ before a `--human` revision. Empty contract prints a drafting pointer.
 
 - **Session start** (bound task): the contract is the highest-priority
   section in the injection budget — ahead of memory/PR/Slack/Figma/web. If a
-  still-open task has no criteria, a 草拟提醒 is injected instead.
-- **`lumo session attach`**: prints the contract (or the 草拟提醒) right after
+  still-open task has no criteria, the draft reminder is injected instead.
+- **`lumo session attach`**: prints the contract (or the draft reminder) right after
   binding.
-- **`lumo task context`**: the `## 验收标准（合约）` section appears after the
+- **`lumo task context`**: the `## Acceptance criteria (contract)` section appears after the
   task description, before memory.
 - Review-time gap findings (`REVIEW_ADDED`, appended at the round they
   surface) arrive via the verification loop, not via `criteria set`.

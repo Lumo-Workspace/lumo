@@ -56,7 +56,7 @@ export function slackCard(c: SlackContextCard): string {
       lines.push(`- ${author}: ${plainText(m.text)}`)
     }
   }
-  lines.push(`  ↳ 全文: lumo task slack show ${c.id}`)
+  lines.push(`  ↳ full text: lumo task slack show ${c.id}`)
   return lines.join('\n')
 }
 

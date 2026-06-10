@@ -50,7 +50,7 @@ export type BindSessionToTaskResult =
       status: 'already-bound'
       /** The task the session is currently bound to. Surfaced (instead of
        *  silently clobbering Session.taskId) so the CLI can prompt
-       *  `已绑定 LUM-X，覆盖为 LUM-Y? [y/N]` before re-binding. */
+       *  `Already bound to LUM-X. Rebind to LUM-Y? [y/N]` before re-binding. */
       currentTaskIdentifier: string
       currentTaskTitle: string
     }

@@ -142,13 +142,13 @@ describe('formatTaskContextMarkdown', () => {
         task: baseTask,
         prSection: '## Pull Requests\n\n- #7 Do the thing — open · passing',
         prReviewTodosSection:
-          '## PR Review 待办\n\n- [ ] `lib/foo.ts:42` (@octocat) — Extract this\n  ↳ https://gh/c/1',
+          '## PR review todos\n\n- [ ] `lib/foo.ts:42` (@octocat) — Extract this\n  ↳ https://gh/c/1',
         sessions: [],
       },
       now
     )
     const prIdx = md.indexOf('## Pull Requests')
-    const todoIdx = md.indexOf('## PR Review 待办')
+    const todoIdx = md.indexOf('## PR review todos')
     const sessIdx = md.indexOf('## Previous Sessions')
     expect(prIdx).toBeGreaterThan(0)
     expect(prIdx).toBeLessThan(todoIdx)
@@ -156,7 +156,7 @@ describe('formatTaskContextMarkdown', () => {
     expect(md).toContain('- [ ] `lib/foo.ts:42` (@octocat) — Extract this')
   })
 
-  it('omits the PR Review 待办 section when empty or missing', () => {
+  it('omits the PR review todos section when empty or missing', () => {
     const mdEmpty = formatTaskContextMarkdown(
       { task: baseTask, prReviewTodosSection: '', sessions: [] },
       now
@@ -165,8 +165,8 @@ describe('formatTaskContextMarkdown', () => {
       { task: baseTask, sessions: [] },
       now
     )
-    expect(mdEmpty).not.toContain('## PR Review 待办')
-    expect(mdMissing).not.toContain('## PR Review 待办')
+    expect(mdEmpty).not.toContain('## PR review todos')
+    expect(mdMissing).not.toContain('## PR review todos')
   })
 
   it('renders "just now" / "Xmin ago" / "yesterday" per relative-time rules', () => {
@@ -304,13 +304,13 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
         task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
         sessions: [],
         lineageSection:
-          '## 飞轮信号 · 历史 merge 贡献\n\n- [MEMORY] "x" — 出现在 3 个已闭合任务·3 merged (100%)',
+          '## Flywheel signal · historical merge contribution\n\n- [MEMORY] "x" — appeared in 3 resolved tasks · 3 merged (100%)',
       } as any,
       LINEAGE_NOW
     )
     expect(out).toContain('## Previous Sessions (0)')
-    expect(out.indexOf('飞轮信号')).toBeGreaterThan(out.indexOf('Previous Sessions'))
-    expect(out).toContain('出现在 3 个已闭合任务·3 merged (100%)')
+    expect(out.indexOf('Flywheel signal')).toBeGreaterThan(out.indexOf('Previous Sessions'))
+    expect(out).toContain('appeared in 3 resolved tasks · 3 merged (100%)')
   })
 
   it('appends lineageSection after a non-empty sessions block', () => {
@@ -330,11 +330,11 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
           },
         ],
         lineageSection:
-          '## 飞轮信号 · 历史 merge 贡献\n\n- [PR] #1 — 出现在 4 个已闭合任务·3 merged (75%)',
+          '## Flywheel signal · historical merge contribution\n\n- [PR] #1 — appeared in 4 resolved tasks · 3 merged (75%)',
       } as any,
       LINEAGE_NOW
     )
-    expect(out.indexOf('飞轮信号')).toBeGreaterThan(out.indexOf('Previous Sessions (1)'))
+    expect(out.indexOf('Flywheel signal')).toBeGreaterThan(out.indexOf('Previous Sessions (1)'))
   })
 
   it('omits the lineage block when lineageSection is absent/empty', () => {
@@ -346,6 +346,6 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
       } as any,
       LINEAGE_NOW
     )
-    expect(out).not.toContain('飞轮信号')
+    expect(out).not.toContain('Flywheel signal')
   })
 })

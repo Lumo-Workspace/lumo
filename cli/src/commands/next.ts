@@ -127,7 +127,7 @@ export function formatNextOutput(
     `Next: lumo session attach ${first.identifier} && lumo task context ${first.identifier}`
   )
   if (ranked.length > 1) {
-    lines.push('（也可换成列表里任意一个 LUM-N）')
+    lines.push('(or pick any other LUM-N from the list)')
   }
 
   return lines.join('\n')

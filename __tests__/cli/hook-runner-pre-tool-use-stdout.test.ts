@@ -7,7 +7,7 @@ import { formatHookStdoutLines } from '@/cli/src/lib/hook-runner'
 describe('formatHookStdoutLines (pre-tool-use collision warning)', () => {
   it('emits a PreToolUse additionalContext envelope when a collisionWarning is present', () => {
     const warning =
-      '⚠️ Lumo 并行预警：另一个会话 Codex（3 分钟前）最近也在改 `app/a.ts`。'
+      '⚠️ Lumo parallel-edit warning: another session Codex (3 minutes ago) also recently edited `app/a.ts`.'
     const lines = formatHookStdoutLines('pre-tool-use', {
       collisionWarning: warning,
     })

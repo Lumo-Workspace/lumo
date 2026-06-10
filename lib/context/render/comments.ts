@@ -41,7 +41,7 @@ export function renderCommentsSection(input: RenderCommentsInput): string {
 
   const summary = commentsSummary?.trim()
   if (summary) lines.push(summary)
-  lines.push(`  ↳ 全文: lumo task comments list ${identifier}`)
+  lines.push(`  ↳ full text: lumo task comments list ${identifier}`)
 
   return lines.join('\n').trimEnd()
 }

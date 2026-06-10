@@ -603,7 +603,7 @@ taskCriteria
   )
   .option(
     '--human',
-    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session 出处'
+    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session provenance'
   )
   .option(
     '--cause <tag>',

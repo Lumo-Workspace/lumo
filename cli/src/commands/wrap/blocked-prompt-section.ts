@@ -22,7 +22,7 @@ interface Credentials {
  * default does nothing, so a stray Enter never tags the task.
  */
 export class BlockedPromptSection implements WrapSection {
-  title = '卡住检测'
+  title = 'Blocked check'
   private draft: ServerFailureDraft | null = null
 
   constructor(private deps: { creds: Credentials; sessionId: string }) {}
@@ -37,18 +37,18 @@ export class BlockedPromptSection implements WrapSection {
     if (!draft || !draft.shouldPrompt || !draft.taskIdentifier) return
 
     const top = draft.topFailure
-    const where = top ? sanitizeField(top.label) : '某个操作'
+    const where = top ? sanitizeField(top.label) : 'an operation'
     const count = top ? top.count : 0
     process.stdout.write(
-      `看起来本次会话反复卡在 ${where}(${count} 次失败)。\n`
+      `This session looks repeatedly stuck on ${where} (${count} failures).\n`
     )
     if (top?.lastErrorSummary) {
-      process.stdout.write(`最后错误：${sanitizeField(top.lastErrorSummary)}\n`)
+      process.stdout.write(`Last error: ${sanitizeField(top.lastErrorSummary)}\n`)
     }
 
     if (opts.dryRun) {
       process.stdout.write(
-        `(dry-run，未改动；确认后会给 ${draft.taskIdentifier} 标 blocked)\n`
+        `(dry-run, no changes; confirming would tag ${draft.taskIdentifier} blocked)\n`
       )
       return
     }
@@ -59,13 +59,13 @@ export class BlockedPromptSection implements WrapSection {
     // LUM-153 set out to avoid. We surface the suggestion and move on.
     if (opts.yes) {
       process.stdout.write(
-        `(--yes 不自动标记；如确认请交互式回答 y，或手动 \`lumo task update ${draft.taskIdentifier} --add-tag blocked\`)\n`
+        `(--yes does not auto-tag; answer y interactively, or run \`lumo task update ${draft.taskIdentifier} --add-tag blocked\` manually)\n`
       )
       return
     }
 
     const choice = (
-      await promptLine(`要在 ${draft.taskIdentifier} 标 blocked 吗？[y] 标记  [s] 跳过 > `)
+      await promptLine(`Tag ${draft.taskIdentifier} as blocked? [y] tag  [s] skip > `)
     )
       .trim()
       .toLowerCase()
@@ -75,7 +75,7 @@ export class BlockedPromptSection implements WrapSection {
       return
     }
     // Empty / 's' / anything else → do nothing. Tagging is opt-in.
-    process.stdout.write('已跳过，未标记。\n')
+    process.stdout.write('Skipped — not tagged.\n')
   }
 
   private async mark(): Promise<void> {
@@ -83,6 +83,6 @@ export class BlockedPromptSection implements WrapSection {
       this.deps.creds,
       this.deps.sessionId
     )
-    process.stdout.write(`已给 ${taskIdentifier} 标 ${tag}。\n`)
+    process.stdout.write(`Tagged ${taskIdentifier} with ${tag}.\n`)
   }
 }

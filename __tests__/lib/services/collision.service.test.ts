@@ -122,7 +122,7 @@ describe('collisionService.checkFileCollision — querying', () => {
     expect(result).not.toBeNull()
     expect(result!.warning).toContain('/repo/app/a.ts')
     expect(result!.warning).toContain('Codex')
-    expect(result!.warning).toContain('3 分钟前')
+    expect(result!.warning).toContain('3 min ago')
   })
 
   it('names the other session branch when its worktree is known', async () => {
@@ -157,7 +157,7 @@ describe('collisionService.checkFileCollision — querying', () => {
       now: NOW,
     })
     expect(result!.warning).toContain('Codex')
-    expect(result!.warning).not.toContain('分支')
+    expect(result!.warning).not.toContain('branch')
   })
 
   it('dedupes multiple events from the same other session, keeping the most recent', async () => {
@@ -173,8 +173,8 @@ describe('collisionService.checkFileCollision — querying', () => {
       now: NOW,
     })
     // One session → mentioned once, with the most-recent (1 minute) timestamp.
-    expect(result!.warning).toContain('1 分钟前')
-    expect(result!.warning).not.toContain('8 分钟前')
+    expect(result!.warning).toContain('1 min ago')
+    expect(result!.warning).not.toContain('8 min ago')
   })
 
   it('summarizes the overflow when more than three other sessions collide', async () => {
@@ -194,7 +194,7 @@ describe('collisionService.checkFileCollision — querying', () => {
     expect(result!.warning).toContain('4')
   })
 
-  it('renders "刚刚" for a sub-minute collision', async () => {
+  it('renders "just now" for a sub-minute collision', async () => {
     repo.findRecentOtherSessionWritesToFile.mockResolvedValue([
       row({ sessionId: 'sess_other', minutesAgo: 0 }),
     ])
@@ -205,6 +205,6 @@ describe('collisionService.checkFileCollision — querying', () => {
       sessionId: 'sess_self',
       now: NOW,
     })
-    expect(result!.warning).toContain('刚刚')
+    expect(result!.warning).toContain('just now')
   })
 })

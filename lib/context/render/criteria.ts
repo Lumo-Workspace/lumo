@@ -11,7 +11,7 @@ export interface CriterionCard {
   addedAtRound: number
 }
 
-const CRITERIA_HEADING = '## 验收标准（合约）'
+const CRITERIA_HEADING = '## Acceptance criteria (contract)'
 
 const MANIFEST_STATEMENT_MAX = 80
 
@@ -34,7 +34,7 @@ function provenanceTag(c: CriterionCard): string {
  * consumer (session-start hook envelope, attach echo, task context).
  */
 export function criterionCard(c: CriterionCard): string {
-  const evidence = c.evidenceRequired ? ' · 需证据' : ''
+  const evidence = c.evidenceRequired ? ' · evidence required' : ''
   const lines: string[] = [
     `- [${c.verifierType}] ${sanitizeField(c.statement)}${provenanceTag(c)}${evidence}`,
   ]
@@ -84,6 +84,6 @@ export function renderCriteriaDraftNudge(): string {
   return [
     CRITERIA_HEADING,
     '',
-    '该任务尚无验收标准。请在动第一行代码之前：读完任务上下文 → 草拟 3–7 条结果级验收标准 → `lumo task criteria set <task> --file <criteria.json>` 提交锁定。挂不上可执行检查的标准用 HUMAN 类型；仓库级基线（测试通过 / tsc / i18n parity）不占名额。',
+    'This task has no acceptance criteria yet. Before writing the first line of code: read the task context, draft 3–7 outcome-level acceptance criteria, then submit and lock them with `lumo task criteria set <task> --file <criteria.json>`. Use the HUMAN type for criteria that cannot carry an executable check; repo-wide baselines (tests pass / tsc / i18n parity) do not take slots.',
   ].join('\n')
 }

@@ -36,7 +36,7 @@ lumo sprint create --name "Sprint 4" --start 2026-06-01 --end 2026-06-14 --team 
 
 On success: `Created sprint #<number> "<name>"  <id>`.
 
-When to suggest: user says "create a sprint", "new sprint", "新建冲刺", "start a new iteration".
+When to suggest: user says "create a sprint", "new sprint", "start a new iteration".
 
 ### `lumo sprint show <identifier> [--team <ref>]` — show sprint detail + task table
 
@@ -63,7 +63,7 @@ lumo sprint show 3 --team backend
 lumo sprint show 11111111-2222-3333-4444-555555555555
 ```
 
-When to suggest: user asks "what's in sprint 3", "show me the current sprint", "冲刺里有什么", "what tasks are in this sprint", "is this sprint at risk", "冲刺风险", "sprint health".
+When to suggest: user asks "what's in sprint 3", "show me the current sprint", "what tasks are in this sprint", "is this sprint at risk", "sprint health".
 
 ### `lumo sprint update <identifier> [flags]` — patch a sprint
 
@@ -101,7 +101,7 @@ No additional flags. Fails if the sprint is already ACTIVE or CLOSED.
 lumo sprint start 3
 ```
 
-When to suggest: user says "start the sprint", "开始冲刺", "kick off sprint 3", "activate sprint".
+When to suggest: user says "start the sprint", "kick off sprint 3", "activate sprint".
 
 ### `lumo sprint close <identifier> [flags]` — transition ACTIVE → CLOSED
 
@@ -119,7 +119,7 @@ lumo sprint close 3 --move-all --yes         # move unfinished to next sprint
 lumo sprint close 3 --backlog-all --yes      # send unfinished to backlog
 ```
 
-When to suggest: user says "close the sprint", "关闭冲刺", "end sprint 3", "wrap up the sprint". If they haven't decided what to do with unfinished tasks, ask before adding `--move-all` or `--backlog-all`.
+When to suggest: user says "close the sprint", "end sprint 3", "wrap up the sprint". If they haven't decided what to do with unfinished tasks, ask before adding `--move-all` or `--backlog-all`.
 
 ### `lumo sprint summary <identifier> [--retry]` — fetch AI-generated sprint retro
 
@@ -134,7 +134,7 @@ lumo sprint summary 3
 lumo sprint summary 3 --retry
 ```
 
-When to suggest: user asks "summarize the sprint", "sprint retro", "give me a summary of sprint 3", "冲刺总结".
+When to suggest: user asks "summarize the sprint", "sprint retro", "give me a summary of sprint 3".
 
 ### `lumo sprint add <identifier> <task>` — bind a task to a sprint
 
@@ -144,7 +144,7 @@ Adds `<task>` (e.g. `LUM-48`) to the sprint. Same-team check applies — the tas
 lumo sprint add 3 LUM-48
 ```
 
-When to suggest: user says "add LUM-48 to sprint 3", "把任务挂到冲刺", "put this task in the sprint".
+When to suggest: user says "add LUM-48 to sprint 3", "put this task in the sprint".
 
 ### `lumo sprint remove <identifier> <task>` — unbind a task from a sprint
 

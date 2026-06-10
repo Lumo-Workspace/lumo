@@ -16,23 +16,23 @@ describe('formatTaskContextMarkdown — criteriaSection', () => {
       { task: TASK, criteriaSection: '', sessions: [] },
       NOW
     )
-    expect(out).not.toContain('验收标准')
+    expect(out).not.toContain('Acceptance criteria')
   })
 
   it('renders the contract right after the header, before memory', () => {
     const out = formatTaskContextMarkdown(
       {
         task: TASK,
-        criteriaSection: '## 验收标准（合约）\n\n- [MACHINE] tests pass',
+        criteriaSection: '## Acceptance criteria (contract)\n\n- [MACHINE] tests pass',
         memorySection: '## Relevant Memory\n\n- m',
         sessions: [],
       },
       NOW
     )
     expect(out).toContain('- [MACHINE] tests pass')
-    expect(out.indexOf('验收标准')).toBeLessThan(out.indexOf('Relevant Memory'))
+    expect(out.indexOf('Acceptance criteria')).toBeLessThan(out.indexOf('Relevant Memory'))
     expect(out.indexOf('**Description**')).toBeLessThan(
-      out.indexOf('验收标准')
+      out.indexOf('Acceptance criteria')
     )
   })
 })

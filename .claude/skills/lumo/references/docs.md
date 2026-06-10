@@ -42,7 +42,7 @@ The `Tags:` line is omitted when no tags were attached.
 
 ### When to suggest `doc create`
 
-- User says "write a doc", "起一篇 RFC", "新建文档", or describes a deliverable that should live as a document.
+- User says "write a doc", "draft an RFC", "new document" (in any language), or describes a deliverable that should live as a document.
 - After a discussion that needs a write-up, offer to create the doc with a title and the right scope.
 
 ### `lumo doc update <doc> [flags]` — update a document
@@ -156,7 +156,7 @@ Moved cmd_xxx "Sub-doc" → root
 
 ### When to suggest `doc move`
 
-- User says "move doc X under Y", "把文档 X 挂到 Y 下", "reparent X to root", "promote X to top level".
+- User says "move doc X under Y", "reparent X to root", "promote X to top level".
 - After `doc create`, if the user realizes the new doc should live elsewhere in the tree — suggest `doc move` rather than recreating.
 
 ### `lumo doc delete <doc> --yes` — delete a document
@@ -232,7 +232,7 @@ lumo doc share-list "RFC"
 
 ### When to suggest the doc share commands
 
-- User says "share doc X with Y", "give Y access to X", "把文档分享给 Y"
+- User says "share doc X with Y", "give Y access to X"
 - After `doc create --scope personal`, if the user mentions teammates needing access, suggest `doc share` rather than `doc update --scope workspace` when only specific members should see it
 - Before `doc unshare`, run `doc share-list` if the user hasn't named a specific member
 
@@ -266,7 +266,7 @@ The `Bound ... ↔ LUM-N` line appears only when `--task` is supplied.
 
 ### When to suggest `doc import-gdoc`
 
-- User pastes a Google Doc URL or says "import this Google Doc", "pull this gdoc into Lumo", "把这篇 Google 文档导入".
+- User pastes a Google Doc URL or says "import this Google Doc", "pull this gdoc into Lumo".
 - User wants a Google Doc tracked alongside Lumo tasks/docs — suggest import (with `--task LUM-N` if a task is in context) and remind them about the over-share semantics for `--scope workspace`.
 
 ### `lumo doc sync <doc>` — re-sync an imported doc from Google
@@ -290,7 +290,7 @@ Synced cmd_xxx "Quarterly Plan" from Google
 
 ### When to suggest `doc sync`
 
-- User says "re-sync the Google Doc", "pull the latest from Google", "refresh the imported doc", "更新一下从 Google 导入的文档".
+- User says "re-sync the Google Doc", "pull the latest from Google", "refresh the imported doc".
 - After the user mentions the Google Doc changed upstream. Warn first that local Lumo edits to that doc will be overwritten (one-way, destructive).
 
 ### Out of scope (CLI v1)
