@@ -37,28 +37,6 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard',
   () => ({ AgentRunCard: () => null })
 )
-// TokenCostBreakdown renders one "output" label per model; mock it so the
-// toggle test can assert on a single predictable text node.
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TokenCostBreakdown',
-  () => ({
-    TokenCostBreakdown: ({
-      models,
-      showTitle,
-    }: {
-      models: Array<{ model: string }>
-      showTitle?: boolean
-    }) => (
-      <div data-testid='token-cost-breakdown'>
-        {showTitle !== false && <span>Token usage</span>}
-        <span>output</span>
-        {models.map((m: { model: string }) => (
-          <span key={m.model}>{m.model}</span>
-        ))}
-      </div>
-    ),
-  })
-)
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AgentRunTab } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunTab'
@@ -124,9 +102,11 @@ describe('AgentRunTab token usage card', () => {
     const toggle = screen.getByTestId('token-usage-toggle')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('output')).toBeInTheDocument()
+    // Real TokenCostBreakdown renders one "output" row per model group (2 here).
+    expect(screen.getAllByText('output').length).toBeGreaterThan(0)
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
-    // The shared breakdown renders without its own title (header carries it).
+    // The shared breakdown renders without its own title (header carries it);
+    // only the toggle button's "Token usage" label should be present.
     expect(screen.getAllByText('Token usage')).toHaveLength(1)
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
