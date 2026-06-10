@@ -1,0 +1,2892 @@
+{
+  "cliVersion": "1.27.0",
+  "commands": {
+    "auth": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Manage Lumo authentication"
+    },
+    "auth login": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Log in to Lumo by pasting an API key"
+    },
+    "auth logout": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Log out and remove local credentials"
+    },
+    "doc": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Manage Lumo documents"
+    },
+    "doc bind": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it."
+    },
+    "doc create": {
+      "arguments": [
+        {
+          "name": "title",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--content": {
+          "long": "--content",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Inline markdown content"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Read markdown content from file"
+        },
+        "--parent": {
+          "long": "--parent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "File under this parent doc (cuid or title)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug to file under"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "personal",
+            "workspace"
+          ],
+          "description": "personal | workspace (default: personal)"
+        },
+        "--tag": {
+          "long": "--tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Attach tag by name (repeatable)"
+        },
+        "--tag-id": {
+          "long": "--tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Attach tag by id (repeatable)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Bind to this task after creation"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc."
+    },
+    "doc delete": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Confirm deletion"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete a document (requires --yes)"
+    },
+    "doc diff": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Local markdown file to compare against"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
+    },
+    "doc import-gdoc": {
+      "arguments": [
+        {
+          "name": "url",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "personal",
+            "workspace"
+          ],
+          "description": "personal | workspace (default: personal)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Bind the imported doc to this task"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Import a Google Doc as a Lumo doc (one-way Google → Lumo)"
+    },
+    "doc list": {
+      "arguments": [],
+      "flags": {
+        "--limit": {
+          "long": "--limit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Cap output to first N rows"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Filter by project name/slug"
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "personal",
+            "workspace",
+            "all"
+          ],
+          "description": "personal | workspace | all (default: all)"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Only docs bound to this task"
+        },
+        "--tree": {
+          "long": "--tree",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Render as an indented tree"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List documents visible to the current user"
+    },
+    "doc move": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--parent": {
+          "long": "--parent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New parent doc (cuid or title)"
+        },
+        "--root": {
+          "long": "--root",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Move to top level (no parent)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only."
+    },
+    "doc share": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "member",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--role": {
+          "long": "--role",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "viewer",
+            "editor",
+            "manager"
+          ],
+          "description": "viewer | editor | manager (default: viewer)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts \"me\", an email, or a display name."
+    },
+    "doc share-list": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>."
+    },
+    "doc show": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--raw": {
+          "long": "--raw",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Print the stored markdown source verbatim (no header); errors if absent"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render."
+    },
+    "doc sync": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Re-sync a Google-imported doc (overwrites the Lumo body)"
+    },
+    "doc unbind": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Unbind a document from a task. Removes EXPLICIT mentions only — purely CONTENT-derived mentions (from @LUM-N in the body) cannot be removed via CLI and fail with 409; edit the doc body in the web UI instead."
+    },
+    "doc unshare": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "member",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Remove a member from a document's share list. Idempotent — prints \"Not shared with …\" if no row exists."
+    },
+    "doc update": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--add-tag": {
+          "long": "--add-tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Add tag by name (repeatable)"
+        },
+        "--add-tag-id": {
+          "long": "--add-tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Add tag by id (repeatable)"
+        },
+        "--content": {
+          "long": "--content",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Replace content (inline)"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Replace content from file"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name/slug; pass \"\" to clear"
+        },
+        "--remove-tag": {
+          "long": "--remove-tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows."
+        },
+        "--remove-tag-id": {
+          "long": "--remove-tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Remove tag by id (repeatable). Unknown ids are a no-op."
+        },
+        "--scope": {
+          "long": "--scope",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "personal",
+            "workspace"
+          ],
+          "description": "personal | workspace"
+        },
+        "--tag": {
+          "long": "--tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Set tags by name (bulk replace, repeatable)"
+        },
+        "--tag-id": {
+          "long": "--tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Set tags by id (bulk replace, repeatable)"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New title"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
+    },
+    "hook": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Claude Code hook ingestion (invoked by settings.json, not humans)"
+    },
+    "hook config-change": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a ConfigChange hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook cwd-changed": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a CwdChanged hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook elicitation": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward an Elicitation hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook elicitation-result": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward an ElicitationResult hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook file-changed": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a FileChanged hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook instructions-loaded": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook notification": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a Notification hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook permission-denied": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PermissionDenied hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook permission-request": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook post-tool-batch": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PostToolBatch hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook post-tool-use": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PostToolUse hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook post-tool-use-failure": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook pre-tool-use": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a PreToolUse hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook session-end": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a SessionEnd hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook session-start": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a SessionStart hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook stop": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a Stop hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook stop-failure": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a StopFailure hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook subagent-start": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a SubagentStart hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook subagent-stop": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a SubagentStop hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook task-completed": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a TaskCompleted hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook task-created": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a TaskCreated hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook user-prompt-expansion": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a UserPromptExpansion hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook user-prompt-submit": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook worktree-create": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)"
+    },
+    "hook worktree-remove": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
+    },
+    "memory": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)"
+    },
+    "memory promote": {
+      "arguments": [
+        {
+          "name": "memoryId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks."
+    },
+    "memory rm": {
+      "arguments": [
+        {
+          "name": "memoryId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Confirm deletion"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete a memory (hard delete). Requires --yes."
+    },
+    "milestone": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect milestones from the terminal"
+    },
+    "milestone add": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "tasks",
+          "required": true,
+          "variadic": true
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back."
+    },
+    "milestone archive": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name."
+    },
+    "milestone create": {
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "description": "Milestone description"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Start date (YYYY-MM-DD)"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Target date (YYYY-MM-DD)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a milestone. --project required when workspace has >1 project."
+    },
+    "milestone delete": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Required: confirm deletion without TTY prompt"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes."
+    },
+    "milestone list": {
+      "arguments": [],
+      "flags": {
+        "--all": {
+          "long": "--all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Show both archived and non-archived milestones"
+        },
+        "--archived": {
+          "long": "--archived",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Show only archived milestones"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug"
+        },
+        "--search": {
+          "long": "--search",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Filter by name/description substring (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown."
+    },
+    "milestone move": {
+      "arguments": [
+        {
+          "name": "ref",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--after": {
+          "long": "--after",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Place <ref> immediately after this milestone"
+        },
+        "--before": {
+          "long": "--before",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Place <ref> immediately before this milestone"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project."
+    },
+    "milestone remove": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "tasks",
+          "required": true,
+          "variadic": true
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID."
+    },
+    "milestone reorder": {
+      "arguments": [
+        {
+          "name": "refs",
+          "required": true,
+          "variadic": true
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
+    },
+    "milestone show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name."
+    },
+    "milestone summary": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        },
+        "--retry": {
+          "long": "--retry",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Trigger summary regeneration before fetching"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
+    },
+    "milestone unarchive": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name."
+    },
+    "milestone update": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "description": "New description (empty string to clear)"
+        },
+        "--name": {
+          "long": "--name",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "New name"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug (when identifier is a name)"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Start date YYYY-MM-DD (empty string to clear)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": [
+            "planned",
+            "active",
+            "completed",
+            "cancelled"
+          ],
+          "description": "New status: planned | active | completed | cancelled"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Target date YYYY-MM-DD (empty string to clear)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Update a milestone. Provide at least one of --name, --description, --status, --start, --target. Use \"\" to clear nullable fields."
+    },
+    "next": {
+      "arguments": [],
+      "flags": {
+        "--count": {
+          "long": "--count",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Number of tasks to recommend (default 3)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`."
+    },
+    "project": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect projects from the terminal"
+    },
+    "project list": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
+    },
+    "project memory": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "View and record PROJECT-scope memories"
+    },
+    "project memory add": {
+      "arguments": [
+        {
+          "name": "project",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)"
+        },
+        "--alternatives": {
+          "long": "--alternatives",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision optional alternatives"
+        },
+        "--applies": {
+          "long": "--applies",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "convention: where it applies"
+        },
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
+          "description": "trap | decision | convention | procedural"
+        },
+        "--implications": {
+          "long": "--implications",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision optional implications"
+        },
+        "--outcome": {
+          "long": "--outcome",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap outcome"
+        },
+        "--rule": {
+          "long": "--rule",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "convention rule"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "procedural step (repeatable)"
+        },
+        "--trigger": {
+          "long": "--trigger",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap/procedural trigger"
+        },
+        "--what": {
+          "long": "--what",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision"
+        },
+        "--why": {
+          "long": "--why",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision rationale"
+        },
+        "--workaround": {
+          "long": "--workaround",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap optional workaround"
+        },
+        "--workflow": {
+          "long": "--workflow",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "procedural workflow"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
+    },
+    "project memory list": {
+      "arguments": [
+        {
+          "name": "project",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
+          "description": "Filter by trap|decision|convention|procedural"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Cap output to the first N rows"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    },
+    "session": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Manage per-terminal coding-session context"
+    },
+    "session attach": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Overwrite an existing binding to a different task without confirmation (skips the [y/N] prompt)."
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events. If the session is already bound to a different task, confirms before overwriting (use --force to skip)."
+    },
+    "session detach": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Clear the task binding on the current Claude Code session. Past hook events keep their taskId; only future events become untagged."
+    },
+    "session status": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the task currently bound to this Claude Code session (or \"no task\" if none)."
+    },
+    "session wrap": {
+      "arguments": [],
+      "flags": {
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Print the draft but do not post or advance the watermark"
+        },
+        "--used": {
+          "long": "--used",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Mark which injected context fragments you actually used (1-based indices, comma/space separated; \"none\" for all-unused). Omit to skip recording."
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": "-y",
+          "value": "none",
+          "enum": null,
+          "description": "Post the drafted comment without prompting (agent-friendly)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Session-end wrap-up: draft a progress comment from this session's turn summaries and post it to the bound task after confirmation."
+    },
+    "setup": {
+      "arguments": [],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command. Defaults to claude-code."
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Overwrite existing skill files (SKILL.md + references/) when they differ from the bundled version"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Install into ./.claude (applies to the current project only)"
+        },
+        "--user": {
+          "long": "--user",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Install into ~/.claude (applies across all projects for this user)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Install the Lumo Claude Code skill and wire hook handlers into .claude/settings.json. Run via `npx @lumoai/cli setup` for first-time onboarding."
+    },
+    "sprint": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect sprints from the terminal"
+    },
+    "sprint add": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (informational)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Add a task to a sprint. <task> accepts LUM-N or UUID."
+    },
+    "sprint close": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--backlog-all": {
+          "long": "--backlog-all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Return all unfinished tasks to the backlog"
+        },
+        "--move-all": {
+          "long": "--move-all",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Move all unfinished tasks to the next sprint"
+        },
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (informational)"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Required when --move-all or --backlog-all is set"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog."
+    },
+    "sprint create": {
+      "arguments": [],
+      "flags": {
+        "--end": {
+          "long": "--end",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "End date (YYYY-MM-DD)"
+        },
+        "--name": {
+          "long": "--name",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Sprint name (server fills default when omitted)"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Start date (YYYY-MM-DD)"
+        },
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required."
+    },
+    "sprint delete": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (informational)"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Confirm deletion"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints."
+    },
+    "sprint list": {
+      "arguments": [],
+      "flags": {
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Show only the first N sprints"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": [
+            "draft",
+            "active",
+            "closed"
+          ],
+          "description": "Filter by status: draft | active | closed (case-insensitive)"
+        },
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List sprints for a team. --team required when workspace has >1 team. Sorted newest first."
+    },
+    "sprint remove": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (informational)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Remove a task from a sprint. <task> accepts LUM-N or UUID."
+    },
+    "sprint show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (when workspace has >1 team)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID."
+    },
+    "sprint start": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (informational)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Transition a DRAFT sprint to ACTIVE."
+    },
+    "sprint summary": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--retry": {
+          "long": "--retry",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Trigger summary regeneration before fetching"
+        },
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (when workspace has >1 team)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
+    },
+    "sprint update": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--end": {
+          "long": "--end",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New end date (YYYY-MM-DD)"
+        },
+        "--name": {
+          "long": "--name",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "New sprint name"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New start date (YYYY-MM-DD)"
+        },
+        "--team": {
+          "long": "--team",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Team name or UUID (when workspace has >1 team)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared."
+    },
+    "task": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect tasks from the terminal"
+    },
+    "task artifact": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Record spec-engineering artifacts (spec / plan / design …) on a task"
+    },
+    "task artifact add": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "description": "Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "File whose contents become the artifact body"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "spec",
+            "plan",
+            "design"
+          ],
+          "description": "Artifact kind, e.g. spec | plan | design (opaque)"
+        },
+        "--source": {
+          "long": "--source",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "BMad",
+            "OpenSpec",
+            "GSD"
+          ],
+          "description": "Spec-gen framework, formal name e.g. Superpowers | \"Spec Kit\" | BMad | OpenSpec | GSD (opaque; quote names with spaces)"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Artifact title"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content."
+    },
+    "task artifact list": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List artifacts attached to a task, in order"
+    },
+    "task artifact rm": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "artifact-id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Confirm deletion (required, no interactive prompt)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete an artifact from a task. Irreversible — requires --yes."
+    },
+    "task artifact show": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "artifact-id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1."
+    },
+    "task artifact update": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "artifact-id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "description": "New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf"
+        },
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New artifact kind (opaque)"
+        },
+        "--source": {
+          "long": "--source",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "BMad",
+            "OpenSpec",
+            "GSD"
+          ],
+          "description": "New spec-gen framework, formal name e.g. Superpowers | \"Spec Kit\" | BMad | OpenSpec | GSD (quote names with spaces)"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New artifact title"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Update an artifact’s kind / title / source (not content). Provide at least one flag."
+    },
+    "task comment": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "body",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines."
+    },
+    "task comments": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect the full task comment thread"
+    },
+    "task comments list": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List the full task comment thread"
+    },
+    "task context": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup."
+    },
+    "task create": {
+      "arguments": [
+        {
+          "name": "title",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--assignee": {
+          "long": "--assignee",
+          "short": "-a",
+          "value": "required",
+          "enum": null,
+          "description": "Assignee email, name, or \"me\" (default: me)"
+        },
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "description": "Task description"
+        },
+        "--milestone": {
+          "long": "--milestone",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Milestone name (case-insensitive)"
+        },
+        "--priority": {
+          "long": "--priority",
+          "short": "-p",
+          "value": "required",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ],
+          "description": "Priority: low | medium | high | urgent (default: low)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Project name or slug"
+        },
+        "--sprint": {
+          "long": "--sprint",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Sprint number or UUID to add the task to after creation"
+        },
+        "--tag": {
+          "long": "--tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Attach tag by name (repeatable)"
+        },
+        "--tag-id": {
+          "long": "--tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Attach tag by id (repeatable)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me."
+    },
+    "task criteria": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Acceptance criteria — the task’s verification contract (LUM-342)"
+    },
+    "task criteria list": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List a task’s acceptance criteria (id, type, provenance, checkpointer)"
+    },
+    "task criteria set": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--cause": {
+          "long": "--cause",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "NEW_INFO",
+            "SCOPE_CHANGE",
+            "DRAFT_BLIND_SPOT",
+            "GRANULARITY",
+            "OTHER"
+          ],
+          "description": "Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "JSON array of criteria: [{\"statement\",\"verifierType\":\"MACHINE\"|\"HUMAN\",\"checkpointer?\",\"evidenceRequired?\",\"id?\"}]"
+        },
+        "--human": {
+          "long": "--human",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session provenance"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with \"id\" keep/update, missing ones are deleted)."
+    },
+    "task deps": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Task dependency edges — detected candidates + confirmed blockers"
+    },
+    "task deps add": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--blocked-by": {
+          "long": "--blocked-by",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "blocker task (LUM-N)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Declare a manual hard dependency (CONFIRMED)"
+    },
+    "task deps confirm": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "edge",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--reverse": {
+          "long": "--reverse",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "flip direction when confirming"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Confirm a detected candidate edge"
+    },
+    "task deps dismiss": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "edge",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Dismiss a candidate (never re-suggested)"
+    },
+    "task deps list": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List dependency edges (both directions)"
+    },
+    "task deps rm": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "edge",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "skip confirmation"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Delete a dependency edge"
+    },
+    "task figma": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Attach Figma file/frame links to a task"
+    },
+    "task figma add": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "url",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth."
+    },
+    "task figma context": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "linkId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the cached Figma design context (metadata)"
+    },
+    "task figma list": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List Figma links attached to a task"
+    },
+    "task figma refresh": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated."
+    },
+    "task figma rm": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "link-id-or-url",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Remove a Figma link from a task (idempotent)"
+    },
+    "task lineage": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--signal": {
+          "long": "--signal",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Append usage-signal health section (fetches /api/lineage/signal)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
+    },
+    "task list": {
+      "arguments": [],
+      "flags": {
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Show only the first N tasks"
+        },
+        "--milestone": {
+          "long": "--milestone",
+          "short": "-m",
+          "value": "required",
+          "enum": null,
+          "description": "Filter by milestone name or UUID (scopes to my tasks under that milestone)"
+        },
+        "--project": {
+          "long": "--project",
+          "short": "-p",
+          "value": "required",
+          "enum": null,
+          "description": "Filter by project name (case-insensitive)"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": [
+            "todo",
+            "in_progress",
+            "in_review",
+            "done"
+          ],
+          "description": "Filter by status: todo | in_progress | in_review | done"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List tasks assigned to you. Filter with --status, --project, --milestone, --limit."
+    },
+    "task memory": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "View and record memories scoped to a task"
+    },
+    "task memory add": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--agent": {
+          "long": "--agent",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini-cli",
+            "github-copilot",
+            "windsurf"
+          ],
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)"
+        },
+        "--alternatives": {
+          "long": "--alternatives",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision: optional alternatives considered"
+        },
+        "--applies": {
+          "long": "--applies",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "convention: where the rule applies"
+        },
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
+          "description": "trap | decision | convention | procedural"
+        },
+        "--implications": {
+          "long": "--implications",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision: optional implications"
+        },
+        "--outcome": {
+          "long": "--outcome",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap: what goes wrong"
+        },
+        "--rule": {
+          "long": "--rule",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "convention: the rule"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "procedural: a step (repeatable)"
+        },
+        "--trigger": {
+          "long": "--trigger",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap/procedural: the situation that triggers it"
+        },
+        "--what": {
+          "long": "--what",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision: the decision"
+        },
+        "--why": {
+          "long": "--why",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "decision: rationale"
+        },
+        "--workaround": {
+          "long": "--workaround",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "trap: optional fix"
+        },
+        "--workflow": {
+          "long": "--workflow",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "procedural: the workflow name"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Record a memory on a task (<task> defaults to the bound session). Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. Pick --category then its fields."
+    },
+    "task memory list": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--category": {
+          "long": "--category",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "trap",
+            "decision",
+            "convention",
+            "procedural"
+          ],
+          "description": "Filter by trap|decision|convention|procedural"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "description": "Cap output to the first N rows"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List a task's memories. <task> defaults to the session-bound task."
+    },
+    "task pr": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect linked PRs"
+    },
+    "task pr show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "number",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the synced PR record (diff/review comments when available)"
+    },
+    "task show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show a single task: title, status, priority, assignee, project, URL, description."
+    },
+    "task slack": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect Slack context"
+    },
+    "task slack show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "contextId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the full stored Slack thread snapshot"
+    },
+    "task status": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Emit the versioned machine-readable payload (version field; breaking changes bump it)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected."
+    },
+    "task update": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--add-tag": {
+          "long": "--add-tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Add tag by name (repeatable)"
+        },
+        "--add-tag-id": {
+          "long": "--add-tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Add tag by id (repeatable)"
+        },
+        "--assignee": {
+          "long": "--assignee",
+          "short": "-a",
+          "value": "required",
+          "enum": null,
+          "description": "New assignee: email, name, or \"me\" (empty string to clear)"
+        },
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "description": "New description (empty string to clear)"
+        },
+        "--milestone": {
+          "long": "--milestone",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Milestone name (case-insensitive); empty string to unbind"
+        },
+        "--priority": {
+          "long": "--priority",
+          "short": "-p",
+          "value": "required",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ],
+          "description": "New priority: low | medium | high | urgent"
+        },
+        "--remove-tag": {
+          "long": "--remove-tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows."
+        },
+        "--remove-tag-id": {
+          "long": "--remove-tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Remove tag by id (repeatable). Unknown ids are a no-op."
+        },
+        "--sprint": {
+          "long": "--sprint",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Sprint number or UUID to bind the task to; empty string to unbind from current sprint"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": [
+            "todo",
+            "in_progress",
+            "in_review",
+            "done"
+          ],
+          "description": "New status: todo | in_progress | in_review | done"
+        },
+        "--tag": {
+          "long": "--tag",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Set tags by name (bulk replace, repeatable)"
+        },
+        "--tag-id": {
+          "long": "--tag-id",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Set tags by id (bulk replace, repeatable)"
+        },
+        "--title": {
+          "long": "--title",
+          "short": "-t",
+          "value": "required",
+          "enum": null,
+          "description": "New title"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use \"\" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
+    },
+    "task web": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect web link content"
+    },
+    "task web show": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "linkId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the fetched web link body as plain text"
+    },
+    "update": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Check npm for a newer @lumoai/cli and install it globally if available."
+    },
+    "verify": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--timeout": {
+          "long": "--timeout",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Per-checkpointer timeout in seconds (default 600)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Machine verification loop (LUM-343): run every MACHINE criterion checkpointer locally, report structured verdicts to the server (round cap 3), and print next actions. All-pass moves the task to IN_REVIEW. Defaults to the session-bound task."
+    },
+    "whoami": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the currently logged-in identity"
+    },
+    "worktree": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Scaffold, remove, and list parallel git worktrees under .worktrees/ (node_modules symlink + prisma/jest gotcha guidance). Local dev tooling; run from the main checkout."
+    },
+    "worktree add": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        },
+        {
+          "name": "slug",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--base": {
+          "long": "--base",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Branch off this ref instead of origin/main (skips fetch)"
+        },
+        "--no-fetch": {
+          "long": "--no-fetch",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Do not `git fetch origin main` before branching"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Run `npx jest` in the new worktree to confirm a clean baseline"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout."
+    },
+    "worktree list": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked."
+    },
+    "worktree rm": {
+      "arguments": [
+        {
+          "name": "identifier",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--delete-branch": {
+          "long": "--delete-branch",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Also delete the branch (git branch -d; refuses if unmerged)"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Remove even with uncommitted changes"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Confirm removal (required, no interactive prompt)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch."
+    }
+  }
+}

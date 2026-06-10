@@ -126,12 +126,15 @@ describe('task-done stamp stratifies MERGED by verification strength', () => {
       data: { outcome: 'MERGED' },
     })
     // 2nd update: strength reconcile onto every MERGED edge of the task,
-    // monotonic (anything not already true).
+    // monotonic (anything not already true). The eligible states are
+    // enumerated as null/false explicitly: NOT/not on a nullable Boolean
+    // compiles to SQL `<> true`, which NULL rows never satisfy — the filter
+    // would silently skip exactly the rows the upgrade exists for.
     expect(mockEdgeUpdateMany).toHaveBeenNthCalledWith(2, {
       where: {
         taskId: 't-1',
         outcome: 'MERGED',
-        NOT: { outcomeVerified: true },
+        OR: [{ outcomeVerified: null }, { outcomeVerified: false }],
       },
       data: { outcomeVerified: true },
     })
@@ -200,13 +203,14 @@ describe('dual-path consistency (immediate stamp vs cron sweep)', () => {
       },
       data: { outcome: 'MERGED' },
     })
-    // 2nd: verified stratum = exactly the derivation's all-PASS set.
+    // 2nd: verified stratum = exactly the derivation's all-PASS set, with
+    // null/false enumerated explicitly (NOT skips NULL rows in SQL).
     expect(mockEdgeUpdateMany).toHaveBeenNthCalledWith(2, {
       where: {
         outcome: 'MERGED',
         task: { status: 'DONE' },
         taskId: { in: ['t-verified'] },
-        NOT: { outcomeVerified: true },
+        OR: [{ outcomeVerified: null }, { outcomeVerified: false }],
       },
       data: { outcomeVerified: true },
     })
@@ -258,8 +262,13 @@ describe('dual-path consistency (immediate stamp vs cron sweep)', () => {
         // false writes only ever fill null.
         expect(arg.where.outcomeVerified).toBeNull()
       } else {
-        // true writes exclude already-true rows (idempotent upgrade).
-        expect(arg.where.NOT).toEqual({ outcomeVerified: true })
+        // true writes target only null/false rows — never true (idempotent
+        // upgrade), and never via NOT (which would skip NULLs in SQL).
+        expect(arg.where.OR).toEqual([
+          { outcomeVerified: null },
+          { outcomeVerified: false },
+        ])
+        expect(arg.where).not.toHaveProperty('NOT')
       }
     }
     expect(strengthWrites).toHaveLength(2)

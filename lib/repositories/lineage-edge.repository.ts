@@ -508,8 +508,13 @@ export const lineageEdgeRepository = {
         where: {
           taskId,
           outcome: 'MERGED',
+          // Three-valued-logic trap: Prisma's NOT/not on a nullable Boolean
+          // compiles to SQL `<> true`, which NULL rows never satisfy — a
+          // `NOT { outcomeVerified: true }` filter silently skips the very
+          // null rows the upgrade exists for (caught live: prod had 0
+          // verified=true edges). Enumerate the eligible states explicitly.
           ...(opts.verified
-            ? { NOT: { outcomeVerified: true } }
+            ? { OR: [{ outcomeVerified: null }, { outcomeVerified: false }] }
             : { outcomeVerified: null }),
         },
         data: { outcomeVerified: opts.verified },
@@ -559,7 +564,9 @@ export const lineageEdgeRepository = {
         outcome: 'MERGED',
         task: { status: 'DONE' },
         taskId: { in: verifiedTaskIds },
-        NOT: { outcomeVerified: true },
+        // Explicit null/false enumeration — NOT/not on a nullable Boolean
+        // excludes NULL rows in SQL (see stampOutcomeByTask).
+        OR: [{ outcomeVerified: null }, { outcomeVerified: false }],
       },
       data: { outcomeVerified: true },
     })

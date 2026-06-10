@@ -17,8 +17,10 @@ contract, you MUST draft and submit criteria before starting implementation:
 1. Read the task description, comments, linked resources, and memory first —
    the contract distills what "done" means, so understand the task before
    writing it.
-2. Draft **3–7 criteria** (soft range — the server warns outside it but never
-   rejects; if you genuinely need more, merge related checks instead).
+2. Draft **3–7 criteria** for a typical multi-file task (soft range — the
+   server warns outside it but never rejects; if you genuinely need more,
+   merge related checks instead). **Scale the count down for small tasks** —
+   see "Scale the contract to the task size" below.
 3. Submit with `lumo task criteria set <task> --file <criteria.json>`.
    Submission **locks the contract for agent edits** — get it right before
    submitting, because afterwards only human revisions (`--human`) can change it.
@@ -26,6 +28,23 @@ contract, you MUST draft and submit criteria before starting implementation:
 Once you (the agent) have started work, you can NOT change your own contract.
 That's by design: the contract is what your work gets judged against, not a
 to-do list you trim to fit what you built.
+
+## Scale the contract to the task size
+
+The 3–7 range is calibrated for typical multi-file tasks. The criterion count
+must track the size of the work — it is not a fixed ritual:
+
+- **Micro task** (expected to fit a single session, blast radius of one or
+  two files — a docs tweak, a copy change, a small targeted fix): **1–2
+  criteria IS a complete contract** — one targeted MACHINE criterion plus at
+  most one HUMAN criterion.
+- **Never pad toward the soft floor.** A filler criterion (a restated
+  baseline, a third angle on the same check) dilutes the contract and taxes
+  every verification round. For a micro task the below-minimum warning is
+  expected — ignore it.
+- **Shrink the contract, never skip it.** Every task still drafts and locks a
+  contract before the first line of code; task size only changes how many
+  criteria that takes.
 
 ## How to write good criteria
 
@@ -129,8 +148,10 @@ before a `--human` revision. Empty contract prints a drafting pointer.
   binding.
 - **`lumo task context`**: the `## Acceptance criteria (contract)` section appears after the
   task description, before memory.
-- Review-time gap findings (`REVIEW_ADDED`, appended at the round they
-  surface) arrive via the verification loop, not via `criteria set`.
+- Review-time gap findings are appended at the round they surface and show up
+  in the contract automatically — `REVIEW_ADDED` provenance via human review
+  paths; findings a human raises in conversation are transcribed with
+  `--human` + `--cause` (see verify.md "Review-time drift habits").
 
 ## After the contract: the verification loop
 

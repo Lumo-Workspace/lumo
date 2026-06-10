@@ -25,7 +25,7 @@ export function criteriaCountWarning(count: number): string | null {
     return `${count} acceptance criteria exceeds the recommended maximum of ${ACCEPTANCE_CRITERIA_SOFT_MAX} — consider folding related checks together`
   }
   if (count < ACCEPTANCE_CRITERIA_SOFT_MIN) {
-    return `${count} acceptance criteria is below the recommended minimum of ${ACCEPTANCE_CRITERIA_SOFT_MIN} — the contract may be under-specified`
+    return `${count} acceptance criteria is below the recommended minimum of ${ACCEPTANCE_CRITERIA_SOFT_MIN} — fine for a micro task (1–2 targeted criteria is a complete contract for single-session, small-blast-radius work); otherwise the contract may be under-specified`
   }
   return null
 }

@@ -39,13 +39,16 @@ describe('lineageEdgeRepository.stampDoneTaskEdges', () => {
 
     await lineageEdgeRepository.stampDoneTaskEdges(['t-v1', 't-v2'])
 
-    // Verified pass: tasks in the all-PASS set, anything not already true.
+    // Verified pass: tasks in the all-PASS set, anything not already true —
+    // null and false enumerated explicitly, because NOT/not on a nullable
+    // Boolean compiles to SQL `<> true` and silently skips NULL rows (the
+    // prod bug: 523 null edges never upgraded, 0 verified=true anywhere).
     expect(mockUpdateMany).toHaveBeenNthCalledWith(2, {
       where: {
         outcome: 'MERGED',
         task: { status: 'DONE' },
         taskId: { in: ['t-v1', 't-v2'] },
-        NOT: { outcomeVerified: true },
+        OR: [{ outcomeVerified: null }, { outcomeVerified: false }],
       },
       data: { outcomeVerified: true },
     })
