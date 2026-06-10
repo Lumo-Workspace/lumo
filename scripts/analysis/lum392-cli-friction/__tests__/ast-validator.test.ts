@@ -42,6 +42,78 @@ describe('AST validator — valid invocations produce zero false positives', () 
   )
 })
 
+describe('AST validator — open example lists are not closed enums (LUM-420)', () => {
+  it('accepts any --source value: the help text is an e.g. example list, not an enum', () => {
+    for (const source of ['Superpowers', 'BMad', 'SomeNewFramework']) {
+      const v = validateSegment(
+        `lumo task artifact add LUM-1 --kind spec --title T --file spec.md --source ${source} --agent claude-code`,
+        grammar
+      )
+      expect(v).toMatchObject({ kind: 'valid', offending: null })
+    }
+  })
+
+  it('accepts any --kind value on artifact add (opaque, e.g. example list)', () => {
+    for (const kind of ['decision', 'spike', 'spec']) {
+      const v = validateSegment(
+        `lumo task artifact add LUM-1 --kind ${kind} --title T --file spec.md --source GSD --agent claude-code`,
+        grammar
+      )
+      expect(v).toMatchObject({ kind: 'valid', offending: null })
+    }
+  })
+
+  it('artifact update --source is equally open (example list)', () => {
+    const v = validateSegment(
+      'lumo task artifact update LUM-1 art123 --source Superpowers',
+      grammar
+    )
+    expect(v.kind).toBe('valid')
+  })
+})
+
+describe('AST validator — case-insensitive enums mirror runtime normalization (LUM-420)', () => {
+  it.each([
+    ['lumo task update LUM-9 --status DONE', '--status uppercase'],
+    [
+      'lumo task update LUM-9 --status IN_REVIEW',
+      '--status uppercase underscore',
+    ],
+    [
+      'lumo task update LUM-9 --status in-progress',
+      '--status hyphen variant (normalizeStatus folds -/_)',
+    ],
+    ['lumo task update LUM-9 --priority HIGH', '--priority uppercase'],
+    [
+      'lumo task memory add LUM-9 --category DECISION "body"',
+      '--category uppercase',
+    ],
+    [
+      'lumo task criteria set LUM-9 --file c.json --human --cause scope_change',
+      '--cause lowercase',
+    ],
+    [
+      'lumo task artifact add LUM-9 --kind spec --title T --file f.md --source GSD --agent CLAUDE_CODE',
+      '--agent normalizeAgent folds case and separators',
+    ],
+    ['lumo doc list --scope ALL', '--scope uppercase'],
+  ])('accepts %s (%s)', raw => {
+    const v = validateSegment(raw, grammar)
+    expect(v).toMatchObject({ kind: 'valid', offending: null })
+  })
+
+  it.each([
+    ['lumo task update LUM-9 --status bogus', 'bogus'],
+    ['lumo task update LUM-9 --status BOGUS', 'BOGUS'],
+    ['lumo task update LUM-9 --priority critical', 'critical'],
+    ['lumo task memory add LUM-9 --category lesson "body"', 'lesson'],
+  ])('still flags genuinely unknown values: %s', (raw, offending) => {
+    const v = validateSegment(raw, grammar)
+    expect(v.kind).toBe('illegal-enum')
+    expect(v.offending).toBe(offending)
+  })
+})
+
 describe('AST validator — construction edge cases', () => {
   it.each(CONSTRUCTION_EDGE_CASES.map(c => [c.raw, c] as const))(
     'judges %s',

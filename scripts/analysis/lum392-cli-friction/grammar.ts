@@ -10,6 +10,12 @@
  * called. Enum value sets follow the CLI's own help-text convention of
  * listing choices as `a | b | c` in the option description (the CLI does not
  * use commander .choices(), so the description text IS the source agents see).
+ *
+ * LUM-420 adjudication: a pipe list preceded by `e.g.` is an OPEN example
+ * list (--source/--kind are opaque free text) and yields no enum; the
+ * `case-insensitive` help marker mirrors the CLI runtime's normalize-before-
+ * validate behavior into the grammar so the validator can fold case the same
+ * way the CLI does.
  */
 
 export interface GrammarFlag {
@@ -21,6 +27,12 @@ export interface GrammarFlag {
   value: 'required' | 'optional' | 'none'
   /** Legal values parsed from the `a | b | c` help-text convention. */
   enum: string[] | null
+  /**
+   * True when the help text carries the `case-insensitive` marker: the CLI
+   * runtime normalizes the value before validating (toUpperCase/toLowerCase
+   * plus `-`/`_` unification), so enum matching must fold the same way.
+   */
+  enumCaseInsensitive: boolean
   description: string
 }
 
@@ -48,6 +60,7 @@ export const GLOBAL_FLAGS: Record<string, GrammarFlag> = {
     short: '-h',
     value: 'none',
     enum: null,
+    enumCaseInsensitive: false,
     description: 'display help for command',
   },
 }
@@ -59,6 +72,7 @@ export const ROOT_FLAGS: Record<string, GrammarFlag> = {
     short: '-V',
     value: 'none',
     enum: null,
+    enumCaseInsensitive: false,
     description: 'output the version number',
   },
 }
@@ -93,25 +107,43 @@ export interface CommandLike {
  * Parse an enum value set out of an option description following the CLI's
  * `a | b | c` help-text convention. Guarded against prose pipes: every
  * candidate must be a bare identifier token and the set must stay small.
+ *
+ * A pipe list preceded by `e.g.` is an open example list, not a closed enum
+ * (LUM-420: `--source … e.g. Superpowers | "Spec Kit" | BMad …` is opaque
+ * free text — 135 real `--source Superpowers` calls were misflagged because
+ * the quoted token broke the match and `BMad | OpenSpec | GSD` re-matched as
+ * a closed set).
  */
 export function parseEnumFromDescription(description: string): string[] | null {
   const m = description.match(
     /([A-Za-z][A-Za-z0-9_-]*)(\s*\|\s*[A-Za-z][A-Za-z0-9_-]*)+/
   )
   if (!m) return null
+  if (/\be\.g\./.test(description.slice(0, m.index))) return null
   const values = m[0].split('|').map(v => v.trim())
   if (values.length < 2 || values.length > 10) return null
   if (new Set(values).size !== values.length) return null
   return values
 }
 
+/**
+ * Whether the help text declares the flag's value matching case-insensitive.
+ * Only meaningful alongside a parsed enum.
+ */
+export function parseCaseInsensitiveMarker(description: string): boolean {
+  return /case-insensitive/i.test(description)
+}
+
 function toGrammarFlag(opt: OptionLike): GrammarFlag {
   const description = opt.description ?? ''
+  const parsedEnum = parseEnumFromDescription(description)
   return {
     long: opt.long ?? opt.flags,
     short: opt.short ?? null,
     value: opt.required ? 'required' : opt.optional ? 'optional' : 'none',
-    enum: parseEnumFromDescription(description),
+    enum: parsedEnum,
+    enumCaseInsensitive:
+      parsedEnum !== null && parseCaseInsensitiveMarker(description),
     description,
   }
 }
