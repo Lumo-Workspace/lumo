@@ -16,6 +16,9 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildLayer2ReviewSectionForTask: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: { setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined) },
+}))
 jest.mock('@/lib/services/lineage.service', () => ({
   lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
 }))
@@ -35,6 +38,20 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { lineageService } from '@/lib/services/lineage.service'
 import { POST } from '@/app/api/hooks/session-start/route'
+
+// LUM-402: buildSessionStartSections carries per-section budget attribution.
+const EMPTY_METRIC = { keptCards: 0, droppedCards: 0, keptTokens: 0, droppedTokens: 0 }
+const EMPTY_BUDGET = {
+  budgetTokens: 2500,
+  sections: {
+    criteria: EMPTY_METRIC,
+    memory: EMPTY_METRIC,
+    pr: EMPTY_METRIC,
+    slack: EMPTY_METRIC,
+    figma: EMPTY_METRIC,
+    web: EMPTY_METRIC,
+  },
+}
 
 const identity = {
   user: { id: 'clerk_1', email: 'a@b', name: 'A' },
@@ -67,8 +84,10 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
       taskId: 'task-1',
     })
     ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      criteriaSection: '',
       memorySection: 'm',
       linkedResourcesSection: 'l',
+      budget: EMPTY_BUDGET,
       fragments: [
         { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
         { fragmentType: 'PR', fragmentId: 'pr-1' },
@@ -81,6 +100,7 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
     ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
       section: '',
       fragments: [{ fragmentType: 'MEMORY', fragmentId: 'mem-proj' }],
+      dropped: 0,
     })
     ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue({
       sessionId: 'prev-s',
@@ -129,8 +149,10 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
       taskId: 'task-1',
     })
     ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
+      budget: EMPTY_BUDGET,
       fragments: [],
     })
     ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
@@ -140,6 +162,7 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
     ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
       section: '',
       fragments: [],
+      dropped: 0,
     })
     ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(
       null

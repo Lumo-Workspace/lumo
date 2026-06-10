@@ -127,6 +127,31 @@ export const hookEventRepository = {
   },
 
   /**
+   * Persist the server-computed session-start injection metrics by replacing
+   * the SESSION_START row's payload with `payloadWithMetrics` — the original
+   * boundary-validated payload plus the `_lumo_context_metrics` reserved key
+   * (LUM-402). The caller owns the merge; nothing else writes a SESSION_START
+   * payload after insert, so the replace cannot race another writer.
+   * Best-effort like `setTurnSummary` — a vanished row (P2025) is swallowed
+   * because the caller is fire-and-forget.
+   */
+  async setContextInjectionMetrics(
+    eventId: string,
+    payloadWithMetrics: Prisma.InputJsonValue
+  ) {
+    try {
+      await prisma.hookEvent.update({
+        where: { id: eventId },
+        data: { payload: payloadWithMetrics },
+        select: { id: true },
+      })
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code
+      if (code !== 'P2025') throw error
+    }
+  },
+
+  /**
    * All hook events for a task, ordered by time. Used by the Agent Run
    * timeline to reconstruct what Claude Code did during each session.
    *
