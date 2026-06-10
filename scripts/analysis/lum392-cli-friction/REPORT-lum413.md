@@ -4,22 +4,22 @@
 
 ## 1. Five-class result distribution
 
-| Class           | Count |     % | Definition                                                                                       |
-| --------------- | ----: | ----: | ------------------------------------------------------------------------------------------------ |
-| valid-result    |  2911 | 87.3% | succeeded, output usable (InfoMosaic)                                                            |
-| redundant-valid |   319 |  9.6% | succeeded but ceremonial/redundant — status walking, identical repeats (WildToolBench 5th class) |
-| usage-error     |    40 |  1.2% | right tool, wrong construction (InfoMosaic)                                                      |
-| selection-error |     2 |  0.1% | nonexistent/wrong tool selected (InfoMosaic)                                                     |
-| invalid-result  |    63 |  1.9% | well-formed call, unusable result — incl. masked failures (InfoMosaic + Gorilla)                 |
+| Class | Count | % | Definition |
+| --- | ---: | ---: | --- |
+| valid-result | 2911 | 87.3% | succeeded, output usable (InfoMosaic) |
+| redundant-valid | 319 | 9.6% | succeeded but ceremonial/redundant — status walking, identical repeats (WildToolBench 5th class) |
+| usage-error | 40 | 1.2% | right tool, wrong construction (InfoMosaic) |
+| selection-error | 2 | 0.1% | nonexistent/wrong tool selected (InfoMosaic) |
+| invalid-result | 63 | 1.9% | well-formed call, unusable result — incl. masked failures (InfoMosaic + Gorilla) |
 
 ## 2. Winston root-cause table (suggestion layer — review worksheet)
 
-| Root cause            | Count | auto | needs-review |
-| --------------------- | ----: | ---: | -----------: |
-| R6_TOOL_ERROR         |    63 |    0 |           63 |
-| R2_INPUT_CONSTRUCTION |    35 |    4 |           31 |
-| R5_TOOLSET_DOCS       |     5 |    5 |            0 |
-| R1_TOOL_SELECTION     |     2 |    0 |            2 |
+| Root cause | Count | auto | needs-review |
+| --- | ---: | ---: | ---: |
+| R6_TOOL_ERROR | 63 | 0 | 63 |
+| R2_INPUT_CONSTRUCTION | 35 | 4 | 31 |
+| R5_TOOLSET_DOCS | 5 | 5 | 0 |
+| R1_TOOL_SELECTION | 2 | 0 | 2 |
 
 R4 (constrained decoding) is structurally n/a on a shell CLI surface and is never auto-suggested. Redundant-valid and interrupted calls carry no root cause (agent behavior, not a fixable tool component).
 
@@ -32,40 +32,40 @@ R4 (constrained decoding) is structurally n/a on a shell CLI surface and is neve
 
 ### Flag-hallucination regression set (AST verdicts, live)
 
-- `lumo session attach LUM-43 --verbose 2>&1` — flag "--verbose" exists nowhere — invented input _(evidence: error: unknown option '--verbose')_
-- `lumo task create CLI: doc tree — lumo doc move + --parent on create --milestone Doc CLI follow-ups --descripti`
-- `lumo task create Bug: lumo doc create's --content / --file conflict with empty non-TTY stdin --priority medium`
-- `lumo task comment LUM-107 PR opened: https://github.com/Lumo-Workspace/lumo/pull/166. 14 commits across 13 pla`
-- `lumo task create Artifact source required end-to-end + artifact edit CLI --priority medium --description "Make`
-- `lumo task create Spec artifact: add agent enum field (Claude Code / Codex / Cursor / Gemini CLI / GitHub Copil`
-- `lumo task comment LUM-115 实现完成，PR: https://github.com/Lumo-Workspace/lumo/pull/176 — agent 枚举(CLAUDE_CODE/CODE`
-- `lumo project memory list --project lumo 2>&1` — hallucinated flag "--project" is mentioned in skill docs — docs drift _(evidence: error: unknown option '--project')_
-- `lumo task comment LUM-169 修复已开 PR #255 (https://github.com/Lumo-Workspace/lumo/pull/255)。方案=按 startedAt 起算 + 全`
-- `lumo milestone list --json 2>/dev/null` — exit 0 with empty output (masked failure) — could be R3 if the output was fine but unread
-- `lumo task update LUM-250 --status in_progress --description "对比飞书文档大纲后发现 Lumo 左侧文档大纲(TOC)的问题,逐条修复。设计原则:层级靠排版不靠`
-- `lumo task comment LUM-258 PR #342 opened: https://github.com/Lumo-Workspace/lumo/pull/342 — adds --info/--warn`
-- `lumo task comment LUM-266 "PR #343 开了：https://github.com/Lumo-Workspace/lumo/pull/343 — server 返回现有绑定 + CLI 三态`
-- `lumo sprint list --project lumo 2>&1` — hallucinated flag "--project" is mentioned in skill docs — docs drift _(evidence: error: unknown option '--project')_
-- `lumo task comment LUM-286 PR #363: 加了两个 token 治理守护测试（:root↔.dark parity + feedback/status/priority 对比度自动断言，自包含`
+  - `lumo session attach LUM-43 --verbose 2>&1` — flag "--verbose" exists nowhere — invented input _(evidence: error: unknown option '--verbose')_
+  - `lumo task create CLI: doc tree — lumo doc move + --parent on create --milestone Doc CLI follow-ups --descripti`
+  - `lumo task create Bug: lumo doc create's --content / --file conflict with empty non-TTY stdin --priority medium`
+  - `lumo task comment LUM-107 PR opened: https://github.com/Lumo-Workspace/lumo/pull/166. 14 commits across 13 pla`
+  - `lumo task create Artifact source required end-to-end + artifact edit CLI --priority medium --description "Make`
+  - `lumo task create Spec artifact: add agent enum field (Claude Code / Codex / Cursor / Gemini CLI / GitHub Copil`
+  - `lumo task comment LUM-115 实现完成，PR: https://github.com/Lumo-Workspace/lumo/pull/176 — agent 枚举(CLAUDE_CODE/CODE`
+  - `lumo project memory list --project lumo 2>&1` — hallucinated flag "--project" is mentioned in skill docs — docs drift _(evidence: error: unknown option '--project')_
+  - `lumo task comment LUM-169 修复已开 PR #255 (https://github.com/Lumo-Workspace/lumo/pull/255)。方案=按 startedAt 起算 + 全`
+  - `lumo milestone list --json 2>/dev/null` — exit 0 with empty output (masked failure) — could be R3 if the output was fine but unread
+  - `lumo task update LUM-250 --status in_progress --description "对比飞书文档大纲后发现 Lumo 左侧文档大纲(TOC)的问题,逐条修复。设计原则:层级靠排版不靠`
+  - `lumo task comment LUM-258 PR #342 opened: https://github.com/Lumo-Workspace/lumo/pull/342 — adds --info/--warn`
+  - `lumo task comment LUM-266 "PR #343 开了：https://github.com/Lumo-Workspace/lumo/pull/343 — server 返回现有绑定 + CLI 三态`
+  - `lumo sprint list --project lumo 2>&1` — hallucinated flag "--project" is mentioned in skill docs — docs drift _(evidence: error: unknown option '--project')_
+  - `lumo task comment LUM-286 PR #363: 加了两个 token 治理守护测试（:root↔.dark parity + feedback/status/priority 对比度自动断言，自包含`
 
 ### Doc-behavior drift: structurally illegal per help text, accepted at run time
 
 The CLI declares enums in help text only (no commander `.choices()`), so runtime accepts what the docs forbid. 20 invocations are in this gap (also includes stderr-suppressed runs):
 
-| Violation · command · token                   | Count |
-| --------------------------------------------- | ----: |
-| unknown-command · (root) · skill              |     2 |
-| unknown-flag · task comment · --noEmit        |     2 |
-| unknown-command · session · start             |     1 |
-| unknown-flag · task create · --parent         |     1 |
-| unknown-flag · task create · --content        |     1 |
-| unknown-flag · task comment · --apply         |     1 |
-| unknown-command · (root) · artifact           |     1 |
-| unknown-flag · task create · --source         |     1 |
-| unknown-flag · task create · --agent          |     1 |
-| unknown-flag · task comment · --agent         |     1 |
-| unknown-command · task · (missing subcommand) |     1 |
-| unknown-flag · milestone list · --json        |     1 |
+| Violation · command · token | Count |
+| --- | ---: |
+| unknown-command · (root) · skill | 2 |
+| unknown-flag · task comment · --noEmit | 2 |
+| unknown-command · session · start | 1 |
+| unknown-flag · task create · --parent | 1 |
+| unknown-flag · task create · --content | 1 |
+| unknown-flag · task comment · --apply | 1 |
+| unknown-command · (root) · artifact | 1 |
+| unknown-flag · task create · --source | 1 |
+| unknown-flag · task create · --agent | 1 |
+| unknown-flag · task comment · --agent | 1 |
+| unknown-command · task · (missing subcommand) | 1 |
+| unknown-flag · milestone list · --json | 1 |
 
 ## 4. Side checks
 
@@ -77,13 +77,13 @@ The CLI declares enums in help text only (no commander `.choices()`), so runtime
 
 123 of 325 lumo-using sessions loaded the lumo skill (recall 37.8%). Weekly trend (description-trim watch item):
 
-| Week of    | Sessions | Loaded skill | Recall |
-| ---------- | -------: | -----------: | -----: |
-| 2026-05-11 |        1 |            0 |   0.0% |
-| 2026-05-18 |       48 |            6 |  12.5% |
-| 2026-05-25 |       39 |            6 |  15.4% |
-| 2026-06-01 |      186 |           68 |  36.6% |
-| 2026-06-08 |       51 |           43 |  84.3% |
+| Week of | Sessions | Loaded skill | Recall |
+| --- | ---: | ---: | ---: |
+| 2026-05-11 | 1 | 0 | 0.0% |
+| 2026-05-18 | 48 | 6 | 12.5% |
+| 2026-05-25 | 39 | 6 | 15.4% |
+| 2026-06-01 | 186 | 68 | 36.6% |
+| 2026-06-08 | 51 | 43 | 84.3% |
 
 ### 4.3 Self-conditioning (WildToolBench)
 
@@ -95,3 +95,4 @@ Across 292 sessions (≥5 invocations), 315 redundant calls sit at mean normaliz
 - Sibling invocations in one Bash call share output, so runtime evidence can be misattributed; AST verdicts are per-segment and immune.
 - Redundancy uses a 10-minute in-session window; a status correction within the window is indistinguishable from a walk and counts as one.
 - AST verdicts judge construction against the CURRENT grammar — historical calls that failed against older CLI versions can legitimately differ (that is the drift-regression feature, not a bug).
+
