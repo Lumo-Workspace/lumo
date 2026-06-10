@@ -102,6 +102,10 @@ describe('AgentRunTab token usage card', () => {
     const toggle = screen.getByTestId('token-usage-toggle')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    // The collapsed per-model summary span unmounts when expanded.
+    expect(
+      screen.queryByText('opus-4-8 12300000 · sonnet-4-6 3300000')
+    ).not.toBeInTheDocument()
     // Real TokenCostBreakdown renders one "output" row per model group (2 here).
     expect(screen.getAllByText('output').length).toBeGreaterThan(0)
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()

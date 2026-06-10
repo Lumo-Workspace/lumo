@@ -115,11 +115,19 @@ export function AgentRunTab({
             {!costOpen && (
               <span className='ml-auto flex min-w-0 items-center gap-2 text-muted-foreground'>
                 {hasInFlight && (
-                  <span
-                    data-testid='collapsed-in-flight-dot'
-                    className='size-1.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/60'
-                    aria-hidden
-                  />
+                  <>
+                    <span
+                      data-testid='collapsed-in-flight-dot'
+                      className='size-1.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/60'
+                      aria-hidden
+                    />
+                    <span className='sr-only'>
+                      {intl.formatMessage({
+                        id: 'tokenCost.inFlight',
+                        defaultMessage: 'in progress',
+                      })}
+                    </span>
+                  </>
                 )}
                 <span className='truncate tabular-nums'>{modelSummary}</span>
               </span>
