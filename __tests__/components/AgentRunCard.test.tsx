@@ -67,3 +67,42 @@ describe('AgentRunCard — run-header attribution (LUM-308)', () => {
     expect(screen.queryByTestId('run-member')).not.toBeInTheDocument()
   })
 })
+
+describe('AgentRunCard — in-flight cost label (LUM-345)', () => {
+  const mc = (model: string, total: number) => ({
+    model,
+    input: total,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+    total,
+  })
+
+  it('labels the sentinel "in progress" in the multi-model header join', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          cost: {
+            byModel: [mc('claude-opus-4-8', 170), mc('__in_flight__', 60)],
+            loopCount: 1,
+          },
+        })}
+      />
+    )
+    expect(screen.getByText(/in progress 60/)).toBeInTheDocument()
+    expect(screen.queryByText(/__in_flight__/)).not.toBeInTheDocument()
+    // Real models still get the claude- prefix stripped.
+    expect(screen.getByText(/opus-4-8 170/)).toBeInTheDocument()
+  })
+
+  it('shows a bare total for a lone in-flight row (live first turn)', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          cost: { byModel: [mc('__in_flight__', 10600)], loopCount: 0 },
+        })}
+      />
+    )
+    expect(screen.getByText('10600 tok')).toBeInTheDocument()
+  })
+})

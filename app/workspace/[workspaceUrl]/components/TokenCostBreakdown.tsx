@@ -5,6 +5,7 @@ import { useIntl, type IntlShape } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunMemberStat, ModelCost } from '../types'
+import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 import { initialsOf } from './initials'
 
 export interface CostChip {
@@ -163,8 +164,19 @@ function ModelGroup({
   return (
     <div className='py-2 first:pt-0 border-t border-border/60 first:border-t-0'>
       <div className='flex items-center gap-2'>
-        {m.model && (
-          <span className='text-caption font-semibold'>{m.model}</span>
+        {m.model === IN_FLIGHT_MODEL ? (
+          // Mid-turn burn not yet settled into a per-model split (LUM-345);
+          // muted because it's a state, not a model name.
+          <span className='text-caption font-semibold text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'tokenCost.inFlight',
+              defaultMessage: 'in progress',
+            })}
+          </span>
+        ) : (
+          m.model && (
+            <span className='text-caption font-semibold'>{m.model}</span>
+          )
         )}
         <span className={`${headlineSize} ml-auto tabular-nums`}>
           {fmt(m.total)}{' '}

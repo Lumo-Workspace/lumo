@@ -1462,5 +1462,6 @@
   "notification.verb.projectMentioned": "में आपका उल्लेख किया",
   "notification.verb.milestoneMentioned": "में आपका उल्लेख किया",
   "notification.verb.documentMentioned": "में आपका उल्लेख किया",
-  "notification.verb.documentCommentMentioned": "पर एक टिप्पणी में आपका उल्लेख किया"
+  "notification.verb.documentCommentMentioned": "पर एक टिप्पणी में आपका उल्लेख किया",
+  "tokenCost.inFlight": "प्रगति में"
 }

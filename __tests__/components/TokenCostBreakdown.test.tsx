@@ -245,3 +245,26 @@ describe('memberBreakdownFor', () => {
     expect(rows).toEqual([])
   })
 })
+
+describe('in-flight sentinel row (LUM-345)', () => {
+  const inFlight: ModelCost = {
+    model: '__in_flight__',
+    input: 1000,
+    output: 500,
+    cacheRead: 9000,
+    cacheCreation: 100,
+    total: 10600,
+  }
+
+  it('renders the sentinel as a translated state label, never the raw key', () => {
+    render(<TokenCostBreakdown variant='full' models={[inFlight]} />)
+    expect(screen.getByText('in progress')).toBeInTheDocument()
+    expect(screen.queryByText('__in_flight__')).not.toBeInTheDocument()
+  })
+
+  it('renders alongside a real model group', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus, inFlight]} />)
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    expect(screen.getByText('in progress')).toBeInTheDocument()
+  })
+})

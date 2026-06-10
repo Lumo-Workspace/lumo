@@ -1462,5 +1462,6 @@
   "notification.verb.projectMentioned": "упомянул вас в",
   "notification.verb.milestoneMentioned": "упомянул вас в",
   "notification.verb.documentMentioned": "упомянул вас в",
-  "notification.verb.documentCommentMentioned": "упомянул вас в комментарии к"
+  "notification.verb.documentCommentMentioned": "упомянул вас в комментарии к",
+  "tokenCost.inFlight": "выполняется"
 }
