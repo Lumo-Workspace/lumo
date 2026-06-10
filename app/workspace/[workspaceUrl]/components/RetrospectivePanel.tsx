@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
 import type { Interval } from '@/lib/forecast/types'
 import { RangeBand } from './RangeBand'
+import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 import type {
   RetrospectiveMetric,
   VarianceBand,
@@ -35,10 +36,6 @@ function VariancePill({ metric }: { metric: RetrospectiveMetric }) {
       {metric.deltaPct}% · {intl.formatMessage({ id: BAND_KEY[metric.band] })}
     </span>
   )
-}
-
-function compact(intl: ReturnType<typeof useIntl>, n: number) {
-  return intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
 }
 
 function range(
@@ -138,7 +135,7 @@ export function RetrospectivePanel({
             <span className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'retrospective.predicted' },
-                { value: compact(intl, tokenCost.forecast.median) }
+                { value: fmtCompact(intl, tokenCost.forecast.median) }
               )}
             </span>
             <span className='text-right'>
@@ -146,7 +143,7 @@ export function RetrospectivePanel({
                 {intl.formatMessage({ id: 'retrospective.actualLabel' })}
               </span>
               <span className='text-title-strong text-foreground tabular-nums'>
-                {compact(intl, tokenCost.actual as number)}
+                {fmtCompact(intl, tokenCost.actual as number)}
               </span>
             </span>
           </div>

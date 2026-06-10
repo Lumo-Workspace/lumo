@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunMemberStat, ModelCost } from '../types'
 import { IN_FLIGHT_MODEL } from '@/types/model-cost'
+import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 import { initialsOf } from './initials'
 
 export interface CostChip {
@@ -148,8 +149,7 @@ function ModelGroup({
       return next
     })
 
-  const fmt = (n: number) =>
-    intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
+  const fmt = (n: number) => fmtCompact(intl, n)
   const unit = intl.formatMessage({
     id: 'tokenCost.unit',
     defaultMessage: 'tok',
