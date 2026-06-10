@@ -70,3 +70,55 @@ Rounds are a hard budget of 3, not a retry loop. Between rounds, actually fix
 the failures — re-running without changes burns a round and (at round 3)
 pages a human. A FAIL round never changes task status; only an all-pass round
 moves it (to IN_REVIEW, never further).
+
+## lumo task status — the read half（自查入口）
+
+`lumo task status [task] [--json]` is the read-only counterpart of the loop
+(LUM-344): pure read, milliseconds, no LLM, never writes — running it costs
+nothing and burns no round. Defaults to the session-bound task; an explicit
+identifier overrides.
+
+```
+lumo task status            # session-bound task
+lumo task status LUM-42     # explicit task
+lumo task status --json     # versioned machine-readable payload
+```
+
+### When to run it
+
+**Status-first recovery:** run it FIRST — before re-reading code or
+planning — whenever you:
+
+- resume a task in a new session (yours or another agent's earlier work);
+- come back after a verification round was rejected (`lumo verify` failed);
+- were told the task bounced in review (REVIEW_ADDED criteria may have been
+  appended at the round they surfaced — they show up here automatically).
+
+It answers "where does the loop stand": what already passed (don't redo it),
+what's unmet and why (the exact failure tails), and how many rounds are left.
+
+### What it prints
+
+- Header: task identifier/title/status + `verification round N/3` (round 0 =
+  never verified) + an escalation warning when the machine loop is exhausted.
+- **Criteria** — every criterion as `<glyph> <id>  [TYPE]  SOURCE@rN
+  statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its
+  checkpointer and latest verdict line (evidence pointer on pass, failure
+  tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
+- **History** — one line per recorded round: `rN · timestamp · X PASS / Y FAIL`.
+- **Last round failures** — the most recent round's FAIL verdicts with their
+  rejection reasons (why the last round bounced).
+- **Next actions** — the unmet criteria (latest verdict is not a pass:
+  failed or never verified, HUMAN ones included). This list IS the plan —
+  it is recomputed from the event log on every read, never maintained
+  separately. Empty + rounds recorded = awaiting human adjudication.
+
+### --json contract
+
+`--json` emits the full read model with a top-level `version` field
+(currently `1`). The schema is versioned: breaking shape changes bump the
+major; additive fields don't. Pin on `version` when scripting against it.
+
+`status` reads; `verify` judges. Running status never starts a round, never
+escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on
+all-pass, human-only DONE) live entirely in `lumo verify` and the server.
