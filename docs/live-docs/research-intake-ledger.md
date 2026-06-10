@@ -151,14 +151,14 @@
 - Finding: 三产品三档 containment(claude.ai=gVisor 临时容器 / Claude Code=OS 沙箱 Seatbelt+bubblewrap / Cowork=封死 VM)。关键数字:权限弹窗 **93% 被用户同意**(审批疲劳是真实漏洞,解法是 OS 沙箱砍掉 84% 弹窗而非弹更多窗);直接注入实验 **24/25 次成功**窃出凭证,只有环境层 egress 控制拦住;模型层防御 catch rate 上限 **83%**。核心主张:环境层硬边界 > 模型层引导(数据从被允许路径流出时,日志只是一次「合法授权的调用」);tool output 一律不可信;**持久记忆会被投毒,启动时要校验**;子 agent 结构化输出是高信任注入向量;「最弱的一层是你自己造的那层」(自研 proxy/allowlist 比 gVisor/seccomp 等久经考验原语更易失败)。
 - 吸收: 按它的威胁模型自查 Lumo 注入面(hook 注入链/memory 渲染/hook POST 入口/acceptance verdict),三个对口暴露面落地为任务:**LLM 产物回注前清洗**(LUM-346,Slack summary/memory 渲染路径无控制字符清洗)、**memory 注入来源标注**(LUM-347,agent/user/external 三种来源在 agent 眼里无差别)、**hook POST 边界 Zod + 长度上限**(LUM-348,现状 request.json() 直存);**evidencePointer 格式收口**并入 Acceptance v1(评论挂 LUM-343,写路径未实现时收口最便宜)。同时确认两条既有做法正确并点名保住:`<untrusted-*>` 信任边界包裹(=「tool output 标记不可信」,但定位是模型层 defense-in-depth,**不是硬边界**——真硬边界是 API key scope/workspace 隔离/Claude Code 自身沙箱)、machineVerdictInputSchema verdict 红线(=管住多 agent 信任升级)。**拒绝**自建 VM/gVisor/MITM proxy 层——那是「替非技术用户跑任意代码」产品(Cowork 模式)的需求;Lumo agent 跑在用户自己的 Claude Code 里,环境层 containment 外包给 Claude Code 沙箱,正合「别自造安全组件」。团队实践面:开发机建议开 sandbox 模式(network deny-by-default),本仓库 `.claude/settings.json` 的窄 allowlist(仅 `lumo whoami/session`)是正确姿势,保持。
 
-**落地交付(三个对口任务,tag** `agent-containment`**,不开 milestone):**
+**落地交付(tag** `agent-containment`**,不开 milestone;三个对口加固 + verdict 收口已全部 DONE):**
 
 | 任务                                                                   | 内容                                                                                                  | 状态 / PR                                                                                                                                    |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | [LUM-346](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-346)      | 服务端注入渲染边界给 LLM 产物/外部自由文本过控制字符清洗(`wrapUntrustedMemory`/`wrapUntrustedLinked`) | **DONE** · [PR#446](https://github.com/Lumo-Workspace/lumo/pull/446) · 已验收 ✅                                                             |
 | [LUM-347](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-347)      | memory/linked context 注入条目级来源标注(agent/user/external)                                         | **DONE** · [PR#449](https://github.com/Lumo-Workspace/lumo/pull/449) + [PR#452](https://github.com/Lumo-Workspace/lumo/pull/452) · 已验收 ✅ |
 | [LUM-348](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-348)      | hook POST 边界 Zod 校验 + 自由文本长度上限                                                            | **DONE** · [PR#453](https://github.com/Lumo-Workspace/lumo/pull/453) · 已验收 ✅                                                             |
-| [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) 评论 | `evidencePointer` 格式收口 + `rejectionReason` 清洗(并入 Acceptance v1,verdict 写路径实现时一并做)    | 待 LUM-343 开工                                                                                                                              |
+| [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) | `evidencePointer` 格式收口:PASS 必带 evidence + `isValidEvidencePointer` 格式校验(`lib/validation/acceptance.ts`),随 verdict 写路径落地 | **DONE** · [PR#458](https://github.com/Lumo-Workspace/lumo/pull/458) · 已验收 ✅ |
 | [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352)      | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)       | TODO                                                                                                                                         |
 
 [**LUM-346 验收实证**](https://github.com/Lumo-Workspace/lumo/pull/446) · 2026-06-10
@@ -170,6 +170,18 @@
   2.  **session-start hook 注入路径(**`hook-runner.ts`**)对** `memorySection`**/**`linkedResourcesSection`**/**`layer2ReviewSection` **不 re-sanitize**(仅 `taskTitle` 过),而 CLI `task context` 打印会 re-sanitize——所以服务端边界在 hook 直注 Claude 的路径上是唯一防线,LUM-346 选在服务端做是对的位置。
 
 - 注入预算坑(验收方法论,记给后人): prod 单项目 139 条 PROJECT 记忆按 `createdAt asc` 排、`applyTokenBudget` 累加到上限即 break → **冷探针永远落在被丢弃的尾部**,full-context 路径(默认 1000 token)注不进;改走 session-start 路径(2500 token + LUM-279 lineage 排名,冷记忆进中间档)才把探针顶进注入集见证清洗。
+
+**\[内部实证\] D 域防护 prod 生效核查** · 2026-06-10
+
+- LUM-348 hook 边界校验上线后,prod **2594 个 hook event 中 1 个被真实截断**(某自由文本字段 >64k)、**0 个字段因类型错误被丢**——截断率 0.04%。结论:防护在真实流量里**生效且可审计**(呼应文章「防护要能被审计」);64k 上限**宽松合理**(几乎不误伤正常 hook 流量,只兜超大 payload);dropped=0 印证真实 CLI 是可信发送方,边界校验主防异常/攻击而非日常流量。
+- 方法论:`_lumo_validation` 标记让「防护到底拦了什么」可被事后 SQL 查询——**containment 防护要自带可观测信号**,否则无法验证它在不在生效(光看代码合并 ≠ 防护生效)。
+
+**\[判定\] D 域阶段性收口** · 2026-06-10
+
+- 文章点名的、对 Lumo 对口的暴露面(LLM 产物回注 / 来源混淆 / 注入面缺校验 / 多 agent 信任升级)均已各有一个加固任务闭环并独立验收。**无「必须做」的下一步**:再堆防护违反本册「defer 优于 adopt」纪律。
+- 仍在 F 观望队列、触发条件未到:**memory 启动时投毒校验分类器**(触发器=写入来源扩到外部)。
+- backlog(low,不紧迫):[LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352) 前言去重。
+- 若 containment 要继续作为主题,正确动作是**吸收下一篇 agent-security 文献扩 D 域**(文章自指 NIST agent identity、六机构 agentic AI guidance),而非无新威胁输入下硬造加固。
 
 ---
 
