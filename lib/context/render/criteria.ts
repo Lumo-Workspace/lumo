@@ -1,4 +1,5 @@
 import { makeBudgetSection } from '@/lib/context/budget'
+import { sanitizeField } from '@/lib/utils/sanitize'
 
 export interface CriterionCard {
   id: string
@@ -25,22 +26,29 @@ function provenanceTag(c: CriterionCard): string {
   return ''
 }
 
-/** Render a single criterion card (no section heading). */
+/**
+ * Render a single criterion card (no section heading). statement/checkpointer
+ * are free text (agent/human-authored, may transcribe untrusted task content)
+ * and the contract deliberately skips the untrusted wrappers — so the LUM-346
+ * control-char strip happens HERE, at the render source, covering every
+ * consumer (session-start hook envelope, attach echo, task context).
+ */
 export function criterionCard(c: CriterionCard): string {
   const evidence = c.evidenceRequired ? ' · 需证据' : ''
   const lines: string[] = [
-    `- [${c.verifierType}] ${c.statement}${provenanceTag(c)}${evidence}`,
+    `- [${c.verifierType}] ${sanitizeField(c.statement)}${provenanceTag(c)}${evidence}`,
   ]
-  if (c.checkpointer) lines.push(`  ↳ check: ${c.checkpointer}`)
+  if (c.checkpointer) lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)
   return lines.join('\n')
 }
 
-/** One-line manifest for an overflowed criterion. */
+/** One-line manifest for an overflowed criterion. Same strip as the card. */
 export function criterionManifest(c: CriterionCard): string {
+  const statement = sanitizeField(c.statement)
   const s =
-    c.statement.length > MANIFEST_STATEMENT_MAX
-      ? `${c.statement.slice(0, MANIFEST_STATEMENT_MAX)}…`
-      : c.statement
+    statement.length > MANIFEST_STATEMENT_MAX
+      ? `${statement.slice(0, MANIFEST_STATEMENT_MAX)}…`
+      : statement
   return `- [${c.verifierType}] ${s}`
 }
 

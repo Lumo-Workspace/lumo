@@ -51,6 +51,32 @@ describe('criterionManifest', () => {
   })
 })
 
+describe('LUM-346 control-char strip at the render source', () => {
+  // The contract deliberately skips the untrusted wrappers (where LUM-346
+  // hung the strip), so the render source must strip instead — otherwise the
+  // session-start hook envelope carries raw ESC to Claude Code stdout.
+  it('strips ANSI escapes from statement and checkpointer in the card', () => {
+    const out = criterionCard(
+      card({
+        statement: 'evil\x1b[31mred\x1b[0m statement',
+        checkpointer: 'npx jest \x1b]0;title\x07',
+      })
+    )
+    expect(out).not.toContain('\x1b')
+    expect(out).not.toContain('\x07')
+    expect(out).toContain('evil[31mred[0m statement')
+  })
+
+  it('strips before truncating in the manifest (length measured on clean text)', () => {
+    // 5 control chars + exactly-80 visible chars: stripping first means the
+    // clean text fits and nothing is truncated.
+    const line = criterionManifest(
+      card({ statement: '\x1b\x07\x00\x9b\x7f' + 'x'.repeat(80) })
+    )
+    expect(line).toBe(`- [MACHINE] ${'x'.repeat(80)}`)
+  })
+})
+
 describe('renderCriteriaSection', () => {
   it('returns "" for an empty contract', () => {
     expect(renderCriteriaSection([])).toBe('')

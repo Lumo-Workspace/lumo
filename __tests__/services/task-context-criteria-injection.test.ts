@@ -124,6 +124,20 @@ describe('buildSessionStartSections — criteria injection (LUM-342)', () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.criteriaSection).toBe('')
   })
+
+  it('carries no control chars on the hook path even when a statement smuggles ANSI (LUM-346)', async () => {
+    mockListCriteria.mockResolvedValue([
+      {
+        ...CRITERION,
+        statement: 'looks fine\x1b[2K\x1b[1Ahidden',
+        checkpointer: 'npx jest\x9b31m',
+      },
+    ])
+    const out = await taskContextService.buildSessionStartSections('tsk_1')
+    expect(out.criteriaSection).toContain('looks fine')
+    // eslint-disable-next-line no-control-regex
+    expect(out.criteriaSection).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/)
+  })
 })
 
 describe('buildCriteriaSectionForTask (session attach)', () => {
