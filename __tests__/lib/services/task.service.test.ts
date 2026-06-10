@@ -25,6 +25,7 @@ jest.mock('@/lib/integrations/github', () => ({
 }))
 
 jest.mock('@/lib/task/state-machine', () => ({
+  ...jest.requireActual('@/lib/task/state-machine'),
   isValidTaskTransition: jest.fn(),
 }))
 

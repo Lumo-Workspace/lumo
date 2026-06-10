@@ -7,10 +7,7 @@ import type {
   TaskProgress,
 } from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
-
-function compact(intl: ReturnType<typeof useIntl>, n: number) {
-  return intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
-}
+import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 
 // over 预警 pill（warning token）。on-track 不渲染 —— 飞行途中偏低是正常进度。
 function OverPill({ metric }: { metric: ProgressMetric }) {
@@ -119,7 +116,7 @@ export function ProgressView({
             <span className='text-caption text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'progress.predictedMedian' },
-                { value: compact(intl, tokenCost.forecast.median) }
+                { value: fmtCompact(intl, tokenCost.forecast.median) }
               )}
             </span>
             <span className='text-right'>
@@ -129,7 +126,7 @@ export function ProgressView({
               <span
                 className={`text-title-strong tabular-nums ${tokenOver ? 'text-warning' : 'text-foreground'}`}
               >
-                {compact(intl, tokenCost.actual as number)}
+                {fmtCompact(intl, tokenCost.actual as number)}
               </span>
             </span>
           </div>
@@ -173,7 +170,7 @@ export function ProgressView({
             <SummaryLine>
               {intl.formatMessage(
                 { id: 'progress.summaryTokens' },
-                { value: compact(intl, tokenCost.actual as number) }
+                { value: fmtCompact(intl, tokenCost.actual as number) }
               )}
             </SummaryLine>
           )}
