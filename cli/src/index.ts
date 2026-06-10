@@ -83,6 +83,7 @@ import { docSync } from './commands/doc-sync'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
 import { docDiff } from './commands/doc-diff'
+import { docPatch, docAppend } from './commands/doc-section-edit'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
 import { docBind } from './commands/doc-bind'
@@ -1186,6 +1187,10 @@ doc
     collect,
     []
   )
+  .option(
+    '--if-revision <n>',
+    'Only apply if the doc body is still at this revision (from doc show); mismatch fails with a 409 conflict'
+  )
   .action(
     wrap((reference, opts) =>
       docUpdate(reference as string | undefined, opts as Record<string, string>)
@@ -1195,15 +1200,64 @@ doc
 doc
   .command('show <doc>')
   .description(
-    'Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render.'
+    'Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr).'
   )
   .option(
     '--raw',
     'Print the stored markdown source verbatim (no header); errors if absent'
   )
+  .option(
+    '--section <heading>',
+    'Print one heading-addressed section of the markdown source (prefix with #… to pin depth, e.g. "## Status")'
+  )
   .action(
     wrap((reference, opts) =>
-      docShow(reference as string | undefined, opts as { raw?: boolean })
+      docShow(
+        reference as string | undefined,
+        opts as { raw?: boolean; section?: string }
+      )
+    )
+  )
+
+doc
+  .command('patch <doc>')
+  .description(
+    'Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten.'
+  )
+  .requiredOption(
+    '--section <heading>',
+    'Heading of the section to replace (prefix with #… to pin depth)'
+  )
+  .option('--content <text>', 'New section content (inline markdown)')
+  .option('--file <path>', 'New section content from file')
+  .option(
+    '--if-revision <n>',
+    'Only apply if the doc body is still at this revision (from doc show)'
+  )
+  .action(
+    wrap((reference, opts) =>
+      docPatch(reference as string | undefined, opts as Record<string, string>)
+    )
+  )
+
+doc
+  .command('append <doc>')
+  .description(
+    'Append markdown at the end of a heading-addressed section (before the next same-or-higher heading), or at the document end when --section is omitted. Pure insertion — no existing byte is modified — which makes it the safest write for running logs/ledgers. 409 on concurrent edits.'
+  )
+  .option(
+    '--section <heading>',
+    'Heading of the section to append into (omit to append at the document end)'
+  )
+  .option('--content <text>', 'Content to append (inline markdown)')
+  .option('--file <path>', 'Content to append from file')
+  .option(
+    '--if-revision <n>',
+    'Only apply if the doc body is still at this revision (from doc show)'
+  )
+  .action(
+    wrap((reference, opts) =>
+      docAppend(reference as string | undefined, opts as Record<string, string>)
     )
   )
 

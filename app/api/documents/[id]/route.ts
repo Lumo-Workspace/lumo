@@ -95,6 +95,8 @@ export async function PATCH(
       data.removeTagIds = parsed.data.removeTagIds
     if (parsed.data.childOrder !== undefined)
       data.childOrder = parsed.data.childOrder
+    if (parsed.data.ifRevision !== undefined)
+      data.ifRevision = parsed.data.ifRevision
 
     const document = await documentService.updateDocument(
       id,

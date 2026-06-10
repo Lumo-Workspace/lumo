@@ -349,23 +349,52 @@ export const documentRepository = {
     })
   },
 
-  /** Update document with optional child reordering and mention sync, all in a single transaction. */
+  /**
+   * Update document with optional child reordering and mention sync, all in a
+   * single transaction.
+   *
+   * Optimistic concurrency (LUM-409): any update that touches `content` also
+   * increments `contentRevision`. When `expectedContentRevision` is provided
+   * the row update is CONDITIONAL (`where: { id, contentRevision }`) — a
+   * concurrent writer that bumped the revision first makes the count 0 and
+   * the whole transaction rolls back with a `REVISION_CONFLICT`-coded error,
+   * so a stale write can never silently last-write-win.
+   */
   async updateWithChildrenAndMentions(
     id: string,
     updateData: DocumentUpdateData,
     childOrder: string[] | undefined,
-    mentionTaskIds: string[] | undefined
+    mentionTaskIds: string[] | undefined,
+    options?: { expectedContentRevision?: number }
   ) {
     return prisma.$transaction(async tx => {
-      const updatedDoc =
-        Object.keys(updateData).length > 0
-          ? await tx.document.update({
-              where: { id },
-              data: updateData as Parameters<
-                typeof tx.document.update
-              >[0]['data'],
-            })
-          : await tx.document.findUniqueOrThrow({ where: { id } })
+      const data = {
+        ...updateData,
+        ...(updateData.content !== undefined
+          ? { contentRevision: { increment: 1 } }
+          : {}),
+      } as Parameters<typeof tx.document.update>[0]['data']
+
+      let updatedDoc
+      if (Object.keys(updateData).length === 0) {
+        updatedDoc = await tx.document.findUniqueOrThrow({ where: { id } })
+      } else if (options?.expectedContentRevision !== undefined) {
+        const res = await tx.document.updateMany({
+          where: { id, contentRevision: options.expectedContentRevision },
+          data,
+        })
+        if (res.count === 0) {
+          throw Object.assign(
+            new Error(
+              `contentRevision mismatch for ${id} (expected ${options.expectedContentRevision})`
+            ),
+            { code: 'REVISION_CONFLICT' }
+          )
+        }
+        updatedDoc = await tx.document.findUniqueOrThrow({ where: { id } })
+      } else {
+        updatedDoc = await tx.document.update({ where: { id }, data })
+      }
 
       // Reorder children if childOrder is provided
       if (childOrder) {

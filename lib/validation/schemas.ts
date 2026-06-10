@@ -390,10 +390,29 @@ export const updateDocumentSchema = z
     tags: z.array(z.string().max(30)).max(20).optional(),
     tagIds: z.array(z.string().cuid()).max(20).optional(),
     ...tagsIncrementalShape,
+    // Optimistic-concurrency precondition (LUM-409): the contentRevision the
+    // caller's edit base was read at. Mismatch → 409.
+    ifRevision: z.number().int().nonnegative().optional(),
   })
   .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
     message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
     path: ['tagIds'],
+  })
+
+/**
+ * Section-addressed body edit (LUM-409): replace one heading-addressed
+ * section, or append at a section's end (no `section` = document end).
+ */
+export const editDocumentSectionSchema = z
+  .object({
+    mode: z.enum(['replace', 'append']),
+    section: z.string().trim().min(1).max(500).optional(),
+    contentMarkdown: z.string().max(RICH_TEXT_MAX_LENGTH),
+    ifRevision: z.number().int().nonnegative().optional(),
+  })
+  .refine(v => v.mode === 'append' || v.section !== undefined, {
+    message: 'section is required when mode is replace',
+    path: ['section'],
   })
 
 export const createDocumentMentionSchema = z.object({

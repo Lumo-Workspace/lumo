@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { tiptapToMarkdown } from '../lib/markdown-tiptap'
+import { extractSection, findSection } from '../lib/markdown-sections'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
 
@@ -11,6 +12,8 @@ export interface ShowDocViewModel {
   projectName: string | null
   createdAt: string
   updatedAt: string
+  /** Body contentRevision (LUM-409); null when the server predates it. */
+  revision: number | null
   mentionedTasks: string[]
   bodyMarkdown: string
 }
@@ -29,6 +32,7 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
     `Project: ${vm.projectName ? sanitizeField(vm.projectName) : '-'}`,
     `Created: ${vm.createdAt}`,
     `Updated: ${vm.updatedAt}`,
+    `Revision: ${vm.revision ?? '-'}`,
     `Mentioned tasks: ${vm.mentionedTasks.length ? vm.mentionedTasks.join(', ') : '-'}`,
   ]
   const header = lines.join('\n')
@@ -38,6 +42,8 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
 export interface ShowDocOptions {
   /** Print the byte-identical markdown source of the last markdown upload (LUM-408). */
   raw?: boolean
+  /** Print just one heading-addressed section of the markdown source (LUM-409). */
+  section?: string
 }
 
 export async function docShow(
@@ -45,7 +51,15 @@ export async function docShow(
   opts: ShowDocOptions = {}
 ): Promise<number | void> {
   if (!reference) {
-    console.error('Error: missing <doc>. Usage: lumo doc show <doc> [--raw]')
+    console.error(
+      'Error: missing <doc>. Usage: lumo doc show <doc> [--raw | --section <heading>]'
+    )
+    return 1
+  }
+  if (opts.raw && opts.section !== undefined) {
+    console.error(
+      'Error: --raw and --section are mutually exclusive (--raw prints the whole source)'
+    )
     return 1
   }
   const creds = readCredentials()
@@ -78,6 +92,7 @@ export async function docShow(
       content?: string | null
       contentMarkdown?: string | null
       sourceMarkdown?: string | null
+      contentRevision?: number
       project?: { name?: string } | null
       createdAt?: string
       updatedAt?: string
@@ -112,6 +127,55 @@ export async function docShow(
       return 1
     }
     process.stdout.write(d.sourceMarkdown)
+    // Revision goes to stderr so stdout stays a byte-pure edit base while
+    // the agent still sees the number to pass back as --if-revision.
+    if (typeof d.contentRevision === 'number') {
+      console.error(`Revision: ${d.contentRevision}`)
+    }
+    return
+  }
+  if (opts.section !== undefined) {
+    // Section reads slice the stored markdown source — same no-fallback rule
+    // as --raw: a rendered-output slice would not be a legal edit base.
+    if (typeof d.sourceMarkdown !== 'string') {
+      console.error(
+        `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `or predates markdown source storage), so --section cannot slice it. ` +
+          `Rebuild a base first: run \`lumo doc show ${d.id}\`, reconstruct the markdown ` +
+          `faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\`.`
+      )
+      return 1
+    }
+    const match = findSection(d.sourceMarkdown, opts.section)
+    if (match.kind === 'not-found') {
+      const list = match.available
+        .slice(0, 30)
+        .map(s => `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)}`)
+        .join('\n')
+      console.error(
+        `Error: section not found: "${opts.section}". Available headings:\n${list || '  (none)'}`
+      )
+      return 1
+    }
+    if (match.kind === 'ambiguous') {
+      const list = match.candidates
+        .map(
+          s =>
+            `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)} (line ${s.line + 1})`
+        )
+        .join('\n')
+      console.error(
+        `Error: section "${opts.section}" is ambiguous — ${match.candidates.length} headings match:\n${list}\n` +
+          `Disambiguate by depth, e.g. --section "${'#'.repeat(match.candidates[0]!.depth)} ${match.candidates[0]!.heading}"`
+      )
+      return 1
+    }
+    // Byte-faithful slice, verbatim on stdout (legal patch base); revision on
+    // stderr for the follow-up `doc patch --if-revision`.
+    process.stdout.write(extractSection(d.sourceMarkdown, match.section))
+    if (typeof d.contentRevision === 'number') {
+      console.error(`Revision: ${d.contentRevision}`)
+    }
     return
   }
   // Server returns `contentMarkdown` derived from the HTML body (LUM-83+).
@@ -147,6 +211,7 @@ export async function docShow(
       projectName: d.project?.name ?? null,
       createdAt: d.createdAt ?? '',
       updatedAt: d.updatedAt ?? '',
+      revision: typeof d.contentRevision === 'number' ? d.contentRevision : null,
       mentionedTasks,
       bodyMarkdown: body,
     })
