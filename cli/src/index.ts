@@ -102,12 +102,20 @@ import {
 } from './lib/update-check'
 import { sanitizeField } from './lib/sanitize'
 
+// Introspection mode: tooling (scripts/analysis grammar extraction) imports
+// this module to walk the registered commander tree without running the CLI.
+// Skips package.json resolution (which assumes the compiled dist/ layout),
+// update checks, local-state cleanup, and parseAsync. Never set for real runs.
+const isIntrospect = process.env.LUMO_CLI_INTROSPECT === '1'
+
 // Resolve package.json relative to __dirname so this works regardless of how
 // deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
-const pkg = require(path.resolve(__dirname, '../../..', 'package.json')) as {
-  name: string
-  version: string
-}
+const pkg = isIntrospect
+  ? { name: '@lumoai/cli', version: '0.0.0-introspect' }
+  : (require(path.resolve(__dirname, '../../..', 'package.json')) as {
+      name: string
+      version: string
+    })
 
 // Detached background-refresh worker: re-entry point for the spawn() in
 // maybeRefreshInBackground(). Fetches latest, writes cache, exits — skipping
@@ -119,7 +127,7 @@ if (isUpdateCheckWorker) {
   runBackgroundRefresh(process.argv[3] as string)
     .catch(() => {})
     .finally(() => process.exit(0))
-} else {
+} else if (!isIntrospect) {
   printUpdateNoticeIfAny(pkg.name, pkg.version)
   maybeRefreshInBackground(pkg.name)
 }
@@ -128,7 +136,7 @@ if (isUpdateCheckWorker) {
 // is now server-authoritative; the legacy global pointer and the
 // per-session sentinel directory are both obsolete. Failures are
 // swallowed so a permission glitch doesn't prevent CLI invocation.
-;(() => {
+if (!isIntrospect) {
   const dir = process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo')
   try {
     fs.rmSync(path.join(dir, 'current-task.json'), { force: true })
@@ -136,7 +144,7 @@ if (isUpdateCheckWorker) {
   try {
     fs.rmSync(path.join(dir, 'sessions'), { recursive: true, force: true })
   } catch {}
-})()
+}
 
 const collect = (val: string, acc: string[]): string[] => [...acc, val]
 
@@ -1537,10 +1545,14 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
     )
 }
 
-if (!isUpdateCheckWorker) {
+if (!isUpdateCheckWorker && !isIntrospect) {
   program.parseAsync(process.argv).catch(err => {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: ${sanitizeField(msg)}`)
     process.exit(1)
   })
 }
+
+// Exported for introspection tooling only (LUMO_CLI_INTROSPECT=1); the real
+// CLI entry never imports this module.
+export { program }

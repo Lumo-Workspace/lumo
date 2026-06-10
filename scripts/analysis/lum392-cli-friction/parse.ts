@@ -135,28 +135,66 @@ export function tokenize(segment: string): string[] {
  * only segments whose first token is exactly `lumo` (so `/path/lumo_x` or
  * `echo lumo` don't count, but `cd x && lumo task list` does).
  */
+/**
+ * Quote-aware statement splitting: separators (&&, ||, ;, |, newline, $( )
+ * inside single/double quotes do NOT split. Without this, a quoted multi-line
+ * comment body breaks open mid-quote and leaks its prose as fake commands and
+ * fake `--flag` tokens (LUM-413). Backticks deliberately don't split: docs
+ * quote `lumo …` in backticks as references, not executions.
+ */
+function splitStatements(command: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i]!
+    if (quote) {
+      cur += ch
+      if (ch === quote && command[i - 1] !== '\\') quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      cur += ch
+      continue
+    }
+    const two = command.slice(i, i + 2)
+    if (two === '&&' || two === '||' || two === '$(') {
+      out.push(cur)
+      cur = ''
+      i++
+      continue
+    }
+    if (ch === ';' || ch === '|' || ch === '\n') {
+      out.push(cur)
+      cur = ''
+      continue
+    }
+    cur += ch
+  }
+  out.push(cur)
+  return out
+}
+
 export function extractLumoSegments(command: string): string[] {
-  // No backtick splitting: docs/heredocs quote `lumo …` in backticks and those
-  // are references, not executions. $( is kept — `VAR=$(lumo …)` is real.
-  const segments = command
-    .split(/&&|\|\||[;|\n]|\$\(/)
+  const segments = splitStatements(command)
     .map(s => s.trim())
     .filter(Boolean)
   const out: string[] = []
+  // Leading `FOO=bar ` / `FOO="b a r" ` env assignment (quoted values kept).
+  const envAssignRe = /^[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|\S*)\s+/
   for (const seg of segments) {
     // Doc-content artifacts: heredoc/echo/sed lines that mention lumo commands
     // (line continuations, sed addresses over SKILL.md, markdown bullets).
     if (seg.endsWith('\\') || seg.includes('SKILL.md')) continue
-    // Strip leading env assignments (FOO=bar lumo …) and redirections later.
-    const tokens = tokenize(seg)
-    let i = 0
-    while (
-      i < tokens.length &&
-      /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i] ?? '')
-    )
-      i++
-    if (tokens[i] === 'lumo') {
-      out.push(tokens.slice(i).join(' '))
+    // Strip leading env assignments (FOO=bar lumo …); keep the original
+    // segment text after that — quoting must survive, otherwise free-text
+    // positionals (comment bodies, titles) leak fake `--flag` tokens into
+    // downstream flag extraction and AST validation (LUM-413).
+    let rest = seg.trimStart()
+    while (envAssignRe.test(rest)) rest = rest.replace(envAssignRe, '')
+    if (rest === 'lumo' || /^lumo\s/.test(rest)) {
+      out.push(rest)
     }
   }
   return out
