@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, ArrowUp, MoonStar } from 'lucide-react'
 import type { Turn } from './segment-turns'
 import { InlineMemoryCard } from './InlineMemoryCard'
 import { AgentRunEventRow } from './AgentRunEventRow'
+import { fmtCompact, modelLabel } from './model-cost-format'
 
 interface TurnCardProps {
   turn: Turn
@@ -57,22 +58,17 @@ export function TurnCard({ turn, turnNumber }: TurnCardProps) {
                     id: 'agentRun.cost.perRunTok',
                     defaultMessage: '{tok} tok',
                   },
-                  {
-                    tok: intl.formatNumber(turn.cost.byModel[0]!.total, {
-                      notation: 'compact',
-                      maximumFractionDigits: 1,
-                    }),
-                  }
+                  { tok: fmtCompact(intl, turn.cost.byModel[0]!.total) }
                 )
               : turn.cost.byModel
                   .map(
                     m =>
-                      `${m.model.replace(/^claude-/, '')} ${intl.formatNumber(m.total, { notation: 'compact', maximumFractionDigits: 1 })}`
+                      `${modelLabel(intl, m.model)} ${fmtCompact(intl, m.total)}`
                   )
                   .join(' · ')}
             {turn.cost.byModel.length === 1 && (
               <span className='block text-[10px] text-muted-foreground/60'>
-                {turn.cost.byModel[0]!.model.replace(/^claude-/, '')}
+                {modelLabel(intl, turn.cost.byModel[0]!.model)}
               </span>
             )}
           </span>
