@@ -249,6 +249,22 @@ export function makeInMemoryPrisma() {
         Object.assign(row, data)
         return project(row, select)
       },
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: { id?: { in: string[] } } & WhereClause
+        data: Record<string, unknown>
+      }) {
+        const { id: idFilter, ...flat } = where ?? {}
+        const targets = memories.filter(
+          m =>
+            (!idFilter || idFilter.in.includes(m.id)) &&
+            matches(m, flat as WhereClause)
+        )
+        for (const row of targets) Object.assign(row, data)
+        return { count: targets.length }
+      },
     },
     memoryProvenance: {
       async create({

@@ -68,6 +68,49 @@ export const memoryRepository = {
   },
 
   /**
+   * Projects whose ACTIVE PROJECT-scope memory count exceeds `threshold` —
+   * the trigger set for the LUM-328 cold-eviction sweep.
+   */
+  async findProjectsOverActiveMemoryThreshold(threshold: number) {
+    const rows = await prisma.memory.groupBy({
+      by: ['projectId'],
+      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      _count: { _all: true },
+      having: { projectId: { _count: { gt: threshold } } },
+    })
+    return rows.map(r => ({
+      projectId: r.projectId,
+      activeCount: r._count._all,
+    }))
+  },
+
+  /**
+   * ACTIVE PROJECT rows with just the fields the LUM-328 compaction ranking
+   * needs: freshness (createdAt) and the manual-curation exemption
+   * (createdByMemberId).
+   */
+  async findActiveProjectMemoriesForCompaction(projectId: string) {
+    return prisma.memory.findMany({
+      where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, createdAt: true, createdByMemberId: true },
+    })
+  },
+
+  /**
+   * Cold eviction (LUM-328): flip rows to ARCHIVED. Guarded to ACTIVE so a
+   * stale candidate list can never clobber a SUPERSEDED audit row, and the
+   * archive is reversible by flipping status back — no other state is touched.
+   */
+  async archiveMemories(ids: string[]) {
+    if (ids.length === 0) return { count: 0 }
+    return prisma.memory.updateMany({
+      where: { id: { in: ids }, status: 'ACTIVE' },
+      data: { status: 'ARCHIVED' },
+    })
+  },
+
+  /**
    * Most recent TASK-scope memories for a project, newest first, capped at
    * `limit`. Layer 2 consolidation reads these to look for recurring lessons
    * across tasks. The `taskId` is included so the prompt can group rows by
