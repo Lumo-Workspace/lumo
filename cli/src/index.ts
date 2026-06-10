@@ -159,6 +159,13 @@ const program = new Command()
   .name('lumo')
   .description('Lumo CLI — manage tasks and sessions from the terminal')
   .version(pkg.version)
+  // Make usage errors actionable for agents: suggest near-miss spellings and
+  // point at --help instead of dead-ending on "unknown option". Subcommands
+  // created via .command() inherit these settings.
+  .showSuggestionAfterError(true)
+  .showHelpAfterError(
+    '(run the command with --help to list its valid flags and arguments)'
+  )
 
 const auth = program.command('auth').description('Manage Lumo authentication')
 
@@ -293,9 +300,7 @@ session
   )
   .action(
     wrap(options =>
-      sessionWrap(
-        options as { yes?: boolean; dryRun?: boolean; used?: string }
-      )
+      sessionWrap(options as { yes?: boolean; dryRun?: boolean; used?: string })
     )
   )
 
@@ -463,7 +468,9 @@ taskComments
 
 const taskDeps = task
   .command('deps')
-  .description('Task dependency edges — detected candidates + confirmed blockers')
+  .description(
+    'Task dependency edges — detected candidates + confirmed blockers'
+  )
 taskDeps
   .command('list <identifier>')
   .description('List dependency edges (both directions)')
@@ -481,7 +488,11 @@ taskDeps
   .description('Confirm a detected candidate edge')
   .action(
     wrap((id, edge, opts) =>
-      taskDepsConfirm(id as string, edge as string, opts as { reverse?: boolean })
+      taskDepsConfirm(
+        id as string,
+        edge as string,
+        opts as { reverse?: boolean }
+      )
     )
   )
 taskDeps
@@ -511,7 +522,10 @@ task
   .description(
     "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
   )
-  .option('--signal', 'Append usage-signal health section (fetches /api/lineage/signal)')
+  .option(
+    '--signal',
+    'Append usage-signal health section (fetches /api/lineage/signal)'
+  )
   .action(
     wrap((id, options) =>
       taskLineage(id as string, options as { signal?: boolean })
@@ -574,7 +588,9 @@ taskMemory
   )
 const taskCriteria = task
   .command('criteria')
-  .description('Acceptance criteria — the task\u2019s verification contract (LUM-342)')
+  .description(
+    'Acceptance criteria — the task\u2019s verification contract (LUM-342)'
+  )
 
 taskCriteria
   .command('set <task>')
@@ -601,7 +617,9 @@ taskCriteria
 
 taskCriteria
   .command('list <task>')
-  .description('List a task\u2019s acceptance criteria (id, type, provenance, checkpointer)')
+  .description(
+    'List a task\u2019s acceptance criteria (id, type, provenance, checkpointer)'
+  )
   .action(wrap((taskId: unknown) => taskCriteriaList(taskId as string)))
 
 const taskArtifact = task
@@ -1337,9 +1355,15 @@ worktree
   .description(
     'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout.'
   )
-  .option('--base <ref>', 'Branch off this ref instead of origin/main (skips fetch)')
+  .option(
+    '--base <ref>',
+    'Branch off this ref instead of origin/main (skips fetch)'
+  )
   .option('--no-fetch', 'Do not `git fetch origin main` before branching')
-  .option('--verify', 'Run `npx jest` in the new worktree to confirm a clean baseline')
+  .option(
+    '--verify',
+    'Run `npx jest` in the new worktree to confirm a clean baseline'
+  )
   .action(
     wrap((identifier, slug, options) => {
       const o = options as { base?: string; fetch?: boolean; verify?: boolean }
@@ -1358,7 +1382,10 @@ worktree
   )
   .option('--yes', 'Confirm removal (required, no interactive prompt)')
   .option('--force', 'Remove even with uncommitted changes')
-  .option('--delete-branch', 'Also delete the branch (git branch -d; refuses if unmerged)')
+  .option(
+    '--delete-branch',
+    'Also delete the branch (git branch -d; refuses if unmerged)'
+  )
   .action(
     wrap((identifier, options) =>
       worktreeRm(

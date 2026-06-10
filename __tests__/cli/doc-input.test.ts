@@ -171,8 +171,12 @@ describe('resolveDocContent', () => {
       }),
     })
     expect(result.kind).toBe('error')
-    if (result.kind === 'error')
+    if (result.kind === 'error') {
       expect(result.message).toContain('could not read file')
+      // Actionable hint (LUM-392): name the cwd and suggest a relative path.
+      expect(result.message).toContain('cwd:')
+      expect(result.message).toContain('project-local relative path')
+    }
   })
 
   it('reads the canonical resolved path on an ok verdict', async () => {

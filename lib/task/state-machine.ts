@@ -25,6 +25,30 @@ export function isValidTaskTransition(
   return TRANSITIONS[from]?.includes(to) ?? false
 }
 
+/** Statuses reachable from `from` — for actionable error messages. */
+export function allowedTaskTransitions(
+  from: TaskStatusValue
+): TaskStatusValue[] {
+  return TRANSITIONS[from] ?? []
+}
+
+/**
+ * Human/agent-readable rejection for an invalid transition: names the allowed
+ * targets, and for DONE points at comments (the common dead end is trying to
+ * move a DONE task back to IN_REVIEW to append follow-up context).
+ */
+export function invalidTransitionMessage(
+  from: TaskStatusValue,
+  to: TaskStatusValue
+): string {
+  const allowed = allowedTaskTransitions(from).join(', ') || 'none'
+  const doneHint =
+    from === 'DONE'
+      ? ' To attach follow-up context to a DONE task, add a task comment instead.'
+      : ''
+  return `Invalid status transition: ${from} → ${to}. Allowed from ${from}: ${allowed}.${doneHint}`
+}
+
 export class InvalidTaskTransitionError extends Error {
   constructor(
     public readonly taskId: string,

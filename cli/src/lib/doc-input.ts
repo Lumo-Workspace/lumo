@@ -27,6 +27,17 @@ export type ResolveDocContentResult =
  * mutually exclusive. stdin is only consulted when neither flag is set
  * and the shell is non-TTY.
  */
+/**
+ * Actionable message for an unreadable --file path: agents most often pass a
+ * path that doesn't exist relative to the current working directory.
+ */
+export function unreadableFileMessage(file: string): string {
+  return (
+    `could not read file ${file} (cwd: ${process.cwd()}) — ` +
+    `check the path exists; pass a project-local relative path`
+  )
+}
+
 export async function resolveDocContent(
   args: ResolveDocContentArgs
 ): Promise<ResolveDocContentResult> {
@@ -50,7 +61,7 @@ export async function resolveDocContent(
         kind: 'error',
         message:
           check.reason === 'unreadable'
-            ? `could not read file ${args.file}`
+            ? unreadableFileMessage(args.file as string)
             : `refusing to read ${args.file} — ${check.detail}. ` +
               `--file must be a non-sensitive path inside the project directory.`,
       }

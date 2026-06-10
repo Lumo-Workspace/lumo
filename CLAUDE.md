@@ -116,7 +116,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 ## CLI & Skills 同步
 
 - 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `.claude/skills/lumo/SKILL.md`：
-  - frontmatter `description` 字段里的触发词要覆盖新增用法
+  - frontmatter `description` **保持类别级、硬上限 1000 字符**——它是每个 session 常驻 context 的触发 prompt，不逐命令追加枚举触发词（LUM-392 前曾堆到 4k 字符/250 个短语）。只有出现全新 domain（新资源类型/新工作流环节）才动 description；新增用法的触发场景写进 SKILL.md 对应章节的 "When to suggest"（正文按需加载，不占常驻预算）
   - 对应的 `##` / `###` 章节要反映命令的真实行为（flags、示例、空字符串语义、状态枚举等）
 - 例外：纯内部重构、错误文案微调、不影响调用方式的 bug fix 不需要更新文档
 - 不要让 CLI 文档和实际行为漂移——agent 依赖 SKILL.md 决定调用方式，文档错了会反复踩坑

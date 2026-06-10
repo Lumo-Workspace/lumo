@@ -4,6 +4,7 @@ import { tagRepository } from '@/lib/repositories/tag.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import {
+  invalidTransitionMessage,
   isValidTaskTransition,
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
@@ -83,7 +84,12 @@ export async function updateTask(
       )
     ) {
       throw Object.assign(
-        new Error(`Invalid status transition: ${task.status} → ${rest.status}`),
+        new Error(
+          invalidTransitionMessage(
+            task.status as TaskStatusValue,
+            rest.status as TaskStatusValue
+          )
+        ),
         { status: 409 }
       )
     }

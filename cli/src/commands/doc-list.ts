@@ -21,7 +21,10 @@ interface DocRow {
   sortOrder: number
 }
 
-function visibilityLabel(v: DocRow['visibility']): string {
+function visibilityLabel(v: DocRow['visibility'] | null | undefined): string {
+  // Some routes (e.g. /api/tasks/<id>/documents) have returned rows without a
+  // visibility field at runtime — fall back instead of crashing on .padEnd.
+  if (!v) return '-'
   if (v === 'PRIVATE') return 'PERSONAL'
   return v
 }
@@ -80,7 +83,9 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(
+      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
+    )
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }
