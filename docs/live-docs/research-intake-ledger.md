@@ -24,6 +24,8 @@
 
 **判定标签**:`[采用]`(机制落地)· `[反用]`(取其反面教训)· `[纠偏]`(主张被修正后采用)· `[合并]`(与他篇同源,并入)· `[出界]`(不属 Lumo 层次)· `[观望]`(有 bearing 但触发条件未到)。
 
+**周期追踪源**:[VoltAgent/awesome-ai-agent-papers](https://github.com/VoltAgent/awesome-ai-agent-papers) 可作每周扫描入口。筛选判别力提示:**「有没有消融表」比「分类是否对口」更可靠**——2606 周扫实证:证据最薄的恰是概念最华丽的两篇(SSGM 零实验、AI Harness n=1)。
+
 **条目模板**(追加新论文时复制;来源 id 带链接——arXiv 用 `https://arxiv.org/abs/<id>`,blog/报告直接链原文):
 
 ```
@@ -48,6 +50,11 @@
 - Finding: Zettelkasten 式自主记忆:note(上下文/关键词/tags)+ 自动链接 + memory evolution(新记忆回写改旧记忆),6 基模超 SOTA。
 - 吸收: **拒绝 evolution**——Lumo 飞轮靠记忆身份与 merge-rate 历史稳定,静默回写毁信号。只取反面护栏:「别静默改写高信任记忆」(强 usage 信任裁决拒绝被 SUPERSEDE)。
 
+**ProMem** ([2601.04463](https://arxiv.org/abs/2601.04463)) — \[采用:grounding 前置\] → LUM-396 · 2026-06
+
+- Finding: 记忆抽取加 grounding 检查(quote-or-discard):每条候选必须引用源材料支撑片段,无依据即丢弃。8B 档位验证机制保留(integrity +12.5、accuracy 几乎不掉)——真实作用是让「激进多抽」在 accuracy 不掉的前提下成立,不是万能消毒。
+- 吸收: 对口 Lumo 真实痛点(幻觉,不是漏抽):`manual-dedup.ts:108` 无邻居零 LLM 直接 ADD,幻觉候选只要足够新颖即零审查入库。落地为 extract → ground(**batched 一次调用**,不照搬论文逐条追问+全文重读)→ reconcile,顺序硬约束——幻觉候选若先进 reconcile 可能 SUPERSEDE 掉存量好记忆;fail-open 不阻塞 fire-and-forget 写路径;LUM-329 harness 验收(新增幻觉 fixture case)。**不做**补漏模块 MC(Lumo 4 类 schema 是刻意有损压缩,痛点不是漏抽)、不抄论文阈值(τ 是 8B embedding 上调的,batched 版不需要)。
+
 ### A2 · 生命周期与遗忘
 
 **MemGPT** ([2310.08560](https://arxiv.org/abs/2310.08560)) — \[采用\] → LUM-325/328 · 2026-06
@@ -69,6 +76,21 @@
 
 - Finding: 三层 STM/MTM/LPM + heat-based 分段页替换,LOCOMO F1 +49.11%。
 - 吸收: 其 heat ≡ MemoryBank strength ≡ Lumo usage 投票——同一信号三个名字,识别同源、并入一个任务,不重复造机制。
+
+**BeliefMem** ([2605.05583](https://arxiv.org/abs/2605.05583)) — \[采用:审计警告,裁决不修\] → LUM-395 · 2026-06
+
+- Finding: 信念记忆的 **self-reinforcing error** 警告:被降权的记忆得不到注入机会 → 拿不到使用证据 → 被进一步降权直至淘汰,「曾被矛盾/降权但其实正确」的记忆没有翻案通道。机制面:CONTRADICT op + 竞争组共同注入 + noisy-OR 信念聚合。
+- 吸收: 警告映射到 Lumo 现存链:LUM-279 ranking 降权 → LUM-314 投票饥饿(used 恒 NULL)→ LUM-328 冷淘汰 ARCHIVED,四类豁免不含「被降权」。measure-first 审计([PR#469](https://github.com/Lumo-Workspace/lumo/pull/469),prod 快照 2026-06-10,审计本身是交付物):**死亡螺旋未发生**——tier-2(proven-low)=0、never-injected=0(merge base rate ~100% 使 presence 口径下几乎全 tier-0,ranking 只重排不丢卡)、at-risk 池=0(四类豁免全覆盖,出 freshness 的 12 条全靠真实投票存活)、ARCHIVED 存量仅 1 条且零链关联、无错杀证据。**裁决不修**,三候选修法(竞争组豁免/保底注入轮换/复活通道)全否决。审计脚本 `scripts/analysis/lum395-flywheel-rehab/audit.ts` 只读可重复,**~2026-07-10 复跑**(40 条「仅 freshness+零投票」行 06-17~24 出窗;若 wrongful-kill suspects>0 优先重审复活通道——archive 本可逆,status flip 即复活)。第二层机制(CONTRADICT op/竞争组/noisy-OR)等复跑数据再裁决,进 F 队列。
+
+**SSGM** ([2603.11768](https://arxiv.org/abs/2603.11768)) — \[观望:只取归因词表\] · 2026-06
+
+- Finding: 记忆失效二分归因词表:**hallucination**(写入即假)vs **obsolescence**(写入为真后失效)。零实验零实现——本批证据最薄、概念包装最完整的一篇。
+- 吸收: 机制层**明确不做**:invalidate-not-delete / later-fact-wins Lumo 已落地(LUM-325)且超前于该文。只收归因词表:三段 waterfall(SubtleMemory)的 Preserve 段「没存好」可再拆一层,判别信号 = supersededAt 链(有链=曾为真后失效,无链直接错=写入即假)。触发器:waterfall 归因实际需要拆 Preserve 段时。
+
+**Agent Memory characterization** ([2606.06448](https://arxiv.org/abs/2606.06448)) — \[观望\] · 2026-06
+
+- Finding: agent 记忆系统成本特征刻画:phase-tagged 成本遥测(construction/retrieval 分相计量)+ reconcile 边际成本随库规模上升的斜率;称 harness 将开源。
+- 吸收: 两个候选机制只记不开任务:① phase-tagged 成本遥测(construction/retrieval/flywheel 枚举);② **reconcile 边际成本斜率作为 compaction 的量化触发器**(当前 LUM-328 阈值 >100 是经验值)。**不做** GPU/能耗遥测(Lumo 全托管 gateway,不适用)。触发器:harness repo 开源后评估复用,或 compaction 阈值需要量化校准时。
 
 ### A3 · 结构与表示
 
@@ -130,6 +152,26 @@
 - **两行 headline 模式**:回归线(AR F1@0.78 = 0.611,离线冻结 fixture,CI 可门控)+ 质量线(SF op-accuracy 0.98/0.91,SUPERSEDE recall 1.000,key 门控活验)——离线守数学,活验守质量,职责不混。
 - TTL 用 used 投票当 proxy → **降级为描述性统计**(无 ground truth 的指标不与有 ground truth 的并列)。
 - eval 的真实回报:三条校准回改生产 + 暴露 LUM-335 schema drift(生产静默数据丢失)。**harness 是缺陷放大器,不是仪式。**
+
+**ProdCodeBench** ([2604.01527](https://arxiv.org/abs/2604.01527),Meta;v2 已改名 REAP/Harvest,旧版数字勿引) — \[采用:口径警告\] → LUM-397 · 2026-06
+
+- Finding: **merged ≠ ground truth**——merge 只是筛选漏斗入口,叠加执行验证才出可信信号;对 revert 也无显式处理。
+- 吸收: Lumo 飞轮把 DONE 当终点信号是更弱口径 → LUM-397 两子项:① outcome 强弱分层 `MERGED_VERIFIED`(存在全 PASS verification round)/`MERGED`,stamp 双路径(DONE 即时 + cron sweep)口径一致,**先落数据不改算分**(样本量够了再议加权);② Memory 出生任务记账(sourceTask 列,现状 Provenance 反查不到出生 task),为 same-task self-credit 排除铺路。**不做**其测试检索基建(前提是 Meta 量级存量测试资产,LUM-343 criteria 验收是 Lumo 的对应形态);其对 revert 无显式处理反印证 LUM-296 DONE-only 口径合理。
+
+**c-CRAB** ([2603.23448](https://arxiv.org/abs/2603.23448)) — \[观望→Acceptance Slice2/3\] · 2026-06
+
+- Finding: 验收 criteria 可验证性分类 + **fail-then-pass 绑定**(criterion 先见 FAIL 再见 PASS 才算真验证)+ 评审期新增标准固化进合约;端到端固化率预期 ~18%,structural check 是覆盖主体。
+- 吸收: 归 Acceptance Slice2/3 方向,届时是该 milestone 的核心方法论:可验证性分类细化 MACHINE/HUMAN 二分;fail-then-pass 对应 REVIEW_ADDED 固化飞轮——**check 应编码「问题不复现」,勿编码「特定修复存在」**。现在不开任务。触发器:Acceptance Slice2/3 开工。
+
+**AI Harness** ([2605.13357](https://arxiv.org/abs/2605.13357)) — \[观望\] · 2026-06
+
+- Finding: harness 研究,**n=1 案例**(证据薄,机制候选有价值):consulted(被读过)/ influenced(改变行为)拆分;升级人工时附六字段归因记录;`unverified_success` 标签(声称成功但无验证证据)。另有 H0–H3 消融阶梯。
+- 吸收: 三点只记不开任务:① consulted/influenced 拆分可搭 LUM-314 judge 基建便车(used 投票现为单维布尔);② 升级人工附结构化归因;③ unverified_success 对应 Lumo「PASS 必带 evidence」已落地(LUM-343),词收下。**不做** H0–H3 阶梯(研究消融仪器,非产品功能)。触发器:LUM-314 judge 基建复用时机,或 used 信号需要分维度时。
+
+**Config Repair** ([2606.06212](https://arxiv.org/abs/2606.06212)) — \[观望:两条边界原则\] · 2026-06
+
+- Finding: 配置修复 agent:**regression 作为隐式验收标准**(先前通过的检查必须仍通过);LLM 裁判暴露给 agent 自查会被 Goodhart(agent 对裁判优化而非对问题优化),**可执行 check 才可同源开放**。
+- 吸收: 两条原则收作 Acceptance 边界条款:① regression 隐式 machine criterion 是 Slice2/3 议题(与 c-CRAB 同向);② LLM 裁判不可免费暴露给 agent 自查——LUM-344 `task status` 只回放结构化 verdict、不内嵌 LLM 裁判,边界正确,点名保住。触发器:Acceptance 引入 LLM 裁判类 criterion 时。
 
 ---
 
@@ -235,10 +277,15 @@
 - **memory 启动时投毒校验分类器**(containment 文章「plan for persistent state poisoning」的完整形态):当前 memory 写入方=workspace 成员+本 workspace 的 agent,信任域小,来源标注(LUM-347)+`<untrusted-*>` 边界够用。触发器:memory 写入来源扩到外部(公开 intake、跨 workspace 共享、第三方集成直写)或出现实际投毒案例时,上 startup 校验分类器。
 - **enforced TTL / expiresAt schema 字段**(context-personalization 文 ephemera 处理的完整形态):LUM-394 先走 extract 端拒收(零 schema)。触发器:eval 或 prod 实测显示 ephemera 仍持续落库(extract 判别拦不住)时,再上 schema 级 TTL 并在冷淘汰里强制执行。
 - **Claude Code 自带 memory tool 与 Lumo memory 的分工边界**(context-engineering 文提到 Developer Platform 的 file-based memory tool 已公测,跨 session 持久):Lumo agent 跑在 Claude Code 里,harness 记忆与 Lumo memory 可能双写——同一条工程教训记两处、口径漂移、飞轮信号分流。触发器:观察到 agent 把工程教训写进本地 memory 而非 `lumo memory add`,或两边出现矛盾/重复记录时,定分工约定(候选:SKILL.md 写明「项目工程教训一律走 lumo memory」)。
+- **BeliefMem 第二层:CONTRADICT op + 竞争组共同注入 + noisy-OR 信念聚合**(2605.05583):LUM-395 审计证明当前死亡螺旋未发生,机制层暂无承载问题。触发器:~2026-07-10 复跑 `scripts/analysis/lum395-flywheel-rehab/audit.ts` 出现 wrongful-kill suspects 或环 1 信号时再裁决。
+- **phase-tagged 成本遥测 + reconcile 边际成本斜率作 compaction 量化触发器**(2606.06448):触发器 = 其 harness repo 开源后评估复用,或 LUM-328 阈值(>100 经验值)需要量化校准时。
+- **consulted/influenced used-信号分维**(2605.13357):used 投票现为单维布尔。触发器 = LUM-314 judge 基建下次复用时机,或飞轮需要区分「被读过」与「改变了行为」时。
+- **fail-then-pass 绑定 + criteria 可验证性分类 + regression 隐式 criterion**(c-CRAB 2603.23448 / Config Repair 2606.06212):触发器 = Acceptance Slice2/3 开工,届时为核心方法论(端到端固化率预期 ~18%,structural check 是覆盖主体)。
+- **hallucination vs obsolescence 归因词表**(SSGM 2603.11768):触发器 = 三段 waterfall 归因需要拆 Preserve 段时(判别信号 = supersededAt 链)。
 
 ---
 
-## 附录:首批吸收的交付索引(Memory v6,2026-06)
+## 附录 1:首批吸收的交付索引(Memory v6,2026-06)
 
 | 任务    | 交付                                      | PR                |
 | ------- | ----------------------------------------- | ----------------- |
@@ -250,3 +297,14 @@
 | LUM-335 | reconcile LLM 鲁棒性(schema drift)        | #436              |
 | LUM-336 | 手动 add 接 reconcile + English-canonical | #440              |
 | LUM-328 | usage-strength 冷淘汰                     | #441              |
+
+## 附录 2:2606 周扫批次索引(tag `paper-absorption-2606`,2026-06)
+
+8 篇 subagent fan-out 全文精读 → 3 落地任务 + 6 watch 项(进 F 队列 5 行,c-CRAB 与 Config Repair 同向合并)+ 5 明确不做(各登记在条目内防重复评估)。不开 milestone(沿 agent-containment 先例)。
+
+| 任务                                                              | 来源论文                 | 交付                                        | 状态                                                                                            |
+| ----------------------------------------------------------------- | ------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [LUM-395](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-395) | BeliefMem 2605.05583     | 飞轮翻案通道审计(measure-first)             | **IN_REVIEW** · [PR#469](https://github.com/Lumo-Workspace/lumo/pull/469) · 裁决不修,07-10 复跑 |
+| [LUM-396](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-396) | ProMem 2601.04463        | 抽取 grounding 前置(quote-or-discard)       | TODO                                                                                            |
+| [LUM-397](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-397) | ProdCodeBench 2604.01527 | lineage outcome 强弱分层 + 记忆出生任务记账 | TODO                                                                                            |
+| [LUM-398](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-398) | (本批登记册吸收)         | 8 条目 + F 队列 5 行 + 录入规范追踪源       | 本 PR                                                                                           |
