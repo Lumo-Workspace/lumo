@@ -19,6 +19,7 @@ jest.mock('@/lib/services/memory/layer2-extract', () => ({
 jest.mock('@/lib/services/memory/layer2-apply', () => ({
   applyLayer2Operations: jest.fn(),
 }))
+jest.mock('@/lib/services/memory/ground-candidates', () => ({ groundCandidates: jest.fn() }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     tryClaimLayer2Lease: jest.fn(),
@@ -39,6 +40,7 @@ import {
   reconcileLayer2Candidates,
 } from '@/lib/services/memory/layer2-extract'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'
+import { groundCandidates } from '@/lib/services/memory/ground-candidates'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { compositeNeighborRetriever } from '@/lib/services/memory/embedding-neighbor-retriever'
 import { layer2Service } from '@/lib/services/memory/layer2.service'
@@ -58,6 +60,7 @@ const apply = applyLayer2Operations as jest.MockedFunction<
   typeof applyLayer2Operations
 >
 const repo = memoryRepository as jest.Mocked<typeof memoryRepository>
+const ground = groundCandidates as jest.MockedFunction<typeof groundCandidates>
 
 function makeInput() {
   return {
@@ -76,6 +79,11 @@ beforeEach(() => {
   // contention override this.
   repo.tryClaimLayer2Lease.mockResolvedValue(true)
   repo.releaseLayer2Lease.mockResolvedValue(undefined)
+  // Default: the grounding gate passes every candidate through.
+  ground.mockImplementation(async ({ candidates }) => ({
+    kept: candidates,
+    discardedCount: 0,
+  }))
 })
 
 describe('layer2Service.runForProject', () => {
@@ -231,6 +239,51 @@ describe('layer2Service.runForProject', () => {
     expect(retrieveMock).toHaveBeenCalledTimes(1)
     const ctx = retrieveMock.mock.calls[0]![0]
     expect(ctx.query.vector).toBeUndefined()
+  })
+})
+
+describe('layer2Service grounding gate (LUM-396)', () => {
+  const supported = { category: 'TRAP' as const, content: { trigger: 'real', outcome: 'o' }, sourceMemoryIds: ['tm_1'] }
+  const hallucinated = { category: 'DECISION' as const, content: { what: 'invented', why: 'invented' } }
+
+  it('grounding runs between extract and neighbor retrieval/reconcile; a discarded candidate reaches neither reconcile nor apply', async () => {
+    getInput.mockResolvedValue({
+      ...makeInput(),
+      taskMemories: [{ id: 'tm_1', taskId: 't1', category: 'TRAP', content: { trigger: 'real', outcome: 'o' } }],
+    })
+    extract.mockResolvedValue([supported, hallucinated])
+    ground.mockResolvedValue({ kept: [supported], discardedCount: 1 })
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
+    apply.mockResolvedValue({ added: 0, updated: 0, superseded: 0, noop: 1, skipped: 0 })
+
+    await layer2Service.runForProject('proj_1')
+
+    // Ordering: grounding saw the raw extract output…
+    expect(ground).toHaveBeenCalledTimes(1)
+    expect(ground.mock.calls[0]![0].candidates).toEqual([supported, hallucinated])
+    // …and only the kept candidate flows into retrieval and reconcile.
+    expect(retrieveMock).toHaveBeenCalledTimes(1)
+    const reconcileArg = reconcile.mock.calls[0]![0]
+    expect(reconcileArg.candidates).toEqual([supported])
+    expect(reconcileArg.neighborsByCandidate).toHaveLength(1)
+    // Grounding happened before retrieval (call order).
+    expect(ground.mock.invocationCallOrder[0]!).toBeLessThan(
+      retrieveMock.mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('grounding discarding everything returns a zero-result row before reconcile and apply', async () => {
+    getInput.mockResolvedValue(makeInput())
+    extract.mockResolvedValue([hallucinated])
+    ground.mockResolvedValue({ kept: [], discardedCount: 1 })
+
+    const result = await layer2Service.runForProject('proj_1')
+
+    expect(result).toEqual({ added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 })
+    expect(retrieveMock).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
+    expect(repo.releaseLayer2Lease).toHaveBeenCalledWith('proj_1')
   })
 })
 

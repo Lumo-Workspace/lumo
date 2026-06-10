@@ -240,6 +240,9 @@ async function main(): Promise<void> {
   log(
     '  TTL used-rate: run `npx tsx scripts/eval/memory/ttl-report.ts` (lineage proxy).'
   )
+  log(
+    '  Grounding interception (LUM-396, live, key-gated): run `npx tsx scripts/eval/memory/ground-runner.ts`.'
+  )
 }
 
 if (require.main === module) {

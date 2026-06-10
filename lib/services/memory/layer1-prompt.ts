@@ -115,8 +115,17 @@ Tight by default. A whole memory is usually 1–2 lines. Only PROCEDURAL earns a
 
 The OLD failure mode was cryptic log-lines ("Session.taskId vs payload divergence"). The fix for that over-corrected into AI-flavored over-writing. Aim for the middle: a real engineer's note — clear, specific, and short. Not a slide title, not a paragraph.`
 
+/**
+ * The exact source material the extract LLM reads for a turn. Exported as the
+ * single source for the LUM-396 grounding pass — quote spans are verified
+ * against this text, so it must be byte-identical to what extraction saw.
+ */
+export function buildLayer1SourceText(turnEvents: RawEvent[]): string {
+  return compactEvents(turnEvents, { maxToolCalls: 80 }).text || '(empty turn)'
+}
+
 export function buildLayer1ExtractPrompt(input: BuildPromptInput): BuiltPrompt {
-  const compact = compactEvents(input.turnEvents, { maxToolCalls: 80 })
+  const sourceText = buildLayer1SourceText(input.turnEvents)
 
   const examples = `# Examples
 
@@ -264,7 +273,7 @@ Title: ${input.task.title}
 Description: ${description}
 
 # Turn (compacted Claude Code event log)
-${compact.text || '(empty turn)'}
+${sourceText}
 
 ${examples}
 
