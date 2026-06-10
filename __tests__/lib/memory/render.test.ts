@@ -8,6 +8,7 @@ import {
   renderLayer2ReviewSection,
   renderMemorySection,
   wrapUntrustedLinked,
+  wrapUntrustedLinkedGroup,
   wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
@@ -418,5 +419,62 @@ describe('wrapUntrustedLinked (LUM-147)', () => {
   it('names every content class it now covers on the GET path (LUM-347)', () => {
     const out = wrapUntrustedLinked('## Comments\nhi')
     expect(out).toContain('documents, comments, artifacts')
+  })
+})
+
+describe('wrapUntrustedLinkedGroup (LUM-352)', () => {
+  const count = (haystack: string, needle: string) =>
+    haystack.split(needle).length - 1
+
+  it('emits the full preamble exactly once across the group — dedupe', () => {
+    const out = wrapUntrustedLinkedGroup([
+      '## Slack Context\na',
+      '## Documents\nb',
+      '## Pull Requests\nc',
+    ])
+    const joined = out.join('\n\n')
+    expect(count(joined, 'NOTE TO ASSISTANT')).toBe(1)
+    // The full preamble lands on the first section only.
+    expect(out[0]).toContain('NOTE TO ASSISTANT')
+    expect(out[1]).not.toContain('NOTE TO ASSISTANT')
+    expect(out[2]).not.toContain('NOTE TO ASSISTANT')
+  })
+
+  it('keeps every non-empty section enclosed in the boundary tags', () => {
+    const out = wrapUntrustedLinkedGroup(['## A\na', '## B\nb', '## C\nc'])
+    for (const section of out) {
+      expect(section.startsWith('<untrusted-linked-context>')).toBe(true)
+      expect(section.endsWith('</untrusted-linked-context>')).toBe(true)
+    }
+  })
+
+  it('marks follow-up sections with a one-line continuation pointer', () => {
+    const out = wrapUntrustedLinkedGroup(['## A\na', '## B\nb'])
+    // The marker occupies exactly one line right after the opening tag,
+    // followed by a blank line and the body — not the multi-line preamble.
+    const lines = (out[1] ?? '').split('\n')
+    expect(lines[1]).toContain('same boundary rules')
+    expect(lines[2]).toBe('')
+    expect(lines[3]).toBe('## B')
+  })
+
+  it('skips empty sections without consuming the full preamble', () => {
+    const out = wrapUntrustedLinkedGroup(['', '   ', '## C\nc', '## D\nd'])
+    expect(out[0]).toBe('')
+    expect(out[1]).toBe('')
+    expect(out[2]).toContain('NOTE TO ASSISTANT')
+    expect(out[3]).not.toContain('NOTE TO ASSISTANT')
+    expect(out[3]).toContain('same boundary rules')
+  })
+
+  it('returns "" for every section when all input is empty', () => {
+    expect(wrapUntrustedLinkedGroup(['', ''])).toEqual(['', ''])
+  })
+
+  it('matches wrapUntrustedLinked byte-for-byte on the first section', () => {
+    const section = '## Slack Context\nhi'
+    expect(wrapUntrustedLinkedGroup([section])[0]).toBe(
+      wrapUntrustedLinked(section)
+    )
   })
 })

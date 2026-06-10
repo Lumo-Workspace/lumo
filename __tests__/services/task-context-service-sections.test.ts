@@ -60,14 +60,13 @@ jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),
-  // Faithful to the real contract: "" stays "", non-empty gets the boundary —
-  // lets these assembly tests assert the LUM-347 routing without re-testing
-  // the wrapper's own text (covered in __tests__/lib/memory/render.test.ts).
-  wrapUntrustedLinked: jest.fn((s: string) =>
-    s.trim() === ''
-      ? ''
-      : `<untrusted-linked-context>\n${s}\n</untrusted-linked-context>`
-  ),
+  // Real linked wrappers (not fakes): the LUM-352 dedupe assertions count the
+  // actual preamble text across sections, so the assembly test must see the
+  // genuine boundary output, not a stand-in.
+  wrapUntrustedLinked: jest.requireActual('@/lib/memory/render')
+    .wrapUntrustedLinked,
+  wrapUntrustedLinkedGroup: jest.requireActual('@/lib/memory/render')
+    .wrapUntrustedLinkedGroup,
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findDocumentsForContext: jest.fn() },
@@ -200,6 +199,61 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     // with no criteria) is a directive surface the agent must honor — it stays
     // OUTSIDE the boundary (LUM-342 decision).
     expect(ctx.criteriaSection).not.toContain('<untrusted-linked-context>')
+  })
+
+  it('dedupes the full untrusted-linked preamble across ≥3 linked sections (LUM-352)', async () => {
+    findDocs.mockResolvedValue([
+      {
+        id: 'doc_1',
+        title: 'Design Doc',
+        updatedAt: new Date('2026-05-20T10:00:00Z'),
+        summary: 'How the thing works.',
+        summaryGeneratedAt: new Date('2026-05-21T10:00:00Z'),
+        content: '<p>full body</p>',
+      },
+    ])
+    listComments.mockResolvedValue([
+      { authorActorId: 'a1', body: 'c0', createdAt: new Date() },
+    ])
+    listPRs.mockResolvedValue([
+      { number: 42, title: 'Add the thing', state: 'open', ciStatus: null },
+    ])
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+    if (!ctx) throw new Error('expected context')
+
+    // CLI print order (cli/src/commands/task-context.ts) — the first
+    // non-empty section is the one that must carry the full preamble.
+    const nonEmpty = [
+      ctx.slackContextSection,
+      ctx.webLinkSection,
+      ctx.figmaSection,
+      ctx.artifactSection,
+      ctx.docSection,
+      ctx.commentsSection,
+      ctx.prSection,
+    ].filter(s => s !== '')
+    expect(nonEmpty.length).toBeGreaterThanOrEqual(3)
+
+    const joined = nonEmpty.join('\n\n')
+    expect(joined.split('NOTE TO ASSISTANT').length - 1).toBe(1)
+    expect(nonEmpty[0]).toContain('NOTE TO ASSISTANT')
+
+    // Boundary not weakened: every non-empty section keeps its own tags,
+    // follow-ups carry the one-line continuation pointer.
+    for (const section of nonEmpty) {
+      expect(section.startsWith('<untrusted-linked-context>')).toBe(true)
+      expect(section.trimEnd().endsWith('</untrusted-linked-context>')).toBe(
+        true
+      )
+    }
+    for (const section of nonEmpty.slice(1)) {
+      expect(section).toContain('same boundary rules')
+    }
   })
 
   it('returns empty section strings when there are no docs/comments/prs', async () => {
