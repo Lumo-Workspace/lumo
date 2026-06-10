@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 export interface SessionUsage {
   inputTokens: number
@@ -27,27 +28,20 @@ function asNumber(v: unknown): number {
 }
 
 /**
- * Read a Claude Code transcript JSONL and sum `message.usage` across all
- * assistant entries, grouped by `message.model` -> cumulative session totals.
- * `<synthetic>` entries (local injections with no API cost) are skipped.
- * Entries with no model string bucket under "unknown". Best-effort: returns
- * null if the file can't be read or has no real assistant usage. Never throws.
+ * Sum `message.usage` across all (non-synthetic) assistant entries of one
+ * transcript JSONL file into the shared accumulators. Returns true if at
+ * least one real usage entry was seen. Never throws.
  */
-export function sumTranscriptUsage(
-  transcriptPath: string
-): TranscriptUsage | null {
+function accumulateFileUsage(
+  path: string,
+  total: SessionUsage,
+  byModel: Record<string, ModelUsage>
+): boolean {
   let text: string
   try {
-    text = readFileSync(transcriptPath, 'utf8')
+    text = readFileSync(path, 'utf8')
   } catch {
-    return null
-  }
-  const byModel: Record<string, ModelUsage> = {}
-  const total: SessionUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheCreationTokens: 0,
+    return false
   }
   let seen = false
   for (const raw of text.split('\n')) {
@@ -92,6 +86,52 @@ export function sumTranscriptUsage(
     m.cacheRead += cacheRead
     m.cacheCreation += cacheCreation
     byModel[model] = m
+  }
+  return seen
+}
+
+/**
+ * Subagent (Task tool) turns are NOT in the main transcript — Claude Code
+ * writes them to sibling files at `<dir>/<sessionId>/subagents/agent-*.jsonl`.
+ * Resolve those for a main transcript path. Best-effort: returns [] when the
+ * directory is missing or unreadable. Never throws.
+ */
+function listSubagentTranscripts(transcriptPath: string): string[] {
+  if (!transcriptPath.endsWith('.jsonl')) return []
+  const subagentsDir = join(
+    transcriptPath.slice(0, -'.jsonl'.length),
+    'subagents'
+  )
+  try {
+    return readdirSync(subagentsDir)
+      .filter(name => name.startsWith('agent-') && name.endsWith('.jsonl'))
+      .map(name => join(subagentsDir, name))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Read a Claude Code transcript JSONL — plus any subagent transcripts under
+ * `<dir>/<sessionId>/subagents/agent-*.jsonl` — and sum `message.usage`
+ * across all (non-synthetic) assistant entries, grouped by `message.model`
+ * -> cumulative session totals. Entries with no model string bucket under
+ * "unknown". Best-effort: returns null if nothing readable has real
+ * assistant usage. Never throws.
+ */
+export function sumTranscriptUsage(
+  transcriptPath: string
+): TranscriptUsage | null {
+  const byModel: Record<string, ModelUsage> = {}
+  const total: SessionUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  }
+  let seen = accumulateFileUsage(transcriptPath, total, byModel)
+  for (const path of listSubagentTranscripts(transcriptPath)) {
+    seen = accumulateFileUsage(path, total, byModel) || seen
   }
   return seen ? { total, byModel } : null
 }
