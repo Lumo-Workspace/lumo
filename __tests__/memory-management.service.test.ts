@@ -145,6 +145,8 @@ describe('createForTask', () => {
       content: { what: 'a', why: 'b' },
       sourceSessionId: null,
       createdByMemberId: 'mem1',
+      // LUM-397: a manual task-scoped add has an unambiguous birth task.
+      sourceTaskId: 't1',
       agent: undefined,
     })
   })

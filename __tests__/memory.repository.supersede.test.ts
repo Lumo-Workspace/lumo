@@ -10,6 +10,8 @@ const OLD_ROW = {
   agent: 'CLAUDE_CODE',
   sourceSessionId: 'sess_orig',
   createdByMemberId: 'mem_owner',
+  // LUM-397 birth record — must travel onto the replacement row.
+  sourceTaskId: 'task_birth',
 }
 
 const findUniqueOrThrow = jest.fn().mockResolvedValue(OLD_ROW)
@@ -44,6 +46,7 @@ describe('memoryRepository.supersede (LUM-325, Option B invalidate-not-delete)',
         content: { rule: 'new', scope: 'all' },
         sourceSessionId: 'sess_orig',
         createdByMemberId: 'mem_owner',
+        sourceTaskId: 'task_birth',
       },
       select: { id: true },
     })

@@ -28,6 +28,13 @@ interface CreateMemoryInput {
   sourceSessionId: string | null
   createdByMemberId: string | null
   agent?: TaskArtifactAgent | undefined
+  /**
+   * Birth task (LUM-397): the task whose session extracted/recorded this
+   * memory, distinct from `taskId` (a scope pointer that PROJECT rows null
+   * out). Captured at creation, never mutated. Omit when there is no single
+   * originating task (Layer-2 consolidation, manual PROJECT adds).
+   */
+  sourceTaskId?: string | null
 }
 
 export const memoryRepository = {
@@ -307,6 +314,7 @@ export const memoryRepository = {
         content: input.content,
         sourceSessionId: input.sourceSessionId,
         createdByMemberId: input.createdByMemberId,
+        sourceTaskId: input.sourceTaskId ?? null,
         ...(input.agent !== undefined ? { agent: input.agent } : {}),
       },
       select: { id: true },
@@ -362,6 +370,7 @@ export const memoryRepository = {
         agent: true,
         sourceSessionId: true,
         createdByMemberId: true,
+        sourceTaskId: true,
       },
     })
     const created = await client.memory.create({
@@ -375,6 +384,9 @@ export const memoryRepository = {
         content,
         sourceSessionId: old.sourceSessionId,
         createdByMemberId: old.createdByMemberId,
+        // Birth record travels with the lineage chain (LUM-397): the
+        // replacement row keeps the original's birth task.
+        sourceTaskId: old.sourceTaskId,
       },
       select: { id: true },
     })

@@ -206,6 +206,8 @@ export const memoryManagementService = {
       content: content as Prisma.InputJsonValue,
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
+      // Manual task-scoped adds have an unambiguous birth task (LUM-397).
+      sourceTaskId: input.taskId,
       agent: input.agent,
     })
     // Reuse the vector already computed for dedup retrieval (same text) instead

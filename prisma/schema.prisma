@@ -1546,6 +1546,15 @@ model Memory {
   validFrom         DateTime                     @default(now())
   supersededAt      DateTime?
   supersededById    String?
+  /// LUM-397 birth-task accounting. The task whose session extracted/recorded
+  /// this memory, captured at creation and never mutated — unlike `taskId`,
+  /// which is a scope pointer (nulled on PROJECT promotion, SetNull on task
+  /// delete). FK-less on purpose (mirrors LineageEdge/MemoryProvenance): a
+  /// deleted task must not erase the birth record. Null for Layer-2
+  /// consolidation rows (multi-task origin — provenance edges carry sources),
+  /// manual PROJECT adds, and all pre-LUM-397 rows (no backfill, accepted).
+  /// Lays the data for same-task self-credit exclusion (follow-up).
+  sourceTaskId      String?
   /// 1024-dim semantic embedding of memoryContentToText(content), model
   /// alibaba/qwen3-embedding-0.6b. Read/written ONLY via parameterized raw SQL
   /// in memory.repository.ts — Prisma's typed client can't touch Unsupported
@@ -1888,6 +1897,13 @@ model LineageEdge {
   // Starts UNKNOWN at birth; stamped MERGED/REJECTED/REWORKED when the edge
   // closes (PR merged / task done) — see DoD ③ in the milestone goal.
   outcome      LineageOutcome      @default(UNKNOWN)
+  // LUM-397 outcome strength (ProdCodeBench: merged ≠ ground truth). Only
+  // meaningful alongside MERGED: true = the task had an all-PASS verification
+  // round (MERGED_VERIFIED), false = task closed without one (weak MERGED),
+  // null = not yet stratified (pre-LUM-397 stamps / non-MERGED outcomes).
+  // Monotonic: null/false may upgrade to true, never the reverse. Data-only —
+  // no scoring path reads this column until sample size justifies weighting.
+  outcomeVerified Boolean?
   // LUM-300 usage vote: null = not voted, true = agent reported using this
   // fragment, false = injected but unused. usedAt also marks "has this session
   // voted?" (avoids a separate Session watermark column).
