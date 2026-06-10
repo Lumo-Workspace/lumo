@@ -11,17 +11,24 @@ import { memoryCompactionService } from '@/lib/services/memory/compaction.servic
  * task→DONE) can never reach. The first post-deploy run backfills the existing
  * UNKNOWN backlog; subsequent runs catch stragglers. Idempotent.
  *
- * Also drains the dormant used=NULL backlog via the LUM-314 usage audit
- * backstop, bounded per run to keep the LLM burst manageable.
- *
- * Third segment (LUM-328): cold-eviction compaction — archives the lowest
+ * Also runs the LUM-328 cold-eviction compaction (archives the lowest
  * usage-strength PROJECT memories of any project over the ACTIVE threshold,
- * capped per sweep. Pure DB, never throws.
+ * capped per sweep) and drains the dormant used=NULL backlog via the LUM-314
+ * usage audit backstop, bounded per run to keep the LLM burst manageable.
+ *
+ * Segment order matters: the two cheap pure-DB segments (outcomes, compaction)
+ * run BEFORE the LLM-bound usage audit — its latency is unbounded and has been
+ * observed eating the entire function budget, which would otherwise starve
+ * compaction on every invocation.
  */
 
 /** Per-run cap on usage audits — bounds the LLM burst so the first sweeps drain
  *  the dormant backlog over a few hours, not all at once. */
 const USAGE_AUDIT_BATCH = 25
+
+/** Fluid-compute default (300s) is not enough for a backlogged usage-audit
+ *  batch; 800s is the Pro-plan ceiling. */
+export const maxDuration = 800
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -29,9 +36,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const outcomes = await lineageOutcomeService.sweepDoneTaskEdges()
+  const compaction = await memoryCompactionService.sweepColdProjectMemories()
   const usage =
     await fragmentUsageAuditService.auditDoneTaskSessions(USAGE_AUDIT_BATCH)
-  const compaction = await memoryCompactionService.sweepColdProjectMemories()
   return NextResponse.json({
     outcomes,
     usage: { processed: usage.processed },

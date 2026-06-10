@@ -15,7 +15,10 @@ jest.mock('@/lib/services/memory/compaction.service', () => ({
   memoryCompactionService: { sweepColdProjectMemories: jest.fn() },
 }))
 
-import { GET } from '@/app/api/cron/backfill-lineage-outcomes/route'
+import {
+  GET,
+  maxDuration,
+} from '@/app/api/cron/backfill-lineage-outcomes/route'
 import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
 import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
@@ -70,4 +73,22 @@ it('runs the sweep for an authorized cron request', async () => {
   expect(mockSweep).toHaveBeenCalledTimes(1)
   expect(mockAudit).toHaveBeenCalledTimes(1)
   expect(mockCompaction).toHaveBeenCalledTimes(1)
+})
+
+it('runs compaction before the LLM usage audit so a slow audit cannot starve it', async () => {
+  mockSweep.mockResolvedValue({ count: 0 })
+  mockAudit.mockResolvedValue({ processed: 0 })
+  mockCompaction.mockResolvedValue({
+    projectsOverThreshold: 0,
+    archivedTotal: 0,
+    projects: [],
+  })
+  await GET(req('Bearer secret'))
+  const compactionOrder = mockCompaction.mock.invocationCallOrder[0] as number
+  const auditOrder = mockAudit.mock.invocationCallOrder[0] as number
+  expect(compactionOrder).toBeLessThan(auditOrder)
+})
+
+it('declares an extended maxDuration so the audit segment gets budget beyond the fluid default', () => {
+  expect(maxDuration).toBe(800)
 })
