@@ -224,8 +224,10 @@ export const documentService = {
     return documents.map(doc => {
       const creatorUser = userMap.get(doc.createdBy.clerkId)
       // Strip the full body from the list payload — the board view only
-      // needs a short plain-text preview, and content can be large.
-      const { content: _content, ...rest } = doc
+      // needs a short plain-text preview, and content can be large. The
+      // markdown source (LUM-408) is equally large and list views never
+      // need it either.
+      const { content: _content, sourceMarkdown: _sourceMarkdown, ...rest } = doc
       const preview = extractDocumentPreview(doc.content)
       return {
         ...rest,
@@ -350,9 +352,14 @@ export const documentService = {
     // it bypasses the markdown→HTML conversion. A template emoji only applies
     // when the caller didn't specify one.
     let content: string | undefined
+    // Double-write the byte-identical markdown source next to the rendered
+    // HTML (LUM-408) so reads never depend on the lossy HTML→md reverse
+    // render. Template bodies are already HTML, so they leave it null.
+    let sourceMarkdown: string | undefined
     let templateEmoji: string | null | undefined
     if (data.contentMarkdown !== undefined) {
       content = markdownToHtml(data.contentMarkdown)
+      sourceMarkdown = data.contentMarkdown
     } else if (data.templateId !== undefined) {
       const template = await documentTemplateService.getTemplateForCreation(
         workspaceId,
@@ -375,6 +382,7 @@ export const documentService = {
       googleDocImporterId: data.googleDocImporterId ?? null,
       googleDocSyncedAt: data.googleDocSyncedAt ?? null,
       ...(content !== undefined ? { content } : {}),
+      ...(sourceMarkdown !== undefined ? { sourceMarkdown } : {}),
     })
 
     if (content) {
@@ -465,12 +473,22 @@ export const documentService = {
         { status: 400 }
       )
     }
+    const htmlDirectUpdate = data.content !== undefined
     if (data.contentMarkdown !== undefined) {
       data.content = markdownToHtml(data.contentMarkdown)
     }
 
     const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =
       {}
+    // Markdown source bookkeeping (LUM-408): a markdown update double-writes
+    // the byte-identical source; an HTML-direct update (web editor, revision
+    // restore) invalidates it so `doc show --raw` can never serve a stale
+    // source. Updates that don't touch the body leave it alone.
+    if (data.contentMarkdown !== undefined) {
+      updateData.sourceMarkdown = data.contentMarkdown
+    } else if (htmlDirectUpdate) {
+      updateData.sourceMarkdown = null
+    }
     if (data.title !== undefined) {
       updateData.title = data.title
       // Regenerate the URL slug from the new title while keeping the

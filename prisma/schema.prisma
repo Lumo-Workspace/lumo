@@ -963,6 +963,13 @@ model Document {
   id      String  @id @default(cuid())
   title   String  @default("")
   content String? @db.Text
+  // Byte-identical markdown source of the last markdown upload (LUM-408).
+  // Double-written whenever content arrives as markdown (CLI/API/gdoc);
+  // nulled when content is replaced through the HTML-direct path (web
+  // editor, revision restore) so it can never go stale. Null for legacy
+  // docs and HTML-only edits — `doc show --raw` errors instead of falling
+  // back to the lossy HTML→markdown reverse render.
+  sourceMarkdown String? @db.Text
   emoji   String?
 
   summary            String?   @db.Text

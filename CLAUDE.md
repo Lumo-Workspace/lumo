@@ -111,7 +111,8 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 - 含表格/复杂结构的 Lumo 活文档,权威 markdown 源放在 `docs/live-docs/`(映射表见该目录 README)
 - 编辑流程:改源文件 → `lumo doc update <docId> --file docs/live-docs/<file>.md` → `npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md` 校验表格结构未丢
-- **永远不要把 `lumo doc show` 的输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);`doc show` 只用来读
+- 上传前先 `lumo doc diff <docId> --file docs/live-docs/<file>.md` 检查线上源是否已漂移(防 stale 上传覆盖,#460 事故类)
+- **永远不要把 `lumo doc show` 的渲染输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);需要编辑基底用 `lumo doc show <docId> --raw`(LUM-408 起返回逐字节 markdown 源;无源时报错走重建流程,不会有损回退)
 
 ## CLI & Skills 同步
 

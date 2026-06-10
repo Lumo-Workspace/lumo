@@ -82,6 +82,7 @@ import {
 import { docSync } from './commands/doc-sync'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
+import { docDiff } from './commands/doc-diff'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
 import { docBind } from './commands/doc-bind'
@@ -1193,8 +1194,30 @@ doc
 
 doc
   .command('show <doc>')
-  .description('Show document header and body (doc = title or cuid)')
-  .action(wrap(reference => docShow(reference as string | undefined)))
+  .description(
+    'Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render.'
+  )
+  .option(
+    '--raw',
+    'Print the stored markdown source verbatim (no header); errors if absent'
+  )
+  .action(
+    wrap((reference, opts) =>
+      docShow(reference as string | undefined, opts as { raw?: boolean })
+    )
+  )
+
+doc
+  .command('diff <doc>')
+  .description(
+    'Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source.'
+  )
+  .requiredOption('--file <path>', 'Local markdown file to compare against')
+  .action(
+    wrap((reference, opts) =>
+      docDiff(reference as string | undefined, opts as { file?: string })
+    )
+  )
 
 doc
   .command('list')

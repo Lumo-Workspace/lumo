@@ -35,11 +35,17 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
   return vm.bodyMarkdown ? `${header}\n\n${sanitizeField(vm.bodyMarkdown)}` : header
 }
 
+export interface ShowDocOptions {
+  /** Print the byte-identical markdown source of the last markdown upload (LUM-408). */
+  raw?: boolean
+}
+
 export async function docShow(
-  reference: string | undefined
+  reference: string | undefined,
+  opts: ShowDocOptions = {}
 ): Promise<number | void> {
   if (!reference) {
-    console.error('Error: missing <doc>. Usage: lumo doc show <doc>')
+    console.error('Error: missing <doc>. Usage: lumo doc show <doc> [--raw]')
     return 1
   }
   const creds = readCredentials()
@@ -71,6 +77,7 @@ export async function docShow(
       visibility?: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
       content?: string | null
       contentMarkdown?: string | null
+      sourceMarkdown?: string | null
       project?: { name?: string } | null
       createdAt?: string
       updatedAt?: string
@@ -87,6 +94,25 @@ export async function docShow(
   if (!d) {
     console.error('Error: server returned an empty document response')
     return 1
+  }
+  if (opts.raw) {
+    // Byte-identical markdown source of the last markdown upload (LUM-408).
+    // Written verbatim (no header, no sanitization, no added newline) so the
+    // output is a legal edit base: `doc show --raw > base.md` round-trips.
+    // No silent fallback to the lossy HTML→markdown reverse render — that
+    // fallback is exactly what flattened tables in LUM-349.
+    if (typeof d.sourceMarkdown !== 'string') {
+      console.error(
+        `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `or predates markdown source storage). --raw refuses to fall back to the ` +
+          `lossy HTML→markdown render. Rebuild a base instead: run \`lumo doc show ${d.id}\`, ` +
+          `reconstruct the markdown faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\` ` +
+          `— from then on --raw works.`
+      )
+      return 1
+    }
+    process.stdout.write(d.sourceMarkdown)
+    return
   }
   // Server returns `contentMarkdown` derived from the HTML body (LUM-83+).
   // Fall back to parsing the raw content as legacy Tiptap JSON for docs

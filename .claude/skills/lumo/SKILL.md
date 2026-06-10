@@ -98,6 +98,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 **Documents** — see [docs.md](references/docs.md)
 
 - `lumo doc create/update/show/list/delete` — document CRUD
+- `lumo doc show <doc> --raw` — print the byte-identical markdown source of the last markdown upload (the only legal edit base; errors when no source is stored — never falls back to the lossy HTML→md render)
+- `lumo doc diff <doc> --file <local.md>` — compare the server-side markdown source against a local file (exit 0 identical, 1 with unified diff)
 - `lumo doc move` — reparent under a parent / to root
 - `lumo doc bind/unbind <doc> <task>` — task linkage
 - `lumo doc share/unshare/share-list` — member sharing
