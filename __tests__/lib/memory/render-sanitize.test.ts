@@ -13,6 +13,7 @@ import {
   renderLayer2ReviewSection,
   renderMemorySection,
   wrapUntrustedLinked,
+  wrapUntrustedLinkedGroup,
   wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
@@ -124,6 +125,17 @@ describe('wrapUntrustedLinked — control-char sanitization (LUM-346)', () => {
     const section = renderSlackContextSection([slackCard('正常总结，无注入。')])
     const out = wrapUntrustedLinked(section)
     expect(out).toContain(section.trimEnd())
+  })
+
+  it('strips control chars on every group section, including follow-ups (LUM-352)', () => {
+    const out = wrapUntrustedLinkedGroup([
+      `## A\nfirst ${ESC}[31mred${ESC}[0m`,
+      `## B\nsecond ${ESC}]0;owned${ESC}\\ body`,
+    ])
+    for (const section of out) {
+      expect(section).not.toContain(ESC)
+    }
+    expect(out[1]).toContain('second ]0;owned\\ body')
   })
 })
 

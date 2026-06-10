@@ -62,6 +62,13 @@ jest.mock('@/lib/memory/render', () => ({
       ? ''
       : `<untrusted-linked-context>\n${s}\n</untrusted-linked-context>`
   ),
+  wrapUntrustedLinkedGroup: jest.fn((xs: string[]) =>
+    xs.map(s =>
+      s.trim() === ''
+        ? ''
+        : `<untrusted-linked-context>\n${s}\n</untrusted-linked-context>`
+    )
+  ),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: {
