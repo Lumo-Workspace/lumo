@@ -28,7 +28,6 @@ export interface TaskUpdateData {
   parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
   projectId?: string | undefined
-  repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
   milestoneId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
@@ -43,12 +42,6 @@ const TASK_DETAIL_INCLUDE = {
       name: true,
       workspaceId: true,
       ownerId: true,
-      repositories: {
-        orderBy: [
-          { isDefault: 'desc' as const },
-          { createdAt: 'asc' as const },
-        ] as unknown as { isDefault: 'desc'; createdAt: 'asc' }[],
-      },
     },
   },
   team: { select: { identifier: true, sprintsEnabled: true } },
@@ -163,23 +156,6 @@ const TASK_AGENT_SELECT = {
   inputReason: true,
   projectId: true,
   project: { select: { workspaceId: true } },
-} as const
-
-/** Agent-state + the project's default repository (executor/retry routes). */
-const TASK_AGENT_EXECUTE_SELECT = {
-  id: true,
-  agentStatus: true,
-  repositoryId: true,
-  project: {
-    select: {
-      workspaceId: true,
-      repositories: {
-        where: { isDefault: true },
-        select: { fullName: true },
-        take: 1,
-      },
-    },
-  },
 } as const
 
 /** Title / description / identifier needed by Layer 1 memory extraction and lumo-proposal flows. */
@@ -413,14 +389,6 @@ export const taskRepository = {
     return prisma.task.findUnique({
       where: { id },
       select: TASK_AGENT_SELECT,
-    })
-  },
-
-  /** Find a task with agent + repo fields. Used by execute and retry routes. */
-  async findForAgentExecute(id: string) {
-    return prisma.task.findUnique({
-      where: { id },
-      select: TASK_AGENT_EXECUTE_SELECT,
     })
   },
 
@@ -740,7 +708,6 @@ export const taskRepository = {
     assigneeActorId: string | null
     agentStatus: AgentStatus | null
     parentTaskId: string | null
-    repositoryId: string | null
     sprintId?: string | null
     milestoneId?: string | null
     order: number | undefined
@@ -765,7 +732,6 @@ export const taskRepository = {
           assigneeActorId: data.assigneeActorId,
           agentStatus: data.agentStatus,
           parentTaskId: data.parentTaskId,
-          repositoryId: data.repositoryId,
           sprintId: data.sprintId ?? null,
           milestoneId: data.milestoneId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),

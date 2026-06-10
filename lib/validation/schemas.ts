@@ -145,7 +145,6 @@ export const createTaskSchema = z.object({
     .default('MEDIUM'),
   assigneeActorId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),
-  repositoryId: z.string().nullable().optional(),
   sprintId: z.string().nullable().optional(),
   milestoneId: z.string().nullable().optional(),
   order: z.number().optional(),
@@ -163,7 +162,6 @@ export const updateTaskSchema = z
     assigneeActorId: z.string().nullable().optional(),
     projectId: z.string().optional(),
     parentTaskId: z.string().nullable().optional(),
-    repositoryId: z.string().nullable().optional(),
     order: z.number().optional(),
     dueDate: z.string().datetime().nullable().optional(),
     tagIds: z.array(z.string().cuid()).max(20).optional(),
@@ -550,7 +548,6 @@ export const taskDraftDataSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   projectId: z.string().optional(),
   assigneeId: z.string().optional(),
-  repositoryId: z.string().optional(),
   dueDate: z.string().datetime().nullable().optional(),
 })
 

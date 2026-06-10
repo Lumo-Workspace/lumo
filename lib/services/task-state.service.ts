@@ -66,7 +66,6 @@ export async function updateTask(
     parentTaskId,
     assigneeActorId,
     projectId,
-    repositoryId,
     sprintId,
     milestoneId,
     tagIds,
@@ -182,7 +181,6 @@ export async function updateTask(
     }
   }
   if (projectId !== undefined) data.projectId = projectId
-  if (repositoryId !== undefined) data.repositoryId = repositoryId
   if (sprintId !== undefined) data.sprintId = sprintId
   if (milestoneId !== undefined) data.milestoneId = milestoneId
 

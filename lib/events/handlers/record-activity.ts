@@ -66,16 +66,6 @@ function toActivityRecord(event: TaskActivityEvent): ActivityRecord {
         payload: { added: event.added, removed: event.removed },
       }
 
-    case 'task:repository_changed':
-      return {
-        type: 'REPOSITORY_CHANGED',
-        payload: {
-          fromRepoId: event.fromRepoId,
-          toRepoId: event.toRepoId,
-          toName: event.toName,
-        },
-      }
-
     case 'task:comment_added':
       return { type: 'COMMENT_ADDED', payload: { commentId: event.commentId } }
 

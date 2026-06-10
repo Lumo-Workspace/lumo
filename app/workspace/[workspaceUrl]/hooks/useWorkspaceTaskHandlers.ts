@@ -183,7 +183,6 @@ export function useWorkspaceTaskHandlers({
       priority,
       projectId,
       assigneeId,
-      repositoryId,
       sprintId,
       aiSuggestedPriority,
     }: NewTaskFormData) => {
@@ -198,7 +197,6 @@ export function useWorkspaceTaskHandlers({
         projectId,
         parentTaskId: null,
         assigneeActorId: assigneeId ?? null,
-        repositoryId: repositoryId ?? null,
         createdAt: now,
         updatedAt: now,
         viewOrder: null,
@@ -228,7 +226,6 @@ export function useWorkspaceTaskHandlers({
             status,
             priority,
             assigneeActorId: assigneeId || undefined,
-            repositoryId: repositoryId ?? undefined,
             sprintId: sprintId ?? undefined,
           }
         )

@@ -42,7 +42,6 @@ function makeTask(over: Partial<MyTask> = {}): MyTask {
     projectId: over.projectId ?? 'prj_1',
     parentTaskId: over.parentTaskId ?? null,
     assigneeActorId: over.assigneeActorId ?? null,
-    repositoryId: over.repositoryId ?? null,
     createdAt: over.createdAt ?? '2026-05-20T00:00:00.000Z',
     updatedAt: over.updatedAt ?? '2026-05-20T00:00:00.000Z',
     viewOrder: over.viewOrder ?? 0,

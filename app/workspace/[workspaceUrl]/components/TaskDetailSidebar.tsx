@@ -1,7 +1,6 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { GitBranch } from 'lucide-react'
 import type {
   TaskDetail,
   WorkspaceMemberInfo,
@@ -15,13 +14,6 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from './fields'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import { TaskMilestoneField } from './milestones/TaskMilestoneField'
@@ -53,7 +45,6 @@ export function TaskDetailSidebar({
   onCreateTag,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
-  const projectRepositories = task.project?.repositories
 
   return (
     <div className='w-72 shrink-0 border-l border-border overflow-y-auto px-5 py-6 bg-muted/50'>
@@ -111,47 +102,6 @@ export function TaskDetailSidebar({
                 />
               ),
             },
-            ...((projectRepositories?.length ?? 0) > 0
-              ? [
-                  {
-                    label: intl.formatMessage({ id: 'task.repository' }),
-                    node: (
-                      <Select
-                        value={task.repositoryId ?? '__none__'}
-                        onValueChange={v =>
-                          onPatch({
-                            repositoryId: v === '__none__' ? null : v,
-                          })
-                        }
-                      >
-                        <SelectTrigger className={FIELD_TRIGGER_CLS}>
-                          <GitBranch size={12} className='mr-1 shrink-0' />
-                          <SelectValue
-                            placeholder={intl.formatMessage({
-                              id: 'task.repository',
-                            })}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='__none__'>
-                            {intl.formatMessage({ id: 'task.noRepository' })}
-                          </SelectItem>
-                          {projectRepositories!.map(repo => (
-                            <SelectItem key={repo.id} value={repo.id}>
-                              {repo.isDefault
-                                ? intl.formatMessage(
-                                    { id: 'task.repoDefault' },
-                                    { name: repo.name }
-                                  )
-                                : repo.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ),
-                  },
-                ]
-              : []),
             ...(task.sprintsEnabled && task.teamId
               ? [
                   {

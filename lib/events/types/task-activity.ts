@@ -50,16 +50,6 @@ export type TaskTagsChangedEvent = {
   removed: string[]
 }
 
-export type TaskRepositoryChangedEvent = {
-  type: 'task:repository_changed'
-  taskId: string
-  projectId: string
-  actorId: string
-  fromRepoId: string | null
-  toRepoId: string | null
-  toName: string | null
-}
-
 export type TaskCommentEvent = {
   type: 'task:comment_added' | 'task:comment_deleted'
   taskId: string
@@ -121,7 +111,6 @@ export type TaskActivityEvent =
   | TaskActorChangedEvent
   | TaskParentChangedEvent
   | TaskTagsChangedEvent
-  | TaskRepositoryChangedEvent
   | TaskCommentEvent
   | TaskSubtaskEvent
   | TaskSpecEvent

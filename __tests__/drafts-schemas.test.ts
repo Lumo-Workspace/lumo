@@ -26,7 +26,6 @@ describe('taskDraftDataSchema', () => {
       priority: 'HIGH',
       projectId: 'proj_123',
       assigneeId: 'actor_456',
-      repositoryId: 'repo_789',
       dueDate: '2026-04-10T00:00:00.000Z',
     })
     expect(result.success).toBe(true)

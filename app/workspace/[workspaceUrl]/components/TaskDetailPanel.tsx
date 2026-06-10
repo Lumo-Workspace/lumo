@@ -90,8 +90,6 @@ export function TaskDetailPanel({
     updatedAt: initialTask.updatedAt,
     number: initialTask.number,
     teamIdentifier: initialTask.teamIdentifier,
-    repositoryId:
-      'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
     parent: 'parent' in initialTask ? (initialTask.parent ?? null) : null,
     ...(initialTask.teamId !== undefined ? { teamId: initialTask.teamId } : {}),
     sprintId: initialTask.sprintId ?? null,

@@ -15,7 +15,6 @@ export interface UpdateTaskInput {
   parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
   projectId?: string | undefined
-  repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
   milestoneId?: string | null | undefined
   tagIds?: string[] | undefined

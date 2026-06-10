@@ -206,20 +206,6 @@ export function buildActivityEvents(
       toTitle: null,
     })
   }
-  if (
-    input.repositoryId !== undefined &&
-    result.changedFields.includes('repositoryId')
-  ) {
-    activityEvents.push({
-      type: 'task:repository_changed',
-      taskId,
-      projectId,
-      actorId: triggerActorId ?? '',
-      fromRepoId: (taskCheck as any).repositoryId ?? null,
-      toRepoId: input.repositoryId ?? null,
-      toName: null,
-    })
-  }
   if (input.tagIds !== undefined) {
     const oldTagNames = ((taskCheck as any).tags ?? []).map(
       (t: { name: string }) => t.name
