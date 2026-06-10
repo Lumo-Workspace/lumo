@@ -34,3 +34,26 @@ export function parseMentionedUserClerkIds(
   }
   return ids
 }
+
+/**
+ * 从任务描述/评论 HTML 中提取被 @ 的「任务」id(data-mention-type="task" 的
+ * data-id = Task cuid,非 LUM-N)。排除 selfTaskId,去重。
+ * 缺省 type='user' 的旧内容一律跳过。纯函数,永不抛,返回 []。
+ */
+export function parseMentionedTaskIds(html: string, selfTaskId: string): string[] {
+  const ids: string[] = []
+  if (!html) return ids
+  const tagRegex = /<(?:span|a)\b[^>]*\bclass="[^"]*\bmention\b[^"]*"[^>]*>/g
+  let m: RegExpExecArray | null
+  while ((m = tagRegex.exec(html)) !== null) {
+    const tag = m[0]
+    const typeMatch = /data-mention-type="([^"]+)"/.exec(tag)
+    if (typeMatch?.[1] !== 'task') continue
+    const idMatch = /data-id="([^"]+)"/.exec(tag)
+    const taskId = idMatch?.[1]
+    if (taskId && taskId !== selfTaskId && !ids.includes(taskId)) {
+      ids.push(taskId)
+    }
+  }
+  return ids
+}

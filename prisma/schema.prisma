@@ -210,6 +210,7 @@ model Workspace {
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
+  taskDependencies        TaskDependency[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -487,6 +488,8 @@ model Task {
   forecastSnapshot   TaskForecastSnapshot?
   acceptanceCriteria AcceptanceCriterion[]
   verificationRuns   VerificationRun[]
+  blockedByEdges     TaskDependency[]      @relation("TaskBlockedBy")
+  blockingEdges      TaskDependency[]      @relation("TaskBlocking")
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -2010,4 +2013,59 @@ model VerificationRun {
   @@index([taskId, round])
   @@index([criterionId])
   @@map("verification_runs")
+}
+
+// ─── TaskDependency (LUM-172 检测优于声明) ──────────────────────────────────
+// Migration: 20260610015440_add_task_dependencies
+// LUM-172: task dependency edges (检测优于声明) — initial schema.
+// Purely additive: 3 enums + task_dependencies table + indexes + FKs.
+// No data migration. Prod applies via `prisma migrate deploy` on next deploy.
+// (Header placed here rather than in migration.sql because the migration is
+// already recorded as applied in the DB — editing the SQL file would cause
+// checksum drift; migrate resolve --applied returns P3008.)
+
+enum DependencyKind {
+  BLOCKS
+  RELATES
+}
+
+enum DependencySource {
+  MANUAL
+  DETECTED
+}
+
+enum DependencyStatus {
+  SUGGESTED
+  CONFIRMED
+  DISMISSED
+}
+
+model TaskDependency {
+  id             String           @id @default(cuid())
+  workspaceId    String
+  // 方向:blockingTask 先 merge,blockedTask 等待。
+  // kind=RELATES 时无方向语义,两列只是存储位;v1 检测器只产 BLOCKS。
+  blockedTaskId  String
+  blockingTaskId String
+  kind           DependencyKind   @default(BLOCKS)
+  source         DependencySource
+  status         DependencyStatus @default(SUGGESTED)
+  // 可解释红线:检测边必须说得清来源。'task_mention' | 'shared_files';
+  // detail 放证据(mention 表面 / 共享文件数量+样本)。MANUAL 边为 null。
+  reason         String?
+  detail         Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  confirmedAt    DateTime?
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blockedTask  Task      @relation("TaskBlockedBy", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+  blockingTask Task      @relation("TaskBlocking", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  // 唯一约束不含 status:DISMISSED 边挡住同 pair 的重新 INSERT(检测器靠
+  // skipDuplicates + 先查已有 pair 实现「dismiss 即免疫重建议」);要复活走 UPDATE。
+  @@unique([blockedTaskId, blockingTaskId])
+  @@index([workspaceId, status])
+  @@index([blockingTaskId])
+  @@map("task_dependencies")
 }

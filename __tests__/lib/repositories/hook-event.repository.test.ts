@@ -6,6 +6,10 @@ jest.mock('@/lib/db/prisma', () => ({
     hookEvent: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      groupBy: jest.fn(),
     },
   },
 }))
@@ -16,6 +20,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
 const mockCreate = prisma.hookEvent.create as jest.Mock
 const mockFindMany = prisma.hookEvent.findMany as jest.Mock
+const mockGroupBy = prisma.hookEvent.groupBy as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -182,5 +187,29 @@ describe('hookEventRepository.findTurnUsageByTask', () => {
     const result = await hookEventRepository.findTurnUsageByTask('tsk_1')
 
     expect(result).toEqual(rows)
+  })
+})
+
+// ── groupTaskFilesTouched ─────────────────────────────────────────────────────
+
+describe('hookEventRepository.groupTaskFilesTouched', () => {
+  it('groups by workspaceId/taskId/filePath with correct where filters', async () => {
+    const since = new Date('2026-06-01T00:00:00Z')
+    mockGroupBy.mockResolvedValueOnce([])
+
+    await hookEventRepository.groupTaskFilesTouched({
+      since,
+      toolNames: ['Edit', 'Write'],
+    })
+
+    expect(mockGroupBy).toHaveBeenCalledWith({
+      by: ['workspaceId', 'taskId', 'filePath'],
+      where: {
+        createdAt: { gte: since },
+        taskId: { not: null },
+        filePath: { not: null },
+        toolName: { in: ['Edit', 'Write'] },
+      },
+    })
   })
 })

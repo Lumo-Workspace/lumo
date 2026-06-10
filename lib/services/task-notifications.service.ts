@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/notification.service'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
+import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import type {
@@ -311,6 +312,17 @@ export function dispatchUpdateTaskSideEffects(opts: {
           waitUntil,
         })
       })().catch(() => {})
+    )
+    // ── Fire-and-forget: task→task mention 候选依赖边(LUM-172) ────────────
+    waitUntil(
+      dependencyDetectionService
+        .detectMentionEdges({
+          taskId,
+          workspaceId: taskCheck.project.workspaceId,
+          html: newHtml ?? '',
+          surface: 'description',
+        })
+        .catch(() => {})
     )
   }
 

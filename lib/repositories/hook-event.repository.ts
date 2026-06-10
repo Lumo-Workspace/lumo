@@ -244,4 +244,22 @@ export const hookEventRepository = {
       },
     })
   },
+
+  /**
+   * LUM-172 共享文件 sweep:since 之后写工具事件的 (workspaceId, taskId, filePath)
+   * 去重三元组。taskId 取 HookEvent 自带列(session 绑定时已回填)。
+   * 注意:Prisma groupBy 对 nullable 列的返回类型仍是 string|null(where 过滤不收窄
+   * 类型),调用方需自行 narrow;结果集无 take 上限,边界由调用方的时间窗+阈值控制。
+   */
+  async groupTaskFilesTouched(opts: { since: Date; toolNames: string[] }) {
+    return prisma.hookEvent.groupBy({
+      by: ['workspaceId', 'taskId', 'filePath'],
+      where: {
+        createdAt: { gte: opts.since },
+        taskId: { not: null },
+        filePath: { not: null },
+        toolName: { in: opts.toolNames },
+      },
+    })
+  },
 }

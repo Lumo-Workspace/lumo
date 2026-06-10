@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
 import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
+import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 
 /**
  * GET /api/cron/backfill-lineage-outcomes
@@ -37,11 +38,19 @@ export async function GET(req: NextRequest) {
   }
   const outcomes = await lineageOutcomeService.sweepDoneTaskEdges()
   const compaction = await memoryCompactionService.sweepColdProjectMemories()
+  // ── LUM-172: shared-file dependency candidates (pure-DB, before LLM segment) ──
+  const dependencySweep = await dependencyDetectionService
+    .sweepSharedFileCandidates(new Date())
+    .catch(err => {
+      console.error('[cron] dependency sweep failed:', err)
+      return { suggested: 0 }
+    })
   const usage =
     await fragmentUsageAuditService.auditDoneTaskSessions(USAGE_AUDIT_BATCH)
   return NextResponse.json({
     outcomes,
-    usage: { processed: usage.processed },
     compaction,
+    dependencySweep,
+    usage: { processed: usage.processed },
   })
 }

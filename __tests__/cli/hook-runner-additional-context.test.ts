@@ -102,6 +102,52 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     )
   })
 
+  it('includes blockerWarningSection in additionalContext, BEFORE the memory section (LUM-172)', () => {
+    const responseBody = {
+      ok: true,
+      sessionId: 's-1',
+      taskBinding: {
+        bound: true,
+        taskIdentifier: 'LUM-42',
+        taskTitle: 'Test task',
+      },
+      blockerWarningSection: '## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞',
+      memorySection: '## Relevant Memory\n\n- [task] **X** → Y',
+    }
+
+    const lines = formatHookStdoutLines('session-start', responseBody)
+
+    expect(lines).toHaveLength(2)
+    const parsed = JSON.parse(lines[1]!)
+    const ctx = parsed.hookSpecificOutput.additionalContext as string
+    expect(ctx).toContain('## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞')
+    expect(ctx).toContain('## Relevant Memory')
+    // The warning must come before the memory section so it stays prominent.
+    expect(ctx.indexOf('依赖告警')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+  })
+
+  it('omits an empty blockerWarningSection from additionalContext', () => {
+    const responseBody = {
+      ok: true,
+      sessionId: 's-1',
+      taskBinding: {
+        bound: true,
+        taskIdentifier: 'LUM-42',
+        taskTitle: 'Test task',
+      },
+      blockerWarningSection: '',
+      memorySection: '## Relevant Memory\n\n- [task] **X** → Y',
+    }
+
+    const lines = formatHookStdoutLines('session-start', responseBody)
+
+    expect(lines).toHaveLength(2)
+    const parsed = JSON.parse(lines[1]!)
+    expect(parsed.hookSpecificOutput.additionalContext).toBe(
+      '## Relevant Memory\n\n- [task] **X** → Y'
+    )
+  })
+
   it('emits reviewTodosSection alone as additionalContext when memorySection is empty', () => {
     const responseBody = {
       ok: true,

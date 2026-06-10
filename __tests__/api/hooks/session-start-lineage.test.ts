@@ -19,6 +19,11 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/services/lineage.service', () => ({
   lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
 }))
+jest.mock('@/lib/services/task-dependency.service', () => ({
+  taskDependencyService: {
+    buildBlockerWarningSectionForTask: jest.fn().mockResolvedValue(''),
+  },
+}))
 // waitUntil must run its argument synchronously so the test can observe the call.
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => p,

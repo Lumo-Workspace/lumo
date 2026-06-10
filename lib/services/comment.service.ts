@@ -12,6 +12,7 @@ import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import { taskRepository } from '@/lib/repositories'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { waitUntil } from '@vercel/functions'
+import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
 
 /** Threads with at most this many comments are rendered inline (full text),
  *  so they never need an LLM summary. Beyond it, we cache a short summary. */
@@ -250,6 +251,18 @@ export const commentService = {
         waitUntil,
       })
       .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
+
+    // ── Fire-and-forget: task→task mention 候选依赖边(LUM-172) ────────────
+    waitUntil(
+      dependencyDetectionService
+        .detectMentionEdges({
+          taskId: createInput.taskId,
+          workspaceId,
+          html: createInput.body,
+          surface: 'comment',
+        })
+        .catch(() => {})
+    )
 
     if (mirrorOrigin !== 'inbound') {
       await prCommentMirrorService.scheduleOutbound(comment.id, 'CREATE', {

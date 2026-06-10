@@ -5,6 +5,7 @@ import {
   type PreviousSessionRecovery,
 } from '@/lib/services/task-context.service'
 import { lineageService } from '@/lib/services/lineage.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { waitUntil } from '@vercel/functions'
 
@@ -19,26 +20,35 @@ export async function POST(request: Request) {
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
       let layer2ReviewSection = ''
+      let blockerWarningSection = ''
       let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
-        const [sections, todos, previous, layer2Review] = await Promise.all([
-          taskContextService.buildSessionStartSections(binding.taskId),
-          taskContextService.buildReviewTodosSectionForTask(binding.taskId),
-          taskContextService.buildPreviousSessionRecoveryForTask(
-            binding.taskId,
-            sessionId
-          ),
-          taskContextService.buildLayer2ReviewSectionForTask(
-            binding.taskId,
-            sessionId
-          ),
-        ])
+        const [sections, todos, previous, layer2Review, blockerWarning] =
+          await Promise.all([
+            taskContextService.buildSessionStartSections(binding.taskId),
+            taskContextService.buildReviewTodosSectionForTask(binding.taskId),
+            taskContextService.buildPreviousSessionRecoveryForTask(
+              binding.taskId,
+              sessionId
+            ),
+            taskContextService.buildLayer2ReviewSectionForTask(
+              binding.taskId,
+              sessionId
+            ),
+            // Never throws — returns '' on failure, so the warning can't
+            // break session-start context injection (LUM-172).
+            taskDependencyService.buildBlockerWarningSectionForTask(
+              binding.taskId,
+              binding.taskIdentifier
+            ),
+          ])
         criteriaSection = sections.criteriaSection
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
         reviewTodosSection = todos.section
         previousSession = previous
         layer2ReviewSection = layer2Review.section
+        blockerWarningSection = blockerWarning
 
         // LUM-276: record one lineage edge per fragment this session consumed.
         // Fire-and-forget — must not block or fail the context injection.
@@ -74,6 +84,7 @@ export async function POST(request: Request) {
         linkedResourcesSection,
         reviewTodosSection,
         layer2ReviewSection,
+        blockerWarningSection,
         previousSession,
       }
     },

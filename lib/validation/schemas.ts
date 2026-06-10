@@ -629,3 +629,16 @@ export const workspaceTaskFiltersSchema = z.object({
   assigneeActorIds: z.array(z.string()).optional(),
   tagIds: z.array(z.string()).optional(),
 })
+
+// ─── Task Dependencies ─────────────────────────────────────────────────────
+
+export const addDependencyBodySchema = z.object({
+  /** Blocker 任务,LUM-N 或 cuid,路由层 resolveTask 解析。 */
+  blockedBy: z.string().trim().min(1),
+  kind: z.enum(['BLOCKS', 'RELATES']).optional(),
+})
+
+export const patchDependencyBodySchema = z.object({
+  action: z.enum(['confirm', 'dismiss']),
+  reverse: z.boolean().optional(),
+})
