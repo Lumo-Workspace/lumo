@@ -244,4 +244,20 @@ export const hookEventRepository = {
       },
     })
   },
+
+  /**
+   * LUM-172 共享文件 sweep:since 之后写工具事件的 (workspaceId, taskId, filePath)
+   * 去重三元组。taskId 取 HookEvent 自带列(session 绑定时已回填)。
+   */
+  async groupTaskFilesTouched(opts: { since: Date; toolNames: string[] }) {
+    return prisma.hookEvent.groupBy({
+      by: ['workspaceId', 'taskId', 'filePath'],
+      where: {
+        createdAt: { gte: opts.since },
+        taskId: { not: null },
+        filePath: { not: null },
+        toolName: { in: opts.toolNames },
+      },
+    })
+  },
 }
