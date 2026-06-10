@@ -4,6 +4,7 @@
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
+    buildCriteriaSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))

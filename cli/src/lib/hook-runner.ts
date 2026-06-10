@@ -140,6 +140,9 @@ export function formatHookStdoutLines(
   )
   const envelope = sessionContextEnvelope([
     card,
+    // Acceptance contract right after the recovery card: it's what the
+    // session's work is judged against (LUM-342).
+    body.criteriaSection,
     body.memorySection,
     body.linkedResourcesSection,
     body.reviewTodosSection,
@@ -163,6 +166,7 @@ type SessionStartBody = {
     taskIdentifier?: string
     taskTitle?: string
   }
+  criteriaSection?: string
   memorySection?: string
   linkedResourcesSection?: string
   reviewTodosSection?: string

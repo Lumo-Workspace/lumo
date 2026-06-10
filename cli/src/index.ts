@@ -30,6 +30,8 @@ import { memoryProjectAdd } from './commands/memory-project-add'
 import { memoryPromote } from './commands/memory-promote'
 import { memoryRm } from './commands/memory-rm'
 import { taskArtifactAdd } from './commands/task-artifact-add'
+import { taskCriteriaSet } from './commands/task-criteria-set'
+import { taskCriteriaList } from './commands/task-criteria-list'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
@@ -494,6 +496,34 @@ taskMemory
       )
     )
   )
+const taskCriteria = task
+  .command('criteria')
+  .description('Acceptance criteria — the task\u2019s verification contract (LUM-342)')
+
+taskCriteria
+  .command('set <task>')
+  .description(
+    'Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with "id" keep/update, missing ones are deleted).'
+  )
+  .requiredOption(
+    '--file <path>',
+    'JSON array of criteria: [{"statement","verifierType":"MACHINE"|"HUMAN","checkpointer?","evidenceRequired?","id?"}]'
+  )
+  .option(
+    '--human',
+    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session 出处'
+  )
+  .action(
+    wrap((taskId: unknown, options: unknown) =>
+      taskCriteriaSet(taskId as string, options as Record<string, unknown>)
+    )
+  )
+
+taskCriteria
+  .command('list <task>')
+  .description('List a task\u2019s acceptance criteria (id, type, provenance, checkpointer)')
+  .action(wrap((taskId: unknown) => taskCriteriaList(taskId as string)))
+
 const taskArtifact = task
   .command('artifact')
   .description(
