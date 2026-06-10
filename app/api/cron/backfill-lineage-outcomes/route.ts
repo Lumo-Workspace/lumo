@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
+import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
 
 /**
  * GET /api/cron/backfill-lineage-outcomes
@@ -12,6 +13,10 @@ import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage
  *
  * Also drains the dormant used=NULL backlog via the LUM-314 usage audit
  * backstop, bounded per run to keep the LLM burst manageable.
+ *
+ * Third segment (LUM-328): cold-eviction compaction — archives the lowest
+ * usage-strength PROJECT memories of any project over the ACTIVE threshold,
+ * capped per sweep. Pure DB, never throws.
  */
 
 /** Per-run cap on usage audits — bounds the LLM burst so the first sweeps drain
@@ -26,5 +31,10 @@ export async function GET(req: NextRequest) {
   const outcomes = await lineageOutcomeService.sweepDoneTaskEdges()
   const usage =
     await fragmentUsageAuditService.auditDoneTaskSessions(USAGE_AUDIT_BATCH)
-  return NextResponse.json({ outcomes, usage: { processed: usage.processed } })
+  const compaction = await memoryCompactionService.sweepColdProjectMemories()
+  return NextResponse.json({
+    outcomes,
+    usage: { processed: usage.processed },
+    compaction,
+  })
 }

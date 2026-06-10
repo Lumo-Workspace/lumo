@@ -83,6 +83,14 @@ export interface FragmentUsageRate {
   usedMergedTasks: number
 }
 
+/** Most recent used=true vote per fragment — the recency input to the LUM-328
+ * forgetting-curve ranking. Fragments never voted used are simply absent. */
+export interface FragmentLastUsed {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  lastUsedAt: Date
+}
+
 function emptyByOutcome(): Record<LineageOutcome, number> {
   return { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 }
 }
@@ -430,6 +438,41 @@ export const lineageEdgeRepository = {
           usedMergedTasks,
         }
       })
+  },
+
+  /**
+   * Most recent used=true vote timestamp per fragment. Rows whose max usedAt
+   * is NULL (defensive — used=true writes always stamp usedAt) are dropped so
+   * callers can treat presence in the result as "has a recency signal".
+   */
+  async lastUsedAtByFragments(
+    fragments: FragmentRef[],
+    tx?: Prisma.TransactionClient
+  ): Promise<FragmentLastUsed[]> {
+    if (fragments.length === 0) return []
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['fragmentType', 'fragmentId'],
+      where: {
+        used: true,
+        OR: fragments.map(f => ({
+          fragmentType: f.fragmentType,
+          fragmentId: f.fragmentId,
+        })),
+      },
+      _max: { usedAt: true },
+    })
+    return rows.flatMap(row =>
+      row._max.usedAt
+        ? [
+            {
+              fragmentType: row.fragmentType,
+              fragmentId: row.fragmentId,
+              lastUsedAt: row._max.usedAt,
+            },
+          ]
+        : []
+    )
   },
 
   /**

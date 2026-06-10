@@ -11,12 +11,19 @@ jest.mock('@/lib/services/lineage/fragment-usage-audit.service', () => ({
   fragmentUsageAuditService: { auditDoneTaskSessions: jest.fn() },
 }))
 
+jest.mock('@/lib/services/memory/compaction.service', () => ({
+  memoryCompactionService: { sweepColdProjectMemories: jest.fn() },
+}))
+
 import { GET } from '@/app/api/cron/backfill-lineage-outcomes/route'
 import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
+import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
 
 const mockSweep = lineageOutcomeService.sweepDoneTaskEdges as jest.Mock
 const mockAudit = fragmentUsageAuditService.auditDoneTaskSessions as jest.Mock
+const mockCompaction =
+  memoryCompactionService.sweepColdProjectMemories as jest.Mock
 
 const OLD_ENV = process.env
 beforeEach(() => {
@@ -48,9 +55,19 @@ it('rejects a request with no authorization header', async () => {
 it('runs the sweep for an authorized cron request', async () => {
   mockSweep.mockResolvedValue({ count: 546 })
   mockAudit.mockResolvedValue({ processed: 12 })
+  mockCompaction.mockResolvedValue({
+    projectsOverThreshold: 1,
+    archivedTotal: 10,
+    projects: [],
+  })
   const res = await GET(req('Bearer secret'))
   expect(res.status).toBe(200)
-  expect(await res.json()).toEqual({ outcomes: { count: 546 }, usage: { processed: 12 } })
+  expect(await res.json()).toEqual({
+    outcomes: { count: 546 },
+    usage: { processed: 12 },
+    compaction: { projectsOverThreshold: 1, archivedTotal: 10, projects: [] },
+  })
   expect(mockSweep).toHaveBeenCalledTimes(1)
   expect(mockAudit).toHaveBeenCalledTimes(1)
+  expect(mockCompaction).toHaveBeenCalledTimes(1)
 })
