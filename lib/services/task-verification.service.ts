@@ -3,6 +3,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
   verificationRunRepository,
+  isPassVerdict,
   type CreateVerificationRunInput,
   type VerificationRunRow,
 } from '@/lib/repositories/verification-run.repository'
@@ -128,11 +129,6 @@ export interface TaskAcceptanceStatus {
     addedAtRound: number
     rejectionReason: string | null
   }>
-}
-
-/** PASS_WITH_FOLLOWUP is a human "pass with notes" — met for plan purposes. */
-function isPassVerdict(verdict: VerificationRunRow['verdict'] | undefined) {
-  return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
 }
 
 const ACTIVITY_STATEMENT_MAX = 160

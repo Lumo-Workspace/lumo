@@ -14,6 +14,9 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  // Keep the real pure exports (isPassVerdict, deriveAllPassRoundTaskIds) —
+  // only the DB-backed repository is faked.
+  ...jest.requireActual('@/lib/repositories/verification-run.repository'),
   verificationRunRepository: {
     createMany: jest.fn(),
     maxRoundByTask: jest.fn(),

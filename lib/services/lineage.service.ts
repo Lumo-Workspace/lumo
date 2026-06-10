@@ -126,7 +126,9 @@ export const lineageService = {
       // safe for reopened tasks: a reopened task is status != DONE, so its
       // rework edges correctly stay UNKNOWN until it is DONE again. Stragglers
       // and edges born before this path shipped (historical backfill) are caught
-      // by the cron sweep.
+      // by the cron sweep. No strength here (LUM-397): outcomeVerified stays
+      // null and the hourly sweep stratifies it — this path deliberately
+      // avoids a verification-log dependency.
       const status = await taskRepository.getStatus(taskId)
       if (status === 'DONE') {
         await lineageEdgeRepository.stampOutcomeByTask(taskId, 'MERGED')

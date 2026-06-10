@@ -188,6 +188,10 @@ export async function applyLayer1Operations(
               content: validated as Prisma.InputJsonValue,
               sourceSessionId: input.sessionId,
               createdByMemberId: null,
+              // Birth-task accounting (LUM-397): recorded for BOTH scopes —
+              // PROJECT rows null taskId above, which is exactly the reverse
+              // lookup this column restores.
+              sourceTaskId: input.taskId,
               ...(input.agent !== undefined ? { agent: input.agent } : {}),
             },
             tx

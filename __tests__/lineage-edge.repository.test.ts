@@ -287,7 +287,7 @@ describe('lineageEdgeRepository', () => {
       const txUpdateMany = jest.fn().mockResolvedValue({ count: 1 })
       const tx = { lineageEdge: { updateMany: txUpdateMany } } as any
 
-      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'MERGED', tx)
+      await lineageEdgeRepository.stampOutcomeByTask('t-1', 'MERGED', { tx })
 
       expect(txUpdateMany).toHaveBeenCalledTimes(1)
       expect(mockUpdateMany).not.toHaveBeenCalled()

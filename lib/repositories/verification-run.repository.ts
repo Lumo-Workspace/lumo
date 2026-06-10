@@ -55,6 +55,49 @@ function toCreateData(i: CreateVerificationRunInput) {
   }
 }
 
+/**
+ * PASS_WITH_FOLLOWUP is a human "pass with notes" — it counts as met. Single
+ * source for every consumer of "is this verdict a pass" (the LUM-344 status
+ * read model and the LUM-397 outcome-strength derivation share this exact
+ * predicate so their notions of "passed" can never drift).
+ */
+export function isPassVerdict(
+  verdict: VerificationVerdict | undefined
+): boolean {
+  return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
+}
+
+/**
+ * Pure derivation behind the LUM-397 MERGED_VERIFIED strength signal: given
+ * verification-run rows, return the task ids that have at least one all-PASS
+ * round (≥1 verdict in the round, every verdict a pass per
+ * {@link isPassVerdict}). Exported standalone so BOTH stamp paths — the
+ * task→DONE immediate stamp and the hourly cron sweep — provably share one
+ * definition, and so tests can pin the semantics without a database.
+ */
+export function deriveAllPassRoundTaskIds(
+  rows: Array<{ taskId: string; round: number; verdict: VerificationVerdict }>
+): Set<string> {
+  const roundAllPass = new Map<string, { taskId: string; allPass: boolean }>()
+  for (const row of rows) {
+    const key = `${row.taskId}:${row.round}`
+    const entry = roundAllPass.get(key)
+    if (!entry) {
+      roundAllPass.set(key, {
+        taskId: row.taskId,
+        allPass: isPassVerdict(row.verdict),
+      })
+    } else if (!isPassVerdict(row.verdict)) {
+      entry.allPass = false
+    }
+  }
+  const taskIds = new Set<string>()
+  for (const entry of roundAllPass.values()) {
+    if (entry.allPass) taskIds.add(entry.taskId)
+  }
+  return taskIds
+}
+
 export const verificationRunRepository = {
   async create(input: CreateVerificationRunInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
@@ -136,5 +179,35 @@ export const verificationRunRepository = {
     const byCriterion = new Map<string, VerificationRunRow>()
     for (const row of rows) byCriterion.set(row.criterionId, row)
     return byCriterion
+  },
+
+  /**
+   * Task ids (optionally restricted to `taskIds`) that have at least one
+   * all-PASS verification round — the LUM-397 strength signal for both
+   * lineage stamp paths. Unfiltered, this scans the whole append-only log:
+   * acceptable at current volume (the cron sweep calls it hourly); revisit
+   * with a round-level rollup if the table grows hot.
+   */
+  async taskIdsWithAllPassRound(
+    taskIds?: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (taskIds && taskIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.verificationRun.findMany({
+      where: taskIds ? { taskId: { in: taskIds } } : {},
+      select: { taskId: true, round: true, verdict: true },
+    })
+    return deriveAllPassRoundTaskIds(rows)
+  },
+
+  /** Single-task convenience over {@link taskIdsWithAllPassRound} — the
+   * task→DONE immediate stamp path. Same derivation by construction. */
+  async hasAllPassRound(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<boolean> {
+    const ids = await this.taskIdsWithAllPassRound([taskId], tx)
+    return ids.has(taskId)
   },
 }
