@@ -215,7 +215,8 @@ function stringList(value: unknown): string[] {
 function debugPending(s: Record<string, unknown>): string[] {
   const status = s.status
   if (status !== 'unresolved' && status !== 'partial') return []
-  const prefix = status === 'unresolved' ? 'Bug unresolved' : 'Bug only partially fixed'
+  const prefix =
+    status === 'unresolved' ? 'Bug unresolved' : 'Bug only partially fixed'
   const problem = typeof s.problem === 'string' ? s.problem.trim() : ''
   return [problem.length > 0 ? `${prefix}: ${problem}` : prefix]
 }

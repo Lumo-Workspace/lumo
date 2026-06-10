@@ -111,8 +111,9 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 - 含表格/复杂结构的 Lumo 活文档,权威 markdown 源放在 `docs/live-docs/`(映射表见该目录 README)
 - 编辑流程:改源文件 → `lumo doc update <docId> --file docs/live-docs/<file>.md` → `npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md` 校验表格结构未丢
-- **永远不要把 `lumo doc show` 的输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);`doc show` 只用来读
-- **例外:研究吸收登记册(doc `cmq7c5cqi001v04lgwopkrti4`)是 live-doc-only**——唯一权威是活文档本身,repo 不保有它的 md 源,登记册变更不开 PR。编辑必须以活文档当前内容为基底;**严禁从任何 repo 历史版本的文件全量 `doc update` 重推**(会抹掉活文档上更新的条目);推送前先 `doc show` grep 核对无遗漏(只读核对)。其余 live-doc 仍走上面的源文件流程(详见 `docs/live-docs/README.md` 例外节)
+- 上传前先 `lumo doc diff <docId> --file docs/live-docs/<file>.md` 检查线上源是否已漂移(防 stale 上传覆盖,#460 事故类)
+- **永远不要把 `lumo doc show` 的渲染输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);需要编辑基底用 `lumo doc show <docId> --raw`(LUM-408 起返回逐字节 markdown 源;无源时报错走重建流程,不会有损回退)
+- **例外:研究吸收登记册(doc `cmq7c5cqi001v04lgwopkrti4`)是 live-doc-only**——唯一权威是活文档本身,repo 不保有它的 md 源,登记册变更不开 PR。编辑流程:`lumo doc show <docId> --raw` 取当前源为基底 → 改 → `doc diff` 确认只含本次编辑 → `doc update`;**严禁从任何 repo 历史版本的文件全量重推**(会抹掉活文档上更新的条目)。其余 live-doc 仍走上面的源文件流程(详见 `docs/live-docs/README.md` 例外节)
 
 ## CLI & Skills 同步
 

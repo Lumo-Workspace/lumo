@@ -85,17 +85,50 @@ lumo doc update RFC --tag final --add-tag oops
 - User wants to revise an existing doc.
 - After running `lumo doc list` or `doc show`, if the user wants to change a doc's scope, title, or content.
 
-### `lumo doc show <doc>` — print one document's detail
+### `lumo doc show <doc> [--raw]` — print one document's detail
 
-Prints a key:value header (id, title, scope, project, created/updated timestamps, mentioned tasks) and the content rendered back to markdown.
+Default mode prints a key:value header (id, title, scope, project, created/updated timestamps, mentioned tasks) and the content rendered back to markdown.
 
 ```bash
 lumo doc show "RFC: doc CLI"
+lumo doc show cmd_xxx --raw > base.md   # byte-identical edit base
 ```
 
-Note: the markdown rendered by `doc show` is best-effort. Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT guaranteed to be a no-op.
+**`--raw` (LUM-408)** prints the byte-identical markdown source of the last markdown upload — no header, no trailing newline added. The server stores the raw markdown (`sourceMarkdown`) alongside the rendered HTML on every markdown write (`doc create/update --content/--file/stdin`, gdoc import/sync), so `--raw` output IS a legal edit base: `doc show --raw > base.md`, edit, `doc update --file base.md` round-trips losslessly.
 
-Use when the user wants the current state or content of a doc without loading full task context.
+- A web-editor (HTML-direct) edit or revision restore **invalidates** the stored source — the doc's markdown source is gone until the next markdown upload.
+- When no source is stored (legacy doc or after an HTML edit), `--raw` **fails with exit 1 and a rebuild hint** — it never silently falls back to the lossy HTML→markdown reverse render (that fallback flattened tables: LUM-349). Rebuild flow: `doc show` (rendered) → reconstruct the markdown faithfully → `doc update --file rebuilt.md` → `--raw` works from then on.
+- Raw output is verbatim (unsanitized) by design — redirect it to a file rather than reading it in a terminal when the doc's provenance is uncertain.
+
+Note: the markdown rendered by **default-mode** `doc show` is still best-effort (tables flatten). Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT a no-op — use `--raw` as the edit base instead.
+
+Use default mode when the user wants to read a doc; use `--raw` whenever the output will be edited and uploaded back.
+
+### When to suggest `doc show --raw`
+
+- Before any `doc update --file` that starts from existing remote content — fetch the base with `--raw`, never from rendered `doc show` output.
+- User asks "what's the exact source of this doc", or an agent needs a faithful local copy of a live doc.
+- If `--raw` errors (no stored source), walk the rebuild flow above instead of editing the rendered output.
+
+### `lumo doc diff <doc> --file <local.md>` — compare remote markdown source vs a local file
+
+Compares the server-side stored markdown source (the byte-identical last markdown upload) against a local file, making remote/local split-brain visible on demand.
+
+| Flag            | Type   | Notes                                                                              |
+| --------------- | ------ | ---------------------------------------------------------------------------------- |
+| `--file <path>` | string | Required. Local markdown file; same project-local sandbox as `doc update --file`. |
+
+Exit codes: **0** = byte-identical (prints `Clean: …`), **1** = divergent (prints a unified diff, `--- remote/<id> (sourceMarkdown)` vs `+++ local/<file>`) or error. A doc without a stored markdown source errors explicitly (upload a markdown base once, then diff works).
+
+```bash
+lumo doc diff cmd_xxx --file docs/live-docs/research-intake-ledger.md
+```
+
+### When to suggest `doc diff`
+
+- Before uploading a locally edited file with `doc update --file` — check whether the remote source moved since the local copy was taken (prevents stale-upload clobbering, the #460 incident class).
+- When a repo-tracked markdown source (e.g. `docs/live-docs/`) and the live doc may have drifted and the user asks which is current.
+- After a suspected concurrent edit: a clean diff (exit 0) proves remote and local are in sync.
 
 ### `lumo doc list [flags]` — list documents
 
@@ -298,7 +331,7 @@ Synced cmd_xxx "Quarterly Plan" from Google
 The CLI does **not** currently support:
 
 - `--from-editor` (interactive $EDITOR).
-- Lossless markdown round-trip.
+- Lossless markdown round-trip from **rendered** `doc show` output (use `doc show --raw` — lossless whenever a markdown source is stored).
 - Reordering siblings within the same parent (`--before` / `--after`); use the Web UI for that.
 
 ### When to suggest session binding for docs

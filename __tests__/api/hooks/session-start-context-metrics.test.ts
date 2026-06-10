@@ -23,24 +23,34 @@ jest.mock('@/lib/services/hook-event.service', () => ({
   hookEventService: { recordHookEvent: jest.fn() },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
-  hookEventRepository: { setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined) },
+  hookEventRepository: {
+    setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { findTaskBinding: jest.fn() },
 }))
 jest.mock('@/lib/services/lineage.service', () => ({
-  lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
+  lineageService: {
+    recordSessionStartEdges: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/services/task-dependency.service', () => ({
   taskDependencyService: {
     buildBlockerWarningSectionForTask: jest.fn().mockResolvedValue(''),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: Promise<unknown>) => p }))
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => p,
+}))
 
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
-    findById: jest.fn(async () => ({ id: 'tsk_1', projectId: 'proj_1', status: 'IN_PROGRESS' })),
+    findById: jest.fn(async () => ({
+      id: 'tsk_1',
+      projectId: 'proj_1',
+      status: 'IN_PROGRESS',
+    })),
   },
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
@@ -123,7 +133,10 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     mockRecord.mockResolvedValue({ id: 'he_1', sessionId: 's-1', taskId: null })
     jest
       .spyOn(taskContextService, 'buildReviewTodosSectionForTask')
-      .mockResolvedValue({ section: '## PR review todos\n- [ ] fix x', fragments: [] })
+      .mockResolvedValue({
+        section: '## PR review todos\n- [ ] fix x',
+        fragments: [],
+      })
     jest
       .spyOn(taskContextService, 'buildPreviousSessionRecoveryForTask')
       .mockResolvedValue(null)
@@ -134,11 +147,19 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
 
   it('records per-section metrics on the stored SESSION_START payload', async () => {
     bindTask()
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([
       { id: 'm1', category: 'TRAP', content: { trigger: 'X', outcome: 'Y' } },
     ])
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValue([
-      { id: 'pr1', number: 7, title: 'Add thing', state: 'OPEN', ciStatus: 'passing' },
+      {
+        id: 'pr1',
+        number: 7,
+        title: 'Add thing',
+        state: 'OPEN',
+        ciStatus: 'passing',
+      },
     ])
 
     const res = await POST(post({ session_id: 's-1', source: 'startup' }))
@@ -153,10 +174,19 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     expect(metrics.version).toBe(1)
     expect(metrics.budgetTokens).toBe(2500)
     // One memory and one PR, both well under budget: kept in full, none dropped.
-    expect(metrics.allocation.memory).toMatchObject({ keptCards: 1, droppedCards: 0 })
+    expect(metrics.allocation.memory).toMatchObject({
+      keptCards: 1,
+      droppedCards: 0,
+    })
     expect(metrics.allocation.memory.keptTokens).toBeGreaterThan(0)
-    expect(metrics.allocation.pr).toMatchObject({ keptCards: 1, droppedCards: 0 })
-    expect(metrics.allocation.layer2Review).toEqual({ keptCards: 0, droppedCards: 0 })
+    expect(metrics.allocation.pr).toMatchObject({
+      keptCards: 1,
+      droppedCards: 0,
+    })
+    expect(metrics.allocation.layer2Review).toEqual({
+      keptCards: 0,
+      droppedCards: 0,
+    })
     // Section sizes of what actually shipped.
     expect(metrics.sectionTokens.memory).toBeGreaterThan(0)
     expect(metrics.sectionTokens.linkedResources).toBeGreaterThan(0)
@@ -169,7 +199,9 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
 
   it('is observe-only: injected context is unchanged and never carries the metrics key', async () => {
     bindTask()
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([
       { id: 'm1', category: 'TRAP', content: { trigger: 'X', outcome: 'Y' } },
     ])
 
@@ -184,7 +216,9 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     expect(JSON.stringify(body)).not.toContain(CONTEXT_METRICS_KEY)
     // The initial HookEvent insert is untouched — metrics arrive only via the
     // post-assembly stamp on the same row.
-    const inserted = mockRecord.mock.calls[0]?.[0] as { payload: Record<string, unknown> }
+    const inserted = mockRecord.mock.calls[0]?.[0] as {
+      payload: Record<string, unknown>
+    }
     expect(inserted.payload[CONTEXT_METRICS_KEY]).toBeUndefined()
     expect(stampedPayload()[CONTEXT_METRICS_KEY]).toBeDefined()
   })
@@ -197,11 +231,22 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     const fat = Array.from({ length: 40 }, (_, i) => ({
       id: `m${i}`,
       category: 'TRAP',
-      content: { trigger: `case ${i} ` + 'x'.repeat(500), outcome: 'y'.repeat(100) },
+      content: {
+        trigger: `case ${i} ` + 'x'.repeat(500),
+        outcome: 'y'.repeat(100),
+      },
     }))
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue(fat)
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue(fat)
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValue([
-      { id: 'pr1', number: 7, title: 'Add thing', state: 'OPEN', ciStatus: 'passing' },
+      {
+        id: 'pr1',
+        number: 7,
+        title: 'Add thing',
+        state: 'OPEN',
+        ciStatus: 'passing',
+      },
     ])
 
     const res = await POST(post({ session_id: 's-1' }))

@@ -18,6 +18,8 @@ export interface CreateDocumentData {
   visibility: DocVisibility
   sortOrder: number
   content?: string | null
+  // Byte-identical markdown source when the body arrived as markdown (LUM-408).
+  sourceMarkdown?: string | null
   // Google Docs import source (LUM-127). Null for native docs.
   googleDocId?: string | null
   googleDocImporterId?: string | null
@@ -27,6 +29,10 @@ export interface CreateDocumentData {
 export interface DocumentUpdateData {
   title?: string
   content?: string | null
+  // Markdown source double-write / invalidation (LUM-408): set to the raw
+  // markdown when the update carried contentMarkdown, explicitly null when
+  // content was replaced through the HTML-direct path.
+  sourceMarkdown?: string | null
   emoji?: string | null
   visibility?: DocVisibility | string
   projectId?: string | null
@@ -260,6 +266,9 @@ export const documentRepository = {
           googleDocImporterId: data.googleDocImporterId ?? null,
           googleDocSyncedAt: data.googleDocSyncedAt ?? null,
           ...(data.content !== undefined ? { content: data.content } : {}),
+          ...(data.sourceMarkdown !== undefined
+            ? { sourceMarkdown: data.sourceMarkdown }
+            : {}),
         },
         include: {
           project: { select: { id: true, name: true } },

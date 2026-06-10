@@ -38,9 +38,10 @@ round-trip 非幂等):表格会被拍平成一行一格的纯段落。如果把 
 (docId `cmq7c5cqi001v04lgwopkrti4`)**不在本目录维护**:它的唯一权威是活文档本身,
 repo 不保有它的 md 源(原 `research-intake-ledger.md` 已删除),登记册变更不开 PR。
 编辑它必须以活文档**当前内容**为基底——**严禁从任何 repo 历史版本的文件全量
-`doc update` 重推**,那会抹掉活文档上比该文件更新的条目。推送前先 `lumo doc show`
-grep 关键条目核对没有遗漏(只读核对;`doc show` 输出仍不可当回传源)。校验脚本
-`verify-live-doc.ts` 接受任意本地文件路径,照常可用。
+`doc update` 重推**,那会抹掉活文档上比该文件更新的条目。编辑流程(LUM-408 起):
+`lumo doc show <docId> --raw` 取当前逐字节 markdown 源为基底 → 本地修改 →
+`lumo doc diff <docId> --file <改后文件>` 确认 diff 只含本次编辑 → `doc update`。
+校验脚本 `verify-live-doc.ts` 接受任意本地文件路径,照常可用。
 
 ## 源文件书写注意
 
