@@ -2,6 +2,8 @@ import { logger } from '@/lib/logger'
 import { getLayer2Input } from './layer2-input'
 import { extractLayer2Candidates, reconcileLayer2Candidates } from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
+import { groundCandidates } from './ground-candidates'
+import { buildLayer2SourceText } from './layer2-prompt'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { NEIGHBOR_K } from './neighbor-retriever'
@@ -38,7 +40,8 @@ interface TriggerForTaskCompletionInput {
  * Layer 2 memory consolidation: scans recent TASK-scope memories in a
  * project, identifies recurring lessons, and promotes them to PROJECT
  * scope via the two-pass
- *   getLayer2Input → extractLayer2Candidates → retrieveNeighbors →
+ *   getLayer2Input → extractLayer2Candidates → groundCandidates
+ *   (quote-or-discard, LUM-396) → retrieveNeighbors →
  *   reconcileLayer2Candidates → applyLayer2Operations
  * pipeline.
  *
@@ -122,9 +125,23 @@ async function runForProject(
     }
 
     // Pass 1 — candidate project lessons, blind to existing PROJECT memories.
-    const candidates = await extractLayer2Candidates(input)
-    if (candidates.length === 0) {
+    const rawCandidates = await extractLayer2Candidates(input)
+    if (rawCandidates.length === 0) {
       logger.debug(`[memory.layer2] no-candidates project=${projectId}`)
+      return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
+    }
+
+    // Grounding gate (LUM-396) — quote-or-discard against the same TASK-memory
+    // window the extract pass read. MUST run before neighbor retrieval /
+    // reconcile: a hallucinated lesson that reaches reconcile can trigger
+    // SUPERSEDE and invalidate a good existing PROJECT memory. Fail-open inside.
+    const { kept: candidates } = await groundCandidates({
+      sourceText: buildLayer2SourceText(input.taskMemories),
+      candidates: rawCandidates,
+      logTag: 'memory.layer2',
+    })
+    if (candidates.length === 0) {
+      logger.debug(`[memory.layer2] no-grounded-candidates project=${projectId}`)
       return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
 

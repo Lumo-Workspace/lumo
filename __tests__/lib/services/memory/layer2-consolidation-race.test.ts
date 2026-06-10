@@ -18,6 +18,14 @@ jest.mock('@/lib/services/memory/layer2-extract', () => ({
   extractLayer2Candidates: jest.fn(),
   reconcileLayer2Candidates: jest.fn(),
 }))
+// LUM-396 grounding gate: pass-through (this suite exercises the lease race,
+// not grounding). Implementation set in the factory so clearAllMocks keeps it.
+jest.mock('@/lib/services/memory/ground-candidates', () => ({
+  groundCandidates: jest.fn(async ({ candidates }: { candidates: unknown[] }) => ({
+    kept: candidates,
+    discardedCount: 0,
+  })),
+}))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findById: jest.fn() },
 }))

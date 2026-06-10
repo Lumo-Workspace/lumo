@@ -5,6 +5,8 @@ import {
   reconcileLayer1Candidates,
 } from './layer1-extract'
 import { applyLayer1Operations } from './layer1-apply'
+import { groundCandidates } from './ground-candidates'
+import { buildLayer1SourceText } from './layer1-prompt'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { NEIGHBOR_K } from './neighbor-retriever'
 import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
@@ -21,9 +23,10 @@ interface TriggerLayer1Input {
  * error handling — must never throw, since the caller (the hook route) has
  * already returned 200 by the time this runs under `waitUntil(...)`.
  *
- * Two-pass reconcile-on-write:
- *   getLayer1Input → extractLayer1Candidates (Pass 1) → per-candidate neighbor
- *   retrieval → reconcileLayer1Candidates (Pass 2) → applyLayer1Operations.
+ * Two-pass reconcile-on-write with a grounding gate (LUM-396):
+ *   getLayer1Input → extractLayer1Candidates (Pass 1) → groundCandidates
+ *   (quote-or-discard) → per-candidate neighbor retrieval →
+ *   reconcileLayer1Candidates (Pass 2) → applyLayer1Operations.
  * Each step degrades to a no-op on failure rather than propagating.
  */
 export const layer1Service = {
@@ -42,9 +45,23 @@ export const layer1Service = {
       }
 
       // Pass 1 — extract candidate facts, blind to existing memories.
-      const candidates = await extractLayer1Candidates(layer1Input)
-      if (candidates.length === 0) {
+      const rawCandidates = await extractLayer1Candidates(layer1Input)
+      if (rawCandidates.length === 0) {
         logger.debug(`[memory.layer1] no-candidates session=${input.sessionId}`)
+        return
+      }
+
+      // Grounding gate (LUM-396) — quote-or-discard against the same turn log
+      // the extract pass read. MUST run before neighbor retrieval / reconcile:
+      // a hallucinated candidate that reaches reconcile can trigger SUPERSEDE
+      // and invalidate a good existing memory. Fail-open inside.
+      const { kept: candidates } = await groundCandidates({
+        sourceText: buildLayer1SourceText(layer1Input.turnEvents),
+        candidates: rawCandidates,
+        logTag: 'memory.layer1',
+      })
+      if (candidates.length === 0) {
+        logger.debug(`[memory.layer1] no-grounded-candidates session=${input.sessionId}`)
         return
       }
 

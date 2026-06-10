@@ -68,9 +68,17 @@ Tight by default. A whole memory is usually 1–2 lines; only PROCEDURAL earns a
 - Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence. A second sentence only when the point is genuinely counter-intuitive. \`alternatives\`/\`implications\` stay one clause each, never a paragraph.
 - Don't write to a length. One-clause lesson → ship one clause.`
 
-export function buildLayer2ExtractPrompt(input: Layer2Input): BuiltPrompt {
-  const taskMemoriesByTask = groupMemoriesByTask(input.taskMemories)
-  const taskMemoryLines = taskMemoriesByTask.length
+/**
+ * The exact source material the consolidation LLM reads — the recent
+ * TASK-scope memories grouped by source task. Exported as the single source
+ * for the LUM-396 grounding pass; quote spans are verified against this text,
+ * so it must be byte-identical to what extraction saw.
+ */
+export function buildLayer2SourceText(
+  taskMemories: Layer2Input['taskMemories']
+): string {
+  const taskMemoriesByTask = groupMemoriesByTask(taskMemories)
+  return taskMemoriesByTask.length
     ? taskMemoriesByTask
         .map(group => {
           const memLines = group.memories
@@ -83,6 +91,10 @@ export function buildLayer2ExtractPrompt(input: Layer2Input): BuiltPrompt {
         })
         .join('\n')
     : '  (none)'
+}
+
+export function buildLayer2ExtractPrompt(input: Layer2Input): BuiltPrompt {
+  const taskMemoryLines = buildLayer2SourceText(input.taskMemories)
 
   const examples = `# Examples
 

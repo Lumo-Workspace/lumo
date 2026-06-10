@@ -7,6 +7,7 @@ jest.mock('@/lib/services/memory/layer1-extract', () => ({
   reconcileLayer1Candidates: jest.fn(),
 }))
 jest.mock('@/lib/services/memory/layer1-apply', () => ({ applyLayer1Operations: jest.fn() }))
+jest.mock('@/lib/services/memory/ground-candidates', () => ({ groundCandidates: jest.fn() }))
 
 const embedTextsMock = jest.fn().mockResolvedValue([])
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
@@ -21,6 +22,7 @@ import {
   reconcileLayer1Candidates,
 } from '@/lib/services/memory/layer1-extract'
 import { applyLayer1Operations } from '@/lib/services/memory/layer1-apply'
+import { groundCandidates } from '@/lib/services/memory/ground-candidates'
 import { compositeNeighborRetriever } from '@/lib/services/memory/embedding-neighbor-retriever'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
 
@@ -32,6 +34,7 @@ const getInput = getLayer1Input as jest.MockedFunction<typeof getLayer1Input>
 const extract = extractLayer1Candidates as jest.MockedFunction<typeof extractLayer1Candidates>
 const reconcile = reconcileLayer1Candidates as jest.MockedFunction<typeof reconcileLayer1Candidates>
 const apply = applyLayer1Operations as jest.MockedFunction<typeof applyLayer1Operations>
+const ground = groundCandidates as jest.MockedFunction<typeof groundCandidates>
 
 const fullInput = {
   task: { id: 'task_1', title: 't', description: null, projectId: 'proj_1', workspaceId: 'ws_1' },
@@ -42,6 +45,11 @@ const fullInput = {
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(console, 'error').mockImplementation(() => {})
+  // Default: the grounding gate passes every candidate through.
+  ground.mockImplementation(async ({ candidates }) => ({
+    kept: candidates,
+    discardedCount: 0,
+  }))
 })
 
 describe('layer1Service.triggerLayer1Extraction (two-pass)', () => {
@@ -114,5 +122,45 @@ describe('layer1Service.triggerLayer1Extraction (two-pass)', () => {
     await expect(
       layer1Service.triggerLayer1Extraction({ sessionId: 's', taskId: 'task_1', workspaceId: 'ws_1' })
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('layer1Service grounding gate (LUM-396)', () => {
+  const supported = { category: 'TRAP' as const, content: { trigger: 'real', outcome: 'P3009' } }
+  const hallucinated = { category: 'DECISION' as const, content: { what: 'invented', why: 'invented' } }
+
+  it('grounding runs between extract and neighbor retrieval/reconcile; a discarded candidate reaches neither reconcile nor the DB', async () => {
+    getInput.mockResolvedValue(fullInput)
+    extract.mockResolvedValue([supported, hallucinated])
+    ground.mockResolvedValue({ kept: [supported], discardedCount: 1 })
+    reconcile.mockResolvedValue([{ type: 'NOOP' }])
+    apply.mockResolvedValue({ added: 0, updated: 0, deleted: 0, superseded: 0, noop: 1, skipped: 0 })
+
+    await layer1Service.triggerLayer1Extraction({ sessionId: 's', taskId: 'task_1', workspaceId: 'ws_1' })
+
+    // Ordering: grounding saw the raw extract output…
+    expect(ground).toHaveBeenCalledTimes(1)
+    expect(ground.mock.calls[0]![0].candidates).toEqual([supported, hallucinated])
+    // …and only the kept candidate flows into retrieval and reconcile.
+    expect(retrieveMock).toHaveBeenCalledTimes(1)
+    const reconcileArg = reconcile.mock.calls[0]![0]
+    expect(reconcileArg.candidates).toEqual([supported])
+    expect(reconcileArg.neighborsByCandidate).toHaveLength(1)
+    // Grounding happened before retrieval (call order).
+    expect(ground.mock.invocationCallOrder[0]!).toBeLessThan(
+      retrieveMock.mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('grounding discarding everything stops the pipeline before reconcile and apply', async () => {
+    getInput.mockResolvedValue(fullInput)
+    extract.mockResolvedValue([hallucinated])
+    ground.mockResolvedValue({ kept: [], discardedCount: 1 })
+
+    await layer1Service.triggerLayer1Extraction({ sessionId: 's', taskId: 'task_1', workspaceId: 'ws_1' })
+
+    expect(retrieveMock).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
   })
 })
