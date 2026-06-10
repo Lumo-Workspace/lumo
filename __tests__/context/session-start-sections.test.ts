@@ -56,7 +56,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('<untrusted-linked-context>')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
-    expect(out.linkedResourcesSection).toContain('- #7 Add thing — OPEN · passing')
+    expect(out.linkedResourcesSection).toContain('- [external:github] #7 Add thing — OPEN · passing')
     expect(out.memorySection).toBe('')
   })
 

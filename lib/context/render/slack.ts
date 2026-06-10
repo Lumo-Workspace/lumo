@@ -40,7 +40,11 @@ export function slackCard(c: SlackContextCard): string {
     ? `Thread (${c.snapshot.messages.length} messages, fetched ${fetchedAt})`
     : `Single message (fetched ${fetchedAt})`
   const errSuffix = c.refreshError ? ` (refresh failed: ${c.refreshError})` : ''
-  const lines: string[] = [`### ${channelLabel} · ${meta}${errSuffix}`]
+  // LUM-347: entry-level source attribution — this is fetched Slack content,
+  // not something a teammate wrote for the agent.
+  const lines: string[] = [
+    `### [external:slack] ${channelLabel} · ${meta}${errSuffix}`,
+  ]
   lines.push(`permalink: ${c.permalink}`)
 
   const summary = c.summary?.trim()
@@ -59,7 +63,7 @@ export function slackCard(c: SlackContextCard): string {
 /** One-line manifest for an overflowed Slack card. */
 export function slackManifest(c: SlackContextCard): string {
   const channelLabel = c.slackChannelName ? `#${c.slackChannelName}` : '#channel'
-  return `- ${channelLabel} — lumo task slack show ${c.id}`
+  return `- [external:slack] ${channelLabel} — lumo task slack show ${c.id}`
 }
 
 /**
