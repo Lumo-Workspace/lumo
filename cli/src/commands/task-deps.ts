@@ -1,0 +1,391 @@
+import { readCredentials } from '../lib/config'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
+
+interface ResolveResponse {
+  id: string
+  identifier: string
+}
+
+export interface DepEdge {
+  id: string
+  direction: 'BLOCKED_BY' | 'BLOCKS'
+  kind: string
+  source: string
+  status: string
+  reason: string | null
+  detail: { count?: number; sample?: string[]; surface?: string } | null
+  other: { identifier: string; title: string; status: string }
+}
+
+/** 短 id = 前 8 位，展示与 selector 都用它。 */
+const shortId = (id: string) => id.slice(0, 8)
+
+/**
+ * Resolve a user-supplied edge selector against the task's edge list. Accepts
+ * either the other task's identifier (case-insensitive, exact) or an edge-id
+ * prefix of at least 6 chars. Returns null when nothing (or more than one
+ * edge) matches — callers print the candidate list and bail.
+ */
+export function resolveEdgeSelector(
+  edges: DepEdge[],
+  selector: string
+): DepEdge | null {
+  const s = selector.trim()
+  const byIdent = edges.filter(
+    e => e.other.identifier.toUpperCase() === s.toUpperCase()
+  )
+  if (byIdent.length === 1) return byIdent[0] ?? null
+  const byPrefix = edges.filter(e => e.id.startsWith(s))
+  if (s.length >= 6 && byPrefix.length === 1) return byPrefix[0] ?? null
+  return null
+}
+
+/**
+ * Render the dependency edges of a task grouped by status. SUGGESTED rows get
+ * a copy-pasteable confirm hint with the short edge id; detected evidence
+ * (shared files / task mention) is summarized inline.
+ */
+export function formatDepsList(identifier: string, edges: DepEdge[]): string {
+  if (edges.length === 0) return `Dependencies for ${identifier}: 无依赖边。`
+  const lines: string[] = [
+    `Dependencies for ${identifier} (${edges.length})`,
+    '',
+  ]
+  const dirLabel = (e: DepEdge) =>
+    e.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+  const evidence = (e: DepEdge) => {
+    if (e.reason === 'shared_files')
+      return ` · shared_files(${e.detail?.count ?? '?'} 个共享文件${
+        e.detail?.sample?.length ? ': ' + e.detail.sample.join(', ') : ''
+      })`
+    if (e.reason === 'task_mention')
+      return ` · task_mention(${e.detail?.surface ?? ''})`
+    return ''
+  }
+  const section = (
+    title: string,
+    rows: DepEdge[],
+    render: (e: DepEdge) => string[]
+  ) => {
+    if (rows.length === 0) return
+    lines.push(title)
+    for (const e of rows) lines.push(...render(e))
+    lines.push('')
+  }
+  const confirmed = edges.filter(e => e.status === 'CONFIRMED')
+  const suggested = edges.filter(e => e.status === 'SUGGESTED')
+  const dismissed = edges.filter(e => e.status === 'DISMISSED')
+  section('CONFIRMED', confirmed, e => [
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier}「${e.other.title}」 ${e.other.status} · ${e.source}${evidence(e)}`,
+  ])
+  section('SUGGESTED(待确认)', suggested, e => [
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier}「${e.other.title}」 ${e.other.status}${evidence(e)}`,
+    `      确认: lumo task deps confirm ${identifier} ${shortId(e.id)}(方向反了加 --reverse;误报: dismiss)`,
+  ])
+  section('DISMISSED', dismissed, e => [
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} · 已忽略`,
+  ])
+  return lines.join('\n').trimEnd()
+}
+
+// ---------------------------------------------------------------------------
+// Shared plumbing for the five actions (template: task-comment-list.ts).
+// ---------------------------------------------------------------------------
+
+interface Ctx {
+  apiUrl: string
+  base: string
+  token: string
+  workspaceSlug: string
+}
+
+function getCtx(): Ctx | number {
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  return {
+    apiUrl,
+    base: trimTrailingSlash(apiUrl),
+    token: creds.token,
+    workspaceSlug: creds.workspaceSlug,
+  }
+}
+
+/** Resolve LUM-N → DB id (the dependencies endpoints take the DB id). */
+async function resolveTask(
+  ctx: Ctx,
+  identifier: string
+): Promise<ResolveResponse | number> {
+  let res: Response
+  try {
+    res = await fetch(
+      `${ctx.base}/api/tasks/resolve/${encodeURIComponent(identifier)}`,
+      { headers: { Authorization: `Bearer ${ctx.token}` } }
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${ctx.apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (res.status === 404) {
+    console.error(
+      `Error: task ${identifier} not found in workspace ${ctx.workspaceSlug}`
+    )
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: resolve failed (HTTP ${res.status})`)
+    return 1
+  }
+  return (await res.json()) as ResolveResponse
+}
+
+/** Best-effort `{ error }` body extraction for non-2xx responses. */
+async function readErrorMessage(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.json()) as { error?: unknown }
+    return typeof body.error === 'string' ? body.error : null
+  } catch {
+    return null
+  }
+}
+
+async function depsFetch(
+  ctx: Ctx,
+  path: string,
+  init: RequestInit,
+  label: string
+): Promise<Response | number> {
+  let res: Response
+  try {
+    res = await fetch(`${ctx.base}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${ctx.token}`,
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${ctx.apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (!res.ok) {
+    const serverMsg = await readErrorMessage(res)
+    console.error(
+      serverMsg
+        ? `Error: ${sanitizeField(serverMsg)}`
+        : `Error: ${label} failed (HTTP ${res.status})`
+    )
+    return 1
+  }
+  return res
+}
+
+async function fetchDeps(
+  ctx: Ctx,
+  taskDbId: string
+): Promise<DepEdge[] | number> {
+  const res = await depsFetch(
+    ctx,
+    `/api/tasks/${encodeURIComponent(taskDbId)}/dependencies`,
+    {},
+    'dependencies list'
+  )
+  if (typeof res === 'number') return res
+  const { dependencies } = (await res.json()) as { dependencies: DepEdge[] }
+  return dependencies ?? []
+}
+
+/** Selector miss: print all candidates with short ids so the user can retry. */
+function printSelectorCandidates(edges: DepEdge[], selector: string): void {
+  console.error(
+    `Error: no unique dependency edge matches "${selector}". Candidates:`
+  )
+  if (edges.length === 0) {
+    console.error('  (无依赖边)')
+    return
+  }
+  for (const e of edges) {
+    console.error(
+      sanitizeField(
+        `  [${shortId(e.id)}] ${e.status} ${e.other.identifier}「${e.other.title}」`
+      )
+    )
+  }
+}
+
+/**
+ * Shared front half of confirm/dismiss/rm: resolve the task, fetch its edge
+ * list, and resolve the selector. Returns the task + edge on success, or an
+ * exit code after printing the candidate list.
+ */
+async function resolveTaskAndEdge(
+  identifier: string,
+  selector: string
+): Promise<{ ctx: Ctx; task: ResolveResponse; edge: DepEdge } | number> {
+  const ctx = getCtx()
+  if (typeof ctx === 'number') return ctx
+  const task = await resolveTask(ctx, identifier)
+  if (typeof task === 'number') return task
+  const edges = await fetchDeps(ctx, task.id)
+  if (typeof edges === 'number') return edges
+  const edge = resolveEdgeSelector(edges, selector)
+  if (!edge) {
+    printSelectorCandidates(edges, selector)
+    return 1
+  }
+  return { ctx, task, edge }
+}
+
+// ---------------------------------------------------------------------------
+// Command actions
+// ---------------------------------------------------------------------------
+
+/** `lumo task deps list <LUM-N>` */
+export async function taskDepsList(
+  identifier: string | undefined
+): Promise<number | void> {
+  if (!identifier) {
+    console.error('Error: usage: lumo task deps list <LUM-42>')
+    return 1
+  }
+  const ctx = getCtx()
+  if (typeof ctx === 'number') return ctx
+  const task = await resolveTask(ctx, identifier)
+  if (typeof task === 'number') return task
+  const edges = await fetchDeps(ctx, task.id)
+  if (typeof edges === 'number') return edges
+  // Whole-block sanitization (session-attach style): edge titles, reasons and
+  // sample paths are server-controlled free text.
+  console.log(sanitizeField(formatDepsList(task.identifier, edges)))
+}
+
+/** `lumo task deps add <LUM-N> --blocked-by <LUM-M>` */
+export async function taskDepsAdd(
+  identifier: string | undefined,
+  opts: { blockedBy?: string }
+): Promise<number | void> {
+  if (!identifier || !opts.blockedBy) {
+    console.error(
+      'Error: usage: lumo task deps add <LUM-42> --blocked-by <LUM-9>'
+    )
+    return 1
+  }
+  const ctx = getCtx()
+  if (typeof ctx === 'number') return ctx
+  const task = await resolveTask(ctx, identifier)
+  if (typeof task === 'number') return task
+  const res = await depsFetch(
+    ctx,
+    `/api/tasks/${encodeURIComponent(task.id)}/dependencies`,
+    { method: 'POST', body: JSON.stringify({ blockedBy: opts.blockedBy }) },
+    'dependency add'
+  )
+  if (typeof res === 'number') return res
+  console.log(`Added: ${task.identifier} blocked by ${opts.blockedBy}`)
+}
+
+/** `lumo task deps confirm <LUM-N> <edge> [--reverse]` */
+export async function taskDepsConfirm(
+  identifier: string | undefined,
+  selector: string | undefined,
+  opts: { reverse?: boolean }
+): Promise<number | void> {
+  if (!identifier || !selector) {
+    console.error(
+      'Error: usage: lumo task deps confirm <LUM-42> <edge> [--reverse]'
+    )
+    return 1
+  }
+  const resolved = await resolveTaskAndEdge(identifier, selector)
+  if (typeof resolved === 'number') return resolved
+  const { ctx, task, edge } = resolved
+  const res = await depsFetch(
+    ctx,
+    `/api/tasks/${encodeURIComponent(task.id)}/dependencies/${encodeURIComponent(edge.id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        action: 'confirm',
+        reverse: opts.reverse ?? false,
+      }),
+    },
+    'dependency confirm'
+  )
+  if (typeof res === 'number') return res
+  console.log(
+    sanitizeField(
+      `Confirmed: [${shortId(edge.id)}] ${task.identifier} ${
+        edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+      } ${edge.other.identifier}「${edge.other.title}」${opts.reverse ? ' (reversed)' : ''}`
+    )
+  )
+}
+
+/** `lumo task deps dismiss <LUM-N> <edge>` */
+export async function taskDepsDismiss(
+  identifier: string | undefined,
+  selector: string | undefined
+): Promise<number | void> {
+  if (!identifier || !selector) {
+    console.error('Error: usage: lumo task deps dismiss <LUM-42> <edge>')
+    return 1
+  }
+  const resolved = await resolveTaskAndEdge(identifier, selector)
+  if (typeof resolved === 'number') return resolved
+  const { ctx, task, edge } = resolved
+  const res = await depsFetch(
+    ctx,
+    `/api/tasks/${encodeURIComponent(task.id)}/dependencies/${encodeURIComponent(edge.id)}`,
+    { method: 'PATCH', body: JSON.stringify({ action: 'dismiss' }) },
+    'dependency dismiss'
+  )
+  if (typeof res === 'number') return res
+  console.log(
+    sanitizeField(
+      `Dismissed: [${shortId(edge.id)}] ${edge.other.identifier}「${edge.other.title}」(不再建议)`
+    )
+  )
+}
+
+/** `lumo task deps rm <LUM-N> <edge> --yes` */
+export async function taskDepsRm(
+  identifier: string | undefined,
+  selector: string | undefined,
+  opts: { yes?: boolean }
+): Promise<number | void> {
+  if (!identifier || !selector) {
+    console.error('Error: usage: lumo task deps rm <LUM-42> <edge> --yes')
+    return 1
+  }
+  if (!opts.yes) {
+    console.error(
+      'Error: refusing to delete without --yes. Re-run with --yes to confirm.'
+    )
+    return 1
+  }
+  const resolved = await resolveTaskAndEdge(identifier, selector)
+  if (typeof resolved === 'number') return resolved
+  const { ctx, task, edge } = resolved
+  const res = await depsFetch(
+    ctx,
+    `/api/tasks/${encodeURIComponent(task.id)}/dependencies/${encodeURIComponent(edge.id)}`,
+    { method: 'DELETE' },
+    'dependency delete'
+  )
+  if (typeof res === 'number') return res
+  console.log(`Removed [${shortId(edge.id)}] from ${task.identifier}`)
+}

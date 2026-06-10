@@ -38,6 +38,13 @@ import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
 import { taskCommentList } from './commands/task-comment-list'
+import {
+  taskDepsList,
+  taskDepsAdd,
+  taskDepsConfirm,
+  taskDepsDismiss,
+  taskDepsRm,
+} from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
 import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
@@ -419,6 +426,43 @@ taskComments
   .command('list <identifier>')
   .description('List the full task comment thread')
   .action(wrap(id => taskCommentList(id as string)))
+
+const taskDeps = task
+  .command('deps')
+  .description('Task dependency edges — detected candidates + confirmed blockers')
+taskDeps
+  .command('list <identifier>')
+  .description('List dependency edges (both directions)')
+  .action(wrap(id => taskDepsList(id as string)))
+taskDeps
+  .command('add <identifier>')
+  .requiredOption('--blocked-by <blocker>', 'blocker task (LUM-N)')
+  .description('Declare a manual hard dependency (CONFIRMED)')
+  .action(
+    wrap((id, opts) => taskDepsAdd(id as string, opts as { blockedBy: string }))
+  )
+taskDeps
+  .command('confirm <identifier> <edge>')
+  .option('--reverse', 'flip direction when confirming')
+  .description('Confirm a detected candidate edge')
+  .action(
+    wrap((id, edge, opts) =>
+      taskDepsConfirm(id as string, edge as string, opts as { reverse?: boolean })
+    )
+  )
+taskDeps
+  .command('dismiss <identifier> <edge>')
+  .description('Dismiss a candidate (never re-suggested)')
+  .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
+taskDeps
+  .command('rm <identifier> <edge>')
+  .option('--yes', 'skip confirmation')
+  .description('Delete a dependency edge')
+  .action(
+    wrap((id, edge, opts) =>
+      taskDepsRm(id as string, edge as string, opts as { yes?: boolean })
+    )
+  )
 
 const taskPr = task.command('pr').description('Inspect linked PRs')
 taskPr
