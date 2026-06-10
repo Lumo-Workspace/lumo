@@ -86,13 +86,16 @@ export function AgentRunTab({
             onClick={() => setCostOpen(v => !v)}
             aria-expanded={costOpen}
             data-testid='token-usage-toggle'
-            className='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-caption transition-colors hover:bg-muted/60'
+            className='flex w-full items-center gap-3 rounded-lg px-4 py-3 text-caption transition-colors hover:bg-muted/60'
           >
             <ChevronRight
-              className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${costOpen ? 'rotate-90' : ''}`}
+              className={`size-4 shrink-0 text-muted-foreground transition-transform ${costOpen ? 'rotate-90' : ''}`}
               aria-hidden
             />
-            <span className='shrink-0 font-medium'>
+            {/* min-h-5 matches the avatar-driven content height of the run
+                rows below, so the two header heights line up (gap-3/px-4/py-3
+                mirror AgentRunCard's header for the same reason). */}
+            <span className='flex min-h-5 shrink-0 items-center font-medium'>
               {intl.formatMessage({
                 id: 'tokenCost.label',
                 defaultMessage: 'Token usage',
