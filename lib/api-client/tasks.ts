@@ -128,6 +128,25 @@ export const tasksClient = {
     })
   },
 
+  /**
+   * Record a human adjudication of the task's acceptance contract. Only
+   * reachable from a Clerk browser session — the server refuses bearer
+   * (agent/CLI) identities with 403 (milestone rule 5).
+   */
+  submitHumanVerdict<T>(
+    taskId: string,
+    data: {
+      verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+      rejectionReasonEnum?: string
+      note?: string
+    }
+  ) {
+    return apiFetch<T>(API.tasks.humanVerdict(taskId), {
+      method: 'POST',
+      body: data,
+    })
+  },
+
   suggestPriority<T>(data: unknown, signal?: AbortSignal) {
     return apiFetch<T>('/api/tasks/suggest-priority', {
       method: 'POST',

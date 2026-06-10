@@ -196,6 +196,54 @@ export const machineVerdictInputSchema = z
 export type MachineVerdictInput = z.infer<typeof machineVerdictInputSchema>
 
 /**
+ * Body of POST /api/tasks/[id]/human-verdict — the OTHER half of milestone
+ * rule 5. This schema is only ever parsed behind the human-authenticated
+ * route guard (Clerk browser session; bearer identities are refused before
+ * parsing), and the service hard-codes verifierType HUMAN on write — the two
+ * write paths can never express each other's verifierType.
+ *
+ * The verdict here is the full human three-state vocabulary, and it is
+ * task-level: the human adjudicates the whole contract in one action (the
+ * service fans it out to one row per criterion). FAIL must carry the
+ * rejection-reason enum (the free-text note stays optional); the note is the
+ * send-back reason on FAIL and the outstanding items on PASS_WITH_FOLLOWUP —
+ * a clean PASS carries neither field.
+ */
+export const humanVerdictBodySchema = z
+  .object({
+    verdict: z.enum(['PASS', 'FAIL', 'PASS_WITH_FOLLOWUP']),
+    rejectionReasonEnum: z.nativeEnum(VerificationRejectionReason).nullish(),
+    note: z.string().trim().min(1).max(4_000).nullish(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.verdict === 'FAIL' && !v.rejectionReasonEnum) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rejectionReasonEnum'],
+        message: 'A FAIL verdict must carry a rejectionReasonEnum',
+      })
+    }
+    if (v.verdict !== 'FAIL' && v.rejectionReasonEnum) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rejectionReasonEnum'],
+        message: 'rejectionReasonEnum only applies to a FAIL verdict',
+      })
+    }
+    if (v.verdict === 'PASS' && v.note) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['note'],
+        message:
+          'A clean PASS carries no note — use FAIL for a send-back reason or PASS_WITH_FOLLOWUP for outstanding items',
+      })
+    }
+  })
+
+export type HumanVerdictBody = z.infer<typeof humanVerdictBodySchema>
+
+/**
  * Body of POST /api/tasks/[id]/verify — one machine round, one verdict per
  * MACHINE criterion. The server (the judge) re-checks coverage against the
  * live contract; this schema only bounds the shape. Strict: a body smuggling

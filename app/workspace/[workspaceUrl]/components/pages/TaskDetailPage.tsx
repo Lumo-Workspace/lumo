@@ -37,6 +37,7 @@ import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
 import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
+import { TaskVerdictBar } from '../TaskVerdictBar'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 import { SpecArtifactGroup } from '../SpecArtifactGroup'
@@ -292,6 +293,20 @@ export function TaskDetailPage({
             >
               {task.title}
             </h1>
+
+            {/* Human adjudication of the acceptance contract — IN_REVIEW only
+                (LUM-421). The human-initiated entry to the human-verdict
+                write path; agents/CLI cannot reach the endpoint. */}
+            <TaskVerdictBar
+              taskId={task.id}
+              status={task.status}
+              onVerdictRecorded={result =>
+                setTask(prev => ({
+                  ...prev,
+                  status: result.taskStatus as TaskDetail['status'],
+                }))
+              }
+            />
 
             {/* Definition layer: spec artifacts (renders nothing when there are none) */}
             <SpecArtifactGroup taskId={task.id} />
