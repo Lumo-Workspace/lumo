@@ -128,6 +128,12 @@
 - Finding: 为 agent 写工具是新型软件契约——按 agent 认知方式整合工作流(`get_customer_context` 式)而非机械包装端点;命名空间划界;返回语义化标识(UUID→自然语言标识显著提升检索精度);token 效率(分页/截断+引导性提示,错误响应给下一步而非裸错误码);工具描述当 prompt 写(微小改进即显著收益,Sonnet 3.5 SWE-bench SOTA 部分来自描述优化)。方法论核心:真实场景 eval + 读 transcript 找摩擦点 + 用 Claude 自动改进工具,闭环迭代。
 - 吸收: Lumo 的 agent 工具面 = lumo CLI + SKILL.md + hook 注入,原则全部可迁移。**形态已对**(task context/session wrap/next 是整合形态;LUM-N 语义标识;命名空间无混淆证据;show/context 分层被 agent 自发用对)→ 缺的是**评估闭环**。落地:用 prod HookEvent(325 session/3332 真实调用)建首个 CLI usage eval(`scripts/analysis/lum392-cli-friction/`,可复跑),实测出最大摩擦不是错误率(2.3%)而是:仪式性状态走步 70 链 145 调用(状态机其实允许直达,纯隐性知识未显性化)、13 次 flag 幻觉(位置参数被猜成具名 flag)、错误信息不指路(~25 次死胡同,`doc move` 文案是内部正面先例)。裁决:错误文案 actionable 化+SKILL.md 显性化补强+padEnd bug=做;`--concise` 分级与分页 audit=缓(p90 8.5k 字符可接受,带触发器);命令合并删除=不做(零使用的 21 命令是人类发起场景,非冗余)。详见[实测报告](https://www.uselumo.ai/workspace/lumo/documents/lumo-cli-agent-lum-392-31)。
 
+**落地交付(2026-06-10 两 PR 均已 merge):**
+
+- [PR#462](https://github.com/Lumo-Workspace/lumo/pull/462) — eval harness(`scripts/analysis/lum392-cli-friction/`,只读 prod、`--check` 自检、解析层有单测)+ 实测报告权威源 + 本登记册条目。复跑出 diff 即评估闭环,发版后可重跑。
+- [PR#463](https://github.com/Lumo-Workspace/lumo/pull/463) — 三项「做」:① 错误文案 actionable 化(transition 409 列允许目标+DONE 指向 comment,与 TRANSITIONS 矩阵同源;memory 404 说明要完整 cuid;could-not-read-file 统一带 cwd+相对路径提示;commander 加 did-you-mean+`--help` 指引);② `doc list --task` padEnd 崩溃兜底;③ SKILL.md 不存在命令/flag 负面清单 + tasks.md 状态转移矩阵与「可直达」规则。**附加发现并修复:skill frontmatter description 堆到 3981 字符/250 个枚举触发词(每 session 常驻 ~1.3k token)→ 裁到 967 字符类别级,CLAUDE.md 同步规则加 1000 字符硬上限堵根因**——「工具描述当 prompt 写」的反面案例:描述也是 context 预算的一部分,recall 靠语义类别不靠穷举。cli 1.25.1 待手动 npm publish。
+- 待观察(带触发器,不占任务):`--concise`/分页(触发器=注入预算告警或任务上百)、`task status` 与 `task context` 的边界混淆(status 刚上线、样本 4 次,下次 harness 复跑看两个信号:恢复场景误拉 context、查状态字段误调 status)、description 裁剪后的触发 recall(客户端行为,DB 测不到,出现漏触发先查这里)。
+
 **\[内部实证\] 论文吸收工作流** · 2026-06
 
 - 三档分级(Tier 0 必读/1 选读/2 忽略)+ 层次过滤;每篇一句 bearing;时间盒(学术完成主义是最隐蔽的拖延)。
