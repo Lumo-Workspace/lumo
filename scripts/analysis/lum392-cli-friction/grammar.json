@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.27.0",
+  "cliVersion": "1.29.1",
   "commands": {
     "auth": {
       "arguments": [],
@@ -39,6 +39,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Content to append (inline markdown)"
         },
         "--file": {
@@ -46,6 +47,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Content to append from file"
         },
         "--if-revision": {
@@ -53,6 +55,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Only apply if the doc body is still at this revision (from doc show)"
         },
         "--section": {
@@ -60,6 +63,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Heading of the section to append into (omit to append at the document end)"
         }
       },
@@ -97,6 +101,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Inline markdown content"
         },
         "--file": {
@@ -104,6 +109,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Read markdown content from file"
         },
         "--parent": {
@@ -111,6 +117,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "File under this parent doc (cuid or title)"
         },
         "--project": {
@@ -118,23 +125,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug to file under"
         },
         "--scope": {
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
-          "description": "personal | workspace (default: personal)"
+          "enum": ["personal", "workspace"],
+          "enumCaseInsensitive": true,
+          "description": "personal | workspace (case-insensitive; default: personal)"
         },
         "--tag": {
           "long": "--tag",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Attach tag by name (repeatable)"
         },
         "--tag-id": {
@@ -142,6 +149,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Attach tag by id (repeatable)"
         },
         "--task": {
@@ -149,6 +157,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Bind to this task after creation"
         }
       },
@@ -169,6 +178,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Confirm deletion"
         }
       },
@@ -189,6 +199,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Local markdown file to compare against"
         }
       },
@@ -208,17 +219,16 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
-          "description": "personal | workspace (default: personal)"
+          "enum": ["personal", "workspace"],
+          "enumCaseInsensitive": true,
+          "description": "personal | workspace (case-insensitive; default: personal)"
         },
         "--task": {
           "long": "--task",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Bind the imported doc to this task"
         }
       },
@@ -233,6 +243,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Cap output to first N rows"
         },
         "--project": {
@@ -240,24 +251,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Filter by project name/slug"
         },
         "--scope": {
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace",
-            "all"
-          ],
-          "description": "personal | workspace | all (default: all)"
+          "enum": ["personal", "workspace", "all"],
+          "enumCaseInsensitive": true,
+          "description": "personal | workspace | all (case-insensitive; default: all)"
         },
         "--task": {
           "long": "--task",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Only docs bound to this task"
         },
         "--tree": {
@@ -265,6 +275,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Render as an indented tree"
         }
       },
@@ -285,6 +296,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New parent doc (cuid or title)"
         },
         "--root": {
@@ -292,6 +304,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Move to top level (no parent)"
         }
       },
@@ -312,6 +325,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New section content (inline markdown)"
         },
         "--file": {
@@ -319,6 +333,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New section content from file"
         },
         "--if-revision": {
@@ -326,6 +341,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Only apply if the doc body is still at this revision (from doc show)"
         },
         "--section": {
@@ -333,6 +349,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Heading of the section to replace (prefix with #… to pin depth)"
         }
       },
@@ -357,12 +374,9 @@
           "long": "--role",
           "short": null,
           "value": "required",
-          "enum": [
-            "viewer",
-            "editor",
-            "manager"
-          ],
-          "description": "viewer | editor | manager (default: viewer)"
+          "enum": ["viewer", "editor", "manager"],
+          "enumCaseInsensitive": true,
+          "description": "viewer | editor | manager (case-insensitive; default: viewer)"
         }
       },
       "hasSubcommands": false,
@@ -394,6 +408,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Print the stored markdown source verbatim (no header); errors if absent"
         },
         "--section": {
@@ -401,6 +416,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Print one heading-addressed section of the markdown source (prefix with #… to pin depth, e.g. \"## Status\")"
         }
       },
@@ -467,6 +483,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Add tag by name (repeatable)"
         },
         "--add-tag-id": {
@@ -474,6 +491,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Add tag by id (repeatable)"
         },
         "--content": {
@@ -481,6 +499,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Replace content (inline)"
         },
         "--file": {
@@ -488,6 +507,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Replace content from file"
         },
         "--if-revision": {
@@ -495,6 +515,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Only apply if the doc body is still at this revision (from doc show); mismatch fails with a 409 conflict"
         },
         "--project": {
@@ -502,6 +523,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name/slug; pass \"\" to clear"
         },
         "--remove-tag": {
@@ -509,6 +531,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows."
         },
         "--remove-tag-id": {
@@ -516,23 +539,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Remove tag by id (repeatable). Unknown ids are a no-op."
         },
         "--scope": {
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
-          "description": "personal | workspace"
+          "enum": ["personal", "workspace"],
+          "enumCaseInsensitive": true,
+          "description": "personal | workspace (case-insensitive)"
         },
         "--tag": {
           "long": "--tag",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Set tags by name (bulk replace, repeatable)"
         },
         "--tag-id": {
@@ -540,6 +563,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Set tags by id (bulk replace, repeatable)"
         },
         "--title": {
@@ -547,6 +571,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New title"
         }
       },
@@ -567,6 +592,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -581,6 +607,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -595,6 +622,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -609,6 +637,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -623,6 +652,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -637,6 +667,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -651,6 +682,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -665,6 +697,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -679,6 +712,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -693,6 +727,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -707,6 +742,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -721,6 +757,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -735,6 +772,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -749,6 +787,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -763,6 +802,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -777,6 +817,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -791,6 +832,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -805,6 +847,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -819,6 +862,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -833,6 +877,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -847,6 +892,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -861,6 +907,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -875,6 +922,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -889,6 +937,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -903,6 +952,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`."
         }
       },
@@ -941,6 +991,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Confirm deletion"
         }
       },
@@ -972,6 +1023,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         }
       },
@@ -992,6 +1044,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         }
       },
@@ -1012,6 +1065,7 @@
           "short": "-d",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Milestone description"
         },
         "--project": {
@@ -1019,6 +1073,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug"
         },
         "--start": {
@@ -1026,6 +1081,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Start date (YYYY-MM-DD)"
         },
         "--target": {
@@ -1033,6 +1089,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Target date (YYYY-MM-DD)"
         }
       },
@@ -1053,6 +1110,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         },
         "--yes": {
@@ -1060,6 +1118,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Required: confirm deletion without TTY prompt"
         }
       },
@@ -1074,6 +1133,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Show both archived and non-archived milestones"
         },
         "--archived": {
@@ -1081,6 +1141,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Show only archived milestones"
         },
         "--project": {
@@ -1088,6 +1149,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug"
         },
         "--search": {
@@ -1095,6 +1157,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Filter by name/description substring (case-insensitive)"
         }
       },
@@ -1115,6 +1178,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Place <ref> immediately after this milestone"
         },
         "--before": {
@@ -1122,6 +1186,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Place <ref> immediately before this milestone"
         },
         "--project": {
@@ -1129,6 +1194,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug"
         }
       },
@@ -1154,6 +1220,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         }
       },
@@ -1174,6 +1241,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug"
         }
       },
@@ -1194,6 +1262,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         }
       },
@@ -1214,6 +1283,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         },
         "--retry": {
@@ -1221,6 +1291,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Trigger summary regeneration before fetching"
         }
       },
@@ -1241,6 +1312,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         }
       },
@@ -1261,6 +1333,7 @@
           "short": "-d",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New description (empty string to clear)"
         },
         "--name": {
@@ -1268,6 +1341,7 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New name"
         },
         "--project": {
@@ -1275,6 +1349,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug (when identifier is a name)"
         },
         "--start": {
@@ -1282,25 +1357,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Start date YYYY-MM-DD (empty string to clear)"
         },
         "--status": {
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "planned",
-            "active",
-            "completed",
-            "cancelled"
-          ],
-          "description": "New status: planned | active | completed | cancelled"
+          "enum": ["planned", "active", "completed", "cancelled"],
+          "enumCaseInsensitive": true,
+          "description": "New status: planned | active | completed | cancelled (case-insensitive)"
         },
         "--target": {
           "long": "--target",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Target date YYYY-MM-DD (empty string to clear)"
         }
       },
@@ -1315,6 +1388,7 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Number of tasks to recommend (default 3)"
         }
       },
@@ -1360,13 +1434,15 @@
             "github-copilot",
             "windsurf"
           ],
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)"
+          "enumCaseInsensitive": true,
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
         },
         "--alternatives": {
           "long": "--alternatives",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision optional alternatives"
         },
         "--applies": {
@@ -1374,25 +1450,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "convention: where it applies"
         },
         "--category": {
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
-          "description": "trap | decision | convention | procedural"
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "trap | decision | convention | procedural (case-insensitive)"
         },
         "--implications": {
           "long": "--implications",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision optional implications"
         },
         "--outcome": {
@@ -1400,6 +1474,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap outcome"
         },
         "--rule": {
@@ -1407,6 +1482,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "convention rule"
         },
         "--step": {
@@ -1414,6 +1490,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "procedural step (repeatable)"
         },
         "--trigger": {
@@ -1421,6 +1498,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap/procedural trigger"
         },
         "--what": {
@@ -1428,6 +1506,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision"
         },
         "--why": {
@@ -1435,6 +1514,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision rationale"
         },
         "--workaround": {
@@ -1442,6 +1522,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap optional workaround"
         },
         "--workflow": {
@@ -1449,6 +1530,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "procedural workflow"
         }
       },
@@ -1468,19 +1550,16 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
-          "description": "Filter by trap|decision|convention|procedural"
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
         "--limit": {
           "long": "--limit",
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Cap output to the first N rows"
         }
       },
@@ -1507,6 +1586,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Overwrite an existing binding to a different task without confirmation (skips the [y/N] prompt)."
         }
       },
@@ -1533,6 +1613,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Print the draft but do not post or advance the watermark"
         },
         "--used": {
@@ -1540,6 +1621,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Mark which injected context fragments you actually used (1-based indices, comma/space separated; \"none\" for all-unused). Omit to skip recording."
         },
         "--yes": {
@@ -1547,6 +1629,7 @@
           "short": "-y",
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Post the drafted comment without prompting (agent-friendly)"
         }
       },
@@ -1561,6 +1644,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command. Defaults to claude-code."
         },
         "--force": {
@@ -1568,6 +1652,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Overwrite existing skill files (SKILL.md + references/) when they differ from the bundled version"
         },
         "--project": {
@@ -1575,6 +1660,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Install into ./.claude (applies to the current project only)"
         },
         "--user": {
@@ -1582,6 +1668,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Install into ~/.claude (applies across all projects for this user)"
         }
       },
@@ -1613,6 +1700,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
         }
       },
@@ -1633,6 +1721,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Return all unfinished tasks to the backlog"
         },
         "--move-all": {
@@ -1640,6 +1729,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Move all unfinished tasks to the next sprint"
         },
         "--team": {
@@ -1647,6 +1737,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
         },
         "--yes": {
@@ -1654,6 +1745,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Required when --move-all or --backlog-all is set"
         }
       },
@@ -1668,6 +1760,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "End date (YYYY-MM-DD)"
         },
         "--name": {
@@ -1675,6 +1768,7 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Sprint name (server fills default when omitted)"
         },
         "--start": {
@@ -1682,6 +1776,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Start date (YYYY-MM-DD)"
         },
         "--team": {
@@ -1689,6 +1784,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID"
         }
       },
@@ -1709,6 +1805,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
         },
         "--yes": {
@@ -1716,6 +1813,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Confirm deletion"
         }
       },
@@ -1730,17 +1828,15 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Show only the first N sprints"
         },
         "--status": {
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "draft",
-            "active",
-            "closed"
-          ],
+          "enum": ["draft", "active", "closed"],
+          "enumCaseInsensitive": true,
           "description": "Filter by status: draft | active | closed (case-insensitive)"
         },
         "--team": {
@@ -1748,6 +1844,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID"
         }
       },
@@ -1773,6 +1870,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
         }
       },
@@ -1793,6 +1891,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (when workspace has >1 team)"
         }
       },
@@ -1813,6 +1912,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (informational)"
         }
       },
@@ -1833,6 +1933,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Trigger summary regeneration before fetching"
         },
         "--team": {
@@ -1840,6 +1941,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (when workspace has >1 team)"
         }
       },
@@ -1860,6 +1962,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New end date (YYYY-MM-DD)"
         },
         "--name": {
@@ -1867,6 +1970,7 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New sprint name"
         },
         "--start": {
@@ -1874,6 +1978,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New start date (YYYY-MM-DD)"
         },
         "--team": {
@@ -1881,6 +1986,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Team name or UUID (when workspace has >1 team)"
         }
       },
@@ -1920,35 +2026,31 @@
             "github-copilot",
             "windsurf"
           ],
-          "description": "Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf"
+          "enumCaseInsensitive": true,
+          "description": "Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive)"
         },
         "--file": {
           "long": "--file",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "File whose contents become the artifact body"
         },
         "--kind": {
           "long": "--kind",
           "short": null,
           "value": "required",
-          "enum": [
-            "spec",
-            "plan",
-            "design"
-          ],
+          "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Artifact kind, e.g. spec | plan | design (opaque)"
         },
         "--source": {
           "long": "--source",
           "short": null,
           "value": "required",
-          "enum": [
-            "BMad",
-            "OpenSpec",
-            "GSD"
-          ],
+          "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Spec-gen framework, formal name e.g. Superpowers | \"Spec Kit\" | BMad | OpenSpec | GSD (opaque; quote names with spaces)"
         },
         "--title": {
@@ -1956,6 +2058,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Artifact title"
         }
       },
@@ -1993,6 +2096,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Confirm deletion (required, no interactive prompt)"
         }
       },
@@ -2042,24 +2146,23 @@
             "github-copilot",
             "windsurf"
           ],
-          "description": "New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf"
+          "enumCaseInsensitive": true,
+          "description": "New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive)"
         },
         "--kind": {
           "long": "--kind",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New artifact kind (opaque)"
         },
         "--source": {
           "long": "--source",
           "short": null,
           "value": "required",
-          "enum": [
-            "BMad",
-            "OpenSpec",
-            "GSD"
-          ],
+          "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New spec-gen framework, formal name e.g. Superpowers | \"Spec Kit\" | BMad | OpenSpec | GSD (quote names with spaces)"
         },
         "--title": {
@@ -2067,6 +2170,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New artifact title"
         }
       },
@@ -2134,6 +2238,7 @@
           "short": "-a",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Assignee email, name, or \"me\" (default: me)"
         },
         "--description": {
@@ -2141,6 +2246,7 @@
           "short": "-d",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Task description"
         },
         "--milestone": {
@@ -2148,25 +2254,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Milestone name (case-insensitive)"
         },
         "--priority": {
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "urgent"
-          ],
-          "description": "Priority: low | medium | high | urgent (default: low)"
+          "enum": ["low", "medium", "high", "urgent"],
+          "enumCaseInsensitive": true,
+          "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
         },
         "--project": {
           "long": "--project",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Project name or slug"
         },
         "--sprint": {
@@ -2174,6 +2278,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Sprint number or UUID to add the task to after creation"
         },
         "--tag": {
@@ -2181,6 +2286,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Attach tag by name (repeatable)"
         },
         "--tag-id": {
@@ -2188,6 +2294,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Attach tag by id (repeatable)"
         }
       },
@@ -2232,13 +2339,15 @@
             "GRANULARITY",
             "OTHER"
           ],
-          "description": "Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER"
+          "enumCaseInsensitive": true,
+          "description": "Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER (case-insensitive)"
         },
         "--file": {
           "long": "--file",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "JSON array of criteria: [{\"statement\",\"verifierType\":\"MACHINE\"|\"HUMAN\",\"checkpointer?\",\"evidenceRequired?\",\"id?\"}]"
         },
         "--human": {
@@ -2246,6 +2355,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session provenance"
         }
       },
@@ -2272,6 +2382,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "blocker task (LUM-N)"
         }
       },
@@ -2297,6 +2408,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "flip direction when confirming"
         }
       },
@@ -2351,6 +2463,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "skip confirmation"
         }
       },
@@ -2452,6 +2565,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Append usage-signal health section (fetches /api/lineage/signal)"
         }
       },
@@ -2466,6 +2580,7 @@
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Show only the first N tasks"
         },
         "--milestone": {
@@ -2473,6 +2588,7 @@
           "short": "-m",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Filter by milestone name or UUID (scopes to my tasks under that milestone)"
         },
         "--project": {
@@ -2480,19 +2596,16 @@
           "short": "-p",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Filter by project name (case-insensitive)"
         },
         "--status": {
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "todo",
-            "in_progress",
-            "in_review",
-            "done"
-          ],
-          "description": "Filter by status: todo | in_progress | in_review | done"
+          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enumCaseInsensitive": true,
+          "description": "Filter by status: todo | in_progress | in_review | done (case-insensitive)"
         }
       },
       "hasSubcommands": false,
@@ -2525,13 +2638,15 @@
             "github-copilot",
             "windsurf"
           ],
-          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)"
+          "enumCaseInsensitive": true,
+          "description": "Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)"
         },
         "--alternatives": {
           "long": "--alternatives",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision: optional alternatives considered"
         },
         "--applies": {
@@ -2539,25 +2654,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "convention: where the rule applies"
         },
         "--category": {
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
-          "description": "trap | decision | convention | procedural"
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "trap | decision | convention | procedural (case-insensitive)"
         },
         "--implications": {
           "long": "--implications",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision: optional implications"
         },
         "--outcome": {
@@ -2565,6 +2678,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap: what goes wrong"
         },
         "--rule": {
@@ -2572,6 +2686,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "convention: the rule"
         },
         "--step": {
@@ -2579,6 +2694,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "procedural: a step (repeatable)"
         },
         "--trigger": {
@@ -2586,6 +2702,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap/procedural: the situation that triggers it"
         },
         "--what": {
@@ -2593,6 +2710,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision: the decision"
         },
         "--why": {
@@ -2600,6 +2718,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "decision: rationale"
         },
         "--workaround": {
@@ -2607,6 +2726,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "trap: optional fix"
         },
         "--workflow": {
@@ -2614,6 +2734,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "procedural: the workflow name"
         }
       },
@@ -2633,19 +2754,16 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
-          "description": "Filter by trap|decision|convention|procedural"
+          "enum": ["trap", "decision", "convention", "procedural"],
+          "enumCaseInsensitive": true,
+          "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
         "--limit": {
           "long": "--limit",
           "short": "-n",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Cap output to the first N rows"
         }
       },
@@ -2724,6 +2842,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Emit the versioned machine-readable payload (version field; breaking changes bump it)"
         }
       },
@@ -2744,6 +2863,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Add tag by name (repeatable)"
         },
         "--add-tag-id": {
@@ -2751,6 +2871,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Add tag by id (repeatable)"
         },
         "--assignee": {
@@ -2758,6 +2879,7 @@
           "short": "-a",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New assignee: email, name, or \"me\" (empty string to clear)"
         },
         "--description": {
@@ -2765,6 +2887,7 @@
           "short": "-d",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New description (empty string to clear)"
         },
         "--milestone": {
@@ -2772,25 +2895,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Milestone name (case-insensitive); empty string to unbind"
         },
         "--priority": {
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "urgent"
-          ],
-          "description": "New priority: low | medium | high | urgent"
+          "enum": ["low", "medium", "high", "urgent"],
+          "enumCaseInsensitive": true,
+          "description": "New priority: low | medium | high | urgent (case-insensitive)"
         },
         "--remove-tag": {
           "long": "--remove-tag",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows."
         },
         "--remove-tag-id": {
@@ -2798,6 +2919,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Remove tag by id (repeatable). Unknown ids are a no-op."
         },
         "--sprint": {
@@ -2805,25 +2927,23 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Sprint number or UUID to bind the task to; empty string to unbind from current sprint"
         },
         "--status": {
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "todo",
-            "in_progress",
-            "in_review",
-            "done"
-          ],
-          "description": "New status: todo | in_progress | in_review | done"
+          "enum": ["todo", "in_progress", "in_review", "done"],
+          "enumCaseInsensitive": true,
+          "description": "New status: todo | in_progress | in_review | done (case-insensitive)"
         },
         "--tag": {
           "long": "--tag",
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Set tags by name (bulk replace, repeatable)"
         },
         "--tag-id": {
@@ -2831,6 +2951,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Set tags by id (bulk replace, repeatable)"
         },
         "--title": {
@@ -2838,6 +2959,7 @@
           "short": "-t",
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "New title"
         }
       },
@@ -2887,6 +3009,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Per-checkpointer timeout in seconds (default 600)"
         }
       },
@@ -2924,6 +3047,7 @@
           "short": null,
           "value": "required",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Branch off this ref instead of origin/main (skips fetch)"
         },
         "--no-fetch": {
@@ -2931,6 +3055,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Do not `git fetch origin main` before branching"
         },
         "--verify": {
@@ -2938,6 +3063,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Run `npx jest` in the new worktree to confirm a clean baseline"
         }
       },
@@ -2964,6 +3090,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Also delete the branch (git branch -d; refuses if unmerged)"
         },
         "--force": {
@@ -2971,6 +3098,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Remove even with uncommitted changes"
         },
         "--yes": {
@@ -2978,6 +3106,7 @@
           "short": null,
           "value": "none",
           "enum": null,
+          "enumCaseInsensitive": false,
           "description": "Confirm removal (required, no interactive prompt)"
         }
       },

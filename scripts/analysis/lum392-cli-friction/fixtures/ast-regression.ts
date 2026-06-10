@@ -4,15 +4,16 @@
  *
  * HALLUCINATION_CASES are the historical flag-hallucination / unknown-command
  * invocations agents actually issued; `expect` is the verdict against the
- * CURRENT grammar snapshot. Two cases deliberately differ from what commander
+ * CURRENT grammar snapshot. Cases can deliberately differ from what commander
  * said at the time:
- *   - `task artifact add … --source Superpowers --agent …` failed as
- *     "unknown option --agent" then; --agent exists today, but the validator
- *     still flags the call via the --source enum (Superpowers ∉ BMad|OpenSpec|GSD).
  *   - sibling invocations in the same Bash call used to inherit each other's
  *     error evidence (output is shared); the AST verdict is per-segment, so
  *     `lumo session --help` (which co-ran with a --verbose hallucination) is
  *     correctly valid here.
+ *   - LUM-420 re-adjudicated two former illegal-enum classes as valid (now in
+ *     VALID_CASES): `--source Superpowers` (--source is an open `e.g.` example
+ *     list, not a closed enum) and uppercase enum values like `--category
+ *     DECISION` (the CLI runtime normalizes case before validating).
  *
  * VALID_CASES guard against false positives: real successful invocation
  * shapes (short flags, =values, redirections, $VAR values, repeatable flags).
@@ -60,12 +61,6 @@ export const HALLUCINATION_CASES: AstCase[] = [
     note: 'body is positional on task comment',
   },
   {
-    raw: 'lumo task artifact add LUM-122 --kind spec --title Context-injection tiering spec --file docs/specs/design.md --source Superpowers --agent claude-code 2>&1',
-    expect: 'illegal-enum',
-    offending: 'Superpowers',
-    note: 'failed as unknown --agent at the time; --agent exists today, --source enum still flags it',
-  },
-  {
     raw: 'lumo auth status 2>&1',
     expect: 'unknown-command',
     offending: 'status',
@@ -82,16 +77,25 @@ export const HALLUCINATION_CASES: AstCase[] = [
     expect: 'illegal-enum',
     offending: 'invalid',
   },
-  {
-    raw: 'lumo task memory add LUM-352 --category DECISION "Chose option B over option A" 2>&1',
-    expect: 'illegal-enum',
-    offending: 'DECISION',
-    note: 'enum is lowercase; uppercase variant is a construction error',
-  },
 ]
 
 export const VALID_CASES: AstCase[] = [
   { raw: 'lumo task update LUM-100 --status in_progress', expect: 'valid' },
+  {
+    raw: 'lumo task artifact add LUM-122 --kind spec --title Context-injection tiering spec --file docs/specs/design.md --source Superpowers --agent claude-code 2>&1',
+    expect: 'valid',
+    note: 'LUM-420: --source is an open e.g. example list (opaque free text), not a closed enum — 135 real Superpowers calls were misflagged before',
+  },
+  {
+    raw: 'lumo task memory add LUM-352 --category DECISION "Chose option B over option A" 2>&1',
+    expect: 'valid',
+    note: 'LUM-420: runtime lowercases --category before validating; uppercase variants are legal constructions',
+  },
+  {
+    raw: 'lumo task update LUM-200 --status DONE 2>&1',
+    expect: 'valid',
+    note: 'LUM-420: normalizeStatus uppercases before validating — 18 historical uppercase calls were misflagged',
+  },
   {
     raw: 'lumo task update LUM-1 -s done -p high',
     expect: 'valid',

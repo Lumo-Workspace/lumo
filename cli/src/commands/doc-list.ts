@@ -63,7 +63,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
     url = `${trimTrailingSlash(apiUrl)}/api/tasks/${opts.task}/documents`
   } else {
     const params = new URLSearchParams()
-    if (opts.scope && opts.scope !== 'all') {
+    if (opts.scope && opts.scope.toLowerCase() !== 'all') {
       const v = normalizeScope(opts.scope)
       if (!v) {
         console.error(
@@ -91,7 +91,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   const { documents } = (await res.json()) as { documents: DocRow[] }
 
   let rows = documents
-  if (opts.task && opts.scope && opts.scope !== 'all') {
+  if (opts.task && opts.scope && opts.scope.toLowerCase() !== 'all') {
     const v = normalizeScope(opts.scope)
     if (v) rows = rows.filter(r => r.visibility === v)
   }

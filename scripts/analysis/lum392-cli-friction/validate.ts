@@ -38,6 +38,16 @@ const isDynamicValue = (v: string) =>
 const looksLikeFlag = (t: string) => /^--?[A-Za-z]/.test(t)
 
 /**
+ * Fold an enum token the way the CLI runtime normalizers do (LUM-420):
+ * status-like commands lowercase/uppercase before validating, and the
+ * status/agent normalizers additionally unify `-`/`_`/space separators
+ * (normalizeStatus accepts `in-progress`, normalizeAgent accepts
+ * `claude_code`). Applied only when the flag's help text carries the
+ * `case-insensitive` marker (GrammarFlag.enumCaseInsensitive).
+ */
+const foldEnumToken = (v: string) => v.toLowerCase().replace(/[\s_]+/g, '-')
+
+/**
  * A flag-shaped token we are willing to pass judgment on. Tokens carrying
  * shell metacharacters, CJK, slashes etc. are free-text noise (doc prose,
  * truncated quoted bodies), not flag attempts — the validator skips them
@@ -214,7 +224,10 @@ export function validateSegment(
       i++ // consume the value token
     }
     if (flag.enum && value !== null && !isDynamicValue(value)) {
-      if (!flag.enum.includes(value)) {
+      const legal = flag.enumCaseInsensitive
+        ? flag.enum.some(e => foldEnumToken(e) === foldEnumToken(value))
+        : flag.enum.includes(value)
+      if (!legal) {
         return {
           kind: 'illegal-enum',
           commandPath,

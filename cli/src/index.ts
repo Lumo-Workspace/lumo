@@ -332,7 +332,7 @@ task
   )
   .option(
     '-s, --status <value>',
-    'Filter by status: todo | in_progress | in_review | done'
+    'Filter by status: todo | in_progress | in_review | done (case-insensitive)'
   )
   .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
   .option('-n, --limit <count>', 'Show only the first N tasks')
@@ -383,7 +383,7 @@ task
   .option('-d, --description <text>', 'Task description')
   .option(
     '-p, --priority <level>',
-    'Priority: low | medium | high | urgent (default: low)'
+    'Priority: low | medium | high | urgent (case-insensitive; default: low)'
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option('--project <ref>', 'Project name or slug')
@@ -551,7 +551,10 @@ taskMemory
   .description(
     "List a task's memories. <task> defaults to the session-bound task."
   )
-  .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
+  .option(
+    '--category <cat>',
+    'Filter by trap|decision|convention|procedural (case-insensitive)'
+  )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
   .action(
     wrap((taskArg: unknown, opts: unknown) =>
@@ -571,7 +574,7 @@ taskMemory
   )
   .requiredOption(
     '--category <cat>',
-    'trap | decision | convention | procedural'
+    'trap | decision | convention | procedural (case-insensitive)'
   )
   .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
   .option('--outcome <text>', 'trap: what goes wrong')
@@ -586,7 +589,7 @@ taskMemory
   .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
   .option(
     '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)'
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
   )
   .action(
     wrap((taskArg: unknown, opts: unknown) =>
@@ -617,7 +620,7 @@ taskCriteria
   )
   .option(
     '--cause <tag>',
-    'Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER'
+    'Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER (case-insensitive)'
   )
   .action(
     wrap((taskId: unknown, options: unknown) =>
@@ -658,7 +661,7 @@ taskArtifact
   )
   .requiredOption(
     '--agent <agent>',
-    'Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf'
+    'Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive)'
   )
   .action(
     wrap((taskId: unknown, options: unknown) =>
@@ -679,7 +682,7 @@ taskArtifact
   )
   .option(
     '--agent <agent>',
-    'New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf'
+    'New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive)'
   )
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
@@ -741,7 +744,10 @@ projectMemory
   .description(
     "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
   )
-  .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
+  .option(
+    '--category <cat>',
+    'Filter by trap|decision|convention|procedural (case-insensitive)'
+  )
   .option('-n, --limit <count>', 'Cap output to the first N rows')
   .action(
     wrap((p: unknown, opts: unknown) =>
@@ -756,7 +762,7 @@ projectMemory
   )
   .requiredOption(
     '--category <cat>',
-    'trap | decision | convention | procedural'
+    'trap | decision | convention | procedural (case-insensitive)'
   )
   .option('--trigger <text>', 'trap/procedural trigger')
   .option('--outcome <text>', 'trap outcome')
@@ -771,7 +777,7 @@ projectMemory
   .option('--step <text>', 'procedural step (repeatable)', collect, [])
   .option(
     '--agent <agent>',
-    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)'
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (case-insensitive; default claude-code)'
   )
   .action(
     wrap((p: unknown, opts: unknown) =>
@@ -857,7 +863,7 @@ milestoneCmd
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
-    'New status: planned | active | completed | cancelled'
+    'New status: planned | active | completed | cancelled (case-insensitive)'
   )
   .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
   .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
@@ -1133,7 +1139,10 @@ doc
   )
   .option('--content <text>', 'Inline markdown content')
   .option('--file <path>', 'Read markdown content from file')
-  .option('--scope <scope>', 'personal | workspace (default: personal)')
+  .option(
+    '--scope <scope>',
+    'personal | workspace (case-insensitive; default: personal)'
+  )
   .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
   .option('--parent <doc>', 'File under this parent doc (cuid or title)')
@@ -1148,7 +1157,10 @@ doc
 doc
   .command('import-gdoc <url>')
   .description('Import a Google Doc as a Lumo doc (one-way Google → Lumo)')
-  .option('--scope <scope>', 'personal | workspace (default: personal)')
+  .option(
+    '--scope <scope>',
+    'personal | workspace (case-insensitive; default: personal)'
+  )
   .option('--task <LUM-N>', 'Bind the imported doc to this task')
   .action(
     wrap((url, opts) => docImportGdoc(url as string, opts as ImportGdocOptions))
@@ -1167,7 +1179,7 @@ doc
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
   .option('--file <path>', 'Replace content from file')
-  .option('--scope <scope>', 'personal | workspace')
+  .option('--scope <scope>', 'personal | workspace (case-insensitive)')
   .option('--project <ref>', 'Project name/slug; pass "" to clear')
   .option(
     '--tag <name>',
@@ -1284,7 +1296,10 @@ doc
 doc
   .command('list')
   .description('List documents visible to the current user')
-  .option('--scope <scope>', 'personal | workspace | all (default: all)')
+  .option(
+    '--scope <scope>',
+    'personal | workspace | all (case-insensitive; default: all)'
+  )
   .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
   .option('--limit <n>', 'Cap output to first N rows')
@@ -1341,7 +1356,10 @@ doc
   .description(
     'Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts "me", an email, or a display name.'
   )
-  .option('--role <role>', 'viewer | editor | manager (default: viewer)')
+  .option(
+    '--role <role>',
+    'viewer | editor | manager (case-insensitive; default: viewer)'
+  )
   .action(
     wrap((docRef, member, opts) =>
       docShare(
@@ -1379,11 +1397,11 @@ task
   .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
-    'New status: todo | in_progress | in_review | done'
+    'New status: todo | in_progress | in_review | done (case-insensitive)'
   )
   .option(
     '-p, --priority <level>',
-    'New priority: low | medium | high | urgent'
+    'New priority: low | medium | high | urgent (case-insensitive)'
   )
   .option(
     '-a, --assignee <ref>',
