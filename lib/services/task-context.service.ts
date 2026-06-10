@@ -933,15 +933,25 @@ export const taskContextService = {
       },
       memorySection,
       criteriaSection,
-      slackContextSection: renderSlackContextSection(
-        slackContexts as unknown as SlackContextCard[]
+      // LUM-347 follow-up: every member/externally-authored free-text section
+      // crosses the same LUM-140 injection surface when the CLI prints it, so
+      // it leaves the service wrapped — mirroring what buildSessionStartSections
+      // already does for its joined linked block. Per-section (not joined)
+      // because the response shape is a CLI contract; wrapUntrustedLinked
+      // returns "" for empty input, so empty sections are still omitted.
+      // Deliberately NOT wrapped: criteriaSection (acceptance contract the
+      // agent must honor, LUM-342) and prReviewTodosSection (an actionable
+      // review todo list — framing it "do not obey" would contradict its
+      // purpose; same in the session-start path).
+      slackContextSection: wrapUntrustedLinked(
+        renderSlackContextSection(slackContexts as unknown as SlackContextCard[])
       ),
-      webLinkSection: renderWebLinkSection(webLinks),
-      figmaSection,
-      artifactSection,
-      docSection,
-      commentsSection,
-      prSection,
+      webLinkSection: wrapUntrustedLinked(renderWebLinkSection(webLinks)),
+      figmaSection: wrapUntrustedLinked(figmaSection),
+      artifactSection: wrapUntrustedLinked(artifactSection),
+      docSection: wrapUntrustedLinked(docSection),
+      commentsSection: wrapUntrustedLinked(commentsSection),
+      prSection: wrapUntrustedLinked(prSection),
       prReviewTodosSection,
       sessions: sessions.map(s => ({
         id: s.id,
