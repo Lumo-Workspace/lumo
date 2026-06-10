@@ -22,7 +22,11 @@ describe('grammar.json drift', () => {
       [join(HERE, 'emit-grammar.ts'), '--print'],
       { encoding: 'utf8', timeout: 120_000 }
     )
-    expect(JSON.parse(printed)).toEqual(grammarJson)
+    // Compare the command tree only: cliVersion is informational metadata —
+    // a release that bumps cli/package.json without touching any command
+    // must not redden this test (it did once: 1.26.0 → 1.27.0, PR #485).
+    const fresh = JSON.parse(printed) as CliGrammar
+    expect(fresh.commands).toEqual(grammar.commands)
   }, 150_000)
 
   it('covers every command path the LUM-392 parser knows', () => {
