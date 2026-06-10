@@ -1,10 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { Bot } from 'lucide-react'
+import { Bot, ChevronRight } from 'lucide-react'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { AgentRunCard } from './AgentRunCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
+import { fmtCompact, modelLabel } from './model-cost-format'
+import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 
 interface AgentRunTabProps {
   taskId: string
@@ -19,6 +22,9 @@ export function AgentRunTab({
 }: AgentRunTabProps) {
   const intl = useIntl()
   const { data, loading, error } = useAgentRuns({ taskId, enabled })
+  // Collapsed by default (LUM-351) — the header row already carries per-model
+  // totals, and live burn has its own delivery card in the sidebar.
+  const [costOpen, setCostOpen] = useState(false)
 
   if (loading && !data) {
     return (
@@ -64,30 +70,78 @@ export function AgentRunTab({
   }
 
   const { totals } = data!
+  const hasInFlight = totals.byModel.some(
+    m => m.inFlight || m.model === IN_FLIGHT_MODEL
+  )
+  const modelSummary = totals.byModel
+    .map(m => `${modelLabel(intl, m.model)} ${fmtCompact(intl, m.total)}`)
+    .join(' · ')
+
   return (
     <div className='space-y-3'>
       {totals.byModel.length > 0 && (
         <div className='rounded-lg border border-border'>
-          <div className='px-3 py-2 border-b border-border text-caption text-muted-foreground'>
-            {intl.formatMessage(
-              {
-                id: 'agentRun.summary',
-                defaultMessage:
-                  '{runs, plural, one {# run} other {# runs}} · {turns, plural, one {# turn} other {# turns}} · {models, plural, one {# model} other {# models}}',
-              },
-              {
-                runs: totals.runCount,
-                turns: totals.turnCount,
-                models: totals.byModel.length,
-              }
+          <button
+            type='button'
+            onClick={() => setCostOpen(v => !v)}
+            aria-expanded={costOpen}
+            data-testid='token-usage-toggle'
+            className='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-caption transition-colors hover:bg-muted/60'
+          >
+            <ChevronRight
+              className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${costOpen ? 'rotate-90' : ''}`}
+              aria-hidden
+            />
+            <span className='shrink-0 font-medium'>
+              {intl.formatMessage({
+                id: 'tokenCost.label',
+                defaultMessage: 'Token usage',
+              })}
+            </span>
+            <span className='shrink-0 text-muted-foreground'>
+              {intl.formatMessage(
+                {
+                  id: 'agentRun.summary',
+                  defaultMessage:
+                    '{runs, plural, one {# run} other {# runs}} · {turns, plural, one {# turn} other {# turns}} · {models, plural, one {# model} other {# models}}',
+                },
+                {
+                  runs: totals.runCount,
+                  turns: totals.turnCount,
+                  models: totals.byModel.length,
+                }
+              )}
+            </span>
+            {!costOpen && (
+              <span className='ml-auto flex min-w-0 items-center gap-2 text-muted-foreground'>
+                {hasInFlight && (
+                  <>
+                    <span
+                      data-testid='collapsed-in-flight-dot'
+                      className='size-1.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/60'
+                      aria-hidden
+                    />
+                    <span className='sr-only'>
+                      {intl.formatMessage({
+                        id: 'tokenCost.inFlight',
+                        defaultMessage: 'in progress',
+                      })}
+                    </span>
+                  </>
+                )}
+                <span className='truncate tabular-nums'>{modelSummary}</span>
+              </span>
             )}
-          </div>
-          <TokenCostBreakdown
-            variant='full'
-            models={totals.byModel}
-            loopCount={totals.loopCount}
-            perMember={data?.perMember ?? []}
-          />
+          </button>
+          {costOpen && (
+            <TokenCostBreakdown
+              variant='full'
+              showTitle={false}
+              models={totals.byModel}
+              loopCount={totals.loopCount}
+              perMember={data?.perMember ?? []}
+            />
+          )}
         </div>
       )}
       {runs.map(run => (

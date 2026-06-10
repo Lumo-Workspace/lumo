@@ -129,10 +129,31 @@ describe('TokenCostBreakdown', () => {
     expect(screen.queryByText(/loop/)).not.toBeInTheDocument()
   })
 
-  it('labels the section "Token usage", not "Cost" (LUM-313 — no money shown)', () => {
+  it('labels the section "Token usage" by default, without the uppercase micro-label style', () => {
     render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={1} />)
-    expect(screen.getByText('Token usage')).toBeInTheDocument()
+    const title = screen.getByText('Token usage')
+    expect(title).toBeInTheDocument()
+    expect(title).not.toHaveClass('uppercase')
     expect(screen.queryByText('Cost')).not.toBeInTheDocument()
+  })
+
+  it('hides the title when showTitle is false (consumer header carries it)', () => {
+    render(
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus]}
+        loopCount={1}
+        showTitle={false}
+      />
+    )
+    expect(screen.queryByText('Token usage')).not.toBeInTheDocument()
+  })
+
+  it('separates multi-model groups with whitespace, not border-t dividers', () => {
+    const { container } = render(
+      <TokenCostBreakdown variant='full' models={[opus, sonnet]} loopCount={null} />
+    )
+    expect(container.querySelector('.border-t')).toBeNull()
   })
 
   it('stacks per-model groups with NO cross-model total when multi-model', () => {

@@ -34,6 +34,11 @@ interface TokenCostBreakdownProps {
    * per-run / lineage usage).
    */
   perMember?: AgentRunMemberStat[]
+  /**
+   * Render the "Token usage" heading (default). The run-tab summary card
+   * passes false because its disclosure header already carries the title.
+   */
+  showTitle?: boolean
 }
 
 type SegmentKey = keyof Pick<
@@ -162,7 +167,7 @@ function ModelGroup({
       : 'text-title'
 
   return (
-    <div className='py-2 first:pt-0 border-t border-border/60 first:border-t-0'>
+    <div className='mt-3 first:mt-0'>
       <div className='flex items-center gap-2'>
         {m.model === IN_FLIGHT_MODEL ? (
           // Mid-turn burn not yet settled into a per-model split (LUM-345);
@@ -326,6 +331,7 @@ export function TokenCostBreakdown({
   variant,
   chips,
   perMember,
+  showTitle = true,
 }: TokenCostBreakdownProps) {
   const intl = useIntl()
 
@@ -358,12 +364,14 @@ export function TokenCostBreakdown({
 
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
-      <div className='text-[10px] uppercase tracking-wider text-muted-foreground/60'>
-        {intl.formatMessage({
-          id: 'tokenCost.label',
-          defaultMessage: 'Token usage',
-        })}
-      </div>
+      {showTitle && (
+        <div className='mb-2 text-caption font-medium text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'tokenCost.label',
+            defaultMessage: 'Token usage',
+          })}
+        </div>
+      )}
       {models.map(m => (
         <ModelGroup
           key={m.model || 'single'}

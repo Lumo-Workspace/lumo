@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, Bot } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunSession } from '../../types'
-import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 import { segmentIntoTurns } from './segment-turns'
+import { fmtCompact, modelLabel } from './model-cost-format'
 import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
@@ -174,17 +174,4 @@ function formatDuration(ms: number): string {
   const min = Math.floor(sec / 60)
   const rem = sec % 60
   return rem === 0 ? `${min}m` : `${min}m ${rem}s`
-}
-
-function fmtCompact(intl: ReturnType<typeof useIntl>, n: number): string {
-  return intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
-}
-
-function modelLabel(intl: ReturnType<typeof useIntl>, model: string): string {
-  if (model === IN_FLIGHT_MODEL)
-    return intl.formatMessage({
-      id: 'tokenCost.inFlight',
-      defaultMessage: 'in progress',
-    })
-  return model.replace(/^claude-/, '')
 }
