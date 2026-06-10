@@ -45,7 +45,10 @@ export function AgentRunCard({
         ) : (
           <ChevronRight className='size-4 text-muted-foreground shrink-0' />
         )}
-        <span className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-caption font-semibold shrink-0'>
+        {/* leading-4 caps the pill at 20px (py-0.5 + 16px line) so the avatar,
+            not the pill, sets the row height — keeps this header the same
+            height as the token-usage summary header above. */}
+        <span className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-caption leading-4 font-semibold shrink-0'>
           <Bot className='size-3' />
           {intl.formatMessage(
             { id: 'agentRun.runNumber', defaultMessage: 'Run #{n}' },
