@@ -82,21 +82,21 @@ function buildWarning(
     .map(o => {
       // Branch is more actionable than the agent name when we have it.
       const who = o.branch
-        ? `${agentLabel(o.agent)}·分支 ${o.branch}`
+        ? `${agentLabel(o.agent)} · branch ${o.branch}`
         : agentLabel(o.agent)
-      return `${who}（${relativeTime(o.createdAt, now)}）`
+      return `${who} (${relativeTime(o.createdAt, now)})`
     })
-    .join('、')
+    .join(', ')
   const overflow =
-    others.length > MAX_NAMED_SESSIONS ? ` 等共 ${others.length} 个会话` : ''
-  return `⚠️ Lumo 并行预警：另一个会话 ${named}${overflow} 最近也在改 \`${filePath}\`，可能与你的改动冲突。动手前请确认是否需要先同步，避免互相覆盖。`
+    others.length > MAX_NAMED_SESSIONS ? ` and ${others.length} sessions in total` : ''
+  return `⚠️ Lumo parallel-edit warning: session ${named}${overflow} also modified \`${filePath}\` recently — your changes may conflict. Check whether you need to sync before proceeding, to avoid overwriting each other.`
 }
 
-/** Render a Chinese relative time like "刚刚" / "3 分钟前" / "2 小时前". */
+/** Render a relative time like "just now" / "3 min ago" / "2 h ago". */
 function relativeTime(then: Date, now: Date): string {
   const ms = Math.max(0, now.getTime() - then.getTime())
   const minutes = Math.floor(ms / 60_000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes} 分钟前`
-  return `${Math.floor(minutes / 60)} 小时前`
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  return `${Math.floor(minutes / 60)} h ago`
 }

@@ -124,7 +124,7 @@ export function formatHookStdoutLines(
   const tb = body.taskBinding
   if (tb && tb.bound === true) {
     lines.push(
-      `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${sanitizeField(tb.taskTitle ?? '')}`
+      `[Lumo] session_id=${sessionId} | Current task: ${tb.taskIdentifier} - ${sanitizeField(tb.taskTitle ?? '')}`
     )
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
@@ -184,13 +184,13 @@ type SessionStartBody = {
  * no task could be inferred from local git — the user is asked to name one.
  */
 function unboundPromptLine(sessionId: string): string {
-  return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+  return `[Lumo] session_id=${sessionId} | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".`
 }
 
 const MAX_UNRESOLVED = 5
 
 /**
- * Render the "续上次进度" recovery card from the structured previousSession
+ * Render the "resuming previous session" recovery card from the structured previousSession
  * payload. Returns undefined when there's nothing to show (null payload or an
  * empty headline). Free text (headline / unresolved) is sanitized here — it's
  * LLM-generated and routed to Claude Code stdout. unresolved is capped at
@@ -207,18 +207,18 @@ function renderRecoveryCard(
   const ago = relativeTime(new Date(prev.lastActivityAt), now)
   const dur = formatDuration(prev.durationMs)
   const lines: string[] = [
-    `## 续上次进度 (上一段 session · ${ago} · ${dur})`,
-    `上次干到：${sanitizeField(prev.headline)}`,
+    `## Resuming previous session (${ago} · ${dur})`,
+    `Last stopped at: ${sanitizeField(prev.headline)}`,
   ]
   const unresolved = Array.isArray(prev.unresolved) ? prev.unresolved : []
   if (unresolved.length > 0) {
-    lines.push('未完成：')
+    lines.push('Unfinished:')
     const shown = unresolved.slice(0, MAX_UNRESOLVED)
     for (const u of shown) lines.push(`- ${sanitizeField(u)}`)
     const extra = unresolved.length - shown.length
     if (extra > 0) {
       lines.push(
-        `- …(+${extra} more, 跑 lumo task context ${taskIdentifier} 查看全部)`
+        `- … (+${extra} more — run \`lumo task context ${taskIdentifier}\` for the full list)`
       )
     }
   }
@@ -267,8 +267,8 @@ export function formatSuggestLine(
   sessionId: string,
   match: GitTaskMatch
 ): string {
-  const basis = match.source === 'branch' ? '分支名' : '最近 commit'
-  return `[Lumo] session_id=${sessionId} | 检测到 ${match.identifier}（依据${basis}）。运行 lumo session attach ${match.identifier} 绑定。`
+  const basis = match.source === 'branch' ? 'branch name' : 'recent commits'
+  return `[Lumo] session_id=${sessionId} | Detected ${match.identifier} (from ${basis}). Run \`lumo session attach ${match.identifier}\` to bind.`
 }
 
 /**

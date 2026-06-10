@@ -60,7 +60,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     const lines = formatHookStdoutLines('session-start', responseBody)
 
     expect(lines).toHaveLength(1)
-    expect(lines[0]).toContain('未绑定任务')
+    expect(lines[0]).toContain('No task bound')
   })
 
   it('omits hookSpecificOutput when memorySection is empty string', () => {
@@ -90,7 +90,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
         taskTitle: 'Test task',
       },
       memorySection: '## Relevant Memory\n\n- [task] **X** → Y',
-      reviewTodosSection: '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it',
+      reviewTodosSection: '## PR review todos\n\n- [ ] `a.ts:1` — fix it',
     }
 
     const lines = formatHookStdoutLines('session-start', responseBody)
@@ -98,7 +98,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     expect(lines).toHaveLength(2)
     const parsed = JSON.parse(lines[1]!)
     expect(parsed.hookSpecificOutput.additionalContext).toBe(
-      '## Relevant Memory\n\n- [task] **X** → Y\n\n## PR Review 待办\n\n- [ ] `a.ts:1` — fix it'
+      '## Relevant Memory\n\n- [task] **X** → Y\n\n## PR review todos\n\n- [ ] `a.ts:1` — fix it'
     )
   })
 
@@ -111,7 +111,8 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
         taskIdentifier: 'LUM-42',
         taskTitle: 'Test task',
       },
-      blockerWarningSection: '## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞',
+      blockerWarningSection:
+        '## ⚠ Dependency alerts\n- This task is blocked by LUM-7 "Blocker" (status IN_PROGRESS).',
       memorySection: '## Relevant Memory\n\n- [task] **X** → Y',
     }
 
@@ -120,10 +121,12 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     expect(lines).toHaveLength(2)
     const parsed = JSON.parse(lines[1]!)
     const ctx = parsed.hookSpecificOutput.additionalContext as string
-    expect(ctx).toContain('## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞')
+    expect(ctx).toContain(
+      '## ⚠ Dependency alerts\n- This task is blocked by LUM-7 "Blocker" (status IN_PROGRESS).'
+    )
     expect(ctx).toContain('## Relevant Memory')
     // The warning must come before the memory section so it stays prominent.
-    expect(ctx.indexOf('依赖告警')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+    expect(ctx.indexOf('Dependency alerts')).toBeLessThan(ctx.indexOf('Relevant Memory'))
   })
 
   it('omits an empty blockerWarningSection from additionalContext', () => {
@@ -158,7 +161,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
         taskTitle: 'Test task',
       },
       memorySection: '',
-      reviewTodosSection: '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it',
+      reviewTodosSection: '## PR review todos\n\n- [ ] `a.ts:1` — fix it',
     }
 
     const lines = formatHookStdoutLines('session-start', responseBody)
@@ -166,7 +169,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     expect(lines).toHaveLength(2)
     const parsed = JSON.parse(lines[1]!)
     expect(parsed.hookSpecificOutput.additionalContext).toBe(
-      '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it'
+      '## PR review todos\n\n- [ ] `a.ts:1` — fix it'
     )
   })
 })

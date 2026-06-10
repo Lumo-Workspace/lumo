@@ -129,7 +129,7 @@ export async function taskCriteriaSet(
     Authorization: `Bearer ${creds.token}`,
     'Content-Type': 'application/json',
   }
-  // Session 出处 for HUMAN_EDIT transcriptions — the server records the
+  // Session provenance for HUMAN_EDIT transcriptions — the server records the
   // revision (with this session id) as a task comment.
   const sessionId = process.env.CLAUDE_CODE_SESSION_ID
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId

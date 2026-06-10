@@ -194,12 +194,12 @@ export function renderLayer2ReviewSection(
     .join('\n')
   const block = wrapUntrustedMemory(items)
   return [
-    '## 🆕 待核对：上次会话自动合并的项目级记忆',
+    '## 🆕 Review needed: project memories auto-consolidated by the previous session',
     '',
-    `上一个会话结束时，系统把 ${memories.length} 条经验自动合并/提升为**项目级记忆**（下方区块）。` +
-      '请在开始本次工作前，结合代码与上下文快速判断它们是否准确：',
-    '- 有明显错误或过度泛化的，用该条标注的 id 执行 `lumo memory rm <id> --yes` 删除；',
-    '- 没问题就忽略本节，照常工作。本节只在紧邻的下一个会话出现一次，不会反复提醒。',
+    `When the previous session ended, the system auto-consolidated/promoted ${memories.length} learnings into **project-scope memory** (block below). ` +
+      "Before starting this session's work, quickly sanity-check them against the code and context:",
+    '- If one is clearly wrong or over-generalized, delete it with its annotated id: `lumo memory rm <id> --yes`;',
+    '- Otherwise ignore this section and work as usual. It appears only once, in the immediately-following session.',
     '',
     block,
   ].join('\n')
@@ -281,7 +281,7 @@ export function memoryBudgetSection(ordered: RenderableMemory[]): BudgetSection 
         body =
           head +
           [
-            `其余 ${overflow.length} 条记忆（仅清单）：`,
+            `Remaining ${overflow.length} memories (manifest only):`,
             ...overflow.map(memoryManifestLine),
           ].join('\n')
       }

@@ -134,7 +134,7 @@ export interface TaskContext {
    */
   memorySection: string
   /**
-   * Pre-rendered "## 验收标准（合约）" markdown (LUM-342); empty when the task
+   * Pre-rendered "## Acceptance criteria (contract)" markdown (LUM-342); empty when the task
    * has no acceptance criteria. Deliberately NOT in `fragments`: v1 records no
    * CRITERIA lineage fragment (no LineageFragmentType value exists — adding
    * one needs a migration plus the LUM-276 write-key==read-key read side).
@@ -154,10 +154,10 @@ export interface TaskContext {
   commentsSection: string
   /** Pre-rendered "## Pull Requests" markdown; empty when none. */
   prSection: string
-  /** Pre-rendered "## PR Review 待办" markdown; empty when no review comments. */
+  /** Pre-rendered "## PR review todos" markdown; empty when no review comments. */
   prReviewTodosSection: string
   /**
-   * Pre-rendered "## 飞轮信号 · 历史 merge 贡献" block appended at the very end
+   * Pre-rendered "## Flywheel signal · historical merge contribution" block appended at the very end
    * of the context handoff. Empty string when no fragment clears the cold-start
    * sample floor (LUM-278 DoD⑤). Caliber is fixed server-side.
    */
@@ -167,7 +167,7 @@ export interface TaskContext {
    * Flat, render-independent manifest of every fragment that fed the sections
    * above (and the sessions list), each keyed by its stable id. Ordered by
    * section, memory first. The prerequisite for lineage edge-recording
-   * (LUM-274 缺口 A) — consumers join a run to the fragments it was shown.
+   * (LUM-274 gap A) — consumers join a run to the fragments it was shown.
    */
   fragments: ContextFragment[]
 }
@@ -212,9 +212,9 @@ function stringList(value: unknown): string[] {
 function debugPending(s: Record<string, unknown>): string[] {
   const status = s.status
   if (status !== 'unresolved' && status !== 'partial') return []
-  const prefix = status === 'unresolved' ? 'Bug 未解决' : 'Bug 仅部分修复'
+  const prefix = status === 'unresolved' ? 'Bug unresolved' : 'Bug only partially fixed'
   const problem = typeof s.problem === 'string' ? s.problem.trim() : ''
-  return [problem.length > 0 ? `${prefix}：${problem}` : prefix]
+  return [problem.length > 0 ? `${prefix}: ${problem}` : prefix]
 }
 
 /**
@@ -227,7 +227,7 @@ function debugPending(s: Record<string, unknown>): string[] {
  *   - review                 → `severity.critical` (blocking issues only)
  *   - debug                  → `status` enum → a synthesized line (see {@link debugPending})
  * Unknown or null types fall back to `unresolved`, preserving the original
- * Day-7 behavior ("直接用 summary.unresolved"). Non-string / empty entries are
+ * Day-7 behavior ("use summary.unresolved directly"). Non-string / empty entries are
  * always dropped.
  */
 function summaryUnresolved(
@@ -480,7 +480,7 @@ export const taskContextService = {
   },
 
   /**
-   * Build the standalone "## 验收标准（合约）" markdown block for a task
+   * Build the standalone "## Acceptance criteria (contract)" markdown block for a task
    * (LUM-342): the full unbudgeted contract, or the draft nudge when a
    * still-open task has none yet. Used by `session attach` — the mid-session
    * bind is the moment the agent must see the contract (or be told to draft
@@ -651,7 +651,7 @@ export const taskContextService = {
   },
 
   /**
-   * Build the "## PR Review 待办" markdown block for a task: mirrored PR review
+   * Build the "## PR review todos" markdown block for a task: mirrored PR review
    * comments turned into a checkbox todo list. Includes every line-level
    * comment (REVIEW_LINE) and every `changes_requested` review summary across
    * the task's PRs; plain comment / approval / dismissal summaries and
@@ -676,7 +676,7 @@ export const taskContextService = {
   },
 
   /**
-   * Build the "续上次进度" recovery payload for a task: the most recent prior
+   * Build the resume-previous-progress recovery payload for a task: the most recent prior
    * session (newest-first) that actually produced a summary, reduced to
    * headline + unresolved + duration. Walks back past summary-less sessions
    * (still generating / too short) and excludes `currentSessionId` so the
@@ -873,7 +873,7 @@ export const taskContextService = {
 
     // Flat fragment manifest, section order (memory first). Each id is the
     // source record's stable handle — cuid for every type, session UUID for
-    // SESSION. The prerequisite for lineage edge-recording (LUM-274 缺口 A).
+    // SESSION. The prerequisite for lineage edge-recording (LUM-274 gap A).
     const fragments: ContextFragment[] = [
       ...budgetedMemories.map(m => ({ type: 'MEMORY' as const, id: m.id })),
       ...slackContexts.map(s => ({ type: 'SLACK_CONTEXT' as const, id: s.id })),

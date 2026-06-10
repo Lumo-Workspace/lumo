@@ -173,7 +173,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
   })
 
   it('returns blockerWarningSection in response when buildBlockerWarningSectionForTask resolves a non-empty string', async () => {
-    const warningText = '## ⚠ 依赖告警…'
+    const warningText = '## ⚠ Dependency alerts…'
     mockRecord.mockResolvedValue({ id: 'he_5', sessionId: 's-5', taskId: 'task-1' })
     ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
       bound: true,

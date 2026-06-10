@@ -102,7 +102,7 @@ describe('buildLayer2ReviewSectionForTask', () => {
       't1',
       'cur'
     )
-    expect(out.section).toContain('待核对')
+    expect(out.section).toContain('Review needed')
     expect(out.section).toContain('enum mid-migration')
     expect(out.section).toContain('id: mem_42')
     expect(out.section).toContain('lumo memory rm')

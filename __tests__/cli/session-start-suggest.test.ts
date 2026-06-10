@@ -16,7 +16,7 @@ describe('formatSuggestLine', () => {
       source: 'branch',
     })
     expect(line).toBe(
-      '[Lumo] session_id=sess_abc | 检测到 LUM-42（依据分支名）。运行 lumo session attach LUM-42 绑定。'
+      '[Lumo] session_id=sess_abc | Detected LUM-42 (from branch name). Run `lumo session attach LUM-42` to bind.'
     )
   })
 
@@ -25,7 +25,7 @@ describe('formatSuggestLine', () => {
       identifier: 'LUM-7',
       source: 'commit',
     })
-    expect(line).toContain('依据最近 commit')
+    expect(line).toContain('from recent commits')
     expect(line).toContain('lumo session attach LUM-7')
   })
 
@@ -34,12 +34,12 @@ describe('formatSuggestLine', () => {
       identifier: 'LUM-1',
       source: 'branch',
     })
-    expect(line).not.toContain('已自动绑定')
+    expect(line).not.toContain('auto-bound')
   })
 })
 
 describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
-  const unboundPrompt = '当前未绑定任务'
+  const unboundPrompt = 'No task bound'
 
   it('suggests `session attach` (and does NOT bind) on a git match', () => {
     const extractTask = jest.fn(() => ({
@@ -54,7 +54,7 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
     // Exactly one line — the suggestion. Nothing was fetched, so there is no
     // title and no injected-context envelope until the user actually attaches.
     expect(lines).toEqual([
-      '[Lumo] session_id=sess_abc | 检测到 LUM-42（依据分支名）。运行 lumo session attach LUM-42 绑定。',
+      '[Lumo] session_id=sess_abc | Detected LUM-42 (from branch name). Run `lumo session attach LUM-42` to bind.',
     ])
   })
 
@@ -65,7 +65,7 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
     )
     expect(lines).toHaveLength(1)
     expect(lines[0]).toContain(unboundPrompt)
-    expect(lines[0]).not.toContain('检测到')
+    expect(lines[0]).not.toContain('Detected')
   })
 
   it('returns [] when there is no sessionId', () => {
@@ -90,7 +90,7 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
         },
       }
     )
-    expect(lines[0]).toContain('当前任务: LUM-9')
+    expect(lines[0]).toContain('Current task: LUM-9')
     const env = JSON.parse(lines[1]!)
     expect(env.hookSpecificOutput.additionalContext).toBe('mem\n\ntodos')
   })
@@ -117,10 +117,10 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
     )
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput
       .additionalContext as string
-    expect(ctx).toContain('## 续上次进度')
-    expect(ctx).toContain('上次干到：cross-branch carry-over')
+    expect(ctx).toContain('## Resuming previous session')
+    expect(ctx).toContain('Last stopped at: cross-branch carry-over')
     expect(ctx).toContain('- ship it')
-    expect(ctx.indexOf('续上次进度')).toBeLessThan(
+    expect(ctx.indexOf('Resuming previous session')).toBeLessThan(
       ctx.indexOf('Relevant Memory')
     )
   })

@@ -147,7 +147,7 @@ describe('renderLayer2ReviewSection — sanitized via wrapUntrustedMemory', () =
     expect(out).not.toContain(ESC)
     expect(out).toContain('sneaky [8m invisible')
     // The trusted preamble and the id pointer both survive.
-    expect(out).toContain('待核对')
+    expect(out).toContain('Review needed')
     expect(out).toContain('id: m1')
   })
 })

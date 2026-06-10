@@ -89,7 +89,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     expect(out.fragments).toEqual([])
   })
 
-  it('degrades over-budget cards to a manifest list (端到端超额→清单)', async () => {
+  it('degrades over-budget cards to a manifest list (end-to-end overflow → manifest)', async () => {
     // Far more PRs than fit the 2500-token budget: each long-titled card is
     // ~140 tokens, so 30 cards (>4000 tokens) force overflow. The first few
     // render full; the rest collapse to a one-line manifest block.
@@ -102,7 +102,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValueOnce(prs)
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
-    expect(out.linkedResourcesSection).toContain('仅清单')
+    expect(out.linkedResourcesSection).toContain('manifest only')
     // A manifest line carries the retrieval command for an overflowed PR.
     expect(out.linkedResourcesSection).toContain('lumo task pr show 30')
   })

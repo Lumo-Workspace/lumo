@@ -105,7 +105,7 @@ describe('buildSessionStartSections — criteria injection (LUM-342)', () => {
   it('renders the contract unwrapped (trusted task framing) when criteria exist', async () => {
     mockListCriteria.mockResolvedValue([CRITERION])
     const out = await taskContextService.buildSessionStartSections('tsk_1')
-    expect(out.criteriaSection).toContain('## 验收标准（合约）')
+    expect(out.criteriaSection).toContain('## Acceptance criteria (contract)')
     expect(out.criteriaSection).toContain(
       '- [MACHINE] all new endpoints have route tests'
     )
@@ -116,7 +116,7 @@ describe('buildSessionStartSections — criteria injection (LUM-342)', () => {
 
   it('injects the draft nudge for a still-open task without criteria', async () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
-    expect(out.criteriaSection).toContain('该任务尚无验收标准')
+    expect(out.criteriaSection).toContain('This task has no acceptance criteria yet')
   })
 
   it('skips the nudge for DONE tasks', async () => {
@@ -150,7 +150,7 @@ describe('buildCriteriaSectionForTask (session attach)', () => {
   it('returns the nudge for an open task without criteria, "" for DONE or missing tasks', async () => {
     expect(
       await taskContextService.buildCriteriaSectionForTask('tsk_1')
-    ).toContain('该任务尚无验收标准')
+    ).toContain('This task has no acceptance criteria yet')
     mockFindById.mockResolvedValue(task({ status: 'DONE' }))
     expect(await taskContextService.buildCriteriaSectionForTask('tsk_1')).toBe(
       ''
@@ -174,7 +174,7 @@ describe('getContextForIdentifier — criteriaSection (LUM-342)', () => {
     )
 
     expect(ctx).not.toBeNull()
-    expect(ctx!.criteriaSection).toContain('## 验收标准（合约）')
+    expect(ctx!.criteriaSection).toContain('## Acceptance criteria (contract)')
     expect(ctx!.fragments.map(f => f.type)).not.toContain('CRITERIA')
   })
 
@@ -186,7 +186,7 @@ describe('getContextForIdentifier — criteriaSection (LUM-342)', () => {
       'member-1',
       'LUM-1'
     )
-    expect(open!.criteriaSection).toContain('该任务尚无验收标准')
+    expect(open!.criteriaSection).toContain('This task has no acceptance criteria yet')
 
     mockFindById.mockResolvedValue(task({ status: 'DONE' }))
     const done = await taskContextService.getContextForIdentifier(

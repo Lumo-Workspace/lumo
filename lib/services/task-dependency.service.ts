@@ -4,8 +4,9 @@ import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import { sanitizeField } from '@/lib/utils/sanitize'
 
 /**
- * LUM-172 任务依赖 CRUD + 防环 + 告警渲染。
- * 红线:检测边只能由人确认(confirm),服务层绝不自动把 SUGGESTED 升级成 CONFIRMED。
+ * LUM-172 task dependency CRUD + cycle prevention + alert rendering.
+ * Red line: detected edges can only be confirmed by a human; the service layer
+ * never auto-promotes SUGGESTED to CONFIRMED.
  */
 
 export interface DependencyEdgeView {
@@ -41,10 +42,14 @@ function toView(edge: EdgeWithTasks, taskId: string): DependencyEdgeView {
 }
 
 /**
- * 已确认 BLOCKS 图上,加边 (blocked ← blocking) 是否成环:
- * 从 blocking 沿「依赖于」方向 DFS 能否回到 blocked。
+ * On the confirmed-BLOCKS graph, check whether adding the edge
+ * (blocked ← blocking) creates a cycle: DFS from blocking along the
+ * "depends on" direction and see if blocked is reachable.
  *
- * 并发 check-then-write 在极端竞态下可绕过防环(与本仓 tag/sprint 服务同口径的取舍,小团队人工操作概率可忽略;同 pair 撞 unique 由 DB 兜底)。
+ * A concurrent check-then-write can bypass cycle prevention under an extreme
+ * race (same trade-off as this repo's tag/sprint services; negligible for
+ * small-team manual operations; a same-pair collision is caught by the DB
+ * unique constraint).
  */
 async function assertNoCycle(
   workspaceId: string,
@@ -79,7 +84,7 @@ export const taskDependencyService = {
     return edges.map(e => toView(e, taskId))
   },
 
-  /** 手工硬依赖入口:直接 MANUAL + CONFIRMED(人确知的边,极薄入口)。 */
+  /** Manual hard-dependency entry point: directly MANUAL + CONFIRMED (a human-known edge; deliberately thin). */
   async addManual(input: {
     workspaceId: string
     blockedTaskId: string
@@ -104,7 +109,7 @@ export const taskDependencyService = {
     }
 
     if (existing) {
-      // 检测器先一步发现的同向候选:人工 add 等于确认它,保留 DETECTED 出处。
+      // Same-direction candidate the detector found first: a manual add amounts to confirming it; keep the DETECTED provenance.
       return taskDependencyRepository.update(existing.id, {
         status: 'CONFIRMED',
         confirmedAt: new Date(),
@@ -122,7 +127,7 @@ export const taskDependencyService = {
     })
   },
 
-  /** 一键确认候选边;reverse 翻转方向(检测器的方向只是启发)。 */
+  /** One-click confirm of a candidate edge; reverse flips the direction (the detector's direction is only a heuristic). */
   async confirm(input: { edgeId: string; reverse?: boolean | undefined }) {
     const edge = await taskDependencyRepository.findById(input.edgeId)
     if (!edge) throw Object.assign(new Error('Dependency not found'), { status: 404 })
@@ -156,7 +161,7 @@ export const taskDependencyService = {
     }
   },
 
-  /** 否决候选:留行不删,挡住检测器下轮重新建议。 */
+  /** Dismiss a candidate: keep the row instead of deleting, so the detector cannot re-suggest it next round. */
   async dismiss(edgeId: string) {
     const edge = await taskDependencyRepository.findById(edgeId)
     if (!edge) throw Object.assign(new Error('Dependency not found'), { status: 404 })
@@ -170,8 +175,8 @@ export const taskDependencyService = {
   },
 
   /**
-   * agent 调度告警(v1 唯一变现落点):attach/session-start 时注入。
-   * 永不抛 —— 告警挂了不能弄死 session 启动。
+   * Agent scheduling alert (the only v1 payoff): injected at attach/session-start.
+   * Never throws — a broken alert must not kill session startup.
    */
   async buildBlockerWarningSectionForTask(
     taskId: string,
@@ -188,26 +193,26 @@ export const taskDependencyService = {
       const parts: string[] = []
 
       if (blockers.length > 0) {
-        parts.push('## ⚠ 依赖告警', '')
+        parts.push('## ⚠ Dependency alerts', '')
         for (const b of blockers) {
           const t = b.blockingTask
           const ident = `${t.team.identifier}-${t.number}`
           const pr = t.pullRequests[0]
-          const prNote = pr ? `,PR #${pr.number}${pr.isDraft ? ' (draft)' : ''} 未 merge` : ''
+          const prNote = pr ? `, PR #${pr.number}${pr.isDraft ? ' (draft)' : ''} not merged` : ''
           // LUM-346 convention: workspace-authored free text (task title) gets the
           // control-char strip at the render source, covering every consumer
           // (session-start hook injection has no client-side sanitize pass).
-          parts.push(`- 本任务被 ${ident}「${sanitizeField(t.title)}」阻塞(状态 ${t.status}${prNote})。`)
+          parts.push(`- This task is blocked by ${ident} "${sanitizeField(t.title)}" (status ${t.status}${prNote}).`)
         }
         parts.push(
           '',
-          '建议先等 blocker 合并再开工,避免白跑 run;如边已过时,用 `lumo task deps rm/dismiss` 清理。',
+          'Consider waiting for the blocker(s) to merge before starting work to avoid a wasted run; if an edge is stale, clean it up with `lumo task deps rm/dismiss`.',
         )
       }
 
       if (suggestedCount > 0) {
         parts.push(
-          `检测到 ${suggestedCount} 条候选依赖待确认:运行 \`lumo task deps list ${taskIdentifier}\`。`,
+          `Detected ${suggestedCount} candidate dependencies awaiting confirmation: run \`lumo task deps list ${taskIdentifier}\`.`,
         )
       }
 

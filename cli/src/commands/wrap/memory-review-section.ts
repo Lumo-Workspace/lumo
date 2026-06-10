@@ -41,7 +41,7 @@ export function parseReviewInstruction(line: string): {
  * draft state between prepare() and run(). Dedup is server-side via watermark.
  */
 export class MemoryReviewSection implements WrapSection {
-  title = '记忆审阅'
+  title = 'Memory review'
   private draft: ServerMemoryDraft | null = null
 
   constructor(private deps: { creds: Credentials; sessionId: string }) {}
@@ -56,12 +56,12 @@ export class MemoryReviewSection implements WrapSection {
     if (!draft || !draft.watermark || draft.memories.length === 0) return
 
     process.stdout.write(
-      `本次会话新增了这 ${draft.memories.length} 条 memory：\n`
+      `This session recorded ${draft.memories.length} new memories:\n`
     )
     process.stdout.write(`${sanitizeField(formatMemoryReviewList(draft.memories))}\n`)
 
     if (opts.dryRun) {
-      process.stdout.write('(dry-run，未改动)\n')
+      process.stdout.write('(dry-run, no changes)\n')
       return
     }
 
@@ -71,11 +71,11 @@ export class MemoryReviewSection implements WrapSection {
     }
 
     const line = (
-      await promptLine('[回车] 全部保留  [d 1,3] 删除  [p 2] 提升到项目级  [s] 跳过 > ')
+      await promptLine('[Enter] keep all  [d 1,3] delete  [p 2] promote to project  [s] skip > ')
     ).trim()
 
     if (line.toLowerCase() === 's') {
-      process.stdout.write('已跳过本节。\n')
+      process.stdout.write('Section skipped.\n')
       return
     }
     if (line === '') {
@@ -103,6 +103,6 @@ export class MemoryReviewSection implements WrapSection {
       this.deps.sessionId,
       { watermark, deleteIds, promoteIds }
     )
-    process.stdout.write(`已删除 ${deleted} 条，提升 ${promoted} 条到项目级。\n`)
+    process.stdout.write(`Deleted ${deleted}, promoted ${promoted} to project scope.\n`)
   }
 }

@@ -17,7 +17,7 @@ describe('formatHookStdoutLines (session-start stdout)', () => {
     const lines = formatHookStdoutLines('session-start', body)
     expect(lines.length).toBeGreaterThanOrEqual(1)
     expect(lines[0]).toBe(
-      '[Lumo] session_id=sess_abc | 当前任务: LUM-12 - Add OAuth'
+      '[Lumo] session_id=sess_abc | Current task: LUM-12 - Add OAuth'
     )
   })
 
@@ -29,7 +29,7 @@ describe('formatHookStdoutLines (session-start stdout)', () => {
     const lines = formatHookStdoutLines('session-start', body)
     expect(lines.length).toBeGreaterThanOrEqual(1)
     expect(lines[0]).toBe(
-      '[Lumo] session_id=sess_abc | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。'
+      '[Lumo] session_id=sess_abc | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".'
     )
   })
 

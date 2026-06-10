@@ -42,7 +42,7 @@ export function renderArtifactSection(artifacts: ArtifactCard[]): string {
       if (preview) blocks.push(preview)
     }
 
-    blocks.push(`  ↳ 全文: lumo task artifact show ${a.id}`)
+    blocks.push(`  ↳ full text: lumo task artifact show ${a.id}`)
     blocks.push('')
   }
   return blocks.join('\n').trimEnd()

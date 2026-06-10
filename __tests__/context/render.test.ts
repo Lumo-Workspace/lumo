@@ -422,12 +422,12 @@ describe('renderPrReviewTodosSection', () => {
 
   it('renders a line-level todo as a checkbox with file:line, handle, and link', () => {
     const out = renderPrReviewTodosSection([lineTodo])
-    expect(out).toContain('## PR Review 待办')
+    expect(out).toContain('## PR review todos')
     expect(out).toContain('- [ ] `lib/foo.ts:42` (@octocat) — Extract this into a helper')
     expect(out).toContain('  ↳ https://gh/c/1')
   })
 
-  it('renders a changes-requested summary with the 整体要求改动 marker', () => {
+  it('renders a changes-requested summary with the "Changes requested (whole PR)" marker', () => {
     const out = renderPrReviewTodosSection([
       {
         kind: 'overall',
@@ -439,7 +439,7 @@ describe('renderPrReviewTodosSection', () => {
         author: null,
       },
     ])
-    expect(out).toContain('- [ ] 🛑 整体要求改动 — Please address the comments')
+    expect(out).toContain('- [ ] 🛑 Changes requested (whole PR) — Please address the comments')
     expect(out).not.toContain('(@')
   })
 
@@ -499,7 +499,7 @@ describe('slackCard / slackManifest (LUM-147)', () => {
     expect(out).not.toContain('## Slack Context')
     expect(out).toContain('### [external:slack] #eng · Thread (0 messages, fetched 2026-06-01 10:00 UTC)')
     expect(out).toContain('Decided to ship Friday.')
-    expect(out).toContain('↳ 全文: lumo task slack show ctx_1')
+    expect(out).toContain('↳ full text: lumo task slack show ctx_1')
   })
 
   it('slackManifest is one line with channel + retrieval command', () => {
@@ -535,7 +535,7 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
     const out = webLinkCard(link)
     expect(out).not.toContain('## Web Links')
     expect(out).toContain('- [external:web] [A Title](https://ex.com/a) — ex.com')
-    expect(out).toContain('↳ 正文: lumo task web show wl_1')
+    expect(out).toContain('↳ body: lumo task web show wl_1')
   })
 
   it('webLinkManifest prefers the title, falls back to the url', () => {

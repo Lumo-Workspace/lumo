@@ -18,7 +18,7 @@ export interface DepEdge {
   other: { identifier: string; title: string; status: string }
 }
 
-/** 短 id = 前 8 位，展示与 selector 都用它。 */
+/** Short id = first 8 chars; used for both display and selectors. */
 const shortId = (id: string) => id.slice(0, 8)
 
 /**
@@ -47,7 +47,8 @@ export function resolveEdgeSelector(
  * (shared files / task mention) is summarized inline.
  */
 export function formatDepsList(identifier: string, edges: DepEdge[]): string {
-  if (edges.length === 0) return `Dependencies for ${identifier}: 无依赖边。`
+  if (edges.length === 0)
+    return `Dependencies for ${identifier}: no dependency edges.`
   const lines: string[] = [
     `Dependencies for ${identifier} (${edges.length})`,
     '',
@@ -56,7 +57,7 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
     e.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
   const evidence = (e: DepEdge) => {
     if (e.reason === 'shared_files')
-      return ` · shared_files(${e.detail?.count ?? '?'} 个共享文件${
+      return ` · shared_files(${e.detail?.count ?? '?'} shared files${
         e.detail?.sample?.length ? ': ' + e.detail.sample.join(', ') : ''
       })`
     if (e.reason === 'task_mention')
@@ -77,14 +78,14 @@ export function formatDepsList(identifier: string, edges: DepEdge[]): string {
   const suggested = edges.filter(e => e.status === 'SUGGESTED')
   const dismissed = edges.filter(e => e.status === 'DISMISSED')
   section('CONFIRMED', confirmed, e => [
-    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier}「${e.other.title}」 ${e.other.status} · ${e.source}${evidence(e)}`,
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} "${e.other.title}" ${e.other.status} · ${e.source}${evidence(e)}`,
   ])
-  section('SUGGESTED(待确认)', suggested, e => [
-    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier}「${e.other.title}」 ${e.other.status}${evidence(e)}`,
-    `      确认: lumo task deps confirm ${identifier} ${shortId(e.id)}(方向反了加 --reverse;误报: dismiss)`,
+  section('SUGGESTED (pending confirmation)', suggested, e => [
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} "${e.other.title}" ${e.other.status}${evidence(e)}`,
+    `      confirm: lumo task deps confirm ${identifier} ${shortId(e.id)} (add --reverse if direction is flipped; false positive: dismiss)`,
   ])
   section('DISMISSED', dismissed, e => [
-    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} · 已忽略`,
+    `  [${shortId(e.id)}] ${dirLabel(e)} ${e.other.identifier} · dismissed`,
   ])
   return lines.join('\n').trimEnd()
 }
@@ -215,13 +216,13 @@ function printSelectorCandidates(edges: DepEdge[], selector: string): void {
     `Error: no unique dependency edge matches "${selector}". Candidates:`
   )
   if (edges.length === 0) {
-    console.error('  (无依赖边)')
+    console.error('  (no dependency edges)')
     return
   }
   for (const e of edges) {
     console.error(
       sanitizeField(
-        `  [${shortId(e.id)}] ${e.status} ${e.other.identifier}「${e.other.title}」`
+        `  [${shortId(e.id)}] ${e.status} ${e.other.identifier} "${e.other.title}"`
       )
     )
   }
@@ -330,7 +331,7 @@ export async function taskDepsConfirm(
     sanitizeField(
       `Confirmed: [${shortId(edge.id)}] ${task.identifier} ${
         edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
-      } ${edge.other.identifier}「${edge.other.title}」${opts.reverse ? ' (reversed)' : ''}`
+      } ${edge.other.identifier} "${edge.other.title}"${opts.reverse ? ' (reversed)' : ''}`
     )
   )
 }
@@ -356,7 +357,7 @@ export async function taskDepsDismiss(
   if (typeof res === 'number') return res
   console.log(
     sanitizeField(
-      `Dismissed: [${shortId(edge.id)}] ${edge.other.identifier}「${edge.other.title}」(不再建议)`
+      `Dismissed: [${shortId(edge.id)}] ${edge.other.identifier} "${edge.other.title}" (won't be suggested again)`
     )
   )
 }

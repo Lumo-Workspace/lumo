@@ -29,7 +29,7 @@ export async function runWrapPanel(
     process.stdout.write(`\n━━ ${section.title} ━━\n`)
     const hasContent = await section.prepare()
     if (!hasContent) {
-      process.stdout.write('(无内容)\n')
+      process.stdout.write('(no content)\n')
       continue
     }
     await section.run(opts)

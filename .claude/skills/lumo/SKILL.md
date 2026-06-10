@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to work with Lumo (project management for dev teams) from the terminal: load task context, bind/wrap Claude Code sessions, and create/update/list/show/comment on tasks, projects, milestones, sprints, documents, artifacts, Figma links, dependencies, and team memory — plus acceptance criteria, machine verification (verify / task status), lineage audit, worktree scaffolding, and CLI setup/auth/update. Activate when the user mentions a Lumo task identifier (LUM-N) or the lumo CLI; asks to load task background or bind/check/wrap a session; manages any of the resources above in Lumo; is starting, resuming, or about to claim completion of a task; or asks what to work on next. Key triggers: "LUM-", "lumo", "task context", "session attach", "session wrap", "验收", "verify", "task status", "milestone", "里程碑", "sprint", "冲刺", "文档", "记忆", "memory", "依赖", "deps", "lineage", "worktree", "下一个任务", "what should I work on", "设计稿", "验收标准", "机器验收", "恢复任务".'
+description: 'Use the Lumo CLI to work with Lumo (project management for dev teams) from the terminal: load task context, bind/wrap Claude Code sessions, and create/update/list/show/comment on tasks, projects, milestones, sprints, documents, artifacts, Figma links, dependencies, and team memory — plus acceptance criteria, machine verification (verify / task status), lineage audit, worktree scaffolding, and CLI setup/auth/update. Activate when the user mentions a Lumo task identifier (LUM-N) or the lumo CLI, in any language; asks to load task background or bind/check/wrap a session; manages any of the resources above in Lumo; is starting, resuming, or about to claim completion of a task; or asks what to work on next. Key triggers: "LUM-", "lumo", "task context", "session attach", "session wrap", "verify", "task status", "acceptance criteria", "milestone", "sprint", "docs", "memory", "deps", "lineage", "worktree", "design link", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -26,7 +26,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task create/update/list/show/comment`, `next`                                    | [references/tasks.md](references/tasks.md)                     |
 | `task artifact*`, `task figma*`                                                   | [references/artifacts-figma.md](references/artifacts-figma.md) |
 | `task criteria set/list`, drafting the acceptance contract                        | [references/criteria.md](references/criteria.md)               |
-| `verify`, `task status` — machine verification loop, claim-done flow, 自查/恢复   | [references/verify.md](references/verify.md)                   |
+| `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `project list`, `milestone*`                                                      | [references/milestones.md](references/milestones.md)           |
 | `doc*`                                                                            | [references/docs.md](references/docs.md)                       |
 | `sprint*`                                                                         | [references/sprints.md](references/sprints.md)                 |
@@ -64,19 +64,19 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 **Task dependencies**
 
-- `lumo task deps list <id>` — list dependency edges in both directions, grouped CONFIRMED / SUGGESTED(待确认) / DISMISSED; each row shows a short edge id `[xxxxxxxx]`, the other task, and detected evidence (`shared_files(N 个共享文件: …)` / `task_mention(…)`); SUGGESTED rows include a copy-pasteable confirm hint
+- `lumo task deps list <id>` — list dependency edges in both directions, grouped CONFIRMED / SUGGESTED (pending confirmation) / DISMISSED; each row shows a short edge id `[xxxxxxxx]`, the other task, and detected evidence (`shared_files(N shared files: …)` / `task_mention(…)`); SUGGESTED rows include a copy-pasteable confirm hint
 - `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (created CONFIRMED, source MANUAL; if a SUGGESTED/DISMISSED edge already exists in the same direction, it is confirmed in place rather than creating a new row)
 - `lumo task deps confirm <id> <edge> [--reverse]` — confirm a detected candidate; `<edge>` is a short edge-id prefix (≥6 chars) or the other task's identifier (case-insensitive); `--reverse` flips the direction when the detector guessed it backwards
 - `lumo task deps dismiss <id> <edge>` — dismiss a candidate (never re-suggested)
 - `lumo task deps rm <id> <edge> --yes` — delete an edge (refuses without `--yes`)
 - On an ambiguous/unknown `<edge>` selector the CLI prints all candidates with short ids and exits 1 — retry with one of them
 
-**Acceptance criteria（验收合约）** — see [criteria.md](references/criteria.md)
+**Acceptance criteria (contract)** — see [criteria.md](references/criteria.md)
 
 - `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract: default = initial agent draft (AGENT_DRAFT, locked once submitted); `--human` = a HUMAN_EDIT revision transcribed from the conversation (desired final list; items with `id` keep/update, missing ones are deleted); `--cause` (with `--human`) annotates why the contract drifted: `NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER`
 - `lumo task criteria list <task>` — print the contract (id, MACHINE/HUMAN, provenance source@round, checkpointer)
 
-**Verification（机器验收循环）** — see [verify.md](references/verify.md)
+**Verification (machine acceptance loop)** — see [verify.md](references/verify.md)
 
 - `lumo verify [task] [--timeout <seconds>]` — run every MACHINE criterion's checkpointer locally, report one structured PASS/FAIL verdict per criterion to the server, print next actions. Defaults to the session-bound task. Round cap 3: an all-pass round moves the task to IN_REVIEW (agent stops there); a round-3 fail escalates to a human (stop retrying). **Run this before claiming a task is done.**
 - `lumo task status [task] [--json]` — read-only acceptance self-check (no LLM, milliseconds): the contract with each criterion's latest verdict (REVIEW_ADDED provenance visible), verification history, current round, last round's failure reasons, and `nextActions` = the unmet criteria (the declarative "what's next" — no separate plan). Defaults to the session-bound task; `--json` emits a versioned payload (`version` field). **Run it first when resuming a task in a new session or after a verification round was rejected.**
@@ -149,10 +149,10 @@ Typical flow when a user says "help me with LUM-42":
 1. `lumo session attach LUM-42` — bind this session
 2. `lumo task context LUM-42` — load background
 3. Review unresolved items, PR-review todos, and the task description
-4. **If the task has no acceptance criteria** (context shows the 草拟提醒 instead of a contract): draft 3–7 outcome-level criteria and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md) for the drafting guide
+4. **If the task has no acceptance criteria** (context shows the draft reminder instead of a contract): draft 3–7 outcome-level criteria and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md) for the drafting guide
 5. Begin working on the task
 6. **Before claiming the work is done: run `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (round cap 3). On all-pass the task moves to IN_REVIEW and you stop; never set DONE yourself after a verify loop — that adjudication is human-only. See [verify.md](references/verify.md)
 
 **Status-first recovery:** when you pick a task back up — a new session resuming earlier work, or a task that came back after a rejected verification round / review findings — run `lumo task status` **before** re-reading code or planning. It tells you where the loop stands (current round, what passed, what's unmet and why, any REVIEW_ADDED criteria appended during review) so you don't redo finished work or miss the reason it bounced. See [verify.md](references/verify.md)
 
-**Git-suggest at start:** when the session is unbound, session-start may infer the task from the git branch / recent commits and print a suggestion — `检测到 LUM-N … 运行 lumo session attach LUM-N 绑定。` — **without** binding. Confirm it's the right task, then run `lumo session attach <LUM-N>` yourself (binding only happens on an explicit attach). See [sessions.md](references/sessions.md) for the full session-start behavior.
+**Git-suggest at start:** when the session is unbound, session-start may infer the task from the git branch / recent commits and print a suggestion — `Detected LUM-N (from branch name). Run lumo session attach LUM-N to bind.` (or `from recent commits`) — **without** binding. Confirm it's the right task, then run `lumo session attach <LUM-N>` yourself (binding only happens on an explicit attach). See [sessions.md](references/sessions.md) for the full session-start behavior.

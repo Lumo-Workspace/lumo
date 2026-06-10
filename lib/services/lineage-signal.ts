@@ -49,7 +49,7 @@ export interface FragmentTrustResult {
    * order = first-seen order of `refs`. */
   verdicts: Map<string, TrustVerdict>
   /** Count of deduped fragments dropped for zero presence-variance (appeared in
-   * every resolved task). Backs the CLI's "已排除 N 个全量加载" note. */
+   * every resolved task). Backs the CLI's "Excluded N always-loaded fragment(s)" note. */
   excludedZeroVariance: number
 }
 
@@ -141,18 +141,18 @@ export function renderLineageSection(
     excludedCount > 0
       ? [
           '',
-          `> 已排除 ${excludedCount} 个全量加载(零存在方差)的 fragment:它们出现在每个已闭合任务里,merge 率等于团队 base rate,无判别力。`,
+          `> Excluded ${excludedCount} always-loaded fragment(s) (zero presence variance): they appear in every resolved task, so their merge rate equals the team base rate and has no discriminative power.`,
         ]
       : []
 
   return [
-    '## 飞轮信号 · 历史 merge 贡献',
+    '## Flywheel signal · historical merge contribution',
     '',
-    '> 口径:优先「真实使用信号」(agent 完结时投票用过的);样本不足回退到「仅共同加载」弱信号。分母 = 去重已闭合任务,分子 = 其中 merged。历史相关性,非因果。',
+    '> Methodology: prefer the real-usage signal (fragments voted as used when the agent wrapped up); fall back to the weak co-load-only signal when usage samples are thin. Denominator = distinct resolved tasks, numerator = merged among them. Historical correlation, not causation.',
     '',
     ...usageEntries.map(formatUsageSignalLine),
     ...presenceQualifying.map(
-      e => `${formatLineageSignalLine(e)} · 仅共同加载,弱信号`
+      e => `${formatLineageSignalLine(e)} · co-load only, weak signal`
     ),
     ...note,
   ].join('\n')
@@ -161,13 +161,13 @@ export function renderLineageSection(
 export function formatLineageSignalLine(e: LineageSignalEntry): string {
   // resolvedTasks >= LINEAGE_MIN_RESOLVED_TASKS (>=1) here, so no divide-by-zero.
   const pct = Math.round((e.mergedTasks / e.resolvedTasks) * 100)
-  return `- ${e.label} — 出现在 ${e.resolvedTasks} 个已闭合任务·${e.mergedTasks} merged (${pct}%)`
+  return `- ${e.label} — appeared in ${e.resolvedTasks} resolved tasks · ${e.mergedTasks} merged (${pct}%)`
 }
 
 export function formatUsageSignalLine(e: UsageSignalEntry): string {
   // usedResolvedTasks >= LINEAGE_MIN_USED_TASKS (>=1) here, so no divide-by-zero.
   const pct = Math.round((e.usedMergedTasks / e.usedResolvedTasks) * 100)
-  return `- ${e.label} — 用过的 ${e.usedResolvedTasks} 个已闭合任务·${e.usedMergedTasks} merged (${pct}%) · 真实使用信号`
+  return `- ${e.label} — used in ${e.usedResolvedTasks} resolved tasks · ${e.usedMergedTasks} merged (${pct}%) · real-usage signal`
 }
 
 function fragmentLabel(

@@ -25,7 +25,7 @@ export interface SessionFailureRow {
 
 /** The dominant failure group surfaced to the wrap prompt. */
 export interface TopFailureGroup {
-  /** Human label for the prompt: the tool name, or 整轮失败 for turn-level. */
+  /** Human label for the prompt: the tool name, or "turn-level failures" for turn-level. */
   label: string
   /** Number of failures in this group. */
   count: number
@@ -40,10 +40,10 @@ export interface TopFailureGroup {
  */
 function classify(row: SessionFailureRow): { key: string; label: string } {
   if (row.type === 'STOP_FAILURE') {
-    return { key: 'turn', label: '整轮失败' }
+    return { key: 'turn', label: 'turn-level failures' }
   }
   const tool = row.toolName ?? 'unknown'
-  return { key: `tool:${tool}`, label: row.toolName ?? '未知工具' }
+  return { key: `tool:${tool}`, label: row.toolName ?? 'unknown tool' }
 }
 
 function truncate(s: string): string {

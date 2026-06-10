@@ -45,7 +45,7 @@ lumo milestone list --all --search launch   # search across archived + non-archi
 
 - Before suggesting `task create --milestone <ref>` or `task update --milestone <ref>` to confirm the milestone exists under the expected name.
 - When the user asks "what milestones do we have", "what's on v1.0", or similar.
-- When the user wants to **find/search milestones by keyword** ("find the launch milestone", "搜索里程碑", "which milestones mention X") — use `--search <text>` rather than listing all and eyeballing.
+- When the user wants to **find/search milestones by keyword** ("find the launch milestone", "which milestones mention X") — use `--search <text>` rather than listing all and eyeballing.
 
 When to suggest: before `task create --project <ref>` when the workspace has more than one project and the user hasn't specified which one.
 
@@ -75,7 +75,7 @@ Prints a key:value header (name, status, **health**, dates, project, description
 
 It also prints a **Sprint coverage** section (above the task table) listing which
 sprints the milestone's tasks span — each row shows the sprint number, status, name,
-and `done/total` progress — plus an `未排期` line counting milestone tasks not in any
+and `done/total` progress — plus an `Unscheduled` line counting milestone tasks not in any
 sprint (shown only when there are any). The section is derived from the milestone's
 tasks (no schema relation), so it needs no extra flags. When no task is in any sprint
 it prints `Sprint coverage: (no sprint coverage)`.
@@ -86,7 +86,7 @@ Example coverage section:
 Sprint coverage:
   #3  ACTIVE  Sprint 3   4/6 done
   #4  DRAFT   Sprint 4   0/2 done
-  未排期                  1 task
+  Unscheduled             1 task
 ```
 
 ```bash
@@ -176,7 +176,7 @@ Q3 Launch: 1 removed, 1 skipped
 
 ### When to suggest `milestone add` / `milestone remove`
 
-- The user wants to attach/detach **several** tasks to a milestone at once ("挂这几个任务到 Q3", "把 LUM-1 LUM-2 LUM-3 都放进里程碑", "remove these from the milestone"). For a single task, `task update --milestone <ref>` (or `--milestone ""` to clear) is equally fine.
+- The user wants to attach/detach **several** tasks to a milestone at once ("attach these tasks to Q3", "put LUM-1 LUM-2 LUM-3 into the milestone", "remove these from the milestone"). For a single task, `task update --milestone <ref>` (or `--milestone ""` to clear) is equally fine.
 - `remove` only clears the binding for tasks actually in the named milestone, so it's safe to pass a broad list — anything not in it is reported as skipped, not clobbered.
 - For one-at-a-time sprint binding see `lumo sprint add / remove` (sprint batch is not yet supported).
 
@@ -197,7 +197,7 @@ lumo milestone summary "Q3 Launch" --retry
 lumo milestone summary 11111111-2222-3333-4444-555555555555
 ```
 
-When to suggest: user asks "summarize the milestone", "milestone retro", "give me a summary of the Q3 milestone", "里程碑总结", "里程碑复盘".
+When to suggest: user asks "summarize the milestone", "milestone retro", "give me a summary of the Q3 milestone".
 
 ### `lumo milestone reorder <ref...> [--project <ref>]` — set the full milestone order
 
@@ -241,4 +241,4 @@ Both commands resolve to a full ordered list client-side and call the same `PATC
 
 **Ambiguous names:** milestone names are not unique within a project (only the slug is). A ref whose name matches more than one milestone is **rejected** with an `ambiguous milestone name … re-run with the id` error listing the candidate cuids — pass the cuid instead. This applies to every name-based milestone ref (`reorder`, `move`, and also `show` / `update` / `delete` / `summary` / `add` / `remove`).
 
-When to suggest: user asks to "reorder milestones", "排序里程碑", "调整里程碑顺序", "move milestone X before/after Y", "把里程碑 X 移到 Y 前面/后面", "put this milestone first".
+When to suggest: user asks to "reorder milestones", "move milestone X before/after Y", "put this milestone first".

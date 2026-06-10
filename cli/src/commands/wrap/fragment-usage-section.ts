@@ -31,7 +31,7 @@ export function parseUsedHandles(spec: string): number[] {
  * nothing — edges stay null (honest "not voted"). Already-voted sessions skip.
  */
 export class FragmentUsageSection implements WrapSection {
-  title = '上下文使用投票'
+  title = 'Fragment-usage vote'
   private draft: ServerUsageDraft | null = null
 
   constructor(
@@ -53,23 +53,23 @@ export class FragmentUsageSection implements WrapSection {
     if (!draft || draft.candidates.length === 0) return
 
     if (draft.alreadyVoted) {
-      process.stdout.write('本 session 已投票,跳过。\n')
+      process.stdout.write('This session already voted — skipping.\n')
       return
     }
 
-    process.stdout.write('本次会话注入的 context fragment:\n')
+    process.stdout.write('Context fragments injected in this session:\n')
     draft.candidates.forEach((c, i) => {
       process.stdout.write(`  [${i + 1}] ${sanitizeField(c.label)}\n`)
     })
 
     if (opts.dryRun) {
-      process.stdout.write('(dry-run,未改动)\n')
+      process.stdout.write('(dry-run, no changes)\n')
       return
     }
 
     if (this.deps.used === undefined) {
       process.stdout.write(
-        '用 `lumo session wrap --used <序号>`(或 `--used none`)记录你实际用到的 fragment。\n'
+        'Use `lumo session wrap --used <indices>` (or `--used none`) to record which fragments you actually used.\n'
       )
       return
     }
@@ -85,6 +85,6 @@ export class FragmentUsageSection implements WrapSection {
       this.deps.sessionId,
       { usedRefs }
     )
-    process.stdout.write(`已记录:用过 ${used} 个,未用 ${unused} 个。\n`)
+    process.stdout.write(`Recorded: ${used} used, ${unused} unused.\n`)
   }
 }

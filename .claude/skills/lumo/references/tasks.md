@@ -199,7 +199,7 @@ Top 3 recommended tasks (of 12 open):
 Next: lumo session attach LUM-42 && lumo task context LUM-42
 ```
 
-When to suggest: the user asks "what should I work on", "what's next", "推荐下一个任务", "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.
+When to suggest: the user asks "what should I work on", "what's next", "recommend my next task" (in any language), "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.
 
 ### `lumo task show <identifier>` — print one task's detail
 
@@ -227,7 +227,7 @@ The CLI does not support @-mention chip syntax. If the user wants to ping someon
 
 ### `lumo task deps list <LUM-N>` — show all dependency edges
 
-Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED(待确认)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
+Prints the task's dependency edges grouped into three sections: **CONFIRMED**, **SUGGESTED (pending confirmation)**, and **DISMISSED**. Each row includes a short 8-character edge id in square brackets, the direction (`blocked by` / `blocks`), the other task's identifier and title, the other task's current status, the source (`MANUAL` or `DETECTED`), and inline evidence for detected edges.
 
 ```bash
 lumo task deps list LUM-42
@@ -239,29 +239,29 @@ Example output:
 Dependencies for LUM-42 (3)
 
 CONFIRMED
-  [a1b2c3d4] blocked by LUM-9「Fix auth token expiry」 IN_PROGRESS · MANUAL
+  [a1b2c3d4] blocked by LUM-9 "Fix auth token expiry" IN_PROGRESS · MANUAL
 
-SUGGESTED(待确认)
-  [e5f6a7b8] blocks LUM-55「Migrate DB schema」 TODO · shared_files(4 个共享文件: src/db/schema.ts, src/db/migrate.ts, ...)
-      确认: lumo task deps confirm LUM-42 e5f6a7b8(方向反了加 --reverse;误报: dismiss)
-  [c9d0e1f2] blocked by LUM-38「Add OAuth scopes」 IN_REVIEW · task_mention(description)
-      确认: lumo task deps confirm LUM-42 c9d0e1f2(方向反了加 --reverse;误报: dismiss)
+SUGGESTED (pending confirmation)
+  [e5f6a7b8] blocks LUM-55 "Migrate DB schema" TODO · shared_files(4 shared files: src/db/schema.ts, src/db/migrate.ts, ...)
+      confirm: lumo task deps confirm LUM-42 e5f6a7b8 (add --reverse if direction is flipped; false positive: dismiss)
+  [c9d0e1f2] blocked by LUM-38 "Add OAuth scopes" IN_REVIEW · task_mention(description)
+      confirm: lumo task deps confirm LUM-42 c9d0e1f2 (add --reverse if direction is flipped; false positive: dismiss)
 
 DISMISSED
-  [b3c4d5e6] blocks LUM-12 · 已忽略
+  [b3c4d5e6] blocks LUM-12 · dismissed
 ```
 
-CONFIRMED and SUGGESTED rows show the other task's identifier, title, current status, and source/evidence. DISMISSED rows render as `[shortId] <direction> <identifier> · 已忽略` only — no title, status, or source.
+CONFIRMED and SUGGESTED rows show the other task's identifier, title, current status, and source/evidence. DISMISSED rows render as `[shortId] <direction> <identifier> · dismissed` only — no title, status, or source.
 
 When there are no edges at all the output is:
 
 ```
-Dependencies for LUM-42: 无依赖边。
+Dependencies for LUM-42: no dependency edges.
 ```
 
 **Evidence fields by detection signal:**
 
-- `shared_files` — `shared_files(N 个共享文件: path1, path2, …)` — number of shared write-touched files in the 14-day window, plus up to 5 sample paths.
+- `shared_files` — `shared_files(N shared files: path1, path2, …)` — number of shared write-touched files in the 14-day window, plus up to 5 sample paths.
 - `task_mention` — `task_mention(description)` or `task_mention(comment)` — the surface where the mention appeared.
 
 CONFIRMED rows also show `source`: `MANUAL` (user-declared via `deps add`) or `DETECTED` (auto-found then confirmed via `deps confirm`).
@@ -314,7 +314,7 @@ lumo task deps dismiss LUM-42 e5f6a7b8
 lumo task deps dismiss LUM-42 LUM-38
 ```
 
-Output: `Dismissed: [e5f6a7b8] LUM-38「Add OAuth scopes」(不再建议)`
+Output: `Dismissed: [e5f6a7b8] LUM-38 "Add OAuth scopes" (won't be suggested again)`
 
 Use `dismiss` for false positives. Use `rm` only when you want the pair to be eligible for re-detection in the future (the detection service can re-suggest pairs with no existing row).
 
@@ -352,6 +352,6 @@ Output: `Removed [a1b2c3d4] from LUM-42`
 
 - **After `session attach` output shows a blocker warning or candidate-count hint** → run `lumo task deps list <LUM-N>` to review the full edge list, then `confirm` or `dismiss` each SUGGESTED candidate.
 - **User says "X needs to wait for Y" or "LUM-42 is blocked by LUM-9"** → run `lumo task deps add LUM-42 --blocked-by LUM-9`.
-- **Agent sees a `## ⚠ 依赖告警` block (form A — live blockers) at session-start** → evaluate whether to wait for the blocker to merge before starting work; if the edge is stale or wrong, clean it with `deps rm` or `deps dismiss`.
-- **Agent sees only a standalone hint line `检测到 N 条候选依赖待确认…` (form B — no live blockers)** → no immediate blocker, but run `lumo task deps list <LUM-N>` to review and confirm/dismiss SUGGESTED candidates. See [sessions.md](sessions.md) for the full alert format.
+- **Agent sees a `## ⚠ Dependency alerts` block (form A — live blockers) at session-start** → evaluate whether to wait for the blocker to merge before starting work; if the edge is stale or wrong, clean it with `deps rm` or `deps dismiss`.
+- **Agent sees only a standalone hint line `Detected N candidate dependencies awaiting confirmation…` (form B — no live blockers)** → no immediate blocker, but run `lumo task deps list <LUM-N>` to review and confirm/dismiss SUGGESTED candidates. See [sessions.md](sessions.md) for the full alert format.
 - **User reports a false positive dependency suggestion** → `lumo task deps dismiss <LUM-N> <edge>` to permanently suppress it for this pair.

@@ -43,7 +43,7 @@ describe('formatMilestoneShow — sprint coverage', () => {
     expect(out).toContain('Sprint coverage:')
     expect(out).toMatch(/#3\s+ACTIVE\s+Sprint 3\s+4\/6 done/)
     expect(out).toMatch(/#4\s+DRAFT\s+Sprint 4\s+0\/2 done/)
-    expect(out).toMatch(/未排期\s+1 task/)
+    expect(out).toMatch(/Unscheduled\s+1 task/)
   })
 
   it('pluralizes the unsprinted label when unsprinted > 1', () => {
@@ -57,7 +57,7 @@ describe('formatMilestoneShow — sprint coverage', () => {
       },
       []
     )
-    expect(out).toMatch(/未排期\s+2 tasks/)
+    expect(out).toMatch(/Unscheduled\s+2 tasks/)
   })
 
   it('omits the unsprinted line when unsprinted === 0', () => {
@@ -71,7 +71,7 @@ describe('formatMilestoneShow — sprint coverage', () => {
       },
       []
     )
-    expect(out).not.toContain('未排期')
+    expect(out).not.toContain('Unscheduled')
   })
 
   it('shows a placeholder when no sprints are covered', () => {

@@ -14,10 +14,11 @@ export interface ReviewTodoItem {
 }
 
 /**
- * Render the "## PR Review 待办" section: mirrored PR review comments as a
+ * Render the "## PR review todos" section: mirrored PR review comments as a
  * checkbox todo list so the agent treats each reviewer ask as an item to
  * resolve. Line-level comments show `file:line`; changes-requested summaries
- * show an "整体要求改动" marker. Each item links back to the GitHub comment.
+ * show a "Changes requested (whole PR)" marker. Each item links back to the
+ * GitHub comment.
  *
  * Returns "" when there are no todos (the formatter then skips the section).
  */
@@ -25,7 +26,7 @@ export function renderPrReviewTodosSection(todos: ReviewTodoItem[]): string {
   if (todos.length === 0) return ''
 
   const multiPr = new Set(todos.map(t => t.prNumber)).size > 1
-  const lines: string[] = ['## PR Review 待办', '']
+  const lines: string[] = ['## PR review todos', '']
 
   for (const t of todos) {
     const prefix = multiPr ? `[#${t.prNumber}] ` : ''
@@ -36,7 +37,7 @@ export function renderPrReviewTodosSection(todos: ReviewTodoItem[]): string {
       const loc = t.line != null ? `${t.filePath}:${t.line}` : t.filePath
       head = `\`${loc}\``
     } else {
-      head = '🛑 整体要求改动'
+      head = '🛑 Changes requested (whole PR)'
     }
 
     const text = t.text ? ` — ${t.text}` : ''

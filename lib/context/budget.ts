@@ -47,7 +47,7 @@ export function makeBudgetSection<T>(
         if (keptFulls.length > 0) parts.push('')
         // Agent-facing internal context string (server-rendered markdown injected
         // into the coding agent), not a user-facing UI string — not react-intl.
-        parts.push(`其余 ${overflowManifests.length} 条（仅清单）：`)
+        parts.push(`Remaining ${overflowManifests.length} (manifest only):`)
         parts.push(...overflowManifests)
       }
       return parts.join('\n').trimEnd()

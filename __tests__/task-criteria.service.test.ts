@@ -252,7 +252,7 @@ describe('taskCriteriaService.reviseAsHuman', () => {
       TX
     )
 
-    // Audit comment carries the session 出处.
+    // Audit comment carries the session provenance.
     expect(waitUntilPromises).toHaveLength(1)
     await Promise.all(waitUntilPromises)
     expect(mockCreateComment).toHaveBeenCalledWith(

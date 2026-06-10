@@ -31,7 +31,7 @@ describe('renderLayer2ReviewSection (LUM-165)', () => {
     const wrapAt = out.indexOf('<untrusted-team-memory>')
     expect(wrapAt).toBeGreaterThan(0)
     const preamble = out.slice(0, wrapAt)
-    expect(preamble).toContain('待核对')
+    expect(preamble).toContain('Review needed')
     expect(preamble).toContain('lumo memory rm <id> --yes')
     // The member-authored body and its id live inside the untrusted block.
     const block = out.slice(wrapAt)
@@ -378,7 +378,7 @@ describe('memoryBudgetSection (LUM-147)', () => {
     const items = [mem('a', 'one'), mem('b', 'two')]
     const out = memoryBudgetSection(items).render(1)
     expect(out).toContain(renderMemorySection([mem('a', 'one')]))
-    expect(out).toContain('其余 1 条记忆（仅清单）：')
+    expect(out).toContain('Remaining 1 memories (manifest only):')
     expect(out).toContain('- [project] two')
   })
 

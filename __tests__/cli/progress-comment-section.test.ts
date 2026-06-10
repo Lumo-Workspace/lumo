@@ -29,8 +29,8 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks())
 
 describe('formatProgressBody', () => {
-  it('builds a bulleted body under a Chinese header', () => {
-    expect(formatProgressBody(['改了 a.ts', '跑了测试'])).toBe('本次会话进度\n- 改了 a.ts\n- 跑了测试')
+  it('builds a bulleted body under the section header', () => {
+    expect(formatProgressBody(['changed a.ts', 'ran tests'])).toBe('Session progress\n- changed a.ts\n- ran tests')
   })
 })
 
@@ -50,7 +50,7 @@ describe('ProgressCommentSection.prepare', () => {
   it('returns true and stores a draft when there are summaries', async () => {
     fetchDraft.mockResolvedValue({
       taskIdentifier: 'LUM-42', taskTitle: 'T',
-      summaries: [{ id: 'e1', turnSummary: '改了 a.ts', createdAt: '2026-06-01T10:00:00.000Z' }],
+      summaries: [{ id: 'e1', turnSummary: 'changed a.ts', createdAt: '2026-06-01T10:00:00.000Z' }],
       watermark: '2026-06-01T10:00:00.000Z',
     })
     const s = new ProgressCommentSection({ creds, sessionId: 's1' })
@@ -61,7 +61,7 @@ describe('ProgressCommentSection.prepare', () => {
 describe('ProgressCommentSection.run', () => {
   const draft = {
     taskIdentifier: 'LUM-42', taskTitle: 'T',
-    summaries: [{ id: 'e1', turnSummary: '改了 a.ts', createdAt: '2026-06-01T10:00:00.000Z' }],
+    summaries: [{ id: 'e1', turnSummary: 'changed a.ts', createdAt: '2026-06-01T10:00:00.000Z' }],
     watermark: '2026-06-01T10:00:00.000Z',
   }
   async function prepared() {
@@ -77,7 +77,7 @@ describe('ProgressCommentSection.run', () => {
     await s.run({ yes: true, dryRun: false })
     expect(prompt).not.toHaveBeenCalled()
     expect(post).toHaveBeenCalledWith(creds, 's1', {
-      body: '本次会话进度\n- 改了 a.ts',
+      body: 'Session progress\n- changed a.ts',
       watermark: '2026-06-01T10:00:00.000Z',
     })
   })
@@ -107,11 +107,11 @@ describe('ProgressCommentSection.run', () => {
     post.mockClear()
     s = await prepared()
     prompt.mockResolvedValueOnce('e').mockResolvedValueOnce('y')
-    edit.mockResolvedValue('本次会话进度\n- 改了 a.ts(edited)')
+    edit.mockResolvedValue('Session progress\n- changed a.ts (edited)')
     await s.run({ yes: false, dryRun: false })
     expect(edit).toHaveBeenCalled()
     expect(post).toHaveBeenCalledWith(creds, 's1', {
-      body: '本次会话进度\n- 改了 a.ts(edited)',
+      body: 'Session progress\n- changed a.ts (edited)',
       watermark: '2026-06-01T10:00:00.000Z',
     })
   })

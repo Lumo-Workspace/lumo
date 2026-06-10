@@ -23,24 +23,24 @@ describe('renderLineageSection', () => {
       { label: '[MEMORY] "use color-mix"', resolvedTasks: 5, mergedTasks: 4 },
       { label: '[PR] #123', resolvedTasks: 2, mergedTasks: 2 },
     ], 0)
-    expect(out).toContain('## 飞轮信号 · 历史 merge 贡献')
-    expect(out).toContain('历史相关性,非因果')
-    expect(out).toContain('- [MEMORY] "use color-mix" — 出现在 5 个已闭合任务·4 merged (80%)')
-    expect(out).toContain('仅共同加载,弱信号')
+    expect(out).toContain('## Flywheel signal · historical merge contribution')
+    expect(out).toContain('Historical correlation, not causation')
+    expect(out).toContain('- [MEMORY] "use color-mix" — appeared in 5 resolved tasks · 4 merged (80%)')
+    expect(out).toContain('co-load only, weak signal')
     expect(out).not.toContain('#123')
   })
 
-  it('renders usage entries with the 真实使用信号 marker', () => {
+  it('renders usage entries with the real-usage signal marker', () => {
     const out = renderLineageSection(
       [{ label: '[MEMORY] "used"', usedResolvedTasks: 4, usedMergedTasks: 3 }],
       [],
       0
     )
-    expect(out).toContain('- [MEMORY] "used" — 用过的 4 个已闭合任务·3 merged (75%) · 真实使用信号')
-    // no presence fallback list line (the caveat line mentions 仅共同加载)
+    expect(out).toContain('- [MEMORY] "used" — used in 4 resolved tasks · 3 merged (75%) · real-usage signal')
+    // no presence fallback list line (the caveat line mentions co-load only)
     const presenceLines = out
       .split('\n')
-      .filter(l => l.startsWith('- ') && l.includes('仅共同加载'))
+      .filter(l => l.startsWith('- ') && l.includes('co-load only'))
     expect(presenceLines).toHaveLength(0)
   })
 })
@@ -72,7 +72,7 @@ describe('assembleLineageSection', () => {
     expect(mergeRateByFragments).toHaveBeenCalledWith([
       { fragmentType: 'MEMORY', fragmentId: 'mem-canon' },
     ])
-    expect(out).toContain('- [MEMORY] "use color-mix not hsl(var())" — 出现在 5 个已闭合任务·4 merged (80%)')
+    expect(out).toContain('- [MEMORY] "use color-mix not hsl(var())" — appeared in 5 resolved tasks · 4 merged (80%)')
   })
 
   it('returns "" when a fragment has stats but is below threshold', async () => {
@@ -120,7 +120,7 @@ describe('assembleLineageSection', () => {
         countResolvedTasks: async () => 99,
       }
     )
-    expect(out).toContain('- [WEB_LINK] weblink1 — 出现在 3 个已闭合任务·3 merged (100%)')
+    expect(out).toContain('- [WEB_LINK] weblink1 — appeared in 3 resolved tasks · 3 merged (100%)')
   })
 
   it('dedupes fragments that resolve to the same canonical id (first wins)', async () => {
@@ -143,7 +143,7 @@ describe('assembleLineageSection', () => {
       }
     )
     // Exactly one signal line, using the first fragment's label
-    expect(out).toContain('- [MEMORY] "first label wins" — 出现在 4 个已闭合任务·3 merged (75%)')
+    expect(out).toContain('- [MEMORY] "first label wins" — appeared in 4 resolved tasks · 3 merged (75%)')
     expect(out).not.toContain('second label loses')
     const lineCount = out.split('\n').filter(l => l.startsWith('- ')).length
     expect(lineCount).toBe(1)
@@ -153,9 +153,9 @@ describe('assembleLineageSection', () => {
 describe('renderLineageSection — presence-variance note', () => {
   it('renders header + note (no list) when all qualifying entries were excluded', () => {
     const out = renderLineageSection([], [], 7)
-    expect(out).toContain('## 飞轮信号 · 历史 merge 贡献')
-    expect(out).toContain('已排除 7 个全量加载')
-    // no merge-rate list items (the note legitimately contains "出现在")
+    expect(out).toContain('## Flywheel signal · historical merge contribution')
+    expect(out).toContain('Excluded 7 always-loaded fragment(s)')
+    // no merge-rate list items (the note legitimately contains "appear in")
     expect(out.split('\n').filter(l => l.startsWith('- '))).toHaveLength(0)
   })
 
@@ -165,8 +165,8 @@ describe('renderLineageSection — presence-variance note', () => {
       [{ label: '[MEMORY] "x"', resolvedTasks: 3, mergedTasks: 2 }],
       2
     )
-    expect(out).toContain('- [MEMORY] "x" — 出现在 3 个已闭合任务·2 merged (67%)')
-    expect(out).toContain('已排除 2 个全量加载')
+    expect(out).toContain('- [MEMORY] "x" — appeared in 3 resolved tasks · 2 merged (67%)')
+    expect(out).toContain('Excluded 2 always-loaded fragment(s)')
   })
 
   it('omits the note when nothing was excluded', () => {
@@ -175,7 +175,7 @@ describe('renderLineageSection — presence-variance note', () => {
       [{ label: '[MEMORY] "x"', resolvedTasks: 3, mergedTasks: 3 }],
       0
     )
-    expect(out).not.toContain('已排除')
+    expect(out).not.toContain('Excluded')
   })
 
   it('returns "" when no survivors and nothing excluded', () => {
@@ -199,8 +199,8 @@ describe('assembleLineageSection — zero-variance exclusion', () => {
         { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 5, mergedTasks: 5 },
       ])
     )
-    expect(out).toContain('## 飞轮信号') // header still shown
-    expect(out).toContain('已排除 1 个全量加载')
+    expect(out).toContain('## Flywheel signal') // header still shown
+    expect(out).toContain('Excluded 1 always-loaded fragment(s)')
     expect(out).not.toContain('always loaded')
   })
 
@@ -212,8 +212,8 @@ describe('assembleLineageSection — zero-variance exclusion', () => {
         { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 4, mergedTasks: 3 },
       ])
     )
-    expect(out).toContain('- [MEMORY] "selective mem" — 出现在 4 个已闭合任务·3 merged (75%)')
-    expect(out).not.toContain('已排除')
+    expect(out).toContain('- [MEMORY] "selective mem" — appeared in 4 resolved tasks · 3 merged (75%)')
+    expect(out).not.toContain('Excluded')
   })
 
   it('excludes one and keeps another end-to-end (partial exclusion)', async () => {
@@ -231,9 +231,9 @@ describe('assembleLineageSection — zero-variance exclusion', () => {
         { fragmentType: 'MEMORY', fragmentId: 'selective', resolvedTasks: 4, mergedTasks: 3 },
       ])
     )
-    expect(out).toContain('- [MEMORY] "selective mem" — 出现在 4 个已闭合任务·3 merged (75%)')
+    expect(out).toContain('- [MEMORY] "selective mem" — appeared in 4 resolved tasks · 3 merged (75%)')
     expect(out).not.toContain('always loaded')
-    expect(out).toContain('已排除 1 个全量加载')
+    expect(out).toContain('Excluded 1 always-loaded fragment(s)')
   })
 
   it('does NOT exclude when universe is 0 (no resolved edges)', async () => {
@@ -254,7 +254,7 @@ describe('assembleLineageSection — usage preferred over presence', () => {
     countResolvedTasks: async () => 99,
   }
 
-  it('shows the usage line (真实使用信号) when usedResolvedTasks >= 3', async () => {
+  it('shows the usage line (real-usage signal) when usedResolvedTasks >= 3', async () => {
     const out = await assembleLineageSection(
       [{ type: 'MEMORY', id: 'm1' }],
       new Map([['m1', 'used mem']]),
@@ -268,7 +268,7 @@ describe('assembleLineageSection — usage preferred over presence', () => {
         ],
       }
     )
-    expect(out).toContain('- [MEMORY] "used mem" — 用过的 4 个已闭合任务·3 merged (75%) · 真实使用信号')
+    expect(out).toContain('- [MEMORY] "used mem" — used in 4 resolved tasks · 3 merged (75%) · real-usage signal')
     expect(out).not.toContain('80%') // presence number suppressed in favor of usage
   })
 
@@ -288,11 +288,11 @@ describe('assembleLineageSection — usage preferred over presence', () => {
         ],
       }
     )
-    expect(out).toContain('- [MEMORY] "always loaded but used" — 用过的 3 个已闭合任务·2 merged (67%) · 真实使用信号')
-    expect(out).not.toContain('已排除') // usage preempts the zero-variance exclusion
+    expect(out).toContain('- [MEMORY] "always loaded but used" — used in 3 resolved tasks · 2 merged (67%) · real-usage signal')
+    expect(out).not.toContain('Excluded') // usage preempts the zero-variance exclusion
   })
 
-  it('falls back to presence (弱信号) when usage sample < 3', async () => {
+  it('falls back to presence (weak signal) when usage sample < 3', async () => {
     const out = await assembleLineageSection(
       [{ type: 'MEMORY', id: 'm1' }],
       new Map([['m1', 'mem']]),
@@ -307,11 +307,11 @@ describe('assembleLineageSection — usage preferred over presence', () => {
         ],
       }
     )
-    expect(out).toContain('出现在 4 个已闭合任务·3 merged (75%) · 仅共同加载,弱信号')
-    // no usage list line emitted (the caveat line mentions 用过的, so scope to list items)
+    expect(out).toContain('appeared in 4 resolved tasks · 3 merged (75%) · co-load only, weak signal')
+    // no usage list line emitted (the methodology line mentions "used", so scope to list items)
     const usageLines = out
       .split('\n')
-      .filter(l => l.startsWith('- ') && l.includes('真实使用信号'))
+      .filter(l => l.startsWith('- ') && l.includes('real-usage signal'))
     expect(usageLines).toHaveLength(0)
   })
 })

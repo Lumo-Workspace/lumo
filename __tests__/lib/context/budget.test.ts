@@ -38,12 +38,12 @@ describe('makeBudgetSection', () => {
 
   it('render(partial) emits fulls then a manifest block for the rest', () => {
     const out = section.render(1)
-    expect(out).toBe('## H\n\nFULL:a\n\n其余 2 条（仅清单）：\n- M:bb\n- M:ccc')
+    expect(out).toBe('## H\n\nFULL:a\n\nRemaining 2 (manifest only):\n- M:bb\n- M:ccc')
   })
 
   it('render(0) emits heading + manifest block only', () => {
     const out = section.render(0)
-    expect(out).toBe('## H\n\n其余 3 条（仅清单）：\n- M:a\n- M:bb\n- M:ccc')
+    expect(out).toBe('## H\n\nRemaining 3 (manifest only):\n- M:a\n- M:bb\n- M:ccc')
   })
 
   it('render of an empty section returns ""', () => {

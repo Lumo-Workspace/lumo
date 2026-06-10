@@ -15,25 +15,25 @@ Example: `lumo task context LUM-42`
 The command prints a markdown document to stdout containing:
 
 1. **Task header** — identifier, title, status, description
-2. **验收标准（合约）** — the task's acceptance criteria (LUM-342), shown right after the header. Each line: `[MACHINE|HUMAN] statement` with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance is tagged inline. If a still-open task has none, a 草拟提醒 appears instead — draft 3–7 criteria **before writing code** (see [criteria.md](criteria.md))
+2. **Acceptance criteria (contract)** — the task's acceptance criteria (LUM-342), shown right after the header as the `## Acceptance criteria (contract)` section. Each line: `[MACHINE|HUMAN] statement` with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance is tagged inline. If a still-open task has none, a draft reminder appears instead — draft 3–7 criteria **before writing code** (see [criteria.md](criteria.md))
 3. **Memory section** — cross-session learnings accumulated over prior sessions; treat as trusted background context
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below)
-5. **PR Review 待办** — mirrored PR review comments as a checkbox todo list: each line-level reviewer comment (shown as `` `file:line` `` + the reviewer's ask + a link to the GitHub comment) and each `changes_requested` review summary (shown as "🛑 整体要求改动"). Present only when the task's PR(s) have review comments. This same block is **auto-injected at session start** (alongside the memory section) when the session is bound to a task — so reviewer asks surface without re-running `task context`.
+5. **PR review todos** — mirrored PR review comments as a checkbox todo list under the `## PR review todos` header: each line-level reviewer comment (shown as `` `file:line` `` + the reviewer's ask + a link to the GitHub comment) and each `changes_requested` review summary (shown as "🛑 Changes requested (whole PR)"). Present only when the task's PR(s) have review comments. This same block is **auto-injected at session start** (alongside the memory section) when the session is bound to a task — so reviewer asks surface without re-running `task context`.
    - The **inline source cards** (Slack / web / Figma / PR) are likewise **auto-injected at session start** when the session is bound, under a single global token budget shared with the memory section (priority: criteria > memory > PR > Slack > Figma > web). Cards that don't fit the budget are degraded to a one-line manifest carrying just the title and its `lumo task … show` retrieval command — so you still know they exist and can pull the full content on demand.
 6. **Previous sessions** — ordered newest-first, each with:
    - A headline summary of what was done
    - Unresolved items (carry-over TODOs from that session)
-7. **飞轮信号 · 历史 merge 贡献** — appended at the very end. For each context fragment with enough history, a one-line historical merge-contribution signal (e.g. `出现在 5 个已闭合任务·4 merged (80%)`), computed from accumulated lineage edges. Denominator = distinct tasks where the fragment appeared with a resolved (non-UNKNOWN) outcome; only fragments with ≥3 such tasks are shown (cold-start gate), so the block is often absent early on. This is **historical correlation, not causation** — don't read it as a prediction.
+7. **Flywheel signal · historical merge contribution** — appended at the very end as the `## Flywheel signal · historical merge contribution` section. For each context fragment with enough history, a one-line historical merge-contribution signal (e.g. `appeared in 5 resolved tasks · 4 merged (80%)`), computed from accumulated lineage edges. Denominator = distinct tasks where the fragment appeared with a resolved (non-UNKNOWN) outcome; only fragments with ≥3 such tasks are shown (cold-start gate), so the block is often absent early on. This is **historical correlation, not causation** — don't read it as a prediction.
 
 ### How to use the context
 
 - **Unresolved items** from the most recent session are the highest-priority carry-overs — address them before starting new work unless the user says otherwise
-- **PR Review 待办** items are reviewer-requested changes — treat each unchecked box as a TODO to resolve, then reply on the PR (a Lumo comment mirrors back to GitHub)
+- **PR review todos** items are reviewer-requested changes — treat each unchecked box as a TODO to resolve, then reply on the PR (a Lumo comment mirrors back to GitHub)
 - **Memory section** provides validated context that persists across sessions — use it to avoid re-learning decisions or constraints
 - Focus on the **most recent 1–2 sessions** for relevant state; older sessions are for historical reference only
 - If there are **no prior sessions**, this is a fresh start — read the task description carefully and ask clarifying questions if needed
 
-## Context Retrieval (按需取全文)
+## Context Retrieval (full text on demand)
 
 LUM-122 split task context injection into tiers. `lumo task context <LUM-N>`
 now emits a **cheap inline card** for each source — a short summary or just

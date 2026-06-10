@@ -273,7 +273,7 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     expect(ctx?.prReviewTodosSection).toBe('')
   })
 
-  it('builds the PR Review 待办 section from mirrored review comments', async () => {
+  it('builds the PR review todos section from mirrored review comments', async () => {
     findDocs.mockResolvedValue([])
     listComments.mockResolvedValue([])
     listPRs.mockResolvedValue([])
@@ -334,14 +334,14 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
 
     expect(listReviewTodos).toHaveBeenCalledWith(['pr_1'])
     const section = ctx?.prReviewTodosSection ?? ''
-    expect(section).toContain('## PR Review 待办')
+    expect(section).toContain('## PR review todos')
     // line-level comment: file:line + stripped text + reviewer handle + link
     expect(section).toContain('`lib/foo.ts:42`')
     expect(section).toContain('Extract this')
     expect(section).toContain('(@octocat)')
     expect(section).toContain('https://gh/c/1')
     // changes_requested summary kept
-    expect(section).toContain('🛑 整体要求改动')
+    expect(section).toContain('🛑 Changes requested (whole PR)')
     expect(section).toContain('Please address')
     // plain "Commented" review dropped
     expect(section).not.toContain('nice')

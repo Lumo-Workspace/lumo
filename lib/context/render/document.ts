@@ -18,7 +18,7 @@ export function renderDocumentSection(docs: DocumentCard[]): string {
     lines.push(`### ${d.title}`)
     const summary = d.summary?.trim()
     if (summary) lines.push(summary)
-    lines.push(`  ↳ 全文: lumo doc show ${d.id}`)
+    lines.push(`  ↳ full text: lumo doc show ${d.id}`)
     lines.push('')
   }
 

@@ -91,7 +91,7 @@ function desiredShape(item: CriteriaSetItem) {
 
 /**
  * Post the HUMAN_EDIT provenance trail as a task comment (the milestone's
- * "附 session 出处" requirement — the criterion rows carry no session column,
+ * "attach session provenance" requirement — the criterion rows carry no session column,
  * so the audit trail lives in the task thread). Best-effort via waitUntil:
  * the revision itself must not fail or block on the comment. Lazy imports
  * keep comment.service's heavy transitive deps (pusher, mention parsing) off
@@ -111,9 +111,9 @@ function scheduleRevisionAuditComment(
 
       const origin = attribution.sourceSessionId
         ? `session ${attribution.sourceSessionId.slice(0, 8)}`
-        : '(session 未知)'
+        : '(session unknown)'
       const lines: string[] = [
-        `[Lumo] 验收合约修订（HUMAN_EDIT）· 新增 ${changes.added.length} / 修改 ${changes.updated.length} / 删除 ${changes.deleted.length} · 出处 ${origin}`,
+        `[Lumo] Acceptance contract revised (HUMAN_EDIT) · ${changes.added.length} added / ${changes.updated.length} updated / ${changes.deleted.length} deleted · origin ${origin}`,
       ]
       for (const s of changes.added)
         lines.push(`+ ${truncate(s, AUDIT_STATEMENT_MAX)}`)
@@ -214,7 +214,7 @@ export const taskCriteriaService = {
    * - changed/new rows are stamped HUMAN_EDIT; untouched rows keep their
    *   provenance (the Slice-2 churn metrics depend on it).
    * - new rows are stamped addedAtRound = the task's current max round.
-   * - the revision is recorded as a task comment with its session 出处.
+   * - the revision is recorded as a task comment with its session provenance.
    */
   async reviseAsHuman(
     taskId: string,
