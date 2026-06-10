@@ -300,11 +300,11 @@
 
 ## 附录 2:2606 周扫批次索引(tag `paper-absorption-2606`,2026-06)
 
-8 篇 subagent fan-out 全文精读 → 3 落地任务 + 6 watch 项(进 F 队列 5 行,c-CRAB 与 Config Repair 同向合并)+ 5 明确不做(各登记在条目内防重复评估)。不开 milestone(沿 agent-containment 先例)。
+8 篇 subagent fan-out 全文精读 → 3 落地任务 + 6 watch 项(进 F 队列 5 行,c-CRAB 与 Config Repair 同向合并)+ 5 明确不做(各登记在条目内防重复评估)。不开 milestone(沿 agent-containment 先例)。**批次全闭环(4/4 DONE,2026-06-10);余项只剩 F 队列触发器(LUM-395 审计 07-10 复跑等)。**
 
-| 任务                                                              | 来源论文                 | 交付                                        | 状态                                                                                            |
+| 任务                                                              | 来源论文                 | 交付                                        | 状态 / PR                                                                                       |
 | ----------------------------------------------------------------- | ------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [LUM-395](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-395) | BeliefMem 2605.05583     | 飞轮翻案通道审计(measure-first)             | **IN_REVIEW** · [PR#469](https://github.com/Lumo-Workspace/lumo/pull/469) · 裁决不修,07-10 复跑 |
-| [LUM-396](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-396) | ProMem 2601.04463        | 抽取 grounding 前置(quote-or-discard)       | TODO                                                                                            |
-| [LUM-397](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-397) | ProdCodeBench 2604.01527 | lineage outcome 强弱分层 + 记忆出生任务记账 | TODO                                                                                            |
-| [LUM-398](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-398) | (本批登记册吸收)         | 8 条目 + F 队列 5 行 + 录入规范追踪源       | 本 PR                                                                                           |
+| [LUM-395](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-395) | BeliefMem 2605.05583     | 飞轮翻案通道审计(measure-first)             | **DONE** · [PR#469](https://github.com/Lumo-Workspace/lumo/pull/469) · 裁决不修,07-10 复跑 ✅   |
+| [LUM-396](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-396) | ProMem 2601.04463        | 抽取 grounding 前置(quote-or-discard)       | **DONE** · [PR#476](https://github.com/Lumo-Workspace/lumo/pull/476) · verify round1 全 PASS ✅ |
+| [LUM-397](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-397) | ProdCodeBench 2604.01527 | lineage outcome 强弱分层 + 记忆出生任务记账 | **DONE** · [PR#477](https://github.com/Lumo-Workspace/lumo/pull/477) · prod 已迁移 ✅           |
+| [LUM-398](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-398) | (本批登记册吸收)         | 8 条目 + F 队列 5 行 + 录入规范追踪源       | **DONE** · [PR#471](https://github.com/Lumo-Workspace/lumo/pull/471) · verify round1 全 PASS ✅ |
