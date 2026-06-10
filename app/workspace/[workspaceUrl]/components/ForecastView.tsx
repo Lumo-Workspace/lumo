@@ -7,6 +7,7 @@ import type {
   ForecastConfidence,
   TaskForecast,
 } from '@/lib/forecast/types'
+import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
   return (
@@ -76,8 +77,7 @@ export function ForecastView({ forecast }: { forecast: TaskForecast }) {
       }
     )
   }
-  const compact = (n: number) =>
-    intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
+  const compact = (n: number) => fmtCompact(intl, n)
   const tokenRange = (iv: Interval) =>
     intl.formatMessage(
       { id: 'forecast.range' },
