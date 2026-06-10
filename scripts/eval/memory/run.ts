@@ -243,6 +243,12 @@ async function main(): Promise<void> {
   log(
     '  Grounding interception (LUM-396, live, key-gated): run `npx tsx scripts/eval/memory/ground-runner.ts`.'
   )
+  log(
+    '  Retrieve-segment Precision@k + abstention (LUM-414, offline): run `npx tsx scripts/eval/memory/retrieve-report.ts`;'
+  )
+  log(
+    '    LLM-judge Probe1 (live, key-gated): `npx tsx scripts/eval/memory/retrieve-judge.ts`.'
+  )
 }
 
 if (require.main === module) {
