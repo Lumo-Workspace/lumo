@@ -37,6 +37,21 @@ describe('formatDocListRows', () => {
   it('returns empty array for empty input', () => {
     expect(formatDocListRows([])).toEqual([])
   })
+
+  it('falls back to "-" instead of crashing when visibility is missing at runtime (LUM-392)', () => {
+    const row = {
+      id: 'cmd3333333333333333333333',
+      visibility: undefined as unknown as 'PRIVATE',
+      project: null,
+      title: 'Task-scoped doc',
+      parentId: null,
+      sortOrder: 0,
+    }
+    expect(formatDocListRows([row])[0]).toMatch(
+      /^cmd3333333333333333333333\s+-\s+-\s+Task-scoped doc$/
+    )
+    expect(formatDocListRowsAsTree([row])[0]).toContain('Task-scoped doc')
+  })
 })
 
 describe('formatDocListRows sanitization', () => {

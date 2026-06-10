@@ -1,13 +1,31 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 
-interface RmOptions { yes?: boolean }
+interface RmOptions {
+  yes?: boolean
+}
 
-export async function memoryRm(memoryId: string | undefined, options: RmOptions): Promise<number | void> {
-  if (!memoryId) { console.error('Error: missing <memoryId>. Usage: lumo memory rm <memoryId> --yes'); return 1 }
-  if (!options.yes) { console.error('Error: refusing to delete without --yes. Re-run with --yes to confirm.'); return 1 }
+export async function memoryRm(
+  memoryId: string | undefined,
+  options: RmOptions
+): Promise<number | void> {
+  if (!memoryId) {
+    console.error(
+      'Error: missing <memoryId>. Usage: lumo memory rm <memoryId> --yes'
+    )
+    return 1
+  }
+  if (!options.yes) {
+    console.error(
+      'Error: refusing to delete without --yes. Re-run with --yes to confirm.'
+    )
+    return 1
+  }
   const creds = readCredentials()
-  if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
@@ -18,10 +36,20 @@ export async function memoryRm(memoryId: string | undefined, options: RmOptions)
       headers: { Authorization: `Bearer ${creds.token}` },
     })
   } catch (err) {
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
+    console.error(
+      `Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`
+    )
     return 1
   }
-  if (res.status === 404) { console.error(`Error: memory ${memoryId} not found`); return 1 }
-  if (res.status !== 204) { console.error(`Error: delete failed (HTTP ${res.status})`); return 1 }
+  if (res.status === 404) {
+    console.error(
+      `Error: memory ${memoryId} not found — pass the full memory id (cuid) from \`lumo task memory list\` / \`lumo project memory list\`; truncated id prefixes are not resolved`
+    )
+    return 1
+  }
+  if (res.status !== 204) {
+    console.error(`Error: delete failed (HTTP ${res.status})`)
+    return 1
+  }
   process.stdout.write(`Deleted memory ${memoryId}\n`)
 }

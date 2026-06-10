@@ -26,7 +26,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task create/update/list/show/comment`, `next`                                    | [references/tasks.md](references/tasks.md)                     |
 | `task artifact*`, `task figma*`                                                   | [references/artifacts-figma.md](references/artifacts-figma.md) |
 | `task criteria set/list`, drafting the acceptance contract                        | [references/criteria.md](references/criteria.md)               |
-| `verify`, `task status` — machine verification loop, claim-done flow, 自查/恢复    | [references/verify.md](references/verify.md)                   |
+| `verify`, `task status` — machine verification loop, claim-done flow, 自查/恢复   | [references/verify.md](references/verify.md)                   |
 | `project list`, `milestone*`                                                      | [references/milestones.md](references/milestones.md)           |
 | `doc*`                                                                            | [references/docs.md](references/docs.md)                       |
 | `sprint*`                                                                         | [references/sprints.md](references/sprints.md)                 |
@@ -127,6 +127,20 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo worktree add <LUM-N> [slug]` — scaffold `.worktrees/<LUM-N>` + node_modules symlink off origin/main; run from the main checkout
 - `lumo worktree rm <LUM-N> --yes` — remove a worktree (keeps the branch unless `--delete-branch`)
 - `lumo worktree list` — list `.worktrees/` worktrees (task id, branch, dirty, node_modules link)
+
+## Commands & flags that do NOT exist (common mistakes)
+
+Measured from real agent sessions (LUM-392) — don't guess these:
+
+- No `lumo session start` — binding is `lumo session attach <LUM-N>`
+- No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
+- No `lumo task artifact edit` — it's `lumo task artifact update`
+- No `lumo auth status` — identity check is `lumo whoami`
+- No `--body` on `lumo task comment` — the body is a positional arg: `lumo task comment LUM-N "text"`
+- No `--content` on `task/project memory add` — memory is structured fields (`--category` + per-category flags), see [memory.md](references/memory.md)
+- No global `--verbose` flag on any command
+- `lumo task comments list` (plural) **reads** the thread; `lumo task comment` (singular) **writes** one
+- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix; under the verify flow you shouldn't be setting `in_review`/`done` yourself at all)
 
 ## Core workflow
 

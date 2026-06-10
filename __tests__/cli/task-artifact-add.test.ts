@@ -8,6 +8,8 @@ jest.mock('@/cli/src/lib/config', () => ({
 }))
 jest.mock('@/cli/src/lib/doc-input', () => ({
   readFileUtf8: jest.fn(async () => '## Requirements\n- a'),
+  unreadableFileMessage: jest.requireActual('@/cli/src/lib/doc-input')
+    .unreadableFileMessage,
 }))
 jest.mock('@/cli/src/lib/path-guard', () => ({
   checkArtifactFilePath: jest.fn(() => ({ ok: true, resolved: '/proj/f.md' })),

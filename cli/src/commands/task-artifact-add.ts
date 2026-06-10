@@ -1,6 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
-import { readFileUtf8 } from '../lib/doc-input'
+import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
 import { checkArtifactFilePath } from '../lib/path-guard'
@@ -66,7 +66,7 @@ export async function taskArtifactAdd(
   const verdict = checkArtifactFilePath(options.file)
   if (!verdict.ok) {
     if (verdict.reason === 'unreadable') {
-      console.error(`Error: could not read file ${options.file}`)
+      console.error(`Error: ${unreadableFileMessage(options.file)}`)
     } else {
       console.error(
         `Error: refusing to read ${options.file} — ${verdict.detail}. ` +
@@ -80,7 +80,7 @@ export async function taskArtifactAdd(
   try {
     content = await readFileUtf8(verdict.resolved)
   } catch {
-    console.error(`Error: could not read file ${options.file}`)
+    console.error(`Error: ${unreadableFileMessage(options.file)}`)
     return 1
   }
   if (content.trim().length === 0) {

@@ -95,6 +95,23 @@ Tags: urgent
 
 The `Tags:` line is omitted when the resulting tag set is empty.
 
+### Status transitions — direct moves are legal
+
+The server's transition matrix (`lib/task/state-machine.ts`):
+
+| From        | Allowed targets                                     |
+| ----------- | --------------------------------------------------- |
+| TODO        | IN_PROGRESS, IN_REVIEW, DONE                        |
+| IN_PROGRESS | TODO, IN_REVIEW, DONE                               |
+| IN_REVIEW   | TODO, IN_PROGRESS, DONE                             |
+| DONE        | TODO, IN_PROGRESS (reopen only — **not** IN_REVIEW) |
+
+Practical rules:
+
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual (measured in LUM-392: 70 such chains wasted ~75 calls).
+- **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
+- **DONE → IN_REVIEW is rejected (409).** To attach follow-up context to a DONE task, use `lumo task comment` instead of reopening.
+
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
@@ -237,11 +254,13 @@ DISMISSED
 CONFIRMED and SUGGESTED rows show the other task's identifier, title, current status, and source/evidence. DISMISSED rows render as `[shortId] <direction> <identifier> · 已忽略` only — no title, status, or source.
 
 When there are no edges at all the output is:
+
 ```
 Dependencies for LUM-42: 无依赖边。
 ```
 
 **Evidence fields by detection signal:**
+
 - `shared_files` — `shared_files(N 个共享文件: path1, path2, …)` — number of shared write-touched files in the 14-day window, plus up to 5 sample paths.
 - `task_mention` — `task_mention(description)` or `task_mention(comment)` — the surface where the mention appeared.
 
@@ -258,6 +277,7 @@ lumo task deps add LUM-42 --blocked-by LUM-9
 Both `<LUM-N>` and `--blocked-by` are required. The command errors on usage if either is missing.
 
 **Service semantics (read before using):**
+
 - **Self-edge** → 400 ("A task cannot depend on itself").
 - **CONFIRMED edge in the same direction already exists** → 409 ("Dependency already exists").
 - **CONFIRMED edge in the reverse direction already exists** → the cycle guard fires and returns 409 ("Dependency would create a cycle").
@@ -275,11 +295,13 @@ lumo task deps confirm LUM-42 e5f6a7b8 --reverse  # flip direction before confir
 ```
 
 **Edge selector semantics** (shared by `confirm`, `dismiss`, `rm`):
+
 - **Other task's identifier** (e.g., `LUM-55`) — case-insensitive exact match against the edge's other-task identifier. Resolves unambiguously when there is exactly one edge to that task.
 - **Edge-id prefix** — at least 6 characters of the short id (e.g., `e5f6a7`). Must match exactly one edge.
 - If zero or more than one edge matches → prints all candidate edges with short ids and exits 1. Retry with a more specific selector.
 
 **`--reverse` semantics:**
+
 - The detector's direction heuristic is best-effort. If the suggested direction is backwards (e.g., the detector says "LUM-42 blocks LUM-55" but actually LUM-55 blocks LUM-42), confirm with `--reverse` to flip before writing.
 - The service checks that the reversed pair does not already have an edge (→ 409), and re-runs the cycle guard with the flipped direction.
 
