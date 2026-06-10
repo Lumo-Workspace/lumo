@@ -71,6 +71,30 @@ the failures — re-running without changes burns a round and (at round 3)
 pages a human. A FAIL round never changes task status; only an all-pass round
 moves it (to IN_REVIEW, never further).
 
+## Review-time drift habits (gap findings)
+
+A problem discovered during acceptance/review that the contract does NOT
+cover is a **gap finding** — record it in the contract, never just fix it
+silently:
+
+1. **Append it on the spot.** Transcribe the human's finding as a criterion
+   via `lumo task criteria set <task> --file <desired-final-list> --human` —
+   the review-added semantics: the gap surfaced at review time, at the
+   current round.
+2. **Tag why the contract drifted** with `--cause
+<NEW_INFO|SCOPE_CHANGE|DRAFT_BLIND_SPOT|GRANULARITY|OTHER>`. Gap findings
+   are usually `DRAFT_BLIND_SPOT` (the draft missed it) or `NEW_INFO`
+   (information that didn't exist at drafting time).
+3. **Then bounce.** The appended criterion shows up in `lumo task status`
+   nextActions and the next verify round picks it up automatically — no
+   side-channel to-do list.
+
+How to read drift: information-lag and requirement-movement drift
+(`NEW_INFO`, `SCOPE_CHANGE`) is healthy — don't optimize it away.
+`DRAFT_BLIND_SPOT` clusters feed back into the drafting guide. **Zero drift
+across many tasks is a red flag, not a trophy** — it usually means contracts
+are too thin or state only sure-win clauses that can never be found wanting.
+
 ## lumo task status — the read half (self-check entry point)
 
 `lumo task status [task] [--json]` is the read-only counterpart of the loop
@@ -102,7 +126,7 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 - Header: task identifier/title/status + `verification round N/3` (round 0 =
   never verified) + an escalation warning when the machine loop is exhausted.
 - **Criteria** — every criterion as `<glyph> <id>  [TYPE]  SOURCE@rN
-  statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its
+statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its
   checkpointer and latest verdict line (evidence pointer on pass, failure
   tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
 - **History** — one line per recorded round: `rN · timestamp · X PASS / Y FAIL`.
