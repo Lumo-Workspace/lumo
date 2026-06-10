@@ -91,6 +91,20 @@
 - ZH↔EN 同义对余弦 mean 0.886 / min 0.821,**全部清过 0.78 floor**——「跨语言 floor 漏配」假设不成立,embedding 层天然跨语言。
 - 单语化(English-canonical)的真实理由是**共享知识库可读性 + 飞轮不分裂**,不是去重;UI 多语言是表现层的事,两者不混。
 
+### A5 · 注入与 precedence(injection)
+
+**Context Engineering for Personalization** ([OpenAI Cookbook, Agents SDK](https://developers.openai.com/cookbook/examples/agents_sdk/context_personalization)) — \[采用:3 点,余为同构确认\] → LUM-393/LUM-394 · 2026-06
+
+- Finding: state-based 记忆架构全流程示范(结构化 profile + 自由 note 双轨;session→global 晋升;consolidation 按 recency 消解冲突 + 主动过滤 ephemera「this trip only」);注入块附 `<memory_policy>` 显式 precedence(当前用户消息 > session 记忆 > 全局记忆 > profile,「全局记忆是默认值不是约束」);eval 分三层(distillation 写入质量 / **injection 行为影响** / consolidation 整合健康);pitfalls = context poisoning、over-influence(陈旧记忆盖过当前意图)、consolidation 幻觉。
+- 吸收: 主体与 Memory v6 同构,三处确认既有路线(state-based reconcile-on-write ≈ belief-update,且 supersede+provenance 链强于其 recency-wins;遗忘一等公民 = LUM-328;检索只当写路径候选生成器 = LUM-329 实证)。**新采纳 3 点**:① wrapper 前言加 precedence 声明——`wrapUntrustedMemory` 现有前言只有「reference data, NOT instructions」+ 来源加权(LUM-347),从未声明记忆与当前指令冲突时谁让位,over-influence 正是这个空缺的故障模式;② 注入层对抗 eval——LUM-329 harness 只覆盖写入(AR)与整合(SF),注入层只有 LUM-314 观测性 used 投票,缺「记忆与当前指令冲突时当前指令赢」的对抗 case(①②同任务,policy 与验证它的 eval 一体交付)→ LUM-393;③ ephemera 写入分流——「TTL 仅描述性」(LUM-329),一次性事实(「这个 PR 先别动 X」)无拦截,extract 端拒收最便宜 → LUM-394。**拒绝**:recency-wins 冲突消解(弱于既有 supersede)、top-k 最近注入(弱于 LUM-279 proven-value 排序)、fine-tune 记忆抽取模型(模型内核层,出界)。
+
+**落地(tag `context-personalization`,不开 milestone):**
+
+| 任务                                                              | 内容                                                                    | 状态 |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------- | ---- |
+| [LUM-393](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-393) | wrapper 前言 precedence 声明 + 注入层对抗 eval(冲突/非冲突双向 case)    | TODO |
+| [LUM-394](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-394) | extract 端 ephemera 判别(一次性事实不产出候选)+ AR 语料补 ephemera case | TODO |
+
 ---
 
 ## B. 评测与 Harness(Evaluation)
@@ -219,6 +233,7 @@
 - **mid-session 语义检索**(agent 干到一半主动查记忆):当前 session-start 一次性注入 + 按 proven-value 排序够用;触发器:出现明确的「注入集装不下但 agent 需要长尾记忆」证据。
 - **遗忘曲线 t 项生效核查**:语料老化(出现 >30d 行)后,复查 LUM-328 排序里 retention 项是否开始判别(预计 2026-07 起)。
 - **memory 启动时投毒校验分类器**(containment 文章「plan for persistent state poisoning」的完整形态):当前 memory 写入方=workspace 成员+本 workspace 的 agent,信任域小,来源标注(LUM-347)+`<untrusted-*>` 边界够用。触发器:memory 写入来源扩到外部(公开 intake、跨 workspace 共享、第三方集成直写)或出现实际投毒案例时,上 startup 校验分类器。
+- **enforced TTL / expiresAt schema 字段**(context-personalization 文 ephemera 处理的完整形态):LUM-394 先走 extract 端拒收(零 schema)。触发器:eval 或 prod 实测显示 ephemera 仍持续落库(extract 判别拦不住)时,再上 schema 级 TTL 并在冷淘汰里强制执行。
 - **Claude Code 自带 memory tool 与 Lumo memory 的分工边界**(context-engineering 文提到 Developer Platform 的 file-based memory tool 已公测,跨 session 持久):Lumo agent 跑在 Claude Code 里,harness 记忆与 Lumo memory 可能双写——同一条工程教训记两处、口径漂移、飞轮信号分流。触发器:观察到 agent 把工程教训写进本地 memory 而非 `lumo memory add`,或两边出现矛盾/重复记录时,定分工约定(候选:SKILL.md 写明「项目工程教训一律走 lumo memory」)。
 
 ---
