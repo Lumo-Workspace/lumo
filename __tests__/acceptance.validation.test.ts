@@ -24,6 +24,11 @@ describe('criteriaCountWarning (3–7 soft cap — warns, never rejects)', () =>
   it('warns below the soft min', () => {
     expect(criteriaCountWarning(2)).toMatch(/below the recommended minimum/)
   })
+
+  it('tells micro tasks the floor does not apply to them', () => {
+    expect(criteriaCountWarning(1)).toMatch(/fine for a micro task/)
+    expect(criteriaCountWarning(2)).toMatch(/fine for a micro task/)
+  })
 })
 
 describe('acceptanceCriterionInputSchema', () => {

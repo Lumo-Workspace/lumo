@@ -19,20 +19,20 @@ which lumo && lumo whoami
 
 The command catalog below is a **map**: it lists every command grouped by domain with a one-line summary. **Detailed flags, examples, output formats, and "when to suggest" guidance live in the `references/` files** — when a user request lands in a domain, **Read the matching reference file before composing the command**. Don't run a command from memory if its flags/edge-cases matter; open the reference first.
 
-| Domain                                                                            | Read this reference                                            |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `setup`, `auth login/logout`, `whoami`, `update`                                  | [references/onboarding.md](references/onboarding.md)           |
-| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`) | [references/task-context.md](references/task-context.md)       |
-| `task create/update/list/show/comment`, `next`                                    | [references/tasks.md](references/tasks.md)                     |
-| `task artifact*`, `task figma*`                                                   | [references/artifacts-figma.md](references/artifacts-figma.md) |
-| `task criteria set/list`, drafting the acceptance contract                        | [references/criteria.md](references/criteria.md)               |
+| Domain                                                                                  | Read this reference                                            |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `setup`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)           |
+| `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)       | [references/task-context.md](references/task-context.md)       |
+| `task create/update/list/show/comment`, `next`                                          | [references/tasks.md](references/tasks.md)                     |
+| `task artifact*`, `task figma*`                                                         | [references/artifacts-figma.md](references/artifacts-figma.md) |
+| `task criteria set/list`, drafting the acceptance contract                              | [references/criteria.md](references/criteria.md)               |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
-| `project list`, `milestone*`                                                      | [references/milestones.md](references/milestones.md)           |
-| `doc*`                                                                            | [references/docs.md](references/docs.md)                       |
-| `sprint*`                                                                         | [references/sprints.md](references/sprints.md)                 |
-| `task/project memory`, `memory promote/rm`                                        | [references/memory.md](references/memory.md)                   |
-| `session attach/status/detach/wrap`, git-suggest on start, Layer-2 review         | [references/sessions.md](references/sessions.md)               |
-| `worktree add/rm/list` (local dev tooling)                                        | [references/worktree.md](references/worktree.md)               |
+| `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
+| `doc*`                                                                                  | [references/docs.md](references/docs.md)                       |
+| `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
+| `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
+| `session attach/status/detach/wrap`, git-suggest on start, Layer-2 review               | [references/sessions.md](references/sessions.md)               |
+| `worktree add/rm/list` (local dev tooling)                                              | [references/worktree.md](references/worktree.md)               |
 
 ## Command catalog
 
@@ -151,7 +151,7 @@ Typical flow when a user says "help me with LUM-42":
 1. `lumo session attach LUM-42` — bind this session
 2. `lumo task context LUM-42` — load background
 3. Review unresolved items, PR-review todos, and the task description
-4. **If the task has no acceptance criteria** (context shows the draft reminder instead of a contract): draft 3–7 outcome-level criteria and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md) for the drafting guide
+4. **If the task has no acceptance criteria** (context shows the draft reminder instead of a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md) for the drafting guide
 5. Begin working on the task
 6. **Before claiming the work is done: run `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (round cap 3). On all-pass the task moves to IN_REVIEW and you stop; never set DONE yourself after a verify loop — that adjudication is human-only. See [verify.md](references/verify.md)
 
