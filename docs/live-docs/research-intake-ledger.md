@@ -132,7 +132,12 @@
 
 - [PR#462](https://github.com/Lumo-Workspace/lumo/pull/462) — eval harness(`scripts/analysis/lum392-cli-friction/`,只读 prod、`--check` 自检、解析层有单测)+ 实测报告权威源 + 本登记册条目。复跑出 diff 即评估闭环,发版后可重跑。
 - [PR#463](https://github.com/Lumo-Workspace/lumo/pull/463) — 三项「做」:① 错误文案 actionable 化(transition 409 列允许目标+DONE 指向 comment,与 TRANSITIONS 矩阵同源;memory 404 说明要完整 cuid;could-not-read-file 统一带 cwd+相对路径提示;commander 加 did-you-mean+`--help` 指引);② `doc list --task` padEnd 崩溃兜底;③ SKILL.md 不存在命令/flag 负面清单 + tasks.md 状态转移矩阵与「可直达」规则。**附加发现并修复:skill frontmatter description 堆到 3981 字符/250 个枚举触发词(每 session 常驻 ~1.3k token)→ 裁到 967 字符类别级,CLAUDE.md 同步规则加 1000 字符硬上限堵根因**——「工具描述当 prompt 写」的反面案例:描述也是 context 预算的一部分,recall 靠语义类别不靠穷举。cli 1.25.1 已发布(npm,2026-06-10)。
-- 待观察(带触发器,不占任务):`--concise`/分页(触发器=注入预算告警或任务上百)、`task status` 与 `task context` 的边界混淆(status 刚上线、样本 4 次,下次 harness 复跑看两个信号:恢复场景误拉 context、查状态字段误调 status)、description 裁剪后的触发 recall(客户端行为,DB 测不到,出现漏触发先查这里)。
+- 待观察(带触发器,不占任务):`--concise`/分页(触发器=注入预算告警或任务上百;context-engineering 文的 context-rot 梯度退化给该触发器理论背书——任务显著变长时复查「p90 8.5k 可接受」的判断)、`task status` 与 `task context` 的边界混淆(status 刚上线、样本 4 次,下次 harness 复跑看两个信号:恢复场景误拉 context、查状态字段误调 status)、description 裁剪后的触发 recall(客户端行为,DB 测不到,出现漏触发先查这里)。
+
+**Effective context engineering for AI agents** ([Anthropic Engineering blog, 2025-09](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)) — \[合并→Writing tools for agents / LUM-392 / Memory v6\] · 2026-06
+
+- Finding: context 是有限注意力预算(attention n² → context rot 是梯度退化非悬崖),核心原则=最小高信号 token 集;system prompt 在「过具体-过空泛」之间找 altitude;few-shot 用 canonical 例不堆边角清单;检索推荐 hybrid(upfront 紧凑注入 + just-in-time 标识符按需拉取,progressive disclosure);长程任务三技法=compaction(harness 层)/ structured note-taking(持久笔记)/ sub-agent(编排层)。
+- 吸收: 上游理论篇,机制面零新增——工具节同源于已落地的 Writing tools for agents(LUM-392);「最小高信号集」即注入预算 + LUM-279 proven-value 排序 + LUM-328 冷淘汰的既有实践;altitude/canonical 原则即 LUM-392 的 description 裁剪结论;note-taking 即 Memory v6 产品本体;compaction 与 sub-agent 出界(harness/编排层,Claude Code 负责)。确认并点名保住:**hook session-start 一次性注入 + show/context 分层 = 文章推荐的 hybrid 检索形态**(LUM-392 实测 agent 自发用对);mid-session 语义检索继续 defer(「do the simplest thing that works」直接支持 F 队列该条的触发器设计)。新增 F 观望一条:Claude Code 自带 memory tool 与 Lumo memory 的双写/分工边界。
 
 **\[内部实证\] 论文吸收工作流** · 2026-06
 
@@ -214,6 +219,7 @@
 - **mid-session 语义检索**(agent 干到一半主动查记忆):当前 session-start 一次性注入 + 按 proven-value 排序够用;触发器:出现明确的「注入集装不下但 agent 需要长尾记忆」证据。
 - **遗忘曲线 t 项生效核查**:语料老化(出现 >30d 行)后,复查 LUM-328 排序里 retention 项是否开始判别(预计 2026-07 起)。
 - **memory 启动时投毒校验分类器**(containment 文章「plan for persistent state poisoning」的完整形态):当前 memory 写入方=workspace 成员+本 workspace 的 agent,信任域小,来源标注(LUM-347)+`<untrusted-*>` 边界够用。触发器:memory 写入来源扩到外部(公开 intake、跨 workspace 共享、第三方集成直写)或出现实际投毒案例时,上 startup 校验分类器。
+- **Claude Code 自带 memory tool 与 Lumo memory 的分工边界**(context-engineering 文提到 Developer Platform 的 file-based memory tool 已公测,跨 session 持久):Lumo agent 跑在 Claude Code 里,harness 记忆与 Lumo memory 可能双写——同一条工程教训记两处、口径漂移、飞轮信号分流。触发器:观察到 agent 把工程教训写进本地 memory 而非 `lumo memory add`,或两边出现矛盾/重复记录时,定分工约定(候选:SKILL.md 写明「项目工程教训一律走 lumo memory」)。
 
 ---
 
