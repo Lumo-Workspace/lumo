@@ -114,6 +114,52 @@ it('maps per-run model cost and a STOP turn delta, and aggregates tab totals', a
   })
 })
 
+it('surfaces mid-turn flat-column burn as an in-flight cost row before the first STOP (LUM-345)', async () => {
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_live',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: 0,
+      // No STOP yet → usageByModel unsettled; POST_TOOL_BATCH wrote only the
+      // flat cumulative columns. This is the long-first-turn live-run case.
+      usageByModel: null,
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 9000,
+      cacheCreationTokens: 100,
+    },
+  ])
+  events.mockResolvedValue([
+    {
+      id: 'e1',
+      sessionId: 'sess_live',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+  ])
+
+  const { runs, totals } = await agentRunTimelineService.getTimeline('task_1')
+
+  const inFlight = {
+    model: '__in_flight__',
+    input: 1000,
+    output: 500,
+    cacheRead: 9000,
+    cacheCreation: 100,
+    total: 10600,
+  }
+  expect(runs[0]!.cost).toEqual({ byModel: [inFlight], loopCount: 0 })
+  // The tab summary card is gated on totals.byModel being non-empty — the
+  // live burn must flow into it so the card appears during the run.
+  expect(totals.byModel).toEqual([inFlight])
+})
+
 it('leaves cost null when a session captured no usage', async () => {
   sessions.mockResolvedValue([
     {

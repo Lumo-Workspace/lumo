@@ -452,6 +452,13 @@ export const sessionRepository = {
         summaryType: true,
         summaryGeneratedAt: true,
         usageByModel: true,
+        // Flat cumulative columns: mid-turn events update these but not
+        // usageByModel, so the timeline derives the in-flight burn from the
+        // difference (LUM-345).
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
         loopCount: true,
       },
     })

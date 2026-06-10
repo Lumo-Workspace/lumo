@@ -1462,5 +1462,6 @@
   "notification.verb.projectMentioned": "menyebut anda dalam",
   "notification.verb.milestoneMentioned": "menyebut anda dalam",
   "notification.verb.documentMentioned": "menyebut anda dalam",
-  "notification.verb.documentCommentMentioned": "menyebut anda dalam komen pada"
+  "notification.verb.documentCommentMentioned": "menyebut anda dalam komen pada",
+  "tokenCost.inFlight": "sedang berjalan"
 }

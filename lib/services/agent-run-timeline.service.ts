@@ -4,6 +4,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import {
   toModelCosts,
   mergeModelCosts,
+  withInFlightCost,
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
@@ -259,8 +260,12 @@ export const agentRunTimelineService = {
       const toolCallCount = sessionEvents.filter(
         e => e.type === 'PRE_TOOL_USE'
       ).length
-      const costByModel = toModelCosts(
-        s.usageByModel as Record<string, ModelUsage> | null
+      // Settled per-model cost, plus the in-flight remainder mid-turn events
+      // wrote to the flat columns but no STOP has settled yet (LUM-345) — so
+      // a live run shows its burn here just like the delivery card does.
+      const costByModel = withInFlightCost(
+        toModelCosts(s.usageByModel as Record<string, ModelUsage> | null),
+        s
       )
 
       return {
