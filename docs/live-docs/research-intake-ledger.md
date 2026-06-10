@@ -162,7 +162,7 @@
 - Finding: 三产品三档 containment(claude.ai=gVisor 临时容器 / Claude Code=OS 沙箱 Seatbelt+bubblewrap / Cowork=封死 VM)。关键数字:权限弹窗 **93% 被用户同意**(审批疲劳是真实漏洞,解法是 OS 沙箱砍掉 84% 弹窗而非弹更多窗);直接注入实验 **24/25 次成功**窃出凭证,只有环境层 egress 控制拦住;模型层防御 catch rate 上限 **83%**。核心主张:环境层硬边界 > 模型层引导(数据从被允许路径流出时,日志只是一次「合法授权的调用」);tool output 一律不可信;**持久记忆会被投毒,启动时要校验**;子 agent 结构化输出是高信任注入向量;「最弱的一层是你自己造的那层」(自研 proxy/allowlist 比 gVisor/seccomp 等久经考验原语更易失败)。
 - 吸收: 按它的威胁模型自查 Lumo 注入面(hook 注入链/memory 渲染/hook POST 入口/acceptance verdict),三个对口暴露面落地为任务:**LLM 产物回注前清洗**(LUM-346,Slack summary/memory 渲染路径无控制字符清洗)、**memory 注入来源标注**(LUM-347,agent/user/external 三种来源在 agent 眼里无差别)、**hook POST 边界 Zod + 长度上限**(LUM-348,现状 request.json() 直存);**evidencePointer 格式收口**并入 Acceptance v1(评论挂 LUM-343,写路径未实现时收口最便宜)。同时确认两条既有做法正确并点名保住:`<untrusted-*>` 信任边界包裹(=「tool output 标记不可信」,但定位是模型层 defense-in-depth,**不是硬边界**——真硬边界是 API key scope/workspace 隔离/Claude Code 自身沙箱)、machineVerdictInputSchema verdict 红线(=管住多 agent 信任升级)。**拒绝**自建 VM/gVisor/MITM proxy 层——那是「替非技术用户跑任意代码」产品(Cowork 模式)的需求;Lumo agent 跑在用户自己的 Claude Code 里,环境层 containment 外包给 Claude Code 沙箱,正合「别自造安全组件」。团队实践面:开发机建议开 sandbox 模式(network deny-by-default),本仓库 `.claude/settings.json` 的窄 allowlist(仅 `lumo whoami/session`)是正确姿势,保持。
 
-**落地交付(tag** `agent-containment`**,不开 milestone;三个对口加固 + verdict 收口已全部 DONE):**
+**落地交付(tag** `agent-containment`**,不开 milestone;全部 5 行已 DONE,2026-06-10 收齐):**
 
 | 任务                                                              | 内容                                                                                                                                    | 状态 / PR                                                                                                                                    |
 | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -170,7 +170,7 @@
 | [LUM-347](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-347) | memory/linked context 注入条目级来源标注(agent/user/external)                                                                           | **DONE** · [PR#449](https://github.com/Lumo-Workspace/lumo/pull/449) + [PR#452](https://github.com/Lumo-Workspace/lumo/pull/452) · 已验收 ✅ |
 | [LUM-348](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-348) | hook POST 边界 Zod 校验 + 自由文本长度上限                                                                                              | **DONE** · [PR#453](https://github.com/Lumo-Workspace/lumo/pull/453) · 已验收 ✅                                                             |
 | [LUM-343](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-343) | `evidencePointer` 格式收口:PASS 必带 evidence + `isValidEvidencePointer` 格式校验(`lib/validation/acceptance.ts`),随 verdict 写路径落地 | **DONE** · [PR#458](https://github.com/Lumo-Workspace/lumo/pull/458) · 已验收 ✅                                                             |
-| [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352) | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)                                         | TODO                                                                                                                                         |
+| [LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352) | task-context GET 路径 untrusted-linked 前言去重(逐段包裹最多 7 份相同前言,LUM-347 验收实测发现)                                         | **DONE** · [PR#461](https://github.com/Lumo-Workspace/lumo/pull/461) · 真机 LUM-330 ×3→×1 验证 ✅                                            |
 
 [**LUM-346 验收实证**](https://github.com/Lumo-Workspace/lumo/pull/446) · 2026-06-10
 
@@ -191,7 +191,7 @@
 
 - 文章点名的、对 Lumo 对口的暴露面(LLM 产物回注 / 来源混淆 / 注入面缺校验 / 多 agent 信任升级)均已各有一个加固任务闭环并独立验收。**无「必须做」的下一步**:再堆防护违反本册「defer 优于 adopt」纪律。
 - 仍在 F 观望队列、触发条件未到:**memory 启动时投毒校验分类器**(触发器=写入来源扩到外部)。
-- backlog(low,不紧迫):[LUM-352](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-352) 前言去重。
+- ~~backlog:LUM-352 前言去重~~ → 已闭环([PR#461](https://github.com/Lumo-Workspace/lumo/pull/461),2026-06-10)。本域交付表至此全行 DONE。
 - 若 containment 要继续作为主题,正确动作是**吸收下一篇 agent-security 文献扩 D 域**(文章自指 NIST agent identity、六机构 agentic AI guidance),而非无新威胁输入下硬造加固。
 
 ---
