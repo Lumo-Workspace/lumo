@@ -9,7 +9,8 @@ function figmaTitle(link: TaskFigmaLink): string {
 
 /** Render a single Figma link card body (no section heading). */
 export function figmaCard(link: TaskFigmaLink): string {
-  const lines: string[] = [`- **${figmaTitle(link)}**`]
+  // LUM-347: entry-level source attribution — synced external Figma metadata.
+  const lines: string[] = [`- [external:figma] **${figmaTitle(link)}**`]
   lines.push(`  - URL: ${link.url}`)
   if (link.thumbnailUrl) {
     lines.push(`  - Thumbnail: ![](${link.thumbnailUrl})`)
@@ -26,7 +27,7 @@ export function figmaCard(link: TaskFigmaLink): string {
 
 /** One-line manifest for an overflowed Figma link. */
 export function figmaManifest(link: TaskFigmaLink): string {
-  return `- ${figmaTitle(link)} — lumo task figma context ${link.id}`
+  return `- [external:figma] ${figmaTitle(link)} — lumo task figma context ${link.id}`
 }
 
 /**

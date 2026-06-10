@@ -53,6 +53,7 @@ import {
   wrapUntrustedMemory,
   memoryBudgetSection,
   wrapUntrustedLinked,
+  type MemorySource,
   type RenderableMemory,
 } from '@/lib/memory/render'
 import { allocateBudget } from '@/lib/context/budget'
@@ -360,14 +361,25 @@ async function fetchOrderedTaskMemories(
       scope: 'PROJECT' as const,
       category: m.category,
       content: m.content,
+      source: memorySource(m.createdByMemberId),
     })),
     ...taskMemories.map(m => ({
       id: m.id,
       scope: 'TASK' as const,
       category: m.category,
       content: m.content,
+      source: memorySource(m.createdByMemberId),
     })),
   ]
+}
+
+/**
+ * Derive the rendering-layer source attribution (LUM-347) from authorship:
+ * rows without a creating member were distilled by an agent (Layer 1/2
+ * extraction); rows with one were recorded by a human via the CLI/UI.
+ */
+function memorySource(createdByMemberId: string | null): MemorySource {
+  return createdByMemberId ? 'user' : 'agent'
 }
 
 /**
@@ -547,12 +559,14 @@ export const taskContextService = {
         scope: 'PROJECT' as const,
         category: m.category,
         content: m.content,
+        source: memorySource(m.createdByMemberId),
       })),
       ...taskMemories.map(m => ({
         id: m.id,
         scope: 'TASK' as const,
         category: m.category,
         content: m.content,
+        source: memorySource(m.createdByMemberId),
       })),
     ]
 
@@ -737,6 +751,7 @@ export const taskContextService = {
       scope: 'PROJECT' as const,
       category: m.category,
       content: m.content,
+      source: memorySource(m.createdByMemberId),
     }))
     const survivors = applyTokenBudget(ordered)
     return {

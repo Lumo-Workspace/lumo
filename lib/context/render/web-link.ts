@@ -13,9 +13,10 @@ export interface WebLinkCard {
 
 /** Render a single web-link card body (no section heading). */
 export function webLinkCard(l: WebLinkCard): string {
+  // LUM-347: entry-level source attribution — fetched external web content.
   const titleLine = l.title
-    ? `- [${l.title}](${l.url}) — ${l.domain}`
-    : `- ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
+    ? `- [external:web] [${l.title}](${l.url}) — ${l.domain}`
+    : `- [external:web] ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
   const lines: string[] = [titleLine]
   const body = l.note ?? l.description
   if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
@@ -26,7 +27,7 @@ export function webLinkCard(l: WebLinkCard): string {
 /** One-line manifest for an overflowed web link. */
 export function webLinkManifest(l: WebLinkCard): string {
   const label = l.title ? `[${l.title}](${l.url})` : l.url
-  return `- ${label} — lumo task web show ${l.id}`
+  return `- [external:web] ${label} — lumo task web show ${l.id}`
 }
 
 /**
