@@ -105,6 +105,14 @@ verdict is never** — human verdicts only enter through human-initiated paths
 Only use `--human` for decisions a human actually made (in conversation, in a
 comment, in review). Never use it to work around your own lock.
 
+Optionally annotate **why** the contract drifted with
+`--cause <NEW_INFO|SCOPE_CHANGE|DRAFT_BLIND_SPOT|GRANULARITY|OTHER>` — pick
+the tag from the human's stated reason (new information, scope moved, the
+draft missed it, wrong granularity). The tag lands in the drift record
+(TaskActivity payload), feeding the Slice-3 drift-cause distribution. Every
+criteria add/update/delete is mirrored as a structured `CRITERION_CHANGED`
+activity automatically; `--cause` just enriches it.
+
 ### `lumo task criteria list <task>`
 
 Print the contract: `<id>  [MACHINE|HUMAN]  SOURCE@rN  [evidence]  statement`
@@ -121,4 +129,10 @@ before a `--human` revision. Empty contract prints a drafting pointer.
 - **`lumo task context`**: the `## 验收标准（合约）` section appears after the
   task description, before memory.
 - Review-time gap findings (`REVIEW_ADDED`, appended at the round they
-  surface) arrive via the verification loop (任务 ③), not via `criteria set`.
+  surface) arrive via the verification loop, not via `criteria set`.
+
+## After the contract: the verification loop
+
+The contract is judged by `lumo verify` — run it before claiming the task is
+done. See [verify.md](verify.md) for the loop (round cap 3, IN_REVIEW on
+all-pass, escalation on a round-3 fail).

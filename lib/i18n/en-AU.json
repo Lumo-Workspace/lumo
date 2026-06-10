@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "mentioned you in",
   "notification.verb.documentCommentMentioned": "mentioned you in a comment on",
   "tokenCost.inFlight": "in progress",
-  "tokenCost.inFlightShare": "incl. {n} in flight"
+  "tokenCost.inFlightShare": "incl. {n} in flight",
+  "activity.criterionAdded": "added an acceptance criterion",
+  "activity.criterionUpdated": "updated an acceptance criterion",
+  "activity.criterionDeleted": "deleted an acceptance criterion",
+  "activity.verificationRunRecorded": "machine check {verdict} (round {round})",
+  "activity.verificationEscalated": "machine verification exhausted after round {round} — human takeover requested",
+  "activity.filter.verification": "Verification"
 }

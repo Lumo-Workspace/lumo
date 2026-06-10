@@ -1,13 +1,14 @@
 import { waitUntil } from '@vercel/functions'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import {
-  acceptanceCriterionRepository,
-  type CreateAcceptanceCriterionInput,
-} from '@/lib/repositories/acceptance-criterion.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   criteriaCountWarning,
   type CriteriaSetItem,
+  type CriteriaCauseTag,
 } from '@/lib/validation/acceptance'
 
 export interface CriteriaAttribution {
@@ -15,6 +16,60 @@ export interface CriteriaAttribution {
   actorMemberId: string
   /** Claude Code session the revision was transcribed from, when known. */
   sourceSessionId: string | null
+}
+
+/** Shape of a criterion snapshotted into a CRITERION_CHANGED activity. */
+function criterionSnapshot(c: {
+  statement: string
+  verifierType: string
+  checkpointer?: string | null
+  evidenceRequired?: boolean
+}) {
+  return {
+    statement: c.statement,
+    verifierType: c.verifierType,
+    checkpointer: c.checkpointer ?? null,
+    evidenceRequired: c.evidenceRequired ?? false,
+  }
+}
+
+/**
+ * Drift record (milestone rule 9): every contract add/update/delete lands a
+ * structured CRITERION_CHANGED activity inside the same write transaction —
+ * born with the change, never backfilled (LUM-296). causeTag is optional and
+ * lives in the payload only, never a column.
+ */
+async function recordCriterionChanged(
+  tx: Prisma.TransactionClient,
+  args: {
+    taskId: string
+    actorId: string | null
+    op: 'ADDED' | 'UPDATED' | 'DELETED'
+    criterionId: string
+    source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+    round: number
+    causeTag?: CriteriaCauseTag | undefined
+    before: ReturnType<typeof criterionSnapshot> | null
+    after: ReturnType<typeof criterionSnapshot> | null
+  }
+): Promise<void> {
+  await activityRepository.create(
+    {
+      taskId: args.taskId,
+      actorId: args.actorId,
+      type: 'CRITERION_CHANGED',
+      payload: {
+        op: args.op,
+        criterionId: args.criterionId,
+        source: args.source,
+        round: args.round,
+        ...(args.causeTag ? { causeTag: args.causeTag } : {}),
+        before: args.before,
+        after: args.after,
+      },
+    },
+    tx
+  )
 }
 
 /** Max statement length echoed into the audit comment per line. */
@@ -95,7 +150,15 @@ export const taskCriteriaService = {
    * change it. The count check runs inside the insert transaction to narrow
    * the double-submit race window.
    */
-  async submitDraft(taskId: string, items: CriteriaSetItem[]) {
+  async submitDraft(
+    taskId: string,
+    items: CriteriaSetItem[],
+    attribution: CriteriaAttribution
+  ) {
+    const callerActor = await memberRepository.findActorByMemberId(
+      attribution.actorMemberId
+    )
+    const actorId = callerActor?.id ?? null
     await prisma.$transaction(async tx => {
       const count = await acceptanceCriterionRepository.countByTask(taskId, tx)
       if (count > 0) {
@@ -106,15 +169,31 @@ export const taskCriteriaService = {
           { status: 409 }
         )
       }
-      const inputs: CreateAcceptanceCriterionInput[] = items.map(i => ({
-        taskId,
-        statement: i.statement,
-        verifierType: i.verifierType,
-        checkpointer: i.checkpointer ?? null,
-        evidenceRequired: i.evidenceRequired ?? false,
-        source: 'AGENT_DRAFT',
-      }))
-      await acceptanceCriterionRepository.createMany(inputs, tx)
+      // Per-row create (not createMany) so each new criterion's id is known
+      // to its drift record, written in the same transaction.
+      for (const i of items) {
+        const created = await acceptanceCriterionRepository.create(
+          {
+            taskId,
+            statement: i.statement,
+            verifierType: i.verifierType,
+            checkpointer: i.checkpointer ?? null,
+            evidenceRequired: i.evidenceRequired ?? false,
+            source: 'AGENT_DRAFT',
+          },
+          tx
+        )
+        await recordCriterionChanged(tx, {
+          taskId,
+          actorId,
+          op: 'ADDED',
+          criterionId: created.id,
+          source: 'AGENT_DRAFT',
+          round: 0,
+          before: null,
+          after: criterionSnapshot(created),
+        })
+      }
     })
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return { criteria, warning: criteriaCountWarning(criteria.length) }
@@ -140,7 +219,8 @@ export const taskCriteriaService = {
   async reviseAsHuman(
     taskId: string,
     items: CriteriaSetItem[],
-    attribution: CriteriaAttribution
+    attribution: CriteriaAttribution,
+    causeTag?: CriteriaCauseTag
   ) {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
     const existingById = new Map(existing.map(c => [c.id, c]))
@@ -196,9 +276,25 @@ export const taskCriteriaService = {
       return unchanged ? [] : [{ id: i.id, desired }]
     })
 
+    const callerActor = await memberRepository.findActorByMemberId(
+      attribution.actorMemberId
+    )
+    const actorId = callerActor?.id ?? null
+
     await prisma.$transaction(async tx => {
       for (const c of toDelete) {
         await acceptanceCriterionRepository.delete(c.id, tx)
+        await recordCriterionChanged(tx, {
+          taskId,
+          actorId,
+          op: 'DELETED',
+          criterionId: c.id,
+          source: 'HUMAN_EDIT',
+          round: currentRound,
+          causeTag,
+          before: criterionSnapshot(c),
+          after: null,
+        })
       }
       for (const u of toUpdate) {
         await acceptanceCriterionRepository.update(
@@ -206,9 +302,20 @@ export const taskCriteriaService = {
           { ...u.desired, source: 'HUMAN_EDIT' },
           tx
         )
+        await recordCriterionChanged(tx, {
+          taskId,
+          actorId,
+          op: 'UPDATED',
+          criterionId: u.id,
+          source: 'HUMAN_EDIT',
+          round: currentRound,
+          causeTag,
+          before: criterionSnapshot(existingById.get(u.id)!),
+          after: criterionSnapshot(u.desired),
+        })
       }
       for (const c of toCreate) {
-        await acceptanceCriterionRepository.create(
+        const created = await acceptanceCriterionRepository.create(
           {
             taskId,
             statement: c.statement,
@@ -220,6 +327,17 @@ export const taskCriteriaService = {
           },
           tx
         )
+        await recordCriterionChanged(tx, {
+          taskId,
+          actorId,
+          op: 'ADDED',
+          criterionId: created.id,
+          source: 'HUMAN_EDIT',
+          round: currentRound,
+          causeTag,
+          before: null,
+          after: criterionSnapshot(created),
+        })
       }
     })
 

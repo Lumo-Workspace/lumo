@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "提到了你：",
   "notification.verb.documentCommentMentioned": "在評論中提到了你：",
   "tokenCost.inFlight": "進行中",
-  "tokenCost.inFlightShare": "含進行中 {n}"
+  "tokenCost.inFlightShare": "含進行中 {n}",
+  "activity.criterionAdded": "新增了一條驗收標準",
+  "activity.criterionUpdated": "更新了一條驗收標準",
+  "activity.criterionDeleted": "刪除了一條驗收標準",
+  "activity.verificationRunRecorded": "機器檢驗 {verdict}（第 {round} 輪）",
+  "activity.verificationEscalated": "第 {round} 輪後機器驗收已達上限 — 已請求人工接手",
+  "activity.filter.verification": "驗收"
 }

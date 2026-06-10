@@ -39,6 +39,13 @@ jest.mock('@/lib/services/comment.service', () => ({
   commentService: { createComment: jest.fn() },
 }))
 jest.mock('@/lib/actor', () => ({ getHumanActorId: jest.fn() }))
+// Drift records (LUM-343) — asserted in detail in task-criteria-activity.test.ts.
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { create: jest.fn() },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: { findActorByMemberId: jest.fn(async () => ({ id: 'actor-1' })) },
+}))
 
 const repo = acceptanceCriterionRepository as jest.Mocked<
   typeof acceptanceCriterionRepository
@@ -97,31 +104,41 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
     { statement: 's3', verifierType: 'HUMAN' as const, evidenceRequired: true },
   ]
 
-  it('creates the round-0 AGENT_DRAFT batch when the task has no criteria', async () => {
+  it('creates the round-0 AGENT_DRAFT rows when the task has no criteria', async () => {
     repo.countByTask.mockResolvedValue(0)
-    repo.createMany.mockResolvedValue({ count: 3 })
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) => criterion({ ...input, id: `id-${input.statement}` })
+    )
     repo.listByTask.mockResolvedValue([
       criterion(),
       criterion({ id: 'c-2' }),
       criterion({ id: 'c-3' }),
     ])
 
-    const result = await taskCriteriaService.submitDraft('t-1', items)
+    const result = await taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION)
 
     expect(repo.countByTask).toHaveBeenCalledWith('t-1', TX)
-    expect(repo.createMany).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          taskId: 't-1',
-          statement: 's1',
-          verifierType: 'MACHINE',
-          checkpointer: 'npx jest',
-          evidenceRequired: false,
-          source: 'AGENT_DRAFT',
-        }),
-        expect.objectContaining({ statement: 's2', checkpointer: null }),
-        expect.objectContaining({ statement: 's3', evidenceRequired: true }),
-      ],
+    expect(repo.create).toHaveBeenCalledTimes(3)
+    expect(repo.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        taskId: 't-1',
+        statement: 's1',
+        verifierType: 'MACHINE',
+        checkpointer: 'npx jest',
+        evidenceRequired: false,
+        source: 'AGENT_DRAFT',
+      }),
+      TX
+    )
+    expect(repo.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ statement: 's2', checkpointer: null }),
+      TX
+    )
+    expect(repo.create).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ statement: 's3', evidenceRequired: true }),
       TX
     )
     expect(result.criteria).toHaveLength(3)
@@ -132,9 +149,9 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
     repo.countByTask.mockResolvedValue(3)
 
     await expect(
-      taskCriteriaService.submitDraft('t-1', items)
+      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION)
     ).rejects.toMatchObject({ status: 409 })
-    expect(repo.createMany).not.toHaveBeenCalled()
+    expect(repo.create).not.toHaveBeenCalled()
   })
 })
 

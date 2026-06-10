@@ -71,6 +71,16 @@ const FILTER_CATEGORIES = [
     ]),
   },
   {
+    id: 'verification',
+    labelId: 'activity.filter.verification',
+    defaultLabel: 'Verification',
+    types: new Set([
+      'CRITERION_CHANGED',
+      'VERIFICATION_RUN_RECORDED',
+      'VERIFICATION_ESCALATED',
+    ]),
+  },
+  {
     id: 'other',
     labelId: 'activity.filter.other',
     defaultLabel: 'Other',

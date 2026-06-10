@@ -82,16 +82,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
+    const attribution = {
+      actorMemberId: identity.memberId,
+      sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
+    }
     const result =
       parsed.data.source === 'AGENT_DRAFT'
-        ? await taskCriteriaService.submitDraft(task.id, parsed.data.criteria)
+        ? await taskCriteriaService.submitDraft(
+            task.id,
+            parsed.data.criteria,
+            attribution
+          )
         : await taskCriteriaService.reviseAsHuman(
             task.id,
             parsed.data.criteria,
-            {
-              actorMemberId: identity.memberId,
-              sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
-            }
+            attribution,
+            parsed.data.causeTag
           )
     return NextResponse.json(result)
   } catch (error) {

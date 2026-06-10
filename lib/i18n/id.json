@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "menyebut Anda di",
   "notification.verb.documentCommentMentioned": "menyebut Anda dalam komentar pada",
   "tokenCost.inFlight": "sedang berjalan",
-  "tokenCost.inFlightShare": "termasuk {n} sedang berjalan"
+  "tokenCost.inFlightShare": "termasuk {n} sedang berjalan",
+  "activity.criterionAdded": "menambahkan kriteria penerimaan",
+  "activity.criterionUpdated": "memperbarui kriteria penerimaan",
+  "activity.criterionDeleted": "menghapus kriteria penerimaan",
+  "activity.verificationRunRecorded": "pemeriksaan mesin {verdict} (ronde {round})",
+  "activity.verificationEscalated": "verifikasi mesin habis setelah ronde {round} — pengambilalihan oleh manusia diminta",
+  "activity.filter.verification": "Verifikasi"
 }

@@ -345,6 +345,77 @@ function formatActivityText(
         </span>
       )
     }
+    case 'CRITERION_CHANGED': {
+      const op = String(p.op ?? '')
+      const after = p.after as { statement?: unknown } | null
+      const before = p.before as { statement?: unknown } | null
+      const statement = String(after?.statement ?? before?.statement ?? '')
+      const label =
+        op === 'DELETED'
+          ? intl.formatMessage({
+              id: 'activity.criterionDeleted',
+              defaultMessage: 'deleted an acceptance criterion',
+            })
+          : op === 'UPDATED'
+            ? intl.formatMessage({
+                id: 'activity.criterionUpdated',
+                defaultMessage: 'updated an acceptance criterion',
+              })
+            : intl.formatMessage({
+                id: 'activity.criterionAdded',
+                defaultMessage: 'added an acceptance criterion',
+              })
+      return (
+        <>
+          {label}
+          {statement ? (
+            <span className='text-muted-foreground'>
+              {' '}
+              · {statement.length > 80 ? `${statement.slice(0, 80)}…` : statement}
+            </span>
+          ) : null}
+        </>
+      )
+    }
+    case 'VERIFICATION_RUN_RECORDED': {
+      // verdict / round are bare structured data (same route as LineageTab);
+      // only the prose around them is translated.
+      const verdict = String(p.verdict ?? '')
+      const round = typeof p.round === 'number' ? p.round : null
+      const statement = typeof p.statement === 'string' ? p.statement : ''
+      return (
+        <>
+          {intl.formatMessage(
+            {
+              id: 'activity.verificationRunRecorded',
+              defaultMessage: 'machine check {verdict} (round {round})',
+            },
+            { verdict, round: round ?? '?' }
+          )}
+          {statement ? (
+            <span className='text-muted-foreground'> · {statement}</span>
+          ) : null}
+        </>
+      )
+    }
+    case 'VERIFICATION_ESCALATED': {
+      const round = typeof p.round === 'number' ? p.round : null
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <AlertTriangle className='h-3.5 w-3.5 text-danger' />
+          <span>
+            {intl.formatMessage(
+              {
+                id: 'activity.verificationEscalated',
+                defaultMessage:
+                  'machine verification exhausted after round {round} — human takeover requested',
+              },
+              { round: round ?? '?' }
+            )}
+          </span>
+        </span>
+      )
+    }
     default:
       return (type ?? '').toLowerCase().replace(/_/g, ' ')
   }

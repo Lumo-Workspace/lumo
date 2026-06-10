@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "vous a mentionné dans",
   "notification.verb.documentCommentMentioned": "vous a mentionné dans un commentaire sur",
   "tokenCost.inFlight": "en cours",
-  "tokenCost.inFlightShare": "dont {n} en cours"
+  "tokenCost.inFlightShare": "dont {n} en cours",
+  "activity.criterionAdded": "a ajouté un critère d'acceptation",
+  "activity.criterionUpdated": "a mis à jour un critère d'acceptation",
+  "activity.criterionDeleted": "a supprimé un critère d'acceptation",
+  "activity.verificationRunRecorded": "vérification machine {verdict} (tour {round})",
+  "activity.verificationEscalated": "vérification machine épuisée après le tour {round} — relais humain demandé",
+  "activity.filter.verification": "Vérification"
 }

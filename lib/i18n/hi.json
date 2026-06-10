@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "में आपका उल्लेख किया",
   "notification.verb.documentCommentMentioned": "पर एक टिप्पणी में आपका उल्लेख किया",
   "tokenCost.inFlight": "प्रगति में",
-  "tokenCost.inFlightShare": "{n} प्रगति में शामिल"
+  "tokenCost.inFlightShare": "{n} प्रगति में शामिल",
+  "activity.criterionAdded": "ने एक स्वीकृति मानदंड जोड़ा",
+  "activity.criterionUpdated": "ने एक स्वीकृति मानदंड अपडेट किया",
+  "activity.criterionDeleted": "ने एक स्वीकृति मानदंड हटाया",
+  "activity.verificationRunRecorded": "मशीन जाँच {verdict} (राउंड {round})",
+  "activity.verificationEscalated": "राउंड {round} के बाद मशीन सत्यापन समाप्त — मानव हस्तक्षेप का अनुरोध किया गया",
+  "activity.filter.verification": "सत्यापन"
 }

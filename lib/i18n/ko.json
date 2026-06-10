@@ -1464,5 +1464,11 @@
   "notification.verb.documentMentioned": "에서 회원님을 언급했습니다",
   "notification.verb.documentCommentMentioned": "에 대한 댓글에서 회원님을 언급했습니다",
   "tokenCost.inFlight": "진행 중",
-  "tokenCost.inFlightShare": "진행 중 {n} 포함"
+  "tokenCost.inFlightShare": "진행 중 {n} 포함",
+  "activity.criterionAdded": "인수 기준을 추가했습니다",
+  "activity.criterionUpdated": "인수 기준을 업데이트했습니다",
+  "activity.criterionDeleted": "인수 기준을 삭제했습니다",
+  "activity.verificationRunRecorded": "머신 검사 {verdict} (라운드 {round})",
+  "activity.verificationEscalated": "라운드 {round} 이후 머신 검증 한도 도달 — 사람의 개입을 요청했습니다",
+  "activity.filter.verification": "검증"
 }

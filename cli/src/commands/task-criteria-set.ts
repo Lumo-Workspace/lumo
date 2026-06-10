@@ -8,7 +8,17 @@ import { formatCriteriaRows, type CriterionRow } from './task-criteria-list'
 export interface CriteriaSetOptions {
   file?: string
   human?: boolean
+  /** Drift cause for a --human revision — recorded in the activity payload. */
+  cause?: string
 }
+
+const CAUSE_TAGS = [
+  'NEW_INFO',
+  'SCOPE_CHANGE',
+  'DRAFT_BLIND_SPOT',
+  'GRANULARITY',
+  'OTHER',
+] as const
 
 interface CriteriaResponse {
   criteria: CriterionRow[]
@@ -88,6 +98,23 @@ export async function taskCriteriaSet(
     return 1
   }
 
+  let causeTag: string | undefined
+  if (options.cause !== undefined) {
+    if (!options.human) {
+      console.error(
+        'Error: --cause annotates contract drift and requires --human.'
+      )
+      return 1
+    }
+    causeTag = options.cause.toUpperCase()
+    if (!(CAUSE_TAGS as readonly string[]).includes(causeTag)) {
+      console.error(
+        `Error: invalid --cause "${options.cause}". One of: ${CAUSE_TAGS.join(' | ')}`
+      )
+      return 1
+    }
+  }
+
   const creds = readCredentials()
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
@@ -115,6 +142,7 @@ export async function taskCriteriaSet(
         body: JSON.stringify({
           source: options.human ? 'HUMAN_EDIT' : 'AGENT_DRAFT',
           criteria: parsed.items,
+          ...(causeTag ? { causeTag } : {}),
         }),
       }
     )
