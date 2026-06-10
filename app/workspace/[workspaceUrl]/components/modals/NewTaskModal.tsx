@@ -7,7 +7,6 @@ import { useParams } from 'next/navigation'
 import { Modal } from '../Modal'
 import {
   ApiProject,
-  ApiRepository,
   ApiTask,
   ApiPriority,
   ApiStatus,
@@ -36,14 +35,7 @@ import { CACHE_KEY } from '../../constants'
 import { toast } from 'sonner'
 import { DuplicateWarning } from '../DuplicateWarning'
 import { DuplicateConfirm, DuplicateMatch } from '../DuplicateConfirm'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { GitBranch, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 // Stable reference for the `tasks` default. Using `tasks = []` as a destructuring
 // default creates a new [] every render, which would feed an unstable ref into
@@ -57,7 +49,6 @@ export interface NewTaskFormData {
   priority: ApiPriority
   projectId: string
   assigneeId: string
-  repositoryId: string | null
   sprintId: string | null
   dueDate: string | null
   aiSuggestedPriority?: ApiPriority | null
@@ -139,8 +130,6 @@ export function NewTaskModal({
   const [assigneeId, setAssigneeId] = useState(
     preFill?.assigneeId ?? defaultAssigneeId ?? ''
   )
-  const [repositoryId, setRepositoryId] = useState<string | null>(null)
-  const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
   const [dueDate, setDueDate] = useState<string | null>(
     preFill?.dueDate ?? null
   )
@@ -212,32 +201,6 @@ export function NewTaskModal({
     if (isOpen) setSprintId(defaultSprintId ?? null)
   }, [isOpen, defaultSprintId])
 
-  // Load repositories for the selected project
-  useEffect(() => {
-    const pid = projectId || defaultProjectId
-    if (!pid) {
-      setProjectRepos([])
-      setRepositoryId(null)
-      return
-    }
-    const loadRepos = async () => {
-      try {
-        const data = await apiFetch<{ repositories?: ApiRepository[] }>(
-          `/api/projects/${pid}/repositories`
-        )
-        const repos: ApiRepository[] = data.repositories ?? []
-        setProjectRepos(repos)
-        // Auto-select the default repo
-        const def = repos.find(r => r.isDefault)
-        setRepositoryId(def?.id ?? null)
-      } catch {
-        setProjectRepos([])
-        setRepositoryId(null)
-      }
-    }
-    loadRepos()
-  }, [projectId, defaultProjectId])
-
   const reset = () => {
     setTitle('')
     descriptionRef.current = null
@@ -246,8 +209,6 @@ export function NewTaskModal({
     setPriority('MEDIUM')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
-    setRepositoryId(null)
-    setProjectRepos([])
     setDueDate(null)
     setSprintId(defaultSprintId ?? null)
     setPhase('editing')
@@ -269,7 +230,6 @@ export function NewTaskModal({
     if (priority !== 'MEDIUM') formData.priority = priority
     if (projectId) formData.projectId = projectId
     if (assigneeId) formData.assigneeId = assigneeId
-    if (repositoryId) formData.repositoryId = repositoryId
     if (dueDate) formData.dueDate = dueDate
     recoverySave(formData)
   }, [
@@ -280,7 +240,6 @@ export function NewTaskModal({
     priority,
     projectId,
     assigneeId,
-    repositoryId,
     dueDate,
     recoverySave,
   ])
@@ -313,7 +272,6 @@ export function NewTaskModal({
     if (priority !== 'MEDIUM') formData.priority = priority
     if (effectiveProjectId) formData.projectId = effectiveProjectId
     if (assigneeId) formData.assigneeId = assigneeId
-    if (repositoryId) formData.repositoryId = repositoryId
     if (dueDate) formData.dueDate = dueDate
     if (Object.keys(formData).length === 0) return
     try {
@@ -348,7 +306,6 @@ export function NewTaskModal({
       priority,
       projectId: effectiveProjectId,
       assigneeId,
-      repositoryId,
       sprintId,
       dueDate,
       aiSuggestedPriority: aiSuggestedRef.current,
@@ -566,38 +523,6 @@ export function NewTaskModal({
                     onChange={setSprintId}
                     triggerClassName={triggerClass}
                   />
-                )}
-                {projectRepos.length > 0 && (
-                  <Select
-                    value={repositoryId ?? '__none__'}
-                    onValueChange={v =>
-                      setRepositoryId(v === '__none__' ? null : v)
-                    }
-                  >
-                    <SelectTrigger className={triggerClass}>
-                      <GitBranch size={12} className='mr-1 shrink-0' />
-                      <SelectValue
-                        placeholder={intl.formatMessage({
-                          id: 'newTask.repositoryPlaceholder',
-                        })}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='__none__'>
-                        {intl.formatMessage({ id: 'newTask.noRepository' })}
-                      </SelectItem>
-                      {projectRepos.map(repo => (
-                        <SelectItem key={repo.id} value={repo.id}>
-                          {repo.isDefault
-                            ? intl.formatMessage(
-                                { id: 'newTask.defaultRepoLabel' },
-                                { name: repo.name }
-                              )
-                            : repo.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 )}
               </div>
             </div>

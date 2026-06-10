@@ -23,7 +23,6 @@ export async function createTask(
     priority: TaskPriority
     assigneeActorId?: string | null | undefined
     parentTaskId?: string | null | undefined
-    repositoryId?: string | null | undefined
     sprintId?: string | null | undefined
     milestoneId?: string | null | undefined
     order?: number | undefined
@@ -45,7 +44,6 @@ export async function createTask(
     priority,
     assigneeActorId,
     parentTaskId,
-    repositoryId,
     order,
     dueDate,
   } = input
@@ -117,7 +115,6 @@ export async function createTask(
     assigneeActorId: assigneeActorId ?? null,
     agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
     parentTaskId: parentTaskId ?? null,
-    repositoryId: repositoryId ?? null,
     sprintId: resolvedSprintId,
     milestoneId: resolvedMilestoneId,
     order: taskOrder,
@@ -190,7 +187,6 @@ export async function createFromAutomation(
     assigneeActorId: input.assigneeActorId,
     agentStatus: null,
     parentTaskId: null,
-    repositoryId: null,
     order,
     dueDate: null,
   })

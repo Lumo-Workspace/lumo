@@ -15,7 +15,6 @@ export type TaskPatchData = Partial<{
   title: string
   status: ApiStatus
   assigneeActorId: string | null
-  repositoryId: string | null
   description: string | null
   spec: string | null
   projectId: string

@@ -160,7 +160,6 @@ export interface ApiTask {
   parentTaskId: string | null
   assigneeActorId: string | null
   assignee?: ActorInfo | null
-  repositoryId: string | null
   agentStatus?: AgentStatusValue | null
   createdAt: string
   updatedAt: string
@@ -290,7 +289,6 @@ export interface TaskDetail {
     name: string
     workspaceId?: string
     ownerId?: string | null
-    repositories?: ApiRepository[]
   }
   parentTaskId: string | null
   parent?: {
@@ -300,7 +298,6 @@ export interface TaskDetail {
     title: string
   } | null
   assigneeActorId: string | null
-  repositoryId: string | null
   assignee: ActorInfo | null
   description: string | null
   updatedAt: string
