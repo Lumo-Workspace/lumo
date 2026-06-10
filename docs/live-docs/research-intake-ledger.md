@@ -131,7 +131,7 @@
 **落地交付(2026-06-10 两 PR 均已 merge):**
 
 - [PR#462](https://github.com/Lumo-Workspace/lumo/pull/462) — eval harness(`scripts/analysis/lum392-cli-friction/`,只读 prod、`--check` 自检、解析层有单测)+ 实测报告权威源 + 本登记册条目。复跑出 diff 即评估闭环,发版后可重跑。
-- [PR#463](https://github.com/Lumo-Workspace/lumo/pull/463) — 三项「做」:① 错误文案 actionable 化(transition 409 列允许目标+DONE 指向 comment,与 TRANSITIONS 矩阵同源;memory 404 说明要完整 cuid;could-not-read-file 统一带 cwd+相对路径提示;commander 加 did-you-mean+`--help` 指引);② `doc list --task` padEnd 崩溃兜底;③ SKILL.md 不存在命令/flag 负面清单 + tasks.md 状态转移矩阵与「可直达」规则。**附加发现并修复:skill frontmatter description 堆到 3981 字符/250 个枚举触发词(每 session 常驻 ~1.3k token)→ 裁到 967 字符类别级,CLAUDE.md 同步规则加 1000 字符硬上限堵根因**——「工具描述当 prompt 写」的反面案例:描述也是 context 预算的一部分,recall 靠语义类别不靠穷举。cli 1.25.1 待手动 npm publish。
+- [PR#463](https://github.com/Lumo-Workspace/lumo/pull/463) — 三项「做」:① 错误文案 actionable 化(transition 409 列允许目标+DONE 指向 comment,与 TRANSITIONS 矩阵同源;memory 404 说明要完整 cuid;could-not-read-file 统一带 cwd+相对路径提示;commander 加 did-you-mean+`--help` 指引);② `doc list --task` padEnd 崩溃兜底;③ SKILL.md 不存在命令/flag 负面清单 + tasks.md 状态转移矩阵与「可直达」规则。**附加发现并修复:skill frontmatter description 堆到 3981 字符/250 个枚举触发词(每 session 常驻 ~1.3k token)→ 裁到 967 字符类别级,CLAUDE.md 同步规则加 1000 字符硬上限堵根因**——「工具描述当 prompt 写」的反面案例:描述也是 context 预算的一部分,recall 靠语义类别不靠穷举。cli 1.25.1 已发布(npm,2026-06-10)。
 - 待观察(带触发器,不占任务):`--concise`/分页(触发器=注入预算告警或任务上百)、`task status` 与 `task context` 的边界混淆(status 刚上线、样本 4 次,下次 harness 复跑看两个信号:恢复场景误拉 context、查状态字段误调 status)、description 裁剪后的触发 recall(客户端行为,DB 测不到,出现漏触发先查这里)。
 
 **\[内部实证\] 论文吸收工作流** · 2026-06
