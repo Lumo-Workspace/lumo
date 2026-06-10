@@ -10,15 +10,18 @@ infer the task from local git so it can **suggest** one — it never binds for y
 
 - It reads the **current branch name** first (e.g. `lumo/LUM-145-...`), then the
   **most recent commit subjects** (e.g. `... [LUM-145]`), extracting the first
-  `LUM-<n>`.
+  task identifier. Detection is **prefix-agnostic** (LUM-419): any team prefix
+  matches — `SPEC-12` as much as `LUM-145` — using the same pattern the server
+  uses to link PR branches to tasks. Well-known acronym-number tokens
+  (`UTF-8`, `SHA-256`, `ISO-8601`, …) are skipped, never suggested.
 - On a hit it prints a single suggestion line and stops — the session stays
   **unbound** and no context is injected yet:
   `Detected LUM-145 (from branch name). Run lumo session attach LUM-145 to bind.`
   (the basis reads `from recent commits` when the hit came from commit subjects instead of the branch name)
   No task title is shown here because nothing was fetched; the title, memory,
   and PR-review todos appear only once you actually attach.
-- No match (detached HEAD, a non-lumo branch with no tagged commits, not a git
-  repo) → it degrades to the normal unbound prompt.
+- No match (detached HEAD, a branch with no identifier and no tagged commits,
+  not a git repo) → it degrades to the normal unbound prompt.
 
 **Agent guidance:** when you see a suggestion line, confirm the inferred task is
 the one the user wants, then run `lumo session attach <LUM-N>` (followed by
