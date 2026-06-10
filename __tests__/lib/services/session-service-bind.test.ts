@@ -28,12 +28,18 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/task-dependency.service', () => ({
+  taskDependencyService: {
+    buildBlockerWarningSectionForTask: jest.fn(),
+  },
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { sessionService } from '@/lib/services/session.service'
 
 const sessRepo = sessionRepository as jest.Mocked<typeof sessionRepository>
@@ -65,6 +71,9 @@ beforeEach(() => {
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
   ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
   ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
+  ;(
+    taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
+  ).mockResolvedValue('')
 })
 
 describe('sessionService.bindSessionToTask', () => {
@@ -97,7 +106,28 @@ describe('sessionService.bindSessionToTask', () => {
       retaggedEventCount: 3,
       memorySection: '',
       previousSession: null,
+      blockerWarningSection: '',
     })
+  })
+
+  it('propagates the blocker warning from taskDependencyService into the bound result (LUM-172)', async () => {
+    ;(
+      taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
+    ).mockResolvedValue('## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞')
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+
+    expect(
+      taskDependencyService.buildBlockerWarningSectionForTask
+    ).toHaveBeenCalledWith('task_1', 'LUM-42')
+    if (result.status !== 'bound') throw new Error('expected bound result')
+    expect(result.blockerWarningSection).toBe(
+      '## ⚠ 依赖告警\n- 本任务被 LUM-7 阻塞'
+    )
   })
 
   it('succeeds when no events were retagged (attach-before-any-hook)', async () => {

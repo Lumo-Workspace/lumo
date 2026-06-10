@@ -129,10 +129,11 @@ export function formatHookStdoutLines(
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
   }
-  // Recovery card + memory + linked resources + PR-review todos share one
-  // additionalContext block so Claude Code injects a single coherent context
-  // payload at session start. The card slots in first so it's the first thing
-  // the model reads.
+  // Recovery card + blocker warning + memory + linked resources + PR-review
+  // todos share one additionalContext block so Claude Code injects a single
+  // coherent context payload at session start. The card slots in first so it's
+  // the first thing the model reads; the dependency blocker warning (LUM-172)
+  // comes right after so it stays prominent, ahead of the memory section.
   const card = renderRecoveryCard(
     body.previousSession,
     tb?.taskIdentifier ?? '',
@@ -140,6 +141,7 @@ export function formatHookStdoutLines(
   )
   const envelope = sessionContextEnvelope([
     card,
+    body.blockerWarningSection,
     body.memorySection,
     body.linkedResourcesSection,
     body.reviewTodosSection,
@@ -167,6 +169,7 @@ type SessionStartBody = {
   linkedResourcesSection?: string
   reviewTodosSection?: string
   layer2ReviewSection?: string
+  blockerWarningSection?: string
   previousSession?: PreviousSessionCard | null
 }
 

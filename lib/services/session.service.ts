@@ -8,6 +8,7 @@ import type { LineageFragmentType } from '@prisma/client'
 import type { Prisma } from '@prisma/client'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import {
@@ -40,6 +41,8 @@ export type BindSessionToTaskResult =
       memorySection: string
       /** Recovery card data from the previous session on this task, or null if there is no prior session. */
       previousSession: PreviousSessionRecovery | null
+      /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
+      blockerWarningSection: string
     }
   | {
       status: 'already-bound'
@@ -228,13 +231,20 @@ export const sessionService = {
         task.id
       )
 
-    const [memorySection, previousSession] = await Promise.all([
-      taskContextService.buildMemorySectionForTask(task.id),
-      taskContextService.buildPreviousSessionRecoveryForTask(
-        task.id,
-        sessionId
-      ),
-    ])
+    const [memorySection, previousSession, blockerWarningSection] =
+      await Promise.all([
+        taskContextService.buildMemorySectionForTask(task.id),
+        taskContextService.buildPreviousSessionRecoveryForTask(
+          task.id,
+          sessionId
+        ),
+        // Never throws — returns '' on failure, so attach can't be broken by
+        // the dependency warning (LUM-172).
+        taskDependencyService.buildBlockerWarningSectionForTask(
+          task.id,
+          task.identifier
+        ),
+      ])
 
     return {
       status: 'bound',
@@ -244,6 +254,7 @@ export const sessionService = {
       retaggedEventCount: count,
       memorySection,
       previousSession,
+      blockerWarningSection,
     }
   },
 

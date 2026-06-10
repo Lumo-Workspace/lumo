@@ -12,6 +12,8 @@ interface BoundResponse {
   taskTitle: string
   retaggedEventCount: number
   memorySection: string
+  /** Dependency blocker warning (LUM-172). Absent on older servers. */
+  blockerWarningSection?: string
 }
 
 /** The session is already bound to a different task; the server refused to
@@ -169,5 +171,9 @@ export async function sessionAttach(
   if (body.memorySection !== '') {
     console.log('')
     console.log(sanitizeField(body.memorySection))
+  }
+  if (body.blockerWarningSection && body.blockerWarningSection !== '') {
+    console.log('')
+    console.log(sanitizeField(body.blockerWarningSection))
   }
 }
