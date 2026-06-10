@@ -1,4 +1,6 @@
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
+import { logger } from '@/lib/logger'
+import { isPrismaUniqueViolation } from '@/lib/db/errors'
 
 /**
  * LUM-172 任务依赖 CRUD + 防环 + 告警渲染。
@@ -40,6 +42,8 @@ function toView(edge: EdgeWithTasks, taskId: string): DependencyEdgeView {
 /**
  * 已确认 BLOCKS 图上,加边 (blocked ← blocking) 是否成环:
  * 从 blocking 沿「依赖于」方向 DFS 能否回到 blocked。
+ *
+ * 并发 check-then-write 在极端竞态下可绕过防环(与本仓 tag/sprint 服务同口径的取舍,小团队人工操作概率可忽略;同 pair 撞 unique 由 DB 兜底)。
  */
 async function assertNoCycle(
   workspaceId: string,
@@ -137,11 +141,18 @@ export const taskDependencyService = {
       await assertNoCycle(edge.workspaceId, blockedTaskId, blockingTaskId)
     }
 
-    return taskDependencyRepository.update(edge.id, {
-      status: 'CONFIRMED',
-      confirmedAt: new Date(),
-      ...(input.reverse ? { blockedTaskId, blockingTaskId } : {}),
-    })
+    try {
+      return await taskDependencyRepository.update(edge.id, {
+        status: 'CONFIRMED',
+        confirmedAt: new Date(),
+        ...(input.reverse ? { blockedTaskId, blockingTaskId } : {}),
+      })
+    } catch (err) {
+      if (input.reverse && isPrismaUniqueViolation(err)) {
+        throw Object.assign(new Error('Reverse edge already exists'), { status: 409 })
+      }
+      throw err
+    }
   },
 
   /** 否决候选:留行不删,挡住检测器下轮重新建议。 */
@@ -197,7 +208,8 @@ export const taskDependencyService = {
       }
 
       return parts.join('\n')
-    } catch {
+    } catch (err) {
+      logger.error('buildBlockerWarningSectionForTask failed; omitting blocker warning', err)
       return ''
     }
   },

@@ -109,7 +109,7 @@ describe('taskDependencyService.addManual', () => {
     repo.update.mockResolvedValueOnce(edge({ status: 'CONFIRMED' }) as any)
     await taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'a', blockingTaskId: 'b' })
     expect(repo.create).not.toHaveBeenCalled()
-    expect(repo.update).toHaveBeenCalledWith('e1', expect.objectContaining({ status: 'CONFIRMED' }))
+    expect(repo.update).toHaveBeenCalledWith('e1', expect.objectContaining({ status: 'CONFIRMED', confirmedAt: expect.any(Date) }))
   })
 
   it('⑥ existing CONFIRMED same-pair → rejects 409', async () => {
@@ -162,7 +162,19 @@ describe('taskDependencyService.confirm', () => {
     )
   })
 
-  it('⑤ confirm would create cycle → 409', async () => {
+  it('⑤ reverse=true + repo.update throws P2002 → 409 (concurrent reverse edge)', async () => {
+    repo.findById.mockResolvedValueOnce(edge() as any) // a←b
+    repo.findByPair.mockResolvedValueOnce(null) // no existing reverse at check time
+    repo.findConfirmedBlocksEdges.mockResolvedValueOnce([])
+    // Simulate concurrent creation: update hits the pair unique constraint
+    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+    repo.update.mockRejectedValueOnce(p2002)
+    await expect(taskDependencyService.confirm({ edgeId: 'e1', reverse: true })).rejects.toMatchObject({
+      status: 409,
+    })
+  })
+
+  it('⑥ confirm would create cycle → 409', async () => {
     // edge: a blocked by b; already have b depends on a (b←a exists) — but wait, let's do direct cycle
     // edge a←b; confirmed edges already have b←a ⇒ adding a←b creates cycle
     repo.findById.mockResolvedValueOnce(edge() as any) // a←b
