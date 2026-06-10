@@ -268,3 +268,33 @@ describe('in-flight sentinel row (LUM-345)', () => {
     expect(screen.getByText('in progress')).toBeInTheDocument()
   })
 })
+
+describe('per-model in-flight share (LUM-345 follow-up)', () => {
+  const liveOpus: ModelCost = {
+    model: 'claude-opus-4-8',
+    input: 150,
+    output: 80,
+    cacheRead: 40,
+    cacheCreation: 30,
+    total: 300,
+    inFlight: { input: 50, output: 30, cacheRead: 30, cacheCreation: 20, total: 130 },
+  }
+
+  it('annotates a row carrying in-flight burn with the provisional share', () => {
+    render(<TokenCostBreakdown variant='full' models={[liveOpus]} />)
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    expect(screen.getByText(/incl\. 130 in flight/)).toBeInTheDocument()
+  })
+
+  it('renders a provisional bar segment sized to the in-flight share', () => {
+    render(<TokenCostBreakdown variant='full' models={[liveOpus]} />)
+    const seg = screen.getByTestId('in-flight-segment')
+    expect(seg.style.width).toBe(`${(130 / 300) * 100}%`)
+  })
+
+  it('shows neither annotation nor provisional segment on settled rows', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} />)
+    expect(screen.queryByText(/in flight/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('in-flight-segment')).not.toBeInTheDocument()
+  })
+})

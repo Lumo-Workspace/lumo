@@ -184,10 +184,28 @@ function ModelGroup({
             {unit}
           </span>
         </span>
+        {m.inFlight && m.model !== IN_FLIGHT_MODEL && (
+          <span className='flex items-center gap-1 text-[10px] text-muted-foreground'>
+            <span
+              className='size-1.5 animate-pulse rounded-full bg-muted-foreground/60'
+              aria-hidden
+            />
+            {intl.formatMessage(
+              {
+                id: 'tokenCost.inFlightShare',
+                defaultMessage: 'incl. {n} in flight',
+              },
+              { n: fmt(m.inFlight.total) }
+            )}
+          </span>
+        )}
       </div>
       <div className='mt-2 flex h-2 overflow-hidden rounded-full'>
         {SEGMENTS.map(seg => {
-          const value = m[seg.key]
+          // The flat fields include the in-flight share; the colored segment
+          // shows only the settled part — the provisional remainder renders
+          // as one striped trailing segment after the loop.
+          const value = m[seg.key] - (m.inFlight?.[seg.key] ?? 0)
           if (value <= 0) return null
           return (
             <div
@@ -197,6 +215,17 @@ function ModelGroup({
             />
           )
         })}
+        {m.inFlight && m.inFlight.total > 0 && (
+          <div
+            data-testid='in-flight-segment'
+            className='animate-pulse'
+            style={{
+              width: `${(m.inFlight.total / m.total) * 100}%`,
+              backgroundImage:
+                'repeating-linear-gradient(45deg, color-mix(in oklch, var(--muted-foreground) 40%, transparent) 0 3px, transparent 3px 6px)',
+            }}
+          />
+        )}
       </div>
       <div className='mt-2 flex flex-col gap-0.5 text-caption'>
         {SEGMENTS.map(seg => {

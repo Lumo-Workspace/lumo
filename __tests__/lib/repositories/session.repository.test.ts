@@ -611,3 +611,57 @@ describe('sessionRepository.upsertForHookEvent — STOP with usage', () => {
     expect(result.turnUsageByModel).toBeNull()
   })
 })
+
+describe('sessionRepository.upsertForHookEvent — liveUsageByModel snapshot (LUM-345 follow-up)', () => {
+  const usage = {
+    inputTokens: 100,
+    outputTokens: 50,
+    cacheReadTokens: 1000,
+    cacheCreationTokens: 20,
+    byModel: {
+      'claude-fable-5': {
+        input: 100,
+        output: 50,
+        cacheRead: 1000,
+        cacheCreation: 20,
+      },
+    },
+  }
+
+  it('writes the per-model live snapshot on mid-turn usage (create and update)', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage,
+      isStop: false,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.update.liveUsageByModel).toEqual(usage.byModel)
+    expect(args.create.liveUsageByModel).toEqual(usage.byModel)
+    // The settlement anchor still must not move mid-turn.
+    expect(args.update).not.toHaveProperty('usageByModel')
+  })
+
+  it('leaves liveUsageByModel untouched on STOP — the settled anchor self-heals the diff', async () => {
+    findUnique.mockResolvedValue(null)
+    upsert.mockResolvedValue({ id: 'sess_1', taskId: null })
+
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage,
+      isStop: true,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.update).not.toHaveProperty('liveUsageByModel')
+    expect(args.create).not.toHaveProperty('liveUsageByModel')
+  })
+})

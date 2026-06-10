@@ -160,6 +160,63 @@ it('surfaces mid-turn flat-column burn as an in-flight cost row before the first
   expect(totals.byModel).toEqual([inFlight])
 })
 
+it('attributes the in-flight burn per model when the live snapshot exists (LUM-345 follow-up)', async () => {
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_live',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: 0,
+      usageByModel: null,
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 9000,
+      cacheCreationTokens: 100,
+      liveUsageByModel: {
+        'claude-fable-5': {
+          input: 1000,
+          output: 500,
+          cacheRead: 9000,
+          cacheCreation: 100,
+        },
+      },
+    },
+  ])
+  events.mockResolvedValue([
+    {
+      id: 'e1',
+      sessionId: 'sess_live',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+  ])
+
+  const { runs, totals } = await agentRunTimelineService.getTimeline('task_1')
+
+  const attributed = {
+    model: 'claude-fable-5',
+    input: 1000,
+    output: 500,
+    cacheRead: 9000,
+    cacheCreation: 100,
+    total: 10600,
+    inFlight: {
+      input: 1000,
+      output: 500,
+      cacheRead: 9000,
+      cacheCreation: 100,
+      total: 10600,
+    },
+  }
+  expect(runs[0]!.cost).toEqual({ byModel: [attributed], loopCount: 0 })
+  expect(totals.byModel).toEqual([attributed])
+})
+
 it('leaves cost null when a session captured no usage', async () => {
   sessions.mockResolvedValue([
     {

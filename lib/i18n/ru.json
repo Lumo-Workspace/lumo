@@ -1463,5 +1463,6 @@
   "notification.verb.milestoneMentioned": "упомянул вас в",
   "notification.verb.documentMentioned": "упомянул вас в",
   "notification.verb.documentCommentMentioned": "упомянул вас в комментарии к",
-  "tokenCost.inFlight": "выполняется"
+  "tokenCost.inFlight": "выполняется",
+  "tokenCost.inFlightShare": "вкл. {n} в процессе"
 }
