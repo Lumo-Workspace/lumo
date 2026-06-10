@@ -118,9 +118,7 @@ describe('validateHookPayload', () => {
       const result = validateHookPayload('POST_TOOL_USE', payload)
       const stored = result.payload as Record<string, unknown>
       const toolResponse = stored['tool_response'] as Record<string, unknown>
-      expect((toolResponse['output'] as string).length).toBe(
-        HOOK_FREE_TEXT_CAP
-      )
+      expect((toolResponse['output'] as string).length).toBe(HOOK_FREE_TEXT_CAP)
       expect(marker(stored)?.truncated).toContain('tool_response.output')
     })
 
@@ -140,23 +138,20 @@ describe('validateHookPayload', () => {
       const result = validateHookPayload('POST_TOOL_USE', payload)
       const stored = result.payload as Record<string, unknown>
       const arr = stored['tool_response'] as Array<unknown>
-      expect(((arr[0] as Record<string, unknown>)['text'] as string).length).toBe(
-        HOOK_FREE_TEXT_CAP
-      )
+      expect(
+        ((arr[0] as Record<string, unknown>)['text'] as string).length
+      ).toBe(HOOK_FREE_TEXT_CAP)
       expect(arr[1]).toBe('short')
       expect(marker(stored)?.truncated).toContain('tool_response.0.text')
     })
 
-    it.each(ALL_TYPES)(
-      'truncates an oversized free-text field on %s',
-      type => {
-        const payload = { session_id: 's', details: hugeText }
-        const result = validateHookPayload(type, payload)
-        const stored = result.payload as Record<string, unknown>
-        expect((stored['details'] as string).length).toBe(HOOK_FREE_TEXT_CAP)
-        expect(marker(stored)?.truncated).toContain('details')
-      }
-    )
+    it.each(ALL_TYPES)('truncates an oversized free-text field on %s', type => {
+      const payload = { session_id: 's', details: hugeText }
+      const result = validateHookPayload(type, payload)
+      const stored = result.payload as Record<string, unknown>
+      expect((stored['details'] as string).length).toBe(HOOK_FREE_TEXT_CAP)
+      expect(marker(stored)?.truncated).toContain('details')
+    })
 
     it('does not mutate the caller-provided payload object', () => {
       const payload = { session_id: 's', prompt: hugeText }
@@ -212,6 +207,18 @@ describe('validateHookPayload', () => {
       const stored = result.payload as Record<string, unknown>
       expect(marker(stored)?.truncated).toBeUndefined()
       expect(marker(stored)?.dropped).toContain('_lumo_validation')
+    })
+
+    it('rejects a client-supplied _lumo_context_metrics key (LUM-402 reserved key)', () => {
+      const payload = {
+        session_id: 's',
+        _lumo_context_metrics: { totalTokens: 999_999, forged: true },
+      }
+      const result = validateHookPayload('SESSION_START', payload)
+      const stored = result.payload as Record<string, unknown>
+      expect(stored['_lumo_context_metrics']).toBeUndefined()
+      expect(stored['session_id']).toBe('s')
+      expect(marker(stored)?.dropped).toContain('_lumo_context_metrics')
     })
   })
 

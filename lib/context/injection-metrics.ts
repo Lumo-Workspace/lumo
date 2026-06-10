@@ -1,0 +1,93 @@
+// lib/context/injection-metrics.ts
+//
+// Session-start injection telemetry (LUM-402): per-section token attribution
+// for the context the hook injects into the agent. Observe-only — nothing
+// here changes what gets injected; the metrics are stamped onto the stored
+// SESSION_START HookEvent payload so budget pressure ("which section dropped
+// fragments, how big is the injection") is SQL-queryable after the fact,
+// the same way `_lumo_validation` makes boundary enforcement auditable.
+
+import { estimateTokens, type BudgetSectionMetric } from '@/lib/context/budget'
+
+/**
+ * Reserved payload key carrying the metrics. Server-side only: a
+ * client-supplied value is dropped at the hook POST boundary
+ * (`lib/validation/hook-payload.ts`), so a stored value can only originate
+ * from the session-start route.
+ */
+export const CONTEXT_METRICS_KEY = '_lumo_context_metrics'
+
+/** Budget-allocated sections, in allocation priority order (LUM-342/LUM-147). */
+export interface SessionStartAllocation {
+  criteria: BudgetSectionMetric
+  memory: BudgetSectionMetric
+  pr: BudgetSectionMetric
+  slack: BudgetSectionMetric
+  figma: BudgetSectionMetric
+  web: BudgetSectionMetric
+  /** Layer-2 review runs its own memory budget (counts only — no token split). */
+  layer2Review: { keptCards: number; droppedCards: number }
+}
+
+export interface SessionStartContextMetrics {
+  version: 1
+  /** The shared injection budget the allocation ran under. */
+  budgetTokens: number
+  /** Per-section kept/dropped card attribution from the budget allocator. */
+  allocation: SessionStartAllocation
+  /**
+   * Estimated tokens of each section string actually shipped to the CLI
+   * (previousSession is structured data, estimated over its JSON form).
+   */
+  sectionTokens: {
+    criteria: number
+    memory: number
+    linkedResources: number
+    reviewTodos: number
+    previousSession: number
+    layer2Review: number
+    blockerWarning: number
+  }
+  /** Sum of sectionTokens — the total estimated injection size. */
+  totalTokens: number
+}
+
+interface BuildMetricsInput {
+  budgetTokens: number
+  allocation: SessionStartAllocation
+  criteriaSection: string
+  memorySection: string
+  linkedResourcesSection: string
+  reviewTodosSection: string
+  previousSession: unknown
+  layer2ReviewSection: string
+  blockerWarningSection: string
+}
+
+export function buildSessionStartContextMetrics(
+  input: BuildMetricsInput
+): SessionStartContextMetrics {
+  const sectionTokens = {
+    criteria: estimateTokens(input.criteriaSection),
+    memory: estimateTokens(input.memorySection),
+    linkedResources: estimateTokens(input.linkedResourcesSection),
+    reviewTodos: estimateTokens(input.reviewTodosSection),
+    previousSession:
+      input.previousSession == null
+        ? 0
+        : estimateTokens(JSON.stringify(input.previousSession)),
+    layer2Review: estimateTokens(input.layer2ReviewSection),
+    blockerWarning: estimateTokens(input.blockerWarningSection),
+  }
+  const totalTokens = Object.values(sectionTokens).reduce(
+    (sum, tokens) => sum + tokens,
+    0
+  )
+  return {
+    version: 1,
+    budgetTokens: input.budgetTokens,
+    allocation: input.allocation,
+    sectionTokens,
+    totalTokens,
+  }
+}

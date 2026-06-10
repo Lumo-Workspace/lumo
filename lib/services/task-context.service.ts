@@ -57,7 +57,10 @@ import {
   type MemorySource,
   type RenderableMemory,
 } from '@/lib/memory/render'
-import { allocateBudget } from '@/lib/context/budget'
+import {
+  allocateBudgetWithMetrics,
+  type BudgetSectionMetric,
+} from '@/lib/context/budget'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
 
 export interface SessionContext {
@@ -212,7 +215,8 @@ function stringList(value: unknown): string[] {
 function debugPending(s: Record<string, unknown>): string[] {
   const status = s.status
   if (status !== 'unresolved' && status !== 'partial') return []
-  const prefix = status === 'unresolved' ? 'Bug unresolved' : 'Bug only partially fixed'
+  const prefix =
+    status === 'unresolved' ? 'Bug unresolved' : 'Bug only partially fixed'
   const problem = typeof s.problem === 'string' ? s.problem.trim() : ''
   return [problem.length > 0 ? `${prefix}: ${problem}` : prefix]
 }
@@ -511,12 +515,37 @@ export const taskContextService = {
     memorySection: string
     linkedResourcesSection: string
     fragments: FragmentRef[]
+    /** Per-section budget attribution (LUM-402 telemetry) — observe-only. */
+    budget: {
+      budgetTokens: number
+      sections: Record<
+        'criteria' | 'memory' | 'pr' | 'slack' | 'figma' | 'web',
+        BudgetSectionMetric
+      >
+    }
   }> {
+    const emptyMetric: BudgetSectionMetric = {
+      keptCards: 0,
+      droppedCards: 0,
+      keptTokens: 0,
+      droppedTokens: 0,
+    }
     const empty = {
       criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       fragments: [] as FragmentRef[],
+      budget: {
+        budgetTokens: SESSION_START_BUDGET_TOKENS,
+        sections: {
+          criteria: emptyMetric,
+          memory: emptyMetric,
+          pr: emptyMetric,
+          slack: emptyMetric,
+          figma: emptyMetric,
+          web: emptyMetric,
+        },
+      },
     }
     const task = await taskRepository.findById(taskId)
     if (!task) return empty
@@ -587,18 +616,34 @@ export const taskContextService = {
     // Priority order: criteria > memory > PR > Slack > Figma > web. The
     // acceptance contract (LUM-342) outranks everything — it's what the work
     // is judged against — and at 3–7 short statements it's also the cheapest.
+    const { rendered, metrics } = allocateBudgetWithMetrics(
+      [
+        criteriaBudgetSection(criteria),
+        memoryBudgetSection(ranked.memories),
+        prBudgetSection(ranked.prs as unknown as PRCard[]),
+        slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
+        figmaBudgetSection(ranked.figma),
+        webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
+      ],
+      SESSION_START_BUDGET_TOKENS
+    )
     const [criteriaOut, memoryOut, prOut, slackOut, figmaOut, webOut] =
-      allocateBudget(
-        [
-          criteriaBudgetSection(criteria),
-          memoryBudgetSection(ranked.memories),
-          prBudgetSection(ranked.prs as unknown as PRCard[]),
-          slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
-          figmaBudgetSection(ranked.figma),
-          webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
-        ],
-        SESSION_START_BUDGET_TOKENS
-      ) as [string, string, string, string, string, string]
+      rendered as [string, string, string, string, string, string]
+    const [
+      criteriaMetric,
+      memoryMetric,
+      prMetric,
+      slackMetric,
+      figmaMetric,
+      webMetric,
+    ] = metrics as [
+      BudgetSectionMetric,
+      BudgetSectionMetric,
+      BudgetSectionMetric,
+      BudgetSectionMetric,
+      BudgetSectionMetric,
+      BudgetSectionMetric,
+    ]
 
     // No criteria on a still-open task → nudge the agent to draft the
     // contract before the first line of code (the SKILL.md guide has the
@@ -647,6 +692,17 @@ export const taskContextService = {
       memorySection: wrapUntrustedMemory(memoryOut),
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       fragments,
+      budget: {
+        budgetTokens: SESSION_START_BUDGET_TOKENS,
+        sections: {
+          criteria: criteriaMetric,
+          memory: memoryMetric,
+          pr: prMetric,
+          slack: slackMetric,
+          figma: figmaMetric,
+          web: webMetric,
+        },
+      },
     }
   },
 
@@ -732,8 +788,8 @@ export const taskContextService = {
   async buildLayer2ReviewSectionForTask(
     taskId: string,
     currentSessionId: string
-  ): Promise<{ section: string; fragments: FragmentRef[] }> {
-    const empty = { section: '', fragments: [] as FragmentRef[] }
+  ): Promise<{ section: string; fragments: FragmentRef[]; dropped: number }> {
+    const empty = { section: '', fragments: [] as FragmentRef[], dropped: 0 }
     const task = await taskRepository.findById(taskId)
     if (!task) return empty
 
@@ -761,6 +817,7 @@ export const taskContextService = {
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,
       })),
+      dropped: ordered.length - survivors.length,
     }
   },
 
