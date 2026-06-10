@@ -1,3 +1,5 @@
+import { matchTaskIdentifier } from '../../../shared/src/task-identifier'
+
 /**
  * Extracts a Lumo task identifier from a Git branch name.
  *
@@ -7,13 +9,12 @@
  *   eng-123-fix-bug        → "ENG-123"
  *   ENG-123                → "ENG-123"
  *
+ * Pattern lives in shared/src/task-identifier.ts, shared with the CLI's
+ * git-suggest detection (LUM-419) so the two sides cannot drift.
  * Returns null if no identifier is found.
  */
-const IDENTIFIER_RE = /\b([A-Za-z]{1,10}-\d+)\b/
-
 export function parseBranchIdentifier(branch: string): string | null {
-  const m = IDENTIFIER_RE.exec(branch)
-  return m ? m[1]!.toUpperCase() : null
+  return matchTaskIdentifier(branch)
 }
 
 /**
