@@ -141,7 +141,7 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
           />
         ) : (
           <div className='px-3 py-3'>
-            <div className='text-[10px] uppercase tracking-wider text-muted-foreground/60'>
+            <div className='mb-1 text-caption font-medium text-muted-foreground'>
               {intl.formatMessage({
                 id: 'lineage.cost.label',
                 defaultMessage: 'Cost',
