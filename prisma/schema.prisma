@@ -970,6 +970,14 @@ model Document {
   // docs and HTML-only edits — `doc show --raw` errors instead of falling
   // back to the lossy HTML→markdown reverse render.
   sourceMarkdown String? @db.Text
+  // Optimistic-concurrency counter for the document BODY (LUM-409).
+  // Incremented on every content-changing write, whichever path it takes
+  // (markdown upload, section patch/append, HTML-direct web edit, revision
+  // restore, gdoc sync). Title/tag/visibility-only updates do NOT bump it.
+  // Writes carrying `ifRevision` are applied as a conditional update on this
+  // column and rejected with 409 on mismatch — the failure mode moves from
+  // silent last-write-wins to a visible conflict.
+  contentRevision Int @default(0)
   emoji   String?
 
   summary            String?   @db.Text

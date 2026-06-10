@@ -275,7 +275,8 @@ describe('documentService', () => {
         'doc-1',
         expect.objectContaining({ title: 'Fresh Name', slug: 'fresh-name-12' }),
         undefined,
-        undefined
+        undefined,
+        undefined // no ifRevision → unconditional write (LUM-409)
       )
     })
   })

@@ -215,6 +215,7 @@ describe('format helpers strip control chars', () => {
       projectName: 'pro\x1bj',
       createdAt: '2026-01-01',
       updatedAt: '2026-01-01',
+      revision: 1,
       mentionedTasks: [],
       bodyMarkdown: 'bo\x1bdy',
     })

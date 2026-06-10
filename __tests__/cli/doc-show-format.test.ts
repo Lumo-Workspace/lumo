@@ -12,10 +12,12 @@ describe('formatShowOutput', () => {
       projectName: 'Lumo',
       createdAt: '2026-05-22T10:00:00Z',
       updatedAt: '2026-05-22T10:30:00Z',
+      revision: 3,
       mentionedTasks: ['LUM-42'],
       bodyMarkdown: '# Hello\n\nWorld\n',
     })
     expect(out).toContain('ID: c1')
+    expect(out).toContain('Revision: 3')
     expect(out).toContain('Title: RFC: doc CLI')
     expect(out).toContain('Scope: workspace')
     expect(out).toContain('Project: Lumo')
@@ -31,10 +33,12 @@ describe('formatShowOutput', () => {
       projectName: null,
       createdAt: '2026-05-22T10:00:00Z',
       updatedAt: '2026-05-22T10:00:00Z',
+      revision: null,
       mentionedTasks: [],
       bodyMarkdown: '',
     })
     expect(out).toContain('Project: -')
+    expect(out).toContain('Revision: -')
     expect(out).toContain('Mentioned tasks: -')
     expect(out).toContain('Scope: personal')
   })

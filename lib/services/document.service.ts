@@ -11,6 +11,12 @@ import {
   type TiptapNode,
 } from '@/lib/utils/markdown-tiptap'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import {
+  appendToSection,
+  findSection,
+  replaceSection,
+  type MarkdownSection,
+} from '@/lib/utils/markdown-sections'
 import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
@@ -58,6 +64,20 @@ export interface UpdateDocumentInput {
   childOrder?: string[]
   googleDocSyncedAt?: Date | null
   googleDocSyncError?: string | null
+  /**
+   * Optimistic-concurrency precondition (LUM-409): the contentRevision the
+   * caller's edit base was read at. Mismatch → 409, nothing persisted.
+   */
+  ifRevision?: number
+}
+
+export interface SectionEditInput {
+  /** 'replace' swaps the whole section (heading included); 'append' inserts at section end. */
+  mode: 'replace' | 'append'
+  /** Heading text addressing the section. Required for replace; append without it targets the document end. */
+  section?: string | undefined
+  contentMarkdown: string
+  ifRevision?: number | undefined
 }
 
 interface DocWithShares {
@@ -181,6 +201,32 @@ export function scheduleDocumentSummary(docId: string, bodyText: string): void {
       .summarize(bodyText, 'document')
       .then(s => (s ? documentRepository.updateSummary(docId, s) : undefined))
       .catch(() => {})
+  )
+}
+
+function headingLabel(s: MarkdownSection): string {
+  return `${'#'.repeat(s.depth)} ${s.heading}`
+}
+
+/**
+ * 409 with both revision numbers in the message (LUM-409). The agent-facing
+ * contract: a conflict is always recoverable by re-reading and retrying —
+ * never a silent overwrite.
+ */
+function revisionConflict(
+  expected: number | undefined,
+  current: number | undefined
+): Error {
+  const detail =
+    current !== undefined
+      ? ` (current revision: ${current}${expected !== undefined ? `, your base: ${expected}` : ''})`
+      : ''
+  return Object.assign(
+    new Error(
+      `Revision conflict: the document body changed since your copy was read${detail}. ` +
+        `Re-read it (lumo doc show) and retry with the current revision.`
+    ),
+    { status: 409 }
   )
 }
 
@@ -516,6 +562,16 @@ export const documentService = {
     const docId = doc.id
     const oldContent = (doc as { content: string | null }).content
 
+    // Optimistic concurrency (LUM-409): reject a stale edit base up front so
+    // nothing (tags included) is touched. The repository re-applies the same
+    // precondition as a conditional write inside the transaction, closing the
+    // read-check-to-write race window.
+    const currentRevision = (doc as { contentRevision: number })
+      .contentRevision
+    if (data.ifRevision !== undefined && data.ifRevision !== currentRevision) {
+      throw revisionConflict(data.ifRevision, currentRevision)
+    }
+
     // Sync or incrementally modify tag associations
     if (data.tagIds !== undefined) {
       await tagRepository.syncDocumentTags(docId, data.tagIds)
@@ -532,12 +588,27 @@ export const documentService = {
       ? this.extractTaskMentionIds(data.content)
       : undefined
 
-    const updated = await documentRepository.updateWithChildrenAndMentions(
-      docId,
-      updateData,
-      data.childOrder,
-      mentionTaskIds
-    )
+    let updated
+    try {
+      updated = await documentRepository.updateWithChildrenAndMentions(
+        docId,
+        updateData,
+        data.childOrder,
+        mentionTaskIds,
+        data.ifRevision !== undefined
+          ? { expectedContentRevision: data.ifRevision }
+          : undefined
+      )
+    } catch (err) {
+      if ((err as { code?: string }).code === 'REVISION_CONFLICT') {
+        const fresh = await documentRepository.findById(docId, workspaceId)
+        throw revisionConflict(
+          data.ifRevision,
+          (fresh as { contentRevision?: number } | null)?.contentRevision
+        )
+      }
+      throw err
+    }
 
     // Track editor if content was updated
     if (data.content !== undefined) {
@@ -614,6 +685,113 @@ export const documentService = {
     const docTags = tagsTouched ? await tagRepository.findByDocument(docId) : []
 
     return { ...updated, docTags }
+  },
+
+  /**
+   * Section-addressed edit on the stored markdown source (LUM-409).
+   *
+   * Splices the new content into `sourceMarkdown` on the markdown AST's
+   * heading boundaries — every byte outside the addressed section is carried
+   * over untouched — then routes the full new source through `updateDocument`
+   * so the HTML render, double-write, mention sync, summary and snapshot
+   * side effects all stay on the single existing path.
+   *
+   * Always commits conditionally on the revision the splice base was read
+   * at (caller's `ifRevision` when provided), so a concurrent body write
+   * surfaces as 409 instead of being silently overwritten.
+   */
+  async editDocumentSection(
+    id: string,
+    memberId: string,
+    workspaceId: string,
+    input: SectionEditInput
+  ) {
+    const doc = await documentRepository.findWithPermission(
+      id,
+      memberId,
+      workspaceId
+    )
+    if (!doc) {
+      throw Object.assign(new Error('Document not found'), { status: 404 })
+    }
+    const role = this.getUserRole(doc, memberId)
+    if (!role || role === 'VIEWER') {
+      throw Object.assign(new Error('Permission denied'), { status: 403 })
+    }
+
+    const src = (doc as { sourceMarkdown: string | null }).sourceMarkdown
+    if (typeof src !== 'string') {
+      throw Object.assign(
+        new Error(
+          `Document ${doc.id} has no stored markdown source — section editing needs a markdown base ` +
+            `(the last edit was HTML-direct or predates markdown source storage). Upload a full ` +
+            `markdown base once (lumo doc update ${doc.id} --file <base.md>); section ops work from then on.`
+        ),
+        { status: 400 }
+      )
+    }
+
+    const currentRevision = (doc as { contentRevision: number })
+      .contentRevision
+    if (
+      input.ifRevision !== undefined &&
+      input.ifRevision !== currentRevision
+    ) {
+      throw revisionConflict(input.ifRevision, currentRevision)
+    }
+
+    let nextSource: string
+    let resolvedHeading: string | null = null
+    if (input.section !== undefined && input.section.trim() !== '') {
+      const match = findSection(src, input.section)
+      if (match.kind === 'not-found') {
+        const list = match.available
+          .slice(0, 30)
+          .map(s => `  ${headingLabel(s)}`)
+          .join('\n')
+        throw Object.assign(
+          new Error(
+            `Section not found: "${input.section}". Available headings:\n${list || '  (none)'}`
+          ),
+          { status: 404 }
+        )
+      }
+      if (match.kind === 'ambiguous') {
+        const list = match.candidates
+          .map(s => `  ${headingLabel(s)} (line ${s.line + 1})`)
+          .join('\n')
+        throw Object.assign(
+          new Error(
+            `Section "${input.section}" is ambiguous — ${match.candidates.length} headings match:\n${list}\n` +
+              `Disambiguate by depth, e.g. --section "${headingLabel(match.candidates[0]!)}"`
+          ),
+          { status: 400 }
+        )
+      }
+      resolvedHeading = match.section.heading
+      nextSource =
+        input.mode === 'replace'
+          ? replaceSection(src, match.section, input.contentMarkdown)
+          : appendToSection(src, match.section, input.contentMarkdown)
+    } else {
+      if (input.mode === 'replace') {
+        throw Object.assign(
+          new Error('section is required for a section patch'),
+          { status: 400 }
+        )
+      }
+      // Append without a section targets the end of the document.
+      nextSource = appendToSection(src, null, input.contentMarkdown)
+    }
+
+    const updated = await this.updateDocument(doc.id, memberId, workspaceId, {
+      contentMarkdown: nextSource,
+      // Conditional even without a caller-supplied ifRevision: the splice
+      // base is the source read above, so any concurrent body write between
+      // that read and this commit must 409, not last-write-win.
+      ifRevision: input.ifRevision ?? currentRevision,
+    })
+    return { ...updated, sectionHeading: resolvedHeading }
   },
 
   /** Delete document (owner only) with recursive descendant cleanup. */

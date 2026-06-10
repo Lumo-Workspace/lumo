@@ -12,6 +12,7 @@ export { documentService } from './document.service'
 export type {
   CreateDocumentInput,
   UpdateDocumentInput,
+  SectionEditInput,
 } from './document.service'
 export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'

@@ -97,8 +97,11 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 **Documents** — see [docs.md](references/docs.md)
 
-- `lumo doc create/update/show/list/delete` — document CRUD
+- `lumo doc create/update/show/list/delete` — document CRUD; `doc show` prints the body revision, `doc update` takes `--if-revision <n>` (mismatch → 409 conflict, re-read and retry — no silent overwrite)
 - `lumo doc show <doc> --raw` — print the byte-identical markdown source of the last markdown upload (the only legal edit base; errors when no source is stored — never falls back to the lossy HTML→md render)
+- `lumo doc show <doc> --section "<heading>"` — print just one heading-addressed section of the markdown source (byte-faithful slice, subsections included; revision on stderr; prefix `#…` pins depth)
+- `lumo doc patch <doc> --section "<heading>" --content/--file/stdin [--if-revision N]` — replace ONLY that section (heading line included); every byte outside it is untouched; concurrent edits 409 instead of clobbering
+- `lumo doc append <doc> [--section "<heading>"] --content/--file/stdin [--if-revision N]` — append at section end (or doc end without `--section`); pure insertion, no existing byte modified — the safest write for running logs/ledgers
 - `lumo doc diff <doc> --file <local.md>` — compare the server-side markdown source against a local file (exit 0 identical, 1 with unified diff)
 - `lumo doc move` — reparent under a parent / to root
 - `lumo doc bind/unbind <doc> <task>` — task linkage

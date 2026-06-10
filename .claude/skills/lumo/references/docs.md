@@ -64,6 +64,8 @@ The `Tags:` line is omitted when no tags were attached.
 | `--remove-tag <name>`    | string (repeatable) | Detach tag by name. `--remove-tag <name>` resolves the name via find-or-create on the workspace. If the name was unknown, a new Tag row is created (orphan, no attachments) before the detach runs as a no-op. Use `--remove-tag-id <cuid>` to avoid orphans. Max 20. |
 | `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op (no side effects). Max 20.                                                                                                                                                                                                  |
 
+Optimistic concurrency (LUM-409): `--if-revision <n>` only applies the update if the doc body is still at revision `n` (from `doc show`). Mismatch → 409 conflict, nothing written — re-read, rebase, retry. `--if-revision` alone is not an update (still errors "no fields to update").
+
 `--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
 
 Like `doc create`, `--file` is sandboxed: the CLI rejects paths that resolve outside the project directory or match the sensitive-file denylist (`.env*`, private keys, `credentials`, …). No override flag.
@@ -82,16 +84,19 @@ lumo doc update RFC --tag final --add-tag oops
 
 ### When to suggest `doc update`
 
-- User wants to revise an existing doc.
+- User wants to revise an existing doc **as a whole** (title, scope, or a full-body rewrite).
 - After running `lumo doc list` or `doc show`, if the user wants to change a doc's scope, title, or content.
+- For a small edit inside one section, prefer `doc patch` / `doc append` (below) — full `doc update` has the maximum clobber radius.
+- When replacing the body from a previously fetched base, pass `--if-revision` so a concurrent edit fails loudly (409) instead of being overwritten.
 
-### `lumo doc show <doc> [--raw]` — print one document's detail
+### `lumo doc show <doc> [--raw | --section <heading>]` — print one document's detail
 
-Default mode prints a key:value header (id, title, scope, project, created/updated timestamps, mentioned tasks) and the content rendered back to markdown.
+Default mode prints a key:value header (id, title, scope, project, created/updated timestamps, **revision**, mentioned tasks) and the content rendered back to markdown. `Revision:` is the body's optimistic-concurrency counter — feed it back as `--if-revision` on `doc update` / `doc patch` / `doc append`.
 
 ```bash
 lumo doc show "RFC: doc CLI"
-lumo doc show cmd_xxx --raw > base.md   # byte-identical edit base
+lumo doc show cmd_xxx --raw > base.md            # byte-identical edit base (revision on stderr)
+lumo doc show cmd_xxx --section "D 状态表" > sec.md  # one section only (revision on stderr)
 ```
 
 **`--raw` (LUM-408)** prints the byte-identical markdown source of the last markdown upload — no header, no trailing newline added. The server stores the raw markdown (`sourceMarkdown`) alongside the rendered HTML on every markdown write (`doc create/update --content/--file/stdin`, gdoc import/sync), so `--raw` output IS a legal edit base: `doc show --raw > base.md`, edit, `doc update --file base.md` round-trips losslessly.
@@ -102,13 +107,74 @@ lumo doc show cmd_xxx --raw > base.md   # byte-identical edit base
 
 Note: the markdown rendered by **default-mode** `doc show` is still best-effort (tables flatten). Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT a no-op — use `--raw` as the edit base instead.
 
-Use default mode when the user wants to read a doc; use `--raw` whenever the output will be edited and uploaded back.
+**`--section <heading>` (LUM-409)** prints just one heading-addressed section of the markdown source — a byte-faithful slice from the heading line through (not including) the next same-or-higher-level heading, subsections included. No header on stdout (the slice is a legal `doc patch` base); the current revision is printed to **stderr** as `Revision: N`. Mutually exclusive with `--raw`.
 
-### When to suggest `doc show --raw`
+- Section addressing: pass the heading text (`--section "D 状态表"`), case-insensitive fallback after an exact pass. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`).
+- Missing heading → exit 1 listing the available headings; ambiguous heading → exit 1 with a depth-disambiguation hint.
+- Requires a stored markdown source — same no-fallback rule and rebuild flow as `--raw`.
+- Heading detection is markdown-aware: `#` lines inside fenced code blocks or blockquotes are never section boundaries.
+
+Use default mode when the user wants to read a doc; use `--raw` whenever the full output will be edited and uploaded back; use `--section` when only one part matters (keeps the context window small and the patch radius smaller).
+
+### When to suggest `doc show --raw` / `--section`
 
 - Before any `doc update --file` that starts from existing remote content — fetch the base with `--raw`, never from rendered `doc show` output.
+- Before a `doc patch` — read the section with `--section` first, note the `Revision:` line, edit, patch back with `--if-revision`.
 - User asks "what's the exact source of this doc", or an agent needs a faithful local copy of a live doc.
-- If `--raw` errors (no stored source), walk the rebuild flow above instead of editing the rendered output.
+- User asks "what's in section X" of a long doc — `--section` avoids pulling the whole body into context.
+- If `--raw`/`--section` errors (no stored source), walk the rebuild flow above instead of editing the rendered output.
+
+### `lumo doc patch <doc> --section <heading>` — replace one section
+
+Replaces the **whole addressed section** (heading line included, subsections included) with the provided content, server-side, leaving every byte outside the section untouched. The new content comes from `--content`, `--file`, or piped stdin (one required; `--file` is sandboxed like `doc update`).
+
+| Flag                  | Type   | Notes                                                                                               |
+| --------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| `--section <heading>` | string | Required. Heading text addressing the section; prefix `#…` pins the depth.                          |
+| `--content <text>`    | string | New section content (include the heading line — the whole section is replaced verbatim).            |
+| `--file <path>`       | string | New section content from file (project-local sandbox).                                              |
+| `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`. Recommended whenever the edit base was read earlier. |
+
+Concurrency: the splice always commits **conditionally** on the revision the server read the source at — even without `--if-revision`, a concurrent body edit between read and write returns 409 instead of clobbering. On 409 the CLI prints the server reason plus a re-read-and-retry hint and exits 1.
+
+Requires a stored markdown source (same rule as `--raw`); errors with the rebuild hint otherwise. Replacement is verbatim — if the new content omits the heading line, the heading is gone (that is an explicit choice, not a merge).
+
+```bash
+lumo doc show cmd_xxx --section "D 状态表" > sec.md   # stderr: Revision: 6
+# … edit sec.md …
+lumo doc patch cmd_xxx --section "D 状态表" --file sec.md --if-revision 6
+# → Patched cmd_xxx "登记册" § "D 状态表"  revision 7
+```
+
+### When to suggest `doc patch`
+
+- User wants to change one section of a live doc ("update the status table", "rewrite section D") — patch beats full `doc update` on clobber radius and context size.
+- Live-doc status updates that used to be read-whole/edit/upload-whole round-trips.
+- If the patch 409s: re-read the section, rebase the edit, retry — never fall back to a full-body upload from the stale base.
+
+### `lumo doc append <doc> [--section <heading>]` — append to a section (or the doc)
+
+Inserts the new content at the **end of the addressed section** (just before the next same-or-higher-level heading), or at the end of the document when `--section` is omitted. Pure insertion: no pre-existing byte is modified, which makes it the natural write for running logs, ledgers and queues. Content channels and sandbox are the same as `doc patch`; separator blank lines are added automatically.
+
+| Flag                  | Type   | Notes                                                                       |
+| --------------------- | ------ | --------------------------------------------------------------------------- |
+| `--section <heading>` | string | Optional. Omit to append at the document end.                               |
+| `--content <text>`    | string | Content to append.                                                          |
+| `--file <path>`       | string | Content from file (project-local sandbox).                                  |
+| `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`; 409 + retry hint otherwise. |
+
+Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). Requires a stored markdown source.
+
+```bash
+lumo doc append cmd_xxx --section "F 待办队列" --content "- [ ] 评估 XYZ 论文"
+# → Appended to cmd_xxx "登记册" § "F 待办队列"  revision 8
+echo "## 2026-06-10\n吸收了 3 篇" | lumo doc append cmd_xxx   # document end
+```
+
+### When to suggest `doc append`
+
+- User wants to add an entry/row/log line to a section ("把 X 加进待办队列", "append today's notes") — this is the killer op for ledger-style live docs: zero clobber risk by construction.
+- Whenever the alternative would be re-uploading the whole doc just to add lines at the end of one section.
 
 ### `lumo doc diff <doc> --file <local.md>` — compare remote markdown source vs a local file
 

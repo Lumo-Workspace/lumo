@@ -25,6 +25,47 @@
       "hasSubcommands": true,
       "description": "Manage Lumo documents"
     },
+    "doc append": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--content": {
+          "long": "--content",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Content to append (inline markdown)"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Content to append from file"
+        },
+        "--if-revision": {
+          "long": "--if-revision",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Only apply if the doc body is still at this revision (from doc show)"
+        },
+        "--section": {
+          "long": "--section",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Heading of the section to append into (omit to append at the document end)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Append markdown at the end of a heading-addressed section (before the next same-or-higher heading), or at the document end when --section is omitted. Pure insertion — no existing byte is modified — which makes it the safest write for running logs/ledgers. 409 on concurrent edits."
+    },
     "doc bind": {
       "arguments": [
         {
@@ -257,6 +298,47 @@
       "hasSubcommands": false,
       "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only."
     },
+    "doc patch": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--content": {
+          "long": "--content",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New section content (inline markdown)"
+        },
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "New section content from file"
+        },
+        "--if-revision": {
+          "long": "--if-revision",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Only apply if the doc body is still at this revision (from doc show)"
+        },
+        "--section": {
+          "long": "--section",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Heading of the section to replace (prefix with #… to pin depth)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten."
+    },
     "doc share": {
       "arguments": [
         {
@@ -313,10 +395,17 @@
           "value": "none",
           "enum": null,
           "description": "Print the stored markdown source verbatim (no header); errors if absent"
+        },
+        "--section": {
+          "long": "--section",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Print one heading-addressed section of the markdown source (prefix with #… to pin depth, e.g. \"## Status\")"
         }
       },
       "hasSubcommands": false,
-      "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render."
+      "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr)."
     },
     "doc sync": {
       "arguments": [
@@ -400,6 +489,13 @@
           "value": "required",
           "enum": null,
           "description": "Replace content from file"
+        },
+        "--if-revision": {
+          "long": "--if-revision",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Only apply if the doc body is still at this revision (from doc show); mismatch fails with a 409 conflict"
         },
         "--project": {
           "long": "--project",
