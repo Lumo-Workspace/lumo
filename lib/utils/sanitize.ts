@@ -1,3 +1,7 @@
+// Control-char stripping for untrusted free text — single source of truth
+// lives in shared/src/sanitize.ts, shared with the CLI (LUM-346).
+export { sanitizeField } from '../../shared/src/sanitize'
+
 const ALLOWED_TAGS = new Set([
   'p',
   'strong',

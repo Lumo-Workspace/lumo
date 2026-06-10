@@ -1462,5 +1462,6 @@
   "notification.verb.projectMentioned": "mentioned you in",
   "notification.verb.milestoneMentioned": "mentioned you in",
   "notification.verb.documentMentioned": "mentioned you in",
-  "notification.verb.documentCommentMentioned": "mentioned you in a comment on"
+  "notification.verb.documentCommentMentioned": "mentioned you in a comment on",
+  "tokenCost.inFlight": "in progress"
 }

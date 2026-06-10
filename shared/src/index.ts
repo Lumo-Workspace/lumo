@@ -129,3 +129,6 @@ export {
 // ── Stream-json run usage parser ──────────────────────────────────────────────
 export { parseStreamJsonUsage } from './stream-json-usage'
 export type { RunUsage } from './stream-json-usage'
+
+// ── Untrusted free-text sanitization ─────────────────────────────────────────
+export { sanitizeField } from './sanitize'

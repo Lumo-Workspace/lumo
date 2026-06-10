@@ -1462,5 +1462,6 @@
   "notification.verb.projectMentioned": "đã đề cập bạn trong",
   "notification.verb.milestoneMentioned": "đã đề cập bạn trong",
   "notification.verb.documentMentioned": "đã đề cập bạn trong",
-  "notification.verb.documentCommentMentioned": "đã đề cập bạn trong một bình luận về"
+  "notification.verb.documentCommentMentioned": "đã đề cập bạn trong một bình luận về",
+  "tokenCost.inFlight": "đang chạy"
 }
