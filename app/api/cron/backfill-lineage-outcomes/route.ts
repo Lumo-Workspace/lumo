@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
   // ── LUM-172: shared-file dependency candidates (pure-DB, before LLM segment) ──
   const dependencySweep = await dependencyDetectionService
     .sweepSharedFileCandidates(new Date())
-    .catch(() => ({ suggested: 0 }))
+    .catch(err => {
+      console.error('[cron] dependency sweep failed:', err)
+      return { suggested: 0 }
+    })
   const usage =
     await fragmentUsageAuditService.auditDoneTaskSessions(USAGE_AUDIT_BATCH)
   return NextResponse.json({

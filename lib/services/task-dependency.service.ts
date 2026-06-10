@@ -1,6 +1,7 @@
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { logger } from '@/lib/logger'
 import { isPrismaUniqueViolation } from '@/lib/db/errors'
+import { sanitizeField } from '@/lib/utils/sanitize'
 
 /**
  * LUM-172 任务依赖 CRUD + 防环 + 告警渲染。
@@ -193,7 +194,10 @@ export const taskDependencyService = {
           const ident = `${t.team.identifier}-${t.number}`
           const pr = t.pullRequests[0]
           const prNote = pr ? `,PR #${pr.number}${pr.isDraft ? ' (draft)' : ''} 未 merge` : ''
-          parts.push(`- 本任务被 ${ident}「${t.title}」阻塞(状态 ${t.status}${prNote})。`)
+          // LUM-346 convention: workspace-authored free text (task title) gets the
+          // control-char strip at the render source, covering every consumer
+          // (session-start hook injection has no client-side sanitize pass).
+          parts.push(`- 本任务被 ${ident}「${sanitizeField(t.title)}」阻塞(状态 ${t.status}${prNote})。`)
         }
         parts.push(
           '',
