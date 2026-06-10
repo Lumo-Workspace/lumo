@@ -295,6 +295,33 @@ describe('hookEventService.recordHookEvent', () => {
     })
   })
 
+  it('forwards usage + isStop:false to upsertForHookEvent on POST_TOOL_BATCH with _lumo_usage (LUM-345)', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_BATCH',
+      payload: {
+        session_id: 'sess_abc',
+        _lumo_usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheReadTokens: 200,
+          cacheCreationTokens: 100,
+          byModel: {},
+        },
+      },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg.isStop).toBe(false)
+    expect(arg.usage).toEqual({
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 200,
+      cacheCreationTokens: 100,
+      byModel: {},
+    })
+  })
+
   it('ignores _lumo_usage on non-stop events — forwards usage:null even when _lumo_usage is present', async () => {
     await hookEventService.recordHookEvent({
       identity,

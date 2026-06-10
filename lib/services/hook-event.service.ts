@@ -125,7 +125,13 @@ export const hookEventService = {
     // (malformed or non-Claude-Code client), record the event unlinked
     // (matches Day 3 tolerance) with no taskId tag.
     const isStop = type === 'STOP' || type === 'STOP_FAILURE'
-    const usage = isStop ? extractInjectedUsage(payload) : null
+    // POST_TOOL_BATCH also carries usage (LUM-345) so long single turns
+    // surface live burn; the repository writes it flat-columns-only, keeping
+    // usageByModel as the STOP-anchored per-turn-delta baseline.
+    const usage =
+      isStop || type === 'POST_TOOL_BATCH'
+        ? extractInjectedUsage(payload)
+        : null
 
     let taskId: string | null = null
     let turnUsageByModel: Record<string, ModelUsage> | null = null
