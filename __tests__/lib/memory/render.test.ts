@@ -414,4 +414,9 @@ describe('wrapUntrustedLinked (LUM-147)', () => {
     expect(out).toContain('[external:github]')
     expect(out.toLowerCase()).toContain('reference only')
   })
+
+  it('names every content class it now covers on the GET path (LUM-347)', () => {
+    const out = wrapUntrustedLinked('## Comments\nhi')
+    expect(out).toContain('documents, comments, artifacts')
+  })
 })

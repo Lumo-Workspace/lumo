@@ -54,6 +54,14 @@ jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),
+  // Faithful to the real contract: "" stays "", non-empty gets the boundary —
+  // lets these assembly tests assert the LUM-347 routing without re-testing
+  // the wrapper's own text (covered in __tests__/lib/memory/render.test.ts).
+  wrapUntrustedLinked: jest.fn((s: string) =>
+    s.trim() === ''
+      ? ''
+      : `<untrusted-linked-context>\n${s}\n</untrusted-linked-context>`
+  ),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: {
@@ -131,6 +139,10 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
       'member_1',
       'LUM-1'
     )
+    // LUM-347: the GET path now serves this section inside the boundary.
+    expect(
+      ctx?.slackContextSection.startsWith('<untrusted-linked-context>')
+    ).toBe(true)
     expect(ctx?.slackContextSection).toContain('## Slack Context')
     expect(ctx?.slackContextSection).toContain('#design')
     expect(ctx?.slackContextSection).toContain('Single message')
