@@ -13,23 +13,33 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildSessionStartSections: jest.fn(),
-    buildReviewTodosSectionForTask: jest.fn().mockResolvedValue({ section: '', fragments: [] }),
+    buildReviewTodosSectionForTask: jest
+      .fn()
+      .mockResolvedValue({ section: '', fragments: [] }),
     buildPreviousSessionRecoveryForTask: jest.fn().mockResolvedValue(null),
-    buildLayer2ReviewSectionForTask: jest.fn().mockResolvedValue({ section: '', fragments: [], dropped: 0 }),
+    buildLayer2ReviewSectionForTask: jest
+      .fn()
+      .mockResolvedValue({ section: '', fragments: [], dropped: 0 }),
   },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
-  hookEventRepository: { setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined) },
+  hookEventRepository: {
+    setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/services/lineage.service', () => ({
-  lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
+  lineageService: {
+    recordSessionStartEdges: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/services/task-dependency.service', () => ({
   taskDependencyService: {
     buildBlockerWarningSectionForTask: jest.fn().mockResolvedValue(''),
   },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: Promise<unknown>) => p }))
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => p,
+}))
 
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
@@ -43,7 +53,12 @@ const mockVerify = authService.verifyApiKey as jest.Mock
 const mockRecord = hookEventService.recordHookEvent as jest.Mock
 
 // LUM-402: buildSessionStartSections carries per-section budget attribution.
-const EMPTY_METRIC = { keptCards: 0, droppedCards: 0, keptTokens: 0, droppedTokens: 0 }
+const EMPTY_METRIC = {
+  keptCards: 0,
+  droppedCards: 0,
+  keptTokens: 0,
+  droppedTokens: 0,
+}
 const EMPTY_BUDGET = {
   budgetTokens: 2500,
   sections: {
@@ -79,20 +94,28 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     mockVerify.mockResolvedValue(identity)
     mockRecord.mockResolvedValue({ id: 'he_1', sessionId: 's-1', taskId: null })
     // Restore default resolutions reset by resetAllMocks().
-    ;(hookEventRepository.setContextInjectionMetrics as jest.Mock).mockResolvedValue(
-      undefined
-    )
-    ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      hookEventRepository.setContextInjectionMetrics as jest.Mock
+    ).mockResolvedValue(undefined)
+    ;(
+      taskContextService.buildReviewTodosSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [],
     })
-    ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildLayer2ReviewSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [],
       dropped: 0,
     })
-    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+    ).mockResolvedValue(null)
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
@@ -111,7 +134,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n',
       linkedResourcesSection: '',
@@ -140,7 +165,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: 'MEM',
       linkedResourcesSection:
@@ -184,7 +211,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
@@ -204,7 +233,11 @@ describe('POST /api/hooks/session-start — memory injection', () => {
 
   it('returns blockerWarningSection in response when buildBlockerWarningSectionForTask resolves a non-empty string', async () => {
     const warningText = '## ⚠ Dependency alerts…'
-    mockRecord.mockResolvedValue({ id: 'he_5', sessionId: 's-5', taskId: 'task-1' })
+    mockRecord.mockResolvedValue({
+      id: 'he_5',
+      sessionId: 's-5',
+      taskId: 'task-1',
+    })
     ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
       bound: true,
       taskId: 'task-1',

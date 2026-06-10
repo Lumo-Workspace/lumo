@@ -17,10 +17,14 @@ jest.mock('@/lib/services/task-context.service', () => ({
   },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
-  hookEventRepository: { setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined) },
+  hookEventRepository: {
+    setContextInjectionMetrics: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/services/lineage.service', () => ({
-  lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
+  lineageService: {
+    recordSessionStartEdges: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/services/task-dependency.service', () => ({
   taskDependencyService: {
@@ -40,7 +44,12 @@ import { lineageService } from '@/lib/services/lineage.service'
 import { POST } from '@/app/api/hooks/session-start/route'
 
 // LUM-402: buildSessionStartSections carries per-section budget attribution.
-const EMPTY_METRIC = { keptCards: 0, droppedCards: 0, keptTokens: 0, droppedTokens: 0 }
+const EMPTY_METRIC = {
+  keptCards: 0,
+  droppedCards: 0,
+  keptTokens: 0,
+  droppedTokens: 0,
+}
 const EMPTY_BUDGET = {
   budgetTokens: 2500,
   sections: {
@@ -62,7 +71,10 @@ const identity = {
 function post(body: unknown) {
   return new Request('http://x/api/hooks/session-start', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer lum_ok' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer lum_ok',
+    },
     body: JSON.stringify(body),
   })
 }
@@ -83,7 +95,9 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
       bound: true,
       taskId: 'task-1',
     })
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: 'm',
       linkedResourcesSection: 'l',
@@ -93,16 +107,22 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
         { fragmentType: 'PR', fragmentId: 'pr-1' },
       ],
     })
-    ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildReviewTodosSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [{ fragmentType: 'PR_REVIEW_TODO', fragmentId: 'todo-1' }],
     })
-    ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildLayer2ReviewSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [{ fragmentType: 'MEMORY', fragmentId: 'mem-proj' }],
       dropped: 0,
     })
-    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+    ).mockResolvedValue({
       sessionId: 'prev-s',
       headline: 'h',
       unresolved: [],
@@ -128,7 +148,9 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
   })
 
   it('does not record edges when the session is unbound', async () => {
-    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({ bound: false })
+    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
+      bound: false,
+    })
     await POST(post({ sessionId: 's-1' }))
     expect(lineageService.recordSessionStartEdges).not.toHaveBeenCalled()
   })
@@ -148,25 +170,31 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
       bound: true,
       taskId: 'task-1',
     })
-    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildSessionStartSections as jest.Mock
+    ).mockResolvedValue({
       criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
       fragments: [],
     })
-    ;(taskContextService.buildReviewTodosSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildReviewTodosSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [],
     })
-    ;(taskContextService.buildLayer2ReviewSectionForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildLayer2ReviewSectionForTask as jest.Mock
+    ).mockResolvedValue({
       section: '',
       fragments: [],
       dropped: 0,
     })
-    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(
-      null
-    )
+    ;(
+      taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+    ).mockResolvedValue(null)
 
     await POST(post({ sessionId: 's-1' }))
     expect(lineageService.recordSessionStartEdges).not.toHaveBeenCalled()
