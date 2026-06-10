@@ -107,6 +107,12 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - A merged PR with a new migration ≠ production is migrated. Production is migrated only after the deploy completes. After merging a schema-change PR, verify the migration applied on prod (deploy log, or `prisma migrate status` against the prod URL).
 - When opening a PR with a schema change, mention in the description what production needs (e.g. "requires `migrate deploy` on next deploy", or call out any data-deletion the migration performs).
 
+## Live Docs(活文档权威 md 源)
+
+- 含表格/复杂结构的 Lumo 活文档,权威 markdown 源放在 `docs/live-docs/`(映射表见该目录 README)
+- 编辑流程:改源文件 → `lumo doc update <docId> --file docs/live-docs/<file>.md` → `npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md` 校验表格结构未丢
+- **永远不要把 `lumo doc show` 的输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);`doc show` 只用来读
+
 ## CLI & Skills 同步
 
 - 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `.claude/skills/lumo/SKILL.md`：
