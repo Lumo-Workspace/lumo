@@ -21,12 +21,18 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/services/lineage.service', () => ({
   lineageService: { recordSessionStartEdges: jest.fn().mockResolvedValue(undefined) },
 }))
+jest.mock('@/lib/services/task-dependency.service', () => ({
+  taskDependencyService: {
+    buildBlockerWarningSectionForTask: jest.fn().mockResolvedValue(''),
+  },
+}))
 jest.mock('@vercel/functions', () => ({ waitUntil: (p: Promise<unknown>) => p }))
 
 import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
+import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { POST } from '@/app/api/hooks/session-start/route'
 
 const mockVerify = authService.verifyApiKey as jest.Mock
@@ -69,6 +75,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       linkedResourcesSection: '',
       fragments: [],
     })
+    ;(
+      taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
+    ).mockResolvedValue('')
   })
 
   it('returns memorySection when session has a bound task', async () => {
@@ -161,5 +170,26 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     expect(taskContextService.buildSessionStartSections).toHaveBeenCalledWith(
       'task-1'
     )
+  })
+
+  it('returns blockerWarningSection in response when buildBlockerWarningSectionForTask resolves a non-empty string', async () => {
+    const warningText = '## ⚠ 依赖告警…'
+    mockRecord.mockResolvedValue({ id: 'he_5', sessionId: 's-5', taskId: 'task-1' })
+    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
+      bound: true,
+      taskId: 'task-1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'Test task',
+    })
+    ;(
+      taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
+    ).mockResolvedValue(warningText)
+
+    const req = post({ sessionId: 's-5' })
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(body.ok).toBe(true)
+    expect(body.blockerWarningSection).toBe(warningText)
   })
 })

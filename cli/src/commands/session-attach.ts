@@ -168,12 +168,13 @@ export async function sessionAttach(
       body.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
   )
+  // 告警先于 memory:与 hook 注入顺序一致,短且可操作的信息优先。
+  if (body.blockerWarningSection) {
+    console.log('')
+    console.log(sanitizeField(body.blockerWarningSection))
+  }
   if (body.memorySection !== '') {
     console.log('')
     console.log(sanitizeField(body.memorySection))
-  }
-  if (body.blockerWarningSection && body.blockerWarningSection !== '') {
-    console.log('')
-    console.log(sanitizeField(body.blockerWarningSection))
   }
 }
