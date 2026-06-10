@@ -467,24 +467,26 @@ model Task {
   children   Task[]             @relation("TaskChildren")
   assignee   Actor?             @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
 
-  viewTaskOrders    ViewTaskOrder[]
-  comments          Comment[]
-  pullRequests      PullRequest[]
-  branches          TaskBranch[]
-  sessions          Session[]
-  activities        TaskActivity[]
-  documentMentions  DocumentMention[]
-  priorityOverrides PriorityOverride[]
-  taskTags          TaskTag[]
-  sentryIssueLinks  SentryIssueLink[]
-  memories          Memory[]
-  slackContexts     TaskSlackContext[]
-  webLinks          TaskWebLink[]
-  figmaLinks        TaskFigmaLink[]
-  artifacts         TaskArtifact[]
-  complexity        TaskComplexity?
-  lineageEdges      LineageEdge[]
-  forecastSnapshot  TaskForecastSnapshot?
+  viewTaskOrders     ViewTaskOrder[]
+  comments           Comment[]
+  pullRequests       PullRequest[]
+  branches           TaskBranch[]
+  sessions           Session[]
+  activities         TaskActivity[]
+  documentMentions   DocumentMention[]
+  priorityOverrides  PriorityOverride[]
+  taskTags           TaskTag[]
+  sentryIssueLinks   SentryIssueLink[]
+  memories           Memory[]
+  slackContexts      TaskSlackContext[]
+  webLinks           TaskWebLink[]
+  figmaLinks         TaskFigmaLink[]
+  artifacts          TaskArtifact[]
+  complexity         TaskComplexity?
+  lineageEdges       LineageEdge[]
+  forecastSnapshot   TaskForecastSnapshot?
+  acceptanceCriteria AcceptanceCriterion[]
+  verificationRuns   VerificationRun[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1419,15 +1421,15 @@ model Session {
   // the CLI from the Stop-hook transcript and overwritten on each STOP (not
   // incremented). loopCount counts STOP/STOP_FAILURE events = turns. All null
   // until the first STOP carrying usage; historical rows stay null (no backfill).
-  inputTokens         Int?
-  outputTokens        Int?
-  cacheReadTokens     Int?
-  cacheCreationTokens Int?
-  loopCount           Int?
+  inputTokens           Int?
+  outputTokens          Int?
+  cacheReadTokens       Int?
+  cacheCreationTokens   Int?
+  loopCount             Int?
   /// Cumulative per-model token usage (LUM-298). JSON map keyed by raw model
   /// string -> { input, output, cacheRead, cacheCreation }. Overwritten each
   /// STOP alongside the flat columns. Null until the first STOP carrying usage.
-  usageByModel        Json?
+  usageByModel          Json?
   // Session summary — generated on demand via Claude. The generation flow is a
   // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
   // model fills a type-specific template. `summary` holds the structured output
@@ -1516,24 +1518,24 @@ enum MemoryStatus {
 }
 
 model Memory {
-  id                String            @id @default(cuid())
+  id                String                       @id @default(cuid())
   workspaceId       String
   projectId         String
   taskId            String?
   scope             MemoryScope
   category          MemoryCategory
-  agent             TaskArtifactAgent @default(CLAUDE_CODE)
+  agent             TaskArtifactAgent            @default(CLAUDE_CODE)
   content           Json
   sourceSessionId   String?
   createdByMemberId String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
   /// Lifecycle (LUM-325). Only ACTIVE rows are injected/reconciled; SUPERSEDED
   /// rows are retained for audit + lineage. validFrom = when this row became the
   /// live truth (backfilled to createdAt for pre-LUM-325 rows). supersededAt /
   /// supersededById are stamped on the OLD row when a SUPERSEDE replaces it.
-  status            MemoryStatus      @default(ACTIVE)
-  validFrom         DateTime          @default(now())
+  status            MemoryStatus                 @default(ACTIVE)
+  validFrom         DateTime                     @default(now())
   supersededAt      DateTime?
   supersededById    String?
   /// 1024-dim semantic embedding of memoryContentToText(content), model
@@ -1911,4 +1913,95 @@ model TaskForecastSnapshot {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@map("task_forecast_snapshots")
+}
+
+// ─── Acceptance v1: criteria contract + verification event log (LUM-341) ────
+// Two-table foundation for the task-acceptance loop. The Task model carries
+// NO derived columns: verification state / current round are always derived
+// from VerificationRun (same zero-schema derived-state route as LUM-323).
+
+enum AcceptanceVerifierType {
+  MACHINE
+  HUMAN
+}
+
+/// Provenance of a criterion — the key feedback-loop signal. AGENT_DRAFT =
+/// initial contract drafted by the agent (round 0); HUMAN_EDIT = a human
+/// revision (possibly transcribed by the agent from a conversation, with
+/// attribution); REVIEW_ADDED = a gap found during review, appended in place
+/// at the round it surfaced.
+enum AcceptanceCriterionSource {
+  AGENT_DRAFT
+  HUMAN_EDIT
+  REVIEW_ADDED
+}
+
+enum VerificationVerdict {
+  PASS
+  FAIL
+  PASS_WITH_FOLLOWUP
+}
+
+/// First-pass rejection taxonomy (paired with free-text rejectionReason).
+/// Extend additively as Slice 3 metrics reveal missing buckets.
+enum VerificationRejectionReason {
+  CRITERION_UNMET // the check ran and the criterion is not satisfied
+  EVIDENCE_INSUFFICIENT // evidence missing or does not prove the statement
+  CHECK_EXECUTION_ERROR // the checkpointer itself failed to run (env/infra)
+  SCOPE_MISMATCH // the work does not address the criterion
+  OTHER
+}
+
+model AcceptanceCriterion {
+  id               String                    @id @default(cuid())
+  taskId           String
+  statement        String
+  verifierType     AcceptanceVerifierType
+  // Executable check pointer (test command, script, probe…). Free-form in v1.
+  // Required for MACHINE at the validation layer — a criterion that can't
+  // name its check is drafted as HUMAN instead.
+  checkpointer     String?
+  // Whether a verdict on this criterion must carry an evidencePointer.
+  // Independently of this flag, a MACHINE PASS always requires evidence
+  // (enforced at the validation layer).
+  evidenceRequired Boolean                   @default(false)
+  source           AcceptanceCriterionSource
+  // Verification round at which the criterion was added; initial draft = 0.
+  addedAtRound     Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  verificationRuns VerificationRun[]
+
+  @@index([taskId])
+  @@map("acceptance_criteria")
+}
+
+/// Append-only event log: one row per (criterion, round) verdict. Rows are
+/// never updated — later rounds append new rows, and task-level state is
+/// derived by reading the latest round. RED LINE: rows with verifierType =
+/// HUMAN must only ever be written via human-initiated paths (web UI / Slack
+/// action). Agent-facing input schemas hard-code MACHINE and cannot express
+/// a HUMAN verdict (see lib/validation/acceptance.ts).
+model VerificationRun {
+  id                  String                       @id @default(cuid())
+  taskId              String
+  criterionId         String
+  round               Int
+  // Denormalized from the criterion at verdict time so the event log stays
+  // faithful even if a HUMAN_EDIT later retypes the criterion.
+  verifierType        AcceptanceVerifierType
+  verdict             VerificationVerdict
+  evidencePointer     String?
+  rejectionReason     String?
+  rejectionReasonEnum VerificationRejectionReason?
+  createdAt           DateTime                     @default(now())
+
+  task      Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  criterion AcceptanceCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, round])
+  @@index([criterionId])
+  @@map("verification_runs")
 }
