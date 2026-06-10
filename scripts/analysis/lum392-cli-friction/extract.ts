@@ -112,7 +112,9 @@ async function main() {
         known: inv.known,
         flags: inv.flags,
         target: firstPositionalArg(inv),
-        raw: inv.raw.slice(0, 500),
+        // 2000 keeps most quoted bodies whole; truncated raws are excluded
+        // from AST validation downstream (an open quote leaks fake flags).
+        raw: inv.raw.slice(0, 2000),
         siblings: segments.length,
         errored: out.errored,
         errorKind: out.errorKind,
