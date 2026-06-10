@@ -35,6 +35,37 @@ When the session is bound, session-start may inject a **"🆕 待核对：上次
 
 Attribution requires the CC session id to reach the server: `lumo task update <id> --status done` automatically sends `CLAUDE_CODE_SESSION_ID` (via an `X-Lumo-Session-Id` header) so the resulting Layer 2 memories are attributed to the session. Marking a task done from the **web UI** leaves them unattributed (they won't surface for review) — that's expected.
 
+### Blocker alert injected at `session attach` / session-start (`## ⚠ 依赖告警`)
+
+When the bound task has **CONFIRMED BLOCKS edges whose blocking task is not DONE**, the attach output and session-start hook context inject a dependency warning block. The warning is built by `buildBlockerWarningSectionForTask` and is **omitted entirely** (empty string) when nothing is actionable — no section heading appears when there are no live blockers and no SUGGESTED candidates.
+
+**Trigger conditions (either or both may appear):**
+1. At least one CONFIRMED "blocked by" edge where the blocking task's status is not DONE.
+2. At least one SUGGESTED (unconfirmed) dependency candidate on the task.
+
+**Format:**
+
+```
+## ⚠ 依赖告警
+
+- 本任务被 LUM-9「Fix auth token expiry」阻塞(状态 IN_PROGRESS)。
+- 本任务被 LUM-15「Upgrade Postgres driver」阻塞(状态 IN_REVIEW,PR #42 未 merge)。
+
+建议先等 blocker 合并再开工,避免白跑 run;如边已过时,用 `lumo task deps rm/dismiss` 清理。
+检测到 3 条候选依赖待确认:运行 `lumo task deps list LUM-42`。
+```
+
+- Each blocker line shows: identifier, title, current status. If the blocking task has an open pull request, a `, PR #N` note is appended — `, PR #N (draft) 未 merge` for draft PRs.
+- The guidance line ("建议先等 blocker 合并…") appears when there is at least one live blocker.
+- The candidate-count hint line appears when there is at least one SUGGESTED edge (independent of whether there are live blockers — either condition alone can produce the alert block).
+- The function never throws — if it fails it silently returns an empty string, leaving the session start unaffected.
+
+**Agent guidance when you see `## ⚠ 依赖告警`:**
+- **Evaluate whether to wait.** If the blocking task's work overlaps with yours (same files, same API surface), starting immediately risks rework. Read the blocker's status and open PR note before deciding.
+- **Stale or wrong edge?** Run `lumo task deps list <LUM-N>` to inspect the full edge list, then `lumo task deps rm <LUM-N> <edge> --yes` (if manually added and now obsolete) or `lumo task deps dismiss <LUM-N> <edge>` (if a false positive from detection).
+- **Candidate hint present?** Run `lumo task deps list <LUM-N>` and review each SUGGESTED edge — confirm real ones, dismiss false positives. Leaving SUGGESTED edges unreviewed means repeated hints every session.
+- Do **not** blindly start work on a task whose live blocker is still IN_PROGRESS or IN_REVIEW unless the user explicitly decides to proceed in parallel.
+
 ### `lumo session attach <identifier>` — bind the current session to a task
 
 Use this whenever the user mentions a task ID. The command is the only way to bind a session to a task.

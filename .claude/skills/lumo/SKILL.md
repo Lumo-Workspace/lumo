@@ -63,7 +63,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 **Task dependencies**
 
 - `lumo task deps list <id>` — list dependency edges in both directions, grouped CONFIRMED / SUGGESTED(待确认) / DISMISSED; each row shows a short edge id `[xxxxxxxx]`, the other task, and detected evidence (`shared_files(N 个共享文件: …)` / `task_mention(…)`); SUGGESTED rows include a copy-pasteable confirm hint
-- `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (created CONFIRMED, source MANUAL)
+- `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (created CONFIRMED, source MANUAL; if a SUGGESTED/DISMISSED edge already exists for the same pair, it is confirmed in place rather than creating a new row)
 - `lumo task deps confirm <id> <edge> [--reverse]` — confirm a detected candidate; `<edge>` is a short edge-id prefix (≥6 chars) or the other task's identifier (case-insensitive); `--reverse` flips the direction when the detector guessed it backwards
 - `lumo task deps dismiss <id> <edge>` — dismiss a candidate (never re-suggested)
 - `lumo task deps rm <id> <edge> --yes` — delete an edge (refuses without `--yes`)
