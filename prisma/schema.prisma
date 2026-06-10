@@ -210,6 +210,7 @@ model Workspace {
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
+  taskDependencies        TaskDependency[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -487,6 +488,8 @@ model Task {
   forecastSnapshot   TaskForecastSnapshot?
   acceptanceCriteria AcceptanceCriterion[]
   verificationRuns   VerificationRun[]
+  blockedByEdges     TaskDependency[]      @relation("TaskBlockedBy")
+  blockingEdges      TaskDependency[]      @relation("TaskBlocking")
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -2004,4 +2007,49 @@ model VerificationRun {
   @@index([taskId, round])
   @@index([criterionId])
   @@map("verification_runs")
+}
+
+// ─── TaskDependency (LUM-172 检测优于声明) ──────────────────────────────────
+
+enum DependencyKind {
+  BLOCKS
+  RELATES
+}
+
+enum DependencySource {
+  MANUAL
+  DETECTED
+}
+
+enum DependencyStatus {
+  SUGGESTED
+  CONFIRMED
+  DISMISSED
+}
+
+model TaskDependency {
+  id             String           @id @default(cuid())
+  workspaceId    String
+  // 方向:blockingTask 先 merge,blockedTask 等待。
+  blockedTaskId  String
+  blockingTaskId String
+  kind           DependencyKind   @default(BLOCKS)
+  source         DependencySource
+  status         DependencyStatus @default(SUGGESTED)
+  // 可解释红线:检测边必须说得清来源。'task_mention' | 'shared_files';
+  // detail 放证据(mention 表面 / 共享文件数量+样本)。MANUAL 边为 null。
+  reason         String?
+  detail         Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  confirmedAt    DateTime?
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blockedTask  Task      @relation("TaskBlockedBy", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+  blockingTask Task      @relation("TaskBlocking", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([blockedTaskId, blockingTaskId])
+  @@index([workspaceId, status])
+  @@index([blockingTaskId])
+  @@map("task_dependencies")
 }
