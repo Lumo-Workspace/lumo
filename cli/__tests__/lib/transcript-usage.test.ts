@@ -1,4 +1,4 @@
-import { writeFileSync, mkdtempSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { sumTranscriptUsage } from '../../src/lib/transcript-usage'
@@ -7,6 +7,26 @@ function fixture(lines: object[]): string {
   const dir = mkdtempSync(join(tmpdir(), 'lumo-transcript-'))
   const path = join(dir, 't.jsonl')
   writeFileSync(path, lines.map(l => JSON.stringify(l)).join('\n'))
+  return path
+}
+
+/**
+ * Build the real on-disk layout: <dir>/<sessionId>.jsonl plus
+ * <dir>/<sessionId>/subagents/<name> for each subagent entry.
+ */
+function fixtureWithSubagents(
+  main: object[],
+  subagents: Record<string, object[]>
+): string {
+  const dir = mkdtempSync(join(tmpdir(), 'lumo-transcript-'))
+  const sessionId = 'sess-1234'
+  const path = join(dir, `${sessionId}.jsonl`)
+  writeFileSync(path, main.map(l => JSON.stringify(l)).join('\n'))
+  const subDir = join(dir, sessionId, 'subagents')
+  mkdirSync(subDir, { recursive: true })
+  for (const [name, lines] of Object.entries(subagents)) {
+    writeFileSync(join(subDir, name), lines.map(l => JSON.stringify(l)).join('\n'))
+  }
   return path
 }
 
@@ -121,6 +141,129 @@ describe('sumTranscriptUsage', () => {
       },
     ])
     expect(sumTranscriptUsage(path)).toBeNull()
+  })
+
+  it('folds subagent transcripts under <sessionId>/subagents/ into the sum', () => {
+    const path = fixtureWithSubagents(
+      [
+        {
+          type: 'assistant',
+          message: { model: 'claude-opus-4-8', usage: usage(100, 10, 5, 2) },
+        },
+      ],
+      {
+        'agent-a1.jsonl': [
+          {
+            type: 'assistant',
+            message: { model: 'claude-sonnet-4-6', usage: usage(50, 5, 1, 1) },
+          },
+          {
+            type: 'assistant',
+            message: { model: 'claude-sonnet-4-6', usage: usage(30, 3, 2, 0) },
+          },
+        ],
+        'agent-b2.jsonl': [
+          {
+            type: 'assistant',
+            message: { model: '<synthetic>', usage: usage(999, 999, 999, 999) },
+          },
+          {
+            type: 'assistant',
+            message: { model: 'claude-opus-4-8', usage: usage(20, 2, 0, 1) },
+          },
+        ],
+      }
+    )
+    expect(sumTranscriptUsage(path)).toEqual({
+      total: {
+        inputTokens: 200,
+        outputTokens: 20,
+        cacheReadTokens: 8,
+        cacheCreationTokens: 4,
+      },
+      byModel: {
+        'claude-opus-4-8': {
+          input: 120,
+          output: 12,
+          cacheRead: 5,
+          cacheCreation: 3,
+        },
+        'claude-sonnet-4-6': {
+          input: 80,
+          output: 8,
+          cacheRead: 3,
+          cacheCreation: 1,
+        },
+      },
+    })
+  })
+
+  it('returns subagent usage even when the main transcript has none', () => {
+    const path = fixtureWithSubagents([{ type: 'user', message: {} }], {
+      'agent-a1.jsonl': [
+        {
+          type: 'assistant',
+          message: { model: 'claude-sonnet-4-6', usage: usage(10, 1, 0, 0) },
+        },
+      ],
+    })
+    expect(sumTranscriptUsage(path)).toEqual({
+      total: {
+        inputTokens: 10,
+        outputTokens: 1,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+      byModel: {
+        'claude-sonnet-4-6': {
+          input: 10,
+          output: 1,
+          cacheRead: 0,
+          cacheCreation: 0,
+        },
+      },
+    })
+  })
+
+  it('only reads agent-*.jsonl in the subagents dir, ignoring other files', () => {
+    const path = fixtureWithSubagents(
+      [
+        {
+          type: 'assistant',
+          message: { model: 'claude-opus-4-8', usage: usage(10, 1, 0, 0) },
+        },
+      ],
+      {
+        'agent-a1.meta.json': [
+          {
+            type: 'assistant',
+            message: { model: 'sneaky', usage: usage(777, 777, 777, 777) },
+          },
+        ],
+        'notes.jsonl': [
+          {
+            type: 'assistant',
+            message: { model: 'sneaky', usage: usage(888, 888, 888, 888) },
+          },
+        ],
+      }
+    )
+    expect(sumTranscriptUsage(path)).toEqual({
+      total: {
+        inputTokens: 10,
+        outputTokens: 1,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+      byModel: {
+        'claude-opus-4-8': {
+          input: 10,
+          output: 1,
+          cacheRead: 0,
+          cacheCreation: 0,
+        },
+      },
+    })
   })
 
   it('skips malformed JSON lines without throwing', () => {
