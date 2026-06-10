@@ -234,6 +234,8 @@ DISMISSED
   [b3c4d5e6] blocks LUM-12 · 已忽略
 ```
 
+CONFIRMED and SUGGESTED rows show the other task's identifier, title, current status, and source/evidence. DISMISSED rows render as `[shortId] <direction> <identifier> · 已忽略` only — no title, status, or source.
+
 When there are no edges at all the output is:
 ```
 Dependencies for LUM-42: 无依赖边。
@@ -257,7 +259,8 @@ Both `<LUM-N>` and `--blocked-by` are required. The command errors on usage if e
 
 **Service semantics (read before using):**
 - **Self-edge** → 400 ("A task cannot depend on itself").
-- **Pair already has a CONFIRMED edge** (in either direction) → 409 ("Dependency already exists").
+- **CONFIRMED edge in the same direction already exists** → 409 ("Dependency already exists").
+- **CONFIRMED edge in the reverse direction already exists** → the cycle guard fires and returns 409 ("Dependency would create a cycle").
 - **Pair has a SUGGESTED or DISMISSED edge** in the same direction → `add` confirms it in place, preserving the original DETECTED source (so the edge transitions to CONFIRMED while keeping its auto-detected provenance). No new row is created.
 - **Cycle guard** — the service runs a DFS over all CONFIRMED BLOCKS edges in the workspace before writing. If adding the edge would create a cycle → 409 ("Dependency would create a cycle").
 
@@ -327,5 +330,6 @@ Output: `Removed [a1b2c3d4] from LUM-42`
 
 - **After `session attach` output shows a blocker warning or candidate-count hint** → run `lumo task deps list <LUM-N>` to review the full edge list, then `confirm` or `dismiss` each SUGGESTED candidate.
 - **User says "X needs to wait for Y" or "LUM-42 is blocked by LUM-9"** → run `lumo task deps add LUM-42 --blocked-by LUM-9`.
-- **Agent receives a `## ⚠ 依赖告警` block at session-start** → evaluate whether to wait for the blocker to merge before starting work; if the edge is stale or wrong, clean it with `deps rm` or `deps dismiss`. See [sessions.md](sessions.md) for the full alert format.
+- **Agent sees a `## ⚠ 依赖告警` block (form A — live blockers) at session-start** → evaluate whether to wait for the blocker to merge before starting work; if the edge is stale or wrong, clean it with `deps rm` or `deps dismiss`.
+- **Agent sees only a standalone hint line `检测到 N 条候选依赖待确认…` (form B — no live blockers)** → no immediate blocker, but run `lumo task deps list <LUM-N>` to review and confirm/dismiss SUGGESTED candidates. See [sessions.md](sessions.md) for the full alert format.
 - **User reports a false positive dependency suggestion** → `lumo task deps dismiss <LUM-N> <edge>` to permanently suppress it for this pair.
