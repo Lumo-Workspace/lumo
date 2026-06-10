@@ -9,6 +9,12 @@ jest.mock('@/lib/services/lineage-outcome.service', () => ({
 jest.mock('@/lib/services/lineage/fragment-usage-audit.service', () => ({
   fragmentUsageAuditService: { auditDoneTaskSessions: (n: number) => auditDoneTaskSessions(n) },
 }))
+jest.mock('@/lib/services/memory/compaction.service', () => ({
+  memoryCompactionService: { sweepColdProjectMemories: jest.fn().mockResolvedValue({ projectsOverThreshold: 0, archivedTotal: 0, projects: [] }) },
+}))
+jest.mock('@/lib/services/dependency-detection.service', () => ({
+  dependencyDetectionService: { sweepSharedFileCandidates: jest.fn().mockResolvedValue({ suggested: 0 }) },
+}))
 
 import { GET } from '@/app/api/cron/backfill-lineage-outcomes/route'
 
