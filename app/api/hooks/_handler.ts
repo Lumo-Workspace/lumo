@@ -3,6 +3,7 @@ import { TaskArtifactAgent } from '@prisma/client'
 import type { HookEventType, Prisma } from '@prisma/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { hookEventService } from '@/lib/services/hook-event.service'
+import { validateHookPayload } from '@/lib/validation/hook-payload'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -63,18 +64,25 @@ export async function handleHookRequest(
     const identity = await verifyBearer(request)
     if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
 
-    let payload: unknown
+    let rawPayload: unknown
     try {
-      payload = await request.json()
+      rawPayload = await request.json()
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    // Boundary validation (LUM-348): assert key-field types and cap free-text
+    // size before anything is persisted. Sanitize-and-mark, never 4xx — hooks
+    // are best-effort, so a malformed payload degrades to a marked event
+    // instead of breaking the event stream. Everything downstream (service
+    // extraction, afterRecord side effects) sees only the sanitized payload.
+    const { payload } = validateHookPayload(type, rawPayload)
 
     const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({
       identity,
       type,
-      payload: (payload ?? {}) as Prisma.InputJsonValue,
+      payload: payload as Prisma.InputJsonValue,
       ...(agent !== undefined ? { agent } : {}),
     })
 
@@ -89,7 +97,7 @@ export async function handleHookRequest(
             workspaceId: identity.workspace.id,
             filePath: recorded.filePath,
             toolName: recorded.toolName,
-            payload: payload ?? {},
+            payload,
           },
           identity
         )
