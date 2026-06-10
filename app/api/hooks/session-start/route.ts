@@ -7,6 +7,12 @@ import {
 import { lineageService } from '@/lib/services/lineage.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import {
+  buildSessionStartContextMetrics,
+  CONTEXT_METRICS_KEY,
+} from '@/lib/context/injection-metrics'
+import type { Prisma } from '@prisma/client'
 import { waitUntil } from '@vercel/functions'
 
 export async function POST(request: Request) {
@@ -75,6 +81,42 @@ export async function POST(request: Request) {
             })
           )
         }
+
+        // LUM-402: stamp per-section injection metrics onto the stored
+        // SESSION_START row so budget pressure is SQL-queryable after the
+        // fact. Observe-only (the metrics never enter the injected context)
+        // and fire-and-forget — must not block or fail the injection.
+        const contextMetrics = buildSessionStartContextMetrics({
+          budgetTokens: sections.budget.budgetTokens,
+          allocation: {
+            ...sections.budget.sections,
+            layer2Review: {
+              keptCards: layer2Review.fragments.length,
+              droppedCards: layer2Review.dropped,
+            },
+          },
+          criteriaSection,
+          memorySection,
+          linkedResourcesSection,
+          reviewTodosSection,
+          previousSession,
+          layer2ReviewSection,
+          blockerWarningSection,
+        })
+        const payloadWithMetrics = {
+          ...(ctx.payload as Record<string, unknown>),
+          [CONTEXT_METRICS_KEY]: contextMetrics,
+        } as unknown as Prisma.InputJsonValue
+        waitUntil(
+          hookEventRepository
+            .setContextInjectionMetrics(ctx.eventId, payloadWithMetrics)
+            // Self-catch: the promise is never awaited, so a rejection here
+            // would surface as an unhandled rejection instead of being eaten
+            // by the handler's afterRecord guard (same as lineage edges).
+            .catch(error =>
+              console.error('session-start context metrics stamp error:', error)
+            )
+        )
       }
       return {
         sessionId,

@@ -28,9 +28,10 @@ const MAX_TRAVERSAL_DEPTH = 128
  * assert types when present, never require presence (a payload missing
  * session_id is recorded unlinked, matching existing service tolerance).
  *
- * `_lumo_validation` is the server-side marker key (see below) and is
+ * `_lumo_validation` (this module's marker) and `_lumo_context_metrics`
+ * (session-start injection telemetry, LUM-402) are server-side keys and are
  * reserved: a client-supplied value is always dropped so a stored marker can
- * only originate from this module.
+ * only originate from the server.
  */
 const commonFields = {
   session_id: z.string().optional(),
@@ -40,6 +41,7 @@ const commonFields = {
   permission_mode: z.string().optional(),
   _lumo_usage: z.looseObject({}).optional(),
   _lumo_validation: z.never().optional(),
+  _lumo_context_metrics: z.never().optional(),
 }
 
 const toolFields = {

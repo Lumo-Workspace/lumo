@@ -213,6 +213,18 @@ describe('validateHookPayload', () => {
       expect(marker(stored)?.truncated).toBeUndefined()
       expect(marker(stored)?.dropped).toContain('_lumo_validation')
     })
+
+    it('rejects a client-supplied _lumo_context_metrics key (LUM-402 reserved key)', () => {
+      const payload = {
+        session_id: 's',
+        _lumo_context_metrics: { totalTokens: 999_999, forged: true },
+      }
+      const result = validateHookPayload('SESSION_START', payload)
+      const stored = result.payload as Record<string, unknown>
+      expect(stored['_lumo_context_metrics']).toBeUndefined()
+      expect(stored['session_id']).toBe('s')
+      expect(marker(stored)?.dropped).toContain('_lumo_context_metrics')
+    })
   })
 
   describe('non-object payloads', () => {

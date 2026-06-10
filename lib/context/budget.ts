@@ -56,19 +56,38 @@ export function makeBudgetSection<T>(
 }
 
 /**
+ * Per-section outcome of a budget allocation (LUM-402 injection telemetry).
+ * Token figures are the same estimates the allocator budgeted with — full-card
+ * rendering cost, excluding headings and manifest fallback lines.
+ */
+export interface BudgetSectionMetric {
+  /** Cards rendered in full. */
+  keptCards: number
+  /** Cards degraded to one-line manifests (or omitted) by budget exhaustion. */
+  droppedCards: number
+  /** Estimated tokens of the kept full cards. */
+  keptTokens: number
+  /** Estimated tokens the dropped cards would have cost if rendered in full. */
+  droppedTokens: number
+}
+
+/**
  * Greedily fill full cards across sections in array order (= priority). The
  * first card that would exceed `maxTokens` and every card after it (including
- * all later sections) render as manifests. Returns rendered strings aligned 1:1
- * with the input sections ("" for sections that produce nothing).
+ * all later sections) render as manifests. `rendered` is aligned 1:1 with the
+ * input sections ("" for sections that produce nothing); `metrics` is the
+ * same-index per-section kept/dropped attribution.
  */
-export function allocateBudget(
+export function allocateBudgetWithMetrics(
   sections: BudgetSection[],
   maxTokens: number
-): string[] {
+): { rendered: string[]; metrics: BudgetSectionMetric[] } {
   let used = 0
   let exhausted = false
-  return sections.map(section => {
+  const metrics: BudgetSectionMetric[] = []
+  const rendered = sections.map(section => {
     let fullCount = 0
+    let keptTokens = 0
     if (!exhausted) {
       for (const cost of section.cardTokens) {
         if (used + cost > maxTokens) {
@@ -76,9 +95,26 @@ export function allocateBudget(
           break
         }
         used += cost
+        keptTokens += cost
         fullCount++
       }
     }
+    const droppedCosts = section.cardTokens.slice(fullCount)
+    metrics.push({
+      keptCards: fullCount,
+      droppedCards: droppedCosts.length,
+      keptTokens,
+      droppedTokens: droppedCosts.reduce((sum, cost) => sum + cost, 0),
+    })
     return section.render(fullCount)
   })
+  return { rendered, metrics }
+}
+
+/** `allocateBudgetWithMetrics` for callers that only need the rendered strings. */
+export function allocateBudget(
+  sections: BudgetSection[],
+  maxTokens: number
+): string[] {
+  return allocateBudgetWithMetrics(sections, maxTokens).rendered
 }
