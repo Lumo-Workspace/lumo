@@ -16,6 +16,7 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'doc bind',
   'doc create',
   'doc delete',
+  'doc diff',
   'doc import-gdoc',
   'doc list',
   'doc move',

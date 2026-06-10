@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.26.0",
+  "cliVersion": "1.27.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -133,6 +133,26 @@
       },
       "hasSubcommands": false,
       "description": "Delete a document (requires --yes)"
+    },
+    "doc diff": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "description": "Local markdown file to compare against"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
     },
     "doc import-gdoc": {
       "arguments": [
@@ -286,9 +306,17 @@
           "variadic": false
         }
       ],
-      "flags": {},
+      "flags": {
+        "--raw": {
+          "long": "--raw",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Print the stored markdown source verbatim (no header); errors if absent"
+        }
+      },
       "hasSubcommands": false,
-      "description": "Show document header and body (doc = title or cuid)"
+      "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render."
     },
     "doc sync": {
       "arguments": [
