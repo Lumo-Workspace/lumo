@@ -44,7 +44,10 @@ interface UpsertSessionData {
    */
   agent?: TaskArtifactAgent
   now: Date
-  /** Cumulative session token totals from the CLI transcript (STOP only). */
+  /**
+   * Cumulative session token totals from the CLI transcript. Carried by STOP
+   * (full settlement) and POST_TOOL_BATCH (mid-turn, flat columns only).
+   */
   usage?:
     | {
         inputTokens: number
@@ -75,9 +78,12 @@ export const sessionRepository = {
    * didn't include it but a later one does. Returns the row's current taskId
    * so the caller can tag the HookEvent without a second query.
    *
-   * When `usage` is present (STOP events), cumulative token columns are
-   * OVERWRITTEN (not incremented) — the CLI re-reads the whole transcript each
-   * STOP, so the latest value is the running total. `isStop` increments
+   * When `usage` is present, cumulative token columns are OVERWRITTEN (not
+   * incremented) — the CLI re-reads the whole transcript each time, so the
+   * latest value is the running total. On STOP all columns including
+   * usageByModel are settled (with the per-turn delta computed against the
+   * prior usageByModel); mid-turn (POST_TOOL_BATCH) only the flat columns are
+   * written so the STOP delta anchor stays intact. `isStop` increments
    * loopCount.
    */
   async upsertForHookEvent(data: UpsertSessionData) {
@@ -129,11 +135,28 @@ export const sessionRepository = {
       })
     }
 
-    // Non-STOP (or STOP without usage): cheap single upsert, no token write.
-    // A STOP without usage still bumps loopCount.
+    // Mid-turn usage (POST_TOOL_BATCH, LUM-345): overwrite ONLY the flat
+    // cumulative columns so the delivery card shows live burn during a long
+    // turn. usageByModel is deliberately untouched — it is the anchor the
+    // STOP settlement diffs against, so advancing it here would shrink the
+    // next per-turn delta. No transaction needed: there is no delta to settle.
+    const midTurnFlat =
+      !data.isStop && data.usage
+        ? {
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheReadTokens: data.usage.cacheReadTokens,
+            cacheCreationTokens: data.usage.cacheCreationTokens,
+          }
+        : null
+
+    // Non-STOP (or STOP without usage): cheap single upsert, no token write
+    // beyond the optional mid-turn flat overwrite. A STOP without usage still
+    // bumps loopCount.
     const setOnUpdate: Prisma.SessionUpdateInput = {
       lastActivityAt: data.now,
       eventCount: { increment: 1 },
+      ...(midTurnFlat ?? {}),
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
     if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
@@ -150,6 +173,7 @@ export const sessionRepository = {
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
+        ...(midTurnFlat ?? {}),
         ...(data.isStop ? { loopCount: 1 } : {}),
       },
       update: setOnUpdate,

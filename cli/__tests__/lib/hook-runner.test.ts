@@ -83,6 +83,39 @@ describe('augmentBodyWithUsage', () => {
     })
   })
 
+  it('injects _lumo_usage for a post-tool-batch hook so the server can surface live burn (LUM-345)', () => {
+    const transcriptPath = writeTranscript([
+      {
+        type: 'assistant',
+        message: {
+          usage: {
+            input_tokens: 100,
+            output_tokens: 20,
+            cache_read_input_tokens: 5,
+            cache_creation_input_tokens: 3,
+          },
+        },
+      },
+    ])
+
+    const input = JSON.stringify({
+      session_id: 'sess-abc',
+      transcript_path: transcriptPath,
+    })
+
+    const result = JSON.parse(augmentBodyWithUsage('post-tool-batch', input))
+
+    expect(result._lumo_usage).toEqual({
+      inputTokens: 100,
+      outputTokens: 20,
+      cacheReadTokens: 5,
+      cacheCreationTokens: 3,
+      byModel: {
+        unknown: { input: 100, output: 20, cacheRead: 5, cacheCreation: 3 },
+      },
+    })
+  })
+
   it('returns body unchanged for non-stop paths (identity)', () => {
     const body = JSON.stringify({ transcript_path: '/some/path.jsonl', foo: 1 })
     expect(augmentBodyWithUsage('pre-tool-use', body)).toBe(body)

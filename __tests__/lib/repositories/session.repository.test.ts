@@ -250,6 +250,79 @@ describe('sessionRepository.upsertForHookEvent', () => {
   })
 })
 
+describe('sessionRepository.upsertForHookEvent — mid-turn usage (LUM-345)', () => {
+  const usage = {
+    inputTokens: 100,
+    outputTokens: 50,
+    cacheReadTokens: 1000,
+    cacheCreationTokens: 20,
+    byModel: {
+      'claude-fable-5': {
+        input: 100,
+        output: 50,
+        cacheRead: 1000,
+        cacheCreation: 20,
+      },
+    },
+  }
+
+  it('overwrites flat token columns on update without touching usageByModel or loopCount', async () => {
+    const result = await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage,
+      isStop: false,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.update.inputTokens).toBe(100)
+    expect(args.update.outputTokens).toBe(50)
+    expect(args.update.cacheReadTokens).toBe(1000)
+    expect(args.update.cacheCreationTokens).toBe(20)
+    // usageByModel is the per-turn-delta anchor — only STOP may advance it.
+    expect(args.update).not.toHaveProperty('usageByModel')
+    expect(args.update).not.toHaveProperty('loopCount')
+    expect(result.turnUsageByModel).toBeNull()
+  })
+
+  it('sets flat token columns on create but leaves usageByModel unset so the first STOP settles the full turn', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage,
+      isStop: false,
+    })
+
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.inputTokens).toBe(100)
+    expect(args.create.outputTokens).toBe(50)
+    expect(args.create.cacheReadTokens).toBe(1000)
+    expect(args.create.cacheCreationTokens).toBe(20)
+    expect(args.create).not.toHaveProperty('usageByModel')
+    expect(args.create).not.toHaveProperty('loopCount')
+  })
+
+  it('does not open a transaction for mid-turn usage writes', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+      usage,
+      isStop: false,
+    })
+
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+})
+
 describe('sessionRepository.upsertWithTaskId', () => {
   const sessionUpdate = () => prisma.session.update as jest.Mock
   const sessionCreate = () => prisma.session.create as jest.Mock

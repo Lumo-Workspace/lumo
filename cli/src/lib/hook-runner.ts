@@ -292,14 +292,18 @@ export function resolveSessionStartStdout(
 }
 
 /**
- * For stop/stop-failure hooks, read the transcript named in the payload and
- * fold cumulative token totals into the body under `_lumo_usage` so the server
- * can persist them on the Session. Best-effort: returns the body unchanged on
- * any failure (no transcript_path, unreadable, unparseable, no usage). The
- * hook is never blocked or failed by this.
+ * For stop/stop-failure/post-tool-batch hooks, read the transcript named in
+ * the payload and fold cumulative token totals into the body under
+ * `_lumo_usage` so the server can persist them on the Session. post-tool-batch
+ * carries usage so long single turns surface live burn before the first STOP
+ * (LUM-345); the server treats it as a flat-columns-only overwrite. Best-
+ * effort: returns the body unchanged on any failure (no transcript_path,
+ * unreadable, unparseable, no usage). The hook is never blocked or failed by
+ * this.
  */
 export function augmentBodyWithUsage(path: HookPath, body: string): string {
-  if (path !== 'stop' && path !== 'stop-failure') return body
+  if (path !== 'stop' && path !== 'stop-failure' && path !== 'post-tool-batch')
+    return body
   let parsed: Record<string, unknown>
   try {
     parsed = JSON.parse(body || '{}')
