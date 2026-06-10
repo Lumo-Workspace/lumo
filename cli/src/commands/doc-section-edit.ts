@@ -1,5 +1,9 @@
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import {
   resolveDocContent,
   readStdinToString,
@@ -134,12 +138,7 @@ async function docSectionEdit(
   )
   if (!res.ok) {
     const text = await res.text()
-    let message = text
-    try {
-      message = (JSON.parse(text) as { error?: string }).error ?? text
-    } catch {
-      // non-JSON error body — print as-is
-    }
+    const message = extractErrorMessage(text)
     if (res.status === 409) {
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(

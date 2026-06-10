@@ -1,5 +1,9 @@
 import { readCredentials } from '../lib/config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import {
+  extractErrorMessage,
+  resolveAuthedApiUrl,
+  trimTrailingSlash,
+} from '../lib/api'
 import {
   resolveDocContent,
   readStdinToString,
@@ -187,13 +191,8 @@ export async function docUpdate(
   })
   if (!res.ok) {
     const text = await res.text()
+    const message = extractErrorMessage(text)
     if (res.status === 409 && opts.ifRevision !== undefined) {
-      let message = text
-      try {
-        message = (JSON.parse(text) as { error?: string }).error ?? text
-      } catch {
-        // non-JSON error body — print as-is
-      }
       console.error(`Error: revision conflict: ${sanitizeField(message)}`)
       console.error(
         `Hint: re-read the doc (lumo doc show ${reference} --raw), rebase your edit ` +
@@ -204,12 +203,6 @@ export async function docUpdate(
     if (res.status === 422) {
       // Structure guard rejection (LUM-410): the new body drops structure
       // the stored body has (the message names each category, old→new).
-      let message = text
-      try {
-        message = (JSON.parse(text) as { error?: string }).error ?? text
-      } catch {
-        // non-JSON error body — print as-is
-      }
       console.error(`Error: ${sanitizeField(message)}`)
       console.error(
         `Hint: if the deletion is intentional, re-run with --allow-shrink. ` +
