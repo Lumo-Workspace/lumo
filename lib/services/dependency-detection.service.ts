@@ -4,12 +4,7 @@ import {
   type SuggestedEdgeRow,
 } from '@/lib/repositories/task-dependency.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
-
-/**
- * 与 collision.service 同口径的写工具白名单(读不构成耦合)。
- * collision.service.ts 中的 WRITE_TOOLS 为模块私有未导出,此处按任务规范独立复制。
- */
-const WRITE_TOOLS = ['Edit', 'Write', 'MultiEdit', 'NotebookEdit']
+import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 
 /** 共享文件数达到该值才算耦合候选。 */
 export const SHARED_FILE_MIN = 3

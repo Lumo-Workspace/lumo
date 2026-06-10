@@ -1,13 +1,6 @@
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { agentLabel } from '@/lib/agents/agent-label'
-
-/**
- * Tool names that mutate a file — the only PreToolUse events worth a collision
- * check. Reading the same file from two sessions isn't a conflict, and gating
- * here means the overwhelming majority of tool calls (Bash, Read, Grep, …) skip
- * the DB query entirely, keeping the per-tool hook well inside its 3s budget.
- */
-const WRITE_TOOLS = ['Edit', 'Write', 'MultiEdit', 'NotebookEdit']
+import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 
 /** How far back another session's write still counts as a live collision. */
 const WINDOW_MS = 30 * 60 * 1000
