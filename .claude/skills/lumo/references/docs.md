@@ -63,8 +63,11 @@ The `Tags:` line is omitted when no tags were attached.
 | `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                                                                                                                                                             |
 | `--remove-tag <name>`    | string (repeatable) | Detach tag by name. `--remove-tag <name>` resolves the name via find-or-create on the workspace. If the name was unknown, a new Tag row is created (orphan, no attachments) before the detach runs as a no-op. Use `--remove-tag-id <cuid>` to avoid orphans. Max 20. |
 | `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op (no side effects). Max 20.                                                                                                                                                                                                  |
+| `--allow-shrink`         | boolean             | Let a body update through even when it drops tables/rows/headings versus the stored body (see structure guard below).                                                                                                                                                 |
 
-Optimistic concurrency (LUM-409): `--if-revision <n>` only applies the update if the doc body is still at revision `n` (from `doc show`). Mismatch → 409 conflict, nothing written — re-read, rebase, retry. `--if-revision` alone is not an update (still errors "no fields to update").
+Optimistic concurrency (LUM-409): `--if-revision <n>` only applies the update if the doc body is still at revision `n` (from `doc show`). Mismatch → 409 conflict, nothing written — re-read, rebase, retry. `--if-revision` alone is not an update (still errors "no fields to update"); same for `--allow-shrink`.
+
+**Structure guard (LUM-410), built into the server:** a body update whose new render has **fewer `table` / `tr` / heading elements than the stored body** is rejected with **422** before anything is written — the error names each shrunk category with old→new counts (e.g. `table 1→0, tr 4→0`). This is the `verify-live-doc.ts` reconciliation moved into the write path, so table flattening (LUM-349) and stale-base section loss (#460) fail loudly even when nobody remembers to run the script. When the deletion is intentional (you really are removing a section/table), re-run with `--allow-shrink`. On a 422: don't reach for `--allow-shrink` reflexively — first check whether your edit base is stale (`doc show <doc> --raw`) and rebase. Only markdown-path writes are guarded; web-editor edits and `doc sync` (Google authority) are not.
 
 `--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
 
@@ -88,6 +91,7 @@ lumo doc update RFC --tag final --add-tag oops
 - After running `lumo doc list` or `doc show`, if the user wants to change a doc's scope, title, or content.
 - For a small edit inside one section, prefer `doc patch` / `doc append` (below) — full `doc update` has the maximum clobber radius.
 - When replacing the body from a previously fetched base, pass `--if-revision` so a concurrent edit fails loudly (409) instead of being overwritten.
+- When the update intentionally deletes a section or table, pass `--allow-shrink` up front; otherwise expect (and want) the 422 structure guard on accidental structure loss.
 
 ### `lumo doc show <doc> [--raw | --section <heading>]` — print one document's detail
 
@@ -134,10 +138,13 @@ Replaces the **whole addressed section** (heading line included, subsections inc
 | `--content <text>`    | string | New section content (include the heading line — the whole section is replaced verbatim).            |
 | `--file <path>`       | string | New section content from file (project-local sandbox).                                              |
 | `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`. Recommended whenever the edit base was read earlier. |
+| `--allow-shrink`      | boolean | Let the patch through even when it drops tables/rows/headings within the addressed section (422 otherwise). |
 
 Concurrency: the splice always commits **conditionally** on the revision the server read the source at — even without `--if-revision`, a concurrent body edit between read and write returns 409 instead of clobbering. On 409 the CLI prints the server reason plus a re-read-and-retry hint and exits 1.
 
-Requires a stored markdown source (same rule as `--raw`); errors with the rebuild hint otherwise. Replacement is verbatim — if the new content omits the heading line, the heading is gone (that is an explicit choice, not a merge).
+Structure guard (LUM-410), **scoped to the addressed section**: a replacement whose render has fewer `table`/`tr`/heading elements than the old section's render is rejected with 422 naming each shrunk category (old→new counts); structure elsewhere in the document never factors in. Dropping the heading line itself trips the guard too (heading count shrinks). Pass `--allow-shrink` when the deletion is intentional. `doc append` is pure insertion and is never guarded.
+
+Requires a stored markdown source (same rule as `--raw`); errors with the rebuild hint otherwise. Replacement is verbatim — if the new content omits the heading line, the heading is gone (an explicit choice the guard makes you confirm with `--allow-shrink`).
 
 ```bash
 lumo doc show cmd_xxx --section "D 状态表" > sec.md   # stderr: Revision: 6
@@ -151,6 +158,7 @@ lumo doc patch cmd_xxx --section "D 状态表" --file sec.md --if-revision 6
 - User wants to change one section of a live doc ("update the status table", "rewrite section D") — patch beats full `doc update` on clobber radius and context size.
 - Live-doc status updates that used to be read-whole/edit/upload-whole round-trips.
 - If the patch 409s: re-read the section, rebase the edit, retry — never fall back to a full-body upload from the stale base.
+- If the patch 422s (structure guard): the replacement drops tables/rows/headings the section has. Re-check the edit base first; add `--allow-shrink` only when the deletion is what the user wants.
 
 ### `lumo doc append <doc> [--section <heading>]` — append to a section (or the doc)
 

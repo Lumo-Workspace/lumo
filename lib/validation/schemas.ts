@@ -393,6 +393,9 @@ export const updateDocumentSchema = z
     // Optimistic-concurrency precondition (LUM-409): the contentRevision the
     // caller's edit base was read at. Mismatch → 409.
     ifRevision: z.number().int().nonnegative().optional(),
+    // Structure guard override (LUM-410): without it, a markdown body update
+    // that drops tables/rows/headings versus the stored body is rejected 422.
+    allowShrink: z.boolean().optional(),
   })
   .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
     message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
@@ -409,6 +412,9 @@ export const editDocumentSectionSchema = z
     section: z.string().trim().min(1).max(500).optional(),
     contentMarkdown: z.string().max(RICH_TEXT_MAX_LENGTH),
     ifRevision: z.number().int().nonnegative().optional(),
+    // Structure guard override (LUM-410): a replace that shrinks the
+    // addressed section's structure is rejected 422 without it.
+    allowShrink: z.boolean().optional(),
   })
   .refine(v => v.mode === 'append' || v.section !== undefined, {
     message: 'section is required when mode is replace',

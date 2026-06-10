@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.27.0",
+  "cliVersion": "1.29.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -307,6 +307,13 @@
         }
       ],
       "flags": {
+        "--allow-shrink": {
+          "long": "--allow-shrink",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Let the patch through even when it drops tables/rows/headings within the addressed section (default: rejected with 422)"
+        },
         "--content": {
           "long": "--content",
           "short": null,
@@ -337,7 +344,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten."
+      "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed."
     },
     "doc share": {
       "arguments": [
@@ -476,6 +483,13 @@
           "enum": null,
           "description": "Add tag by id (repeatable)"
         },
+        "--allow-shrink": {
+          "long": "--allow-shrink",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "description": "Let the update through even when it drops tables/rows/headings versus the stored body (default: rejected with 422)"
+        },
         "--content": {
           "long": "--content",
           "short": null,
@@ -551,7 +565,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
+      "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
     "hook": {
       "arguments": [],

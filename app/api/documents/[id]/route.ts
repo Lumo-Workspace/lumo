@@ -97,6 +97,8 @@ export async function PATCH(
       data.childOrder = parsed.data.childOrder
     if (parsed.data.ifRevision !== undefined)
       data.ifRevision = parsed.data.ifRevision
+    if (parsed.data.allowShrink !== undefined)
+      data.allowShrink = parsed.data.allowShrink
 
     const document = await documentService.updateDocument(
       id,

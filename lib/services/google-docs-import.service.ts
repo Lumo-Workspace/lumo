@@ -64,6 +64,10 @@ export const googleDocsImportService = {
         workspaceId,
         {
           contentMarkdown: markdown,
+          // The Google Doc is the authority and resync mirrors it verbatim —
+          // a table the human deleted upstream must disappear here too, so
+          // the structure guard (LUM-410) never blocks this path.
+          allowShrink: true,
           googleDocSyncedAt: new Date(),
           googleDocSyncError: null,
         }
