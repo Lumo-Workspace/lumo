@@ -494,6 +494,18 @@ export interface ModelCost {
   cacheRead: number
   cacheCreation: number
   total: number
+  /**
+   * Mid-turn share of this row not yet settled by a STOP anchor (LUM-345).
+   * The flat fields above already include it; the UI renders this share as a
+   * provisional bar segment + annotation. Absent on fully settled rows.
+   */
+  inFlight?: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreation: number
+    total: number
+  }
 }
 
 // Mirror of the Prisma `HookEventType` enum. The backend

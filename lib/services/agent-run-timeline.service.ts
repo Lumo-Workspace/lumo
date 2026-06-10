@@ -263,9 +263,12 @@ export const agentRunTimelineService = {
       // Settled per-model cost, plus the in-flight remainder mid-turn events
       // wrote to the flat columns but no STOP has settled yet (LUM-345) — so
       // a live run shows its burn here just like the delivery card does.
+      // The liveUsageByModel snapshot attributes that remainder per model
+      // where available; anything it doesn't cover stays on the sentinel row.
       const costByModel = withInFlightCost(
         toModelCosts(s.usageByModel as Record<string, ModelUsage> | null),
-        s
+        s,
+        s.liveUsageByModel as Record<string, ModelUsage> | null
       )
 
       return {

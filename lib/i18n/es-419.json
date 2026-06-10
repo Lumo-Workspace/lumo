@@ -1463,5 +1463,6 @@
   "notification.verb.milestoneMentioned": "te mencionó en",
   "notification.verb.documentMentioned": "te mencionó en",
   "notification.verb.documentCommentMentioned": "te mencionó en un comentario en",
-  "tokenCost.inFlight": "en curso"
+  "tokenCost.inFlight": "en curso",
+  "tokenCost.inFlightShare": "incl. {n} en curso"
 }

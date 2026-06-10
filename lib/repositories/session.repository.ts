@@ -139,7 +139,11 @@ export const sessionRepository = {
     // cumulative columns so the delivery card shows live burn during a long
     // turn. usageByModel is deliberately untouched — it is the anchor the
     // STOP settlement diffs against, so advancing it here would shrink the
-    // next per-turn delta. No transaction needed: there is no delta to settle.
+    // next per-turn delta. The per-model snapshot lands in liveUsageByModel
+    // instead, so the run tab can attribute the in-flight burn per model;
+    // it never needs clearing — once STOP advances the anchor to the same
+    // cumulative totals, the read-side diff (live − settled) clamps to zero.
+    // No transaction needed: there is no delta to settle.
     const midTurnFlat =
       !data.isStop && data.usage
         ? {
@@ -147,6 +151,8 @@ export const sessionRepository = {
             outputTokens: data.usage.outputTokens,
             cacheReadTokens: data.usage.cacheReadTokens,
             cacheCreationTokens: data.usage.cacheCreationTokens,
+            liveUsageByModel: data.usage
+              .byModel as unknown as Prisma.InputJsonValue,
           }
         : null
 
@@ -454,7 +460,8 @@ export const sessionRepository = {
         usageByModel: true,
         // Flat cumulative columns: mid-turn events update these but not
         // usageByModel, so the timeline derives the in-flight burn from the
-        // difference (LUM-345).
+        // difference (LUM-345); liveUsageByModel attributes it per model.
+        liveUsageByModel: true,
         inputTokens: true,
         outputTokens: true,
         cacheReadTokens: true,
