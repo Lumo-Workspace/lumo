@@ -45,16 +45,28 @@ the bound task; `lumo project memory add ...` records onto its project.
 
 The command prints **one** of these outcome lines:
 
-| Output line | Meaning |
-|---|---|
-| `Added <CATEGORY> <SCOPE> memory …` | No near-duplicate found; stored as a new row. |
-| `Merged into existing memory <id> (near-duplicate) …` | Near-duplicate found; the existing row was refined/updated in-place (UPDATE). |
-| `Superseded an existing memory; new version <id> …` | New content contradicts an old memory; old row invalidated, new row created (SUPERSEDE). |
-| `Skipped — duplicate of existing memory <id>, nothing written …` | Exact or near-exact duplicate; no write performed (NOOP). |
+| Output line                                                      | Meaning                                                                                  |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Added <CATEGORY> <SCOPE> memory …`                              | No near-duplicate found; stored as a new row.                                            |
+| `Merged into existing memory <id> (near-duplicate) …`            | Near-duplicate found; the existing row was refined/updated in-place (UPDATE).            |
+| `Superseded an existing memory; new version <id> …`              | New content contradicts an old memory; old row invalidated, new row created (SUPERSEDE). |
+| `Skipped — duplicate of existing memory <id>, nothing written …` | Exact or near-exact duplicate; no write performed (NOOP).                                |
 
 Content is **always normalized to English** before storing — the memory store has
 a single canonical language. If you supply text in another language the CLI
 translates it automatically; the stored memory will be in English.
+
+### Lumo memory vs the harness memory tool
+
+Claude Code / the Claude API may expose a file-based **memory tool** (a
+`/memories` directory the model writes autonomously). That store is the agent's
+private scratchpad — un-grounded, free-form, invisible to the team, and outside
+Lumo's flywheel. **Project engineering lessons always go through `lumo task/project
+memory add`** — never record them only in the harness memory tool, and never bulk-copy
+harness memory files into Lumo memory (they are ungrounded drafts; Lumo's
+extract→ground→reconcile write path is the only vetted entry). The two stores are
+layered, not mirrored: transient working notes may live in the harness tool,
+durable team knowledge lives in Lumo memory.
 
 ### When to record a memory (worthiness)
 

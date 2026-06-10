@@ -26,6 +26,8 @@
 
 **周期追踪源**:[VoltAgent/awesome-ai-agent-papers](https://github.com/VoltAgent/awesome-ai-agent-papers) 可作每周扫描入口。筛选判别力提示:**「有没有消融表」比「分类是否对口」更可靠**——2606 周扫实证:证据最薄的恰是概念最华丽的两篇(SSGM 零实验、AI Harness n=1)。
 
+**全文精读核验纪律**:subagent 经 WebFetch 抓 PDF 的转述层会编造数字、表格甚至整组结论(2606b 批次 8 路精读 3 路命中,均靠 abs/ar5iv 双源对照拦下)——关键数字必须双源核验,单源数字进册须标「单源」。
+
 **条目模板**(追加新论文时复制;来源 id 带链接——arXiv 用 `https://arxiv.org/abs/<id>`,blog/报告直接链原文):
 
 ```
@@ -127,6 +129,11 @@
 | [LUM-393](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-393) | wrapper 前言 precedence 声明 + 注入层对抗 eval(冲突/非冲突双向 case)    | TODO |
 | [LUM-394](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-394) | extract 端 ephemera 判别(一次性事实不产出候选)+ AR 语料补 ephemera case | TODO |
 
+**Context engineering: memory, compaction, and tool clearing** ([Claude Cookbook, 2026-03](https://platform.claude.com/cookbook/tool-use-context-engineering-context-engineering-tools)) — \[采用:口径,关 1 条观望\] → references/memory.md 分工纪律 · 2026-06
+
+- Finding: 三个 context 原语的官方口径:compaction(服务端,`input_tokens` 触发、50K 下限,模型生成摘要替换全历史)、tool-result clearing(零推理成本但 cache prefix 失效,被清内容靠 re-fetch 找回)、memory tool(client-side 文件式 `/memories`,6 命令,**模型自主写**,协议提示词自动注入「做事前先 view」)。probe 实验:compaction 后高层事实保留、**表格/附录里的精确数值丢失**。Claude Code 生产实践=会话内+跨 session 两套通用记忆并用。(注:notebook 细粒度 token 数经转述层未双源核验,不引;API 标识符与 50K 下限是文档级常量,可信。)
+- 吸收: **定论 F 队列「memory tool 双写边界」观望条**——memory tool 是 agent 私有草稿纸(未 ground、自由写、无治理无飞轮),Lumo memory 是领域结构化 + extract→ground→reconcile + 飞轮的团队记忆面,**分层不双写、不吸纳**(把 `/memories` 草稿搬进 Lumo = 绕过 grounding 引幻觉源,正是 LUM-396 要挡的);纪律落 `.claude/skills/lumo/references/memory.md`。compaction 丢精确数值 → 「精确 usage 只走结构化事件流、不信压缩后摘要」(LUM-340/345 既有教训获官方印证)。mid-session 语义检索的定位 = 为被 clear/compact 掉的内容提供按需召回,留观望、触发器细化(见 F 队列)。
+
 ---
 
 ## B. 评测与 Harness(Evaluation)
@@ -173,6 +180,31 @@
 - Finding: 配置修复 agent:**regression 作为隐式验收标准**(先前通过的检查必须仍通过);LLM 裁判暴露给 agent 自查会被 Goodhart(agent 对裁判优化而非对问题优化),**可执行 check 才可同源开放**。
 - 吸收: 两条原则收作 Acceptance 边界条款:① regression 隐式 machine criterion 是 Slice2/3 议题(与 c-CRAB 同向);② LLM 裁判不可免费暴露给 agent 自查——LUM-344 `task status` 只回放结构化 verdict、不内嵌 LLM 裁判,边界正确,点名保住。触发器:Acceptance 引入 LLM 裁判类 criterion 时。
 
+**Are "Solved Issues" in SWE-bench Really Solved Correctly?** ([2503.15223](https://arxiv.org/abs/2503.15223),Wang/Pradel/Liu) — \[纠偏:verified 口径注记\] · 2026-06
+
+- Finding: 877 个「通过」patch 差分测试(PatchDiff)+ 人工审查:**7.8% 实际过不了开发者全量测试套件**;29.6% 与 ground-truth 行为分歧,人工抽查其中 28.6% 确认错误、仅 5.2% 确认正确;**82.7% 的可疑 patch 跑全量回归也抓不出**——「测试」这种 oracle 对行为分歧的覆盖有硬上限;折算三个高排名工具的报告解决率虚高 ~6.2 个绝对百分点。
+- 吸收: 给 LUM-397 的 MERGED_VERIFIED 加口径注记:**verified = 信号更强的层,不是 ground-truth 层**(文献锚点:即便人工校准过的测试集也有 ~6pp 假阳底噪)。三条边界:① 不试图「加更多 machine criterion 逼近 correct」(82.7% 抓不到,有硬上限);② PatchDiff 式差分验证出界(需要 ground-truth patch 对照,Lumo 任务没有);③ regression 隐式 criterion(F 队列)收益真实但**有界**——对应 7.8% 那层,支持做、压低承诺。全 PASS→IN_REVIEW 保留人终审被反向支持:66.2% 分歧 patch 人都难判,终审该看行为意图对齐而非测试输出。
+
+**TAR Trajectories + Code Agent Behaviour** ([2506.18824](https://arxiv.org/abs/2506.18824),Bouzenia & Pradel,ASE'25 + [2511.00197](https://arxiv.org/abs/2511.00197),Majgaonkar et al.) — \[采用:选择性,同主题并一条\] → LUM-403 · 2026-06
+
+- Finding: 两篇轨迹研究独立收敛。TAR(120 轨迹/2,822 次 LLM 交互/14K 人工标注,本批唯一同行评审实证):失败轨迹更长更贵且呈重复、非自适应循环;**连续重复动作比例是最强廉价判别信号**(成功→失败:6.1%→13.6%、0.5%→3.8%、0%→8.8%,三 agent 一致数倍);「结果不影响后续动作」(no-influence)在失败中显著更高(1.2%→6.2%、4.9%→14.6%)= 「错误不指路」的轨迹侧镜像。Behaviour 篇(单源抓取,数字弱标注):失败轨迹长 +12.6~82.5%;即使失败 72–81% 也找对了文件(失败不在定位);可在线信号 = 同文件反复读不写/零进展循环/Edit 后无验证即终止。
+- 吸收: 回答 LUM-392 悬置的「HookEvent 还能挖什么」——重复动作 n-gram 只需工具名+参数滑窗,**HookEvent 流水够用、不需要 transcript**,且 LUM-397 outcome 分层提供论文没有的现成轨迹标签 → LUM-403 measure-first 离线 EDA(审计本身是交付物,LUM-395 先例)。红线:阈值绝不从论文搬(两篇都证明绝对阈值跨 agent 不迁移);thought 级信号(思考-动作错位/result 误读)明确出界(HookEvent 无 reasoning 数据源)。no-influence 发现与 CLI actionable 错误文案(LUM-392)方向一致但无消融,只算旁证。
+
+**EET: Experience-Driven Early Termination** ([2601.05777](https://arxiv.org/abs/2601.05777),Guo et al.,ACL'26 Findings) — \[采用:measure-first\] → LUM-404 · 2026-06
+
+- Finding: SWE-bench Verified 500 题×3 agent×2 LLM,消融齐全(本批证据强度第二)。历史成功经验(四元组:任务/执行摘要/只存 pass/置信度)TF-IDF top-1 注入 + milestone 节点 LLM confidence 对照,**双向止损**(>90 提前收工、<40 判太难提前放弃):总成本 −19.3%~−55.1%(均值 −31.8%),解决率最大损失 0.2%(不显著),Agentless 配置反 +7.8%;置信度有判别力(>90 的 patch 通过率 63.6–92.6%,<40 仅 8.7–13.8%);**消融拆出双因子:经验注入提质(去掉 −10.4% 解决率)、早停降本,可解耦**;跨仓库零重叠任务仍降本 24.4%。
+- 吸收: **「经验复用降本」——飞轮核心主张——的首个量化外部证据**,而 Lumo 自己从未量化验证过 → LUM-404 借其测量框架在 lineage × token 成本 × outcome 分层上做首次观察性对照(分桶控混杂,只报关联不下因果)。其「只存 pass + confidence 分层」与 merge-rate 排序、LUM-397 strength 分层同构;execution_summary 过滤非关键动作与 LUM-314 精简事件日志同路。**不做**早停机制本体;verify 双阈值升级信号(<40 即弃 ≈ 信号判别提前升级,信息量大于固定 cap 3)进 F 队列——错杀 ≤0.2% 的前提是阈值经分桶校准,verify round 样本量未到。
+
+**EvoClaw** ([2603.13428](https://arxiv.org/abs/2603.13428),Deng et al.,USC/UCR/UCSD) — \[纠偏+观望\] · 2026-06
+
+- Finding: 首个连续软件演化 benchmark:7 仓库/98 个已验证 milestone/109 条依赖边,12 前沿模型×4 框架。**孤立单任务 >80% → 连续演化最高 38.03%**(Claude Opus 4.6;全测试通过口径的 Milestone Resolve Rate 最高仅 13.37%);**失败主因 = 回归滚雪球**——Recall(实现新功能)随 milestone 近线性增长,Precision(不破坏既有功能)迅速饱和,未修复回归复合积累快于修复速度;早期逻辑错误沿依赖链污染下游(P1 继承传播最高 12%、PX 下游跳过 17%);SRS 需求描述 500–1500 词最优,**过短过长都掉分(上下文量非单调)**;其 milestone DAG 依赖推断信号(共享文件/PR-Issue 引用)与 LUM-172 的 shared_files/task_mention 几乎一致;**无记忆机制消融**(论文留白)。
+- 吸收: 纠偏「milestone 聚合上下文要不要喂 agent」:失败不在信息缺失而在「不知道自己破坏了什么」,且上下文非单调 → **不做全量 milestone 注入**;对症形态 = 沿依赖边注入「上游改了哪些文件/接口 + 哪些行为不能破坏」的窄回归上下文(依赖边 + lineage 是现成选址)→ 进 F 队列带触发器。Precision/Recall 双轨给 regression 隐式 criterion(F 队列既有条)添同向证据——acceptance 现形态偏 F2P(「该做到什么」),缺「不得破坏什么」,Slice2/3 开工时优先级应提前。错误链 P0/P1/PX 分类法待「上游 fail→下游 fail」联动场景复刻简化版。benchmark 本体出界(Lumo 不做模型评测)。
+
+**Inside the Scaffold** ([2604.03515](https://arxiv.org/abs/2604.03515),单作者税系) — \[合并;主体出界\] · 2026-06
+
+- Finding: 13 个开源 scaffold 源码级税系(296 条论断锚定文件行号;零 benchmark 零消融——参考词汇表,不是证据源)。收敛处:工具能力四类(read/search/edit/execute)、str_replace 编辑、Docker 隔离;发散处:**context compaction 7 种策略无共识**、状态管理、多模型路由。**持久记忆是最大生态空白**(5/13 完全没有);真正学习型记忆仅 3 家,其中 **Codex CLI 后台两段管道(小模型 per-rollout 提取→大模型 consolidate,usage 排名+陈旧剪枝)与 Memory v6 + LUM-328 结构同构**。引 Chen et al. 2026:prompt 级加/删测试指令只改结局 ≤2.6pp——验证行为的杠杆在编排层不在提示词。**全语料没有任何 PM/issue-tracker 集成维度**;MCP 仅 5/13 支持且定位传输层。
+- 吸收: 三条定位依据:① Codex CLI 记忆管道独立趋同 = 飞轮方向旁证;② **静态指令文件 + bash/execute 是 13/13 收敛接口、PM 集成是全生态空白**——Lumo 的 CLI-first 押注(CLAUDE.md 约定 + hook 注入 + bash 调 lumo)骑在最大公约数上,MCP 优先级继续放低;③ compaction 发散 + LLM 摘要有损 → 注入内容应假设可能被宿主截断/摘要:关键事实前置、每段自含(与 LUM-352 同向;设计注意事项,非任务)。「验证杠杆在编排层」反向支持 verify 做成服务端循环而非提示词要求。scaffold 内核维度(控制环/隔离/路由/edit 格式)按层次过滤出界。
+
 ---
 
 ## C. 项目管理与协作(PM / Agent-collaboration domain)
@@ -194,6 +226,41 @@
 
 - Finding: context 是有限注意力预算(attention n² → context rot 是梯度退化非悬崖),核心原则=最小高信号 token 集;system prompt 在「过具体-过空泛」之间找 altitude;few-shot 用 canonical 例不堆边角清单;检索推荐 hybrid(upfront 紧凑注入 + just-in-time 标识符按需拉取,progressive disclosure);长程任务三技法=compaction(harness 层)/ structured note-taking(持久笔记)/ sub-agent(编排层)。
 - 吸收: 上游理论篇,机制面零新增——工具节同源于已落地的 Writing tools for agents(LUM-392);「最小高信号集」即注入预算 + LUM-279 proven-value 排序 + LUM-328 冷淘汰的既有实践;altitude/canonical 原则即 LUM-392 的 description 裁剪结论;note-taking 即 Memory v6 产品本体;compaction 与 sub-agent 出界(harness/编排层,Claude Code 负责)。确认并点名保住:**hook session-start 一次性注入 + show/context 分层 = 文章推荐的 hybrid 检索形态**(LUM-392 实测 agent 自发用对);mid-session 语义检索继续 defer(「do the simplest thing that works」直接支持 F 队列该条的触发器设计)。新增 F 观望一条:Claude Code 自带 memory tool 与 Lumo memory 的双写/分工边界。
+
+**Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding Agents?** ([2602.11988](https://arxiv.org/abs/2602.11988),Gloaguen et al.,ETH Zurich) — \[采用:原则级\] → LUM-406 + 两条红线 · 2026-06
+
+- Finding: 本批证据最强(SWE-bench Lite 300 + 自建 AGENTBENCH 138 任务、4 agent×模型、删文档/换生成模型/换 prompt 三组消融、trace 机制分析)。LLM 生成的 context file 略降正确率(−0.5%/−2%)且**推理成本 +20%/+23%**,连 GPT-5.2 代写也 −3%(生成侧不可救);开发者手写在低文档小众仓库 +4% 但成本仍最高 +19%;**目录枚举式 overview 被证伪**(对「首次接触 PR 相关文件的步数」零影响,而 95–100% 的生成文件都含 overview);删掉仓库全部文档后 LLM 生成文件反而一致 +2.7%——**context file 的价值 ≈ 非冗余信息量**;指令确实被遵守(文件提到 uv → 人均调用 1.6 次 vs <0.01),但每条常驻指令都诱发更多探索/测试/reasoning(+14~22%)——不是 agent 不听话,是多余要求让任务变难。
+- 吸收: 机制级证据把 LUM-392「description 类别级 + 1000 字符硬上限」从实测经验升格为有对照支撑的原则。两条红线:① **永不做「agent 自动生成/扩写 CLAUDE.md」功能**(被直接证伪);② **CLAUDE.md 新增任何段落前先问「这是 agent 探索不出来的非冗余信息吗」**——冗余即负资产(成本+正确率双输)。现 CLAUDE.md 以禁止项/必须项/仓库专属流程为主 = 论文证实的 minimal-requirements 有效区,Project Structure 目录枚举节不再扩;瘦身审计 → LUM-406。Lumo 注入面的对策(merge-rate 排序/grounding/token 预算/冷淘汰)正是论文缺的「非冗余过滤器」,方向被反向印证。
+
+**On the Impact of AGENTS.md Files on the Efficiency of AI Coding Agents** ([2601.20404](https://arxiv.org/abs/2601.20404),Lulla et al.,ICSE JAWs'26 短文) — \[观望:弱采信\] · 2026-06
+
+- Finding: 124 真实 PR×单 agent(Codex+gpt-5.2-codex)paired 对照:有 AGENTS.md 时 wall-clock −20%、输出 token −20%(p<0.05),但**输入 token 中位数反而 +3.4%**(常驻注入的成本在普通 run 抵消节省,只在尾部高成本 run 回本);零消融、无正确性评测。
+- 吸收: 与 ETH 篇在同设置(Codex+GPT-5.2 系)下资源方向相反(它说省、ETH 说费)——**采信消融齐全的 ETH 篇**,本篇只作「精选手写文件在小任务上不拖慢」的下限旁证,不进决策依据。两篇拼起来的一致结论:手写、非冗余、最小化的 context file 小幅有益;无论哪种都不免费——常驻上下文必然换更多步数与 reasoning。触发器:扩展版补多 agent + 正确性 + 内容消融后再重读。
+
+**Codified Context: Infrastructure for AI Agents in a Complex Codebase** ([2602.20478](https://arxiv.org/abs/2602.20478),单作者经验报告) — \[采用:drift detector;余合并\] → LUM-405 · 2026-06
+
+- Finding: n=1(108K 行 C# 项目、70 天 283 session,无对照——数字只当存在性证明与设计先例)把配置基建推到极致:三层热/冷分层(Tier1 宪法 ~660 行常驻 = 代码库 0.6%;Tier2 19 个领域 agent 规格;Tier3 34 个冷文档经自建 MCP 检索按需加载),knowledge-to-code 比 24.2%;agent 规格 >50% 是领域知识(codebase 事实/公式/失败模式)而非行为指令;维护成本 ~1–2 小时/周;**首要失败模式 = spec 陈旧**(实现变了文档没变,agent 按陈旧信息生成代码),缓解工具 = **context drift detector**(session-start 解析近期 commit × subsystem→file 映射表,源码改而文档未改即注入警告)。
+- 吸收: 三层热冷 = Lumo 现架构(CLAUDE.md/SKILL.md 常驻 + memory/live-docs 按需)的独立趋同验证,0.6%/24.2% 作宪法体量锚点;「宪法类手写 + drift 检测,经验类走飞轮」分工边界清晰——它人工指挥 AI 更新文档的 1–2 小时/周正是飞轮要打掉的成本。**采用 drift detector**:把「改 cli/src/commands/ 必须同步 SKILL.md」人治规则机械化(commit-diff × 路径→文档映射 → CI/session-start 警告)→ LUM-405。19 个 subagent 的 trigger-table 路由出界(编排层)。
+
+**Configuring Agentic AI Coding Tools** ([2602.14690](https://arxiv.org/abs/2602.14690),Galster et al.,AIware'26) — \[合并:生态基线\] · 2026-06
+
+- Finding: ~2,900 仓库横断面挖掘(描述性快照,无消融,只测「存在」不测「有效」):**context file 统治(90% 仓库有)且常是唯一配置机制**;高级机制采用率极低——Skills 仅 ~5.4% 仓库、Subagents ~4.5%;Skills 中 83.3% 纯静态指令,SKILL.md <500 行 + 细节外移的官方规范 96% 合规;CLAUDE.md(采用率 45.4%)> AGENTS.md(40.6%),CLAUDE.md→AGENTS.md 成对出现 311 次——**AGENTS.md 正在成为跨工具互操作标准**。
+- 吸收: 两个产品判断的校准基线:(a) Lumo 配置面(SKILL.md+hooks+MCP 全家桶)在生态极右尾——给团队预置配置是真实差异化,且**不能假设用户仓库已有任何配置基建**(agent 工程层要自带电池);(b) SKILL.md 体量纪律与官方规范及社区主流一致,无新动作。AGENTS.md 互操作进 F 队列观望(触发器见该条)。
+
+**Agent READMEs + Beyond the Prompt(Cursor Rules)** ([2511.12884](https://arxiv.org/abs/2511.12884) + [2512.18925](https://arxiv.org/abs/2512.18925),MSR'26) — \[纠偏+合并:同主题并一条\] → LUM-406 + 飞轮分工实证 · 2026-06
+
+- Finding: 两篇大规模挖掘(2,303 context file/1,925 仓库;1,876 rule 文件/401 仓库),均零效果证据(两文作者自认「写什么有用」留白)。Agent READMEs:**演化「只加不删」**(CLAUDE.md 每 commit 中位 +57 词、删 <15 词,修改中位间隔仅 ~24h——是活配置但单调膨胀);内容以功能性为主(Testing 75%/架构 68%),security 仅 14.5%。Cursor Rules:**28.7% 的行跨仓库精确重复**(awesome-cursorrules 等模板 cargo-cult = 低密度噪声主源);**「变更/弃用警告」类仅 17% 仓库写**——恰是时效性最强、手写最易烂的内容;静态类型语言项目写得显著少(类型系统替代部分手写 context)。
+- 吸收: 三个论点:① 只加不删的膨胀实证 → CLAUDE.md 需要瘦身回路(LUM-406;memory 有 LUM-328 冷淘汰,手写文档没有等价物);② **「稳定规范走手写、时效性经验走自动记忆」的分工得到实证侧写**——弃用警告类手写覆盖最低 + TRAP 类(事后才知道)手写天然漏,正是飞轮相对手写的差异化空间;③ 模板搬运 = 噪声 → CLAUDE.md/SKILL.md 保持全项目特异内容,review 时警惕贴通用 best-practice。防漂移机制两篇均无可学(业界没有,Lumo 的同步强制在做其 future work)。触发器:任一后续工作给出「内容类别 × 任务成功率」消融时,重评注入权重与 CLAUDE.md 内容配比。
+
+**Effective harnesses for long-running agents + Scaling Managed Agents** ([Anthropic Engineering, 2025-11](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [2026-04](https://www.anthropic.com/engineering/managed-agents)) — \[合并→Effective context engineering 条;主体出界\] · 2026-06
+
+- Finding: 长程 harness 双篇,纯设计主张几乎无量化。harnesses:两阶段 harness(初始化 agent 建 feature_list.json「禁删测试项、只准翻 passes」+ progress 进度文件;编码 agent 每 session 读进度+git log 恢复 → 冒烟 → 单功能 → 必 commit);**明确点名 SDK compaction「不充分」,需应用层状态管理补足**。managed-agents:脑/手/会话三层解耦,**会话 = 外部持久事件日志**(harness 无状态,靠日志 wake 恢复;p95 TTFT −90%);设计教训 =「模型能力假设别编死」(为 Sonnet 4.5 context-anxiety 写的应对到 Opus 4.5 成无用负担)。
+- 吸收: 机制面零新增,三处同构确认:feature_list(禁删只翻 passes)≈ acceptance criteria + verify——**Lumo 的服务端裁判 + evidence 红线强于其提示词护栏**;progress 文件 + git log 恢复 ≈ task status 冷启动读模型(LUM-344);「compaction 不充分」+「状态落外部事件日志」≈ Lumo 把状态落自有 HookEvent/Session 流与读模型而非 transcript(LUM-340 同一教训)。一条工程提醒:启发式阈值(冷淘汰 >100、merge-rate 排序参数)随模型升级留可调、别编死。两阶段编排/init 脚本/沙箱抽象出界(harness 内核,Claude Code 负责)。
+
+**Google Agent Bake-Off 5 Tips + I/O '26 agent 栈** ([Google Developers Blog](https://developers.googleblog.com/build-better-ai-agents-5-developer-tips-from-the-agent-bake-off/) + [Google Cloud Blog ×2](https://cloud.google.com/blog/topics/developers-practitioners/io26-news-for-agent-developers-on-google-cloud)) — \[观望:印证,三篇并一条\] · 2026-06
+
+- Finding: hackathon 复盘 + 产品公告,证据弱/无。可迁移点:「LLM 只做推理与意图提取,经 strict schema 校验后由确定性代码执行计算」;「为可淘汰性做架构」(今天的复杂 harness 可能数月内被新模型能力替代);Skill Registry + google/skills 仓库刻意跨工具兼容(明确点名 Claude Code、Cursor);agent eval 框架(合成用户模拟 + LLM 评分 + trace 失败分组)停留在能力清单无方法细节。
+- 吸收: 全部为既有路线的行业印证,零新机制:推理/执行分离 = LUM-341/343 verdict 红线(machineVerdict 无自由裁量、可执行 check 才可信);可淘汰性 = 「harness 内核出界」层次过滤本身;google/skills = SKILL.md 形态被竞对采认的利好信号;eval 思路 Lumo 已有更具体实现(LUM-392/329)。不开任务。
 
 **\[内部实证\] 论文吸收工作流** · 2026-06
 
@@ -266,22 +333,30 @@
 
 > 同类先例(未单独登记):Context Scaling 全部(YaRN/LongRoPE/PI)、Neural Memory Architectures、Memory-Augmented Transformers、Prompt Tuning——均为模型内核层,Claude 已解决。
 
+**The End of Software Engineering** ([2606.05608](https://arxiv.org/abs/2606.05608),Cao) — \[出界\] · 2026-06
+
+- Finding: 单作者 vision:许可软件→SaaS→Agent-as-a-Service 叙事 + 「Agentic Engineering 新学科」四阶段路线图。零实验、零机制,引用他人 benchmark 作背书。
+- 为什么出界: 无可迁移机制;「agent 工程层是新战场」Lumo 已用脚投票。登记防重评——再遇纯叙事 vision 文,按本条先例快评即弃。
+
 ---
 
 ## F. 观望队列(有 bearing,触发条件未到)
 
 - **关系字段/轻量结构**(StructMem/Zep 方向):LUM-327 已定 defer。触发器:当注入需要把某条 TRAP 与其成因 DECISION 并排呈现、且 merge-rate 排序被证实无法共同浮出时,重开 relatedMemoryIds vs MemoryRelation 选型。
 - **更大 embedding 模型**(4B/8B):触发器:LUM-329 eval 显示 0.6b 分离度不足以支撑某个新场景(当前 0.6b 反而最优,无动机)。
-- **mid-session 语义检索**(agent 干到一半主动查记忆):当前 session-start 一次性注入 + 按 proven-value 排序够用;触发器:出现明确的「注入集装不下但 agent 需要长尾记忆」证据。
+- **mid-session 语义检索**(agent 干到一半主动查记忆):当前 session-start 一次性注入 + 按 proven-value 排序够用;Cookbook(2606b 批次)给出定位 = 为被 clear/compact 掉的内容提供按需召回。触发器:HookEvent 观测到 agent 在同一 session 内重复检索同主题(「注入集装不下但需要长尾记忆」的直接证据)。
 - **遗忘曲线 t 项生效核查**:语料老化(出现 >30d 行)后,复查 LUM-328 排序里 retention 项是否开始判别(预计 2026-07 起)。
 - **memory 启动时投毒校验分类器**(containment 文章「plan for persistent state poisoning」的完整形态):当前 memory 写入方=workspace 成员+本 workspace 的 agent,信任域小,来源标注(LUM-347)+`<untrusted-*>` 边界够用。触发器:memory 写入来源扩到外部(公开 intake、跨 workspace 共享、第三方集成直写)或出现实际投毒案例时,上 startup 校验分类器。
 - **enforced TTL / expiresAt schema 字段**(context-personalization 文 ephemera 处理的完整形态):LUM-394 先走 extract 端拒收(零 schema)。触发器:eval 或 prod 实测显示 ephemera 仍持续落库(extract 判别拦不住)时,再上 schema 级 TTL 并在冷淘汰里强制执行。
-- **Claude Code 自带 memory tool 与 Lumo memory 的分工边界**(context-engineering 文提到 Developer Platform 的 file-based memory tool 已公测,跨 session 持久):Lumo agent 跑在 Claude Code 里,harness 记忆与 Lumo memory 可能双写——同一条工程教训记两处、口径漂移、飞轮信号分流。触发器:观察到 agent 把工程教训写进本地 memory 而非 `lumo memory add`,或两边出现矛盾/重复记录时,定分工约定(候选:SKILL.md 写明「项目工程教训一律走 lumo memory」)。
+- ~~Claude Code 自带 memory tool 与 Lumo memory 的分工边界~~ → **已决**(2026-06,Cookbook 条目见 A5):分层不双写、不吸纳——memory tool = agent 私有草稿纸(未 ground),Lumo memory = 治理记忆面;纪律已落 `.claude/skills/lumo/references/memory.md`(项目工程教训一律走 lumo memory)。
 - **BeliefMem 第二层:CONTRADICT op + 竞争组共同注入 + noisy-OR 信念聚合**(2605.05583):LUM-395 审计证明当前死亡螺旋未发生,机制层暂无承载问题。触发器:~2026-07-10 复跑 `scripts/analysis/lum395-flywheel-rehab/audit.ts` 出现 wrongful-kill suspects 或环 1 信号时再裁决。
 - **phase-tagged 成本遥测 + reconcile 边际成本斜率作 compaction 量化触发器**(2606.06448):触发器 = 其 harness repo 开源后评估复用,或 LUM-328 阈值(>100 经验值)需要量化校准时。
 - **consulted/influenced used-信号分维**(2605.13357):used 投票现为单维布尔。触发器 = LUM-314 judge 基建下次复用时机,或飞轮需要区分「被读过」与「改变了行为」时。
-- **fail-then-pass 绑定 + criteria 可验证性分类 + regression 隐式 criterion**(c-CRAB 2603.23448 / Config Repair 2606.06212):触发器 = Acceptance Slice2/3 开工,届时为核心方法论(端到端固化率预期 ~18%,structural check 是覆盖主体)。
+- **fail-then-pass 绑定 + criteria 可验证性分类 + regression 隐式 criterion**(c-CRAB 2603.23448 / Config Repair 2606.06212):触发器 = Acceptance Slice2/3 开工,届时为核心方法论(端到端固化率预期 ~18%,structural check 是覆盖主体)。2606b 批次双证据加强 regression 条:EvoClaw 失败主因 = 回归滚雪球(Precision 饱和)、SWE-bench 正确性研究 7.8% 过不了全量套件——收益真实但有界(82.7% 行为分歧全量回归也抓不到),**Slice2/3 开工时 regression criterion 优先级应提前、承诺压低**。
 - **hallucination vs obsolescence 归因词表**(SSGM 2603.11768):触发器 = 三段 waterfall 归因需要拆 Preserve 段时(判别信号 = supersededAt 链)。
+- **依赖边窄回归上下文注入**(EvoClaw 2603.13428):沿 CONFIRMED 依赖边注入「上游任务改了哪些文件/接口 + 哪些行为不能破坏」,替代全量 milestone 聚合注入(上下文量非单调,失败不在信息缺失)。触发器:依赖检测 + lineage 攒够「上游 fail→下游 fail」可统计样本,或出现带记忆/上下文消融的 EvoClaw 续作。
+- **EET 式 verify 双阈值升级信号**(2601.05777):低置信提前升级人工/高置信提前过,替代或软化固定 round cap 3;EET 错杀 ≤0.2% 的前提是阈值经分桶校准(分桶看通过率)。触发器:verify round 样本量够离线校准,或 LUM-403 轨迹信号 EDA 出判别力。
+- **AGENTS.md 互操作镜像**(2602.14690:CLAUDE.md→AGENTS.md 成对 311 次,跨工具标准化中):触发器 = Lumo 决定支持第二个 agent 工具(Copilot/Cursor),或 Anthropic 官方宣布读 AGENTS.md 时,做 CLAUDE.md→AGENTS.md 镜像/软链。
 
 ---
 
@@ -308,3 +383,15 @@
 | [LUM-396](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-396) | ProMem 2601.04463        | 抽取 grounding 前置(quote-or-discard)       | TODO                                                                                            |
 | [LUM-397](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-397) | ProdCodeBench 2604.01527 | lineage outcome 强弱分层 + 记忆出生任务记账 | TODO                                                                                            |
 | [LUM-398](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-398) | (本批登记册吸收)         | 8 条目 + F 队列 5 行 + 录入规范追踪源       | 本 PR                                                                                           |
+
+## 附录 3:2606b 周扫批次索引(milestone「研究吸收 2606b:coding-agent 工程批次」,2026-06)
+
+13 论文 + 7 blog(其中 Effective context engineering 已在册不重收),8 路 subagent fan-out 全文精读(3 路 PDF 转述层幻觉被双源核验拦下)→ 14 条目 + 4 落地任务 + F 队列净 +2(新增 3/关闭 1/改写 2)。本批应用户要求开 milestone(区别于 2606 首批的 tag 形态)。
+
+| 任务                                                              | 来源                                      | 交付                                            | 状态  |
+| ----------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------- | ----- |
+| [LUM-403](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-403) | TAR 2506.18824 + Behaviour 2511.00197     | HookEvent 轨迹失败信号判别力 EDA(measure-first) | TODO  |
+| [LUM-404](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-404) | EET 2601.05777                            | 飞轮「经验复用降本」首次量化验证                | TODO  |
+| [LUM-405](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-405) | Codified Context 2602.20478               | context drift detector(commit-diff×文档映射)    | TODO  |
+| [LUM-406](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-406) | ETH 2602.11988 + Agent READMEs 2511.12884 | CLAUDE.md 冗余审计与软预算                      | TODO  |
+| [LUM-407](https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-407) | (本批登记册吸收)                          | 14 条目 + F 队列变更 + memory-tool 分工纪律     | 本 PR |
