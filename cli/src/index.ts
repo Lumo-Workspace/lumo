@@ -19,6 +19,7 @@ import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
 import { taskList } from './commands/task-list'
 import { taskShow } from './commands/task-show'
+import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
@@ -332,6 +333,21 @@ task
     'Show a single task: title, status, priority, assignee, project, URL, description.'
   )
   .action(wrap(identifier => taskShow(identifier as string)))
+
+task
+  .command('status [task]')
+  .description(
+    'Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected.'
+  )
+  .option(
+    '--json',
+    'Emit the versioned machine-readable payload (version field; breaking changes bump it)'
+  )
+  .action(
+    wrap((taskArg, options) =>
+      taskStatus(taskArg as string | undefined, options as { json?: boolean })
+    )
+  )
 
 task
   .command('comment <identifier> <body>')

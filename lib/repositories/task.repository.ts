@@ -367,6 +367,17 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * Compact header (identifier parts + title + status) by cuid. Read models
+   * that already resolved the task use this instead of a full detail fetch.
+   */
+  async findHeaderById(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: TASK_IDENTIFIER_SELECT,
+    })
+  },
+
   /** Update a task's fields. */
   async update(id: string, data: TaskUpdateData) {
     return prisma.task.update({

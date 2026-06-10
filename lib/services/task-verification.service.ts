@@ -4,6 +4,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import {
   verificationRunRepository,
   type CreateVerificationRunInput,
+  type VerificationRunRow,
 } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -54,6 +55,84 @@ export interface MachineRoundOutcome {
     checkpointer: string | null
     rejectionReason: string | null
   }>
+}
+
+/**
+ * Version of the acceptance-status read model served by
+ * GET /api/tasks/[id]/status and emitted by `lumo task status --json`.
+ * Consumers pin on it; a breaking change to the payload shape requires a
+ * major bump (additive fields don't).
+ */
+export const TASK_STATUS_SCHEMA_VERSION = 1
+
+/** Latest verdict event for one criterion, lifted off the append-only log. */
+export interface CriterionLatestVerdict {
+  round: number
+  verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+  evidencePointer: string | null
+  rejectionReason: string | null
+  rejectionReasonEnum: string | null
+  recordedAt: string
+}
+
+export interface TaskStatusCriterion {
+  id: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer: string | null
+  evidenceRequired: boolean
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+  addedAtRound: number
+  latestVerdict: CriterionLatestVerdict | null
+}
+
+export interface VerificationHistoryRound {
+  round: number
+  /** When the round was recorded (first verdict's timestamp). */
+  recordedAt: string
+  passed: number
+  failed: number
+  verdicts: Array<{
+    criterionId: string
+    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    evidencePointer: string | null
+    rejectionReason: string | null
+    rejectionReasonEnum: string | null
+  }>
+}
+
+export interface TaskAcceptanceStatus {
+  version: typeof TASK_STATUS_SCHEMA_VERSION
+  task: { id: string; identifier: string; title: string; status: string }
+  /** Rounds used so far — max(VerificationRun.round), 0 when never verified. */
+  currentRound: number
+  maxRounds: number
+  /** True when the machine loop is exhausted (cap reached with failures). */
+  escalated: boolean
+  criteria: TaskStatusCriterion[]
+  verificationHistory: VerificationHistoryRound[]
+  /** FAIL verdicts of the most recent round — why the last round was rejected. */
+  lastRoundFailures: Array<{
+    criterionId: string
+    statement: string
+    rejectionReason: string | null
+    rejectionReasonEnum: string | null
+  }>
+  /** Unmet criteria (latest verdict is not a pass) — the declarative plan. */
+  nextActions: Array<{
+    criterionId: string
+    statement: string
+    verifierType: 'MACHINE' | 'HUMAN'
+    checkpointer: string | null
+    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+    addedAtRound: number
+    rejectionReason: string | null
+  }>
+}
+
+/** PASS_WITH_FOLLOWUP is a human "pass with notes" — met for plan purposes. */
+function isPassVerdict(verdict: VerificationRunRow['verdict'] | undefined) {
+  return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
 }
 
 const ACTIVITY_STATEMENT_MAX = 160
@@ -290,6 +369,121 @@ export const taskVerificationService = {
         checkpointer: machineById.get(r.criterionId)?.checkpointer ?? null,
         rejectionReason: r.rejectionReason,
       })),
+    }
+  },
+
+  /**
+   * The acceptance-status read model (LUM-344) — the agent's self-check
+   * entry point. Pure read, no LLM: everything is derived on the fly from
+   * AcceptanceCriterion + the append-only VerificationRun log (the task
+   * carries no derived columns, milestone rule 8). `nextActions` is the
+   * declarative plan: exactly the criteria whose latest verdict is not a
+   * pass — there is no separately maintained plan state to drift.
+   */
+  async statusForTask(taskId: string): Promise<TaskAcceptanceStatus> {
+    const [header, criteria, runs] = await Promise.all([
+      taskRepository.findHeaderById(taskId),
+      acceptanceCriterionRepository.listByTask(taskId),
+      verificationRunRepository.listByTask(taskId),
+    ])
+    if (!header) {
+      throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+
+    // listByTask is ordered (round asc, createdAt asc) → last write per
+    // criterion is its latest verdict, same contract as latestRunsByCriterion.
+    const latestByCriterion = new Map<string, VerificationRunRow>()
+    const runsByRound = new Map<number, VerificationRunRow[]>()
+    let currentRound = 0
+    for (const run of runs) {
+      latestByCriterion.set(run.criterionId, run)
+      const bucket = runsByRound.get(run.round)
+      if (bucket) bucket.push(run)
+      else runsByRound.set(run.round, [run])
+      if (run.round > currentRound) currentRound = run.round
+    }
+
+    const verificationHistory: VerificationHistoryRound[] = [
+      ...runsByRound.entries(),
+    ]
+      .sort(([a], [b]) => a - b)
+      .map(([round, rows]) => ({
+        round,
+        recordedAt: rows[0]!.createdAt.toISOString(),
+        passed: rows.filter(r => isPassVerdict(r.verdict)).length,
+        failed: rows.filter(r => r.verdict === 'FAIL').length,
+        verdicts: rows.map(r => ({
+          criterionId: r.criterionId,
+          verdict: r.verdict,
+          evidencePointer: r.evidencePointer,
+          rejectionReason: r.rejectionReason,
+          rejectionReasonEnum: r.rejectionReasonEnum,
+        })),
+      }))
+
+    const statementById = new Map(criteria.map(c => [c.id, c.statement]))
+    const lastRoundFailures = (runsByRound.get(currentRound) ?? [])
+      .filter(r => r.verdict === 'FAIL')
+      .map(r => ({
+        criterionId: r.criterionId,
+        statement: statementById.get(r.criterionId) ?? '',
+        rejectionReason: r.rejectionReason,
+        rejectionReasonEnum: r.rejectionReasonEnum,
+      }))
+
+    const unmet = criteria.filter(
+      c => !isPassVerdict(latestByCriterion.get(c.id)?.verdict)
+    )
+
+    return {
+      version: TASK_STATUS_SCHEMA_VERSION,
+      task: {
+        id: header.id,
+        identifier: `${header.team.identifier}-${header.number}`,
+        title: header.title,
+        status: header.status,
+      },
+      currentRound,
+      maxRounds: VERIFICATION_MAX_ROUNDS,
+      escalated:
+        currentRound >= VERIFICATION_MAX_ROUNDS && lastRoundFailures.length > 0,
+      criteria: criteria.map(c => {
+        const latest = latestByCriterion.get(c.id)
+        return {
+          id: c.id,
+          statement: c.statement,
+          verifierType: c.verifierType,
+          checkpointer: c.checkpointer,
+          evidenceRequired: c.evidenceRequired,
+          source: c.source,
+          addedAtRound: c.addedAtRound,
+          latestVerdict: latest
+            ? {
+                round: latest.round,
+                verdict: latest.verdict,
+                evidencePointer: latest.evidencePointer,
+                rejectionReason: latest.rejectionReason,
+                rejectionReasonEnum: latest.rejectionReasonEnum,
+                recordedAt: latest.createdAt.toISOString(),
+              }
+            : null,
+        }
+      }),
+      verificationHistory,
+      lastRoundFailures,
+      nextActions: unmet.map(c => {
+        const latest = latestByCriterion.get(c.id)
+        return {
+          criterionId: c.id,
+          statement: c.statement,
+          verifierType: c.verifierType,
+          checkpointer: c.checkpointer,
+          source: c.source,
+          addedAtRound: c.addedAtRound,
+          rejectionReason:
+            latest?.verdict === 'FAIL' ? latest.rejectionReason : null,
+        }
+      }),
     }
   },
 }

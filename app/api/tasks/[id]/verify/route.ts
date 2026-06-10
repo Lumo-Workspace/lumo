@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
-import { taskRepository } from '@/lib/repositories'
+import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { taskVerificationService } from '@/lib/services/task-verification.service'
 import { machineRoundBodySchema } from '@/lib/validation/acceptance'
 import { zodError } from '@/lib/api/helpers'
@@ -9,41 +9,6 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 type Params = { params: Promise<{ id: string }> }
-
-/** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
-function isLikelyCuid(segment: string): boolean {
-  return /^c[a-z0-9]{24}$/.test(segment)
-}
-
-/**
- * Parse a "LUM-42"-style identifier into its components.
- * Returns null if the string doesn't match the pattern.
- */
-function parseIdentifier(
-  segment: string
-): { teamIdentifier: string; number: number } | null {
-  const m = /^([A-Za-z]+)-(\d+)$/.exec(segment)
-  if (!m) return null
-  return { teamIdentifier: m[1]!.toUpperCase(), number: parseInt(m[2]!, 10) }
-}
-
-/**
- * Resolve the `[id]` route param to a canonical task cuid, scoped to the
- * caller's workspace — same contract as the criteria route: the cuid branch
- * verifies workspace ownership so a raw cuid can't cross workspaces.
- */
-async function resolveTask(rawId: string, workspaceId: string) {
-  if (isLikelyCuid(rawId)) {
-    return taskRepository.findByIdForMention(rawId, workspaceId)
-  }
-  const parsed = parseIdentifier(rawId)
-  if (!parsed) return null
-  return taskRepository.findByWorkspaceIdentifier(
-    workspaceId,
-    parsed.teamIdentifier,
-    parsed.number
-  )
-}
 
 /**
  * POST /api/tasks/[id]/verify — record one machine verification round.
@@ -63,7 +28,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (identity instanceof NextResponse) return identity
 
   const { id: rawId } = await params
-  const task = await resolveTask(rawId, identity.workspaceId)
+  const task = await resolveTaskParam(rawId, identity.workspaceId)
   if (!task)
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
