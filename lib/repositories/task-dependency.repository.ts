@@ -15,6 +15,13 @@ const EDGE_INCLUDE = {
   blockingTask: { select: EDGE_TASK_SELECT },
 } as const
 
+export interface UpdateTaskDependencyInput {
+  status?: 'SUGGESTED' | 'CONFIRMED' | 'DISMISSED' | undefined
+  blockedTaskId?: string | undefined
+  blockingTaskId?: string | undefined
+  confirmedAt?: Date | null | undefined
+}
+
 export interface SuggestedEdgeRow {
   workspaceId: string
   blockedTaskId: string
@@ -95,11 +102,16 @@ export const taskDependencyRepository = {
     })
   },
 
-  async update(
-    id: string,
-    data: Prisma.TaskDependencyUpdateInput
-  ) {
-    return prisma.taskDependency.update({ where: { id }, data, include: EDGE_INCLUDE })
+  async update(id: string, data: UpdateTaskDependencyInput) {
+    // exactOptionalPropertyTypes: 显式 undefined 不能直接喂给生成类型，逐键收窄。
+    const patch: Prisma.TaskDependencyUpdateInput = {}
+    if (data.status !== undefined) patch.status = data.status
+    if (data.blockedTaskId !== undefined)
+      patch.blockedTask = { connect: { id: data.blockedTaskId } }
+    if (data.blockingTaskId !== undefined)
+      patch.blockingTask = { connect: { id: data.blockingTaskId } }
+    if (data.confirmedAt !== undefined) patch.confirmedAt = data.confirmedAt
+    return prisma.taskDependency.update({ where: { id }, data: patch, include: EDGE_INCLUDE })
   },
 
   async delete(id: string) {

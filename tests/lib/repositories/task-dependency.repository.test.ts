@@ -107,6 +107,40 @@ describe('taskDependencyRepository.findPairsAmong', () => {
   })
 })
 
+// ── update ────────────────────────────────────────────────────────────────────
+
+describe('taskDependencyRepository.update', () => {
+  it('builds a patch WITHOUT undefined keys when confirming', async () => {
+    const date = new Date('2024-01-01T00:00:00.000Z')
+    p.taskDependency!.update!.mockResolvedValueOnce({})
+    await taskDependencyRepository.update('e1', {
+      status: 'CONFIRMED',
+      confirmedAt: date,
+    })
+    expect(p.taskDependency!.update).toHaveBeenCalledWith({
+      where: { id: 'e1' },
+      data: { status: 'CONFIRMED', confirmedAt: date },
+      include: expect.anything(),
+    })
+  })
+
+  it('builds both FK connect entries for a direction flip', async () => {
+    p.taskDependency!.update!.mockResolvedValueOnce({})
+    await taskDependencyRepository.update('e2', {
+      blockedTaskId: 'taskA',
+      blockingTaskId: 'taskB',
+    })
+    expect(p.taskDependency!.update).toHaveBeenCalledWith({
+      where: { id: 'e2' },
+      data: {
+        blockedTask: { connect: { id: 'taskA' } },
+        blockingTask: { connect: { id: 'taskB' } },
+      },
+      include: expect.anything(),
+    })
+  })
+})
+
 // ── findTaskIdsInWorkspace ────────────────────────────────────────────────────
 
 describe('taskDependencyRepository.findTaskIdsInWorkspace', () => {
