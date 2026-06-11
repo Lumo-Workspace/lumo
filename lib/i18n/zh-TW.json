@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "驗收模式",
   "workspaceSettings.acceptanceMode.description": "開啟後，會提醒 agent 在開始任務前先草擬驗收標準。驗收資料一律會記錄；此開關僅控制該提醒。",
   "workspaceSettings.acceptanceModeUpdated": "驗收模式已更新",
-  "workspaceSettings.acceptanceModeUpdateFailed": "更新驗收模式失敗"
+  "workspaceSettings.acceptanceModeUpdateFailed": "更新驗收模式失敗",
+  "settings.acceptance": "驗收",
+  "acceptanceSettings.title": "驗收"
 }

@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Acceptance mode",
   "workspaceSettings.acceptanceMode.description": "When on, agents are nudged to draft acceptance criteria before they start a task. Acceptance data is always recorded; this only controls the reminder.",
   "workspaceSettings.acceptanceModeUpdated": "Acceptance mode updated",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Failed to update acceptance mode"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Failed to update acceptance mode",
+  "settings.acceptance": "Acceptance",
+  "acceptanceSettings.title": "Acceptance"
 }

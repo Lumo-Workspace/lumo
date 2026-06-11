@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Modo de aceptación",
   "workspaceSettings.acceptanceMode.description": "Cuando está activado, se recuerda a los agentes que redacten los criterios de aceptación antes de comenzar una tarea. Los datos de aceptación siempre se registran; esto solo controla el recordatorio.",
   "workspaceSettings.acceptanceModeUpdated": "Modo de aceptación actualizado",
-  "workspaceSettings.acceptanceModeUpdateFailed": "No se pudo actualizar el modo de aceptación"
+  "workspaceSettings.acceptanceModeUpdateFailed": "No se pudo actualizar el modo de aceptación",
+  "settings.acceptance": "Aceptación",
+  "acceptanceSettings.title": "Aceptación"
 }

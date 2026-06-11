@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "स्वीकृति मोड",
   "workspaceSettings.acceptanceMode.description": "चालू होने पर, एजेंट को कार्य शुरू करने से पहले स्वीकृति मानदंड का मसौदा तैयार करने के लिए प्रेरित किया जाता है। स्वीकृति डेटा हमेशा दर्ज किया जाता है; यह केवल अनुस्मारक को नियंत्रित करता है।",
   "workspaceSettings.acceptanceModeUpdated": "स्वीकृति मोड अपडेट किया गया",
-  "workspaceSettings.acceptanceModeUpdateFailed": "स्वीकृति मोड अपडेट करने में विफल"
+  "workspaceSettings.acceptanceModeUpdateFailed": "स्वीकृति मोड अपडेट करने में विफल",
+  "settings.acceptance": "स्वीकृति",
+  "acceptanceSettings.title": "स्वीकृति"
 }
