@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "理由：この操作はプロジェクトの禁止リストに含まれています。",
   "boundary.panel.detected": "ツールイベントから検知",
   "boundary.panel.acknowledge": "承認",
-  "boundary.panel.humanOnly": "承認すると、誰が承認したかが記録され、「完了」へのブロックが解除されます。承認できるのはサインイン済みの人のみで、agent/CLI 経由の操作は設計上閉じられています。"
+  "boundary.panel.humanOnly": "承認すると、誰が承認したかが記録され、「完了」へのブロックが解除されます。承認できるのはサインイン済みの人のみで、agent/CLI 経由の操作は設計上閉じられています。",
+  "workspaceSettings.acceptanceMode": "受け入れモード",
+  "workspaceSettings.acceptanceMode.description": "オンにすると、エージェントはタスクを開始する前に受け入れ基準を作成するよう促されます。受け入れデータは常に記録され、この設定はリマインダーのみを制御します。",
+  "workspaceSettings.acceptanceModeUpdated": "受け入れモードを更新しました",
+  "workspaceSettings.acceptanceModeUpdateFailed": "受け入れモードの更新に失敗しました"
 }

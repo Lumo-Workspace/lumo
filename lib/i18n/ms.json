@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "Sebab: tindakan ini ada dalam senarai Terlarang projek.",
   "boundary.panel.detected": "Dikesan daripada peristiwa alat",
   "boundary.panel.acknowledge": "Sahkan",
-  "boundary.panel.humanOnly": "Pengesahan merekodkan siapa yang meluluskan dan membuka kunci Selesai. Hanya manusia yang telah log masuk boleh mengesahkan — laluan melalui ejen/CLI sengaja ditutup."
+  "boundary.panel.humanOnly": "Pengesahan merekodkan siapa yang meluluskan dan membuka kunci Selesai. Hanya manusia yang telah log masuk boleh mengesahkan — laluan melalui ejen/CLI sengaja ditutup.",
+  "workspaceSettings.acceptanceMode": "Mod penerimaan",
+  "workspaceSettings.acceptanceMode.description": "Apabila dihidupkan, ejen digesa untuk merangka kriteria penerimaan sebelum memulakan tugas. Data penerimaan sentiasa direkodkan; ini hanya mengawal peringatan.",
+  "workspaceSettings.acceptanceModeUpdated": "Mod penerimaan dikemas kini",
+  "workspaceSettings.acceptanceModeUpdateFailed": "Gagal mengemas kini mod penerimaan"
 }

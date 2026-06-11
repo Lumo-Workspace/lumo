@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "原因：此操作在專案的禁止清單中。",
   "boundary.panel.detected": "偵測自一個工具事件",
   "boundary.panel.acknowledge": "確認",
-  "boundary.panel.humanOnly": "確認會記錄由誰簽署核准，並解除「完成」的封鎖。只有已登入的人工使用者才能確認 — agent/CLI 路徑依設計已關閉。"
+  "boundary.panel.humanOnly": "確認會記錄由誰簽署核准，並解除「完成」的封鎖。只有已登入的人工使用者才能確認 — agent/CLI 路徑依設計已關閉。",
+  "workspaceSettings.acceptanceMode": "驗收模式",
+  "workspaceSettings.acceptanceMode.description": "開啟後，會提醒 agent 在開始任務前先草擬驗收標準。驗收資料一律會記錄；此開關僅控制該提醒。",
+  "workspaceSettings.acceptanceModeUpdated": "驗收模式已更新",
+  "workspaceSettings.acceptanceModeUpdateFailed": "更新驗收模式失敗"
 }

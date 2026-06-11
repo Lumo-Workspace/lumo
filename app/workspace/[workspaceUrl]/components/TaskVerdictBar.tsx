@@ -21,6 +21,14 @@ interface TaskVerdictBarProps {
   taskId: string
   /** Current task status — the bar only renders for IN_REVIEW. */
   status: string
+  /**
+   * Whether the task has an acceptance contract (LUM-431). The human ritual
+   * layer follows the data: with no criteria there is nothing to adjudicate,
+   * so the bar stays hidden — which is also what self-neutralizes the
+   * acceptance-mode toggle (a workspace with the toggle off never drafts
+   * criteria, so this stays false). Independent of the workspace toggle.
+   */
+  hasCriteria: boolean
   onVerdictRecorded: (result: HumanVerdictResult) => void
   /** Mention sources for the FAIL send-back editor (reuses the comment editor). */
   mentionSources?: MentionSources
@@ -50,6 +58,7 @@ function hasContent(html: string): boolean {
 export function TaskVerdictBar({
   taskId,
   status,
+  hasCriteria,
   onVerdictRecorded,
   mentionSources,
 }: TaskVerdictBarProps) {
@@ -74,7 +83,7 @@ export function TaskVerdictBar({
     }
   }, [deepLinkVerdict, status])
 
-  if (status !== 'IN_REVIEW') return null
+  if (status !== 'IN_REVIEW' || !hasCriteria) return null
 
   const submit = async (verdict: HumanVerdict) => {
     setSubmitting(true)

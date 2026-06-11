@@ -15,6 +15,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn(async () => []) },
 }))
+// LUM-431: the draft nudge is gated by the workspace acceptance-mode toggle.
+// These legacy assertions expect the nudge to show, so default the gate ON.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: { findAcceptanceModeByTask: jest.fn(async () => true) },
+}))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { listForTask: jest.fn(async () => []) },
 }))
@@ -116,7 +121,9 @@ describe('buildSessionStartSections — criteria injection (LUM-342)', () => {
 
   it('injects the draft nudge for a still-open task without criteria', async () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
-    expect(out.criteriaSection).toContain('This task has no acceptance criteria yet')
+    expect(out.criteriaSection).toContain(
+      'This task has no acceptance criteria yet'
+    )
   })
 
   it('skips the nudge for DONE tasks', async () => {
@@ -135,7 +142,7 @@ describe('buildSessionStartSections — criteria injection (LUM-342)', () => {
     ])
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.criteriaSection).toContain('looks fine')
-    // eslint-disable-next-line no-control-regex
+
     expect(out.criteriaSection).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/)
   })
 })
@@ -186,7 +193,9 @@ describe('getContextForIdentifier — criteriaSection (LUM-342)', () => {
       'member-1',
       'LUM-1'
     )
-    expect(open!.criteriaSection).toContain('This task has no acceptance criteria yet')
+    expect(open!.criteriaSection).toContain(
+      'This task has no acceptance criteria yet'
+    )
 
     mockFindById.mockResolvedValue(task({ status: 'DONE' }))
     const done = await taskContextService.getContextForIdentifier(

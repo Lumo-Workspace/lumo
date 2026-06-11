@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "Why: this action is on the project's Forbidden list.",
   "boundary.panel.detected": "Detected from a tool event",
   "boundary.panel.acknowledge": "Acknowledge",
-  "boundary.panel.humanOnly": "Acknowledging records who signed off and unblocks Done. Only a signed-in human can acknowledge — the agent/CLI path is closed by design."
+  "boundary.panel.humanOnly": "Acknowledging records who signed off and unblocks Done. Only a signed-in human can acknowledge — the agent/CLI path is closed by design.",
+  "workspaceSettings.acceptanceMode": "Acceptance mode",
+  "workspaceSettings.acceptanceMode.description": "When on, agents are nudged to draft acceptance criteria before they start a task. Acceptance data is always recorded; this only controls the reminder.",
+  "workspaceSettings.acceptanceModeUpdated": "Acceptance mode updated",
+  "workspaceSettings.acceptanceModeUpdateFailed": "Failed to update acceptance mode"
 }

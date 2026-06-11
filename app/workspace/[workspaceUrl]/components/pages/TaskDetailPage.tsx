@@ -304,6 +304,7 @@ export function TaskDetailPage({
             <TaskVerdictBar
               taskId={task.id}
               status={task.status}
+              hasCriteria={initialTimelinePresence?.hasCriteria ?? false}
               mentionSources={mentionSources}
               onVerdictRecorded={result => {
                 setTask(prev => ({

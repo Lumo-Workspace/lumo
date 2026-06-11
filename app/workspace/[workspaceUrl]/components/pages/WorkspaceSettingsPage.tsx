@@ -38,6 +38,7 @@ interface Workspace {
   riskStalePrDays?: number
   riskThroughputDrop?: number
   verificationMaxRounds?: number
+  acceptanceMode?: boolean
 }
 
 const DEFAULT_VERIFICATION_MAX_ROUNDS = 3
@@ -105,6 +106,10 @@ export function WorkspaceSettingsPage() {
   )
   const [savingVerification, setSavingVerification] = useState(false)
 
+  // Acceptance-mode toggle (LUM-431) — default OFF (ritual layer suppressed)
+  const [acceptanceMode, setAcceptanceMode] = useState(false)
+  const [savingAcceptanceMode, setSavingAcceptanceMode] = useState(false)
+
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
     const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
@@ -160,6 +165,7 @@ export function WorkspaceSettingsPage() {
       setVerificationMaxRounds(
         data.workspace.verificationMaxRounds ?? DEFAULT_VERIFICATION_MAX_ROUNDS
       )
+      setAcceptanceMode(data.workspace.acceptanceMode ?? false)
 
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
@@ -319,6 +325,33 @@ export function WorkspaceSettingsPage() {
       )
     } finally {
       setSavingVerification(false)
+    }
+  }
+
+  // ─── Toggle acceptance mode (LUM-431) ────────────────────────────────────
+  const handleToggleAcceptanceMode = async () => {
+    if (!assertOwner()) return
+    const next = !acceptanceMode
+    setAcceptanceMode(next)
+    setSavingAcceptanceMode(true)
+    try {
+      await workspacesClient.updateMe<{ workspace: Workspace }>({
+        acceptanceMode: next,
+      })
+      toast.success(
+        intl.formatMessage({ id: 'workspaceSettings.acceptanceModeUpdated' })
+      )
+    } catch (err) {
+      setAcceptanceMode(!next) // revert optimistic flip
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({
+              id: 'workspaceSettings.acceptanceModeUpdateFailed',
+            })
+      )
+    } finally {
+      setSavingAcceptanceMode(false)
     }
   }
 
@@ -715,6 +748,45 @@ export function WorkspaceSettingsPage() {
                   ? intl.formatMessage({ id: 'common.saving' })
                   : intl.formatMessage({ id: 'common.save' })}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Acceptance mode toggle (LUM-431) */}
+        {isOwner && (
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <div className='flex items-center justify-between gap-4 px-5 py-4'>
+              <div>
+                <p className='text-sm font-semibold text-foreground'>
+                  {intl.formatMessage({
+                    id: 'workspaceSettings.acceptanceMode',
+                  })}
+                </p>
+                <p className='text-xs text-muted-foreground mt-0.5'>
+                  {intl.formatMessage({
+                    id: 'workspaceSettings.acceptanceMode.description',
+                  })}
+                </p>
+              </div>
+              <button
+                type='button'
+                role='switch'
+                aria-checked={acceptanceMode}
+                aria-label={intl.formatMessage({
+                  id: 'workspaceSettings.acceptanceMode',
+                })}
+                onClick={handleToggleAcceptanceMode}
+                disabled={savingAcceptanceMode}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+                  acceptanceMode ? 'bg-primary' : 'bg-input'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-card shadow-elevation-3 transition-transform ${
+                    acceptanceMode ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         )}

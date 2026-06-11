@@ -245,6 +245,13 @@ model Workspace {
   // human adjudication (recordHumanVerdict) is never bounded by this.
   verificationMaxRounds Int @default(3)
 
+  // Acceptance-mode toggle (LUM-431). Default false = ritual layer OFF: the
+  // acceptance system's only "push" — the draft-criteria nudge injected at
+  // session-start / attach / task-context — is suppressed. The data layer
+  // (schema, write/read paths, CLI, DONE gate, contract injection for tasks
+  // that already have criteria) is always-on and never gated by this flag.
+  acceptanceMode Boolean @default(false)
+
   @@map("workspaces")
 }
 

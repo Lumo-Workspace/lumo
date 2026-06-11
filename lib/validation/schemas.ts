@@ -75,6 +75,7 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
   riskStalePrDays: z.number().int().min(1).max(30).optional(),
   riskThroughputDrop: z.number().min(0).max(1).optional(),
   verificationMaxRounds: z.number().int().min(1).max(10).optional(),
+  acceptanceMode: z.boolean().optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import { taskSlackContextRepository } from '@/lib/repositories/task-slack-contex
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -176,6 +177,22 @@ export interface TaskContext {
 }
 
 const NO_SUMMARY = '(no summary)'
+
+/**
+ * LUM-431: is the acceptance-criteria *draft nudge* enabled for the workspace
+ * owning this task? The nudge is the acceptance system's only "push", gated by
+ * the per-workspace `acceptanceMode` toggle (default OFF). Fail-safe to OFF —
+ * an unresolved workspace or a read error suppresses the nudge; it never
+ * throws. The contract body itself is never gated (always-on data layer), so
+ * suppressing the nudge degrades gracefully.
+ */
+async function acceptanceNudgeEnabled(taskId: string): Promise<boolean> {
+  try {
+    return (await workspaceRepository.findAcceptanceModeByTask(taskId)) ?? false
+  } catch {
+    return false
+  }
+}
 
 /**
  * One-line synthesis of a session summary. Preference order matches the
@@ -496,7 +513,11 @@ export const taskContextService = {
     if (!task) return ''
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     if (criteria.length > 0) return renderCriteriaSection(criteria)
-    return task.status === 'DONE' ? '' : renderCriteriaDraftNudge()
+    if (task.status === 'DONE') return ''
+    // LUM-431: the nudge is gated by the workspace acceptance-mode toggle.
+    return (await acceptanceNudgeEnabled(taskId))
+      ? renderCriteriaDraftNudge()
+      : ''
   },
 
   /**
@@ -647,13 +668,20 @@ export const taskContextService = {
 
     // No criteria on a still-open task → nudge the agent to draft the
     // contract before the first line of code (the SKILL.md guide has the
-    // how; this makes sure it's seen). DONE tasks skip the nudge.
+    // how; this makes sure it's seen). DONE tasks skip the nudge, and so do
+    // workspaces with acceptance mode OFF (LUM-431) — the nudge is the only
+    // "push" the acceptance system does. The contract body (criteriaOut) is
+    // always-on and never gated.
+    const showNudge =
+      criteria.length === 0 &&
+      task.status !== 'DONE' &&
+      (await acceptanceNudgeEnabled(taskId))
     const criteriaSection =
       criteria.length > 0
         ? criteriaOut
-        : task.status === 'DONE'
-          ? ''
-          : renderCriteriaDraftNudge()
+        : showNudge
+          ? renderCriteriaDraftNudge()
+          : ''
 
     const linkedJoined = [prOut, slackOut, figmaOut, webOut]
       .filter(s => s !== '')
@@ -871,12 +899,16 @@ export const taskContextService = {
     // `task context` is exactly the read-the-context moment the drafting
     // guide hooks into (draft 3–7 before the first line of code).
     const criteria = await acceptanceCriterionRepository.listByTask(resolved.id)
-    const criteriaSection =
-      criteria.length > 0
-        ? renderCriteriaSection(criteria)
-        : full.status === 'DONE'
-          ? ''
-          : renderCriteriaDraftNudge()
+    let criteriaSection = ''
+    if (criteria.length > 0) {
+      criteriaSection = renderCriteriaSection(criteria)
+    } else if (full.status !== 'DONE') {
+      // LUM-431: the draft nudge is gated by the workspace acceptance-mode
+      // toggle; the contract body above is always-on.
+      if (await acceptanceNudgeEnabled(resolved.id)) {
+        criteriaSection = renderCriteriaDraftNudge()
+      }
+    }
 
     // Mentioned documents (EXPLICIT + CONTENT, workspace-visibility filtered).
     const docs = (await miscRepository.findDocumentsForContext(

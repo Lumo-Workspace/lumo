@@ -52,11 +52,34 @@ beforeEach(() => {
 })
 
 describe('TaskVerdictBar', () => {
+  it('criteria gate (LUM-431): hidden for an IN_REVIEW task with no criteria, shown with criteria', () => {
+    const { rerender } = render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        hasCriteria={false}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    // The human ritual layer follows the data: no contract → nothing to judge.
+    expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
+    rerender(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        hasCriteria={true}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
+  })
+
   it('renders nothing unless the task is IN_REVIEW', () => {
     const { rerender } = render(
       <TaskVerdictBar
         taskId='t-1'
         status='IN_PROGRESS'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -65,6 +88,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='DONE'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -73,6 +97,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -88,6 +113,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={onRecorded}
       />
     )
@@ -104,6 +130,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -123,6 +150,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -149,6 +177,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -169,6 +198,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -192,6 +222,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -204,6 +235,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -216,6 +248,7 @@ describe('TaskVerdictBar', () => {
       <TaskVerdictBar
         taskId='t-1'
         status='IN_REVIEW'
+        hasCriteria={true}
         onVerdictRecorded={jest.fn()}
       />
     )
