@@ -70,6 +70,10 @@ export const TASK_STATUS_SCHEMA_VERSION = 1
 export interface CriterionLatestVerdict {
   round: number
   verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+  /** Who produced this verdict — lets a read model mark a human override
+   *  (a PASS authored by HUMAN) distinctly from a machine PASS. Additive to
+   *  the v1 read model (derived from an existing column, no schema change). */
+  verifierType: 'MACHINE' | 'HUMAN' | 'AGENT'
   evidencePointer: string | null
   rejectionReason: string | null
   rejectionReasonEnum: string | null
@@ -457,6 +461,7 @@ export const taskVerificationService = {
             ? {
                 round: latest.round,
                 verdict: latest.verdict,
+                verifierType: latest.verifierType,
                 evidencePointer: latest.evidencePointer,
                 rejectionReason: latest.rejectionReason,
                 rejectionReasonEnum: latest.rejectionReasonEnum,

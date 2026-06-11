@@ -10,6 +10,7 @@ export const API = {
     timeline: (taskId: string) => `/api/tasks/${taskId}/timeline`,
     agentRuns: (taskId: string) => `/api/tasks/${taskId}/agent-runs`,
     lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
+    status: (identifier: string) => `/api/tasks/${identifier}/status`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,

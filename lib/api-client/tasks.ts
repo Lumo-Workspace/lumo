@@ -180,6 +180,12 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.lineage(encodeURIComponent(identifier)))
   },
 
+  // Acceptance-status read model (LUM-344). resolveTaskParam accepts either the
+  // identifier (LUM-42) or the cuid, so the read-only tab keys it by identifier.
+  getStatus<T>(identifier: string) {
+    return apiFetch<T>(API.tasks.status(encodeURIComponent(identifier)))
+  },
+
   forecast<T>(taskId: string) {
     return apiFetch<T>(API.tasks.forecast(taskId))
   },

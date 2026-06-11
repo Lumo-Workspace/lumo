@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { TimelineEntry, WorkspaceMemberInfo } from '../../types'
 import { TimelineEntryRenderer } from './TimelineEntryRenderer'
+import { aggregateTimeline } from './acceptance-aggregation'
+import { AcceptanceBatchItem } from './items/AcceptanceBatchItem'
 
 // ── Filter categories ────────────────────────────────────────────────────────
 
@@ -310,16 +312,27 @@ export function ActivityTimeline({
               </span>
               <div className='flex-1 h-px bg-border' />
             </div>
-            {/* Entries with left timeline line */}
+            {/* Entries with left timeline line. Acceptance mirror events
+                (LUM-343) are folded into batch rows so a multi-criterion draft
+                or a full verify round reads as one milestone, not a wall. */}
             <div className='space-y-0.5'>
-              {group.entries.map(entry => (
-                <TimelineEntryRenderer
-                  key={`${entry.kind}-${entry.id}`}
-                  entry={entry}
-                  members={members}
-                  agentActors={agentActors}
-                />
-              ))}
+              {aggregateTimeline(group.entries).map(unit =>
+                unit.kind === 'entry' ? (
+                  <TimelineEntryRenderer
+                    key={`${unit.entry.kind}-${unit.entry.id}`}
+                    entry={unit.entry}
+                    members={members}
+                    agentActors={agentActors}
+                  />
+                ) : (
+                  <AcceptanceBatchItem
+                    key={`batch-${unit.key}-${unit.createdAt}`}
+                    unit={unit}
+                    members={members}
+                    agentActors={agentActors}
+                  />
+                )
+              )}
             </div>
           </div>
         ))}

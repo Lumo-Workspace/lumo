@@ -6,11 +6,13 @@ import { useTimeline } from '../../hooks/useTimeline'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { useMemories } from '../../hooks/useMemories'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
+import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
 import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
+import { AcceptanceTab } from './AcceptanceTab'
 import { MemoryTab } from '../memory/MemoryTab'
 
 type TabValue =
@@ -20,6 +22,7 @@ type TabValue =
   | 'agent'
   | 'memory'
   | 'lineage'
+  | 'acceptance'
 
 interface PullRequestSummary {
   id: string
@@ -36,6 +39,7 @@ interface TimelinePresence {
   hasAgentRuns: boolean
   hasMemories: boolean
   hasLineage: boolean
+  hasCriteria: boolean
 }
 
 interface TimelineTabsProps {
@@ -90,6 +94,7 @@ export function TimelineTabs({
     enabled: true,
   })
   const lineage = useTaskLineage({ identifier: taskIdentifier, enabled: true })
+  const status = useTaskStatus({ identifier: taskIdentifier, enabled: true })
 
   // Until a probe resolves, fall back to the SSR-seeded presence so the tab
   // bar paints correctly on first render (no pop-in); once a probe lands it
@@ -105,6 +110,11 @@ export function TimelineTabs({
   const hasLineage = lineage.data
     ? lineage.data.groups.length > 0
     : (initialTimelinePresence?.hasLineage ?? false)
+  // The read-only Acceptance tab (LUM-423) shows only once a contract exists —
+  // same probe-with-SSR-fallback pattern as the three above.
+  const hasCriteria = status.data
+    ? status.data.criteria.length > 0
+    : (initialTimelinePresence?.hasCriteria ?? false)
 
   // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
   // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
@@ -183,6 +193,17 @@ export function TimelineTabs({
             })}
           </button>
         )}
+        {hasCriteria && (
+          <button
+            className={tabClass(activeTab === 'acceptance')}
+            onClick={() => setActiveTab('acceptance')}
+          >
+            {intl.formatMessage({
+              id: 'task.acceptance',
+              defaultMessage: '验收',
+            })}
+          </button>
+        )}
       </div>
 
       {activeTab === 'activity' && (
@@ -228,6 +249,12 @@ export function TimelineTabs({
         <LineageTab
           taskIdentifier={taskIdentifier}
           enabled={activeTab === 'lineage'}
+        />
+      )}
+      {activeTab === 'acceptance' && (
+        <AcceptanceTab
+          taskIdentifier={taskIdentifier}
+          enabled={activeTab === 'acceptance'}
         />
       )}
     </div>

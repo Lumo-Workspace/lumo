@@ -92,6 +92,8 @@ export const queryKeys = {
 
   lineage: (identifier: string) => ['lineage', identifier] as const,
 
+  taskStatus: (identifier: string) => ['taskStatus', identifier] as const,
+
   fragmentTrust: (ids: string[]) => ['fragmentTrust', [...ids].sort()] as const,
 
   tags: () => ['tags'] as const,

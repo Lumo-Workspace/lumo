@@ -661,3 +661,57 @@ export interface LineageResponse {
   }
   groups: LineageGroup[]
 }
+
+// ── Acceptance status read model (LUM-344 GET /api/tasks/[id]/status) ─────────
+// Client mirror of lib/services/task-verification.service.ts `TaskAcceptanceStatus`
+// (front end must not import lib/services). The read-only Acceptance tab
+// (LUM-423) consumes it verbatim — no new backend.
+
+export type AcceptanceVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+export type AcceptanceVerifier = 'MACHINE' | 'HUMAN' | 'AGENT'
+export type CriterionSource = 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+
+export interface CriterionLatestVerdictView {
+  round: number
+  verdict: AcceptanceVerdict
+  verifierType: AcceptanceVerifier
+  evidencePointer: string | null
+  rejectionReason: string | null
+  rejectionReasonEnum: string | null
+  recordedAt: string
+}
+
+export interface TaskStatusCriterionView {
+  id: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer: string | null
+  evidenceRequired: boolean
+  source: CriterionSource
+  addedAtRound: number
+  latestVerdict: CriterionLatestVerdictView | null
+}
+
+export interface TaskAcceptanceStatusView {
+  version: number
+  task: { id: string; identifier: string; title: string; status: string }
+  currentRound: number
+  maxRounds: number
+  escalated: boolean
+  criteria: TaskStatusCriterionView[]
+  lastRoundFailures: Array<{
+    criterionId: string
+    statement: string
+    rejectionReason: string | null
+    rejectionReasonEnum: string | null
+  }>
+  nextActions: Array<{
+    criterionId: string
+    statement: string
+    verifierType: 'MACHINE' | 'HUMAN'
+    checkpointer: string | null
+    source: CriterionSource
+    addedAtRound: number
+    rejectionReason: string | null
+  }>
+}
