@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "semakan",
   "acceptance.check.evidence": "bukti",
   "acceptance.check.none": "belum dijalankan",
-  "acceptance.check.exitCode": "kod keluar {code}"
+  "acceptance.check.exitCode": "kod keluar {code}",
+  "acceptance.verdict.pass": "Lulus",
+  "acceptance.verdict.sendBack": "Hantar semula",
+  "acceptance.verdict.confirmSendBack": "Sahkan hantar semula",
+  "acceptance.verdict.notePlaceholder": "Mengapa dihantar semula? (pilihan)",
+  "acceptance.verdict.override": "Tindih",
+  "acceptance.verdict.allLabel": "Seluruh kontrak:"
 }

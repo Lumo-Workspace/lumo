@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   ClipboardCheck,
@@ -10,8 +10,10 @@ import {
   AlertTriangle,
   ChevronRight,
 } from 'lucide-react'
+import { tasksClient } from '@/lib/api-client'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import type {
+  AcceptanceVerdict,
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
   VerificationHistoryRoundView,
@@ -23,6 +25,13 @@ interface AcceptanceTabProps {
   taskIdentifier: string
   enabled: boolean
 }
+
+/** Records a human verdict (whole-contract when criterionIds is omitted). */
+type SubmitVerdict = (
+  verdict: AcceptanceVerdict,
+  criterionIds?: string[],
+  note?: string
+) => void
 
 function isPass(verdict: string | undefined): boolean {
   return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
@@ -68,7 +77,9 @@ function VerdictBanner({ data }: { data: TaskAcceptanceStatusView }) {
   const anyHumanVerdict = data.criteria.some(
     c => c.latestVerdict?.verifierType === 'HUMAN'
   )
-  const machineCriteria = data.criteria.filter(c => c.verifierType === 'MACHINE')
+  const machineCriteria = data.criteria.filter(
+    c => c.verifierType === 'MACHINE'
+  )
   const machineAllPass =
     machineCriteria.length > 0 &&
     machineCriteria.every(c => isPass(c.latestVerdict?.verdict))
@@ -184,7 +195,9 @@ function VerdictBanner({ data }: { data: TaskAcceptanceStatusView }) {
 
 // ── Verification record (round history) ──────────────────────────────────────
 
-function roundVerifier(round: VerificationHistoryRoundView): AcceptanceVerifier | null {
+function roundVerifier(
+  round: VerificationHistoryRoundView
+): AcceptanceVerifier | null {
   const set = new Set(round.verdicts.map(v => v.verifierType))
   return set.size === 1 ? [...set][0]! : null
 }
@@ -236,7 +249,10 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
         { round: r.round }
       )
     return intl.formatMessage(
-      { id: 'acceptance.history.roundGeneric', defaultMessage: 'round {round}' },
+      {
+        id: 'acceptance.history.roundGeneric',
+        defaultMessage: 'round {round}',
+      },
       { round: r.round }
     )
   }
@@ -323,7 +339,8 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
 
 const SOURCE_PILL: Record<string, string> = {
   HUMAN_EDIT: 'border border-border text-muted-foreground',
-  REVIEW_ADDED: 'bg-warning-subtle border border-warning-border text-foreground',
+  REVIEW_ADDED:
+    'bg-warning-subtle border border-warning-border text-foreground',
 }
 
 function resultBadge(
@@ -362,7 +379,141 @@ function resultBadge(
   }
 }
 
-function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
+// ── Human verdict controls (LUM-425) ─────────────────────────────────────────
+//
+// Inline pass / send-back controls, rendered only while the task is IN_REVIEW.
+// Reused at two scopes: per-criterion (criterionIds = [c.id]) and task-level
+// (criterionIds = undefined → the whole-contract "pass all / send back all").
+// `secondary` collapses the controls behind an unobtrusive "Override" toggle —
+// used on machine-passed rows so a human doesn't fat-finger overturning a green
+// machine result, while still allowing the red line's provable manual override.
+
+function VerdictControls({
+  idSuffix,
+  criterionIds,
+  secondary,
+  submitting,
+  onVerdict,
+}: {
+  idSuffix: string
+  criterionIds: string[] | undefined
+  secondary: boolean
+  submitting: boolean
+  onVerdict: SubmitVerdict
+}) {
+  const intl = useIntl()
+  const [open, setOpen] = useState(!secondary)
+  const [sendBack, setSendBack] = useState(false)
+  const [note, setNote] = useState('')
+
+  if (secondary && !open) {
+    return (
+      <button
+        type='button'
+        data-testid={`verdict-override-${idSuffix}`}
+        onClick={() => setOpen(true)}
+        className='text-[11px] text-muted-foreground/80 hover:text-foreground hover:underline'
+      >
+        {intl.formatMessage({
+          id: 'acceptance.verdict.override',
+          defaultMessage: 'Override',
+        })}
+      </button>
+    )
+  }
+
+  const passCls = secondary
+    ? 'rounded-sm border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted'
+    : 'rounded-sm bg-success-subtle border border-success-border px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-success-subtle/70'
+
+  return (
+    <div className='flex flex-col gap-1.5'>
+      <div className='flex items-center gap-1.5'>
+        <button
+          type='button'
+          data-testid={`verdict-pass-${idSuffix}`}
+          disabled={submitting}
+          onClick={() => onVerdict('PASS', criterionIds)}
+          className={`${passCls} disabled:opacity-50`}
+        >
+          {intl.formatMessage({
+            id: 'acceptance.verdict.pass',
+            defaultMessage: 'Pass',
+          })}
+        </button>
+        <button
+          type='button'
+          data-testid={`verdict-sendback-${idSuffix}`}
+          aria-expanded={sendBack}
+          disabled={submitting}
+          onClick={() => setSendBack(s => !s)}
+          className='rounded-sm border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50'
+        >
+          {intl.formatMessage({
+            id: 'acceptance.verdict.sendBack',
+            defaultMessage: 'Send back',
+          })}
+        </button>
+        {secondary ? (
+          <button
+            type='button'
+            onClick={() => {
+              setOpen(false)
+              setSendBack(false)
+            }}
+            className='text-[11px] text-muted-foreground/70 hover:underline'
+          >
+            {intl.formatMessage({
+              id: 'common.cancel',
+              defaultMessage: 'Cancel',
+            })}
+          </button>
+        ) : null}
+      </div>
+      {sendBack ? (
+        <div className='flex flex-col gap-1'>
+          <textarea
+            data-testid={`verdict-note-${idSuffix}`}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={2}
+            placeholder={intl.formatMessage({
+              id: 'acceptance.verdict.notePlaceholder',
+              defaultMessage: 'Why is this sent back? (optional)',
+            })}
+            className='w-full rounded-md border border-input bg-background px-2 py-1 text-[11px]'
+          />
+          <button
+            type='button'
+            data-testid={`verdict-confirm-${idSuffix}`}
+            disabled={submitting}
+            onClick={() =>
+              onVerdict('FAIL', criterionIds, note.trim() || undefined)
+            }
+            className='self-start rounded-sm bg-danger-subtle border border-danger-border px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-danger-subtle/70 disabled:opacity-50'
+          >
+            {intl.formatMessage({
+              id: 'acceptance.verdict.confirmSendBack',
+              defaultMessage: 'Confirm send-back',
+            })}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function CriterionRow({
+  c,
+  interactive,
+  submitting,
+  onVerdict,
+}: {
+  c: TaskStatusCriterionView
+  interactive: boolean
+  submitting: boolean
+  onVerdict: SubmitVerdict
+}) {
   const intl = useIntl()
   const [showCheck, setShowCheck] = useState(false)
   const v = c.latestVerdict
@@ -370,6 +521,9 @@ function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
   const exitCode = parseExitCode(v?.evidencePointer)
   // Only MACHINE criteria carry a runnable check / evidence to disclose.
   const hasCheck = c.verifierType === 'MACHINE' && (!!c.checkpointer || !!v)
+  // A machine-passed criterion gets the de-emphasized override affordance; an
+  // unjudged or HUMAN row gets the prominent pass / send-back controls.
+  const machinePassed = c.verifierType === 'MACHINE' && isPass(v?.verdict)
 
   return (
     <div className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'>
@@ -463,6 +617,17 @@ function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
             )}
           </div>
         ) : null}
+        {interactive ? (
+          <div className='mt-2'>
+            <VerdictControls
+              idSuffix={c.id}
+              criterionIds={[c.id]}
+              secondary={machinePassed}
+              submitting={submitting}
+              onVerdict={onVerdict}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -472,10 +637,30 @@ function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
 
 export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
   const intl = useIntl()
-  const { data, loading, error } = useTaskStatus({
+  const { data, loading, error, refresh } = useTaskStatus({
     identifier: taskIdentifier,
     enabled,
   })
+  const [submitting, setSubmitting] = useState(false)
+
+  // The acceptance tab is only ever rendered inside the Clerk web UI — the
+  // agent/CLI has no DOM — so a viewer here is by construction a human. The
+  // server still enforces the red line (bearer identities 403 before parse);
+  // this is just the UI gate. Verdicts are only actionable while IN_REVIEW.
+  const submitVerdict = useCallback<SubmitVerdict>(
+    (verdict, criterionIds, note) => {
+      setSubmitting(true)
+      void tasksClient
+        .submitHumanVerdict(taskIdentifier, {
+          verdict,
+          ...(criterionIds ? { criterionIds } : {}),
+          ...(note ? { note } : {}),
+        })
+        .then(() => refresh?.())
+        .finally(() => setSubmitting(false))
+    },
+    [taskIdentifier, refresh]
+  )
 
   if (loading && !data) {
     return (
@@ -510,6 +695,8 @@ export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
     c => c.verifierType === 'MACHINE'
   ).length
   const humanCount = data.criteria.length - machineCount
+  // Inline human verdict controls only while the task awaits adjudication.
+  const interactive = data.task.status === 'IN_REVIEW'
 
   return (
     <div className='space-y-5 py-1'>
@@ -518,29 +705,57 @@ export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
       <VerificationHistory data={data} />
 
       <div>
-        <div className='mb-2 text-xs font-medium text-muted-foreground'>
-          {intl.formatMessage({
-            id: 'acceptance.contract.title',
-            defaultMessage: 'Acceptance criteria',
-          })}{' '}
-          <span className='font-normal text-muted-foreground/70'>
-            ·{' '}
-            {intl.formatMessage(
-              {
-                id: 'acceptance.contract.count',
-                defaultMessage: '{total} · {machine} MACHINE / {human} HUMAN',
-              },
-              {
-                total: data.criteria.length,
-                machine: machineCount,
-                human: humanCount,
-              }
-            )}
-          </span>
+        <div className='mb-2 flex items-center gap-2'>
+          <div className='text-xs font-medium text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'acceptance.contract.title',
+              defaultMessage: 'Acceptance criteria',
+            })}{' '}
+            <span className='font-normal text-muted-foreground/70'>
+              ·{' '}
+              {intl.formatMessage(
+                {
+                  id: 'acceptance.contract.count',
+                  defaultMessage: '{total} · {machine} MACHINE / {human} HUMAN',
+                },
+                {
+                  total: data.criteria.length,
+                  machine: machineCount,
+                  human: humanCount,
+                }
+              )}
+            </span>
+          </div>
+          {/* Task-level quick action (LUM-425 Fork 3) — pass / send back the
+              whole contract in one click; per-criterion controls below are the
+              addition, not a replacement. */}
+          {interactive ? (
+            <div className='ml-auto flex items-center gap-2'>
+              <span className='text-[11px] text-muted-foreground/70'>
+                {intl.formatMessage({
+                  id: 'acceptance.verdict.allLabel',
+                  defaultMessage: 'Whole contract:',
+                })}
+              </span>
+              <VerdictControls
+                idSuffix='all'
+                criterionIds={undefined}
+                secondary={false}
+                submitting={submitting}
+                onVerdict={submitVerdict}
+              />
+            </div>
+          ) : null}
         </div>
         <div className='overflow-hidden rounded-lg border border-border'>
           {data.criteria.map(c => (
-            <CriterionRow key={c.id} c={c} />
+            <CriterionRow
+              key={c.id}
+              c={c}
+              interactive={interactive}
+              submitting={submitting}
+              onVerdict={submitVerdict}
+            />
           ))}
         </div>
       </div>

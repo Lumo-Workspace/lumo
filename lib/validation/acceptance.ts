@@ -208,9 +208,14 @@ export type MachineVerdictInput = z.infer<typeof machineVerdictInputSchema>
  * parsing), and the service hard-codes verifierType HUMAN on write — the two
  * write paths can never express each other's verifierType.
  *
- * The verdict here is the full human three-state vocabulary, and it is
+ * The verdict here is the full human three-state vocabulary. By default it is
  * task-level: the human adjudicates the whole contract in one action (the
- * service fans it out to one row per criterion).
+ * service fans it out to one row per criterion). `criterionIds` (LUM-425)
+ * optionally narrows that fan-out to specific criteria so a human can pass one
+ * criterion and send back another in separate clicks; omitted, the
+ * whole-contract fan-out is preserved (backward compatible — the legacy
+ * task-level verdict is the select-all special case). Membership of the ids in
+ * the task is checked in the service, not here.
  *
  * LUM-422 de-enumeration: a human send-back carries ZERO structured burden —
  * there is no rejection-reason enum on the human path (the service stamps it
@@ -225,6 +230,11 @@ export const humanVerdictBodySchema = z
   .object({
     verdict: z.enum(['PASS', 'FAIL', 'PASS_WITH_FOLLOWUP']),
     note: z.string().trim().min(1).max(16_000).nullish(),
+    criterionIds: z
+      .array(z.string().trim().min(1))
+      .min(1)
+      .max(CRITERIA_SET_HARD_MAX)
+      .optional(),
   })
   .strict()
   .superRefine((v, ctx) => {

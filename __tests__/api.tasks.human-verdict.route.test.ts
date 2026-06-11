@@ -75,6 +75,32 @@ describe('POST /api/tasks/[id]/human-verdict', () => {
     expect(mockRecord).not.toHaveBeenCalled()
   })
 
+  it('RED LINE (LUM-425): a bearer identity is refused with 403 for a per-criterion verdict too — no agent/CLI path to ANY human verdict, body never parsed', async () => {
+    mockIdentity.mockResolvedValue(BEARER_IDENTITY)
+    // Even a perfectly-shaped per-criterion PASS is rejected before the body is
+    // read — the 403 fires on identity, ahead of any schema parse or criterion
+    // resolution. PASS / PASS_WITH_FOLLOWUP stay unreachable outside Clerk.
+    const res = await POST(
+      req({ verdict: 'PASS', criterionIds: ['c-1'] }),
+      params
+    )
+    expect(res.status).toBe(403)
+    expect(mockRecord).not.toHaveBeenCalled()
+  })
+
+  it('LUM-425: a Clerk session passes criterionIds through to the service unchanged', async () => {
+    const res = await POST(
+      req({ verdict: 'FAIL', criterionIds: ['c-1', 'c-2'] }),
+      params
+    )
+    expect(res.status).toBe(200)
+    expect(mockRecord).toHaveBeenCalledWith(
+      't-1',
+      { verdict: 'FAIL', criterionIds: ['c-1', 'c-2'] },
+      { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
+    )
+  })
+
   it('RED LINE: the agent-facing machine schema still has no verifierType and no three-state verdict', () => {
     // The machine write path's schema-layer lock is untouched by this task:
     // smuggling verifierType is rejected, and PASS_WITH_FOLLOWUP stays human

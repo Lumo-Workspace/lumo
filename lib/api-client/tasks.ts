@@ -140,6 +140,9 @@ export const tasksClient = {
       // LUM-422 ① de-enumeration: no rejection-reason enum on the human path —
       // a FAIL's `note` is the send-back reason (posted as a comment).
       note?: string
+      // LUM-425: narrow the verdict to specific criteria; omitted = the whole
+      // contract (the legacy task-level "pass all / send back all").
+      criterionIds?: string[]
     }
   ) {
     return apiFetch<T>(API.tasks.humanVerdict(taskId), {

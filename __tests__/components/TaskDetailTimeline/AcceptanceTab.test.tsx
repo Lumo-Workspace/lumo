@@ -33,16 +33,22 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
 
+jest.mock('@/lib/api-client', () => ({
+  tasksClient: { submitHumanVerdict: jest.fn().mockResolvedValue({}) },
+}))
+
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
+import { tasksClient } from '@/lib/api-client'
 import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
 } from '@/app/workspace/[workspaceUrl]/types'
 
 const mockStatus = useTaskStatus as jest.Mock
+const mockSubmit = tasksClient.submitHumanVerdict as jest.Mock
 
 function statusView(
   over: Partial<TaskAcceptanceStatusView> = {}
@@ -86,7 +92,28 @@ function machinePass(
 }
 
 function set(data: TaskAcceptanceStatusView) {
-  mockStatus.mockReturnValue({ data, loading: false, error: null })
+  mockStatus.mockReturnValue({
+    data,
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })
+}
+
+function unjudgedHuman(
+  over: Partial<TaskStatusCriterionView> = {}
+): TaskStatusCriterionView {
+  return {
+    id: 'h1',
+    statement: 'looks good in the running app',
+    verifierType: 'HUMAN',
+    checkpointer: null,
+    evidenceRequired: false,
+    source: 'AGENT_DRAFT',
+    addedAtRound: 0,
+    latestVerdict: null,
+    ...over,
+  }
 }
 
 function render_() {
@@ -246,7 +273,9 @@ it('renders the verification record and expands a round to per-criterion verdict
   // Collapsed: the statement shows once (its contract row). Expanding the
   // round adds a second occurrence — the per-verdict line inside the record.
   expect(screen.getAllByText('second criterion')).toHaveLength(1)
-  fireEvent.click(screen.getByRole('button', { name: /round 1 · machine check/i }))
+  fireEvent.click(
+    screen.getByRole('button', { name: /round 1 · machine check/i })
+  )
   expect(screen.getAllByText('second criterion')).toHaveLength(2)
 })
 
@@ -299,4 +328,93 @@ it('shows a FAIL result and reason inline on the row, with no redundant footer s
   // The redundant footer sections are gone.
   expect(screen.queryByText('Last round failures')).toBeNull()
   expect(screen.queryByText('Next actions')).toBeNull()
+})
+
+// LUM-425: inline per-criterion human actions, shown only while the task is
+// IN_REVIEW (the acceptance tab renders only in the Clerk web UI). An unjudged /
+// HUMAN row gets a prominent pass / send-back; a machine-passed row hides its
+// override behind a secondary affordance; the task-level pass-all / send-back-all
+// quick action stays available.
+describe('per-criterion verdict controls', () => {
+  function reviewView(): TaskAcceptanceStatusView {
+    return statusView({
+      task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
+      criteria: [machinePass(), unjudgedHuman()],
+    })
+  }
+
+  beforeEach(() => mockSubmit.mockResolvedValue({}))
+
+  it('exposes prominent pass / send-back on the HUMAN row, a secondary override on the machine-passed row, and keeps the task-level quick action', () => {
+    set(reviewView())
+    render_()
+    // Prominent controls on the unjudged HUMAN row.
+    expect(screen.getByTestId('verdict-pass-h1')).toBeInTheDocument()
+    expect(screen.getByTestId('verdict-sendback-h1')).toBeInTheDocument()
+    // The machine-passed row: override is de-emphasized — the prominent pass
+    // control is NOT directly present until the override is opened.
+    expect(screen.queryByTestId('verdict-pass-m1')).toBeNull()
+    expect(screen.getByTestId('verdict-override-m1')).toBeInTheDocument()
+    // Task-level 'pass all / send back all' remains available.
+    expect(screen.getByTestId('verdict-pass-all')).toBeInTheDocument()
+    expect(screen.getByTestId('verdict-sendback-all')).toBeInTheDocument()
+  })
+
+  it('passing one HUMAN criterion calls the human-verdict client scoped to just that criterion', async () => {
+    set(reviewView())
+    render_()
+    fireEvent.click(screen.getByTestId('verdict-pass-h1'))
+    await waitFor(() =>
+      expect(mockSubmit).toHaveBeenCalledWith('LUM-1', {
+        verdict: 'PASS',
+        criterionIds: ['h1'],
+      })
+    )
+  })
+
+  it('sending back one criterion submits a FAIL scoped to that criterion with the note', async () => {
+    set(reviewView())
+    render_()
+    fireEvent.click(screen.getByTestId('verdict-sendback-h1'))
+    fireEvent.change(screen.getByTestId('verdict-note-h1'), {
+      target: { value: 'not what we agreed' },
+    })
+    fireEvent.click(screen.getByTestId('verdict-confirm-h1'))
+    await waitFor(() =>
+      expect(mockSubmit).toHaveBeenCalledWith('LUM-1', {
+        verdict: 'FAIL',
+        criterionIds: ['h1'],
+        note: 'not what we agreed',
+      })
+    )
+  })
+
+  it('opening the machine override reveals scoped controls; the task-level quick action passes the whole contract (no criterionIds)', async () => {
+    set(reviewView())
+    render_()
+    fireEvent.click(screen.getByTestId('verdict-override-m1'))
+    expect(screen.getByTestId('verdict-pass-m1')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('verdict-pass-all'))
+    await waitFor(() =>
+      expect(mockSubmit).toHaveBeenCalledWith('LUM-1', { verdict: 'PASS' })
+    )
+  })
+
+  it('renders no inline verdict controls when the task is not IN_REVIEW', () => {
+    set(
+      statusView({
+        task: {
+          id: 't1',
+          identifier: 'LUM-1',
+          title: 'x',
+          status: 'IN_PROGRESS',
+        },
+        criteria: [machinePass(), unjudgedHuman()],
+      })
+    )
+    render_()
+    expect(screen.queryByTestId('verdict-pass-h1')).toBeNull()
+    expect(screen.queryByTestId('verdict-override-m1')).toBeNull()
+    expect(screen.queryByTestId('verdict-pass-all')).toBeNull()
+  })
 })

@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "pemeriksaan",
   "acceptance.check.evidence": "bukti",
   "acceptance.check.none": "belum dijalankan",
-  "acceptance.check.exitCode": "kode keluar {code}"
+  "acceptance.check.exitCode": "kode keluar {code}",
+  "acceptance.verdict.pass": "Lulus",
+  "acceptance.verdict.sendBack": "Kembalikan",
+  "acceptance.verdict.confirmSendBack": "Konfirmasi pengembalian",
+  "acceptance.verdict.notePlaceholder": "Mengapa dikembalikan? (opsional)",
+  "acceptance.verdict.override": "Timpa",
+  "acceptance.verdict.allLabel": "Seluruh kontrak:"
 }

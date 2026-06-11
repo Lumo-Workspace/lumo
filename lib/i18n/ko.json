@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "검사",
   "acceptance.check.evidence": "증거",
   "acceptance.check.none": "아직 실행 안 됨",
-  "acceptance.check.exitCode": "종료 코드 {code}"
+  "acceptance.check.exitCode": "종료 코드 {code}",
+  "acceptance.verdict.pass": "통과",
+  "acceptance.verdict.sendBack": "반려",
+  "acceptance.verdict.confirmSendBack": "반려 확정",
+  "acceptance.verdict.notePlaceholder": "반려 사유 (선택)",
+  "acceptance.verdict.override": "재정의",
+  "acceptance.verdict.allLabel": "전체 계약:"
 }

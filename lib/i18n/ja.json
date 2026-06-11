@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "証拠",
   "acceptance.check.none": "未実行",
-  "acceptance.check.exitCode": "終了コード {code}"
+  "acceptance.check.exitCode": "終了コード {code}",
+  "acceptance.verdict.pass": "合格",
+  "acceptance.verdict.sendBack": "差し戻し",
+  "acceptance.verdict.confirmSendBack": "差し戻しを確定",
+  "acceptance.verdict.notePlaceholder": "差し戻しの理由(任意)",
+  "acceptance.verdict.override": "上書き",
+  "acceptance.verdict.allLabel": "契約全体:"
 }

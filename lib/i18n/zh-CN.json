@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "检查",
   "acceptance.check.evidence": "证据",
   "acceptance.check.none": "尚未运行",
-  "acceptance.check.exitCode": "退出码 {code}"
+  "acceptance.check.exitCode": "退出码 {code}",
+  "acceptance.verdict.pass": "通过",
+  "acceptance.verdict.sendBack": "打回",
+  "acceptance.verdict.confirmSendBack": "确认打回",
+  "acceptance.verdict.notePlaceholder": "为什么打回?(可选)",
+  "acceptance.verdict.override": "覆盖",
+  "acceptance.verdict.allLabel": "整份合约:"
 }
