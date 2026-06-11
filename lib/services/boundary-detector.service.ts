@@ -109,6 +109,16 @@ function matchHardcodedSecret(content: string): string | null {
 }
 
 /**
+ * Taxonomy-driven reversibility (LUM-435), single source alongside the matchers.
+ * Only installing a dependency is reversible (uninstall undoes it). Leaking a
+ * secret, force-pushing main, deleting a migration, or a destructive DB command
+ * cannot be taken back — those drive a louder remediation nudge on the bar.
+ */
+export function isReversible(category: BoundaryCrossingCategory): boolean {
+  return category === 'NEW_NPM_DEPENDENCY'
+}
+
+/**
  * Pure taxonomy match. Returns every boundary the event crosses (a command can
  * trip more than one rule). No I/O — safe to unit-test exhaustively.
  */
@@ -160,6 +170,7 @@ export const boundaryDetectorService = {
           hookEventId: input.hookEventId ?? null,
           category: c.category,
           detail: c.detail,
+          reversible: isReversible(c.category),
         })
         await activityRepository.create({
           taskId: input.taskId,

@@ -79,13 +79,18 @@ async function assertNoUnresolvedSendBack(taskId: string): Promise<void> {
  * DONE block — is the only part the workspace toggle governs. Opening the gate
  * (boundaryGateEnabled = false) drops the 409 but never the marker. The toggle
  * is read only after an open crossing is found, so a clean task never touches
- * it. Throws 409 with the unacknowledged items.
+ * it. Throws 409 with the undispositioned items.
+ *
+ * LUM-435: "open" now means undispositioned. Either disposition a human records
+ * — FALSE_POSITIVE (not actually a crossing) or CONFIRMED (a real one, owned) —
+ * clears the gate; the function name is unchanged for continuity.
  */
 async function assertNoUnacknowledgedBoundaryCrossings(
   taskId: string,
   workspaceId: string
 ): Promise<void> {
-  const open = await boundaryCrossingRepository.findUnacknowledgedByTask(taskId)
+  const open =
+    await boundaryCrossingRepository.findUndispositionedByTask(taskId)
   if (open.length === 0) return
 
   const enabled =
@@ -95,11 +100,11 @@ async function assertNoUnacknowledgedBoundaryCrossings(
   const items = open.map(c => `• ${c.detail} (${c.category})`).join('\n')
   throw Object.assign(
     new Error(
-      `Cannot move this task to DONE — ${open.length} unacknowledged boundary-crossing${
+      `Cannot move this task to DONE — ${open.length} undispositioned boundary-crossing${
         open.length === 1 ? '' : 's'
-      } (forbidden action${open.length === 1 ? '' : 's'} taken during this task):\n${items}\nA human must acknowledge ${
+      } (forbidden action${open.length === 1 ? '' : 's'} taken during this task):\n${items}\nA human must disposition ${
         open.length === 1 ? 'it' : 'them'
-      } on the task timeline, or open the gate for this workspace.`
+      } (false positive or confirmed) on the task timeline, or open the gate for this workspace.`
     ),
     { status: 409 }
   )

@@ -4,11 +4,26 @@ import { useQuery } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
+export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED'
+
+export interface RemediationTaskView {
+  identifier: string
+  title: string
+  status: string
+  remediated: boolean
+}
+
 export interface BoundaryCrossingView {
   id: string
   category: string
   detail: string
   detectedAt: string
+  reversible: boolean
+  disposition: BoundaryDisposition | null
+  dispositionNote: string | null
+  dispositionedAt: string | null
+  dispositionedById: string | null
+  remediationTask: RemediationTaskView | null
 }
 
 interface BoundaryCrossingsResponse {
@@ -23,10 +38,10 @@ interface UseBoundaryCrossingsOptions {
 }
 
 /**
- * Read-through cache for a task's open (unacknowledged) boundary-crossings
- * (LUM-426), consumed by the AcceptanceTab panel. Mirrors useTaskStatus: once
- * cached for `identifier`, tab switches paint instantly while a quiet
- * background refetch keeps it fresh.
+ * Read-through cache for ALL of a task's boundary-crossings — open and
+ * dispositioned (LUM-435), consumed by the AcceptanceTab panel. Mirrors
+ * useTaskStatus: once cached for `identifier`, tab switches paint instantly
+ * while a quiet background refetch keeps it fresh.
  */
 export function useBoundaryCrossings({
   identifier,

@@ -18,6 +18,7 @@ import type {
   TaskStatusCriterionView,
   VerificationHistoryRoundView,
   AcceptanceVerifier,
+  WorkspaceMemberInfo,
 } from '../../types'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
@@ -25,6 +26,9 @@ import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
 interface AcceptanceTabProps {
   taskIdentifier: string
   enabled: boolean
+  /** For resolving the disposition reviewer's name on the crossings panel. */
+  members?: WorkspaceMemberInfo[]
+  agentActors?: { actorId: string; name: string }[]
 }
 
 /** Records a human verdict (whole-contract when criterionIds is omitted). */
@@ -636,7 +640,12 @@ function CriterionRow({
 
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
-export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
+export function AcceptanceTab({
+  taskIdentifier,
+  enabled,
+  members = [],
+  agentActors = [],
+}: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh } = useTaskStatus({
     identifier: taskIdentifier,
@@ -706,7 +715,9 @@ export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
       <BoundaryCrossingsPanel
         taskIdentifier={taskIdentifier}
         enabled={enabled}
-        onAcknowledged={() => {
+        members={members}
+        agentActors={agentActors}
+        onChanged={() => {
           void refresh?.()
         }}
       />

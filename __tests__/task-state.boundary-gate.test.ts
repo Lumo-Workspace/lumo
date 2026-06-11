@@ -35,7 +35,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     create: jest.fn(),
-    findUnacknowledgedByTask: jest.fn(),
+    findUndispositionedByTask: jest.fn(),
     isGateEnabledForWorkspace: jest.fn(),
   },
 }))
@@ -44,7 +44,7 @@ const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
 const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const findOpen =
-  boundaryCrossingRepository.findUnacknowledgedByTask as jest.Mock
+  boundaryCrossingRepository.findUndispositionedByTask as jest.Mock
 const gateEnabled =
   boundaryCrossingRepository.isGateEnabledForWorkspace as jest.Mock
 const createCrossing = boundaryCrossingRepository.create as jest.Mock

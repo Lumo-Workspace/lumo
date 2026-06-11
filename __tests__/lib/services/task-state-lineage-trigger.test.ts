@@ -73,7 +73,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 // LUM-426 boundary gate runs on DONE — default to "nothing flagged".
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
-    findUnacknowledgedByTask: jest.fn(() => Promise.resolve([])),
+    findUndispositionedByTask: jest.fn(() => Promise.resolve([])),
     isGateEnabledForWorkspace: jest.fn(() => Promise.resolve(true)),
   },
 }))

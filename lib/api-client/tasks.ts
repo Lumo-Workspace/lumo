@@ -151,19 +151,39 @@ export const tasksClient = {
     })
   },
 
-  /** List a task's open (unacknowledged) boundary-crossings (LUM-426). */
+  /** List ALL of a task's boundary-crossings, open and dispositioned (LUM-435). */
   listBoundaryCrossings<T>(taskId: string) {
     return apiFetch<T>(API.tasks.boundaryCrossings(taskId), { method: 'GET' })
   },
 
   /**
-   * Acknowledge a boundary-crossing, clearing its DONE block. Human-only — the
-   * server refuses bearer (agent/CLI) identities with 403 before parse.
+   * Disposition a boundary-crossing (FALSE_POSITIVE | CONFIRMED), clearing its
+   * DONE block (LUM-435). Human-only — the server refuses bearer (agent/CLI)
+   * identities with 403 before parse. The note is optional.
    */
-  acknowledgeBoundaryCrossing<T>(taskId: string, crossingId: string) {
-    return apiFetch<T>(API.tasks.boundaryAcknowledge(taskId), {
+  dispositionBoundaryCrossing<T>(
+    taskId: string,
+    crossingId: string,
+    disposition: 'FALSE_POSITIVE' | 'CONFIRMED',
+    dispositionNote?: string
+  ) {
+    return apiFetch<T>(API.tasks.boundaryDisposition(taskId), {
       method: 'POST',
-      body: { crossingId },
+      body: dispositionNote
+        ? { crossingId, disposition, dispositionNote }
+        : { crossingId, disposition },
+    })
+  },
+
+  /**
+   * Spawn a remediation follow-up task from a crossing (LUM-435): pre-links the
+   * crossing and adds a dependency edge to the original task. Ordinary
+   * authenticated write (not the disposition redline).
+   */
+  spawnBoundaryRemediation<T>(taskId: string, crossingId: string) {
+    return apiFetch<T>(API.tasks.boundaryRemediation(taskId, crossingId), {
+      method: 'POST',
+      body: {},
     })
   },
 

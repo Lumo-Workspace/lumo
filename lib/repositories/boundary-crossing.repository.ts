@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
-import type { BoundaryCrossingCategory, Prisma } from '@prisma/client'
+import type {
+  BoundaryCrossingCategory,
+  BoundaryCrossingDisposition,
+  Prisma,
+} from '@prisma/client'
 
 export interface CreateBoundaryCrossingInput {
   taskId: string
@@ -7,22 +11,46 @@ export interface CreateBoundaryCrossingInput {
   category: BoundaryCrossingCategory
   /** Human-readable detail: the matched command / path / pattern. */
   detail: string
+  /** Taxonomy-driven reversibility (LUM-435) — only npm installs are reversible. */
+  reversible: boolean
 }
 
+/** Lightweight projection for the gate / write paths. */
 const SELECT = {
   id: true,
   taskId: true,
   category: true,
   detail: true,
   detectedAt: true,
-  acknowledgedAt: true,
-  acknowledgedById: true,
+  reversible: true,
+  disposition: true,
+  dispositionNote: true,
+  dispositionedAt: true,
+  dispositionedById: true,
+  remediationTaskId: true,
 } as const
 
 /**
- * Persistence for boundary-crossing markers (LUM-426). The marker mirrors onto
- * a TaskActivity for the timeline; this table holds the mutable acknowledgement
- * state the DONE gate reads — TaskActivity is append-only and cannot carry it.
+ * Read-model projection (LUM-435). Joins the linked remediation task so the
+ * acceptance bar can surface its live status without a second round-trip.
+ */
+const VIEW_SELECT = {
+  ...SELECT,
+  remediationTask: {
+    select: {
+      number: true,
+      title: true,
+      status: true,
+      team: { select: { identifier: true } },
+    },
+  },
+} as const
+
+/**
+ * Persistence for boundary-crossing markers (LUM-426/435). The marker mirrors
+ * onto a TaskActivity for the timeline; this table holds the mutable
+ * disposition state the DONE gate reads — TaskActivity is append-only and
+ * cannot carry it.
  */
 export const boundaryCrossingRepository = {
   async create(
@@ -36,16 +64,32 @@ export const boundaryCrossingRepository = {
         hookEventId: input.hookEventId ?? null,
         category: input.category,
         detail: input.detail,
+        reversible: input.reversible,
       },
       select: SELECT,
     })
   },
 
-  /** Open (unacknowledged) crossings on a task — what the DONE gate blocks on. */
-  async findUnacknowledgedByTask(taskId: string) {
+  /**
+   * Open (undispositioned) crossings on a task — what the DONE gate blocks on.
+   * A crossing is open while `disposition` is null; either disposition clears it.
+   */
+  async findUndispositionedByTask(taskId: string) {
     return prisma.boundaryCrossing.findMany({
-      where: { taskId, acknowledgedAt: null },
+      where: { taskId, disposition: null },
       select: SELECT,
+      orderBy: { detectedAt: 'asc' },
+    })
+  },
+
+  /**
+   * ALL crossings on a task including dispositioned ones (LUM-435 read model) —
+   * dispositioned crossings (CONFIRMED especially) stay on record, never hidden.
+   */
+  async findAllByTask(taskId: string) {
+    return prisma.boundaryCrossing.findMany({
+      where: { taskId },
+      select: VIEW_SELECT,
       orderBy: { detectedAt: 'asc' },
     })
   },
@@ -55,14 +99,34 @@ export const boundaryCrossingRepository = {
   },
 
   /**
-   * Mark a crossing acknowledged by a human actor. Idempotent on the
-   * already-acknowledged row (updateMany guarded by acknowledgedAt: null) so a
-   * double click can't rewrite the original acknowledger/timestamp.
+   * Disposition a crossing as a human actor (LUM-435). Idempotent on the
+   * already-dispositioned row (updateMany guarded by disposition: null) so a
+   * double click can't rewrite the original reviewer/disposition/timestamp.
    */
-  async acknowledge(id: string, actorId: string | null, now: Date) {
+  async disposition(
+    id: string,
+    disposition: BoundaryCrossingDisposition,
+    note: string | null,
+    actorId: string | null,
+    now: Date
+  ) {
     return prisma.boundaryCrossing.updateMany({
-      where: { id, acknowledgedAt: null },
-      data: { acknowledgedAt: now, acknowledgedById: actorId },
+      where: { id, disposition: null },
+      data: {
+        disposition,
+        dispositionNote: note,
+        dispositionedAt: now,
+        dispositionedById: actorId,
+      },
+    })
+  },
+
+  /** Link a remediation follow-up task to a crossing (LUM-435). */
+  async setRemediationTask(id: string, remediationTaskId: string) {
+    return prisma.boundaryCrossing.update({
+      where: { id },
+      data: { remediationTaskId },
+      select: SELECT,
     })
   },
 

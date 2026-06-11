@@ -455,6 +455,40 @@ function formatActivityText(
         </span>
       )
     }
+    case 'BOUNDARY_CROSSING_DISPOSITIONED': {
+      const isConfirmed = p.disposition === 'CONFIRMED'
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <span>
+            {isConfirmed
+              ? intl.formatMessage({
+                  id: 'activity.boundaryConfirmed',
+                  defaultMessage: 'confirmed the boundary-crossing',
+                })
+              : intl.formatMessage({
+                  id: 'activity.boundaryFalsePositive',
+                  defaultMessage:
+                    'marked the boundary-crossing a false positive',
+                })}
+          </span>
+        </span>
+      )
+    }
+    case 'BOUNDARY_CROSSING_REMEDIATION_SPAWNED': {
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+          <span>
+            {intl.formatMessage({
+              id: 'activity.boundaryRemediationSpawned',
+              defaultMessage:
+                'spawned a remediation task for a boundary-crossing',
+            })}
+          </span>
+        </span>
+      )
+    }
     default:
       return (type ?? '').toLowerCase().replace(/_/g, ' ')
   }

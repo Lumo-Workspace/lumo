@@ -17,8 +17,10 @@ export const API = {
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
     boundaryCrossings: (taskId: string) =>
       `/api/tasks/${taskId}/boundary-crossings`,
-    boundaryAcknowledge: (taskId: string) =>
-      `/api/tasks/${taskId}/boundary-crossings/acknowledge`,
+    boundaryDisposition: (taskId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/disposition`,
+    boundaryRemediation: (taskId: string, crossingId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/${crossingId}/remediation`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

@@ -156,6 +156,8 @@ enum TaskActivityType {
   VERIFICATION_ESCALATED
   BOUNDARY_CROSSING_DETECTED
   BOUNDARY_CROSSING_ACKNOWLEDGED
+  BOUNDARY_CROSSING_DISPOSITIONED
+  BOUNDARY_CROSSING_REMEDIATION_SPAWNED
 }
 
 enum BoundaryCrossingCategory {
@@ -164,6 +166,11 @@ enum BoundaryCrossingCategory {
   HARDCODED_SECRET
   NEW_NPM_DEPENDENCY
   DESTRUCTIVE_DB_COMMAND
+}
+
+enum BoundaryCrossingDisposition {
+  FALSE_POSITIVE
+  CONFIRMED
 }
 
 enum AgentType {
@@ -499,9 +506,10 @@ model Task {
   pullRequests       PullRequest[]
   branches           TaskBranch[]
   sessions           Session[]
-  activities         TaskActivity[]
-  boundaryCrossings  BoundaryCrossing[]
-  documentMentions   DocumentMention[]
+  activities          TaskActivity[]
+  boundaryCrossings   BoundaryCrossing[] @relation("CrossingTask")
+  remediatesCrossings BoundaryCrossing[] @relation("CrossingRemediation")
+  documentMentions    DocumentMention[]
   priorityOverrides  PriorityOverride[]
   taskTags           TaskTag[]
   sentryIssueLinks   SentryIssueLink[]
@@ -732,27 +740,34 @@ model TaskActivity {
 }
 
 /**
- * LUM-426 forbidden-action boundary-crossing. A marker is mirrored onto a
- * TaskActivity for the timeline; this row holds the MUTABLE acknowledgement
- * state the DONE gate reads (TaskActivity is append-only and cannot). A crossing
- * is "open" while acknowledgedAt is null — open crossings block DONE unless the
- * workspace toggle is off or a human acknowledges. acknowledgedById is a plain
- * Actor id (no FK back-relation needed — the ACK TaskActivity carries the
- * human's actor for rendering).
+ * LUM-426/435 forbidden-action boundary-crossing. A marker is mirrored onto a
+ * TaskActivity for the timeline; this row holds the MUTABLE disposition state
+ * the DONE gate reads (TaskActivity is append-only and cannot). A crossing is
+ * "open" while disposition is null — open crossings block DONE unless the
+ * workspace toggle is off or a human dispositions it (FALSE_POSITIVE or
+ * CONFIRMED both clear the gate). dispositionedById is a plain Actor id (no FK
+ * back-relation — the disposition TaskActivity carries the human's actor for
+ * rendering). reversible is set by the detector taxonomy; remediationTaskId
+ * optionally links a follow-up fix task whose live status surfaces on the bar.
  */
 model BoundaryCrossing {
-  id               String                   @id @default(cuid())
-  taskId           String
-  hookEventId      String?
-  category         BoundaryCrossingCategory
-  detail           String
-  detectedAt       DateTime                 @default(now())
-  acknowledgedAt   DateTime?
-  acknowledgedById String?
+  id                String                       @id @default(cuid())
+  taskId            String
+  hookEventId       String?
+  category          BoundaryCrossingCategory
+  detail            String
+  detectedAt        DateTime                     @default(now())
+  reversible        Boolean                      @default(false)
+  disposition       BoundaryCrossingDisposition?
+  dispositionNote   String?
+  dispositionedAt   DateTime?
+  dispositionedById String?
+  remediationTaskId String?
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task            Task  @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
+  remediationTask Task? @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
 
-  @@index([taskId, acknowledgedAt])
+  @@index([taskId, disposition])
   @@map("boundary_crossings")
 }
 
