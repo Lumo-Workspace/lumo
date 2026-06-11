@@ -293,6 +293,8 @@ export const taskCriteriaService = {
    *   identity-preserving diff (id-keyed) recorded as CRITERION_CHANGED drift
    *   at the current round — NO 409. A removed criterion that carries runs is
    *   soft-deleted (its runs survive); a run-free one is hard-deleted.
+   * - DONE task → 409 (terminal lock). Reopen to change criteria, or record a
+   *   human decision with `lumo task criteria set --human`.
    *
    * Every change stays auditable via the drift trail. The system's only hard
    * boundary is that a PASS data row can never be agent-produced (LUM-421,
@@ -302,13 +304,7 @@ export const taskCriteriaService = {
     taskId: string,
     items: CriteriaSetItem[],
     attribution: CriteriaAttribution,
-    // Retained in the signature for caller compatibility (the route passes
-    // task.status positionally); the editable-until-DONE gate is workStartedAt,
-    // not status, so the value is intentionally unread (underscore-prefixed).
-    _taskStatus: TaskStatus,
-    // Defaults to null so the existing route (which does not yet fetch
-    // workStartedAt — that wiring is Task 6/LUM-437 route step) keeps compiling
-    // and behaves as the pre-start free-draft path until it passes the value.
+    taskStatus: TaskStatus,
     workStartedAt: Date | null = null
   ) {
     const callerActor = await memberRepository.findActorByMemberId(
@@ -319,6 +315,14 @@ export const taskCriteriaService = {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
 
     if (existing.length > 0) {
+      if (taskStatus === 'DONE') {
+        throw Object.assign(
+          new Error(
+            'Acceptance contract locked — the task is DONE. Reopen it (status → in_progress) to change criteria, or record a human decision with `lumo task criteria set --human`.'
+          ),
+          { status: 409 }
+        )
+      }
       if (workStartedAt != null) {
         // After-start: identity-preserving diff recorded at the current round.
         // A removed criterion with runs is soft-deleted (audit chain survives);

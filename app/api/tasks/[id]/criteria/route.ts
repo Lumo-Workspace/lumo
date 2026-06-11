@@ -26,10 +26,11 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 /**
  * PUT /api/tasks/[id]/criteria — submit the whole contract.
- * source=AGENT_DRAFT: initial draft, create-only, rejected (409) once any
- * criteria exist (agent lock). source=HUMAN_EDIT: human contract revision
- * expressed as the desired final list; session 出处 comes from the
- * X-Lumo-Session-Id header the CLI sends.
+ * source=AGENT_DRAFT: editable while the task is not DONE — free full-replace
+ * before work starts (workStartedAt null), identity-preserving diff after work
+ * starts, 409 only when the task is DONE (terminal lock). source=HUMAN_EDIT:
+ * human contract revision expressed as the desired final list; session 出处
+ * comes from the X-Lumo-Session-Id header the CLI sends.
  */
 export async function PUT(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)
@@ -55,7 +56,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
             task.id,
             parsed.data.criteria,
             attribution,
-            task.status
+            task.status,
+            task.workStartedAt ?? null
           )
         : await taskCriteriaService.reviseAsHuman(
             task.id,

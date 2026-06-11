@@ -1,5 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
-import { taskRepository } from '@/lib/repositories'
+import { prisma } from '@/lib/db/prisma'
 
 /** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
 function isLikelyCuid(segment: string): boolean {
@@ -28,19 +28,32 @@ function parseIdentifier(
  * Single source for the acceptance routes (criteria / verify / status) —
  * extracted from their per-route copies so the resolution contract can't
  * drift between them.
+ *
+ * Returns `status` and `workStartedAt` so callers (e.g. the criteria PUT
+ * route) can thread the DONE lock and after-start diff gate down to the
+ * service layer without a second round-trip.
  */
 export async function resolveTaskParam(
   rawId: string,
   workspaceId: string
-): Promise<{ id: string; status: TaskStatus } | null> {
+): Promise<{
+  id: string
+  status: TaskStatus
+  workStartedAt: Date | null
+} | null> {
   if (isLikelyCuid(rawId)) {
-    return taskRepository.findByIdForMention(rawId, workspaceId)
+    return prisma.task.findFirst({
+      where: { id: rawId, team: { workspaceId } },
+      select: { id: true, status: true, workStartedAt: true },
+    })
   }
   const parsed = parseIdentifier(rawId)
   if (!parsed) return null
-  return taskRepository.findByWorkspaceIdentifier(
-    workspaceId,
-    parsed.teamIdentifier,
-    parsed.number
-  )
+  return prisma.task.findFirst({
+    where: {
+      number: parsed.number,
+      team: { identifier: parsed.teamIdentifier, workspaceId },
+    },
+    select: { id: true, status: true, workStartedAt: true },
+  })
 }

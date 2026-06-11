@@ -511,6 +511,26 @@ describe('editable until DONE (LUM-437)', () => {
     expect(repo.delete).toHaveBeenCalledWith('c-free', TX)
     expect(repo.softDelete).not.toHaveBeenCalledWith('c-free', TX)
   })
+
+  it('rejects agent edits with 409 when the task is DONE (terminal lock)', async () => {
+    repo.listByTask.mockResolvedValueOnce([criterion({ id: 'c-1' })])
+
+    await expect(
+      taskCriteriaService.submitDraft(
+        't-1',
+        [{ statement: 'new', verifierType: 'HUMAN' as const }],
+        ATTRIBUTION,
+        'DONE',
+        new Date('2026-06-05')
+      )
+    ).rejects.toMatchObject({ status: 409 })
+
+    // No mutations should have been attempted.
+    expect(repo.delete).not.toHaveBeenCalled()
+    expect(repo.softDelete).not.toHaveBeenCalled()
+    expect(repo.create).not.toHaveBeenCalled()
+    expect(repo.update).not.toHaveBeenCalled()
+  })
 })
 
 describe('taskCriteriaService.reviseAsHuman', () => {
