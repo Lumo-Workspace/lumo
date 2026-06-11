@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.29.1",
+  "cliVersion": "1.30.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -132,10 +132,7 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
+          "enum": ["personal", "workspace"],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive; default: personal)"
         },
@@ -222,10 +219,7 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
+          "enum": ["personal", "workspace"],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive; default: personal)"
         },
@@ -264,11 +258,7 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace",
-            "all"
-          ],
+          "enum": ["personal", "workspace", "all"],
           "enumCaseInsensitive": true,
           "description": "personal | workspace | all (case-insensitive; default: all)"
         },
@@ -392,11 +382,7 @@
           "long": "--role",
           "short": null,
           "value": "required",
-          "enum": [
-            "viewer",
-            "editor",
-            "manager"
-          ],
+          "enum": ["viewer", "editor", "manager"],
           "enumCaseInsensitive": true,
           "description": "viewer | editor | manager (case-insensitive; default: viewer)"
         }
@@ -576,10 +562,7 @@
           "long": "--scope",
           "short": null,
           "value": "required",
-          "enum": [
-            "personal",
-            "workspace"
-          ],
+          "enum": ["personal", "workspace"],
           "enumCaseInsensitive": true,
           "description": "personal | workspace (case-insensitive)"
         },
@@ -1397,12 +1380,7 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "planned",
-            "active",
-            "completed",
-            "cancelled"
-          ],
+          "enum": ["planned", "active", "completed", "cancelled"],
           "enumCaseInsensitive": true,
           "description": "New status: planned | active | completed | cancelled (case-insensitive)"
         },
@@ -1495,12 +1473,7 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
+          "enum": ["trap", "decision", "convention", "procedural"],
           "enumCaseInsensitive": true,
           "description": "trap | decision | convention | procedural (case-insensitive)"
         },
@@ -1593,12 +1566,7 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
+          "enum": ["trap", "decision", "convention", "procedural"],
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
@@ -1883,11 +1851,7 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "draft",
-            "active",
-            "closed"
-          ],
+          "enum": ["draft", "active", "closed"],
           "enumCaseInsensitive": true,
           "description": "Filter by status: draft | active | closed (case-insensitive)"
         },
@@ -2313,12 +2277,7 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "urgent"
-          ],
+          "enum": ["low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
           "description": "Priority: low | medium | high | urgent (case-insensitive; default: low)"
         },
@@ -2660,12 +2619,7 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "todo",
-            "in_progress",
-            "in_review",
-            "done"
-          ],
+          "enum": ["todo", "in_progress", "in_review", "done"],
           "enumCaseInsensitive": true,
           "description": "Filter by status: todo | in_progress | in_review | done (case-insensitive)"
         }
@@ -2723,12 +2677,7 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
+          "enum": ["trap", "decision", "convention", "procedural"],
           "enumCaseInsensitive": true,
           "description": "trap | decision | convention | procedural (case-insensitive)"
         },
@@ -2821,12 +2770,7 @@
           "long": "--category",
           "short": null,
           "value": "required",
-          "enum": [
-            "trap",
-            "decision",
-            "convention",
-            "procedural"
-          ],
+          "enum": ["trap", "decision", "convention", "procedural"],
           "enumCaseInsensitive": true,
           "description": "Filter by trap|decision|convention|procedural (case-insensitive)"
         },
@@ -2974,12 +2918,7 @@
           "long": "--priority",
           "short": "-p",
           "value": "required",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "urgent"
-          ],
+          "enum": ["low", "medium", "high", "urgent"],
           "enumCaseInsensitive": true,
           "description": "New priority: low | medium | high | urgent (case-insensitive)"
         },
@@ -3011,12 +2950,7 @@
           "long": "--status",
           "short": "-s",
           "value": "required",
-          "enum": [
-            "todo",
-            "in_progress",
-            "in_review",
-            "done"
-          ],
+          "enum": ["todo", "in_progress", "in_review", "done"],
           "enumCaseInsensitive": true,
           "description": "New status: todo | in_progress | in_review | done (case-insensitive)"
         },
@@ -3076,6 +3010,73 @@
       "flags": {},
       "hasSubcommands": false,
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
+    },
+    "verdict": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--criterion": {
+          "long": "--criterion",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Narrow a --fail to specific criteria (repeatable); omitted = the whole contract"
+        },
+        "--fail": {
+          "long": "--fail",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Record an AGENT send-back (verdict FAIL) — requires --reason"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional send-back narrative, posted as a task comment"
+        },
+        "--pass": {
+          "long": "--pass",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Open the verdict bar focused on Pass (human one-click; no write)"
+        },
+        "--pass-with-followup": {
+          "long": "--pass-with-followup",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Open the verdict bar focused on Pass with follow-up (human one-click; no write)"
+        },
+        "--reason": {
+          "long": "--reason",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "CRITERION_UNMET",
+            "EVIDENCE_INSUFFICIENT",
+            "CHECK_EXECUTION_ERROR",
+            "SCOPE_MISMATCH",
+            "OTHER"
+          ],
+          "enumCaseInsensitive": true,
+          "description": "Rejection reason for --fail: CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Acceptance verdict (LUM-422). --pass / --pass-with-followup open the browser to the human verdict bar focused on the passing action (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
     },
     "verify": {
       "arguments": [

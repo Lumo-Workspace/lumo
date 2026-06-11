@@ -300,6 +300,7 @@ export function TaskDetailPage({
             <TaskVerdictBar
               taskId={task.id}
               status={task.status}
+              mentionSources={mentionSources}
               onVerdictRecorded={result =>
                 setTask(prev => ({
                   ...prev,

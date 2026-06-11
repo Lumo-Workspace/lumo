@@ -29,8 +29,9 @@ jest.mock('@/lib/services/lineage-outcome.service', () => {
     lineageOutcomeService: service,
     // Mirror the real helper: invoke the callback against the (mocked) service
     // so tests can assert the stamp without a waitUntil flush.
-    stampLineageInBackground: (stamp: (s: typeof service) => Promise<unknown>) =>
-      void stamp(service),
+    stampLineageInBackground: (
+      stamp: (s: typeof service) => Promise<unknown>
+    ) => void stamp(service),
   }
 })
 // DONE also fires Layer 2 / sprint side effects via dynamic
@@ -71,6 +72,15 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { findById: jest.fn() },
+}))
+// LUM-422 ④ DONE gate dep — empty verdicts → gate passes (no send-back).
+jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  verificationRunRepository: {
+    latestRunsByCriterion: jest.fn(async () => new Map()),
+  },
+}))
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: { listByTask: jest.fn(async () => []) },
 }))
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,

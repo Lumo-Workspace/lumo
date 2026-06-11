@@ -3,6 +3,8 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import {
   invalidTransitionMessage,
   isValidTaskTransition,
@@ -24,6 +26,45 @@ import type {
  * `ancestorId`. Used by `updateTask` to refuse circular parent references
  * (a task cannot become a descendant of itself).
  */
+export interface UpdateTaskOptions {
+  /**
+   * Bypass the LUM-422 ④ DONE gate. Only ever set by a human-authoritative
+   * path (a Clerk web confirm past the soft prompt). The agent/CLI path leaves
+   * it unset, so an unresolved send-back always blocks its DONE transition.
+   */
+  overrideDoneGate?: boolean
+}
+
+/**
+ * LUM-422 ④ DONE gate. Refuse a DONE transition while any criterion's latest
+ * verdict is FAIL (machine / AGENT / human channel — any unresolved send-back).
+ * Only blocks a real send-back: a never-adjudicated criterion does NOT block
+ * (no one sent it back = tacit pass — otherwise we'd force humans back to
+ * clicking). Tasks with no criteria / no runs short-circuit free (zero extra
+ * cost, silent-philosophy). Throws 409 with the unresolved items; the caller
+ * (agent/CLI) cannot override, a human path passes overrideDoneGate to confirm.
+ */
+async function assertNoUnresolvedSendBack(taskId: string): Promise<void> {
+  const latest = await verificationRunRepository.latestRunsByCriterion(taskId)
+  if (latest.size === 0) return
+  const failed = [...latest.values()].filter(r => r.verdict === 'FAIL')
+  if (failed.length === 0) return
+
+  const criteria = await acceptanceCriterionRepository.listByTask(taskId)
+  const statementById = new Map(criteria.map(c => [c.id, c.statement]))
+  const items = failed
+    .map(r => `• ${statementById.get(r.criterionId) ?? r.criterionId}`)
+    .join('\n')
+  throw Object.assign(
+    new Error(
+      `Cannot move this task to DONE — ${failed.length} unresolved send-back${
+        failed.length === 1 ? '' : 's'
+      } on the acceptance contract:\n${items}\nResolve them (see \`lumo task status\`) and re-verify, or have a human override.`
+    ),
+    { status: 409 }
+  )
+}
+
 async function isDescendant(
   ancestorId: string,
   targetId: string
@@ -55,7 +96,8 @@ async function isDescendant(
 export async function updateTask(
   taskId: string,
   input: UpdateTaskInput,
-  actorId?: string | null
+  actorId?: string | null,
+  opts?: UpdateTaskOptions
 ): Promise<TaskUpdateResult> {
   const task = await taskRepository.findForUpdate(taskId)
   if (!task) {
@@ -91,6 +133,12 @@ export async function updateTask(
         ),
         { status: 409 }
       )
+    }
+
+    // LUM-422 ④ DONE gate: a DONE transition is blocked while an unresolved
+    // send-back stands on the acceptance contract, unless a human overrides.
+    if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
+      await assertNoUnresolvedSendBack(taskId)
     }
   }
 
@@ -273,9 +321,15 @@ export async function updateTaskWithSideEffects(
    * session — letting the next session-start surface them for review
    * (LUM-165). Undefined for Web UI / quick-dispatch callers.
    */
-  sourceSessionId?: string | null | undefined
+  sourceSessionId?: string | null | undefined,
+  /**
+   * LUM-422 ④: pass `{ overrideDoneGate: true }` from a human-authoritative
+   * path to confirm a DONE transition past an unresolved send-back. The
+   * agent/CLI path omits it so the gate always blocks.
+   */
+  opts?: UpdateTaskOptions
 ): Promise<TaskUpdateResult> {
-  const result = await updateTask(taskId, input, actorId)
+  const result = await updateTask(taskId, input, actorId, opts)
 
   dispatchUpdateTaskSideEffects({
     taskId,

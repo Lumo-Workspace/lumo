@@ -13,6 +13,10 @@ import {
 } from '@/lib/services/task-creation.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import {
+  postSendBackComment,
+  summarizeSendBackNote,
+} from '@/lib/services/sendback-comment.service'
 import type { HumanVerdictBody } from '@/lib/validation/acceptance'
 
 export interface HumanVerdictAttribution {
@@ -31,6 +35,8 @@ export interface HumanVerdictOutcome {
   criterionIds: string[]
   /** The derived task a PASS_WITH_FOLLOWUP opened, null otherwise. */
   followUpTask: { id: string; number: number; title: string } | null
+  /** The send-back narrative comment a FAIL posted, null otherwise (LUM-422). */
+  commentId: string | null
 }
 
 const ACTIVITY_STATEMENT_MAX = 160
@@ -90,17 +96,40 @@ export const taskHumanVerdictService = {
     // review of the rounds that ran, not a new round). Floored at 1 so a
     // contract adjudicated before any machine round still lands on a valid
     // 1-based round.
-    const maxRound = (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
+    const maxRound =
+      (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
     const round = Math.max(1, maxRound)
-
-    const note = cleanNullable(input.note)
-    const rejectionReasonEnum =
-      input.verdict === 'FAIL' ? (input.rejectionReasonEnum ?? null) : null
 
     const callerActor = await memberRepository.findActorByMemberId(
       attribution.actorMemberId
     )
     const actorId = callerActor?.id ?? null
+
+    // LUM-422 ① de-enumeration: the human send-back carries no rejection-reason
+    // enum (left null — a downstream agent classifies it). A FAIL's note is a
+    // markdown/rich send-back reason posted as a task comment (@mentions and
+    // images for free); the row keeps a plain-text summary and the mirror
+    // activity carries the commentId so the FAIL row → comment link is
+    // traceable with zero schema. PASS_WITH_FOLLOWUP's note stays plain text —
+    // it seeds the follow-up task below, not a comment.
+    const isFail = input.verdict === 'FAIL'
+    const followUpNote =
+      input.verdict === 'PASS_WITH_FOLLOWUP' ? cleanNullable(input.note) : null
+
+    let commentId: string | null = null
+    if (isFail && input.note && actorId) {
+      try {
+        commentId = await postSendBackComment({
+          taskId,
+          rawNote: input.note,
+          authorActorId: actorId,
+          authorClerkId: attribution.actorClerkId,
+        })
+      } catch {
+        commentId = null
+      }
+    }
+    const failSummary = isFail ? summarizeSendBackNote(input.note) : null
 
     await prisma.$transaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
@@ -110,13 +139,14 @@ export const taskHumanVerdictService = {
         verifierType: 'HUMAN',
         verdict: input.verdict,
         evidencePointer: null,
-        rejectionReason: input.verdict === 'PASS' ? null : note,
-        rejectionReasonEnum,
+        rejectionReason: isFail ? failSummary : followUpNote,
+        rejectionReasonEnum: null,
       }))
       await verificationRunRepository.createMany(rows, tx)
 
       // Mirror events are born inside the write transaction (LUM-296), same
-      // shape as the machine path plus the verifierType discriminator.
+      // shape as the machine path plus the verifierType discriminator and the
+      // send-back commentId (LUM-422).
       for (const c of criteria) {
         await activityRepository.create(
           {
@@ -130,7 +160,8 @@ export const taskHumanVerdictService = {
               verdict: input.verdict,
               verifierType: 'HUMAN',
               evidencePointer: null,
-              rejectionReasonEnum,
+              rejectionReasonEnum: null,
+              commentId,
             },
           },
           tx
@@ -160,10 +191,11 @@ export const taskHumanVerdictService = {
       const description = [
         `Follow-up from ${identifier} "${origin.title}" — human verdict PASS_WITH_FOLLOWUP.`,
         '',
-        `Outstanding items: ${note ?? '(none recorded — see the origin task)'}`,
+        `Outstanding items: ${followUpNote ?? '(none recorded — see the origin task)'}`,
       ].join('\n')
-      const priority =
-        origin.priority as Parameters<typeof createTask>[1]['priority']
+      const priority = origin.priority as Parameters<
+        typeof createTask
+      >[1]['priority']
       const title = `${FOLLOW_UP_TITLE_PREFIX}${origin.title}`
       // Deliberately unbound: no sprint (and no milestone) — the follow-up is
       // groomed like any new TODO. The automation path covers the degenerate
@@ -222,6 +254,7 @@ export const taskHumanVerdictService = {
       taskStatus,
       criterionIds: criteria.map(c => c.id),
       followUpTask,
+      commentId,
     }
   },
 }

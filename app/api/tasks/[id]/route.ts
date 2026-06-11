@@ -63,12 +63,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!parsed.success) return zodError(parsed)
 
     const actorId = await getHumanActorId(memberResult.id)
+    // LUM-422 ④: this route is Clerk-only (requireAuth), so a `?force=1` is a
+    // human-authoritative confirm past the DONE gate's soft prompt. The
+    // agent/CLI path (PATCH /api/tasks/by-identifier) never gets this option.
+    const force = request.nextUrl.searchParams.get('force') === '1'
     const result = await taskService.updateTaskWithSideEffects(
       id,
       parsed.data,
       task,
       actorId,
-      userId
+      userId,
+      undefined,
+      force ? { overrideDoneGate: true } : undefined
     )
 
     return NextResponse.json({ task: result.task })
