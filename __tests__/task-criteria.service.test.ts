@@ -1,6 +1,7 @@
 import { taskCriteriaService } from '@/lib/services/task-criteria.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 import { commentService } from '@/lib/services/comment.service'
 import { getHumanActorId } from '@/lib/actor'
 
@@ -44,7 +45,9 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
-  memberRepository: { findActorByMemberId: jest.fn(async () => ({ id: 'actor-1' })) },
+  memberRepository: {
+    findActorByMemberId: jest.fn(async () => ({ id: 'actor-1' })),
+  },
 }))
 
 const repo = acceptanceCriterionRepository as jest.Mocked<
@@ -56,8 +59,20 @@ const runRepo = verificationRunRepository as unknown as {
 }
 const mockCreateComment = commentService.createComment as jest.Mock
 const mockGetHumanActorId = getHumanActorId as jest.Mock
+const mockActivityCreate = activityRepository.create as jest.Mock
 
-const ATTRIBUTION = { actorMemberId: 'member-1', sourceSessionId: 'sess-1234abcd' }
+/** CRITERION_CHANGED payloads recorded with the given op. */
+function driftPayloads(op: 'ADDED' | 'UPDATED' | 'DELETED') {
+  return mockActivityCreate.mock.calls
+    .map(c => c[0])
+    .filter(a => a.type === 'CRITERION_CHANGED' && a.payload.op === op)
+    .map(a => a.payload)
+}
+
+const ATTRIBUTION = {
+  actorMemberId: 'member-1',
+  sourceSessionId: 'sess-1234abcd',
+}
 
 function criterion(over: Record<string, unknown> = {}) {
   return {
@@ -99,23 +114,35 @@ describe('taskCriteriaService.listForTask', () => {
 
 describe('taskCriteriaService.submitDraft (agent lock)', () => {
   const items = [
-    { statement: 's1', verifierType: 'MACHINE' as const, checkpointer: 'npx jest' },
+    {
+      statement: 's1',
+      verifierType: 'MACHINE' as const,
+      checkpointer: 'npx jest',
+    },
     { statement: 's2', verifierType: 'HUMAN' as const },
     { statement: 's3', verifierType: 'HUMAN' as const, evidenceRequired: true },
   ]
 
   it('creates the round-0 AGENT_DRAFT rows when the task has no criteria', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([]) // empty contract → initial-draft path
+      .mockResolvedValueOnce([
+        criterion(),
+        criterion({ id: 'c-2' }),
+        criterion({ id: 'c-3' }),
+      ])
     repo.countByTask.mockResolvedValue(0)
     ;(repo.create as jest.Mock).mockImplementation(
-      async (input: Record<string, unknown>) => criterion({ ...input, id: `id-${input.statement}` })
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
     )
-    repo.listByTask.mockResolvedValue([
-      criterion(),
-      criterion({ id: 'c-2' }),
-      criterion({ id: 'c-3' }),
-    ])
 
-    const result = await taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION)
+    const result = await taskCriteriaService.submitDraft(
+      't-1',
+      items,
+      ATTRIBUTION,
+      'TODO'
+    )
 
     expect(repo.countByTask).toHaveBeenCalledWith('t-1', TX)
     expect(repo.create).toHaveBeenCalledTimes(3)
@@ -144,13 +171,153 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
     expect(result.criteria).toHaveLength(3)
     expect(result.warning).toBeNull()
   })
+})
 
-  it('rejects a second agent draft with 409 once any criteria exist', async () => {
-    repo.countByTask.mockResolvedValue(3)
+describe('stage-based criteria lock', () => {
+  const items = [
+    {
+      statement: 'n1',
+      verifierType: 'MACHINE' as const,
+      checkpointer: 'npx jest',
+    },
+    { statement: 'n2', verifierType: 'HUMAN' as const },
+  ]
+
+  it('replaces the whole contract on a TODO redraft (delete-all + create-all, AGENT_DRAFT@r0)', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'old-1' }),
+        criterion({ id: 'old-2' }),
+      ]) // existing → replace
+      .mockResolvedValueOnce([
+        criterion({ id: 'new-1' }),
+        criterion({ id: 'new-2' }),
+      ]) // final re-list
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
+    )
+
+    const result = await taskCriteriaService.submitDraft(
+      't-1',
+      items,
+      ATTRIBUTION,
+      'TODO'
+    )
+
+    // every existing row deleted, every new row created — full-group replace
+    expect(repo.delete).toHaveBeenCalledWith('old-1', TX)
+    expect(repo.delete).toHaveBeenCalledWith('old-2', TX)
+    expect(repo.create).toHaveBeenCalledTimes(2)
+    expect(repo.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ statement: 'n1', source: 'AGENT_DRAFT' }),
+      TX
+    )
+    expect(repo.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ statement: 'n2', source: 'AGENT_DRAFT' }),
+      TX
+    )
+    expect(result.criteria).toHaveLength(2)
+
+    // Faithful drift: a DELETED event per old row and an ADDED per new row,
+    // all stamped AGENT_DRAFT@round0 (the redraft stays an agent draft).
+    const deleted = driftPayloads('DELETED')
+    const added = driftPayloads('ADDED')
+    expect(deleted.map(p => p.criterionId).sort()).toEqual(['old-1', 'old-2'])
+    expect(added).toHaveLength(2)
+    for (const p of [...deleted, ...added]) {
+      expect(p).toMatchObject({ source: 'AGENT_DRAFT', round: 0 })
+    }
+    expect(deleted.every(p => p.after === null)).toBe(true)
+    expect(added.every(p => p.before === null)).toBe(true)
+  })
+
+  it('rejects an agent redraft once the task has left TODO (409, lock engaged with work)', async () => {
+    repo.listByTask.mockResolvedValue([criterion(), criterion({ id: 'c-2' })])
 
     await expect(
-      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION)
+      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION, 'IN_PROGRESS')
     ).rejects.toMatchObject({ status: 409 })
+    expect(repo.delete).not.toHaveBeenCalled()
+    expect(repo.create).not.toHaveBeenCalled()
+  })
+
+  it('still allows the initial draft when the contract is empty, regardless of stage', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([]) // empty → initial-draft path even outside TODO
+      .mockResolvedValueOnce([criterion(), criterion({ id: 'c-2' })])
+    repo.countByTask.mockResolvedValue(0)
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
+    )
+
+    await taskCriteriaService.submitDraft(
+      't-1',
+      items,
+      ATTRIBUTION,
+      'IN_PROGRESS'
+    )
+
+    expect(repo.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves human (--human) revisions stage-independent — reviseAsHuman is never gated by status', async () => {
+    // reviseAsHuman takes no status argument: it is allowed in every stage by construction.
+    repo.listByTask
+      .mockResolvedValueOnce([criterion({ id: 'c-1' })])
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-1', statement: 'reworded', source: 'HUMAN_EDIT' }),
+      ])
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    runRepo.maxRoundByTask.mockResolvedValue(1)
+
+    await taskCriteriaService.reviseAsHuman(
+      't-1',
+      [
+        {
+          id: 'c-1',
+          statement: 'reworded',
+          verifierType: 'MACHINE',
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION
+    )
+
+    expect(repo.update).toHaveBeenCalledWith(
+      'c-1',
+      expect.objectContaining({ source: 'HUMAN_EDIT' }),
+      TX
+    )
+  })
+})
+
+describe('verdict-bearing criterion is never deleted by an agent redraft', () => {
+  const items = [
+    {
+      statement: 'n1',
+      verifierType: 'MACHINE' as const,
+      checkpointer: 'npx jest',
+    },
+  ]
+
+  it('refuses a TODO redraft that would delete a criterion with verification runs (409), writing nothing', async () => {
+    repo.listByTask.mockResolvedValue([
+      criterion({ id: 'c-1' }),
+      criterion({ id: 'c-2' }),
+    ])
+    runRepo.latestRunsByCriterion.mockResolvedValue(
+      new Map([['c-1', { id: 'run-1' }]])
+    )
+
+    await expect(
+      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION, 'TODO')
+    ).rejects.toMatchObject({ status: 409 })
+    expect(repo.delete).not.toHaveBeenCalled()
     expect(repo.create).not.toHaveBeenCalled()
   })
 })
@@ -193,7 +360,14 @@ describe('taskCriteriaService.reviseAsHuman', () => {
       taskCriteriaService.reviseAsHuman(
         't-1',
         // c-1 missing from the desired list → would be deleted
-        [{ id: 'c-2', statement: 'all routes covered by tests', verifierType: 'MACHINE', checkpointer: 'npx jest' }],
+        [
+          {
+            id: 'c-2',
+            statement: 'all routes covered by tests',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+        ],
         ATTRIBUTION
       )
     ).rejects.toMatchObject({ status: 409 })

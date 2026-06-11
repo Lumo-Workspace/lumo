@@ -22,12 +22,17 @@ contract, you MUST draft and submit criteria before starting implementation:
    merge related checks instead). **Scale the count down for small tasks** —
    see "Scale the contract to the task size" below.
 3. Submit with `lumo task criteria set <task> --file <criteria.json>`.
-   Submission **locks the contract for agent edits** — get it right before
-   submitting, because afterwards only human revisions (`--human`) can change it.
 
-Once you (the agent) have started work, you can NOT change your own contract.
-That's by design: the contract is what your work gets judged against, not a
-to-do list you trim to fit what you built.
+**The lock is stage-based — free to iterate the draft while planning, locked
+once work starts.** While the task is still **TODO** (the planning stage) you
+may resubmit `criteria set` freely: a full-group resubmit replaces the whole
+contract, still recorded as your `AGENT_DRAFT` (each add/change/delete leaves a
+drift trail). The moment the task **leaves TODO** (work begins) the contract
+locks for agent edits — from then on you (the agent) can NOT change your own
+contract, only human revisions (`--human`) can. That's by design: once you're
+building against it, the contract is what your work gets judged against, not a
+to-do list you trim to fit what you built. (One exception holds in every stage:
+a criterion that already has verification runs is never deleted — reword it.)
 
 ## Scale the contract to the task size
 
@@ -174,10 +179,13 @@ Fields: `statement` (required, ≤2000 chars), `verifierType` (`"MACHINE"` |
 
 ### `lumo task criteria set <task> --file <criteria.json>`
 
-Initial agent draft. Creates the whole contract as `AGENT_DRAFT` at round 0.
-Rejected with 409 once **any** criteria exist on the task — the agent lock.
-Echoes the stored criteria (with ids) plus the 3–7 soft-cap warning if
-outside range.
+Agent draft, recorded as `AGENT_DRAFT` at round 0. **Stage-based lock:** while
+the task is **TODO** a resubmit is allowed and replaces the whole contract
+(full-group), so you can iterate the draft during planning; once the task has
+**left TODO** a resubmit is rejected with 409 — from there only `--human`
+revisions change the contract. (Deleting a criterion that already has
+verification runs is refused in every stage — reword it instead.) Echoes the
+stored criteria (with ids) plus the 3–7 soft-cap warning if outside range.
 
 ```bash
 lumo task criteria set LUM-42 --file criteria-lum42.json

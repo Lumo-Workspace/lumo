@@ -1,5 +1,5 @@
 import { waitUntil } from '@vercel/functions'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, TaskStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
@@ -72,6 +72,35 @@ async function recordCriterionChanged(
   )
 }
 
+/**
+ * The audit-chain hard constraint (LUM-341 review, milestone rule "有 verdict
+ * 的 criterion 不可删"): a criterion that already carries VerificationRun rows
+ * must keep existing so the verification log keeps pointing at a live row.
+ * Shared by both the human revision path and the TODO-stage agent redraft —
+ * the constraint is NOT relaxed by the stage split (LUM-432).
+ */
+async function assertNoRunsBlockDeletion(
+  taskId: string,
+  toDelete: { id: string }[]
+): Promise<void> {
+  if (toDelete.length === 0) return
+  const runsByCriterion =
+    await verificationRunRepository.latestRunsByCriterion(taskId)
+  const blocked = toDelete.filter(c => runsByCriterion.has(c.id))
+  if (blocked.length > 0) {
+    throw Object.assign(
+      new Error(
+        `Refusing to delete criteria with recorded verification runs: ${blocked
+          .map(c => c.id)
+          .join(
+            ', '
+          )} — the verification log must keep pointing at them; reword the criterion instead of deleting it`
+      ),
+      { status: 409 }
+    )
+  }
+}
+
 /** Max statement length echoed into the audit comment per line. */
 const AUDIT_STATEMENT_MAX = 120
 
@@ -139,62 +168,138 @@ export const taskCriteriaService = {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning: criteria.length === 0 ? null : criteriaCountWarning(criteria.length),
+      warning:
+        criteria.length === 0 ? null : criteriaCountWarning(criteria.length),
     }
   },
 
   /**
-   * Submit the initial agent-drafted contract (round 0, AGENT_DRAFT). The
-   * agent lock (milestone rule 4): once any criteria exist the agent cannot
-   * resubmit or reshape its own contract — only HUMAN_EDIT revisions may
-   * change it. The count check runs inside the insert transaction to narrow
-   * the double-submit race window.
+   * Submit the agent-drafted contract (round 0, AGENT_DRAFT). The lock is
+   * stage-based (milestone rule 4, revised by LUM-432): it guards against
+   * changing the contract after work starts, not against iterating the draft
+   * during planning.
+   *
+   * - Empty contract → initial draft, any stage (the lock only bites a
+   *   non-empty contract). The count is re-checked inside the insert
+   *   transaction to narrow the double-submit race window.
+   * - Non-empty contract while the task is still TODO → full-group replace
+   *   (delete-all + create-all), still stamped AGENT_DRAFT@round0, each
+   *   delete/create written as a faithful CRITERION_CHANGED drift event.
+   * - Non-empty contract once the task has left TODO → 409: the agent is
+   *   read-only on its own contract; only HUMAN_EDIT revisions (`--human`)
+   *   may change it from here.
+   *
+   * This lock is a default guardrail, not a hard security boundary (an agent
+   * can flip the task back to TODO to unlock, but every change stays auditable
+   * via the drift trail). The system's only hard boundary is that a PASS data
+   * row can never be agent-produced (LUM-421, unrelated to this path).
    */
   async submitDraft(
     taskId: string,
     items: CriteriaSetItem[],
-    attribution: CriteriaAttribution
+    attribution: CriteriaAttribution,
+    taskStatus: TaskStatus
   ) {
     const callerActor = await memberRepository.findActorByMemberId(
       attribution.actorMemberId
     )
     const actorId = callerActor?.id ?? null
-    await prisma.$transaction(async tx => {
-      const count = await acceptanceCriterionRepository.countByTask(taskId, tx)
-      if (count > 0) {
+
+    const existing = await acceptanceCriterionRepository.listByTask(taskId)
+
+    if (existing.length > 0) {
+      if (taskStatus !== 'TODO') {
         throw Object.assign(
           new Error(
-            'Acceptance contract already drafted and locked for agent edits — record a human contract decision as a HUMAN_EDIT revision (lumo task criteria set --human) instead'
+            'Acceptance contract locked for agent edits — the task has left TODO (planning). Record a human contract decision as a HUMAN_EDIT revision (lumo task criteria set --human) instead'
           ),
           { status: 409 }
         )
       }
-      // Per-row create (not createMany) so each new criterion's id is known
-      // to its drift record, written in the same transaction.
-      for (const i of items) {
-        const created = await acceptanceCriterionRepository.create(
-          {
+      // TODO-stage redraft: replace the whole contract. The audit-chain guard
+      // still holds — a criterion with recorded runs is never deleted.
+      await assertNoRunsBlockDeletion(taskId, existing)
+      await prisma.$transaction(async tx => {
+        for (const c of existing) {
+          await acceptanceCriterionRepository.delete(c.id, tx)
+          await recordCriterionChanged(tx, {
             taskId,
-            statement: i.statement,
-            verifierType: i.verifierType,
-            checkpointer: i.checkpointer ?? null,
-            evidenceRequired: i.evidenceRequired ?? false,
+            actorId,
+            op: 'DELETED',
+            criterionId: c.id,
             source: 'AGENT_DRAFT',
-          },
+            round: 0,
+            before: criterionSnapshot(c),
+            after: null,
+          })
+        }
+        for (const i of items) {
+          const created = await acceptanceCriterionRepository.create(
+            {
+              taskId,
+              statement: i.statement,
+              verifierType: i.verifierType,
+              checkpointer: i.checkpointer ?? null,
+              evidenceRequired: i.evidenceRequired ?? false,
+              source: 'AGENT_DRAFT',
+            },
+            tx
+          )
+          await recordCriterionChanged(tx, {
+            taskId,
+            actorId,
+            op: 'ADDED',
+            criterionId: created.id,
+            source: 'AGENT_DRAFT',
+            round: 0,
+            before: null,
+            after: criterionSnapshot(created),
+          })
+        }
+      })
+    } else {
+      await prisma.$transaction(async tx => {
+        // Re-check inside the transaction to narrow the double-submit race.
+        const count = await acceptanceCriterionRepository.countByTask(
+          taskId,
           tx
         )
-        await recordCriterionChanged(tx, {
-          taskId,
-          actorId,
-          op: 'ADDED',
-          criterionId: created.id,
-          source: 'AGENT_DRAFT',
-          round: 0,
-          before: null,
-          after: criterionSnapshot(created),
-        })
-      }
-    })
+        if (count > 0) {
+          throw Object.assign(
+            new Error(
+              'Acceptance contract already drafted and locked for agent edits — record a human contract decision as a HUMAN_EDIT revision (lumo task criteria set --human) instead'
+            ),
+            { status: 409 }
+          )
+        }
+        // Per-row create (not createMany) so each new criterion's id is known
+        // to its drift record, written in the same transaction.
+        for (const i of items) {
+          const created = await acceptanceCriterionRepository.create(
+            {
+              taskId,
+              statement: i.statement,
+              verifierType: i.verifierType,
+              checkpointer: i.checkpointer ?? null,
+              evidenceRequired: i.evidenceRequired ?? false,
+              source: 'AGENT_DRAFT',
+            },
+            tx
+          )
+          await recordCriterionChanged(tx, {
+            taskId,
+            actorId,
+            op: 'ADDED',
+            criterionId: created.id,
+            source: 'AGENT_DRAFT',
+            round: 0,
+            before: null,
+            after: criterionSnapshot(created),
+          })
+        }
+      })
+    }
+
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return { criteria, warning: criteriaCountWarning(criteria.length) }
   },
@@ -237,28 +342,13 @@ export const taskCriteriaService = {
       items.flatMap(i => (i.id !== undefined ? [i.id] : []))
     )
     if (keptIds.size < items.filter(i => i.id !== undefined).length) {
-      throw Object.assign(
-        new Error('Duplicate criterion id in submission'),
-        { status: 400 }
-      )
+      throw Object.assign(new Error('Duplicate criterion id in submission'), {
+        status: 400,
+      })
     }
 
     const toDelete = existing.filter(c => !keptIds.has(c.id))
-    if (toDelete.length > 0) {
-      const runsByCriterion =
-        await verificationRunRepository.latestRunsByCriterion(taskId)
-      const blocked = toDelete.filter(c => runsByCriterion.has(c.id))
-      if (blocked.length > 0) {
-        throw Object.assign(
-          new Error(
-            `Refusing to delete criteria with recorded verification runs: ${blocked
-              .map(c => c.id)
-              .join(', ')} — the verification log must keep pointing at them; reword the criterion instead of deleting it`
-          ),
-          { status: 409 }
-        )
-      }
-    }
+    await assertNoRunsBlockDeletion(taskId, toDelete)
 
     const currentRound =
       (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0

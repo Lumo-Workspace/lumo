@@ -858,6 +858,7 @@ export const taskRepository = {
       select: {
         id: true,
         number: true,
+        status: true,
         team: { select: { identifier: true } },
       },
     })
