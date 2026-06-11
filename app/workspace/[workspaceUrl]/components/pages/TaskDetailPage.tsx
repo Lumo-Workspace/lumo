@@ -58,6 +58,7 @@ interface TaskDetailPageProps {
     hasAgentRuns: boolean
     hasMemories: boolean
     hasLineage: boolean
+    hasCriteria: boolean
   }
 }
 

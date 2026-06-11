@@ -28,6 +28,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMemories', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskLineage', () => ({
   useTaskLineage: jest.fn(),
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
+  useTaskStatus: jest.fn(),
+}))
 
 // useTimeline is only exercised by the Activity panel; stub it out.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTimeline', () => ({
@@ -65,16 +68,22 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/LineageTab',
   () => ({ LineageTab: () => <div data-testid='panel-lineage' /> })
 )
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab',
+  () => ({ AcceptanceTab: () => <div data-testid='panel-acceptance' /> })
+)
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TimelineTabs } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useMemories } from '@/app/workspace/[workspaceUrl]/hooks/useMemories'
 import { useTaskLineage } from '@/app/workspace/[workspaceUrl]/hooks/useTaskLineage'
+import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 
 const mockAgentRuns = useAgentRuns as jest.Mock
 const mockMemories = useMemories as jest.Mock
 const mockLineage = useTaskLineage as jest.Mock
+const mockStatus = useTaskStatus as jest.Mock
 
 const baseProps: any = {
   taskId: 'task-1',
@@ -92,10 +101,12 @@ function setPresence({
   agent,
   memory,
   lineage,
+  criteria = false,
 }: {
   agent: boolean
   memory: boolean
   lineage: boolean
+  criteria?: boolean
 }) {
   mockAgentRuns.mockReturnValue({
     data: { runs: agent ? [{ sessionId: 's', runNumber: 1 }] : [] },
@@ -114,6 +125,11 @@ function setPresence({
   })
   mockLineage.mockReturnValue({
     data: { groups: lineage ? [{ kind: 'session' }] : [] },
+    loading: false,
+    error: null,
+  })
+  mockStatus.mockReturnValue({
+    data: { criteria: criteria ? [{ id: 'crit-1' }] : [] },
     loading: false,
     error: null,
   })
@@ -164,6 +180,22 @@ describe('TimelineTabs tab visibility', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Lineage' }))
     expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
   })
+
+  it('hides the Acceptance tab when the task has no criteria', () => {
+    setPresence({ agent: false, memory: false, lineage: false, criteria: false })
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.queryByRole('button', { name: '验收' })).toBeNull()
+  })
+
+  it('shows the Acceptance tab and opens its panel when a contract exists', () => {
+    setPresence({ agent: false, memory: false, lineage: false, criteria: true })
+    render(<TimelineTabs {...baseProps} />)
+
+    const tab = screen.getByRole('button', { name: '验收' })
+    expect(tab).toBeInTheDocument()
+    fireEvent.click(tab)
+    expect(screen.getByTestId('panel-acceptance')).toBeInTheDocument()
+  })
 })
 
 // Probes return their "not yet resolved" shape: useAgentRuns/useTaskLineage
@@ -182,6 +214,7 @@ function setProbesUnresolved() {
     mutating: false,
   })
   mockLineage.mockReturnValue({ data: null, loading: true, error: null })
+  mockStatus.mockReturnValue({ data: null, loading: true, error: null })
 }
 
 describe('TimelineTabs SSR presence fallback (LUM-321)', () => {

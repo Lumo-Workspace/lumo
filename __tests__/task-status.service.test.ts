@@ -139,6 +139,7 @@ describe('statusForTask — read model', () => {
     expect(c1.latestVerdict).toEqual({
       round: 2,
       verdict: 'PASS',
+      verifierType: 'MACHINE',
       evidencePointer: 'cmd:npx jest x.test.ts#exit=0',
       rejectionReason: null,
       rejectionReasonEnum: null,

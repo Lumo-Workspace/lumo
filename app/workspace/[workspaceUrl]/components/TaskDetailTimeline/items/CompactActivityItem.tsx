@@ -30,8 +30,8 @@ interface ActorInfo {
   initials: string
 }
 
-function resolveActor(
-  entry: TimelineActivityEntry,
+export function resolveActor(
+  entry: Pick<TimelineActivityEntry, 'actorId' | 'actor'>,
   members: WorkspaceMemberInfo[],
   agentActors: { actorId: string; name: string }[]
 ): ActorInfo {
@@ -421,7 +421,7 @@ function formatActivityText(
   }
 }
 
-function formatTimeAgo(dateStr: string, locale: string = 'en'): string {
+export function formatTimeAgo(dateStr: string, locale: string = 'en'): string {
   const now = Date.now()
   const then = new Date(dateStr).getTime()
   const diff = now - then

@@ -8,28 +8,36 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: { hasForTask: jest.fn() },
 }))
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: { countByTask: jest.fn() },
+}))
 
 import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 
 const mockToolUse = hookEventRepository.hasToolUseForTask as jest.Mock
 const mockMemory = memoryRepository.hasForTask as jest.Mock
 const mockLineage = lineageEdgeRepository.hasForTask as jest.Mock
+const mockCriteria = acceptanceCriterionRepository.countByTask as jest.Mock
 
 function setRepos({
   toolUse,
   memory,
   lineage,
+  criteria = 0,
 }: {
   toolUse: boolean
   memory: boolean
   lineage: boolean
+  criteria?: number
 }) {
   mockToolUse.mockResolvedValue(toolUse)
   mockMemory.mockResolvedValue(memory)
   mockLineage.mockResolvedValue(lineage)
+  mockCriteria.mockResolvedValue(criteria)
 }
 
 beforeEach(() => jest.clearAllMocks())
@@ -65,8 +73,8 @@ describe('taskTimelinePresenceService.getPresence', () => {
     expect(presence.hasAgentRuns).toBe(false)
   })
 
-  it('passes through memory and lineage presence', async () => {
-    setRepos({ toolUse: false, memory: true, lineage: true })
+  it('passes through memory, lineage, and criteria presence', async () => {
+    setRepos({ toolUse: false, memory: true, lineage: true, criteria: 4 })
 
     const presence = await taskTimelinePresenceService.getPresence('task-1')
 
@@ -74,10 +82,19 @@ describe('taskTimelinePresenceService.getPresence', () => {
       hasAgentRuns: true,
       hasMemories: true,
       hasLineage: true,
+      hasCriteria: true,
     })
   })
 
-  it('queries all three repositories by task id', async () => {
+  it('reports hasCriteria=false when the task has no criteria', async () => {
+    setRepos({ toolUse: false, memory: false, lineage: false, criteria: 0 })
+
+    const presence = await taskTimelinePresenceService.getPresence('task-1')
+
+    expect(presence.hasCriteria).toBe(false)
+  })
+
+  it('queries all repositories by task id', async () => {
     setRepos({ toolUse: false, memory: false, lineage: false })
 
     await taskTimelinePresenceService.getPresence('task-42')
@@ -85,5 +102,6 @@ describe('taskTimelinePresenceService.getPresence', () => {
     expect(mockToolUse).toHaveBeenCalledWith('task-42')
     expect(mockMemory).toHaveBeenCalledWith('task-42')
     expect(mockLineage).toHaveBeenCalledWith('task-42')
+    expect(mockCriteria).toHaveBeenCalledWith('task-42')
   })
 })
