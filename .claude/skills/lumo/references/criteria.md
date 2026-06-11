@@ -64,6 +64,13 @@ must track the size of the work — it is not a fixed ritual:
     HUMAN** — the server rejects checkpointer-less MACHINE criteria rather
     than silently rewriting them. Don't invent a fake checkpointer to keep it
     MACHINE.
+  - **Jest-by-name checkpointers must go through the zero-match guard.** A
+    bare `npx jest -t '<name>'` exits 0 even when the pattern matches **no**
+    test — rename or delete the test and the checkpointer silently fake-PASSes
+    (same trap class as the BSD-grep `-P` incident, LUM-401). Write
+    `npx tsx scripts/jest-t.ts '<exact test name>' [test file path]` instead:
+    it fails unless ≥1 matching test ran and passed. The optional path scopes
+    the run to one file (much faster than name-filtering the whole suite).
 - `evidenceRequired: true` marks criteria whose verdict must point at proof
   (a MACHINE PASS always requires evidence regardless of this flag).
 
