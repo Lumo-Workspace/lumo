@@ -28,6 +28,15 @@ function isPass(verdict: string | undefined): boolean {
   return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
 }
 
+// Machine evidence is encoded as `cmd:<command>#exit=<n>` — pull out the exit
+// code so the disclosure can show a plain "exit code 0" instead of the raw
+// pointer (the command itself is the criterion's checkpointer, shown above it).
+function parseExitCode(evidence: string | null | undefined): number | null {
+  if (!evidence) return null
+  const m = evidence.match(/#exit=(-?\d+)\s*$/)
+  return m ? Number(m[1]) : null
+}
+
 // A human override = a passing verdict authored by a HUMAN verifier (the red
 // line's "provable manual override", distinct from a machine PASS).
 function isHumanOverride(c: TaskStatusCriterionView): boolean {
@@ -358,6 +367,7 @@ function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
   const [showCheck, setShowCheck] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
+  const exitCode = parseExitCode(v?.evidencePointer)
   // Only MACHINE criteria carry a runnable check / evidence to disclose.
   const hasCheck = c.verifierType === 'MACHINE' && (!!c.checkpointer || !!v)
 
@@ -423,33 +433,34 @@ function CriterionRow({ c }: { c: TaskStatusCriterionView }) {
           </div>
         ) : null}
         {hasCheck && showCheck ? (
-          <div className='mt-1.5 space-y-1 rounded-md bg-muted/50 px-2 py-1.5 font-mono text-[10px] text-muted-foreground'>
+          <div className='mt-1.5 space-y-0.5 rounded-md bg-muted/50 px-2 py-1.5 font-mono text-[10px] text-muted-foreground'>
             {c.checkpointer ? (
               <div className='break-all'>
-                <span className='text-foreground/60'>
-                  {intl.formatMessage({
-                    id: 'acceptance.check.label',
-                    defaultMessage: 'check',
-                  })}
-                  :{' '}
-                </span>
+                <span className='text-muted-foreground/50'>$ </span>
                 {c.checkpointer}
               </div>
             ) : null}
-            <div className='break-all'>
-              <span className='text-foreground/60'>
+            {exitCode !== null ? (
+              <div className={exitCode === 0 ? 'text-success' : 'text-danger'}>
+                {exitCode === 0 ? '✓' : '✗'}{' '}
+                {intl.formatMessage(
+                  {
+                    id: 'acceptance.check.exitCode',
+                    defaultMessage: 'exit code {code}',
+                  },
+                  { code: exitCode }
+                )}
+              </div>
+            ) : v?.evidencePointer ? (
+              <div className='break-all'>{v.evidencePointer}</div>
+            ) : (
+              <div className='text-muted-foreground/60'>
                 {intl.formatMessage({
-                  id: 'acceptance.check.evidence',
-                  defaultMessage: 'evidence',
-                })}
-                :{' '}
-              </span>
-              {v?.evidencePointer ??
-                intl.formatMessage({
                   id: 'acceptance.check.none',
                   defaultMessage: 'not yet run',
                 })}
-            </div>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -533,45 +544,6 @@ export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
           ))}
         </div>
       </div>
-
-      {data.lastRoundFailures.length > 0 ? (
-        <div>
-          <div className='mb-2 text-xs font-medium text-foreground'>
-            {intl.formatMessage({
-              id: 'acceptance.tab.lastFailures',
-              defaultMessage: 'Last round failures',
-            })}
-          </div>
-          <ul className='space-y-0.5 text-[11px] text-muted-foreground'>
-            {data.lastRoundFailures.map(f => (
-              <li key={f.criterionId} className='break-words'>
-                · {f.statement}
-                {f.rejectionReason ? (
-                  <span className='text-danger'> — {f.rejectionReason}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {data.nextActions.length > 0 ? (
-        <div>
-          <div className='mb-2 text-xs font-medium text-foreground'>
-            {intl.formatMessage({
-              id: 'acceptance.tab.nextActions',
-              defaultMessage: 'Next actions',
-            })}
-          </div>
-          <ul className='space-y-0.5 text-[11px] text-muted-foreground'>
-            {data.nextActions.map(a => (
-              <li key={a.criterionId} className='break-words'>
-                · [{a.verifierType}] {a.statement}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   )
 }

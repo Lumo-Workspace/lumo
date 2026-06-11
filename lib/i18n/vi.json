@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "Ẩn kết quả check",
   "acceptance.check.label": "kiểm tra",
   "acceptance.check.evidence": "bằng chứng",
-  "acceptance.check.none": "chưa chạy"
+  "acceptance.check.none": "chưa chạy",
+  "acceptance.check.exitCode": "mã thoát {code}"
 }
