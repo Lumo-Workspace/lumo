@@ -3,18 +3,16 @@
  */
 import { GET, PUT } from '@/app/api/tasks/[id]/criteria/route'
 import { requireIdentity } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories'
 import { taskCriteriaService } from '@/lib/services/task-criteria.service'
 
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
-
-// resolveTaskParam now calls prisma.task.findFirst directly (LUM-437: needs
-// workStartedAt alongside status). Mock the prisma client so route tests stay
-// in-process without a real DB.
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: { task: { findFirst: jest.fn() } },
+jest.mock('@/lib/repositories', () => ({
+  taskRepository: {
+    findByIdForMention: jest.fn(),
+    findByWorkspaceIdentifier: jest.fn(),
+  },
 }))
-
 jest.mock('@/lib/services/task-criteria.service', () => ({
   taskCriteriaService: {
     listForTask: jest.fn(),
@@ -24,7 +22,8 @@ jest.mock('@/lib/services/task-criteria.service', () => ({
 }))
 
 const mockIdentity = requireIdentity as jest.Mock
-const mockFindFirst = prisma.task.findFirst as jest.Mock
+const mockFindByIdentifier =
+  taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockList = taskCriteriaService.listForTask as jest.Mock
 const mockDraft = taskCriteriaService.submitDraft as jest.Mock
 const mockRevise = taskCriteriaService.reviseAsHuman as jest.Mock
@@ -58,7 +57,7 @@ const draftBody = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockIdentity.mockResolvedValue(IDENTITY)
-  mockFindFirst.mockResolvedValue({
+  mockFindByIdentifier.mockResolvedValue({
     id: 't-1',
     status: 'TODO',
     workStartedAt: null,
@@ -71,17 +70,7 @@ describe('GET /api/tasks/[id]/criteria', () => {
 
     const res = await GET(req(), params)
 
-    expect(mockFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          number: 42,
-          team: expect.objectContaining({
-            identifier: 'LUM',
-            workspaceId: 'w-1',
-          }),
-        }),
-      })
-    )
+    expect(mockFindByIdentifier).toHaveBeenCalledWith('w-1', 'LUM', 42)
     expect(mockList).toHaveBeenCalledWith('t-1')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
@@ -91,7 +80,7 @@ describe('GET /api/tasks/[id]/criteria', () => {
   })
 
   it('404s when the identifier does not resolve in the workspace', async () => {
-    mockFindFirst.mockResolvedValue(null)
+    mockFindByIdentifier.mockResolvedValue(null)
     const res = await GET(req(), params)
     expect(res.status).toBe(404)
   })
@@ -185,7 +174,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
   it('returns 409 for AGENT_DRAFT on a DONE task with existing criteria', async () => {
     // Simulate a DONE task — the route passes task.status to submitDraft which
     // throws the terminal lock error.
-    mockFindFirst.mockResolvedValue({
+    mockFindByIdentifier.mockResolvedValue({
       id: 't-1',
       status: 'DONE',
       workStartedAt: new Date('2026-06-01'),

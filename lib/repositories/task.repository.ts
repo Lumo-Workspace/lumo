@@ -340,7 +340,7 @@ export const taskRepository = {
         number,
         team: { identifier: teamIdentifier, workspaceId },
       },
-      select: TASK_IDENTIFIER_SELECT,
+      select: { ...TASK_IDENTIFIER_SELECT, workStartedAt: true },
     })
   },
 
@@ -860,6 +860,7 @@ export const taskRepository = {
         id: true,
         number: true,
         status: true,
+        workStartedAt: true,
         team: { select: { identifier: true } },
       },
     })

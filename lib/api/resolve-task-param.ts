@@ -1,5 +1,5 @@
 import type { TaskStatus } from '@prisma/client'
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories'
 
 /** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
 function isLikelyCuid(segment: string): boolean {
@@ -42,18 +42,13 @@ export async function resolveTaskParam(
   workStartedAt: Date | null
 } | null> {
   if (isLikelyCuid(rawId)) {
-    return prisma.task.findFirst({
-      where: { id: rawId, team: { workspaceId } },
-      select: { id: true, status: true, workStartedAt: true },
-    })
+    return taskRepository.findByIdForMention(rawId, workspaceId)
   }
   const parsed = parseIdentifier(rawId)
   if (!parsed) return null
-  return prisma.task.findFirst({
-    where: {
-      number: parsed.number,
-      team: { identifier: parsed.teamIdentifier, workspaceId },
-    },
-    select: { id: true, status: true, workStartedAt: true },
-  })
+  return taskRepository.findByWorkspaceIdentifier(
+    workspaceId,
+    parsed.teamIdentifier,
+    parsed.number
+  )
 }
