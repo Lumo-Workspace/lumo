@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "남은 작업",
   "task.verdict.followUpNotePlaceholder": "무엇이 남아 있나요?",
   "task.verdict.confirm": "판정 기록",
-  "task.verdict.error": "판정을 기록하지 못했습니다 — 다시 시도하세요."
+  "task.verdict.error": "판정을 기록하지 못했습니다 — 다시 시도하세요.",
+  "mention.pr.open": "열린 PR",
+  "mention.pr.merged": "병합된 PR"
 }

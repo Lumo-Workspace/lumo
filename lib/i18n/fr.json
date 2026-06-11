@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Points restants",
   "task.verdict.followUpNotePlaceholder": "Que reste-t-il à faire ?",
   "task.verdict.confirm": "Enregistrer le verdict",
-  "task.verdict.error": "L'enregistrement du verdict a échoué — réessayez."
+  "task.verdict.error": "L'enregistrement du verdict a échoué — réessayez.",
+  "mention.pr.open": "PR ouverte",
+  "mention.pr.merged": "PR fusionnée"
 }

@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Outstanding items",
   "task.verdict.followUpNotePlaceholder": "What remains to be done?",
   "task.verdict.confirm": "Record verdict",
-  "task.verdict.error": "Recording the verdict failed — try again."
+  "task.verdict.error": "Recording the verdict failed — try again.",
+  "mention.pr.open": "Open PR",
+  "mention.pr.merged": "Merged PR"
 }

@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Pendientes",
   "task.verdict.followUpNotePlaceholder": "¿Qué falta por hacer?",
   "task.verdict.confirm": "Registrar veredicto",
-  "task.verdict.error": "No se pudo registrar el veredicto — vuelve a intentarlo."
+  "task.verdict.error": "No se pudo registrar el veredicto — vuelve a intentarlo.",
+  "mention.pr.open": "PR abierto",
+  "mention.pr.merged": "PR fusionado"
 }

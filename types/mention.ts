@@ -25,3 +25,19 @@ export interface MentionSources {
   members: Extract<MentionItem, { kind: 'user' }>[]
   searchEntities: (query: string) => Promise<MentionSearchItem[]>
 }
+
+/** PR state reduced to what a task-mention chip badge needs (LUM-411). */
+export type MentionPrState = 'none' | 'open' | 'merged'
+
+/**
+ * Live status (+ PR) for one task identifier — the wire DTO behind the live
+ * status badge on `@LUM-N` mention chips. Lives in `types/` so the render side
+ * (api-client, components) can import it without reaching into `lib/services`.
+ */
+export interface MentionStatusItem {
+  /** Uppercased `TEAM-N` identifier (e.g. `LUM-411`). */
+  identifier: string
+  /** The task's CURRENT status — not the snapshot frozen into the node. */
+  status: string
+  pr: MentionPrState
+}

@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Hal yang tersisa",
   "task.verdict.followUpNotePlaceholder": "Apa yang masih harus dikerjakan?",
   "task.verdict.confirm": "Catat putusan",
-  "task.verdict.error": "Gagal mencatat putusan — coba lagi."
+  "task.verdict.error": "Gagal mencatat putusan — coba lagi.",
+  "mention.pr.open": "PR terbuka",
+  "mention.pr.merged": "PR digabung"
 }

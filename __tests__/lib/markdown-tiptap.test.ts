@@ -218,6 +218,37 @@ describe('tiptapToMarkdown', () => {
     expect(md).toContain('@LUM-42')
   })
 
+  it('round-trips a task mention as bare @LUM-N with no live status/PR data embedded', () => {
+    // Even when the node carries a frozen status snapshot + live-ish attrs, the
+    // authoritative markdown source must stay plain text — the live status/PR
+    // badge is a render-time concern only (LUM-411 invariant).
+    const md = tiptapToMarkdown({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Blocked by ' },
+            {
+              type: 'mention',
+              attrs: {
+                mentionType: 'task',
+                id: 'task_cuid_xx',
+                identifier: 'LUM-42',
+                label: 'LUM-42',
+                mentionTitle: 'Fix bug',
+                mentionStatus: 'DONE',
+                mentionHref: '/t/42',
+              },
+            },
+          ],
+        },
+      ],
+    })
+    expect(md.trim()).toBe('Blocked by @LUM-42')
+    expect(md).not.toMatch(/DONE|merged|open|status|pr/i)
+  })
+
   it('renders bold, italic, inline code, and link marks back to markdown', () => {
     const md = tiptapToMarkdown({
       type: 'doc',

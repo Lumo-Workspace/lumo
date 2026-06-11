@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Việc còn lại",
   "task.verdict.followUpNotePlaceholder": "Còn gì cần làm?",
   "task.verdict.confirm": "Ghi phán quyết",
-  "task.verdict.error": "Không ghi được phán quyết — hãy thử lại."
+  "task.verdict.error": "Không ghi được phán quyết — hãy thử lại.",
+  "mention.pr.open": "PR đang mở",
+  "mention.pr.merged": "PR đã gộp"
 }
