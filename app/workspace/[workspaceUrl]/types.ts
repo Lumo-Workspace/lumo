@@ -692,6 +692,21 @@ export interface TaskStatusCriterionView {
   latestVerdict: CriterionLatestVerdictView | null
 }
 
+export interface VerificationHistoryRoundView {
+  round: number
+  recordedAt: string
+  passed: number
+  failed: number
+  verdicts: Array<{
+    criterionId: string
+    verdict: AcceptanceVerdict
+    verifierType: AcceptanceVerifier
+    evidencePointer: string | null
+    rejectionReason: string | null
+    rejectionReasonEnum: string | null
+  }>
+}
+
 export interface TaskAcceptanceStatusView {
   version: number
   task: { id: string; identifier: string; title: string; status: string }
@@ -699,6 +714,7 @@ export interface TaskAcceptanceStatusView {
   maxRounds: number
   escalated: boolean
   criteria: TaskStatusCriterionView[]
+  verificationHistory: VerificationHistoryRoundView[]
   lastRoundFailures: Array<{
     criterionId: string
     statement: string

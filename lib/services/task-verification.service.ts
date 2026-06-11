@@ -100,6 +100,7 @@ export interface VerificationHistoryRound {
   verdicts: Array<{
     criterionId: string
     verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    verifierType: 'MACHINE' | 'HUMAN' | 'AGENT'
     evidencePointer: string | null
     rejectionReason: string | null
     rejectionReasonEnum: string | null
@@ -415,6 +416,7 @@ export const taskVerificationService = {
         verdicts: rows.map(r => ({
           criterionId: r.criterionId,
           verdict: r.verdict,
+          verifierType: r.verifierType,
           evidencePointer: r.evidencePointer,
           rejectionReason: r.rejectionReason,
           rejectionReasonEnum: r.rejectionReasonEnum,
