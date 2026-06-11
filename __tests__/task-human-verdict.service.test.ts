@@ -20,7 +20,10 @@ import {
 } from '@/lib/services/sendback-comment.service'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn(),
+    listByTaskIncludingDeleted: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   // Keep the real pure exports (isPassVerdict, deriveAllPassRoundTaskIds) —
@@ -34,7 +37,7 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+  activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findStatus: jest.fn(), findHeaderById: jest.fn() },
@@ -68,6 +71,9 @@ const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
 const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
+const listIncludingDeleted =
+  acceptanceCriterionRepository.listByTaskIncludingDeleted as jest.Mock
+const listChangeEvents = activityRepository.listByTaskAndType as jest.Mock
 const findActor = memberRepository.findActorByMemberId as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
 const getDetail = taskService.getTaskDetail as jest.Mock
@@ -126,6 +132,9 @@ const DETAIL = {
 beforeEach(() => {
   jest.clearAllMocks()
   listCriteria.mockResolvedValue(CRITERIA)
+  // statusForTask read-model dependencies (LUM-437) default to empty.
+  listIncludingDeleted.mockResolvedValue([])
+  listChangeEvents.mockResolvedValue([])
   maxRound.mockResolvedValue(2)
   // No prior verdicts by default — every select-all test overlays the whole
   // contract with its own verdict, so the snapshot is irrelevant there.

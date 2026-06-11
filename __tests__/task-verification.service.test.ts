@@ -12,7 +12,10 @@ import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners
 import { taskService } from '@/lib/services/task.service'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn(),
+    listByTaskIncludingDeleted: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   // Keep the real pure exports (isPassVerdict, deriveAllPassRoundTaskIds) —
@@ -25,7 +28,7 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+  activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findStatus: jest.fn(), findHeaderById: jest.fn() },
@@ -52,6 +55,9 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
+const listIncludingDeleted =
+  acceptanceCriterionRepository.listByTaskIncludingDeleted as jest.Mock
+const listChangeEvents = activityRepository.listByTaskAndType as jest.Mock
 const createMany = verificationRunRepository.createMany as jest.Mock
 const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
@@ -122,6 +128,9 @@ beforeEach(() => {
   findStatus.mockResolvedValue({ status: 'IN_PROGRESS' })
   getDetail.mockResolvedValue({ status: 'IN_PROGRESS', projectId: 'p-1' })
   updateWithSideEffects.mockResolvedValue({})
+  // statusForTask read-model dependencies (LUM-437) default to empty.
+  listIncludingDeleted.mockResolvedValue([])
+  listChangeEvents.mockResolvedValue([])
 })
 
 describe('coverage validation', () => {

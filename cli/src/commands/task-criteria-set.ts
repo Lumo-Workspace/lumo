@@ -134,6 +134,36 @@ export async function taskCriteriaSet(
   const sessionId = process.env.CLAUDE_CODE_SESSION_ID
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
+  // LUM-437: when a contract already exists, preserve criterion identity across
+  // an after-start edit by matching submitted items to existing criteria by exact
+  // statement and attaching their ids. Best-effort — fall back to id-less submit.
+  let criteriaItems: unknown[] = parsed.items
+  if (!options.human) {
+    try {
+      const listRes = await fetch(
+        `${base}/api/tasks/${encodeURIComponent(identifier)}/criteria`,
+        { headers: { Authorization: `Bearer ${creds.token}` } }
+      )
+      if (listRes.ok) {
+        const listData = (await listRes.json()) as { criteria: CriterionRow[] }
+        const activeByStatement = new Map(
+          listData.criteria.map(c => [c.statement, c.id])
+        )
+        criteriaItems = parsed.items.map(item => {
+          if (item !== null && typeof item === 'object' && !('id' in item)) {
+            const stmt = (item as Record<string, unknown>)['statement']
+            if (typeof stmt === 'string' && activeByStatement.has(stmt)) {
+              return { ...item, id: activeByStatement.get(stmt) }
+            }
+          }
+          return item
+        })
+      }
+    } catch {
+      // leave criteriaItems as-is; the server still records via full diff
+    }
+  }
+
   let res: Response
   try {
     res = await fetch(
@@ -143,7 +173,7 @@ export async function taskCriteriaSet(
         headers,
         body: JSON.stringify({
           source: options.human ? 'HUMAN_EDIT' : 'AGENT_DRAFT',
-          criteria: parsed.items,
+          criteria: criteriaItems,
           ...(causeTag ? { causeTag } : {}),
         }),
       }

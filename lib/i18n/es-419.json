@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "falso positivo",
   "boundary.disposition.confirmed": "confirmada",
   "boundary.reversible": "reversible",
-  "boundary.irreversible": "irreversible"
+  "boundary.irreversible": "irreversible",
+  "acceptance.batch.contractRevisedAgent": "revisó el contrato de aceptación (borrador del agente)",
+  "acceptance.criterion.editedAtRound": "Editado · ronda {round}",
+  "acceptance.criterion.edited": "Editado",
+  "acceptance.criterion.addedAtRound": "Agregado · ronda {round}",
+  "acceptance.criterion.added": "Agregado",
+  "acceptance.criterion.hideChange": "Ocultar cambio",
+  "acceptance.criterion.viewChange": "Ver cambio",
+  "acceptance.removed.title": "Eliminado · conservado para auditoría",
+  "acceptance.removed.atRound": "Eliminado en la ronda {round}",
+  "acceptance.removed.lastVerdict": "último veredicto: {v}",
+  "acceptance.removed.runsPreserved": "{n} ejecución(es) de verificación conservada(s)"
 }

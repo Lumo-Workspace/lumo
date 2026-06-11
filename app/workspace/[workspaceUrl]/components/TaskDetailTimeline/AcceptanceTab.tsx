@@ -9,6 +9,9 @@ import {
   Clock,
   AlertTriangle,
   ChevronRight,
+  Pencil,
+  Archive,
+  Trash2,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
@@ -19,6 +22,7 @@ import type {
   VerificationHistoryRoundView,
   AcceptanceVerifier,
   WorkspaceMemberInfo,
+  RemovedCriterionView,
 } from '../../types'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
@@ -521,6 +525,7 @@ function CriterionRow({
 }) {
   const intl = useIntl()
   const [showCheck, setShowCheck] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
   const exitCode = parseExitCode(v?.evidencePointer)
@@ -529,6 +534,7 @@ function CriterionRow({
   // A machine-passed criterion gets the de-emphasized override affordance; an
   // unjudged or HUMAN row gets the prominent pass / send-back controls.
   const machinePassed = c.verifierType === 'MACHINE' && isPass(v?.verdict)
+  const hasEditDisclosure = c.changeState === 'edited' && !!c.lastEdit
 
   return (
     <div className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'>
@@ -562,33 +568,110 @@ function CriterionRow({
               })}
             </span>
           ) : null}
-          {hasCheck ? (
-            <button
-              type='button'
-              aria-expanded={showCheck}
-              onClick={() => setShowCheck(s => !s)}
-              className='ml-auto inline-flex items-center gap-0.5 text-info hover:underline'
-            >
-              {showCheck
-                ? intl.formatMessage({
-                    id: 'acceptance.hideCheck',
-                    defaultMessage: 'Hide check output',
-                  })
+          {/* A — change-state markers */}
+          {c.changeState === 'edited' ? (
+            <span className='inline-flex items-center gap-1 rounded-sm bg-info-subtle border border-info-border px-1.5 py-0.5 font-medium text-foreground'>
+              <Pencil className='size-3' aria-hidden />
+              {c.changedAtRound != null
+                ? intl.formatMessage(
+                    {
+                      id: 'acceptance.criterion.editedAtRound',
+                      defaultMessage: 'Edited · round {round}',
+                    },
+                    { round: c.changedAtRound }
+                  )
                 : intl.formatMessage({
-                    id: 'acceptance.viewCheck',
-                    defaultMessage: 'View check output',
+                    id: 'acceptance.criterion.edited',
+                    defaultMessage: 'Edited',
                   })}
-              <ChevronRight
-                className={`size-3 transition-transform ${showCheck ? 'rotate-90' : ''}`}
-                aria-hidden
-              />
-            </button>
+            </span>
+          ) : null}
+          {c.changeState === 'added' ? (
+            <span className='inline-flex items-center gap-1 rounded-sm bg-info-subtle border border-info-border px-1.5 py-0.5 font-medium text-foreground'>
+              {c.changedAtRound != null
+                ? intl.formatMessage(
+                    {
+                      id: 'acceptance.criterion.addedAtRound',
+                      defaultMessage: 'Added · round {round}',
+                    },
+                    { round: c.changedAtRound }
+                  )
+                : intl.formatMessage({
+                    id: 'acceptance.criterion.added',
+                    defaultMessage: 'Added',
+                  })}
+            </span>
+          ) : null}
+          {/* Disclosure buttons — pushed to the right as a group so they don't
+              collide when both can appear on the same row. */}
+          {hasCheck || hasEditDisclosure ? (
+            <div className='ml-auto flex items-center gap-2'>
+              {hasEditDisclosure ? (
+                <button
+                  type='button'
+                  aria-expanded={showEdit}
+                  onClick={() => setShowEdit(s => !s)}
+                  className='inline-flex items-center gap-0.5 text-info hover:underline text-[11px]'
+                >
+                  {showEdit
+                    ? intl.formatMessage({
+                        id: 'acceptance.criterion.hideChange',
+                        defaultMessage: 'Hide change',
+                      })
+                    : intl.formatMessage({
+                        id: 'acceptance.criterion.viewChange',
+                        defaultMessage: 'View change',
+                      })}
+                  <ChevronRight
+                    className={`size-3 transition-transform ${showEdit ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+              ) : null}
+              {hasCheck ? (
+                <button
+                  type='button'
+                  aria-expanded={showCheck}
+                  onClick={() => setShowCheck(s => !s)}
+                  className='inline-flex items-center gap-0.5 text-info hover:underline'
+                >
+                  {showCheck
+                    ? intl.formatMessage({
+                        id: 'acceptance.hideCheck',
+                        defaultMessage: 'Hide check output',
+                      })
+                    : intl.formatMessage({
+                        id: 'acceptance.viewCheck',
+                        defaultMessage: 'View check output',
+                      })}
+                  <ChevronRight
+                    className={`size-3 transition-transform ${showCheck ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {/* FAIL reason is part of the result — surfaced without a disclosure. */}
         {v?.verdict === 'FAIL' && v.rejectionReason ? (
           <div className='mt-1 text-[11px] text-danger break-words'>
             {v.rejectionReason}
+          </div>
+        ) : null}
+        {/* B — edited old→new disclosure */}
+        {hasEditDisclosure && showEdit ? (
+          <div className='mt-1.5 rounded-md border border-border overflow-hidden text-[11px]'>
+            <div className='flex gap-2 px-2 py-1'>
+              <span className='text-danger'>−</span>
+              <span className='line-through text-muted-foreground'>
+                {c.lastEdit!.before}
+              </span>
+            </div>
+            <div className='flex gap-2 px-2 py-1 border-t border-border text-foreground'>
+              <span className='text-success'>+</span>
+              <span>{c.lastEdit!.after}</span>
+            </div>
           </div>
         ) : null}
         {hasCheck && showCheck ? (
@@ -652,6 +735,7 @@ export function AcceptanceTab({
     enabled,
   })
   const [submitting, setSubmitting] = useState(false)
+  const [removedOpen, setRemovedOpen] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
@@ -779,6 +863,91 @@ export function AcceptanceTab({
           ))}
         </div>
       </div>
+
+      {/* C — Removed criteria section */}
+      {data.removedCriteria.length > 0 ? (
+        <div>
+          <button
+            type='button'
+            onClick={() => setRemovedOpen(o => !o)}
+            aria-expanded={removedOpen}
+            className='mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
+          >
+            <Archive className='size-3.5' aria-hidden />
+            {intl.formatMessage({
+              id: 'acceptance.removed.title',
+              defaultMessage: 'Removed · kept for audit',
+            })}
+            <span className='text-muted-foreground/70'>
+              ({data.removedCriteria.length})
+            </span>
+            <ChevronRight
+              className={`size-3.5 transition-transform ${removedOpen ? 'rotate-90' : ''}`}
+              aria-hidden
+            />
+          </button>
+          {removedOpen ? (
+            <div className='overflow-hidden rounded-lg border border-border bg-muted/30'>
+              {data.removedCriteria.map((rc: RemovedCriterionView) => (
+                <div
+                  key={rc.id}
+                  className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'
+                >
+                  <Trash2
+                    className='mt-0.5 size-3.5 text-muted-foreground shrink-0'
+                    aria-hidden
+                  />
+                  <div className='min-w-0 flex-1'>
+                    <div className='text-[13px] leading-snug text-muted-foreground line-through'>
+                      {rc.statement}
+                    </div>
+                    <div className='mt-1.5 flex flex-wrap gap-1.5 text-[11px]'>
+                      {rc.removedAtRound != null ? (
+                        <span className='rounded-sm border border-border px-1.5 py-0.5 font-medium text-muted-foreground'>
+                          {intl.formatMessage(
+                            {
+                              id: 'acceptance.removed.atRound',
+                              defaultMessage: 'Removed at round {round}',
+                            },
+                            { round: rc.removedAtRound }
+                          )}
+                        </span>
+                      ) : null}
+                      {rc.lastVerdict ? (
+                        <span
+                          className={`rounded-sm px-1.5 py-0.5 font-medium ${rc.lastVerdict.verdict === 'FAIL' ? 'bg-danger-subtle border border-danger-border text-foreground' : 'border border-border text-muted-foreground'}`}
+                        >
+                          {intl.formatMessage(
+                            {
+                              id: 'acceptance.removed.lastVerdict',
+                              defaultMessage: 'last verdict: {v}',
+                            },
+                            { v: rc.lastVerdict.verdict }
+                          )}
+                        </span>
+                      ) : null}
+                      <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
+                        {rc.verifierType}
+                      </span>
+                    </div>
+                    {rc.runCount > 0 ? (
+                      <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
+                        {intl.formatMessage(
+                          {
+                            id: 'acceptance.removed.runsPreserved',
+                            defaultMessage: '{n} verification run(s) preserved',
+                          },
+                          { n: rc.runCount }
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

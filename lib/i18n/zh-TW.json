@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "誤判",
   "boundary.disposition.confirmed": "已確認",
   "boundary.reversible": "可逆",
-  "boundary.irreversible": "不可逆"
+  "boundary.irreversible": "不可逆",
+  "acceptance.batch.contractRevisedAgent": "修訂了驗收合約（代理草稿）",
+  "acceptance.criterion.editedAtRound": "已編輯 · 第 {round} 輪",
+  "acceptance.criterion.edited": "已編輯",
+  "acceptance.criterion.addedAtRound": "已新增 · 第 {round} 輪",
+  "acceptance.criterion.added": "已新增",
+  "acceptance.criterion.hideChange": "隱藏變更",
+  "acceptance.criterion.viewChange": "檢視變更",
+  "acceptance.removed.title": "已移除 · 保留供稽核",
+  "acceptance.removed.atRound": "在第 {round} 輪移除",
+  "acceptance.removed.lastVerdict": "最後裁定：{v}",
+  "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行"
 }

@@ -265,6 +265,16 @@ export async function updateTask(
     data.description = normalizeRichText(rest.description)
   if (rest.spec !== undefined) data.spec = rest.spec
   if (rest.status !== undefined) data.status = rest.status
+  // Set-once: the first time a task leaves TODO it has "started" — gates the
+  // editable-until-DONE criteria window (LUM-437). Guarded on the pre-update
+  // value so a bounce back to TODO never resets it.
+  if (
+    rest.status !== undefined &&
+    rest.status !== 'TODO' &&
+    task.workStartedAt == null
+  ) {
+    data.workStartedAt = new Date()
+  }
   if (rest.priority !== undefined) data.priority = rest.priority
   if (rest.order !== undefined) data.order = rest.order
   if (rest.dueDate !== undefined) data.dueDate = rest.dueDate

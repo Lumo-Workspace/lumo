@@ -32,6 +32,7 @@ export interface TaskUpdateData {
   milestoneId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
+  workStartedAt?: Date | null | undefined
 }
 
 /** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */
@@ -339,7 +340,7 @@ export const taskRepository = {
         number,
         team: { identifier: teamIdentifier, workspaceId },
       },
-      select: TASK_IDENTIFIER_SELECT,
+      select: { ...TASK_IDENTIFIER_SELECT, workStartedAt: true },
     })
   },
 
@@ -859,6 +860,7 @@ export const taskRepository = {
         id: true,
         number: true,
         status: true,
+        workStartedAt: true,
         team: { select: { identifier: true } },
       },
     })

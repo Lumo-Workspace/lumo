@@ -73,7 +73,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 **Acceptance criteria (contract)** — see [criteria.md](references/criteria.md)
 
-- `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract: default = agent draft (AGENT_DRAFT, stage-based lock — resubmit replaces the contract freely while the task is TODO, locks for agent edits once it leaves TODO); `--human` = a HUMAN_EDIT revision transcribed from the conversation (desired final list; items with `id` keep/update, missing ones are deleted); `--cause` (with `--human`) annotates why the contract drifted: `NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER`
+- `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract: default = agent draft (AGENT_DRAFT, editable until DONE — full-group replace while never-left-TODO; identity-preserving diff with CRITERION_CHANGED drift trail once work has started; 409 only when task is DONE); `--human` = a HUMAN_EDIT revision transcribed from the conversation (desired final list; items with `id` keep/update, missing ones are deleted; allowed in every non-DONE stage); `--cause` (with `--human`) annotates why the contract drifted: `NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER`
 - `lumo task criteria list <task>` — print the contract (id, MACHINE/HUMAN, provenance source@round, checkpointer)
 
 **Verification (machine acceptance loop)** — see [verify.md](references/verify.md)

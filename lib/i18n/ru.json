@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "ложное срабатывание",
   "boundary.disposition.confirmed": "подтверждено",
   "boundary.reversible": "обратимо",
-  "boundary.irreversible": "необратимо"
+  "boundary.irreversible": "необратимо",
+  "acceptance.batch.contractRevisedAgent": "пересмотрел контракт приёмки (черновик агента)",
+  "acceptance.criterion.editedAtRound": "Изменено · раунд {round}",
+  "acceptance.criterion.edited": "Изменено",
+  "acceptance.criterion.addedAtRound": "Добавлено · раунд {round}",
+  "acceptance.criterion.added": "Добавлено",
+  "acceptance.criterion.hideChange": "Скрыть изменение",
+  "acceptance.criterion.viewChange": "Посмотреть изменение",
+  "acceptance.removed.title": "Удалено · сохранено для аудита",
+  "acceptance.removed.atRound": "Удалено в раунде {round}",
+  "acceptance.removed.lastVerdict": "последнее решение: {v}",
+  "acceptance.removed.runsPreserved": "{n} запуск(ов) верификации сохранено"
 }

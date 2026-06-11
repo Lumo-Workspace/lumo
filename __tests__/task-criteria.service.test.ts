@@ -13,6 +13,7 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
     countByTask: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    softDelete: jest.fn(),
   },
 }))
 
@@ -86,6 +87,7 @@ function criterion(over: Record<string, unknown> = {}) {
     addedAtRound: 0,
     createdAt: new Date('2026-06-01'),
     updatedAt: new Date('2026-06-01'),
+    deletedAt: null,
     ...over,
   }
 }
@@ -141,7 +143,8 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
       't-1',
       items,
       ATTRIBUTION,
-      'TODO'
+      'TODO',
+      null
     )
 
     expect(repo.countByTask).toHaveBeenCalledWith('t-1', TX)
@@ -203,7 +206,8 @@ describe('stage-based criteria lock', () => {
       't-1',
       items,
       ATTRIBUTION,
-      'TODO'
+      'TODO',
+      null
     )
 
     // every existing row deleted, every new row created — full-group replace
@@ -235,14 +239,36 @@ describe('stage-based criteria lock', () => {
     expect(added.every(p => p.before === null)).toBe(true)
   })
 
-  it('rejects an agent redraft once the task has left TODO (409, lock engaged with work)', async () => {
-    repo.listByTask.mockResolvedValue([criterion(), criterion({ id: 'c-2' })])
+  it('resolves an agent redraft once work has started (no 409 — editable until DONE)', async () => {
+    // After-start edit is an identity-preserving diff, not a 409. Submitting
+    // an all-new list (no ids) drops both existing rows and adds the new ones.
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'old-1' }),
+        criterion({ id: 'old-2' }),
+      ])
+      .mockResolvedValueOnce([
+        criterion({ id: 'new-1' }),
+        criterion({ id: 'new-2' }),
+      ])
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    runRepo.maxRoundByTask.mockResolvedValue(1)
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
+    )
 
     await expect(
-      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION, 'IN_PROGRESS')
-    ).rejects.toMatchObject({ status: 409 })
-    expect(repo.delete).not.toHaveBeenCalled()
-    expect(repo.create).not.toHaveBeenCalled()
+      taskCriteriaService.submitDraft(
+        't-1',
+        items,
+        ATTRIBUTION,
+        'IN_PROGRESS',
+        new Date('2026-06-05')
+      )
+    ).resolves.toMatchObject({ criteria: expect.any(Array) })
+
+    expect(repo.create).toHaveBeenCalledTimes(2)
   })
 
   it('still allows the initial draft when the contract is empty, regardless of stage', async () => {
@@ -259,7 +285,8 @@ describe('stage-based criteria lock', () => {
       't-1',
       items,
       ATTRIBUTION,
-      'IN_PROGRESS'
+      'IN_PROGRESS',
+      new Date('2026-06-05')
     )
 
     expect(repo.create).toHaveBeenCalledTimes(2)
@@ -296,29 +323,213 @@ describe('stage-based criteria lock', () => {
   })
 })
 
-describe('verdict-bearing criterion is never deleted by an agent redraft', () => {
-  const items = [
-    {
-      statement: 'n1',
-      verifierType: 'MACHINE' as const,
-      checkpointer: 'npx jest',
-    },
-  ]
-
-  it('refuses a TODO redraft that would delete a criterion with verification runs (409), writing nothing', async () => {
-    repo.listByTask.mockResolvedValue([
-      criterion({ id: 'c-1' }),
-      criterion({ id: 'c-2' }),
-    ])
+describe('verdict-bearing criterion is soft-deleted, never 409, by an after-start agent redraft', () => {
+  it('soft-deletes a dropped run-bearing criterion instead of refusing (no 409)', async () => {
+    // After-start agent edit keeps c-2 (by id) and drops c-1, which has runs.
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-1' }),
+        criterion({ id: 'c-2' }),
+      ])
+      .mockResolvedValueOnce([criterion({ id: 'c-2' })])
     runRepo.latestRunsByCriterion.mockResolvedValue(
       new Map([['c-1', { id: 'run-1' }]])
     )
+    runRepo.maxRoundByTask.mockResolvedValue(2)
 
     await expect(
-      taskCriteriaService.submitDraft('t-1', items, ATTRIBUTION, 'TODO')
+      taskCriteriaService.submitDraft(
+        't-1',
+        [
+          {
+            id: 'c-2',
+            statement: 'all routes covered by tests',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+        ],
+        ATTRIBUTION,
+        'IN_PROGRESS',
+        new Date('2026-06-05')
+      )
+    ).resolves.toMatchObject({ criteria: expect.any(Array) })
+
+    // c-1 has runs → soft-deleted (tombstone), not hard-deleted.
+    expect(repo.softDelete).toHaveBeenCalledWith('c-1', TX)
+    expect(repo.delete).not.toHaveBeenCalledWith('c-1', TX)
+  })
+})
+
+describe('editable until DONE (LUM-437)', () => {
+  it('full-replaces an existing contract on the first TODO (workStartedAt null), no 409', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'old-1' }),
+        criterion({ id: 'old-2' }),
+      ])
+      .mockResolvedValueOnce([
+        criterion({ id: 'new-1', statement: 'r1' }),
+        criterion({ id: 'new-2', statement: 'r2' }),
+      ])
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
+    )
+
+    const result = await taskCriteriaService.submitDraft(
+      't-1',
+      [
+        { statement: 'r1', verifierType: 'HUMAN' as const },
+        { statement: 'r2', verifierType: 'HUMAN' as const },
+      ],
+      ATTRIBUTION,
+      'TODO',
+      null
+    )
+
+    expect(repo.delete).toHaveBeenCalledWith('old-1', TX)
+    expect(repo.delete).toHaveBeenCalledWith('old-2', TX)
+    expect(repo.create).toHaveBeenCalledTimes(2)
+    expect(result.criteria.map(c => c.statement)).toEqual(['r1', 'r2'])
+  })
+
+  it('after-start edit applies an id-keyed diff (keep + add + drop) and resolves, writing CRITERION_CHANGED drift', async () => {
+    // existing c-keep, c-drop; desired keeps c-keep (reworded) + one new, drops c-drop
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-keep' }),
+        criterion({ id: 'c-drop', statement: 'obsolete' }),
+      ])
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-keep' }),
+        criterion({ id: 'id-brand new', statement: 'brand new' }),
+      ])
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    runRepo.maxRoundByTask.mockResolvedValue(3)
+    ;(repo.create as jest.Mock).mockImplementation(
+      async (input: Record<string, unknown>) =>
+        criterion({ ...input, id: `id-${input.statement}` })
+    )
+
+    await expect(
+      taskCriteriaService.submitDraft(
+        't-1',
+        [
+          {
+            id: 'c-keep',
+            statement: 'reworded keep',
+            verifierType: 'MACHINE' as const,
+            checkpointer: 'npx jest',
+          },
+          { statement: 'brand new', verifierType: 'HUMAN' as const },
+        ],
+        ATTRIBUTION,
+        'IN_PROGRESS',
+        new Date('2026-06-05')
+      )
+    ).resolves.toBeDefined()
+
+    // run-free drop → hard-deleted; kept row updated; new row created
+    expect(repo.delete).toHaveBeenCalledWith('c-drop', TX)
+    expect(repo.update).toHaveBeenCalledWith(
+      'c-keep',
+      expect.objectContaining({ source: 'AGENT_DRAFT' }),
+      TX
+    )
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statement: 'brand new',
+        source: 'AGENT_DRAFT',
+        addedAtRound: 3,
+      }),
+      TX
+    )
+    // ≥1 CRITERION_CHANGED activity recorded
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'CRITERION_CHANGED' }),
+      TX
+    )
+  })
+
+  it('after-start: a dropped run-bearing criterion is soft-deleted (not hard-deleted)', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-keep' }),
+        criterion({ id: 'c-runs' }),
+      ])
+      .mockResolvedValueOnce([criterion({ id: 'c-keep' })])
+    runRepo.latestRunsByCriterion.mockResolvedValue(
+      new Map([['c-runs', { id: 'run-9' }]])
+    )
+    runRepo.maxRoundByTask.mockResolvedValue(2)
+
+    await taskCriteriaService.submitDraft(
+      't-1',
+      [
+        {
+          id: 'c-keep',
+          statement: 'all routes covered by tests',
+          verifierType: 'MACHINE' as const,
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION,
+      'IN_PROGRESS',
+      new Date('2026-06-05')
+    )
+
+    expect(repo.softDelete).toHaveBeenCalledWith('c-runs', TX)
+    expect(repo.delete).not.toHaveBeenCalledWith('c-runs', TX)
+  })
+
+  it('after-start: a dropped run-free criterion is hard-deleted', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([
+        criterion({ id: 'c-keep' }),
+        criterion({ id: 'c-free' }),
+      ])
+      .mockResolvedValueOnce([criterion({ id: 'c-keep' })])
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    runRepo.maxRoundByTask.mockResolvedValue(2)
+
+    await taskCriteriaService.submitDraft(
+      't-1',
+      [
+        {
+          id: 'c-keep',
+          statement: 'all routes covered by tests',
+          verifierType: 'MACHINE' as const,
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION,
+      'IN_PROGRESS',
+      new Date('2026-06-05')
+    )
+
+    expect(repo.delete).toHaveBeenCalledWith('c-free', TX)
+    expect(repo.softDelete).not.toHaveBeenCalledWith('c-free', TX)
+  })
+
+  it('rejects agent edits with 409 when the task is DONE (terminal lock)', async () => {
+    repo.listByTask.mockResolvedValueOnce([criterion({ id: 'c-1' })])
+
+    await expect(
+      taskCriteriaService.submitDraft(
+        't-1',
+        [{ statement: 'new', verifierType: 'HUMAN' as const }],
+        ATTRIBUTION,
+        'DONE',
+        new Date('2026-06-05')
+      )
     ).rejects.toMatchObject({ status: 409 })
+
+    // No mutations should have been attempted.
     expect(repo.delete).not.toHaveBeenCalled()
+    expect(repo.softDelete).not.toHaveBeenCalled()
     expect(repo.create).not.toHaveBeenCalled()
+    expect(repo.update).not.toHaveBeenCalled()
   })
 })
 
@@ -350,30 +561,31 @@ describe('taskCriteriaService.reviseAsHuman', () => {
     ).rejects.toMatchObject({ status: 400 })
   })
 
-  it('refuses to delete a criterion that has verification runs (409), writing nothing', async () => {
-    repo.listByTask.mockResolvedValue([criterion(), criterion({ id: 'c-2' })])
+  it('soft-deletes a dropped criterion that has verification runs (no 409 — editable until DONE)', async () => {
+    repo.listByTask
+      .mockResolvedValueOnce([criterion(), criterion({ id: 'c-2' })])
+      .mockResolvedValueOnce([criterion({ id: 'c-2' })])
     runRepo.latestRunsByCriterion.mockResolvedValue(
       new Map([['c-1', { id: 'run-1' }]])
     )
+    runRepo.maxRoundByTask.mockResolvedValue(2)
 
-    await expect(
-      taskCriteriaService.reviseAsHuman(
-        't-1',
-        // c-1 missing from the desired list → would be deleted
-        [
-          {
-            id: 'c-2',
-            statement: 'all routes covered by tests',
-            verifierType: 'MACHINE',
-            checkpointer: 'npx jest',
-          },
-        ],
-        ATTRIBUTION
-      )
-    ).rejects.toMatchObject({ status: 409 })
-    expect(repo.delete).not.toHaveBeenCalled()
-    expect(repo.update).not.toHaveBeenCalled()
-    expect(repo.create).not.toHaveBeenCalled()
+    await taskCriteriaService.reviseAsHuman(
+      't-1',
+      // c-1 missing from the desired list → dropped; it has runs → soft-deleted
+      [
+        {
+          id: 'c-2',
+          statement: 'all routes covered by tests',
+          verifierType: 'MACHINE',
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION
+    )
+
+    expect(repo.softDelete).toHaveBeenCalledWith('c-1', TX)
+    expect(repo.delete).not.toHaveBeenCalledWith('c-1', TX)
   })
 
   it('updates changed rows as HUMAN_EDIT, keeps untouched provenance, creates at the current round, deletes run-free rows', async () => {
@@ -443,6 +655,7 @@ describe('taskCriteriaService.reviseAsHuman', () => {
     const row = criterion()
     repo.listByTask.mockResolvedValue([row])
     runRepo.maxRoundByTask.mockResolvedValue(null)
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
 
     await taskCriteriaService.reviseAsHuman(
       't-1',

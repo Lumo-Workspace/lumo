@@ -9,7 +9,11 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn(), createMany: jest.fn() },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn(),
+    listByTaskIncludingDeleted: jest.fn(),
+    createMany: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   // Keep the real pure exports (isPassVerdict, deriveAllPassRoundTaskIds) —
@@ -22,7 +26,7 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+  activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findHeaderById: jest.fn(), findStatus: jest.fn() },
@@ -34,7 +38,10 @@ jest.mock('@/lib/notifications/notifyWorkspaceOwners', () => ({
   notifyWorkspaceOwners: jest.fn(),
 }))
 jest.mock('@/lib/services/task.service', () => ({
-  taskService: { getTaskDetail: jest.fn(), updateTaskWithSideEffects: jest.fn() },
+  taskService: {
+    getTaskDetail: jest.fn(),
+    updateTaskWithSideEffects: jest.fn(),
+  },
 }))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})) },
@@ -95,6 +102,10 @@ beforeEach(() => {
   findHeader.mockResolvedValue(HEADER)
   listCriteria.mockResolvedValue([])
   listRuns.mockResolvedValue([])
+  ;(
+    acceptanceCriterionRepository.listByTaskIncludingDeleted as jest.Mock
+  ).mockResolvedValue([])
+  ;(activityRepository.listByTaskAndType as jest.Mock).mockResolvedValue([])
 })
 
 describe('statusForTask — read model', () => {

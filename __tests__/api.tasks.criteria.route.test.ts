@@ -57,7 +57,11 @@ const draftBody = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockIdentity.mockResolvedValue(IDENTITY)
-  mockFindByIdentifier.mockResolvedValue({ id: 't-1', status: 'TODO' })
+  mockFindByIdentifier.mockResolvedValue({
+    id: 't-1',
+    status: 'TODO',
+    workStartedAt: null,
+  })
 })
 
 describe('GET /api/tasks/[id]/criteria', () => {
@@ -95,7 +99,8 @@ describe('PUT /api/tasks/[id]/criteria', () => {
         actorMemberId: 'member-1',
         sourceSessionId: null,
       },
-      'TODO'
+      'TODO',
+      null
     )
     expect(mockRevise).not.toHaveBeenCalled()
     expect(res.status).toBe(200)
@@ -164,6 +169,29 @@ describe('PUT /api/tasks/[id]/criteria', () => {
     const res = await PUT(req(draftBody), params)
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'locked' })
+  })
+
+  it('returns 409 for AGENT_DRAFT on a DONE task with existing criteria', async () => {
+    // Simulate a DONE task — the route passes task.status to submitDraft which
+    // throws the terminal lock error.
+    mockFindByIdentifier.mockResolvedValue({
+      id: 't-1',
+      status: 'DONE',
+      workStartedAt: new Date('2026-06-01'),
+    })
+    mockDraft.mockRejectedValue(
+      Object.assign(
+        new Error(
+          'Acceptance contract locked — the task is DONE. Reopen it (status → in_progress) to change criteria, or record a human decision with `lumo task criteria set --human`.'
+        ),
+        { status: 409 }
+      )
+    )
+    const res = await PUT(req(draftBody), params)
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({
+      error: expect.stringContaining('DONE'),
+    })
   })
 
   it('hides internals behind a generic 500 for unknown errors', async () => {

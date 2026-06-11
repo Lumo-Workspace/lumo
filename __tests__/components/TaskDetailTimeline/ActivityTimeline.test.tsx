@@ -42,16 +42,15 @@ import {
 import { AcceptanceBatchItem } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/items/AcceptanceBatchItem'
 
 let seq = 0
-function criterionChanged(
-  opts: {
-    at: string
-    source?: 'AGENT_DRAFT' | 'HUMAN_EDIT'
-    verifierType?: 'MACHINE' | 'HUMAN'
-    op?: 'ADDED' | 'UPDATED' | 'DELETED'
-    statement?: string
-    round?: number
-  }
-): TimelineEntry {
+function criterionChanged(opts: {
+  at: string
+  source?: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+  verifierType?: 'MACHINE' | 'HUMAN'
+  op?: 'ADDED' | 'UPDATED' | 'DELETED'
+  statement?: string
+  beforeStatement?: string
+  round?: number
+}): TimelineEntry {
   return {
     id: `c-${seq++}`,
     kind: 'activity',
@@ -69,7 +68,15 @@ function criterionChanged(
         checkpointer: null,
         evidenceRequired: false,
       },
-      before: null,
+      before:
+        opts.beforeStatement != null
+          ? {
+              statement: opts.beforeStatement,
+              verifierType: opts.verifierType ?? 'MACHINE',
+              checkpointer: null,
+              evidenceRequired: false,
+            }
+          : null,
     },
   }
 }
@@ -149,7 +156,10 @@ describe('aggregation', () => {
   it('keeps two separate transactions of the same source in separate rows', () => {
     const entries: TimelineEntry[] = [
       criterionChanged({ at: '2026-06-10T12:00:00.000Z' }),
-      criterionChanged({ at: '2026-06-10T12:00:30.000Z', source: 'HUMAN_EDIT' }),
+      criterionChanged({
+        at: '2026-06-10T12:00:30.000Z',
+        source: 'HUMAN_EDIT',
+      }),
     ]
     const units = aggregateTimeline(entries)
     expect(units).toHaveLength(2)
@@ -328,6 +338,44 @@ describe('expand', () => {
     expect(screen.getByText('FAIL')).toBeInTheDocument()
   })
 
+  it('shows UPDATED criterion as struck-through old text → new text', () => {
+    const at = '2026-06-10T12:30:00.000Z'
+    const unit = asCriterionBatch([
+      criterionChanged({
+        at,
+        op: 'UPDATED',
+        statement: 'new statement text',
+        beforeStatement: 'old statement text',
+        source: 'AGENT_DRAFT',
+      }),
+    ])
+    renderBatch(unit)
+
+    // Expand the batch row.
+    fireEvent.click(screen.getByRole('button', { expanded: false }))
+
+    // Both old (struck through) and new text should appear.
+    expect(screen.getByText('old statement text')).toBeInTheDocument()
+    expect(screen.getByText('new statement text')).toBeInTheDocument()
+    // The arrow separator should be present.
+    expect(screen.getByText('→')).toBeInTheDocument()
+    // The old text node should have the line-through class.
+    const oldSpan = screen.getByText('old statement text')
+    expect(oldSpan).toHaveClass('line-through')
+  })
+
+  it('renders AGENT_DRAFT summary with "revised the acceptance contract (agent draft)" wording', () => {
+    const at = '2026-06-10T12:00:00.000Z'
+    const unit = asCriterionBatch([
+      criterionChanged({ at, source: 'AGENT_DRAFT' }),
+    ])
+    renderBatch(unit)
+
+    expect(
+      screen.getByText(/revised the acceptance contract \(agent draft\)/)
+    ).toBeInTheDocument()
+  })
+
   it('renders a machine round without a send-back link', () => {
     const at = '2026-06-10T15:00:00.000Z'
     const unit = asVerificationBatch([
@@ -336,7 +384,11 @@ describe('expand', () => {
     ])
     renderBatch(unit)
 
-    expect(screen.getByText(/machine check · round 1 · 2\/2 passed/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'view reason comment' })).toBeNull()
+    expect(
+      screen.getByText(/machine check · round 1 · 2\/2 passed/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'view reason comment' })
+    ).toBeNull()
   })
 })

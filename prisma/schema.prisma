@@ -489,6 +489,10 @@ model Task {
   inputReason       String? // Why INPUT_REQUIRED: "spec_review" | "clarify" | etc.
   commentsSummary   String?      @db.Text
   commentsSummaryAt DateTime?
+  // Set once when the task first leaves TODO (work started). Gates the
+  // free first-draft window vs the recorded after-start criteria diff
+  // (LUM-437). Never reset — a bounce back to TODO stays "started".
+  workStartedAt     DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   dueDate           DateTime?
@@ -2081,11 +2085,16 @@ model AcceptanceCriterion {
   addedAtRound     Int                       @default(0)
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
+  // Soft-delete tombstone (LUM-437). A criterion with VerificationRun rows is
+  // soft-deleted, not hard-deleted, so the verdict→criterion audit chain
+  // survives (the run FK is onDelete: Cascade). null = active.
+  deletedAt        DateTime?
 
   task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
   verificationRuns VerificationRun[]
 
   @@index([taskId])
+  @@index([taskId, deletedAt])
   @@map("acceptance_criteria")
 }
 

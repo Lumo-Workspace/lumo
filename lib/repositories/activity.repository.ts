@@ -47,6 +47,20 @@ export const activityRepository = {
     })
   },
 
+  /**
+   * All activities of one type for a task, oldest first. Read-only helper for
+   * read models that fold an append-only event log (e.g. the acceptance status
+   * read model indexing CRITERION_CHANGED drift by criterion). Only `payload`
+   * and ordering are needed, so the actor relation is not joined.
+   */
+  async listByTaskAndType(taskId: string, type: TaskActivityType) {
+    return prisma.taskActivity.findMany({
+      where: { taskId, type },
+      orderBy: { createdAt: 'asc' },
+      select: { payload: true, createdAt: true },
+    })
+  },
+
   async findByTaskId(taskId: string, options: FindOptions) {
     const { limit, cursor } = options
     const where: Record<string, unknown> = { taskId }

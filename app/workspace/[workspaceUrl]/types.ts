@@ -690,6 +690,22 @@ export interface TaskStatusCriterionView {
   source: CriterionSource
   addedAtRound: number
   latestVerdict: CriterionLatestVerdictView | null
+  /** Whether this active criterion entered or was reworded after work started
+   *  (LUM-437). 'edited' wins over 'added'; null = original untouched draft. */
+  changeState: 'added' | 'edited' | null
+  changedAtRound: number | null
+  lastEdit: { before: string; after: string } | null
+}
+
+/** A criterion removed (soft-deleted) from the contract after work started,
+ *  with its preserved last verdict + run count (LUM-437). */
+export interface RemovedCriterionView {
+  id: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  removedAtRound: number | null
+  runCount: number
+  lastVerdict: CriterionLatestVerdictView | null
 }
 
 export interface VerificationHistoryRoundView {
@@ -714,6 +730,8 @@ export interface TaskAcceptanceStatusView {
   maxRounds: number
   escalated: boolean
   criteria: TaskStatusCriterionView[]
+  /** Criteria removed from the contract after work started (LUM-437). */
+  removedCriteria: RemovedCriterionView[]
   verificationHistory: VerificationHistoryRoundView[]
   lastRoundFailures: Array<{
     criterionId: string

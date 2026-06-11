@@ -94,6 +94,27 @@ export interface TaskStatusCriterion {
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
   latestVerdict: CriterionLatestVerdict | null
+  /** Whether this active criterion entered or was reworded after work started
+   *  (LUM-437). 'edited' wins over 'added' when both apply; null = part of the
+   *  original round-0 draft, untouched since. */
+  changeState: 'added' | 'edited' | null
+  /** Round the add/edit happened (addedAtRound for 'added', the latest UPDATED
+   *  drift event's round for 'edited'); null when changeState is null. */
+  changedAtRound: number | null
+  /** For 'edited', the statement before/after the latest reword; else null. */
+  lastEdit: { before: string; after: string } | null
+}
+
+/** A criterion that was removed (soft-deleted / tombstoned) from the live
+ *  contract after work started — surfaced so the UI can show what dropped out
+ *  with its preserved last verdict and run count (LUM-437). */
+export interface RemovedCriterion {
+  id: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  removedAtRound: number | null
+  runCount: number
+  lastVerdict: CriterionLatestVerdict | null
 }
 
 export interface VerificationHistoryRound {
@@ -121,6 +142,9 @@ export interface TaskAcceptanceStatus {
   /** True when the machine loop is exhausted (cap reached with failures). */
   escalated: boolean
   criteria: TaskStatusCriterion[]
+  /** Criteria removed (tombstoned) from the contract after work started, with
+   *  their preserved last verdict + run count (LUM-437). Empty when none. */
+  removedCriteria: RemovedCriterion[]
   verificationHistory: VerificationHistoryRound[]
   /** FAIL verdicts of the most recent round — why the last round was rejected. */
   lastRoundFailures: Array<{
@@ -139,6 +163,27 @@ export interface TaskAcceptanceStatus {
     addedAtRound: number
     rejectionReason: string | null
   }>
+}
+
+/** A folded CRITERION_CHANGED UPDATED event — the latest reword of one
+ *  criterion lifted off the drift log. */
+interface ChangeEventDigest {
+  round: number
+  before: string
+  after: string
+}
+
+/** Defensive readers for untyped CRITERION_CHANGED JSON payloads. */
+function readJsonString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+function readJsonNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+/** Pull `.statement` off a before/after criterion snapshot, defaulting to ''. */
+function readSnapshotStatement(snapshot: unknown): string {
+  if (!snapshot || typeof snapshot !== 'object') return ''
+  return readJsonString((snapshot as Record<string, unknown>).statement) ?? ''
 }
 
 const ACTIVITY_STATEMENT_MAX = 160
@@ -394,13 +439,50 @@ export const taskVerificationService = {
    * pass — there is no separately maintained plan state to drift.
    */
   async statusForTask(taskId: string): Promise<TaskAcceptanceStatus> {
-    const [header, criteria, runs] = await Promise.all([
-      taskRepository.findHeaderById(taskId),
-      acceptanceCriterionRepository.listByTask(taskId),
-      verificationRunRepository.listByTask(taskId),
-    ])
+    const [header, criteria, runs, allCriteria, changeEvents] =
+      await Promise.all([
+        taskRepository.findHeaderById(taskId),
+        acceptanceCriterionRepository.listByTask(taskId),
+        verificationRunRepository.listByTask(taskId),
+        acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId),
+        activityRepository.listByTaskAndType(taskId, 'CRITERION_CHANGED'),
+      ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+
+    // Fold the CRITERION_CHANGED drift log (append-only, oldest-first) into a
+    // per-criterion view: the latest UPDATED event (reword) and latest DELETED
+    // event (removal round). Payload is untyped JSON — read defensively.
+    const editByCriterion = new Map<string, ChangeEventDigest>()
+    const deletedRoundByCriterion = new Map<string, number>()
+    for (const ev of changeEvents) {
+      const p = ev.payload
+      if (!p || typeof p !== 'object') continue
+      const rec = p as Record<string, unknown>
+      const criterionId = readJsonString(rec.criterionId)
+      const op = readJsonString(rec.op)
+      if (!criterionId || !op) continue
+      const round = readJsonNumber(rec.round) ?? 0
+      if (op === 'UPDATED') {
+        editByCriterion.set(criterionId, {
+          round,
+          before: readSnapshotStatement(rec.before),
+          after: readSnapshotStatement(rec.after),
+        })
+      } else if (op === 'DELETED') {
+        deletedRoundByCriterion.set(criterionId, round)
+      }
+    }
+
+    // Run count per criterion — counts every run, including runs that belong to
+    // a now-tombstoned criterion (listByTask returns all runs for the task).
+    const runCountByCriterion = new Map<string, number>()
+    for (const run of runs) {
+      runCountByCriterion.set(
+        run.criterionId,
+        (runCountByCriterion.get(run.criterionId) ?? 0) + 1
+      )
     }
 
     // Effective cap is the task's workspace setting (LUM-429), falling back to
@@ -455,6 +537,35 @@ export const taskVerificationService = {
       c => !isPassVerdict(latestByCriterion.get(c.id)?.verdict)
     )
 
+    // Map a raw verification run to the latest-verdict read shape (shared by
+    // active criteria and removed criteria).
+    const toLatestVerdict = (
+      run: VerificationRunRow | undefined
+    ): CriterionLatestVerdict | null =>
+      run
+        ? {
+            round: run.round,
+            verdict: run.verdict,
+            verifierType: run.verifierType,
+            evidencePointer: run.evidencePointer,
+            rejectionReason: run.rejectionReason,
+            rejectionReasonEnum: run.rejectionReasonEnum,
+            recordedAt: run.createdAt.toISOString(),
+          }
+        : null
+
+    // Removed criteria: tombstoned rows, with preserved last verdict + run count.
+    const removedCriteria: RemovedCriterion[] = allCriteria
+      .filter(c => c.deletedAt != null)
+      .map(t => ({
+        id: t.id,
+        statement: t.statement,
+        verifierType: t.verifierType,
+        removedAtRound: deletedRoundByCriterion.get(t.id) ?? null,
+        runCount: runCountByCriterion.get(t.id) ?? 0,
+        lastVerdict: toLatestVerdict(latestByCriterion.get(t.id)),
+      }))
+
     return {
       version: TASK_STATUS_SCHEMA_VERSION,
       task: {
@@ -467,7 +578,17 @@ export const taskVerificationService = {
       maxRounds,
       escalated: currentRound >= maxRounds && lastRoundFailures.length > 0,
       criteria: criteria.map(c => {
-        const latest = latestByCriterion.get(c.id)
+        const edit = editByCriterion.get(c.id)
+        // An edit recorded after work started (round > 0) marks the criterion
+        // 'edited'; otherwise an after-start birth (addedAtRound > 0) marks it
+        // 'added'. 'edited' takes precedence. A pure round-0 draft is null.
+        const edited = edit != null && edit.round > 0
+        const added = c.addedAtRound > 0
+        const changeState: 'added' | 'edited' | null = edited
+          ? 'edited'
+          : added
+            ? 'added'
+            : null
         return {
           id: c.id,
           statement: c.statement,
@@ -476,19 +597,15 @@ export const taskVerificationService = {
           evidenceRequired: c.evidenceRequired,
           source: c.source,
           addedAtRound: c.addedAtRound,
-          latestVerdict: latest
-            ? {
-                round: latest.round,
-                verdict: latest.verdict,
-                verifierType: latest.verifierType,
-                evidencePointer: latest.evidencePointer,
-                rejectionReason: latest.rejectionReason,
-                rejectionReasonEnum: latest.rejectionReasonEnum,
-                recordedAt: latest.createdAt.toISOString(),
-              }
+          latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),
+          changeState,
+          changedAtRound: edited ? edit!.round : added ? c.addedAtRound : null,
+          lastEdit: edited
+            ? { before: edit!.before, after: edit!.after }
             : null,
         }
       }),
+      removedCriteria,
       verificationHistory,
       lastRoundFailures,
       nextActions: unmet.map(c => {
