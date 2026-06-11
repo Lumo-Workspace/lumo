@@ -17,7 +17,7 @@
  */
 /** @jest-environment jsdom */
 
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, fireEvent, screen } from '@testing-library/react'
 
 // ── Peripheral modules ──────────────────────────────────────────────────────
 jest.mock('react-intl', () => ({
@@ -34,10 +34,12 @@ jest.mock('next/navigation', () => ({
 
 const mockGetById = jest.fn()
 const mockListMembers = jest.fn()
+const mockSubmitVerdict = jest.fn()
 jest.mock('@/lib/api-client', () => ({
   tasksClient: {
     getById: (...args: unknown[]) => mockGetById(...args),
     unlinkPr: jest.fn(),
+    submitHumanVerdict: (...args: unknown[]) => mockSubmitVerdict(...args),
   },
   workspacesClient: {
     listMembers: (...args: unknown[]) => mockListMembers(...args),
@@ -105,6 +107,8 @@ const TASK = {
   title: 'Task',
   number: 1,
   teamIdentifier: 'LUM',
+  // IN_REVIEW so the human verdict bar renders (LUM-421/422).
+  status: 'IN_REVIEW',
   project: { name: 'Lumo', workspaceId: 'ws_1' },
 }
 jest.mock(`@/app/workspace/[workspaceUrl]/hooks/useTaskDetailState`, () => ({
@@ -159,21 +163,31 @@ jest.mock(
 )
 
 import { TaskDetailPage } from '@/app/workspace/[workspaceUrl]/components/pages/TaskDetailPage'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query/keys'
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockGetById.mockResolvedValue({ task: null })
   mockListMembers.mockResolvedValue({ members: [], agentActors: undefined })
+  mockSubmitVerdict.mockResolvedValue({
+    taskStatus: 'DONE',
+    verdict: 'PASS',
+    followUpTask: null,
+  })
 })
 
-function renderPage() {
-  return render(
-    <TaskDetailPage
-      initialTask={TASK as never}
-      workspaceUrl='acme'
-      slackConnected={false}
-    />
+function renderPage(queryClient = new QueryClient()) {
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <TaskDetailPage
+        initialTask={TASK as never}
+        workspaceUrl='acme'
+        slackConnected={false}
+      />
+    </QueryClientProvider>
   )
+  return { queryClient, ...view }
 }
 
 describe('TaskDetailPage comment fetch', () => {
@@ -185,5 +199,28 @@ describe('TaskDetailPage comment fetch', () => {
     await waitFor(() => expect(mockListMembers).toHaveBeenCalled())
 
     expect(mockFetchComments).not.toHaveBeenCalled()
+  })
+})
+
+// LUM-423 follow-up: a human verdict (recorded via the verdict bar) must
+// invalidate the acceptance-status read model the read-only tab renders from,
+// or the tab stays frozen on the pre-verdict state after the click.
+describe('TaskDetailPage verdict → read-model sync', () => {
+  it('invalidates the taskStatus (and timeline) caches when a verdict is recorded', async () => {
+    const queryClient = new QueryClient()
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries')
+    renderPage(queryClient)
+
+    fireEvent.click(await screen.findByTestId('verdict-pass'))
+
+    await waitFor(() => expect(mockSubmitVerdict).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: queryKeys.taskStatus('LUM-1'),
+      })
+    )
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.timeline('tsk_1'),
+    })
   })
 })
