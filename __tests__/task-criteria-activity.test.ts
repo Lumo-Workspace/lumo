@@ -90,10 +90,12 @@ beforeEach(() => {
   findActor.mockResolvedValue({ id: 'actor-1' })
   runRepo.maxRoundByTask.mockResolvedValue(2)
   runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
-  ;(repo.create as jest.Mock).mockImplementation(async (input: Record<string, unknown>) => ({
-    id: `new-${String(input.statement).slice(0, 4)}`,
-    ...input,
-  }))
+  ;(repo.create as jest.Mock).mockImplementation(
+    async (input: Record<string, unknown>) => ({
+      id: `new-${String(input.statement).slice(0, 4)}`,
+      ...input,
+    })
+  )
   ;(repo.countByTask as jest.Mock).mockResolvedValue(0)
   ;(repo.listByTask as jest.Mock).mockResolvedValue([])
 })
@@ -103,10 +105,15 @@ describe('submitDraft drift records', () => {
     await taskCriteriaService.submitDraft(
       't-1',
       [
-        { statement: 'first', verifierType: 'MACHINE', checkpointer: 'npx jest a' },
+        {
+          statement: 'first',
+          verifierType: 'MACHINE',
+          checkpointer: 'npx jest a',
+        },
         { statement: 'second', verifierType: 'HUMAN' },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'TODO'
     )
     const added = activityCalls('ADDED')
     expect(added).toHaveLength(2)

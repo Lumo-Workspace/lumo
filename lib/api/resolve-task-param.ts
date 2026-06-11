@@ -1,3 +1,4 @@
+import type { TaskStatus } from '@prisma/client'
 import { taskRepository } from '@/lib/repositories'
 
 /** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
@@ -31,7 +32,7 @@ function parseIdentifier(
 export async function resolveTaskParam(
   rawId: string,
   workspaceId: string
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; status: TaskStatus } | null> {
   if (isLikelyCuid(rawId)) {
     return taskRepository.findByIdForMention(rawId, workspaceId)
   }

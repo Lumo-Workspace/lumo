@@ -22,7 +22,8 @@ jest.mock('@/lib/services/task-criteria.service', () => ({
 }))
 
 const mockIdentity = requireIdentity as jest.Mock
-const mockFindByIdentifier = taskRepository.findByWorkspaceIdentifier as jest.Mock
+const mockFindByIdentifier =
+  taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockList = taskCriteriaService.listForTask as jest.Mock
 const mockDraft = taskCriteriaService.submitDraft as jest.Mock
 const mockRevise = taskCriteriaService.reviseAsHuman as jest.Mock
@@ -56,7 +57,7 @@ const draftBody = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockIdentity.mockResolvedValue(IDENTITY)
-  mockFindByIdentifier.mockResolvedValue({ id: 't-1' })
+  mockFindByIdentifier.mockResolvedValue({ id: 't-1', status: 'TODO' })
 })
 
 describe('GET /api/tasks/[id]/criteria', () => {
@@ -87,13 +88,21 @@ describe('PUT /api/tasks/[id]/criteria', () => {
 
     const res = await PUT(req(draftBody), params)
 
-    expect(mockDraft).toHaveBeenCalledWith('t-1', draftBody.criteria, {
-      actorMemberId: 'member-1',
-      sourceSessionId: null,
-    })
+    expect(mockDraft).toHaveBeenCalledWith(
+      't-1',
+      draftBody.criteria,
+      {
+        actorMemberId: 'member-1',
+        sourceSessionId: null,
+      },
+      'TODO'
+    )
     expect(mockRevise).not.toHaveBeenCalled()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ criteria: [{ id: 'c-1' }], warning: 'w' })
+    expect(await res.json()).toEqual({
+      criteria: [{ id: 'c-1' }],
+      warning: 'w',
+    })
   })
 
   it('routes HUMAN_EDIT to reviseAsHuman with member + session provenance', async () => {
@@ -103,10 +112,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       criteria: [{ id: 'c-1', statement: 's', verifierType: 'HUMAN' }],
     }
 
-    const res = await PUT(
-      req(body, { 'X-Lumo-Session-Id': 'sess-1' }),
-      params
-    )
+    const res = await PUT(req(body, { 'X-Lumo-Session-Id': 'sess-1' }), params)
 
     expect(mockRevise).toHaveBeenCalledWith(
       't-1',

@@ -54,7 +54,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ? await taskCriteriaService.submitDraft(
             task.id,
             parsed.data.criteria,
-            attribution
+            attribution,
+            task.status
           )
         : await taskCriteriaService.reviseAsHuman(
             task.id,
