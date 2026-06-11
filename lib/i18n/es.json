@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Eliminado · conservado para auditoría",
   "acceptance.removed.atRound": "Eliminado en la ronda {round}",
   "acceptance.removed.lastVerdict": "último veredicto: {v}",
-  "acceptance.removed.runsPreserved": "{n} ejecución(es) de verificación conservada(s)"
+  "acceptance.removed.runsPreserved": "{n} ejecución(es) de verificación conservada(s)",
+  "boundary.toast.remediationSpawned": "Tarea de remediación {identifier} creada",
+  "boundary.toast.dispositioned": "Infracción resuelta: Hecho ya está desbloqueado",
+  "boundary.toast.error": "La acción falló: inténtalo de nuevo"
 }

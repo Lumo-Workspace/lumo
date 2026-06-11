@@ -255,6 +255,7 @@ export function TimelineTabs({
         <AcceptanceTab
           taskIdentifier={taskIdentifier}
           enabled={activeTab === 'acceptance'}
+          workspaceUrl={workspaceUrl}
           members={commentsProps.members}
           agentActors={commentsProps.agentActors}
         />

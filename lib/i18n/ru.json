@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Удалено · сохранено для аудита",
   "acceptance.removed.atRound": "Удалено в раунде {round}",
   "acceptance.removed.lastVerdict": "последнее решение: {v}",
-  "acceptance.removed.runsPreserved": "{n} запуск(ов) верификации сохранено"
+  "acceptance.removed.runsPreserved": "{n} запуск(ов) верификации сохранено",
+  "boundary.toast.remediationSpawned": "Задача устранения {identifier} создана",
+  "boundary.toast.dispositioned": "Нарушение обработано — «Готово» разблокировано",
+  "boundary.toast.error": "Не удалось выполнить действие — повторите попытку"
 }

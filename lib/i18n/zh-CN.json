@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "已移除 · 保留供审计",
   "acceptance.removed.atRound": "在第 {round} 轮移除",
   "acceptance.removed.lastVerdict": "最后裁定：{v}",
-  "acceptance.removed.runsPreserved": "已保留 {n} 次验证运行"
+  "acceptance.removed.runsPreserved": "已保留 {n} 次验证运行",
+  "boundary.toast.remediationSpawned": "已创建补救任务 {identifier}",
+  "boundary.toast.dispositioned": "越界已处置——DONE 已解除阻塞",
+  "boundary.toast.error": "操作失败——请重试"
 }
