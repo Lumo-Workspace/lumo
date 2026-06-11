@@ -1,6 +1,9 @@
 # Superpowers brainstorm artifacts
 .superpowers/
 
+# Superpowers plans & specs (local-only, not version-controlled)
+docs/superpowers/
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
