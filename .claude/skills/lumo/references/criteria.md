@@ -67,6 +67,74 @@ must track the size of the work — it is not a fixed ritual:
 - `evidenceRequired: true` marks criteria whose verdict must point at proof
   (a MACHINE PASS always requires evidence regardless of this flag).
 
+### Invariant (negative-assertion) criteria
+
+Most criteria assert that **something that should happen, happened** ("the
+endpoint returns 409", "the section renders"). An _invariant criterion_ asserts
+the dual: that **something that must not happen, didn't** — the change left an
+explicit don't-touch surface intact. This is the acceptance analogue of
+AppWorld's _collateral-damage_ checks (arXiv 2407.18901) and ToolSandbox's
+_minefield_ states (arXiv 2408.04682): a finished task should be judged not only
+on the intended effect but on the forbidden effects it avoided. `lumo verify`
+already judges final state per round, so an invariant fits the existing
+machinery with no new mechanism — it's a drafting habit, not a feature.
+
+**When to write one.** Add a single invariant criterion when the task has a
+concrete, nameable surface the change must not disturb — a data-destruction red
+line, a structure guard, an always-green baseline set, a diff that must stay
+in-bounds, a standing budget. It is decision support, not a ritual: reach for it
+only when you can point at the surface. If the only invariant you can name is
+"don't break the build", that's already the repo's PR baseline (tests / `tsc` /
+lint / i18n parity) — don't spend a slot restating it.
+
+**How to phrase it.** State the invariant as _still holding after the change_,
+not as a step you took. The **c-CRAB boundary** is the hard rule: the check
+encodes **"the problem does not (re)occur"**, never **"a specific fix exists"**.
+Write "`prisma/migrations/` has no deleted files vs origin/main" (the bad state
+is absent) — not "the migration-delete guard function is present" (a named fix).
+The first survives a refactor of _how_ the invariant is enforced; the second
+re-fails the moment someone renames the guard, and passes even if the protection
+was gutted some other way.
+
+**Pairing with a checkpointer.** An invariant almost always has a runnable check
+— that's its advantage — so prefer MACHINE. The existing `checkpointer` syntax
+carries it as-is: a `git diff` path/filter probe, a full-suite `jest` run, a
+structure-verify script, a parity check. Two real-repo examples:
+
+- **`prisma/migrations/` files are never deleted** (the CLAUDE.md red line). The
+  bad state is a deleted migration file in the diff:
+
+  ```json
+  {
+    "statement": "No file under prisma/migrations/ is deleted by this change (vs origin/main)",
+    "verifierType": "MACHINE",
+    "checkpointer": "bash -c \"test -z \\\"$(git diff --diff-filter=D --name-only origin/main -- prisma/migrations/)\\\"\""
+  }
+  ```
+
+- **A live-doc's table structure is not flattened** (the LUM-349 incident: an
+  HTML→md round-trip silently collapsed tables to plain text). The verify script
+  hard-fails if any table / row / heading count shrank:
+
+  ```json
+  {
+    "statement": "Live-doc keeps its table structure after the edit (no rows/headings dropped)",
+    "verifierType": "MACHINE",
+    "checkpointer": "npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md"
+  }
+  ```
+
+A third lives in a current contract you can copy: **LUM-415**'s "SKILL.md
+frontmatter description stays ≤ 1000 chars" — the standing context-budget
+invariant (the description is resident in every session), checkpointed by the
+`description cap` case in
+`scripts/analysis/lum392-cli-friction/__tests__/doc-examples.test.ts`.
+
+One invariant criterion is usually enough — it's the guardrail, not the whole
+contract. Pair it with the positive criteria that say what the change should
+achieve; together they assert _did the right thing_ **and** _touched nothing
+it shouldn't_.
+
 ## JSON file format
 
 `criteria.json` is a JSON array; one object per criterion:
