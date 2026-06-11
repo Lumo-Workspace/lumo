@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidencia",
   "acceptance.check.none": "aún no ejecutado",
-  "acceptance.check.exitCode": "código de salida {code}"
+  "acceptance.check.exitCode": "código de salida {code}",
+  "acceptance.verdict.pass": "Aprobar",
+  "acceptance.verdict.sendBack": "Devolver",
+  "acceptance.verdict.confirmSendBack": "Confirmar devolución",
+  "acceptance.verdict.notePlaceholder": "¿Por qué se devuelve? (opcional)",
+  "acceptance.verdict.override": "Anular",
+  "acceptance.verdict.allLabel": "Contrato completo:"
 }

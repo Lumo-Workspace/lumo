@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "Prüfung",
   "acceptance.check.evidence": "Nachweis",
   "acceptance.check.none": "noch nicht ausgeführt",
-  "acceptance.check.exitCode": "Exit-Code {code}"
+  "acceptance.check.exitCode": "Exit-Code {code}",
+  "acceptance.verdict.pass": "Freigeben",
+  "acceptance.verdict.sendBack": "Zurückweisen",
+  "acceptance.verdict.confirmSendBack": "Zurückweisung bestätigen",
+  "acceptance.verdict.notePlaceholder": "Warum wird zurückgewiesen? (optional)",
+  "acceptance.verdict.override": "Überschreiben",
+  "acceptance.verdict.allLabel": "Gesamter Vertrag:"
 }

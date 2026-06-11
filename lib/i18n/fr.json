@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "preuve",
   "acceptance.check.none": "pas encore exécuté",
-  "acceptance.check.exitCode": "code de sortie {code}"
+  "acceptance.check.exitCode": "code de sortie {code}",
+  "acceptance.verdict.pass": "Valider",
+  "acceptance.verdict.sendBack": "Renvoyer",
+  "acceptance.verdict.confirmSendBack": "Confirmer le renvoi",
+  "acceptance.verdict.notePlaceholder": "Pourquoi ce renvoi ? (facultatif)",
+  "acceptance.verdict.override": "Remplacer",
+  "acceptance.verdict.allLabel": "Contrat entier :"
 }

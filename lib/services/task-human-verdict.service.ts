@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
   verificationRunRepository,
+  isPassVerdict,
   type CreateVerificationRunInput,
 } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
@@ -31,7 +32,8 @@ export interface HumanVerdictOutcome {
   verdict: HumanVerdictBody['verdict']
   /** Task status after the verdict's transition was applied. */
   taskStatus: string
-  /** Criteria the verdict fanned out to (the whole live contract). */
+  /** Criteria this verdict fanned out to — the whole live contract when
+   *  criterionIds was omitted, otherwise just the selected criteria (LUM-425). */
   criterionIds: string[]
   /** The derived task a PASS_WITH_FOLLOWUP opened, null otherwise. */
   followUpTask: { id: string; number: number; title: string } | null
@@ -61,35 +63,60 @@ export const taskHumanVerdictService = {
    * human-only half of milestone rule 5 (the route guard refuses bearer
    * identities; this service hard-codes verifierType HUMAN on write).
    *
-   * The verdict is task-level and fans out to one VerificationRun row per
-   * criterion of the live contract at round = the current max round, never
-   * incremented: a human adjudication reviews the machine rounds that already
-   * ran, it is not a new machine round. That stamping keeps "machine all-pass
-   * but human FAIL" derivable from VerificationRun rows alone (Slice 3
-   * aggregates it with zero extra schema), finally gives HUMAN-verifier
-   * criteria a verdict, and lets the LUM-344 status read model surface the
-   * send-back reason in nextActions with no changes.
+   * The verdict fans out to one VerificationRun row per addressed criterion at
+   * round = the current max round, never incremented: a human adjudication
+   * reviews the machine rounds that already ran, it is not a new machine round.
+   * That stamping keeps "machine all-pass but human FAIL" derivable from
+   * VerificationRun rows alone (Slice 3 aggregates it with zero extra schema),
+   * finally gives HUMAN-verifier criteria a verdict, and lets the LUM-344 status
+   * read model surface the send-back reason in nextActions with no changes.
    *
-   * Status semantics (all through the existing state machine):
-   * - PASS / PASS_WITH_FOLLOWUP → DONE; PASS_WITH_FOLLOWUP additionally opens
-   *   a `follow-up:`-prefixed derived task referencing the origin and the
-   *   outstanding items, bound to no sprint.
-   * - FAIL → back to IN_PROGRESS; the note (sanitized) lands as the
-   *   rejectionReason the agent reads back via `lumo task status`.
+   * `input.criterionIds` (LUM-425) optionally narrows the fan-out to specific
+   * criteria so a human can pass one and send back another in separate clicks;
+   * omitted, it fans out to the whole contract (the legacy task-level verdict is
+   * the select-all special case). The resulting task status is recomputed from
+   * EVERY criterion's latest verdict across the whole contract — not just the
+   * ones this action touched:
+   * - any latest verdict is a FAIL → back to IN_PROGRESS (send-back blocks DONE);
+   * - every criterion met (latest verdict is a pass) → DONE;
+   * - some met with no FAIL → stays IN_REVIEW.
+   * The select-all case reduces to the old behaviour (all-PASS → DONE,
+   * all-FAIL → IN_PROGRESS) by construction.
+   *
+   * PASS_WITH_FOLLOWUP additionally opens a `follow-up:`-prefixed derived task
+   * referencing the origin and the outstanding items, bound to no sprint. A FAIL
+   * note (sanitized) lands as the rejectionReason the agent reads back via
+   * `lumo task status`, and as a task comment for the @mention/image trail.
    */
   async recordHumanVerdict(
     taskId: string,
     input: HumanVerdictBody,
     attribution: HumanVerdictAttribution
   ): Promise<HumanVerdictOutcome> {
-    const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    if (criteria.length === 0) {
+    const allCriteria = await acceptanceCriterionRepository.listByTask(taskId)
+    if (allCriteria.length === 0) {
       throw Object.assign(
         new Error(
           'This task has no acceptance criteria — there is no contract to adjudicate'
         ),
         { status: 400 }
       )
+    }
+
+    // Narrow the fan-out to the selected criteria when criterionIds is present;
+    // reject any id that isn't on this task (no cross-task or unknown-id write).
+    let criteria = allCriteria
+    if (input.criterionIds && input.criterionIds.length > 0) {
+      const byId = new Map(allCriteria.map(c => [c.id, c]))
+      const unknown = input.criterionIds.filter(id => !byId.has(id))
+      if (unknown.length > 0) {
+        throw Object.assign(
+          new Error(`Criterion(s) not on this task: ${unknown.join(', ')}`),
+          { status: 400 }
+        )
+      }
+      const wanted = new Set(input.criterionIds)
+      criteria = allCriteria.filter(c => wanted.has(c.id))
     }
 
     // Round = current max round, never incremented (a human adjudication is a
@@ -130,6 +157,13 @@ export const taskHumanVerdictService = {
       }
     }
     const failSummary = isFail ? summarizeSendBackNote(input.note) : null
+
+    // Snapshot the contract's latest verdicts BEFORE writing this action's rows.
+    // The post-write state is this snapshot with the selected criteria overlaid
+    // by the new verdict — that drives the whole-contract status recompute below
+    // (a per-criterion verdict must not flip the task on its selection alone).
+    const priorLatest =
+      await verificationRunRepository.latestRunsByCriterion(taskId)
 
     await prisma.$transaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
@@ -228,7 +262,19 @@ export const taskHumanVerdictService = {
       }
     }
 
-    const targetStatus = input.verdict === 'FAIL' ? 'IN_PROGRESS' : 'DONE'
+    // Recompute the task status from EVERY criterion's latest verdict across
+    // the whole contract: the prior snapshot with the selected criteria
+    // overlaid by this action's verdict. A per-criterion send-back blocks DONE;
+    // DONE requires every criterion met; otherwise the task waits in IN_REVIEW.
+    const selectedIds = new Set(criteria.map(c => c.id))
+    const effectiveVerdict = (criterionId: string) =>
+      selectedIds.has(criterionId)
+        ? input.verdict
+        : priorLatest.get(criterionId)?.verdict
+    const anyFail = allCriteria.some(c => effectiveVerdict(c.id) === 'FAIL')
+    const allMet = allCriteria.every(c => isPassVerdict(effectiveVerdict(c.id)))
+    const targetStatus = anyFail ? 'IN_PROGRESS' : allMet ? 'DONE' : 'IN_REVIEW'
+
     let taskStatus = currentStatus || targetStatus
     if (
       currentStatus !== targetStatus &&

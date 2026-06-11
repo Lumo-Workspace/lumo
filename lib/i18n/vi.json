@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "kiểm tra",
   "acceptance.check.evidence": "bằng chứng",
   "acceptance.check.none": "chưa chạy",
-  "acceptance.check.exitCode": "mã thoát {code}"
+  "acceptance.check.exitCode": "mã thoát {code}",
+  "acceptance.verdict.pass": "Đạt",
+  "acceptance.verdict.sendBack": "Trả lại",
+  "acceptance.verdict.confirmSendBack": "Xác nhận trả lại",
+  "acceptance.verdict.notePlaceholder": "Vì sao trả lại? (tùy chọn)",
+  "acceptance.verdict.override": "Ghi đè",
+  "acceptance.verdict.allLabel": "Toàn bộ hợp đồng:"
 }

@@ -30,6 +30,7 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
     createMany: jest.fn(),
     maxRoundByTask: jest.fn(),
     listByTask: jest.fn(),
+    latestRunsByCriterion: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
@@ -65,6 +66,7 @@ const listCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
 const createMany = verificationRunRepository.createMany as jest.Mock
 const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
+const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const findActor = memberRepository.findActorByMemberId as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
@@ -125,6 +127,9 @@ beforeEach(() => {
   jest.clearAllMocks()
   listCriteria.mockResolvedValue(CRITERIA)
   maxRound.mockResolvedValue(2)
+  // No prior verdicts by default — every select-all test overlays the whole
+  // contract with its own verdict, so the snapshot is irrelevant there.
+  latestRuns.mockResolvedValue(new Map())
   findActor.mockResolvedValue({ id: 'actor-1' })
   getDetail.mockResolvedValue({ ...DETAIL })
   updateWithSideEffects.mockResolvedValue({})
@@ -470,5 +475,178 @@ describe('PASS and PASS_WITH_FOLLOWUP semantics', () => {
     expect(createTaskMock).not.toHaveBeenCalled()
     expect(createFromAutomationMock).toHaveBeenCalledTimes(1)
     expect(out.followUpTask).not.toBeNull()
+  })
+})
+
+// LUM-425: the optional criterionIds array on the human-verdict body narrows
+// the fan-out; omitting it is the legacy whole-contract verdict (the select-all
+// special case). The schema bounds the shape; the service rejects ids that
+// aren't on the task (no cross-task or unknown-id write).
+describe('criterionIds (per-criterion narrowing)', () => {
+  it('schema: accepts a non-empty criterionIds array, omitting it stays valid (backward compatible)', () => {
+    expect(
+      humanVerdictBodySchema.safeParse({
+        verdict: 'PASS',
+        criterionIds: ['c-1'],
+      }).success
+    ).toBe(true)
+    expect(
+      humanVerdictBodySchema.safeParse({
+        verdict: 'FAIL',
+        criterionIds: ['c-1', 'c-2'],
+      }).success
+    ).toBe(true)
+    // Omitting it = whole-contract fan-out, the legacy task-level verdict.
+    expect(humanVerdictBodySchema.safeParse({ verdict: 'PASS' }).success).toBe(
+      true
+    )
+  })
+
+  it('schema: rejects an empty array and an empty-string id (non-empty when present)', () => {
+    expect(
+      humanVerdictBodySchema.safeParse({ verdict: 'PASS', criterionIds: [] })
+        .success
+    ).toBe(false)
+    expect(
+      humanVerdictBodySchema.safeParse({ verdict: 'PASS', criterionIds: [''] })
+        .success
+    ).toBe(false)
+  })
+
+  it('omitting criterionIds preserves the whole-contract fan-out', async () => {
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    const rows = createMany.mock.calls[0]![0]
+    expect(rows.map((r: { criterionId: string }) => r.criterionId)).toEqual([
+      'c-1',
+      'c-2',
+      'c-h',
+    ])
+    expect(out.criterionIds).toEqual(['c-1', 'c-2', 'c-h'])
+  })
+
+  it('rejects a criterionIds entry that is not on this task with 400 (no cross-task / unknown-id write)', async () => {
+    await expect(
+      taskHumanVerdictService.recordHumanVerdict(
+        't-1',
+        { verdict: 'PASS', criterionIds: ['c-1', 'c-not-on-this-task'] },
+        ATTR
+      )
+    ).rejects.toMatchObject({ status: 400 })
+    expect(createMany).not.toHaveBeenCalled()
+  })
+})
+
+// LUM-425: a per-criterion verdict writes HUMAN rows only for the selected
+// criteria, then recomputes the task status from EVERY criterion's latest
+// verdict across the whole contract (not just the ones it touched).
+describe('per-criterion verdict status recompute', () => {
+  it('writes verifierType=HUMAN rows only for the selected criteria at round = max', async () => {
+    maxRound.mockResolvedValue(2)
+    // c-1 / c-2 already machine-passed; the human sends back only the HUMAN one.
+    latestRuns.mockResolvedValue(
+      new Map([
+        ['c-1', { criterionId: 'c-1', round: 2, verdict: 'PASS' }],
+        ['c-2', { criterionId: 'c-2', round: 2, verdict: 'PASS' }],
+      ])
+    )
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      {
+        verdict: 'FAIL',
+        criterionIds: ['c-h'],
+        note: 'not in the running app',
+      },
+      ATTR
+    )
+    const rows = createMany.mock.calls[0]![0]
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ criterionId: 'c-h', verifierType: 'HUMAN' })
+    expect(out.criterionIds).toEqual(['c-h'])
+    // Only the selected criterion is mirrored as an activity.
+    const mirrors = createActivity.mock.calls.filter(
+      c => c[0].type === 'VERIFICATION_RUN_RECORDED'
+    )
+    expect(mirrors).toHaveLength(1)
+    expect(mirrors[0]![0].payload.criterionId).toBe('c-h')
+  })
+
+  it('a per-criterion send-back bounces the task to IN_PROGRESS even though the other criteria passed', async () => {
+    latestRuns.mockResolvedValue(
+      new Map([
+        ['c-1', { criterionId: 'c-1', round: 2, verdict: 'PASS' }],
+        ['c-2', { criterionId: 'c-2', round: 2, verdict: 'PASS' }],
+      ])
+    )
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'FAIL', criterionIds: ['c-h'] },
+      ATTR
+    )
+    expect(updateWithSideEffects).toHaveBeenCalledWith(
+      't-1',
+      { status: 'IN_PROGRESS' },
+      expect.anything(),
+      'actor-1',
+      'clerk-1',
+      null
+    )
+    expect(out.taskStatus).toBe('IN_PROGRESS')
+  })
+
+  it('passing the last unmet criterion lands the task in DONE', async () => {
+    // c-1 / c-2 already passed; c-h is the only remaining unmet criterion.
+    latestRuns.mockResolvedValue(
+      new Map([
+        ['c-1', { criterionId: 'c-1', round: 2, verdict: 'PASS' }],
+        ['c-2', { criterionId: 'c-2', round: 2, verdict: 'PASS' }],
+      ])
+    )
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS', criterionIds: ['c-h'] },
+      ATTR
+    )
+    expect(updateWithSideEffects).toHaveBeenCalledWith(
+      't-1',
+      { status: 'DONE' },
+      expect.anything(),
+      'actor-1',
+      'clerk-1',
+      null
+    )
+    expect(out.taskStatus).toBe('DONE')
+  })
+
+  it('passing one of several still-unmet criteria with no FAIL leaves the task in IN_REVIEW', async () => {
+    // Two HUMAN criteria still unjudged; passing one leaves the other unmet.
+    listCriteria.mockResolvedValue([
+      { ...CRITERIA[0], id: 'c-1' },
+      { ...CRITERIA[2], id: 'c-h1' },
+      { ...CRITERIA[2], id: 'c-h2' },
+    ])
+    latestRuns.mockResolvedValue(
+      new Map([['c-1', { criterionId: 'c-1', round: 2, verdict: 'PASS' }]])
+    )
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS', criterionIds: ['c-h1'] },
+      ATTR
+    )
+    expect(updateWithSideEffects).not.toHaveBeenCalled()
+    expect(out.taskStatus).toBe('IN_REVIEW')
+  })
+
+  it('the legacy whole-task PASS is the select-all special case: every criterion met → DONE', async () => {
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    expect(out.taskStatus).toBe('DONE')
+    expect(createMany.mock.calls[0]![0]).toHaveLength(3)
   })
 })

@@ -1529,5 +1529,11 @@
   "acceptance.check.label": "जाँच",
   "acceptance.check.evidence": "प्रमाण",
   "acceptance.check.none": "अभी तक नहीं चला",
-  "acceptance.check.exitCode": "एग्ज़िट कोड {code}"
+  "acceptance.check.exitCode": "एग्ज़िट कोड {code}",
+  "acceptance.verdict.pass": "पास",
+  "acceptance.verdict.sendBack": "वापस भेजें",
+  "acceptance.verdict.confirmSendBack": "वापसी की पुष्टि करें",
+  "acceptance.verdict.notePlaceholder": "इसे वापस क्यों भेजा गया? (वैकल्पिक)",
+  "acceptance.verdict.override": "ओवरराइड",
+  "acceptance.verdict.allLabel": "पूरा अनुबंध:"
 }
