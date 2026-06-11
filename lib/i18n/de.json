@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "Grund: Diese Aktion steht auf der Liste der verbotenen Aktionen des Projekts.",
   "boundary.panel.detected": "Anhand eines Tool-Ereignisses erkannt",
   "boundary.panel.acknowledge": "Bestätigen",
-  "boundary.panel.humanOnly": "Die Bestätigung hält fest, wer die Freigabe erteilt hat, und gibt Erledigt frei. Nur eine angemeldete Person kann bestätigen – der Agent-/CLI-Weg ist bewusst gesperrt."
+  "boundary.panel.humanOnly": "Die Bestätigung hält fest, wer die Freigabe erteilt hat, und gibt Erledigt frei. Nur eine angemeldete Person kann bestätigen – der Agent-/CLI-Weg ist bewusst gesperrt.",
+  "workspaceSettings.acceptanceMode": "Abnahmemodus",
+  "workspaceSettings.acceptanceMode.description": "Wenn aktiviert, werden Agents aufgefordert, vor Beginn einer Aufgabe Abnahmekriterien zu entwerfen. Abnahmedaten werden immer erfasst; dies steuert nur die Erinnerung.",
+  "workspaceSettings.acceptanceModeUpdated": "Abnahmemodus aktualisiert",
+  "workspaceSettings.acceptanceModeUpdateFailed": "Abnahmemodus konnte nicht aktualisiert werden"
 }

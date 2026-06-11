@@ -184,6 +184,13 @@ function renderPage(queryClient = new QueryClient()) {
         initialTask={TASK as never}
         workspaceUrl='acme'
         slackConnected={false}
+        initialTimelinePresence={{
+          hasAgentRuns: false,
+          hasMemories: false,
+          hasLineage: false,
+          // LUM-431: the verdict bar now gates on the task having a contract.
+          hasCriteria: true,
+        }}
       />
     </QueryClientProvider>
   )

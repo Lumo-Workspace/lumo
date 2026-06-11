@@ -24,6 +24,7 @@ export interface WorkspaceUpdateData {
   riskStalePrDays?: number
   riskThroughputDrop?: number
   verificationMaxRounds?: number
+  acceptanceMode?: boolean
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -96,6 +97,22 @@ export const workspaceRepository = {
       select: { verificationMaxRounds: true },
     })
     return row?.verificationMaxRounds ?? null
+  },
+
+  /** Read the acceptance-mode toggle for the workspace owning a task (LUM-431).
+   *  Joins task → project → workspace so the nudge gate can resolve the flag
+   *  from a taskId alone. Null when the task/workspace is missing so callers
+   *  can fall back to the default-off behavior. */
+  async findAcceptanceModeByTask(taskId: string) {
+    const row = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        project: {
+          select: { workspace: { select: { acceptanceMode: true } } },
+        },
+      },
+    })
+    return row?.project?.workspace?.acceptanceMode ?? null
   },
 
   /** Find workspace name and slug by ID. */

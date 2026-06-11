@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "이유: 이 작업은 프로젝트의 금지 목록에 있습니다.",
   "boundary.panel.detected": "도구 이벤트에서 감지됨",
   "boundary.panel.acknowledge": "확인",
-  "boundary.panel.humanOnly": "확인하면 누가 승인했는지 기록되고 「완료」의 차단이 해제됩니다. 로그인한 사람만 확인할 수 있으며, agent/CLI 경로는 설계상 닫혀 있습니다."
+  "boundary.panel.humanOnly": "확인하면 누가 승인했는지 기록되고 「완료」의 차단이 해제됩니다. 로그인한 사람만 확인할 수 있으며, agent/CLI 경로는 설계상 닫혀 있습니다.",
+  "workspaceSettings.acceptanceMode": "승인 모드",
+  "workspaceSettings.acceptanceMode.description": "켜면 에이전트가 작업을 시작하기 전에 승인 기준을 작성하도록 안내받습니다. 승인 데이터는 항상 기록되며, 이 설정은 알림만 제어합니다.",
+  "workspaceSettings.acceptanceModeUpdated": "승인 모드가 업데이트되었습니다",
+  "workspaceSettings.acceptanceModeUpdateFailed": "승인 모드 업데이트에 실패했습니다"
 }

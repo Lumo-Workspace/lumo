@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "原因：此操作在项目的禁止清单中。",
   "boundary.panel.detected": "检测自一个工具事件",
   "boundary.panel.acknowledge": "确认",
-  "boundary.panel.humanOnly": "确认会记录由谁签署批准，并解除「完成」的阻塞。只有已登录的人工用户才能确认 — agent/CLI 路径按设计已关闭。"
+  "boundary.panel.humanOnly": "确认会记录由谁签署批准，并解除「完成」的阻塞。只有已登录的人工用户才能确认 — agent/CLI 路径按设计已关闭。",
+  "workspaceSettings.acceptanceMode": "验收模式",
+  "workspaceSettings.acceptanceMode.description": "开启后，会提醒 agent 在开始任务前先草拟验收标准。验收数据始终会被记录；此开关仅控制该提醒。",
+  "workspaceSettings.acceptanceModeUpdated": "验收模式已更新",
+  "workspaceSettings.acceptanceModeUpdateFailed": "更新验收模式失败"
 }

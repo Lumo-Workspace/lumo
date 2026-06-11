@@ -1554,5 +1554,9 @@
   "boundary.panel.why": "Lý do: hành động này nằm trong danh sách Cấm của dự án.",
   "boundary.panel.detected": "Phát hiện từ một sự kiện công cụ",
   "boundary.panel.acknowledge": "Xác nhận",
-  "boundary.panel.humanOnly": "Việc xác nhận ghi lại ai đã phê duyệt và mở khóa Hoàn thành. Chỉ người đã đăng nhập mới có thể xác nhận — đường dẫn qua agent/CLI đã bị đóng theo thiết kế."
+  "boundary.panel.humanOnly": "Việc xác nhận ghi lại ai đã phê duyệt và mở khóa Hoàn thành. Chỉ người đã đăng nhập mới có thể xác nhận — đường dẫn qua agent/CLI đã bị đóng theo thiết kế.",
+  "workspaceSettings.acceptanceMode": "Chế độ nghiệm thu",
+  "workspaceSettings.acceptanceMode.description": "Khi bật, các tác nhân được nhắc soạn tiêu chí nghiệm thu trước khi bắt đầu một nhiệm vụ. Dữ liệu nghiệm thu luôn được ghi lại; tùy chọn này chỉ kiểm soát lời nhắc.",
+  "workspaceSettings.acceptanceModeUpdated": "Đã cập nhật chế độ nghiệm thu",
+  "workspaceSettings.acceptanceModeUpdateFailed": "Không thể cập nhật chế độ nghiệm thu"
 }
