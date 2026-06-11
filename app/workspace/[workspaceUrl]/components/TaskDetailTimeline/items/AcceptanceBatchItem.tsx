@@ -34,7 +34,9 @@ export function VerdictGlyph({ verdict }: { verdict: string }) {
   if (verdict === 'FAIL') {
     return <X className='size-3.5 text-danger shrink-0' aria-hidden />
   }
-  return <Circle className='size-3 text-muted-foreground shrink-0' aria-hidden />
+  return (
+    <Circle className='size-3 text-muted-foreground shrink-0' aria-hidden />
+  )
 }
 
 function CriterionBatchBody({ unit }: { unit: CriterionBatchUnit }) {
@@ -44,12 +46,14 @@ function CriterionBatchBody({ unit }: { unit: CriterionBatchUnit }) {
       {unit.items.map(item => {
         const p = item.payload ?? {}
         const op = readString(p.op)
-        const after = p.after as
-          | { statement?: unknown; verifierType?: unknown }
-          | null
-        const before = p.before as
-          | { statement?: unknown; verifierType?: unknown }
-          | null
+        const after = p.after as {
+          statement?: unknown
+          verifierType?: unknown
+        } | null
+        const before = p.before as {
+          statement?: unknown
+          verifierType?: unknown
+        } | null
         const statement = readString(after?.statement ?? before?.statement)
         const verifier = readString(after?.verifierType ?? before?.verifierType)
         const opLabel =
@@ -80,7 +84,17 @@ function CriterionBatchBody({ unit }: { unit: CriterionBatchUnit }) {
                 {verifier}
               </span>
             ) : null}
-            <span className='min-w-0'>{statement}</span>
+            {op === 'UPDATED' && before?.statement && after?.statement ? (
+              <span className='min-w-0'>
+                <span className='line-through text-muted-foreground/70'>
+                  {readString(before.statement)}
+                </span>
+                <span className='mx-1'>→</span>
+                <span>{readString(after.statement)}</span>
+              </span>
+            ) : (
+              <span className='min-w-0'>{statement}</span>
+            )}
           </div>
         )
       })}
@@ -130,8 +144,8 @@ function criterionSummary(
           defaultMessage: 'revised the acceptance contract',
         })
       : intl.formatMessage({
-          id: 'acceptance.batch.contractLocked',
-          defaultMessage: 'locked the acceptance contract',
+          id: 'acceptance.batch.contractRevisedAgent',
+          defaultMessage: 'revised the acceptance contract (agent draft)',
         })
   const counts = intl.formatMessage(
     {
@@ -179,8 +193,7 @@ function verificationSummary(
   return intl.formatMessage(
     {
       id: 'acceptance.batch.machineRound',
-      defaultMessage:
-        'machine check · round {round} · {passed}/{total} passed',
+      defaultMessage: 'machine check · round {round} · {passed}/{total} passed',
     },
     { round, passed: unit.passed, total: unit.total }
   )
