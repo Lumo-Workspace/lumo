@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
   ShieldAlert,
@@ -12,7 +14,7 @@ import {
   Lightbulb,
   Plus,
   UserCheck,
-  ArrowRight,
+  ExternalLink,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import {
@@ -29,6 +31,8 @@ import {
 interface BoundaryCrossingsPanelProps {
   taskIdentifier: string
   enabled: boolean
+  /** Workspace URL slug, for linking a remediation task to its detail page. */
+  workspaceUrl?: string
   members?: WorkspaceMemberInfo[]
   agentActors?: { actorId: string; name: string }[]
   /** Refresh the acceptance banner after a disposition/remediation changes state. */
@@ -46,6 +50,7 @@ interface BoundaryCrossingsPanelProps {
 export function BoundaryCrossingsPanel({
   taskIdentifier,
   enabled,
+  workspaceUrl = '',
   members = [],
   agentActors = [],
   onChanged,
@@ -67,6 +72,14 @@ export function BoundaryCrossingsPanel({
     onChanged?.()
   }
 
+  const errorToast = () =>
+    toast.error(
+      intl.formatMessage({
+        id: 'boundary.toast.error',
+        defaultMessage: 'Action failed — please try again',
+      })
+    )
+
   const disposition = (
     crossingId: string,
     verdict: 'FALSE_POSITIVE' | 'CONFIRMED'
@@ -80,15 +93,39 @@ export function BoundaryCrossingsPanel({
         verdict,
         note || undefined
       )
-      .then(afterChange)
+      .then(() => {
+        toast.success(
+          intl.formatMessage({
+            id: 'boundary.toast.dispositioned',
+            defaultMessage: 'Crossing dispositioned — Done is unblocked',
+          })
+        )
+        afterChange()
+      })
+      .catch(errorToast)
       .finally(() => setPending(null))
   }
 
   const spawnRemediation = (crossingId: string) => {
     setPending(crossingId)
     void tasksClient
-      .spawnBoundaryRemediation(taskIdentifier, crossingId)
-      .then(afterChange)
+      .spawnBoundaryRemediation<{ remediationTaskIdentifier: string }>(
+        taskIdentifier,
+        crossingId
+      )
+      .then(res => {
+        toast.success(
+          intl.formatMessage(
+            {
+              id: 'boundary.toast.remediationSpawned',
+              defaultMessage: 'Remediation task {identifier} created',
+            },
+            { identifier: res.remediationTaskIdentifier }
+          )
+        )
+        afterChange()
+      })
+      .catch(errorToast)
       .finally(() => setPending(null))
   }
 
@@ -149,6 +186,7 @@ export function BoundaryCrossingsPanel({
             key={c.id}
             crossing={c}
             intl={intl}
+            workspaceUrl={workspaceUrl}
             pending={pending === c.id}
             note={notes[c.id] ?? ''}
             reviewerName={reviewerName(c.dispositionedById)}
@@ -174,6 +212,7 @@ export function BoundaryCrossingsPanel({
 function CrossingRow({
   crossing: c,
   intl,
+  workspaceUrl,
   pending,
   note,
   reviewerName,
@@ -183,6 +222,7 @@ function CrossingRow({
 }: {
   crossing: BoundaryCrossingView
   intl: ReturnType<typeof useIntl>
+  workspaceUrl: string
   pending: boolean
   note: string
   reviewerName: string | null
@@ -298,30 +338,41 @@ function CrossingRow({
       )}
 
       {rt && (
-        <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md bg-success-subtle/60 px-2.5 py-1.5'>
-          <CircleCheck className='size-4 shrink-0 text-success' aria-hidden />
-          <span className='text-[11px] text-success'>
-            {rt.remediated
-              ? intl.formatMessage({
-                  id: 'boundary.panel.remediatedBy',
-                  defaultMessage: 'Remediated by',
-                })
-              : intl.formatMessage({
-                  id: 'boundary.panel.remediationLinked',
-                  defaultMessage: 'Remediation:',
-                })}
-          </span>
-          <span className='text-[11px] font-medium text-success'>
-            {rt.identifier} {rt.title}
-          </span>
-          <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-success'>
-            {rt.status}
-          </span>
-          <ArrowRight
-            className='ml-auto size-3.5 text-muted-foreground/70'
-            aria-hidden
-          />
-        </div>
+        <Link
+          href={
+            workspaceUrl
+              ? `/workspace/${workspaceUrl}/my-tasks/${rt.identifier}`
+              : '#'
+          }
+          className='mt-2 flex items-center gap-3 rounded-md border border-success-border bg-success-subtle/50 px-3 py-2.5 transition-colors hover:bg-success-subtle'
+        >
+          <CircleCheck className='size-5 shrink-0 text-success' aria-hidden />
+          <div className='min-w-0 flex-1'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <span className='text-xs font-medium text-success'>
+                {rt.remediated
+                  ? intl.formatMessage({
+                      id: 'boundary.panel.remediatedBy',
+                      defaultMessage: 'Remediated by',
+                    })
+                  : intl.formatMessage({
+                      id: 'boundary.panel.remediationLinked',
+                      defaultMessage: 'Remediation:',
+                    })}
+              </span>
+              <span className='text-[13px] font-medium text-foreground'>
+                {rt.identifier}
+              </span>
+              <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
+                {rt.status}
+              </span>
+            </div>
+            <div className='truncate text-xs text-muted-foreground'>
+              {rt.title}
+            </div>
+          </div>
+          <ExternalLink className='size-4 shrink-0 text-success' aria-hidden />
+        </Link>
       )}
 
       {c.disposition === 'CONFIRMED' && !rt && (

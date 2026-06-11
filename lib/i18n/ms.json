@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Dibuang · disimpan untuk audit",
   "acceptance.removed.atRound": "Dibuang pada pusingan {round}",
   "acceptance.removed.lastVerdict": "penghakiman terakhir: {v}",
-  "acceptance.removed.runsPreserved": "{n} pelaksanaan pengesahan disimpan"
+  "acceptance.removed.runsPreserved": "{n} pelaksanaan pengesahan disimpan",
+  "boundary.toast.remediationSpawned": "Tugas pemulihan {identifier} dicipta",
+  "boundary.toast.dispositioned": "Pencerobohan dikendalikan — Selesai kini tidak disekat",
+  "boundary.toast.error": "Tindakan gagal — sila cuba lagi"
 }

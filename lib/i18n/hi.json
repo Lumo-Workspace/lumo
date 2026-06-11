@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "हटाया गया · ऑडिट के लिए सुरक्षित",
   "acceptance.removed.atRound": "राउंड {round} में हटाया गया",
   "acceptance.removed.lastVerdict": "अंतिम निर्णय: {v}",
-  "acceptance.removed.runsPreserved": "{n} सत्यापन रन सुरक्षित"
+  "acceptance.removed.runsPreserved": "{n} सत्यापन रन सुरक्षित",
+  "boundary.toast.remediationSpawned": "समाधान कार्य {identifier} बनाया गया",
+  "boundary.toast.dispositioned": "उल्लंघन निपटाया गया — पूर्ण अनब्लॉक हो गया",
+  "boundary.toast.error": "कार्रवाई विफल — कृपया पुनः प्रयास करें"
 }

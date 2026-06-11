@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Đã xóa · giữ lại để kiểm toán",
   "acceptance.removed.atRound": "Đã xóa ở vòng {round}",
   "acceptance.removed.lastVerdict": "phán quyết cuối: {v}",
-  "acceptance.removed.runsPreserved": "{n} lượt xác minh được giữ lại"
+  "acceptance.removed.runsPreserved": "{n} lượt xác minh được giữ lại",
+  "boundary.toast.remediationSpawned": "Đã tạo nhiệm vụ khắc phục {identifier}",
+  "boundary.toast.dispositioned": "Đã xử lý vi phạm — Hoàn thành đã được bỏ chặn",
+  "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại"
 }

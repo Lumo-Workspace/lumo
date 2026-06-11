@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Supprimé · conservé pour audit",
   "acceptance.removed.atRound": "Supprimé au tour {round}",
   "acceptance.removed.lastVerdict": "dernier verdict : {v}",
-  "acceptance.removed.runsPreserved": "{n} exécution(s) de vérification conservée(s)"
+  "acceptance.removed.runsPreserved": "{n} exécution(s) de vérification conservée(s)",
+  "boundary.toast.remediationSpawned": "Tâche de correction {identifier} créée",
+  "boundary.toast.dispositioned": "Franchissement traité — Terminé est débloqué",
+  "boundary.toast.error": "L'action a échoué — veuillez réessayer"
 }

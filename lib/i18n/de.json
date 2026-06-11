@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Entfernt · für Audit aufbewahrt",
   "acceptance.removed.atRound": "In Runde {round} entfernt",
   "acceptance.removed.lastVerdict": "Letztes Urteil: {v}",
-  "acceptance.removed.runsPreserved": "{n} Verifizierungslauf/-läufe aufbewahrt"
+  "acceptance.removed.runsPreserved": "{n} Verifizierungslauf/-läufe aufbewahrt",
+  "boundary.toast.remediationSpawned": "Behebungsaufgabe {identifier} erstellt",
+  "boundary.toast.dispositioned": "Überschreitung eingeordnet – Erledigt ist entsperrt",
+  "boundary.toast.error": "Aktion fehlgeschlagen – bitte erneut versuchen"
 }

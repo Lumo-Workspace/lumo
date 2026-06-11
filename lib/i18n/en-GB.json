@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Removed · kept for audit",
   "acceptance.removed.atRound": "Removed at round {round}",
   "acceptance.removed.lastVerdict": "last verdict: {v}",
-  "acceptance.removed.runsPreserved": "{n} verification run(s) preserved"
+  "acceptance.removed.runsPreserved": "{n} verification run(s) preserved",
+  "boundary.toast.remediationSpawned": "Remediation task {identifier} created",
+  "boundary.toast.dispositioned": "Crossing dispositioned — Done is unblocked",
+  "boundary.toast.error": "Action failed — please try again"
 }

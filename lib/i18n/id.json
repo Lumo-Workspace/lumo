@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "Dihapus · disimpan untuk audit",
   "acceptance.removed.atRound": "Dihapus pada putaran {round}",
   "acceptance.removed.lastVerdict": "putusan terakhir: {v}",
-  "acceptance.removed.runsPreserved": "{n} eksekusi verifikasi disimpan"
+  "acceptance.removed.runsPreserved": "{n} eksekusi verifikasi disimpan",
+  "boundary.toast.remediationSpawned": "Tugas perbaikan {identifier} dibuat",
+  "boundary.toast.dispositioned": "Pelanggaran ditangani — Selesai sudah tidak diblokir",
+  "boundary.toast.error": "Tindakan gagal — silakan coba lagi"
 }

@@ -28,6 +28,9 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+jest.mock('sonner', () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
   useBoundaryCrossings: jest.fn(),
 }))
@@ -161,7 +164,7 @@ describe('BoundaryCrossingsPanel', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })
 
-  it('a remediated crossing surfaces the linked task and its status', () => {
+  it('a remediated crossing surfaces the linked task as a clickable link', () => {
     setCrossings([
       {
         ...OPEN,
@@ -175,9 +178,19 @@ describe('BoundaryCrossingsPanel', () => {
         },
       },
     ])
-    render(<BoundaryCrossingsPanel taskIdentifier='LUM-435' enabled />)
+    render(
+      <BoundaryCrossingsPanel
+        taskIdentifier='LUM-435'
+        enabled
+        workspaceUrl='lumo'
+      />
+    )
     expect(screen.getByText(/Remediated by/)).toBeInTheDocument()
-    expect(screen.getByText(/LUM-441 Restore migration/)).toBeInTheDocument()
+    expect(screen.getByText('LUM-441')).toBeInTheDocument()
+    expect(screen.getByText('Restore migration')).toBeInTheDocument()
     expect(screen.getByText('DONE')).toBeInTheDocument()
+    // the linked task is reachable — the whole row is an anchor to its detail page
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', '/workspace/lumo/my-tasks/LUM-441')
   })
 })

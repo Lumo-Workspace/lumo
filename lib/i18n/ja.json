@@ -1585,5 +1585,8 @@
   "acceptance.removed.title": "削除済み · 監査のために保持",
   "acceptance.removed.atRound": "ラウンド {round} で削除",
   "acceptance.removed.lastVerdict": "最後の判定：{v}",
-  "acceptance.removed.runsPreserved": "{n} 件の検証実行を保持"
+  "acceptance.removed.runsPreserved": "{n} 件の検証実行を保持",
+  "boundary.toast.remediationSpawned": "対処タスク {identifier} を作成しました",
+  "boundary.toast.dispositioned": "違反を処理しました — 完了のブロックが解除されました",
+  "boundary.toast.error": "操作に失敗しました — もう一度お試しください"
 }

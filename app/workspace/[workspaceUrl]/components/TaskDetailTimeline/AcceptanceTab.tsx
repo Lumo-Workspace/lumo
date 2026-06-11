@@ -30,6 +30,8 @@ import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
 interface AcceptanceTabProps {
   taskIdentifier: string
   enabled: boolean
+  /** Workspace URL slug, for linking a spawned remediation task from the panel. */
+  workspaceUrl?: string
   /** For resolving the disposition reviewer's name on the crossings panel. */
   members?: WorkspaceMemberInfo[]
   agentActors?: { actorId: string; name: string }[]
@@ -726,6 +728,7 @@ function CriterionRow({
 export function AcceptanceTab({
   taskIdentifier,
   enabled,
+  workspaceUrl = '',
   members = [],
   agentActors = [],
 }: AcceptanceTabProps) {
@@ -799,6 +802,7 @@ export function AcceptanceTab({
       <BoundaryCrossingsPanel
         taskIdentifier={taskIdentifier}
         enabled={enabled}
+        workspaceUrl={workspaceUrl}
         members={members}
         agentActors={agentActors}
         onChanged={() => {
