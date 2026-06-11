@@ -5,18 +5,7 @@
  * checkpointer name below is wired into the task's MACHINE acceptance criteria;
  * keep it byte-stable.
  */
-import {
-  auditAgentFacingCommands,
-  renderReport,
-  BUDGET,
-  type CommandAudit,
-} from '../audit'
-
-function byCommand(rows: CommandAudit[], command: string): CommandAudit {
-  const row = rows.find(r => r.command === command)
-  if (!row) throw new Error(`audit row missing for: ${command}`)
-  return row
-}
+import { auditAgentFacingCommands, renderReport, BUDGET } from '../audit'
 
 describe('cli-output-budget audit', () => {
   it('cli-output-budget audit enumerates agent-facing commands and flags unbounded ones', () => {
