@@ -83,6 +83,43 @@ describe('worktreeAdd', () => {
     expect(mockFs.symlinkSync).not.toHaveBeenCalled()
   })
 
+  it('provisions husky hooks shim into the worktree', async () => {
+    // Both node_modules and the husky shim exist in the main checkout.
+    mockFs.existsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p)
+      return s.endsWith('node_modules') || s.endsWith('.husky/_')
+    })
+    runGit.mockImplementation((args: string[]) =>
+      args[0] === 'rev-parse'
+        ? { status: 1, stdout: '', stderr: '' }
+        : { status: 0, stdout: '', stderr: '' }
+    )
+    expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
+    expect(mockFs.cpSync).toHaveBeenCalledWith(
+      '/repo/.husky/_',
+      '/repo/.worktrees/LUM-267-scaffold/.husky/_',
+      { recursive: true }
+    )
+  })
+
+  it('warns when main checkout has no husky shim instead of silently skipping', async () => {
+    // node_modules present, but the husky shim was never generated in main.
+    mockFs.existsSync.mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    runGit.mockImplementation((args: string[]) =>
+      args[0] === 'rev-parse'
+        ? { status: 1, stdout: '', stderr: '' }
+        : { status: 0, stdout: '', stderr: '' }
+    )
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
+    expect(mockFs.cpSync).not.toHaveBeenCalled()
+    const out = logSpy.mock.calls.map(c => c.join(' ')).join('\n')
+    expect(out).toMatch(/husky/i)
+    logSpy.mockRestore()
+  })
+
   it('reuses an existing branch (no -b) and skips fetch with --no-fetch', async () => {
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' }) // rev-parse → 0 = branch exists
     expect(await worktreeAdd('LUM-267', undefined, { noFetch: true })).toBe(0)
