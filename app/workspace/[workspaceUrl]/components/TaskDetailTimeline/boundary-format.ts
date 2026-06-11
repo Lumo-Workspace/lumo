@@ -1,0 +1,42 @@
+import type { useIntl } from 'react-intl'
+
+/**
+ * Human-readable label for a BoundaryCrossingCategory (LUM-426). Shared by the
+ * AcceptanceTab panel and the timeline marker so the two never drift. The
+ * category is bare structured data crossing the wire; only the prose around it
+ * is translated.
+ */
+export function boundaryCategoryLabel(
+  category: string,
+  intl: ReturnType<typeof useIntl>
+): string {
+  switch (category) {
+    case 'PUSH_TO_PROTECTED_BRANCH':
+      return intl.formatMessage({
+        id: 'boundary.category.push',
+        defaultMessage: 'push to a protected branch',
+      })
+    case 'MIGRATION_FILE_DELETED':
+      return intl.formatMessage({
+        id: 'boundary.category.migrationDelete',
+        defaultMessage: 'deleted a migration file',
+      })
+    case 'HARDCODED_SECRET':
+      return intl.formatMessage({
+        id: 'boundary.category.secret',
+        defaultMessage: 'hardcoded secret',
+      })
+    case 'NEW_NPM_DEPENDENCY':
+      return intl.formatMessage({
+        id: 'boundary.category.npm',
+        defaultMessage: 'new dependency install',
+      })
+    case 'DESTRUCTIVE_DB_COMMAND':
+      return intl.formatMessage({
+        id: 'boundary.category.db',
+        defaultMessage: 'destructive database command',
+      })
+    default:
+      return category.toLowerCase().replace(/_/g, ' ')
+  }
+}

@@ -33,8 +33,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
 
+// LUM-426: AcceptanceTab now hosts the boundary-crossings panel. Isolate it the
+// same way as useTaskStatus — default to "no open crossings" so the panel
+// renders null and these tests stay focused on the verdict/contract UI.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
+  useBoundaryCrossings: jest.fn(() => ({
+    crossings: [],
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })),
+}))
+
 jest.mock('@/lib/api-client', () => ({
-  tasksClient: { submitHumanVerdict: jest.fn().mockResolvedValue({}) },
+  tasksClient: {
+    submitHumanVerdict: jest.fn().mockResolvedValue({}),
+    acknowledgeBoundaryCrossing: jest.fn().mockResolvedValue({}),
+  },
 }))
 
 import '@testing-library/jest-dom'

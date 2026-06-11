@@ -5,6 +5,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import {
   invalidTransitionMessage,
   isValidTaskTransition,
@@ -60,6 +61,45 @@ async function assertNoUnresolvedSendBack(taskId: string): Promise<void> {
       `Cannot move this task to DONE — ${failed.length} unresolved send-back${
         failed.length === 1 ? '' : 's'
       } on the acceptance contract:\n${items}\nResolve them (see \`lumo task status\`) and re-verify, or have a human override.`
+    ),
+    { status: 409 }
+  )
+}
+
+/**
+ * LUM-426 DONE gate. Refuse a DONE transition while any boundary-crossing on
+ * the task is unacknowledged — a forbidden action (push to main, a deleted
+ * migration, a hardcoded secret, a new dependency, a destructive DB command)
+ * the agent took and no human has signed off on yet. Mirrors LUM-422's
+ * assertNoUnresolvedSendBack: short-circuits free when nothing is flagged
+ * (the common case, so existing DONE paths pay one empty query), and is
+ * bypassed only by a human-authoritative overrideDoneGate.
+ *
+ * The flagging half (recording the crossing) is always on; THIS half — the
+ * DONE block — is the only part the workspace toggle governs. Opening the gate
+ * (boundaryGateEnabled = false) drops the 409 but never the marker. The toggle
+ * is read only after an open crossing is found, so a clean task never touches
+ * it. Throws 409 with the unacknowledged items.
+ */
+async function assertNoUnacknowledgedBoundaryCrossings(
+  taskId: string,
+  workspaceId: string
+): Promise<void> {
+  const open = await boundaryCrossingRepository.findUnacknowledgedByTask(taskId)
+  if (open.length === 0) return
+
+  const enabled =
+    await boundaryCrossingRepository.isGateEnabledForWorkspace(workspaceId)
+  if (!enabled) return
+
+  const items = open.map(c => `• ${c.detail} (${c.category})`).join('\n')
+  throw Object.assign(
+    new Error(
+      `Cannot move this task to DONE — ${open.length} unacknowledged boundary-crossing${
+        open.length === 1 ? '' : 's'
+      } (forbidden action${open.length === 1 ? '' : 's'} taken during this task):\n${items}\nA human must acknowledge ${
+        open.length === 1 ? 'it' : 'them'
+      } on the task timeline, or open the gate for this workspace.`
     ),
     { status: 409 }
   )
@@ -135,10 +175,16 @@ export async function updateTask(
       )
     }
 
-    // LUM-422 ④ DONE gate: a DONE transition is blocked while an unresolved
-    // send-back stands on the acceptance contract, unless a human overrides.
+    // LUM-422 ④ + LUM-426 DONE gates: a DONE transition is blocked while an
+    // unresolved send-back stands on the acceptance contract OR an
+    // unacknowledged boundary-crossing stands on the task, unless a human
+    // overrides. Both short-circuit free when nothing is flagged.
     if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
       await assertNoUnresolvedSendBack(taskId)
+      await assertNoUnacknowledgedBoundaryCrossings(
+        taskId,
+        task.project.workspaceId
+      )
     }
   }
 

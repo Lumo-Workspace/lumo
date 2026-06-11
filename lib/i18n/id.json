@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Tetapkan berapa banyak putaran verifikasi mesin yang dapat dijalankan suatu tugas sebelum dieskalasi ke manusia. Tinjauan manusia tidak pernah dibatasi oleh ini.",
   "workspaceSettings.verification.maxRounds": "Maks. putaran mesin",
   "workspaceSettings.verificationUpdated": "Pengaturan verifikasi diperbarui",
-  "workspaceSettings.verificationUpdateFailed": "Gagal memperbarui pengaturan verifikasi"
+  "workspaceSettings.verificationUpdateFailed": "Gagal memperbarui pengaturan verifikasi",
+  "activity.boundaryDetected": "menandai tindakan terlarang — {category}",
+  "activity.boundaryAcknowledged": "mengonfirmasi pelanggaran batas",
+  "boundary.category.push": "push ke branch yang dilindungi",
+  "boundary.category.migrationDelete": "menghapus berkas migrasi",
+  "boundary.category.secret": "secret yang ditulis langsung dalam kode",
+  "boundary.category.npm": "instalasi dependensi baru",
+  "boundary.category.db": "perintah basis data yang merusak",
+  "boundary.panel.title": "Pelanggaran batas",
+  "boundary.panel.openCount": "{count, plural, one {# belum ditangani} other {# belum ditangani}}",
+  "boundary.panel.blockedNote": "Tugas ini tidak dapat berpindah ke Selesai hingga setiap pelanggaran di bawah ini dikonfirmasi oleh manusia. Gerbang kontrol aktif untuk ruang kerja ini.",
+  "boundary.panel.why": "Alasan: tindakan ini ada dalam daftar Terlarang proyek.",
+  "boundary.panel.detected": "Terdeteksi dari peristiwa alat",
+  "boundary.panel.acknowledge": "Konfirmasi",
+  "boundary.panel.humanOnly": "Konfirmasi mencatat siapa yang menyetujui dan membuka kunci Selesai. Hanya manusia yang sudah masuk yang dapat mengonfirmasi — jalur melalui agen/CLI sengaja ditutup."
 }

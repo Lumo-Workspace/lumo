@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Укажите, сколько раундов машинной проверки может пройти задача, прежде чем она будет передана человеку. Проверка человеком никогда не ограничивается этим параметром.",
   "workspaceSettings.verification.maxRounds": "Макс. машинных раундов",
   "workspaceSettings.verificationUpdated": "Настройки проверки обновлены",
-  "workspaceSettings.verificationUpdateFailed": "Не удалось обновить настройки проверки"
+  "workspaceSettings.verificationUpdateFailed": "Не удалось обновить настройки проверки",
+  "activity.boundaryDetected": "пометил запрещённое действие — {category}",
+  "activity.boundaryAcknowledged": "подтвердил нарушение границы",
+  "boundary.category.push": "отправка в защищённую ветку",
+  "boundary.category.migrationDelete": "удаление файла миграции",
+  "boundary.category.secret": "захардкоженный секрет",
+  "boundary.category.npm": "установка новой зависимости",
+  "boundary.category.db": "разрушительная команда базы данных",
+  "boundary.panel.title": "Нарушения границ",
+  "boundary.panel.openCount": "{count, plural, one {# открытое} other {# открытых}}",
+  "boundary.panel.blockedNote": "Эта задача не может перейти в статус «Готово», пока каждое нарушение ниже не будет подтверждено человеком. Для этого рабочего пространства проверка включена.",
+  "boundary.panel.why": "Почему: это действие входит в список запрещённых действий проекта.",
+  "boundary.panel.detected": "Обнаружено по событию инструмента",
+  "boundary.panel.acknowledge": "Подтвердить",
+  "boundary.panel.humanOnly": "Подтверждение фиксирует, кто его дал, и разблокирует статус «Готово». Подтвердить может только авторизованный человек — путь через агента/CLI закрыт намеренно."
 }

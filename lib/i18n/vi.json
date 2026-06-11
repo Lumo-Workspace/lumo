@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Đặt số vòng xác minh tự động mà một nhiệm vụ có thể chạy trước khi chuyển lên cho con người. Việc xem xét của con người không bao giờ bị giới hạn bởi cài đặt này.",
   "workspaceSettings.verification.maxRounds": "Số vòng tự động tối đa",
   "workspaceSettings.verificationUpdated": "Đã cập nhật cài đặt xác minh",
-  "workspaceSettings.verificationUpdateFailed": "Không thể cập nhật cài đặt xác minh"
+  "workspaceSettings.verificationUpdateFailed": "Không thể cập nhật cài đặt xác minh",
+  "activity.boundaryDetected": "đã gắn cờ một hành động bị cấm — {category}",
+  "activity.boundaryAcknowledged": "đã xác nhận hành vi vượt ranh giới",
+  "boundary.category.push": "đẩy lên nhánh được bảo vệ",
+  "boundary.category.migrationDelete": "xóa tệp migration",
+  "boundary.category.secret": "khóa bí mật được mã hóa cứng",
+  "boundary.category.npm": "cài đặt phụ thuộc mới",
+  "boundary.category.db": "lệnh cơ sở dữ liệu có tính phá hủy",
+  "boundary.panel.title": "Các hành vi vượt ranh giới",
+  "boundary.panel.openCount": "{count, plural, one {# chưa xử lý} other {# chưa xử lý}}",
+  "boundary.panel.blockedNote": "Tác vụ này không thể chuyển sang Hoàn thành cho đến khi mỗi hành vi vượt ranh giới bên dưới được một người xác nhận. Cổng kiểm soát đang bật cho không gian làm việc này.",
+  "boundary.panel.why": "Lý do: hành động này nằm trong danh sách Cấm của dự án.",
+  "boundary.panel.detected": "Phát hiện từ một sự kiện công cụ",
+  "boundary.panel.acknowledge": "Xác nhận",
+  "boundary.panel.humanOnly": "Việc xác nhận ghi lại ai đã phê duyệt và mở khóa Hoàn thành. Chỉ người đã đăng nhập mới có thể xác nhận — đường dẫn qua agent/CLI đã bị đóng theo thiết kế."
 }

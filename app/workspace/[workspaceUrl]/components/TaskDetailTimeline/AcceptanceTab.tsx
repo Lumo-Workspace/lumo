@@ -20,6 +20,7 @@ import type {
   AcceptanceVerifier,
 } from '../../types'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
+import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
 
 interface AcceptanceTabProps {
   taskIdentifier: string
@@ -701,6 +702,14 @@ export function AcceptanceTab({ taskIdentifier, enabled }: AcceptanceTabProps) {
   return (
     <div className='space-y-5 py-1'>
       <VerdictBanner data={data} />
+
+      <BoundaryCrossingsPanel
+        taskIdentifier={taskIdentifier}
+        enabled={enabled}
+        onAcknowledged={() => {
+          void refresh?.()
+        }}
+      />
 
       <VerificationHistory data={data} />
 

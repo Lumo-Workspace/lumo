@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Legen Sie fest, wie viele maschinelle Verifizierungsrunden eine Aufgabe durchlaufen darf, bevor sie an einen Menschen eskaliert wird. Die menschliche Prüfung wird dadurch nie begrenzt.",
   "workspaceSettings.verification.maxRounds": "Max. maschinelle Runden",
   "workspaceSettings.verificationUpdated": "Verifizierungseinstellungen aktualisiert",
-  "workspaceSettings.verificationUpdateFailed": "Aktualisierung der Verifizierungseinstellungen fehlgeschlagen"
+  "workspaceSettings.verificationUpdateFailed": "Aktualisierung der Verifizierungseinstellungen fehlgeschlagen",
+  "activity.boundaryDetected": "hat eine verbotene Aktion markiert — {category}",
+  "activity.boundaryAcknowledged": "hat die Grenzüberschreitung bestätigt",
+  "boundary.category.push": "Push auf einen geschützten Branch",
+  "boundary.category.migrationDelete": "Migrationsdatei gelöscht",
+  "boundary.category.secret": "fest im Code hinterlegtes Geheimnis",
+  "boundary.category.npm": "Installation einer neuen Abhängigkeit",
+  "boundary.category.db": "destruktiver Datenbankbefehl",
+  "boundary.panel.title": "Grenzüberschreitungen",
+  "boundary.panel.openCount": "{count, plural, one {# offen} other {# offen}}",
+  "boundary.panel.blockedNote": "Diese Aufgabe kann erst auf Erledigt gesetzt werden, wenn jede unten aufgeführte Überschreitung von einer Person bestätigt wurde. Die Sperre ist für diesen Workspace aktiviert.",
+  "boundary.panel.why": "Grund: Diese Aktion steht auf der Liste der verbotenen Aktionen des Projekts.",
+  "boundary.panel.detected": "Anhand eines Tool-Ereignisses erkannt",
+  "boundary.panel.acknowledge": "Bestätigen",
+  "boundary.panel.humanOnly": "Die Bestätigung hält fest, wer die Freigabe erteilt hat, und gibt Erledigt frei. Nur eine angemeldete Person kann bestätigen – der Agent-/CLI-Weg ist bewusst gesperrt."
 }

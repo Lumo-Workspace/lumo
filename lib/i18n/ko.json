@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "작업이 사람에게 에스컬레이션되기 전에 실행할 수 있는 기계 검증 라운드 수를 설정합니다. 사람의 검토는 이 제한을 받지 않습니다.",
   "workspaceSettings.verification.maxRounds": "최대 기계 라운드 수",
   "workspaceSettings.verificationUpdated": "검증 설정이 업데이트되었습니다",
-  "workspaceSettings.verificationUpdateFailed": "검증 설정 업데이트 실패"
+  "workspaceSettings.verificationUpdateFailed": "검증 설정 업데이트 실패",
+  "activity.boundaryDetected": "금지된 작업을 표시했습니다 — {category}",
+  "activity.boundaryAcknowledged": "경계 위반을 확인했습니다",
+  "boundary.category.push": "보호된 브랜치에 푸시",
+  "boundary.category.migrationDelete": "마이그레이션 파일 삭제",
+  "boundary.category.secret": "시크릿 하드코딩",
+  "boundary.category.npm": "새 의존성 설치",
+  "boundary.category.db": "파괴적인 데이터베이스 명령",
+  "boundary.panel.title": "경계 위반",
+  "boundary.panel.openCount": "{count, plural, one {미처리 #건} other {미처리 #건}}",
+  "boundary.panel.blockedNote": "아래의 각 위반이 사람에 의해 확인되기 전까지 이 작업은 「완료」로 이동할 수 없습니다. 이 워크스페이스에서는 게이트가 켜져 있습니다.",
+  "boundary.panel.why": "이유: 이 작업은 프로젝트의 금지 목록에 있습니다.",
+  "boundary.panel.detected": "도구 이벤트에서 감지됨",
+  "boundary.panel.acknowledge": "확인",
+  "boundary.panel.humanOnly": "확인하면 누가 승인했는지 기록되고 「완료」의 차단이 해제됩니다. 로그인한 사람만 확인할 수 있으며, agent/CLI 경로는 설계상 닫혀 있습니다."
 }

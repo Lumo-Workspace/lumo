@@ -151,6 +151,22 @@ export const tasksClient = {
     })
   },
 
+  /** List a task's open (unacknowledged) boundary-crossings (LUM-426). */
+  listBoundaryCrossings<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.boundaryCrossings(taskId), { method: 'GET' })
+  },
+
+  /**
+   * Acknowledge a boundary-crossing, clearing its DONE block. Human-only — the
+   * server refuses bearer (agent/CLI) identities with 403 before parse.
+   */
+  acknowledgeBoundaryCrossing<T>(taskId: string, crossingId: string) {
+    return apiFetch<T>(API.tasks.boundaryAcknowledge(taskId), {
+      method: 'POST',
+      body: { crossingId },
+    })
+  },
+
   suggestPriority<T>(data: unknown, signal?: AbortSignal) {
     return apiFetch<T>('/api/tasks/suggest-priority', {
       method: 'POST',

@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Define cuántas rondas de verificación automática puede ejecutar una tarea antes de escalar a una persona. La revisión humana nunca está limitada por esto.",
   "workspaceSettings.verification.maxRounds": "Máximo de rondas automáticas",
   "workspaceSettings.verificationUpdated": "Configuración de verificación actualizada",
-  "workspaceSettings.verificationUpdateFailed": "No se pudo actualizar la configuración de verificación"
+  "workspaceSettings.verificationUpdateFailed": "No se pudo actualizar la configuración de verificación",
+  "activity.boundaryDetected": "marcó una acción prohibida — {category}",
+  "activity.boundaryAcknowledged": "confirmó la transgresión de límite",
+  "boundary.category.push": "push a una rama protegida",
+  "boundary.category.migrationDelete": "eliminó un archivo de migración",
+  "boundary.category.secret": "secreto escrito directamente en el código",
+  "boundary.category.npm": "instalación de una nueva dependencia",
+  "boundary.category.db": "comando destructivo de base de datos",
+  "boundary.panel.title": "Transgresiones de límite",
+  "boundary.panel.openCount": "{count, plural, one {# abierta} other {# abiertas}}",
+  "boundary.panel.blockedNote": "Esta tarea no puede pasar a Completada hasta que una persona confirme cada transgresión que aparece abajo. La restricción está activada para este espacio de trabajo.",
+  "boundary.panel.why": "Motivo: esta acción está en la lista de acciones prohibidas del proyecto.",
+  "boundary.panel.detected": "Detectado a partir de un evento de herramienta",
+  "boundary.panel.acknowledge": "Confirmar",
+  "boundary.panel.humanOnly": "Al confirmar se registra quién dio el visto bueno y se desbloquea Completada. Solo una persona con sesión iniciada puede confirmar: la vía del agente/CLI está cerrada por diseño."
 }
