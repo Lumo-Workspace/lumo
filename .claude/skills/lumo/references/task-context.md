@@ -115,6 +115,11 @@ lumo task pr show LUM-42 128
 Read-only audit view over the task's `LineageEdge` rows. Given a task
 identifier (`LUM-N`), prints the causal trail:
 
+```bash
+lumo task lineage LUM-42            # per-session causal trail + cost
+lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
+```
+
 - **Totals banner** — distinct sessions, fragment count, edge count,
   total tokens (input/output/cache split) and loops, and the outcome
   distribution.
