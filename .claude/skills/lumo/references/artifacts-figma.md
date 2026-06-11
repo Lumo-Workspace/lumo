@@ -96,6 +96,11 @@ cfl_xxx3  Onboarding       (file-level)         2026-05-20  ⚠ thumbnail stale
 
 Accepts a `cfl_*` cuid or the original URL. Idempotent (`Not linked: ...` + exit 0 when no match).
 
+```bash
+lumo task figma rm LUM-42 cfl_xxx1
+lumo task figma rm LUM-42 "https://www.figma.com/design/abc123/Onboarding?node-id=1-234"
+```
+
 #### `lumo task figma refresh <task>` — manual refresh
 
 Re-fetches metadata + thumbnail for every Figma link on the task. Per-link

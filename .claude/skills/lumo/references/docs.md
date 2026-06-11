@@ -132,12 +132,12 @@ Use default mode when the user wants to read a doc; use `--raw` whenever the ful
 
 Replaces the **whole addressed section** (heading line included, subsections included) with the provided content, server-side, leaving every byte outside the section untouched. The new content comes from `--content`, `--file`, or piped stdin (one required; `--file` is sandboxed like `doc update`).
 
-| Flag                  | Type   | Notes                                                                                               |
-| --------------------- | ------ | --------------------------------------------------------------------------------------------------- |
-| `--section <heading>` | string | Required. Heading text addressing the section; prefix `#…` pins the depth.                          |
-| `--content <text>`    | string | New section content (include the heading line — the whole section is replaced verbatim).            |
-| `--file <path>`       | string | New section content from file (project-local sandbox).                                              |
-| `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`. Recommended whenever the edit base was read earlier. |
+| Flag                  | Type    | Notes                                                                                                       |
+| --------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| `--section <heading>` | string  | Required. Heading text addressing the section; prefix `#…` pins the depth.                                  |
+| `--content <text>`    | string  | New section content (include the heading line — the whole section is replaced verbatim).                    |
+| `--file <path>`       | string  | New section content from file (project-local sandbox).                                                      |
+| `--if-revision <n>`   | int     | Only apply if the body is still at revision `n`. Recommended whenever the edit base was read earlier.       |
 | `--allow-shrink`      | boolean | Let the patch through even when it drops tables/rows/headings within the addressed section (422 otherwise). |
 
 Concurrency: the splice always commits **conditionally** on the revision the server read the source at — even without `--if-revision`, a concurrent body edit between read and write returns 409 instead of clobbering. On 409 the CLI prints the server reason plus a re-read-and-retry hint and exits 1.
@@ -164,11 +164,11 @@ lumo doc patch cmd_xxx --section "D 状态表" --file sec.md --if-revision 6
 
 Inserts the new content at the **end of the addressed section** (just before the next same-or-higher-level heading), or at the end of the document when `--section` is omitted. Pure insertion: no pre-existing byte is modified, which makes it the natural write for running logs, ledgers and queues. Content channels and sandbox are the same as `doc patch`; separator blank lines are added automatically.
 
-| Flag                  | Type   | Notes                                                                       |
-| --------------------- | ------ | --------------------------------------------------------------------------- |
-| `--section <heading>` | string | Optional. Omit to append at the document end.                               |
-| `--content <text>`    | string | Content to append.                                                          |
-| `--file <path>`       | string | Content from file (project-local sandbox).                                  |
+| Flag                  | Type   | Notes                                                                        |
+| --------------------- | ------ | ---------------------------------------------------------------------------- |
+| `--section <heading>` | string | Optional. Omit to append at the document end.                                |
+| `--content <text>`    | string | Content to append.                                                           |
+| `--file <path>`       | string | Content from file (project-local sandbox).                                   |
 | `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`; 409 + retry hint otherwise. |
 
 Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). Requires a stored markdown source.
@@ -188,8 +188,8 @@ echo "## 2026-06-10\n吸收了 3 篇" | lumo doc append cmd_xxx   # document end
 
 Compares the server-side stored markdown source (the byte-identical last markdown upload) against a local file, making remote/local split-brain visible on demand.
 
-| Flag            | Type   | Notes                                                                              |
-| --------------- | ------ | ---------------------------------------------------------------------------------- |
+| Flag            | Type   | Notes                                                                             |
+| --------------- | ------ | --------------------------------------------------------------------------------- |
 | `--file <path>` | string | Required. Local markdown file; same project-local sandbox as `doc update --file`. |
 
 Exit codes: **0** = byte-identical (prints `Clean: …`), **1** = divergent (prints a unified diff, `--- remote/<id> (sourceMarkdown)` vs `+++ local/<file>`) or error. A doc without a stored markdown source errors explicitly (upload a markdown base once, then diff works).
@@ -277,6 +277,10 @@ lumo doc delete cmd_xxx --yes
 ### `lumo doc bind <doc> <task>` — bind a doc to a task
 
 Adds an explicit DocumentMention row. Survives content edits in the Web UI. If a CONTENT-derived mention already exists for the same pair, it's upgraded to EXPLICIT so a later `unbind` can remove it.
+
+```bash
+lumo doc bind cmd_xxx LUM-42
+```
 
 Output:
 

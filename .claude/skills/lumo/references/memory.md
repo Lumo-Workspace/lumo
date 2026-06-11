@@ -19,7 +19,7 @@ lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--
 lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."] [--agent <agent>]
 lumo task memory add [LUM-N] --category convention --rule "..." --applies "..." [--agent <agent>]
 lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."] [--agent <agent>]
-lumo project memory add [<project>] --category ... [--agent <agent>]   # same flags; records at PROJECT scope
+lumo project memory add [<project>] --category convention --rule "..." --applies "..." [--agent <agent>]   # same per-category flags as task memory add; records at PROJECT scope
 
 # --agent values: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)
 # Aliases: gemini → gemini-cli, copilot → github-copilot (case-insensitive)
@@ -33,6 +33,23 @@ lumo memory rm <memoryId> --yes    # hard delete
 When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
 `lumo task memory add --category trap --trigger ... --outcome ...` records onto
 the bound task; `lumo project memory add ...` records onto its project.
+
+Real calls (memory fields are structured per category — there is **no**
+`--content` flag):
+
+```bash
+# Minimal — session bound, identifier omitted
+lumo task memory add --category trap --trigger "npx tsc --noEmit passes locally but CI fails on exactOptionalPropertyTypes" --outcome "PR goes red after merge"
+lumo project memory add --category convention --rule "CLI tag-modify commands print a final 'Tags:' line" --applies "lumo doc/task create and update"
+
+# Full form — explicit identifier, all optional fields
+lumo task memory add LUM-42 --category decision --what "Store doc content as Tiptap-serialized HTML" --why "markdown-to-JSON and markdown-to-HTML paths drifted" --alternatives "store Tiptap JSON" --implications "all markdown input goes through markdownToHtml" --agent claude-code
+lumo project memory add lumo --category procedural --workflow "Regenerate the CLI grammar snapshot" --trigger "any cli/src/commands change" --step "npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts" --step "npx jest scripts/analysis/lum392-cli-friction" --agent claude-code
+
+# Curate
+lumo memory promote cmpi19iqabc123
+lumo memory rm cmpi19iqabc123 --yes
+```
 
 ### Reconcile-on-write & deduplication
 

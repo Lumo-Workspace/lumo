@@ -154,6 +154,13 @@ LUM-48  TODO         MEDIUM  backend    Investigate slow query
 | `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                          |
 | `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                  |
 
+```bash
+lumo task list                                  # everything assigned to me
+lumo task list --status in_progress -n 10       # capped, status-filtered
+lumo task list --project backend --status todo
+lumo task list --milestone "Q3 Launch"
+```
+
 When `--milestone` is set, the CLI calls `GET /api/milestones/<id>/tasks?assigned=me` instead of `/api/tasks/me`. Other filters (`--status`, `--limit`) still apply client-side to the milestone-scoped result.
 
 Filtering is currently client-side — the server returns the full "my tasks" set and the CLI slices it. This is fine for typical workspaces (dozens of tasks); revisit if a workspace has hundreds.

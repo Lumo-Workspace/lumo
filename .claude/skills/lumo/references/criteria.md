@@ -104,6 +104,13 @@ Rejected with 409 once **any** criteria exist on the task — the agent lock.
 Echoes the stored criteria (with ids) plus the 3–7 soft-cap warning if
 outside range.
 
+```bash
+lumo task criteria set LUM-42 --file criteria-lum42.json
+```
+
+(`--file` must point inside the current project directory — write the JSON to
+the repo root or a subdirectory, not `/tmp`, and delete it after submission.)
+
 ### `lumo task criteria set <task> --file <criteria.json> --human`
 
 Record a **human contract revision** (HUMAN_EDIT), e.g. when the user changes
@@ -125,6 +132,11 @@ verdict is never** — human verdicts only enter through human-initiated paths
 Only use `--human` for decisions a human actually made (in conversation, in a
 comment, in review). Never use it to work around your own lock.
 
+```bash
+lumo task criteria set LUM-42 --file criteria-revision.json --human
+lumo task criteria set LUM-42 --file criteria-revision.json --human --cause SCOPE_CHANGE
+```
+
 Optionally annotate **why** the contract drifted with
 `--cause <NEW_INFO|SCOPE_CHANGE|DRAFT_BLIND_SPOT|GRANULARITY|OTHER>` — pick
 the tag from the human's stated reason (new information, scope moved, the
@@ -138,6 +150,10 @@ activity automatically; `--cause` just enriches it.
 Print the contract: `<id>  [MACHINE|HUMAN]  SOURCE@rN  [evidence]  statement`
 plus an indented `↳ check:` line for checkpointers. Use it to fetch ids
 before a `--human` revision. Empty contract prints a drafting pointer.
+
+```bash
+lumo task criteria list LUM-42
+```
 
 ## Injection behavior
 

@@ -22,8 +22,8 @@ not touch git hooks.
 npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
 npx @lumoai/cli setup --user             # write to ~/.claude/
 npx @lumoai/cli setup --project          # write to ./.claude/
-npx @lumoai/cli setup --force            # overwrite skill files if they differ from bundled
-npx @lumoai/cli setup --agent codex      # bake agent=codex into the hook commands
+lumo setup --project --force             # same via global install: overwrite skill files if they differ from bundled
+lumo setup --project --agent codex       # bake agent=codex into the hook commands
 ```
 
 Use when:
