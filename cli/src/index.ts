@@ -514,8 +514,15 @@ const taskComments = task
   .description('Inspect the full task comment thread')
 taskComments
   .command('list <identifier>')
-  .description('List the full task comment thread')
-  .action(wrap(id => taskCommentList(id as string)))
+  .description(
+    'List the task comment thread (capped to the output budget; --full prints every comment)'
+  )
+  .option('--full', 'Print every comment, bypassing the output-token cap')
+  .action(
+    wrap((id, opts) =>
+      taskCommentList(id as string, opts as { full?: boolean })
+    )
+  )
 
 const taskDeps = task
   .command('deps')

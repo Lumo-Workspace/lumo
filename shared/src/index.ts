@@ -141,3 +141,14 @@ export {
   isValidEvidencePointer,
   buildCmdEvidencePointer,
 } from './acceptance-evidence'
+
+// ── Agent-facing CLI output-token budget (LUM-428) ───────────────────────────
+export {
+  estimateTokens,
+  OUTPUT_TOKEN_BUDGET,
+  truncateUnitsToBudget,
+  capRenderedOutput,
+  type CapResult,
+  type TruncateUnitsParams,
+  type CapTextOptions,
+} from './output-budget'

@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { formatDuration, relativeTime } from '../lib/format'
+import { capRenderedOutput } from '../../../shared/src/output-budget'
 
 interface TaskContextResponse {
   task: {
@@ -210,6 +211,16 @@ export function formatTaskContextMarkdown(
     lines.push('')
   }
 
-  return lines.join('\n')
+  // A memory-rich task with a long comment thread and many sessions is the
+  // single most context-hungry agent-facing command (LUM-428). Cap the
+  // assembled handoff to the output budget; the pointer routes the agent to the
+  // precise sub-commands to pull any dropped section just-in-time.
+  const id = data.task.identifier
+  return capRenderedOutput(lines.join('\n'), {
+    fetchHint:
+      `pull the dropped sections individually: lumo task status ${id} · ` +
+      `lumo task comments list ${id} --full · lumo task lineage ${id} · ` +
+      `lumo doc show <doc>`,
+    unitNoun: 'lines',
+  }).text
 }
-

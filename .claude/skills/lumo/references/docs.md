@@ -139,6 +139,8 @@ lumo doc show cmd_xxx --section "D 状态表" > sec.md  # one section only (revi
 
 Note: the markdown rendered by **default-mode** `doc show` is still best-effort (tables flatten). Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT a no-op — use `--raw` as the edit base instead.
 
+Output budget (LUM-428): **default-mode** `doc show` caps the rendered body to the output-token budget (25,000 tokens) and, when truncated, ends in a pointer to `--section "<heading>"` (just-in-time slice) / `--raw` (full source). `--raw` and `--section` are **never** capped — they are byte-faithful edit bases.
+
 **`--section <heading>` (LUM-409)** prints just one heading-addressed section of the markdown source — a byte-faithful slice from the heading line through (not including) the next same-or-higher-level heading, subsections included. No header on stdout (the slice is a legal `doc patch` base); the current revision is printed to **stderr** as `Revision: N`. Mutually exclusive with `--raw`.
 
 - Section addressing: pass the heading text (`--section "D 状态表"`), case-insensitive fallback after an exact pass. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`).
