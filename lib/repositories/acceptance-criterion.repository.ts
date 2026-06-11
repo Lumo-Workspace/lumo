@@ -44,6 +44,7 @@ const criterionSelect = {
   addedAtRound: true,
   createdAt: true,
   updatedAt: true,
+  deletedAt: true,
 } satisfies Prisma.AcceptanceCriterionSelect
 
 /**
@@ -116,8 +117,28 @@ export const acceptanceCriterionRepository = {
     })
   },
 
-  /** A task's contract, oldest first (draft order, then later additions). */
+  /** A task's contract, oldest first (draft order, then later additions).
+   * Soft-deleted (tombstoned) rows are excluded — use listByTaskIncludingDeleted
+   * for the status read model's "Removed" section or audit views. */
   async listByTask(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<AcceptanceCriterionRow[]> {
+    const client = tx ?? prisma
+    const rows = await client.acceptanceCriterion.findMany({
+      where: { taskId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: criterionSelect,
+    })
+    return rows as AcceptanceCriterionRow[]
+  },
+
+  /**
+   * A task's full criterion history — active + tombstoned — oldest first.
+   * Used by the status read model's "Removed" section and audit views where
+   * the verdict→criterion chain must remain visible after soft-deletion.
+   */
+  async listByTaskIncludingDeleted(
     taskId: string,
     tx?: Prisma.TransactionClient
   ): Promise<AcceptanceCriterionRow[]> {
@@ -142,10 +163,13 @@ export const acceptanceCriterionRepository = {
     return row as AcceptanceCriterionRow | null
   },
 
-  /** Criterion count for the 3–7 soft-cap check (service-layer warning). */
+  /** Criterion count for the 3–7 soft-cap check (service-layer warning).
+   * Counts only active rows — soft-deleted tombstones are excluded. */
   async countByTask(taskId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
-    return client.acceptanceCriterion.count({ where: { taskId } })
+    return client.acceptanceCriterion.count({
+      where: { taskId, deletedAt: null },
+    })
   },
 
   async update(
@@ -158,6 +182,21 @@ export const acceptanceCriterionRepository = {
       where: { id },
       data: patch,
       select: criterionSelect,
+    })
+  },
+
+  /**
+   * Soft-delete: stamps deletedAt on the row, keeping it (and its
+   * VerificationRun rows) intact so the verdict→criterion audit chain
+   * survives. Use for run-bearing criteria. Run-free criteria may use the
+   * hard `delete` method below.
+   */
+  async softDelete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.acceptanceCriterion.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+      select: { id: true },
     })
   },
 
