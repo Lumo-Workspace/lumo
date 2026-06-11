@@ -51,15 +51,12 @@ describe('criteriaSetBodySchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects AGENT_DRAFT items carrying an id (drafts are create-only)', () => {
+  it('accepts AGENT_DRAFT items with an id (LUM-437: after-start edits use ids for identity-preserving diff)', () => {
     const result = criteriaSetBodySchema.safeParse({
       source: 'AGENT_DRAFT',
       criteria: [{ ...humanItem, id: 'c-1' }],
     })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.error.issues[0]!.path).toEqual(['criteria', 0, 'id'])
-    }
+    expect(result.success).toBe(true)
   })
 
   it('accepts HUMAN_EDIT items with and without ids', () => {
@@ -78,7 +75,10 @@ describe('criteriaSetBodySchema', () => {
     expect(
       criteriaSetBodySchema.safeParse({
         source: 'AGENT_DRAFT',
-        criteria: Array.from({ length: CRITERIA_SET_HARD_MAX + 1 }, () => humanItem),
+        criteria: Array.from(
+          { length: CRITERIA_SET_HARD_MAX + 1 },
+          () => humanItem
+        ),
       }).success
     ).toBe(false)
   })
@@ -90,5 +90,23 @@ describe('criteriaSetBodySchema', () => {
         criteria: [humanItem],
       }).success
     ).toBe(false)
+  })
+})
+
+describe('criteriaSetBodySchema AGENT_DRAFT ids (LUM-437)', () => {
+  it('AGENT_DRAFT items may carry an id', () => {
+    const r = criteriaSetBodySchema.safeParse({
+      source: 'AGENT_DRAFT',
+      criteria: [{ id: 'abc', statement: 'x', verifierType: 'HUMAN' }],
+    })
+    expect(r.success).toBe(true)
+  })
+  it('AGENT_DRAFT still rejects causeTag', () => {
+    const r = criteriaSetBodySchema.safeParse({
+      source: 'AGENT_DRAFT',
+      criteria: [{ statement: 'x', verifierType: 'HUMAN' }],
+      causeTag: 'NEW_INFO',
+    })
+    expect(r.success).toBe(false)
   })
 })

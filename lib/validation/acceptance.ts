@@ -80,8 +80,10 @@ export type AcceptanceCriterionInput = z.infer<
  * One item of a whole-contract submission (`lumo task criteria set`). Unlike
  * acceptanceCriterionInputSchema it carries NO source/addedAtRound — the
  * server decides provenance from the submission mode. `id` references an
- * existing criterion to keep/update and is only meaningful for HUMAN_EDIT
- * revisions (the body-level schema rejects it on drafts).
+ * existing criterion to keep/update; originally only meaningful for HUMAN_EDIT
+ * revisions, but as of LUM-437 it is also honored for after-start AGENT_DRAFT
+ * edits (identity-preserving diff). The service decides semantics: first-TODO
+ * AGENT_DRAFT ignores ids and full-replaces; after-start AGENT_DRAFT uses them.
  */
 export const criteriaSetItemSchema = z
   .object({
@@ -135,16 +137,6 @@ export const criteriaSetBodySchema = z
   .strict()
   .superRefine((body, ctx) => {
     if (body.source === 'AGENT_DRAFT') {
-      body.criteria.forEach((c, i) => {
-        if (c.id !== undefined) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['criteria', i, 'id'],
-            message:
-              'AGENT_DRAFT items cannot reference existing criteria ids — the draft is create-only',
-          })
-        }
-      })
       if (body.causeTag !== undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
