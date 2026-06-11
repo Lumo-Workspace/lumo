@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Подтвердить возврат",
   "acceptance.verdict.notePlaceholder": "Почему возвращено? (необязательно)",
   "acceptance.verdict.override": "Переопределить",
-  "acceptance.verdict.allLabel": "Весь контракт:"
+  "acceptance.verdict.allLabel": "Весь контракт:",
+  "workspaceSettings.verification": "Проверка",
+  "workspaceSettings.verification.description": "Укажите, сколько раундов машинной проверки может пройти задача, прежде чем она будет передана человеку. Проверка человеком никогда не ограничивается этим параметром.",
+  "workspaceSettings.verification.maxRounds": "Макс. машинных раундов",
+  "workspaceSettings.verificationUpdated": "Настройки проверки обновлены",
+  "workspaceSettings.verificationUpdateFailed": "Не удалось обновить настройки проверки"
 }

@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "वापसी की पुष्टि करें",
   "acceptance.verdict.notePlaceholder": "इसे वापस क्यों भेजा गया? (वैकल्पिक)",
   "acceptance.verdict.override": "ओवरराइड",
-  "acceptance.verdict.allLabel": "पूरा अनुबंध:"
+  "acceptance.verdict.allLabel": "पूरा अनुबंध:",
+  "workspaceSettings.verification": "सत्यापन",
+  "workspaceSettings.verification.description": "तय करें कि किसी कार्य को किसी व्यक्ति तक पहुँचाने से पहले कितने मशीन सत्यापन चक्र चल सकते हैं। मानव समीक्षा इससे कभी सीमित नहीं होती।",
+  "workspaceSettings.verification.maxRounds": "अधिकतम मशीन चक्र",
+  "workspaceSettings.verificationUpdated": "सत्यापन सेटिंग्स अपडेट की गईं",
+  "workspaceSettings.verificationUpdateFailed": "सत्यापन सेटिंग्स अपडेट करने में विफल"
 }

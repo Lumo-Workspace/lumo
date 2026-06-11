@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "確認退回",
   "acceptance.verdict.notePlaceholder": "為什麼退回?(選填)",
   "acceptance.verdict.override": "覆寫",
-  "acceptance.verdict.allLabel": "整份合約:"
+  "acceptance.verdict.allLabel": "整份合約:",
+  "workspaceSettings.verification": "機器驗收",
+  "workspaceSettings.verification.description": "設定任務在升級給人工前可執行的機器驗收輪數上限。人工複核不受此限制。",
+  "workspaceSettings.verification.maxRounds": "機器驗收輪數上限",
+  "workspaceSettings.verificationUpdated": "驗收設定已更新",
+  "workspaceSettings.verificationUpdateFailed": "驗收設定更新失敗"
 }

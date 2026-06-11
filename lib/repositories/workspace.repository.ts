@@ -23,6 +23,7 @@ export interface WorkspaceUpdateData {
   riskAgentFailRatio?: number
   riskStalePrDays?: number
   riskThroughputDrop?: number
+  verificationMaxRounds?: number
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -85,6 +86,16 @@ export const workspaceRepository = {
   /** Find full workspace row by ID. */
   async findById(id: string) {
     return prisma.workspace.findUnique({ where: { id } })
+  },
+
+  /** Read just the machine-verification round cap (LUM-429). Null when the
+   *  workspace is missing so callers can fall back to the default. */
+  async findVerificationMaxRounds(id: string) {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { verificationMaxRounds: true },
+    })
+    return row?.verificationMaxRounds ?? null
   },
 
   /** Find workspace name and slug by ID. */

@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Confirmer le renvoi",
   "acceptance.verdict.notePlaceholder": "Pourquoi ce renvoi ? (facultatif)",
   "acceptance.verdict.override": "Remplacer",
-  "acceptance.verdict.allLabel": "Contrat entier :"
+  "acceptance.verdict.allLabel": "Contrat entier :",
+  "workspaceSettings.verification": "Vérification",
+  "workspaceSettings.verification.description": "Définissez le nombre de cycles de vérification automatique qu'une tâche peut effectuer avant d'être transmise à une personne. La revue humaine n'est jamais limitée par ce paramètre.",
+  "workspaceSettings.verification.maxRounds": "Cycles automatiques max.",
+  "workspaceSettings.verificationUpdated": "Paramètres de vérification mis à jour",
+  "workspaceSettings.verificationUpdateFailed": "Échec de la mise à jour des paramètres de vérification"
 }

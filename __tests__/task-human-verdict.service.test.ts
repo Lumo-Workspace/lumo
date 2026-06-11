@@ -650,3 +650,37 @@ describe('per-criterion verdict status recompute', () => {
     expect(createMany.mock.calls[0]![0]).toHaveLength(3)
   })
 })
+
+// LUM-429 RED LINE: the configurable machine-round cap governs ONLY the
+// machine loop. A human verdict records at round = max with no cap check, so
+// it succeeds even when the workspace's machine-round cap is already exhausted.
+describe('human path ignores the configured cap', () => {
+  it('records a human verdict at round = max even past any machine cap, with no 409', async () => {
+    // Far beyond any configurable cap (1..10): the machine loop would have
+    // refused with 409, the human path must not.
+    maxRound.mockResolvedValue(9)
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    expect(out.round).toBe(9) // round = max, never incremented, never capped
+    const rows = createMany.mock.calls[0]![0]
+    expect(rows).toHaveLength(3)
+    for (const row of rows) {
+      expect(row.round).toBe(9)
+      expect(row.verifierType).toBe('HUMAN')
+    }
+  })
+
+  it('a human FAIL also records past the cap (no cap-derived 409)', async () => {
+    maxRound.mockResolvedValue(9)
+    await expect(
+      taskHumanVerdictService.recordHumanVerdict(
+        't-1',
+        { verdict: 'FAIL', note: 'needs another look' },
+        ATTR
+      )
+    ).resolves.toMatchObject({ round: 9 })
+  })
+})

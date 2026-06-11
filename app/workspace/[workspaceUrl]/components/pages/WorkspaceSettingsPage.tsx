@@ -37,7 +37,10 @@ interface Workspace {
   riskAgentFailRatio?: number
   riskStalePrDays?: number
   riskThroughputDrop?: number
+  verificationMaxRounds?: number
 }
+
+const DEFAULT_VERIFICATION_MAX_ROUNDS = 3
 
 const DEFAULT_RISK = {
   riskOverdueRatio: 0.25,
@@ -96,6 +99,12 @@ export function WorkspaceSettingsPage() {
   const [riskForm, setRiskForm] = useState(DEFAULT_RISK)
   const [savingRisk, setSavingRisk] = useState(false)
 
+  // Machine verification round cap (LUM-429)
+  const [verificationMaxRounds, setVerificationMaxRounds] = useState(
+    DEFAULT_VERIFICATION_MAX_ROUNDS
+  )
+  const [savingVerification, setSavingVerification] = useState(false)
+
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
     const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
@@ -148,6 +157,9 @@ export function WorkspaceSettingsPage() {
         riskThroughputDrop:
           data.workspace.riskThroughputDrop ?? DEFAULT_RISK.riskThroughputDrop,
       })
+      setVerificationMaxRounds(
+        data.workspace.verificationMaxRounds ?? DEFAULT_VERIFICATION_MAX_ROUNDS
+      )
 
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
@@ -285,6 +297,30 @@ export function WorkspaceSettingsPage() {
   }
 
   const handleRestoreRiskDefaults = () => setRiskForm(DEFAULT_RISK)
+
+  // ─── Save machine verification round cap (LUM-429) ───────────────────────
+  const handleSaveVerificationCap = async () => {
+    if (!assertOwner()) return
+    setSavingVerification(true)
+    try {
+      await workspacesClient.updateMe<{ workspace: Workspace }>({
+        verificationMaxRounds,
+      })
+      toast.success(
+        intl.formatMessage({ id: 'workspaceSettings.verificationUpdated' })
+      )
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({
+              id: 'workspaceSettings.verificationUpdateFailed',
+            })
+      )
+    } finally {
+      setSavingVerification(false)
+    }
+  }
 
   // ─── Delete workspace ─────────────────────────────────────────────────────
   const handleDelete = async () => {
@@ -439,9 +475,7 @@ export function WorkspaceSettingsPage() {
                 onClick={() => setSummaryEnabled(v => !v)}
                 disabled={savingSummary}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-                  summaryEnabled
-                    ? 'bg-primary'
-                    : 'bg-input'
+                  summaryEnabled ? 'bg-primary' : 'bg-input'
                 }`}
               >
                 <span
@@ -627,6 +661,57 @@ export function WorkspaceSettingsPage() {
                 disabled={savingRisk}
               >
                 {savingRisk
+                  ? intl.formatMessage({ id: 'common.saving' })
+                  : intl.formatMessage({ id: 'common.save' })}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Machine verification round cap (LUM-429) */}
+        {isOwner && (
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <div className='px-5 py-3 border-b border-border'>
+              <p className='text-sm font-semibold text-foreground'>
+                {intl.formatMessage({ id: 'workspaceSettings.verification' })}
+              </p>
+              <p className='text-xs text-muted-foreground mt-0.5'>
+                {intl.formatMessage({
+                  id: 'workspaceSettings.verification.description',
+                })}
+              </p>
+            </div>
+
+            <div className='flex items-center justify-between gap-4 px-5 py-3 border-b border-border'>
+              <label className='text-sm font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'workspaceSettings.verification.maxRounds',
+                })}
+              </label>
+              <input
+                type='number'
+                min={1}
+                max={10}
+                step={1}
+                value={verificationMaxRounds}
+                onChange={e => {
+                  const parsed = parseInt(e.target.value, 10)
+                  setVerificationMaxRounds(prev =>
+                    isNaN(parsed) ? prev : parsed
+                  )
+                }}
+                disabled={savingVerification}
+                className='w-24 h-8 rounded-md border border-border bg-transparent px-2 text-sm text-right text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50'
+              />
+            </div>
+
+            <div className='flex justify-end px-5 py-4'>
+              <Button
+                size='sm'
+                onClick={handleSaveVerificationCap}
+                disabled={savingVerification}
+              >
+                {savingVerification
                   ? intl.formatMessage({ id: 'common.saving' })
                   : intl.formatMessage({ id: 'common.save' })}
               </Button>

@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Sahkan hantar semula",
   "acceptance.verdict.notePlaceholder": "Mengapa dihantar semula? (pilihan)",
   "acceptance.verdict.override": "Tindih",
-  "acceptance.verdict.allLabel": "Seluruh kontrak:"
+  "acceptance.verdict.allLabel": "Seluruh kontrak:",
+  "workspaceSettings.verification": "Pengesahan",
+  "workspaceSettings.verification.description": "Tetapkan bilangan pusingan pengesahan mesin yang boleh dijalankan oleh sesuatu tugas sebelum dinaikkan kepada manusia. Semakan manusia tidak pernah dihadkan oleh ini.",
+  "workspaceSettings.verification.maxRounds": "Maks. pusingan mesin",
+  "workspaceSettings.verificationUpdated": "Tetapan pengesahan dikemas kini",
+  "workspaceSettings.verificationUpdateFailed": "Gagal mengemas kini tetapan pengesahan"
 }

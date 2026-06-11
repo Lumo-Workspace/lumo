@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
   verificationRunRepository,
@@ -16,10 +17,14 @@ import { sanitizeField } from '@/lib/utils/sanitize'
 import type { MachineVerdictInput } from '@/lib/validation/acceptance'
 
 /**
- * Hard ceiling on machine verification rounds (milestone spec). Round 1..3
- * may record; a round-3 outcome that still fails escalates to a human, and
- * any later machine round is refused. Derived state only — the task carries
- * no round column (milestone rule 8).
+ * Default ceiling on machine verification rounds (milestone spec). The
+ * effective cap is now per-workspace (Workspace.verificationMaxRounds, LUM-429)
+ * and this constant is the fallback when a workspace has no value / can't be
+ * resolved — so an unconfigured workspace behaves exactly as before: rounds
+ * 1..3 may record, a round-3 fail escalates to a human, and any later machine
+ * round is refused. Derived state only — the task carries no round column
+ * (milestone rule 8). The cap governs ONLY the machine loop; a human
+ * adjudication (recordHumanVerdict) is never bounded by it.
  */
 export const VERIFICATION_MAX_ROUNDS = 3
 
@@ -217,12 +222,18 @@ export const taskVerificationService = {
       )
     }
 
+    // Effective cap is per-workspace (LUM-429); fall back to the default when
+    // unconfigured / unresolvable so behavior is unchanged for old workspaces.
+    const maxRounds =
+      (await workspaceRepository.findVerificationMaxRounds(workspaceId)) ??
+      VERIFICATION_MAX_ROUNDS
+
     const currentRound =
       (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
-    if (currentRound >= VERIFICATION_MAX_ROUNDS) {
+    if (currentRound >= maxRounds) {
       throw Object.assign(
         new Error(
-          `Machine verification is capped at ${VERIFICATION_MAX_ROUNDS} rounds and this task has used them — it has been escalated to a human; stop and wait for their adjudication`
+          `Machine verification is capped at ${maxRounds} rounds and this task has used them — it has been escalated to a human; stop and wait for their adjudication`
         ),
         { status: 409 }
       )
@@ -259,7 +270,8 @@ export const taskVerificationService = {
         verdict: r.verdict,
         evidencePointer: r.evidencePointer,
         rejectionReason: r.rejectionReason,
-        rejectionReasonEnum: rejectionEnumByCriterion.get(r.criterionId) ?? null,
+        rejectionReasonEnum:
+          rejectionEnumByCriterion.get(r.criterionId) ?? null,
       }))
       await verificationRunRepository.createMany(rows, tx)
 
@@ -319,7 +331,7 @@ export const taskVerificationService = {
       }
       return {
         round,
-        maxRounds: VERIFICATION_MAX_ROUNDS,
+        maxRounds,
         allPassed: true,
         escalated: false,
         taskStatus,
@@ -330,7 +342,7 @@ export const taskVerificationService = {
 
     // FAIL round: status untouched (stays wherever it was, typically
     // IN_PROGRESS); unmet criteria become the agent's next actions.
-    const escalate = round >= VERIFICATION_MAX_ROUNDS
+    const escalate = round >= maxRounds
     if (escalate) {
       // Synchronous like the mirror events — the escalation must exist the
       // moment the cap is hit. triggerActorId stays null: the escalation is
@@ -342,7 +354,7 @@ export const taskVerificationService = {
         type: 'VERIFICATION_ESCALATED',
         payload: {
           round,
-          maxRounds: VERIFICATION_MAX_ROUNDS,
+          maxRounds,
           failedCriterionIds: failed.map(r => r.criterionId),
         },
       })
@@ -359,7 +371,7 @@ export const taskVerificationService = {
 
     return {
       round,
-      maxRounds: VERIFICATION_MAX_ROUNDS,
+      maxRounds,
       allPassed: false,
       escalated: escalate,
       taskStatus: currentStatus?.status ?? 'IN_PROGRESS',
@@ -390,6 +402,12 @@ export const taskVerificationService = {
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
     }
+
+    // Effective cap is the task's workspace setting (LUM-429), falling back to
+    // the default for older / unconfigured workspaces.
+    const maxRounds =
+      header.project?.workspace?.verificationMaxRounds ??
+      VERIFICATION_MAX_ROUNDS
 
     // listByTask is ordered (round asc, createdAt asc) → last write per
     // criterion is its latest verdict, same contract as latestRunsByCriterion.
@@ -446,9 +464,8 @@ export const taskVerificationService = {
         status: header.status,
       },
       currentRound,
-      maxRounds: VERIFICATION_MAX_ROUNDS,
-      escalated:
-        currentRound >= VERIFICATION_MAX_ROUNDS && lastRoundFailures.length > 0,
+      maxRounds,
+      escalated: currentRound >= maxRounds && lastRoundFailures.length > 0,
       criteria: criteria.map(c => {
         const latest = latestByCriterion.get(c.id)
         return {

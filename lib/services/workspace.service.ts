@@ -15,6 +15,7 @@ export interface UpdateWorkspaceInput {
   riskAgentFailRatio?: number | undefined
   riskStalePrDays?: number | undefined
   riskThroughputDrop?: number | undefined
+  verificationMaxRounds?: number | undefined
 }
 
 // ── Workspace Service ───────────────────────────────────────────────────────
@@ -83,6 +84,8 @@ export const workspaceService = {
       data.riskStalePrDays = input.riskStalePrDays
     if (input.riskThroughputDrop !== undefined)
       data.riskThroughputDrop = input.riskThroughputDrop
+    if (input.verificationMaxRounds !== undefined)
+      data.verificationMaxRounds = input.verificationMaxRounds
 
     return workspaceRepository.update(workspaceId, data)
   },
