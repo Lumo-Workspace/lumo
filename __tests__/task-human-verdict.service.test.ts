@@ -14,6 +14,10 @@ import {
   createTask,
   createFromAutomation,
 } from '@/lib/services/task-creation.service'
+import {
+  postSendBackComment,
+  summarizeSendBackNote,
+} from '@/lib/services/sendback-comment.service'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
@@ -47,6 +51,10 @@ jest.mock('@/lib/services/task-creation.service', () => ({
   createTask: jest.fn(),
   createFromAutomation: jest.fn(),
 }))
+jest.mock('@/lib/services/sendback-comment.service', () => ({
+  postSendBackComment: jest.fn(),
+  summarizeSendBackNote: jest.fn(),
+}))
 
 const TX = { __tx: true }
 jest.mock('@/lib/db/prisma', () => ({
@@ -64,6 +72,8 @@ const getDetail = taskService.getTaskDetail as jest.Mock
 const updateWithSideEffects = taskService.updateTaskWithSideEffects as jest.Mock
 const createTaskMock = createTask as jest.Mock
 const createFromAutomationMock = createFromAutomation as jest.Mock
+const postComment = postSendBackComment as jest.Mock
+const summarize = summarizeSendBackNote as jest.Mock
 
 const ATTR = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
 
@@ -119,19 +129,35 @@ beforeEach(() => {
   getDetail.mockResolvedValue({ ...DETAIL })
   updateWithSideEffects.mockResolvedValue({})
   createTaskMock.mockResolvedValue({
-    task: { id: 't-fu', number: 43, title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing` },
+    task: {
+      id: 't-fu',
+      number: 43,
+      title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing`,
+    },
     taskTags: [],
   })
   createFromAutomationMock.mockResolvedValue({
-    task: { id: 't-fu', number: 43, title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing` },
+    task: {
+      id: 't-fu',
+      number: 43,
+      title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing`,
+    },
   })
+  postComment.mockResolvedValue('comment-1')
+  summarize.mockImplementation((n: string | null | undefined) =>
+    n ? 'the send-back summary' : null
+  )
 })
 
 describe('contract guard', () => {
   it('400 when the task has no acceptance criteria at all', async () => {
     listCriteria.mockResolvedValue([])
     await expect(
-      taskHumanVerdictService.recordHumanVerdict('t-1', { verdict: 'PASS' }, ATTR)
+      taskHumanVerdictService.recordHumanVerdict(
+        't-1',
+        { verdict: 'PASS' },
+        ATTR
+      )
     ).rejects.toMatchObject({ status: 400 })
     expect(createMany).not.toHaveBeenCalled()
   })
@@ -171,10 +197,10 @@ describe('round stamping & fan-out', () => {
     expect(out.round).toBe(1)
   })
 
-  it('mirrors every fan-out row as VERIFICATION_RUN_RECORDED in the same transaction, discriminated verifierType HUMAN', async () => {
+  it('mirrors every fan-out row as VERIFICATION_RUN_RECORDED with null enum + the send-back commentId (LUM-422)', async () => {
     await taskHumanVerdictService.recordHumanVerdict(
       't-1',
-      { verdict: 'FAIL', rejectionReasonEnum: 'SCOPE_MISMATCH', note: 'wrong scope' },
+      { verdict: 'FAIL', note: 'wrong scope' },
       ATTR
     )
     const mirrors = createActivity.mock.calls.filter(
@@ -187,7 +213,8 @@ describe('round stamping & fan-out', () => {
         round: 2,
         verdict: 'FAIL',
         verifierType: 'HUMAN',
-        rejectionReasonEnum: 'SCOPE_MISMATCH',
+        rejectionReasonEnum: null,
+        commentId: 'comment-1',
       })
     }
   })
@@ -196,7 +223,7 @@ describe('round stamping & fan-out', () => {
     maxRound.mockResolvedValue(3)
     await taskHumanVerdictService.recordHumanVerdict(
       't-1',
-      { verdict: 'FAIL', rejectionReasonEnum: 'CRITERION_UNMET' },
+      { verdict: 'FAIL' },
       ATTR
     )
     const humanRows = createMany.mock.calls[0]![0]
@@ -219,57 +246,78 @@ describe('round stamping & fan-out', () => {
 })
 
 describe('FAIL semantics', () => {
-  it('schema: FAIL without rejectionReasonEnum is rejected; smuggled fields are rejected', () => {
+  it('schema (LUM-422 de-enumeration): no rejection-reason enum; a bare FAIL or a noted FAIL is valid', () => {
+    // De-enumerated: a bare send-back is valid, and there is NO enum field —
+    // smuggling one is now a strict-reject (along with verifierType).
     expect(humanVerdictBodySchema.safeParse({ verdict: 'FAIL' }).success).toBe(
-      false
+      true
     )
     expect(
       humanVerdictBodySchema.safeParse({
         verdict: 'FAIL',
-        rejectionReasonEnum: 'CRITERION_UNMET',
-        verifierType: 'MACHINE',
-      }).success
-    ).toBe(false)
-    expect(
-      humanVerdictBodySchema.safeParse({
-        verdict: 'FAIL',
-        rejectionReasonEnum: 'CRITERION_UNMET',
         note: 'missing the retry path',
       }).success
     ).toBe(true)
-    // The enum is FAIL vocabulary; a pass can't carry it.
     expect(
       humanVerdictBodySchema.safeParse({
-        verdict: 'PASS',
-        rejectionReasonEnum: 'OTHER',
+        verdict: 'FAIL',
+        rejectionReasonEnum: 'CRITERION_UNMET',
       }).success
     ).toBe(false)
     expect(
-      humanVerdictBodySchema.safeParse({ verdict: 'PASS', note: 'nice' }).success
+      humanVerdictBodySchema.safeParse({
+        verdict: 'FAIL',
+        verifierType: 'MACHINE',
+      }).success
+    ).toBe(false)
+    // A clean PASS still carries no note.
+    expect(
+      humanVerdictBodySchema.safeParse({ verdict: 'PASS', note: 'nice' })
+        .success
     ).toBe(false)
   })
 
-  it('control-char-sanitizes the note before storage (LUM-346 口径)', async () => {
-    await taskHumanVerdictService.recordHumanVerdict(
+  it('posts the FAIL note as a comment, stores a text summary, and links the commentId (LUM-422 ①)', async () => {
+    const out = await taskHumanVerdictService.recordHumanVerdict(
       't-1',
-      {
-        verdict: 'FAIL',
-        rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT',
-        note: 'bad \x1b[31mANSI\x1b[0m \x07output',
-      },
+      { verdict: 'FAIL', note: '<p>bad scope</p>' },
       ATTR
     )
+    expect(postComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't-1',
+        rawNote: '<p>bad scope</p>',
+        authorActorId: 'actor-1',
+        authorClerkId: 'clerk-1',
+      })
+    )
+    expect(out.commentId).toBe('comment-1')
     const rows = createMany.mock.calls[0]![0]
     for (const row of rows) {
-      expect(row.rejectionReason).toBe('bad [31mANSI[0m output')
-      expect(row.rejectionReasonEnum).toBe('EVIDENCE_INSUFFICIENT')
+      expect(row.rejectionReason).toBe('the send-back summary')
+      expect(row.rejectionReasonEnum).toBeNull()
+    }
+  })
+
+  it('records a bare send-back (no note) without a comment', async () => {
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'FAIL' },
+      ATTR
+    )
+    expect(postComment).not.toHaveBeenCalled()
+    expect(out.commentId).toBeNull()
+    const rows = createMany.mock.calls[0]![0]
+    for (const row of rows) {
+      expect(row.rejectionReason).toBeNull()
+      expect(row.rejectionReasonEnum).toBeNull()
     }
   })
 
   it('transitions the task back to IN_PROGRESS through the state machine', async () => {
     const out = await taskHumanVerdictService.recordHumanVerdict(
       't-1',
-      { verdict: 'FAIL', rejectionReasonEnum: 'CRITERION_UNMET', note: 'redo' },
+      { verdict: 'FAIL', note: 'redo' },
       ATTR
     )
     expect(updateWithSideEffects).toHaveBeenCalledWith(

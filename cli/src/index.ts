@@ -14,6 +14,11 @@ import { sessionStatus } from './commands/session-status'
 import { sessionWrap } from './commands/session-wrap'
 import { nextCommand } from './commands/next'
 import { verify } from './commands/verify'
+import {
+  verdict,
+  collectCriterion,
+  type VerdictOptions,
+} from './commands/verdict'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -247,6 +252,42 @@ program
   .action(
     wrap((task: unknown, options: unknown) =>
       verify(task as string | undefined, options as { timeout?: string })
+    )
+  )
+
+program
+  .command('verdict [task]')
+  .description(
+    'Acceptance verdict (LUM-422). --pass / --pass-with-followup open the browser to the human verdict bar focused on the passing action (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task.'
+  )
+  .option(
+    '--pass',
+    'Open the verdict bar focused on Pass (human one-click; no write)'
+  )
+  .option(
+    '--pass-with-followup',
+    'Open the verdict bar focused on Pass with follow-up (human one-click; no write)'
+  )
+  .option(
+    '--fail',
+    'Record an AGENT send-back (verdict FAIL) — requires --reason'
+  )
+  .option(
+    '--reason <enum>',
+    'Rejection reason for --fail: CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER (case-insensitive)'
+  )
+  .option(
+    '--note <text>',
+    'Optional send-back narrative, posted as a task comment'
+  )
+  .option(
+    '--criterion <id>',
+    'Narrow a --fail to specific criteria (repeatable); omitted = the whole contract',
+    collectCriterion
+  )
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      verdict(task as string | undefined, options as VerdictOptions)
     )
   )
 

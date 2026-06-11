@@ -21,11 +21,15 @@ import { render, waitFor } from '@testing-library/react'
 
 // ── Peripheral modules ──────────────────────────────────────────────────────
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ locale: 'en', formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    locale: 'en',
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
 }))
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 const mockGetById = jest.fn()
@@ -53,11 +57,18 @@ jest.mock(`@/app/workspace/[workspaceUrl]/hooks/useTaskComments`, () => ({
 
 // ── Other peripheral hooks ──────────────────────────────────────────────────
 jest.mock(`@/app/workspace/[workspaceUrl]/hooks/useCurrentUser`, () => ({
-  useCurrentUser: () => ({ user: { id: 'clerk_1' }, isLoaded: true, isSignedIn: true }),
+  useCurrentUser: () => ({
+    user: { id: 'clerk_1' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
 }))
-jest.mock(`@/app/workspace/[workspaceUrl]/hooks/useRealtimeNotifications`, () => ({
-  useRealtimeNotifications: () => ({ unreadCount: 0 }),
-}))
+jest.mock(
+  `@/app/workspace/[workspaceUrl]/hooks/useRealtimeNotifications`,
+  () => ({
+    useRealtimeNotifications: () => ({ unreadCount: 0 }),
+  })
+)
 jest.mock(`@/app/workspace/[workspaceUrl]/hooks/usePusher`, () => ({
   usePusherEvent: () => {},
 }))
@@ -120,13 +131,32 @@ jest.mock('@/components/ui/sidebar', () => ({
   SidebarInset: ({ children }: { children: React.ReactNode }) => children,
 }))
 jest.mock('@/components/ui/spinner', () => ({ Spinner: () => null }))
-jest.mock('@/components/ui/alert-dialog', () => new Proxy({}, { get: () => () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/Sidebar`, () => ({ AppSidebar: () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/DescriptionEditor`, () => ({ DescriptionEditor: () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/TaskDetailHeader`, () => ({ TaskDetailHeader: () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs`, () => ({ TimelineTabs: () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/TaskDetailSidebar`, () => ({ TaskDetailSidebar: () => null }))
-jest.mock(`@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup`, () => ({ SpecArtifactGroup: () => null }))
+jest.mock(
+  '@/components/ui/alert-dialog',
+  () => new Proxy({}, { get: () => () => null })
+)
+jest.mock(`@/app/workspace/[workspaceUrl]/components/Sidebar`, () => ({
+  AppSidebar: () => null,
+}))
+jest.mock(
+  `@/app/workspace/[workspaceUrl]/components/DescriptionEditor`,
+  () => ({ DescriptionEditor: () => null })
+)
+jest.mock(`@/app/workspace/[workspaceUrl]/components/TaskDetailHeader`, () => ({
+  TaskDetailHeader: () => null,
+}))
+jest.mock(
+  `@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs`,
+  () => ({ TimelineTabs: () => null })
+)
+jest.mock(
+  `@/app/workspace/[workspaceUrl]/components/TaskDetailSidebar`,
+  () => ({ TaskDetailSidebar: () => null })
+)
+jest.mock(
+  `@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup`,
+  () => ({ SpecArtifactGroup: () => null })
+)
 
 import { TaskDetailPage } from '@/app/workspace/[workspaceUrl]/components/pages/TaskDetailPage'
 

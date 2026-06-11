@@ -146,3 +146,51 @@ major; additive fields don't. Pin on `version` when scripting against it.
 `status` reads; `verify` judges. Running status never starts a round, never
 escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on
 all-pass, human-only DONE) live entirely in `lumo verify` and the server.
+
+## lumo verdict — the three verdict channels (LUM-422)
+
+`lumo verify` is the MACHINE channel. `lumo verdict` covers the other two — the
+HUMAN pass and the AGENT send-back — under one red line: **no passing data row
+is ever agent-produced.**
+
+```
+lumo verdict --pass
+lumo verdict LUM-42 --pass-with-followup
+lumo verdict --fail --reason CRITERION_UNMET --note "the retry path is still missing"
+lumo verdict LUM-42 --fail --reason scope_mismatch --criterion c-abc123
+```
+
+### --pass / --pass-with-followup — a deep link, never a write
+
+These resolve the task, then open the browser to its verdict bar focused on the
+passing action. **The CLI writes nothing** — PASS / PASS_WITH_FOLLOWUP only ever
+land from a human's own click (Clerk session). Use this to hand a finished task
+to a human for the final pass; it carries them one click from recording it.
+
+### --fail — the AGENT send-back
+
+`--fail --reason <enum>` records a real verdict row server-side with
+verifierType=AGENT (a channel distinct from MACHINE and HUMAN, so "machine
+all-pass but human FAIL" stays an uncontaminated signal). The verdict is
+hard-coded FAIL — there is no agent path to a passing verdict. It:
+
+- requires `--reason` (case-insensitive): `CRITERION_UNMET | EVIDENCE_INSUFFICIENT
+| CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER` — the agent pays the
+  structured tax a human send-back is spared;
+- takes an optional `--note`, posted as a task comment (@mentions and images for
+  free) and summarized onto the verdict row;
+- takes repeatable `--criterion <id>` to narrow the send-back; omitted, it fans
+  out to the whole contract;
+- records at round = the current max (not a new round) and bounces the task back
+  to IN_PROGRESS, with the unmet criteria surfacing through `lumo task status`.
+
+### The DONE gate
+
+Once any criterion's latest verdict is FAIL — machine, AGENT, or human — moving
+the task to DONE on the agent/CLI path is refused with **409** and the
+unresolved items listed. Clear the send-back (fix + re-verify, or a human PASS)
+before `lumo task update <id> --status done`. A task with no criteria, or whose
+criteria were never adjudicated, transitions freely — the gate only blocks an
+actual send-back, never an un-adjudicated criterion. When the machine loop has
+left a task IN_REVIEW with no send-back standing, the agent may move it to DONE
+directly; a human-PASS row is a provable manual override, not a required ticket.

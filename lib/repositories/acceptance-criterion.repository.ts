@@ -46,6 +46,23 @@ const criterionSelect = {
   updatedAt: true,
 } satisfies Prisma.AcceptanceCriterionSelect
 
+/**
+ * A criterion's verifier is MACHINE or HUMAN — never AGENT. AGENT is a verdict
+ * CHANNEL (who produced a verdict, LUM-422), not a way a criterion is checked;
+ * the validation layer refuses an AGENT-typed criterion and nothing persists
+ * one. The Prisma column shares the AcceptanceVerifierType enum (which gained
+ * AGENT for verdict rows), so criterion reads are narrowed back to the honest
+ * domain type here — read models stay MACHINE | HUMAN.
+ */
+export type CriterionVerifier = 'MACHINE' | 'HUMAN'
+
+type RawCriterionRow = Prisma.AcceptanceCriterionGetPayload<{
+  select: typeof criterionSelect
+}>
+export type AcceptanceCriterionRow = Omit<RawCriterionRow, 'verifierType'> & {
+  verifierType: CriterionVerifier
+}
+
 export const acceptanceCriterionRepository = {
   /**
    * Batch-insert criteria (the initial round-0 draft). No-op for an empty
@@ -68,7 +85,9 @@ export const acceptanceCriterionRepository = {
           ? { evidenceRequired: i.evidenceRequired }
           : {}),
         source: i.source,
-        ...(i.addedAtRound !== undefined ? { addedAtRound: i.addedAtRound } : {}),
+        ...(i.addedAtRound !== undefined
+          ? { addedAtRound: i.addedAtRound }
+          : {}),
       })),
     })
   },
@@ -98,21 +117,29 @@ export const acceptanceCriterionRepository = {
   },
 
   /** A task's contract, oldest first (draft order, then later additions). */
-  async listByTask(taskId: string, tx?: Prisma.TransactionClient) {
+  async listByTask(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<AcceptanceCriterionRow[]> {
     const client = tx ?? prisma
-    return client.acceptanceCriterion.findMany({
+    const rows = await client.acceptanceCriterion.findMany({
       where: { taskId },
       orderBy: { createdAt: 'asc' },
       select: criterionSelect,
     })
+    return rows as AcceptanceCriterionRow[]
   },
 
-  async findById(id: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<AcceptanceCriterionRow | null> {
     const client = tx ?? prisma
-    return client.acceptanceCriterion.findUnique({
+    const row = await client.acceptanceCriterion.findUnique({
       where: { id },
       select: criterionSelect,
     })
+    return row as AcceptanceCriterionRow | null
   },
 
   /** Criterion count for the 3–7 soft-cap check (service-layer warning). */

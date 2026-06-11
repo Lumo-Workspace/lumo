@@ -96,8 +96,29 @@ describe('POST /api/tasks/[id]/human-verdict', () => {
     ).toBe(false)
   })
 
-  it('400 on a FAIL body without rejectionReasonEnum', async () => {
+  it('LUM-422 ①: a bare FAIL (no rejection-reason enum) is now accepted', async () => {
+    mockRecord.mockResolvedValue({
+      round: 1,
+      verdict: 'FAIL',
+      taskStatus: 'IN_PROGRESS',
+      criterionIds: ['c-1'],
+      followUpTask: null,
+      commentId: null,
+    })
     const res = await POST(req({ verdict: 'FAIL' }), params)
+    expect(res.status).toBe(200)
+    expect(mockRecord).toHaveBeenCalledWith(
+      't-1',
+      { verdict: 'FAIL' },
+      expect.anything()
+    )
+  })
+
+  it('400 when a removed rejectionReasonEnum is smuggled in (strict schema)', async () => {
+    const res = await POST(
+      req({ verdict: 'FAIL', rejectionReasonEnum: 'OTHER' }),
+      params
+    )
     expect(res.status).toBe(400)
     expect(mockRecord).not.toHaveBeenCalled()
   })

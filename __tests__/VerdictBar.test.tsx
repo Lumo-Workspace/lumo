@@ -12,10 +12,38 @@ jest.mock('@/lib/api-client', () => ({
   tasksClient: { submitHumanVerdict: jest.fn() },
 }))
 
+// Deep link (LUM-422 ③): control the ?verdict= param per test. The variable
+// must be `mock`-prefixed to be referenced inside the jest.mock factory.
+let mockVerdictParam: string | null = null
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => ({
+    get: (k: string) => (k === 'verdict' ? mockVerdictParam : null),
+  }),
+}))
+
+// The FAIL note reuses the comment editor — mock it to a plain textarea that
+// surfaces its value through onCommit (LUM-422 ①).
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor',
+  () => ({
+    CommentEditor: ({
+      onCommit,
+    }: {
+      onCommit: (html: string | null) => void
+    }) => (
+      <textarea
+        data-testid='verdict-comment-editor'
+        onChange={e => onCommit(e.target.value)}
+      />
+    ),
+  })
+)
+
 const submit = tasksClient.submitHumanVerdict as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockVerdictParam = null
   submit.mockResolvedValue({
     taskStatus: 'DONE',
     verdict: 'PASS',
@@ -26,17 +54,27 @@ beforeEach(() => {
 describe('TaskVerdictBar', () => {
   it('renders nothing unless the task is IN_REVIEW', () => {
     const { rerender } = render(
-      <TaskVerdictBar taskId='t-1' status='IN_PROGRESS' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_PROGRESS'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
-
     rerender(
-      <TaskVerdictBar taskId='t-1' status='DONE' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='DONE'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
-
     rerender(
-      <TaskVerdictBar taskId='t-1' status='IN_REVIEW' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
     expect(screen.getByTestId('verdict-pass')).toBeInTheDocument()
@@ -44,10 +82,14 @@ describe('TaskVerdictBar', () => {
     expect(screen.getByTestId('verdict-fail')).toBeInTheDocument()
   })
 
-  it('PASS posts to the human-verdict endpoint and reports the new status', async () => {
+  it('PASS posts to the human-verdict endpoint with no enum and reports the new status', async () => {
     const onRecorded = jest.fn()
     render(
-      <TaskVerdictBar taskId='t-1' status='IN_REVIEW' onVerdictRecorded={onRecorded} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={onRecorded}
+      />
     )
     fireEvent.click(screen.getByTestId('verdict-pass'))
     await waitFor(() => expect(onRecorded).toHaveBeenCalled())
@@ -57,48 +99,80 @@ describe('TaskVerdictBar', () => {
     )
   })
 
-  it('FAIL requires picking a rejection reason before it can submit', async () => {
+  it('LUM-422 ①: the FAIL panel has NO rejection-reason selector', () => {
+    render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    fireEvent.click(screen.getByTestId('verdict-fail'))
+    expect(screen.queryByTestId('verdict-reason-select')).toBeNull()
+    // Confirm is enabled immediately — zero structural burden, no enum gate.
+    expect(screen.getByTestId('verdict-confirm')).not.toBeDisabled()
+  })
+
+  it('FAIL submits the editor note with no rejectionReasonEnum', async () => {
     submit.mockResolvedValue({
       taskStatus: 'IN_PROGRESS',
       verdict: 'FAIL',
       followUpTask: null,
     })
     render(
-      <TaskVerdictBar taskId='t-1' status='IN_REVIEW' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     fireEvent.click(screen.getByTestId('verdict-fail'))
-    const confirm = screen.getByTestId('verdict-confirm')
-    expect(confirm).toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('verdict-reason-select'), {
-      target: { value: 'SCOPE_MISMATCH' },
-    })
-    expect(confirm).not.toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('verdict-note'), {
+    fireEvent.change(screen.getByTestId('verdict-comment-editor'), {
       target: { value: 'not what we agreed' },
     })
-    fireEvent.click(confirm)
+    fireEvent.click(screen.getByTestId('verdict-confirm'))
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith('t-1', {
         verdict: 'FAIL',
-        rejectionReasonEnum: 'SCOPE_MISMATCH',
         note: 'not what we agreed',
       })
     )
   })
 
-  it('PASS_WITH_FOLLOWUP submits with the outstanding-items note and no reason enum', async () => {
+  it('FAIL with no note is a bare send-back (no note field sent)', async () => {
+    submit.mockResolvedValue({
+      taskStatus: 'IN_PROGRESS',
+      verdict: 'FAIL',
+      followUpTask: null,
+    })
+    render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    fireEvent.click(screen.getByTestId('verdict-fail'))
+    fireEvent.click(screen.getByTestId('verdict-confirm'))
+    await waitFor(() =>
+      expect(submit).toHaveBeenCalledWith('t-1', { verdict: 'FAIL' })
+    )
+  })
+
+  it('PASS_WITH_FOLLOWUP submits the outstanding-items note and no enum', async () => {
     submit.mockResolvedValue({
       taskStatus: 'DONE',
       verdict: 'PASS_WITH_FOLLOWUP',
       followUpTask: { id: 't-fu', number: 43, title: 'follow-up: x' },
     })
     render(
-      <TaskVerdictBar taskId='t-1' status='IN_REVIEW' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     fireEvent.click(screen.getByTestId('verdict-followup'))
-    // No reason picker on the follow-up panel; confirm is enabled right away.
     expect(screen.queryByTestId('verdict-reason-select')).toBeNull()
     fireEvent.change(screen.getByTestId('verdict-note'), {
       target: { value: 'docs still missing' },
@@ -112,10 +186,38 @@ describe('TaskVerdictBar', () => {
     )
   })
 
+  it('LUM-422 ③: a ?verdict=pass_with_followup deep link auto-opens the follow-up panel', () => {
+    mockVerdictParam = 'pass_with_followup'
+    render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-note')).toBeInTheDocument()
+  })
+
+  it('LUM-422 ③: a ?verdict=pass deep link focuses the Pass button', () => {
+    mockVerdictParam = 'pass'
+    render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-pass')).toHaveFocus()
+  })
+
   it('shows an inline error when the endpoint rejects', async () => {
     submit.mockRejectedValue(new Error('403'))
     render(
-      <TaskVerdictBar taskId='t-1' status='IN_REVIEW' onVerdictRecorded={jest.fn()} />
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        onVerdictRecorded={jest.fn()}
+      />
     )
     fireEvent.click(screen.getByTestId('verdict-pass'))
     await waitFor(() =>

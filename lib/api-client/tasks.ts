@@ -137,7 +137,8 @@ export const tasksClient = {
     taskId: string,
     data: {
       verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
-      rejectionReasonEnum?: string
+      // LUM-422 ① de-enumeration: no rejection-reason enum on the human path —
+      // a FAIL's `note` is the send-back reason (posted as a comment).
       note?: string
     }
   ) {

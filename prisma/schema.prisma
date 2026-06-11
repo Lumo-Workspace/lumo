@@ -1962,6 +1962,11 @@ model TaskForecastSnapshot {
 enum AcceptanceVerifierType {
   MACHINE
   HUMAN
+  // Agent-initiated send-back (LUM-422). FAIL-only — the agent input schema
+  // cannot express PASS/PASS_WITH_FOLLOWUP (red line: no passing data row is
+  // ever agent-produced). A separate channel from HUMAN so "machine all-pass
+  // but human FAIL" stays an uncontaminated Slice-3 signal.
+  AGENT
 }
 
 /// Provenance of a criterion — the key feedback-loop signal. AGENT_DRAFT =
