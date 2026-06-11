@@ -7,3 +7,10 @@ scripts/eval/memory/retrieve-vectors.fixture.json
 # output so re-running the acceptance checkpointer leaves a clean tree
 # (prettier pads the markdown tables; the generator writes them compact).
 scripts/analysis/lum392-cli-friction/REPORT-lum413.md
+
+# Live-doc authoritative markdown sources — hand/agent-maintained, edited
+# incrementally (Edit tool) and uploaded via `lumo doc update`. Prettier pads
+# markdown tables (re-aligns columns), which breaks the Edit tool's exact-match
+# and churns diffs. Keep these byte-stable so the compact-table convention holds
+# (LUM-412).
+docs/live-docs/
