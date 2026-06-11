@@ -2,6 +2,34 @@
 
 ## Document Management
 
+### Content channels: prefer stdin / `--content`
+
+`doc create` / `doc update` / `doc patch` / `doc append` all take the body from one of three mutually-exclusive channels. **For agent write-back, prefer stdin or `--content`** — pipe the markdown you already hold in memory, or pass it inline:
+
+```bash
+printf '%s' "$body" | lumo doc update cmd_xxx                                 # stdin — best for multi-line / generated content
+lumo doc append cmd_xxx --section "F 待办队列" --content "- [ ] 评估 XYZ 论文"   # --content — short inline edits
+```
+
+`--file` is the **fallback for content that already lives in an authoritative file on disk** (e.g. a repo-tracked `docs/live-docs/<file>.md` source you are editing). It is **not** the default channel: `--file` is sandboxed — the CLI rejects any path outside the current project directory or matching the sensitive-file denylist (`.env*`, keys, `credentials`, …), with no override. So feeding it generated content forces you to first write a scratch file _inside the repo_ just to pass it — an extra step that is the real-world friction that gets `--file` rejected. Pipe via stdin instead and skip the temp file; reach for `--file` only when the file _is_ the source of truth you're editing.
+
+### Markdown tables: keep them compact (no alignment padding)
+
+When you author or edit a markdown doc that contains tables (live-docs, registers, reports), write the cells **compact — one space around each pipe, no column-alignment padding**:
+
+```
+| col | meaning |
+| --- | --- |
+| a | first |
+```
+
+not the aligned form (`| col   | meaning |` padded so columns line up). Two reasons, both about local editability:
+
+- **prettier re-pads tables.** A compact table gets re-aligned and a padded one churns the diff on every prettier run — so repo-tracked live-doc sources under `docs/live-docs/` are in `.prettierignore` to stay byte-stable (see the live-docs README).
+- **the Edit tool's exact-match fails on padding.** Incremental edits match on exact cell text; alignment whitespace makes that match fragile (measured to fail). Compact cells edit reliably.
+
+This is a pure authoring convention — the server stores your markdown **byte-for-byte** (`sourceMarkdown`), so `doc show --raw` and `doc diff` stay byte-exact (LUM-408); there is **no** server-side table normalization to lean on. The structure guard (LUM-410) compares _rendered_ structure and is whitespace-insensitive, so compactness buys local editability, not a verify pass.
+
 ### `lumo doc create [title] [flags]` — create a new document
 
 Use this when the user wants to write a new document from the terminal. Title is positional and optional. When omitted, the doc title defaults to empty (server renders as "Untitled" via i18n).
