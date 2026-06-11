@@ -1,0 +1,7 @@
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+# LUM-405 context drift detector (non-blocking, always exits 0).
+# commit-msg is the stage where both the staged changeset and the commit
+# message ($1) are available — pre-commit/lint-staged runs before the message.
+npx tsx scripts/drift-check.ts "$1"
