@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Режим приёмки",
   "workspaceSettings.acceptanceMode.description": "Когда включено, агентам предлагается составить критерии приёмки перед началом задачи. Данные приёмки записываются всегда; это управляет только напоминанием.",
   "workspaceSettings.acceptanceModeUpdated": "Режим приёмки обновлён",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Не удалось обновить режим приёмки"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Не удалось обновить режим приёмки",
+  "settings.acceptance": "Приёмка",
+  "acceptanceSettings.title": "Приёмка"
 }

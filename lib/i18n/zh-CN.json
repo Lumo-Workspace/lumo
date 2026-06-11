@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "验收模式",
   "workspaceSettings.acceptanceMode.description": "开启后，会提醒 agent 在开始任务前先草拟验收标准。验收数据始终会被记录；此开关仅控制该提醒。",
   "workspaceSettings.acceptanceModeUpdated": "验收模式已更新",
-  "workspaceSettings.acceptanceModeUpdateFailed": "更新验收模式失败"
+  "workspaceSettings.acceptanceModeUpdateFailed": "更新验收模式失败",
+  "settings.acceptance": "验收",
+  "acceptanceSettings.title": "验收"
 }

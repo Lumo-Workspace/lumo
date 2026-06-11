@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Abnahmemodus",
   "workspaceSettings.acceptanceMode.description": "Wenn aktiviert, werden Agents aufgefordert, vor Beginn einer Aufgabe Abnahmekriterien zu entwerfen. Abnahmedaten werden immer erfasst; dies steuert nur die Erinnerung.",
   "workspaceSettings.acceptanceModeUpdated": "Abnahmemodus aktualisiert",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Abnahmemodus konnte nicht aktualisiert werden"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Abnahmemodus konnte nicht aktualisiert werden",
+  "settings.acceptance": "Abnahme",
+  "acceptanceSettings.title": "Abnahme"
 }

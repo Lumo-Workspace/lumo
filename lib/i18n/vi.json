@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Chế độ nghiệm thu",
   "workspaceSettings.acceptanceMode.description": "Khi bật, các tác nhân được nhắc soạn tiêu chí nghiệm thu trước khi bắt đầu một nhiệm vụ. Dữ liệu nghiệm thu luôn được ghi lại; tùy chọn này chỉ kiểm soát lời nhắc.",
   "workspaceSettings.acceptanceModeUpdated": "Đã cập nhật chế độ nghiệm thu",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Không thể cập nhật chế độ nghiệm thu"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Không thể cập nhật chế độ nghiệm thu",
+  "settings.acceptance": "Nghiệm thu",
+  "acceptanceSettings.title": "Nghiệm thu"
 }

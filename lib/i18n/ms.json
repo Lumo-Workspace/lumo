@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Mod penerimaan",
   "workspaceSettings.acceptanceMode.description": "Apabila dihidupkan, ejen digesa untuk merangka kriteria penerimaan sebelum memulakan tugas. Data penerimaan sentiasa direkodkan; ini hanya mengawal peringatan.",
   "workspaceSettings.acceptanceModeUpdated": "Mod penerimaan dikemas kini",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Gagal mengemas kini mod penerimaan"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Gagal mengemas kini mod penerimaan",
+  "settings.acceptance": "Penerimaan",
+  "acceptanceSettings.title": "Penerimaan"
 }

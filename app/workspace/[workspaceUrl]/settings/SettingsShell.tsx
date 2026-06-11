@@ -16,6 +16,7 @@ import {
   Tag,
   CalendarClock,
   Terminal,
+  ClipboardCheck,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -58,6 +59,11 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.nav.sprints' }),
       href: `/workspace/${workspaceUrl}/settings/sprints`,
       icon: CalendarClock,
+    },
+    {
+      label: intl.formatMessage({ id: 'settings.acceptance' }),
+      href: `/workspace/${workspaceUrl}/settings/acceptance`,
+      icon: ClipboardCheck,
     },
   ]
 

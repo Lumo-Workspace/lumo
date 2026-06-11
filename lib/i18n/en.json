@@ -39,6 +39,8 @@
   "settings.administration": "Administration",
   "settings.personal": "Personal",
   "settings.workspace": "Workspace",
+  "settings.acceptance": "Acceptance",
+  "acceptanceSettings.title": "Acceptance",
   "settings.members": "Members",
   "settings.integrations": "Integrations",
   "settings.tags": "Tags",

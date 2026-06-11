@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "受け入れモード",
   "workspaceSettings.acceptanceMode.description": "オンにすると、エージェントはタスクを開始する前に受け入れ基準を作成するよう促されます。受け入れデータは常に記録され、この設定はリマインダーのみを制御します。",
   "workspaceSettings.acceptanceModeUpdated": "受け入れモードを更新しました",
-  "workspaceSettings.acceptanceModeUpdateFailed": "受け入れモードの更新に失敗しました"
+  "workspaceSettings.acceptanceModeUpdateFailed": "受け入れモードの更新に失敗しました",
+  "settings.acceptance": "受け入れ",
+  "acceptanceSettings.title": "受け入れ"
 }

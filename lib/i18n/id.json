@@ -1558,5 +1558,7 @@
   "workspaceSettings.acceptanceMode": "Mode penerimaan",
   "workspaceSettings.acceptanceMode.description": "Saat aktif, agen diingatkan untuk menyusun kriteria penerimaan sebelum memulai tugas. Data penerimaan selalu dicatat; ini hanya mengontrol pengingat.",
   "workspaceSettings.acceptanceModeUpdated": "Mode penerimaan diperbarui",
-  "workspaceSettings.acceptanceModeUpdateFailed": "Gagal memperbarui mode penerimaan"
+  "workspaceSettings.acceptanceModeUpdateFailed": "Gagal memperbarui mode penerimaan",
+  "settings.acceptance": "Penerimaan",
+  "acceptanceSettings.title": "Penerimaan"
 }
