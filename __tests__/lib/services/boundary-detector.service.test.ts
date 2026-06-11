@@ -1,6 +1,7 @@
 import {
   detectCrossings,
   boundaryDetectorService,
+  isReversible,
 } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
@@ -168,6 +169,44 @@ describe('boundaryDetectorService.detectAndRecord', () => {
         }),
       })
     )
+  })
+
+  it('stamps reversibility from the taxonomy when recording (LUM-435)', async () => {
+    // Irreversible: a force-push to main cannot be taken back.
+    await boundaryDetectorService.detectAndRecord({
+      taskId: 't-1',
+      hookEventId: 'evt-1',
+      toolName: 'Bash',
+      filePath: null,
+      payload: bash('git push origin main --force'),
+    })
+    expect(createCrossing).toHaveBeenCalledWith(
+      expect.objectContaining({ reversible: false })
+    )
+
+    jest.clearAllMocks()
+    createCrossing.mockResolvedValue({ id: 'bc-2' })
+    createActivity.mockResolvedValue({ id: 'act-2' })
+
+    // Reversible: a dependency install can be undone (uninstall).
+    await boundaryDetectorService.detectAndRecord({
+      taskId: 't-1',
+      hookEventId: 'evt-2',
+      toolName: 'Bash',
+      filePath: null,
+      payload: bash('npm install date-fns'),
+    })
+    expect(createCrossing).toHaveBeenCalledWith(
+      expect.objectContaining({ reversible: true })
+    )
+  })
+
+  it('isReversible: only npm dependency installs are reversible', () => {
+    expect(isReversible('NEW_NPM_DEPENDENCY')).toBe(true)
+    expect(isReversible('PUSH_TO_PROTECTED_BRANCH')).toBe(false)
+    expect(isReversible('MIGRATION_FILE_DELETED')).toBe(false)
+    expect(isReversible('HARDCODED_SECRET')).toBe(false)
+    expect(isReversible('DESTRUCTIVE_DB_COMMAND')).toBe(false)
   })
 
   it('records nothing for an innocuous action', async () => {

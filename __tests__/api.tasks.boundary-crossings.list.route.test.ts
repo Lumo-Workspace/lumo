@@ -18,12 +18,12 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 jest.mock('@/lib/services/boundary-crossing.service', () => ({
-  boundaryCrossingService: { listOpen: jest.fn() },
+  boundaryCrossingService: { listAll: jest.fn() },
 }))
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockFind = taskRepository.findByWorkspaceIdentifier as jest.Mock
-const mockList = boundaryCrossingService.listOpen as jest.Mock
+const mockList = boundaryCrossingService.listAll as jest.Mock
 
 const IDENTITY = {
   clerkId: 'clerk-1',

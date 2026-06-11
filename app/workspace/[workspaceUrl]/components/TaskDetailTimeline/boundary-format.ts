@@ -40,3 +40,35 @@ export function boundaryCategoryLabel(
       return category.toLowerCase().replace(/_/g, ' ')
   }
 }
+
+/** Label for a disposition (LUM-435). */
+export function boundaryDispositionLabel(
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED',
+  intl: ReturnType<typeof useIntl>
+): string {
+  return disposition === 'FALSE_POSITIVE'
+    ? intl.formatMessage({
+        id: 'boundary.disposition.falsePositive',
+        defaultMessage: 'false positive',
+      })
+    : intl.formatMessage({
+        id: 'boundary.disposition.confirmed',
+        defaultMessage: 'confirmed',
+      })
+}
+
+/** Label for taxonomy-driven reversibility (LUM-435). */
+export function boundaryReversibilityLabel(
+  reversible: boolean,
+  intl: ReturnType<typeof useIntl>
+): string {
+  return reversible
+    ? intl.formatMessage({
+        id: 'boundary.reversible',
+        defaultMessage: 'reversible',
+      })
+    : intl.formatMessage({
+        id: 'boundary.irreversible',
+        defaultMessage: 'irreversible',
+      })
+}

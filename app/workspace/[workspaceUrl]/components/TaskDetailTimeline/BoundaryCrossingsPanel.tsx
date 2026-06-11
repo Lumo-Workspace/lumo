@@ -2,28 +2,53 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ShieldAlert, Lock, Check } from 'lucide-react'
+import {
+  ShieldAlert,
+  Lock,
+  Unlock,
+  FlagOff,
+  AlertTriangle,
+  CircleCheck,
+  Lightbulb,
+  Plus,
+  UserCheck,
+  ArrowRight,
+} from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
-import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
-import { boundaryCategoryLabel } from './boundary-format'
+import {
+  useBoundaryCrossings,
+  type BoundaryCrossingView,
+} from '../../hooks/useBoundaryCrossings'
+import type { WorkspaceMemberInfo } from '../../types'
+import {
+  boundaryCategoryLabel,
+  boundaryDispositionLabel,
+  boundaryReversibilityLabel,
+} from './boundary-format'
 
 interface BoundaryCrossingsPanelProps {
   taskIdentifier: string
   enabled: boolean
-  /** Refresh the acceptance banner after an acknowledgement clears the gate. */
-  onAcknowledged?: () => void
+  members?: WorkspaceMemberInfo[]
+  agentActors?: { actorId: string; name: string }[]
+  /** Refresh the acceptance banner after a disposition/remediation changes state. */
+  onChanged?: () => void
 }
 
 /**
- * AcceptanceTab panel listing a task's open (unacknowledged) forbidden-action
- * boundary-crossings (LUM-426, criterion 6). Renders nothing when none are
- * open — a clean task never sees it. Each row says which action, why it was
- * flagged, and offers the human-only Acknowledge that clears the DONE block.
+ * AcceptanceTab panel listing ALL of a task's forbidden-action boundary-
+ * crossings — open AND dispositioned (LUM-435, criterion 6). Renders nothing
+ * when the task has none. Open crossings block Done and offer the human-only
+ * disposition (false positive / confirm). Dispositioned crossings stay on
+ * record with reviewer + time; a confirmed one nudges (not forces) a remediation
+ * task and surfaces that task's live status. Reversibility is legible per row.
  */
 export function BoundaryCrossingsPanel({
   taskIdentifier,
   enabled,
-  onAcknowledged,
+  members = [],
+  agentActors = [],
+  onChanged,
 }: BoundaryCrossingsPanelProps) {
   const intl = useIntl()
   const { crossings, refresh } = useBoundaryCrossings({
@@ -31,18 +56,49 @@ export function BoundaryCrossingsPanel({
     enabled,
   })
   const [pending, setPending] = useState<string | null>(null)
+  const [notes, setNotes] = useState<Record<string, string>>({})
 
   if (crossings.length === 0) return null
 
-  const acknowledge = (crossingId: string) => {
+  const openCount = crossings.filter(c => c.disposition == null).length
+
+  const afterChange = () => {
+    void refresh()
+    onChanged?.()
+  }
+
+  const disposition = (
+    crossingId: string,
+    verdict: 'FALSE_POSITIVE' | 'CONFIRMED'
+  ) => {
+    setPending(crossingId)
+    const note = notes[crossingId]?.trim()
+    void tasksClient
+      .dispositionBoundaryCrossing(
+        taskIdentifier,
+        crossingId,
+        verdict,
+        note || undefined
+      )
+      .then(afterChange)
+      .finally(() => setPending(null))
+  }
+
+  const spawnRemediation = (crossingId: string) => {
     setPending(crossingId)
     void tasksClient
-      .acknowledgeBoundaryCrossing(taskIdentifier, crossingId)
-      .then(() => {
-        void refresh()
-        onAcknowledged?.()
-      })
+      .spawnBoundaryRemediation(taskIdentifier, crossingId)
+      .then(afterChange)
       .finally(() => setPending(null))
+  }
+
+  const reviewerName = (actorId: string | null): string | null => {
+    if (!actorId) return null
+    return (
+      members.find(m => m.actorId === actorId)?.name ??
+      agentActors.find(a => a.actorId === actorId)?.name ??
+      null
+    )
   }
 
   return (
@@ -55,82 +111,266 @@ export function BoundaryCrossingsPanel({
             defaultMessage: 'Boundary crossings',
           })}
         </span>
-        <span className='rounded-md bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'>
-          {intl.formatMessage(
-            {
-              id: 'boundary.panel.openCount',
-              defaultMessage: '{count, plural, one {# open} other {# open}}',
-            },
-            { count: crossings.length }
-          )}
+        {openCount > 0 && (
+          <span className='rounded-md bg-danger-subtle px-2 py-0.5 text-[11px] font-medium text-danger'>
+            {intl.formatMessage(
+              {
+                id: 'boundary.panel.openCount',
+                defaultMessage: '{count, plural, one {# open} other {# open}}',
+              },
+              { count: openCount }
+            )}
+          </span>
+        )}
+        <span className='ml-auto text-[11px] text-muted-foreground/80'>
+          {intl.formatMessage({
+            id: 'boundary.panel.confirmedStay',
+            defaultMessage: 'Confirmed crossings stay on record.',
+          })}
         </span>
       </div>
 
-      <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
-        <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-        <span>
-          {intl.formatMessage({
-            id: 'boundary.panel.blockedNote',
-            defaultMessage:
-              "This task can't move to Done until each crossing below is acknowledged by a human. The gate is on for this workspace.",
-          })}
-        </span>
-      </p>
+      {openCount > 0 && (
+        <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
+          <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+          <span>
+            {intl.formatMessage({
+              id: 'boundary.panel.blockedNote',
+              defaultMessage:
+                "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+            })}
+          </span>
+        </p>
+      )}
 
       <div className='space-y-2'>
         {crossings.map(c => (
-          <div
+          <CrossingRow
             key={c.id}
-            className='rounded-md border border-border bg-background px-3 py-2.5'
-          >
-            <div className='flex items-start justify-between gap-3'>
-              <div className='min-w-0'>
-                <div className='text-[13px] font-medium text-foreground'>
-                  {boundaryCategoryLabel(c.category, intl)}
-                </div>
-                <div className='mt-0.5 text-[11px] text-muted-foreground'>
-                  {intl.formatMessage({
-                    id: 'boundary.panel.why',
-                    defaultMessage:
-                      "Why: this action is on the project's Forbidden list.",
-                  })}
-                </div>
-                <code className='mt-1.5 block overflow-x-auto whitespace-nowrap rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground'>
-                  {c.detail}
-                </code>
-                <div className='mt-1.5 text-[11px] text-muted-foreground/80'>
-                  {intl.formatMessage({
-                    id: 'boundary.panel.detected',
-                    defaultMessage: 'Detected from a tool event',
-                  })}{' '}
-                  · {new Date(c.detectedAt).toLocaleString(intl.locale)}
-                </div>
-              </div>
-              <button
-                type='button'
-                data-testid={`boundary-ack-${c.id}`}
-                disabled={pending === c.id}
-                onClick={() => acknowledge(c.id)}
-                className='inline-flex shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
-              >
-                <Check className='size-3.5' aria-hidden />
-                {intl.formatMessage({
-                  id: 'boundary.panel.acknowledge',
-                  defaultMessage: 'Acknowledge',
-                })}
-              </button>
-            </div>
-          </div>
+            crossing={c}
+            intl={intl}
+            pending={pending === c.id}
+            note={notes[c.id] ?? ''}
+            reviewerName={reviewerName(c.dispositionedById)}
+            onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
+            onDisposition={verdict => disposition(c.id, verdict)}
+            onSpawnRemediation={() => spawnRemediation(c.id)}
+          />
         ))}
       </div>
 
-      <p className='mt-3 text-[11px] text-muted-foreground/80'>
+      <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
+        <UserCheck className='size-3.5 shrink-0' aria-hidden />
         {intl.formatMessage({
           id: 'boundary.panel.humanOnly',
           defaultMessage:
-            'Acknowledging records who signed off and unblocks Done. Only a signed-in human can acknowledge — the agent/CLI path is closed by design.',
+            'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
         })}
       </p>
     </div>
+  )
+}
+
+function CrossingRow({
+  crossing: c,
+  intl,
+  pending,
+  note,
+  reviewerName,
+  onNote,
+  onDisposition,
+  onSpawnRemediation,
+}: {
+  crossing: BoundaryCrossingView
+  intl: ReturnType<typeof useIntl>
+  pending: boolean
+  note: string
+  reviewerName: string | null
+  onNote: (v: string) => void
+  onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED') => void
+  onSpawnRemediation: () => void
+}) {
+  const open = c.disposition == null
+  const rt = c.remediationTask
+
+  return (
+    <div className='rounded-md border border-border bg-background px-3 py-2.5'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-[13px] font-medium text-foreground'>
+          {boundaryCategoryLabel(c.category, intl)}
+        </span>
+        {c.disposition === 'CONFIRMED' && (
+          <Badge tone='warning'>
+            {boundaryDispositionLabel('CONFIRMED', intl)}
+          </Badge>
+        )}
+        {c.disposition === 'FALSE_POSITIVE' && (
+          <Badge tone='muted'>
+            {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
+          </Badge>
+        )}
+        <Badge tone={c.reversible ? 'muted' : 'danger'}>
+          {c.reversible ? (
+            <Unlock className='size-3' aria-hidden />
+          ) : (
+            <Lock className='size-3' aria-hidden />
+          )}
+          {boundaryReversibilityLabel(c.reversible, intl)}
+        </Badge>
+        <span className='ml-auto text-[11px] text-muted-foreground/80'>
+          {open
+            ? new Date(c.detectedAt).toLocaleString(intl.locale)
+            : intl.formatMessage(
+                {
+                  id: 'boundary.panel.dispositionedBy',
+                  defaultMessage: '{by}{at}',
+                },
+                {
+                  by: reviewerName
+                    ? intl.formatMessage(
+                        {
+                          id: 'boundary.panel.byReviewer',
+                          defaultMessage: 'by {name} · ',
+                        },
+                        { name: reviewerName }
+                      )
+                    : '',
+                  at: c.dispositionedAt
+                    ? new Date(c.dispositionedAt).toLocaleString(intl.locale)
+                    : '',
+                }
+              )}
+        </span>
+      </div>
+
+      <code className='mt-1.5 block overflow-x-auto whitespace-nowrap rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground'>
+        {c.detail}
+      </code>
+
+      {c.dispositionNote && (
+        <p className='mt-1.5 text-[11px] text-muted-foreground'>
+          {intl.formatMessage(
+            { id: 'boundary.panel.note', defaultMessage: 'Note: {note}' },
+            { note: c.dispositionNote }
+          )}
+        </p>
+      )}
+
+      {open && (
+        <div className='mt-2.5 space-y-2'>
+          <input
+            type='text'
+            value={note}
+            disabled={pending}
+            onChange={e => onNote(e.target.value)}
+            placeholder={intl.formatMessage({
+              id: 'boundary.panel.notePlaceholder',
+              defaultMessage: 'Disposition note (optional)',
+            })}
+            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+          />
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              data-testid={`boundary-false-positive-${c.id}`}
+              disabled={pending}
+              onClick={() => onDisposition('FALSE_POSITIVE')}
+              className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+            >
+              <FlagOff className='size-3.5' aria-hidden />
+              {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
+            </button>
+            <button
+              type='button'
+              data-testid={`boundary-confirm-${c.id}`}
+              disabled={pending}
+              onClick={() => onDisposition('CONFIRMED')}
+              className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger hover:bg-danger-subtle disabled:opacity-50'
+            >
+              <AlertTriangle className='size-3.5' aria-hidden />
+              {intl.formatMessage({
+                id: 'boundary.panel.confirmCrossing',
+                defaultMessage: 'Confirm crossing',
+              })}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rt && (
+        <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md bg-success-subtle/60 px-2.5 py-1.5'>
+          <CircleCheck className='size-4 shrink-0 text-success' aria-hidden />
+          <span className='text-[11px] text-success'>
+            {rt.remediated
+              ? intl.formatMessage({
+                  id: 'boundary.panel.remediatedBy',
+                  defaultMessage: 'Remediated by',
+                })
+              : intl.formatMessage({
+                  id: 'boundary.panel.remediationLinked',
+                  defaultMessage: 'Remediation:',
+                })}
+          </span>
+          <span className='text-[11px] font-medium text-success'>
+            {rt.identifier} {rt.title}
+          </span>
+          <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-success'>
+            {rt.status}
+          </span>
+          <ArrowRight
+            className='ml-auto size-3.5 text-muted-foreground/70'
+            aria-hidden
+          />
+        </div>
+      )}
+
+      {c.disposition === 'CONFIRMED' && !rt && (
+        <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5'>
+          <Lightbulb className='size-4 shrink-0 text-warning' aria-hidden />
+          <span className='text-[11px] text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'boundary.panel.remediationNudge',
+              defaultMessage:
+                'Confirmed and unremediated — consider opening a fix.',
+            })}
+          </span>
+          <button
+            type='button'
+            data-testid={`boundary-spawn-remediation-${c.id}`}
+            disabled={pending}
+            onClick={onSpawnRemediation}
+            className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+          >
+            <Plus className='size-3.5' aria-hidden />
+            {intl.formatMessage({
+              id: 'boundary.panel.spawnRemediation',
+              defaultMessage: 'Spawn remediation task',
+            })}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Badge({
+  tone,
+  children,
+}: {
+  tone: 'warning' | 'danger' | 'muted'
+  children: React.ReactNode
+}) {
+  const cls =
+    tone === 'warning'
+      ? 'bg-warning-subtle text-warning'
+      : tone === 'danger'
+        ? 'bg-danger-subtle text-danger'
+        : 'bg-muted text-muted-foreground'
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${cls}`}
+    >
+      {children}
+    </span>
   )
 }

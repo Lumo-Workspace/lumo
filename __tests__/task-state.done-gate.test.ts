@@ -34,7 +34,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 // to "nothing flagged" so these tests keep isolating the LUM-422 ④ gate.
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
-    findUnacknowledgedByTask: jest.fn(() => Promise.resolve([])),
+    findUndispositionedByTask: jest.fn(() => Promise.resolve([])),
     isGateEnabledForWorkspace: jest.fn(() => Promise.resolve(true)),
   },
 }))

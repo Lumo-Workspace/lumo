@@ -48,7 +48,8 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 jest.mock('@/lib/api-client', () => ({
   tasksClient: {
     submitHumanVerdict: jest.fn().mockResolvedValue({}),
-    acknowledgeBoundaryCrossing: jest.fn().mockResolvedValue({}),
+    dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
+    spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
   },
 }))
 
