@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Оставшиеся пункты",
   "task.verdict.followUpNotePlaceholder": "Что осталось сделать?",
   "task.verdict.confirm": "Записать вердикт",
-  "task.verdict.error": "Не удалось записать вердикт — попробуйте ещё раз."
+  "task.verdict.error": "Не удалось записать вердикт — попробуйте ещё раз.",
+  "mention.pr.open": "Открытый PR",
+  "mention.pr.merged": "Влитый PR"
 }

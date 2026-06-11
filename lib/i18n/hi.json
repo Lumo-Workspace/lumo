@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "शेष कार्य",
   "task.verdict.followUpNotePlaceholder": "क्या करना बाकी है?",
   "task.verdict.confirm": "निर्णय दर्ज करें",
-  "task.verdict.error": "निर्णय दर्ज नहीं हो सका — फिर से प्रयास करें।"
+  "task.verdict.error": "निर्णय दर्ज नहीं हो सका — फिर से प्रयास करें।",
+  "mention.pr.open": "खुला PR",
+  "mention.pr.merged": "मर्ज किया गया PR"
 }

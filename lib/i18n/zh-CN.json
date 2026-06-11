@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "未尽事项",
   "task.verdict.followUpNotePlaceholder": "还有什么要做？",
   "task.verdict.confirm": "记录裁决",
-  "task.verdict.error": "裁决记录失败——请重试。"
+  "task.verdict.error": "裁决记录失败——请重试。",
+  "mention.pr.open": "未合并 PR",
+  "mention.pr.merged": "已合并 PR"
 }

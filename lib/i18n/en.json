@@ -650,6 +650,8 @@
   "task.title": "Title",
   "task.unassigned": "Unassigned",
   "task.pullRequests": "Pull Requests",
+  "mention.pr.open": "Open PR",
+  "mention.pr.merged": "Merged PR",
   "task.sessionNumber": "Session #{number}",
   "task.prFailed": "Failed",
   "task.prCanceled": "Canceled",

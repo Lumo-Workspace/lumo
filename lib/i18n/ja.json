@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "残作業",
   "task.verdict.followUpNotePlaceholder": "何が残っていますか？",
   "task.verdict.confirm": "判定を記録",
-  "task.verdict.error": "判定を記録できませんでした — もう一度お試しください。"
+  "task.verdict.error": "判定を記録できませんでした — もう一度お試しください。",
+  "mention.pr.open": "オープンPR",
+  "mention.pr.merged": "マージ済みPR"
 }

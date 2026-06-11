@@ -1475,5 +1475,7 @@
   "task.verdict.followUpNoteLabel": "Offene Punkte",
   "task.verdict.followUpNotePlaceholder": "Was bleibt noch zu tun?",
   "task.verdict.confirm": "Urteil festhalten",
-  "task.verdict.error": "Das Urteil konnte nicht gespeichert werden — bitte erneut versuchen."
+  "task.verdict.error": "Das Urteil konnte nicht gespeichert werden — bitte erneut versuchen.",
+  "mention.pr.open": "Offener PR",
+  "mention.pr.merged": "Gemergter PR"
 }
