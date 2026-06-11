@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "差し戻しを確定",
   "acceptance.verdict.notePlaceholder": "差し戻しの理由(任意)",
   "acceptance.verdict.override": "上書き",
-  "acceptance.verdict.allLabel": "契約全体:"
+  "acceptance.verdict.allLabel": "契約全体:",
+  "workspaceSettings.verification": "検証",
+  "workspaceSettings.verification.description": "タスクが人にエスカレーションされる前に実行できる機械検証ラウンドの回数を設定します。人によるレビューはこの制限を受けません。",
+  "workspaceSettings.verification.maxRounds": "機械検証の最大ラウンド数",
+  "workspaceSettings.verificationUpdated": "検証設定を更新しました",
+  "workspaceSettings.verificationUpdateFailed": "検証設定の更新に失敗しました"
 }

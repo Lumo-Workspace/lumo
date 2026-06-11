@@ -6,6 +6,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 import { taskService } from '@/lib/services/task.service'
@@ -20,13 +21,17 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: {
     createMany: jest.fn(),
     maxRoundByTask: jest.fn(),
+    listByTask: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: { findStatus: jest.fn() },
+  taskRepository: { findStatus: jest.fn(), findHeaderById: jest.fn() },
+}))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: { findVerificationMaxRounds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: { findActorByMemberId: jest.fn() },
@@ -49,8 +54,11 @@ jest.mock('@/lib/db/prisma', () => ({
 const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 const createMany = verificationRunRepository.createMany as jest.Mock
 const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
+const listRuns = verificationRunRepository.listByTask as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const findStatus = taskRepository.findStatus as jest.Mock
+const findHeader = taskRepository.findHeaderById as jest.Mock
+const findCap = workspaceRepository.findVerificationMaxRounds as jest.Mock
 const findActor = memberRepository.findActorByMemberId as jest.Mock
 const notify = notifyWorkspaceOwners as jest.Mock
 const getDetail = taskService.getTaskDetail as jest.Mock
@@ -99,9 +107,17 @@ beforeEach(() => {
   listByTask.mockResolvedValue([
     machineCriterion('c-1'),
     machineCriterion('c-2'),
-    { id: 'c-h', verifierType: 'HUMAN', statement: 'reads well', checkpointer: null },
+    {
+      id: 'c-h',
+      verifierType: 'HUMAN',
+      statement: 'reads well',
+      checkpointer: null,
+    },
   ])
   maxRound.mockResolvedValue(null)
+  // Default: workspace has no configured cap → service falls back to the
+  // default VERIFICATION_MAX_ROUNDS, so existing assertions hold unchanged.
+  findCap.mockResolvedValue(null)
   findActor.mockResolvedValue({ id: 'actor-1' })
   findStatus.mockResolvedValue({ status: 'IN_PROGRESS' })
   getDetail.mockResolvedValue({ status: 'IN_PROGRESS', projectId: 'p-1' })
@@ -114,7 +130,12 @@ describe('coverage validation', () => {
       { id: 'c-h', verifierType: 'HUMAN', statement: 's', checkpointer: null },
     ])
     await expect(
-      taskVerificationService.recordMachineRound('t-1', 'w-1', [pass('c-h')], ATTR)
+      taskVerificationService.recordMachineRound(
+        't-1',
+        'w-1',
+        [pass('c-h')],
+        ATTR
+      )
     ).rejects.toMatchObject({ status: 400 })
   })
 
@@ -131,7 +152,12 @@ describe('coverage validation', () => {
 
   it('400 when a MACHINE criterion is missing from the round', async () => {
     await expect(
-      taskVerificationService.recordMachineRound('t-1', 'w-1', [pass('c-1')], ATTR)
+      taskVerificationService.recordMachineRound(
+        't-1',
+        'w-1',
+        [pass('c-1')],
+        ATTR
+      )
     ).rejects.toMatchObject({ status: 400 })
     expect(createMany).not.toHaveBeenCalled()
   })
@@ -310,7 +336,10 @@ describe('all-pass → IN_REVIEW', () => {
     expect(out.taskStatus).toBe('IN_REVIEW')
 
     jest.clearAllMocks()
-    listByTask.mockResolvedValue([machineCriterion('c-1'), machineCriterion('c-2')])
+    listByTask.mockResolvedValue([
+      machineCriterion('c-1'),
+      machineCriterion('c-2'),
+    ])
     maxRound.mockResolvedValue(null)
     findActor.mockResolvedValue({ id: 'actor-1' })
     getDetail.mockResolvedValue({ status: 'DONE', projectId: 'p-1' })
@@ -322,5 +351,145 @@ describe('all-pass → IN_REVIEW', () => {
     )
     expect(updateWithSideEffects).not.toHaveBeenCalled()
     expect(out2.taskStatus).toBe('DONE')
+  })
+})
+
+// LUM-429: recordMachineRound honors the task's workspace cap instead of a
+// hardcoded 3. A workspace left at the default behaves exactly as before.
+describe('configured cap', () => {
+  it('allows a 4th and 5th machine round when the workspace cap is 5', async () => {
+    findCap.mockResolvedValue(5)
+
+    maxRound.mockResolvedValue(3) // about to record round 4
+    const r4 = await taskVerificationService.recordMachineRound(
+      't-1',
+      'w-1',
+      [pass('c-1'), fail('c-2')],
+      ATTR
+    )
+    expect(r4.round).toBe(4)
+    expect(r4.maxRounds).toBe(5)
+    expect(r4.escalated).toBe(false) // 4 < 5, no escalation yet
+    expect(notify).not.toHaveBeenCalled()
+
+    jest.clearAllMocks()
+    listByTask.mockResolvedValue([
+      machineCriterion('c-1'),
+      machineCriterion('c-2'),
+    ])
+    findActor.mockResolvedValue({ id: 'actor-1' })
+    findStatus.mockResolvedValue({ status: 'IN_PROGRESS' })
+    getDetail.mockResolvedValue({ status: 'IN_PROGRESS', projectId: 'p-1' })
+    findCap.mockResolvedValue(5)
+    maxRound.mockResolvedValue(4) // about to record round 5
+    const r5 = await taskVerificationService.recordMachineRound(
+      't-1',
+      'w-1',
+      [pass('c-1'), fail('c-2')],
+      ATTR
+    )
+    expect(r5.round).toBe(5)
+    expect(r5.maxRounds).toBe(5)
+    expect(r5.escalated).toBe(true) // 5 >= 5 escalates exactly here
+    expect(notify).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses with 409 only once the configured cap is reached', async () => {
+    findCap.mockResolvedValue(5)
+    // currentRound 4 < cap 5 → still allowed.
+    maxRound.mockResolvedValue(4)
+    await expect(
+      taskVerificationService.recordMachineRound(
+        't-1',
+        'w-1',
+        [pass('c-1'), pass('c-2')],
+        ATTR
+      )
+    ).resolves.toBeDefined()
+
+    // currentRound 5 >= cap 5 → 409, nothing written.
+    jest.clearAllMocks()
+    listByTask.mockResolvedValue([
+      machineCriterion('c-1'),
+      machineCriterion('c-2'),
+    ])
+    findActor.mockResolvedValue({ id: 'actor-1' })
+    findCap.mockResolvedValue(5)
+    maxRound.mockResolvedValue(5)
+    await expect(
+      taskVerificationService.recordMachineRound(
+        't-1',
+        'w-1',
+        [pass('c-1'), pass('c-2')],
+        ATTR
+      )
+    ).rejects.toMatchObject({ status: 409 })
+    expect(createMany).not.toHaveBeenCalled()
+  })
+
+  it('a workspace left at the default 3 still escalates at round 3', async () => {
+    findCap.mockResolvedValue(null) // unconfigured → fallback to default 3
+    maxRound.mockResolvedValue(2)
+    const out = await taskVerificationService.recordMachineRound(
+      't-1',
+      'w-1',
+      [pass('c-1'), fail('c-2')],
+      ATTR
+    )
+    expect(out.round).toBe(3)
+    expect(out.maxRounds).toBe(VERIFICATION_MAX_ROUNDS)
+    expect(out.escalated).toBe(true)
+  })
+})
+
+// LUM-429: the status read model reports the configured cap, resolved
+// task → workspace, and derives `escalated` against it.
+describe('configured maxRounds', () => {
+  function header(verificationMaxRounds: number | null) {
+    return {
+      id: 't-1',
+      number: 42,
+      title: 'Ship it',
+      status: 'IN_PROGRESS',
+      team: { identifier: 'LUM' },
+      project: { workspace: { verificationMaxRounds } },
+    }
+  }
+
+  function run(round: number, verdict: 'PASS' | 'FAIL') {
+    return {
+      id: `run-${round}-${verdict}`,
+      taskId: 't-1',
+      criterionId: 'c-1',
+      round,
+      verifierType: 'MACHINE' as const,
+      verdict,
+      evidencePointer: null,
+      rejectionReason: null,
+      rejectionReasonEnum: null,
+      createdAt: new Date('2026-06-11T00:00:00Z'),
+    }
+  }
+
+  it('reports maxRounds equal to the workspace cap and derives escalated against it', async () => {
+    findHeader.mockResolvedValue(header(5))
+    listByTask.mockResolvedValue([machineCriterion('c-1')])
+    // Three rounds run, last one failing — under a cap of 5 this is NOT escalated.
+    listRuns.mockResolvedValue([run(1, 'FAIL'), run(2, 'FAIL'), run(3, 'FAIL')])
+
+    const status = await taskVerificationService.statusForTask('t-1')
+    expect(status.maxRounds).toBe(5)
+    expect(status.currentRound).toBe(3)
+    expect(status.escalated).toBe(false) // 3 < 5
+  })
+
+  it('a default-3 workspace is unchanged: escalated once round 3 fails', async () => {
+    findHeader.mockResolvedValue(header(null)) // unconfigured → fallback 3
+    listByTask.mockResolvedValue([machineCriterion('c-1')])
+    listRuns.mockResolvedValue([run(1, 'FAIL'), run(2, 'FAIL'), run(3, 'FAIL')])
+
+    const status = await taskVerificationService.statusForTask('t-1')
+    expect(status.maxRounds).toBe(VERIFICATION_MAX_ROUNDS)
+    expect(status.escalated).toBe(true) // 3 >= 3 with a failure
   })
 })

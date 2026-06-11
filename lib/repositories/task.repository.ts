@@ -350,7 +350,14 @@ export const taskRepository = {
   async findHeaderById(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: TASK_IDENTIFIER_SELECT,
+      // The status read model resolves the machine-round cap task → workspace
+      // (LUM-429); carry it alongside the identifier fields.
+      select: {
+        ...TASK_IDENTIFIER_SELECT,
+        project: {
+          select: { workspace: { select: { verificationMaxRounds: true } } },
+        },
+      },
     })
   },
 

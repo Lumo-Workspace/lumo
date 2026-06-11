@@ -226,6 +226,11 @@ model Workspace {
   riskStalePrDays     Int   @default(3)
   riskThroughputDrop  Float @default(0.50)
 
+  // Machine verification round cap (LUM-429). Default 3 = today's hardcoded
+  // behavior; OWNER-configurable 1..10. Governs ONLY the machine loop —
+  // human adjudication (recordHumanVerdict) is never bounded by this.
+  verificationMaxRounds Int @default(3)
+
   @@map("workspaces")
 }
 

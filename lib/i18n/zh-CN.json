@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "确认打回",
   "acceptance.verdict.notePlaceholder": "为什么打回?(可选)",
   "acceptance.verdict.override": "覆盖",
-  "acceptance.verdict.allLabel": "整份合约:"
+  "acceptance.verdict.allLabel": "整份合约:",
+  "workspaceSettings.verification": "机器验收",
+  "workspaceSettings.verification.description": "设置任务在升级给人工前可运行的机器验收轮数上限。人工复核不受此限制。",
+  "workspaceSettings.verification.maxRounds": "机器验收轮数上限",
+  "workspaceSettings.verificationUpdated": "验收设置已更新",
+  "workspaceSettings.verificationUpdateFailed": "验收设置更新失败"
 }

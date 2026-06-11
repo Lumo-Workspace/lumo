@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Zurückweisung bestätigen",
   "acceptance.verdict.notePlaceholder": "Warum wird zurückgewiesen? (optional)",
   "acceptance.verdict.override": "Überschreiben",
-  "acceptance.verdict.allLabel": "Gesamter Vertrag:"
+  "acceptance.verdict.allLabel": "Gesamter Vertrag:",
+  "workspaceSettings.verification": "Verifizierung",
+  "workspaceSettings.verification.description": "Legen Sie fest, wie viele maschinelle Verifizierungsrunden eine Aufgabe durchlaufen darf, bevor sie an einen Menschen eskaliert wird. Die menschliche Prüfung wird dadurch nie begrenzt.",
+  "workspaceSettings.verification.maxRounds": "Max. maschinelle Runden",
+  "workspaceSettings.verificationUpdated": "Verifizierungseinstellungen aktualisiert",
+  "workspaceSettings.verificationUpdateFailed": "Aktualisierung der Verifizierungseinstellungen fehlgeschlagen"
 }

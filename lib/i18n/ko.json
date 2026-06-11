@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "반려 확정",
   "acceptance.verdict.notePlaceholder": "반려 사유 (선택)",
   "acceptance.verdict.override": "재정의",
-  "acceptance.verdict.allLabel": "전체 계약:"
+  "acceptance.verdict.allLabel": "전체 계약:",
+  "workspaceSettings.verification": "검증",
+  "workspaceSettings.verification.description": "작업이 사람에게 에스컬레이션되기 전에 실행할 수 있는 기계 검증 라운드 수를 설정합니다. 사람의 검토는 이 제한을 받지 않습니다.",
+  "workspaceSettings.verification.maxRounds": "최대 기계 라운드 수",
+  "workspaceSettings.verificationUpdated": "검증 설정이 업데이트되었습니다",
+  "workspaceSettings.verificationUpdateFailed": "검증 설정 업데이트 실패"
 }

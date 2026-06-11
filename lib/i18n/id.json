@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Konfirmasi pengembalian",
   "acceptance.verdict.notePlaceholder": "Mengapa dikembalikan? (opsional)",
   "acceptance.verdict.override": "Timpa",
-  "acceptance.verdict.allLabel": "Seluruh kontrak:"
+  "acceptance.verdict.allLabel": "Seluruh kontrak:",
+  "workspaceSettings.verification": "Verifikasi",
+  "workspaceSettings.verification.description": "Tetapkan berapa banyak putaran verifikasi mesin yang dapat dijalankan suatu tugas sebelum dieskalasi ke manusia. Tinjauan manusia tidak pernah dibatasi oleh ini.",
+  "workspaceSettings.verification.maxRounds": "Maks. putaran mesin",
+  "workspaceSettings.verificationUpdated": "Pengaturan verifikasi diperbarui",
+  "workspaceSettings.verificationUpdateFailed": "Gagal memperbarui pengaturan verifikasi"
 }

@@ -1535,5 +1535,10 @@
   "acceptance.verdict.confirmSendBack": "Confirmar devolución",
   "acceptance.verdict.notePlaceholder": "¿Por qué se devuelve? (opcional)",
   "acceptance.verdict.override": "Anular",
-  "acceptance.verdict.allLabel": "Contrato completo:"
+  "acceptance.verdict.allLabel": "Contrato completo:",
+  "workspaceSettings.verification": "Verificación",
+  "workspaceSettings.verification.description": "Define cuántas rondas de verificación automática puede ejecutar una tarea antes de escalar a una persona. La revisión humana nunca está limitada por esto.",
+  "workspaceSettings.verification.maxRounds": "Máximo de rondas automáticas",
+  "workspaceSettings.verificationUpdated": "Configuración de verificación actualizada",
+  "workspaceSettings.verificationUpdateFailed": "No se pudo actualizar la configuración de verificación"
 }
