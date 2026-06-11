@@ -450,3 +450,102 @@ describe('per-criterion verdict controls', () => {
     expect(screen.queryByTestId('verdict-pass-all')).toBeNull()
   })
 })
+
+// LUM-437: change-state markers (Edited/Added) and removed-criteria section.
+describe('change-state markers and removed criteria (LUM-437)', () => {
+  it('shows the Edited marker on a criterion with changeState edited, and reveals old→new on disclosure', () => {
+    set(
+      statusView({
+        criteria: [
+          machinePass({
+            id: 'e1',
+            statement: 'the edited criterion',
+            changeState: 'edited',
+            changedAtRound: 2,
+            lastEdit: {
+              before: 'old statement text',
+              after: 'new statement text',
+            },
+          }),
+        ],
+      })
+    )
+    render_()
+
+    // A — Edited marker is visible.
+    expect(screen.getByText('Edited · round 2')).toBeInTheDocument()
+
+    // B — "View change" disclosure is present but collapsed by default.
+    expect(screen.queryByText('old statement text')).toBeNull()
+    expect(screen.queryByText('new statement text')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /view change/i }))
+
+    expect(screen.getByText('old statement text')).toBeInTheDocument()
+    expect(screen.getByText('new statement text')).toBeInTheDocument()
+  })
+
+  it('shows the Added marker on a criterion with changeState added', () => {
+    set(
+      statusView({
+        criteria: [
+          machinePass({
+            id: 'a1',
+            statement: 'a newly added criterion',
+            changeState: 'added',
+            changedAtRound: 1,
+            lastEdit: null,
+          }),
+        ],
+      })
+    )
+    render_()
+    expect(screen.getByText('Added · round 1')).toBeInTheDocument()
+  })
+
+  it('renders the Removed section header with count, expands to show statement and last verdict FAIL', () => {
+    set(
+      statusView({
+        criteria: [machinePass()],
+        removedCriteria: [
+          {
+            id: 'rc1',
+            statement: 'this was removed',
+            verifierType: 'MACHINE',
+            removedAtRound: 2,
+            runCount: 3,
+            lastVerdict: {
+              round: 2,
+              verdict: 'FAIL',
+              verifierType: 'MACHINE',
+              evidencePointer: null,
+              rejectionReason: 'did not pass',
+              rejectionReasonEnum: null,
+              recordedAt: '2026-06-10T10:00:00.000Z',
+            },
+          },
+        ],
+      })
+    )
+    render_()
+
+    // C — section header with count is visible.
+    expect(screen.getByText('Removed · kept for audit')).toBeInTheDocument()
+    expect(screen.getByText('(1)')).toBeInTheDocument()
+
+    // Collapsed: removed statement not yet visible.
+    expect(screen.queryByText('this was removed')).toBeNull()
+
+    // Open the disclosure.
+    fireEvent.click(
+      screen.getByRole('button', { name: /removed · kept for audit/i })
+    )
+
+    expect(screen.getByText('this was removed')).toBeInTheDocument()
+    expect(screen.getByText('last verdict: FAIL')).toBeInTheDocument()
+    expect(screen.getByText('Removed at round 2')).toBeInTheDocument()
+    expect(
+      screen.getByText('3 verification run(s) preserved')
+    ).toBeInTheDocument()
+  })
+})
