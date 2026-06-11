@@ -262,8 +262,8 @@ async function failVerdict(
   const outcome = (await res.json()) as AgentVerdictOutcome
   process.stdout.write(
     `✗ Sent ${taskId} back (AGENT FAIL, reason ${reason}) — ` +
-      `${outcome.criterionIds.length} criterion${
-        outcome.criterionIds.length === 1 ? '' : 'a'
+      `${outcome.criterionIds.length} ${
+        outcome.criterionIds.length === 1 ? 'criterion' : 'criteria'
       } at round ${outcome.round}; task is now ${outcome.taskStatus}.\n`
   )
   if (outcome.commentId) {
