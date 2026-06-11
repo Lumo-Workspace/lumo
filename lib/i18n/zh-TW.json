@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "設定任務在升級給人工前可執行的機器驗收輪數上限。人工複核不受此限制。",
   "workspaceSettings.verification.maxRounds": "機器驗收輪數上限",
   "workspaceSettings.verificationUpdated": "驗收設定已更新",
-  "workspaceSettings.verificationUpdateFailed": "驗收設定更新失敗"
+  "workspaceSettings.verificationUpdateFailed": "驗收設定更新失敗",
+  "activity.boundaryDetected": "標記了一個禁止的操作 — {category}",
+  "activity.boundaryAcknowledged": "已確認該越界動作",
+  "boundary.category.push": "推送到受保護分支",
+  "boundary.category.migrationDelete": "刪除了遷移檔案",
+  "boundary.category.secret": "硬編碼密鑰",
+  "boundary.category.npm": "安裝新相依套件",
+  "boundary.category.db": "破壞性資料庫命令",
+  "boundary.panel.title": "越界動作",
+  "boundary.panel.openCount": "{count, plural, one {# 個待處理} other {# 個待處理}}",
+  "boundary.panel.blockedNote": "在下方每個越界動作都由人工確認之前，此任務無法變更為「完成」。本工作區已開啟此閘門。",
+  "boundary.panel.why": "原因：此操作在專案的禁止清單中。",
+  "boundary.panel.detected": "偵測自一個工具事件",
+  "boundary.panel.acknowledge": "確認",
+  "boundary.panel.humanOnly": "確認會記錄由誰簽署核准，並解除「完成」的封鎖。只有已登入的人工使用者才能確認 — agent/CLI 路徑依設計已關閉。"
 }

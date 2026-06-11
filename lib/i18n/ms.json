@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Tetapkan bilangan pusingan pengesahan mesin yang boleh dijalankan oleh sesuatu tugas sebelum dinaikkan kepada manusia. Semakan manusia tidak pernah dihadkan oleh ini.",
   "workspaceSettings.verification.maxRounds": "Maks. pusingan mesin",
   "workspaceSettings.verificationUpdated": "Tetapan pengesahan dikemas kini",
-  "workspaceSettings.verificationUpdateFailed": "Gagal mengemas kini tetapan pengesahan"
+  "workspaceSettings.verificationUpdateFailed": "Gagal mengemas kini tetapan pengesahan",
+  "activity.boundaryDetected": "menanda tindakan terlarang — {category}",
+  "activity.boundaryAcknowledged": "mengesahkan pelanggaran sempadan",
+  "boundary.category.push": "push ke cabang yang dilindungi",
+  "boundary.category.migrationDelete": "memadam fail migrasi",
+  "boundary.category.secret": "rahsia yang dikodkan terus dalam kod",
+  "boundary.category.npm": "pemasangan kebergantungan baharu",
+  "boundary.category.db": "perintah pangkalan data yang memusnahkan",
+  "boundary.panel.title": "Pelanggaran sempadan",
+  "boundary.panel.openCount": "{count, plural, one {# belum diselesaikan} other {# belum diselesaikan}}",
+  "boundary.panel.blockedNote": "Tugas ini tidak boleh beralih ke Selesai sehingga setiap pelanggaran di bawah disahkan oleh manusia. Pintu kawalan dihidupkan untuk ruang kerja ini.",
+  "boundary.panel.why": "Sebab: tindakan ini ada dalam senarai Terlarang projek.",
+  "boundary.panel.detected": "Dikesan daripada peristiwa alat",
+  "boundary.panel.acknowledge": "Sahkan",
+  "boundary.panel.humanOnly": "Pengesahan merekodkan siapa yang meluluskan dan membuka kunci Selesai. Hanya manusia yang telah log masuk boleh mengesahkan — laluan melalui ejen/CLI sengaja ditutup."
 }

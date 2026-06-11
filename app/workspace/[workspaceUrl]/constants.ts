@@ -15,6 +15,10 @@ export const API = {
     retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
+    boundaryCrossings: (taskId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings`,
+    boundaryAcknowledge: (taskId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/acknowledge`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

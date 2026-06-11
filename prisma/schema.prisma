@@ -154,6 +154,16 @@ enum TaskActivityType {
   CRITERION_CHANGED
   VERIFICATION_RUN_RECORDED
   VERIFICATION_ESCALATED
+  BOUNDARY_CROSSING_DETECTED
+  BOUNDARY_CROSSING_ACKNOWLEDGED
+}
+
+enum BoundaryCrossingCategory {
+  PUSH_TO_PROTECTED_BRANCH
+  MIGRATION_FILE_DELETED
+  HARDCODED_SECRET
+  NEW_NPM_DEPENDENCY
+  DESTRUCTIVE_DB_COMMAND
 }
 
 enum AgentType {
@@ -218,6 +228,10 @@ model Workspace {
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
   summaryLocale    String           @default("en")
+
+  // LUM-426: default-ON DONE gate. Opting out (false) drops the boundary-crossing
+  // DONE block but never the flagging (recording is always on).
+  boundaryGateEnabled Boolean @default(true)
 
   riskOverdueRatio    Float @default(0.25)
   riskStalledDays     Int   @default(7)
@@ -479,6 +493,7 @@ model Task {
   branches           TaskBranch[]
   sessions           Session[]
   activities         TaskActivity[]
+  boundaryCrossings  BoundaryCrossing[]
   documentMentions   DocumentMention[]
   priorityOverrides  PriorityOverride[]
   taskTags           TaskTag[]
@@ -707,6 +722,31 @@ model TaskActivity {
   @@index([taskId, createdAt])
   @@index([taskId])
   @@map("task_activities")
+}
+
+/**
+ * LUM-426 forbidden-action boundary-crossing. A marker is mirrored onto a
+ * TaskActivity for the timeline; this row holds the MUTABLE acknowledgement
+ * state the DONE gate reads (TaskActivity is append-only and cannot). A crossing
+ * is "open" while acknowledgedAt is null — open crossings block DONE unless the
+ * workspace toggle is off or a human acknowledges. acknowledgedById is a plain
+ * Actor id (no FK back-relation needed — the ACK TaskActivity carries the
+ * human's actor for rendering).
+ */
+model BoundaryCrossing {
+  id               String                   @id @default(cuid())
+  taskId           String
+  hookEventId      String?
+  category         BoundaryCrossingCategory
+  detail           String
+  detectedAt       DateTime                 @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, acknowledgedAt])
+  @@map("boundary_crossings")
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

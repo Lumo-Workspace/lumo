@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "Définissez le nombre de cycles de vérification automatique qu'une tâche peut effectuer avant d'être transmise à une personne. La revue humaine n'est jamais limitée par ce paramètre.",
   "workspaceSettings.verification.maxRounds": "Cycles automatiques max.",
   "workspaceSettings.verificationUpdated": "Paramètres de vérification mis à jour",
-  "workspaceSettings.verificationUpdateFailed": "Échec de la mise à jour des paramètres de vérification"
+  "workspaceSettings.verificationUpdateFailed": "Échec de la mise à jour des paramètres de vérification",
+  "activity.boundaryDetected": "a signalé une action interdite — {category}",
+  "activity.boundaryAcknowledged": "a confirmé le franchissement de limite",
+  "boundary.category.push": "push vers une branche protégée",
+  "boundary.category.migrationDelete": "suppression d'un fichier de migration",
+  "boundary.category.secret": "secret codé en dur",
+  "boundary.category.npm": "installation d'une nouvelle dépendance",
+  "boundary.category.db": "commande destructive sur la base de données",
+  "boundary.panel.title": "Franchissements de limite",
+  "boundary.panel.openCount": "{count, plural, one {# ouvert} other {# ouverts}}",
+  "boundary.panel.blockedNote": "Cette tâche ne peut pas passer à Terminé tant que chaque franchissement ci-dessous n'a pas été confirmé par une personne. Le verrou est activé pour cet espace de travail.",
+  "boundary.panel.why": "Motif : cette action figure sur la liste des actions interdites du projet.",
+  "boundary.panel.detected": "Détecté à partir d'un événement d'outil",
+  "boundary.panel.acknowledge": "Confirmer",
+  "boundary.panel.humanOnly": "La confirmation enregistre qui a validé et débloque Terminé. Seule une personne connectée peut confirmer : la voie agent/CLI est fermée par conception."
 }

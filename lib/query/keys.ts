@@ -94,6 +94,9 @@ export const queryKeys = {
 
   taskStatus: (identifier: string) => ['taskStatus', identifier] as const,
 
+  boundaryCrossings: (identifier: string) =>
+    ['boundaryCrossings', identifier] as const,
+
   fragmentTrust: (ids: string[]) => ['fragmentTrust', [...ids].sort()] as const,
 
   tags: () => ['tags'] as const,

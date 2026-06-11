@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "तय करें कि किसी कार्य को किसी व्यक्ति तक पहुँचाने से पहले कितने मशीन सत्यापन चक्र चल सकते हैं। मानव समीक्षा इससे कभी सीमित नहीं होती।",
   "workspaceSettings.verification.maxRounds": "अधिकतम मशीन चक्र",
   "workspaceSettings.verificationUpdated": "सत्यापन सेटिंग्स अपडेट की गईं",
-  "workspaceSettings.verificationUpdateFailed": "सत्यापन सेटिंग्स अपडेट करने में विफल"
+  "workspaceSettings.verificationUpdateFailed": "सत्यापन सेटिंग्स अपडेट करने में विफल",
+  "activity.boundaryDetected": "एक निषिद्ध कार्रवाई को चिह्नित किया — {category}",
+  "activity.boundaryAcknowledged": "सीमा-उल्लंघन को स्वीकार किया",
+  "boundary.category.push": "संरक्षित ब्रांच में पुश",
+  "boundary.category.migrationDelete": "माइग्रेशन फ़ाइल हटाई गई",
+  "boundary.category.secret": "हार्डकोड किया गया सीक्रेट",
+  "boundary.category.npm": "नई डिपेंडेंसी इंस्टॉल",
+  "boundary.category.db": "विनाशकारी डेटाबेस कमांड",
+  "boundary.panel.title": "सीमा-उल्लंघन",
+  "boundary.panel.openCount": "{count, plural, one {# खुला} other {# खुले}}",
+  "boundary.panel.blockedNote": "जब तक नीचे दिए गए प्रत्येक उल्लंघन को किसी व्यक्ति द्वारा स्वीकार नहीं किया जाता, यह कार्य Done पर नहीं जा सकता। इस वर्कस्पेस के लिए यह गेट चालू है।",
+  "boundary.panel.why": "क्यों: यह कार्रवाई प्रोजेक्ट की Forbidden सूची में है।",
+  "boundary.panel.detected": "एक टूल इवेंट से पता चला",
+  "boundary.panel.acknowledge": "स्वीकार करें",
+  "boundary.panel.humanOnly": "स्वीकार करने से यह दर्ज होता है कि किसने अनुमोदन किया और Done अनब्लॉक हो जाता है। केवल एक साइन-इन किया हुआ व्यक्ति ही स्वीकार कर सकता है — एजेंट/CLI मार्ग जानबूझकर बंद रखा गया है।"
 }

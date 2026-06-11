@@ -30,6 +30,14 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
+// LUM-426 boundary gate runs alongside the send-back gate on DONE — default it
+// to "nothing flagged" so these tests keep isolating the LUM-422 ④ gate.
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: {
+    findUnacknowledgedByTask: jest.fn(() => Promise.resolve([])),
+    isGateEnabledForWorkspace: jest.fn(() => Promise.resolve(true)),
+  },
+}))
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
@@ -69,9 +77,9 @@ const passMap = () =>
 describe('LUM-422 ④ DONE gate', () => {
   it('refuses a DONE transition with 409 while a criterion latest verdict is FAIL', async () => {
     latestRuns.mockResolvedValue(failMap())
-    await expect(
-      updateTask('t-1', { status: 'DONE' })
-    ).rejects.toMatchObject({ status: 409 })
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+      status: 409,
+    })
     expect(update).not.toHaveBeenCalled()
   })
 
@@ -86,9 +94,9 @@ describe('LUM-422 ④ DONE gate', () => {
     latestRuns.mockResolvedValue(
       new Map([['c-1', { criterionId: 'c-1', verdict: 'FAIL' }]])
     )
-    await expect(
-      updateTask('t-1', { status: 'DONE' })
-    ).rejects.toMatchObject({ status: 409 })
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+      status: 409,
+    })
   })
 
   it('lets a human override the gate (overrideDoneGate) past the FAIL', async () => {
@@ -103,9 +111,7 @@ describe('LUM-422 ④ DONE gate', () => {
 
   it('transitions freely when the latest verdicts all pass', async () => {
     latestRuns.mockResolvedValue(passMap())
-    await expect(
-      updateTask('t-1', { status: 'DONE' })
-    ).resolves.toBeDefined()
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
       expect.objectContaining({ status: 'DONE' })
@@ -114,9 +120,7 @@ describe('LUM-422 ④ DONE gate', () => {
 
   it('never blocks an un-adjudicated criterion (no runs = tacit pass)', async () => {
     latestRuns.mockResolvedValue(new Map())
-    await expect(
-      updateTask('t-1', { status: 'DONE' })
-    ).resolves.toBeDefined()
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
     expect(update).toHaveBeenCalled()
     // No FAIL in the latest map → never fetches criterion statements.
     expect(listCriteria).not.toHaveBeenCalled()

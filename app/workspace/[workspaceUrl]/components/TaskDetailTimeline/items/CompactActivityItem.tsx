@@ -1,7 +1,8 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react'
+import { boundaryCategoryLabel } from '../boundary-format'
 import {
   Tooltip,
   TooltipContent,
@@ -371,7 +372,8 @@ function formatActivityText(
           {statement ? (
             <span className='text-muted-foreground'>
               {' '}
-              · {statement.length > 80 ? `${statement.slice(0, 80)}…` : statement}
+              ·{' '}
+              {statement.length > 80 ? `${statement.slice(0, 80)}…` : statement}
             </span>
           ) : null}
         </>
@@ -412,6 +414,43 @@ function formatActivityText(
               },
               { round: round ?? '?' }
             )}
+          </span>
+        </span>
+      )
+    }
+    case 'BOUNDARY_CROSSING_DETECTED': {
+      const category = String(p.category ?? '')
+      const detail = typeof p.detail === 'string' ? p.detail : ''
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+          <span>
+            {intl.formatMessage(
+              {
+                id: 'activity.boundaryDetected',
+                defaultMessage: 'flagged a forbidden action — {category}',
+              },
+              { category: boundaryCategoryLabel(category, intl) }
+            )}
+            {detail ? (
+              <span className='text-muted-foreground'>
+                {' '}
+                · {detail.length > 80 ? `${detail.slice(0, 80)}…` : detail}
+              </span>
+            ) : null}
+          </span>
+        </span>
+      )
+    }
+    case 'BOUNDARY_CROSSING_ACKNOWLEDGED': {
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <span>
+            {intl.formatMessage({
+              id: 'activity.boundaryAcknowledged',
+              defaultMessage: 'acknowledged the boundary-crossing',
+            })}
           </span>
         </span>
       )
@@ -469,9 +508,7 @@ export function CompactActivityItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2'>
-          <span className='font-medium text-foreground'>
-            {actor.name}
-          </span>
+          <span className='font-medium text-foreground'>{actor.name}</span>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className='text-[11px] text-muted-foreground'>

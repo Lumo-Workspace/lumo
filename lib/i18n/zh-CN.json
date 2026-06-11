@@ -1540,5 +1540,19 @@
   "workspaceSettings.verification.description": "设置任务在升级给人工前可运行的机器验收轮数上限。人工复核不受此限制。",
   "workspaceSettings.verification.maxRounds": "机器验收轮数上限",
   "workspaceSettings.verificationUpdated": "验收设置已更新",
-  "workspaceSettings.verificationUpdateFailed": "验收设置更新失败"
+  "workspaceSettings.verificationUpdateFailed": "验收设置更新失败",
+  "activity.boundaryDetected": "标记了一个禁止的操作 — {category}",
+  "activity.boundaryAcknowledged": "已确认该越界动作",
+  "boundary.category.push": "推送到受保护分支",
+  "boundary.category.migrationDelete": "删除了迁移文件",
+  "boundary.category.secret": "硬编码密钥",
+  "boundary.category.npm": "安装新依赖",
+  "boundary.category.db": "破坏性数据库命令",
+  "boundary.panel.title": "越界动作",
+  "boundary.panel.openCount": "{count, plural, one {# 个待处理} other {# 个待处理}}",
+  "boundary.panel.blockedNote": "在下方每个越界动作都由人工确认之前，此任务无法变更为「完成」。本工作区已开启此闸门。",
+  "boundary.panel.why": "原因：此操作在项目的禁止清单中。",
+  "boundary.panel.detected": "检测自一个工具事件",
+  "boundary.panel.acknowledge": "确认",
+  "boundary.panel.humanOnly": "确认会记录由谁签署批准，并解除「完成」的阻塞。只有已登录的人工用户才能确认 — agent/CLI 路径按设计已关闭。"
 }
