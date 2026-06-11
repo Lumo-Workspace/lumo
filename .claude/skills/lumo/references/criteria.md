@@ -23,16 +23,31 @@ contract, you MUST draft and submit criteria before starting implementation:
    see "Scale the contract to the task size" below.
 3. Submit with `lumo task criteria set <task> --file <criteria.json>`.
 
-**The lock is stage-based — free to iterate the draft while planning, locked
-once work starts.** While the task is still **TODO** (the planning stage) you
-may resubmit `criteria set` freely: a full-group resubmit replaces the whole
-contract, still recorded as your `AGENT_DRAFT` (each add/change/delete leaves a
-drift trail). The moment the task **leaves TODO** (work begins) the contract
-locks for agent edits — from then on you (the agent) can NOT change your own
-contract, only human revisions (`--human`) can. That's by design: once you're
-building against it, the contract is what your work gets judged against, not a
-to-do list you trim to fit what you built. (One exception holds in every stage:
-a criterion that already has verification runs is never deleted — reword it.)
+**The contract is editable until DONE — but changes after work starts leave a
+recorded drift trail.** The behaviour changes at two thresholds tracked by
+`Task.workStartedAt` (set the first time the task leaves TODO; never resets even
+if the task bounces back to TODO):
+
+- **Work has never started** (`workStartedAt` unset, task still in its initial
+  TODO phase): a `criteria set` resubmit replaces the whole contract freely —
+  full-group replace, recorded as `AGENT_DRAFT@round0`. Iterate as much as
+  needed during planning.
+- **Work has started** (the task left TODO at least once): a `criteria set`
+  resubmit is **still allowed** and applies an **identity-preserving diff** — the
+  CLI matches submitted items to existing criteria by id (attaching ids
+  automatically by exact-statement match) and records each add, update, or delete
+  as a `CRITERION_CHANGED` drift event at the current round. **No 409.** The
+  intent: the contract can be sharpened as understanding grows, but every change
+  is traceable.
+- **Task is DONE**: the contract locks — a `criteria set` resubmit is rejected
+  with 409. Reopen the task (move it back to in_progress) to change criteria, or
+  use `--human`.
+
+`--human` revisions are allowed in every non-DONE stage. One deletion rule holds
+across all stages: a criterion that already has verification runs is
+**soft-deleted** (kept for audit, runs preserved) rather than hard-deleted; a
+run-free criterion is hard-deleted. Either way, reword rather than delete when
+possible.
 
 ## Scale the contract to the task size
 
@@ -192,13 +207,16 @@ Fields: `statement` (required, ≤2000 chars), `verifierType` (`"MACHINE"` |
 
 ### `lumo task criteria set <task> --file <criteria.json>`
 
-Agent draft, recorded as `AGENT_DRAFT` at round 0. **Stage-based lock:** while
-the task is **TODO** a resubmit is allowed and replaces the whole contract
-(full-group), so you can iterate the draft during planning; once the task has
-**left TODO** a resubmit is rejected with 409 — from there only `--human`
-revisions change the contract. (Deleting a criterion that already has
-verification runs is refused in every stage — reword it instead.) Echoes the
-stored criteria (with ids) plus the 3–7 soft-cap warning if outside range.
+Agent draft, recorded as `AGENT_DRAFT` at round 0. **Editable until DONE:**
+while `workStartedAt` is unset (task never left TODO) a resubmit replaces the
+whole contract (full-group baseline). Once work has started an agent resubmit
+applies an **identity-preserving diff** — matched by id, with each add/update/
+delete recorded as a `CRITERION_CHANGED` drift event; no 409. The contract locks
+(409) only once the task is **DONE** — reopen it to change criteria, or use
+`--human`. A criterion that already has verification runs is soft-deleted (audit
+trail preserved) rather than hard-deleted; run-free criteria are hard-deleted.
+Echoes the stored criteria (with ids) plus the 3–7 soft-cap warning if outside
+range.
 
 ```bash
 lumo task criteria set LUM-42 --file criteria-lum42.json
