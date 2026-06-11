@@ -131,7 +131,7 @@ describe('acceptanceCriterionRepository', () => {
       await acceptanceCriterionRepository.listByTask('t-1')
 
       expect(mockFindMany).toHaveBeenCalledWith({
-        where: { taskId: 't-1' },
+        where: { taskId: 't-1', deletedAt: null },
         orderBy: { createdAt: 'asc' },
         select: expect.objectContaining({
           statement: true,
@@ -166,7 +166,9 @@ describe('acceptanceCriterionRepository', () => {
       await expect(
         acceptanceCriterionRepository.countByTask('t-1')
       ).resolves.toBe(8)
-      expect(mockCount).toHaveBeenCalledWith({ where: { taskId: 't-1' } })
+      expect(mockCount).toHaveBeenCalledWith({
+        where: { taskId: 't-1', deletedAt: null },
+      })
     })
   })
 
