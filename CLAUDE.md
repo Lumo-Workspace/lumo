@@ -7,7 +7,6 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Code Style
 
-- TypeScript strict mode
 - Use async/await, not .then()
 - No console.log in production code, use proper logging
 - Prefer named exports over default exports
@@ -22,8 +21,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Testing
 
-- Use Jest (configured in jest.config.js)
-- Test files go in **tests** directory
+- Use Jest; test files in **tests** directory
 - File naming: \*.test.ts
 - Run tests: npm test
 - Every new function needs at least one test
@@ -40,35 +38,17 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Design Principles (SOLID + LoD)
 
-- **SRP**: Each component, hook, or function does one thing. Don't mix data fetching, business logic, and rendering in a single component.
-- **OCP**: Extend via composition (children, props, hooks), not by modifying existing components. Add new variants instead of adding flags to existing ones.
-- **LSP**: Component variants must honor the same props contract. A `<PrimaryButton>` must be swappable with `<SecondaryButton>` without breaking callers.
-- **ISP**: Pass only the props a component needs, not entire objects. Use `select` in Prisma queries to fetch only required fields.
-- **DIP**: Components depend on abstractions (hooks, context) not implementations. Import from `@/lib/` wrappers, not directly from third-party SDKs.
-- **LoD**: Components should not reach deep into nested props (`task.project.workspace.slug`). Parent extracts and passes flat values.
+Apply SOLID + Law of Demeter. Lumo-specific house rules:
+
+- One responsibility per unit — don't mix data fetching, business logic, and rendering in one component (SRP).
+- Extend via composition and new variants, not flags on existing components; variants honor the same props contract (OCP/LSP).
+- Pass only the props a component needs; use Prisma `select` to fetch only required fields (ISP).
+- Depend on abstractions: import from `@/lib/` wrappers, never third-party SDKs directly (DIP).
+- Don't reach into nested props (`task.project.workspace.slug`) — parent extracts and passes flat values (LoD).
 
 ## React Rules
 
-### Hooks
-
-- Only call Hooks at the top level of function components or custom hooks
-- Never call Hooks inside loops, conditionals, nested functions, try/catch, or after early returns
-- Never call Hooks from regular JS functions, class components, or event handlers
-- Never call Hooks inside callbacks passed to useMemo, useReducer, or useEffect
-
-### Purity
-
-- Components and Hooks must be idempotent — same inputs → same output, no side effects during render
-- No `new Date()`, `Math.random()`, or other non-deterministic calls during render; move to useEffect or event handlers
-- Never mutate props, state, or Hook return values directly — always create new copies
-- Local mutation (variables created within the same render) is fine
-- Side effects belong in event handlers or useEffect, never in render logic
-
-### Component & Hook Calling
-
-- Never call component functions directly (`Article()`); always use JSX (`<Article />`)
-- Never pass Hooks as values or props — always call them directly inline
-- Never dynamically create or wrap Hooks at runtime; define static versions upfront
+Follow React's canonical [Rules of Hooks and render purity](https://react.dev/reference/rules) — hooks at top level only; pure render (no side effects / `new Date()` / `Math.random()`, never mutate props/state); components rendered as JSX, not called directly. Side effects go in event handlers or `useEffect`.
 
 ## Layered Architecture
 
@@ -89,16 +69,10 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Project Structure
 
-- app/ → Next.js App Router pages and API routes
-- components/ → Shared UI components (shadcn/ui based)
-- lib/ → Server-side utilities, auth helpers, DB queries
-  - lib/repositories/ → Data access layer (Prisma queries)
-  - lib/services/ → Business logic layer
-  - lib/api-client/ → Frontend API client
-  - lib/validation/ → Zod schemas (per domain)
-- prisma/ → Schema and migrations
-- types/ → Shared TypeScript types
-- shared/ → Cross-project types, errors, constants (used by main app + agent-server)
+Standard Next.js App Router layout. Only the non-obvious bits (not derivable by exploration):
+
+- `lib/` is split per the Layered Architecture table above (`repositories/` · `services/` · `api-client/`), plus `lib/validation/` → Zod schemas per domain.
+- `shared/` → cross-project types/errors/constants used by **both** the main app and agent-server.
 
 ## Database Migrations
 
@@ -109,11 +83,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Live Docs(活文档权威 md 源)
 
-- 含表格/复杂结构的 Lumo 活文档,权威 markdown 源放在 `docs/live-docs/`(映射表见该目录 README)
-- 编辑流程:改源文件 → `lumo doc update <docId> --file docs/live-docs/<file>.md` → `npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md` 校验表格结构未丢(LUM-410 起服务端内置结构守卫:上传使表格/行/标题数缩水会被 422 拒,**有意删节**时加 `--allow-shrink`;非有意先查源/基底)
-- 上传前先 `lumo doc diff <docId> --file docs/live-docs/<file>.md` 检查线上源是否已漂移(防 stale 上传覆盖,#460 事故类)
-- **永远不要把 `lumo doc show` 的渲染输出当可回传源**——HTML→md 渲染有损,表格会被拍平成纯文本(LUM-349 事故根因);需要编辑基底用 `lumo doc show <docId> --raw`(LUM-408 起返回逐字节 markdown 源;无源时报错走重建流程,不会有损回退)
-- **例外:研究吸收登记册(doc `cmq7c5cqi001v04lgwopkrti4`)是 live-doc-only**——唯一权威是活文档本身,repo 不保有它的 md 源,登记册变更不开 PR。编辑流程:`lumo doc show <docId> --raw` 取当前源为基底 → 改 → `doc diff` 确认只含本次编辑 → `doc update`;**严禁从任何 repo 历史版本的文件全量重推**(会抹掉活文档上更新的条目)。其余 live-doc 仍走上面的源文件流程(详见 `docs/live-docs/README.md` 例外节)
+含表格/复杂结构的活文档以 `docs/live-docs/` 下的源文件为唯一可编辑入口。**关键红线**:永远不要把 `lumo doc show` 的渲染输出当可回传源(HTML→md 有损,表格会被拍平——LUM-349 事故根因);编辑基底用 `lumo doc show <docId> --raw`。完整编辑流程(结构守卫 / `doc diff` 防 stale 上传 / verify 脚本)与登记册 live-doc-only 例外,见 [`docs/live-docs/README.md`](docs/live-docs/README.md)。
 
 ## CLI & Skills 同步
 
@@ -133,9 +103,13 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## PR Checklist
 
-- [ ] Tests written and passing
-- [ ] No TypeScript errors (npx tsc --noEmit)
-- [ ] No console.log statements
-- [ ] Branch name follows convention lumo/{task-id}-{description}
-- [ ] PR title includes task ID [LUM-N]
-- [ ] If `cli/src/commands/` changed → `.claude/skills/lumo/SKILL.md` updated to match
+Before opening a PR: tests + `npx tsc --noEmit` pass, no `console.log`; branch/PR-title follow the **Git** conventions; if `cli/src/commands/` changed, `.claude/skills/lumo/SKILL.md` is updated (see **CLI & Skills 同步**); honor the **Forbidden** list.
+
+## 维护本文件(软预算)
+
+CLAUDE.md 是常驻 context,每条指令都被遵守且必付推理成本,收益只在信息**非冗余**时出现(ETH, arXiv 2602.11988);context file 易「只加不删」单调膨胀(arXiv 2511.12884)。故:
+
+- **软预算 ~9500 字符**(`wc -m CLAUDE.md`):软上限,超出时**先瘦身再加**——对应 SKILL.md `description` 的 1000 字符上限回路(LUM-392)。
+- **新增段落先自证非冗余**:agent 靠探索 / strict TS+Prisma+Zod / README / `docs/` 推得出的(目录枚举、通用 SOLID/React 规则)不写(ETH 证伪目录枚举式 overview 对探索步数零增益)。
+- **保留 Lumo 独有指令**:删减只动他处已有同等信息的确定冗余;Forbidden / Database Migrations 等安全红线一字不动。
+- **不做 LLM 自动生成**本文件(ETH:删仓库文档后让模型自动生成反增 ~2.7% 成本)。
