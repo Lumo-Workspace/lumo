@@ -34,7 +34,9 @@ import {
   parseJestTCheckpointer,
   classifyCheckpointer,
   sweepContracts,
+  sweepWithResolution,
   type CheckpointerCriterion,
+  type ResolvedContractInput,
 } from '../scripts/checkpointer-drift'
 
 const HEALTHY_NAME = 'sample healthy fixture test name'
@@ -173,9 +175,22 @@ describe('LUM-436 checkpointer drift', () => {
     }
 
     let report
+    let refined
     try {
       report = sweepContracts(
         [{ taskIdentifier: 'LUM-FIXTURE', criteria }],
+        repoRoot
+      )
+      // The LUM-438 refinement layer must be detection-only too: classifying
+      // against the prior-resolution signal still executes/writes nothing.
+      refined = sweepWithResolution(
+        [
+          {
+            taskIdentifier: 'LUM-FIXTURE',
+            taskLeftTodo: true,
+            criteria: criteria.map(c => ({ ...c, everPassed: false })),
+          },
+        ],
         repoRoot
       )
     } finally {
@@ -188,6 +203,11 @@ describe('LUM-436 checkpointer drift', () => {
     // because it crashed early).
     expect(report.healthy).toHaveLength(1)
     expect(report.drifted).toHaveLength(1)
+    // The refined sweep likewise produced real verdicts (taskLeftTodo → the
+    // zero-match stays drifted, not downgraded to pending).
+    expect(refined.healthy).toHaveLength(1)
+    expect(refined.drifted).toHaveLength(1)
+    expect(refined.pending).toHaveLength(0)
 
     for (const s of [...execSpies, ...writeSpies]) {
       expect(s).not.toHaveBeenCalled()
@@ -209,6 +229,75 @@ describe('LUM-436 checkpointer drift', () => {
       ].sort()
     )
     expect(sample.status).toBe('drifted')
+  })
+})
+
+/**
+ * LUM-438: split the raw zero-match verdict into TRUE drift vs not-yet-built.
+ *
+ * The LUM-436 static layer flags any zero-match checkpointer `drifted`. Running
+ * `--mine` exposed a false-positive class: a TODO task whose tests the
+ * implementer simply hasn't written yet (e.g. LUM-437 sat in TODO with 4 MACHINE
+ * checkpointers pointing at tests that didn't exist). Those are PENDING (not yet
+ * implemented), not stale.
+ *
+ *  c1 — a zero-match is TRUE drift only when the checkpointer SHOULD resolve:
+ *       the task has left TODO (implementation should exist) OR the criterion
+ *       has passed before (it resolved once → now a regression). A TODO task
+ *       whose criterion never passed → PENDING, suppressed from the drift bucket
+ *       and from the exit code. Offline + fixture-driven.
+ */
+describe('LUM-438 pending vs drifted refinement', () => {
+  it('drift sweep classifies pending vs drifted by prior-resolution signal', () => {
+    // Every criterion below is a zero-match at the static layer: the named test
+    // file does not exist in the synthetic repo. What separates PENDING from
+    // DRIFTED is purely the prior-resolution signal.
+    const missing = (id: string): CheckpointerCriterion => ({
+      id,
+      verifierType: 'MACHINE',
+      checkpointer: jestT(HEALTHY_NAME, '__tests__/gone.test.ts'),
+    })
+
+    // Case A — TODO task, criterion never passed: the test just isn't written
+    // yet. Zero-match is EXPECTED → PENDING, not drift.
+    const todoNeverPassed: ResolvedContractInput = {
+      taskIdentifier: 'LUM-PENDING',
+      taskLeftTodo: false,
+      criteria: [{ ...missing('c-todo-unverified'), everPassed: false }],
+    }
+    // Case B — task has left TODO: the implementation should exist, so a
+    // zero-match is real drift (the test was never written, or was removed).
+    const leftTodo: ResolvedContractInput = {
+      taskIdentifier: 'LUM-STARTED',
+      taskLeftTodo: true,
+      criteria: [{ ...missing('c-started-missing'), everPassed: false }],
+    }
+    // Case C — TODO but the criterion passed before: the test resolved once and
+    // was later renamed/deleted → a regression that must surface as drift even
+    // though the task is back in TODO.
+    const todoButPassedOnce: ResolvedContractInput = {
+      taskIdentifier: 'LUM-REGRESSED',
+      taskLeftTodo: false,
+      criteria: [{ ...missing('c-regressed'), everPassed: true }],
+    }
+
+    const report = sweepWithResolution(
+      [todoNeverPassed, leftTodo, todoButPassedOnce],
+      repoRoot
+    )
+
+    // PENDING bucket holds only the unstarted-never-passed criterion.
+    expect(report.pending.map(d => d.criterionId)).toEqual([
+      'c-todo-unverified',
+    ])
+    // DRIFTED bucket holds the two that SHOULD have resolved.
+    expect(report.drifted.map(d => d.criterionId).sort()).toEqual([
+      'c-regressed',
+      'c-started-missing',
+    ])
+    // Reclassification preserves the per-entry status label.
+    expect(report.pending[0]!.status).toBe('pending')
+    expect(report.drifted.every(d => d.status === 'drifted')).toBe(true)
   })
 })
 
