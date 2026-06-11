@@ -49,7 +49,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task slack show <id> <contextId>` — full stored Slack thread
 - `lumo task web show <id> <linkId>` — fetched web link body
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
-- `lumo task comments list <id>` — full comment thread (read-only; ≠ `task comment`)
+- `lumo task comments list <id>` — comment thread, capped to the output budget (`--full` prints every comment; read-only; ≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata (v1)
 - `lumo task lineage <id>` — show the causal trail: fragments that fed the task + each one's outcome + the run's token/loop cost (read-only audit view); `lumo task lineage <id> --signal` also appends workspace-level usage signal-health (used distribution, per-session variance, used-vs-base merge rate)
 

@@ -4,6 +4,7 @@ import { tiptapToMarkdown } from '../lib/markdown-tiptap'
 import { extractSection, findSection } from '../lib/markdown-sections'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
+import { capRenderedOutput } from '../../../shared/src/output-budget'
 
 export interface ShowDocViewModel {
   id: string
@@ -36,7 +37,18 @@ export function formatShowOutput(vm: ShowDocViewModel): string {
     `Mentioned tasks: ${vm.mentionedTasks.length ? vm.mentionedTasks.join(', ') : '-'}`,
   ]
   const header = lines.join('\n')
-  return vm.bodyMarkdown ? `${header}\n\n${sanitizeField(vm.bodyMarkdown)}` : header
+  if (!vm.bodyMarkdown) return header
+  const full = `${header}\n\n${sanitizeField(vm.bodyMarkdown)}`
+  // The *rendered* view is the only doc-show path with a budget (LUM-428): a
+  // book-length doc would otherwise swallow the agent's context. The pointer
+  // routes to the byte-faithful reads — `--section` for a just-in-time slice,
+  // `--raw` for the whole source — which are NEVER capped (they are edit bases).
+  return capRenderedOutput(full, {
+    fetchHint:
+      `read one section with: lumo doc show ${vm.id} --section "<heading>", ` +
+      `or the full markdown source with: lumo doc show ${vm.id} --raw`,
+    unitNoun: 'lines',
+  }).text
 }
 
 export interface ShowDocOptions {
@@ -44,6 +56,149 @@ export interface ShowDocOptions {
   raw?: boolean
   /** Print just one heading-addressed section of the markdown source (LUM-409). */
   section?: string
+}
+
+/** The document shape `GET /api/documents/:id` returns (defensively partial). */
+export interface DocShowDocument {
+  id: string
+  title: string
+  visibility?: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
+  content?: string | null
+  contentMarkdown?: string | null
+  sourceMarkdown?: string | null
+  contentRevision?: number
+  project?: { name?: string } | null
+  createdAt?: string
+  updatedAt?: string
+  mentions?: {
+    task?: {
+      identifier?: string
+      number?: number
+      team?: { identifier?: string }
+    }
+  }[]
+}
+
+/**
+ * What `doc show` will print, decided purely from the document data + flags —
+ * no I/O. Splitting this out (SRP) makes the byte-faithful contract directly
+ * unit-testable (LUM-428 criterion 3): `bytes` is the verbatim source / slice
+ * and is NEVER routed through the output cap, whereas `rendered` is.
+ */
+export type DocShowOutput =
+  | { kind: 'error'; message: string }
+  | { kind: 'bytes'; text: string; revision: number | null }
+  | { kind: 'rendered'; text: string }
+
+export function selectDocShowOutput(
+  d: DocShowDocument,
+  opts: ShowDocOptions
+): DocShowOutput {
+  const revision =
+    typeof d.contentRevision === 'number' ? d.contentRevision : null
+  if (opts.raw) {
+    // Byte-identical markdown source of the last markdown upload (LUM-408).
+    // Written verbatim (no header, no sanitization, no added newline) so the
+    // output is a legal edit base: `doc show --raw > base.md` round-trips.
+    // No silent fallback to the lossy HTML→markdown reverse render — that
+    // fallback is exactly what flattened tables in LUM-349.
+    if (typeof d.sourceMarkdown !== 'string') {
+      return {
+        kind: 'error',
+        message:
+          `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `or predates markdown source storage). --raw refuses to fall back to the ` +
+          `lossy HTML→markdown render. Rebuild a base instead: run \`lumo doc show ${d.id}\`, ` +
+          `reconstruct the markdown faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\` ` +
+          `— from then on --raw works.`,
+      }
+    }
+    return { kind: 'bytes', text: d.sourceMarkdown, revision }
+  }
+  if (opts.section !== undefined) {
+    // Section reads slice the stored markdown source — same no-fallback rule
+    // as --raw: a rendered-output slice would not be a legal edit base.
+    if (typeof d.sourceMarkdown !== 'string') {
+      return {
+        kind: 'error',
+        message:
+          `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
+          `or predates markdown source storage), so --section cannot slice it. ` +
+          `Rebuild a base first: run \`lumo doc show ${d.id}\`, reconstruct the markdown ` +
+          `faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\`.`,
+      }
+    }
+    const match = findSection(d.sourceMarkdown, opts.section)
+    if (match.kind === 'not-found') {
+      const list = match.available
+        .slice(0, 30)
+        .map(s => `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)}`)
+        .join('\n')
+      return {
+        kind: 'error',
+        message: `Error: section not found: "${opts.section}". Available headings:\n${list || '  (none)'}`,
+      }
+    }
+    if (match.kind === 'ambiguous') {
+      const list = match.candidates
+        .map(
+          s =>
+            `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)} (line ${s.line + 1})`
+        )
+        .join('\n')
+      return {
+        kind: 'error',
+        message:
+          `Error: section "${opts.section}" is ambiguous — ${match.candidates.length} headings match:\n${list}\n` +
+          `Disambiguate by depth, e.g. --section "${'#'.repeat(match.candidates[0]!.depth)} ${match.candidates[0]!.heading}"`,
+      }
+    }
+    // Byte-faithful slice, verbatim (legal patch base).
+    return {
+      kind: 'bytes',
+      text: extractSection(d.sourceMarkdown, match.section),
+      revision,
+    }
+  }
+  // Server returns `contentMarkdown` derived from the HTML body (LUM-83+).
+  // Fall back to parsing the raw content as legacy Tiptap JSON for docs
+  // written before the storage shape changed.
+  let body = ''
+  if (d.contentMarkdown) {
+    body = d.contentMarkdown
+  } else if (d.content) {
+    try {
+      body = tiptapToMarkdown(JSON.parse(d.content))
+    } catch {
+      body = ''
+    }
+  }
+  // mentions may carry a flat identifier or a (team.identifier + number) shape.
+  const mentionedTasks: string[] = (d.mentions ?? [])
+    .map(m => {
+      if (!m.task) return null
+      if (m.task.identifier) return m.task.identifier
+      if (m.task.team?.identifier && typeof m.task.number === 'number') {
+        return `${m.task.team.identifier}-${m.task.number}`
+      }
+      return null
+    })
+    .filter((x): x is string => x !== null)
+
+  return {
+    kind: 'rendered',
+    text: formatShowOutput({
+      id: d.id,
+      title: d.title,
+      scope: d.visibility ?? 'PRIVATE',
+      projectName: d.project?.name ?? null,
+      createdAt: d.createdAt ?? '',
+      updatedAt: d.updatedAt ?? '',
+      revision,
+      mentionedTasks,
+      bodyMarkdown: body,
+    }),
+  }
 }
 
 export async function docShow(
@@ -80,140 +235,34 @@ export async function docShow(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
+    console.error(
+      `Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`
+    )
     return 1
   }
   // The exact shape of the GET response is not guaranteed; defensively unwrap.
-  const data = (await res.json()) as {
-    document?: {
-      id: string
-      title: string
-      visibility?: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
-      content?: string | null
-      contentMarkdown?: string | null
-      sourceMarkdown?: string | null
-      contentRevision?: number
-      project?: { name?: string } | null
-      createdAt?: string
-      updatedAt?: string
-      mentions?: {
-        task?: {
-          identifier?: string
-          number?: number
-          team?: { identifier?: string }
-        }
-      }[]
-    }
-  }
+  const data = (await res.json()) as { document?: DocShowDocument }
   const d = data.document
   if (!d) {
     console.error('Error: server returned an empty document response')
     return 1
   }
-  if (opts.raw) {
-    // Byte-identical markdown source of the last markdown upload (LUM-408).
-    // Written verbatim (no header, no sanitization, no added newline) so the
-    // output is a legal edit base: `doc show --raw > base.md` round-trips.
-    // No silent fallback to the lossy HTML→markdown reverse render — that
-    // fallback is exactly what flattened tables in LUM-349.
-    if (typeof d.sourceMarkdown !== 'string') {
-      console.error(
-        `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
-          `or predates markdown source storage). --raw refuses to fall back to the ` +
-          `lossy HTML→markdown render. Rebuild a base instead: run \`lumo doc show ${d.id}\`, ` +
-          `reconstruct the markdown faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\` ` +
-          `— from then on --raw works.`
-      )
-      return 1
-    }
-    process.stdout.write(d.sourceMarkdown)
-    // Revision goes to stderr so stdout stays a byte-pure edit base while
-    // the agent still sees the number to pass back as --if-revision.
-    if (typeof d.contentRevision === 'number') {
-      console.error(`Revision: ${d.contentRevision}`)
-    }
-    return
-  }
-  if (opts.section !== undefined) {
-    // Section reads slice the stored markdown source — same no-fallback rule
-    // as --raw: a rendered-output slice would not be a legal edit base.
-    if (typeof d.sourceMarkdown !== 'string') {
-      console.error(
-        `Error: ${d.id} has no stored markdown source (last edit was HTML-direct ` +
-          `or predates markdown source storage), so --section cannot slice it. ` +
-          `Rebuild a base first: run \`lumo doc show ${d.id}\`, reconstruct the markdown ` +
-          `faithfully, then \`lumo doc update ${d.id} --file <rebuilt.md>\`.`
-      )
-      return 1
-    }
-    const match = findSection(d.sourceMarkdown, opts.section)
-    if (match.kind === 'not-found') {
-      const list = match.available
-        .slice(0, 30)
-        .map(s => `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)}`)
-        .join('\n')
-      console.error(
-        `Error: section not found: "${opts.section}". Available headings:\n${list || '  (none)'}`
-      )
-      return 1
-    }
-    if (match.kind === 'ambiguous') {
-      const list = match.candidates
-        .map(
-          s =>
-            `  ${'#'.repeat(s.depth)} ${sanitizeField(s.heading)} (line ${s.line + 1})`
-        )
-        .join('\n')
-      console.error(
-        `Error: section "${opts.section}" is ambiguous — ${match.candidates.length} headings match:\n${list}\n` +
-          `Disambiguate by depth, e.g. --section "${'#'.repeat(match.candidates[0]!.depth)} ${match.candidates[0]!.heading}"`
-      )
-      return 1
-    }
-    // Byte-faithful slice, verbatim on stdout (legal patch base); revision on
-    // stderr for the follow-up `doc patch --if-revision`.
-    process.stdout.write(extractSection(d.sourceMarkdown, match.section))
-    if (typeof d.contentRevision === 'number') {
-      console.error(`Revision: ${d.contentRevision}`)
-    }
-    return
-  }
-  // Server returns `contentMarkdown` derived from the HTML body (LUM-83+).
-  // Fall back to parsing the raw content as legacy Tiptap JSON for docs
-  // written before the storage shape changed.
-  let body = ''
-  if (d.contentMarkdown) {
-    body = d.contentMarkdown
-  } else if (d.content) {
-    try {
-      body = tiptapToMarkdown(JSON.parse(d.content))
-    } catch {
-      body = ''
-    }
-  }
-  // mentions may carry a flat identifier or a (team.identifier + number) shape.
-  const mentionedTasks: string[] = (d.mentions ?? [])
-    .map(m => {
-      if (!m.task) return null
-      if (m.task.identifier) return m.task.identifier
-      if (m.task.team?.identifier && typeof m.task.number === 'number') {
-        return `${m.task.team.identifier}-${m.task.number}`
-      }
-      return null
-    })
-    .filter((x): x is string => x !== null)
 
-  console.log(
-    formatShowOutput({
-      id: d.id,
-      title: d.title,
-      scope: d.visibility ?? 'PRIVATE',
-      projectName: d.project?.name ?? null,
-      createdAt: d.createdAt ?? '',
-      updatedAt: d.updatedAt ?? '',
-      revision: typeof d.contentRevision === 'number' ? d.contentRevision : null,
-      mentionedTasks,
-      bodyMarkdown: body,
-    })
-  )
+  const sel = selectDocShowOutput(d, opts)
+  if (sel.kind === 'error') {
+    console.error(sel.message)
+    return 1
+  }
+  if (sel.kind === 'bytes') {
+    // Byte-faithful read (--raw / --section): written verbatim, NEVER routed
+    // through the output cap — it is a legal edit base for `doc patch`
+    // (LUM-408/409/428). Revision goes to stderr so stdout stays byte-pure
+    // while the agent still sees the number to pass back as --if-revision.
+    process.stdout.write(sel.text)
+    if (sel.revision !== null) {
+      console.error(`Revision: ${sel.revision}`)
+    }
+    return
+  }
+  console.log(sel.text)
 }

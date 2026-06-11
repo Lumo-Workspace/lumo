@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.31.0",
+  "cliVersion": "1.32.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -2224,9 +2224,18 @@
           "variadic": false
         }
       ],
-      "flags": {},
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print every comment, bypassing the output-token cap"
+        }
+      },
       "hasSubcommands": false,
-      "description": "List the full task comment thread"
+      "description": "List the task comment thread (capped to the output budget; --full prints every comment)"
     },
     "task context": {
       "arguments": [

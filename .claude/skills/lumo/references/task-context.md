@@ -48,6 +48,12 @@ or the PR detail — run the matching command below. Pass the same identifier
 (`LUM-N`) plus the id the card shows for that source (a Slack `contextId`, a web
 `linkId`, a Figma `linkId`, or a PR `number`).
 
+**Output budget (LUM-428):** the whole `task context` handoff is capped to the
+output-token budget (25,000 tokens). If a memory-rich task with a long thread
+overflows, the output is truncated and ends in a pointer to the precise
+sub-commands (`lumo task status` / `task comments list --full` / `task lineage`
+/ `doc show`) to pull any dropped section just-in-time.
+
 All five are **read-only** (no live Slack/GitHub/Figma calls except the web body
 fetch). Web/Figma/PR are v1 metadata-degraded: they print a `note:` explaining
 that live content needs an external integration.
@@ -83,15 +89,24 @@ server, so the command ends with a `note:` saying so.
 lumo task figma context LUM-42 cfl_abc123
 ```
 
-### `lumo task comments list <identifier>` — full comment thread
+### `lumo task comments list <identifier>` — comment thread
 
-Prints the **entire** comment thread: each comment as `author · createdAt`
-followed by its plain-text body (comment bodies are stored as HTML and stripped
-to text). Replies are indented two spaces under their parent. Author falls back
-to `unknown`. No comments prints `(no comments)`.
+Prints the comment thread: each comment as `author · createdAt` followed by its
+plain-text body (comment bodies are stored as HTML and stripped to text).
+Replies are indented two spaces under their parent. Author falls back to
+`unknown`. No comments prints `(no comments)`.
+
+**Output budget (LUM-428).** By default the thread is capped to the
+output-token budget (25,000 tokens — every line you print spends from your
+context). When it overflows, the output is truncated to the budget and ends in
+a fetch-more pointer (`… +N more comments not shown (output capped at 25,000
+tokens) — read the whole thread with: lumo task comments list <id> --full`).
+Pass **`--full`** to print every comment uncapped — only when you actually need
+the whole thread.
 
 ```bash
-lumo task comments list LUM-42
+lumo task comments list LUM-42          # capped to the output budget
+lumo task comments list LUM-42 --full   # every comment, no cap
 ```
 
 **Plural, and distinct from `task comment`.** `task comments list` _reads_ the

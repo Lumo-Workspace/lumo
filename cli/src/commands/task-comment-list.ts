@@ -1,18 +1,29 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { truncateUnitsToBudget } from '../../../shared/src/output-budget'
 
 interface ResolveResponse {
   id: string
   identifier: string
 }
 
-interface CommentNode {
+export interface CommentNode {
   id: string
   authorActorId: string | null
   body: string
   createdAt: string
   replies?: CommentNode[]
+}
+
+export interface CommentThreadOptions {
+  /** Render every comment, bypassing the output budget (the escape hatch the
+   *  fetch-more pointer advertises). */
+  full?: boolean | undefined
+  /** Task identifier echoed into the fetch-more pointer (e.g. "LUM-42"). */
+  identifier?: string | undefined
+  /** Override the token ceiling (tests). */
+  maxTokens?: number | undefined
 }
 
 /**
@@ -35,17 +46,44 @@ function htmlToPlainText(html: string): string {
     .trim()
 }
 
-function printComment(c: CommentNode, indent: string): void {
+/** Render one comment (and its nested replies) as an indented text block. */
+function renderCommentBlock(c: CommentNode, indent: string): string {
+  const lines: string[] = []
   const author = sanitizeField(c.authorActorId ?? 'unknown')
-  console.log(`${indent}${author} · ${c.createdAt}`)
+  lines.push(`${indent}${author} · ${c.createdAt}`)
   const text = sanitizeField(htmlToPlainText(c.body))
   for (const line of (text || '(empty)').split('\n')) {
-    console.log(`${indent}${line}`)
+    lines.push(`${indent}${line}`)
   }
-  console.log('')
   for (const reply of c.replies ?? []) {
-    printComment(reply, indent + '  ')
+    lines.push('')
+    lines.push(renderCommentBlock(reply, indent + '  '))
   }
+  return lines.join('\n')
+}
+
+/**
+ * Render the full comment thread as agent-facing text. One block per top-level
+ * comment (replies indented underneath). Capped to the output-token budget by
+ * default (LUM-428) — a long-running task's thread is one of the easiest ways
+ * to blow the agent's context — with a fetch-more pointer to `--full`. Pass
+ * `{ full: true }` to print everything.
+ */
+export function formatCommentThread(
+  comments: CommentNode[],
+  opts: CommentThreadOptions = {}
+): string {
+  if (comments.length === 0) return '(no comments)'
+  const blocks = comments.map(c => renderCommentBlock(c, ''))
+  if (opts.full) return blocks.join('\n\n')
+  const id = opts.identifier ?? '<LUM-N>'
+  return truncateUnitsToBudget({
+    units: blocks,
+    maxTokens: opts.maxTokens,
+    unitNoun: 'comments',
+    fetchHint: `read the whole thread with: lumo task comments list ${id} --full`,
+    separator: '\n\n',
+  }).text
 }
 
 /**
@@ -57,7 +95,8 @@ function printComment(c: CommentNode, indent: string): void {
  * (replies indented) as `author · time` followed by the plain-text body.
  */
 export async function taskCommentList(
-  identifier: string | undefined
+  identifier: string | undefined,
+  opts: { full?: boolean } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error('Error: usage: lumo task comments list <LUM-42>')
@@ -133,7 +172,10 @@ export async function taskCommentList(
     console.log('(no comments)')
     return
   }
-  for (const c of comments) {
-    printComment(c, '')
-  }
+  console.log(
+    formatCommentThread(comments, {
+      full: opts.full,
+      identifier: resolved.identifier,
+    })
+  )
 }
