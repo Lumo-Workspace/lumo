@@ -1,7 +1,10 @@
 import { waitUntil } from '@vercel/functions'
 import type { Prisma, TaskStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import {
+  acceptanceCriterionRepository,
+  type AcceptanceCriterionRow,
+} from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -72,32 +75,131 @@ async function recordCriterionChanged(
   )
 }
 
+interface DiffApplyConfig {
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+  round: number
+  causeTag?: CriteriaCauseTag | undefined
+  actorId: string | null
+}
+
 /**
- * The audit-chain hard constraint (LUM-341 review, milestone rule "有 verdict
- * 的 criterion 不可删"): a criterion that already carries VerificationRun rows
- * must keep existing so the verification log keeps pointing at a live row.
- * Shared by both the human revision path and the TODO-stage agent redraft —
- * the constraint is NOT relaxed by the stage split (LUM-432).
+ * Apply a desired contract list against the existing rows, identity-preserving
+ * (id-keyed): items with id keep/update, items without id are new, existing
+ * rows missing from the list are removed. A removed criterion that carries
+ * verification runs is SOFT-deleted (tombstone) so its runs survive; a run-free
+ * one is hard-deleted. Each op writes a faithful CRITERION_CHANGED drift event
+ * in the same transaction. Returns the change statements for the audit comment.
+ *
+ * Shared by both the after-start agent redraft (LUM-437) and the human revision
+ * path — the contract is editable until DONE; the only audit-chain invariant is
+ * that a criterion with recorded runs is never hard-deleted (its runs survive
+ * via the tombstone), never a 409 (LUM-432's deletion 409 is removed).
  */
-async function assertNoRunsBlockDeletion(
+async function applyContractDiff(
   taskId: string,
-  toDelete: { id: string }[]
-): Promise<void> {
-  if (toDelete.length === 0) return
+  items: CriteriaSetItem[],
+  existing: AcceptanceCriterionRow[],
+  cfg: DiffApplyConfig
+): Promise<{ added: string[]; updated: string[]; deleted: string[] }> {
+  const existingById = new Map(existing.map(c => [c.id, c]))
+  for (const item of items) {
+    if (item.id !== undefined && !existingById.has(item.id)) {
+      throw Object.assign(
+        new Error(`Criterion ${item.id} not found on this task`),
+        { status: 400 }
+      )
+    }
+  }
+  const keptIds = new Set(
+    items.flatMap(i => (i.id !== undefined ? [i.id] : []))
+  )
+  if (keptIds.size < items.filter(i => i.id !== undefined).length) {
+    throw Object.assign(new Error('Duplicate criterion id in submission'), {
+      status: 400,
+    })
+  }
+  const toDelete = existing.filter(c => !keptIds.has(c.id))
+  const toCreate = items.filter(i => i.id === undefined)
+  const toUpdate = items.flatMap(i => {
+    if (i.id === undefined) return []
+    const current = existingById.get(i.id)!
+    const desired = desiredShape(i)
+    const unchanged =
+      current.statement === desired.statement &&
+      current.verifierType === desired.verifierType &&
+      current.checkpointer === desired.checkpointer &&
+      current.evidenceRequired === desired.evidenceRequired
+    return unchanged ? [] : [{ id: i.id, desired }]
+  })
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
-  const blocked = toDelete.filter(c => runsByCriterion.has(c.id))
-  if (blocked.length > 0) {
-    throw Object.assign(
-      new Error(
-        `Refusing to delete criteria with recorded verification runs: ${blocked
-          .map(c => c.id)
-          .join(
-            ', '
-          )} — the verification log must keep pointing at them; reword the criterion instead of deleting it`
-      ),
-      { status: 409 }
-    )
+  await prisma.$transaction(async tx => {
+    for (const c of toDelete) {
+      if (runsByCriterion.has(c.id)) {
+        await acceptanceCriterionRepository.softDelete(c.id, tx)
+      } else {
+        await acceptanceCriterionRepository.delete(c.id, tx)
+      }
+      await recordCriterionChanged(tx, {
+        taskId,
+        actorId: cfg.actorId,
+        op: 'DELETED',
+        criterionId: c.id,
+        source: cfg.source,
+        round: cfg.round,
+        causeTag: cfg.causeTag,
+        before: criterionSnapshot(c),
+        after: null,
+      })
+    }
+    for (const u of toUpdate) {
+      await acceptanceCriterionRepository.update(
+        u.id,
+        { ...u.desired, source: cfg.source },
+        tx
+      )
+      await recordCriterionChanged(tx, {
+        taskId,
+        actorId: cfg.actorId,
+        op: 'UPDATED',
+        criterionId: u.id,
+        source: cfg.source,
+        round: cfg.round,
+        causeTag: cfg.causeTag,
+        before: criterionSnapshot(existingById.get(u.id)!),
+        after: criterionSnapshot(u.desired),
+      })
+    }
+    for (const c of toCreate) {
+      const created = await acceptanceCriterionRepository.create(
+        {
+          taskId,
+          statement: c.statement,
+          verifierType: c.verifierType,
+          checkpointer: c.checkpointer ?? null,
+          evidenceRequired: c.evidenceRequired ?? false,
+          source: cfg.source,
+          addedAtRound: cfg.round,
+        },
+        tx
+      )
+      await recordCriterionChanged(tx, {
+        taskId,
+        actorId: cfg.actorId,
+        op: 'ADDED',
+        criterionId: created.id,
+        source: cfg.source,
+        round: cfg.round,
+        causeTag: cfg.causeTag,
+        before: null,
+        after: criterionSnapshot(created),
+      })
+    }
+  })
+  return {
+    added: toCreate.map(c => c.statement),
+    updated: toUpdate.map(u => u.desired.statement),
+    deleted: toDelete.map(c => c.statement),
   }
 }
 
@@ -174,31 +276,40 @@ export const taskCriteriaService = {
   },
 
   /**
-   * Submit the agent-drafted contract (round 0, AGENT_DRAFT). The lock is
-   * stage-based (milestone rule 4, revised by LUM-432): it guards against
-   * changing the contract after work starts, not against iterating the draft
-   * during planning.
+   * Submit the agent-drafted contract. The gate between "free first draft" and
+   * "recorded after-start diff" is `Task.workStartedAt` (null = never started),
+   * not the task status (LUM-437, superseding LUM-432's TODO/409 lock): the
+   * contract is editable until DONE.
    *
-   * - Empty contract → initial draft, any stage (the lock only bites a
-   *   non-empty contract). The count is re-checked inside the insert
-   *   transaction to narrow the double-submit race window.
-   * - Non-empty contract while the task is still TODO → full-group replace
-   *   (delete-all + create-all), still stamped AGENT_DRAFT@round0, each
-   *   delete/create written as a faithful CRITERION_CHANGED drift event.
-   * - Non-empty contract once the task has left TODO → 409: the agent is
-   *   read-only on its own contract; only HUMAN_EDIT revisions (`--human`)
-   *   may change it from here.
+   * - Empty contract → initial draft (AGENT_DRAFT@round0). The count is
+   *   re-checked inside the insert transaction to narrow the double-submit
+   *   race window.
+   * - Non-empty contract, never started (`workStartedAt == null`) → free
+   *   full-group replace (delete-all + create-all), still stamped
+   *   AGENT_DRAFT@round0, each delete/create written as a faithful
+   *   CRITERION_CHANGED drift event. A never-started task has no runs, so the
+   *   hard delete is safe.
+   * - Non-empty contract, work has started (`workStartedAt != null`) →
+   *   identity-preserving diff (id-keyed) recorded as CRITERION_CHANGED drift
+   *   at the current round — NO 409. A removed criterion that carries runs is
+   *   soft-deleted (its runs survive); a run-free one is hard-deleted.
    *
-   * This lock is a default guardrail, not a hard security boundary (an agent
-   * can flip the task back to TODO to unlock, but every change stays auditable
-   * via the drift trail). The system's only hard boundary is that a PASS data
-   * row can never be agent-produced (LUM-421, unrelated to this path).
+   * Every change stays auditable via the drift trail. The system's only hard
+   * boundary is that a PASS data row can never be agent-produced (LUM-421,
+   * unrelated to this path).
    */
   async submitDraft(
     taskId: string,
     items: CriteriaSetItem[],
     attribution: CriteriaAttribution,
-    taskStatus: TaskStatus
+    // Retained in the signature for caller compatibility (the route passes
+    // task.status positionally); the editable-until-DONE gate is workStartedAt,
+    // not status, so the value is intentionally unread (underscore-prefixed).
+    _taskStatus: TaskStatus,
+    // Defaults to null so the existing route (which does not yet fetch
+    // workStartedAt — that wiring is Task 6/LUM-437 route step) keeps compiling
+    // and behaves as the pre-start free-draft path until it passes the value.
+    workStartedAt: Date | null = null
   ) {
     const callerActor = await memberRepository.findActorByMemberId(
       attribution.actorMemberId
@@ -208,55 +319,59 @@ export const taskCriteriaService = {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
 
     if (existing.length > 0) {
-      if (taskStatus !== 'TODO') {
-        throw Object.assign(
-          new Error(
-            'Acceptance contract locked for agent edits — the task has left TODO (planning). Record a human contract decision as a HUMAN_EDIT revision (lumo task criteria set --human) instead'
-          ),
-          { status: 409 }
-        )
-      }
-      // TODO-stage redraft: replace the whole contract. The audit-chain guard
-      // still holds — a criterion with recorded runs is never deleted.
-      await assertNoRunsBlockDeletion(taskId, existing)
-      await prisma.$transaction(async tx => {
-        for (const c of existing) {
-          await acceptanceCriterionRepository.delete(c.id, tx)
-          await recordCriterionChanged(tx, {
-            taskId,
-            actorId,
-            op: 'DELETED',
-            criterionId: c.id,
-            source: 'AGENT_DRAFT',
-            round: 0,
-            before: criterionSnapshot(c),
-            after: null,
-          })
-        }
-        for (const i of items) {
-          const created = await acceptanceCriterionRepository.create(
-            {
+      if (workStartedAt != null) {
+        // After-start: identity-preserving diff recorded at the current round.
+        // A removed criterion with runs is soft-deleted (audit chain survives);
+        // a run-free one is hard-deleted. No 409 — editable until DONE.
+        const round =
+          (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
+        await applyContractDiff(taskId, items, existing, {
+          source: 'AGENT_DRAFT',
+          round,
+          actorId,
+        })
+      } else {
+        // First TODO (never started): free full-group replace. A never-started
+        // task has no runs, so the hard delete is safe.
+        await prisma.$transaction(async tx => {
+          for (const c of existing) {
+            await acceptanceCriterionRepository.delete(c.id, tx)
+            await recordCriterionChanged(tx, {
               taskId,
-              statement: i.statement,
-              verifierType: i.verifierType,
-              checkpointer: i.checkpointer ?? null,
-              evidenceRequired: i.evidenceRequired ?? false,
+              actorId,
+              op: 'DELETED',
+              criterionId: c.id,
               source: 'AGENT_DRAFT',
-            },
-            tx
-          )
-          await recordCriterionChanged(tx, {
-            taskId,
-            actorId,
-            op: 'ADDED',
-            criterionId: created.id,
-            source: 'AGENT_DRAFT',
-            round: 0,
-            before: null,
-            after: criterionSnapshot(created),
-          })
-        }
-      })
+              round: 0,
+              before: criterionSnapshot(c),
+              after: null,
+            })
+          }
+          for (const i of items) {
+            const created = await acceptanceCriterionRepository.create(
+              {
+                taskId,
+                statement: i.statement,
+                verifierType: i.verifierType,
+                checkpointer: i.checkpointer ?? null,
+                evidenceRequired: i.evidenceRequired ?? false,
+                source: 'AGENT_DRAFT',
+              },
+              tx
+            )
+            await recordCriterionChanged(tx, {
+              taskId,
+              actorId,
+              op: 'ADDED',
+              criterionId: created.id,
+              source: 'AGENT_DRAFT',
+              round: 0,
+              before: null,
+              after: criterionSnapshot(created),
+            })
+          }
+        })
+      }
     } else {
       await prisma.$transaction(async tx => {
         // Re-check inside the transaction to narrow the double-submit race.
@@ -312,10 +427,11 @@ export const taskCriteriaService = {
    * (and possibly update) an existing criterion, items without `id` are new,
    * and existing criteria missing from the list are deleted.
    *
-   * Rules enforced here:
-   * - deleting a criterion that already has VerificationRun rows is refused
-   *   (409) — the event log must keep pointing at a live criterion. Reword it
-   *   instead (LUM-341 review: DB keeps Cascade, the guard lives here).
+   * Rules enforced here (shared with the after-start agent path via
+   * applyContractDiff):
+   * - deleting a criterion that already has VerificationRun rows soft-deletes
+   *   it (tombstone) so its runs survive — never a 409 (LUM-437: the contract
+   *   is editable until DONE, the audit chain is preserved by the tombstone).
    * - changed/new rows are stamped HUMAN_EDIT; untouched rows keep their
    *   provenance (the Slice-2 churn metrics depend on it).
    * - new rows are stamped addedAtRound = the task's current max round.
@@ -328,115 +444,25 @@ export const taskCriteriaService = {
     causeTag?: CriteriaCauseTag
   ) {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
-    const existingById = new Map(existing.map(c => [c.id, c]))
-
-    for (const item of items) {
-      if (item.id !== undefined && !existingById.has(item.id)) {
-        throw Object.assign(
-          new Error(`Criterion ${item.id} not found on this task`),
-          { status: 400 }
-        )
-      }
-    }
-    const keptIds = new Set(
-      items.flatMap(i => (i.id !== undefined ? [i.id] : []))
-    )
-    if (keptIds.size < items.filter(i => i.id !== undefined).length) {
-      throw Object.assign(new Error('Duplicate criterion id in submission'), {
-        status: 400,
-      })
-    }
-
-    const toDelete = existing.filter(c => !keptIds.has(c.id))
-    await assertNoRunsBlockDeletion(taskId, toDelete)
-
     const currentRound =
       (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
-
-    const toCreate = items.filter(i => i.id === undefined)
-    const toUpdate = items.flatMap(i => {
-      if (i.id === undefined) return []
-      const current = existingById.get(i.id)!
-      const desired = desiredShape(i)
-      const unchanged =
-        current.statement === desired.statement &&
-        current.verifierType === desired.verifierType &&
-        current.checkpointer === desired.checkpointer &&
-        current.evidenceRequired === desired.evidenceRequired
-      return unchanged ? [] : [{ id: i.id, desired }]
-    })
-
     const callerActor = await memberRepository.findActorByMemberId(
       attribution.actorMemberId
     )
     const actorId = callerActor?.id ?? null
 
-    await prisma.$transaction(async tx => {
-      for (const c of toDelete) {
-        await acceptanceCriterionRepository.delete(c.id, tx)
-        await recordCriterionChanged(tx, {
-          taskId,
-          actorId,
-          op: 'DELETED',
-          criterionId: c.id,
-          source: 'HUMAN_EDIT',
-          round: currentRound,
-          causeTag,
-          before: criterionSnapshot(c),
-          after: null,
-        })
-      }
-      for (const u of toUpdate) {
-        await acceptanceCriterionRepository.update(
-          u.id,
-          { ...u.desired, source: 'HUMAN_EDIT' },
-          tx
-        )
-        await recordCriterionChanged(tx, {
-          taskId,
-          actorId,
-          op: 'UPDATED',
-          criterionId: u.id,
-          source: 'HUMAN_EDIT',
-          round: currentRound,
-          causeTag,
-          before: criterionSnapshot(existingById.get(u.id)!),
-          after: criterionSnapshot(u.desired),
-        })
-      }
-      for (const c of toCreate) {
-        const created = await acceptanceCriterionRepository.create(
-          {
-            taskId,
-            statement: c.statement,
-            verifierType: c.verifierType,
-            checkpointer: c.checkpointer ?? null,
-            evidenceRequired: c.evidenceRequired ?? false,
-            source: 'HUMAN_EDIT',
-            addedAtRound: currentRound,
-          },
-          tx
-        )
-        await recordCriterionChanged(tx, {
-          taskId,
-          actorId,
-          op: 'ADDED',
-          criterionId: created.id,
-          source: 'HUMAN_EDIT',
-          round: currentRound,
-          causeTag,
-          before: null,
-          after: criterionSnapshot(created),
-        })
-      }
+    const changes = await applyContractDiff(taskId, items, existing, {
+      source: 'HUMAN_EDIT',
+      round: currentRound,
+      causeTag,
+      actorId,
     })
 
-    if (toCreate.length + toUpdate.length + toDelete.length > 0) {
-      scheduleRevisionAuditComment(taskId, attribution, {
-        added: toCreate.map(c => c.statement),
-        updated: toUpdate.map(u => u.desired.statement),
-        deleted: toDelete.map(c => c.statement),
-      })
+    if (
+      changes.added.length + changes.updated.length + changes.deleted.length >
+      0
+    ) {
+      scheduleRevisionAuditComment(taskId, attribution, changes)
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
