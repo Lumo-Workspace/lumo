@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "faux positif",
   "boundary.disposition.confirmed": "confirmé",
   "boundary.reversible": "réversible",
-  "boundary.irreversible": "irréversible"
+  "boundary.irreversible": "irréversible",
+  "acceptance.batch.contractRevisedAgent": "a révisé le contrat d'acceptation (brouillon agent)",
+  "acceptance.criterion.editedAtRound": "Modifié · tour {round}",
+  "acceptance.criterion.edited": "Modifié",
+  "acceptance.criterion.addedAtRound": "Ajouté · tour {round}",
+  "acceptance.criterion.added": "Ajouté",
+  "acceptance.criterion.hideChange": "Masquer la modification",
+  "acceptance.criterion.viewChange": "Voir la modification",
+  "acceptance.removed.title": "Supprimé · conservé pour audit",
+  "acceptance.removed.atRound": "Supprimé au tour {round}",
+  "acceptance.removed.lastVerdict": "dernier verdict : {v}",
+  "acceptance.removed.runsPreserved": "{n} exécution(s) de vérification conservée(s)"
 }

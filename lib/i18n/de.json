@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "Fehlalarm",
   "boundary.disposition.confirmed": "bestätigt",
   "boundary.reversible": "umkehrbar",
-  "boundary.irreversible": "nicht umkehrbar"
+  "boundary.irreversible": "nicht umkehrbar",
+  "acceptance.batch.contractRevisedAgent": "Abnahmevertrag überarbeitet (Agentenentwurf)",
+  "acceptance.criterion.editedAtRound": "Bearbeitet · Runde {round}",
+  "acceptance.criterion.edited": "Bearbeitet",
+  "acceptance.criterion.addedAtRound": "Hinzugefügt · Runde {round}",
+  "acceptance.criterion.added": "Hinzugefügt",
+  "acceptance.criterion.hideChange": "Änderung ausblenden",
+  "acceptance.criterion.viewChange": "Änderung anzeigen",
+  "acceptance.removed.title": "Entfernt · für Audit aufbewahrt",
+  "acceptance.removed.atRound": "In Runde {round} entfernt",
+  "acceptance.removed.lastVerdict": "Letztes Urteil: {v}",
+  "acceptance.removed.runsPreserved": "{n} Verifizierungslauf/-läufe aufbewahrt"
 }

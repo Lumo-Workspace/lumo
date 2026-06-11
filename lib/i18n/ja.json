@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "誤検知",
   "boundary.disposition.confirmed": "確認済み",
   "boundary.reversible": "取り消し可能",
-  "boundary.irreversible": "取り消し不可"
+  "boundary.irreversible": "取り消し不可",
+  "acceptance.batch.contractRevisedAgent": "検収契約を修正しました（エージェント草稿）",
+  "acceptance.criterion.editedAtRound": "編集済み · ラウンド {round}",
+  "acceptance.criterion.edited": "編集済み",
+  "acceptance.criterion.addedAtRound": "追加済み · ラウンド {round}",
+  "acceptance.criterion.added": "追加済み",
+  "acceptance.criterion.hideChange": "変更を隠す",
+  "acceptance.criterion.viewChange": "変更を見る",
+  "acceptance.removed.title": "削除済み · 監査のために保持",
+  "acceptance.removed.atRound": "ラウンド {round} で削除",
+  "acceptance.removed.lastVerdict": "最後の判定：{v}",
+  "acceptance.removed.runsPreserved": "{n} 件の検証実行を保持"
 }

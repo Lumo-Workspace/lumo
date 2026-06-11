@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "误报",
   "boundary.disposition.confirmed": "已确认",
   "boundary.reversible": "可逆",
-  "boundary.irreversible": "不可逆"
+  "boundary.irreversible": "不可逆",
+  "acceptance.batch.contractRevisedAgent": "修订了验收合约（代理草稿）",
+  "acceptance.criterion.editedAtRound": "已编辑 · 第 {round} 轮",
+  "acceptance.criterion.edited": "已编辑",
+  "acceptance.criterion.addedAtRound": "已添加 · 第 {round} 轮",
+  "acceptance.criterion.added": "已添加",
+  "acceptance.criterion.hideChange": "隐藏变更",
+  "acceptance.criterion.viewChange": "查看变更",
+  "acceptance.removed.title": "已移除 · 保留供审计",
+  "acceptance.removed.atRound": "在第 {round} 轮移除",
+  "acceptance.removed.lastVerdict": "最后裁定：{v}",
+  "acceptance.removed.runsPreserved": "已保留 {n} 次验证运行"
 }

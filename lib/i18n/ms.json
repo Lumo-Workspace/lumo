@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "positif palsu",
   "boundary.disposition.confirmed": "disahkan",
   "boundary.reversible": "boleh balik",
-  "boundary.irreversible": "tidak boleh balik"
+  "boundary.irreversible": "tidak boleh balik",
+  "acceptance.batch.contractRevisedAgent": "menyemak semula kontrak penerimaan (draf agen)",
+  "acceptance.criterion.editedAtRound": "Diedit · pusingan {round}",
+  "acceptance.criterion.edited": "Diedit",
+  "acceptance.criterion.addedAtRound": "Ditambah · pusingan {round}",
+  "acceptance.criterion.added": "Ditambah",
+  "acceptance.criterion.hideChange": "Sembunyikan perubahan",
+  "acceptance.criterion.viewChange": "Lihat perubahan",
+  "acceptance.removed.title": "Dibuang · disimpan untuk audit",
+  "acceptance.removed.atRound": "Dibuang pada pusingan {round}",
+  "acceptance.removed.lastVerdict": "penghakiman terakhir: {v}",
+  "acceptance.removed.runsPreserved": "{n} pelaksanaan pengesahan disimpan"
 }

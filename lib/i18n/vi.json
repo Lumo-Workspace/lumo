@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "dương tính giả",
   "boundary.disposition.confirmed": "đã xác nhận",
   "boundary.reversible": "có thể đảo ngược",
-  "boundary.irreversible": "không thể đảo ngược"
+  "boundary.irreversible": "không thể đảo ngược",
+  "acceptance.batch.contractRevisedAgent": "đã sửa đổi hợp đồng chấp nhận (bản nháp tác nhân)",
+  "acceptance.criterion.editedAtRound": "Đã chỉnh sửa · vòng {round}",
+  "acceptance.criterion.edited": "Đã chỉnh sửa",
+  "acceptance.criterion.addedAtRound": "Đã thêm · vòng {round}",
+  "acceptance.criterion.added": "Đã thêm",
+  "acceptance.criterion.hideChange": "Ẩn thay đổi",
+  "acceptance.criterion.viewChange": "Xem thay đổi",
+  "acceptance.removed.title": "Đã xóa · giữ lại để kiểm toán",
+  "acceptance.removed.atRound": "Đã xóa ở vòng {round}",
+  "acceptance.removed.lastVerdict": "phán quyết cuối: {v}",
+  "acceptance.removed.runsPreserved": "{n} lượt xác minh được giữ lại"
 }

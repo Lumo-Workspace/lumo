@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "오탐",
   "boundary.disposition.confirmed": "확인됨",
   "boundary.reversible": "되돌릴 수 있음",
-  "boundary.irreversible": "되돌릴 수 없음"
+  "boundary.irreversible": "되돌릴 수 없음",
+  "acceptance.batch.contractRevisedAgent": "수락 계약을 수정했습니다 (에이전트 초안)",
+  "acceptance.criterion.editedAtRound": "수정됨 · 라운드 {round}",
+  "acceptance.criterion.edited": "수정됨",
+  "acceptance.criterion.addedAtRound": "추가됨 · 라운드 {round}",
+  "acceptance.criterion.added": "추가됨",
+  "acceptance.criterion.hideChange": "변경 사항 숨기기",
+  "acceptance.criterion.viewChange": "변경 사항 보기",
+  "acceptance.removed.title": "삭제됨 · 감사를 위해 보존",
+  "acceptance.removed.atRound": "라운드 {round}에서 삭제됨",
+  "acceptance.removed.lastVerdict": "마지막 판정: {v}",
+  "acceptance.removed.runsPreserved": "{n}회 검증 실행 보존됨"
 }

@@ -1574,5 +1574,16 @@
   "boundary.disposition.falsePositive": "गलत पहचान",
   "boundary.disposition.confirmed": "पुष्ट",
   "boundary.reversible": "प्रतिवर्ती",
-  "boundary.irreversible": "अपरिवर्तनीय"
+  "boundary.irreversible": "अपरिवर्तनीय",
+  "acceptance.batch.contractRevisedAgent": "स्वीकृति अनुबंध संशोधित किया (एजेंट मसौदा)",
+  "acceptance.criterion.editedAtRound": "संपादित · राउंड {round}",
+  "acceptance.criterion.edited": "संपादित",
+  "acceptance.criterion.addedAtRound": "जोड़ा गया · राउंड {round}",
+  "acceptance.criterion.added": "जोड़ा गया",
+  "acceptance.criterion.hideChange": "परिवर्तन छुपाएं",
+  "acceptance.criterion.viewChange": "परिवर्तन देखें",
+  "acceptance.removed.title": "हटाया गया · ऑडिट के लिए सुरक्षित",
+  "acceptance.removed.atRound": "राउंड {round} में हटाया गया",
+  "acceptance.removed.lastVerdict": "अंतिम निर्णय: {v}",
+  "acceptance.removed.runsPreserved": "{n} सत्यापन रन सुरक्षित"
 }
