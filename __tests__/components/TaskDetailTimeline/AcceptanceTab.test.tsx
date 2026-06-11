@@ -76,6 +76,7 @@ function statusView(
     maxRounds: 3,
     escalated: false,
     criteria: [],
+    removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
     nextActions: [],
@@ -103,6 +104,9 @@ function machinePass(
       rejectionReasonEnum: null,
       recordedAt: '2026-06-10T10:00:00.000Z',
     },
+    changeState: null,
+    changedAtRound: null,
+    lastEdit: null,
     ...over,
   }
 }
@@ -128,6 +132,9 @@ function unjudgedHuman(
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict: null,
+    changeState: null,
+    changedAtRound: null,
+    lastEdit: null,
     ...over,
   }
 }
@@ -158,6 +165,9 @@ it('leads with a verdict banner: machine passed, awaiting the human criterion', 
           source: 'AGENT_DRAFT',
           addedAtRound: 0,
           latestVerdict: null,
+          changeState: null,
+          changedAtRound: null,
+          lastEdit: null,
         },
       ],
     })
@@ -183,6 +193,9 @@ it('renders each criterion with a result badge, type, and notable provenance', (
           source: 'REVIEW_ADDED',
           addedAtRound: 2,
           latestVerdict: null,
+          changeState: null,
+          changedAtRound: null,
+          lastEdit: null,
         },
       ],
     })
@@ -237,6 +250,9 @@ it('marks a human-authored PASS as a human override, never a machine PASS', () =
             rejectionReasonEnum: null,
             recordedAt: '2026-06-10T11:00:00.000Z',
           },
+          changeState: null,
+          changedAtRound: null,
+          lastEdit: null,
         },
       ],
     })
