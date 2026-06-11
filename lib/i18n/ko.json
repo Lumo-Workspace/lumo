@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "check 출력 숨기기",
   "acceptance.check.label": "검사",
   "acceptance.check.evidence": "증거",
-  "acceptance.check.none": "아직 실행 안 됨"
+  "acceptance.check.none": "아직 실행 안 됨",
+  "acceptance.check.exitCode": "종료 코드 {code}"
 }

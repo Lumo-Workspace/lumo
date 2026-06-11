@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "Ocultar salida del check",
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidencia",
-  "acceptance.check.none": "aún no ejecutado"
+  "acceptance.check.none": "aún no ejecutado",
+  "acceptance.check.exitCode": "código de salida {code}"
 }

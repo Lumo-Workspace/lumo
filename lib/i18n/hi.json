@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "check आउटपुट छिपाएँ",
   "acceptance.check.label": "जाँच",
   "acceptance.check.evidence": "प्रमाण",
-  "acceptance.check.none": "अभी तक नहीं चला"
+  "acceptance.check.none": "अभी तक नहीं चला",
+  "acceptance.check.exitCode": "एग्ज़िट कोड {code}"
 }

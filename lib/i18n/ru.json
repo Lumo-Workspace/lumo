@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "Скрыть вывод проверки",
   "acceptance.check.label": "проверка",
   "acceptance.check.evidence": "подтверждение",
-  "acceptance.check.none": "ещё не выполнено"
+  "acceptance.check.none": "ещё не выполнено",
+  "acceptance.check.exitCode": "код выхода {code}"
 }

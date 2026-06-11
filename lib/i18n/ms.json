@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "Sembunyikan output check",
   "acceptance.check.label": "semakan",
   "acceptance.check.evidence": "bukti",
-  "acceptance.check.none": "belum dijalankan"
+  "acceptance.check.none": "belum dijalankan",
+  "acceptance.check.exitCode": "kod keluar {code}"
 }

@@ -716,6 +716,7 @@
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidence",
   "acceptance.check.none": "not yet run",
+  "acceptance.check.exitCode": "exit code {code}",
   "lineage.loading": "Loading…",
   "lineage.empty": "No lineage recorded for this task yet",
   "lineage.emptyHint": "The causal trail is generated automatically when an agent session bound to this task consumes its context",

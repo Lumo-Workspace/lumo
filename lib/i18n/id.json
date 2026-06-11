@@ -1528,5 +1528,6 @@
   "acceptance.hideCheck": "Sembunyikan keluaran check",
   "acceptance.check.label": "pemeriksaan",
   "acceptance.check.evidence": "bukti",
-  "acceptance.check.none": "belum dijalankan"
+  "acceptance.check.none": "belum dijalankan",
+  "acceptance.check.exitCode": "kode keluar {code}"
 }

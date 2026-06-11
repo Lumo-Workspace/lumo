@@ -152,14 +152,17 @@ it('renders each criterion with a result badge, type, and notable provenance', (
   expect(screen.getByText('Awaiting human verdict')).toBeInTheDocument()
 })
 
-it('tucks the raw check command + evidence behind a disclosure', () => {
+it('tucks a de-jargoned check command + exit code behind a disclosure', () => {
   set(statusView({ criteria: [machinePass()] }))
   render_()
   // Hidden until the disclosure is opened.
-  expect(screen.queryByText('cmd:jest#exit=0')).toBeNull()
+  expect(screen.queryByText(/exit code 0/)).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: /view check output/i }))
-  expect(screen.getByText(/cmd:jest#exit=0/)).toBeInTheDocument()
+  // The command shows; the cryptic evidence pointer is rendered as "exit code 0",
+  // never the raw `cmd:…#exit=0` encoding.
   expect(screen.getByText(/npx jest x/)).toBeInTheDocument()
+  expect(screen.getByText(/exit code 0/)).toBeInTheDocument()
+  expect(screen.queryByText(/cmd:jest#exit=0/)).toBeNull()
 })
 
 it('marks a human-authored PASS as a human override, never a machine PASS', () => {
@@ -247,7 +250,7 @@ it('renders the verification record and expands a round to per-criterion verdict
   expect(screen.getAllByText('second criterion')).toHaveLength(2)
 })
 
-it('renders last-round failures and next actions blocks', () => {
+it('shows a FAIL result and reason inline on the row, with no redundant footer sections', () => {
   set(
     statusView({
       currentRound: 2,
@@ -260,17 +263,19 @@ it('renders last-round failures and next actions blocks', () => {
             verdict: 'FAIL',
             verifierType: 'MACHINE',
             evidencePointer: null,
-            rejectionReason: 'exit code 1',
+            rejectionReason: 'a clear failure reason',
             rejectionReasonEnum: null,
             recordedAt: '2026-06-10T12:00:00.000Z',
           },
         }),
       ],
+      // Read model still carries these; the tab no longer renders them as
+      // separate blocks (redundant with the per-row result + reason).
       lastRoundFailures: [
         {
           criterionId: 'c1',
           statement: 'still failing',
-          rejectionReason: 'exit code 1',
+          rejectionReason: 'a clear failure reason',
           rejectionReasonEnum: null,
         },
       ],
@@ -282,13 +287,16 @@ it('renders last-round failures and next actions blocks', () => {
           checkpointer: 'x',
           source: 'AGENT_DRAFT',
           addedAtRound: 0,
-          rejectionReason: 'exit code 1',
+          rejectionReason: 'a clear failure reason',
         },
       ],
     })
   )
   render_()
-  expect(screen.getByText('Last round failures')).toBeInTheDocument()
-  expect(screen.getByText('Next actions')).toBeInTheDocument()
-  expect(screen.getAllByText(/exit code 1/).length).toBeGreaterThan(0)
+  // Result + reason are on the criterion row itself.
+  expect(screen.getByText('Failed')).toBeInTheDocument()
+  expect(screen.getByText('a clear failure reason')).toBeInTheDocument()
+  // The redundant footer sections are gone.
+  expect(screen.queryByText('Last round failures')).toBeNull()
+  expect(screen.queryByText('Next actions')).toBeNull()
 })
