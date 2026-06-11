@@ -32,6 +32,7 @@ export interface TaskUpdateData {
   milestoneId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
+  workStartedAt?: Date | null | undefined
 }
 
 /** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */

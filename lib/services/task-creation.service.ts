@@ -119,6 +119,8 @@ export async function createTask(
     milestoneId: resolvedMilestoneId,
     order: taskOrder,
     dueDate: dueDate ?? null,
+    // A task born already past TODO counts as started immediately (LUM-437).
+    ...(status && status !== 'TODO' ? { workStartedAt: new Date() } : {}),
   })
 
   if (input.tagIds && input.tagIds.length > 0) {
