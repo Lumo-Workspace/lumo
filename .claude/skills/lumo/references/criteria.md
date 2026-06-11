@@ -76,6 +76,19 @@ must track the size of the work — it is not a fixed ritual:
     `npx tsx scripts/jest-t.ts '<exact test name>' [test file path]` instead:
     it fails unless ≥1 matching test ran and passed. The optional path scopes
     the run to one file (much faster than name-filtering the whole suite).
+  - **A checkpointer must be instance-independent — never self-comparing.** It
+    is stored once and re-run for the life of the task, so it must not depend on
+    a baseline that shifts under it. The trap is a `vs origin/main`
+    self-comparison ("current file is strictly smaller than origin/main"): it
+    passes pre-merge, but the moment the change merges, every branch cut from
+    main has `current == base` and the check fails forever (LUM-433 c1, fixed in
+    #528). Anchor to a **fixed, absolute target** instead — a literal budget
+    (`byteCount ≤ 9500`), a committed fixture, or a stable named test run through
+    the zero-match guard. A jest-by-name checkpointer likewise rots when its test
+    is renamed or deleted — often by _another_ task's work, so the stored PASS
+    goes stale invisibly. Keep test names stable; `scripts/checkpointer-drift.ts`
+    statically sweeps stored contracts for these zero-match checkpointers
+    (`npx tsx scripts/checkpointer-drift.ts <LUM-N> | --mine`, detection-only).
 - `evidenceRequired: true` marks criteria whose verdict must point at proof
   (a MACHINE PASS always requires evidence regardless of this flag).
 
