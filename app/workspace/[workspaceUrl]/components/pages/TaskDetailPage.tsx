@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query/keys'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
@@ -72,6 +74,7 @@ export function TaskDetailPage({
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const intl = useIntl()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { user } = useCurrentUser()
   const { unreadCount } = useRealtimeNotifications()
 
@@ -302,12 +305,25 @@ export function TaskDetailPage({
               taskId={task.id}
               status={task.status}
               mentionSources={mentionSources}
-              onVerdictRecorded={result =>
+              onVerdictRecorded={result => {
                 setTask(prev => ({
                   ...prev,
                   status: result.taskStatus as TaskDetail['status'],
                 }))
-              }
+                // A human verdict fans out across the contract and writes
+                // mirror activities — invalidate the read models the
+                // acceptance tab + timeline render from so they sync instead
+                // of showing the pre-verdict state (LUM-423: the status read
+                // model is keyed by identifier, the timeline by task id).
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.taskStatus(
+                    `${task.teamIdentifier}-${task.number}`
+                  ),
+                })
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.timeline(task.id),
+                })
+              }}
             />
 
             {/* Definition layer: spec artifacts (renders nothing when there are none) */}
