@@ -34,7 +34,6 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
   Example: feat: add Google OAuth login [LUM-12]
 - Commit message: type: description [LUM-N]
   Example: chore: add CLAUDE.md for agent instructions [LUM-5]
-- Never push directly to main or develop
 
 ## Design Principles (SOLID + LoD)
 
@@ -48,7 +47,7 @@ Apply SOLID + Law of Demeter. Lumo-specific house rules:
 
 ## React Rules
 
-Follow React's canonical [Rules of Hooks and render purity](https://react.dev/reference/rules) — hooks at top level only; pure render (no side effects / `new Date()` / `Math.random()`, never mutate props/state); components rendered as JSX, not called directly. Side effects go in event handlers or `useEffect`.
+Follow React's canonical [Rules of Hooks and render purity](https://react.dev/reference/rules). The recurring trap here is impure render — no `new Date()` / `Math.random()` / prop-or-state mutation during render; side effects belong in event handlers or `useEffect`.
 
 ## Layered Architecture
 
@@ -64,7 +63,6 @@ Follow React's canonical [Rules of Hooks and render purity](https://react.dev/re
 
 - API routes should be thin (~50-100 lines): auth check → validate input → call service → return response
 - Services throw errors with `Object.assign(new Error(msg), { status })` pattern
-- Repositories return Prisma query results, use `select` to fetch only needed fields
 - New domain logic goes in `lib/services/`, never in API routes or components
 
 ## Project Structure

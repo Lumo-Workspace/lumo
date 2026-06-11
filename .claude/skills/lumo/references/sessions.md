@@ -44,6 +44,7 @@ Attribution requires the CC session id to reach the server: `lumo task update <i
 When the bound task has live blockers or SUGGESTED dependency candidates, the attach output and session-start hook context inject a dependency warning block. The warning is built by `buildBlockerWarningSectionForTask` and is **omitted entirely** (empty string) when nothing is actionable — no output appears when there are no live blockers and no SUGGESTED candidates.
 
 **Trigger conditions (OR — either or both may appear):**
+
 1. At least one CONFIRMED "blocked by" edge where the blocking task's status is not DONE.
 2. At least one SUGGESTED (unconfirmed) dependency candidate on the task.
 
@@ -74,6 +75,7 @@ Detected 3 candidate dependencies awaiting confirmation: run `lumo task deps lis
 - The function never throws — if it fails it silently returns an empty string, leaving the session start unaffected.
 
 **Agent guidance — watch for EITHER the `## ⚠ Dependency alerts` header (form A) OR the standalone hint line (form B):**
+
 - **Form A — live blockers:** Evaluate whether to wait. If the blocking task's work overlaps with yours (same files, same API surface), starting immediately risks rework. Read the blocker's status and open PR note before deciding.
 - **Stale or wrong edge?** Run `lumo task deps list <LUM-N>` to inspect the full edge list, then `lumo task deps rm <LUM-N> <edge> --yes` (if manually added and now obsolete) or `lumo task deps dismiss <LUM-N> <edge>` (if a false positive from detection).
 - **Candidate hint present (form A or B)?** Run `lumo task deps list <LUM-N>` and review each SUGGESTED edge — confirm real ones, dismiss false positives. Leaving SUGGESTED edges unreviewed means repeated hints every session.
@@ -218,8 +220,3 @@ see the numbered fragment list, decide which you actually used, then re-run with
 When to suggest: at the end of a working session on a bound task, to record what
 was done as a progress comment — offer `lumo session wrap` rather than composing
 a `task comment` by hand.
-
-### When to suggest session binding
-
-- If the user mentions a task ID (e.g., "let's work on LUM-42") and no session is currently bound, **suggest running `lumo session attach`**.
-- If the user switches tasks mid-session, run `attach` with the new task ID — the server overwrites the existing binding atomically.
