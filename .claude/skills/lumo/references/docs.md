@@ -201,7 +201,7 @@ Inserts the new content at the **end of the addressed section** (just before the
 | `--file <path>`       | string | Content from file (project-local sandbox).                                   |
 | `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`; 409 + retry hint otherwise. |
 
-Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). Requires a stored markdown source.
+Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). **End-of-document append (no `--section`) does NOT require a stored markdown source** (LUM-444): when the source is missing (web HTML edit / revision restore / legacy doc) it renders the new block to HTML and concatenates it onto the stored HTML body — so one web operation can no longer lock the whole doc against the agent write path. The source stays null (the doc is still HTML-only afterward; `--raw`/`--section`/`doc patch` keep erroring with the rebuild hint). **Section-addressed append (`--section`) still requires a stored source** — it needs the markdown to locate the heading boundary.
 
 ```bash
 lumo doc append cmd_xxx --section "F 待办队列" --content "- [ ] 评估 XYZ 论文"
