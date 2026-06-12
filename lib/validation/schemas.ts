@@ -423,6 +423,18 @@ export const editDocumentSectionSchema = z
     path: ['section'],
   })
 
+// Rebuild the markdown source from the stored HTML body (LUM-446). No body
+// input — the server serializes the existing content.
+export const rebuildDocumentSourceSchema = z.object({
+  // Structure guard override (LUM-410): commit even if the rebuilt source
+  // re-renders with fewer tables/rows/headings than the stored body.
+  allowShrink: z.boolean().optional(),
+  // Re-derive even when a source already exists (default: 409 to protect a
+  // byte-faithful human source from a serializer-derived downgrade).
+  force: z.boolean().optional(),
+  ifRevision: z.number().int().nonnegative().optional(),
+})
+
 export const createDocumentMentionSchema = z.object({
   taskIdentifier: z
     .string()

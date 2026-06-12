@@ -104,6 +104,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo doc patch <doc> --section "<heading>" --content/--file/stdin [--if-revision N] [--allow-shrink]` — replace ONLY that section (heading line included); every byte outside it is untouched; concurrent edits 409 instead of clobbering; the structure guard 422s a replacement that drops the section's tables/rows/headings unless `--allow-shrink` (appends are never guarded)
 - `lumo doc append <doc> [--section "<heading>"] --content/--file/stdin [--if-revision N]` — append at section end (or doc end without `--section`); pure insertion, no existing byte modified — the safest write for running logs/ledgers
 - `lumo doc diff <doc> --file <local.md>` — compare the server-side markdown source against a local file (exit 0 identical, 1 with unified diff)
+- `lumo doc rebuild-source <doc> [--allow-shrink] [--force] [--if-revision N]` — regenerate `sourceMarkdown` from the stored HTML body with a lossless serializer (tables/rows/headings round-trip), re-enabling raw/diff/section/append on a source-less doc; structure-guarded (422 on any shrink, LUM-410 口径), backfills the source only; 409 if a source already exists unless `--force`. Recovery path when raw/section/patch errors "no stored source" (LUM-446)
 - `lumo doc move` — reparent under a parent / to root
 - `lumo doc bind/unbind <doc> <task>` — task linkage
 - `lumo doc share/unshare/share-list` — member sharing
