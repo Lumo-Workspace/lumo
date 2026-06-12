@@ -2,20 +2,23 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
-import { TaskDetailPage } from '../../../../components/pages/TaskDetailPage'
+import { TaskDetailPage } from '../../../components/pages/TaskDetailPage'
+import { slugify } from '@/lib/utils/slugify'
 
-export default async function ProjectTaskIdentifierPage({
+/**
+ * My Tasks task detail page: /workspace/[slug]/my-tasks/LUM-2
+ *
+ * If the task is not assigned to the current user, redirect to the
+ * canonical project-based URL instead.
+ */
+export default async function MyTaskDetailPage({
   params,
 }: {
-  params: Promise<{
-    workspaceUrl: string
-    projectSlug: string
-    identifier: string
-  }>
+  params: Promise<{ workspaceUrl: string; identifier: string; tab?: string[] }>
 }) {
   const { workspaceUrl, identifier } = await params
   const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  if (!userId) redirect('/signin')
 
   const workspace = await prisma.workspace.findFirst({
     where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
@@ -23,6 +26,7 @@ export default async function ProjectTaskIdentifierPage({
   })
   if (!workspace) redirect('/onboarding')
 
+  // Parse identifier (e.g. "LUM-2")
   const match = identifier.match(/^([A-Z]+)-(\d+)$/)
   if (!match || !match[1] || !match[2]) notFound()
   const teamIdentifier = match[1]
@@ -61,10 +65,19 @@ export default async function ProjectTaskIdentifierPage({
   })
   if (!rawTask) notFound()
 
+  // If task is not assigned to the current user, redirect to project URL
+  const isMyTask = rawTask.assignee?.member?.clerkId === userId
+  if (!isMyTask) {
+    redirect(
+      `/workspace/${workspaceUrl}/projects/${slugify(rawTask.project.name)}/tasks/${identifier}`
+    )
+  }
+
   // Compute the rare-tab presence server-side so the tab bar paints on first
   // render instead of popping in after the client probes round-trip (LUM-321).
-  const initialTimelinePresence =
-    await taskTimelinePresenceService.getPresence(rawTask.id)
+  const initialTimelinePresence = await taskTimelinePresenceService.getPresence(
+    rawTask.id
+  )
 
   const task = {
     ...rawTask,
@@ -77,6 +90,7 @@ export default async function ProjectTaskIdentifierPage({
     <TaskDetailPage
       initialTask={task}
       workspaceUrl={workspaceUrl}
+      source='my-tasks'
       slackConnected={workspace.slackIntegration !== null}
       initialTimelinePresence={initialTimelinePresence}
     />
