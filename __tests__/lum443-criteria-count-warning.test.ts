@@ -24,4 +24,9 @@ describe('criteriaCountWarning counts only human criteria for the cap', () => {
   it('criteriaCountWarning counts only human criteria — tiny total still warns under min', () => {
     expect(criteriaCountWarning([H])).toMatch(/below the recommended minimum/)
   })
+
+  it('criteriaCountWarning counts only human criteria — machine-only contract at min total is clean', () => {
+    const contract = [...Array(3).fill(M)]
+    expect(criteriaCountWarning(contract)).toBeNull()
+  })
 })

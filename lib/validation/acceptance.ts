@@ -29,8 +29,6 @@ export function criteriaCountWarning(
 ): string | null {
   const humanCount = criteria.filter(c => c.verifierType === 'HUMAN').length
   const total = criteria.length
-  // MAX counts human-judgment criteria only — machine checks run automatically
-  // and carry no human review load, so they never push the contract over cap.
   if (humanCount > ACCEPTANCE_CRITERIA_SOFT_MAX) {
     return `${humanCount} human-judgment criteria exceeds the recommended maximum of ${ACCEPTANCE_CRITERIA_SOFT_MAX} — machine checks don't count toward this; consider folding related human criteria together`
   }
