@@ -267,4 +267,28 @@ export const verificationRunRepository = {
     const ids = await this.taskIdsWithAllPassRound([taskId], tx)
     return ids.has(taskId)
   },
+
+  /**
+   * Of the given criterion ids, the subset that has ever recorded a PASS in ANY
+   * round (PASS_WITH_FOLLOWUP counts — LUM-449 authoring gate). Used by the
+   * TEST_TAMPERING detector to tell test authoring (criterion never green) from
+   * weakening a green check; mirrors the LUM-438 `everPassed` refinement of the
+   * sibling drift detector. Indexed by `criterionId`; a read.
+   */
+  async criterionIdsEverPassed(
+    criterionIds: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (criterionIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.verificationRun.findMany({
+      where: {
+        criterionId: { in: criterionIds },
+        verdict: { in: ['PASS', 'PASS_WITH_FOLLOWUP'] },
+      },
+      select: { criterionId: true },
+      distinct: ['criterionId'],
+    })
+    return new Set(rows.map(r => r.criterionId))
+  },
 }

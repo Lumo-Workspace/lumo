@@ -5,6 +5,7 @@ import type {
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
 
@@ -330,6 +331,14 @@ export interface MachineCheckpointer {
   statement?: string | undefined
   /** The checkpointer command string (its file paths are what an edit may hit). */
   checkpointer: string
+  /**
+   * Has this criterion's MACHINE check ever recorded a PASS (LUM-449 authoring
+   * gate)? You cannot reward-hack by weakening a test that was never green, so a
+   * hit is suppressed when `everPassed === false` — the criterion is still being
+   * authored, not gamed. `undefined` (legacy callers) defaults to the flagging
+   * (safe) direction; only an explicit `false` suppresses. See detectTestTampering.
+   */
+  everPassed?: boolean | undefined
 }
 
 /** Normalize a path for cross-form comparison (absolute event vs repo-relative
@@ -528,6 +537,12 @@ export function detectTestTampering(input: {
       eventPathMatchesCheckpointerPath(input.filePath as string, p)
     )
     if (hit) {
+      // Authoring gate (LUM-449): a hit on a criterion whose MACHINE check has
+      // never passed is the agent authoring the test (TDD red→green), not
+      // weakening a green one — the measured 100%-FP shape. There is no metric
+      // to game until the check has been green once, so suppress it. An absent
+      // signal (legacy caller) keeps the safe, flagging direction.
+      if (mc.everPassed === false) return null
       // Precision gate (LUM-455): drop a provably non-substantive edit —
       // cosmetic-only or purely additive; keep everything else (the safe
       // direction: removals/alterations, Writes, unparseable payloads).
@@ -563,14 +578,24 @@ async function detectTestTamperingForTask(
   if (!input.filePath) return null
   if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
   const criteria = await acceptanceCriterionRepository.listByTask(input.taskId)
-  const machineCheckpointers: MachineCheckpointer[] = criteria
-    .filter(c => c.verifierType === 'MACHINE' && !!c.checkpointer)
-    .map(c => ({
+  const machineCriteria = criteria.filter(
+    c => c.verifierType === 'MACHINE' && !!c.checkpointer
+  )
+  if (machineCriteria.length === 0) return null
+  // Authoring gate (LUM-449): a MACHINE check that has never gone green is still
+  // being authored, so an edit to its test is not yet reward-hacking. One read,
+  // scoped to this task's criteria, indexed by criterionId.
+  const everPassed = await verificationRunRepository.criterionIdsEverPassed(
+    machineCriteria.map(c => c.id)
+  )
+  const machineCheckpointers: MachineCheckpointer[] = machineCriteria.map(
+    c => ({
       criterionId: c.id,
       statement: c.statement,
       checkpointer: c.checkpointer as string,
-    }))
-  if (machineCheckpointers.length === 0) return null
+      everPassed: everPassed.has(c.id),
+    })
+  )
   return detectTestTampering({
     toolName: input.toolName,
     filePath: input.filePath,

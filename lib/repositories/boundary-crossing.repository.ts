@@ -107,6 +107,21 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * Every human-dispositioned crossing, projected to just {category,
+   * disposition} for the read-only false-positive-rate measurement (LUM-449).
+   * A pure read — open (disposition: null) crossings are excluded because they
+   * carry no human signal yet. Workspace-wide on purpose: the denoise signal is
+   * per-category across all tasks, not per task.
+   */
+  async findDispositioned() {
+    return prisma.boundaryCrossing.findMany({
+      where: { disposition: { not: null } },
+      select: { category: true, disposition: true },
+      orderBy: { dispositionedAt: 'asc' },
+    })
+  },
+
+  /**
    * Disposition a crossing as a human actor (LUM-435). Idempotent on the
    * already-dispositioned row (updateMany guarded by disposition: null) so a
    * double click can't rewrite the original reviewer/disposition/timestamp.
