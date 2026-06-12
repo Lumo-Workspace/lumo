@@ -1607,5 +1607,7 @@
   "acceptance.edit.addPlaceholder": "Tambahkan kriteria yang memerlukan penilaian manusia (pernyataan sahaja)",
   "acceptance.edit.saveError": "Gagal menyimpan — cuba lagi",
   "acceptance.zone.machine": "Disahkan mesin · baca sahaja",
-  "acceptance.zone.human": "Memerlukan penilaian manusia"
+  "acceptance.zone.human": "Memerlukan penilaian manusia",
+  "acceptance.zone.machineAllPass": "Semua {count} lulus",
+  "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
 }

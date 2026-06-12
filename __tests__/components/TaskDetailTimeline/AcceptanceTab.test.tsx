@@ -143,6 +143,12 @@ function render_() {
   return render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
 }
 
+// LUM-451: the machine-verified zone collapses by default when every machine
+// criterion passes. Tests that assert on a passing machine ROW must expand it.
+function expandMachine() {
+  fireEvent.click(screen.getByRole('button', { name: /Machine-verified/i }))
+}
+
 beforeEach(() => jest.clearAllMocks())
 
 it('renders an empty state when the task has no criteria', () => {
@@ -201,6 +207,7 @@ it('renders each criterion with a result badge, type, and notable provenance', (
     })
   )
   render_()
+  expandMachine()
   expect(screen.getByText('route returns 409 on lock')).toBeInTheDocument()
   expect(screen.getByText('Passed')).toBeInTheDocument()
   // REVIEW_ADDED provenance is explicitly visible; the unjudged HUMAN result.
@@ -211,6 +218,7 @@ it('renders each criterion with a result badge, type, and notable provenance', (
 it('tucks a de-jargoned check command + exit code behind a disclosure', () => {
   set(statusView({ criteria: [machinePass()] }))
   render_()
+  expandMachine()
   // Hidden until the disclosure is opened.
   expect(screen.queryByText(/exit code 0/)).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: /view check output/i }))
@@ -297,6 +305,7 @@ it('renders the verification record and expands a round to per-criterion verdict
     })
   )
   render_()
+  expandMachine()
 
   expect(screen.getByText('Verification record')).toBeInTheDocument()
   expect(screen.getByText('round 1 · machine check')).toBeInTheDocument()
@@ -380,6 +389,7 @@ describe('per-criterion verdict controls', () => {
   it('exposes prominent pass / send-back on the HUMAN row, a secondary override on the machine-passed row, and keeps the task-level quick action', () => {
     set(reviewView())
     render_()
+    expandMachine()
     // Prominent controls on the unjudged HUMAN row.
     expect(screen.getByTestId('verdict-pass-h1')).toBeInTheDocument()
     expect(screen.getByTestId('verdict-sendback-h1')).toBeInTheDocument()
@@ -424,6 +434,7 @@ describe('per-criterion verdict controls', () => {
   it('opening the machine override reveals scoped controls; the task-level quick action passes the whole contract (no criterionIds)', async () => {
     set(reviewView())
     render_()
+    expandMachine()
     fireEvent.click(screen.getByTestId('verdict-override-m1'))
     expect(screen.getByTestId('verdict-pass-m1')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('verdict-pass-all'))
@@ -471,6 +482,7 @@ describe('change-state markers and removed criteria (LUM-437)', () => {
       })
     )
     render_()
+    expandMachine()
 
     // A — Edited marker is visible.
     expect(screen.getByText('Edited · round 2')).toBeInTheDocument()
@@ -500,6 +512,7 @@ describe('change-state markers and removed criteria (LUM-437)', () => {
       })
     )
     render_()
+    expandMachine()
     expect(screen.getByText('Added · round 1')).toBeInTheDocument()
   })
 

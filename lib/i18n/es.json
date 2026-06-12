@@ -1607,5 +1607,7 @@
   "acceptance.edit.addPlaceholder": "Añadir un criterio que requiera juicio humano (solo enunciado)",
   "acceptance.edit.saveError": "No se pudo guardar — inténtalo de nuevo",
   "acceptance.zone.machine": "Verificado por máquina · solo lectura",
-  "acceptance.zone.human": "Requiere juicio humano"
+  "acceptance.zone.human": "Requiere juicio humano",
+  "acceptance.zone.machineAllPass": "Todas las {count} aprobadas",
+  "acceptance.zone.machineSummary": "{passed} aprobadas · {failed} fallidas"
 }

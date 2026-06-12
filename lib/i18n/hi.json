@@ -1607,5 +1607,7 @@
   "acceptance.edit.addPlaceholder": "मानवीय निर्णय की आवश्यकता वाला मानदंड जोड़ें (केवल कथन)",
   "acceptance.edit.saveError": "सहेजा नहीं जा सका — पुनः प्रयास करें",
   "acceptance.zone.machine": "मशीन-सत्यापित · केवल-पठन",
-  "acceptance.zone.human": "मानवीय निर्णय आवश्यक"
+  "acceptance.zone.human": "मानवीय निर्णय आवश्यक",
+  "acceptance.zone.machineAllPass": "सभी {count} पास",
+  "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल"
 }
