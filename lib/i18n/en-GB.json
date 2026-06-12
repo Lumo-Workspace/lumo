@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "Crossing dispositioned — Done is unblocked",
   "boundary.toast.error": "Action failed — please try again",
   "boundary.category.testTampering": "edited a test a check depends on",
-  "boundary.panel.testTamperingHint": "Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive."
+  "boundary.panel.testTamperingHint": "Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.",
+  "boundary.category.exfiltration": "data exfiltration to the public internet",
+  "boundary.category.cloudDelete": "deleted cloud-storage data",
+  "boundary.category.infra": "terminated or restarted infrastructure",
+  "boundary.severity.high": "high",
+  "boundary.severity.medium": "medium",
+  "boundary.severity.low": "low",
+  "boundary.panel.severityBadge": "{severity} severity",
+  "boundary.panel.defenseInDepth": "Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee."
 }

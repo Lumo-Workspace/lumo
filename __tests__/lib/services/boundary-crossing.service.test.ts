@@ -125,6 +125,60 @@ describe('boundaryCrossingService.disposition', () => {
 })
 
 describe('boundaryCrossingService.listAll — acceptance read model', () => {
+  it('boundary-crossing carries a severity tier exposed by the read model', async () => {
+    // Repository returns rows out of severity order (chronological).
+    findAll.mockResolvedValue([
+      {
+        id: 'bc-low',
+        category: 'NEW_NPM_DEPENDENCY',
+        detail: 'npm install left-pad',
+        detectedAt: new Date('2026-06-11T00:00:00.000Z'),
+        reversible: true,
+        severity: 'LOW',
+        disposition: null,
+        dispositionNote: null,
+        dispositionedAt: null,
+        dispositionedById: null,
+        remediationTask: null,
+      },
+      {
+        id: 'bc-high',
+        category: 'HARDCODED_SECRET',
+        detail: 'AWS key in lib/config.ts',
+        detectedAt: new Date('2026-06-11T00:01:00.000Z'),
+        reversible: false,
+        severity: 'HIGH',
+        disposition: null,
+        dispositionNote: null,
+        dispositionedAt: null,
+        dispositionedById: null,
+        remediationTask: null,
+      },
+      {
+        id: 'bc-medium',
+        category: 'PUSH_TO_PROTECTED_BRANCH',
+        detail: 'git push origin main',
+        detectedAt: new Date('2026-06-11T00:02:00.000Z'),
+        reversible: false,
+        severity: 'MEDIUM',
+        disposition: null,
+        dispositionNote: null,
+        dispositionedAt: null,
+        dispositionedById: null,
+        remediationTask: null,
+      },
+    ])
+
+    const views = await boundaryCrossingService.listAll('t-1')
+
+    // Every crossing carries a severity tier, and the read model exposes it.
+    expect(views.map(v => v.severity).sort()).toEqual(['HIGH', 'LOW', 'MEDIUM'])
+    expect(views.find(v => v.id === 'bc-high')?.severity).toBe('HIGH')
+    // Crossings are ordered/surfaced by severity — most-severe first.
+    expect(views.map(v => v.severity)).toEqual(['HIGH', 'MEDIUM', 'LOW'])
+    expect(views.map(v => v.id)).toEqual(['bc-high', 'bc-medium', 'bc-low'])
+  })
+
   it('crossing surfaces linked remediation task status', async () => {
     findAll.mockResolvedValue([
       {
@@ -133,6 +187,7 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
         detail: 'rm prisma/migrations/0042/migration.sql',
         detectedAt: new Date('2026-06-11T00:00:00.000Z'),
         reversible: false,
+        severity: 'MEDIUM',
         disposition: 'CONFIRMED',
         dispositionNote: null,
         dispositionedAt: new Date('2026-06-11T01:00:00.000Z'),
@@ -163,6 +218,7 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
         detail: 'AWS key in lib/config/aws.ts',
         detectedAt: new Date('2026-06-11T00:00:00.000Z'),
         reversible: false,
+        severity: 'HIGH',
         disposition: null,
         dispositionNote: null,
         dispositionedAt: null,
@@ -175,6 +231,7 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
         detail: 'git push --force origin main',
         detectedAt: new Date('2026-06-10T00:00:00.000Z'),
         reversible: false,
+        severity: 'MEDIUM',
         disposition: 'CONFIRMED',
         dispositionNote: 'owned it',
         dispositionedAt: new Date('2026-06-10T02:00:00.000Z'),

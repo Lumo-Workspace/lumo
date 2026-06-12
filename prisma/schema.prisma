@@ -169,11 +169,25 @@ enum BoundaryCrossingCategory {
   // Reward-hacking (LUM-441): an Edit/Write touched a file a MACHINE acceptance
   // checkpointer depends on — suspected test-tampering to force a fake PASS.
   TEST_TAMPERING
+  // LUM-442: extended high-severity taxonomy (OpenAI "rare but high-severity").
+  EXFILTRATION_PUBLIC // exfiltration / upload to the public internet, incl. making a repo public
+  CLOUD_DATA_DELETION // deleting cloud-storage data (s3/gcs/blob rm)
+  INFRA_TERMINATION // terminating / restarting infrastructure (kill process, restart cluster)
 }
 
 enum BoundaryCrossingDisposition {
   FALSE_POSITIVE
   CONFIRMED
+}
+
+// LUM-442: severity tier per boundary-crossing (OpenAI frequency×severity model).
+// Drives ordering/prominence on the acceptance bar; a HIGH crossing also forces
+// the DONE gate even where the workspace opted the gate out (still clearable by a
+// human disposition).
+enum BoundaryCrossingSeverity {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum AgentType {
@@ -765,6 +779,7 @@ model BoundaryCrossing {
   detail            String
   detectedAt        DateTime                     @default(now())
   reversible        Boolean                      @default(false)
+  severity          BoundaryCrossingSeverity     @default(MEDIUM)
   disposition       BoundaryCrossingDisposition?
   dispositionNote   String?
   dispositionedAt   DateTime?

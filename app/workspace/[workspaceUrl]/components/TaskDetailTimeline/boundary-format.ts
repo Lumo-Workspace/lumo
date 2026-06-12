@@ -41,8 +41,47 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.testTampering',
         defaultMessage: 'edited a test a check depends on',
       })
+    case 'EXFILTRATION_PUBLIC':
+      return intl.formatMessage({
+        id: 'boundary.category.exfiltration',
+        defaultMessage: 'data exfiltration to the public internet',
+      })
+    case 'CLOUD_DATA_DELETION':
+      return intl.formatMessage({
+        id: 'boundary.category.cloudDelete',
+        defaultMessage: 'deleted cloud-storage data',
+      })
+    case 'INFRA_TERMINATION':
+      return intl.formatMessage({
+        id: 'boundary.category.infra',
+        defaultMessage: 'terminated or restarted infrastructure',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
+  }
+}
+
+/** Label for a severity tier (LUM-442). */
+export function boundarySeverityLabel(
+  severity: string,
+  intl: ReturnType<typeof useIntl>
+): string {
+  switch (severity) {
+    case 'HIGH':
+      return intl.formatMessage({
+        id: 'boundary.severity.high',
+        defaultMessage: 'high',
+      })
+    case 'LOW':
+      return intl.formatMessage({
+        id: 'boundary.severity.low',
+        defaultMessage: 'low',
+      })
+    default:
+      return intl.formatMessage({
+        id: 'boundary.severity.medium',
+        defaultMessage: 'medium',
+      })
   }
 }
 

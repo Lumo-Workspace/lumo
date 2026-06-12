@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "위반이 처리되었습니다 — 완료 차단이 해제되었습니다",
   "boundary.toast.error": "작업에 실패했습니다 — 다시 시도하세요",
   "boundary.category.testTampering": "검사가 의존하는 테스트를 수정함",
-  "boundary.panel.testTamperingHint": "리워드 해킹 점검: 통과를 강제하려고 테스트를 약화시킨 것이 아니라 실제 코드가 수정되었는지 확인하세요. 정당한 테스트 수정인가요? 그렇다면 거짓 양성으로 표시하세요."
+  "boundary.panel.testTamperingHint": "리워드 해킹 점검: 통과를 강제하려고 테스트를 약화시킨 것이 아니라 실제 코드가 수정되었는지 확인하세요. 정당한 테스트 수정인가요? 그렇다면 거짓 양성으로 표시하세요.",
+  "boundary.category.exfiltration": "공용 인터넷으로의 데이터 유출",
+  "boundary.category.cloudDelete": "클라우드 스토리지 데이터 삭제",
+  "boundary.category.infra": "인프라 종료 또는 재시작",
+  "boundary.severity.high": "높음",
+  "boundary.severity.medium": "중간",
+  "boundary.severity.low": "낮음",
+  "boundary.panel.severityBadge": "심각도 {severity}",
+  "boundary.panel.defenseInDepth": "하드 경계가 아니라 심층 방어입니다. 이 검사는 작업이 실행된 뒤에 동작하므로 우회될 수 있습니다(예: 난독화된 명령). 패널이 깨끗하다고 해서 아무 일도 없었다는 증거는 아닙니다. 보장이 아니라 하나의 신호로 취급하세요."
 }

@@ -5,6 +5,7 @@ import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
 export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED'
+export type BoundarySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface RemediationTaskView {
   identifier: string
@@ -19,6 +20,7 @@ export interface BoundaryCrossingView {
   detail: string
   detectedAt: string
   reversible: boolean
+  severity: BoundarySeverity
   disposition: BoundaryDisposition | null
   dispositionNote: string | null
   dispositionedAt: string | null

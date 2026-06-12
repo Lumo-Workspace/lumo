@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import type {
   BoundaryCrossingCategory,
   BoundaryCrossingDisposition,
+  BoundaryCrossingSeverity,
   Prisma,
 } from '@prisma/client'
 
@@ -13,6 +14,8 @@ export interface CreateBoundaryCrossingInput {
   detail: string
   /** Taxonomy-driven reversibility (LUM-435) — only npm installs are reversible. */
   reversible: boolean
+  /** Taxonomy-driven severity tier (LUM-442). */
+  severity: BoundaryCrossingSeverity
 }
 
 /** Lightweight projection for the gate / write paths. */
@@ -23,6 +26,7 @@ const SELECT = {
   detail: true,
   detectedAt: true,
   reversible: true,
+  severity: true,
   disposition: true,
   dispositionNote: true,
   dispositionedAt: true,
@@ -65,6 +69,7 @@ export const boundaryCrossingRepository = {
         category: input.category,
         detail: input.detail,
         reversible: input.reversible,
+        severity: input.severity,
       },
       select: SELECT,
     })
