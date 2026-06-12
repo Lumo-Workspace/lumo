@@ -78,9 +78,40 @@ function readWrittenContent(payload: unknown): string | null {
 
 const PROTECTED_BRANCH = /(?:^|[\s:/])(?:main|master|develop)(?=$|\s)/
 
-/** `git push` aimed at main/develop/master (force or not); feature branches skip. */
+/**
+ * Split a compound command into its top-level invocation segments on the shell
+ * separators (`;`, `&&`, `||`, `|`, newline). Quote-/subshell-aware splitting is
+ * deliberately out of scope — "good enough", and a missed split only ever leaves
+ * MORE text in a push segment, erring toward flagging (the conservative side).
+ */
+function splitCommandSegments(cmd: string): string[] {
+  return cmd.split(/(?:&&|\|\||[;|\n])/)
+}
+
+/**
+ * `git push` aimed at a protected branch (main/master/develop), force or not.
+ *
+ * LUM-464: scoped to the push invocation's OWN target, not the whole command
+ * string. A protected name that merely appears in a sibling sub-command (e.g.
+ * the `git merge-base origin/main HEAD` / `git diff origin/main..HEAD` that
+ * worktree review routinely runs) no longer false-positives a push that
+ * actually targets a feature branch. We split the command on shell separators,
+ * keep only segment(s) that invoke `git push`, and test the protected pattern
+ * against just the args AFTER `git push` (the target/refspec) — so the source
+ * side of a `main:feature` refspec is correctly ignored while `HEAD:master` and
+ * `origin develop` still match.
+ *
+ * A bare `git push` with no explicit target is NOT flagged: the target is
+ * unknowable from the command alone, and this detector is defense-in-depth, so
+ * dropping that rare case lowers false positives (per the task's stated tradeoff).
+ */
 function matchProtectedPush(cmd: string): boolean {
-  return /\bgit\s+push\b/.test(cmd) && PROTECTED_BRANCH.test(cmd)
+  for (const seg of splitCommandSegments(cmd)) {
+    if (!/\bgit\s+push\b/.test(seg)) continue
+    const target = seg.replace(/^[\s\S]*?\bgit\s+push\b/, '')
+    if (PROTECTED_BRANCH.test(target)) return true
+  }
+  return false
 }
 
 /** `rm` / `git rm` of anything under prisma/migrations/. */

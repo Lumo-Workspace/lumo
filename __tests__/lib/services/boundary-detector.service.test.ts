@@ -62,6 +62,45 @@ describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', ()
     ).toEqual([])
   })
 
+  // LUM-464: the protected-branch check is scoped to the push invocation's own
+  // target, not the whole command string. A protected name that merely appears
+  // in a sibling sub-command (the `git diff/merge-base origin/main` that worktree
+  // review runs) must not flag a push that actually targets a feature branch.
+  it('feature-branch push with a protected branch mentioned elsewhere is not flagged', () => {
+    expect(
+      detectCrossings({
+        toolName: 'Bash',
+        filePath: null,
+        payload: bash(
+          'git merge-base origin/main HEAD; git push --force-with-lease origin LUM-460-foo'
+        ),
+      })
+    ).toEqual([])
+    expect(
+      detectCrossings({
+        toolName: 'Bash',
+        filePath: null,
+        payload: bash('git diff origin/main..HEAD; git push -u origin feat'),
+      })
+    ).toEqual([])
+  })
+
+  it('a real push to a protected branch is still flagged', () => {
+    for (const command of [
+      'git push origin main',
+      'git push --force origin develop',
+      'git push origin HEAD:master',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).toContain('PUSH_TO_PROTECTED_BRANCH')
+    }
+  })
+
   it('flags a delete under prisma/migrations/', () => {
     expect(
       detectCrossings({
