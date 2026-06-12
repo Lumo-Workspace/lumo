@@ -44,6 +44,8 @@ export interface TaskStatusResponse {
     verifierType: 'MACHINE' | 'HUMAN'
     checkpointer: string | null
     evidenceRequired: boolean
+    /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465). */
+    judgeSteps: string | null
     source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     addedAtRound: number
     /** The latest verdict predates the criterion's last edit (LUM-457). */
@@ -77,6 +79,7 @@ export interface TaskStatusResponse {
     statement: string
     verifierType: 'MACHINE' | 'HUMAN'
     checkpointer: string | null
+    judgeSteps: string | null
     source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     addedAtRound: number
     rejectionReason: string | null
@@ -140,6 +143,15 @@ export function formatTaskStatus(
     )
     if (c.checkpointer) {
       lines.push(`      ↳ check: ${sanitizeField(c.checkpointer)}`)
+    }
+    // LUM-465: agent-drafted human-judging guidance, rendered as an indented
+    // block under a HUMAN criterion (multi-line steps stay aligned).
+    if (c.judgeSteps) {
+      const judgeLines = sanitizeField(c.judgeSteps).split('\n')
+      lines.push(`      ↳ judge: ${judgeLines[0]}`)
+      for (const jl of judgeLines.slice(1)) {
+        lines.push(`              ${jl}`)
+      }
     }
     const v = c.latestVerdict
     if (v == null) {

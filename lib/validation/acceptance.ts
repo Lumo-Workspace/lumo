@@ -40,6 +40,27 @@ export function criteriaCountWarning(
 }
 
 /**
+ * Soft warning (LUM-465) for HUMAN criteria with no judgeSteps — the
+ * agent-drafted "where to look → what to do → ✓pass/✗send-back" guidance shown
+ * on the human adjudication card. Like criteriaCountWarning it is a pure helper
+ * that NEVER rejects: a HUMAN criterion without judgeSteps still stores fine,
+ * the card just falls back to a "missing guidance" hint. MACHINE criteria are
+ * judged by a checkpointer, never by hand, so they are exempt.
+ */
+export function humanJudgeStepsWarning(
+  criteria: ReadonlyArray<{
+    verifierType: 'MACHINE' | 'HUMAN'
+    judgeSteps?: string | null
+  }>
+): string | null {
+  const missing = criteria.filter(
+    c => c.verifierType === 'HUMAN' && !c.judgeSteps
+  ).length
+  if (missing === 0) return null
+  return `${missing} human-judgment ${missing === 1 ? 'criterion lacks' : 'criteria lack'} judging guidance — add judgeSteps (where to look → what to do → ✓pass/✗send-back) so the human adjudicator has steps, not just an assertion`
+}
+
+/**
  * Shared refinement: a MACHINE criterion must name its executable check — if
  * no checkpointer can be attached, the drafter demotes it to HUMAN instead of
  * submitting a MACHINE criterion the loop can never execute. By design this
@@ -75,6 +96,9 @@ export const acceptanceCriterionInputSchema = z
     verifierType: z.enum(['MACHINE', 'HUMAN']),
     checkpointer: z.string().trim().min(1).max(2_000).nullish(),
     evidenceRequired: z.boolean().optional(),
+    // Agent-drafted human-judging guidance (LUM-465); allowed on any criterion,
+    // steered to HUMAN by the drafting guide. A missing one only warns.
+    judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
     source: z.nativeEnum(AcceptanceCriterionSource),
     addedAtRound: z.number().int().min(0).optional(),
   })
@@ -104,6 +128,9 @@ export const criteriaSetItemSchema = z
     verifierType: z.enum(['MACHINE', 'HUMAN']),
     checkpointer: z.string().trim().min(1).max(2_000).nullish(),
     evidenceRequired: z.boolean().optional(),
+    // Agent-drafted human-judging guidance (LUM-465). Part of the contract:
+    // edits drift like any other field, a missing one on a HUMAN criterion warns.
+    judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
   })
   .strict()
   .superRefine(machineRequiresCheckpointer)

@@ -60,6 +60,7 @@ function criterion(
     verifierType: 'MACHINE',
     checkpointer: 'npx jest x',
     evidenceRequired: false,
+    judgeSteps: null,
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict: {

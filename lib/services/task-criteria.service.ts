@@ -10,6 +10,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   criteriaCountWarning,
+  humanJudgeStepsWarning,
   type CriteriaSetItem,
   type CriteriaCauseTag,
 } from '@/lib/validation/acceptance'
@@ -30,12 +31,14 @@ function criterionSnapshot(c: {
   verifierType: string
   checkpointer?: string | null
   evidenceRequired?: boolean
+  judgeSteps?: string | null
 }) {
   return {
     statement: c.statement,
     verifierType: c.verifierType,
     checkpointer: c.checkpointer ?? null,
     evidenceRequired: c.evidenceRequired ?? false,
+    judgeSteps: c.judgeSteps ?? null,
   }
 }
 
@@ -134,7 +137,8 @@ async function applyContractDiff(
       current.statement === desired.statement &&
       current.verifierType === desired.verifierType &&
       current.checkpointer === desired.checkpointer &&
-      current.evidenceRequired === desired.evidenceRequired
+      current.evidenceRequired === desired.evidenceRequired &&
+      (current.judgeSteps ?? null) === desired.judgeSteps
     return unchanged ? [] : [{ id: i.id, desired }]
   })
   const runsByCriterion =
@@ -185,6 +189,7 @@ async function applyContractDiff(
           verifierType: c.verifierType,
           checkpointer: c.checkpointer ?? null,
           evidenceRequired: c.evidenceRequired ?? false,
+          judgeSteps: c.judgeSteps ?? null,
           source: createSource,
           addedAtRound: cfg.round,
         },
@@ -224,6 +229,7 @@ function desiredShape(item: CriteriaSetItem) {
     verifierType: item.verifierType,
     checkpointer: item.checkpointer ?? null,
     evidenceRequired: item.evidenceRequired ?? false,
+    judgeSteps: item.judgeSteps ?? null,
   }
 }
 
@@ -281,6 +287,8 @@ export const taskCriteriaService = {
     return {
       criteria,
       warning: criteria.length === 0 ? null : criteriaCountWarning(criteria),
+      judgeStepsWarning:
+        criteria.length === 0 ? null : humanJudgeStepsWarning(criteria),
     }
   },
 
@@ -368,6 +376,7 @@ export const taskCriteriaService = {
                 verifierType: i.verifierType,
                 checkpointer: i.checkpointer ?? null,
                 evidenceRequired: i.evidenceRequired ?? false,
+                judgeSteps: i.judgeSteps ?? null,
                 source: 'AGENT_DRAFT',
               },
               tx
@@ -410,6 +419,7 @@ export const taskCriteriaService = {
               verifierType: i.verifierType,
               checkpointer: i.checkpointer ?? null,
               evidenceRequired: i.evidenceRequired ?? false,
+              judgeSteps: i.judgeSteps ?? null,
               source: 'AGENT_DRAFT',
             },
             tx
@@ -429,7 +439,11 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria) }
+    return {
+      criteria,
+      warning: criteriaCountWarning(criteria),
+      judgeStepsWarning: humanJudgeStepsWarning(criteria),
+    }
   },
 
   /**
@@ -482,6 +496,10 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria) }
+    return {
+      criteria,
+      warning: criteriaCountWarning(criteria),
+      judgeStepsWarning: humanJudgeStepsWarning(criteria),
+    }
   },
 }

@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "改为{verdict}",
   "boundary.panel.reopen": "重新打开（重新阻塞 DONE）",
   "boundary.disposition.open": "未处置",
-  "boundary.toast.reopened": "越界已重新打开——DONE 重新阻塞"
+  "boundary.toast.reopened": "越界已重新打开——DONE 重新阻塞",
+  "acceptance.judge.label": "如何裁决",
+  "acceptance.judge.missing": "缺裁决指引 — 补 judgeSteps,让裁决人拿到步骤而非仅一句断言"
 }

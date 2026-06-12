@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Đổi thành {verdict}",
   "boundary.panel.reopen": "Mở lại (chặn lại Hoàn thành)",
   "boundary.disposition.open": "đang mở",
-  "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn"
+  "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn",
+  "acceptance.judge.label": "Cách đánh giá",
+  "acceptance.judge.missing": "Không có hướng dẫn đánh giá — thêm judgeSteps để người duyệt có các bước, không chỉ là một khẳng định"
 }

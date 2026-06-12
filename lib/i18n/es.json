@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Cambiar a {verdict}",
   "boundary.panel.reopen": "Reabrir (volver a bloquear Hecho)",
   "boundary.disposition.open": "abierta",
-  "boundary.toast.reopened": "Infracción reabierta — Hecho vuelve a estar bloqueado"
+  "boundary.toast.reopened": "Infracción reabierta — Hecho vuelve a estar bloqueado",
+  "acceptance.judge.label": "Cómo evaluar",
+  "acceptance.judge.missing": "Sin guía de evaluación — añade judgeSteps para que el revisor tenga pasos, no solo una afirmación"
 }

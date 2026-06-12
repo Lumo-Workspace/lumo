@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "{verdict}に変更",
   "boundary.panel.reopen": "再オープン（完了を再ブロック）",
   "boundary.disposition.open": "未処理",
-  "boundary.toast.reopened": "違反を再オープンしました — 完了が再びブロックされました"
+  "boundary.toast.reopened": "違反を再オープンしました — 完了が再びブロックされました",
+  "acceptance.judge.label": "判定方法",
+  "acceptance.judge.missing": "判定ガイダンスがありません — judgeSteps を追加して、レビュアーに主張だけでなく手順を提供してください"
 }

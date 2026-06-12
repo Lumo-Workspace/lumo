@@ -60,6 +60,9 @@ function toSetItems(
     verifierType: c.verifierType,
     ...(c.checkpointer ? { checkpointer: c.checkpointer } : {}),
     evidenceRequired: c.evidenceRequired,
+    // Preserve agent-drafted judging guidance (LUM-465) across a statement-only
+    // edit — the server full-replaces by id, so dropping it here would wipe it.
+    ...(c.judgeSteps ? { judgeSteps: c.judgeSteps } : {}),
   }))
 }
 
@@ -616,6 +619,78 @@ function VerdictControls({
   )
 }
 
+// ── judgeSteps (LUM-465) ──────────────────────────────────────────────────────
+//
+// Agent-drafted human-judging guidance rendered on the adjudication card: a
+// readable step block with clickable URLs, or a fallback hint when none was
+// drafted. Only HUMAN criteria are judged by hand, so MACHINE rows render
+// nothing. Light linkification only — no markdown engine (the guidance is short
+// where-to-look / what-to-do / pass-vs-send-back prose, LUM-465).
+
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g
+
+function linkifyJudgeSteps(text: string): React.ReactNode[] {
+  return text.split(URL_PATTERN).map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>
+    // Don't let trailing sentence punctuation ("…/x.") leak into the href —
+    // peel it off and render it as plain text after the link.
+    const m = part.match(/^(.*?)([.,;:!?)\]]*)$/)!
+    const url = m[1]
+    const trail = m[2]
+    return (
+      <span key={i}>
+        <a
+          href={url}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='text-info hover:underline break-all'
+        >
+          {url}
+        </a>
+        {trail}
+      </span>
+    )
+  })
+}
+
+function JudgeStepsBlock({ c }: { c: TaskStatusCriterionView }) {
+  const intl = useIntl()
+  if (c.verifierType !== 'HUMAN') return null
+  if (!c.judgeSteps) {
+    return (
+      <div
+        data-testid='judge-steps-missing'
+        className='mt-1.5 text-[11px] italic text-muted-foreground/70'
+      >
+        {intl.formatMessage({
+          id: 'acceptance.judge.missing',
+          defaultMessage:
+            'No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion',
+        })}
+      </div>
+    )
+  }
+  const lines = c.judgeSteps.split('\n').filter(l => l.trim() !== '')
+  return (
+    <div
+      data-testid='judge-steps'
+      className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
+    >
+      <div className='mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70'>
+        {intl.formatMessage({
+          id: 'acceptance.judge.label',
+          defaultMessage: 'How to judge',
+        })}
+      </div>
+      <div className='space-y-0.5 text-[11px] text-foreground break-words'>
+        {lines.map((line, i) => (
+          <div key={i}>{linkifyJudgeSteps(line)}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function CriterionRow({
   c,
   interactive,
@@ -983,6 +1058,9 @@ function CriterionRow({
             )}
           </div>
         ) : null}
+        {/* LUM-465: agent-drafted judging guidance, sitting right above the
+            pass / send-back controls — the reviewer's reading order. */}
+        <JudgeStepsBlock c={c} />
         {interactive ? (
           <div className='mt-2'>
             <VerdictControls

@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "{verdict}(으)로 변경",
   "boundary.panel.reopen": "다시 열기 (완료 재차단)",
   "boundary.disposition.open": "미처리",
-  "boundary.toast.reopened": "위반이 다시 열렸습니다 — 완료가 다시 차단되었습니다"
+  "boundary.toast.reopened": "위반이 다시 열렸습니다 — 완료가 다시 차단되었습니다",
+  "acceptance.judge.label": "판정 방법",
+  "acceptance.judge.missing": "판정 안내 없음 — judgeSteps를 추가하여 검토자가 단순한 주장이 아닌 단계를 갖도록 하세요"
 }

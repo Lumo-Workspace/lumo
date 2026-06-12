@@ -8,6 +8,8 @@ export interface CriterionRow {
   verifierType: 'MACHINE' | 'HUMAN'
   checkpointer: string | null
   evidenceRequired: boolean
+  /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465). */
+  judgeSteps?: string | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
 }
@@ -28,6 +30,11 @@ export function formatCriteriaRows(criteria: CriterionRow[]): string {
     )
     if (c.checkpointer) {
       lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)
+    }
+    if (c.judgeSteps) {
+      const judgeLines = sanitizeField(c.judgeSteps).split('\n')
+      lines.push(`  ↳ judge: ${judgeLines[0]}`)
+      for (const jl of judgeLines.slice(1)) lines.push(`           ${jl}`)
     }
   }
   return lines.length > 0 ? lines.join('\n') + '\n' : ''

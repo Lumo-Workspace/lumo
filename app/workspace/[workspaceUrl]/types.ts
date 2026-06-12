@@ -679,6 +679,7 @@ export interface CriteriaSetItemInput {
   verifierType: 'MACHINE' | 'HUMAN'
   checkpointer?: string | null
   evidenceRequired?: boolean
+  judgeSteps?: string | null
 }
 
 export interface CriterionLatestVerdictView {
@@ -697,6 +698,9 @@ export interface TaskStatusCriterionView {
   verifierType: 'MACHINE' | 'HUMAN'
   checkpointer: string | null
   evidenceRequired: boolean
+  /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465);
+   *  null = none drafted → the adjudication card shows a fallback hint. */
+  judgeSteps: string | null
   source: CriterionSource
   addedAtRound: number
   latestVerdict: CriterionLatestVerdictView | null
@@ -776,6 +780,7 @@ export interface TaskAcceptanceStatusView {
     statement: string
     verifierType: 'MACHINE' | 'HUMAN'
     checkpointer: string | null
+    judgeSteps: string | null
     source: CriterionSource
     addedAtRound: number
     rejectionReason: string | null

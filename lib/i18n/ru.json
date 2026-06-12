@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Изменить на {verdict}",
   "boundary.panel.reopen": "Открыть снова (снова заблокировать «Готово»)",
   "boundary.disposition.open": "открыто",
-  "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано"
+  "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано",
+  "acceptance.judge.label": "Как оценивать",
+  "acceptance.judge.missing": "Нет указаний по оценке — добавьте judgeSteps, чтобы у проверяющего были шаги, а не просто утверждение"
 }

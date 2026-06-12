@@ -94,6 +94,7 @@ function machinePass(
     verifierType: 'MACHINE',
     checkpointer: 'npx jest x',
     evidenceRequired: false,
+    judgeSteps: null,
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict: {
@@ -133,6 +134,7 @@ function unjudgedHuman(
     verifierType: 'HUMAN',
     checkpointer: null,
     evidenceRequired: false,
+    judgeSteps: null,
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict: null,
@@ -175,6 +177,7 @@ it('leads with a verdict banner: machine passed, awaiting the human criterion', 
           verifierType: 'HUMAN',
           checkpointer: null,
           evidenceRequired: false,
+          judgeSteps: null,
           source: 'AGENT_DRAFT',
           addedAtRound: 0,
           latestVerdict: null,
@@ -206,6 +209,7 @@ it('renders each criterion with a result badge, type, and notable provenance', (
           verifierType: 'HUMAN',
           checkpointer: null,
           evidenceRequired: false,
+          judgeSteps: null,
           source: 'REVIEW_ADDED',
           addedAtRound: 2,
           latestVerdict: null,
@@ -226,6 +230,30 @@ it('renders each criterion with a result badge, type, and notable provenance', (
   // REVIEW_ADDED provenance is explicitly visible; the unjudged HUMAN result.
   expect(screen.getByText('REVIEW_ADDED')).toBeInTheDocument()
   expect(screen.getByText('Awaiting human verdict')).toBeInTheDocument()
+})
+
+it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)', () => {
+  set(
+    statusView({
+      criteria: [
+        unjudgedHuman({
+          judgeSteps:
+            'Open the acceptance tab at https://app.test/x. Read the steps. Pass if URLs click.',
+        }),
+      ],
+    })
+  )
+  render_()
+  expect(screen.getByText('How to judge')).toBeInTheDocument()
+  const link = screen.getByRole('link', { name: 'https://app.test/x' })
+  expect(link).toHaveAttribute('href', 'https://app.test/x')
+})
+
+it('shows the missing-guidance fallback for a HUMAN criterion without judgeSteps (LUM-465)', () => {
+  set(statusView({ criteria: [unjudgedHuman({ judgeSteps: null })] }))
+  render_()
+  expect(screen.getByTestId('judge-steps-missing')).toBeInTheDocument()
+  expect(screen.queryByText('How to judge')).toBeNull()
 })
 
 it('tucks a de-jargoned check command + exit code behind a disclosure', () => {
@@ -366,6 +394,7 @@ it('shows a FAIL result and reason inline on the row, with no redundant footer s
           statement: 'still failing',
           verifierType: 'MACHINE',
           checkpointer: 'x',
+          judgeSteps: null,
           source: 'AGENT_DRAFT',
           addedAtRound: 0,
           rejectionReason: 'a clear failure reason',

@@ -83,6 +83,7 @@ function criterion(over: Record<string, unknown> = {}) {
     verifierType: 'MACHINE' as const,
     checkpointer: 'npx jest',
     evidenceRequired: false,
+    judgeSteps: null,
     source: 'AGENT_DRAFT' as const,
     addedAtRound: 0,
     createdAt: new Date('2026-06-01'),
@@ -110,7 +111,11 @@ describe('taskCriteriaService.listForTask', () => {
   it('suppresses the warning for an empty (undrafted) contract', async () => {
     repo.listByTask.mockResolvedValue([])
     const result = await taskCriteriaService.listForTask('t-1')
-    expect(result).toEqual({ criteria: [], warning: null })
+    expect(result).toEqual({
+      criteria: [],
+      warning: null,
+      judgeStepsWarning: null,
+    })
   })
 })
 

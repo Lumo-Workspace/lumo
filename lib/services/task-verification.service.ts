@@ -92,6 +92,9 @@ export interface TaskStatusCriterion {
   verifierType: 'MACHINE' | 'HUMAN'
   checkpointer: string | null
   evidenceRequired: boolean
+  /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465);
+   *  null = none drafted (legacy / MACHINE) → the card shows a fallback hint. */
+  judgeSteps: string | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
   latestVerdict: CriterionLatestVerdict | null
@@ -201,6 +204,7 @@ export interface TaskAcceptanceStatus {
     statement: string
     verifierType: 'MACHINE' | 'HUMAN'
     checkpointer: string | null
+    judgeSteps: string | null
     source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     addedAtRound: number
     rejectionReason: string | null
@@ -684,6 +688,7 @@ export const taskVerificationService = {
           verifierType: c.verifierType,
           checkpointer: c.checkpointer,
           evidenceRequired: c.evidenceRequired,
+          judgeSteps: c.judgeSteps,
           source: c.source,
           addedAtRound: c.addedAtRound,
           latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),
@@ -708,6 +713,7 @@ export const taskVerificationService = {
           statement: c.statement,
           verifierType: c.verifierType,
           checkpointer: c.checkpointer,
+          judgeSteps: c.judgeSteps,
           source: c.source,
           addedAtRound: c.addedAtRound,
           rejectionReason:

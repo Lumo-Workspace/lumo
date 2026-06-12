@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Change to {verdict}",
   "boundary.panel.reopen": "Reopen (re-block Done)",
   "boundary.disposition.open": "open",
-  "boundary.toast.reopened": "Crossing reopened — Done is blocked again"
+  "boundary.toast.reopened": "Crossing reopened — Done is blocked again",
+  "acceptance.judge.label": "How to judge",
+  "acceptance.judge.missing": "No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion"
 }

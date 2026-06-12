@@ -29,6 +29,7 @@ function criterion(over: Partial<TaskStatusResponse['criteria'][number]> = {}) {
     verifierType: 'MACHINE' as const,
     checkpointer: 'npx jest x.test.ts',
     evidenceRequired: false,
+    judgeSteps: null,
     source: 'AGENT_DRAFT' as const,
     addedAtRound: 0,
     verdictStale: false,
