@@ -151,7 +151,26 @@ jest.mock(`@/app/workspace/[workspaceUrl]/components/TaskDetailHeader`, () => ({
 }))
 jest.mock(
   `@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs`,
-  () => ({ TimelineTabs: () => null })
+  () => ({
+    TimelineTabs: ({
+      onVerdictRecorded,
+    }: {
+      onVerdictRecorded?: (r: unknown) => void
+    }) => (
+      <button
+        data-testid='verdict-pass'
+        onClick={() =>
+          onVerdictRecorded?.({
+            taskStatus: 'DONE',
+            verdict: 'PASS',
+            followUpTask: null,
+          })
+        }
+      >
+        pass
+      </button>
+    ),
+  })
 )
 jest.mock(
   `@/app/workspace/[workspaceUrl]/components/TaskDetailSidebar`,
@@ -220,7 +239,8 @@ describe('TaskDetailPage verdict → read-model sync', () => {
 
     fireEvent.click(await screen.findByTestId('verdict-pass'))
 
-    await waitFor(() => expect(mockSubmitVerdict).toHaveBeenCalled())
+    // submitHumanVerdict is now called inside VerdictDecision (covered by
+    // VerdictDecision.test.tsx); TaskDetailPage only owns cache invalidation.
     await waitFor(() =>
       expect(invalidate).toHaveBeenCalledWith({
         queryKey: queryKeys.taskStatus('LUM-1'),
