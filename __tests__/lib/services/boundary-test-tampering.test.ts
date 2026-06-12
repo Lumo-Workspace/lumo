@@ -18,6 +18,7 @@ import {
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { create: jest.fn() },
@@ -28,10 +29,14 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
+jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  verificationRunRepository: { criterionIdsEverPassed: jest.fn() },
+}))
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
+const everPassed = verificationRunRepository.criterionIdsEverPassed as jest.Mock
 
 /** A MACHINE criterion whose checkpointer scopes the given test file path(s). */
 const machineCriterion = (
@@ -67,6 +72,10 @@ beforeEach(() => {
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
   listByTask.mockResolvedValue([])
+  // Default: the criterion has already passed, so an edit to its test is the
+  // genuine reward-hacking window and still flags (LUM-449). The authoring case
+  // (never-passed) is exercised explicitly below.
+  everPassed.mockResolvedValue(new Set(['crit-1']))
 })
 
 describe('detectAndRecord — TEST_TAMPERING (LUM-441)', () => {
@@ -99,6 +108,21 @@ describe('detectAndRecord — TEST_TAMPERING (LUM-441)', () => {
         payload: expect.objectContaining({ category: 'TEST_TAMPERING' }),
       })
     )
+  })
+
+  it('does not record when the backing criterion has never passed (LUM-449 authoring gate)', async () => {
+    // Same edit to the same checkpointer test file — but the criterion has no
+    // PASS yet (still being authored). The measured 100%-FP shape: suppressed.
+    listByTask.mockResolvedValue([machineCriterion(CHECKPOINTER)])
+    everPassed.mockResolvedValue(new Set<string>()) // crit-1 never green
+
+    await boundaryDetectorService.detectAndRecord(
+      editEvent('/Users/dev/repo/__tests__/widget.test.ts')
+    )
+
+    expect(everPassed).toHaveBeenCalledWith(['crit-1'])
+    expect(createCrossing).not.toHaveBeenCalled()
+    expect(createActivity).not.toHaveBeenCalled()
   })
 
   it('editing a non-checkpointer file does not record a TEST_TAMPERING crossing', async () => {

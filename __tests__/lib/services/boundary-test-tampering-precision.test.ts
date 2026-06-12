@@ -20,6 +20,7 @@ import {
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { create: jest.fn() },
@@ -30,10 +31,14 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
+jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  verificationRunRepository: { criterionIdsEverPassed: jest.fn() },
+}))
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
+const everPassed = verificationRunRepository.criterionIdsEverPassed as jest.Mock
 
 const CHECKPOINTER =
   "npx tsx scripts/jest-t.ts 'the widget renders' __tests__/widget.test.ts"
@@ -86,6 +91,10 @@ beforeEach(() => {
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
   listByTask.mockResolvedValue([machineCriterion])
+  // The precision gate is orthogonal to the LUM-449 authoring gate: these cases
+  // exercise a criterion that has already passed, so suppression here is the
+  // precision gate's doing alone.
+  everPassed.mockResolvedValue(new Set(['crit-1']))
 })
 
 describe('TEST_TAMPERING precision gate — detect+record (LUM-455)', () => {
