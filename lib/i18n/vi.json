@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "Nội dung đã ghi",
   "boundary.editChange.truncated": "Đã cắt bớt để hiển thị — mở PR để xem thay đổi đầy đủ.",
   "boundary.editChange.unavailable": "Nội dung chỉnh sửa không có sẵn để hiển thị ở đây — mở PR để xem lại thay đổi.",
-  "boundary.editChange.viewPr": "Xem PR"
+  "boundary.editChange.viewPr": "Xem PR",
+  "acceptance.zone.machineAllPass": "Tất cả {count} đã đạt",
+  "acceptance.zone.machineSummary": "{passed} đạt · {failed} thất bại"
 }

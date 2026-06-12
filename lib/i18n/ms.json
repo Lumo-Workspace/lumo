@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "Kandungan yang ditulis",
   "boundary.editChange.truncated": "Dipotong untuk paparan — buka PR untuk perubahan penuh.",
   "boundary.editChange.unavailable": "Kandungan suntingan tidak tersedia untuk dipaparkan di sini — buka PR untuk menyemak perubahan.",
-  "boundary.editChange.viewPr": "Lihat PR"
+  "boundary.editChange.viewPr": "Lihat PR",
+  "acceptance.zone.machineAllPass": "Semua {count} lulus",
+  "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
 }

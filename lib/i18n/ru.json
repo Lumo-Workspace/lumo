@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "Записанное содержимое",
   "boundary.editChange.truncated": "Сокращено для отображения — откройте PR, чтобы увидеть изменение полностью.",
   "boundary.editChange.unavailable": "Содержимое правки недоступно для показа здесь — откройте PR, чтобы просмотреть изменение.",
-  "boundary.editChange.viewPr": "Открыть PR"
+  "boundary.editChange.viewPr": "Открыть PR",
+  "acceptance.zone.machineAllPass": "Все {count} пройдены",
+  "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено"
 }

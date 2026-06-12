@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "Geschriebener Inhalt",
   "boundary.editChange.truncated": "Für die Anzeige gekürzt — öffne den PR für die vollständige Änderung.",
   "boundary.editChange.unavailable": "Der Bearbeitungsinhalt kann hier nicht angezeigt werden — öffne den PR, um die Änderung zu prüfen.",
-  "boundary.editChange.viewPr": "PR öffnen"
+  "boundary.editChange.viewPr": "PR öffnen",
+  "acceptance.zone.machineAllPass": "Alle {count} bestanden",
+  "acceptance.zone.machineSummary": "{passed} bestanden · {failed} fehlgeschlagen"
 }

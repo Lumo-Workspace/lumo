@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "लिखी गई सामग्री",
   "boundary.editChange.truncated": "प्रदर्शन के लिए छोटा किया गया — पूरा बदलाव देखने के लिए PR खोलें।",
   "boundary.editChange.unavailable": "संपादन सामग्री यहाँ दिखाने के लिए उपलब्ध नहीं है — बदलाव की समीक्षा के लिए PR खोलें।",
-  "boundary.editChange.viewPr": "PR देखें"
+  "boundary.editChange.viewPr": "PR देखें",
+  "acceptance.zone.machineAllPass": "सभी {count} पास",
+  "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल"
 }

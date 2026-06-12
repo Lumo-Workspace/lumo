@@ -6,6 +6,9 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { tasksClient } from '@/lib/api-client'
+// Imported from the concrete module (not the `@/lib/api-client` barrel) so the
+// real class survives when a test mocks the barrel — instanceof stays meaningful.
+import { ApiClientError } from '@/lib/api-client/base'
 import { CommentEditor } from './comments/CommentEditor'
 import type { MentionSources } from '@/types/mention'
 
@@ -69,6 +72,9 @@ export function TaskVerdictBar({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [failed, setFailed] = useState(false)
+  // The specific server-provided reason to show on failure; null = use the
+  // generic retry copy (LUM-453).
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const passButtonRef = useRef<HTMLButtonElement>(null)
   const editorClearRef = useRef<(() => void) | null>(null)
 
@@ -88,6 +94,7 @@ export function TaskVerdictBar({
   const submit = async (verdict: HumanVerdict) => {
     setSubmitting(true)
     setFailed(false)
+    setErrorMessage(null)
     try {
       const sendNote = verdict !== 'PASS' && hasContent(note) ? note : undefined
       const result = await tasksClient.submitHumanVerdict<HumanVerdictResult>(
@@ -98,8 +105,18 @@ export function TaskVerdictBar({
         }
       )
       onVerdictRecorded(result)
-    } catch {
+    } catch (err) {
       setFailed(true)
+      // Surface the server's real reason when it's an HTTP 4xx carrying a
+      // message (403 human-only, 404, 409 send-back gate, …) — the route
+      // returns error.message for every non-500 status. Network failures,
+      // unknown errors, and 5xx keep the generic retry copy: those may be
+      // transient, so "try again" stays the honest message (LUM-453).
+      setErrorMessage(
+        err instanceof ApiClientError && err.status >= 400 && err.status < 500
+          ? err.message
+          : null
+      )
     } finally {
       setSubmitting(false)
     }
@@ -109,6 +126,7 @@ export function TaskVerdictBar({
     setPanel(prev => (prev === next ? null : next))
     setNote('')
     setFailed(false)
+    setErrorMessage(null)
   }
 
   return (
@@ -217,7 +235,7 @@ export function TaskVerdictBar({
           data-testid='verdict-error'
           className='mt-2 text-caption text-danger'
         >
-          {intl.formatMessage({ id: 'task.verdict.error' })}
+          {errorMessage || intl.formatMessage({ id: 'task.verdict.error' })}
         </p>
       )}
     </div>

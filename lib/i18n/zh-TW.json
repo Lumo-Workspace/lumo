@@ -1615,5 +1615,7 @@
   "boundary.editChange.written": "寫入內容",
   "boundary.editChange.truncated": "為顯示已截斷 — 開啟 PR 查看完整變更。",
   "boundary.editChange.unavailable": "此處無法顯示編輯內容 — 開啟 PR 查看變更。",
-  "boundary.editChange.viewPr": "查看 PR"
+  "boundary.editChange.viewPr": "查看 PR",
+  "acceptance.zone.machineAllPass": "全部 {count} 項通過",
+  "acceptance.zone.machineSummary": "{passed} 通過 · {failed} 失敗"
 }
