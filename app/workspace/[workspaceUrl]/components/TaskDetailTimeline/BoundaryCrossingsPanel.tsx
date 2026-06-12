@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
   ShieldAlert,
+  ShieldCheck,
   Lock,
   Unlock,
   FlagOff,
@@ -70,9 +71,24 @@ export function BoundaryCrossingsPanel({
   const [pending, setPending] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
 
+  const openCount = crossings.filter(c => c.disposition == null).length
+
+  const [expanded, setExpanded] = useState(() => openCount > 0)
+  const prevOpen = useRef(openCount)
+  useEffect(() => {
+    if (openCount > prevOpen.current) setExpanded(true) // re-open if a new undisposed crossing arrives
+    prevOpen.current = openCount
+  }, [openCount])
+
   if (crossings.length === 0) return null
 
-  const openCount = crossings.filter(c => c.disposition == null).length
+  const categoryCounts = (() => {
+    const m = new Map<string, number>()
+    for (const c of crossings) m.set(c.category, (m.get(c.category) ?? 0) + 1)
+    return [...m.entries()].sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+    )
+  })()
 
   const afterChange = () => {
     void refresh()
@@ -156,8 +172,19 @@ export function BoundaryCrossingsPanel({
       id='boundary-crossings'
       className='rounded-lg border border-warning-border bg-warning-subtle/40 p-3.5'
     >
-      <div className='mb-2 flex items-center gap-2'>
-        <ShieldAlert className='size-4 shrink-0 text-warning' aria-hidden />
+      {/* Always-visible summary/toggle header */}
+      <button
+        type='button'
+        data-testid='boundary-summary-toggle'
+        aria-expanded={expanded}
+        onClick={() => setExpanded(e => !e)}
+        className='mb-2 flex w-full items-center gap-2 text-left'
+      >
+        {openCount === 0 ? (
+          <ShieldCheck className='size-4 shrink-0 text-success' aria-hidden />
+        ) : (
+          <ShieldAlert className='size-4 shrink-0 text-warning' aria-hidden />
+        )}
         <span className='text-sm font-medium text-foreground'>
           {intl.formatMessage({
             id: 'boundary.panel.title',
@@ -175,66 +202,94 @@ export function BoundaryCrossingsPanel({
             )}
           </span>
         )}
+        {categoryCounts.map(([cat, n]) => (
+          <span
+            key={cat}
+            className='rounded-md bg-warning-subtle px-1.5 py-0.5 text-[11px] font-medium text-warning'
+          >
+            {boundaryCategoryLabel(cat, intl)} ×{n}
+          </span>
+        ))}
+        {openCount === 0 && (
+          <span className='text-[11px] text-muted-foreground/80'>
+            {intl.formatMessage(
+              {
+                id: 'boundary.panel.allCleared',
+                defaultMessage:
+                  '{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open',
+              },
+              { count: crossings.length }
+            )}
+          </span>
+        )}
         <span className='ml-auto text-[11px] text-muted-foreground/80'>
           {intl.formatMessage({
             id: 'boundary.panel.confirmedStay',
             defaultMessage: 'Confirmed crossings stay on record.',
           })}
         </span>
-      </div>
+        <ChevronRight
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+          aria-hidden
+        />
+      </button>
 
-      {openCount > 0 && (
-        <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
-          <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-          <span>
+      {expanded && (
+        <>
+          {openCount > 0 && (
+            <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
+              <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+              <span>
+                {intl.formatMessage({
+                  id: 'boundary.panel.blockedNote',
+                  defaultMessage:
+                    "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                })}
+              </span>
+            </p>
+          )}
+
+          <div className='space-y-2'>
+            {crossings.map(c => (
+              <CrossingRow
+                key={c.id}
+                crossing={c}
+                intl={intl}
+                workspaceUrl={workspaceUrl}
+                pending={pending === c.id}
+                note={notes[c.id] ?? ''}
+                reviewerName={reviewerName(c.dispositionedById)}
+                changeReviewerName={reviewerName(
+                  c.lastDispositionChange?.actorId ?? null
+                )}
+                onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
+                onDisposition={verdict => disposition(c.id, verdict)}
+                onSpawnRemediation={() => spawnRemediation(c.id)}
+              />
+            ))}
+          </div>
+
+          <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
+            <UserCheck className='size-3.5 shrink-0' aria-hidden />
             {intl.formatMessage({
-              id: 'boundary.panel.blockedNote',
+              id: 'boundary.panel.humanOnly',
               defaultMessage:
-                "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
             })}
-          </span>
-        </p>
+          </p>
+
+          <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
+            <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+            <span>
+              {intl.formatMessage({
+                id: 'boundary.panel.defenseInDepth',
+                defaultMessage:
+                  'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
+              })}
+            </span>
+          </p>
+        </>
       )}
-
-      <div className='space-y-2'>
-        {crossings.map(c => (
-          <CrossingRow
-            key={c.id}
-            crossing={c}
-            intl={intl}
-            workspaceUrl={workspaceUrl}
-            pending={pending === c.id}
-            note={notes[c.id] ?? ''}
-            reviewerName={reviewerName(c.dispositionedById)}
-            changeReviewerName={reviewerName(
-              c.lastDispositionChange?.actorId ?? null
-            )}
-            onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
-            onDisposition={verdict => disposition(c.id, verdict)}
-            onSpawnRemediation={() => spawnRemediation(c.id)}
-          />
-        ))}
-      </div>
-
-      <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
-        <UserCheck className='size-3.5 shrink-0' aria-hidden />
-        {intl.formatMessage({
-          id: 'boundary.panel.humanOnly',
-          defaultMessage:
-            'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
-        })}
-      </p>
-
-      <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
-        <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-        <span>
-          {intl.formatMessage({
-            id: 'boundary.panel.defenseInDepth',
-            defaultMessage:
-              'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
-          })}
-        </span>
-      </p>
     </div>
   )
 }
@@ -262,6 +317,7 @@ function CrossingRow({
   onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
   onSpawnRemediation: () => void
 }) {
+  const [cmdOpen, setCmdOpen] = useState(false)
   const open = c.disposition == null
   const rt = c.remediationTask
   // The other verdict a one-click "change" flips to.
@@ -335,7 +391,12 @@ function CrossingRow({
         </span>
       </div>
 
-      <code className='mt-1.5 block overflow-x-auto whitespace-nowrap rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground'>
+      <code
+        data-testid={`crossing-cmd-${c.id}`}
+        onClick={() => setCmdOpen(o => !o)}
+        className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+        title={cmdOpen ? undefined : c.detail}
+      >
         {c.detail}
       </code>
 
