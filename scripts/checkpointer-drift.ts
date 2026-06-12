@@ -46,6 +46,15 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  parseJestTCheckpointer,
+  type ParsedJestT,
+} from '@/lib/checkpointer/parse'
+
+// Re-exported so existing importers (the LUM-436 sweep test) keep one entry
+// point; the parser itself now lives in lib/checkpointer/parse.ts (LUM-441,
+// shared with the TEST_TAMPERING reward-hacking detector).
+export { parseJestTCheckpointer, type ParsedJestT }
 
 export type DriftStatus = 'drifted' | 'healthy' | 'skipped'
 
@@ -64,12 +73,6 @@ export interface CheckpointerCriterion {
   statement?: string
   verifierType?: string
   checkpointer?: string | null
-}
-
-/** A jest-t.ts checkpointer parsed into its test name + scoped file paths. */
-export interface ParsedJestT {
-  name: string
-  paths: string[]
 }
 
 /** The verdict for a single checkpointer. */
@@ -106,63 +109,6 @@ export interface SweepReport {
   drifted: CriterionDrift[]
   healthy: CriterionDrift[]
   skipped: CriterionDrift[]
-}
-
-/**
- * Split a shell-ish command into tokens, honoring single/double quotes so a
- * quoted test name with spaces stays one token. Quote characters are stripped;
- * we do not interpret escapes or variable expansion (not needed for the
- * prescribed checkpointer form).
- */
-function tokenize(cmd: string): string[] {
-  const tokens: string[] = []
-  let cur = ''
-  let quote: '"' | "'" | null = null
-  let inToken = false
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]!
-    if (quote) {
-      if (ch === quote) quote = null
-      else cur += ch
-      continue
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch
-      inToken = true
-      continue
-    }
-    if (ch === ' ' || ch === '\t' || ch === '\n') {
-      if (inToken) {
-        tokens.push(cur)
-        cur = ''
-        inToken = false
-      }
-      continue
-    }
-    cur += ch
-    inToken = true
-  }
-  if (inToken) tokens.push(cur)
-  return tokens
-}
-
-/**
- * Parse a `…/jest-t.ts '<name>' <path…>` checkpointer into its test name and
- * file paths. Returns null for anything that is not a jest-t.ts invocation
- * (bash probes, bare `jest -t`, script calls) — those are not statically
- * resolvable and must never be flagged as drift.
- */
-export function parseJestTCheckpointer(
-  checkpointer: string
-): ParsedJestT | null {
-  const tokens = tokenize(checkpointer)
-  const idx = tokens.findIndex(t => t.endsWith('jest-t.ts'))
-  if (idx === -1) return null
-  const name = tokens[idx + 1]
-  if (!name) return null
-  // Trailing args are the test file path(s); drop any jest flags (`--foo`).
-  const paths = tokens.slice(idx + 2).filter(t => !t.startsWith('-'))
-  return { name, paths }
 }
 
 /** Read a file and report whether it contains the test-name literal. */

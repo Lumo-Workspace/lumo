@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} verification run(s) preserved",
   "boundary.toast.remediationSpawned": "Remediation task {identifier} created",
   "boundary.toast.dispositioned": "Crossing dispositioned — Done is unblocked",
-  "boundary.toast.error": "Action failed — please try again"
+  "boundary.toast.error": "Action failed — please try again",
+  "boundary.category.testTampering": "edited a test a check depends on",
+  "boundary.panel.testTamperingHint": "Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive."
 }

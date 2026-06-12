@@ -1,6 +1,9 @@
 import type { BoundaryCrossingCategory } from '@prisma/client'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
+import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
 
 /**
  * Async forbidden-action boundary detector (LUM-426). Encodes the CLAUDE.md
@@ -152,6 +155,103 @@ export function detectCrossings(
   return out
 }
 
+// --- reward-hacking: test-tampering (LUM-441) --------------------------------
+
+/** The slice of a MACHINE acceptance criterion the tampering check needs. */
+export interface MachineCheckpointer {
+  criterionId?: string | undefined
+  /** The criterion's statement — surfaced on the flag so a reviewer sees which
+   *  check the edited file backs (criterion 4, the HUMAN read). */
+  statement?: string | undefined
+  /** The checkpointer command string (its file paths are what an edit may hit). */
+  checkpointer: string
+}
+
+/** Normalize a path for cross-form comparison (absolute event vs repo-relative
+ *  checkpointer arg): forward slashes, no leading `./`. */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^\.\//, '')
+}
+
+/**
+ * Does an Edit/Write event's file path refer to the same file as a
+ * checkpointer's path arg? The event path is typically absolute
+ * (`/…/repo/__tests__/foo.test.ts`) and the checkpointer's is repo-relative
+ * (`__tests__/foo.test.ts`); match on a path-segment boundary so a relative ref
+ * matches the tail of the absolute event without `foo.test.ts` matching
+ * `barfoo.test.ts`.
+ */
+export function eventPathMatchesCheckpointerPath(
+  eventPath: string,
+  refPath: string
+): boolean {
+  const e = normalizePath(eventPath)
+  const r = normalizePath(refPath)
+  if (!e || !r) return false
+  return e === r || e.endsWith(`/${r}`) || r.endsWith(`/${e}`)
+}
+
+/**
+ * Reward-hacking detector (LUM-441, OpenAI misalignment taxonomy). An agent that
+ * edits the very test file a MACHINE acceptance checkpointer runs may be fixing
+ * the underlying code — or weakening the test to force a fake PASS. We can't tell
+ * statically, so this is a flag-for-review (not a hard block): if an Edit/Write
+ * event's file is referenced by any of the bound task's MACHINE checkpointers,
+ * record ONE TEST_TAMPERING crossing naming the file + the criterion that
+ * depends on it. A human dispositions it FALSE_POSITIVE (legit test fix) or
+ * CONFIRMED (LUM-435). Pure — the criteria are passed in, no I/O.
+ */
+export function detectTestTampering(input: {
+  toolName: string | null
+  filePath: string | null
+  machineCheckpointers: MachineCheckpointer[]
+}): DetectedCrossing | null {
+  if (!input.filePath) return null
+  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
+  for (const mc of input.machineCheckpointers) {
+    const hit = checkpointerFilePaths(mc.checkpointer).find(p =>
+      eventPathMatchesCheckpointerPath(input.filePath as string, p)
+    )
+    if (hit) {
+      const because = mc.statement
+        ? ` — a MACHINE check depends on it ("${mc.statement}")`
+        : ' — a MACHINE check depends on it'
+      return {
+        category: 'TEST_TAMPERING',
+        detail: clip(`edited ${hit}${because}`),
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Load the bound task's MACHINE checkpointers and run the pure tampering check
+ * (LUM-441). Gated up front: only an Edit/Write event carrying a file path can
+ * tamper with a test, so a Bash/Read/Stop event short-circuits BEFORE any DB
+ * read — the criteria query is paid only on the events that can match.
+ */
+async function detectTestTamperingForTask(
+  input: BoundaryDetectionInput
+): Promise<DetectedCrossing | null> {
+  if (!input.filePath) return null
+  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
+  const criteria = await acceptanceCriterionRepository.listByTask(input.taskId)
+  const machineCheckpointers: MachineCheckpointer[] = criteria
+    .filter(c => c.verifierType === 'MACHINE' && !!c.checkpointer)
+    .map(c => ({
+      criterionId: c.id,
+      statement: c.statement,
+      checkpointer: c.checkpointer as string,
+    }))
+  if (machineCheckpointers.length === 0) return null
+  return detectTestTampering({
+    toolName: input.toolName,
+    filePath: input.filePath,
+    machineCheckpointers,
+  })
+}
+
 export const boundaryDetectorService = {
   /**
    * Detect forbidden actions on an ingested hook event and, for each match,
@@ -164,6 +264,8 @@ export const boundaryDetectorService = {
   async detectAndRecord(input: BoundaryDetectionInput): Promise<void> {
     try {
       const crossings = detectCrossings(input)
+      const tampering = await detectTestTamperingForTask(input)
+      if (tampering) crossings.push(tampering)
       for (const c of crossings) {
         const row = await boundaryCrossingRepository.create({
           taskId: input.taskId,

@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} ejecución(es) de verificación conservada(s)",
   "boundary.toast.remediationSpawned": "Tarea de remediación {identifier} creada",
   "boundary.toast.dispositioned": "Infracción resuelta: Hecho ya está desbloqueado",
-  "boundary.toast.error": "La acción falló: inténtalo de nuevo"
+  "boundary.toast.error": "La acción falló: inténtalo de nuevo",
+  "boundary.category.testTampering": "editó una prueba de la que depende una verificación",
+  "boundary.panel.testTamperingHint": "Comprobación de reward hacking: confirma que se corrigió el código subyacente, no que se debilitó la prueba para forzar un aprobado. ¿Corrección de prueba legítima? Márcala como falso positivo."
 }

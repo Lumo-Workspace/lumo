@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} Verifizierungslauf/-läufe aufbewahrt",
   "boundary.toast.remediationSpawned": "Behebungsaufgabe {identifier} erstellt",
   "boundary.toast.dispositioned": "Überschreitung eingeordnet – Erledigt ist entsperrt",
-  "boundary.toast.error": "Aktion fehlgeschlagen – bitte erneut versuchen"
+  "boundary.toast.error": "Aktion fehlgeschlagen – bitte erneut versuchen",
+  "boundary.category.testTampering": "eine Testdatei bearbeitet, von der eine Prüfung abhängt",
+  "boundary.panel.testTamperingHint": "Reward-Hacking-Prüfung: Bestätige, dass der zugrunde liegende Code korrigiert wurde – nicht, dass der Test abgeschwächt wurde, um ein Bestehen zu erzwingen. Legitime Testkorrektur? Als Fehlalarm markieren."
 }

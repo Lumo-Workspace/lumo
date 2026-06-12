@@ -287,6 +287,22 @@ function CrossingRow({
         {c.detail}
       </code>
 
+      {c.category === 'TEST_TAMPERING' && open && (
+        <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+          <ShieldAlert
+            className='mt-0.5 size-3.5 shrink-0 text-warning'
+            aria-hidden
+          />
+          <span>
+            {intl.formatMessage({
+              id: 'boundary.panel.testTamperingHint',
+              defaultMessage:
+                'Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.',
+            })}
+          </span>
+        </p>
+      )}
+
       {c.dispositionNote && (
         <p className='mt-1.5 text-[11px] text-muted-foreground'>
           {intl.formatMessage(
