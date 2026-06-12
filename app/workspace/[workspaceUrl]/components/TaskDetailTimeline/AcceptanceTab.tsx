@@ -23,6 +23,7 @@ import type {
   AcceptanceVerifier,
   WorkspaceMemberInfo,
   RemovedCriterionView,
+  CriteriaSetItemInput,
 } from '../../types'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
@@ -46,6 +47,20 @@ type SubmitVerdict = (
 
 function isPass(verdict: string | undefined): boolean {
   return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
+}
+
+/** Echo every active criterion back as a desired-list item so a statement-only
+ *  edit preserves MACHINE checkpointers (the server full-replaces by id). */
+function toSetItems(
+  criteria: TaskStatusCriterionView[]
+): CriteriaSetItemInput[] {
+  return criteria.map(c => ({
+    id: c.id,
+    statement: c.statement,
+    verifierType: c.verifierType,
+    ...(c.checkpointer ? { checkpointer: c.checkpointer } : {}),
+    evidenceRequired: c.evidenceRequired,
+  }))
 }
 
 // Machine evidence is encoded as `cmd:<command>#exit=<n>` — pull out the exit
@@ -519,15 +534,26 @@ function CriterionRow({
   interactive,
   submitting,
   onVerdict,
+  editable = false,
+  onSaveStatement,
+  onDelete,
+  mutating = false,
 }: {
   c: TaskStatusCriterionView
   interactive: boolean
   submitting: boolean
   onVerdict: SubmitVerdict
+  editable?: boolean
+  onSaveStatement?: (id: string, statement: string) => void
+  onDelete?: (id: string) => void
+  mutating?: boolean
 }) {
   const intl = useIntl()
   const [showCheck, setShowCheck] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(c.statement)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
   const exitCode = parseExitCode(v?.evidencePointer)
@@ -544,9 +570,54 @@ function CriterionRow({
         <VerdictGlyph verdict={v?.verdict ?? ''} />
       </span>
       <div className='min-w-0 flex-1'>
-        <div className='line-clamp-2 text-[13px] leading-snug text-foreground'>
-          {c.statement}
-        </div>
+        {editing ? (
+          <div>
+            <textarea
+              aria-label='Edit criterion statement'
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              className='w-full rounded-md border border-border bg-background px-2 py-1 text-[13px]'
+              rows={2}
+            />
+            <div className='mt-1 flex items-center gap-2'>
+              <button
+                type='button'
+                disabled={
+                  mutating ||
+                  draft.trim() === '' ||
+                  draft.trim() === c.statement
+                }
+                onClick={() => {
+                  onSaveStatement?.(c.id, draft.trim())
+                  setEditing(false)
+                }}
+                className='text-[11px] text-info hover:underline disabled:opacity-40'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.edit.save',
+                  defaultMessage: 'Save',
+                })}
+              </button>
+              <button
+                type='button'
+                onClick={() => {
+                  setDraft(c.statement)
+                  setEditing(false)
+                }}
+                className='text-[11px] text-muted-foreground hover:underline'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.edit.cancel',
+                  defaultMessage: 'Cancel',
+                })}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className='line-clamp-2 text-[13px] leading-snug text-foreground'>
+            {c.statement}
+          </div>
+        )}
         <div className='mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]'>
           <span className={`rounded-sm px-1.5 py-0.5 font-medium ${badge.cls}`}>
             {badge.label}
@@ -606,8 +677,31 @@ function CriterionRow({
           ) : null}
           {/* Disclosure buttons — pushed to the right as a group so they don't
               collide when both can appear on the same row. */}
-          {hasCheck || hasEditDisclosure ? (
+          {editable || hasCheck || hasEditDisclosure ? (
             <div className='ml-auto flex items-center gap-2'>
+              {editable && !editing ? (
+                <>
+                  <button
+                    type='button'
+                    aria-label='Edit criterion'
+                    onClick={() => {
+                      setDraft(c.statement)
+                      setEditing(true)
+                    }}
+                    className='text-muted-foreground hover:text-foreground'
+                  >
+                    <Pencil className='size-3.5' aria-hidden />
+                  </button>
+                  <button
+                    type='button'
+                    aria-label='Delete criterion'
+                    onClick={() => setConfirmDelete(true)}
+                    className='text-muted-foreground hover:text-danger'
+                  >
+                    <Trash2 className='size-3.5' aria-hidden />
+                  </button>
+                </>
+              ) : null}
               {hasEditDisclosure ? (
                 <button
                   type='button'
@@ -655,6 +749,43 @@ function CriterionRow({
             </div>
           ) : null}
         </div>
+        {confirmDelete ? (
+          <div className='mt-1.5 flex items-center gap-2 rounded-md border border-danger-border bg-danger-subtle px-2 py-1 text-[11px]'>
+            <span className='text-danger'>
+              {intl.formatMessage({
+                id: 'acceptance.edit.confirmDelete',
+                defaultMessage:
+                  'Remove this criterion? Verdicts are kept for audit.',
+              })}
+            </span>
+            <div className='ml-auto flex gap-2'>
+              <button
+                type='button'
+                disabled={mutating}
+                onClick={() => {
+                  onDelete?.(c.id)
+                  setConfirmDelete(false)
+                }}
+                className='text-danger hover:underline disabled:opacity-40'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.edit.remove',
+                  defaultMessage: 'Remove',
+                })}
+              </button>
+              <button
+                type='button'
+                onClick={() => setConfirmDelete(false)}
+                className='text-muted-foreground hover:underline'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.edit.cancel',
+                  defaultMessage: 'Cancel',
+                })}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {/* FAIL reason is part of the result — surfaced without a disclosure. */}
         {v?.verdict === 'FAIL' && v.rejectionReason ? (
           <div className='mt-1 text-[11px] text-danger break-words'>
@@ -723,6 +854,54 @@ function CriterionRow({
   )
 }
 
+// ── Add criterion row ─────────────────────────────────────────────────────────
+
+function AddCriterionRow({
+  onAdd,
+  mutating,
+}: {
+  onAdd: (statement: string) => void
+  mutating: boolean
+}) {
+  const intl = useIntl()
+  const [text, setText] = useState('')
+  const submit = () => {
+    const s = text.trim()
+    if (!s) return
+    onAdd(s)
+    setText('')
+  }
+  return (
+    <div className='mt-2 flex items-center gap-2'>
+      <input
+        type='text'
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') submit()
+        }}
+        placeholder={intl.formatMessage({
+          id: 'acceptance.edit.addPlaceholder',
+          defaultMessage:
+            'Add a criterion needing human judgment (statement only)',
+        })}
+        className='flex-1 rounded-md border border-border bg-background px-2 py-1 text-[13px]'
+      />
+      <button
+        type='button'
+        disabled={mutating || text.trim() === ''}
+        onClick={submit}
+        className='rounded-md border border-info-border px-2 py-1 text-[11px] font-medium text-info disabled:opacity-40'
+      >
+        {intl.formatMessage({
+          id: 'acceptance.edit.add',
+          defaultMessage: 'Add',
+        })}
+      </button>
+    </div>
+  )
+}
+
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
 export function AcceptanceTab({
@@ -739,6 +918,7 @@ export function AcceptanceTab({
   })
   const [submitting, setSubmitting] = useState(false)
   const [removedOpen, setRemovedOpen] = useState(false)
+  const [mutating, setMutating] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
@@ -757,6 +937,45 @@ export function AcceptanceTab({
         .finally(() => setSubmitting(false))
     },
     [taskIdentifier, refresh]
+  )
+
+  const reviseContract = useCallback(
+    (items: CriteriaSetItemInput[]) => {
+      setMutating(true)
+      void tasksClient
+        .reviseCriteria(taskIdentifier, items)
+        .then(() => refresh?.())
+        .finally(() => setMutating(false))
+    },
+    [taskIdentifier, refresh]
+  )
+  const editStatement = useCallback(
+    (id: string, statement: string) => {
+      if (!data) return
+      reviseContract(
+        toSetItems(data.criteria).map(i =>
+          i.id === id ? { ...i, statement } : i
+        )
+      )
+    },
+    [data, reviseContract]
+  )
+  const deleteCriterion = useCallback(
+    (id: string) => {
+      if (!data) return
+      reviseContract(toSetItems(data.criteria).filter(i => i.id !== id))
+    },
+    [data, reviseContract]
+  )
+  const addCriterion = useCallback(
+    (statement: string) => {
+      if (!data) return
+      reviseContract([
+        ...toSetItems(data.criteria),
+        { statement, verifierType: 'HUMAN' },
+      ])
+    },
+    [data, reviseContract]
   )
 
   if (loading && !data) {
@@ -794,6 +1013,13 @@ export function AcceptanceTab({
   const humanCount = data.criteria.length - machineCount
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
+
+  const machineCriteria = data.criteria.filter(
+    c => c.verifierType === 'MACHINE'
+  )
+  const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
+  // Human contract editing is available unless the task is terminal.
+  const canEdit = data.task.status !== 'DONE'
 
   return (
     <div className='space-y-5 py-1'>
@@ -855,16 +1081,61 @@ export function AcceptanceTab({
             </div>
           ) : null}
         </div>
-        <div className='overflow-hidden rounded-lg border border-border'>
-          {data.criteria.map(c => (
-            <CriterionRow
-              key={c.id}
-              c={c}
-              interactive={interactive}
-              submitting={submitting}
-              onVerdict={submitVerdict}
-            />
-          ))}
+        <div className='space-y-4'>
+          {machineCriteria.length > 0 ? (
+            <div>
+              <div className='mb-1.5 text-[11px] font-medium text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.zone.machine',
+                  defaultMessage: 'Machine-verified · read-only',
+                })}
+              </div>
+              <div className='overflow-hidden rounded-lg border border-border'>
+                {machineCriteria.map(c => (
+                  <CriterionRow
+                    key={c.id}
+                    c={c}
+                    interactive={interactive}
+                    submitting={submitting}
+                    onVerdict={submitVerdict}
+                    editable={false}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div>
+            <div className='mb-1.5 flex items-center gap-2 text-[11px] font-medium text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.zone.human',
+                defaultMessage: 'Needs human judgment',
+              })}
+              <span className='ml-auto text-muted-foreground/70'>
+                {humanCriteria.length} / 7
+              </span>
+            </div>
+            {humanCriteria.length > 0 ? (
+              <div className='overflow-hidden rounded-lg border border-border'>
+                {humanCriteria.map(c => (
+                  <CriterionRow
+                    key={c.id}
+                    c={c}
+                    interactive={interactive}
+                    submitting={submitting}
+                    onVerdict={submitVerdict}
+                    editable={canEdit}
+                    onSaveStatement={editStatement}
+                    onDelete={deleteCriterion}
+                    mutating={mutating}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {canEdit ? (
+              <AddCriterionRow onAdd={addCriterion} mutating={mutating} />
+            ) : null}
+          </div>
         </div>
       </div>
 
