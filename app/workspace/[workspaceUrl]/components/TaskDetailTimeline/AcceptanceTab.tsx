@@ -42,7 +42,8 @@ interface AcceptanceTabProps {
   mentionSources?: MentionSources
 }
 
-/** Records a human verdict (whole-contract when criterionIds is omitted). */
+/** Records a human verdict for a specific criterion (criterionIds identifies
+ *  the criterion being adjudicated; currently only called per-criterion). */
 type SubmitVerdict = (
   verdict: AcceptanceVerdict,
   criterionIds?: string[],
@@ -264,8 +265,8 @@ function resultBadge(
 // ── Human verdict controls (LUM-425) ─────────────────────────────────────────
 //
 // Inline pass / send-back controls, rendered only while the task is IN_REVIEW.
-// Reused at two scopes: per-criterion (criterionIds = [c.id]) and task-level
-// (criterionIds = undefined → the whole-contract "pass all / send back all").
+// Used per-criterion only (criterionIds = [c.id]); the whole-contract task-level
+// call site was removed in the acceptance tab redesign.
 // `secondary` collapses the controls behind an unobtrusive "Override" toggle —
 // used on machine-passed rows so a human doesn't fat-finger overturning a green
 // machine result, while still allowing the red line's provable manual override.
