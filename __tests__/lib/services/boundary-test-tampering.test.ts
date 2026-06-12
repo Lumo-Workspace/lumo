@@ -19,12 +19,14 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { judgeTestTampering } from '@/lib/llm/test-tampering-judge-client'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { create: jest.fn() },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+  activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
@@ -32,11 +34,24 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: { criterionIdsEverPassed: jest.fn() },
 }))
+// LUM-463: a surviving tampering hit now runs the two-stage precision classifier
+// (change-set context + LLM judge). Pin those new reads so this LUM-441 test
+// stays deterministic and never reaches the real gateway — the judge defaults to
+// WEAKENING (flag), preserving the original full-strength recording behaviour.
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: { findByTaskId: jest.fn() },
+}))
+jest.mock('@/lib/llm/test-tampering-judge-client', () => ({
+  judgeTestTampering: jest.fn(),
+}))
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 const everPassed = verificationRunRepository.criterionIdsEverPassed as jest.Mock
+const listActivity = activityRepository.listByTaskAndType as jest.Mock
+const findEvents = hookEventRepository.findByTaskId as jest.Mock
+const judge = judgeTestTampering as jest.Mock
 
 /** A MACHINE criterion whose checkpointer scopes the given test file path(s). */
 const machineCriterion = (
@@ -76,6 +91,10 @@ beforeEach(() => {
   // genuine reward-hacking window and still flags (LUM-449). The authoring case
   // (never-passed) is exercised explicitly below.
   everPassed.mockResolvedValue(new Set(['crit-1']))
+  // LUM-463 classifier reads + judge (deterministic, no network).
+  listActivity.mockResolvedValue([]) // signal C: criterion not edited
+  findEvents.mockResolvedValue([]) // signal A: no production co-change
+  judge.mockResolvedValue('WEAKENING') // ambiguous residual → flag (full strength)
 })
 
 describe('detectAndRecord — TEST_TAMPERING (LUM-441)', () => {
