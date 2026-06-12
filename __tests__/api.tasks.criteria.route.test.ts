@@ -100,6 +100,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       {
         actorMemberId: 'member-1',
         sourceSessionId: null,
+        origin: 'cli',
       },
       'TODO',
       null
@@ -127,6 +128,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       {
         actorMemberId: 'member-1',
         sourceSessionId: 'sess-1',
+        origin: 'cli',
       },
       'TODO',
       undefined
