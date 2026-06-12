@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "Kandungan suntingan tidak tersedia untuk dipaparkan di sini — buka PR untuk menyemak perubahan.",
   "boundary.editChange.viewPr": "Lihat PR",
   "acceptance.zone.machineAllPass": "Semua {count} lulus",
-  "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
+  "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal",
+  "task.verdict.blocked.headline": "{count, plural, one {# pelanggaran sempadan menyekat Done} other {# pelanggaran sempadan menyekat Done}}",
+  "task.verdict.blocked.action": "Seseorang mesti melupuskan setiap satu di bawah — sebagai positif palsu atau disahkan — atau buka pintu pagar untuk ruang kerja ini.",
+  "task.verdict.blocked.viewCrossings": "Semak pelanggaran sempadan di bawah"
 }

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TaskVerdictBar } from '@/app/workspace/[workspaceUrl]/components/TaskVerdictBar'
 import { tasksClient } from '@/lib/api-client'
+import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
 // The real error class — the component imports it from this concrete module so
 // it survives the `@/lib/api-client` barrel mock below; constructing real
 // instances here keeps instanceof meaningful (LUM-453).
@@ -14,6 +15,13 @@ jest.mock('react-intl', () => ({
 
 jest.mock('@/lib/api-client', () => ({
   tasksClient: { submitHumanVerdict: jest.fn() },
+}))
+
+// LUM-454: the bar loads the task's boundary crossings so it can render a
+// compact, deduplicated DONE-blocked notice from that data instead of dumping
+// the raw 409 string. Default: no crossings (the pre-454 error paths stand).
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
+  useBoundaryCrossings: jest.fn(() => ({ crossings: [] })),
 }))
 
 // Deep link (LUM-422 ③): control the ?verdict= param per test. The variable
@@ -44,10 +52,12 @@ jest.mock(
 )
 
 const submit = tasksClient.submitHumanVerdict as jest.Mock
+const mockCrossings = useBoundaryCrossings as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockVerdictParam = null
+  mockCrossings.mockReturnValue({ crossings: [] })
   submit.mockResolvedValue({
     taskStatus: 'DONE',
     verdict: 'PASS',
@@ -310,5 +320,60 @@ describe('TaskVerdictBar', () => {
       )
     )
     c.unmount()
+  })
+
+  // LUM-454: a PASS that can't move to Done because boundary crossings are
+  // undispositioned returns a 409 whose raw message is a wall of red (LUM-445:
+  // 3 same-category crossings = the full criterion text three times). The bar
+  // must render a compact, DEDUPLICATED notice built from the loaded crossing
+  // data — count + per-category counts + next action + a link to the panel —
+  // and must NOT print the raw multi-line server string.
+  it('acceptance tab renders a compact deduplicated DONE-blocked notice not the raw server string', async () => {
+    mockCrossings.mockReturnValue({
+      crossings: [
+        { id: 'a', category: 'TEST_TAMPERING', disposition: null },
+        { id: 'b', category: 'TEST_TAMPERING', disposition: null },
+        { id: 'c', category: 'TEST_TAMPERING', disposition: null },
+        { id: 'd', category: 'HARDCODED_SECRET', disposition: null },
+      ],
+    })
+    const wall =
+      'Cannot move this task to DONE — 4 undispositioned boundary-crossings ' +
+      '(forbidden actions taken during this task): 3 TEST_TAMPERING, ' +
+      '1 HARDCODED_SECRET. A human must disposition them on the task timeline.'
+    submit.mockRejectedValueOnce(new ApiClientError(wall, 409))
+
+    render(
+      <TaskVerdictBar
+        taskId='t-1'
+        status='IN_REVIEW'
+        hasCriteria={true}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    fireEvent.click(screen.getByTestId('verdict-pass'))
+
+    // The structured notice renders…
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-done-blocked')).toBeInTheDocument()
+    )
+    // …and the raw server string is NOT printed (no wall of red).
+    expect(screen.queryByTestId('verdict-error')).toBeNull()
+    expect(screen.queryByText(/Cannot move this task to DONE/)).toBeNull()
+
+    // Deduplicated by category: TEST_TAMPERING appears once, with its count 3;
+    // HARDCODED_SECRET once, with count 1 — not four near-identical lines.
+    const tt = screen.getAllByTestId('verdict-blocked-cat-TEST_TAMPERING')
+    expect(tt).toHaveLength(1)
+    expect(tt[0]).toHaveTextContent('3')
+    expect(
+      screen.getByTestId('verdict-blocked-cat-HARDCODED_SECRET')
+    ).toHaveTextContent('1')
+
+    // A link points the human to the crossings panel to disposition them.
+    expect(screen.getByTestId('verdict-blocked-link')).toHaveAttribute(
+      'href',
+      '#boundary-crossings'
+    )
   })
 })

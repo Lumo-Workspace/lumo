@@ -145,7 +145,11 @@ export function BoundaryCrossingsPanel({
   }
 
   return (
-    <div className='rounded-lg border border-warning-border bg-warning-subtle/40 p-3.5'>
+    // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
+    <div
+      id='boundary-crossings'
+      className='rounded-lg border border-warning-border bg-warning-subtle/40 p-3.5'
+    >
       <div className='mb-2 flex items-center gap-2'>
         <ShieldAlert className='size-4 shrink-0 text-warning' aria-hidden />
         <span className='text-sm font-medium text-foreground'>

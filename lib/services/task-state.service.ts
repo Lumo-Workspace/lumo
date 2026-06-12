@@ -105,12 +105,27 @@ async function assertNoUnacknowledgedBoundaryCrossings(
   const hasHigh = open.some(c => c.severity === 'HIGH')
   if (!enabled && !hasHigh) return
 
-  const items = open.map(c => `• ${c.detail} (${c.category})`).join('\n')
+  // LUM-454: a COMPACT message — count + per-category counts, never each
+  // crossing's full `detail`. A TEST_TAMPERING detail embeds the whole criterion
+  // statement, so the old per-crossing join made N same-category crossings a
+  // wall of repeated text (LUM-445). The full detail lives on the crossings
+  // panel; the 409 only needs to say how many and of what kind, so CLI/API
+  // consumers get a sane line too.
+  const byCategory = new Map<string, number>()
+  for (const c of open) {
+    byCategory.set(c.category, (byCategory.get(c.category) ?? 0) + 1)
+  }
+  const summary = [...byCategory.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([category, count]) => `${count} ${category}`)
+    .join(', ')
   throw Object.assign(
     new Error(
       `Cannot move this task to DONE — ${open.length} undispositioned boundary-crossing${
         open.length === 1 ? '' : 's'
-      } (forbidden action${open.length === 1 ? '' : 's'} taken during this task):\n${items}\nA human must disposition ${
+      } (forbidden action${
+        open.length === 1 ? '' : 's'
+      } taken during this task): ${summary}. A human must disposition ${
         open.length === 1 ? 'it' : 'them'
       } (false positive or confirmed) on the task timeline, or open the gate for this workspace.`
     ),

@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "Содержимое правки недоступно для показа здесь — откройте PR, чтобы просмотреть изменение.",
   "boundary.editChange.viewPr": "Открыть PR",
   "acceptance.zone.machineAllPass": "Все {count} пройдены",
-  "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено"
+  "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено",
+  "task.verdict.blocked.headline": "{count, plural, one {# нарушение границы блокирует «Готово»} few {# нарушения границы блокируют «Готово»} many {# нарушений границы блокируют «Готово»} other {# нарушения границы блокируют «Готово»}}",
+  "task.verdict.blocked.action": "Человек должен обработать каждое ниже — как ложное срабатывание или подтверждённое — или открыть шлюз для этого рабочего пространства.",
+  "task.verdict.blocked.viewCrossings": "Посмотреть нарушения ниже"
 }

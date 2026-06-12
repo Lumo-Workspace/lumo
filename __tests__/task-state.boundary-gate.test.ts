@@ -209,4 +209,90 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
     ).resolves.toBeDefined()
     expect(findOpen).not.toHaveBeenCalled()
   })
+
+  // LUM-454: the 409 must be human-readable, not the wall of red from LUM-445.
+  // A TEST_TAMPERING detail embeds the full criterion statement; before this
+  // fix, N same-category crossings spliced that long text in N times. The
+  // compact message states the count + per-category counts and embeds NO
+  // per-crossing detail — so CLI/API consumers get a sane string too.
+  it('DONE-gate block message is compact and does not repeat the full crossing detail per crossing', async () => {
+    const longDetail =
+      'edited __tests__/payments.test.ts which the MACHINE checkpointer ' +
+      '"the checkout API returns 200 for a valid card and 422 for an expired ' +
+      'one, and never double-charges on a retried request" depends on — ' +
+      'reward-hacking suspect, a human must confirm the code was actually fixed'
+    findOpen.mockResolvedValue([
+      {
+        id: 'bc-1',
+        taskId: 't-1',
+        category: 'TEST_TAMPERING',
+        detail: longDetail,
+        severity: 'MEDIUM',
+      },
+      {
+        id: 'bc-2',
+        taskId: 't-1',
+        category: 'TEST_TAMPERING',
+        detail: longDetail,
+        severity: 'MEDIUM',
+      },
+      {
+        id: 'bc-3',
+        taskId: 't-1',
+        category: 'TEST_TAMPERING',
+        detail: longDetail,
+        severity: 'MEDIUM',
+      },
+    ])
+
+    const err = await updateTask('t-1', { status: 'DONE' }).catch(e => e)
+    expect(err.status).toBe(409)
+    const msg = err.message as string
+
+    // The count is stated…
+    expect(msg).toContain('3')
+    // …and the category is named ONCE with its count, not three separate lines.
+    expect(msg).toContain('TEST_TAMPERING')
+    expect(msg.split('TEST_TAMPERING').length - 1).toBe(1)
+    // The full per-crossing detail is NOT spliced into the message at all
+    // (let alone three times) — that's what made it a wall of red.
+    expect(msg).not.toContain(longDetail)
+    // Compactness guard: three copies of the detail (~3 × 230 chars) plus
+    // boilerplate would blow well past this; the compact form stays small.
+    expect(msg.length).toBeLessThan(400)
+  })
+
+  it('DONE-gate block message names each distinct category with its count', async () => {
+    findOpen.mockResolvedValue([
+      {
+        id: 'a',
+        taskId: 't-1',
+        category: 'TEST_TAMPERING',
+        detail: 'edited a test',
+        severity: 'MEDIUM',
+      },
+      {
+        id: 'b',
+        taskId: 't-1',
+        category: 'TEST_TAMPERING',
+        detail: 'edited another test',
+        severity: 'MEDIUM',
+      },
+      {
+        id: 'c',
+        taskId: 't-1',
+        category: 'HARDCODED_SECRET',
+        detail: 'AWS key',
+        severity: 'HIGH',
+      },
+    ])
+
+    const err = await updateTask('t-1', { status: 'DONE' }).catch(e => e)
+    expect(err.status).toBe(409)
+    const msg = err.message as string
+    // Both distinct categories are named, each with its own count, total = 3.
+    expect(msg).toContain('3')
+    expect(msg).toContain('2 TEST_TAMPERING')
+    expect(msg).toContain('1 HARDCODED_SECRET')
+  })
 })

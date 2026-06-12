@@ -10,6 +10,8 @@ import { tasksClient } from '@/lib/api-client'
 // real class survives when a test mocks the barrel — instanceof stays meaningful.
 import { ApiClientError } from '@/lib/api-client/base'
 import { CommentEditor } from './comments/CommentEditor'
+import { useBoundaryCrossings } from '../hooks/useBoundaryCrossings'
+import { boundaryCategoryLabel } from './TaskDetailTimeline/boundary-format'
 import type { MentionSources } from '@/types/mention'
 
 type HumanVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
@@ -75,8 +77,32 @@ export function TaskVerdictBar({
   // The specific server-provided reason to show on failure; null = use the
   // generic retry copy (LUM-453).
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  // LUM-454: when the failure is the DONE gate tripping on undispositioned
+  // boundary crossings, render a compact structured notice from the loaded
+  // crossing data instead of the raw (repeated) server string.
+  const [blockedByCrossings, setBlockedByCrossings] = useState(false)
   const passButtonRef = useRef<HTMLButtonElement>(null)
   const editorClearRef = useRef<(() => void) | null>(null)
+
+  // Load this task's crossings so the DONE-blocked notice is built from data,
+  // not parsed from the error string. Shares react-query cache with the
+  // acceptance tab's panel (same key), so this adds no extra network call.
+  const { crossings } = useBoundaryCrossings({
+    identifier: taskId,
+    enabled: status === 'IN_REVIEW' && hasCriteria,
+  })
+  const undisposed = crossings.filter(c => c.disposition == null)
+  // Deduplicate the blocking crossings by category, most-frequent first — the
+  // "distinct categories with a count" summary that replaces the red wall.
+  const blockedByCategory = (() => {
+    const byCategory = new Map<string, number>()
+    for (const c of undisposed) {
+      byCategory.set(c.category, (byCategory.get(c.category) ?? 0) + 1)
+    }
+    return [...byCategory.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([category, count]) => ({ category, count }))
+  })()
 
   // Deep-link focus: carry the human to the one click that records the verdict.
   useEffect(() => {
@@ -95,6 +121,7 @@ export function TaskVerdictBar({
     setSubmitting(true)
     setFailed(false)
     setErrorMessage(null)
+    setBlockedByCrossings(false)
     try {
       const sendNote = verdict !== 'PASS' && hasContent(note) ? note : undefined
       const result = await tasksClient.submitHumanVerdict<HumanVerdictResult>(
@@ -107,13 +134,25 @@ export function TaskVerdictBar({
       onVerdictRecorded(result)
     } catch (err) {
       setFailed(true)
-      // Surface the server's real reason when it's an HTTP 4xx carrying a
-      // message (403 human-only, 404, 409 send-back gate, …) — the route
-      // returns error.message for every non-500 status. Network failures,
+      // LUM-454: a 409 with undispositioned crossings loaded IS the boundary
+      // DONE gate (a PASS only reaches the DONE transition when every criterion
+      // is met, so it can't be a send-back gate). Render the compact notice
+      // from `undisposed` rather than the raw multi-line string.
+      const doneBlockedByCrossings =
+        err instanceof ApiClientError &&
+        err.status === 409 &&
+        undisposed.length > 0
+      setBlockedByCrossings(doneBlockedByCrossings)
+      // Otherwise surface the server's real reason when it's an HTTP 4xx
+      // carrying a message (403 human-only, 404, 409 send-back gate, …) — the
+      // route returns error.message for every non-500 status. Network failures,
       // unknown errors, and 5xx keep the generic retry copy: those may be
       // transient, so "try again" stays the honest message (LUM-453).
       setErrorMessage(
-        err instanceof ApiClientError && err.status >= 400 && err.status < 500
+        !doneBlockedByCrossings &&
+          err instanceof ApiClientError &&
+          err.status >= 400 &&
+          err.status < 500
           ? err.message
           : null
       )
@@ -127,6 +166,7 @@ export function TaskVerdictBar({
     setNote('')
     setFailed(false)
     setErrorMessage(null)
+    setBlockedByCrossings(false)
   }
 
   return (
@@ -230,14 +270,47 @@ export function TaskVerdictBar({
         </div>
       )}
 
-      {failed && (
+      {failed && blockedByCrossings ? (
+        <div
+          data-testid='verdict-done-blocked'
+          className='mt-3 rounded-md border border-warning-border bg-warning-subtle/40 px-3 py-2.5'
+        >
+          <p className='text-caption font-semibold text-foreground'>
+            {intl.formatMessage(
+              { id: 'task.verdict.blocked.headline' },
+              { count: undisposed.length }
+            )}
+          </p>
+          <div className='mt-1.5 flex flex-wrap gap-1.5'>
+            {blockedByCategory.map(({ category, count }) => (
+              <span
+                key={category}
+                data-testid={`verdict-blocked-cat-${category}`}
+                className='inline-flex items-center gap-1 rounded-md bg-danger-subtle px-2 py-0.5 text-[11px] font-medium text-danger'
+              >
+                {count}× {boundaryCategoryLabel(category, intl)}
+              </span>
+            ))}
+          </div>
+          <p className='mt-2 text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'task.verdict.blocked.action' })}
+          </p>
+          <a
+            data-testid='verdict-blocked-link'
+            href='#boundary-crossings'
+            className='mt-1.5 inline-block text-caption font-medium text-primary hover:underline'
+          >
+            {intl.formatMessage({ id: 'task.verdict.blocked.viewCrossings' })}
+          </a>
+        </div>
+      ) : failed ? (
         <p
           data-testid='verdict-error'
           className='mt-2 text-caption text-danger'
         >
           {errorMessage || intl.formatMessage({ id: 'task.verdict.error' })}
         </p>
-      )}
+      ) : null}
     </div>
   )
 }

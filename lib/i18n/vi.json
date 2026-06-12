@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "Nội dung chỉnh sửa không có sẵn để hiển thị ở đây — mở PR để xem lại thay đổi.",
   "boundary.editChange.viewPr": "Xem PR",
   "acceptance.zone.machineAllPass": "Tất cả {count} đã đạt",
-  "acceptance.zone.machineSummary": "{passed} đạt · {failed} thất bại"
+  "acceptance.zone.machineSummary": "{passed} đạt · {failed} thất bại",
+  "task.verdict.blocked.headline": "{count, plural, one {# vi phạm ranh giới đang chặn Done} other {# vi phạm ranh giới đang chặn Done}}",
+  "task.verdict.blocked.action": "Một người phải xử lý từng mục bên dưới — là dương tính giả hoặc đã xác nhận — hoặc mở cổng cho không gian làm việc này.",
+  "task.verdict.blocked.viewCrossings": "Xem các vi phạm bên dưới"
 }
