@@ -63,6 +63,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
             task.id,
             parsed.data.criteria,
             attribution,
+            task.status,
             parsed.data.causeTag
           )
     return NextResponse.json(result)

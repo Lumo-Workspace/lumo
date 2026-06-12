@@ -150,6 +150,7 @@ describe('reviseAsHuman drift records', () => {
         { statement: 'brand new', verifierType: 'HUMAN' },
       ],
       ATTRIBUTION,
+      'IN_PROGRESS',
       'SCOPE_CHANGE'
     )
 
@@ -191,7 +192,8 @@ describe('reviseAsHuman drift records', () => {
         },
         { statement: 'extra', verifierType: 'HUMAN' },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'IN_PROGRESS'
     )
 
     expect(activityCalls('UPDATED')).toHaveLength(0)

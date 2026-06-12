@@ -49,7 +49,7 @@ async function recordCriterionChanged(
     actorId: string | null
     op: 'ADDED' | 'UPDATED' | 'DELETED'
     criterionId: string
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     round: number
     causeTag?: CriteriaCauseTag | undefined
     before: ReturnType<typeof criterionSnapshot> | null
@@ -76,7 +76,10 @@ async function recordCriterionChanged(
 }
 
 interface DiffApplyConfig {
-  source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+  /** Source for newly-created rows; falls back to `source`. Lets a human
+   *  revision stamp REVIEW_ADDED on additions while edits/deletes stay HUMAN_EDIT. */
+  createSource?: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   round: number
   causeTag?: CriteriaCauseTag | undefined
   actorId: string | null
@@ -171,6 +174,7 @@ async function applyContractDiff(
       })
     }
     for (const c of toCreate) {
+      const createSource = cfg.createSource ?? cfg.source
       const created = await acceptanceCriterionRepository.create(
         {
           taskId,
@@ -178,7 +182,7 @@ async function applyContractDiff(
           verifierType: c.verifierType,
           checkpointer: c.checkpointer ?? null,
           evidenceRequired: c.evidenceRequired ?? false,
-          source: cfg.source,
+          source: createSource,
           addedAtRound: cfg.round,
         },
         tx
@@ -188,7 +192,7 @@ async function applyContractDiff(
         actorId: cfg.actorId,
         op: 'ADDED',
         criterionId: created.id,
-        source: cfg.source,
+        source: createSource,
         round: cfg.round,
         causeTag: cfg.causeTag,
         before: null,
@@ -444,6 +448,7 @@ export const taskCriteriaService = {
     taskId: string,
     items: CriteriaSetItem[],
     attribution: CriteriaAttribution,
+    taskStatus: TaskStatus,
     causeTag?: CriteriaCauseTag
   ) {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
@@ -456,6 +461,7 @@ export const taskCriteriaService = {
 
     const changes = await applyContractDiff(taskId, items, existing, {
       source: 'HUMAN_EDIT',
+      createSource: taskStatus === 'IN_REVIEW' ? 'REVIEW_ADDED' : 'HUMAN_EDIT',
       round: currentRound,
       causeTag,
       actorId,

@@ -293,7 +293,7 @@ describe('stage-based criteria lock', () => {
   })
 
   it('leaves human (--human) revisions stage-independent — reviseAsHuman is never gated by status', async () => {
-    // reviseAsHuman takes no status argument: it is allowed in every stage by construction.
+    // reviseAsHuman takes taskStatus but applies no gate — allowed in every stage by construction.
     repo.listByTask
       .mockResolvedValueOnce([criterion({ id: 'c-1' })])
       .mockResolvedValueOnce([
@@ -312,7 +312,8 @@ describe('stage-based criteria lock', () => {
           checkpointer: 'npx jest',
         },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'IN_PROGRESS'
     )
 
     expect(repo.update).toHaveBeenCalledWith(
@@ -541,7 +542,8 @@ describe('taskCriteriaService.reviseAsHuman', () => {
       taskCriteriaService.reviseAsHuman(
         't-1',
         [{ id: 'c-elsewhere', statement: 's', verifierType: 'HUMAN' }],
-        ATTRIBUTION
+        ATTRIBUTION,
+        'IN_PROGRESS'
       )
     ).rejects.toMatchObject({ status: 400 })
   })
@@ -556,7 +558,8 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           { id: 'c-1', statement: 'a', verifierType: 'HUMAN' },
           { id: 'c-1', statement: 'b', verifierType: 'HUMAN' },
         ],
-        ATTRIBUTION
+        ATTRIBUTION,
+        'IN_PROGRESS'
       )
     ).rejects.toMatchObject({ status: 400 })
   })
@@ -581,7 +584,8 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           checkpointer: 'npx jest',
         },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'IN_PROGRESS'
     )
 
     expect(repo.softDelete).toHaveBeenCalledWith('c-1', TX)
@@ -615,7 +619,8 @@ describe('taskCriteriaService.reviseAsHuman', () => {
         },
         { statement: 'brand new requirement', verifierType: 'HUMAN' },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'IN_PROGRESS'
     )
 
     expect(repo.delete).toHaveBeenCalledWith('c-drop', TX)
@@ -667,7 +672,8 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           checkpointer: 'npx jest',
         },
       ],
-      ATTRIBUTION
+      ATTRIBUTION,
+      'IN_PROGRESS'
     )
 
     expect(repo.update).not.toHaveBeenCalled()

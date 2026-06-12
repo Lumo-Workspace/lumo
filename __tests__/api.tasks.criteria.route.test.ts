@@ -126,6 +126,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
         actorMemberId: 'member-1',
         sourceSessionId: 'sess-1',
       },
+      'TODO',
       undefined
     )
     expect(res.status).toBe(200)
@@ -145,6 +146,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       't-1',
       body.criteria,
       expect.anything(),
+      'TODO',
       'DRAFT_BLIND_SPOT'
     )
     expect(res.status).toBe(200)
