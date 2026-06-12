@@ -15,11 +15,19 @@ import {
   type JudgeInput,
   type JudgeVerdict,
 } from '@/lib/boundary-crossing/test-tampering-judge'
-// NOTE: the LLM judge client (`@/lib/llm/test-tampering-judge-client`) is loaded
-// LAZILY inside cachedJudge — it pulls in the heavy `ai` / `@ai-sdk/gateway` SDK,
-// and a static import would drag that into every module that imports this
-// detector (and every test of it). Deferring the import keeps the cost on the
-// one path that actually calls the model (the ambiguous residual).
+import {
+  confirmActionCrossing,
+  isActionConfirmCategory,
+  stripProse,
+  type ActionConfirmInput,
+  type ActionConfirmVerdict,
+} from '@/lib/boundary-crossing/action-confirm'
+// NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
+// `@/lib/llm/action-confirm-client`) are loaded LAZILY inside their cached
+// wrappers — they pull in the heavy `ai` / `@ai-sdk/gateway` SDK, and a static
+// import would drag that into every module that imports this detector (and every
+// test of it). Deferring the import keeps the cost on the one path that actually
+// calls the model (the ambiguous residual / the prose candidate).
 
 /**
  * Async forbidden-action boundary detector (LUM-426, extended in LUM-442).
@@ -843,6 +851,106 @@ async function detectTestTamperingForTask(
   return classifyAndAnnotateTampering(input, matched, base)
 }
 
+// --- LUM-466: action-category prose-vs-real confirmation ----------------------
+//
+// The deterministic command matchers are high-recall and also trip on a
+// forbidden token that appears only as PROSE — inside a commit message, a PR
+// body, an echo string. For each action-category candidate we re-run the
+// matchers on a prose-stripped copy of the command: a category that STILL
+// matches outside all quotes/heredocs is a real executed action (certain → flag,
+// no LLM call); one that vanished matched only prose and is handed to the
+// best-effort LLM confirmation, which suppresses it ONLY on a clear PROSE_ONLY
+// verdict. Conservative + observe-only throughout (criteria 2/3).
+
+// Process-level cache so an identical (category, command) is confirmed once.
+// Failures are NOT cached, so a transient gateway error re-tries on the next hit.
+const actionConfirmCache = new Map<string, Promise<ActionConfirmVerdict>>()
+const ACTION_CONFIRM_CACHE_MAX = 500
+
+function actionConfirmCacheKey(input: ActionConfirmInput): string {
+  return createHash('sha256')
+    .update(`${input.category}\n${input.command}`)
+    .digest('hex')
+}
+
+function cachedActionConfirm(
+  input: ActionConfirmInput
+): Promise<ActionConfirmVerdict> {
+  const key = actionConfirmCacheKey(input)
+  const hit = actionConfirmCache.get(key)
+  if (hit) return hit
+  // Lazy import: pay the SDK load only when the model is actually consulted.
+  const p = import('@/lib/llm/action-confirm-client').then(mod =>
+    mod.confirmActionExecuted(input)
+  )
+  actionConfirmCache.set(key, p)
+  p.catch(() => actionConfirmCache.delete(key))
+  if (actionConfirmCache.size > ACTION_CONFIRM_CACHE_MAX) {
+    const oldest = actionConfirmCache.keys().next().value
+    if (oldest !== undefined) actionConfirmCache.delete(oldest)
+  }
+  return p
+}
+
+/**
+ * Confirm the action-category candidates in `crossings` against the command:
+ * keep every non-action crossing untouched; keep an action crossing that still
+ * matches on the prose-stripped command (a real, deterministically-certain
+ * action — NO LLM call); for one that matched ONLY inside prose, ask the
+ * best-effort LLM and DROP it only on a clear PROSE_ONLY verdict (REAL_ACTION /
+ * uncertain / failure keeps it). Defensive throughout — any error keeps the base
+ * (flagged) crossing, so a candidate is never silently lost (criteria 2/3).
+ */
+async function confirmActionCandidates(
+  input: BoundaryDetectionInput,
+  crossings: DetectedCrossing[]
+): Promise<DetectedCrossing[]> {
+  const cmd = readCommand(input.payload)
+  // Without a command string there is no prose to strip and nothing to confirm
+  // (a Write's HARDCODED_SECRET, etc.) — pass the crossings through untouched.
+  if (!cmd) return crossings
+  // Stage 1: which categories still match OUTSIDE all prose? Those are real,
+  // deterministically-certain actions and never reach the LLM.
+  let certain: Set<BoundaryCrossingCategory>
+  try {
+    certain = new Set(matchCommand(stripProse(cmd), false).map(c => c.category))
+  } catch {
+    // If de-prose itself fails, keep every flag (the conservative direction).
+    return crossings
+  }
+  const out: DetectedCrossing[] = []
+  for (const c of crossings) {
+    if (!isActionConfirmCategory(c.category)) {
+      out.push(c) // HARDCODED_SECRET / NEW_NPM_DEPENDENCY / TEST_TAMPERING
+      continue
+    }
+    // Evasion-decoded crossings (base64) are deliberate obfuscation, already
+    // HIGH — never let the LLM suppress one (the high-severity red line).
+    if (c.detail.includes(EVASION_MARKER.trim())) {
+      out.push(c)
+      continue
+    }
+    if (certain.has(c.category)) {
+      out.push(c) // matched outside prose → a real action, flagged without the LLM
+      continue
+    }
+    // Prose candidate → best-effort confirmation. Suppress only on PROSE_ONLY;
+    // REAL_ACTION / uncertain / failure keeps the candidate flagged.
+    let verdict: ActionConfirmVerdict
+    try {
+      verdict = await confirmActionCrossing(
+        { command: cmd, category: c.category },
+        { judge: cachedActionConfirm }
+      )
+    } catch {
+      verdict = 'REAL_ACTION'
+    }
+    if (verdict === 'PROSE_ONLY') continue
+    out.push(c)
+  }
+  return out
+}
+
 export const boundaryDetectorService = {
   /**
    * Detect forbidden actions on an ingested hook event and, for each match,
@@ -855,9 +963,13 @@ export const boundaryDetectorService = {
   async detectAndRecord(input: BoundaryDetectionInput): Promise<void> {
     try {
       const crossings = detectCrossings(input)
+      // LUM-466: confirm action-category candidates — drop a forbidden token that
+      // matched only as prose (commit message / PR body / echo), keep real
+      // executed actions and anything the best-effort LLM can't clear.
+      const confirmed = await confirmActionCandidates(input, crossings)
       const tampering = await detectTestTamperingForTask(input)
-      if (tampering) crossings.push(tampering)
-      for (const c of crossings) {
+      if (tampering) confirmed.push(tampering)
+      for (const c of confirmed) {
         const row = await boundaryCrossingRepository.create({
           taskId: input.taskId,
           hookEventId: input.hookEventId ?? null,
