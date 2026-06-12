@@ -37,6 +37,7 @@ describe('documentRevisionRepository', () => {
         workspaceId: 'w1',
         authorId: 'm1',
         content: '<p>hi</p>',
+        sourceMarkdown: null,
         title: 'T',
         emoji: null,
         label: null,

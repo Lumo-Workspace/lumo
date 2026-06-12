@@ -1174,6 +1174,11 @@ model DocumentRevision {
   documentId  String
   document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
   content     String?         @db.Text
+  // Byte-identical markdown source captured with this snapshot (LUM-445), null
+  // for an HTML-authored body. A restore re-establishes Document.sourceMarkdown
+  // from this column instead of nulling it, so restoring a markdown-authored
+  // revision keeps the markdown write path (raw/append/section/diff) alive.
+  sourceMarkdown String?      @db.Text
   title       String          @default("")
   emoji       String?
   label       String? // manual-snapshot name; null = automatic snapshot
