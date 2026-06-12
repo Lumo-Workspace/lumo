@@ -1607,5 +1607,7 @@
   "acceptance.edit.addPlaceholder": "Add a criterion needing human judgment (statement only)",
   "acceptance.edit.saveError": "Couldn't save — try again",
   "acceptance.zone.machine": "Machine-verified · read-only",
-  "acceptance.zone.human": "Needs human judgment"
+  "acceptance.zone.human": "Needs human judgment",
+  "acceptance.zone.machineAllPass": "All {count} passed",
+  "acceptance.zone.machineSummary": "{passed} passed · {failed} failed"
 }

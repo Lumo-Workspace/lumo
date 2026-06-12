@@ -933,6 +933,9 @@ export function AcceptanceTab({
   })
   const [submitting, setSubmitting] = useState(false)
   const [removedOpen, setRemovedOpen] = useState(false)
+  // Machine zone fold (LUM-451). null = follow the smart default (collapsed when
+  // every machine criterion passes); an explicit boolean is the user's toggle.
+  const [machineOpen, setMachineOpen] = useState<boolean | null>(null)
   const [mutating, setMutating] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
@@ -1033,6 +1036,14 @@ export function AcceptanceTab({
   const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
   // Human contract editing is available unless the task is terminal.
   const canEdit = data.task.status !== 'DONE'
+  const machinePassed = machineCriteria.filter(c =>
+    isPass(c.latestVerdict?.verdict)
+  ).length
+  const machineFailed = machineCriteria.length - machinePassed
+  // Smart default (LUM-451): collapse a fully-passing machine zone so the human
+  // zone leads; surface the zone whenever a check fails or is unjudged.
+  const allMachinePass = machineCriteria.length > 0 && machineFailed === 0
+  const machineZoneOpen = machineOpen ?? !allMachinePass
 
   return (
     <div className='space-y-5 py-1'>
@@ -1097,24 +1108,52 @@ export function AcceptanceTab({
         <div className='space-y-4'>
           {machineCriteria.length > 0 ? (
             <div>
-              <div className='mb-1.5 text-[11px] font-medium text-muted-foreground'>
+              <button
+                type='button'
+                onClick={() => setMachineOpen(!machineZoneOpen)}
+                aria-expanded={machineZoneOpen}
+                className='mb-1.5 flex w-full items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground'
+              >
+                <ChevronRight
+                  className={`size-3 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                  aria-hidden
+                />
                 {intl.formatMessage({
                   id: 'acceptance.zone.machine',
                   defaultMessage: 'Machine-verified · read-only',
                 })}
-              </div>
-              <div className='overflow-hidden rounded-lg border border-border'>
-                {machineCriteria.map(c => (
-                  <CriterionRow
-                    key={c.id}
-                    c={c}
-                    interactive={interactive}
-                    submitting={submitting}
-                    onVerdict={submitVerdict}
-                    editable={false}
-                  />
-                ))}
-              </div>
+                <span className='ml-auto font-normal text-muted-foreground/70'>
+                  {machineFailed === 0
+                    ? intl.formatMessage(
+                        {
+                          id: 'acceptance.zone.machineAllPass',
+                          defaultMessage: 'All {count} passed',
+                        },
+                        { count: machineCriteria.length }
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'acceptance.zone.machineSummary',
+                          defaultMessage: '{passed} passed · {failed} failed',
+                        },
+                        { passed: machinePassed, failed: machineFailed }
+                      )}
+                </span>
+              </button>
+              {machineZoneOpen ? (
+                <div className='overflow-hidden rounded-lg border border-border'>
+                  {machineCriteria.map(c => (
+                    <CriterionRow
+                      key={c.id}
+                      c={c}
+                      interactive={interactive}
+                      submitting={submitting}
+                      onVerdict={submitVerdict}
+                      editable={false}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
