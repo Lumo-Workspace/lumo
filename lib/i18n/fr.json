@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "moyenne",
   "boundary.severity.low": "faible",
   "boundary.panel.severityBadge": "gravité {severity}",
-  "boundary.panel.defenseInDepth": "Défense en profondeur, pas une frontière stricte : cela s'exécute après l'action et peut être contourné (par exemple, des commandes obfusquées). Un panneau vierge ne prouve pas que rien ne s'est passé — considérez-le comme un signal, pas comme une garantie."
+  "boundary.panel.defenseInDepth": "Défense en profondeur, pas une frontière stricte : cela s'exécute après l'action et peut être contourné (par exemple, des commandes obfusquées). Un panneau vierge ne prouve pas que rien ne s'est passé — considérez-le comme un signal, pas comme une garantie.",
+  "acceptance.edit.save": "Enregistrer",
+  "acceptance.edit.cancel": "Annuler",
+  "acceptance.edit.remove": "Supprimer",
+  "acceptance.edit.confirmDelete": "Supprimer ce critère ? Les verdicts sont conservés pour audit.",
+  "acceptance.edit.add": "Ajouter",
+  "acceptance.edit.addPlaceholder": "Ajouter un critère nécessitant un jugement humain (énoncé uniquement)",
+  "acceptance.edit.saveError": "Impossible d'enregistrer — veuillez réessayer",
+  "acceptance.zone.machine": "Vérifié automatiquement · lecture seule",
+  "acceptance.zone.human": "Nécessite un jugement humain"
 }

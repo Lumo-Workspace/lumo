@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "mittel",
   "boundary.severity.low": "niedrig",
   "boundary.panel.severityBadge": "Schweregrad {severity}",
-  "boundary.panel.defenseInDepth": "Tiefenverteidigung, keine harte Grenze: Dies läuft nach der Aktion und kann umgangen werden (z. B. durch verschleierte Befehle). Ein sauberes Panel ist kein Beweis dafür, dass nichts passiert ist – behandeln Sie es als ein Signal, nicht als Garantie."
+  "boundary.panel.defenseInDepth": "Tiefenverteidigung, keine harte Grenze: Dies läuft nach der Aktion und kann umgangen werden (z. B. durch verschleierte Befehle). Ein sauberes Panel ist kein Beweis dafür, dass nichts passiert ist – behandeln Sie es als ein Signal, nicht als Garantie.",
+  "acceptance.edit.save": "Speichern",
+  "acceptance.edit.cancel": "Abbrechen",
+  "acceptance.edit.remove": "Entfernen",
+  "acceptance.edit.confirmDelete": "Dieses Kriterium entfernen? Urteile werden für das Audit aufbewahrt.",
+  "acceptance.edit.add": "Hinzufügen",
+  "acceptance.edit.addPlaceholder": "Kriterium hinzufügen, das menschliches Urteil erfordert (nur Aussage)",
+  "acceptance.edit.saveError": "Speichern fehlgeschlagen — erneut versuchen",
+  "acceptance.zone.machine": "Maschinengeprüft · nur lesbar",
+  "acceptance.zone.human": "Menschliches Urteil erforderlich"
 }

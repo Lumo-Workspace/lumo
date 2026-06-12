@@ -49,6 +49,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const attribution = {
       actorMemberId: identity.memberId,
       sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
+      origin: identity.source === 'clerk' ? ('web' as const) : ('cli' as const),
     }
     const result =
       parsed.data.source === 'AGENT_DRAFT'
@@ -63,6 +64,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
             task.id,
             parsed.data.criteria,
             attribution,
+            task.status,
             parsed.data.causeTag
           )
     return NextResponse.json(result)

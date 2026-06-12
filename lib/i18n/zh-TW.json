@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "中",
   "boundary.severity.low": "低",
   "boundary.panel.severityBadge": "{severity} 嚴重度",
-  "boundary.panel.defenseInDepth": "這是縱深防禦，而非硬性邊界：它在動作執行之後才運行，可能被繞過（例如混淆過的命令）。面板乾淨並不能證明什麼都沒發生——請將它視為一個訊號，而非保證。"
+  "boundary.panel.defenseInDepth": "這是縱深防禦，而非硬性邊界：它在動作執行之後才運行，可能被繞過（例如混淆過的命令）。面板乾淨並不能證明什麼都沒發生——請將它視為一個訊號，而非保證。",
+  "acceptance.edit.save": "儲存",
+  "acceptance.edit.cancel": "取消",
+  "acceptance.edit.remove": "移除",
+  "acceptance.edit.confirmDelete": "移除此標準？裁定將保留供稽核。",
+  "acceptance.edit.add": "新增",
+  "acceptance.edit.addPlaceholder": "新增需要人工裁決的標準（僅填寫描述語句）",
+  "acceptance.edit.saveError": "儲存失敗——請重試",
+  "acceptance.zone.machine": "機器驗證 · 唯讀",
+  "acceptance.zone.human": "需要人工裁決"
 }

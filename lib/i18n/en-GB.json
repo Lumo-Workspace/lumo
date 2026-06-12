@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "medium",
   "boundary.severity.low": "low",
   "boundary.panel.severityBadge": "{severity} severity",
-  "boundary.panel.defenseInDepth": "Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee."
+  "boundary.panel.defenseInDepth": "Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.",
+  "acceptance.edit.save": "Save",
+  "acceptance.edit.cancel": "Cancel",
+  "acceptance.edit.remove": "Remove",
+  "acceptance.edit.confirmDelete": "Remove this criterion? Verdicts are kept for audit.",
+  "acceptance.edit.add": "Add",
+  "acceptance.edit.addPlaceholder": "Add a criterion needing human judgment (statement only)",
+  "acceptance.edit.saveError": "Couldn't save — try again",
+  "acceptance.zone.machine": "Machine-verified · read-only",
+  "acceptance.zone.human": "Needs human judgment"
 }

@@ -19,6 +19,9 @@ export interface CriteriaAttribution {
   actorMemberId: string
   /** Claude Code session the revision was transcribed from, when known. */
   sourceSessionId: string | null
+  /** 'web' = a Clerk browser session (a human editing by hand); 'cli' (default)
+   *  = a bearer caller (CLI/MCP). Drives the audit-comment attribution. */
+  origin?: 'web' | 'cli'
 }
 
 /** Shape of a criterion snapshotted into a CRITERION_CHANGED activity. */
@@ -49,7 +52,7 @@ async function recordCriterionChanged(
     actorId: string | null
     op: 'ADDED' | 'UPDATED' | 'DELETED'
     criterionId: string
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     round: number
     causeTag?: CriteriaCauseTag | undefined
     before: ReturnType<typeof criterionSnapshot> | null
@@ -76,7 +79,10 @@ async function recordCriterionChanged(
 }
 
 interface DiffApplyConfig {
-  source: 'AGENT_DRAFT' | 'HUMAN_EDIT'
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+  /** Source for newly-created rows; falls back to `source`. Lets a human
+   *  revision stamp REVIEW_ADDED on additions while edits/deletes stay HUMAN_EDIT. */
+  createSource?: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   round: number
   causeTag?: CriteriaCauseTag | undefined
   actorId: string | null
@@ -171,6 +177,7 @@ async function applyContractDiff(
       })
     }
     for (const c of toCreate) {
+      const createSource = cfg.createSource ?? cfg.source
       const created = await acceptanceCriterionRepository.create(
         {
           taskId,
@@ -178,7 +185,7 @@ async function applyContractDiff(
           verifierType: c.verifierType,
           checkpointer: c.checkpointer ?? null,
           evidenceRequired: c.evidenceRequired ?? false,
-          source: cfg.source,
+          source: createSource,
           addedAtRound: cfg.round,
         },
         tx
@@ -188,7 +195,7 @@ async function applyContractDiff(
         actorId: cfg.actorId,
         op: 'ADDED',
         criterionId: created.id,
-        source: cfg.source,
+        source: createSource,
         round: cfg.round,
         causeTag: cfg.causeTag,
         before: null,
@@ -240,11 +247,14 @@ function scheduleRevisionAuditComment(
       const authorActorId = await getHumanActorId(attribution.actorMemberId)
       if (!authorActorId) return
 
-      const origin = attribution.sourceSessionId
-        ? `session ${attribution.sourceSessionId.slice(0, 8)}`
-        : '(session unknown)'
+      const originLabel =
+        attribution.origin === 'web'
+          ? '· via web'
+          : attribution.sourceSessionId
+            ? `· origin session ${attribution.sourceSessionId.slice(0, 8)}`
+            : '· origin (session unknown)'
       const lines: string[] = [
-        `[Lumo] Acceptance contract revised (HUMAN_EDIT) · ${changes.added.length} added / ${changes.updated.length} updated / ${changes.deleted.length} deleted · origin ${origin}`,
+        `[Lumo] Acceptance contract revised (HUMAN_EDIT) · ${changes.added.length} added / ${changes.updated.length} updated / ${changes.deleted.length} deleted ${originLabel}`,
       ]
       for (const s of changes.added)
         lines.push(`+ ${truncate(s, AUDIT_STATEMENT_MAX)}`)
@@ -270,8 +280,7 @@ export const taskCriteriaService = {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning:
-        criteria.length === 0 ? null : criteriaCountWarning(criteria.length),
+      warning: criteria.length === 0 ? null : criteriaCountWarning(criteria),
     }
   },
 
@@ -420,7 +429,7 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria.length) }
+    return { criteria, warning: criteriaCountWarning(criteria) }
   },
 
   /**
@@ -436,8 +445,9 @@ export const taskCriteriaService = {
    * - deleting a criterion that already has VerificationRun rows soft-deletes
    *   it (tombstone) so its runs survive — never a 409 (LUM-437: the contract
    *   is editable until DONE, the audit chain is preserved by the tombstone).
-   * - changed/new rows are stamped HUMAN_EDIT; untouched rows keep their
-   *   provenance (the Slice-2 churn metrics depend on it).
+   * - edited rows are stamped HUMAN_EDIT; new rows are stamped REVIEW_ADDED
+   *   when the task is IN_REVIEW, otherwise HUMAN_EDIT; untouched rows keep
+   *   their provenance (the Slice-2 churn metrics depend on it).
    * - new rows are stamped addedAtRound = the task's current max round.
    * - the revision is recorded as a task comment with its session provenance.
    */
@@ -445,6 +455,7 @@ export const taskCriteriaService = {
     taskId: string,
     items: CriteriaSetItem[],
     attribution: CriteriaAttribution,
+    taskStatus: TaskStatus,
     causeTag?: CriteriaCauseTag
   ) {
     const existing = await acceptanceCriterionRepository.listByTask(taskId)
@@ -457,6 +468,7 @@ export const taskCriteriaService = {
 
     const changes = await applyContractDiff(taskId, items, existing, {
       source: 'HUMAN_EDIT',
+      createSource: taskStatus === 'IN_REVIEW' ? 'REVIEW_ADDED' : 'HUMAN_EDIT',
       round: currentRound,
       causeTag,
       actorId,
@@ -470,6 +482,6 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria.length) }
+    return { criteria, warning: criteriaCountWarning(criteria) }
   },
 }

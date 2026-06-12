@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "中",
   "boundary.severity.low": "低",
   "boundary.panel.severityBadge": "深刻度 {severity}",
-  "boundary.panel.defenseInDepth": "ハードな境界ではなく多層防御です。これはアクションの実行後に走るため、回避される可能性があります（例：難読化されたコマンド）。パネルがクリーンでも何も起きていない証明にはなりません。保証ではなく一つのシグナルとして扱ってください。"
+  "boundary.panel.defenseInDepth": "ハードな境界ではなく多層防御です。これはアクションの実行後に走るため、回避される可能性があります（例：難読化されたコマンド）。パネルがクリーンでも何も起きていない証明にはなりません。保証ではなく一つのシグナルとして扱ってください。",
+  "acceptance.edit.save": "保存",
+  "acceptance.edit.cancel": "キャンセル",
+  "acceptance.edit.remove": "削除",
+  "acceptance.edit.confirmDelete": "この基準を削除しますか？判定は監査のために保持されます。",
+  "acceptance.edit.add": "追加",
+  "acceptance.edit.addPlaceholder": "人間の判断が必要な基準を追加（文言のみ）",
+  "acceptance.edit.saveError": "保存できませんでした — もう一度お試しください",
+  "acceptance.zone.machine": "マシン検証済み · 読み取り専用",
+  "acceptance.zone.human": "人間の判断が必要"
 }

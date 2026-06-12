@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "media",
   "boundary.severity.low": "baja",
   "boundary.panel.severityBadge": "gravedad {severity}",
-  "boundary.panel.defenseInDepth": "Defensa en profundidad, no un límite estricto: esto se ejecuta después de la acción y puede evadirse (por ejemplo, con comandos ofuscados). Un panel limpio no es prueba de que no haya pasado nada: trátalo como una señal, no como una garantía."
+  "boundary.panel.defenseInDepth": "Defensa en profundidad, no un límite estricto: esto se ejecuta después de la acción y puede evadirse (por ejemplo, con comandos ofuscados). Un panel limpio no es prueba de que no haya pasado nada: trátalo como una señal, no como una garantía.",
+  "acceptance.edit.save": "Guardar",
+  "acceptance.edit.cancel": "Cancelar",
+  "acceptance.edit.remove": "Eliminar",
+  "acceptance.edit.confirmDelete": "¿Eliminar este criterio? Los veredictos se conservan para auditoría.",
+  "acceptance.edit.add": "Agregar",
+  "acceptance.edit.addPlaceholder": "Agregar un criterio que requiera juicio humano (solo enunciado)",
+  "acceptance.edit.saveError": "No se pudo guardar — intentá de nuevo",
+  "acceptance.zone.machine": "Verificado por máquina · solo lectura",
+  "acceptance.zone.human": "Requiere juicio humano"
 }

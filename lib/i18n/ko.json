@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "중간",
   "boundary.severity.low": "낮음",
   "boundary.panel.severityBadge": "심각도 {severity}",
-  "boundary.panel.defenseInDepth": "하드 경계가 아니라 심층 방어입니다. 이 검사는 작업이 실행된 뒤에 동작하므로 우회될 수 있습니다(예: 난독화된 명령). 패널이 깨끗하다고 해서 아무 일도 없었다는 증거는 아닙니다. 보장이 아니라 하나의 신호로 취급하세요."
+  "boundary.panel.defenseInDepth": "하드 경계가 아니라 심층 방어입니다. 이 검사는 작업이 실행된 뒤에 동작하므로 우회될 수 있습니다(예: 난독화된 명령). 패널이 깨끗하다고 해서 아무 일도 없었다는 증거는 아닙니다. 보장이 아니라 하나의 신호로 취급하세요.",
+  "acceptance.edit.save": "저장",
+  "acceptance.edit.cancel": "취소",
+  "acceptance.edit.remove": "삭제",
+  "acceptance.edit.confirmDelete": "이 기준을 삭제하시겠습니까? 판정은 감사를 위해 보존됩니다.",
+  "acceptance.edit.add": "추가",
+  "acceptance.edit.addPlaceholder": "사람 판단이 필요한 기준 추가 (문구만 입력)",
+  "acceptance.edit.saveError": "저장하지 못했습니다 — 다시 시도하세요",
+  "acceptance.zone.machine": "머신 검증됨 · 읽기 전용",
+  "acceptance.zone.human": "사람 판단 필요"
 }

@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "trung bình",
   "boundary.severity.low": "thấp",
   "boundary.panel.severityBadge": "mức độ nghiêm trọng {severity}",
-  "boundary.panel.defenseInDepth": "Đây là phòng thủ nhiều lớp, không phải ranh giới cứng: nó chạy sau khi hành động đã diễn ra và có thể bị né tránh (ví dụ bằng lệnh được làm rối). Bảng sạch không chứng minh là không có gì xảy ra — hãy xem đó là một tín hiệu, không phải sự bảo đảm."
+  "boundary.panel.defenseInDepth": "Đây là phòng thủ nhiều lớp, không phải ranh giới cứng: nó chạy sau khi hành động đã diễn ra và có thể bị né tránh (ví dụ bằng lệnh được làm rối). Bảng sạch không chứng minh là không có gì xảy ra — hãy xem đó là một tín hiệu, không phải sự bảo đảm.",
+  "acceptance.edit.save": "Lưu",
+  "acceptance.edit.cancel": "Hủy",
+  "acceptance.edit.remove": "Xóa",
+  "acceptance.edit.confirmDelete": "Xóa tiêu chí này? Phán quyết được giữ lại để kiểm toán.",
+  "acceptance.edit.add": "Thêm",
+  "acceptance.edit.addPlaceholder": "Thêm tiêu chí cần phán quyết của con người (chỉ nhập câu lệnh)",
+  "acceptance.edit.saveError": "Không thể lưu — vui lòng thử lại",
+  "acceptance.zone.machine": "Đã xác minh bằng máy · chỉ đọc",
+  "acceptance.zone.human": "Cần phán quyết của con người"
 }

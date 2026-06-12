@@ -1598,5 +1598,14 @@
   "boundary.severity.medium": "sedang",
   "boundary.severity.low": "rendah",
   "boundary.panel.severityBadge": "tingkat keparahan {severity}",
-  "boundary.panel.defenseInDepth": "Ini pertahanan berlapis, bukan batas yang kaku: pemeriksaan berjalan setelah tindakan dilakukan dan dapat dielakkan (misalnya dengan perintah yang dikaburkan). Panel yang bersih bukan bukti bahwa tidak ada yang terjadi — perlakukan sebagai satu sinyal, bukan jaminan."
+  "boundary.panel.defenseInDepth": "Ini pertahanan berlapis, bukan batas yang kaku: pemeriksaan berjalan setelah tindakan dilakukan dan dapat dielakkan (misalnya dengan perintah yang dikaburkan). Panel yang bersih bukan bukti bahwa tidak ada yang terjadi — perlakukan sebagai satu sinyal, bukan jaminan.",
+  "acceptance.edit.save": "Simpan",
+  "acceptance.edit.cancel": "Batal",
+  "acceptance.edit.remove": "Hapus",
+  "acceptance.edit.confirmDelete": "Hapus kriteria ini? Putusan disimpan untuk audit.",
+  "acceptance.edit.add": "Tambah",
+  "acceptance.edit.addPlaceholder": "Tambahkan kriteria yang memerlukan penilaian manusia (pernyataan saja)",
+  "acceptance.edit.saveError": "Gagal menyimpan — coba lagi",
+  "acceptance.zone.machine": "Diverifikasi mesin · hanya baca",
+  "acceptance.zone.human": "Memerlukan penilaian manusia"
 }

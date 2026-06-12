@@ -57,6 +57,8 @@ const draftBody = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockIdentity.mockResolvedValue(IDENTITY)
+  // status: 'TODO' — any non-IN_REVIEW status suffices here; these tests
+  // don't exercise the REVIEW_ADDED new-row stamp branch.
   mockFindByIdentifier.mockResolvedValue({
     id: 't-1',
     status: 'TODO',
@@ -98,6 +100,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       {
         actorMemberId: 'member-1',
         sourceSessionId: null,
+        origin: 'cli',
       },
       'TODO',
       null
@@ -125,7 +128,9 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       {
         actorMemberId: 'member-1',
         sourceSessionId: 'sess-1',
+        origin: 'cli',
       },
+      'TODO',
       undefined
     )
     expect(res.status).toBe(200)
@@ -145,6 +150,7 @@ describe('PUT /api/tasks/[id]/criteria', () => {
       't-1',
       body.criteria,
       expect.anything(),
+      'TODO',
       'DRAFT_BLIND_SPOT'
     )
     expect(res.status).toBe(200)
