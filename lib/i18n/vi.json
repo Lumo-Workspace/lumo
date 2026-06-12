@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Đang nghiệm thu",
   "acceptance.banner.metCount": "{passed}/{total} đạt",
   "acceptance.banner.roundBadge": "vòng {round}/{max}",
-  "acceptance.banner.gateOpen": "không có trả lại · phán quyết của con người có thể qua; DONE vẫn có thể bị chặn bởi các vi phạm ranh giới đang mở",
+  "acceptance.banner.gateOpen": "không có trả lại · cho phép PASS của con người hoặc DONE",
   "acceptance.banner.gateBlocked": "một lần trả lại chặn DONE",
   "acceptance.history.title": "Bản ghi kiểm tra",
   "acceptance.history.roundMachine": "vòng {round} · kiểm tra máy",

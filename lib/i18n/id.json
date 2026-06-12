@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Penerimaan berlangsung",
   "acceptance.banner.metCount": "{passed}/{total} terpenuhi",
   "acceptance.banner.roundBadge": "putaran {round}/{max}",
-  "acceptance.banner.gateOpen": "tanpa pengembalian · keputusan manusia bisa lulus; DONE mungkin masih terhalang oleh pelanggaran batas terbuka",
+  "acceptance.banner.gateOpen": "tanpa pengembalian · PASS manusia atau DONE diizinkan",
   "acceptance.banner.gateBlocked": "pengembalian memblokir DONE",
   "acceptance.history.title": "Catatan verifikasi",
   "acceptance.history.roundMachine": "putaran {round} · pemeriksaan mesin",

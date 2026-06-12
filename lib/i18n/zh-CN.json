@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "验收进行中",
   "acceptance.banner.metCount": "{passed}/{total} 已满足",
   "acceptance.banner.roundBadge": "第 {round}/{max} 轮",
-  "acceptance.banner.gateOpen": "无打回 · 人工 verdict 可通过;DONE 仍可能被未处置的越界挡住",
+  "acceptance.banner.gateOpen": "无打回 · 可人工通过或 DONE",
   "acceptance.banner.gateBlocked": "有打回 · 阻塞 DONE",
   "acceptance.history.title": "验证记录",
   "acceptance.history.roundMachine": "第 {round} 轮 · 机器校验",
