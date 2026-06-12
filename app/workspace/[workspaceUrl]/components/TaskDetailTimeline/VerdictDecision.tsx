@@ -3,15 +3,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useSearchParams } from 'next/navigation'
+import { Clock, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { tasksClient } from '@/lib/api-client'
 // Imported from the concrete module (not the `@/lib/api-client` barrel) so the
 // real class survives when a test mocks the barrel — instanceof stays meaningful.
 import { ApiClientError } from '@/lib/api-client/base'
-import { CommentEditor } from './comments/CommentEditor'
-import { useBoundaryCrossings } from '../hooks/useBoundaryCrossings'
-import { boundaryCategoryLabel } from './TaskDetailTimeline/boundary-format'
+import { CommentEditor } from '../comments/CommentEditor'
+import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
+import { boundaryCategoryLabel } from './boundary-format'
+import {
+  deriveVerdictStatus,
+  type VerdictTone,
+  type VerdictStatusKind,
+} from './verdict-status'
+import type { TaskAcceptanceStatusView } from '../../types'
 import type { MentionSources } from '@/types/mention'
 
 type HumanVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
@@ -22,21 +29,54 @@ export interface HumanVerdictResult {
   followUpTask: { id: string; number: number; title: string } | null
 }
 
-interface TaskVerdictBarProps {
-  taskId: string
-  /** Current task status — the bar only renders for IN_REVIEW. */
-  status: string
+interface VerdictDecisionProps {
   /**
-   * Whether the task has an acceptance contract (LUM-431). The human ritual
-   * layer follows the data: with no criteria there is nothing to adjudicate,
-   * so the bar stays hidden — which is also what self-neutralizes the
-   * acceptance-mode toggle (a workspace with the toggle off never drafts
-   * criteria, so this stays false). Independent of the workspace toggle.
+   * Chrome only. `header` is the always-on status card rendered on the
+   * acceptance tab (banner + the action ritual below it when IN_REVIEW).
+   * `floating` is the compact bar rendered off the acceptance tab — it shows
+   * only while the task is IN_REVIEW (there is nothing to adjudicate otherwise).
+   * Both variants share the SAME verdict/gate logic; they differ only in layout.
    */
-  hasCriteria: boolean
+  variant: 'header' | 'floating'
+  /** LUM-N — keys BOTH submitHumanVerdict and the boundary-crossings hook. */
+  taskIdentifier: string
+  data: TaskAcceptanceStatusView
   onVerdictRecorded: (result: HumanVerdictResult) => void
   /** Mention sources for the FAIL send-back editor (reuses the comment editor). */
   mentionSources?: MentionSources
+}
+
+// Status-banner chrome: status.kind → icon + title message id. Mirrors the
+// (now-absorbed) AcceptanceTab VerdictBanner so the rendered output is identical.
+const KIND_ICON = {
+  escalated: AlertTriangle,
+  sentBack: XCircle,
+  done: CheckCircle2,
+  doneNoHumanVerdict: CheckCircle2,
+  allPassed: CheckCircle2,
+  machineAwaitingHuman: CheckCircle2,
+  inProgress: Clock,
+} as const satisfies Record<VerdictStatusKind, typeof Clock>
+
+const KIND_TITLE_ID = {
+  escalated: 'acceptance.banner.escalated',
+  sentBack: 'acceptance.banner.sentBack',
+  done: 'acceptance.banner.done',
+  doneNoHumanVerdict: 'acceptance.banner.doneNoHumanVerdict',
+  allPassed: 'acceptance.banner.allPassed',
+  machineAwaitingHuman: 'acceptance.banner.machineAwaitingHuman',
+  inProgress: 'acceptance.banner.inProgress',
+} as const satisfies Record<VerdictStatusKind, string>
+
+const TONE_BOX: Record<VerdictTone, string> = {
+  success: 'bg-success-subtle border-success-border',
+  danger: 'bg-danger-subtle border-danger-border',
+  neutral: 'bg-muted border-border',
+}
+const TONE_TEXT: Record<VerdictTone, string> = {
+  success: 'text-success',
+  danger: 'text-danger',
+  neutral: 'text-muted-foreground',
 }
 
 /** Strip tags + whitespace to test whether a rich-text note has real content. */
@@ -45,28 +85,35 @@ function hasContent(html: string): boolean {
 }
 
 /**
- * Three-state human adjudication bar (LUM-421 + LUM-422). Renders only while
- * the task is IN_REVIEW — the human-initiated entry point to the human-verdict
- * write path (milestone rule 5: agents/CLI can never reach it).
+ * The single verdict surface (LUM-467): the always-on acceptance status banner
+ * and the IN_REVIEW human-adjudication ritual merged into one component with two
+ * chrome-only variants (`header` on the acceptance tab, `floating` off it),
+ * rendered mutually-exclusively by the tab/timeline.
  *
- * LUM-422 ① de-enumeration: a send-back carries ZERO structured burden — there
- * is no rejection-reason selector. FAIL opens the comment editor (markdown,
- * @mentions, images for free); the note is posted as a task comment server-side
- * and the FAIL verdict carries no enum (a downstream agent classifies it).
- * PASS_WITH_FOLLOWUP keeps a plain textarea for the outstanding items that seed
- * the follow-up task.
+ * The status banner derives entirely from `deriveVerdictStatus(data)` (LUM-456)
+ * — one source of truth shared with the criterion rows. The action ritual is the
+ * human-initiated entry point to the human-verdict write path (milestone rule 5:
+ * agents/CLI can never reach it):
+ *
+ * LUM-422 ① de-enumeration: a send-back carries ZERO structured burden — no
+ * rejection-reason selector. FAIL opens the comment editor (markdown, @mentions,
+ * images for free); the note is posted as a task comment server-side and the
+ * FAIL verdict carries no enum. PASS_WITH_FOLLOWUP keeps a plain textarea.
  *
  * LUM-422 ③ deep link: a `?verdict=pass|pass_with_followup` query param (set by
- * `lumo verdict --pass`) focuses the matching action so the human lands one
- * click from recording the verdict — the CLI never writes it.
+ * `lumo verdict --pass`) focuses the matching action.
+ *
+ * LUM-454 DONE gate: when a PASS can't reach Done because boundary crossings are
+ * undispositioned (409), render a compact deduplicated notice built from the
+ * loaded crossing data — not the raw multi-line server string.
  */
-export function TaskVerdictBar({
-  taskId,
-  status,
-  hasCriteria,
+export function VerdictDecision({
+  variant,
+  taskIdentifier,
+  data,
   onVerdictRecorded,
   mentionSources,
-}: TaskVerdictBarProps) {
+}: VerdictDecisionProps) {
   const intl = useIntl()
   const searchParams = useSearchParams()
   const deepLinkVerdict = searchParams?.get('verdict') ?? null
@@ -84,12 +131,15 @@ export function TaskVerdictBar({
   const passButtonRef = useRef<HTMLButtonElement>(null)
   const editorClearRef = useRef<(() => void) | null>(null)
 
+  const status = deriveVerdictStatus(data)
+  const isReview = data.task.status === 'IN_REVIEW'
+
   // Load this task's crossings so the DONE-blocked notice is built from data,
   // not parsed from the error string. Shares react-query cache with the
   // acceptance tab's panel (same key), so this adds no extra network call.
   const { crossings } = useBoundaryCrossings({
-    identifier: taskId,
-    enabled: status === 'IN_REVIEW' && hasCriteria,
+    identifier: taskIdentifier,
+    enabled: isReview,
   })
   const undisposed = crossings.filter(c => c.disposition == null)
   // Deduplicate the blocking crossings by category, most-frequent first — the
@@ -106,16 +156,18 @@ export function TaskVerdictBar({
 
   // Deep-link focus: carry the human to the one click that records the verdict.
   useEffect(() => {
-    if (status !== 'IN_REVIEW') return
+    if (!isReview) return
     if (deepLinkVerdict === 'pass_with_followup') {
       setPanel('PASS_WITH_FOLLOWUP')
       setNote('')
     } else if (deepLinkVerdict === 'pass') {
       passButtonRef.current?.focus()
     }
-  }, [deepLinkVerdict, status])
+  }, [deepLinkVerdict, isReview])
 
-  if (status !== 'IN_REVIEW' || !hasCriteria) return null
+  // The floating variant is review-only chrome: nothing to show off IN_REVIEW.
+  // The header variant always renders — it IS the always-on status banner.
+  if (variant === 'floating' && !isReview) return null
 
   const submit = async (verdict: HumanVerdict) => {
     setSubmitting(true)
@@ -125,7 +177,7 @@ export function TaskVerdictBar({
     try {
       const sendNote = verdict !== 'PASS' && hasContent(note) ? note : undefined
       const result = await tasksClient.submitHumanVerdict<HumanVerdictResult>(
-        taskId,
+        taskIdentifier,
         {
           verdict,
           ...(sendNote ? { note: sendNote } : {}),
@@ -169,51 +221,54 @@ export function TaskVerdictBar({
     setBlockedByCrossings(false)
   }
 
-  return (
-    <div
-      data-testid='task-verdict-bar'
-      className='mb-6 rounded-md border border-border px-4 py-3'
-    >
-      <div className='flex flex-wrap items-center gap-3'>
-        <div className='flex-1 min-w-48'>
-          <p className='text-body font-semibold text-foreground'>
-            {intl.formatMessage({ id: 'task.verdict.title' })}
-          </p>
-          <p className='text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'task.verdict.hint' })}
-          </p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <Button
-            ref={passButtonRef}
-            size='sm'
-            data-testid='verdict-pass'
-            disabled={submitting}
-            onClick={() => submit('PASS')}
-          >
-            {intl.formatMessage({ id: 'task.verdict.pass' })}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            data-testid='verdict-followup'
-            disabled={submitting}
-            onClick={() => openPanel('PASS_WITH_FOLLOWUP')}
-          >
-            {intl.formatMessage({ id: 'task.verdict.passWithFollowUp' })}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            data-testid='verdict-fail'
-            disabled={submitting}
-            onClick={() => openPanel('FAIL')}
-          >
-            {intl.formatMessage({ id: 'task.verdict.fail' })}
-          </Button>
-        </div>
-      </div>
+  const Icon = KIND_ICON[status.kind]
+  const title =
+    status.kind === 'sentBack'
+      ? intl.formatMessage(
+          { id: KIND_TITLE_ID[status.kind] },
+          { count: status.failCount }
+        )
+      : intl.formatMessage({ id: KIND_TITLE_ID[status.kind] })
+  const gate = intl.formatMessage({
+    id: status.gateBlocked
+      ? 'acceptance.banner.gateBlocked'
+      : 'acceptance.banner.gateOpen',
+  })
 
+  const actionButtons = (
+    <div className='flex items-center gap-2'>
+      <Button
+        ref={passButtonRef}
+        size='sm'
+        data-testid='verdict-pass'
+        disabled={submitting}
+        onClick={() => submit('PASS')}
+      >
+        {intl.formatMessage({ id: 'task.verdict.pass' })}
+      </Button>
+      <Button
+        size='sm'
+        variant='outline'
+        data-testid='verdict-followup'
+        disabled={submitting}
+        onClick={() => openPanel('PASS_WITH_FOLLOWUP')}
+      >
+        {intl.formatMessage({ id: 'task.verdict.passWithFollowUp' })}
+      </Button>
+      <Button
+        size='sm'
+        variant='outline'
+        data-testid='verdict-fail'
+        disabled={submitting}
+        onClick={() => openPanel('FAIL')}
+      >
+        {intl.formatMessage({ id: 'task.verdict.fail' })}
+      </Button>
+    </div>
+  )
+
+  const panelAndNotice = (
+    <>
       {panel !== null && (
         <div className='mt-3 space-y-2 border-t border-border pt-3'>
           <label className='block text-caption font-medium text-muted-foreground'>
@@ -311,6 +366,89 @@ export function TaskVerdictBar({
           {errorMessage || intl.formatMessage({ id: 'task.verdict.error' })}
         </p>
       ) : null}
+    </>
+  )
+
+  // metCount + optional human-override + gate line (shared by both variants).
+  const metLine = (
+    <>
+      {intl.formatMessage(
+        { id: 'acceptance.banner.metCount' },
+        { passed: status.met, total: status.total }
+      )}
+      {status.hasHumanOverride ? (
+        <>
+          {' · '}
+          {intl.formatMessage({ id: 'acceptance.tab.humanOverride' })}
+        </>
+      ) : null}
+    </>
+  )
+
+  const roundBadge = (
+    <span className='shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground'>
+      {intl.formatMessage(
+        { id: 'acceptance.banner.roundBadge' },
+        { round: status.round, max: status.maxRounds }
+      )}
+    </span>
+  )
+
+  if (variant === 'header') {
+    return (
+      <div className={`rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`}>
+        <div data-testid='verdict-status' className='flex items-center gap-3'>
+          <Icon
+            className={`size-6 shrink-0 ${TONE_TEXT[status.tone]}`}
+            aria-hidden
+          />
+          <div className='min-w-0 flex-1'>
+            <div className='text-sm font-medium text-foreground'>{title}</div>
+            <div className='mt-0.5 text-xs text-muted-foreground'>
+              {metLine}
+              {' · '}
+              {gate}
+            </div>
+          </div>
+          {roundBadge}
+        </div>
+        {isReview && (
+          <div className='mt-3 border-t border-border pt-3'>
+            {actionButtons}
+            {panelAndNotice}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // floating (review-only): compact bar with a one-line status on the left and
+  // the action buttons inline on the right; panel + notice below as before.
+  return (
+    <div
+      data-testid='task-verdict-bar'
+      className='mb-4 rounded-md border border-border px-4 py-2.5'
+    >
+      <div className='flex flex-wrap items-center gap-3'>
+        <div
+          data-testid='verdict-status'
+          className='flex min-w-0 flex-1 items-center gap-2'
+        >
+          <Icon
+            className={`size-4 shrink-0 ${TONE_TEXT[status.tone]}`}
+            aria-hidden
+          />
+          <span className='truncate text-body font-medium text-foreground'>
+            {title}
+          </span>
+          <span className='shrink-0 text-caption text-muted-foreground'>
+            {' · '}
+            {metLine}
+          </span>
+        </div>
+        {actionButtons}
+      </div>
+      {panelAndNotice}
     </div>
   )
 }
