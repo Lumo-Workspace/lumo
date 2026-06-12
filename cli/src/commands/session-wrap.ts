@@ -4,6 +4,7 @@ import { ProgressCommentSection } from './wrap/progress-comment-section'
 import { MemoryReviewSection } from './wrap/memory-review-section'
 import { FragmentUsageSection } from './wrap/fragment-usage-section'
 import { BlockedPromptSection } from './wrap/blocked-prompt-section'
+import { openCrossingReminder } from './wrap/crossings-reminder'
 
 interface SessionWrapOptions {
   yes?: boolean
@@ -52,4 +53,11 @@ export async function sessionWrap(
     yes: options.yes === true,
     dryRun: options.dryRun === true,
   })
+
+  // After the panel: a read-only nudge if the bound task has open boundary
+  // crossings still undispositioned (LUM-448). Silent when there are none —
+  // a clean task adds no wrap-up noise. Awareness only; clearing a crossing is
+  // web + human-only (LUM-426/435/422).
+  const reminder = await openCrossingReminder(creds)
+  if (reminder) process.stdout.write(reminder)
 }

@@ -191,10 +191,15 @@ describe('taskStatus — task resolution', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue(jsonResponse(200, PAYLOAD))
     expect(await taskStatus('LUM-7')).toBeUndefined()
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    // The status fetch targets the explicit id; the session-binding endpoint
+    // is never consulted. (A second read — open boundary crossings — also
+    // fires; we only assert the binding was bypassed.)
     expect(String(fetchSpy.mock.calls[0]![0])).toContain(
       '/api/tasks/LUM-7/status'
     )
+    expect(
+      fetchSpy.mock.calls.some(c => String(c[0]).includes('/api/sessions/'))
+    ).toBe(false)
   })
 
   it('surfaces a 404 with the workspace slug', async () => {
@@ -241,7 +246,11 @@ describe('taskStatus — output', () => {
   })
 
   it('escalated payload prints the stop warning', () => {
-    const out = formatTaskStatus({ ...PAYLOAD, currentRound: 3, escalated: true })
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      currentRound: 3,
+      escalated: true,
+    })
     expect(out).toContain('Escalated')
     expect(out).toContain('human')
   })
@@ -292,5 +301,122 @@ describe('taskStatus — output', () => {
     })
     expect(out).not.toContain('\x1b')
     expect(out).toContain('red')
+  })
+})
+
+// ── LUM-448: open boundary crossings surfaced in the terminal ──────────────
+import fs from 'fs'
+import path from 'path'
+
+/** A boundary-crossings GET body (LUM-435 read model), trimmed to the few
+ *  fields the terminal reads. `disposition: null` ⇒ open. */
+const CROSSINGS_BODY = {
+  crossings: [
+    {
+      id: 'bx-low',
+      category: 'INFRA_TERMINATION',
+      severity: 'LOW',
+      detail: 'ran kill on a stray dev process',
+      disposition: null,
+    },
+    {
+      id: 'bx-high',
+      category: 'TEST_TAMPERING',
+      severity: 'HIGH',
+      detail: 'weakened assertion in checkpointer test\nsecond line ignored',
+      disposition: null,
+    },
+    {
+      id: 'bx-closed',
+      category: 'HARDCODED_SECRET',
+      severity: 'HIGH',
+      detail: 'already reviewed',
+      disposition: 'FALSE_POSITIVE',
+    },
+  ],
+}
+
+/** Route fetch by URL: the status endpoint vs. the boundary-crossings endpoint. */
+function routedFetch(crossingsBody: unknown = CROSSINGS_BODY) {
+  return jest.spyOn(global, 'fetch').mockImplementation(async url => {
+    const u = String(url)
+    if (u.includes('/boundary-crossings'))
+      return jsonResponse(200, crossingsBody)
+    return jsonResponse(200, PAYLOAD)
+  })
+}
+
+describe('taskStatus — open boundary crossings (LUM-448)', () => {
+  it('task status surfaces open boundary crossings with severity', async () => {
+    routedFetch()
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    const out = stdout()
+    // Count of OPEN (undispositioned) crossings — the dispositioned one is excluded.
+    expect(out).toContain('Open boundary crossings (2 undispositioned)')
+    // Each open crossing shows its severity + category; highest severity first.
+    expect(out).toContain('[HIGH] TEST_TAMPERING')
+    expect(out).toContain('[LOW] INFRA_TERMINATION')
+    expect(out.indexOf('[HIGH]')).toBeLessThan(out.indexOf('[LOW]'))
+    // Only the first line of a multi-line detail is surfaced.
+    expect(out).not.toContain('second line ignored')
+    // The dispositioned crossing never appears.
+    expect(out).not.toContain('HARDCODED_SECRET')
+    // Points at the human-only web disposition panel (no CLI clear path).
+    expect(out).toContain('#boundary-crossings')
+
+    // --json carries the same open crossings structurally, with severity.
+    writeSpy.mock.calls.length = 0
+    routedFetch()
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    expect(Array.isArray(parsed.openCrossings)).toBe(true)
+    expect(parsed.openCrossings).toHaveLength(2)
+    expect(
+      parsed.openCrossings.map((c: { severity: string }) => c.severity)
+    ).toEqual(['HIGH', 'LOW'])
+    expect(parsed.openCrossings[0].category).toBe('TEST_TAMPERING')
+  })
+
+  it('omits the crossings block when none are open', async () => {
+    routedFetch({ crossings: [] })
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    expect(stdout()).not.toContain('Open boundary crossings')
+  })
+
+  it('CLI exposes crossings read-only with no disposition write path', () => {
+    // Structural guard: nothing under cli/src may invoke a crossing WRITE path
+    // (disposition / remediation), and the crossings reader must never use a
+    // mutating HTTP method. Disposition stays web + human-only (LUM-426/435/422)
+    // — an agent/CLI bearer cannot clear its own crossing from the terminal.
+    const cliSrc = path.resolve(__dirname, '../../cli/src')
+    const files: string[] = []
+    const walk = (dir: string): void => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name.endsWith('.ts')) files.push(full)
+      }
+    }
+    walk(cliSrc)
+    expect(files.length).toBeGreaterThan(0)
+
+    for (const file of files) {
+      const src = fs.readFileSync(file, 'utf8')
+      // No CLI code references the disposition/remediation write endpoints.
+      expect(src).not.toMatch(
+        /boundary-crossings\/[A-Za-z0-9._${}/-]*disposition/
+      )
+      expect(src).not.toMatch(
+        /boundary-crossings\/[A-Za-z0-9._${}/-]*remediation/
+      )
+    }
+
+    // The single place the CLI touches crossings only ever GETs them.
+    const reader = fs.readFileSync(
+      path.resolve(cliSrc, 'lib/open-crossings.ts'),
+      'utf8'
+    )
+    expect(reader).toContain('/boundary-crossings')
+    expect(reader).not.toMatch(/method:\s*['"`](POST|PUT|PATCH|DELETE)/)
   })
 })
