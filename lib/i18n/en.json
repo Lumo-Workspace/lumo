@@ -745,6 +745,8 @@
   "acceptance.check.none": "Machine check not yet run",
   "acceptance.check.overrideNoRun": "No machine check ran — passed by human override",
   "acceptance.check.exitCode": "exit code {code}",
+  "acceptance.judge.label": "How to judge",
+  "acceptance.judge.missing": "No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion",
   "acceptance.verdict.pass": "Pass",
   "acceptance.verdict.sendBack": "Send back",
   "acceptance.verdict.confirmSendBack": "Confirm send-back",

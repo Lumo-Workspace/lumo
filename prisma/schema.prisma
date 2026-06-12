@@ -2104,6 +2104,12 @@ model AcceptanceCriterion {
   // (enforced at the validation layer).
   evidenceRequired Boolean                   @default(false)
   source           AcceptanceCriterionSource
+  // Agent-drafted human-readable judging instructions for a HUMAN criterion
+  // (LUM-465): where to look → what to do → ✓pass / ✗send-back. Light markdown,
+  // may contain URLs. Rendered on the human adjudication card and in
+  // `lumo task status`. null = no guidance drafted (legacy rows + MACHINE
+  // criteria) → the card shows a "missing guidance" fallback hint, no backfill.
+  judgeSteps       String?
   // Verification round at which the criterion was added; initial draft = 0.
   addedAtRound     Int                       @default(0)
   createdAt        DateTime                  @default(now())

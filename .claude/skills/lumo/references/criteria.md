@@ -113,6 +113,49 @@ must track the size of the work — it is not a fixed ritual:
   (render-only, doesn't block DONE), but re-verify so the green reflects the
   current check.
 
+### judgeSteps — agent-drafted judging steps for HUMAN criteria (LUM-465)
+
+A HUMAN criterion is judged by a person, not a checkpointer — so don't hand them
+a bare assertion ("the copy reads naturally") and make them reverse-engineer
+what to do. Attach **`judgeSteps`**: short, human-readable instructions the
+adjudication card renders verbatim (light markdown, URLs are made clickable).
+Structured labour is yours; the human just follows the steps.
+
+**Shape — 1–3 steps, always in this order:**
+
+1. **Where to look** — the exact link or path (a task URL, a tab, a file). Paste
+   the real URL; the card/`lumo task status` render it clickable.
+2. **What to do** — the concrete action ("open the acceptance tab", "read the
+   `judgeSteps` block aloud", "resize to mobile width").
+3. **✓ pass / ✗ send-back** — the decision rule, both directions, so the verdict
+   isn't a coin-flip ("pass if every URL opens; send back if any step is vague").
+
+**One criterion = one judgment point.** If a HUMAN criterion bundles two checks,
+split it — each half gets its own steps. The canonical miss is LUM-397's "additive
+schema **and** self-credit not implemented": those are two assertions; the first
+is even machine-able (below), the second is a separate human read.
+
+**Machine-able → make it MACHINE, don't burn human attention.** Before writing
+`judgeSteps`, ask whether a checkpointer could decide it. "The migration is purely
+additive" → `grep` the `migration.sql` for `DROP`/destructive DDL → MACHINE. "No
+file under `prisma/migrations/` was deleted" → a `git diff` probe → MACHINE.
+Reserve HUMAN + `judgeSteps` for genuine taste/feel/fidelity judgments a check
+can't make.
+
+`judgeSteps` is **optional and non-blocking** — a HUMAN criterion without it still
+submits, but the server returns a soft warning (same channel as the 3–7 count
+warning) and the card shows a "no judging guidance" fallback. It is part of the
+contract: editing it drifts like any other field (`CRITERION_CHANGED` before/after
+carries it), and it survives a statement-only web edit.
+
+```json
+{
+  "statement": "The acceptance tab reads as plain operational instructions, not agent-voice assertions",
+  "verifierType": "HUMAN",
+  "judgeSteps": "Open the task's Acceptance tab (the IN_REVIEW card). For each HUMAN criterion, read its 'How to judge' block. Pass if each one names where to look, what to do, and what counts as pass vs send-back; send back if any reads as a bare assertion with no steps."
+}
+```
+
 ### Invariant (negative-assertion) criteria
 
 Most criteria assert that **something that should happen, happened** ("the
@@ -194,7 +237,8 @@ it shouldn't_.
   },
   {
     "statement": "The criteria section reads naturally as part of the task statement",
-    "verifierType": "HUMAN"
+    "verifierType": "HUMAN",
+    "judgeSteps": "Open the task's Acceptance tab. Read the contract top to bottom. Pass if it scans as one coherent definition of done; send back if a criterion reads as boilerplate or contradicts another."
   },
   {
     "statement": "Session-start injection shows the contract ahead of memory",
@@ -207,7 +251,9 @@ it shouldn't_.
 
 Fields: `statement` (required, ≤2000 chars), `verifierType` (`"MACHINE"` |
 `"HUMAN"`), `checkpointer` (required for MACHINE), `evidenceRequired`
-(optional, default false), `id` (only in `--human` revisions — see below).
+(optional, default false), `judgeSteps` (optional, ≤2000 chars — agent-drafted
+human-judging steps for a HUMAN criterion; see "judgeSteps" above), `id` (only
+in `--human` revisions — see below).
 
 ## Commands
 

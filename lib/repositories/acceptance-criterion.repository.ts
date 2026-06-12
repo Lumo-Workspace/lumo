@@ -17,6 +17,8 @@ export interface CreateAcceptanceCriterionInput {
   /** Executable check pointer; required for MACHINE at the validation layer. */
   checkpointer?: string | null
   evidenceRequired?: boolean
+  /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465). */
+  judgeSteps?: string | null
   source: AcceptanceCriterionSource
   /** Omitted → column default 0 (initial draft). */
   addedAtRound?: number
@@ -30,6 +32,7 @@ export interface UpdateAcceptanceCriterionInput {
   verifierType?: AcceptanceVerifierType
   checkpointer?: string | null
   evidenceRequired?: boolean
+  judgeSteps?: string | null
   source?: AcceptanceCriterionSource
 }
 
@@ -40,6 +43,7 @@ const criterionSelect = {
   verifierType: true,
   checkpointer: true,
   evidenceRequired: true,
+  judgeSteps: true,
   source: true,
   addedAtRound: true,
   createdAt: true,
@@ -82,6 +86,7 @@ export const acceptanceCriterionRepository = {
         statement: i.statement,
         verifierType: i.verifierType,
         checkpointer: i.checkpointer ?? null,
+        judgeSteps: i.judgeSteps ?? null,
         ...(i.evidenceRequired !== undefined
           ? { evidenceRequired: i.evidenceRequired }
           : {}),
@@ -105,6 +110,7 @@ export const acceptanceCriterionRepository = {
         statement: input.statement,
         verifierType: input.verifierType,
         checkpointer: input.checkpointer ?? null,
+        judgeSteps: input.judgeSteps ?? null,
         ...(input.evidenceRequired !== undefined
           ? { evidenceRequired: input.evidenceRequired }
           : {}),

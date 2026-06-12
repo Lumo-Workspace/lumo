@@ -23,6 +23,8 @@ const CAUSE_TAGS = [
 interface CriteriaResponse {
   criteria: CriterionRow[]
   warning: string | null
+  /** Soft warning when a HUMAN criterion has no judgeSteps (LUM-465). */
+  judgeStepsWarning?: string | null
 }
 
 /** Client-side shape gate: fail fast on obviously malformed JSON before the
@@ -214,5 +216,8 @@ export async function taskCriteriaSet(
   process.stdout.write(formatCriteriaRows(data.criteria))
   if (data.warning) {
     process.stdout.write(`⚠ ${sanitizeField(data.warning)}\n`)
+  }
+  if (data.judgeStepsWarning) {
+    process.stdout.write(`⚠ ${sanitizeField(data.judgeStepsWarning)}\n`)
   }
 }

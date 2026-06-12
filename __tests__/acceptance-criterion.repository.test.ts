@@ -82,6 +82,7 @@ describe('acceptanceCriterionRepository', () => {
             statement: 'all jest suites pass',
             verifierType: 'MACHINE',
             checkpointer: 'npx jest',
+            judgeSteps: null,
             source: 'AGENT_DRAFT',
           },
           {
@@ -89,6 +90,7 @@ describe('acceptanceCriterionRepository', () => {
             statement: 'UI copy reviewed by a human',
             verifierType: 'HUMAN',
             checkpointer: null,
+            judgeSteps: null,
             evidenceRequired: true,
             source: 'REVIEW_ADDED',
             addedAtRound: 2,
@@ -116,6 +118,7 @@ describe('acceptanceCriterionRepository', () => {
           statement: 'migration is additive',
           verifierType: 'HUMAN',
           checkpointer: null,
+          judgeSteps: null,
           source: 'REVIEW_ADDED',
           addedAtRound: 1,
         },

@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Changer en {verdict}",
   "boundary.panel.reopen": "Rouvrir (rebloquer Terminé)",
   "boundary.disposition.open": "ouvert",
-  "boundary.toast.reopened": "Franchissement rouvert — Terminé est de nouveau bloqué"
+  "boundary.toast.reopened": "Franchissement rouvert — Terminé est de nouveau bloqué",
+  "acceptance.judge.label": "Comment juger",
+  "acceptance.judge.missing": "Aucune consigne de jugement — ajoutez judgeSteps pour que le relecteur ait des étapes, pas seulement une assertion"
 }

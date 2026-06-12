@@ -1638,5 +1638,7 @@
   "boundary.panel.changeTo": "Tukar kepada {verdict}",
   "boundary.panel.reopen": "Buka semula (sekat semula Selesai)",
   "boundary.disposition.open": "terbuka",
-  "boundary.toast.reopened": "Pencerobohan dibuka semula — Selesai disekat semula"
+  "boundary.toast.reopened": "Pencerobohan dibuka semula — Selesai disekat semula",
+  "acceptance.judge.label": "Cara menilai",
+  "acceptance.judge.missing": "Tiada panduan penilaian — tambah judgeSteps supaya penyemak ada langkah, bukan sekadar penyataan"
 }
