@@ -705,6 +705,12 @@ export interface TaskStatusCriterionView {
    *  passing MACHINE criterion with this false is carried by a human override;
    *  HUMAN criteria are always false. */
   machinePassed: boolean
+  /** Latest verdict predates the criterion's last edit — the pass vouches for a
+   *  stale version (LUM-457). Render-only; never makes a criterion unmet. */
+  verdictStale: boolean
+  /** A MACHINE criterion's current machine PASS ran a different command than the
+   *  present checkpointer (LUM-457). Render-only, like verdictStale. */
+  checkMismatch: boolean
   /** Whether this active criterion entered or was reworded after work started
    *  (LUM-437). 'edited' wins over 'added'; null = original untouched draft. */
   changeState: 'added' | 'edited' | null

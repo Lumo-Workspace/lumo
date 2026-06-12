@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Hide check output",
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidence",
-  "acceptance.check.none": "not yet run",
+  "acceptance.check.none": "Machine check not yet run",
   "acceptance.check.exitCode": "exit code {code}",
   "acceptance.verdict.pass": "Pass",
   "acceptance.verdict.sendBack": "Send back",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} human override",
   "acceptance.zone.machineFailedCount": "{count} failed",
   "acceptance.verdict.overrideWarning": "This check's checkpointer has not passed — passing it records a human override, not machine verification.",
-  "acceptance.verdict.overrideConfirm": "Override anyway"
+  "acceptance.verdict.overrideConfirm": "Override anyway",
+  "acceptance.criterion.staleVerdict": "Passed · pre-edit version",
+  "acceptance.criterion.staleHint": "Criterion changed since this check — re-run lumo verify to re-confirm",
+  "acceptance.check.overrideNoRun": "No machine check ran — passed by human override"
 }

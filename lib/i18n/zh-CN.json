@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "收起 check 产出",
   "acceptance.check.label": "检查",
   "acceptance.check.evidence": "证据",
-  "acceptance.check.none": "尚未运行",
+  "acceptance.check.none": "机器检查尚未运行",
   "acceptance.check.exitCode": "退出码 {code}",
   "acceptance.verdict.pass": "通过",
   "acceptance.verdict.sendBack": "打回",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} 项人工覆盖",
   "acceptance.zone.machineFailedCount": "{count} 项失败",
   "acceptance.verdict.overrideWarning": "该检查的 checkpointer 尚未通过——放行将记为人工覆盖，而非机器验证。",
-  "acceptance.verdict.overrideConfirm": "仍然覆盖"
+  "acceptance.verdict.overrideConfirm": "仍然覆盖",
+  "acceptance.criterion.staleVerdict": "通过·对应编辑前版本",
+  "acceptance.criterion.staleHint": "标准在此次验证后有改动——重跑 lumo verify 以重新确认",
+  "acceptance.check.overrideNoRun": "未运行机器检查——由人工覆盖通过"
 }

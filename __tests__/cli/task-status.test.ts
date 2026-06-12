@@ -44,6 +44,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'AGENT_DRAFT',
       addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: {
         round: 1,
         verdict: 'FAIL',
@@ -61,6 +63,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'REVIEW_ADDED',
       addedAtRound: 1,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: null,
     },
     {
@@ -71,6 +75,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'AGENT_DRAFT',
       addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: {
         round: 1,
         verdict: 'PASS',

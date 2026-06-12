@@ -101,6 +101,20 @@ export interface TaskStatusCriterion {
    *  a human override, never by a machine run; HUMAN criteria are always false.
    *  Derived from the existing log, no schema change. */
   machinePassed: boolean
+  /** Whether the latest verdict predates the criterion's last edit — i.e. the
+   *  criterion was changed (reworded / checkpointer swapped / …) after it was
+   *  judged, so the verdict vouches for a stale version (LUM-457). Derived as
+   *  `criterion.updatedAt > latestVerdict.recordedAt`; false when there is no
+   *  verdict yet. Render-only signal — it does NOT make a passing criterion
+   *  unmet. */
+  verdictStale: boolean
+  /** Whether a MACHINE criterion's current machine PASS was produced by a
+   *  different command than its current checkpointer — the evidence pointer's
+   *  `cmd:<command>#…` prefix no longer matches `cmd:<checkpointer>#` (LUM-457).
+   *  True only when a genuine machine PASS exists to compare against (a human
+   *  override or HUMAN criterion is always false). Render-only, like
+   *  {@link verdictStale}. */
+  checkMismatch: boolean
   /** Whether this active criterion entered or was reworded after work started
    *  (LUM-437). 'edited' wins over 'added' when both apply; null = part of the
    *  original round-0 draft, untouched since. */
@@ -522,10 +536,15 @@ export const taskVerificationService = {
     // listByTask is ordered (round asc, createdAt asc) → last write per
     // criterion is its latest verdict, same contract as latestRunsByCriterion.
     const latestByCriterion = new Map<string, VerificationRunRow>()
+    // Latest MACHINE-authored row per criterion — the evidence that a
+    // checkpointer (not a human) currently vouches for (LUM-457 checkMismatch).
+    const latestMachineByCriterion = new Map<string, VerificationRunRow>()
     const runsByRound = new Map<number, VerificationRunRow[]>()
     let currentRound = 0
     for (const run of runs) {
       latestByCriterion.set(run.criterionId, run)
+      if (run.verifierType === 'MACHINE')
+        latestMachineByCriterion.set(run.criterionId, run)
       const bucket = runsByRound.get(run.round)
       if (bucket) bucket.push(run)
       else runsByRound.set(run.round, [run])
@@ -638,6 +657,27 @@ export const taskVerificationService = {
           : added
             ? 'added'
             : null
+
+        // LUM-457 staleness: the latest verdict predates the criterion's last
+        // edit — it judged a now-stale version. No verdict → nothing to stale.
+        const latest = latestByCriterion.get(c.id)
+        const verdictStale =
+          latest != null &&
+          c.updatedAt != null &&
+          c.updatedAt.getTime() > latest.createdAt.getTime()
+        // checkMismatch: the machine PASS currently vouching for this criterion
+        // ran a different command than the present checkpointer. Only compare
+        // when a genuine machine PASS exists (machinePassedSet) — a human
+        // override or HUMAN criterion has no machine check to mismatch.
+        const machineLatest = latestMachineByCriterion.get(c.id)
+        const checkMismatch =
+          c.verifierType === 'MACHINE' &&
+          machinePassedSet.has(c.id) &&
+          c.checkpointer != null &&
+          !(machineLatest?.evidencePointer ?? '').startsWith(
+            `cmd:${c.checkpointer}#`
+          )
+
         return {
           id: c.id,
           statement: c.statement,
@@ -648,6 +688,8 @@ export const taskVerificationService = {
           addedAtRound: c.addedAtRound,
           latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),
           machinePassed: machinePassedSet.has(c.id),
+          verdictStale,
+          checkMismatch,
           changeState,
           changedAtRound: edited ? edit!.round : added ? c.addedAtRound : null,
           lastEdit: edited

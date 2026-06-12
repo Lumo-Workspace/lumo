@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Ẩn kết quả check",
   "acceptance.check.label": "kiểm tra",
   "acceptance.check.evidence": "bằng chứng",
-  "acceptance.check.none": "chưa chạy",
+  "acceptance.check.none": "Kiểm tra máy chưa chạy",
   "acceptance.check.exitCode": "mã thoát {code}",
   "acceptance.verdict.pass": "Đạt",
   "acceptance.verdict.sendBack": "Trả lại",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} ghi đè thủ công",
   "acceptance.zone.machineFailedCount": "{count} thất bại",
   "acceptance.verdict.overrideWarning": "Checkpointer của kiểm tra này chưa đạt — việc cho đạt sẽ được ghi nhận là ghi đè thủ công, không phải xác minh bằng máy.",
-  "acceptance.verdict.overrideConfirm": "Vẫn ghi đè"
+  "acceptance.verdict.overrideConfirm": "Vẫn ghi đè",
+  "acceptance.criterion.staleVerdict": "Đạt · phiên bản trước khi chỉnh sửa",
+  "acceptance.criterion.staleHint": "Tiêu chí đã thay đổi kể từ lần kiểm tra này — chạy lại lumo verify để xác nhận lại",
+  "acceptance.check.overrideNoRun": "Không có kiểm tra máy nào chạy — đạt nhờ ghi đè thủ công"
 }

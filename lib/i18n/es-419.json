@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Ocultar salida del check",
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidencia",
-  "acceptance.check.none": "aún no ejecutado",
+  "acceptance.check.none": "Comprobación automática aún sin ejecutar",
   "acceptance.check.exitCode": "código de salida {code}",
   "acceptance.verdict.pass": "Aprobar",
   "acceptance.verdict.sendBack": "Devolver",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} anulación humana",
   "acceptance.zone.machineFailedCount": "{count} fallidos",
   "acceptance.verdict.overrideWarning": "El checkpointer de esta comprobación no pasó: aprobarla registra una anulación humana, no una verificación por máquina.",
-  "acceptance.verdict.overrideConfirm": "Anular de todos modos"
+  "acceptance.verdict.overrideConfirm": "Anular de todos modos",
+  "acceptance.criterion.staleVerdict": "Aprobado · versión anterior a la edición",
+  "acceptance.criterion.staleHint": "El criterio cambió desde esta comprobación: vuelve a ejecutar lumo verify para reconfirmar",
+  "acceptance.check.overrideNoRun": "No se ejecutó ninguna comprobación automática: aprobado por anulación humana"
 }

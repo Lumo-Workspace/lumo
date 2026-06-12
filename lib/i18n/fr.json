@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Masquer la sortie du check",
   "acceptance.check.label": "check",
   "acceptance.check.evidence": "preuve",
-  "acceptance.check.none": "pas encore exécuté",
+  "acceptance.check.none": "Vérification machine pas encore exécutée",
   "acceptance.check.exitCode": "code de sortie {code}",
   "acceptance.verdict.pass": "Valider",
   "acceptance.verdict.sendBack": "Renvoyer",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} dérogation humaine",
   "acceptance.zone.machineFailedCount": "{count} en échec",
   "acceptance.verdict.overrideWarning": "Le checkpointer de cette vérification n'a pas réussi — la valider enregistre une dérogation humaine, pas une vérification par la machine.",
-  "acceptance.verdict.overrideConfirm": "Déroger quand même"
+  "acceptance.verdict.overrideConfirm": "Déroger quand même",
+  "acceptance.criterion.staleVerdict": "Réussi · version avant modification",
+  "acceptance.criterion.staleHint": "Critère modifié depuis cette vérification — relancez lumo verify pour reconfirmer",
+  "acceptance.check.overrideNoRun": "Aucune vérification machine exécutée — réussi par dérogation humaine"
 }
