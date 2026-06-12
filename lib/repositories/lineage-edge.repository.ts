@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
-import type { Prisma, LineageFragmentType, LineageOutcome } from '@prisma/client'
+import type {
+  Prisma,
+  LineageFragmentType,
+  LineageOutcome,
+} from '@prisma/client'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 
 /**
  * One lineage edge to persist: a context fragment that was injected into a
@@ -95,8 +100,74 @@ function emptyByOutcome(): Record<LineageOutcome, number> {
   return { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 }
 }
 
-function fragmentKey(fragmentType: LineageFragmentType, fragmentId: string): string {
+function fragmentKey(
+  fragmentType: LineageFragmentType,
+  fragmentId: string
+): string {
   return `${fragmentType}::${fragmentId}`
+}
+
+/** One grouped edge row (fragment × task × outcome) as returned by groupBy. */
+interface DedupeRow {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  taskId: string
+  outcome: LineageOutcome
+}
+
+interface PerFragmentDedupe {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  /** taskId → whether this task is resolved (non-UNKNOWN) / merged. */
+  tasks: Map<string, { resolved: boolean; merged: boolean }>
+}
+
+/**
+ * Collapse grouped (fragment, task, outcome) rows into per-fragment task sets,
+ * deduping multiple runs of one task to a single resolved/merged flag — shared
+ * by the presence- and usage-gated merge-rate queries.
+ *
+ * LUM-461 same-task self-credit exclusion: the (fragment, task) pair is dropped
+ * when `task` is one of the fragment's birth tasks, so a memory earns no merge
+ * contribution for the task that created it. Birth sets are resolved only for
+ * MEMORY fragments (others have no birth concept); see
+ * `memoryProvenanceRepository.birthTaskIdsByMemory`.
+ */
+async function foldByTaskWithBirthExclusion(
+  rows: DedupeRow[],
+  fragments: FragmentRef[],
+  tx?: Prisma.TransactionClient
+): Promise<Map<string, PerFragmentDedupe>> {
+  const memoryIds = fragments
+    .filter(f => f.fragmentType === 'MEMORY')
+    .map(f => f.fragmentId)
+  const birthByFragment =
+    memoryIds.length > 0
+      ? await memoryProvenanceRepository.birthTaskIdsByMemory(memoryIds, tx)
+      : new Map<string, Set<string>>()
+
+  const perFragment = new Map<string, PerFragmentDedupe>()
+  for (const row of rows) {
+    if (birthByFragment.get(row.fragmentId)?.has(row.taskId)) continue
+    const fKey = fragmentKey(row.fragmentType, row.fragmentId)
+    let entry = perFragment.get(fKey)
+    if (!entry) {
+      entry = {
+        fragmentType: row.fragmentType,
+        fragmentId: row.fragmentId,
+        tasks: new Map(),
+      }
+      perFragment.set(fKey, entry)
+    }
+    let task = entry.tasks.get(row.taskId)
+    if (!task) {
+      task = { resolved: false, merged: false }
+      entry.tasks.set(row.taskId, task)
+    }
+    if (row.outcome !== 'UNKNOWN') task.resolved = true
+    if (row.outcome === 'MERGED') task.merged = true
+  }
+  return perFragment
 }
 
 export const lineageEdgeRepository = {
@@ -186,6 +257,12 @@ export const lineageEdgeRepository = {
    * the correct denominator for the "merge contribution" signal; do NOT use
    * `aggregateByFragments` (it counts edges, double-counting multi-run tasks).
    * Cold-start gating (min sample size) is the caller's responsibility.
+   *
+   * LUM-461: the (fragment, task) pair where `task` is the MEMORY fragment's
+   * birth task is excluded from both numerator and denominator — a memory earns
+   * no merge contribution for the task that created it (self-credit). Folded in
+   * here so every consumer (LUM-279 tier, LUM-300 variance) is cleaned without
+   * changing its call site.
    */
   async mergeRateByFragments(
     fragments: FragmentRef[],
@@ -204,33 +281,7 @@ export const lineageEdgeRepository = {
       _count: { _all: true },
     })
 
-    const perFragment = new Map<
-      string,
-      {
-        fragmentType: LineageFragmentType
-        fragmentId: string
-        tasks: Map<string, { resolved: boolean; merged: boolean }>
-      }
-    >()
-    for (const row of rows) {
-      const fKey = fragmentKey(row.fragmentType, row.fragmentId)
-      let entry = perFragment.get(fKey)
-      if (!entry) {
-        entry = {
-          fragmentType: row.fragmentType,
-          fragmentId: row.fragmentId,
-          tasks: new Map(),
-        }
-        perFragment.set(fKey, entry)
-      }
-      let task = entry.tasks.get(row.taskId)
-      if (!task) {
-        task = { resolved: false, merged: false }
-        entry.tasks.set(row.taskId, task)
-      }
-      if (row.outcome !== 'UNKNOWN') task.resolved = true
-      if (row.outcome === 'MERGED') task.merged = true
-    }
+    const perFragment = await foldByTaskWithBirthExclusion(rows, fragments, tx)
 
     return fragments
       .map(f => perFragment.get(fragmentKey(f.fragmentType, f.fragmentId)))
@@ -315,13 +366,15 @@ export const lineageEdgeRepository = {
     const client = tx ?? prisma
     const rows = await client.lineageEdge.groupBy({
       by: ['sessionId'],
-      where: { sessionId: { not: null }, usedAt: null, task: { status: 'DONE' } },
+      where: {
+        sessionId: { not: null },
+        usedAt: null,
+        task: { status: 'DONE' },
+      },
       orderBy: { sessionId: 'asc' },
       take: limit,
     })
-    return rows
-      .map(r => r.sessionId)
-      .filter((s): s is string => s !== null)
+    return rows.map(r => r.sessionId).filter((s): s is string => s !== null)
   },
 
   /**
@@ -373,7 +426,8 @@ export const lineageEdgeRepository = {
   /**
    * Usage-gated merge rate: same task-dedupe as mergeRateByFragments, but a
    * (fragment, task) pair only counts when the fragment was voted used=true.
-   * Cold-start gating (min sample) is the caller's responsibility.
+   * Cold-start gating (min sample) is the caller's responsibility. The LUM-461
+   * birth-task self-credit exclusion applies here too.
    */
   async usageMergeRateByFragments(
     fragments: FragmentRef[],
@@ -393,33 +447,7 @@ export const lineageEdgeRepository = {
       _count: { _all: true },
     })
 
-    const perFragment = new Map<
-      string,
-      {
-        fragmentType: LineageFragmentType
-        fragmentId: string
-        tasks: Map<string, { resolved: boolean; merged: boolean }>
-      }
-    >()
-    for (const row of rows) {
-      const fKey = fragmentKey(row.fragmentType, row.fragmentId)
-      let entry = perFragment.get(fKey)
-      if (!entry) {
-        entry = {
-          fragmentType: row.fragmentType,
-          fragmentId: row.fragmentId,
-          tasks: new Map(),
-        }
-        perFragment.set(fKey, entry)
-      }
-      let task = entry.tasks.get(row.taskId)
-      if (!task) {
-        task = { resolved: false, merged: false }
-        entry.tasks.set(row.taskId, task)
-      }
-      if (row.outcome !== 'UNKNOWN') task.resolved = true
-      if (row.outcome === 'MERGED') task.merged = true
-    }
+    const perFragment = await foldByTaskWithBirthExclusion(rows, fragments, tx)
 
     return fragments
       .map(f => perFragment.get(fragmentKey(f.fragmentType, f.fragmentId)))
@@ -659,10 +687,17 @@ export const lineageEdgeRepository = {
       where: { workspaceId, sessionId: { not: null } },
       _count: { _all: true },
     })
-    const bySession = new Map<string, { injected: number; used: number; voted: boolean }>()
+    const bySession = new Map<
+      string,
+      { injected: number; used: number; voted: boolean }
+    >()
     for (const r of perSessionRows) {
       if (!r.sessionId) continue
-      const acc = bySession.get(r.sessionId) ?? { injected: 0, used: 0, voted: false }
+      const acc = bySession.get(r.sessionId) ?? {
+        injected: 0,
+        used: 0,
+        voted: false,
+      }
       acc.injected += r._count._all
       if (r.used === true) acc.used += r._count._all
       if (r.used !== null) acc.voted = true
@@ -670,7 +705,11 @@ export const lineageEdgeRepository = {
     }
     const perSession = [...bySession.entries()]
       .filter(([, v]) => v.voted)
-      .map(([sessionId, v]) => ({ sessionId, injected: v.injected, used: v.used }))
+      .map(([sessionId, v]) => ({
+        sessionId,
+        injected: v.injected,
+        used: v.used,
+      }))
 
     const usedTasks = await taskMergeRows({ workspaceId, used: true })
     const baseTasks = await taskMergeRows({

@@ -6,6 +6,10 @@ jest.mock('@/lib/db/prisma', () => ({
     memoryProvenance: {
       createMany: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    memory: {
+      findMany: jest.fn(),
     },
   },
 }))
@@ -16,6 +20,10 @@ import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance
 const mp = prisma.memoryProvenance as unknown as {
   createMany: jest.Mock
   findFirst: jest.Mock
+  findMany: jest.Mock
+}
+const mem = prisma.memory as unknown as {
+  findMany: jest.Mock
 }
 
 beforeEach(() => {
@@ -93,5 +101,69 @@ describe('memoryProvenanceRepository.resolveCanonicalFragment', () => {
     )
     expect(['c1', 'c2']).toContain(out)
     expect(mp.findFirst.mock.calls.length).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('memoryProvenanceRepository.birthTaskIdsByMemory', () => {
+  it('returns an empty map for an empty id list (no query)', async () => {
+    const out = await memoryProvenanceRepository.birthTaskIdsByMemory([])
+    expect(out.size).toBe(0)
+    expect(mp.findMany).not.toHaveBeenCalled()
+    expect(mem.findMany).not.toHaveBeenCalled()
+  })
+
+  it('resolves own birth and backtracks MemoryProvenance ancestors for promoted rows', async () => {
+    // m-task: an un-promoted TASK memory → own birth is sourceTaskId.
+    // m-proj: a promoted PROJECT memory with null own birth → birth comes
+    //         from its two source TASK ancestors via MemoryProvenance.
+    //   m-proj ← p1 (birth t1) , m-proj ← p2 ← gp (birth t-gp)
+    mp.findMany
+      // level 0: direct parents of the requested ids
+      .mockResolvedValueOnce([
+        { childMemoryId: 'm-proj', parentMemoryId: 'p1' },
+        { childMemoryId: 'm-proj', parentMemoryId: 'p2' },
+      ])
+      // level 1: parents of p1 / p2 (p2 has a grandparent)
+      .mockResolvedValueOnce([{ childMemoryId: 'p2', parentMemoryId: 'gp' }])
+      // level 2: gp has no parents
+      .mockResolvedValueOnce([])
+    mem.findMany.mockResolvedValueOnce([
+      { id: 'm-task', sourceTaskId: 't-own', taskId: 'scope-x' },
+      { id: 'm-proj', sourceTaskId: null, taskId: null },
+      { id: 'p1', sourceTaskId: 't1', taskId: null },
+      { id: 'p2', sourceTaskId: null, taskId: 't2' }, // legacy proxy via taskId
+      { id: 'gp', sourceTaskId: 't-gp', taskId: null },
+    ])
+
+    const out = await memoryProvenanceRepository.birthTaskIdsByMemory([
+      'm-task',
+      'm-proj',
+    ])
+
+    expect(out.get('m-task')).toEqual(new Set(['t-own']))
+    expect(out.get('m-proj')).toEqual(new Set(['t1', 't2', 't-gp']))
+    // birth lookup is scoped to the requested ids plus discovered ancestors
+    expect(mem.findMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: expect.arrayContaining(['m-task', 'm-proj', 'p1', 'p2', 'gp']),
+        },
+      },
+      select: { id: true, sourceTaskId: true, taskId: true },
+    })
+  })
+
+  it('falls back to taskId when sourceTaskId is null and omits ids with no birth', async () => {
+    mp.findMany.mockResolvedValue([])
+    mem.findMany.mockResolvedValueOnce([
+      { id: 'a', sourceTaskId: null, taskId: 't-proxy' },
+      { id: 'b', sourceTaskId: null, taskId: null }, // no derivable birth
+    ])
+    const out = await memoryProvenanceRepository.birthTaskIdsByMemory([
+      'a',
+      'b',
+    ])
+    expect(out.get('a')).toEqual(new Set(['t-proxy']))
+    expect(out.has('b')).toBe(false)
   })
 })
