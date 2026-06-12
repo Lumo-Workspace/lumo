@@ -146,6 +146,10 @@ describe('sessionAttach', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('new Claude Code session')
     )
+    // The remedy names the task the user was trying to attach to.
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('LUM-42')
+    )
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://x/api/sessions/S1/bind-task',
       expect.objectContaining({
