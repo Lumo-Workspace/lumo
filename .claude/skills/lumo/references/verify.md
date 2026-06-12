@@ -129,6 +129,13 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its
   checkpointer and latest verdict line (evidence pointer on pass, failure
   tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
+  - A pass can carry a **`⚠ pre-edit version`** note (LUM-457): the criterion
+    was changed after that verdict (reworded, or its checkpointer was swapped so
+    the recorded evidence ran a different command). The pass still counts as met
+    (a stale pass does not block DONE — render-only signal), but it vouches for
+    an older version — **re-run `lumo verify` to re-confirm against the current
+    criterion.** This is the habit whenever you edit a MACHINE criterion's
+    checkpointer mid-task: change the check, then re-verify so the green is honest.
 - **History** — one line per recorded round: `rN · timestamp · X PASS / Y FAIL`.
 - **Last round failures** — the most recent round's FAIL verdicts with their
   rejection reasons (why the last round bounced).

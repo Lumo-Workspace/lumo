@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "check 출력 숨기기",
   "acceptance.check.label": "검사",
   "acceptance.check.evidence": "증거",
-  "acceptance.check.none": "아직 실행 안 됨",
+  "acceptance.check.none": "머신 검사 미실행",
   "acceptance.check.exitCode": "종료 코드 {code}",
   "acceptance.verdict.pass": "통과",
   "acceptance.verdict.sendBack": "반려",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count}개 사람 재정의",
   "acceptance.zone.machineFailedCount": "{count}개 실패",
   "acceptance.verdict.overrideWarning": "이 검사의 체크포인터가 통과하지 않았습니다 — 통과 처리하면 머신 검증이 아니라 사람 재정의로 기록됩니다.",
-  "acceptance.verdict.overrideConfirm": "그래도 재정의"
+  "acceptance.verdict.overrideConfirm": "그래도 재정의",
+  "acceptance.criterion.staleVerdict": "통과 · 편집 이전 버전",
+  "acceptance.criterion.staleHint": "이 검사 이후 기준이 변경됨 — lumo verify를 다시 실행해 재확인하세요",
+  "acceptance.check.overrideNoRun": "머신 검사 미실행 — 사람의 재정의로 통과"
 }

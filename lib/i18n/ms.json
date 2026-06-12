@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Sembunyikan output check",
   "acceptance.check.label": "semakan",
   "acceptance.check.evidence": "bukti",
-  "acceptance.check.none": "belum dijalankan",
+  "acceptance.check.none": "Pemeriksaan mesin belum dijalankan",
   "acceptance.check.exitCode": "kod keluar {code}",
   "acceptance.verdict.pass": "Lulus",
   "acceptance.verdict.sendBack": "Hantar semula",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} pengatasan manusia",
   "acceptance.zone.machineFailedCount": "{count} gagal",
   "acceptance.verdict.overrideWarning": "Checkpointer pemeriksaan ini belum lulus — meluluskannya merekod pengatasan manusia, bukan pengesahan mesin.",
-  "acceptance.verdict.overrideConfirm": "Atasi juga"
+  "acceptance.verdict.overrideConfirm": "Atasi juga",
+  "acceptance.criterion.staleVerdict": "Lulus · versi sebelum suntingan",
+  "acceptance.criterion.staleHint": "Kriteria berubah sejak pemeriksaan ini — jalankan semula lumo verify untuk mengesahkan semula",
+  "acceptance.check.overrideNoRun": "Tiada pemeriksaan mesin dijalankan — lulus melalui pembatalan manual"
 }

@@ -1528,7 +1528,7 @@
   "acceptance.hideCheck": "Скрыть вывод проверки",
   "acceptance.check.label": "проверка",
   "acceptance.check.evidence": "подтверждение",
-  "acceptance.check.none": "ещё не выполнено",
+  "acceptance.check.none": "Машинная проверка ещё не выполнялась",
   "acceptance.check.exitCode": "код выхода {code}",
   "acceptance.verdict.pass": "Принять",
   "acceptance.verdict.sendBack": "Вернуть",
@@ -1626,5 +1626,8 @@
   "acceptance.zone.machineOverrideCount": "{count} ручное переопределение",
   "acceptance.zone.machineFailedCount": "{count} не пройдено",
   "acceptance.verdict.overrideWarning": "Чекпойнтер этой проверки не пройден — отметка «пройдено» фиксируется как ручное переопределение, а не машинная проверка.",
-  "acceptance.verdict.overrideConfirm": "Всё равно переопределить"
+  "acceptance.verdict.overrideConfirm": "Всё равно переопределить",
+  "acceptance.criterion.staleVerdict": "Пройдено · версия до изменения",
+  "acceptance.criterion.staleHint": "Критерий изменён после этой проверки — повторно запустите lumo verify для подтверждения",
+  "acceptance.check.overrideNoRun": "Машинная проверка не выполнялась — пройдено вручную (переопределение)"
 }

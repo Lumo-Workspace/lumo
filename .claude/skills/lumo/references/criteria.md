@@ -106,6 +106,12 @@ must track the size of the work — it is not a fixed ritual:
     (`npx tsx scripts/checkpointer-drift.ts <LUM-N> | --mine`, detection-only).
 - `evidenceRequired: true` marks criteria whose verdict must point at proof
   (a MACHINE PASS always requires evidence regardless of this flag).
+- **Edited a MACHINE checkpointer mid-task? Re-run `lumo verify`.** A prior PASS
+  was recorded against the old command — once you swap the checkpointer (or
+  reword the criterion) that pass goes stale: `lumo task status` / the acceptance
+  tab flag it `⚠ pre-edit version` (LUM-457). The stale pass still counts as met
+  (render-only, doesn't block DONE), but re-verify so the green reflects the
+  current check.
 
 ### Invariant (negative-assertion) criteria
 

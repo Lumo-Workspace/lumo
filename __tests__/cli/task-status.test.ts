@@ -44,6 +44,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'AGENT_DRAFT',
       addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: {
         round: 1,
         verdict: 'FAIL',
@@ -61,6 +63,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'REVIEW_ADDED',
       addedAtRound: 1,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: null,
     },
     {
@@ -71,6 +75,8 @@ const PAYLOAD: TaskStatusResponse = {
       evidenceRequired: false,
       source: 'AGENT_DRAFT',
       addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
       latestVerdict: {
         round: 1,
         verdict: 'PASS',
@@ -241,7 +247,11 @@ describe('taskStatus — output', () => {
   })
 
   it('escalated payload prints the stop warning', () => {
-    const out = formatTaskStatus({ ...PAYLOAD, currentRound: 3, escalated: true })
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      currentRound: 3,
+      escalated: true,
+    })
     expect(out).toContain('Escalated')
     expect(out).toContain('human')
   })
