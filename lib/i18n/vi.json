@@ -1608,6 +1608,14 @@
   "acceptance.edit.saveError": "Không thể lưu — vui lòng thử lại",
   "acceptance.zone.machine": "Đã xác minh bằng máy · chỉ đọc",
   "acceptance.zone.human": "Cần phán quyết của con người",
+  "boundary.editChange.show": "Hiển thị những gì chỉnh sửa đã thay đổi",
+  "boundary.editChange.hide": "Ẩn chỉnh sửa",
+  "boundary.editChange.removed": "Đã xóa",
+  "boundary.editChange.added": "Đã thêm",
+  "boundary.editChange.written": "Nội dung đã ghi",
+  "boundary.editChange.truncated": "Đã cắt bớt để hiển thị — mở PR để xem thay đổi đầy đủ.",
+  "boundary.editChange.unavailable": "Nội dung chỉnh sửa không có sẵn để hiển thị ở đây — mở PR để xem lại thay đổi.",
+  "boundary.editChange.viewPr": "Xem PR",
   "acceptance.zone.machineAllPass": "Tất cả {count} đã đạt",
   "acceptance.zone.machineSummary": "{passed} đạt · {failed} thất bại"
 }

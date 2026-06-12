@@ -14,6 +14,16 @@ export interface RemediationTaskView {
   remediated: boolean
 }
 
+/** Inline before→after of the edit that tripped a display-safe crossing (LUM-452). */
+export interface EditChangeView {
+  kind: 'edit' | 'write' | null
+  oldText: string | null
+  newText: string | null
+  truncated: boolean
+  unavailable: string | null
+  prUrl: string | null
+}
+
 export interface BoundaryCrossingView {
   id: string
   category: string
@@ -26,6 +36,7 @@ export interface BoundaryCrossingView {
   dispositionedAt: string | null
   dispositionedById: string | null
   remediationTask: RemediationTaskView | null
+  editChange: EditChangeView | null
 }
 
 interface BoundaryCrossingsResponse {

@@ -1608,6 +1608,14 @@
   "acceptance.edit.saveError": "Не удалось сохранить — повторите попытку",
   "acceptance.zone.machine": "Проверено машиной · только чтение",
   "acceptance.zone.human": "Требуется оценка человека",
+  "boundary.editChange.show": "Показать, что изменило редактирование",
+  "boundary.editChange.hide": "Скрыть изменение",
+  "boundary.editChange.removed": "Удалено",
+  "boundary.editChange.added": "Добавлено",
+  "boundary.editChange.written": "Записанное содержимое",
+  "boundary.editChange.truncated": "Сокращено для отображения — откройте PR, чтобы увидеть изменение полностью.",
+  "boundary.editChange.unavailable": "Содержимое правки недоступно для показа здесь — откройте PR, чтобы просмотреть изменение.",
+  "boundary.editChange.viewPr": "Открыть PR",
   "acceptance.zone.machineAllPass": "Все {count} пройдены",
   "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено"
 }

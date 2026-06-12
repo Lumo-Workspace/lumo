@@ -40,6 +40,9 @@ const SELECT = {
  */
 const VIEW_SELECT = {
   ...SELECT,
+  // The triggering hook event id — the read model joins it to surface the
+  // inline edit-change for display-safe crossings (LUM-452).
+  hookEventId: true,
   remediationTask: {
     select: {
       number: true,

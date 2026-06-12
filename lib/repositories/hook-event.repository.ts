@@ -58,6 +58,19 @@ export const hookEventRepository = {
   },
 
   /**
+   * Fetch hook events by id, narrowed to the fields the LUM-452 edit-change read
+   * model needs (toolName + the raw payload it pulls old/new/content from). Used
+   * by the boundary-crossing read model to surface a display-safe crossing's
+   * triggering edit inline.
+   */
+  async findManyByIdsForEditChange(ids: string[]) {
+    return prisma.hookEvent.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, toolName: true, payload: true },
+    })
+  },
+
+  /**
    * Recent write events to `filePath` from sessions other than the caller's,
    * within the `since` window — the raw signal for the parallel-edit collision
    * warning (LUM-150 step ③). Index-served by

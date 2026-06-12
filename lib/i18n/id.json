@@ -1608,6 +1608,14 @@
   "acceptance.edit.saveError": "Gagal menyimpan — coba lagi",
   "acceptance.zone.machine": "Diverifikasi mesin · hanya baca",
   "acceptance.zone.human": "Memerlukan penilaian manusia",
+  "boundary.editChange.show": "Tampilkan apa yang diubah oleh suntingan",
+  "boundary.editChange.hide": "Sembunyikan suntingan",
+  "boundary.editChange.removed": "Dihapus",
+  "boundary.editChange.added": "Ditambahkan",
+  "boundary.editChange.written": "Konten yang ditulis",
+  "boundary.editChange.truncated": "Dipotong untuk tampilan — buka PR untuk melihat perubahan lengkap.",
+  "boundary.editChange.unavailable": "Konten suntingan tidak tersedia untuk ditampilkan di sini — buka PR untuk meninjau perubahan.",
+  "boundary.editChange.viewPr": "Lihat PR",
   "acceptance.zone.machineAllPass": "Semua {count} lulus",
   "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
 }

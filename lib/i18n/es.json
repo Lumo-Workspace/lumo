@@ -1608,6 +1608,14 @@
   "acceptance.edit.saveError": "No se pudo guardar — inténtalo de nuevo",
   "acceptance.zone.machine": "Verificado por máquina · solo lectura",
   "acceptance.zone.human": "Requiere juicio humano",
+  "boundary.editChange.show": "Mostrar lo que cambió la edición",
+  "boundary.editChange.hide": "Ocultar edición",
+  "boundary.editChange.removed": "Eliminado",
+  "boundary.editChange.added": "Añadido",
+  "boundary.editChange.written": "Contenido escrito",
+  "boundary.editChange.truncated": "Truncado para mostrar — abre el PR para ver el cambio completo.",
+  "boundary.editChange.unavailable": "El contenido de la edición no está disponible aquí — abre el PR para revisar el cambio.",
+  "boundary.editChange.viewPr": "Ver PR",
   "acceptance.zone.machineAllPass": "Todas las {count} aprobadas",
   "acceptance.zone.machineSummary": "{passed} aprobadas · {failed} fallidas"
 }
