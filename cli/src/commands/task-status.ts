@@ -46,6 +46,11 @@ export interface TaskStatusResponse {
     evidenceRequired: boolean
     source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
     addedAtRound: number
+    /** The latest verdict predates the criterion's last edit (LUM-457). */
+    verdictStale: boolean
+    /** A MACHINE pass whose evidence ran a different command than the current
+     *  checkpointer (LUM-457). */
+    checkMismatch: boolean
     latestVerdict: {
       round: number
       verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
@@ -149,6 +154,13 @@ export function formatTaskStatus(
         ? ` · ${sanitizeField(v.evidencePointer)}`
         : ''
       lines.push(`      ✓ ${v.verdict}@r${v.round}${evidencePart}`)
+      // LUM-457: a pass that vouches for a pre-edit version of the criterion —
+      // render-only downgrade, the criterion still counts met.
+      if (c.verdictStale || c.checkMismatch) {
+        lines.push(
+          '      ⚠ pre-edit version — criterion changed since this check; re-run `lumo verify` to re-confirm'
+        )
+      }
     }
   }
 

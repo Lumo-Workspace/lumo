@@ -72,6 +72,8 @@ function machine(id: string, statement: string, latestVerdict: unknown) {
     // (LUM-456): machinePassed tracks the latest MACHINE verdict being a PASS.
     machinePassed:
       (latestVerdict as { verdict?: string } | null)?.verdict === 'PASS',
+    verdictStale: false,
+    checkMismatch: false,
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
@@ -87,6 +89,8 @@ function humanRow(id: string, statement: string) {
     source: 'HUMAN_EDIT',
     addedAtRound: 0,
     latestVerdict: null,
+    verdictStale: false,
+    checkMismatch: false,
     changeState: null,
     changedAtRound: null,
     lastEdit: null,

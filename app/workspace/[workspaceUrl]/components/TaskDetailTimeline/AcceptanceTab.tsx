@@ -651,6 +651,10 @@ function CriterionRow({
   // unjudged or HUMAN row gets the prominent pass / send-back controls.
   const machinePassed = c.verifierType === 'MACHINE' && isPass(v?.verdict)
   const hasEditDisclosure = c.changeState === 'edited' && !!c.lastEdit
+  // LUM-457: a PASS that vouches for a pre-edit version — the criterion changed
+  // after this verdict, or its machine evidence ran a different command than the
+  // current checkpointer. Render-only downgrade; the criterion still counts met.
+  const stalePass = isPass(v?.verdict) && (c.verdictStale || c.checkMismatch)
 
   return (
     <div className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'>
@@ -724,6 +728,24 @@ function CriterionRow({
           <span className={`rounded-sm px-1.5 py-0.5 font-medium ${badge.cls}`}>
             {badge.label}
           </span>
+          {/* LUM-457 — downgrade marker: a pass against a pre-edit version. */}
+          {stalePass ? (
+            <span
+              data-testid='stale-marker'
+              title={intl.formatMessage({
+                id: 'acceptance.criterion.staleHint',
+                defaultMessage:
+                  'Criterion changed since this check — re-run lumo verify to re-confirm',
+              })}
+              className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle border border-warning-border px-1.5 py-0.5 font-medium text-foreground'
+            >
+              <AlertTriangle className='size-3' aria-hidden />
+              {intl.formatMessage({
+                id: 'acceptance.criterion.staleVerdict',
+                defaultMessage: 'Passed · pre-edit version',
+              })}
+            </span>
+          ) : null}
           <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
             {c.verifierType}
           </span>
@@ -851,6 +873,16 @@ function CriterionRow({
             </div>
           ) : null}
         </div>
+        {/* LUM-457 — visible re-run hint for a stale / mismatched pass. */}
+        {stalePass ? (
+          <div className='mt-1 text-[11px] text-warning break-words'>
+            {intl.formatMessage({
+              id: 'acceptance.criterion.staleHint',
+              defaultMessage:
+                'Criterion changed since this check — re-run lumo verify to re-confirm',
+            })}
+          </div>
+        ) : null}
         {confirmDelete ? (
           <div className='mt-1.5 flex items-center gap-2 rounded-md border border-danger-border bg-danger-subtle px-2 py-1 text-[11px]'>
             <span className='text-danger'>
@@ -930,11 +962,22 @@ function CriterionRow({
               </div>
             ) : v?.evidencePointer ? (
               <div className='break-all'>{v.evidencePointer}</div>
+            ) : isPass(v?.verdict) ? (
+              // A pass carrying no machine evidence is a human override, not a
+              // machine run — say so instead of the ambiguous "not yet run"
+              // that read as "this check never ran" next to a PASS (LUM-457).
+              <div className='text-muted-foreground/60'>
+                {intl.formatMessage({
+                  id: 'acceptance.check.overrideNoRun',
+                  defaultMessage:
+                    'No machine check ran — passed by human override',
+                })}
+              </div>
             ) : (
               <div className='text-muted-foreground/60'>
                 {intl.formatMessage({
                   id: 'acceptance.check.none',
-                  defaultMessage: 'not yet run',
+                  defaultMessage: 'Machine check not yet run',
                 })}
               </div>
             )}
