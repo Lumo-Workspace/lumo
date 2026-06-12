@@ -700,11 +700,24 @@ export interface TaskStatusCriterionView {
   source: CriterionSource
   addedAtRound: number
   latestVerdict: CriterionLatestVerdictView | null
+  /** Whether a checkpointer currently vouches for this criterion — true only for
+   *  a MACHINE criterion whose latest MACHINE verdict is a PASS (LUM-456). A
+   *  passing MACHINE criterion with this false is carried by a human override;
+   *  HUMAN criteria are always false. */
+  machinePassed: boolean
   /** Whether this active criterion entered or was reworded after work started
    *  (LUM-437). 'edited' wins over 'added'; null = original untouched draft. */
   changeState: 'added' | 'edited' | null
   changedAtRound: number | null
   lastEdit: { before: string; after: string } | null
+}
+
+/** Honest machine-verification rollup over the active MACHINE criteria
+ *  (LUM-456): genuine checkpointer passes vs human overrides. */
+export interface MachineVerificationSummaryView {
+  total: number
+  machineVerified: number
+  humanOverridden: number
 }
 
 /** A criterion removed (soft-deleted) from the contract after work started,
@@ -740,6 +753,9 @@ export interface TaskAcceptanceStatusView {
   maxRounds: number
   escalated: boolean
   criteria: TaskStatusCriterionView[]
+  /** Honest machine-verification rollup — genuine checkpointer passes vs human
+   *  overrides over the active MACHINE criteria (LUM-456). */
+  machineVerification: MachineVerificationSummaryView
   /** Criteria removed from the contract after work started (LUM-437). */
   removedCriteria: RemovedCriterionView[]
   verificationHistory: VerificationHistoryRoundView[]

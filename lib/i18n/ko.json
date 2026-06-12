@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "PR 보기",
   "boundary.editChange.noPr": "연결된 PR 없음",
   "boundary.editChange.turnIntent": "이번 턴에서 에이전트의 의도:",
-  "acceptance.zone.machineAllPass": "{count}개 모두 통과",
-  "acceptance.zone.machineSummary": "{passed}개 통과 · {failed}개 실패",
+  "acceptance.zone.machineAllPass": "{count}개 모두 머신 검증됨",
   "task.verdict.blocked.headline": "{count, plural, one {경계 위반 #건이 완료를 차단합니다} other {경계 위반 #건이 완료를 차단합니다}}",
   "task.verdict.blocked.action": "담당자가 아래 각 항목을 오탐 또는 확인됨으로 처리하거나, 이 워크스페이스의 게이트를 열어야 합니다.",
-  "task.verdict.blocked.viewCrossings": "아래 경계 위반 검토"
+  "task.verdict.blocked.viewCrossings": "아래 경계 위반 검토",
+  "acceptance.zone.machineVerifiedCount": "{count}개 머신 검증됨",
+  "acceptance.zone.machineOverrideCount": "{count}개 사람 재정의",
+  "acceptance.zone.machineFailedCount": "{count}개 실패",
+  "acceptance.verdict.overrideWarning": "이 검사의 체크포인터가 통과하지 않았습니다 — 통과 처리하면 머신 검증이 아니라 사람 재정의로 기록됩니다.",
+  "acceptance.verdict.overrideConfirm": "그래도 재정의"
 }

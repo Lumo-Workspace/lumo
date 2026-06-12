@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "PR を表示",
   "boundary.editChange.noPr": "リンクされた PR はありません",
   "boundary.editChange.turnIntent": "このターンでのエージェントの意図:",
-  "acceptance.zone.machineAllPass": "{count} 件すべて合格",
-  "acceptance.zone.machineSummary": "{passed} 件合格 · {failed} 件不合格",
+  "acceptance.zone.machineAllPass": "{count} 件すべてマシン検証済み",
   "task.verdict.blocked.headline": "{count, plural, one {境界違反が #件あり「完了」に進めません} other {境界違反が #件あり「完了」に進めません}}",
   "task.verdict.blocked.action": "担当者が下の各項目を「誤検知」または「確認済み」として処理するか、このワークスペースのゲートを開く必要があります。",
-  "task.verdict.blocked.viewCrossings": "下の境界違反を確認"
+  "task.verdict.blocked.viewCrossings": "下の境界違反を確認",
+  "acceptance.zone.machineVerifiedCount": "{count} 件マシン検証済み",
+  "acceptance.zone.machineOverrideCount": "{count} 件人間による上書き",
+  "acceptance.zone.machineFailedCount": "{count} 件不合格",
+  "acceptance.verdict.overrideWarning": "このチェックのチェックポインターは合格していません。合格にすると、マシン検証ではなく人間による上書きとして記録されます。",
+  "acceptance.verdict.overrideConfirm": "それでも上書き"
 }

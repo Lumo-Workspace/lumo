@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "Lihat PR",
   "boundary.editChange.noPr": "Tiada PR berpaut",
   "boundary.editChange.turnIntent": "Niat ejen pada giliran ini:",
-  "acceptance.zone.machineAllPass": "Semua {count} lulus",
-  "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal",
+  "acceptance.zone.machineAllPass": "Semua {count} disahkan mesin",
   "task.verdict.blocked.headline": "{count, plural, one {# pelanggaran sempadan menyekat Done} other {# pelanggaran sempadan menyekat Done}}",
   "task.verdict.blocked.action": "Seseorang mesti melupuskan setiap satu di bawah — sebagai positif palsu atau disahkan — atau buka pintu pagar untuk ruang kerja ini.",
-  "task.verdict.blocked.viewCrossings": "Semak pelanggaran sempadan di bawah"
+  "task.verdict.blocked.viewCrossings": "Semak pelanggaran sempadan di bawah",
+  "acceptance.zone.machineVerifiedCount": "{count} disahkan mesin",
+  "acceptance.zone.machineOverrideCount": "{count} pengatasan manusia",
+  "acceptance.zone.machineFailedCount": "{count} gagal",
+  "acceptance.verdict.overrideWarning": "Checkpointer pemeriksaan ini belum lulus — meluluskannya merekod pengatasan manusia, bukan pengesahan mesin.",
+  "acceptance.verdict.overrideConfirm": "Atasi juga"
 }

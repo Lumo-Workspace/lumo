@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "Открыть PR",
   "boundary.editChange.noPr": "Нет связанного PR",
   "boundary.editChange.turnIntent": "Намерение агента на этом шаге:",
-  "acceptance.zone.machineAllPass": "Все {count} пройдены",
-  "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено",
+  "acceptance.zone.machineAllPass": "Все {count} проверены машиной",
   "task.verdict.blocked.headline": "{count, plural, one {# нарушение границы блокирует «Готово»} few {# нарушения границы блокируют «Готово»} many {# нарушений границы блокируют «Готово»} other {# нарушения границы блокируют «Готово»}}",
   "task.verdict.blocked.action": "Человек должен обработать каждое ниже — как ложное срабатывание или подтверждённое — или открыть шлюз для этого рабочего пространства.",
-  "task.verdict.blocked.viewCrossings": "Посмотреть нарушения ниже"
+  "task.verdict.blocked.viewCrossings": "Посмотреть нарушения ниже",
+  "acceptance.zone.machineVerifiedCount": "{count} проверено машиной",
+  "acceptance.zone.machineOverrideCount": "{count} ручное переопределение",
+  "acceptance.zone.machineFailedCount": "{count} не пройдено",
+  "acceptance.verdict.overrideWarning": "Чекпойнтер этой проверки не пройден — отметка «пройдено» фиксируется как ручное переопределение, а не машинная проверка.",
+  "acceptance.verdict.overrideConfirm": "Всё равно переопределить"
 }

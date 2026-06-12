@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "查看 PR",
   "boundary.editChange.noPr": "無關聯 PR",
   "boundary.editChange.turnIntent": "本輪 agent 的意圖:",
-  "acceptance.zone.machineAllPass": "全部 {count} 項通過",
-  "acceptance.zone.machineSummary": "{passed} 通過 · {failed} 失敗",
+  "acceptance.zone.machineAllPass": "全部 {count} 項機器驗證通過",
   "task.verdict.blocked.headline": "{count, plural, other {# 個未處置越界正在阻擋「已完成」}}",
   "task.verdict.blocked.action": "須由人工逐條處置下方越界——標為誤報或確認——或為此工作區開啟閘門。",
-  "task.verdict.blocked.viewCrossings": "檢視下方越界"
+  "task.verdict.blocked.viewCrossings": "檢視下方越界",
+  "acceptance.zone.machineVerifiedCount": "{count} 項機器驗證",
+  "acceptance.zone.machineOverrideCount": "{count} 項人工覆寫",
+  "acceptance.zone.machineFailedCount": "{count} 項失敗",
+  "acceptance.verdict.overrideWarning": "此檢查的 checkpointer 尚未通過——放行將記為人工覆寫，而非機器驗證。",
+  "acceptance.verdict.overrideConfirm": "仍然覆寫"
 }

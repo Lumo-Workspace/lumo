@@ -98,8 +98,44 @@ export function deriveAllPassRoundTaskIds(
   return taskIds
 }
 
+/**
+ * Criterion ids whose latest MACHINE-authored verdict is a PASS — i.e. an
+ * actual checkpointer run currently vouches for them, as distinct from a human
+ * override (LUM-456). This walks ONLY the MACHINE rows, so a later human PASS
+ * (a redundant sign-off, or a manual override) never inflates the set: machine
+ * verification can only ever be claimed by a checkpointer that produced it.
+ *
+ * Rows must be oldest-first (round asc, then createdAt asc) — the same order
+ * {@link verificationRunRepository.listByTask} returns — so the last MACHINE row
+ * per criterion is its current machine state. A criterion with no MACHINE run,
+ * or whose latest MACHINE run FAILed, is absent. Exported standalone so the
+ * status read model (honest "machine verified" rollup) and the human-verdict
+ * fan-out (a bulk PASS must not silently override an un-machine-passed MACHINE
+ * criterion) provably share one definition, and so tests can pin it with no DB.
+ */
+export function deriveMachinePassedCriteria(
+  rows: Array<
+    Pick<VerificationRunRow, 'criterionId' | 'verifierType' | 'verdict'>
+  >
+): Set<string> {
+  // Last MACHINE verdict per criterion wins (rows are oldest-first).
+  const latestMachinePass = new Map<string, boolean>()
+  for (const row of rows) {
+    if (row.verifierType !== 'MACHINE') continue
+    latestMachinePass.set(row.criterionId, isPassVerdict(row.verdict))
+  }
+  const passed = new Set<string>()
+  for (const [criterionId, pass] of latestMachinePass) {
+    if (pass) passed.add(criterionId)
+  }
+  return passed
+}
+
 export const verificationRunRepository = {
-  async create(input: CreateVerificationRunInput, tx?: Prisma.TransactionClient) {
+  async create(
+    input: CreateVerificationRunInput,
+    tx?: Prisma.TransactionClient
+  ) {
     const client = tx ?? prisma
     return client.verificationRun.create({
       data: toCreateData(input),
@@ -201,6 +237,27 @@ export const verificationRunRepository = {
     return deriveAllPassRoundTaskIds(rows)
   },
 
+  /**
+   * Criterion ids whose latest MACHINE-authored verdict is a PASS — a
+   * checkpointer currently vouches for them (LUM-456). Derived from the
+   * append-only log via {@link deriveMachinePassedCriteria}; the human-verdict
+   * fan-out uses it to refuse silently passing an un-machine-passed MACHINE
+   * criterion, and the status read model uses the same pure derivation to keep
+   * its "machine verified" rollup honest.
+   */
+  async machinePassedCriteria(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    const client = tx ?? prisma
+    const rows = await client.verificationRun.findMany({
+      where: { taskId },
+      orderBy: [{ round: 'asc' }, { createdAt: 'asc' }],
+      select: { criterionId: true, verifierType: true, verdict: true },
+    })
+    return deriveMachinePassedCriteria(rows)
+  },
+
   /** Single-task convenience over {@link taskIdsWithAllPassRound} — the
    * task→DONE immediate stamp path. Same derivation by construction. */
   async hasAllPassRound(
@@ -209,5 +266,29 @@ export const verificationRunRepository = {
   ): Promise<boolean> {
     const ids = await this.taskIdsWithAllPassRound([taskId], tx)
     return ids.has(taskId)
+  },
+
+  /**
+   * Of the given criterion ids, the subset that has ever recorded a PASS in ANY
+   * round (PASS_WITH_FOLLOWUP counts — LUM-449 authoring gate). Used by the
+   * TEST_TAMPERING detector to tell test authoring (criterion never green) from
+   * weakening a green check; mirrors the LUM-438 `everPassed` refinement of the
+   * sibling drift detector. Indexed by `criterionId`; a read.
+   */
+  async criterionIdsEverPassed(
+    criterionIds: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (criterionIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.verificationRun.findMany({
+      where: {
+        criterionId: { in: criterionIds },
+        verdict: { in: ['PASS', 'PASS_WITH_FOLLOWUP'] },
+      },
+      select: { criterionId: true },
+      distinct: ['criterionId'],
+    })
+    return new Set(rows.map(r => r.criterionId))
   },
 }

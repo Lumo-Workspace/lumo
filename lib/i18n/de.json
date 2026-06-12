@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "PR öffnen",
   "boundary.editChange.noPr": "Kein verknüpfter PR",
   "boundary.editChange.turnIntent": "Absicht des Agenten in dieser Runde:",
-  "acceptance.zone.machineAllPass": "Alle {count} bestanden",
-  "acceptance.zone.machineSummary": "{passed} bestanden · {failed} fehlgeschlagen",
+  "acceptance.zone.machineAllPass": "Alle {count} maschinell verifiziert",
   "task.verdict.blocked.headline": "{count, plural, one {# Grenzüberschreitung blockiert „Erledigt“} other {# Grenzüberschreitungen blockieren „Erledigt“}}",
   "task.verdict.blocked.action": "Eine Person muss jede unten einordnen – als Fehlalarm oder bestätigt – oder das Gate für diesen Workspace öffnen.",
-  "task.verdict.blocked.viewCrossings": "Grenzüberschreitungen unten ansehen"
+  "task.verdict.blocked.viewCrossings": "Grenzüberschreitungen unten ansehen",
+  "acceptance.zone.machineVerifiedCount": "{count} maschinell verifiziert",
+  "acceptance.zone.machineOverrideCount": "{count} manuell überschrieben",
+  "acceptance.zone.machineFailedCount": "{count} fehlgeschlagen",
+  "acceptance.verdict.overrideWarning": "Der Checkpointer dieser Prüfung war nicht erfolgreich – ein Bestehen wird als manuelle Überschreibung erfasst, nicht als maschinelle Verifizierung.",
+  "acceptance.verdict.overrideConfirm": "Trotzdem überschreiben"
 }

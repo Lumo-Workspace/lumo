@@ -1,5 +1,34 @@
 // Mock react-intl: return the (interpolated) defaultMessage so assertions can
 // match real visible tab labels.
+
+const mockNav: {
+  push: jest.Mock
+  replace: jest.Mock
+  pathname: string
+  tab: string[] | undefined
+} = {
+  push: jest.fn(),
+  replace: jest.fn(),
+  pathname: '/workspace/acme/my-tasks/LUM-1',
+  tab: undefined,
+}
+// A stable router singleton: useRouter() must return the same object reference
+// on every render so it doesn't appear in the effect's dep-change set and cause
+// a spurious second fire after setActiveTab triggers a re-render.
+const stableRouter = {
+  get push() {
+    return mockNav.push
+  },
+  get replace() {
+    return mockNav.replace
+  },
+}
+jest.mock('next/navigation', () => ({
+  useRouter: () => stableRouter,
+  usePathname: () => mockNav.pathname,
+  useParams: () => ({ tab: mockNav.tab }),
+}))
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: (
@@ -135,7 +164,11 @@ function setPresence({
   })
 }
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockNav.pathname = '/workspace/acme/my-tasks/LUM-1'
+  mockNav.tab = undefined
+})
 
 describe('TimelineTabs tab visibility', () => {
   it('hides Agent Run / Memory / Lineage when all three are empty', () => {
@@ -182,7 +215,12 @@ describe('TimelineTabs tab visibility', () => {
   })
 
   it('hides the Acceptance tab when the task has no criteria', () => {
-    setPresence({ agent: false, memory: false, lineage: false, criteria: false })
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: false,
+    })
     render(<TimelineTabs {...baseProps} />)
     expect(screen.queryByRole('button', { name: '验收' })).toBeNull()
   })
@@ -274,5 +312,61 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
     expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
+  })
+})
+
+describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
+  it('renders the tab named by the URL path segment', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+    })
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
+    mockNav.tab = ['acceptance']
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.getByTestId('panel-acceptance')).toBeInTheDocument()
+  })
+
+  it('falls back to Comments and normalizes the URL when the segment targets a hidden tab', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: false,
+    })
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
+    mockNav.tab = ['acceptance']
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
+    expect(mockNav.replace).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1',
+      { scroll: false }
+    )
+    expect(mockNav.replace).toHaveBeenCalledTimes(1)
+  })
+
+  it('pushes the tab path and switches panel on click', () => {
+    setPresence({ agent: false, memory: false, lineage: true })
+    render(<TimelineTabs {...baseProps} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Lineage' }))
+    expect(mockNav.push).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1/lineage',
+      { scroll: false }
+    )
+    expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
+  })
+
+  it('pushes the bare task URL (no segment) when selecting Comments', () => {
+    setPresence({ agent: false, memory: false, lineage: false })
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/activity'
+    mockNav.tab = ['activity']
+    render(<TimelineTabs {...baseProps} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Comments' }))
+    expect(mockNav.push).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1',
+      { scroll: false }
+    )
   })
 })

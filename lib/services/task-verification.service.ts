@@ -5,6 +5,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import {
   verificationRunRepository,
   isPassVerdict,
+  deriveMachinePassedCriteria,
   type CreateVerificationRunInput,
   type VerificationRunRow,
 } from '@/lib/repositories/verification-run.repository'
@@ -94,6 +95,12 @@ export interface TaskStatusCriterion {
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
   latestVerdict: CriterionLatestVerdict | null
+  /** Whether a checkpointer currently vouches for this criterion — true only
+   *  for a MACHINE criterion whose latest MACHINE-authored verdict is a PASS
+   *  (LUM-456). A passing MACHINE criterion with this false is being carried by
+   *  a human override, never by a machine run; HUMAN criteria are always false.
+   *  Derived from the existing log, no schema change. */
+  machinePassed: boolean
   /** Whether this active criterion entered or was reworded after work started
    *  (LUM-437). 'edited' wins over 'added' when both apply; null = part of the
    *  original round-0 draft, untouched since. */
@@ -133,6 +140,24 @@ export interface VerificationHistoryRound {
   }>
 }
 
+/**
+ * Honest machine-verification rollup over the active MACHINE criteria (LUM-456).
+ * `machineVerified` counts ONLY criteria a checkpointer actually passed and that
+ * are still passing — so the summary never claims machine verification that no
+ * checkpointer produced. A MACHINE criterion currently passing on a human
+ * override (no current machine pass) lands in `humanOverridden`, not
+ * `machineVerified`. The two passing buckets are disjoint; `total` minus both is
+ * the count of MACHINE criteria not currently passing.
+ */
+export interface MachineVerificationSummary {
+  /** Active MACHINE criteria on the contract. */
+  total: number
+  /** MACHINE criteria a checkpointer passed and that are still passing. */
+  machineVerified: number
+  /** MACHINE criteria currently passing only via a human override. */
+  humanOverridden: number
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -142,6 +167,9 @@ export interface TaskAcceptanceStatus {
   /** True when the machine loop is exhausted (cap reached with failures). */
   escalated: boolean
   criteria: TaskStatusCriterion[]
+  /** Honest machine-verification rollup — genuine checkpointer passes vs human
+   *  overrides over the active MACHINE criteria (LUM-456). */
+  machineVerification: MachineVerificationSummary
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -537,6 +565,27 @@ export const taskVerificationService = {
       c => !isPassVerdict(latestByCriterion.get(c.id)?.verdict)
     )
 
+    // LUM-456: a MACHINE criterion is genuinely machine-verified only when an
+    // actual checkpointer run passed it (its latest MACHINE-authored verdict is
+    // a PASS) — single source shared with the human-verdict fan-out. A passing
+    // MACHINE criterion absent from this set is being carried by a human
+    // override, and is counted as such so the rollup never impersonates machine
+    // verification.
+    const machinePassedSet = deriveMachinePassedCriteria(runs)
+    const machineActive = criteria.filter(c => c.verifierType === 'MACHINE')
+    let machineVerified = 0
+    let humanOverridden = 0
+    for (const c of machineActive) {
+      if (!isPassVerdict(latestByCriterion.get(c.id)?.verdict)) continue
+      if (machinePassedSet.has(c.id)) machineVerified++
+      else humanOverridden++
+    }
+    const machineVerification: MachineVerificationSummary = {
+      total: machineActive.length,
+      machineVerified,
+      humanOverridden,
+    }
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -598,6 +647,7 @@ export const taskVerificationService = {
           source: c.source,
           addedAtRound: c.addedAtRound,
           latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),
+          machinePassed: machinePassedSet.has(c.id),
           changeState,
           changedAtRound: edited ? edit!.round : added ? c.addedAtRound : null,
           lastEdit: edited
@@ -605,6 +655,7 @@ export const taskVerificationService = {
             : null,
         }
       }),
+      machineVerification,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

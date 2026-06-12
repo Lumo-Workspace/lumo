@@ -177,6 +177,17 @@ shared board requires an interactive `y`, so `--yes` (and non-TTY) prints the
 suggestion and moves on rather than silently flipping board state. When there's
 nothing to prompt, the section prints "(no content)".
 
+**After the panel — open-crossings reminder (LUM-448).** Once the four sections
+finish, `session wrap` prints a one-shot read-only reminder **if** the bound
+task has ≥1 OPEN (undispositioned) boundary crossing: `⚠ N open boundary
+crossing(s) on LUM-N still undispositioned:` then a line per crossing `• [SEVERITY]
+CATEGORY` and a web pointer. When there are none — or the session is unbound —
+it prints **nothing** (truly silent, not a "(no content)" line), so a clean task
+adds no wrap-up noise. **Awareness only:** it points at the web acceptance panel;
+there is **no CLI path** to disposition or clear a crossing. Disposition stays
+web + human-only (LUM-426/435/422) — an agent/CLI bearer cannot clear its own
+crossing from the terminal.
+
 ```bash
 lumo session wrap                  # interactive: preview each section, choose per-section
 lumo session wrap --yes            # progress posted + memories kept; blocked tag NOT auto-applied (needs interactive y)
