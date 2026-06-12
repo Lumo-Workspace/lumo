@@ -59,6 +59,7 @@ const OPEN = {
   detail: 'git push origin main --force',
   detectedAt: '2026-06-11T00:00:00.000Z',
   reversible: false,
+  severity: 'MEDIUM',
   disposition: null,
   dispositionNote: null,
   dispositionedAt: null,
@@ -97,6 +98,18 @@ describe('BoundaryCrossingsPanel', () => {
     expect(screen.getByTestId('boundary-confirm-bc-open')).toBeInTheDocument()
     // human-only redline marker
     expect(screen.getByText(/agent\/CLI path is closed/)).toBeInTheDocument()
+    // severity tier is legible (LUM-442)…
+    expect(screen.getByText('medium severity')).toBeInTheDocument()
+    // …and the defense-in-depth limitation is surfaced so the signal isn't over-trusted.
+    expect(
+      screen.getByText(/Defense-in-depth, not a hard boundary/)
+    ).toBeInTheDocument()
+  })
+
+  it('surfaces a HIGH-severity crossing prominently (LUM-442)', () => {
+    setCrossings([{ ...OPEN, id: 'bc-high', severity: 'HIGH' }])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-442' enabled />)
+    expect(screen.getByText('high severity')).toBeInTheDocument()
   })
 
   it('confirming drives the human-only write and refreshes both views', async () => {

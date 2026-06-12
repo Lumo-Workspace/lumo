@@ -145,6 +145,43 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
     )
   })
 
+  it('a HIGH-severity open crossing forces the gate even when the workspace opted out (LUM-442)', async () => {
+    findOpen.mockResolvedValue([
+      {
+        id: 'bc-high',
+        taskId: 't-1',
+        category: 'HARDCODED_SECRET',
+        detail: 'AWS key leaked',
+        severity: 'HIGH',
+      },
+    ])
+    // Opted OUT — yet a HIGH crossing still blocks (the opt-out is a noise
+    // escape hatch, not a licence to ship the most dangerous actions unreviewed).
+    gateEnabled.mockResolvedValue(false)
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+      status: 409,
+    })
+
+    // Still clearable by a human — once dispositioned there are no open
+    // crossings, and DONE flows (it's "a human must look", not a hard wall).
+    findOpen.mockResolvedValue([])
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+  })
+
+  it('a MEDIUM/LOW open crossing still honours the opt-out (LUM-442)', async () => {
+    findOpen.mockResolvedValue([
+      {
+        id: 'bc-med',
+        taskId: 't-1',
+        category: 'PUSH_TO_PROTECTED_BRANCH',
+        detail: 'git push origin main',
+        severity: 'MEDIUM',
+      },
+    ])
+    gateEnabled.mockResolvedValue(false)
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+  })
+
   it('short-circuits free when there are no open crossings (never reads the toggle)', async () => {
     findOpen.mockResolvedValue([])
     await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()

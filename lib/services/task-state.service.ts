@@ -84,6 +84,13 @@ async function assertNoUnresolvedSendBack(taskId: string): Promise<void> {
  * LUM-435: "open" now means undispositioned. Either disposition a human records
  * — FALSE_POSITIVE (not actually a crossing) or CONFIRMED (a real one, owned) —
  * clears the gate; the function name is unchanged for continuity.
+ *
+ * LUM-442: a HIGH-severity open crossing (secret leak, destructive DB, public
+ * exfiltration, cloud-data deletion, infra termination, or an evasion-decoded
+ * action) forces this block even where the workspace opted the gate out — the
+ * opt-out is an escape hatch for noise, not a licence to ship the most
+ * dangerous actions unreviewed. It stays clearable by a human disposition
+ * (FALSE_POSITIVE included), so it's "a human must look", never a hard wall.
  */
 async function assertNoUnacknowledgedBoundaryCrossings(
   taskId: string,
@@ -95,7 +102,8 @@ async function assertNoUnacknowledgedBoundaryCrossings(
 
   const enabled =
     await boundaryCrossingRepository.isGateEnabledForWorkspace(workspaceId)
-  if (!enabled) return
+  const hasHigh = open.some(c => c.severity === 'HIGH')
+  if (!enabled && !hasHigh) return
 
   const items = open.map(c => `• ${c.detail} (${c.category})`).join('\n')
   throw Object.assign(

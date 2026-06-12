@@ -15,6 +15,7 @@ import {
   Plus,
   UserCheck,
   ExternalLink,
+  Info,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import {
@@ -26,6 +27,7 @@ import {
   boundaryCategoryLabel,
   boundaryDispositionLabel,
   boundaryReversibilityLabel,
+  boundarySeverityLabel,
 } from './boundary-format'
 
 interface BoundaryCrossingsPanelProps {
@@ -205,6 +207,17 @@ export function BoundaryCrossingsPanel({
             'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
         })}
       </p>
+
+      <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
+        <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+        <span>
+          {intl.formatMessage({
+            id: 'boundary.panel.defenseInDepth',
+            defaultMessage:
+              'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
+          })}
+        </span>
+      </p>
     </div>
   )
 }
@@ -239,6 +252,23 @@ function CrossingRow({
         <span className='text-[13px] font-medium text-foreground'>
           {boundaryCategoryLabel(c.category, intl)}
         </span>
+        <Badge
+          tone={
+            c.severity === 'HIGH'
+              ? 'danger'
+              : c.severity === 'LOW'
+                ? 'muted'
+                : 'warning'
+          }
+        >
+          {intl.formatMessage(
+            {
+              id: 'boundary.panel.severityBadge',
+              defaultMessage: '{severity} severity',
+            },
+            { severity: boundarySeverityLabel(c.severity, intl) }
+          )}
+        </Badge>
         {c.disposition === 'CONFIRMED' && (
           <Badge tone='warning'>
             {boundaryDispositionLabel('CONFIRMED', intl)}
@@ -286,6 +316,22 @@ function CrossingRow({
       <code className='mt-1.5 block overflow-x-auto whitespace-nowrap rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground'>
         {c.detail}
       </code>
+
+      {c.category === 'TEST_TAMPERING' && open && (
+        <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+          <ShieldAlert
+            className='mt-0.5 size-3.5 shrink-0 text-warning'
+            aria-hidden
+          />
+          <span>
+            {intl.formatMessage({
+              id: 'boundary.panel.testTamperingHint',
+              defaultMessage:
+                'Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.',
+            })}
+          </span>
+        </p>
+      )}
 
       {c.dispositionNote && (
         <p className='mt-1.5 text-[11px] text-muted-foreground'>
