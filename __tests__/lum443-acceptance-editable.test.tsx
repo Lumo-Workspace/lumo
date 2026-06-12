@@ -187,4 +187,19 @@ describe('AcceptanceTab editable contract human zone', () => {
       verifierType: 'HUMAN',
     })
   })
+
+  it('AcceptanceTab editable contract human zone — save failure keeps edit open and shows error', async () => {
+    reviseCriteria.mockRejectedValueOnce(new Error('network error'))
+    mockStatusSet(statusView())
+    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    fireEvent.click(screen.getByLabelText('Edit criterion'))
+    const ta = screen.getByDisplayValue('UX feels right')
+    fireEvent.change(ta, { target: { value: 'UX feels great' } })
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't save — try again")).toBeInTheDocument()
+    )
+    // edit panel still open — textarea still visible
+    expect(screen.getByDisplayValue('UX feels great')).toBeInTheDocument()
+  })
 })

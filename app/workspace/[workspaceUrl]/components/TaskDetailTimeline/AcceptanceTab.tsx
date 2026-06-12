@@ -544,7 +544,7 @@ function CriterionRow({
   submitting: boolean
   onVerdict: SubmitVerdict
   editable?: boolean
-  onSaveStatement?: (id: string, statement: string) => void
+  onSaveStatement?: (id: string, statement: string) => void | Promise<unknown>
   onDelete?: (id: string) => void
   mutating?: boolean
 }) {
@@ -554,6 +554,7 @@ function CriterionRow({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(c.statement)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saveError, setSaveError] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
   const exitCode = parseExitCode(v?.evidencePointer)
@@ -579,6 +580,14 @@ function CriterionRow({
               className='w-full rounded-md border border-border bg-background px-2 py-1 text-[13px]'
               rows={2}
             />
+            {saveError ? (
+              <div className='mt-0.5 text-danger text-[11px]'>
+                {intl.formatMessage({
+                  id: 'acceptance.edit.saveError',
+                  defaultMessage: "Couldn't save — try again",
+                })}
+              </div>
+            ) : null}
             <div className='mt-1 flex items-center gap-2'>
               <button
                 type='button'
@@ -587,9 +596,14 @@ function CriterionRow({
                   draft.trim() === '' ||
                   draft.trim() === c.statement
                 }
-                onClick={() => {
-                  onSaveStatement?.(c.id, draft.trim())
-                  setEditing(false)
+                onClick={async () => {
+                  setSaveError(false)
+                  try {
+                    await onSaveStatement?.(c.id, draft.trim())
+                    setEditing(false)
+                  } catch {
+                    setSaveError(true)
+                  }
                 }}
                 className='text-[11px] text-info hover:underline disabled:opacity-40'
               >
@@ -603,6 +617,7 @@ function CriterionRow({
                 onClick={() => {
                   setDraft(c.statement)
                   setEditing(false)
+                  setSaveError(false)
                 }}
                 className='text-[11px] text-muted-foreground hover:underline'
               >
@@ -940,19 +955,21 @@ export function AcceptanceTab({
   )
 
   const reviseContract = useCallback(
-    (items: CriteriaSetItemInput[]) => {
+    async (items: CriteriaSetItemInput[]) => {
       setMutating(true)
-      void tasksClient
-        .reviseCriteria(taskIdentifier, items)
-        .then(() => refresh?.())
-        .finally(() => setMutating(false))
+      try {
+        await tasksClient.reviseCriteria(taskIdentifier, items)
+        await refresh?.()
+      } finally {
+        setMutating(false)
+      }
     },
     [taskIdentifier, refresh]
   )
   const editStatement = useCallback(
     (id: string, statement: string) => {
       if (!data) return
-      reviseContract(
+      return reviseContract(
         toSetItems(data.criteria).map(i =>
           i.id === id ? { ...i, statement } : i
         )
@@ -1007,10 +1024,6 @@ export function AcceptanceTab({
     )
   }
 
-  const machineCount = data.criteria.filter(
-    c => c.verifierType === 'MACHINE'
-  ).length
-  const humanCount = data.criteria.length - machineCount
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
 
@@ -1054,8 +1067,8 @@ export function AcceptanceTab({
                 },
                 {
                   total: data.criteria.length,
-                  machine: machineCount,
-                  human: humanCount,
+                  machine: machineCriteria.length,
+                  human: humanCriteria.length,
                 }
               )}
             </span>
