@@ -270,8 +270,7 @@ export const taskCriteriaService = {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning:
-        criteria.length === 0 ? null : criteriaCountWarning(criteria.length),
+      warning: criteria.length === 0 ? null : criteriaCountWarning(criteria),
     }
   },
 
@@ -420,7 +419,7 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria.length) }
+    return { criteria, warning: criteriaCountWarning(criteria) }
   },
 
   /**
@@ -470,6 +469,6 @@ export const taskCriteriaService = {
     }
 
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    return { criteria, warning: criteriaCountWarning(criteria.length) }
+    return { criteria, warning: criteriaCountWarning(criteria) }
   },
 }

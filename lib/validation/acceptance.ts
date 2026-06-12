@@ -19,13 +19,24 @@ export const ACCEPTANCE_CRITERIA_SOFT_MAX = 7
 /**
  * Soft-cap warning for a task's criterion count, or null when within range.
  * Pure helper for the service layer (LUM-342) — by design it cannot reject.
+ *
+ * MAX counts human-judgment criteria only — machine checks run automatically
+ * and carry no human review load, so they never push the contract over cap.
+ * MIN is about total coverage, so a machine-only contract is well-specified.
  */
-export function criteriaCountWarning(count: number): string | null {
-  if (count > ACCEPTANCE_CRITERIA_SOFT_MAX) {
-    return `${count} acceptance criteria exceeds the recommended maximum of ${ACCEPTANCE_CRITERIA_SOFT_MAX} — consider folding related checks together`
+export function criteriaCountWarning(
+  criteria: ReadonlyArray<{ verifierType: 'MACHINE' | 'HUMAN' }>
+): string | null {
+  const humanCount = criteria.filter(c => c.verifierType === 'HUMAN').length
+  const total = criteria.length
+  // MAX counts human-judgment criteria only — machine checks run automatically
+  // and carry no human review load, so they never push the contract over cap.
+  if (humanCount > ACCEPTANCE_CRITERIA_SOFT_MAX) {
+    return `${humanCount} human-judgment criteria exceeds the recommended maximum of ${ACCEPTANCE_CRITERIA_SOFT_MAX} — machine checks don't count toward this; consider folding related human criteria together`
   }
-  if (count < ACCEPTANCE_CRITERIA_SOFT_MIN) {
-    return `${count} acceptance criteria is below the recommended minimum of ${ACCEPTANCE_CRITERIA_SOFT_MIN} — fine for a micro task (1–2 targeted criteria is a complete contract for single-session, small-blast-radius work); otherwise the contract may be under-specified`
+  // MIN is about total coverage, so a machine-only contract is well-specified.
+  if (total < ACCEPTANCE_CRITERIA_SOFT_MIN) {
+    return `${total} acceptance criteria is below the recommended minimum of ${ACCEPTANCE_CRITERIA_SOFT_MIN} — fine for a micro task (1–2 targeted criteria is a complete contract for single-session, small-blast-radius work); otherwise the contract may be under-specified`
   }
   return null
 }
