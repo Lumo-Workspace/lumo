@@ -107,6 +107,24 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
 })
 
 describe('bind-task route', () => {
+  beforeEach(() => {
+    jest.resetAllMocks()
+    ;(miscRepository.findMemberIdForHook as jest.Mock).mockResolvedValue('wm-1')
+    ;(taskService.resolveIdentifier as jest.Mock).mockResolvedValue({
+      id: 'task-1',
+      identifier: 'LUM-42',
+      title: 'Fix login bug',
+      status: 'TODO',
+    })
+    ;(sessionRepository.upsertWithTaskId as jest.Mock).mockResolvedValue({
+      ownedByOther: false,
+      session: { id: 's-1', taskId: 'task-1' },
+    })
+    ;(
+      hookEventRepository.bulkSetTaskIdForNullEventsInSession as jest.Mock
+    ).mockResolvedValue({ count: 0 })
+  })
+
   const params = { params: Promise.resolve({ sessionId: 's-1' }) }
   const req = (body: unknown) =>
     new Request('http://x/api/sessions/s-1/bind-task', {
