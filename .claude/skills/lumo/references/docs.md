@@ -134,7 +134,7 @@ lumo doc show cmd_xxx --section "D 状态表" > sec.md  # one section only (revi
 **`--raw` (LUM-408)** prints the byte-identical markdown source of the last markdown upload — no header, no trailing newline added. The server stores the raw markdown (`sourceMarkdown`) alongside the rendered HTML on every markdown write (`doc create/update --content/--file/stdin`, gdoc import/sync), so `--raw` output IS a legal edit base: `doc show --raw > base.md`, edit, `doc update --file base.md` round-trips losslessly.
 
 - A web-editor (HTML-direct) edit or revision restore **invalidates** the stored source — the doc's markdown source is gone until the next markdown upload.
-- When no source is stored (legacy doc or after an HTML edit), `--raw` **fails with exit 1 and a rebuild hint** — it never silently falls back to the lossy HTML→markdown reverse render (that fallback flattened tables: LUM-349). Rebuild flow: `doc show` (rendered) → reconstruct the markdown faithfully → `doc update --file rebuilt.md` → `--raw` works from then on.
+- When no source is stored (legacy doc or after an HTML edit), `--raw` **fails with exit 1 and a rebuild hint** — it never silently falls back to the lossy HTML→markdown reverse render (that fallback flattened tables: LUM-349). Rebuild flow (LUM-446): run **`lumo doc rebuild-source <doc>`** — it regenerates the source from the stored HTML with a lossless serializer (tables round-trip) and a structure guard, so `--raw` works from then on. (The old manual flow — `doc show` rendered → hand-reconstruct → `doc update --file` — flattened tables and is superseded.)
 - Raw output is verbatim (unsanitized) by design — redirect it to a file rather than reading it in a terminal when the doc's provenance is uncertain.
 
 Note: the markdown rendered by **default-mode** `doc show` is still best-effort (tables flatten). Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT a no-op — use `--raw` as the edit base instead.
@@ -156,7 +156,7 @@ Use default mode when the user wants to read a doc; use `--raw` whenever the ful
 - Before a `doc patch` — read the section with `--section` first, note the `Revision:` line, edit, patch back with `--if-revision`.
 - User asks "what's the exact source of this doc", or an agent needs a faithful local copy of a live doc.
 - User asks "what's in section X" of a long doc — `--section` avoids pulling the whole body into context.
-- If `--raw`/`--section` errors (no stored source), walk the rebuild flow above instead of editing the rendered output.
+- If `--raw`/`--section` errors (no stored source), run `lumo doc rebuild-source <doc>` to regenerate it losslessly, then retry — don't edit the rendered output.
 
 ### `lumo doc patch <doc> --section <heading>` — replace one section
 
@@ -233,6 +233,29 @@ lumo doc diff cmd_xxx --file docs/live-docs/research-intake-ledger.md
 - Before uploading a locally edited file with `doc update --file` — check whether the remote source moved since the local copy was taken (prevents stale-upload clobbering, the #460 incident class).
 - When a repo-tracked markdown source (e.g. `docs/live-docs/`) and the live doc may have drifted and the user asks which is current.
 - After a suspected concurrent edit: a clean diff (exit 0) proves remote and local are in sync.
+
+### `lumo doc rebuild-source <doc>` — regenerate the markdown source from the HTML body
+
+The **recovery path for a source-less doc** (LUM-446). When a doc has no stored `sourceMarkdown` — a web HTML-direct edit or revision restore nulled it, or the doc predates source storage — every markdown write path (`--raw`, `--section`, `doc patch`, `doc append --section`, `doc diff`) is locked. This regenerates a valid source by serializing the **stored HTML structure model** back to markdown with a **lossless serializer that round-trips tables/rows/headings** (the default `doc show` render flattens tables — LUM-349 — so it was never a safe rebuild base). Only the `sourceMarkdown` column is backfilled; the rendered body is untouched, so the doc reads identically and you just regain the edit base.
+
+| Flag                | Type    | Notes                                                                                                                    |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `--allow-shrink`    | boolean | Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: 422 reject). |
+| `--force`           | boolean | Re-derive even when a source already exists (default: 409 — protects a byte-faithful human source from a downgrade).     |
+| `--if-revision <n>` | int     | Only apply if the body is still at this revision (from `doc show`).                                                      |
+
+The rebuild is **structure-guarded** (the same LUM-410 口径 as `doc update`/`doc patch`): if the serializer would drop any table/row/heading, it is rejected with **422** rather than silently committing a flattened source — `--allow-shrink` is the explicit escape hatch. A doc that already has a source is refused **409** unless `--force`.
+
+```bash
+lumo doc rebuild-source cmd_xxx          # restore a source-less doc; --raw works after
+lumo doc rebuild-source cmd_xxx --force  # re-derive even if a source already exists
+```
+
+### When to suggest `doc rebuild-source`
+
+- A `--raw` / `--section` / `doc patch` / `doc diff` call errored with "no stored markdown source" — rebuild, then retry. This is the first thing to try, not a manual reconstruction.
+- A table-heavy live doc (e.g. a `docs/live-docs/` registry) lost its source after a web operation and the markdown write path is locked.
+- Do **not** run it on a doc that already has a good source unless the user explicitly wants to re-derive it (then pass `--force`) — it replaces the byte-faithful source with a serializer-derived one.
 
 ### `lumo doc list [flags]` — list documents
 

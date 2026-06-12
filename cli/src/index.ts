@@ -88,6 +88,7 @@ import { docSync } from './commands/doc-sync'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
 import { docDiff } from './commands/doc-diff'
+import { docRebuildSource } from './commands/doc-rebuild-source'
 import { docPatch, docAppend } from './commands/doc-section-edit'
 import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
@@ -1346,6 +1347,36 @@ doc
   .action(
     wrap((reference, opts) =>
       docDiff(reference as string | undefined, opts as { file?: string })
+    )
+  )
+
+doc
+  .command('rebuild-source <doc>')
+  .description(
+    "Regenerate the stored markdown source from the doc's HTML body using a lossless serializer (tables/rows/headings round-trip), re-enabling doc show --raw / diff / patch / append for a source-less doc. The rebuilt source is structure-guarded: any table/tr/heading shrink is rejected with 422 (no silent flattening) unless --allow-shrink is passed. A doc that already has a source is refused with 409 unless --force re-derives it (replacing a byte-faithful source with a serializer-derived one)."
+  )
+  .option(
+    '--allow-shrink',
+    'Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)'
+  )
+  .option(
+    '--force',
+    'Re-derive the source even when one already exists (default: refused with 409)'
+  )
+  .option(
+    '--if-revision <n>',
+    'Only apply if the doc body is still at this revision (from doc show)'
+  )
+  .action(
+    wrap((reference, opts) =>
+      docRebuildSource(
+        reference as string | undefined,
+        opts as {
+          allowShrink?: boolean
+          force?: boolean
+          ifRevision?: string
+        }
+      )
     )
   )
 

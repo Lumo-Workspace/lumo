@@ -11,6 +11,7 @@ import {
   type TiptapNode,
 } from '@/lib/utils/markdown-tiptap'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import { rebuildSourceMarkdown } from '@/lib/utils/doc-structure-to-markdown'
 import {
   appendToSection,
   extractSection,
@@ -914,6 +915,100 @@ export const documentService = {
       { skipStructureGuard: true }
     )
     return { ...updated, sectionHeading: resolvedHeading }
+  },
+
+  /**
+   * Rebuild a document's markdown source from its stored HTML body (LUM-446).
+   *
+   * The recovery path for a source-less doc: when `sourceMarkdown` is gone (a
+   * web HTML-direct write nulled it, or the doc predates source storage), the
+   * markdown write paths (raw/diff/section/append) are all locked and the only
+   * other route is a lossy manual reconstruction that flattens tables (LUM-349).
+   * This regenerates a valid `sourceMarkdown` with the lossless serializer and
+   * backfills ONLY that column — the rendered body (`content`) is untouched, so
+   * the doc reads identically; we just re-attach a source the edit paths can use.
+   *
+   * Guarded by the LUM-410 structure guard: if the serialized markdown would
+   * re-render with fewer tables/rows/headings than the stored body, it throws
+   * 422 instead of committing a flattened source (override with allowShrink).
+   *
+   * Refuses (409) when the doc already has a stored source unless `force` is
+   * set, so a byte-faithful human source is never silently downgraded to a
+   * serializer-derived one.
+   */
+  async rebuildDocumentSource(
+    id: string,
+    memberId: string,
+    workspaceId: string,
+    options: {
+      allowShrink?: boolean | undefined
+      force?: boolean | undefined
+      ifRevision?: number | undefined
+    } = {}
+  ) {
+    const doc = await documentRepository.findWithPermission(
+      id,
+      memberId,
+      workspaceId
+    )
+    if (!doc) {
+      throw Object.assign(new Error('Document not found'), { status: 404 })
+    }
+
+    const role = this.getUserRole(doc, memberId)
+    if (!role || role === 'VIEWER') {
+      throw Object.assign(new Error('Permission denied'), { status: 403 })
+    }
+
+    const currentRevision = (doc as { contentRevision: number }).contentRevision
+    if (
+      options.ifRevision !== undefined &&
+      options.ifRevision !== currentRevision
+    ) {
+      throw revisionConflict(options.ifRevision, currentRevision)
+    }
+
+    const existingSource = (doc as { sourceMarkdown: string | null })
+      .sourceMarkdown
+    if (existingSource != null && !options.force) {
+      throw Object.assign(
+        new Error(
+          'Document already has a stored markdown source; rebuild is for ' +
+            'source-less docs. Pass force to re-derive it from the HTML body ' +
+            '(CLI: --force) — note this replaces a byte-faithful source with a ' +
+            'serializer-derived one.'
+        ),
+        { status: 409 }
+      )
+    }
+
+    const content = (doc as { content: string | null }).content
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      throw Object.assign(
+        new Error(
+          'Document has no HTML body to rebuild a markdown source from (it is ' +
+            'empty).'
+        ),
+        { status: 422 }
+      )
+    }
+
+    // Serialize + structure guard (throws 422 on any table/tr/heading shrink).
+    const sourceMarkdown = rebuildSourceMarkdown(content, {
+      allowShrink: options.allowShrink,
+    })
+
+    // Backfill ONLY the source column: the body (content) and its revision are
+    // left exactly as they were — this restores the edit base without re-rendering.
+    const updated = await documentRepository.update(doc.id, { sourceMarkdown })
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      contentRevision: (updated as { contentRevision: number }).contentRevision,
+      sourceMarkdown,
+      sourceBytes: Buffer.byteLength(sourceMarkdown, 'utf8'),
+    }
   },
 
   /** Delete document (owner only) with recursive descendant cleanup. */

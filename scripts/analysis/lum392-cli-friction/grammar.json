@@ -364,6 +364,43 @@
       "hasSubcommands": false,
       "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed."
     },
+    "doc rebuild-source": {
+      "arguments": [
+        {
+          "name": "doc",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--allow-shrink": {
+          "long": "--allow-shrink",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)"
+        },
+        "--force": {
+          "long": "--force",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Re-derive the source even when one already exists (default: refused with 409)"
+        },
+        "--if-revision": {
+          "long": "--if-revision",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only apply if the doc body is still at this revision (from doc show)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Regenerate the stored markdown source from the doc's HTML body using a lossless serializer (tables/rows/headings round-trip), re-enabling doc show --raw / diff / patch / append for a source-less doc. The rebuilt source is structure-guarded: any table/tr/heading shrink is rejected with 422 (no silent flattening) unless --allow-shrink is passed. A doc that already has a source is refused with 409 unless --force re-derives it (replacing a byte-faithful source with a serializer-derived one)."
+    },
     "doc share": {
       "arguments": [
         {
