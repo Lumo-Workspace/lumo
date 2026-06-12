@@ -1,7 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { TaskVerdictBar } from '@/app/workspace/[workspaceUrl]/components/TaskVerdictBar'
+import { VerdictDecision } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision'
 import { tasksClient } from '@/lib/api-client'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
+import type {
+  TaskAcceptanceStatusView,
+  TaskStatusCriterionView,
+  AcceptanceVerdict,
+} from '@/app/workspace/[workspaceUrl]/types'
 // The real error class — the component imports it from this concrete module so
 // it survives the `@/lib/api-client` barrel mock below; constructing real
 // instances here keeps instanceof meaningful (LUM-453).
@@ -17,9 +22,9 @@ jest.mock('@/lib/api-client', () => ({
   tasksClient: { submitHumanVerdict: jest.fn() },
 }))
 
-// LUM-454: the bar loads the task's boundary crossings so it can render a
-// compact, deduplicated DONE-blocked notice from that data instead of dumping
-// the raw 409 string. Default: no crossings (the pre-454 error paths stand).
+// LUM-454: the decision surface loads the task's boundary crossings so it can
+// render a compact, deduplicated DONE-blocked notice from that data instead of
+// dumping the raw 409 string. Default: no crossings (the pre-454 paths stand).
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
   useBoundaryCrossings: jest.fn(() => ({ crossings: [] })),
 }))
@@ -54,6 +59,61 @@ jest.mock(
 const submit = tasksClient.submitHumanVerdict as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
 
+let seq = 0
+
+// Mirror the verdict-status.test.ts fixture: a minimal but type-complete
+// criterion + status view so deriveVerdictStatus / the banner have real data.
+const crit = (
+  v: AcceptanceVerdict | null,
+  verifier: 'MACHINE' | 'HUMAN' = 'MACHINE'
+): TaskStatusCriterionView =>
+  ({
+    id: `c-${seq++}`,
+    statement: 's',
+    verifierType: verifier,
+    checkpointer: verifier === 'MACHINE' ? 'cmd:test' : null,
+    evidenceRequired: false,
+    judgeSteps: null,
+    source: 'AGENT_DRAFT',
+    addedAtRound: 0,
+    latestVerdict: v
+      ? {
+          round: 1,
+          verdict: v,
+          verifierType: verifier,
+          evidencePointer: null,
+          rejectionReason: null,
+          rejectionReasonEnum: null,
+          recordedAt: 'now',
+        }
+      : null,
+    machinePassed: v === 'PASS' && verifier === 'MACHINE',
+    verdictStale: false,
+    checkMismatch: false,
+    changeState: null,
+    changedAtRound: null,
+    lastEdit: null,
+  }) as TaskStatusCriterionView
+
+function baseData(
+  status: string,
+  criteria: TaskStatusCriterionView[] = [crit('PASS')]
+): TaskAcceptanceStatusView {
+  return {
+    version: 1,
+    task: { id: 't', identifier: 'LUM-7', title: 'x', status },
+    currentRound: 1,
+    maxRounds: 5,
+    escalated: false,
+    machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
+    removedCriteria: [],
+    verificationHistory: [],
+    lastRoundFailures: [],
+    nextActions: [],
+    criteria,
+  } as unknown as TaskAcceptanceStatusView
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockVerdictParam = null
@@ -65,53 +125,35 @@ beforeEach(() => {
   })
 })
 
-describe('TaskVerdictBar', () => {
-  it('criteria gate (LUM-431): hidden for an IN_REVIEW task with no criteria, shown with criteria', () => {
+describe('VerdictDecision', () => {
+  it('floating variant renders nothing unless the task is IN_REVIEW', () => {
     const { rerender } = render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={false}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_PROGRESS')}
         onVerdictRecorded={jest.fn()}
       />
     )
-    // The human ritual layer follows the data: no contract → nothing to judge.
     expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
+    expect(screen.queryByTestId('verdict-pass')).toBeNull()
     rerender(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
         onVerdictRecorded={jest.fn()}
       />
     )
-    expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-pass')).toBeNull()
   })
 
-  it('renders nothing unless the task is IN_REVIEW', () => {
-    const { rerender } = render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_PROGRESS'
-        hasCriteria={true}
-        onVerdictRecorded={jest.fn()}
-      />
-    )
-    expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
-    rerender(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='DONE'
-        hasCriteria={true}
-        onVerdictRecorded={jest.fn()}
-      />
-    )
-    expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
-    rerender(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+  it('floating variant + IN_REVIEW renders the action buttons', () => {
+    render(
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -121,19 +163,82 @@ describe('TaskVerdictBar', () => {
     expect(screen.getByTestId('verdict-fail')).toBeInTheDocument()
   })
 
-  it('PASS posts to the human-verdict endpoint with no enum and reports the new status', async () => {
+  it('header variant + DONE renders the status banner with no action buttons', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-pass')).toBeNull()
+    expect(screen.queryByTestId('verdict-fail')).toBeNull()
+  })
+
+  // The header path computes the banner TITLE via KIND_TITLE_ID[status.kind]
+  // (a FAIL criterion derives kind `sentBack`). Guards against a regression in
+  // that wiring — e.g. the header rendering the wrong kind's title id.
+  it('header variant renders the sentBack title for a failing criterion', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW', [crit('FAIL')])}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-status')).toHaveTextContent(
+      'acceptance.banner.sentBack'
+    )
+  })
+
+  // All-PASS machine criteria with the task still awaiting a human verdict
+  // derives kind `machineAwaitingHuman` / `allPassed` — assert the header path
+  // wires through a passing title (not a failing one).
+  it('header variant renders a passing title when every criterion passes', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW', [crit('PASS'), crit('PASS')])}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    const banner = screen.getByTestId('verdict-status')
+    expect(banner).not.toHaveTextContent('acceptance.banner.sentBack')
+    expect(banner.textContent).toMatch(
+      /acceptance\.banner\.(allPassed|machineAwaitingHuman)/
+    )
+  })
+
+  it('header variant + IN_REVIEW renders both the banner and the action buttons', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+    expect(screen.getByTestId('verdict-pass')).toBeInTheDocument()
+  })
+
+  it('PASS posts to the human-verdict endpoint with the identifier and no enum', async () => {
     const onRecorded = jest.fn()
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={onRecorded}
       />
     )
     fireEvent.click(screen.getByTestId('verdict-pass'))
     await waitFor(() => expect(onRecorded).toHaveBeenCalled())
-    expect(submit).toHaveBeenCalledWith('t-1', { verdict: 'PASS' })
+    expect(submit).toHaveBeenCalledWith('LUM-7', { verdict: 'PASS' })
     expect(onRecorded).toHaveBeenCalledWith(
       expect.objectContaining({ taskStatus: 'DONE' })
     )
@@ -141,10 +246,10 @@ describe('TaskVerdictBar', () => {
 
   it('LUM-422 ①: the FAIL panel has NO rejection-reason selector', () => {
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -161,10 +266,10 @@ describe('TaskVerdictBar', () => {
       followUpTask: null,
     })
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -174,7 +279,7 @@ describe('TaskVerdictBar', () => {
     })
     fireEvent.click(screen.getByTestId('verdict-confirm'))
     await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith('t-1', {
+      expect(submit).toHaveBeenCalledWith('LUM-7', {
         verdict: 'FAIL',
         note: 'not what we agreed',
       })
@@ -188,17 +293,17 @@ describe('TaskVerdictBar', () => {
       followUpTask: null,
     })
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
     fireEvent.click(screen.getByTestId('verdict-fail'))
     fireEvent.click(screen.getByTestId('verdict-confirm'))
     await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith('t-1', { verdict: 'FAIL' })
+      expect(submit).toHaveBeenCalledWith('LUM-7', { verdict: 'FAIL' })
     )
   })
 
@@ -209,10 +314,10 @@ describe('TaskVerdictBar', () => {
       followUpTask: { id: 't-fu', number: 43, title: 'follow-up: x' },
     })
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -223,7 +328,7 @@ describe('TaskVerdictBar', () => {
     })
     fireEvent.click(screen.getByTestId('verdict-confirm'))
     await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith('t-1', {
+      expect(submit).toHaveBeenCalledWith('LUM-7', {
         verdict: 'PASS_WITH_FOLLOWUP',
         note: 'docs still missing',
       })
@@ -233,10 +338,10 @@ describe('TaskVerdictBar', () => {
   it('LUM-422 ③: a ?verdict=pass_with_followup deep link auto-opens the follow-up panel', () => {
     mockVerdictParam = 'pass_with_followup'
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -246,10 +351,10 @@ describe('TaskVerdictBar', () => {
   it('LUM-422 ③: a ?verdict=pass deep link focuses the Pass button', () => {
     mockVerdictParam = 'pass'
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -259,10 +364,10 @@ describe('TaskVerdictBar', () => {
   it('shows an inline error when the endpoint rejects', async () => {
     submit.mockRejectedValue(new Error('403'))
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )
@@ -273,16 +378,16 @@ describe('TaskVerdictBar', () => {
   })
 
   // LUM-453: the route returns the real error.message for every non-500 status
-  // (403 human-only, 409 send-back gate, …). The bar must surface that specific
+  // (403 human-only, 409 send-back gate, …). The surface must show that specific
   // reason rather than swallowing it into a blanket "try again" — which is only
   // honest for possibly-transient failures (network / unknown / 5xx).
-  it('verdict bar shows the server error message on a 4xx and falls back to generic only for network or 5xx', async () => {
+  it('shows the server error message on a 4xx and falls back to generic only for network or 5xx', async () => {
     const renderBar = () =>
       render(
-        <TaskVerdictBar
-          taskId='t-1'
-          status='IN_REVIEW'
-          hasCriteria={true}
+        <VerdictDecision
+          variant='floating'
+          taskIdentifier='LUM-7'
+          data={baseData('IN_REVIEW')}
           onVerdictRecorded={jest.fn()}
         />
       )
@@ -323,12 +428,11 @@ describe('TaskVerdictBar', () => {
   })
 
   // LUM-454: a PASS that can't move to Done because boundary crossings are
-  // undispositioned returns a 409 whose raw message is a wall of red (LUM-445:
-  // 3 same-category crossings = the full criterion text three times). The bar
-  // must render a compact, DEDUPLICATED notice built from the loaded crossing
-  // data — count + per-category counts + next action + a link to the panel —
-  // and must NOT print the raw multi-line server string.
-  it('acceptance tab renders a compact deduplicated DONE-blocked notice not the raw server string', async () => {
+  // undispositioned returns a 409 whose raw message is a wall of red. The
+  // surface must render a compact, DEDUPLICATED notice built from the loaded
+  // crossing data — count + per-category counts + next action + a link to the
+  // panel — and must NOT print the raw multi-line server string.
+  it('renders a compact deduplicated DONE-blocked notice not the raw server string', async () => {
     mockCrossings.mockReturnValue({
       crossings: [
         { id: 'a', category: 'TEST_TAMPERING', disposition: null },
@@ -344,10 +448,10 @@ describe('TaskVerdictBar', () => {
     submit.mockRejectedValueOnce(new ApiClientError(wall, 409))
 
     render(
-      <TaskVerdictBar
-        taskId='t-1'
-        status='IN_REVIEW'
-        hasCriteria={true}
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
         onVerdictRecorded={jest.fn()}
       />
     )

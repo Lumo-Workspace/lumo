@@ -183,6 +183,8 @@ describe('BoundaryCrossingsPanel', () => {
         members={[{ actorId: 'actor-1', name: 'Chao' } as never]}
       />
     )
+    // all crossings are dispositioned — expand the panel to see body content
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     // disposition badge + reviewer attribution
     expect(screen.getByText('confirmed')).toBeInTheDocument()
     expect(screen.getByText(/by Chao/)).toBeInTheDocument()
@@ -206,6 +208,8 @@ describe('BoundaryCrossingsPanel', () => {
         onChanged={onChanged}
       />
     )
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     fireEvent.click(screen.getByTestId('boundary-spawn-remediation-bc-c'))
     expect(mockSpawn).toHaveBeenCalledWith('LUM-435', 'bc-c')
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
@@ -222,6 +226,8 @@ describe('BoundaryCrossingsPanel', () => {
       },
     ])
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     // It is NOT open, so the first-disposition buttons are absent…
     expect(
       screen.queryByTestId('boundary-confirm-bc-fp')
@@ -248,6 +254,8 @@ describe('BoundaryCrossingsPanel', () => {
         onChanged={onChanged}
       />
     )
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     fireEvent.click(screen.getByTestId('boundary-reopen-bc-c'))
     expect(mockDisposition).toHaveBeenCalledWith(
       'LUM-450',
@@ -268,6 +276,8 @@ describe('BoundaryCrossingsPanel', () => {
       },
     ])
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     fireEvent.click(screen.getByTestId('boundary-change-bc-fp'))
     expect(mockDisposition).toHaveBeenCalledWith(
       'LUM-450',
@@ -299,6 +309,8 @@ describe('BoundaryCrossingsPanel', () => {
         members={[{ actorId: 'actor-2', name: 'Chao' } as never]}
       />
     )
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     // The correction is visible — not a silent swap: who changed it, and the
     // full from -> to transition, all in the dedicated corrected line.
     const corrected = screen.getByTestId('boundary-corrected-bc-1')
@@ -328,6 +340,8 @@ describe('BoundaryCrossingsPanel', () => {
         workspaceUrl='lumo'
       />
     )
+    // all crossings dispositioned — expand to reach the body
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
     expect(screen.getByText(/Remediated by/)).toBeInTheDocument()
     expect(screen.getByText('LUM-441')).toBeInTheDocument()
     expect(screen.getByText('Restore migration')).toBeInTheDocument()
@@ -335,5 +349,38 @@ describe('BoundaryCrossingsPanel', () => {
     // the linked task is reachable — the whole row is an anchor to its detail page
     const link = screen.getByRole('link')
     expect(link).toHaveAttribute('href', '/workspace/lumo/my-tasks/LUM-441')
+  })
+
+  it('auto-expands while a crossing is undisposed', () => {
+    setCrossings([
+      { ...OPEN, id: 'a', detail: 'git push origin main', disposition: null },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    expect(screen.getByText('git push origin main')).toBeVisible()
+  })
+
+  it('folds to the summary when all crossings are dispositioned', () => {
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'a',
+        detail: 'git push origin main',
+        disposition: 'CONFIRMED',
+      },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    expect(screen.queryByText('git push origin main')).toBeNull()
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    expect(screen.getByText('git push origin main')).toBeVisible()
+  })
+
+  it('expands a truncated command on click', () => {
+    const long = 'git checkout -b x && ' + 'a'.repeat(200)
+    setCrossings([{ ...OPEN, id: 'a', detail: long, disposition: null }])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    const cmd = screen.getByTestId('crossing-cmd-a')
+    expect(cmd.className).toMatch(/truncate|whitespace-nowrap/)
+    fireEvent.click(cmd)
+    expect(cmd.className).toMatch(/whitespace-pre-wrap|break/)
   })
 })

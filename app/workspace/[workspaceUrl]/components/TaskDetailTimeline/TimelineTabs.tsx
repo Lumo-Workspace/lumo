@@ -15,7 +15,9 @@ import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
 import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
 import { AcceptanceTab } from './AcceptanceTab'
+import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { MemoryTab } from '../memory/MemoryTab'
+import type { MentionSources } from '@/types/mention'
 
 interface PullRequestSummary {
   id: string
@@ -45,6 +47,8 @@ interface TimelineTabsProps {
   pullRequests: PullRequestSummary[]
   onLinkPr: () => void
   onUnlinkPr: (prId: string) => void
+  onVerdictRecorded?: (result: HumanVerdictResult) => void
+  mentionSources?: MentionSources
   /** SSR presence seed; the probes below reconcile it once they resolve. */
   initialTimelinePresence?: TimelinePresence | undefined
 }
@@ -59,6 +63,9 @@ export function TimelineTabs({
   pullRequests,
   onLinkPr,
   onUnlinkPr,
+
+  onVerdictRecorded = () => {},
+  mentionSources,
   initialTimelinePresence,
 }: TimelineTabsProps) {
   const intl = useIntl()
@@ -205,6 +212,18 @@ export function TimelineTabs({
 
   return (
     <div className='mt-8'>
+      {activeTab !== 'acceptance' &&
+        status.data &&
+        status.data.task.status === 'IN_REVIEW' &&
+        hasCriteria && (
+          <VerdictDecision
+            variant='floating'
+            taskIdentifier={taskIdentifier}
+            data={status.data}
+            onVerdictRecorded={onVerdictRecorded}
+            {...(mentionSources ? { mentionSources } : {})}
+          />
+        )}
       <div className='flex gap-4 mb-4'>
         <button
           className={tabClass(activeTab === 'comments')}
@@ -331,6 +350,8 @@ export function TimelineTabs({
           workspaceUrl={workspaceUrl}
           members={commentsProps.members}
           agentActors={commentsProps.agentActors}
+          onVerdictRecorded={onVerdictRecorded}
+          {...(mentionSources ? { mentionSources } : {})}
         />
       )}
     </div>

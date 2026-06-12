@@ -49,6 +49,16 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
+// LUM-467: the tab now leads with the shared header VerdictDecision. Stub it so
+// this suite stays focused on the editable contract zone (and avoids pulling its
+// next/navigation + comment-editor subtree).
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
+  () => ({
+    VerdictDecision: () => <div data-testid='verdict-status' />,
+  })
+)
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
@@ -116,7 +126,13 @@ beforeEach(() => {
 describe('AcceptanceTab editable contract human zone', () => {
   it('AcceptanceTab editable contract human zone — edit sends full desired list with one statement changed', async () => {
     mockStatusSet(statusView())
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     fireEvent.click(screen.getByLabelText('Edit criterion'))
     const ta = screen.getByDisplayValue('UX feels right')
     fireEvent.change(ta, { target: { value: 'UX feels great' } })
@@ -144,7 +160,13 @@ describe('AcceptanceTab editable contract human zone', () => {
 
   it('AcceptanceTab editable contract human zone — delete omits the row from the desired list', async () => {
     mockStatusSet(statusView())
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     fireEvent.click(screen.getByLabelText('Delete criterion'))
     fireEvent.click(screen.getByText('Remove'))
     await waitFor(() => expect(reviseCriteria).toHaveBeenCalled())
@@ -156,7 +178,13 @@ describe('AcceptanceTab editable contract human zone', () => {
 
   it('AcceptanceTab editable contract human zone — machine zone has no edit affordance', () => {
     mockStatusSet(statusView())
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.getAllByLabelText('Edit criterion')).toHaveLength(1)
   })
 
@@ -166,14 +194,26 @@ describe('AcceptanceTab editable contract human zone', () => {
         task: { id: 't1', identifier: 'LUM-443', title: 'x', status: 'DONE' },
       })
     )
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.queryByLabelText('Edit criterion')).toBeNull()
     expect(screen.queryByPlaceholderText(/Add a criterion/i)).toBeNull()
   })
 
   it('AcceptanceTab editable contract human zone — add appends a HUMAN item with no id', async () => {
     mockStatusSet(statusView())
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     fireEvent.change(screen.getByPlaceholderText(/Add a criterion/i), {
       target: { value: 'new judgment call' },
     })
@@ -191,7 +231,13 @@ describe('AcceptanceTab editable contract human zone', () => {
   it('AcceptanceTab editable contract human zone — save failure keeps edit open and shows error', async () => {
     reviseCriteria.mockRejectedValueOnce(new Error('network error'))
     mockStatusSet(statusView())
-    render(<AcceptanceTab taskIdentifier='LUM-443' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-443'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     fireEvent.click(screen.getByLabelText('Edit criterion'))
     const ta = screen.getByDisplayValue('UX feels right')
     fireEvent.change(ta, { target: { value: 'UX feels great' } })

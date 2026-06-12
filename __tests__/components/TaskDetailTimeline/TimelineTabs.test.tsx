@@ -27,6 +27,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => stableRouter,
   usePathname: () => mockNav.pathname,
   useParams: () => ({ tab: mockNav.tab }),
+  useSearchParams: () => ({ get: () => null }),
 }))
 
 jest.mock('react-intl', () => ({
@@ -102,7 +103,23 @@ jest.mock(
   () => ({ AcceptanceTab: () => <div data-testid='panel-acceptance' /> })
 )
 
-import { render, screen, fireEvent } from '@testing-library/react'
+// VerdictDecision is rendered by TimelineTabs in the floating variant — mock its
+// deps that aren't already covered by the hooks mocked above, so the real
+// component can render without pulling in its full dependency tree.
+jest.mock('@/lib/api-client', () => ({
+  tasksClient: { submitHumanVerdict: jest.fn() },
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
+  useBoundaryCrossings: jest.fn(() => ({ crossings: [] })),
+}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor',
+  () => ({
+    CommentEditor: () => <div data-testid='mock-comment-editor' />,
+  })
+)
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TimelineTabs } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useMemories } from '@/app/workspace/[workspaceUrl]/hooks/useMemories'
@@ -131,11 +148,13 @@ function setPresence({
   memory,
   lineage,
   criteria = false,
+  taskStatus = 'IN_PROGRESS',
 }: {
   agent: boolean
   memory: boolean
   lineage: boolean
   criteria?: boolean
+  taskStatus?: string
 }) {
   mockAgentRuns.mockReturnValue({
     data: { runs: agent ? [{ sessionId: 's', runNumber: 1 }] : [] },
@@ -157,8 +176,57 @@ function setPresence({
     loading: false,
     error: null,
   })
+  const criteriaList = criteria
+    ? [
+        {
+          id: 'crit-1',
+          statement: 's',
+          verifierType: 'MACHINE',
+          checkpointer: 'cmd:test',
+          evidenceRequired: false,
+          judgeSteps: null,
+          source: 'AGENT_DRAFT',
+          addedAtRound: 0,
+          latestVerdict: {
+            round: 1,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            evidencePointer: null,
+            rejectionReason: null,
+            rejectionReasonEnum: null,
+            recordedAt: 'now',
+          },
+          machinePassed: true,
+          verdictStale: false,
+          checkMismatch: false,
+          changeState: null,
+          changedAtRound: null,
+          lastEdit: null,
+        },
+      ]
+    : []
   mockStatus.mockReturnValue({
-    data: { criteria: criteria ? [{ id: 'crit-1' }] : [] },
+    data: {
+      task: {
+        id: 't-1',
+        identifier: 'LUM-1',
+        title: 'Test task',
+        status: taskStatus,
+      },
+      currentRound: 1,
+      maxRounds: 5,
+      escalated: false,
+      machineVerification: {
+        total: criteriaList.length,
+        machineVerified: criteriaList.length,
+        humanOverridden: 0,
+      },
+      removedCriteria: [],
+      verificationHistory: [],
+      lastRoundFailures: [],
+      nextActions: [],
+      criteria: criteriaList,
+    },
     loading: false,
     error: null,
   })
@@ -367,6 +435,26 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
     expect(mockNav.push).toHaveBeenCalledWith(
       '/workspace/acme/my-tasks/LUM-1',
       { scroll: false }
+    )
+  })
+})
+
+describe('TimelineTabs floating VerdictDecision (LUM-467)', () => {
+  it('shows the floating verdict bar off the acceptance tab and hides it on it', async () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+      taskStatus: 'IN_REVIEW',
+    })
+    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
+    // Default tab is comments → floating bar should be visible
+    expect(await screen.findByTestId('task-verdict-bar')).toBeInTheDocument()
+    // Click the acceptance tab
+    fireEvent.click(screen.getByRole('button', { name: /验收|acceptance/i }))
+    await waitFor(() =>
+      expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
     )
   })
 })

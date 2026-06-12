@@ -40,6 +40,15 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
+// LUM-467: the tab leads with the shared header VerdictDecision — stub it so this
+// machine-zone-fold suite isn't coupled to its subtree.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
+  () => ({
+    VerdictDecision: () => <div data-testid='verdict-status' />,
+  })
+)
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
@@ -130,7 +139,13 @@ describe('machine zone collapsible smart default', () => {
       machine('m1', 'machine check alpha', PASS),
       machine('m2', 'machine check beta', PASS),
     ])
-    render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-451'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.queryByText('machine check alpha')).toBeNull()
     expect(zoneToggle()).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText(/All 2 machine-verified/i)).toBeInTheDocument()
@@ -141,7 +156,13 @@ describe('machine zone collapsible smart default', () => {
       machine('m1', 'machine check alpha', PASS),
       machine('m2', 'machine check beta', FAIL),
     ])
-    render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-451'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()
     expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText(/1 machine-verified/)).toBeInTheDocument()
@@ -149,14 +170,26 @@ describe('machine zone collapsible smart default', () => {
 
   it('machine zone collapsible smart default — expanded when a machine criterion is unjudged', () => {
     setView([machine('m1', 'machine check alpha', null)])
-    render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-451'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()
     expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('machine zone collapsible smart default — header toggle flips state', () => {
     setView([machine('m1', 'machine check alpha', PASS)])
-    render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-451'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
     expect(screen.queryByText('machine check alpha')).toBeNull()
     fireEvent.click(zoneToggle())
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()

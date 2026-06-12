@@ -39,7 +39,6 @@ import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
 import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
-import { TaskVerdictBar } from '../TaskVerdictBar'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 import { SpecArtifactGroup } from '../SpecArtifactGroup'
@@ -298,35 +297,6 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
-            {/* Human adjudication of the acceptance contract — IN_REVIEW only
-                (LUM-421). The human-initiated entry to the human-verdict
-                write path; agents/CLI cannot reach the endpoint. */}
-            <TaskVerdictBar
-              taskId={task.id}
-              status={task.status}
-              hasCriteria={initialTimelinePresence?.hasCriteria ?? false}
-              mentionSources={mentionSources}
-              onVerdictRecorded={result => {
-                setTask(prev => ({
-                  ...prev,
-                  status: result.taskStatus as TaskDetail['status'],
-                }))
-                // A human verdict fans out across the contract and writes
-                // mirror activities — invalidate the read models the
-                // acceptance tab + timeline render from so they sync instead
-                // of showing the pre-verdict state (LUM-423: the status read
-                // model is keyed by identifier, the timeline by task id).
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.taskStatus(
-                    `${task.teamIdentifier}-${task.number}`
-                  ),
-                })
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.timeline(task.id),
-                })
-              }}
-            />
-
             {/* Definition layer: spec artifacts (renders nothing when there are none) */}
             <SpecArtifactGroup taskId={task.id} />
 
@@ -398,6 +368,26 @@ export function TaskDetailPage({
               }}
               slackConnected={slackConnected}
               pullRequests={task.pullRequests ?? []}
+              mentionSources={mentionSources}
+              onVerdictRecorded={result => {
+                setTask(prev => ({
+                  ...prev,
+                  status: result.taskStatus as TaskDetail['status'],
+                }))
+                // A human verdict fans out across the contract and writes
+                // mirror activities — invalidate the read models the
+                // acceptance tab + timeline render from so they sync instead
+                // of showing the pre-verdict state (LUM-423: the status read
+                // model is keyed by identifier, the timeline by task id).
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.taskStatus(
+                    `${task.teamIdentifier}-${task.number}`
+                  ),
+                })
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.timeline(task.id),
+                })
+              }}
               onLinkPr={async () => {
                 const data = await tasksClient.getById<{ task: TaskDetail }>(
                   task.id

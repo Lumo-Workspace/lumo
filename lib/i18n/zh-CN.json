@@ -1645,5 +1645,6 @@
   "boundary.panel.attribution.model": "模型：{model}",
   "boundary.panel.attribution.agent": "代理：{agent}",
   "boundary.panel.attribution.session": "会话：{session}",
-  "boundary.panel.attribution.owner": "所有者：{owner}"
+  "boundary.panel.attribution.owner": "所有者：{owner}",
+  "boundary.panel.allCleared": "{count, plural, other {已处置 # 项}} · 0 项待处理"
 }

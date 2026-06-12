@@ -1645,5 +1645,6 @@
   "boundary.panel.attribution.model": "モデル: {model}",
   "boundary.panel.attribution.agent": "エージェント: {agent}",
   "boundary.panel.attribution.session": "セッション: {session}",
-  "boundary.panel.attribution.owner": "オーナー: {owner}"
+  "boundary.panel.attribution.owner": "オーナー: {owner}",
+  "boundary.panel.allCleared": "{count, plural, other {処置済み # 件}} · 未対応 0 件"
 }

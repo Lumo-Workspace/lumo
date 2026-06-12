@@ -1,0 +1,120 @@
+import { deriveVerdictStatus } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/verdict-status'
+import type {
+  TaskAcceptanceStatusView,
+  TaskStatusCriterionView,
+  CriterionSource,
+  AcceptanceVerdict,
+} from '@/app/workspace/[workspaceUrl]/types'
+
+let seq = 0
+
+function view(
+  p: Partial<TaskAcceptanceStatusView> & { criteria: TaskStatusCriterionView[] }
+): TaskAcceptanceStatusView {
+  return {
+    version: 1,
+    task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
+    currentRound: 1,
+    maxRounds: 5,
+    escalated: false,
+    machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
+    removedCriteria: [],
+    verificationHistory: [],
+    lastRoundFailures: [],
+    nextActions: [],
+    ...p,
+  } as TaskAcceptanceStatusView
+}
+
+const crit = (
+  v: AcceptanceVerdict | null,
+  verifier: 'MACHINE' | 'HUMAN' = 'MACHINE'
+): TaskStatusCriterionView => ({
+  id: `c-${seq++}`,
+  statement: 's',
+  verifierType: verifier,
+  checkpointer: verifier === 'MACHINE' ? 'cmd:test' : null,
+  evidenceRequired: false,
+  judgeSteps: null,
+  source: 'AGENT_DRAFT' as CriterionSource,
+  addedAtRound: 0,
+  latestVerdict: v
+    ? {
+        round: 1,
+        verdict: v,
+        verifierType: verifier,
+        evidencePointer: null,
+        rejectionReason: null,
+        rejectionReasonEnum: null,
+        recordedAt: 'now',
+      }
+    : null,
+  machinePassed: v === 'PASS' && verifier === 'MACHINE',
+  verdictStale: false,
+  checkMismatch: false,
+  changeState: null,
+  changedAtRound: null,
+  lastEdit: null,
+})
+
+describe('deriveVerdictStatus', () => {
+  it('all criteria PASS -> success/allPassed with met=total', () => {
+    const s = deriveVerdictStatus(
+      view({ criteria: [crit('PASS'), crit('PASS')] })
+    )
+    expect(s.tone).toBe('success')
+    expect(s.kind).toBe('allPassed')
+    expect(s.met).toBe(2)
+    expect(s.total).toBe(2)
+    expect(s.gateBlocked).toBe(false)
+  })
+  it('a FAIL -> danger/sentBack and gateBlocked', () => {
+    const s = deriveVerdictStatus(
+      view({ criteria: [crit('PASS'), crit('FAIL')] })
+    )
+    expect(s.tone).toBe('danger')
+    expect(s.kind).toBe('sentBack')
+    expect(s.failCount).toBe(1)
+    expect(s.gateBlocked).toBe(true)
+  })
+  it('escalated wins over everything', () => {
+    const s = deriveVerdictStatus(
+      view({ escalated: true, criteria: [crit('FAIL')] })
+    )
+    expect(s.kind).toBe('escalated')
+    expect(s.tone).toBe('danger')
+  })
+  it('round + max passed through', () => {
+    const s = deriveVerdictStatus(
+      view({ currentRound: 3, maxRounds: 5, criteria: [crit('PASS')] })
+    )
+    expect(s.round).toBe(3)
+    expect(s.maxRounds).toBe(5)
+  })
+  it('machineAwaitingHuman: all MACHINE criteria checkpointer-verified but HUMAN criterion unmet', () => {
+    // MACHINE criterion with machinePassed=true — counts as verified in machineRollup
+    // HUMAN criterion with no verdict — unmet, so met !== total
+    const s = deriveVerdictStatus(
+      view({ criteria: [crit('PASS', 'MACHINE'), crit(null, 'HUMAN')] })
+    )
+    expect(s.kind).toBe('machineAwaitingHuman')
+    expect(s.tone).toBe('success')
+  })
+  it('DONE task: doneNoHumanVerdict when no criterion has a HUMAN verdict, done when one does', () => {
+    const noHuman = deriveVerdictStatus(
+      view({
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('PASS', 'MACHINE')],
+      })
+    )
+    expect(noHuman.kind).toBe('doneNoHumanVerdict')
+
+    const withHuman = deriveVerdictStatus(
+      view({
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('PASS', 'MACHINE'), crit('PASS', 'HUMAN')],
+      })
+    )
+    expect(withHuman.kind).toBe('done')
+  })
+})

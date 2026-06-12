@@ -1645,5 +1645,6 @@
   "boundary.panel.attribution.model": "Modell: {model}",
   "boundary.panel.attribution.agent": "Agent: {agent}",
   "boundary.panel.attribution.session": "Sitzung: {session}",
-  "boundary.panel.attribution.owner": "Inhaber: {owner}"
+  "boundary.panel.attribution.owner": "Inhaber: {owner}",
+  "boundary.panel.allCleared": "{count, plural, one {# bearbeitet} other {# bearbeitet}} · 0 offen"
 }
