@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "Der Bearbeitungsinhalt kann hier nicht angezeigt werden — öffne den PR, um die Änderung zu prüfen.",
   "boundary.editChange.viewPr": "PR öffnen",
   "acceptance.zone.machineAllPass": "Alle {count} bestanden",
-  "acceptance.zone.machineSummary": "{passed} bestanden · {failed} fehlgeschlagen"
+  "acceptance.zone.machineSummary": "{passed} bestanden · {failed} fehlgeschlagen",
+  "task.verdict.blocked.headline": "{count, plural, one {# Grenzüberschreitung blockiert „Erledigt“} other {# Grenzüberschreitungen blockieren „Erledigt“}}",
+  "task.verdict.blocked.action": "Eine Person muss jede unten einordnen – als Fehlalarm oder bestätigt – oder das Gate für diesen Workspace öffnen.",
+  "task.verdict.blocked.viewCrossings": "Grenzüberschreitungen unten ansehen"
 }

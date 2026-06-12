@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "Le contenu de la modification n'est pas disponible ici — ouvrez la PR pour examiner la modification.",
   "boundary.editChange.viewPr": "Voir la PR",
   "acceptance.zone.machineAllPass": "Les {count} réussis",
-  "acceptance.zone.machineSummary": "{passed} réussis · {failed} échoués"
+  "acceptance.zone.machineSummary": "{passed} réussis · {failed} échoués",
+  "task.verdict.blocked.headline": "{count, plural, one {# franchissement de limite bloque Terminé} other {# franchissements de limite bloquent Terminé}}",
+  "task.verdict.blocked.action": "Une personne doit statuer sur chacun ci-dessous — faux positif ou confirmé — ou ouvrir la barrière pour cet espace de travail.",
+  "task.verdict.blocked.viewCrossings": "Voir les franchissements ci-dessous"
 }

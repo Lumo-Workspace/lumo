@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "此处无法显示编辑内容 — 打开 PR 查看改动。",
   "boundary.editChange.viewPr": "查看 PR",
   "acceptance.zone.machineAllPass": "全部 {count} 项通过",
-  "acceptance.zone.machineSummary": "{passed} 通过 · {failed} 失败"
+  "acceptance.zone.machineSummary": "{passed} 通过 · {failed} 失败",
+  "task.verdict.blocked.headline": "{count, plural, other {# 个未处置越界正在阻止「已完成」}}",
+  "task.verdict.blocked.action": "需由人工逐条处置下方越界——标为误报或确认——或为此工作区开启闸门。",
+  "task.verdict.blocked.viewCrossings": "查看下方越界"
 }

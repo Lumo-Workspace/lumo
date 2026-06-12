@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "संपादन सामग्री यहाँ दिखाने के लिए उपलब्ध नहीं है — बदलाव की समीक्षा के लिए PR खोलें।",
   "boundary.editChange.viewPr": "PR देखें",
   "acceptance.zone.machineAllPass": "सभी {count} पास",
-  "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल"
+  "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल",
+  "task.verdict.blocked.headline": "{count, plural, one {# सीमा उल्लंघन Done को रोक रहा है} other {# सीमा उल्लंघन Done को रोक रहे हैं}}",
+  "task.verdict.blocked.action": "किसी व्यक्ति को नीचे दिए प्रत्येक का निपटान करना होगा — गलत पहचान या पुष्ट — या इस वर्कस्पेस के लिए गेट खोलना होगा।",
+  "task.verdict.blocked.viewCrossings": "नीचे सीमा उल्लंघन देखें"
 }

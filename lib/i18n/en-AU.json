@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "The edit content isn't available to show here — open the PR to review the change.",
   "boundary.editChange.viewPr": "View PR",
   "acceptance.zone.machineAllPass": "All {count} passed",
-  "acceptance.zone.machineSummary": "{passed} passed · {failed} failed"
+  "acceptance.zone.machineSummary": "{passed} passed · {failed} failed",
+  "task.verdict.blocked.headline": "{count, plural, one {# boundary crossing blocks Done} other {# boundary crossings block Done}}",
+  "task.verdict.blocked.action": "A human must disposition each one below — as a false positive, or confirmed — or open the gate for this workspace.",
+  "task.verdict.blocked.viewCrossings": "Review the crossings below"
 }

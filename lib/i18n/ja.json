@@ -1617,5 +1617,8 @@
   "boundary.editChange.unavailable": "編集内容をここに表示できません — 変更を確認するには PR を開いてください。",
   "boundary.editChange.viewPr": "PR を表示",
   "acceptance.zone.machineAllPass": "{count} 件すべて合格",
-  "acceptance.zone.machineSummary": "{passed} 件合格 · {failed} 件不合格"
+  "acceptance.zone.machineSummary": "{passed} 件合格 · {failed} 件不合格",
+  "task.verdict.blocked.headline": "{count, plural, one {境界違反が #件あり「完了」に進めません} other {境界違反が #件あり「完了」に進めません}}",
+  "task.verdict.blocked.action": "担当者が下の各項目を「誤検知」または「確認済み」として処理するか、このワークスペースのゲートを開く必要があります。",
+  "task.verdict.blocked.viewCrossings": "下の境界違反を確認"
 }
