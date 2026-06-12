@@ -70,9 +70,15 @@ beforeEach(() => {
   // Default: session has no current binding → no override conflict.
   sessRepo.findForMemberWithBinding.mockResolvedValue(null as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
-  ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
-  ;(taskContextService.buildCriteriaSectionForTask as jest.Mock).mockResolvedValue('')
-  ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
+  ;(
+    taskContextService.buildMemorySectionForTask as jest.Mock
+  ).mockResolvedValue('')
+  ;(
+    taskContextService.buildCriteriaSectionForTask as jest.Mock
+  ).mockResolvedValue('')
+  ;(
+    taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+  ).mockResolvedValue(null)
   ;(
     taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
   ).mockResolvedValue('')
@@ -116,7 +122,9 @@ describe('sessionService.bindSessionToTask', () => {
   it('propagates the blocker warning from taskDependencyService into the bound result (LUM-172)', async () => {
     ;(
       taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
-    ).mockResolvedValue('## ⚠ Dependency alerts\n- This task is blocked by LUM-7')
+    ).mockResolvedValue(
+      '## ⚠ Dependency alerts\n- This task is blocked by LUM-7'
+    )
 
     const result = await sessionService.bindSessionToTask({
       identity,
@@ -184,7 +192,9 @@ describe('sessionService.bindSessionToTask', () => {
   })
 
   it('includes previousSession from taskContextService in the result', async () => {
-    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue({
+    ;(
+      taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+    ).mockResolvedValue({
       headline: 'prev headline',
       unresolved: ['carry over'],
       durationMs: 60_000,
@@ -197,10 +207,9 @@ describe('sessionService.bindSessionToTask', () => {
       taskIdentifier: 'LUM-42',
     })
 
-    expect(taskContextService.buildPreviousSessionRecoveryForTask).toHaveBeenCalledWith(
-      'task_1',
-      'sess_1'
-    )
+    expect(
+      taskContextService.buildPreviousSessionRecoveryForTask
+    ).toHaveBeenCalledWith('task_1', 'sess_1')
     if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.previousSession).toEqual({
       headline: 'prev headline',
@@ -224,43 +233,43 @@ describe('sessionService.bindSessionToTask', () => {
     },
   }
 
-  it('returns already-bound without overwriting when bound to a different task and force is unset', async () => {
-    sessRepo.findForMemberWithBinding.mockResolvedValue(boundToOther as never)
-
-    const result = await sessionService.bindSessionToTask({
+  it('binds permanently and refuses a different task with 409', async () => {
+    // First bind (unbound session) succeeds and sets the lock.
+    const first = await sessionService.bindSessionToTask({
       identity,
       sessionId: 'sess_1',
       taskIdentifier: 'LUM-42',
     })
+    expect(first.status).toBe('bound')
+    expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
 
-    expect(result).toEqual({
-      status: 'already-bound',
+    // Now the session reads back as bound to a DIFFERENT task (LUM-7/task_99).
+    jest.clearAllMocks()
+    misc.findMemberIdForHook.mockResolvedValue('wm_1')
+    task.resolveIdentifier.mockResolvedValue({
+      id: 'task_1',
+      identifier: 'LUM-42',
+      title: 'Fix login bug',
+      status: 'TODO',
+    })
+    sessRepo.findForMemberWithBinding.mockResolvedValue(boundToOther as never)
+
+    await expect(
+      sessionService.bindSessionToTask({
+        identity,
+        sessionId: 'sess_1',
+        taskIdentifier: 'LUM-42',
+      })
+    ).rejects.toMatchObject({
+      status: 409,
       currentTaskIdentifier: 'LUM-7',
       currentTaskTitle: 'Other task',
     })
-    // The whole point: no write, no re-tag.
     expect(sessRepo.upsertWithTaskId).not.toHaveBeenCalled()
     expect(hookRepo.bulkSetTaskIdForNullEventsInSession).not.toHaveBeenCalled()
   })
 
-  it('overwrites and returns bound when force is set, skipping the conflict read', async () => {
-    sessRepo.findForMemberWithBinding.mockResolvedValue(boundToOther as never)
-
-    const result = await sessionService.bindSessionToTask({
-      identity,
-      sessionId: 'sess_1',
-      taskIdentifier: 'LUM-42',
-      force: true,
-    })
-
-    if (result.status !== 'bound') throw new Error('expected bound result')
-    expect(result.taskIdentifier).toBe('LUM-42')
-    // force short-circuits the conflict check — no read, straight to upsert.
-    expect(sessRepo.findForMemberWithBinding).not.toHaveBeenCalled()
-    expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
-  })
-
-  it('re-attaching to the same task is not a conflict (idempotent, no prompt)', async () => {
+  it('re-attaching the same task is idempotent and re-emits context', async () => {
     sessRepo.findForMemberWithBinding.mockResolvedValue({
       ...boundToOther,
       task: { ...boundToOther.task, id: 'task_1', number: 42 },
@@ -274,5 +283,6 @@ describe('sessionService.bindSessionToTask', () => {
 
     expect(result.status).toBe('bound')
     expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
+    expect(hookRepo.bulkSetTaskIdForNullEventsInSession).toHaveBeenCalled()
   })
 })

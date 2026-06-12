@@ -31,7 +31,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `doc*`                                                                                  | [references/docs.md](references/docs.md)                       |
 | `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
 | `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
-| `session attach/status/detach/wrap`, git-suggest on start, Layer-2 review               | [references/sessions.md](references/sessions.md)               |
+| `session attach/status/wrap`, git-suggest on start, Layer-2 review                      | [references/sessions.md](references/sessions.md)               |
 | `worktree add/rm/list` (local dev tooling)                                              | [references/worktree.md](references/worktree.md)               |
 
 ## Command catalog
@@ -124,8 +124,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 **Sessions** — see [sessions.md](references/sessions.md)
 
-- `lumo session attach <id>` — bind this session to a task (then run `task context`)
-- `lumo session status` / `lumo session detach` — show / clear binding
+- `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
+- `lumo session status` — show current binding
 - `lumo session wrap [--yes] [--dry-run] [--used <indices>]` — end-of-session panel: progress comment + memory review + fragment-usage vote (`--used`, LUM-300) + blocked-tag prompt, then a read-only reminder when the bound task has ≥1 OPEN boundary crossing still undispositioned (silent when none — no wrap-up noise; pointer is web + human-only, LUM-448). Usage is now also audited automatically when a task reaches DONE (evidence-gated, true-only — confident fragments marked used, the rest left NULL); `session wrap --used` remains the manual override and takes precedence for a session.
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
@@ -140,6 +140,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 Measured from real agent sessions (LUM-392) — don't guess these:
 
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
+- No `lumo session detach` — the session↔task binding is a lifetime lock (LUM-459); to work on a different task, start a new Claude Code session
 - No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`

@@ -9,7 +9,6 @@ import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
-import { sessionDetach } from './commands/session-detach'
 import { sessionStatus } from './commands/session-status'
 import { sessionWrap } from './commands/session-wrap'
 import { nextCommand } from './commands/next'
@@ -307,17 +306,9 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events. If the session is already bound to a different task, confirms before overwriting (use --force to skip).'
+    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. The binding is a lifetime lock: re-attaching to the same task is a no-op, attaching to a different task is refused — start a new session for a different task.'
   )
-  .option(
-    '--force',
-    'Overwrite an existing binding to a different task without confirmation (skips the [y/N] prompt).'
-  )
-  .action(
-    wrap((identifier, options) =>
-      sessionAttach(identifier as string, options as { force?: boolean })
-    )
-  )
+  .action(wrap(identifier => sessionAttach(identifier as string)))
 
 session
   .command('status')
@@ -325,13 +316,6 @@ session
     'Show the task currently bound to this Claude Code session (or "no task" if none).'
   )
   .action(wrap(() => sessionStatus()))
-
-session
-  .command('detach')
-  .description(
-    'Clear the task binding on the current Claude Code session. Past hook events keep their taskId; only future events become untagged.'
-  )
-  .action(wrap(() => sessionDetach()))
 
 session
   .command('wrap')

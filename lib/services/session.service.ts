@@ -22,38 +22,24 @@ interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
   sessionId: string
   taskIdentifier: string
-  /** When the session is already bound to a *different* task, the bind is
-   *  refused (returns `status: 'already-bound'`) unless force is set. The CLI
-   *  flips this to true only after the user confirms the override prompt.
-   *  Defaults to false. */
-  force?: boolean | undefined
 }
 
-export type BindSessionToTaskResult =
-  | {
-      status: 'bound'
-      taskId: string
-      taskIdentifier: string
-      taskTitle: string
-      /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
-      retaggedEventCount: number
-      /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
-      memorySection: string
-      /** Rendered acceptance-contract markdown (or the draft nudge for an open task without criteria). Empty string for DONE tasks without criteria (LUM-342). */
-      criteriaSection: string
-      /** Recovery card data from the previous session on this task, or null if there is no prior session. */
-      previousSession: PreviousSessionRecovery | null
-      /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
-      blockerWarningSection: string
-    }
-  | {
-      status: 'already-bound'
-      /** The task the session is currently bound to. Surfaced (instead of
-       *  silently clobbering Session.taskId) so the CLI can prompt
-       *  `Already bound to LUM-X. Rebind to LUM-Y? [y/N]` before re-binding. */
-      currentTaskIdentifier: string
-      currentTaskTitle: string
-    }
+export type BindSessionToTaskResult = {
+  status: 'bound'
+  taskId: string
+  taskIdentifier: string
+  taskTitle: string
+  /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
+  retaggedEventCount: number
+  /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
+  memorySection: string
+  /** Rendered acceptance-contract markdown (or the draft nudge for an open task without criteria). Empty string for DONE tasks without criteria (LUM-342). */
+  criteriaSection: string
+  /** Recovery card data from the previous session on this task, or null if there is no prior session. */
+  previousSession: PreviousSessionRecovery | null
+  /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
+  blockerWarningSection: string
+}
 
 interface SessionScopedInput {
   identity: VerifyApiKeyResult
@@ -70,16 +56,6 @@ export type SessionStatusResult =
       eventCount: number
       taskIdentifier: string | null
       taskTitle: string | null
-    }
-
-export type UnbindSessionResult =
-  | { found: false }
-  | { found: true; alreadyUnbound: true }
-  | {
-      found: true
-      alreadyUnbound: false
-      previousTaskIdentifier: string
-      previousTaskTitle: string
     }
 
 export interface ProgressDraftResult {
@@ -169,7 +145,6 @@ export const sessionService = {
     identity,
     sessionId,
     taskIdentifier,
-    force,
   }: BindSessionToTaskInput): Promise<BindSessionToTaskResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -190,25 +165,25 @@ export const sessionService = {
       )
     }
 
-    // Refuse a silent overwrite: if the session is already bound to a
-    // *different* task and the caller hasn't confirmed (force), return the
-    // current binding so the CLI can prompt before clobbering Session.taskId.
-    // Member-scoped read — a session owned by another member reads back as
-    // "no binding" here and is rejected by the ownedByOther guard below, so
-    // this never leaks another member's binding. Re-attaching to the same
-    // task is not a conflict (idempotent), so it falls through to the upsert.
-    if (!force) {
-      const current = await sessionRepository.findForMemberWithBinding(
-        sessionId,
-        memberId
-      )
-      if (current?.task && current.task.id !== task.id) {
-        return {
-          status: 'already-bound',
-          currentTaskIdentifier: `${current.task.team.identifier}-${current.task.number}`,
+    // Hard lock (LUM-459): a session's taskId is write-once. If it is already
+    // bound to a *different* task, refuse permanently — no force, no prompt.
+    // Member-scoped read: a session owned by another member reads back null
+    // here and is rejected by the ownedByOther guard below (403, no leak).
+    // Re-binding to the SAME task is idempotent and falls through to the upsert.
+    const current = await sessionRepository.findForMemberWithBinding(
+      sessionId,
+      memberId
+    )
+    if (current?.task && current.task.id !== task.id) {
+      const currentTaskIdentifier = `${current.task.team.identifier}-${current.task.number}`
+      throw Object.assign(
+        new Error(`Session is permanently bound to ${currentTaskIdentifier}`),
+        {
+          status: 409,
+          currentTaskIdentifier,
           currentTaskTitle: current.task.title,
         }
-      }
+      )
     }
 
     // Upsert the session row so attach can run before any hook fires.
@@ -233,21 +208,25 @@ export const sessionService = {
         task.id
       )
 
-    const [memorySection, criteriaSection, previousSession, blockerWarningSection] =
-      await Promise.all([
-        taskContextService.buildMemorySectionForTask(task.id),
-        taskContextService.buildCriteriaSectionForTask(task.id),
-        taskContextService.buildPreviousSessionRecoveryForTask(
-          task.id,
-          sessionId
-        ),
-        // Never throws — returns '' on failure, so attach can't be broken by
-        // the dependency warning (LUM-172).
-        taskDependencyService.buildBlockerWarningSectionForTask(
-          task.id,
-          task.identifier
-        ),
-      ])
+    const [
+      memorySection,
+      criteriaSection,
+      previousSession,
+      blockerWarningSection,
+    ] = await Promise.all([
+      taskContextService.buildMemorySectionForTask(task.id),
+      taskContextService.buildCriteriaSectionForTask(task.id),
+      taskContextService.buildPreviousSessionRecoveryForTask(
+        task.id,
+        sessionId
+      ),
+      // Never throws — returns '' on failure, so attach can't be broken by
+      // the dependency warning (LUM-172).
+      taskDependencyService.buildBlockerWarningSectionForTask(
+        task.id,
+        task.identifier
+      ),
+    ])
 
     return {
       status: 'bound',
@@ -293,39 +272,6 @@ export const sessionService = {
       eventCount: row.eventCount,
       taskIdentifier: task ? `${task.team.identifier}-${task.number}` : null,
       taskTitle: task ? task.title : null,
-    }
-  },
-
-  /**
-   * Clear the task binding on a session owned by the bearer's member.
-   * Idempotent: re-detaching an already-unbound session returns
-   * `alreadyUnbound: true` instead of an error.
-   *
-   * Untagged hook events on the session are left untouched — they remain
-   * associated with the prior task for historical accuracy. Only future
-   * events on this session will be unbound.
-   */
-  async unbindSession({
-    identity,
-    sessionId,
-  }: SessionScopedInput): Promise<UnbindSessionResult> {
-    const memberId = await miscRepository.findMemberIdForHook(
-      identity.user.id,
-      identity.workspace.id
-    )
-    if (!memberId) return { found: false }
-
-    const result = await sessionRepository.clearTaskIdForMember(
-      sessionId,
-      memberId
-    )
-    if (!result) return { found: false }
-    if (result.alreadyUnbound) return { found: true, alreadyUnbound: true }
-    return {
-      found: true,
-      alreadyUnbound: false,
-      previousTaskIdentifier: result.previous.taskIdentifier,
-      previousTaskTitle: result.previous.taskTitle,
     }
   },
 

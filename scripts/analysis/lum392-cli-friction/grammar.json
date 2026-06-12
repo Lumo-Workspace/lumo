@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.33.0",
+  "cliVersion": "1.34.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1633,24 +1633,9 @@
           "variadic": false
         }
       ],
-      "flags": {
-        "--force": {
-          "long": "--force",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Overwrite an existing binding to a different task without confirmation (skips the [y/N] prompt)."
-        }
-      },
-      "hasSubcommands": false,
-      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events. If the session is already bound to a different task, confirms before overwriting (use --force to skip)."
-    },
-    "session detach": {
-      "arguments": [],
       "flags": {},
       "hasSubcommands": false,
-      "description": "Clear the task binding on the current Claude Code session. Past hook events keep their taskId; only future events become untagged."
+      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. The binding is a lifetime lock: re-attaching to the same task is a no-op, attaching to a different task is refused — start a new session for a different task."
     },
     "session status": {
       "arguments": [],
