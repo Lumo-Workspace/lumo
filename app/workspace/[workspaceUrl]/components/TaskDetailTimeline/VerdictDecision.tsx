@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { useSearchParams } from 'next/navigation'
 import { Clock, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -82,6 +83,66 @@ const TONE_TEXT: Record<VerdictTone, string> = {
 /** Strip tags + whitespace to test whether a rich-text note has real content. */
 function hasContent(html: string): boolean {
   return html.replace(/<[^>]+>/g, '').trim().length > 0
+}
+
+/**
+ * The status-banner row (icon + title + met-line) shared by both chrome
+ * variants. The two layouts differ only in icon size, met-line placement, and
+ * whether the gate/round-badge ride alongside — so the row JSX lives here once
+ * rather than being hand-copied per variant. `data-testid='verdict-status'`
+ * stays on the row so the existing tests target it in either variant.
+ */
+function StatusBannerRow({
+  layout,
+  Icon,
+  tone,
+  title,
+  metLine,
+  gate,
+  roundBadge,
+}: {
+  layout: 'header' | 'floating'
+  Icon: typeof Clock
+  tone: VerdictTone
+  title: ReactNode
+  metLine: ReactNode
+  /** Header only: the gate line stacked under the met-line. */
+  gate?: ReactNode
+  /** Header only: the round badge rendered at the row's trailing edge. */
+  roundBadge?: ReactNode
+}) {
+  if (layout === 'header') {
+    return (
+      <div data-testid='verdict-status' className='flex items-center gap-3'>
+        <Icon className={`size-6 shrink-0 ${TONE_TEXT[tone]}`} aria-hidden />
+        <div className='min-w-0 flex-1'>
+          <div className='text-sm font-medium text-foreground'>{title}</div>
+          <div className='mt-0.5 text-xs text-muted-foreground'>
+            {metLine}
+            {' · '}
+            {gate}
+          </div>
+        </div>
+        {roundBadge}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-testid='verdict-status'
+      className='flex min-w-0 flex-1 items-center gap-2'
+    >
+      <Icon className={`size-4 shrink-0 ${TONE_TEXT[tone]}`} aria-hidden />
+      <span className='truncate text-body font-medium text-foreground'>
+        {title}
+      </span>
+      <span className='shrink-0 text-caption text-muted-foreground'>
+        {' · '}
+        {metLine}
+      </span>
+    </div>
+  )
 }
 
 /**
@@ -397,21 +458,15 @@ export function VerdictDecision({
   if (variant === 'header') {
     return (
       <div className={`rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`}>
-        <div data-testid='verdict-status' className='flex items-center gap-3'>
-          <Icon
-            className={`size-6 shrink-0 ${TONE_TEXT[status.tone]}`}
-            aria-hidden
-          />
-          <div className='min-w-0 flex-1'>
-            <div className='text-sm font-medium text-foreground'>{title}</div>
-            <div className='mt-0.5 text-xs text-muted-foreground'>
-              {metLine}
-              {' · '}
-              {gate}
-            </div>
-          </div>
-          {roundBadge}
-        </div>
+        <StatusBannerRow
+          layout='header'
+          Icon={Icon}
+          tone={status.tone}
+          title={title}
+          metLine={metLine}
+          gate={gate}
+          roundBadge={roundBadge}
+        />
         {isReview && (
           <div className='mt-3 border-t border-border pt-3'>
             {actionButtons}
@@ -430,22 +485,13 @@ export function VerdictDecision({
       className='mb-4 rounded-md border border-border px-4 py-2.5'
     >
       <div className='flex flex-wrap items-center gap-3'>
-        <div
-          data-testid='verdict-status'
-          className='flex min-w-0 flex-1 items-center gap-2'
-        >
-          <Icon
-            className={`size-4 shrink-0 ${TONE_TEXT[status.tone]}`}
-            aria-hidden
-          />
-          <span className='truncate text-body font-medium text-foreground'>
-            {title}
-          </span>
-          <span className='shrink-0 text-caption text-muted-foreground'>
-            {' · '}
-            {metLine}
-          </span>
-        </div>
+        <StatusBannerRow
+          layout='floating'
+          Icon={Icon}
+          tone={status.tone}
+          title={title}
+          metLine={metLine}
+        />
         {actionButtons}
       </div>
       {panelAndNotice}

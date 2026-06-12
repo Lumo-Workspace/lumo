@@ -177,6 +177,42 @@ describe('VerdictDecision', () => {
     expect(screen.queryByTestId('verdict-fail')).toBeNull()
   })
 
+  // The header path computes the banner TITLE via KIND_TITLE_ID[status.kind]
+  // (a FAIL criterion derives kind `sentBack`). Guards against a regression in
+  // that wiring — e.g. the header rendering the wrong kind's title id.
+  it('header variant renders the sentBack title for a failing criterion', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW', [crit('FAIL')])}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-status')).toHaveTextContent(
+      'acceptance.banner.sentBack'
+    )
+  })
+
+  // All-PASS machine criteria with the task still awaiting a human verdict
+  // derives kind `machineAwaitingHuman` / `allPassed` — assert the header path
+  // wires through a passing title (not a failing one).
+  it('header variant renders a passing title when every criterion passes', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW', [crit('PASS'), crit('PASS')])}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    const banner = screen.getByTestId('verdict-status')
+    expect(banner).not.toHaveTextContent('acceptance.banner.sentBack')
+    expect(banner.textContent).toMatch(
+      /acceptance\.banner\.(allPassed|machineAwaitingHuman)/
+    )
+  })
+
   it('header variant + IN_REVIEW renders both the banner and the action buttons', () => {
     render(
       <VerdictDecision
