@@ -58,16 +58,6 @@ export type SessionStatusResult =
       taskTitle: string | null
     }
 
-export type UnbindSessionResult =
-  | { found: false }
-  | { found: true; alreadyUnbound: true }
-  | {
-      found: true
-      alreadyUnbound: false
-      previousTaskIdentifier: string
-      previousTaskTitle: string
-    }
-
 export interface ProgressDraftResult {
   taskIdentifier: string | null
   taskTitle: string | null
@@ -282,39 +272,6 @@ export const sessionService = {
       eventCount: row.eventCount,
       taskIdentifier: task ? `${task.team.identifier}-${task.number}` : null,
       taskTitle: task ? task.title : null,
-    }
-  },
-
-  /**
-   * Clear the task binding on a session owned by the bearer's member.
-   * Idempotent: re-detaching an already-unbound session returns
-   * `alreadyUnbound: true` instead of an error.
-   *
-   * Untagged hook events on the session are left untouched — they remain
-   * associated with the prior task for historical accuracy. Only future
-   * events on this session will be unbound.
-   */
-  async unbindSession({
-    identity,
-    sessionId,
-  }: SessionScopedInput): Promise<UnbindSessionResult> {
-    const memberId = await miscRepository.findMemberIdForHook(
-      identity.user.id,
-      identity.workspace.id
-    )
-    if (!memberId) return { found: false }
-
-    const result = await sessionRepository.clearTaskIdForMember(
-      sessionId,
-      memberId
-    )
-    if (!result) return { found: false }
-    if (result.alreadyUnbound) return { found: true, alreadyUnbound: true }
-    return {
-      found: true,
-      alreadyUnbound: false,
-      previousTaskIdentifier: result.previous.taskIdentifier,
-      previousTaskTitle: result.previous.taskTitle,
     }
   },
 
