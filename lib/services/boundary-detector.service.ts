@@ -2,12 +2,24 @@ import type {
   BoundaryCrossingCategory,
   BoundaryCrossingSeverity,
 } from '@prisma/client'
+import { createHash } from 'crypto'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
+import {
+  classifyTestTampering,
+  type JudgeInput,
+  type JudgeVerdict,
+} from '@/lib/boundary-crossing/test-tampering-judge'
+// NOTE: the LLM judge client (`@/lib/llm/test-tampering-judge-client`) is loaded
+// LAZILY inside cachedJudge — it pulls in the heavy `ai` / `@ai-sdk/gateway` SDK,
+// and a static import would drag that into every module that imports this
+// detector (and every test of it). Deferring the import keeps the cost on the
+// one path that actually calls the model (the ambiguous residual).
 
 /**
  * Async forbidden-action boundary detector (LUM-426, extended in LUM-442).
@@ -566,11 +578,201 @@ export function detectTestTampering(input: {
   return null
 }
 
+// --- LUM-463: two-stage precision (deterministic pre-filter + LLM judge) ------
+//
+// A surviving TEST_TAMPERING hit is still ambiguous: a substantive edit to an
+// already-green test can be a legitimate update (conditions/spec changed) or a
+// weakening (loosened to force a fake PASS). The deterministic pre-filter
+// (Stage 1) decides the clear ends for free; only the ambiguous residual reaches
+// the best-effort LLM judge (Stage 2). The judge only DOWNGRADES (severity LOW)
+// or FLAGS — it never hard-clears a crossing and never sets a human disposition
+// (LUM-435/422 stay the final arbiter). Every path here is defensive: a failure
+// keeps the base (flagged) crossing — a possible weakening is never silently
+// suppressed, and a downgraded crossing still gets recorded (visible/auditable).
+
+const TEST_PATH_RE = /\.(?:test|spec)\.[tj]sx?$/
+const PRODUCTION_CODE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|prisma)$/
+const CODE_DIFF_CAP = 8_000
+
+/** Pull a write event's target file path out of its stored payload. */
+function readEventFilePath(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const input = (payload as Record<string, unknown>).tool_input
+  if (!input || typeof input !== 'object') return null
+  const o = input as Record<string, unknown>
+  for (const k of ['file_path', 'filePath', 'path', 'notebook_path']) {
+    if (typeof o[k] === 'string') return o[k] as string
+  }
+  return null
+}
+
+function isProductionCodePath(p: string): boolean {
+  return PRODUCTION_CODE_RE.test(p) && !TEST_PATH_RE.test(p)
+}
+
+/**
+ * Signal A — change-set context. Did the task's write events touch production
+ * (non-test) source alongside the test? Returns the boolean plus a bounded code
+ * diff for the judge. `coChanged: null` means the signal could not be computed
+ * (query failed) — the safe direction (no positive legit evidence → no
+ * downgrade). Best-effort: never throws.
+ */
+async function gatherChangeSetContext(
+  taskId: string
+): Promise<{ coChanged: boolean | null; codeDiff: string | null }> {
+  try {
+    const events = await hookEventRepository.findByTaskId(taskId)
+    const productionSnippets: string[] = []
+    for (const e of events) {
+      if (!e.toolName || !WRITE_TOOLS.includes(e.toolName)) continue
+      const fp = readEventFilePath(e.payload)
+      if (!fp || !isProductionCodePath(fp)) continue
+      const { oldString, newString } = readEditStrings(e.payload)
+      productionSnippets.push(`# ${fp}\n${buildEditDiff(oldString, newString)}`)
+    }
+    const coChanged = productionSnippets.length > 0
+    const joined = productionSnippets.join('\n\n')
+    const codeDiff = coChanged
+      ? joined.length > CODE_DIFF_CAP
+        ? `${joined.slice(0, CODE_DIFF_CAP)}\n…[truncated]`
+        : joined
+      : null
+    return { coChanged, codeDiff }
+  } catch {
+    return { coChanged: null, codeDiff: null }
+  }
+}
+
+/**
+ * Signal C — was the backing criterion itself edited (a CRITERION_CHANGED UPDATE
+ * after the initial draft)? A moved spec is a legitimate reason for the test to
+ * move. Best-effort: a query failure returns false (the safe direction — absence
+ * of evidence never downgrades).
+ */
+async function backingCriterionEdited(
+  taskId: string,
+  criterionId: string
+): Promise<boolean> {
+  try {
+    const acts = await activityRepository.listByTaskAndType(
+      taskId,
+      'CRITERION_CHANGED'
+    )
+    return acts.some(a => {
+      const p = a.payload as Record<string, unknown> | null
+      return !!p && p.criterionId === criterionId && p.op === 'UPDATED'
+    })
+  } catch {
+    return false
+  }
+}
+
+/** Render an Edit's before→after as a compact diff for the judge prompt. */
+function buildEditDiff(
+  oldString: string | null,
+  newString: string | null
+): string {
+  if (oldString == null) return `+++ after\n${newString ?? ''}`
+  return `--- before\n${oldString}\n+++ after\n${newString ?? ''}`
+}
+
+// Diff-hash cache so an identical (criterion, test-diff, code-diff) is judged
+// once per process (cost-bounding on top of the pre-filter). Failures are NOT
+// cached, so a transient gateway error re-tries on the next hit.
+const judgeCache = new Map<string, Promise<JudgeVerdict>>()
+const JUDGE_CACHE_MAX = 500
+
+function judgeCacheKey(j: JudgeInput): string {
+  return createHash('sha256')
+    .update(`${j.criterion} ${j.testDiff} ${j.codeDiff ?? ''}`)
+    .digest('hex')
+}
+
+function cachedJudge(j: JudgeInput): Promise<JudgeVerdict> {
+  const key = judgeCacheKey(j)
+  const hit = judgeCache.get(key)
+  if (hit) return hit
+  // Lazy import: pay the SDK load only when the model is actually consulted.
+  const p = import('@/lib/llm/test-tampering-judge-client').then(mod =>
+    mod.judgeTestTampering(j)
+  )
+  judgeCache.set(key, p)
+  p.catch(() => judgeCache.delete(key))
+  if (judgeCache.size > JUDGE_CACHE_MAX) {
+    const oldest = judgeCache.keys().next().value
+    if (oldest !== undefined) judgeCache.delete(oldest)
+  }
+  return p
+}
+
+/** The MACHINE checkpointer whose test file this edit hit (mirrors the order in
+ *  detectTestTampering, which returns on the first match). */
+function findMatchedCheckpointer(
+  machineCheckpointers: MachineCheckpointer[],
+  filePath: string
+): MachineCheckpointer | null {
+  for (const mc of machineCheckpointers) {
+    const hit = checkpointerFilePaths(mc.checkpointer).find(p =>
+      eventPathMatchesCheckpointerPath(filePath, p)
+    )
+    if (hit) return mc
+  }
+  return null
+}
+
+/**
+ * Run the two-stage classification on a surviving tampering crossing and return
+ * the crossing adjusted for the verdict: LEGIT → severity LOW + a "downgraded"
+ * note (still recorded, just not full-strength); WEAKENING → the base crossing
+ * unchanged (full strength). Defensive by construction — any failure returns the
+ * base (flagged) crossing, so a downgrade only ever happens on a positive
+ * legit/judge verdict and a crossing is never lost.
+ */
+async function classifyAndAnnotateTampering(
+  input: BoundaryDetectionInput,
+  matched: MachineCheckpointer,
+  base: DetectedCrossing
+): Promise<DetectedCrossing> {
+  try {
+    const { oldString, newString } = readEditStrings(input.payload)
+    const ctx = await gatherChangeSetContext(input.taskId)
+    const criterionChanged = matched.criterionId
+      ? await backingCriterionEdited(input.taskId, matched.criterionId)
+      : false
+    const result = await classifyTestTampering(
+      {
+        oldString,
+        newString,
+        productionCodeCoChanged: ctx.coChanged,
+        backingCriterionChanged: criterionChanged,
+      },
+      {
+        testDiff: buildEditDiff(oldString, newString),
+        codeDiff: ctx.codeDiff,
+        criterion: matched.statement ?? '',
+      },
+      { judge: cachedJudge }
+    )
+    if (result.outcome === 'LEGIT') {
+      const how = result.stage === 'PREFILTER' ? 'pre-filter' : 'judge'
+      return {
+        ...base,
+        severity: 'LOW',
+        detail: clip(`${base.detail} · downgraded (legit, ${how})`),
+      }
+    }
+    return base
+  } catch {
+    return base
+  }
+}
+
 /**
  * Load the bound task's MACHINE checkpointers and run the pure tampering check
  * (LUM-441). Gated up front: only an Edit/Write event carrying a file path can
  * tamper with a test, so a Bash/Read/Stop event short-circuits BEFORE any DB
- * read — the criteria query is paid only on the events that can match.
+ * read — the criteria query is paid only on the events that can match. A
+ * surviving hit is then run through the LUM-463 two-stage precision classifier.
  */
 async function detectTestTamperingForTask(
   input: BoundaryDetectionInput
@@ -596,12 +798,18 @@ async function detectTestTamperingForTask(
       everPassed: everPassed.has(c.id),
     })
   )
-  return detectTestTampering({
+  const base = detectTestTampering({
     toolName: input.toolName,
     filePath: input.filePath,
     machineCheckpointers,
     payload: input.payload,
   })
+  if (!base) return null
+  // LUM-463: refine the surviving hit — downgrade clear/judged-legit updates,
+  // keep clear/judged weakening at full strength. Best-effort; never throws.
+  const matched = findMatchedCheckpointer(machineCheckpointers, input.filePath)
+  if (!matched) return base
+  return classifyAndAnnotateTampering(input, matched, base)
 }
 
 export const boundaryDetectorService = {
