@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} запуск(ов) верификации сохранено",
   "boundary.toast.remediationSpawned": "Задача устранения {identifier} создана",
   "boundary.toast.dispositioned": "Нарушение обработано — «Готово» разблокировано",
-  "boundary.toast.error": "Не удалось выполнить действие — повторите попытку"
+  "boundary.toast.error": "Не удалось выполнить действие — повторите попытку",
+  "boundary.category.testTampering": "изменён тест, от которого зависит проверка",
+  "boundary.panel.testTamperingHint": "Проверка на reward hacking: убедитесь, что был исправлен сам код, а не ослаблен тест ради прохождения. Законное исправление теста? Отметьте как ложное срабатывание."
 }

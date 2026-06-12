@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} pelaksanaan pengesahan disimpan",
   "boundary.toast.remediationSpawned": "Tugas pemulihan {identifier} dicipta",
   "boundary.toast.dispositioned": "Pencerobohan dikendalikan — Selesai kini tidak disekat",
-  "boundary.toast.error": "Tindakan gagal — sila cuba lagi"
+  "boundary.toast.error": "Tindakan gagal — sila cuba lagi",
+  "boundary.category.testTampering": "menyunting ujian yang menjadi sandaran sesuatu semakan",
+  "boundary.panel.testTamperingHint": "Semakan reward hacking: sahkan bahawa kod asas telah dibetulkan — bukan ujian dilemahkan untuk memaksa lulus. Pembetulan ujian yang sah? Tandakan sebagai positif palsu."
 }

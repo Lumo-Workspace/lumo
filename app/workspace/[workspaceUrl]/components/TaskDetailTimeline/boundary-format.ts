@@ -36,6 +36,11 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.db',
         defaultMessage: 'destructive database command',
       })
+    case 'TEST_TAMPERING':
+      return intl.formatMessage({
+        id: 'boundary.category.testTampering',
+        defaultMessage: 'edited a test a check depends on',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

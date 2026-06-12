@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} 件の検証実行を保持",
   "boundary.toast.remediationSpawned": "対処タスク {identifier} を作成しました",
   "boundary.toast.dispositioned": "違反を処理しました — 完了のブロックが解除されました",
-  "boundary.toast.error": "操作に失敗しました — もう一度お試しください"
+  "boundary.toast.error": "操作に失敗しました — もう一度お試しください",
+  "boundary.category.testTampering": "チェックが依存するテストを編集しました",
+  "boundary.panel.testTamperingHint": "報酬ハッキングの確認:テストを弱めて無理に成功させたのではなく、根本のコードが修正されたことを確認してください。正当なテスト修正ですか?それなら誤検知としてマークしてください。"
 }

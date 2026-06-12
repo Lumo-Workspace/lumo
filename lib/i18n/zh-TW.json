@@ -1588,5 +1588,7 @@
   "acceptance.removed.title": "已移除 · 保留供稽核",
   "acceptance.removed.atRound": "在第 {round} 輪移除",
   "acceptance.removed.lastVerdict": "最後裁定：{v}",
-  "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行"
+  "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行",
+  "boundary.category.testTampering": "修改了某項檢查依賴的測試",
+  "boundary.panel.testTamperingHint": "獎勵操縱檢查:請確認是修復了底層程式碼,而非削弱測試以強行通過。屬於合法的測試修復?請將其標記為誤報。"
 }

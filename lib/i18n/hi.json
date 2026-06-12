@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} सत्यापन रन सुरक्षित",
   "boundary.toast.remediationSpawned": "समाधान कार्य {identifier} बनाया गया",
   "boundary.toast.dispositioned": "उल्लंघन निपटाया गया — पूर्ण अनब्लॉक हो गया",
-  "boundary.toast.error": "कार्रवाई विफल — कृपया पुनः प्रयास करें"
+  "boundary.toast.error": "कार्रवाई विफल — कृपया पुनः प्रयास करें",
+  "boundary.category.testTampering": "एक टेस्ट संपादित किया जिस पर एक जाँच निर्भर है",
+  "boundary.panel.testTamperingHint": "रिवॉर्ड-हैकिंग जाँच: पुष्टि करें कि अंतर्निहित कोड ठीक किया गया — न कि टेस्ट को पास कराने के लिए कमज़ोर किया गया। वैध टेस्ट सुधार? इसे फ़ॉल्स पॉज़िटिव चिह्नित करें।"
 }

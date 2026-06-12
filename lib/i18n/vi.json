@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n} lượt xác minh được giữ lại",
   "boundary.toast.remediationSpawned": "Đã tạo nhiệm vụ khắc phục {identifier}",
   "boundary.toast.dispositioned": "Đã xử lý vi phạm — Hoàn thành đã được bỏ chặn",
-  "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại"
+  "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại",
+  "boundary.category.testTampering": "đã sửa một bài kiểm thử mà một phép kiểm tra phụ thuộc vào",
+  "boundary.panel.testTamperingHint": "Kiểm tra reward hacking: xác nhận rằng mã nguồn bên dưới đã được sửa — chứ không phải bài kiểm thử bị làm yếu đi để ép qua. Sửa kiểm thử hợp lệ? Đánh dấu là dương tính giả."
 }

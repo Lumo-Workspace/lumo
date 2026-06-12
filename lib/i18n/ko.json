@@ -1588,5 +1588,7 @@
   "acceptance.removed.runsPreserved": "{n}회 검증 실행 보존됨",
   "boundary.toast.remediationSpawned": "해결 작업 {identifier} 생성됨",
   "boundary.toast.dispositioned": "위반이 처리되었습니다 — 완료 차단이 해제되었습니다",
-  "boundary.toast.error": "작업에 실패했습니다 — 다시 시도하세요"
+  "boundary.toast.error": "작업에 실패했습니다 — 다시 시도하세요",
+  "boundary.category.testTampering": "검사가 의존하는 테스트를 수정함",
+  "boundary.panel.testTamperingHint": "리워드 해킹 점검: 통과를 강제하려고 테스트를 약화시킨 것이 아니라 실제 코드가 수정되었는지 확인하세요. 정당한 테스트 수정인가요? 그렇다면 거짓 양성으로 표시하세요."
 }

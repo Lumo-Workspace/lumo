@@ -166,6 +166,9 @@ enum BoundaryCrossingCategory {
   HARDCODED_SECRET
   NEW_NPM_DEPENDENCY
   DESTRUCTIVE_DB_COMMAND
+  // Reward-hacking (LUM-441): an Edit/Write touched a file a MACHINE acceptance
+  // checkpointer depends on — suspected test-tampering to force a fake PASS.
+  TEST_TAMPERING
 }
 
 enum BoundaryCrossingDisposition {
