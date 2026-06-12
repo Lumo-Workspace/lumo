@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "それでも上書き",
   "acceptance.criterion.staleVerdict": "合格·編集前バージョン",
   "acceptance.criterion.staleHint": "このチェック以降に基準が変更されました——lumo verify を再実行して再確認してください",
-  "acceptance.check.overrideNoRun": "機械チェックは未実行——人間のオーバーライドにより合格"
+  "acceptance.check.overrideNoRun": "機械チェックは未実行——人間のオーバーライドにより合格",
+  "activity.boundaryRedispositioned": "違反の判定を{from}から{to}に変更しました",
+  "activity.boundaryReopened": "違反を再オープンしました（以前は{from}）— 完了が再びブロックされました",
+  "boundary.panel.corrected": "{by} が修正: {from} → {to}",
+  "boundary.panel.someone": "レビュー担当者",
+  "boundary.panel.redispositionNotePlaceholder": "変更の理由（任意）",
+  "boundary.panel.changeTo": "{verdict}に変更",
+  "boundary.panel.reopen": "再オープン（完了を再ブロック）",
+  "boundary.disposition.open": "未処理",
+  "boundary.toast.reopened": "違反を再オープンしました — 完了が再びブロックされました"
 }

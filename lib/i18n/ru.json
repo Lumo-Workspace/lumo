@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Всё равно переопределить",
   "acceptance.criterion.staleVerdict": "Пройдено · версия до изменения",
   "acceptance.criterion.staleHint": "Критерий изменён после этой проверки — повторно запустите lumo verify для подтверждения",
-  "acceptance.check.overrideNoRun": "Машинная проверка не выполнялась — пройдено вручную (переопределение)"
+  "acceptance.check.overrideNoRun": "Машинная проверка не выполнялась — пройдено вручную (переопределение)",
+  "activity.boundaryRedispositioned": "изменил(а) классификацию нарушения границы с {from} на {to}",
+  "activity.boundaryReopened": "повторно открыл(а) нарушение границы (было {from}) — «Готово» снова заблокировано",
+  "boundary.panel.corrected": "Исправлено {by}: {from} → {to}",
+  "boundary.panel.someone": "проверяющий",
+  "boundary.panel.redispositionNotePlaceholder": "Причина изменения (необязательно)",
+  "boundary.panel.changeTo": "Изменить на {verdict}",
+  "boundary.panel.reopen": "Открыть снова (снова заблокировать «Готово»)",
+  "boundary.disposition.open": "открыто",
+  "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано"
 }

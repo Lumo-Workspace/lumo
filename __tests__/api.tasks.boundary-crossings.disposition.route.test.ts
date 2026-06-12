@@ -69,6 +69,24 @@ describe('POST /api/tasks/[id]/boundary-crossings/disposition', () => {
     expect(mockDisposition).not.toHaveBeenCalled()
   })
 
+  it('agent-authenticated re-disposition request is rejected 403 before parse', async () => {
+    mockIdentity.mockResolvedValue(BEARER_IDENTITY)
+    // Re-disposition rides the SAME human-only route (no new bypass endpoint,
+    // LUM-450): a bearer identity carrying a re-disposition-shaped body — a
+    // change to CONFIRMED, or a revert to OPEN — is refused on identity BEFORE
+    // json() is ever called, so an agent can never alter the disposition of its
+    // own crossing to clear its own gate. The json spy proves no parse happened.
+    const jsonSpy = jest.fn(async () => ({
+      crossingId: 'bc-1',
+      disposition: 'OPEN',
+    }))
+    const r = { json: jsonSpy, headers: { get: () => null } } as never
+    const res = await POST(r, params)
+    expect(res.status).toBe(403)
+    expect(jsonSpy).not.toHaveBeenCalled()
+    expect(mockDisposition).not.toHaveBeenCalled()
+  })
+
   it('records the disposition for a Clerk browser session with caller attribution', async () => {
     const res = await POST(
       req({ crossingId: 'bc-1', disposition: 'CONFIRMED' }),

@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Override anyway",
   "acceptance.criterion.staleVerdict": "Passed · pre-edit version",
   "acceptance.criterion.staleHint": "Criterion changed since this check — re-run lumo verify to re-confirm",
-  "acceptance.check.overrideNoRun": "No machine check ran — passed by human override"
+  "acceptance.check.overrideNoRun": "No machine check ran — passed by human override",
+  "activity.boundaryRedispositioned": "changed the boundary-crossing disposition from {from} to {to}",
+  "activity.boundaryReopened": "reopened the boundary-crossing (was {from}) — Done re-blocked",
+  "boundary.panel.corrected": "Corrected by {by}: {from} → {to}",
+  "boundary.panel.someone": "a reviewer",
+  "boundary.panel.redispositionNotePlaceholder": "Reason for the change (optional)",
+  "boundary.panel.changeTo": "Change to {verdict}",
+  "boundary.panel.reopen": "Reopen (re-block Done)",
+  "boundary.disposition.open": "open",
+  "boundary.toast.reopened": "Crossing reopened — Done is blocked again"
 }

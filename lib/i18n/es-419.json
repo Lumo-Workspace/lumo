@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Anular de todos modos",
   "acceptance.criterion.staleVerdict": "Aprobado · versión anterior a la edición",
   "acceptance.criterion.staleHint": "El criterio cambió desde esta comprobación: vuelve a ejecutar lumo verify para reconfirmar",
-  "acceptance.check.overrideNoRun": "No se ejecutó ninguna comprobación automática: aprobado por anulación humana"
+  "acceptance.check.overrideNoRun": "No se ejecutó ninguna comprobación automática: aprobado por anulación humana",
+  "activity.boundaryRedispositioned": "cambió la disposición de la infracción de límite de {from} a {to}",
+  "activity.boundaryReopened": "reabrió la infracción de límite (era {from}) — Hecho vuelve a estar bloqueado",
+  "boundary.panel.corrected": "Corregido por {by}: {from} → {to}",
+  "boundary.panel.someone": "un revisor",
+  "boundary.panel.redispositionNotePlaceholder": "Motivo del cambio (opcional)",
+  "boundary.panel.changeTo": "Cambiar a {verdict}",
+  "boundary.panel.reopen": "Reabrir (volver a bloquear Hecho)",
+  "boundary.disposition.open": "abierta",
+  "boundary.toast.reopened": "Infracción reabierta — Hecho vuelve a estar bloqueado"
 }

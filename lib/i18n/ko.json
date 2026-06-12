@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "그래도 재정의",
   "acceptance.criterion.staleVerdict": "통과 · 편집 이전 버전",
   "acceptance.criterion.staleHint": "이 검사 이후 기준이 변경됨 — lumo verify를 다시 실행해 재확인하세요",
-  "acceptance.check.overrideNoRun": "머신 검사 미실행 — 사람의 재정의로 통과"
+  "acceptance.check.overrideNoRun": "머신 검사 미실행 — 사람의 재정의로 통과",
+  "activity.boundaryRedispositioned": "위반 처리를 {from}에서 {to}(으)로 변경했습니다",
+  "activity.boundaryReopened": "위반을 다시 열었습니다 (이전: {from}) — 완료가 다시 차단됨",
+  "boundary.panel.corrected": "{by} 님이 수정: {from} → {to}",
+  "boundary.panel.someone": "검토자",
+  "boundary.panel.redispositionNotePlaceholder": "변경 사유 (선택 사항)",
+  "boundary.panel.changeTo": "{verdict}(으)로 변경",
+  "boundary.panel.reopen": "다시 열기 (완료 재차단)",
+  "boundary.disposition.open": "미처리",
+  "boundary.toast.reopened": "위반이 다시 열렸습니다 — 완료가 다시 차단되었습니다"
 }

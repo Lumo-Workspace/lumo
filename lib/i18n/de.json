@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Trotzdem überschreiben",
   "acceptance.criterion.staleVerdict": "Bestanden · Version vor Bearbeitung",
   "acceptance.criterion.staleHint": "Kriterium seit dieser Prüfung geändert — lumo verify erneut ausführen, um zu bestätigen",
-  "acceptance.check.overrideNoRun": "Keine Maschinenprüfung ausgeführt — durch manuelle Übersteuerung bestanden"
+  "acceptance.check.overrideNoRun": "Keine Maschinenprüfung ausgeführt — durch manuelle Übersteuerung bestanden",
+  "activity.boundaryRedispositioned": "hat die Einordnung der Grenzüberschreitung von {from} auf {to} geändert",
+  "activity.boundaryReopened": "hat die Grenzüberschreitung wieder geöffnet (war {from}) — Erledigt erneut blockiert",
+  "boundary.panel.corrected": "Korrigiert von {by}: {from} → {to}",
+  "boundary.panel.someone": "ein Prüfer",
+  "boundary.panel.redispositionNotePlaceholder": "Grund für die Änderung (optional)",
+  "boundary.panel.changeTo": "Auf {verdict} ändern",
+  "boundary.panel.reopen": "Wieder öffnen (Erledigt erneut blockieren)",
+  "boundary.disposition.open": "offen",
+  "boundary.toast.reopened": "Überschreitung wieder geöffnet — Erledigt ist erneut blockiert"
 }

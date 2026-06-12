@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "फिर भी ओवरराइड करें",
   "acceptance.criterion.staleVerdict": "पास · संपादन-पूर्व संस्करण",
   "acceptance.criterion.staleHint": "इस जाँच के बाद मानदंड बदला गया — पुनः पुष्टि के लिए lumo verify फिर से चलाएँ",
-  "acceptance.check.overrideNoRun": "कोई मशीन जाँच नहीं चली — मानवीय ओवरराइड से पास"
+  "acceptance.check.overrideNoRun": "कोई मशीन जाँच नहीं चली — मानवीय ओवरराइड से पास",
+  "activity.boundaryRedispositioned": "सीमा उल्लंघन की स्थिति {from} से {to} में बदली",
+  "activity.boundaryReopened": "सीमा उल्लंघन को फिर से खोला (पहले {from} था) — पूर्ण फिर से ब्लॉक हुआ",
+  "boundary.panel.corrected": "{by} द्वारा सुधारा गया: {from} → {to}",
+  "boundary.panel.someone": "एक समीक्षक",
+  "boundary.panel.redispositionNotePlaceholder": "बदलाव का कारण (वैकल्पिक)",
+  "boundary.panel.changeTo": "{verdict} में बदलें",
+  "boundary.panel.reopen": "फिर से खोलें (पूर्ण को फिर से ब्लॉक करें)",
+  "boundary.disposition.open": "खुला",
+  "boundary.toast.reopened": "उल्लंघन फिर से खोला गया — पूर्ण फिर से ब्लॉक हो गया"
 }

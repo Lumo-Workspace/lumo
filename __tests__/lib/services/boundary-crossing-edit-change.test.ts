@@ -31,6 +31,12 @@ jest.mock('@/lib/repositories/hook-event.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByTaskId: jest.fn() },
 }))
+// listAll folds disposition-change history (LUM-450); no re-disposition here.
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: {
+    listDispositionChangesByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
 
 const editEvent = (old: string, next: string) => ({
   toolName: 'Edit',

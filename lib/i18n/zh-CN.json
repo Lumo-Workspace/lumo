@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "仍然覆盖",
   "acceptance.criterion.staleVerdict": "通过·对应编辑前版本",
   "acceptance.criterion.staleHint": "标准在此次验证后有改动——重跑 lumo verify 以重新确认",
-  "acceptance.check.overrideNoRun": "未运行机器检查——由人工覆盖通过"
+  "acceptance.check.overrideNoRun": "未运行机器检查——由人工覆盖通过",
+  "activity.boundaryRedispositioned": "将越界处置从 {from} 改为 {to}",
+  "activity.boundaryReopened": "将越界重新打开（原为 {from}）——DONE 重新阻塞",
+  "boundary.panel.corrected": "由 {by} 更正：{from} → {to}",
+  "boundary.panel.someone": "某审阅者",
+  "boundary.panel.redispositionNotePlaceholder": "更改原因（选填）",
+  "boundary.panel.changeTo": "改为{verdict}",
+  "boundary.panel.reopen": "重新打开（重新阻塞 DONE）",
+  "boundary.disposition.open": "未处置",
+  "boundary.toast.reopened": "越界已重新打开——DONE 重新阻塞"
 }

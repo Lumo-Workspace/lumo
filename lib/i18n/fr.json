@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Déroger quand même",
   "acceptance.criterion.staleVerdict": "Réussi · version avant modification",
   "acceptance.criterion.staleHint": "Critère modifié depuis cette vérification — relancez lumo verify pour reconfirmer",
-  "acceptance.check.overrideNoRun": "Aucune vérification machine exécutée — réussi par dérogation humaine"
+  "acceptance.check.overrideNoRun": "Aucune vérification machine exécutée — réussi par dérogation humaine",
+  "activity.boundaryRedispositioned": "a changé le classement du franchissement de limite de {from} à {to}",
+  "activity.boundaryReopened": "a rouvert le franchissement de limite (était {from}) — Terminé de nouveau bloqué",
+  "boundary.panel.corrected": "Corrigé par {by} : {from} → {to}",
+  "boundary.panel.someone": "un relecteur",
+  "boundary.panel.redispositionNotePlaceholder": "Motif du changement (facultatif)",
+  "boundary.panel.changeTo": "Changer en {verdict}",
+  "boundary.panel.reopen": "Rouvrir (rebloquer Terminé)",
+  "boundary.disposition.open": "ouvert",
+  "boundary.toast.reopened": "Franchissement rouvert — Terminé est de nouveau bloqué"
 }

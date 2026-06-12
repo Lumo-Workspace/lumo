@@ -101,6 +101,23 @@ export function boundaryDispositionLabel(
       })
 }
 
+/**
+ * Label for a disposition-or-OPEN (LUM-450) — like boundaryDispositionLabel but
+ * a null (reverted to undispositioned) reads as "open". Used by the re-
+ * disposition "corrected from -> to" line and the timeline change marker.
+ */
+export function boundaryDispositionOrOpenLabel(
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | null,
+  intl: ReturnType<typeof useIntl>
+): string {
+  return disposition === null
+    ? intl.formatMessage({
+        id: 'boundary.disposition.open',
+        defaultMessage: 'open',
+      })
+    : boundaryDispositionLabel(disposition, intl)
+}
+
 /** Label for taxonomy-driven reversibility (LUM-435). */
 export function boundaryReversibilityLabel(
   reversible: boolean,

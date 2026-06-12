@@ -61,6 +61,21 @@ export const activityRepository = {
     })
   },
 
+  /**
+   * Every boundary-crossing disposition activity for a task, oldest first, with
+   * the acting actor (LUM-450). The read model folds these to surface, on the
+   * acceptance bar, that a crossing's disposition was *corrected* (from -> to,
+   * by whom) rather than silently swapped. Like listByTaskAndType but it also
+   * needs the actor id to attribute the change.
+   */
+  async listDispositionChangesByTask(taskId: string) {
+    return prisma.taskActivity.findMany({
+      where: { taskId, type: 'BOUNDARY_CROSSING_DISPOSITIONED' },
+      orderBy: { createdAt: 'asc' },
+      select: { payload: true, actorId: true, createdAt: true },
+    })
+  },
+
   async findByTaskId(taskId: string, options: FindOptions) {
     const { limit, cursor } = options
     const where: Record<string, unknown> = { taskId }

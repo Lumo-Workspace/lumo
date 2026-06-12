@@ -2,7 +2,10 @@
 
 import { useIntl } from 'react-intl'
 import { AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react'
-import { boundaryCategoryLabel } from '../boundary-format'
+import {
+  boundaryCategoryLabel,
+  boundaryDispositionOrOpenLabel,
+} from '../boundary-format'
 import {
   Tooltip,
   TooltipContent,
@@ -456,7 +459,49 @@ function formatActivityText(
       )
     }
     case 'BOUNDARY_CROSSING_DISPOSITIONED': {
-      const isConfirmed = p.disposition === 'CONFIRMED'
+      // LUM-450: a disposition activity may be a first disposition (from absent
+      // / null) OR a re-disposition (from non-null) — including a revert to OPEN
+      // (to === null). Legacy rows carry only `disposition` (the new value).
+      const norm = (v: unknown): 'FALSE_POSITIVE' | 'CONFIRMED' | null =>
+        v === 'FALSE_POSITIVE' || v === 'CONFIRMED' ? v : null
+      const to = 'to' in p ? norm(p.to) : norm(p.disposition)
+      const from = norm(p.from)
+      if (from !== null) {
+        // A correction: changed verdict, or reverted to open. Render from -> to.
+        const isReopen = to === null
+        return (
+          <span className='inline-flex items-center gap-1 align-middle'>
+            {isReopen ? (
+              <ShieldAlert className='h-3.5 w-3.5 text-warning' />
+            ) : (
+              <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+            )}
+            <span>
+              {isReopen
+                ? intl.formatMessage(
+                    {
+                      id: 'activity.boundaryReopened',
+                      defaultMessage:
+                        'reopened the boundary-crossing (was {from}) — Done re-blocked',
+                    },
+                    { from: boundaryDispositionOrOpenLabel(from, intl) }
+                  )
+                : intl.formatMessage(
+                    {
+                      id: 'activity.boundaryRedispositioned',
+                      defaultMessage:
+                        'changed the boundary-crossing disposition from {from} to {to}',
+                    },
+                    {
+                      from: boundaryDispositionOrOpenLabel(from, intl),
+                      to: boundaryDispositionOrOpenLabel(to, intl),
+                    }
+                  )}
+            </span>
+          </span>
+        )
+      }
+      const isConfirmed = to === 'CONFIRMED'
       return (
         <span className='inline-flex items-center gap-1 align-middle'>
           <CheckCircle2 className='h-3.5 w-3.5 text-success' />

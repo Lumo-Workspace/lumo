@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Vẫn ghi đè",
   "acceptance.criterion.staleVerdict": "Đạt · phiên bản trước khi chỉnh sửa",
   "acceptance.criterion.staleHint": "Tiêu chí đã thay đổi kể từ lần kiểm tra này — chạy lại lumo verify để xác nhận lại",
-  "acceptance.check.overrideNoRun": "Không có kiểm tra máy nào chạy — đạt nhờ ghi đè thủ công"
+  "acceptance.check.overrideNoRun": "Không có kiểm tra máy nào chạy — đạt nhờ ghi đè thủ công",
+  "activity.boundaryRedispositioned": "đã đổi cách xử lý vi phạm ranh giới từ {from} thành {to}",
+  "activity.boundaryReopened": "đã mở lại vi phạm ranh giới (trước đó là {from}) — Hoàn thành bị chặn lại",
+  "boundary.panel.corrected": "Được sửa bởi {by}: {from} → {to}",
+  "boundary.panel.someone": "một người đánh giá",
+  "boundary.panel.redispositionNotePlaceholder": "Lý do thay đổi (tùy chọn)",
+  "boundary.panel.changeTo": "Đổi thành {verdict}",
+  "boundary.panel.reopen": "Mở lại (chặn lại Hoàn thành)",
+  "boundary.disposition.open": "đang mở",
+  "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn"
 }

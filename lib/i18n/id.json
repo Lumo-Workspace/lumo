@@ -1629,5 +1629,14 @@
   "acceptance.verdict.overrideConfirm": "Tetap ganti",
   "acceptance.criterion.staleVerdict": "Lulus · versi sebelum diedit",
   "acceptance.criterion.staleHint": "Kriteria berubah sejak pemeriksaan ini — jalankan ulang lumo verify untuk konfirmasi ulang",
-  "acceptance.check.overrideNoRun": "Tidak ada pemeriksaan mesin yang berjalan — lulus melalui penggantian manual"
+  "acceptance.check.overrideNoRun": "Tidak ada pemeriksaan mesin yang berjalan — lulus melalui penggantian manual",
+  "activity.boundaryRedispositioned": "mengubah disposisi pelanggaran batas dari {from} menjadi {to}",
+  "activity.boundaryReopened": "membuka kembali pelanggaran batas (sebelumnya {from}) — Selesai diblokir lagi",
+  "boundary.panel.corrected": "Dikoreksi oleh {by}: {from} → {to}",
+  "boundary.panel.someone": "seorang peninjau",
+  "boundary.panel.redispositionNotePlaceholder": "Alasan perubahan (opsional)",
+  "boundary.panel.changeTo": "Ubah menjadi {verdict}",
+  "boundary.panel.reopen": "Buka kembali (blokir Selesai lagi)",
+  "boundary.disposition.open": "terbuka",
+  "boundary.toast.reopened": "Pelanggaran dibuka kembali — Selesai diblokir lagi"
 }
