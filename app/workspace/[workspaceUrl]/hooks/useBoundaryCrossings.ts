@@ -22,6 +22,10 @@ export interface EditChangeView {
   truncated: boolean
   unavailable: string | null
   prUrl: string | null
+  /** Deep link to this file's diff inside the PR (LUM-455). */
+  prFileUrl: string | null
+  /** Turn-level intent the agent stated for the turn this edit belongs to (LUM-455). */
+  agentTurnContext: string | null
 }
 
 export interface BoundaryCrossingView {

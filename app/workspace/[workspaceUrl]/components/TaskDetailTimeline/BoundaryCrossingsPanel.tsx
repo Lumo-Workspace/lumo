@@ -475,38 +475,31 @@ function EditChangeBlock({
   intl: ReturnType<typeof useIntl>
 }) {
   const [expanded, setExpanded] = useState(false)
+  const turnIntent = change.agentTurnContext ? (
+    <TurnIntent text={change.agentTurnContext} intl={intl} />
+  ) : null
 
   if (change.unavailable) {
     return (
-      <p className='mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
-        <FileWarning className='size-3.5 shrink-0' aria-hidden />
-        <span>
-          {intl.formatMessage({
-            id: 'boundary.editChange.unavailable',
-            defaultMessage:
-              "The edit content isn't available to show here — open the PR to review the change.",
-          })}
-        </span>
-        {change.prUrl && (
-          <a
-            href={change.prUrl}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
-          >
+      <div className='mt-1.5 space-y-1'>
+        {turnIntent}
+        <p className='flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
+          <FileWarning className='size-3.5 shrink-0' aria-hidden />
+          <span>
             {intl.formatMessage({
-              id: 'boundary.editChange.viewPr',
-              defaultMessage: 'View PR',
+              id: 'boundary.editChange.unavailable',
+              defaultMessage: "The edit content isn't available to show here.",
             })}
-            <ExternalLink className='size-3' aria-hidden />
-          </a>
-        )}
-      </p>
+          </span>
+          <PrFallback href={change.prFileUrl ?? change.prUrl} intl={intl} />
+        </p>
+      </div>
     )
   }
 
   return (
     <div className='mt-1.5'>
+      {turnIntent}
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
@@ -558,17 +551,88 @@ function EditChangeBlock({
             />
           )}
           {change.truncated && (
-            <p className='text-[10px] text-muted-foreground/80'>
-              {intl.formatMessage({
-                id: 'boundary.editChange.truncated',
-                defaultMessage:
-                  'Truncated for display — open the PR for the full change.',
-              })}
+            <p className='flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/80'>
+              <span>
+                {intl.formatMessage({
+                  id: 'boundary.editChange.truncated',
+                  defaultMessage: 'Truncated for display.',
+                })}
+              </span>
+              <PrFallback href={change.prFileUrl ?? change.prUrl} intl={intl} />
             </p>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * The agent's stated intent for the TURN this edit belongs to (LUM-455) — the
+ * turn's LLM summary. Labeled "this turn" on purpose: Claude Code's hooks carry
+ * no per-edit reason, so this is a turn-level proxy a reviewer cross-checks
+ * against the actual diff, not a guaranteed justification for this one edit.
+ */
+function TurnIntent({
+  text,
+  intl,
+}: {
+  text: string
+  intl: ReturnType<typeof useIntl>
+}) {
+  return (
+    <p className='flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+      <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+      <span>
+        <span className='font-medium'>
+          {intl.formatMessage({
+            id: 'boundary.editChange.turnIntent',
+            defaultMessage: "Agent's intent this turn:",
+          })}
+        </span>{' '}
+        {text}
+      </span>
+    </p>
+  )
+}
+
+/**
+ * The fallback "go look at the full change" affordance (LUM-455). When the task
+ * has a synced PR it is a real, clickable link straight to the changed file's
+ * diff (falling back to the PR's Files tab); when it has none it is an explicit
+ * "No linked PR" note — never a dead "open the PR" instruction with no link
+ * behind it (criterion 3).
+ */
+function PrFallback({
+  href,
+  intl,
+}: {
+  href: string | null
+  intl: ReturnType<typeof useIntl>
+}) {
+  if (href) {
+    return (
+      <a
+        href={href}
+        target='_blank'
+        rel='noopener noreferrer'
+        className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
+      >
+        {intl.formatMessage({
+          id: 'boundary.editChange.viewPr',
+          defaultMessage: 'View PR',
+        })}
+        <ExternalLink className='size-3' aria-hidden />
+      </a>
+    )
+  }
+  return (
+    <span className='italic'>
+      {intl.formatMessage({
+        id: 'boundary.editChange.noPr',
+        defaultMessage: 'No linked PR',
+      })}
+    </span>
   )
 }
 

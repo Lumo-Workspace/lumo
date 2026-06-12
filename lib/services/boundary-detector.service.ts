@@ -356,6 +356,148 @@ export function eventPathMatchesCheckpointerPath(
   return e === r || e.endsWith(`/${r}`) || r.endsWith(`/${e}`)
 }
 
+/** Pull an Edit's before/after strings out of a hook payload (Edit `old_string`
+ *  + `new_string`, with the `_str` aliases). A Write has no `old_*`, so its
+ *  before side is null — there is nothing to diff against. */
+function readEditStrings(payload: unknown): {
+  oldString: string | null
+  newString: string | null
+} {
+  const empty = { oldString: null, newString: null }
+  if (!payload || typeof payload !== 'object') return empty
+  const input = (payload as Record<string, unknown>).tool_input
+  if (!input || typeof input !== 'object') return empty
+  const o = input as Record<string, unknown>
+  const pick = (...keys: string[]): string | null => {
+    for (const k of keys) if (typeof o[k] === 'string') return o[k] as string
+    return null
+  }
+  return {
+    oldString: pick('old_string', 'old_str'),
+    newString: pick('new_string', 'new_str', 'content'),
+  }
+}
+
+/**
+ * Strip JS/TS comments while preserving string-literal contents (LUM-455). A
+ * single quote-aware pass — a `//` or `/* *​/` inside a `'`/`"`/`` ` `` literal is
+ * NOT a comment and is left untouched, so a changed URL like `'https://a'` →
+ * `'https://b'` is never mistaken for a comment-only (cosmetic) edit. Erring
+ * toward keeping text (the conservative direction) is the whole point.
+ */
+function stripComments(src: string): string {
+  let out = ''
+  let quote: string | null = null
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    const next = src[i + 1]
+    if (quote) {
+      out += c
+      if (c === '\\' && i + 1 < src.length) {
+        out += src[i + 1] // copy the escaped char verbatim
+        i++
+      } else if (c === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      out += c
+      continue
+    }
+    if (c === '/' && next === '/') {
+      while (i < src.length && src[i] !== '\n') i++ // skip to EOL, keep newline
+      out += '\n'
+      continue
+    }
+    if (c === '/' && next === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++
+      i++ // land on '/', loop ++ skips it
+      continue
+    }
+    out += c
+  }
+  return out
+}
+
+/**
+ * Normalize a chunk of test source to its significant lines for a cosmetic-vs-
+ * substantive comparison (LUM-455): drop comments, strip postfix non-null
+ * assertions (`!`), collapse whitespace, drop blank lines, and sort so a pure
+ * line reorder compares equal. Deliberately narrow: it normalizes ONLY the
+ * cosmetic forms it can prove safe; anything else (a changed value, a TS type
+ * annotation, an `as` cast) is left intact so the edit reads as substantive and
+ * is still flagged. Conservative by construction — see isCosmeticTestEdit.
+ */
+function normalizeTestLines(text: string): string[] {
+  return stripComments(text)
+    .split('\n')
+    .map(line =>
+      // Postfix non-null assertion `!` (followed by . ; , ) ] } or EOL); never a
+      // `!=`/`!==` operator (followed by `=`) and never a prefix logical-not.
+      line.replace(/!(?=\s*[.;,)\]}]|$)/g, '')
+    )
+    .map(line => line.replace(/\s+/g, ''))
+    .filter(line => line.length > 0)
+    .sort()
+}
+
+/**
+ * Is an Edit provably cosmetic-only (LUM-455)? True ONLY when the before/after
+ * normalize to the identical set of significant lines — i.e. the edit is limited
+ * to whitespace, comments, non-null assertions, or pure line reordering. A
+ * missing side (a Write, or a payload with no old_string) returns FALSE: with
+ * nothing to diff against we cannot prove the edit harmless, so it stays flagged.
+ * This is the safety property — a real assertion change, deletion, or any edit we
+ * can't confidently classify as non-substantive is never suppressed (criterion 2).
+ */
+export function isCosmeticTestEdit(
+  oldString: string | null,
+  newString: string | null
+): boolean {
+  if (oldString == null || newString == null) return false
+  const a = normalizeTestLines(oldString)
+  const b = normalizeTestLines(newString)
+  if (a.length !== b.length) return false
+  return a.every((line, i) => line === b[i])
+}
+
+/**
+ * Is an Edit purely additive (LUM-455)? True when every significant line of the
+ * BEFORE side still survives, unchanged, in the AFTER side (old's normalized
+ * lines are a sub-multiset of new's) — i.e. the edit only INTRODUCES lines (a
+ * new test case, a new import, a new comment) and removes/alters nothing. A pure
+ * addition cannot weaken an existing assertion, so it is treated as
+ * non-substantive and suppressed.
+ *
+ * Deliberate, signed-off relaxation of the conservative red line: because lines
+ * are compared independently, an inserted statement that MUTATES prior state
+ * (e.g. reassigning a `let` the assertion reads) would also pass. That residual
+ * hole is the accepted cost of dropping new-test/new-import noise; an edit that
+ * removes or alters any existing line is still flagged. A missing side (a Write,
+ * no before) is never additive — there is nothing to compare against.
+ */
+export function isAdditiveTestEdit(
+  oldString: string | null,
+  newString: string | null
+): boolean {
+  if (oldString == null || newString == null) return false
+  const before = normalizeTestLines(oldString)
+  if (before.length === 0) return false
+  const counts = new Map<string, number>()
+  for (const line of normalizeTestLines(newString)) {
+    counts.set(line, (counts.get(line) ?? 0) + 1)
+  }
+  for (const line of before) {
+    const n = counts.get(line) ?? 0
+    if (n === 0) return false // a before-line is gone → removed or altered
+    counts.set(line, n - 1)
+  }
+  return true
+}
+
 /**
  * Reward-hacking detector (LUM-441, OpenAI misalignment taxonomy). An agent that
  * edits the very test file a MACHINE acceptance checkpointer runs may be fixing
@@ -365,11 +507,19 @@ export function eventPathMatchesCheckpointerPath(
  * record ONE TEST_TAMPERING crossing naming the file + the criterion that
  * depends on it. A human dispositions it FALSE_POSITIVE (legit test fix) or
  * CONFIRMED (LUM-435). Pure — the criteria are passed in, no I/O.
+ *
+ * LUM-455 adds a PRECISION gate: a hit whose edit is provably non-substantive —
+ * cosmetic-only (whitespace/comments/non-null assertions/reordering) OR purely
+ * additive (only new lines; nothing existing removed or altered) — is suppressed
+ * as noise. The gate stays conservative for the threat that matters: an edit that
+ * removes or alters an existing line, a Write, or an unparseable payload is still
+ * recorded (criterion 2).
  */
 export function detectTestTampering(input: {
   toolName: string | null
   filePath: string | null
   machineCheckpointers: MachineCheckpointer[]
+  payload?: unknown
 }): DetectedCrossing | null {
   if (!input.filePath) return null
   if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
@@ -378,6 +528,16 @@ export function detectTestTampering(input: {
       eventPathMatchesCheckpointerPath(input.filePath as string, p)
     )
     if (hit) {
+      // Precision gate (LUM-455): drop a provably non-substantive edit —
+      // cosmetic-only or purely additive; keep everything else (the safe
+      // direction: removals/alterations, Writes, unparseable payloads).
+      const { oldString, newString } = readEditStrings(input.payload)
+      if (
+        isCosmeticTestEdit(oldString, newString) ||
+        isAdditiveTestEdit(oldString, newString)
+      ) {
+        return null
+      }
       const because = mc.statement
         ? ` — a MACHINE check depends on it ("${mc.statement}")`
         : ' — a MACHINE check depends on it'
@@ -415,6 +575,7 @@ async function detectTestTamperingForTask(
     toolName: input.toolName,
     filePath: input.filePath,
     machineCheckpointers,
+    payload: input.payload,
   })
 }
 
