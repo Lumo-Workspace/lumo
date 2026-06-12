@@ -1,5 +1,6 @@
 import { apiFetch, ApiClientError } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
+import type { CriteriaSetItemInput } from '@/app/workspace/[workspaceUrl]/types'
 
 export interface WorkspaceTaskFilterArgs {
   projectIds?: string[]
@@ -148,6 +149,20 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.humanVerdict(taskId), {
       method: 'POST',
       body: data,
+    })
+  },
+
+  /**
+   * Apply a human contract revision from the web tab (HUMAN_EDIT). `criteria` is
+   * the desired final list — items with `id` keep/update, omitted existing ones
+   * are deleted (soft-deleted if they carry runs). Clerk-session only; the server
+   * derives source (REVIEW_ADDED in review, else HUMAN_EDIT) and attributes it
+   * "via web". No causeTag — humans bear zero structured burden.
+   */
+  reviseCriteria<T>(taskId: string, criteria: CriteriaSetItemInput[]) {
+    return apiFetch<T>(API.tasks.criteria(taskId), {
+      method: 'PUT',
+      body: { source: 'HUMAN_EDIT', criteria },
     })
   },
 

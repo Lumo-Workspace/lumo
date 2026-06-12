@@ -15,6 +15,7 @@ export const API = {
     retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
+    criteria: (taskId: string) => `/api/tasks/${taskId}/criteria`,
     boundaryCrossings: (taskId: string) =>
       `/api/tasks/${taskId}/boundary-crossings`,
     boundaryDisposition: (taskId: string) =>

@@ -671,6 +671,16 @@ export type AcceptanceVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
 export type AcceptanceVerifier = 'MACHINE' | 'HUMAN' | 'AGENT'
 export type CriterionSource = 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
 
+/** One item of a human contract revision sent from the web tab. Mirrors
+ *  lib/validation CriteriaSetItem (the front end must not import lib/validation). */
+export interface CriteriaSetItemInput {
+  id?: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer?: string | null
+  evidenceRequired?: boolean
+}
+
 export interface CriterionLatestVerdictView {
   round: number
   verdict: AcceptanceVerdict
