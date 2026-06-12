@@ -1,98 +1,41 @@
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
-import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
-import { TaskDetailPage } from '../../../components/pages/TaskDetailPage'
-import { slugify } from '@/lib/utils/slugify'
+import { loadTaskDetail } from '../../../components/pages/loadTaskDetail'
+import { buildMyTaskRedirectPath } from '../../../utils/taskPath'
 
 /**
- * My Tasks task detail page: /workspace/[slug]/my-tasks/LUM-2
+ * My Tasks task-detail page: /workspace/[slug]/my-tasks/LUM-2[/<tab>]
  *
- * If the task is not assigned to the current user, redirect to the
- * canonical project-based URL instead.
+ * Thin by design (LUM-460 Option B): the task fetch + presence + render live in
+ * the sibling `[identifier]/layout.tsx`, which stays mounted across tab
+ * switches. This page only guards ownership — if the task isn't assigned to the
+ * current user, redirect to the canonical projects URL, carrying the active tab
+ * segment through so a shared deep link survives the canonical hop (follow-up
+ * 2). The shared loader is memoized, so on first render this reuses the layout's
+ * fetch rather than hitting the database again.
  */
 export default async function MyTaskDetailPage({
   params,
 }: {
   params: Promise<{ workspaceUrl: string; identifier: string; tab?: string[] }>
 }) {
-  const { workspaceUrl, identifier } = await params
+  const { workspaceUrl, identifier, tab } = await params
   const { userId } = await auth()
   if (!userId) redirect('/signin')
 
-  const workspace = await prisma.workspace.findFirst({
-    where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
-    include: { slackIntegration: { select: { id: true } } },
-  })
-  if (!workspace) redirect('/onboarding')
+  const { rawTask } = await loadTaskDetail(workspaceUrl, identifier, userId)
 
-  // Parse identifier (e.g. "LUM-2")
-  const match = identifier.match(/^([A-Z]+)-(\d+)$/)
-  if (!match || !match[1] || !match[2]) notFound()
-  const teamIdentifier = match[1]
-  const number = parseInt(match[2], 10)
-
-  const rawTask = await prisma.task.findFirst({
-    where: {
-      number,
-      team: { identifier: teamIdentifier, workspaceId: workspace.id },
-    },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-          workspaceId: true,
-          ownerId: true,
-        },
-      },
-      assignee: {
-        select: {
-          id: true,
-          type: true,
-          member: { select: { id: true, clerkId: true } },
-          agent: { select: { id: true, name: true, avatarColor: true } },
-        },
-      },
-      children: {
-        select: { id: true, title: true, number: true, status: true },
-        orderBy: { number: 'asc' },
-      },
-      team: { select: { identifier: true } },
-      sprint: { select: { id: true, name: true, status: true } },
-      milestone: { select: { id: true, name: true, status: true } },
-    },
-  })
-  if (!rawTask) notFound()
-
-  // If task is not assigned to the current user, redirect to project URL
   const isMyTask = rawTask.assignee?.member?.clerkId === userId
   if (!isMyTask) {
     redirect(
-      `/workspace/${workspaceUrl}/projects/${slugify(rawTask.project.name)}/tasks/${identifier}`
+      buildMyTaskRedirectPath(
+        workspaceUrl,
+        rawTask.project.name,
+        identifier,
+        tab
+      )
     )
   }
 
-  // Compute the rare-tab presence server-side so the tab bar paints on first
-  // render instead of popping in after the client probes round-trip (LUM-321).
-  const initialTimelinePresence = await taskTimelinePresenceService.getPresence(
-    rawTask.id
-  )
-
-  const task = {
-    ...rawTask,
-    teamIdentifier: rawTask.team.identifier,
-    updatedAt: rawTask.updatedAt.toISOString(),
-    createdAt: rawTask.createdAt.toISOString(),
-  } as Parameters<typeof TaskDetailPage>[0]['initialTask']
-
-  return (
-    <TaskDetailPage
-      initialTask={task}
-      workspaceUrl={workspaceUrl}
-      source='my-tasks'
-      slackConnected={workspace.slackIntegration !== null}
-      initialTimelinePresence={initialTimelinePresence}
-    />
-  )
+  return null
 }
