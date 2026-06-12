@@ -7,10 +7,13 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import { toModelCosts } from '@/lib/services/model-cost'
+import type { ModelUsage } from '@/lib/services/model-cost'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import type {
   BoundaryCrossingDisposition,
   BoundaryCrossingSeverity,
+  TaskArtifactAgent,
   TaskStatus,
 } from '@prisma/client'
 
@@ -92,6 +95,31 @@ export interface DispositionChangeView {
   at: string
 }
 
+/**
+ * Read-only attribution for a crossing (LUM-469): WHO (workspace member), WHICH
+ * agent/session, and WHAT model committed the boundary-crossing action, all
+ * derived from the crossing's linked hook event (+ its session, + the turn's
+ * usageByModel). Every field degrades to null when it can't be resolved — null
+ * is "unknown", never a fabricated value (criterion 2/3). Additive: no write
+ * path, no new stored column — this is join/correlate at read time.
+ */
+export interface CrossingAttributionView {
+  /** WorkspaceMember id that owns the triggering hook event — the human whose
+   *  agent crossed. Null when the crossing has no resolvable linked event. */
+  workspaceMemberId: string | null
+  /** The agent session (Claude Code session UUID) that produced the event. */
+  sessionId: string | null
+  /** The coding-agent type that owns the session (CLAUDE_CODE, …). Null when the
+   *  session can't be resolved. */
+  agent: TaskArtifactAgent | null
+  /** The git branch of the session's worktree, when known (which branch). */
+  worktreeBranch: string | null
+  /** The model running for the turn this crossing belongs to — taken from the
+   *  hook payload when it carries one, else correlated from the turn's
+   *  usageByModel (LUM-298, dominant model). Null = unknown, never fabricated. */
+  model: string | null
+}
+
 /** Full crossing view for the acceptance bar — open AND dispositioned (LUM-435). */
 export interface BoundaryCrossingView {
   id: string
@@ -112,6 +140,9 @@ export interface BoundaryCrossingView {
   /** The latest re-disposition of this crossing (LUM-450), or null when it was
    *  never corrected (still open, or dispositioned exactly once). */
   lastDispositionChange: DispositionChangeView | null
+  /** Who/what crossed (LUM-469) — owner member, agent/session, model. Always
+   *  present; every field is null when it can't be resolved (unknown). */
+  attribution: CrossingAttributionView
 }
 
 /**
@@ -165,6 +196,87 @@ export function turnContextForEvent(
     if (!best || at < best.at) best = { at, summary: s.turnSummary }
   }
   return best?.summary ?? null
+}
+
+/** A linked hook event, narrowed to what the attribution view needs (LUM-469):
+ *  the owning member, the session (+ its agent type and worktree branch), the
+ *  raw payload (a model may be carried there), and createdAt for turn lookup. */
+export interface AttributionHookEvent {
+  workspaceMemberId: string | null
+  sessionId: string | null
+  payload: unknown
+  createdAt?: Date | string | null
+  session?: {
+    agent: TaskArtifactAgent | null
+    worktree?: { branch: string | null } | null
+  } | null
+}
+
+/** A STOP row's per-turn token map (LUM-298), keyed for locating the turn that
+ *  bounds an edit so its dominant model can be read off. */
+export interface TurnUsageRow {
+  sessionId: string | null
+  createdAt: Date | string
+  usageByModel: unknown
+}
+
+/** Best-effort: a model name carried directly on the hook payload. Claude Code's
+ *  tool-use payloads don't carry one today, but the criterion takes it as-is when
+ *  present (the simplest, most direct source); null otherwise. */
+function modelFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const m = (payload as Record<string, unknown>).model
+  return typeof m === 'string' && m.length > 0 ? m : null
+}
+
+/**
+ * The model that ran for the turn a crossing's event belongs to (LUM-469). First
+ * the direct path — a model carried on the hook payload. Otherwise correlate:
+ * the earliest STOP in the same session whose `createdAt` is at or after the
+ * event (the STOP that ended the turn containing the action, mirroring
+ * {@link turnContextForEvent}), and take that turn's dominant model from
+ * usageByModel (LUM-298, highest total tokens). Null when nothing resolves —
+ * "unknown", never fabricated.
+ */
+export function modelForEvent(
+  event: AttributionHookEvent | null,
+  usageStops: TurnUsageRow[]
+): string | null {
+  if (!event) return null
+  const direct = modelFromPayload(event.payload)
+  if (direct) return direct
+  if (!event.sessionId || event.createdAt == null) return null
+  const editAt = new Date(event.createdAt).getTime()
+  let best: { at: number; usage: unknown } | null = null
+  for (const s of usageStops) {
+    if (s.sessionId !== event.sessionId || !s.usageByModel) continue
+    const at = new Date(s.createdAt).getTime()
+    if (at < editAt) continue
+    if (!best || at < best.at) best = { at, usage: s.usageByModel }
+  }
+  if (!best) return null
+  const costs = toModelCosts(best.usage as Record<string, ModelUsage> | null)
+  return costs?.[0]?.model ?? null
+}
+
+/**
+ * Build the read-only attribution view for a crossing (LUM-469). Pure — the
+ * linked hook event and the already-resolved model are passed in. Every field
+ * degrades to null when the source can't be resolved, so a crossing with no
+ * linked event (or a vanished one) yields all-null attribution rather than
+ * throwing (criterion 3).
+ */
+export function buildAttributionView(
+  event: AttributionHookEvent | null,
+  model: string | null
+): CrossingAttributionView {
+  return {
+    workspaceMemberId: event?.workspaceMemberId ?? null,
+    sessionId: event?.sessionId ?? null,
+    agent: event?.session?.agent ?? null,
+    worktreeBranch: event?.session?.worktree?.branch ?? null,
+    model,
+  }
 }
 
 function readToolInput(payload: unknown): Record<string, unknown> | null {
@@ -388,6 +500,31 @@ export const boundaryCrossingService = {
         ? await hookEventRepository.findTurnSummariesForSessions(sessionIds)
         : []
 
+    // Attribution (LUM-469): for EVERY crossing (not just display-safe), resolve
+    // who/which-agent/which-model from its linked hook event + the turn's
+    // usageByModel. Read-only/additive — two id-scoped reads, both skipped when
+    // no crossing carries a linked event. Model degrades to unknown (null), never
+    // fabricated. Kept independent of the edit-change fetch above (that one is
+    // safe-rows-only) so this audit path covers secret-bearing crossings too,
+    // without ever routing their content (no payload field is surfaced here).
+    const attribEventIds = rows
+      .map(c => c.hookEventId)
+      .filter((id): id is string => !!id)
+    const attribEvents =
+      attribEventIds.length > 0
+        ? await hookEventRepository.findManyByIdsForAttribution(attribEventIds)
+        : []
+    const attribEventById = new Map(attribEvents.map(e => [e.id, e]))
+    const attribSessionIds = [
+      ...new Set(
+        attribEvents.map(e => e.sessionId).filter((id): id is string => !!id)
+      ),
+    ]
+    const usageStops =
+      attribSessionIds.length > 0
+        ? await hookEventRepository.findTurnUsageForSessions(attribSessionIds)
+        : []
+
     const views = rows.map(c => {
       const rt = c.remediationTask
       const remediationTask: RemediationTaskView | null = rt
@@ -410,6 +547,13 @@ export const boundaryCrossingService = {
             turnContextForEvent(linkedEvent, turnStops)
           )
         : null
+      const attribEvent = c.hookEventId
+        ? (attribEventById.get(c.hookEventId) ?? null)
+        : null
+      const attribution = buildAttributionView(
+        attribEvent,
+        modelForEvent(attribEvent, usageStops)
+      )
       return {
         id: c.id,
         category: c.category,
@@ -426,6 +570,7 @@ export const boundaryCrossingService = {
         lastDispositionChange: lastDispositionChange(
           changesByCrossing.get(c.id) ?? []
         ),
+        attribution,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already

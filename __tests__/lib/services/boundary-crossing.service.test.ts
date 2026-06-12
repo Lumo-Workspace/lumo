@@ -3,6 +3,7 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 
@@ -32,6 +33,14 @@ jest.mock('@/lib/services/task-creation.service', () => ({
 jest.mock('@/lib/services/task-dependency.service', () => ({
   taskDependencyService: { addManual: jest.fn() },
 }))
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: {
+    findManyByIdsForEditChange: jest.fn(),
+    findTurnSummariesForSessions: jest.fn(),
+    findManyByIdsForAttribution: jest.fn(),
+    findTurnUsageForSessions: jest.fn(),
+  },
+}))
 
 const findById = boundaryCrossingRepository.findById as jest.Mock
 const findAll = boundaryCrossingRepository.findAllByTask as jest.Mock
@@ -45,6 +54,9 @@ const findWithProject = taskRepository.findWithProject as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
 const create = createTask as jest.Mock
 const addManual = taskDependencyService.addManual as jest.Mock
+const findAttribEvents =
+  hookEventRepository.findManyByIdsForAttribution as jest.Mock
+const findTurnUsage = hookEventRepository.findTurnUsageForSessions as jest.Mock
 
 const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
 
@@ -56,6 +68,10 @@ beforeEach(() => {
   createActivity.mockResolvedValue({ id: 'act-1' })
   // No re-disposition history by default — listAll surfaces no correction.
   listChanges.mockResolvedValue([])
+  // No attribution events / usage by default — a crossing with no linked hook
+  // event degrades to unknown attribution (LUM-469).
+  findAttribEvents.mockResolvedValue([])
+  findTurnUsage.mockResolvedValue([])
 })
 
 describe('boundaryCrossingService.disposition', () => {
@@ -479,6 +495,142 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
     ])
     const v = (await boundaryCrossingService.listAll('t-1'))[0]!
     expect(v.lastDispositionChange).toBeNull()
+  })
+})
+
+describe('boundaryCrossingService.listAll — attribution audit (LUM-469)', () => {
+  // A crossing carries the id of the hook event that triggered it; the read
+  // model joins that event (+ its session) to surface WHO (member), WHICH
+  // agent/session, and WHAT model crossed the boundary. All read-only/additive.
+  function crossing(over: Record<string, unknown>) {
+    return {
+      id: 'bc-1',
+      category: 'PUSH_TO_PROTECTED_BRANCH',
+      detail: 'git push origin main',
+      detectedAt: new Date('2026-06-11T00:00:00.000Z'),
+      reversible: false,
+      severity: 'MEDIUM',
+      disposition: null,
+      dispositionNote: null,
+      dispositionedAt: null,
+      dispositionedById: null,
+      remediationTask: null,
+      ...over,
+    }
+  }
+
+  it('crossing read model exposes the agent member and session from its hook event', async () => {
+    findAll.mockResolvedValue([crossing({ id: 'bc-1', hookEventId: 'he-1' })])
+    // The triggering event carries the owning member + the session it fired in;
+    // the session carries the agent type and (when known) its worktree branch.
+    findAttribEvents.mockResolvedValue([
+      {
+        id: 'he-1',
+        workspaceMemberId: 'member-7',
+        sessionId: 'sess-abc',
+        payload: {},
+        createdAt: new Date('2026-06-11T00:00:00.000Z'),
+        session: {
+          agent: 'CLAUDE_CODE',
+          worktree: { branch: 'lumo/LUM-469-attribution' },
+        },
+      },
+    ])
+
+    const v = (await boundaryCrossingService.listAll('t-1'))[0]!
+    expect(v.attribution).toEqual(
+      expect.objectContaining({
+        workspaceMemberId: 'member-7',
+        sessionId: 'sess-abc',
+        agent: 'CLAUDE_CODE',
+        worktreeBranch: 'lumo/LUM-469-attribution',
+      })
+    )
+    // The id-based fetch was scoped to exactly the crossing's linked event.
+    expect(findAttribEvents).toHaveBeenCalledWith(['he-1'])
+  })
+
+  it('crossing read model resolves the running model or reports unknown', async () => {
+    findAll.mockResolvedValue([
+      // (a) model correlated from the turn's usageByModel (LUM-298).
+      crossing({ id: 'bc-usage', hookEventId: 'he-usage' }),
+      // (b) model carried directly on the hook payload — taken as-is.
+      crossing({ id: 'bc-payload', hookEventId: 'he-payload' }),
+      // (c) nothing to correlate — reported as unknown, never fabricated.
+      crossing({ id: 'bc-unknown', hookEventId: 'he-unknown' }),
+    ])
+    findAttribEvents.mockResolvedValue([
+      {
+        id: 'he-usage',
+        workspaceMemberId: 'm-1',
+        sessionId: 'sess-1',
+        payload: {},
+        createdAt: new Date('2026-06-11T00:00:00.000Z'),
+        session: { agent: 'CLAUDE_CODE', worktree: null },
+      },
+      {
+        id: 'he-payload',
+        workspaceMemberId: 'm-1',
+        sessionId: 'sess-2',
+        payload: { model: 'claude-haiku-4-5' },
+        createdAt: new Date('2026-06-11T00:00:00.000Z'),
+        session: { agent: 'CLAUDE_CODE', worktree: null },
+      },
+      {
+        id: 'he-unknown',
+        workspaceMemberId: 'm-1',
+        sessionId: 'sess-3',
+        payload: {},
+        createdAt: new Date('2026-06-11T00:00:00.000Z'),
+        session: { agent: 'CLAUDE_CODE', worktree: null },
+      },
+    ])
+    // The STOP that ended the turn containing the sess-1 edit, with a per-model
+    // token map whose dominant model is claude-opus. sess-3 has no usage row.
+    findTurnUsage.mockResolvedValue([
+      {
+        sessionId: 'sess-1',
+        createdAt: new Date('2026-06-11T00:05:00.000Z'),
+        usageByModel: {
+          'claude-opus-4-8': { input: 9000, output: 4000 },
+          'claude-haiku-4-5': { input: 100, output: 50 },
+        },
+      },
+    ])
+
+    const views = await boundaryCrossingService.listAll('t-1')
+    const byId = new Map(views.map(v => [v.id, v]))
+    expect(byId.get('bc-usage')!.attribution.model).toBe('claude-opus-4-8')
+    expect(byId.get('bc-payload')!.attribution.model).toBe('claude-haiku-4-5')
+    // Undeterminable → null (unknown), never a made-up model.
+    expect(byId.get('bc-unknown')!.attribution.model).toBeNull()
+  })
+
+  it('attribution is read-only additive and degrades to unknown without erroring', async () => {
+    findAll.mockResolvedValue([
+      // hookEventId present, but the event row is gone (run reset / cascade).
+      crossing({ id: 'bc-vanished', hookEventId: 'he-gone' }),
+      // No linked hook event at all.
+      crossing({ id: 'bc-no-event', hookEventId: null }),
+    ])
+    // Event lookup returns nothing — the linked event can't be resolved.
+    findAttribEvents.mockResolvedValue([])
+
+    const views = await boundaryCrossingService.listAll('t-1')
+    // Degrades to unknown for every dimension — no throw.
+    for (const v of views) {
+      expect(v.attribution).toEqual({
+        workspaceMemberId: null,
+        sessionId: null,
+        agent: null,
+        worktreeBranch: null,
+        model: null,
+      })
+    }
+    // Read-only: listing crossings never touches a disposition write path, so
+    // the human-only red line (LUM-435/426) is structurally untouched.
+    expect(disposition).not.toHaveBeenCalled()
+    expect(createActivity).not.toHaveBeenCalled()
   })
 })
 

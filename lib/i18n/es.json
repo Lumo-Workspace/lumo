@@ -1640,5 +1640,10 @@
   "boundary.disposition.open": "abierta",
   "boundary.toast.reopened": "Infracción reabierta — Hecho vuelve a estar bloqueado",
   "acceptance.judge.label": "Cómo evaluar",
-  "acceptance.judge.missing": "Sin guía de evaluación — añade judgeSteps para que el revisor tenga pasos, no solo una afirmación"
+  "acceptance.judge.missing": "Sin guía de evaluación — añade judgeSteps para que el revisor tenga pasos, no solo una afirmación",
+  "boundary.panel.attribution.unknown": "desconocido",
+  "boundary.panel.attribution.model": "modelo: {model}",
+  "boundary.panel.attribution.agent": "agente: {agent}",
+  "boundary.panel.attribution.session": "sesión: {session}",
+  "boundary.panel.attribution.owner": "propietario: {owner}"
 }

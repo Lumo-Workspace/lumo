@@ -1640,5 +1640,10 @@
   "boundary.disposition.open": "открыто",
   "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано",
   "acceptance.judge.label": "Как оценивать",
-  "acceptance.judge.missing": "Нет указаний по оценке — добавьте judgeSteps, чтобы у проверяющего были шаги, а не просто утверждение"
+  "acceptance.judge.missing": "Нет указаний по оценке — добавьте judgeSteps, чтобы у проверяющего были шаги, а не просто утверждение",
+  "boundary.panel.attribution.unknown": "неизвестно",
+  "boundary.panel.attribution.model": "модель: {model}",
+  "boundary.panel.attribution.agent": "агент: {agent}",
+  "boundary.panel.attribution.session": "сессия: {session}",
+  "boundary.panel.attribution.owner": "владелец: {owner}"
 }
