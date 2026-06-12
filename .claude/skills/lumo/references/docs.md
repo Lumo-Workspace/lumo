@@ -143,7 +143,7 @@ Output budget (LUM-428): **default-mode** `doc show` caps the rendered body to t
 
 **`--section <heading>` (LUM-409)** prints just one heading-addressed section of the markdown source — a byte-faithful slice from the heading line through (not including) the next same-or-higher-level heading, subsections included. No header on stdout (the slice is a legal `doc patch` base); the current revision is printed to **stderr** as `Revision: N`. Mutually exclusive with `--raw`.
 
-- Section addressing: pass the heading text (`--section "D 状态表"`), case-insensitive fallback after an exact pass. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`).
+- Section addressing: pass the heading text (`--section "D 状态表"`), matched in three tiers — exact, then case-insensitive, then (LUM-447) full-width↔half-width punctuation + whitespace normalization, so a half-width query (`问题(P4)`) lands on a full-width stored heading (`问题（P4）`) and vice-versa without copying the raw bytes. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`). Normalization never relaxes the ambiguity guard — if it matches more than one heading you still get the candidate list + exit 1.
 - Missing heading → exit 1 listing the available headings; ambiguous heading → exit 1 with a depth-disambiguation hint.
 - Requires a stored markdown source — same no-fallback rule and rebuild flow as `--raw`.
 - Heading detection is markdown-aware: `#` lines inside fenced code blocks or blockquotes are never section boundaries.

@@ -113,9 +113,29 @@ export function parseSectionQuery(raw: string): {
 }
 
 /**
+ * Normalize a heading for the widest match tier (LUM-447): fold full-width
+ * ASCII forms (U+FF01–U+FF5E — the （），etc. that pepper CJK headings) down
+ * to their half-width counterparts, turn the full-width ideographic space
+ * (U+3000) into a normal space, collapse runs of whitespace to one, then
+ * lower-case. This lets a half-width `--section` query land on a full-width
+ * stored heading (and the reverse) so agents no longer have to grep and copy
+ * the raw bytes. It does NOT relax the ambiguity guard: matches are still
+ * counted, and more than one is reported as candidates.
+ */
+function normalizeHeading(text: string): string {
+  return text
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+/**
  * Locate a section by heading text. Exact match first, then a
- * case-insensitive pass; more than one hit in the winning pass is reported
- * as ambiguous rather than silently picking one.
+ * case-insensitive pass, then a full-width/half-width + whitespace
+ * normalization pass (LUM-447); more than one hit in the winning pass is
+ * reported as ambiguous rather than silently picking one.
  */
 export function findSection(src: string, query: string): SectionMatch {
   const q = parseSectionQuery(query)
@@ -127,6 +147,10 @@ export function findSection(src: string, query: string): SectionMatch {
   if (matches.length === 0) {
     const lower = q.text.toLowerCase()
     matches = pool.filter(s => s.heading.toLowerCase() === lower)
+  }
+  if (matches.length === 0) {
+    const normalized = normalizeHeading(q.text)
+    matches = pool.filter(s => normalizeHeading(s.heading) === normalized)
   }
 
   const first = matches[0]
