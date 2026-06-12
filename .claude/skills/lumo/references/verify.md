@@ -136,12 +136,24 @@ statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with it
   failed or never verified, HUMAN ones included). This list IS the plan —
   it is recomputed from the event log on every read, never maintained
   separately. Empty + rounds recorded = awaiting human adjudication.
+- **Open boundary crossings** (LUM-448) — a trailing safety block when the
+  task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then
+  one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>`
+  (highest-severity first), then a pointer to the web acceptance panel. Silent
+  when there are none, so it never overshadows the criteria. **Read-only
+  awareness** — this surfaces crossings detected elsewhere (LUM-426/435/442);
+  there is no CLI path to disposition or clear one. Disposition stays web +
+  human-only (LUM-426/435/422): an agent/CLI bearer cannot clear its own
+  crossing from the terminal.
 
 ### --json contract
 
 `--json` emits the full read model with a top-level `version` field
 (currently `1`). The schema is versioned: breaking shape changes bump the
 major; additive fields don't. Pin on `version` when scripting against it.
+The open boundary crossings ride along as an additive top-level
+`openCrossings[]` (each `{ id, category, severity, detail }`; the array length
+is the count; empty when none) — same read-only awareness, no write path.
 
 `status` reads; `verify` judges. Running status never starts a round, never
 escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on

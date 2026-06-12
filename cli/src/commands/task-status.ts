@@ -2,10 +2,33 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  fetchOpenCrossings,
+  dispositionUrl,
+  type OpenCrossing,
+} from '../lib/open-crossings'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean
+}
+
+/** Extra render inputs layered onto the status read model (LUM-448): the task's
+ *  OPEN boundary crossings + the human-only web disposition link. */
+export interface TaskStatusExtras {
+  openCrossings?: OpenCrossing[]
+  dispositionUrl?: string
+}
+
+/** One-line a possibly-multiline crossing detail and cap it so the safety block
+ *  stays a glance, never a wall (it must not overshadow the criteria). */
+const CROSSING_DETAIL_CAP = 160
+function oneLineDetail(detail: string): string {
+  const firstLine = detail.split('\n')[0] ?? ''
+  const clean = sanitizeField(firstLine).trim()
+  return clean.length > CROSSING_DETAIL_CAP
+    ? `${clean.slice(0, CROSSING_DETAIL_CAP)}…`
+    : clean
 }
 
 /** Mirrors TaskAcceptanceStatus served by GET /api/tasks/[id]/status (v1). */
@@ -67,7 +90,10 @@ function tail(s: string, max: number): string {
  * glyph in front — ✓ pass, ✗ fail, ○ no verdict yet — so REVIEW_ADDED
  * provenance stays explicitly visible in every row.
  */
-export function formatTaskStatus(data: TaskStatusResponse): string {
+export function formatTaskStatus(
+  data: TaskStatusResponse,
+  extras: TaskStatusExtras = {}
+): string {
   const lines: string[] = []
   const t = data.task
   lines.push(`${t.identifier}  ${sanitizeField(t.title)}`)
@@ -87,6 +113,7 @@ export function formatTaskStatus(data: TaskStatusResponse): string {
     lines.push(
       `No acceptance criteria on ${t.identifier} — draft 3–7 and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
     )
+    pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
   }
 
@@ -182,7 +209,33 @@ export function formatTaskStatus(data: TaskStatusResponse): string {
       )
     }
   }
+
+  pushOpenCrossings(lines, extras)
   return lines.join('\n') + '\n'
+}
+
+/**
+ * Append the OPEN boundary-crossings safety block (LUM-448) — a count, one line
+ * per crossing with its severity + category + clipped detail, and a pointer to
+ * the human-only web disposition panel. Trailing (after the criteria) and
+ * silent when there are none, so it never overshadows the acceptance contract.
+ * Read-only awareness: the line points at the web UI; it offers no way to clear
+ * a crossing from the terminal (LUM-426/435/422).
+ */
+function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
+  const open = extras.openCrossings ?? []
+  if (open.length === 0) return
+  lines.push('')
+  lines.push(`⚠ Open boundary crossings (${open.length} undispositioned):`)
+  for (const c of open) {
+    const detail = oneLineDetail(c.detail)
+    const tail = detail ? ` — ${detail}` : ''
+    lines.push(`  • [${c.severity}] ${sanitizeField(c.category)}${tail}`)
+  }
+  lines.push('  Disposition is human-only in the web acceptance panel:')
+  if (extras.dispositionUrl) {
+    lines.push(`    ${extras.dispositionUrl}`)
+  }
 }
 
 /**
@@ -205,8 +258,7 @@ export async function taskStatus(
 
   let taskId = identifier
   if (!taskId) {
-    taskId =
-      (await resolveBoundTaskIdentifier(base, creds.token)) ?? undefined
+    taskId = (await resolveBoundTaskIdentifier(base, creds.token)) ?? undefined
     if (!taskId) {
       console.error(
         'Error: no task given and this session is not bound to one.\n' +
@@ -243,11 +295,31 @@ export async function taskStatus(
   }
 
   const data = (await res.json()) as TaskStatusResponse
+
+  // Read-only awareness (LUM-448): surface the task's OPEN boundary crossings
+  // via the existing LUM-435 endpoint. Best-effort — fetchOpenCrossings already
+  // swallows failures to an empty list, so this supplementary safety signal can
+  // never block the primary acceptance status. The resolved taskId (the
+  // identifier the status was fetched for) is the key here.
+  const openCrossings = await fetchOpenCrossings(base, creds.token, taskId)
+
   if (options.json) {
     // JSON.stringify escapes control chars (…), so the payload is safe
     // to emit raw — and consumers get byte-faithful server data.
-    process.stdout.write(JSON.stringify(data, null, 2) + '\n')
+    // The open crossings ride alongside as an additive field (count = length).
+    process.stdout.write(
+      JSON.stringify({ ...data, openCrossings }, null, 2) + '\n'
+    )
     return
   }
-  process.stdout.write(formatTaskStatus(data))
+  process.stdout.write(
+    formatTaskStatus(data, {
+      openCrossings,
+      dispositionUrl: dispositionUrl(
+        base,
+        creds.workspaceSlug ?? 'lumo',
+        data.task.identifier
+      ),
+    })
+  )
 }
