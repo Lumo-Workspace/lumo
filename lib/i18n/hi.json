@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "संपादन सामग्री यहाँ दिखाने के लिए उपलब्ध नहीं है।",
   "boundary.editChange.viewPr": "PR देखें",
   "boundary.editChange.noPr": "कोई लिंक किया गया PR नहीं",
+  "boundary.editChange.turnIntent": "इस टर्न में एजेंट का इरादा:",
   "acceptance.zone.machineAllPass": "सभी {count} पास",
   "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल"
 }

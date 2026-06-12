@@ -465,6 +465,40 @@ export function isCosmeticTestEdit(
 }
 
 /**
+ * Is an Edit purely additive (LUM-455)? True when every significant line of the
+ * BEFORE side still survives, unchanged, in the AFTER side (old's normalized
+ * lines are a sub-multiset of new's) — i.e. the edit only INTRODUCES lines (a
+ * new test case, a new import, a new comment) and removes/alters nothing. A pure
+ * addition cannot weaken an existing assertion, so it is treated as
+ * non-substantive and suppressed.
+ *
+ * Deliberate, signed-off relaxation of the conservative red line: because lines
+ * are compared independently, an inserted statement that MUTATES prior state
+ * (e.g. reassigning a `let` the assertion reads) would also pass. That residual
+ * hole is the accepted cost of dropping new-test/new-import noise; an edit that
+ * removes or alters any existing line is still flagged. A missing side (a Write,
+ * no before) is never additive — there is nothing to compare against.
+ */
+export function isAdditiveTestEdit(
+  oldString: string | null,
+  newString: string | null
+): boolean {
+  if (oldString == null || newString == null) return false
+  const before = normalizeTestLines(oldString)
+  if (before.length === 0) return false
+  const counts = new Map<string, number>()
+  for (const line of normalizeTestLines(newString)) {
+    counts.set(line, (counts.get(line) ?? 0) + 1)
+  }
+  for (const line of before) {
+    const n = counts.get(line) ?? 0
+    if (n === 0) return false // a before-line is gone → removed or altered
+    counts.set(line, n - 1)
+  }
+  return true
+}
+
+/**
  * Reward-hacking detector (LUM-441, OpenAI misalignment taxonomy). An agent that
  * edits the very test file a MACHINE acceptance checkpointer runs may be fixing
  * the underlying code — or weakening the test to force a fake PASS. We can't tell
@@ -474,10 +508,12 @@ export function isCosmeticTestEdit(
  * depends on it. A human dispositions it FALSE_POSITIVE (legit test fix) or
  * CONFIRMED (LUM-435). Pure — the criteria are passed in, no I/O.
  *
- * LUM-455 adds a PRECISION gate: a hit whose edit is provably cosmetic-only
- * (whitespace/comments/non-null assertions/reordering, assertions untouched) is
- * suppressed as noise. The gate is conservative — anything not provably cosmetic
- * (a real assertion change, a Write, an unparseable payload) is still recorded.
+ * LUM-455 adds a PRECISION gate: a hit whose edit is provably non-substantive —
+ * cosmetic-only (whitespace/comments/non-null assertions/reordering) OR purely
+ * additive (only new lines; nothing existing removed or altered) — is suppressed
+ * as noise. The gate stays conservative for the threat that matters: an edit that
+ * removes or alters an existing line, a Write, or an unparseable payload is still
+ * recorded (criterion 2).
  */
 export function detectTestTampering(input: {
   toolName: string | null
@@ -492,10 +528,16 @@ export function detectTestTampering(input: {
       eventPathMatchesCheckpointerPath(input.filePath as string, p)
     )
     if (hit) {
-      // Precision gate (LUM-455): drop a provably cosmetic-only edit; keep
-      // everything we can't prove harmless (the safe direction).
+      // Precision gate (LUM-455): drop a provably non-substantive edit —
+      // cosmetic-only or purely additive; keep everything else (the safe
+      // direction: removals/alterations, Writes, unparseable payloads).
       const { oldString, newString } = readEditStrings(input.payload)
-      if (isCosmeticTestEdit(oldString, newString)) return null
+      if (
+        isCosmeticTestEdit(oldString, newString) ||
+        isAdditiveTestEdit(oldString, newString)
+      ) {
+        return null
+      }
       const because = mc.statement
         ? ` — a MACHINE check depends on it ("${mc.statement}")`
         : ' — a MACHINE check depends on it'

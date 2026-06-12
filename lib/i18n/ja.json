@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "編集内容をここに表示できません。",
   "boundary.editChange.viewPr": "PR を表示",
   "boundary.editChange.noPr": "リンクされた PR はありません",
+  "boundary.editChange.turnIntent": "このターンでのエージェントの意図:",
   "acceptance.zone.machineAllPass": "{count} 件すべて合格",
   "acceptance.zone.machineSummary": "{passed} 件合格 · {failed} 件不合格"
 }

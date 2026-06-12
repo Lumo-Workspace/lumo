@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "El contenido de la edición no está disponible aquí.",
   "boundary.editChange.viewPr": "Ver PR",
   "boundary.editChange.noPr": "Sin PR vinculado",
+  "boundary.editChange.turnIntent": "Intención del agente en este turno:",
   "acceptance.zone.machineAllPass": "Todas las {count} aprobadas",
   "acceptance.zone.machineSummary": "{passed} aprobadas · {failed} fallidas"
 }

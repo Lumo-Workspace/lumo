@@ -15,6 +15,7 @@
 import {
   boundaryDetectorService,
   isCosmeticTestEdit,
+  isAdditiveTestEdit,
 } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
@@ -88,9 +89,9 @@ beforeEach(() => {
 })
 
 describe('TEST_TAMPERING precision gate — detect+record (LUM-455)', () => {
-  it('cosmetic-only test edit does not record a TEST_TAMPERING crossing', async () => {
-    // The edit only: reorders two lines, adds non-null assertions (`!`), adds a
-    // comment, and reflows whitespace. No assertion or value changes.
+  it('a non-substantive test edit does not record a TEST_TAMPERING crossing', async () => {
+    // (Cosmetic) The edit only: reorders two lines, adds non-null assertions
+    // (`!`), adds a comment, and reflows whitespace. No assertion/value changes.
     const before = [
       'const a = obj.value',
       'const b = other.value',
@@ -106,6 +107,24 @@ describe('TEST_TAMPERING precision gate — detect+record (LUM-455)', () => {
     await recordEdit(before, after)
 
     // Provably non-substantive → suppressed as noise. Nothing is persisted.
+    expect(createCrossing).not.toHaveBeenCalled()
+    expect(createActivity).not.toHaveBeenCalled()
+
+    // (Purely additive) Adds a NEW test case + an import, removing/altering
+    // nothing existing — cannot weaken the existing test, so also suppressed.
+    createCrossing.mockClear()
+    createActivity.mockClear()
+    const addBefore = [
+      "import { f } from './f'",
+      "it('a', () => expect(f(1)).toBe(1))",
+    ].join('\n')
+    const addAfter = [
+      "import { f } from './f'",
+      "import { g } from './g'",
+      "it('a', () => expect(f(1)).toBe(1))",
+      "it('b', () => expect(g(2)).toBe(2))",
+    ].join('\n')
+    await recordEdit(addBefore, addAfter)
     expect(createCrossing).not.toHaveBeenCalled()
     expect(createActivity).not.toHaveBeenCalled()
   })
@@ -165,5 +184,31 @@ describe('isCosmeticTestEdit — pure classifier (LUM-455)', () => {
     // A missing side (Write / no before) can never be proven cosmetic.
     expect(isCosmeticTestEdit(null, 'anything')).toBe(false)
     expect(isCosmeticTestEdit('anything', null)).toBe(false)
+  })
+})
+
+describe('isAdditiveTestEdit — pure classifier (LUM-455)', () => {
+  it('is true only when every before-line survives unchanged in the after', () => {
+    // Pure addition: the original line stays, a new one is appended.
+    expect(
+      isAdditiveTestEdit(
+        'expect(x).toBe(1)',
+        'expect(x).toBe(1)\nexpect(y).toBe(2)'
+      )
+    ).toBe(true)
+    // Removing the original line is NOT additive.
+    expect(
+      isAdditiveTestEdit(
+        'expect(x).toBe(1)\nexpect(y).toBe(2)',
+        'expect(y).toBe(2)'
+      )
+    ).toBe(false)
+    // Altering the original line is NOT additive (old line is gone).
+    expect(isAdditiveTestEdit('expect(x).toBe(1)', 'expect(x).toBe(2)')).toBe(
+      false
+    )
+    // A missing side / empty before proves nothing.
+    expect(isAdditiveTestEdit(null, 'x')).toBe(false)
+    expect(isAdditiveTestEdit('   ', 'x')).toBe(false)
   })
 })

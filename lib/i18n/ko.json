@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "여기에 표시할 편집 내용이 없습니다.",
   "boundary.editChange.viewPr": "PR 보기",
   "boundary.editChange.noPr": "연결된 PR 없음",
+  "boundary.editChange.turnIntent": "이번 턴에서 에이전트의 의도:",
   "acceptance.zone.machineAllPass": "{count}개 모두 통과",
   "acceptance.zone.machineSummary": "{passed}개 통과 · {failed}개 실패"
 }

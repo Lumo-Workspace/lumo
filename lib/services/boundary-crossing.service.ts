@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -62,6 +63,16 @@ export interface EditChangeView {
   unavailable: string | null
   /** The task's PR url when one exists — the fallback's "go look here" (criterion 4). */
   prUrl: string | null
+  /** Deep link straight to THIS file's diff inside the PR (LUM-455) —
+   *  `{prUrl}/files#diff-<sha256(path)>`. Falls back to `{prUrl}/files` when the
+   *  file path is unknown, and null when there is no PR. The reviewer lands on
+   *  the changed file, not the PR root. */
+  prFileUrl: string | null
+  /** The agent's stated intent for the TURN this edit belongs to (LUM-455) — the
+   *  LLM turn summary of the STOP that bounded the edit. Turn-level, not per-edit:
+   *  Claude Code's hooks carry no per-edit reason, so this is the closest proxy.
+   *  Null when the turn hasn't ended / has no summary, or the event is unknown. */
+  agentTurnContext: string | null
 }
 
 /** Full crossing view for the acceptance bar — open AND dispositioned (LUM-435). */
@@ -98,10 +109,42 @@ const EDIT_CONTENT_SAFE_CATEGORIES: ReadonlySet<string> = new Set([
  *  inline view legible and the read-model payload small. */
 export const EDIT_SNIPPET_CAP = 4_000
 
-/** A linked hook event, narrowed to what the edit-change view needs. */
+/** A linked hook event, narrowed to what the edit-change view needs.
+ *  `sessionId`/`createdAt` (LUM-455) locate the turn the edit belongs to. */
 export interface EditChangeHookEvent {
   toolName: string | null
   payload: unknown
+  sessionId?: string | null
+  createdAt?: Date | string | null
+}
+
+/** A STOP row's turn summary, keyed for locating the turn that bounds an edit. */
+export interface TurnSummaryRow {
+  sessionId: string | null
+  createdAt: Date | string
+  turnSummary: string | null
+}
+
+/**
+ * The summary of the turn an edit belongs to (LUM-455): the earliest STOP in the
+ * same session whose `createdAt` is at or after the edit — i.e. the STOP that
+ * ended the turn containing the edit. Turn-level, best-effort: null when the
+ * session/time is unknown or no later summarized STOP exists.
+ */
+export function turnContextForEvent(
+  event: EditChangeHookEvent | null,
+  stops: TurnSummaryRow[]
+): string | null {
+  if (!event?.sessionId || event.createdAt == null) return null
+  const editAt = new Date(event.createdAt).getTime()
+  let best: { at: number; summary: string } | null = null
+  for (const s of stops) {
+    if (s.sessionId !== event.sessionId || !s.turnSummary) continue
+    const at = new Date(s.createdAt).getTime()
+    if (at < editAt) continue
+    if (!best || at < best.at) best = { at, summary: s.turnSummary }
+  }
+  return best?.summary ?? null
 }
 
 function readToolInput(payload: unknown): Record<string, unknown> | null {
@@ -137,9 +180,13 @@ function clampSnippet(value: string): { text: string; truncated: boolean } {
 export function buildEditChangeView(
   category: string,
   hookEvent: EditChangeHookEvent | null,
-  prUrl: string | null
+  prUrl: string | null,
+  filePath: string | null = null,
+  agentTurnContext: string | null = null
 ): EditChangeView | null {
   if (!EDIT_CONTENT_SAFE_CATEGORIES.has(category)) return null
+
+  const prFileUrl = prFileLink(prUrl, filePath)
 
   const fallback = (reason: string): EditChangeView => ({
     kind: null,
@@ -148,6 +195,8 @@ export function buildEditChangeView(
     truncated: false,
     unavailable: reason,
     prUrl,
+    prFileUrl,
+    agentTurnContext,
   })
 
   if (!hookEvent) return fallback('NO_EVENT')
@@ -176,7 +225,33 @@ export function buildEditChangeView(
       (newClamped?.truncated ?? false) || (oldClamped?.truncated ?? false),
     unavailable: null,
     prUrl,
+    prFileUrl,
+    agentTurnContext,
   }
+}
+
+/** The repo-relative file path the detector named in a crossing's detail
+ *  (`edited <path> — …`, LUM-441) — the clean repo-relative path for a PR file
+ *  deep link. Null when the detail doesn't lead with it. */
+function filePathFromDetail(detail: string): string | null {
+  const m = detail.match(/^edited (\S+)/)
+  return m ? m[1]! : null
+}
+
+/**
+ * Deep link straight to a file's diff inside a PR (LUM-455). GitHub anchors each
+ * file in the Files-changed view as `diff-<sha256(path) hex>`; with the path we
+ * jump the reviewer to the exact file, with just the PR we still land on the
+ * Files tab (better than the PR root), and with no PR at all there is no link.
+ */
+function prFileLink(
+  prUrl: string | null,
+  filePath: string | null
+): string | null {
+  if (!prUrl) return null
+  if (!filePath) return `${prUrl}/files`
+  const anchor = createHash('sha256').update(filePath).digest('hex')
+  return `${prUrl}/files#diff-${anchor}`
 }
 
 function iso(d: Date | string | null): string | null {
@@ -220,6 +295,19 @@ export const boundaryCrossingService = {
         ? ((await pullRequestRepository.findByTaskId(taskId))?.url ?? null)
         : null
 
+    // Turn-intent (LUM-455): the summary of the turn each edit belongs to, the
+    // closest proxy for a per-edit reason. Fetch every summarized STOP for the
+    // sessions these edits came from, once; resolve per event in memory.
+    const sessionIds = [
+      ...new Set(
+        events.map(e => e.sessionId).filter((id): id is string => !!id)
+      ),
+    ]
+    const turnStops =
+      sessionIds.length > 0
+        ? await hookEventRepository.findTurnSummariesForSessions(sessionIds)
+        : []
+
     const views = rows.map(c => {
       const rt = c.remediationTask
       const remediationTask: RemediationTaskView | null = rt
@@ -230,11 +318,16 @@ export const boundaryCrossingService = {
             remediated: rt.status === 'DONE',
           }
         : null
+      const linkedEvent = c.hookEventId
+        ? (eventById.get(c.hookEventId) ?? null)
+        : null
       const editChange = EDIT_CONTENT_SAFE_CATEGORIES.has(c.category)
         ? buildEditChangeView(
             c.category,
-            c.hookEventId ? (eventById.get(c.hookEventId) ?? null) : null,
-            prUrl
+            linkedEvent,
+            prUrl,
+            filePathFromDetail(c.detail),
+            turnContextForEvent(linkedEvent, turnStops)
           )
         : null
       return {

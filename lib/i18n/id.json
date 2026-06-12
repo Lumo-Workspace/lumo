@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "Konten suntingan tidak tersedia untuk ditampilkan di sini.",
   "boundary.editChange.viewPr": "Lihat PR",
   "boundary.editChange.noPr": "Tidak ada PR tertaut",
+  "boundary.editChange.turnIntent": "Maksud agen pada giliran ini:",
   "acceptance.zone.machineAllPass": "Semua {count} lulus",
   "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
 }

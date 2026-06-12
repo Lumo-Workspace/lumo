@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "Содержимое правки недоступно для показа здесь.",
   "boundary.editChange.viewPr": "Открыть PR",
   "boundary.editChange.noPr": "Нет связанного PR",
+  "boundary.editChange.turnIntent": "Намерение агента на этом шаге:",
   "acceptance.zone.machineAllPass": "Все {count} пройдены",
   "acceptance.zone.machineSummary": "{passed} пройдено · {failed} провалено"
 }

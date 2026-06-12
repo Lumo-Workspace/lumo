@@ -61,12 +61,39 @@ export const hookEventRepository = {
    * Fetch hook events by id, narrowed to the fields the LUM-452 edit-change read
    * model needs (toolName + the raw payload it pulls old/new/content from). Used
    * by the boundary-crossing read model to surface a display-safe crossing's
-   * triggering edit inline.
+   * triggering edit inline. `sessionId`/`createdAt` (LUM-455) locate the turn the
+   * edit belongs to, for the turn-intent line.
    */
   async findManyByIdsForEditChange(ids: string[]) {
     return prisma.hookEvent.findMany({
       where: { id: { in: ids } },
-      select: { id: true, toolName: true, payload: true },
+      select: {
+        id: true,
+        toolName: true,
+        payload: true,
+        sessionId: true,
+        createdAt: true,
+      },
+    })
+  },
+
+  /**
+   * Every STOP / STOP_FAILURE row (with its LLM turn summary) for the given
+   * sessions, oldest-first (LUM-455). The boundary-crossing read model uses these
+   * to attach the summary of the turn an edit belongs to — the closest available
+   * proxy for "why the agent made this edit", since Claude Code's PostToolUse
+   * payload carries no per-edit reason. Skipped entirely when no session id.
+   */
+  async findTurnSummariesForSessions(sessionIds: string[]) {
+    if (sessionIds.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        type: { in: ['STOP', 'STOP_FAILURE'] },
+        turnSummary: { not: null },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { sessionId: true, createdAt: true, turnSummary: true },
     })
   },
 

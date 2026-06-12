@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "Kandungan suntingan tidak tersedia untuk dipaparkan di sini.",
   "boundary.editChange.viewPr": "Lihat PR",
   "boundary.editChange.noPr": "Tiada PR berpaut",
+  "boundary.editChange.turnIntent": "Niat ejen pada giliran ini:",
   "acceptance.zone.machineAllPass": "Semua {count} lulus",
   "acceptance.zone.machineSummary": "{passed} lulus · {failed} gagal"
 }

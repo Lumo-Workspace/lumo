@@ -964,6 +964,7 @@
   "boundary.editChange.unavailable": "The edit content isn't available to show here.",
   "boundary.editChange.viewPr": "View PR",
   "boundary.editChange.noPr": "No linked PR",
+  "boundary.editChange.turnIntent": "Agent's intent this turn:",
   "activity.empty": "No activity yet",
   "activity.loadEarlier": "Load earlier activity",
   "activity.dateGroup.today": "Today",

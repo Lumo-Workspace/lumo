@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "此处无法显示编辑内容。",
   "boundary.editChange.viewPr": "查看 PR",
   "boundary.editChange.noPr": "无关联 PR",
+  "boundary.editChange.turnIntent": "本轮 agent 的意图:",
   "acceptance.zone.machineAllPass": "全部 {count} 项通过",
   "acceptance.zone.machineSummary": "{passed} 通过 · {failed} 失败"
 }

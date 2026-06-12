@@ -38,6 +38,7 @@ import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBo
 
 const mockHook = useBoundaryCrossings as jest.Mock
 const PR = 'https://github.com/acme/repo/pull/42'
+const PR_FILE = `${PR}/files#diff-abc123`
 
 /** A TEST_TAMPERING crossing carrying a specific edit-change view. */
 const crossing = (editChange: Record<string, unknown>) => ({
@@ -67,7 +68,8 @@ function renderWith(editChange: Record<string, unknown>) {
 
 describe('BoundaryCrossingsPanel — PR fallback link (LUM-455)', () => {
   it('truncated TEST_TAMPERING diff links to the task PR or states there is none', () => {
-    // (1) Truncated WITH a synced PR → a real anchor pointing at the PR url.
+    // (1) Truncated WITH a synced PR → a real anchor pointing straight at the
+    //     changed file's diff inside the PR (prFileUrl), not the PR root.
     const withPr = renderWith({
       kind: 'edit',
       oldText: 'expect(x).toBe(1)',
@@ -75,10 +77,11 @@ describe('BoundaryCrossingsPanel — PR fallback link (LUM-455)', () => {
       truncated: true,
       unavailable: null,
       prUrl: PR,
+      prFileUrl: PR_FILE,
     })
     fireEvent.click(screen.getByText('Show what the edit changed'))
     const link = screen.getByRole('link', { name: /View PR/ })
-    expect(link).toHaveAttribute('href', PR)
+    expect(link).toHaveAttribute('href', PR_FILE)
     withPr.unmount()
 
     // (2) Truncated WITHOUT a PR → explicit "No linked PR", and NO dead link.
@@ -89,6 +92,7 @@ describe('BoundaryCrossingsPanel — PR fallback link (LUM-455)', () => {
       truncated: true,
       unavailable: null,
       prUrl: null,
+      prFileUrl: null,
     })
     fireEvent.click(screen.getByText('Show what the edit changed'))
     expect(screen.getByText('No linked PR')).toBeInTheDocument()
@@ -104,8 +108,26 @@ describe('BoundaryCrossingsPanel — PR fallback link (LUM-455)', () => {
       truncated: false,
       unavailable: 'NO_EVENT',
       prUrl: null,
+      prFileUrl: null,
     })
     expect(screen.getByText('No linked PR')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /View PR/ })).toBeNull()
+  })
+
+  it('surfaces the agent intent for the turn an edit belongs to (LUM-455)', () => {
+    renderWith({
+      kind: 'edit',
+      oldText: 'expect(x).toBe(1)',
+      newText: 'expect(x).toBe(2)',
+      truncated: false,
+      unavailable: null,
+      prUrl: PR,
+      prFileUrl: PR_FILE,
+      agentTurnContext: 'Loosened the rounding assertion to match the new API',
+    })
+    expect(screen.getByText(/Agent's intent this turn:/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Loosened the rounding assertion/)
+    ).toBeInTheDocument()
   })
 })

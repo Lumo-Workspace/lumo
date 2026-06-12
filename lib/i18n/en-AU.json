@@ -1617,6 +1617,7 @@
   "boundary.editChange.unavailable": "The edit content isn't available to show here.",
   "boundary.editChange.viewPr": "View PR",
   "boundary.editChange.noPr": "No linked PR",
+  "boundary.editChange.turnIntent": "Agent's intent this turn:",
   "acceptance.zone.machineAllPass": "All {count} passed",
   "acceptance.zone.machineSummary": "{passed} passed · {failed} failed"
 }
