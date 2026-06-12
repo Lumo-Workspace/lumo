@@ -709,7 +709,7 @@
   "acceptance.banner.inProgress": "Acceptance in progress",
   "acceptance.banner.metCount": "{passed}/{total} met",
   "acceptance.banner.roundBadge": "round {round}/{max}",
-  "acceptance.banner.gateOpen": "no send-back · human PASS or DONE allowed",
+  "acceptance.banner.gateOpen": "no send-back · a human verdict can pass; DONE may still be gated by open boundary crossings",
   "acceptance.banner.gateBlocked": "a send-back blocks DONE",
   "acceptance.history.title": "Verification record",
   "acceptance.history.roundMachine": "round {round} · machine check",

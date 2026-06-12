@@ -1,6 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TaskVerdictBar } from '@/app/workspace/[workspaceUrl]/components/TaskVerdictBar'
 import { tasksClient } from '@/lib/api-client'
+// The real error class — the component imports it from this concrete module so
+// it survives the `@/lib/api-client` barrel mock below; constructing real
+// instances here keeps instanceof meaningful (LUM-453).
+import { ApiClientError } from '@/lib/api-client/base'
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -256,5 +260,55 @@ describe('TaskVerdictBar', () => {
     await waitFor(() =>
       expect(screen.getByTestId('verdict-error')).toBeInTheDocument()
     )
+  })
+
+  // LUM-453: the route returns the real error.message for every non-500 status
+  // (403 human-only, 409 send-back gate, …). The bar must surface that specific
+  // reason rather than swallowing it into a blanket "try again" — which is only
+  // honest for possibly-transient failures (network / unknown / 5xx).
+  it('verdict bar shows the server error message on a 4xx and falls back to generic only for network or 5xx', async () => {
+    const renderBar = () =>
+      render(
+        <TaskVerdictBar
+          taskId='t-1'
+          status='IN_REVIEW'
+          hasCriteria={true}
+          onVerdictRecorded={jest.fn()}
+        />
+      )
+
+    // 4xx WITH a server message → the specific reason is shown verbatim.
+    const reason = 'A send-back is still open — clear it before marking done'
+    submit.mockRejectedValueOnce(new ApiClientError(reason, 409))
+    const a = renderBar()
+    fireEvent.click(screen.getByTestId('verdict-pass'))
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-error')).toHaveTextContent(reason)
+    )
+    a.unmount()
+
+    // 5xx → generic retry copy (the failure may be transient).
+    submit.mockRejectedValueOnce(
+      new ApiClientError('Internal Server Error', 500)
+    )
+    const b = renderBar()
+    fireEvent.click(screen.getByTestId('verdict-pass'))
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-error')).toHaveTextContent(
+        'task.verdict.error'
+      )
+    )
+    b.unmount()
+
+    // Network failure (a plain Error with no HTTP status) → generic.
+    submit.mockRejectedValueOnce(new Error('Failed to fetch'))
+    const c = renderBar()
+    fireEvent.click(screen.getByTestId('verdict-pass'))
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-error')).toHaveTextContent(
+        'task.verdict.error'
+      )
+    )
+    c.unmount()
   })
 })

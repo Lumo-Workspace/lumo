@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "인수 진행 중",
   "acceptance.banner.metCount": "{passed}/{total} 충족",
   "acceptance.banner.roundBadge": "{round}/{max} 라운드",
-  "acceptance.banner.gateOpen": "반려 없음 · 사람 PASS 또는 DONE 가능",
+  "acceptance.banner.gateOpen": "반려 없음 · 사람 판정은 통과 가능; DONE은 미처리 경계 위반으로 여전히 막힐 수 있음",
   "acceptance.banner.gateBlocked": "반려 있음 · DONE 차단",
   "acceptance.history.title": "검증 기록",
   "acceptance.history.roundMachine": "{round} 라운드 · 머신 검증",

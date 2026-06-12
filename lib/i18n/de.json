@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Abnahme läuft",
   "acceptance.banner.metCount": "{passed}/{total} erfüllt",
   "acceptance.banner.roundBadge": "Runde {round}/{max}",
-  "acceptance.banner.gateOpen": "keine Rückweisung · menschliches PASS oder DONE möglich",
+  "acceptance.banner.gateOpen": "keine Rückweisung · ein menschliches Urteil kann bestehen; DONE kann weiterhin durch offene Überschreitungen blockiert sein",
   "acceptance.banner.gateBlocked": "eine Rückweisung blockiert DONE",
   "acceptance.history.title": "Prüfprotokoll",
   "acceptance.history.roundMachine": "Runde {round} · Maschinenprüfung",
