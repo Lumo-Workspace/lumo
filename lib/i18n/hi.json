@@ -1640,5 +1640,10 @@
   "boundary.disposition.open": "खुला",
   "boundary.toast.reopened": "उल्लंघन फिर से खोला गया — पूर्ण फिर से ब्लॉक हो गया",
   "acceptance.judge.label": "कैसे जाँचें",
-  "acceptance.judge.missing": "कोई जाँच मार्गदर्शन नहीं — judgeSteps जोड़ें ताकि समीक्षक के पास केवल एक कथन नहीं, बल्कि चरण हों"
+  "acceptance.judge.missing": "कोई जाँच मार्गदर्शन नहीं — judgeSteps जोड़ें ताकि समीक्षक के पास केवल एक कथन नहीं, बल्कि चरण हों",
+  "boundary.panel.attribution.unknown": "अज्ञात",
+  "boundary.panel.attribution.model": "मॉडल: {model}",
+  "boundary.panel.attribution.agent": "एजेंट: {agent}",
+  "boundary.panel.attribution.session": "सत्र: {session}",
+  "boundary.panel.attribution.owner": "स्वामी: {owner}"
 }

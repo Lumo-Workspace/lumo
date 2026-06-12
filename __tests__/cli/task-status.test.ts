@@ -394,6 +394,72 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(stdout()).not.toContain('Open boundary crossings')
   })
 
+  it('surfaces per-crossing attribution (model + agent/session), unknown when absent — LUM-469', async () => {
+    routedFetch({
+      crossings: [
+        {
+          id: 'bx-attrib',
+          category: 'PUSH_TO_PROTECTED_BRANCH',
+          severity: 'HIGH',
+          detail: 'git push origin main',
+          disposition: null,
+          attribution: {
+            workspaceMemberId: 'm-1',
+            sessionId: 'sess-abcdef0123456789',
+            agent: 'CLAUDE_CODE',
+            worktreeBranch: 'lumo/LUM-469',
+            model: 'claude-opus-4-8',
+          },
+        },
+        {
+          id: 'bx-bare',
+          category: 'INFRA_TERMINATION',
+          severity: 'LOW',
+          detail: 'kill -9 1234',
+          disposition: null,
+        },
+      ],
+    })
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    const out = stdout()
+    // The audit line names the model + agent/branch + a correlatable session prefix.
+    expect(out).toContain(
+      'by model=claude-opus-4-8 · agent=CLAUDE_CODE/lumo/LUM-469 · session=sess-abc'
+    )
+    // A crossing with no attribution degrades every dimension to unknown.
+    expect(out).toContain('by model=unknown · agent=unknown · session=unknown')
+
+    // --json carries the structured attribution through unchanged.
+    writeSpy.mock.calls.length = 0
+    routedFetch({
+      crossings: [
+        {
+          id: 'bx-attrib',
+          category: 'PUSH_TO_PROTECTED_BRANCH',
+          severity: 'HIGH',
+          detail: 'git push origin main',
+          disposition: null,
+          attribution: {
+            workspaceMemberId: 'm-1',
+            sessionId: 'sess-abcdef0123456789',
+            agent: 'CLAUDE_CODE',
+            worktreeBranch: 'lumo/LUM-469',
+            model: 'claude-opus-4-8',
+          },
+        },
+      ],
+    })
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    expect(parsed.openCrossings[0].attribution).toEqual({
+      workspaceMemberId: 'm-1',
+      sessionId: 'sess-abcdef0123456789',
+      agent: 'CLAUDE_CODE',
+      worktreeBranch: 'lumo/LUM-469',
+      model: 'claude-opus-4-8',
+    })
+  })
+
   it('CLI exposes crossings read-only with no disposition write path', () => {
     // Structural guard: nothing under cli/src may invoke a crossing WRITE path
     // (disposition / remediation), and the crossings reader must never use a

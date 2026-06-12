@@ -26,7 +26,14 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findAllByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
-  hookEventRepository: { findManyByIdsForEditChange: jest.fn() },
+  hookEventRepository: {
+    findManyByIdsForEditChange: jest.fn(),
+    findTurnSummariesForSessions: jest.fn(),
+    // LUM-469 attribution fetch — listAll now resolves who/agent/model for every
+    // crossing; default to empty so these edit-change cases degrade to unknown.
+    findManyByIdsForAttribution: jest.fn(),
+    findTurnUsageForSessions: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findByTaskId: jest.fn() },
@@ -149,6 +156,15 @@ describe('boundaryCrossingService.listAll — wires edit-change into the read mo
     jest.clearAllMocks()
     findManyEvents.mockResolvedValue([])
     findPr.mockResolvedValue(null)
+    ;(
+      hookEventRepository.findManyByIdsForAttribution as jest.Mock
+    ).mockResolvedValue([])
+    ;(
+      hookEventRepository.findTurnUsageForSessions as jest.Mock
+    ).mockResolvedValue([])
+    ;(
+      hookEventRepository.findTurnSummariesForSessions as jest.Mock
+    ).mockResolvedValue([])
   })
 
   const row = (over: Record<string, unknown> = {}) => ({

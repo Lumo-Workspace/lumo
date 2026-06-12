@@ -28,6 +28,16 @@ export interface EditChangeView {
   agentTurnContext: string | null
 }
 
+/** Read-only attribution for a crossing (LUM-469): who/which-agent/which-model
+ *  committed it. Every field is null when it couldn't be resolved (unknown). */
+export interface CrossingAttributionView {
+  workspaceMemberId: string | null
+  sessionId: string | null
+  agent: string | null
+  worktreeBranch: string | null
+  model: string | null
+}
+
 /** The latest re-disposition of a crossing (LUM-450): from -> to + who. */
 export interface DispositionChangeView {
   from: BoundaryDisposition | null
@@ -51,6 +61,8 @@ export interface BoundaryCrossingView {
   editChange: EditChangeView | null
   /** Set when the crossing's disposition was corrected (re-dispositioned). */
   lastDispositionChange: DispositionChangeView | null
+  /** Who/what crossed (LUM-469) — owner, agent/session, model. Always present. */
+  attribution: CrossingAttributionView
 }
 
 interface BoundaryCrossingsResponse {

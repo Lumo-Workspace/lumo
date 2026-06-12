@@ -9,12 +9,26 @@ export type CrossingSeverity = 'HIGH' | 'MEDIUM' | 'LOW'
  * read-only mirror of the LUM-435 web read model — no disposition fields, no
  * write path.
  */
+/** Read-only attribution for a crossing (LUM-469): which model + which
+ *  agent/session committed it. Null on any dimension that couldn't be resolved
+ *  server-side ("unknown" — never fabricated). Owner name isn't resolved in the
+ *  terminal (no Clerk lookup); the member id + agent/session answer "whose". */
+export interface CrossingAttribution {
+  workspaceMemberId: string | null
+  sessionId: string | null
+  agent: string | null
+  worktreeBranch: string | null
+  model: string | null
+}
+
 export interface OpenCrossing {
   id: string
   category: string
   severity: CrossingSeverity
   /** One-line-able detail of what tripped the detector. */
   detail: string
+  /** Who/what crossed (LUM-469) — model + agent/session attribution. */
+  attribution: CrossingAttribution
 }
 
 const SEVERITY_RANK: Record<CrossingSeverity, number> = {
@@ -31,6 +45,23 @@ interface RawCrossing {
   severity: string
   detail: string
   disposition: string | null
+  attribution?: Partial<CrossingAttribution> | null
+}
+
+/** Narrow the raw view's attribution to the terminal's read-only shape, every
+ *  dimension defaulting to null (unknown) when absent or the wrong type. */
+function normalizeAttribution(
+  raw: Partial<CrossingAttribution> | null | undefined
+): CrossingAttribution {
+  const str = (v: unknown): string | null =>
+    typeof v === 'string' && v.length > 0 ? v : null
+  return {
+    workspaceMemberId: str(raw?.workspaceMemberId),
+    sessionId: str(raw?.sessionId),
+    agent: str(raw?.agent),
+    worktreeBranch: str(raw?.worktreeBranch),
+    model: str(raw?.model),
+  }
 }
 
 function normalizeSeverity(s: string): CrossingSeverity {
@@ -79,6 +110,7 @@ export async function fetchOpenCrossings(
       category: c.category,
       severity: normalizeSeverity(c.severity),
       detail: c.detail,
+      attribution: normalizeAttribution(c.attribution),
     }))
     .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity])
 }

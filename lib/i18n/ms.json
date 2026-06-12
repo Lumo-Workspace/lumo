@@ -1640,5 +1640,10 @@
   "boundary.disposition.open": "terbuka",
   "boundary.toast.reopened": "Pencerobohan dibuka semula — Selesai disekat semula",
   "acceptance.judge.label": "Cara menilai",
-  "acceptance.judge.missing": "Tiada panduan penilaian — tambah judgeSteps supaya penyemak ada langkah, bukan sekadar penyataan"
+  "acceptance.judge.missing": "Tiada panduan penilaian — tambah judgeSteps supaya penyemak ada langkah, bukan sekadar penyataan",
+  "boundary.panel.attribution.unknown": "tidak diketahui",
+  "boundary.panel.attribution.model": "model: {model}",
+  "boundary.panel.attribution.agent": "ejen: {agent}",
+  "boundary.panel.attribution.session": "sesi: {session}",
+  "boundary.panel.attribution.owner": "pemilik: {owner}"
 }

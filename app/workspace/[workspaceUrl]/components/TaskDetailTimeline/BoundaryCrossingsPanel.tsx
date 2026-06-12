@@ -19,11 +19,13 @@ import {
   ChevronRight,
   ChevronDown,
   FileWarning,
+  Bot,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import {
   useBoundaryCrossings,
   type BoundaryCrossingView,
+  type CrossingAttributionView,
   type EditChangeView,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
@@ -150,6 +152,13 @@ export function BoundaryCrossingsPanel({
     )
   }
 
+  // The human whose agent committed a crossing (LUM-469) — resolved from the
+  // attribution's workspaceMemberId, the owning member, NOT the dispositioner.
+  const ownerName = (workspaceMemberId: string | null): string | null => {
+    if (!workspaceMemberId) return null
+    return members.find(m => m.id === workspaceMemberId)?.name ?? null
+  }
+
   return (
     // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
     <div
@@ -206,6 +215,7 @@ export function BoundaryCrossingsPanel({
             pending={pending === c.id}
             note={notes[c.id] ?? ''}
             reviewerName={reviewerName(c.dispositionedById)}
+            ownerName={ownerName(c.attribution?.workspaceMemberId ?? null)}
             changeReviewerName={reviewerName(
               c.lastDispositionChange?.actorId ?? null
             )}
@@ -246,6 +256,7 @@ function CrossingRow({
   pending,
   note,
   reviewerName,
+  ownerName,
   changeReviewerName,
   onNote,
   onDisposition,
@@ -257,6 +268,7 @@ function CrossingRow({
   pending: boolean
   note: string
   reviewerName: string | null
+  ownerName: string | null
   changeReviewerName: string | null
   onNote: (v: string) => void
   onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
@@ -338,6 +350,12 @@ function CrossingRow({
       <code className='mt-1.5 block overflow-x-auto whitespace-nowrap rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground'>
         {c.detail}
       </code>
+
+      <AttributionLine
+        attribution={c.attribution ?? UNKNOWN_ATTRIBUTION}
+        ownerName={ownerName}
+        intl={intl}
+      />
 
       {c.editChange && <EditChangeBlock change={c.editChange} intl={intl} />}
 
@@ -556,6 +574,94 @@ function CrossingRow({
         </div>
       )}
     </div>
+  )
+}
+
+/** Fallback when a crossing view predates attribution (legacy / cached client
+ *  response) — every dimension unknown so the row still renders (LUM-469). */
+const UNKNOWN_ATTRIBUTION: CrossingAttributionView = {
+  workspaceMemberId: null,
+  sessionId: null,
+  agent: null,
+  worktreeBranch: null,
+  model: null,
+}
+
+/**
+ * Read-only attribution line (LUM-469): which model and which agent/session
+ * committed this crossing, and whose agent it was. Lets a reviewer audit
+ * who/what crossed the boundary without leaving the acceptance bar. Each
+ * dimension that couldn't be resolved renders a localized "unknown" — never a
+ * fabricated value. Owner is shown only when its display name resolves.
+ */
+function AttributionLine({
+  attribution: a,
+  ownerName,
+  intl,
+}: {
+  attribution: CrossingAttributionView
+  ownerName: string | null
+  intl: ReturnType<typeof useIntl>
+}) {
+  const unknown = intl.formatMessage({
+    id: 'boundary.panel.attribution.unknown',
+    defaultMessage: 'unknown',
+  })
+  const agentText = a.agent
+    ? a.worktreeBranch
+      ? `${a.agent} · ${a.worktreeBranch}`
+      : a.agent
+    : unknown
+  // A Claude Code session UUID is long — a short prefix is enough to correlate.
+  const sessionText = a.sessionId ? a.sessionId.slice(0, 8) : unknown
+
+  return (
+    <p className='mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground'>
+      <Bot className='size-3 shrink-0' aria-hidden />
+      <span>
+        {intl.formatMessage(
+          {
+            id: 'boundary.panel.attribution.model',
+            defaultMessage: 'model: {model}',
+          },
+          { model: a.model ?? unknown }
+        )}
+      </span>
+      <span aria-hidden>·</span>
+      <span>
+        {intl.formatMessage(
+          {
+            id: 'boundary.panel.attribution.agent',
+            defaultMessage: 'agent: {agent}',
+          },
+          { agent: agentText }
+        )}
+      </span>
+      <span aria-hidden>·</span>
+      <span className='font-mono'>
+        {intl.formatMessage(
+          {
+            id: 'boundary.panel.attribution.session',
+            defaultMessage: 'session: {session}',
+          },
+          { session: sessionText }
+        )}
+      </span>
+      {ownerName && (
+        <>
+          <span aria-hidden>·</span>
+          <span>
+            {intl.formatMessage(
+              {
+                id: 'boundary.panel.attribution.owner',
+                defaultMessage: 'owner: {owner}',
+              },
+              { owner: ownerName }
+            )}
+          </span>
+        </>
+      )}
+    </p>
   )
 }
 
