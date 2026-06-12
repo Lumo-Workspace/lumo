@@ -195,3 +195,87 @@ describe('acceptance status read model LUM-437 (LUM-437)', () => {
     expect(view.lastEdit).toBeNull()
   })
 })
+
+// LUM-456: the rollup must distinguish a MACHINE criterion an actual
+// checkpointer passed from one passed by a human override, and never claim
+// machine verification that no checkpointer produced.
+describe('machine-verification rollup honesty (LUM-456)', () => {
+  it('machine-verified aggregate excludes human-overridden machine criteria', async () => {
+    const cMachine = criterion({
+      id: 'c-mp',
+      statement: 'genuinely machine-passed',
+    })
+    const cOverride = criterion({
+      id: 'c-ov',
+      statement: 'human-overridden machine criterion',
+    })
+    listActive.mockResolvedValue([cMachine, cOverride])
+    listAll.mockResolvedValue([cMachine, cOverride])
+    listRuns.mockResolvedValue([
+      // c-mp: a checkpointer ran and passed it — a genuine machine PASS.
+      run({
+        id: 'r-mp',
+        criterionId: 'c-mp',
+        round: 1,
+        verifierType: 'MACHINE',
+        verdict: 'PASS',
+      }),
+      // c-ov: only ever passed by a human (no MACHINE run at all) — an override.
+      run({
+        id: 'r-ov',
+        criterionId: 'c-ov',
+        round: 1,
+        verifierType: 'HUMAN',
+        verdict: 'PASS',
+        evidencePointer: null,
+        createdAt: new Date('2026-06-02T11:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    // Both MACHINE criteria are currently passing, but only the checkpointer-
+    // backed one counts as machine-verified; the override is tallied separately.
+    expect(s.machineVerification.total).toBe(2)
+    expect(s.machineVerification.machineVerified).toBe(1)
+    expect(s.machineVerification.humanOverridden).toBe(1)
+
+    const byId = new Map(s.criteria.map(c => [c.id, c]))
+    expect(byId.get('c-mp')!.machinePassed).toBe(true)
+    expect(byId.get('c-ov')!.machinePassed).toBe(false)
+  })
+
+  it('a redundant human PASS on top of a real machine PASS stays machine-verified, not an override', async () => {
+    const c = criterion({
+      id: 'c-1',
+      statement: 'machine passed then human signed off',
+    })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r-m',
+        criterionId: 'c-1',
+        round: 1,
+        verifierType: 'MACHINE',
+        verdict: 'PASS',
+      }),
+      // A later human "pass all" sign-off does not demote the machine result.
+      run({
+        id: 'r-h',
+        criterionId: 'c-1',
+        round: 1,
+        verifierType: 'HUMAN',
+        verdict: 'PASS',
+        evidencePointer: null,
+        createdAt: new Date('2026-06-02T12:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.machineVerification.machineVerified).toBe(1)
+    expect(s.machineVerification.humanOverridden).toBe(0)
+    expect(s.criteria[0]!.machinePassed).toBe(true)
+  })
+})

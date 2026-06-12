@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "Voir la PR",
   "boundary.editChange.noPr": "Aucune PR liée",
   "boundary.editChange.turnIntent": "Intention de l'agent à ce tour :",
-  "acceptance.zone.machineAllPass": "Les {count} réussis",
-  "acceptance.zone.machineSummary": "{passed} réussis · {failed} échoués",
+  "acceptance.zone.machineAllPass": "Tous les {count} vérifiés par la machine",
   "task.verdict.blocked.headline": "{count, plural, one {# franchissement de limite bloque Terminé} other {# franchissements de limite bloquent Terminé}}",
   "task.verdict.blocked.action": "Une personne doit statuer sur chacun ci-dessous — faux positif ou confirmé — ou ouvrir la barrière pour cet espace de travail.",
-  "task.verdict.blocked.viewCrossings": "Voir les franchissements ci-dessous"
+  "task.verdict.blocked.viewCrossings": "Voir les franchissements ci-dessous",
+  "acceptance.zone.machineVerifiedCount": "{count} vérifiés par la machine",
+  "acceptance.zone.machineOverrideCount": "{count} dérogation humaine",
+  "acceptance.zone.machineFailedCount": "{count} en échec",
+  "acceptance.verdict.overrideWarning": "Le checkpointer de cette vérification n'a pas réussi — la valider enregistre une dérogation humaine, pas une vérification par la machine.",
+  "acceptance.verdict.overrideConfirm": "Déroger quand même"
 }

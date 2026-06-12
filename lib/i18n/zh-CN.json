@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "查看 PR",
   "boundary.editChange.noPr": "无关联 PR",
   "boundary.editChange.turnIntent": "本轮 agent 的意图:",
-  "acceptance.zone.machineAllPass": "全部 {count} 项通过",
-  "acceptance.zone.machineSummary": "{passed} 通过 · {failed} 失败",
+  "acceptance.zone.machineAllPass": "全部 {count} 项机器验证通过",
   "task.verdict.blocked.headline": "{count, plural, other {# 个未处置越界正在阻止「已完成」}}",
   "task.verdict.blocked.action": "需由人工逐条处置下方越界——标为误报或确认——或为此工作区开启闸门。",
-  "task.verdict.blocked.viewCrossings": "查看下方越界"
+  "task.verdict.blocked.viewCrossings": "查看下方越界",
+  "acceptance.zone.machineVerifiedCount": "{count} 项机器验证",
+  "acceptance.zone.machineOverrideCount": "{count} 项人工覆盖",
+  "acceptance.zone.machineFailedCount": "{count} 项失败",
+  "acceptance.verdict.overrideWarning": "该检查的 checkpointer 尚未通过——放行将记为人工覆盖，而非机器验证。",
+  "acceptance.verdict.overrideConfirm": "仍然覆盖"
 }

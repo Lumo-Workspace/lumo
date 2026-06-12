@@ -34,6 +34,7 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
     maxRoundByTask: jest.fn(),
     listByTask: jest.fn(),
     latestRunsByCriterion: jest.fn(),
+    machinePassedCriteria: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
@@ -70,6 +71,8 @@ const createMany = verificationRunRepository.createMany as jest.Mock
 const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
 const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
+const machinePassedCriteria =
+  verificationRunRepository.machinePassedCriteria as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const listIncludingDeleted =
   acceptanceCriterionRepository.listByTaskIncludingDeleted as jest.Mock
@@ -139,6 +142,11 @@ beforeEach(() => {
   // No prior verdicts by default — every select-all test overlays the whole
   // contract with its own verdict, so the snapshot is irrelevant there.
   latestRuns.mockResolvedValue(new Map())
+  // By the time a human bulk-passes, the MACHINE criteria have machine-passed
+  // (that is how the task reached IN_REVIEW). The LUM-456 gate only drops
+  // un-machine-passed MACHINE criteria, so this realistic default keeps the
+  // whole-contract fan-out intact; tests that exercise the gate override it.
+  machinePassedCriteria.mockResolvedValue(new Set(['c-1', 'c-2']))
   findActor.mockResolvedValue({ id: 'actor-1' })
   getDetail.mockResolvedValue({ ...DETAIL })
   updateWithSideEffects.mockResolvedValue({})
@@ -691,5 +699,70 @@ describe('human path ignores the configured cap', () => {
         ATTR
       )
     ).resolves.toMatchObject({ round: 9 })
+  })
+})
+
+// LUM-456: a task-level / bulk human PASS must not silently mark a MACHINE
+// criterion whose checkpointer has not run-and-passed as PASS — that would let
+// the rollup impersonate machine verification. Overriding such a criterion is a
+// deliberate, explicit per-criterion action recorded with override provenance.
+describe('machine-verification override honesty', () => {
+  it('bulk human pass does not silently override un-machine-passed MACHINE criteria', async () => {
+    // Neither MACHINE criterion has a passing checkpointer run.
+    machinePassedCriteria.mockResolvedValue(new Set<string>())
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    const ids = createMany.mock.calls[0]![0].map(
+      (r: { criterionId: string }) => r.criterionId
+    )
+    // The un-machine-passed MACHINE criteria are dropped from the silent bulk
+    // pass; only the HUMAN criterion is vouched for.
+    expect(ids).not.toContain('c-1')
+    expect(ids).not.toContain('c-2')
+    expect(ids).toEqual(['c-h'])
+    expect(out.criterionIds).toEqual(['c-h'])
+    // No row impersonates a machine result, so none is flagged an override.
+    const mirrors = createActivity.mock.calls.filter(
+      c => c[0].type === 'VERIFICATION_RUN_RECORDED'
+    )
+    expect(mirrors).toHaveLength(1)
+    expect(mirrors[0]![0].payload.override).toBe(false)
+  })
+
+  it('an explicit per-criterion pass overrides an un-machine-passed MACHINE criterion with override provenance', async () => {
+    machinePassedCriteria.mockResolvedValue(new Set<string>())
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS', criterionIds: ['c-1'] },
+      ATTR
+    )
+    const rows = createMany.mock.calls[0]![0]
+    // The deliberate selection IS honoured — a human can still override.
+    expect(rows.map((r: { criterionId: string }) => r.criterionId)).toEqual([
+      'c-1',
+    ])
+    expect(out.criterionIds).toEqual(['c-1'])
+    // …and the mirror marks it an override (auditable, zero schema).
+    const mirror = createActivity.mock.calls.find(
+      c => c[0].type === 'VERIFICATION_RUN_RECORDED'
+    )!
+    expect(mirror[0].payload.override).toBe(true)
+  })
+
+  it('a bulk pass still vouches for genuinely machine-passed MACHINE criteria', async () => {
+    // Both machine criteria have a passing checkpointer run (the default).
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    expect(out.criterionIds).toEqual(['c-1', 'c-2', 'c-h'])
+    const mirrors = createActivity.mock.calls.filter(
+      c => c[0].type === 'VERIFICATION_RUN_RECORDED'
+    )
+    for (const m of mirrors) expect(m[0].payload.override).toBe(false)
   })
 })

@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "PR देखें",
   "boundary.editChange.noPr": "कोई लिंक किया गया PR नहीं",
   "boundary.editChange.turnIntent": "इस टर्न में एजेंट का इरादा:",
-  "acceptance.zone.machineAllPass": "सभी {count} पास",
-  "acceptance.zone.machineSummary": "{passed} पास · {failed} विफल",
+  "acceptance.zone.machineAllPass": "सभी {count} मशीन-सत्यापित",
   "task.verdict.blocked.headline": "{count, plural, one {# सीमा उल्लंघन Done को रोक रहा है} other {# सीमा उल्लंघन Done को रोक रहे हैं}}",
   "task.verdict.blocked.action": "किसी व्यक्ति को नीचे दिए प्रत्येक का निपटान करना होगा — गलत पहचान या पुष्ट — या इस वर्कस्पेस के लिए गेट खोलना होगा।",
-  "task.verdict.blocked.viewCrossings": "नीचे सीमा उल्लंघन देखें"
+  "task.verdict.blocked.viewCrossings": "नीचे सीमा उल्लंघन देखें",
+  "acceptance.zone.machineVerifiedCount": "{count} मशीन-सत्यापित",
+  "acceptance.zone.machineOverrideCount": "{count} मानवीय ओवरराइड",
+  "acceptance.zone.machineFailedCount": "{count} विफल",
+  "acceptance.verdict.overrideWarning": "इस जाँच का चेकपॉइंटर पास नहीं हुआ — इसे पास करना मशीन सत्यापन नहीं, बल्कि मानवीय ओवरराइड दर्ज करता है।",
+  "acceptance.verdict.overrideConfirm": "फिर भी ओवरराइड करें"
 }

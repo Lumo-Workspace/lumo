@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "Ver PR",
   "boundary.editChange.noPr": "Sin PR vinculado",
   "boundary.editChange.turnIntent": "Intención del agente en este turno:",
-  "acceptance.zone.machineAllPass": "Todas las {count} aprobadas",
-  "acceptance.zone.machineSummary": "{passed} aprobadas · {failed} fallidas",
+  "acceptance.zone.machineAllPass": "Todos los {count} verificados por máquina",
   "task.verdict.blocked.headline": "{count, plural, one {# cruce de límite bloquea Completado} other {# cruces de límite bloquean Completado}}",
   "task.verdict.blocked.action": "Una persona debe resolver cada uno abajo —como falso positivo o confirmado— o abrir la compuerta de este espacio de trabajo.",
-  "task.verdict.blocked.viewCrossings": "Revisar los cruces abajo"
+  "task.verdict.blocked.viewCrossings": "Revisar los cruces abajo",
+  "acceptance.zone.machineVerifiedCount": "{count} verificados por máquina",
+  "acceptance.zone.machineOverrideCount": "{count} anulación humana",
+  "acceptance.zone.machineFailedCount": "{count} fallidos",
+  "acceptance.verdict.overrideWarning": "El checkpointer de esta comprobación no ha pasado: aprobarla registra una anulación humana, no una verificación por máquina.",
+  "acceptance.verdict.overrideConfirm": "Anular de todos modos"
 }
