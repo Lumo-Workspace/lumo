@@ -57,6 +57,8 @@ const draftBody = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockIdentity.mockResolvedValue(IDENTITY)
+  // status: 'TODO' — any non-IN_REVIEW status suffices here; these tests
+  // don't exercise the REVIEW_ADDED new-row stamp branch.
   mockFindByIdentifier.mockResolvedValue({
     id: 't-1',
     status: 'TODO',

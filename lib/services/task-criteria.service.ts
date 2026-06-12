@@ -439,8 +439,9 @@ export const taskCriteriaService = {
    * - deleting a criterion that already has VerificationRun rows soft-deletes
    *   it (tombstone) so its runs survive — never a 409 (LUM-437: the contract
    *   is editable until DONE, the audit chain is preserved by the tombstone).
-   * - changed/new rows are stamped HUMAN_EDIT; untouched rows keep their
-   *   provenance (the Slice-2 churn metrics depend on it).
+   * - edited rows are stamped HUMAN_EDIT; new rows are stamped REVIEW_ADDED
+   *   when the task is IN_REVIEW, otherwise HUMAN_EDIT; untouched rows keep
+   *   their provenance (the Slice-2 churn metrics depend on it).
    * - new rows are stamped addedAtRound = the task's current max round.
    * - the revision is recorded as a task comment with its session provenance.
    */
