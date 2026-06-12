@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "open",
   "boundary.toast.reopened": "Crossing reopened — Done is blocked again",
   "acceptance.judge.label": "How to judge",
-  "acceptance.judge.missing": "No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion"
+  "acceptance.judge.missing": "No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion",
+  "boundary.panel.allCleared": "{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open"
 }

@@ -967,6 +967,7 @@
   "boundary.panel.redispositionNotePlaceholder": "Reason for the change (optional)",
   "boundary.panel.changeTo": "Change to {verdict}",
   "boundary.panel.reopen": "Reopen (re-block Done)",
+  "boundary.panel.allCleared": "{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open",
   "boundary.disposition.falsePositive": "false positive",
   "boundary.disposition.confirmed": "confirmed",
   "boundary.disposition.open": "open",

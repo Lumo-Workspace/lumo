@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "미처리",
   "boundary.toast.reopened": "위반이 다시 열렸습니다 — 완료가 다시 차단되었습니다",
   "acceptance.judge.label": "판정 방법",
-  "acceptance.judge.missing": "판정 안내 없음 — judgeSteps를 추가하여 검토자가 단순한 주장이 아닌 단계를 갖도록 하세요"
+  "acceptance.judge.missing": "판정 안내 없음 — judgeSteps를 추가하여 검토자가 단순한 주장이 아닌 단계를 갖도록 하세요",
+  "boundary.panel.allCleared": "{count, plural, other {처리됨 #건}} · 미처리 0건"
 }

@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "открыто",
   "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано",
   "acceptance.judge.label": "Как оценивать",
-  "acceptance.judge.missing": "Нет указаний по оценке — добавьте judgeSteps, чтобы у проверяющего были шаги, а не просто утверждение"
+  "acceptance.judge.missing": "Нет указаний по оценке — добавьте judgeSteps, чтобы у проверяющего были шаги, а не просто утверждение",
+  "boundary.panel.allCleared": "{count, plural, one {# обработано} few {# обработано} other {# обработано}} · 0 открытых"
 }

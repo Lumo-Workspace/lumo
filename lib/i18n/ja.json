@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "未処理",
   "boundary.toast.reopened": "違反を再オープンしました — 完了が再びブロックされました",
   "acceptance.judge.label": "判定方法",
-  "acceptance.judge.missing": "判定ガイダンスがありません — judgeSteps を追加して、レビュアーに主張だけでなく手順を提供してください"
+  "acceptance.judge.missing": "判定ガイダンスがありません — judgeSteps を追加して、レビュアーに主張だけでなく手順を提供してください",
+  "boundary.panel.allCleared": "{count, plural, other {処置済み # 件}} · 未対応 0 件"
 }

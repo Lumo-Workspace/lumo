@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "đang mở",
   "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn",
   "acceptance.judge.label": "Cách đánh giá",
-  "acceptance.judge.missing": "Không có hướng dẫn đánh giá — thêm judgeSteps để người duyệt có các bước, không chỉ là một khẳng định"
+  "acceptance.judge.missing": "Không có hướng dẫn đánh giá — thêm judgeSteps để người duyệt có các bước, không chỉ là một khẳng định",
+  "boundary.panel.allCleared": "{count, plural, other {đã xử lý #}} · 0 chưa xử lý"
 }

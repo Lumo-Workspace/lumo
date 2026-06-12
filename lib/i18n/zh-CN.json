@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "未处置",
   "boundary.toast.reopened": "越界已重新打开——DONE 重新阻塞",
   "acceptance.judge.label": "如何裁决",
-  "acceptance.judge.missing": "缺裁决指引 — 补 judgeSteps,让裁决人拿到步骤而非仅一句断言"
+  "acceptance.judge.missing": "缺裁决指引 — 补 judgeSteps,让裁决人拿到步骤而非仅一句断言",
+  "boundary.panel.allCleared": "{count, plural, other {已处置 # 项}} · 0 项待处理"
 }

@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "terbuka",
   "boundary.toast.reopened": "Pencerobohan dibuka semula — Selesai disekat semula",
   "acceptance.judge.label": "Cara menilai",
-  "acceptance.judge.missing": "Tiada panduan penilaian — tambah judgeSteps supaya penyemak ada langkah, bukan sekadar penyataan"
+  "acceptance.judge.missing": "Tiada panduan penilaian — tambah judgeSteps supaya penyemak ada langkah, bukan sekadar penyataan",
+  "boundary.panel.allCleared": "{count, plural, other {# diselesaikan}} · 0 belum diselesaikan"
 }

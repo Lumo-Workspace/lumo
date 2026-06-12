@@ -1640,5 +1640,6 @@
   "boundary.disposition.open": "未處置",
   "boundary.toast.reopened": "越界已重新開啟——DONE 重新阻擋",
   "acceptance.judge.label": "如何裁決",
-  "acceptance.judge.missing": "缺裁決指引 — 補 judgeSteps,讓裁決人拿到步驟而非僅一句斷言"
+  "acceptance.judge.missing": "缺裁決指引 — 補 judgeSteps,讓裁決人拿到步驟而非僅一句斷言",
+  "boundary.panel.allCleared": "{count, plural, other {已處置 # 項}} · 0 項待處理"
 }
