@@ -1613,9 +1613,10 @@
   "boundary.editChange.removed": "删除",
   "boundary.editChange.added": "新增",
   "boundary.editChange.written": "写入内容",
-  "boundary.editChange.truncated": "为显示已截断 — 打开 PR 查看完整改动。",
-  "boundary.editChange.unavailable": "此处无法显示编辑内容 — 打开 PR 查看改动。",
+  "boundary.editChange.truncated": "为显示已截断。",
+  "boundary.editChange.unavailable": "此处无法显示编辑内容。",
   "boundary.editChange.viewPr": "查看 PR",
+  "boundary.editChange.noPr": "无关联 PR",
   "acceptance.zone.machineAllPass": "全部 {count} 项通过",
   "acceptance.zone.machineSummary": "{passed} 通过 · {failed} 失败"
 }

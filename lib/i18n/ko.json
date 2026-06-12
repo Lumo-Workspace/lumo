@@ -1613,9 +1613,10 @@
   "boundary.editChange.removed": "삭제됨",
   "boundary.editChange.added": "추가됨",
   "boundary.editChange.written": "작성된 내용",
-  "boundary.editChange.truncated": "표시를 위해 잘렸습니다 — 전체 변경 내용은 PR을 여세요.",
-  "boundary.editChange.unavailable": "여기에 표시할 편집 내용이 없습니다 — 변경 내용을 검토하려면 PR을 여세요.",
+  "boundary.editChange.truncated": "표시를 위해 잘렸습니다.",
+  "boundary.editChange.unavailable": "여기에 표시할 편집 내용이 없습니다.",
   "boundary.editChange.viewPr": "PR 보기",
+  "boundary.editChange.noPr": "연결된 PR 없음",
   "acceptance.zone.machineAllPass": "{count}개 모두 통과",
   "acceptance.zone.machineSummary": "{passed}개 통과 · {failed}개 실패"
 }

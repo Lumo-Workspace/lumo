@@ -1613,9 +1613,10 @@
   "boundary.editChange.removed": "削除",
   "boundary.editChange.added": "追加",
   "boundary.editChange.written": "書き込まれた内容",
-  "boundary.editChange.truncated": "表示用に切り詰められています — 変更全体を見るには PR を開いてください。",
-  "boundary.editChange.unavailable": "編集内容をここに表示できません — 変更を確認するには PR を開いてください。",
+  "boundary.editChange.truncated": "表示用に切り詰められています。",
+  "boundary.editChange.unavailable": "編集内容をここに表示できません。",
   "boundary.editChange.viewPr": "PR を表示",
+  "boundary.editChange.noPr": "リンクされた PR はありません",
   "acceptance.zone.machineAllPass": "{count} 件すべて合格",
   "acceptance.zone.machineSummary": "{passed} 件合格 · {failed} 件不合格"
 }

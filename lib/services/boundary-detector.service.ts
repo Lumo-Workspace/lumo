@@ -356,6 +356,114 @@ export function eventPathMatchesCheckpointerPath(
   return e === r || e.endsWith(`/${r}`) || r.endsWith(`/${e}`)
 }
 
+/** Pull an Edit's before/after strings out of a hook payload (Edit `old_string`
+ *  + `new_string`, with the `_str` aliases). A Write has no `old_*`, so its
+ *  before side is null — there is nothing to diff against. */
+function readEditStrings(payload: unknown): {
+  oldString: string | null
+  newString: string | null
+} {
+  const empty = { oldString: null, newString: null }
+  if (!payload || typeof payload !== 'object') return empty
+  const input = (payload as Record<string, unknown>).tool_input
+  if (!input || typeof input !== 'object') return empty
+  const o = input as Record<string, unknown>
+  const pick = (...keys: string[]): string | null => {
+    for (const k of keys) if (typeof o[k] === 'string') return o[k] as string
+    return null
+  }
+  return {
+    oldString: pick('old_string', 'old_str'),
+    newString: pick('new_string', 'new_str', 'content'),
+  }
+}
+
+/**
+ * Strip JS/TS comments while preserving string-literal contents (LUM-455). A
+ * single quote-aware pass — a `//` or `/* *​/` inside a `'`/`"`/`` ` `` literal is
+ * NOT a comment and is left untouched, so a changed URL like `'https://a'` →
+ * `'https://b'` is never mistaken for a comment-only (cosmetic) edit. Erring
+ * toward keeping text (the conservative direction) is the whole point.
+ */
+function stripComments(src: string): string {
+  let out = ''
+  let quote: string | null = null
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    const next = src[i + 1]
+    if (quote) {
+      out += c
+      if (c === '\\' && i + 1 < src.length) {
+        out += src[i + 1] // copy the escaped char verbatim
+        i++
+      } else if (c === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      out += c
+      continue
+    }
+    if (c === '/' && next === '/') {
+      while (i < src.length && src[i] !== '\n') i++ // skip to EOL, keep newline
+      out += '\n'
+      continue
+    }
+    if (c === '/' && next === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++
+      i++ // land on '/', loop ++ skips it
+      continue
+    }
+    out += c
+  }
+  return out
+}
+
+/**
+ * Normalize a chunk of test source to its significant lines for a cosmetic-vs-
+ * substantive comparison (LUM-455): drop comments, strip postfix non-null
+ * assertions (`!`), collapse whitespace, drop blank lines, and sort so a pure
+ * line reorder compares equal. Deliberately narrow: it normalizes ONLY the
+ * cosmetic forms it can prove safe; anything else (a changed value, a TS type
+ * annotation, an `as` cast) is left intact so the edit reads as substantive and
+ * is still flagged. Conservative by construction — see isCosmeticTestEdit.
+ */
+function normalizeTestLines(text: string): string[] {
+  return stripComments(text)
+    .split('\n')
+    .map(line =>
+      // Postfix non-null assertion `!` (followed by . ; , ) ] } or EOL); never a
+      // `!=`/`!==` operator (followed by `=`) and never a prefix logical-not.
+      line.replace(/!(?=\s*[.;,)\]}]|$)/g, '')
+    )
+    .map(line => line.replace(/\s+/g, ''))
+    .filter(line => line.length > 0)
+    .sort()
+}
+
+/**
+ * Is an Edit provably cosmetic-only (LUM-455)? True ONLY when the before/after
+ * normalize to the identical set of significant lines — i.e. the edit is limited
+ * to whitespace, comments, non-null assertions, or pure line reordering. A
+ * missing side (a Write, or a payload with no old_string) returns FALSE: with
+ * nothing to diff against we cannot prove the edit harmless, so it stays flagged.
+ * This is the safety property — a real assertion change, deletion, or any edit we
+ * can't confidently classify as non-substantive is never suppressed (criterion 2).
+ */
+export function isCosmeticTestEdit(
+  oldString: string | null,
+  newString: string | null
+): boolean {
+  if (oldString == null || newString == null) return false
+  const a = normalizeTestLines(oldString)
+  const b = normalizeTestLines(newString)
+  if (a.length !== b.length) return false
+  return a.every((line, i) => line === b[i])
+}
+
 /**
  * Reward-hacking detector (LUM-441, OpenAI misalignment taxonomy). An agent that
  * edits the very test file a MACHINE acceptance checkpointer runs may be fixing
@@ -365,11 +473,17 @@ export function eventPathMatchesCheckpointerPath(
  * record ONE TEST_TAMPERING crossing naming the file + the criterion that
  * depends on it. A human dispositions it FALSE_POSITIVE (legit test fix) or
  * CONFIRMED (LUM-435). Pure — the criteria are passed in, no I/O.
+ *
+ * LUM-455 adds a PRECISION gate: a hit whose edit is provably cosmetic-only
+ * (whitespace/comments/non-null assertions/reordering, assertions untouched) is
+ * suppressed as noise. The gate is conservative — anything not provably cosmetic
+ * (a real assertion change, a Write, an unparseable payload) is still recorded.
  */
 export function detectTestTampering(input: {
   toolName: string | null
   filePath: string | null
   machineCheckpointers: MachineCheckpointer[]
+  payload?: unknown
 }): DetectedCrossing | null {
   if (!input.filePath) return null
   if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
@@ -378,6 +492,10 @@ export function detectTestTampering(input: {
       eventPathMatchesCheckpointerPath(input.filePath as string, p)
     )
     if (hit) {
+      // Precision gate (LUM-455): drop a provably cosmetic-only edit; keep
+      // everything we can't prove harmless (the safe direction).
+      const { oldString, newString } = readEditStrings(input.payload)
+      if (isCosmeticTestEdit(oldString, newString)) return null
       const because = mc.statement
         ? ` — a MACHINE check depends on it ("${mc.statement}")`
         : ' — a MACHINE check depends on it'
@@ -415,6 +533,7 @@ async function detectTestTamperingForTask(
     toolName: input.toolName,
     filePath: input.filePath,
     machineCheckpointers,
+    payload: input.payload,
   })
 }
 

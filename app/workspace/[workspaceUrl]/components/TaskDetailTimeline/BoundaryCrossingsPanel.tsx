@@ -479,24 +479,10 @@ function EditChangeBlock({
         <span>
           {intl.formatMessage({
             id: 'boundary.editChange.unavailable',
-            defaultMessage:
-              "The edit content isn't available to show here — open the PR to review the change.",
+            defaultMessage: "The edit content isn't available to show here.",
           })}
         </span>
-        {change.prUrl && (
-          <a
-            href={change.prUrl}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
-          >
-            {intl.formatMessage({
-              id: 'boundary.editChange.viewPr',
-              defaultMessage: 'View PR',
-            })}
-            <ExternalLink className='size-3' aria-hidden />
-          </a>
-        )}
+        <PrFallback prUrl={change.prUrl} intl={intl} />
       </p>
     )
   }
@@ -554,17 +540,58 @@ function EditChangeBlock({
             />
           )}
           {change.truncated && (
-            <p className='text-[10px] text-muted-foreground/80'>
-              {intl.formatMessage({
-                id: 'boundary.editChange.truncated',
-                defaultMessage:
-                  'Truncated for display — open the PR for the full change.',
-              })}
+            <p className='flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/80'>
+              <span>
+                {intl.formatMessage({
+                  id: 'boundary.editChange.truncated',
+                  defaultMessage: 'Truncated for display.',
+                })}
+              </span>
+              <PrFallback prUrl={change.prUrl} intl={intl} />
             </p>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * The fallback "go look at the full change" affordance (LUM-455). When the task
+ * has a synced PR it is a real, clickable link; when it has none it is an
+ * explicit "No linked PR" note — never a dead "open the PR" instruction with no
+ * link behind it (criterion 3).
+ */
+function PrFallback({
+  prUrl,
+  intl,
+}: {
+  prUrl: string | null
+  intl: ReturnType<typeof useIntl>
+}) {
+  if (prUrl) {
+    return (
+      <a
+        href={prUrl}
+        target='_blank'
+        rel='noopener noreferrer'
+        className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
+      >
+        {intl.formatMessage({
+          id: 'boundary.editChange.viewPr',
+          defaultMessage: 'View PR',
+        })}
+        <ExternalLink className='size-3' aria-hidden />
+      </a>
+    )
+  }
+  return (
+    <span className='italic'>
+      {intl.formatMessage({
+        id: 'boundary.editChange.noPr',
+        defaultMessage: 'No linked PR',
+      })}
+    </span>
   )
 }
 
