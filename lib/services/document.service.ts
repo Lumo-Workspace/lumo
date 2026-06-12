@@ -283,7 +283,11 @@ export const documentService = {
       // needs a short plain-text preview, and content can be large. The
       // markdown source (LUM-408) is equally large and list views never
       // need it either.
-      const { content: _content, sourceMarkdown: _sourceMarkdown, ...rest } = doc
+      const {
+        content: _content,
+        sourceMarkdown: _sourceMarkdown,
+        ...rest
+      } = doc
       const preview = extractDocumentPreview(doc.content)
       return {
         ...rest,
@@ -584,8 +588,7 @@ export const documentService = {
     // nothing (tags included) is touched. The repository re-applies the same
     // precondition as a conditional write inside the transaction, closing the
     // read-check-to-write race window.
-    const currentRevision = (doc as { contentRevision: number })
-      .contentRevision
+    const currentRevision = (doc as { contentRevision: number }).contentRevision
     if (data.ifRevision !== undefined && data.ifRevision !== currentRevision) {
       throw revisionConflict(data.ifRevision, currentRevision)
     }
@@ -758,25 +761,50 @@ export const documentService = {
       throw Object.assign(new Error('Permission denied'), { status: 403 })
     }
 
-    const src = (doc as { sourceMarkdown: string | null }).sourceMarkdown
-    if (typeof src !== 'string') {
-      throw Object.assign(
-        new Error(
-          `Document ${doc.id} has no stored markdown source — section editing needs a markdown base ` +
-            `(the last edit was HTML-direct or predates markdown source storage). Upload a full ` +
-            `markdown base once (lumo doc update ${doc.id} --file <base.md>); section ops work from then on.`
-        ),
-        { status: 400 }
-      )
-    }
-
-    const currentRevision = (doc as { contentRevision: number })
-      .contentRevision
+    // Revision precondition first — independent of whether a markdown source
+    // exists, so a sourceless end-append (below) is concurrency-safe too.
+    const currentRevision = (doc as { contentRevision: number }).contentRevision
     if (
       input.ifRevision !== undefined &&
       input.ifRevision !== currentRevision
     ) {
       throw revisionConflict(input.ifRevision, currentRevision)
+    }
+
+    const src = (doc as { sourceMarkdown: string | null }).sourceMarkdown
+    const isEndAppend =
+      input.mode === 'append' &&
+      (input.section === undefined || input.section.trim() === '')
+
+    if (typeof src !== 'string') {
+      // No byte-faithful markdown source (web HTML edit / revision restore /
+      // legacy doc). Section-addressed edits and patches genuinely need the
+      // source to locate heading boundaries — they stay 400. But an
+      // end-of-document append is pure tail insertion: render the new block to
+      // HTML and concatenate it onto the stored HTML body, so a single web
+      // operation can never lock the whole doc against the agent write path
+      // (LUM-444). sourceMarkdown stays null — we don't invent a lossy source.
+      if (!isEndAppend) {
+        throw Object.assign(
+          new Error(
+            `Document ${doc.id} has no stored markdown source — section editing needs a markdown base ` +
+              `(the last edit was HTML-direct or predates markdown source storage). Upload a full ` +
+              `markdown base once (lumo doc update ${doc.id} --file <base.md>); section ops work from then on.`
+          ),
+          { status: 400 }
+        )
+      }
+      const oldContent = (doc as { content: string | null }).content ?? ''
+      const block = markdownToHtml(input.contentMarkdown)
+      // Pure insertion: every existing byte of the HTML body is carried over
+      // verbatim; the rendered block is appended after it. The HTML-direct
+      // path in updateDocument keeps sourceMarkdown null.
+      const nextContent = oldContent ? `${oldContent}\n${block}` : block
+      const updated = await this.updateDocument(doc.id, memberId, workspaceId, {
+        content: nextContent,
+        ifRevision: input.ifRevision ?? currentRevision,
+      })
+      return { ...updated, sectionHeading: null }
     }
 
     let nextSource: string
