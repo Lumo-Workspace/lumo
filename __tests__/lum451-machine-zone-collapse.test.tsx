@@ -68,6 +68,10 @@ function machine(id: string, statement: string, latestVerdict: unknown) {
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict,
+    // These verdicts are all MACHINE-authored, so a PASS IS a checkpointer pass
+    // (LUM-456): machinePassed tracks the latest MACHINE verdict being a PASS.
+    machinePassed:
+      (latestVerdict as { verdict?: string } | null)?.verdict === 'PASS',
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
@@ -125,7 +129,7 @@ describe('machine zone collapsible smart default', () => {
     render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
     expect(screen.queryByText('machine check alpha')).toBeNull()
     expect(zoneToggle()).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByText(/All 2 passed/i)).toBeInTheDocument()
+    expect(screen.getByText(/All 2 machine-verified/i)).toBeInTheDocument()
   })
 
   it('machine zone collapsible smart default — expanded when a machine criterion fails', () => {
@@ -136,7 +140,7 @@ describe('machine zone collapsible smart default', () => {
     render(<AcceptanceTab taskIdentifier='LUM-451' enabled />)
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()
     expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText(/1 passed/)).toBeInTheDocument()
+    expect(screen.getByText(/1 machine-verified/)).toBeInTheDocument()
   })
 
   it('machine zone collapsible smart default — expanded when a machine criterion is unjudged', () => {

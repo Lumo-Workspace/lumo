@@ -72,11 +72,40 @@ function parseExitCode(evidence: string | null | undefined): number | null {
   return m ? Number(m[1]) : null
 }
 
-// A human override = a passing verdict authored by a HUMAN verifier (the red
-// line's "provable manual override", distinct from a machine PASS).
+// A human override (LUM-456) = a MACHINE criterion that is currently passing
+// without a checkpointer pass behind it (machinePassed === false). That is the
+// only honest "machine PASS no checkpointer produced": a human is carrying it on
+// their own authority. A normally human-judged criterion is not an override, and
+// a redundant human sign-off on a genuine machine PASS is not one either.
 function isHumanOverride(c: TaskStatusCriterionView): boolean {
-  const v = c.latestVerdict
-  return !!v && isPass(v.verdict) && v.verifierType === 'HUMAN'
+  return (
+    c.verifierType === 'MACHINE' &&
+    isPass(c.latestVerdict?.verdict) &&
+    !c.machinePassed
+  )
+}
+
+// LUM-456: honest split of the MACHINE criteria — verified (a checkpointer
+// passed it) vs override (currently passing only by a human) vs failing/unjudged.
+// Derived from the per-criterion machinePassed flag so the zone summary and the
+// banner agree with the rows, and so "machine-verified" never counts an override.
+function machineRollup(criteria: TaskStatusCriterionView[]): {
+  total: number
+  verified: number
+  overridden: number
+  failed: number
+} {
+  const machine = criteria.filter(c => c.verifierType === 'MACHINE')
+  const verified = machine.filter(
+    c => c.machinePassed && isPass(c.latestVerdict?.verdict)
+  ).length
+  const overridden = machine.filter(isHumanOverride).length
+  return {
+    total: machine.length,
+    verified,
+    overridden,
+    failed: machine.length - verified - overridden,
+  }
 }
 
 // ── Verdict banner ───────────────────────────────────────────────────────────
@@ -103,12 +132,12 @@ function VerdictBanner({ data }: { data: TaskAcceptanceStatusView }) {
   const anyHumanVerdict = data.criteria.some(
     c => c.latestVerdict?.verifierType === 'HUMAN'
   )
-  const machineCriteria = data.criteria.filter(
-    c => c.verifierType === 'MACHINE'
-  )
+  // "Machine acceptance passed" must mean a checkpointer actually passed every
+  // MACHINE criterion (LUM-456) — a human override does not count, or the banner
+  // would impersonate machine verification.
+  const machineStats = machineRollup(data.criteria)
   const machineAllPass =
-    machineCriteria.length > 0 &&
-    machineCriteria.every(c => isPass(c.latestVerdict?.verdict))
+    machineStats.total > 0 && machineStats.verified === machineStats.total
 
   let tone: Tone = 'neutral'
   let Icon = Clock
@@ -420,17 +449,22 @@ function VerdictControls({
   secondary,
   submitting,
   onVerdict,
+  overrideConfirm = false,
 }: {
   idSuffix: string
   criterionIds: string[] | undefined
   secondary: boolean
   submitting: boolean
   onVerdict: SubmitVerdict
+  /** When true, a PASS overrides a MACHINE criterion no checkpointer has
+   *  passed — gate it behind an explicit confirmation (LUM-456). */
+  overrideConfirm?: boolean
 }) {
   const intl = useIntl()
   const [open, setOpen] = useState(!secondary)
   const [sendBack, setSendBack] = useState(false)
   const [note, setNote] = useState('')
+  const [confirmOverride, setConfirmOverride] = useState(false)
 
   if (secondary && !open) {
     return (
@@ -459,7 +493,11 @@ function VerdictControls({
           type='button'
           data-testid={`verdict-pass-${idSuffix}`}
           disabled={submitting}
-          onClick={() => onVerdict('PASS', criterionIds)}
+          onClick={() =>
+            overrideConfirm
+              ? setConfirmOverride(true)
+              : onVerdict('PASS', criterionIds)
+          }
           className={`${passCls} disabled:opacity-50`}
         >
           {intl.formatMessage({
@@ -523,6 +561,55 @@ function VerdictControls({
               defaultMessage: 'Confirm send-back',
             })}
           </button>
+        </div>
+      ) : null}
+      {/* LUM-456: passing a MACHINE criterion no checkpointer has passed is an
+          override of the machine's authority — make the human own it. */}
+      {confirmOverride ? (
+        <div
+          data-testid={`verdict-override-confirm-${idSuffix}`}
+          className='flex flex-col gap-1.5 rounded-md border border-warning-border bg-warning-subtle px-2 py-1.5'
+        >
+          <div className='flex items-start gap-1.5 text-[11px] text-foreground'>
+            <AlertTriangle
+              className='mt-0.5 size-3 shrink-0 text-warning'
+              aria-hidden
+            />
+            <span>
+              {intl.formatMessage({
+                id: 'acceptance.verdict.overrideWarning',
+                defaultMessage:
+                  "This check's checkpointer has not passed — passing it records a human override, not machine verification.",
+              })}
+            </span>
+          </div>
+          <div className='flex items-center gap-1.5'>
+            <button
+              type='button'
+              data-testid={`verdict-override-go-${idSuffix}`}
+              disabled={submitting}
+              onClick={() => {
+                onVerdict('PASS', criterionIds)
+                setConfirmOverride(false)
+              }}
+              className='rounded-sm bg-warning-subtle border border-warning-border px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-warning-subtle/70 disabled:opacity-50'
+            >
+              {intl.formatMessage({
+                id: 'acceptance.verdict.overrideConfirm',
+                defaultMessage: 'Override anyway',
+              })}
+            </button>
+            <button
+              type='button'
+              onClick={() => setConfirmOverride(false)}
+              className='text-[11px] text-muted-foreground/70 hover:underline'
+            >
+              {intl.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              })}
+            </button>
+          </div>
         </div>
       ) : null}
     </div>
@@ -861,6 +948,7 @@ function CriterionRow({
               secondary={machinePassed}
               submitting={submitting}
               onVerdict={onVerdict}
+              overrideConfirm={c.verifierType === 'MACHINE' && !c.machinePassed}
             />
           </div>
         ) : null}
@@ -1036,14 +1124,19 @@ export function AcceptanceTab({
   const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
   // Human contract editing is available unless the task is terminal.
   const canEdit = data.task.status !== 'DONE'
-  const machinePassed = machineCriteria.filter(c =>
-    isPass(c.latestVerdict?.verdict)
-  ).length
-  const machineFailed = machineCriteria.length - machinePassed
-  // Smart default (LUM-451): collapse a fully-passing machine zone so the human
-  // zone leads; surface the zone whenever a check fails or is unjudged.
-  const allMachinePass = machineCriteria.length > 0 && machineFailed === 0
-  const machineZoneOpen = machineOpen ?? !allMachinePass
+  // LUM-456: split the machine zone honestly — only checkpointer-backed passes
+  // are "machine-verified"; criteria a human is carrying are counted as
+  // overrides, never folded into the verified tally.
+  const machineStats = machineRollup(data.criteria)
+  const machineVerified = machineStats.verified
+  const machineOverridden = machineStats.overridden
+  const machineFailed = machineStats.failed
+  // Smart default (LUM-451): collapse only when every machine criterion is
+  // genuinely checkpointer-verified — surface the zone whenever a check fails,
+  // is unjudged, OR is being carried by a human override (the honest signal).
+  const allMachineVerified =
+    machineCriteria.length > 0 && machineVerified === machineCriteria.length
+  const machineZoneOpen = machineOpen ?? !allMachineVerified
 
   return (
     <div className='space-y-5 py-1'>
@@ -1123,21 +1216,43 @@ export function AcceptanceTab({
                   defaultMessage: 'Machine-verified · read-only',
                 })}
                 <span className='ml-auto font-normal text-muted-foreground/70'>
-                  {machineFailed === 0
+                  {allMachineVerified
                     ? intl.formatMessage(
                         {
                           id: 'acceptance.zone.machineAllPass',
-                          defaultMessage: 'All {count} passed',
+                          defaultMessage: 'All {count} machine-verified',
                         },
                         { count: machineCriteria.length }
                       )
-                    : intl.formatMessage(
-                        {
-                          id: 'acceptance.zone.machineSummary',
-                          defaultMessage: '{passed} passed · {failed} failed',
-                        },
-                        { passed: machinePassed, failed: machineFailed }
-                      )}
+                    : [
+                        intl.formatMessage(
+                          {
+                            id: 'acceptance.zone.machineVerifiedCount',
+                            defaultMessage: '{count} machine-verified',
+                          },
+                          { count: machineVerified }
+                        ),
+                        machineOverridden > 0
+                          ? intl.formatMessage(
+                              {
+                                id: 'acceptance.zone.machineOverrideCount',
+                                defaultMessage: '{count} human override',
+                              },
+                              { count: machineOverridden }
+                            )
+                          : null,
+                        machineFailed > 0
+                          ? intl.formatMessage(
+                              {
+                                id: 'acceptance.zone.machineFailedCount',
+                                defaultMessage: '{count} failed',
+                              },
+                              { count: machineFailed }
+                            )
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                 </span>
               </button>
               {machineZoneOpen ? (

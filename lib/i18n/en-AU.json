@@ -1618,9 +1618,13 @@
   "boundary.editChange.viewPr": "View PR",
   "boundary.editChange.noPr": "No linked PR",
   "boundary.editChange.turnIntent": "Agent's intent this turn:",
-  "acceptance.zone.machineAllPass": "All {count} passed",
-  "acceptance.zone.machineSummary": "{passed} passed · {failed} failed",
+  "acceptance.zone.machineAllPass": "All {count} machine-verified",
   "task.verdict.blocked.headline": "{count, plural, one {# boundary crossing blocks Done} other {# boundary crossings block Done}}",
   "task.verdict.blocked.action": "A human must disposition each one below — as a false positive, or confirmed — or open the gate for this workspace.",
-  "task.verdict.blocked.viewCrossings": "Review the crossings below"
+  "task.verdict.blocked.viewCrossings": "Review the crossings below",
+  "acceptance.zone.machineVerifiedCount": "{count} machine-verified",
+  "acceptance.zone.machineOverrideCount": "{count} human override",
+  "acceptance.zone.machineFailedCount": "{count} failed",
+  "acceptance.verdict.overrideWarning": "This check's checkpointer has not passed — passing it records a human override, not machine verification.",
+  "acceptance.verdict.overrideConfirm": "Override anyway"
 }

@@ -119,6 +119,34 @@ export const taskHumanVerdictService = {
       criteria = allCriteria.filter(c => wanted.has(c.id))
     }
 
+    // LUM-456: a PASS-type human verdict must not silently impersonate machine
+    // verification. A MACHINE criterion is only genuinely passed when a
+    // checkpointer ran-and-passed it (its latest MACHINE verdict is a PASS).
+    // The bulk / whole-contract gesture (criterionIds omitted) therefore DROPS
+    // un-machine-passed MACHINE criteria — a human "pass all" approves the human
+    // judgement and the machine results that already passed, it does not quietly
+    // overturn an unverified check. Passing such a criterion is still allowed,
+    // but only as a deliberate, explicit per-criterion action (criterionIds
+    // names it): that path keeps it and records override provenance on its
+    // mirror so the override is auditable (no schema change — the read model
+    // also derives it from the absent machine pass).
+    const isPass = isPassVerdict(input.verdict)
+    const isBulk = !(input.criterionIds && input.criterionIds.length > 0)
+    const overriddenIds = new Set<string>()
+    if (isPass) {
+      const machinePassed =
+        await verificationRunRepository.machinePassedCriteria(taskId)
+      const isUnMachinePassed = (c: (typeof allCriteria)[number]) =>
+        c.verifierType === 'MACHINE' && !machinePassed.has(c.id)
+      if (isBulk) {
+        criteria = criteria.filter(c => !isUnMachinePassed(c))
+      } else {
+        for (const c of criteria) {
+          if (isUnMachinePassed(c)) overriddenIds.add(c.id)
+        }
+      }
+    }
+
     // Round = current max round, never incremented (a human adjudication is a
     // review of the rounds that ran, not a new round). Floored at 1 so a
     // contract adjudicated before any machine round still lands on a valid
@@ -196,6 +224,10 @@ export const taskHumanVerdictService = {
               evidencePointer: null,
               rejectionReasonEnum: null,
               commentId,
+              // LUM-456: true when this PASS overrides a MACHINE criterion no
+              // checkpointer has passed — a deliberate human override, not a
+              // machine result. Audit breadcrumb; zero schema (JSON payload).
+              override: overriddenIds.has(c.id),
             },
           },
           tx

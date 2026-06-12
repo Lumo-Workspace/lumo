@@ -76,6 +76,7 @@ function statusView(
     maxRounds: 3,
     escalated: false,
     criteria: [],
+    machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -104,6 +105,7 @@ function machinePass(
       rejectionReasonEnum: null,
       recordedAt: '2026-06-10T10:00:00.000Z',
     },
+    machinePassed: true,
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
@@ -132,6 +134,7 @@ function unjudgedHuman(
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     latestVerdict: null,
+    machinePassed: false,
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
@@ -171,6 +174,7 @@ it('leads with a verdict banner: machine passed, awaiting the human criterion', 
           source: 'AGENT_DRAFT',
           addedAtRound: 0,
           latestVerdict: null,
+          machinePassed: false,
           changeState: null,
           changedAtRound: null,
           lastEdit: null,
@@ -199,6 +203,7 @@ it('renders each criterion with a result badge, type, and notable provenance', (
           source: 'REVIEW_ADDED',
           addedAtRound: 2,
           latestVerdict: null,
+          machinePassed: false,
           changeState: null,
           changedAtRound: null,
           lastEdit: null,
@@ -229,26 +234,23 @@ it('tucks a de-jargoned check command + exit code behind a disclosure', () => {
   expect(screen.queryByText(/cmd:jest#exit=0/)).toBeNull()
 })
 
-it('marks a human-authored PASS as a human override, never a machine PASS', () => {
-  // Machine PASS alone → no override marker anywhere (banner or row).
+it('marks a human-carried MACHINE criterion as a human override, never a machine PASS (LUM-456)', () => {
+  // A genuine machine PASS (machinePassed) → no override marker anywhere.
   set(statusView({ criteria: [machinePass()] }))
   const { unmount } = render_()
   expect(screen.queryByText('human override')).toBeNull()
   unmount()
 
-  // Add a human-authored PASS → the override marker now appears.
+  // A MACHINE criterion passing with NO checkpointer pass behind it
+  // (machinePassed: false, latest verdict authored by a HUMAN) → override.
   set(
     statusView({
       criteria: [
         machinePass(),
-        {
-          id: 'h1',
-          statement: 'human judged',
-          verifierType: 'HUMAN',
-          checkpointer: null,
-          evidenceRequired: false,
-          source: 'AGENT_DRAFT',
-          addedAtRound: 0,
+        machinePass({
+          id: 'm2',
+          statement: 'no checkpointer pass — carried by a human',
+          machinePassed: false,
           latestVerdict: {
             round: 1,
             verdict: 'PASS',
@@ -258,14 +260,13 @@ it('marks a human-authored PASS as a human override, never a machine PASS', () =
             rejectionReasonEnum: null,
             recordedAt: '2026-06-10T11:00:00.000Z',
           },
-          changeState: null,
-          changedAtRound: null,
-          lastEdit: null,
-        },
+        }),
       ],
     })
   )
   render_()
+  // The override surfaces the machine zone by default (not all verified), so
+  // the row renders without expanding; the banner flags it too.
   expect(screen.getAllByText('human override').length).toBeGreaterThan(0)
 })
 
