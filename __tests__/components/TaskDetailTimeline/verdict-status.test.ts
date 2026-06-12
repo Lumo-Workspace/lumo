@@ -3,10 +3,13 @@ import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
   CriterionSource,
+  AcceptanceVerdict,
 } from '@/app/workspace/[workspaceUrl]/types'
 
+let seq = 0
+
 function view(
-  p: Partial<TaskAcceptanceStatusView> & { criteria: any[] }
+  p: Partial<TaskAcceptanceStatusView> & { criteria: TaskStatusCriterionView[] }
 ): TaskAcceptanceStatusView {
   return {
     version: 1,
@@ -22,11 +25,12 @@ function view(
     ...p,
   } as TaskAcceptanceStatusView
 }
+
 const crit = (
-  v: string | null,
+  v: AcceptanceVerdict | null,
   verifier: 'MACHINE' | 'HUMAN' = 'MACHINE'
 ): TaskStatusCriterionView => ({
-  id: Math.random().toString(36).slice(2),
+  id: `c-${seq++}`,
   statement: 's',
   verifierType: verifier,
   checkpointer: verifier === 'MACHINE' ? 'cmd:test' : null,
@@ -37,7 +41,7 @@ const crit = (
   latestVerdict: v
     ? {
         round: 1,
-        verdict: v as any,
+        verdict: v,
         verifierType: verifier,
         evidencePointer: null,
         rejectionReason: null,
@@ -86,5 +90,31 @@ describe('deriveVerdictStatus', () => {
     )
     expect(s.round).toBe(3)
     expect(s.maxRounds).toBe(5)
+  })
+  it('machineAwaitingHuman: all MACHINE criteria checkpointer-verified but HUMAN criterion unmet', () => {
+    // MACHINE criterion with machinePassed=true — counts as verified in machineRollup
+    // HUMAN criterion with no verdict — unmet, so met !== total
+    const s = deriveVerdictStatus(
+      view({ criteria: [crit('PASS', 'MACHINE'), crit(null, 'HUMAN')] })
+    )
+    expect(s.kind).toBe('machineAwaitingHuman')
+    expect(s.tone).toBe('success')
+  })
+  it('DONE task: doneNoHumanVerdict when no criterion has a HUMAN verdict, done when one does', () => {
+    const noHuman = deriveVerdictStatus(
+      view({
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('PASS', 'MACHINE')],
+      })
+    )
+    expect(noHuman.kind).toBe('doneNoHumanVerdict')
+
+    const withHuman = deriveVerdictStatus(
+      view({
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('PASS', 'MACHINE'), crit('PASS', 'HUMAN')],
+      })
+    )
+    expect(withHuman.kind).toBe('done')
   })
 })
