@@ -99,20 +99,17 @@ What it does:
 
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
-#### Overwriting an existing binding (LUM-266)
+#### Lifetime lock (LUM-459)
 
-Re-attaching a session that's already bound to a **different** task no longer silently clobbers the binding. The server returns the current binding instead of overwriting, and the CLI decides what to do:
+`Session.taskId` is **write-once**. Re-attaching to the **same** task is always a no-op re-bind (idempotent, re-emits context). Attaching to a **different** task is refused with HTTP 409 — the server returns `{ error, currentTaskIdentifier, currentTaskTitle }` and the CLI prints:
 
-- **On a TTY** (a human running it directly): prompts `Already bound to LUM-X. Rebind to LUM-Y? [y/N]`. Answering `y`/`yes` re-binds to `LUM-Y`; anything else (including bare Enter) cancels and leaves `LUM-X` bound.
-- **Off a TTY** (the usual agent case — `stdin` is not interactive): the command **refuses** and prints `Session already bound to LUM-X … Re-run with --force …` without overwriting. Exit code is `0` (a safe refusal, not an error).
-- **`--force`**: skips the prompt/refusal and overwrites unconditionally. Re-attaching to the **same** task is always a no-op re-bind (never prompts).
-
-```bash
-lumo session attach LUM-42            # already on LUM-7 → prompts (TTY) / refuses (agent)
-lumo session attach LUM-42 --force    # overwrite without confirmation
+```
+Error: this session is permanently bound to LUM-7 "Other task". A session works one task for its lifetime — start a new Claude Code session to work on LUM-42.
 ```
 
-**Agent guidance:** when `session attach` reports the session is already bound to a different task, **ask the user** whether to switch before re-running with `--force`. Don't auto-`--force` — the existing binding may be intentional (e.g. a manual attach the user ran earlier). Alternatively run `lumo session detach` first, then a clean `session attach`.
+There is no `--force` and no `session detach`. To work on a different task, open a new terminal / Claude Code session and run `lumo session attach <new-task>` there.
+
+**Agent guidance:** if `session attach` returns 409, do not retry or look for a workaround — start a fresh Claude Code session for the target task.
 
 ### Parallel sessions
 
@@ -127,16 +124,6 @@ lumo session status
 ```
 
 When to suggest: the user asks "which task am I on", "what's this session bound to", or you need to decide whether to suggest `session attach` for a mentioned task ID.
-
-### `lumo session detach` — clear the current binding
-
-Idempotent — running it twice is fine, the second call reports `already unbound`. Past hook events keep their original `taskId`; only future events on this session will be untagged.
-
-```bash
-lumo session detach
-```
-
-When to suggest: the user wants to stop tagging the current session with the active task (e.g., switching to unrelated exploratory work without binding to a different task).
 
 ### `lumo session wrap [--yes] [--dry-run] [--used <indices>]` — wrap-up panel: progress comment + memory review + fragment-usage vote + blocked-tag prompt
 
