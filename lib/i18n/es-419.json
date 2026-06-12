@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Aceptación en curso",
   "acceptance.banner.metCount": "{passed}/{total} cumplidos",
   "acceptance.banner.roundBadge": "ronda {round}/{max}",
-  "acceptance.banner.gateOpen": "sin devolución · un veredicto humano puede aprobar; DONE aún puede estar bloqueado por infracciones abiertas",
+  "acceptance.banner.gateOpen": "sin devolución · PASS humano o DONE permitido",
   "acceptance.banner.gateBlocked": "una devolución bloquea DONE",
   "acceptance.history.title": "Registro de verificación",
   "acceptance.history.roundMachine": "ronda {round} · verificación automática",

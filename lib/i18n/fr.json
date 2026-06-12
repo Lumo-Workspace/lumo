@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Acceptation en cours",
   "acceptance.banner.metCount": "{passed}/{total} remplis",
   "acceptance.banner.roundBadge": "tour {round}/{max}",
-  "acceptance.banner.gateOpen": "aucun renvoi · un verdict humain peut passer ; DONE peut rester bloqué par des franchissements ouverts",
+  "acceptance.banner.gateOpen": "aucun renvoi · PASS humain ou DONE possible",
   "acceptance.banner.gateBlocked": "un renvoi bloque DONE",
   "acceptance.history.title": "Journal de vérification",
   "acceptance.history.roundMachine": "tour {round} · vérification machine",
