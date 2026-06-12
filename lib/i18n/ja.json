@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "受け入れ進行中",
   "acceptance.banner.metCount": "{passed}/{total} 達成",
   "acceptance.banner.roundBadge": "ラウンド {round}/{max}",
-  "acceptance.banner.gateOpen": "差し戻しなし · 人間の PASS または DONE 可",
+  "acceptance.banner.gateOpen": "差し戻しなし · 人間の判定は通過可能。DONE は未処理の境界違反により保留される場合あり",
   "acceptance.banner.gateBlocked": "差し戻しあり · DONE をブロック",
   "acceptance.history.title": "検証記録",
   "acceptance.history.roundMachine": "ラウンド {round} · マシン検証",

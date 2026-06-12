@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "स्वीकृति जारी",
   "acceptance.banner.metCount": "{passed}/{total} पूरे",
   "acceptance.banner.roundBadge": "राउंड {round}/{max}",
-  "acceptance.banner.gateOpen": "कोई वापसी नहीं · मानवीय PASS या DONE संभव",
+  "acceptance.banner.gateOpen": "कोई वापसी नहीं · मानवीय निर्णय पास हो सकता है; DONE अब भी खुले सीमा-उल्लंघनों से रुका हो सकता है",
   "acceptance.banner.gateBlocked": "एक वापसी DONE रोकती है",
   "acceptance.history.title": "सत्यापन रिकॉर्ड",
   "acceptance.history.roundMachine": "राउंड {round} · मशीन जाँच",

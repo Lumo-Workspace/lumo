@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Приёмка в процессе",
   "acceptance.banner.metCount": "{passed}/{total} выполнено",
   "acceptance.banner.roundBadge": "раунд {round}/{max}",
-  "acceptance.banner.gateOpen": "нет возвратов · допустим человеческий PASS или DONE",
+  "acceptance.banner.gateOpen": "нет возвратов · человеческий вердикт может пройти; DONE всё ещё может блокироваться открытыми нарушениями",
   "acceptance.banner.gateBlocked": "возврат блокирует DONE",
   "acceptance.history.title": "Журнал проверок",
   "acceptance.history.roundMachine": "раунд {round} · машинная проверка",
