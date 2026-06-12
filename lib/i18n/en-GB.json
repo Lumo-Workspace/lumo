@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} verification run(s) preserved",
   "boundary.toast.remediationSpawned": "Remediation task {identifier} created",
   "boundary.toast.dispositioned": "Crossing dispositioned — Done is unblocked",
-  "boundary.toast.error": "Action failed — please try again"
+  "boundary.toast.error": "Action failed — please try again",
+  "acceptance.edit.save": "Save",
+  "acceptance.edit.cancel": "Cancel",
+  "acceptance.edit.remove": "Remove",
+  "acceptance.edit.confirmDelete": "Remove this criterion? Verdicts are kept for audit.",
+  "acceptance.edit.add": "Add",
+  "acceptance.edit.addPlaceholder": "Add a criterion needing human judgment (statement only)",
+  "acceptance.edit.saveError": "Couldn't save — try again",
+  "acceptance.zone.machine": "Machine-verified · read-only",
+  "acceptance.zone.human": "Needs human judgment"
 }

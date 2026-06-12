@@ -1588,5 +1588,14 @@
   "acceptance.removed.title": "已移除 · 保留供稽核",
   "acceptance.removed.atRound": "在第 {round} 輪移除",
   "acceptance.removed.lastVerdict": "最後裁定：{v}",
-  "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行"
+  "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行",
+  "acceptance.edit.save": "儲存",
+  "acceptance.edit.cancel": "取消",
+  "acceptance.edit.remove": "移除",
+  "acceptance.edit.confirmDelete": "移除此標準？裁定將保留供稽核。",
+  "acceptance.edit.add": "新增",
+  "acceptance.edit.addPlaceholder": "新增需要人工裁決的標準（僅填寫描述語句）",
+  "acceptance.edit.saveError": "儲存失敗——請重試",
+  "acceptance.zone.machine": "機器驗證 · 唯讀",
+  "acceptance.zone.human": "需要人工裁決"
 }

@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n}회 검증 실행 보존됨",
   "boundary.toast.remediationSpawned": "해결 작업 {identifier} 생성됨",
   "boundary.toast.dispositioned": "위반이 처리되었습니다 — 완료 차단이 해제되었습니다",
-  "boundary.toast.error": "작업에 실패했습니다 — 다시 시도하세요"
+  "boundary.toast.error": "작업에 실패했습니다 — 다시 시도하세요",
+  "acceptance.edit.save": "저장",
+  "acceptance.edit.cancel": "취소",
+  "acceptance.edit.remove": "삭제",
+  "acceptance.edit.confirmDelete": "이 기준을 삭제하시겠습니까? 판정은 감사를 위해 보존됩니다.",
+  "acceptance.edit.add": "추가",
+  "acceptance.edit.addPlaceholder": "사람 판단이 필요한 기준 추가 (문구만 입력)",
+  "acceptance.edit.saveError": "저장하지 못했습니다 — 다시 시도하세요",
+  "acceptance.zone.machine": "머신 검증됨 · 읽기 전용",
+  "acceptance.zone.human": "사람 판단 필요"
 }

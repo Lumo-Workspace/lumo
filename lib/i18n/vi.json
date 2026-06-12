@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} lượt xác minh được giữ lại",
   "boundary.toast.remediationSpawned": "Đã tạo nhiệm vụ khắc phục {identifier}",
   "boundary.toast.dispositioned": "Đã xử lý vi phạm — Hoàn thành đã được bỏ chặn",
-  "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại"
+  "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại",
+  "acceptance.edit.save": "Lưu",
+  "acceptance.edit.cancel": "Hủy",
+  "acceptance.edit.remove": "Xóa",
+  "acceptance.edit.confirmDelete": "Xóa tiêu chí này? Phán quyết được giữ lại để kiểm toán.",
+  "acceptance.edit.add": "Thêm",
+  "acceptance.edit.addPlaceholder": "Thêm tiêu chí cần phán quyết của con người (chỉ nhập câu lệnh)",
+  "acceptance.edit.saveError": "Không thể lưu — vui lòng thử lại",
+  "acceptance.zone.machine": "Đã xác minh bằng máy · chỉ đọc",
+  "acceptance.zone.human": "Cần phán quyết của con người"
 }

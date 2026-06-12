@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} 件の検証実行を保持",
   "boundary.toast.remediationSpawned": "対処タスク {identifier} を作成しました",
   "boundary.toast.dispositioned": "違反を処理しました — 完了のブロックが解除されました",
-  "boundary.toast.error": "操作に失敗しました — もう一度お試しください"
+  "boundary.toast.error": "操作に失敗しました — もう一度お試しください",
+  "acceptance.edit.save": "保存",
+  "acceptance.edit.cancel": "キャンセル",
+  "acceptance.edit.remove": "削除",
+  "acceptance.edit.confirmDelete": "この基準を削除しますか？判定は監査のために保持されます。",
+  "acceptance.edit.add": "追加",
+  "acceptance.edit.addPlaceholder": "人間の判断が必要な基準を追加（文言のみ）",
+  "acceptance.edit.saveError": "保存できませんでした — もう一度お試しください",
+  "acceptance.zone.machine": "マシン検証済み · 読み取り専用",
+  "acceptance.zone.human": "人間の判断が必要"
 }

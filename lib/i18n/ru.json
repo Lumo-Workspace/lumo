@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} запуск(ов) верификации сохранено",
   "boundary.toast.remediationSpawned": "Задача устранения {identifier} создана",
   "boundary.toast.dispositioned": "Нарушение обработано — «Готово» разблокировано",
-  "boundary.toast.error": "Не удалось выполнить действие — повторите попытку"
+  "boundary.toast.error": "Не удалось выполнить действие — повторите попытку",
+  "acceptance.edit.save": "Сохранить",
+  "acceptance.edit.cancel": "Отмена",
+  "acceptance.edit.remove": "Удалить",
+  "acceptance.edit.confirmDelete": "Удалить этот критерий? Вердикты сохраняются для аудита.",
+  "acceptance.edit.add": "Добавить",
+  "acceptance.edit.addPlaceholder": "Добавить критерий, требующий оценки человека (только формулировка)",
+  "acceptance.edit.saveError": "Не удалось сохранить — повторите попытку",
+  "acceptance.zone.machine": "Проверено машиной · только чтение",
+  "acceptance.zone.human": "Требуется оценка человека"
 }

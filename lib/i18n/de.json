@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} Verifizierungslauf/-läufe aufbewahrt",
   "boundary.toast.remediationSpawned": "Behebungsaufgabe {identifier} erstellt",
   "boundary.toast.dispositioned": "Überschreitung eingeordnet – Erledigt ist entsperrt",
-  "boundary.toast.error": "Aktion fehlgeschlagen – bitte erneut versuchen"
+  "boundary.toast.error": "Aktion fehlgeschlagen – bitte erneut versuchen",
+  "acceptance.edit.save": "Speichern",
+  "acceptance.edit.cancel": "Abbrechen",
+  "acceptance.edit.remove": "Entfernen",
+  "acceptance.edit.confirmDelete": "Dieses Kriterium entfernen? Urteile werden für das Audit aufbewahrt.",
+  "acceptance.edit.add": "Hinzufügen",
+  "acceptance.edit.addPlaceholder": "Kriterium hinzufügen, das menschliches Urteil erfordert (nur Aussage)",
+  "acceptance.edit.saveError": "Speichern fehlgeschlagen — erneut versuchen",
+  "acceptance.zone.machine": "Maschinengeprüft · nur lesbar",
+  "acceptance.zone.human": "Menschliches Urteil erforderlich"
 }

@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} ejecución(es) de verificación conservada(s)",
   "boundary.toast.remediationSpawned": "Tarea de remediación {identifier} creada",
   "boundary.toast.dispositioned": "Infracción resuelta: Hecho ya está desbloqueado",
-  "boundary.toast.error": "La acción falló: inténtalo de nuevo"
+  "boundary.toast.error": "La acción falló: inténtalo de nuevo",
+  "acceptance.edit.save": "Guardar",
+  "acceptance.edit.cancel": "Cancelar",
+  "acceptance.edit.remove": "Eliminar",
+  "acceptance.edit.confirmDelete": "¿Eliminar este criterio? Los veredictos se conservan para auditoría.",
+  "acceptance.edit.add": "Añadir",
+  "acceptance.edit.addPlaceholder": "Añadir un criterio que requiera juicio humano (solo enunciado)",
+  "acceptance.edit.saveError": "No se pudo guardar — inténtalo de nuevo",
+  "acceptance.zone.machine": "Verificado por máquina · solo lectura",
+  "acceptance.zone.human": "Requiere juicio humano"
 }

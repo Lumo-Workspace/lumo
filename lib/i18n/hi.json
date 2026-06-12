@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} सत्यापन रन सुरक्षित",
   "boundary.toast.remediationSpawned": "समाधान कार्य {identifier} बनाया गया",
   "boundary.toast.dispositioned": "उल्लंघन निपटाया गया — पूर्ण अनब्लॉक हो गया",
-  "boundary.toast.error": "कार्रवाई विफल — कृपया पुनः प्रयास करें"
+  "boundary.toast.error": "कार्रवाई विफल — कृपया पुनः प्रयास करें",
+  "acceptance.edit.save": "सहेजें",
+  "acceptance.edit.cancel": "रद्द करें",
+  "acceptance.edit.remove": "हटाएं",
+  "acceptance.edit.confirmDelete": "इस मानदंड को हटाएं? ऑडिट के लिए निर्णय सुरक्षित रहेंगे।",
+  "acceptance.edit.add": "जोड़ें",
+  "acceptance.edit.addPlaceholder": "मानवीय निर्णय की आवश्यकता वाला मानदंड जोड़ें (केवल कथन)",
+  "acceptance.edit.saveError": "सहेजा नहीं जा सका — पुनः प्रयास करें",
+  "acceptance.zone.machine": "मशीन-सत्यापित · केवल-पठन",
+  "acceptance.zone.human": "मानवीय निर्णय आवश्यक"
 }

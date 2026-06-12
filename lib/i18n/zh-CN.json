@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "已保留 {n} 次验证运行",
   "boundary.toast.remediationSpawned": "已创建补救任务 {identifier}",
   "boundary.toast.dispositioned": "越界已处置——DONE 已解除阻塞",
-  "boundary.toast.error": "操作失败——请重试"
+  "boundary.toast.error": "操作失败——请重试",
+  "acceptance.edit.save": "保存",
+  "acceptance.edit.cancel": "取消",
+  "acceptance.edit.remove": "移除",
+  "acceptance.edit.confirmDelete": "移除该标准？裁定将保留供审计。",
+  "acceptance.edit.add": "添加",
+  "acceptance.edit.addPlaceholder": "添加需要人工裁决的标准（仅填写描述语句）",
+  "acceptance.edit.saveError": "保存失败——请重试",
+  "acceptance.zone.machine": "机器验证 · 只读",
+  "acceptance.zone.human": "需要人工裁决"
 }

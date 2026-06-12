@@ -1588,5 +1588,14 @@
   "acceptance.removed.runsPreserved": "{n} exécution(s) de vérification conservée(s)",
   "boundary.toast.remediationSpawned": "Tâche de correction {identifier} créée",
   "boundary.toast.dispositioned": "Franchissement traité — Terminé est débloqué",
-  "boundary.toast.error": "L'action a échoué — veuillez réessayer"
+  "boundary.toast.error": "L'action a échoué — veuillez réessayer",
+  "acceptance.edit.save": "Enregistrer",
+  "acceptance.edit.cancel": "Annuler",
+  "acceptance.edit.remove": "Supprimer",
+  "acceptance.edit.confirmDelete": "Supprimer ce critère ? Les verdicts sont conservés pour audit.",
+  "acceptance.edit.add": "Ajouter",
+  "acceptance.edit.addPlaceholder": "Ajouter un critère nécessitant un jugement humain (énoncé uniquement)",
+  "acceptance.edit.saveError": "Impossible d'enregistrer — veuillez réessayer",
+  "acceptance.zone.machine": "Vérifié automatiquement · lecture seule",
+  "acceptance.zone.human": "Nécessite un jugement humain"
 }
