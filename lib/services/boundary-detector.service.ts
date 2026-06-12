@@ -14,12 +14,14 @@ import {
   classifyTestTampering,
   type JudgeInput,
   type JudgeVerdict,
+  type TamperingJudge,
 } from '@/lib/boundary-crossing/test-tampering-judge'
 import {
   confirmActionCrossing,
   isActionConfirmCategory,
   stripProse,
   type ActionConfirmInput,
+  type ActionConfirmJudge,
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
@@ -760,29 +762,48 @@ function findMatchedCheckpointer(
 }
 
 /**
+ * The pre-loaded context the two-stage tampering classifier (LUM-463) needs,
+ * lifted out of the DB so the classification core is a pure, injectable seam:
+ * the production wrapper fills it from the repositories, the alignment eval
+ * (LUM-468) fills it from fixtures — both run the identical classifier.
+ */
+export interface TaskTamperingContext {
+  /** The bound task's MACHINE checkpointers (with their `everPassed` flags). */
+  machineCheckpointers: MachineCheckpointer[]
+  /** Signal A — did the task's change-set co-touch production code? (`null` = uncomputable). */
+  productionCodeCoChanged: boolean | null
+  /** The bounded co-changed code diff for the judge prompt (`null` = none). */
+  codeDiff: string | null
+  /** Signal C — the criterion ids whose backing spec was edited after the draft. */
+  changedCriterionIds: ReadonlySet<string>
+}
+
+/**
  * Run the two-stage classification on a surviving tampering crossing and return
  * the crossing adjusted for the verdict: LEGIT → severity LOW + a "downgraded"
  * note (still recorded, just not full-strength); WEAKENING → the base crossing
  * unchanged (full strength). Defensive by construction — any failure returns the
  * base (flagged) crossing, so a downgrade only ever happens on a positive
- * legit/judge verdict and a crossing is never lost.
+ * legit/judge verdict and a crossing is never lost. Context + judge are injected
+ * (no DB, no lazy LLM import here), so the eval drives this exact path.
  */
-async function classifyAndAnnotateTampering(
-  input: BoundaryDetectionInput,
+async function annotateTampering(
+  payload: unknown,
   matched: MachineCheckpointer,
-  base: DetectedCrossing
+  base: DetectedCrossing,
+  ctx: TaskTamperingContext,
+  judge: TamperingJudge
 ): Promise<DetectedCrossing> {
   try {
-    const { oldString, newString } = readEditStrings(input.payload)
-    const ctx = await gatherChangeSetContext(input.taskId)
+    const { oldString, newString } = readEditStrings(payload)
     const criterionChanged = matched.criterionId
-      ? await backingCriterionEdited(input.taskId, matched.criterionId)
+      ? ctx.changedCriterionIds.has(matched.criterionId)
       : false
     const result = await classifyTestTampering(
       {
         oldString,
         newString,
-        productionCodeCoChanged: ctx.coChanged,
+        productionCodeCoChanged: ctx.productionCodeCoChanged,
         backingCriterionChanged: criterionChanged,
       },
       {
@@ -790,7 +811,7 @@ async function classifyAndAnnotateTampering(
         codeDiff: ctx.codeDiff,
         criterion: matched.statement ?? '',
       },
-      { judge: cachedJudge }
+      { judge }
     )
     if (result.outcome === 'LEGIT') {
       const how = result.stage === 'PREFILTER' ? 'pre-filter' : 'judge'
@@ -807,11 +828,42 @@ async function classifyAndAnnotateTampering(
 }
 
 /**
+ * Pure (no-DB) TEST_TAMPERING classification core (LUM-441 + LUM-463): run the
+ * deterministic tampering check against pre-loaded context, then refine a
+ * surviving hit through the two-stage precision classifier with an injected
+ * judge. The production wrapper (`detectTestTamperingForTask`) loads `ctx` from
+ * the repositories and passes the cached LLM judge; the alignment eval (LUM-468)
+ * passes fixture context and a deterministic stub judge — so both exercise the
+ * exact same classification path with no live database.
+ */
+export async function classifyTaskTampering(
+  input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>,
+  ctx: TaskTamperingContext,
+  judge: TamperingJudge
+): Promise<DetectedCrossing | null> {
+  const base = detectTestTampering({
+    toolName: input.toolName,
+    filePath: input.filePath,
+    machineCheckpointers: ctx.machineCheckpointers,
+    payload: input.payload,
+  })
+  if (!base) return null
+  const matched = findMatchedCheckpointer(
+    ctx.machineCheckpointers,
+    input.filePath as string
+  )
+  if (!matched) return base
+  return annotateTampering(input.payload, matched, base, ctx, judge)
+}
+
+/**
  * Load the bound task's MACHINE checkpointers and run the pure tampering check
  * (LUM-441). Gated up front: only an Edit/Write event carrying a file path can
  * tamper with a test, so a Bash/Read/Stop event short-circuits BEFORE any DB
  * read — the criteria query is paid only on the events that can match. A
- * surviving hit is then run through the LUM-463 two-stage precision classifier.
+ * surviving hit is then run through the LUM-463 two-stage precision classifier;
+ * the change-set context (signals A/C) is loaded ONLY on an actual hit so a miss
+ * never pays for it. Delegates to the injectable `classifyTaskTampering` core.
  */
 async function detectTestTamperingForTask(
   input: BoundaryDetectionInput
@@ -837,6 +889,8 @@ async function detectTestTamperingForTask(
       everPassed: everPassed.has(c.id),
     })
   )
+  // Cheap base check first: only pay the change-set context (signals A/C) when an
+  // edit actually hits a checkpointer-backed test — a miss reads nothing more.
   const base = detectTestTampering({
     toolName: input.toolName,
     filePath: input.filePath,
@@ -844,11 +898,26 @@ async function detectTestTamperingForTask(
     payload: input.payload,
   })
   if (!base) return null
-  // LUM-463: refine the surviving hit — downgrade clear/judged-legit updates,
-  // keep clear/judged weakening at full strength. Best-effort; never throws.
   const matched = findMatchedCheckpointer(machineCheckpointers, input.filePath)
   if (!matched) return base
-  return classifyAndAnnotateTampering(input, matched, base)
+  const changeSet = await gatherChangeSetContext(input.taskId)
+  const changedCriterionIds =
+    matched.criterionId &&
+    (await backingCriterionEdited(input.taskId, matched.criterionId))
+      ? new Set<string>([matched.criterionId])
+      : new Set<string>()
+  return annotateTampering(
+    input.payload,
+    matched,
+    base,
+    {
+      machineCheckpointers,
+      productionCodeCoChanged: changeSet.coChanged,
+      codeDiff: changeSet.codeDiff,
+      changedCriterionIds,
+    },
+    cachedJudge
+  )
 }
 
 // --- LUM-466: action-category prose-vs-real confirmation ----------------------
@@ -901,9 +970,10 @@ function cachedActionConfirm(
  * uncertain / failure keeps it). Defensive throughout — any error keeps the base
  * (flagged) crossing, so a candidate is never silently lost (criteria 2/3).
  */
-async function confirmActionCandidates(
-  input: BoundaryDetectionInput,
-  crossings: DetectedCrossing[]
+export async function confirmActionCandidates(
+  input: Pick<BoundaryDetectionInput, 'payload'>,
+  crossings: DetectedCrossing[],
+  judge: ActionConfirmJudge = cachedActionConfirm
 ): Promise<DetectedCrossing[]> {
   const cmd = readCommand(input.payload)
   // Without a command string there is no prose to strip and nothing to confirm
@@ -940,7 +1010,7 @@ async function confirmActionCandidates(
     try {
       verdict = await confirmActionCrossing(
         { command: cmd, category: c.category },
-        { judge: cachedActionConfirm }
+        { judge }
       )
     } catch {
       verdict = 'REAL_ACTION'
