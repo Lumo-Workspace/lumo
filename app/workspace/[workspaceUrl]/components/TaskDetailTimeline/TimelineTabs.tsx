@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, usePathname, useRouter } from 'next/navigation'
+import { TAB_SLUGS, tabFromSlug, type TabValue } from './taskTabs'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
@@ -14,15 +16,6 @@ import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
 import { AcceptanceTab } from './AcceptanceTab'
 import { MemoryTab } from '../memory/MemoryTab'
-
-type TabValue =
-  | 'comments'
-  | 'activity'
-  | 'context'
-  | 'agent'
-  | 'memory'
-  | 'lineage'
-  | 'acceptance'
 
 interface PullRequestSummary {
   id: string
@@ -69,7 +62,23 @@ export function TimelineTabs({
   initialTimelinePresence,
 }: TimelineTabsProps) {
   const intl = useIntl()
-  const [activeTab, setActiveTab] = useState<TabValue>('comments')
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useParams()
+
+  // The active tab lives in the URL path segment (e.g. /LUM-1/acceptance) so it
+  // survives reload, is shareable, and the browser back/forward buttons walk
+  // between tabs. `[[...tab]]` delivers the segment as an optional string[].
+  const urlSlug = (params.tab as string[] | undefined)?.[0]
+  const urlTab = tabFromSlug(urlSlug)
+  const basePath = urlSlug
+    ? pathname.slice(0, pathname.length - urlSlug.length - 1)
+    : pathname
+
+  // Optimistic mirror of the URL tab: a click sets this instantly while
+  // router.push updates the URL in the background (the RSC nav has latency).
+  // The effect below reconciles it from the URL for back/forward and reload.
+  const [activeTab, setActiveTab] = useState<TabValue>(urlTab ?? 'comments')
 
   const timeline = useTimeline({
     taskId,
@@ -116,6 +125,70 @@ export function TimelineTabs({
     ? status.data.criteria.length > 0
     : (initialTimelinePresence?.hasCriteria ?? false)
 
+  // Reconcile the rendered tab with the URL: handles reload, back/forward, and
+  // the case where the URL targets an unknown or currently-hidden tab — fall
+  // back to Comments and strip the dead segment from the URL (replace, so the
+  // bad URL doesn't pollute history).
+  useEffect(() => {
+    if (!urlSlug) return
+    // Wait until the probe backing this tab has resolved before treating it as
+    // hidden — otherwise a deep link to a probe-backed tab (agent/memory/
+    // lineage/acceptance) gets normalized away on the transient unresolved
+    // value before the probe lands, flashing to Comments and writing a stale
+    // URL. The "resolved" signals mirror the visibility derivation below:
+    // useAgentRuns/useTaskLineage/useTaskStatus expose data !== null once
+    // loaded; useMemories signals it via loading === false.
+    const probeResolved =
+      urlTab === 'agent'
+        ? agentRuns.data !== null
+        : urlTab === 'memory'
+          ? !taskMemories.loading
+          : urlTab === 'lineage'
+            ? lineage.data !== null
+            : urlTab === 'acceptance'
+              ? status.data !== null
+              : true
+    if (!probeResolved) return
+    const visible =
+      urlTab === 'agent'
+        ? hasAgentRuns
+        : urlTab === 'memory'
+          ? hasMemories
+          : urlTab === 'lineage'
+            ? hasLineage
+            : urlTab === 'acceptance'
+              ? hasCriteria
+              : urlTab !== null
+    if (urlTab && visible) {
+      setActiveTab(urlTab)
+    } else {
+      setActiveTab('comments')
+      router.replace(basePath, { scroll: false })
+    }
+  }, [
+    urlTab,
+    urlSlug,
+    basePath,
+    router,
+    hasAgentRuns,
+    hasMemories,
+    hasLineage,
+    hasCriteria,
+    agentRuns.data,
+    taskMemories.loading,
+    lineage.data,
+    status.data,
+  ])
+
+  // Switch tab: instant client switch (optimistic) + URL update so back/forward
+  // and deep links work. Comments is the default tab → bare URL, no segment.
+  const selectTab = (tab: TabValue) => {
+    setActiveTab(tab)
+    const target =
+      tab === 'comments' ? basePath : `${basePath}/${TAB_SLUGS[tab]}`
+    router.push(target, { scroll: false })
+  }
+
   // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
   // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
   const memoryMemberNames = useMemo(
@@ -135,7 +208,7 @@ export function TimelineTabs({
       <div className='flex gap-4 mb-4'>
         <button
           className={tabClass(activeTab === 'comments')}
-          onClick={() => setActiveTab('comments')}
+          onClick={() => selectTab('comments')}
         >
           {intl.formatMessage({
             id: 'task.comments',
@@ -144,7 +217,7 @@ export function TimelineTabs({
         </button>
         <button
           className={tabClass(activeTab === 'activity')}
-          onClick={() => setActiveTab('activity')}
+          onClick={() => selectTab('activity')}
         >
           {intl.formatMessage({
             id: 'task.activity',
@@ -153,7 +226,7 @@ export function TimelineTabs({
         </button>
         <button
           className={tabClass(activeTab === 'context')}
-          onClick={() => setActiveTab('context')}
+          onClick={() => selectTab('context')}
         >
           {intl.formatMessage({
             id: 'task.context.tab',
@@ -163,7 +236,7 @@ export function TimelineTabs({
         {hasAgentRuns && (
           <button
             className={tabClass(activeTab === 'agent')}
-            onClick={() => setActiveTab('agent')}
+            onClick={() => selectTab('agent')}
           >
             {intl.formatMessage({
               id: 'task.agentRun',
@@ -174,7 +247,7 @@ export function TimelineTabs({
         {hasMemories && (
           <button
             className={tabClass(activeTab === 'memory')}
-            onClick={() => setActiveTab('memory')}
+            onClick={() => selectTab('memory')}
           >
             {intl.formatMessage({
               id: 'memory.tab.title',
@@ -185,7 +258,7 @@ export function TimelineTabs({
         {hasLineage && (
           <button
             className={tabClass(activeTab === 'lineage')}
-            onClick={() => setActiveTab('lineage')}
+            onClick={() => selectTab('lineage')}
           >
             {intl.formatMessage({
               id: 'task.lineage',
@@ -196,7 +269,7 @@ export function TimelineTabs({
         {hasCriteria && (
           <button
             className={tabClass(activeTab === 'acceptance')}
-            onClick={() => setActiveTab('acceptance')}
+            onClick={() => selectTab('acceptance')}
           >
             {intl.formatMessage({
               id: 'task.acceptance',
