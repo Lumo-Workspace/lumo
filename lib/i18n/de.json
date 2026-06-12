@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Abnahme läuft",
   "acceptance.banner.metCount": "{passed}/{total} erfüllt",
   "acceptance.banner.roundBadge": "Runde {round}/{max}",
-  "acceptance.banner.gateOpen": "keine Rückweisung · menschliches PASS oder DONE möglich",
+  "acceptance.banner.gateOpen": "keine Rückweisung · ein menschliches Urteil kann bestehen; DONE kann weiterhin durch offene Überschreitungen blockiert sein",
   "acceptance.banner.gateBlocked": "eine Rückweisung blockiert DONE",
   "acceptance.history.title": "Prüfprotokoll",
   "acceptance.history.roundMachine": "Runde {round} · Maschinenprüfung",
@@ -1607,5 +1607,13 @@
   "acceptance.edit.addPlaceholder": "Kriterium hinzufügen, das menschliches Urteil erfordert (nur Aussage)",
   "acceptance.edit.saveError": "Speichern fehlgeschlagen — erneut versuchen",
   "acceptance.zone.machine": "Maschinengeprüft · nur lesbar",
-  "acceptance.zone.human": "Menschliches Urteil erforderlich"
+  "acceptance.zone.human": "Menschliches Urteil erforderlich",
+  "boundary.editChange.show": "Zeigen, was die Bearbeitung geändert hat",
+  "boundary.editChange.hide": "Bearbeitung ausblenden",
+  "boundary.editChange.removed": "Entfernt",
+  "boundary.editChange.added": "Hinzugefügt",
+  "boundary.editChange.written": "Geschriebener Inhalt",
+  "boundary.editChange.truncated": "Für die Anzeige gekürzt — öffne den PR für die vollständige Änderung.",
+  "boundary.editChange.unavailable": "Der Bearbeitungsinhalt kann hier nicht angezeigt werden — öffne den PR, um die Änderung zu prüfen.",
+  "boundary.editChange.viewPr": "PR öffnen"
 }

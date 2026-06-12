@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Aceptación en curso",
   "acceptance.banner.metCount": "{passed}/{total} cumplidos",
   "acceptance.banner.roundBadge": "ronda {round}/{max}",
-  "acceptance.banner.gateOpen": "sin devolución · PASS humano o DONE permitido",
+  "acceptance.banner.gateOpen": "sin devolución · un veredicto humano puede aprobar; DONE aún puede estar bloqueado por infracciones abiertas",
   "acceptance.banner.gateBlocked": "una devolución bloquea DONE",
   "acceptance.history.title": "Registro de verificación",
   "acceptance.history.roundMachine": "ronda {round} · verificación automática",
@@ -1607,5 +1607,13 @@
   "acceptance.edit.addPlaceholder": "Agregar un criterio que requiera juicio humano (solo enunciado)",
   "acceptance.edit.saveError": "No se pudo guardar — intentá de nuevo",
   "acceptance.zone.machine": "Verificado por máquina · solo lectura",
-  "acceptance.zone.human": "Requiere juicio humano"
+  "acceptance.zone.human": "Requiere juicio humano",
+  "boundary.editChange.show": "Mostrar lo que cambió la edición",
+  "boundary.editChange.hide": "Ocultar edición",
+  "boundary.editChange.removed": "Eliminado",
+  "boundary.editChange.added": "Agregado",
+  "boundary.editChange.written": "Contenido escrito",
+  "boundary.editChange.truncated": "Truncado para mostrar — abre el PR para ver el cambio completo.",
+  "boundary.editChange.unavailable": "El contenido de la edición no está disponible aquí — abre el PR para revisar el cambio.",
+  "boundary.editChange.viewPr": "Ver PR"
 }

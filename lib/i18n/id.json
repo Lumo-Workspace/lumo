@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Penerimaan berlangsung",
   "acceptance.banner.metCount": "{passed}/{total} terpenuhi",
   "acceptance.banner.roundBadge": "putaran {round}/{max}",
-  "acceptance.banner.gateOpen": "tanpa pengembalian · PASS manusia atau DONE diizinkan",
+  "acceptance.banner.gateOpen": "tanpa pengembalian · keputusan manusia bisa lulus; DONE mungkin masih terhalang oleh pelanggaran batas terbuka",
   "acceptance.banner.gateBlocked": "pengembalian memblokir DONE",
   "acceptance.history.title": "Catatan verifikasi",
   "acceptance.history.roundMachine": "putaran {round} · pemeriksaan mesin",
@@ -1607,5 +1607,13 @@
   "acceptance.edit.addPlaceholder": "Tambahkan kriteria yang memerlukan penilaian manusia (pernyataan saja)",
   "acceptance.edit.saveError": "Gagal menyimpan — coba lagi",
   "acceptance.zone.machine": "Diverifikasi mesin · hanya baca",
-  "acceptance.zone.human": "Memerlukan penilaian manusia"
+  "acceptance.zone.human": "Memerlukan penilaian manusia",
+  "boundary.editChange.show": "Tampilkan apa yang diubah oleh suntingan",
+  "boundary.editChange.hide": "Sembunyikan suntingan",
+  "boundary.editChange.removed": "Dihapus",
+  "boundary.editChange.added": "Ditambahkan",
+  "boundary.editChange.written": "Konten yang ditulis",
+  "boundary.editChange.truncated": "Dipotong untuk tampilan — buka PR untuk melihat perubahan lengkap.",
+  "boundary.editChange.unavailable": "Konten suntingan tidak tersedia untuk ditampilkan di sini — buka PR untuk meninjau perubahan.",
+  "boundary.editChange.viewPr": "Lihat PR"
 }

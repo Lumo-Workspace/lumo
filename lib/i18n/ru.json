@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "Приёмка в процессе",
   "acceptance.banner.metCount": "{passed}/{total} выполнено",
   "acceptance.banner.roundBadge": "раунд {round}/{max}",
-  "acceptance.banner.gateOpen": "нет возвратов · допустим человеческий PASS или DONE",
+  "acceptance.banner.gateOpen": "нет возвратов · человеческий вердикт может пройти; DONE всё ещё может блокироваться открытыми нарушениями",
   "acceptance.banner.gateBlocked": "возврат блокирует DONE",
   "acceptance.history.title": "Журнал проверок",
   "acceptance.history.roundMachine": "раунд {round} · машинная проверка",
@@ -1607,5 +1607,13 @@
   "acceptance.edit.addPlaceholder": "Добавить критерий, требующий оценки человека (только формулировка)",
   "acceptance.edit.saveError": "Не удалось сохранить — повторите попытку",
   "acceptance.zone.machine": "Проверено машиной · только чтение",
-  "acceptance.zone.human": "Требуется оценка человека"
+  "acceptance.zone.human": "Требуется оценка человека",
+  "boundary.editChange.show": "Показать, что изменило редактирование",
+  "boundary.editChange.hide": "Скрыть изменение",
+  "boundary.editChange.removed": "Удалено",
+  "boundary.editChange.added": "Добавлено",
+  "boundary.editChange.written": "Записанное содержимое",
+  "boundary.editChange.truncated": "Сокращено для отображения — откройте PR, чтобы увидеть изменение полностью.",
+  "boundary.editChange.unavailable": "Содержимое правки недоступно для показа здесь — откройте PR, чтобы просмотреть изменение.",
+  "boundary.editChange.viewPr": "Открыть PR"
 }

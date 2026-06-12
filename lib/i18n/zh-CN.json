@@ -1510,7 +1510,7 @@
   "acceptance.banner.inProgress": "验收进行中",
   "acceptance.banner.metCount": "{passed}/{total} 已满足",
   "acceptance.banner.roundBadge": "第 {round}/{max} 轮",
-  "acceptance.banner.gateOpen": "无打回 · 可人工通过或 DONE",
+  "acceptance.banner.gateOpen": "无打回 · 人工 verdict 可通过;DONE 仍可能被未处置的越界挡住",
   "acceptance.banner.gateBlocked": "有打回 · 阻塞 DONE",
   "acceptance.history.title": "验证记录",
   "acceptance.history.roundMachine": "第 {round} 轮 · 机器校验",
@@ -1607,5 +1607,13 @@
   "acceptance.edit.addPlaceholder": "添加需要人工裁决的标准（仅填写描述语句）",
   "acceptance.edit.saveError": "保存失败——请重试",
   "acceptance.zone.machine": "机器验证 · 只读",
-  "acceptance.zone.human": "需要人工裁决"
+  "acceptance.zone.human": "需要人工裁决",
+  "boundary.editChange.show": "查看这次编辑改了什么",
+  "boundary.editChange.hide": "隐藏编辑",
+  "boundary.editChange.removed": "删除",
+  "boundary.editChange.added": "新增",
+  "boundary.editChange.written": "写入内容",
+  "boundary.editChange.truncated": "为显示已截断 — 打开 PR 查看完整改动。",
+  "boundary.editChange.unavailable": "此处无法显示编辑内容 — 打开 PR 查看改动。",
+  "boundary.editChange.viewPr": "查看 PR"
 }

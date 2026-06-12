@@ -16,11 +16,15 @@ import {
   UserCheck,
   ExternalLink,
   Info,
+  ChevronRight,
+  ChevronDown,
+  FileWarning,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import {
   useBoundaryCrossings,
   type BoundaryCrossingView,
+  type EditChangeView,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
 import {
@@ -317,6 +321,8 @@ function CrossingRow({
         {c.detail}
       </code>
 
+      {c.editChange && <EditChangeBlock change={c.editChange} intl={intl} />}
+
       {c.category === 'TEST_TAMPERING' && open && (
         <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
           <ShieldAlert
@@ -446,6 +452,143 @@ function CrossingRow({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Inline before→after of the edit that tripped a display-safe crossing (LUM-452)
+ * — a reviewer reads the actual change and judges a legit test fix vs a weakened
+ * test without leaving the acceptance bar. Content is already sanitized +
+ * length-capped server-side; when it's unavailable we show a clear pointer (+ the
+ * task's PR link when one exists) instead of a blank.
+ */
+function EditChangeBlock({
+  change,
+  intl,
+}: {
+  change: EditChangeView
+  intl: ReturnType<typeof useIntl>
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (change.unavailable) {
+    return (
+      <p className='mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
+        <FileWarning className='size-3.5 shrink-0' aria-hidden />
+        <span>
+          {intl.formatMessage({
+            id: 'boundary.editChange.unavailable',
+            defaultMessage:
+              "The edit content isn't available to show here — open the PR to review the change.",
+          })}
+        </span>
+        {change.prUrl && (
+          <a
+            href={change.prUrl}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='inline-flex items-center gap-1 font-medium text-primary hover:underline'
+          >
+            {intl.formatMessage({
+              id: 'boundary.editChange.viewPr',
+              defaultMessage: 'View PR',
+            })}
+            <ExternalLink className='size-3' aria-hidden />
+          </a>
+        )}
+      </p>
+    )
+  }
+
+  return (
+    <div className='mt-1.5'>
+      <button
+        type='button'
+        onClick={() => setExpanded(v => !v)}
+        className='inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground'
+      >
+        {expanded ? (
+          <ChevronDown className='size-3.5' aria-hidden />
+        ) : (
+          <ChevronRight className='size-3.5' aria-hidden />
+        )}
+        {expanded
+          ? intl.formatMessage({
+              id: 'boundary.editChange.hide',
+              defaultMessage: 'Hide edit',
+            })
+          : intl.formatMessage({
+              id: 'boundary.editChange.show',
+              defaultMessage: 'Show what the edit changed',
+            })}
+      </button>
+
+      {expanded && (
+        <div className='mt-1.5 space-y-1.5'>
+          {change.kind === 'edit' && change.oldText != null && (
+            <Snippet
+              label={intl.formatMessage({
+                id: 'boundary.editChange.removed',
+                defaultMessage: 'Removed',
+              })}
+              tone='danger'
+              text={change.oldText}
+            />
+          )}
+          {change.newText != null && (
+            <Snippet
+              label={intl.formatMessage(
+                change.kind === 'write'
+                  ? {
+                      id: 'boundary.editChange.written',
+                      defaultMessage: 'Written content',
+                    }
+                  : {
+                      id: 'boundary.editChange.added',
+                      defaultMessage: 'Added',
+                    }
+              )}
+              tone='success'
+              text={change.newText}
+            />
+          )}
+          {change.truncated && (
+            <p className='text-[10px] text-muted-foreground/80'>
+              {intl.formatMessage({
+                id: 'boundary.editChange.truncated',
+                defaultMessage:
+                  'Truncated for display — open the PR for the full change.',
+              })}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Snippet({
+  label,
+  tone,
+  text,
+}: {
+  label: string
+  tone: 'danger' | 'success'
+  text: string
+}) {
+  const cls =
+    tone === 'danger'
+      ? 'border-danger-border bg-danger-subtle/40'
+      : 'border-success-border bg-success-subtle/40'
+  return (
+    <div className={`rounded-md border px-2 py-1.5 ${cls}`}>
+      <span className='mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+        {label}
+      </span>
+      <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground'>
+        {text}
+      </pre>
     </div>
   )
 }
