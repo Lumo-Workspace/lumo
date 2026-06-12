@@ -30,6 +30,7 @@ import type { WorkspaceMemberInfo } from '../../types'
 import {
   boundaryCategoryLabel,
   boundaryDispositionLabel,
+  boundaryDispositionOrOpenLabel,
   boundaryReversibilityLabel,
   boundarySeverityLabel,
 } from './boundary-format'
@@ -88,7 +89,7 @@ export function BoundaryCrossingsPanel({
 
   const disposition = (
     crossingId: string,
-    verdict: 'FALSE_POSITIVE' | 'CONFIRMED'
+    verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN'
   ) => {
     setPending(crossingId)
     const note = notes[crossingId]?.trim()
@@ -101,10 +102,15 @@ export function BoundaryCrossingsPanel({
       )
       .then(() => {
         toast.success(
-          intl.formatMessage({
-            id: 'boundary.toast.dispositioned',
-            defaultMessage: 'Crossing dispositioned — Done is unblocked',
-          })
+          verdict === 'OPEN'
+            ? intl.formatMessage({
+                id: 'boundary.toast.reopened',
+                defaultMessage: 'Crossing reopened — Done is blocked again',
+              })
+            : intl.formatMessage({
+                id: 'boundary.toast.dispositioned',
+                defaultMessage: 'Crossing dispositioned — Done is unblocked',
+              })
         )
         afterChange()
       })
@@ -200,6 +206,9 @@ export function BoundaryCrossingsPanel({
             pending={pending === c.id}
             note={notes[c.id] ?? ''}
             reviewerName={reviewerName(c.dispositionedById)}
+            changeReviewerName={reviewerName(
+              c.lastDispositionChange?.actorId ?? null
+            )}
             onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
             onDisposition={verdict => disposition(c.id, verdict)}
             onSpawnRemediation={() => spawnRemediation(c.id)}
@@ -237,6 +246,7 @@ function CrossingRow({
   pending,
   note,
   reviewerName,
+  changeReviewerName,
   onNote,
   onDisposition,
   onSpawnRemediation,
@@ -247,12 +257,16 @@ function CrossingRow({
   pending: boolean
   note: string
   reviewerName: string | null
+  changeReviewerName: string | null
   onNote: (v: string) => void
-  onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED') => void
+  onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
   onSpawnRemediation: () => void
 }) {
   const open = c.disposition == null
   const rt = c.remediationTask
+  // The other verdict a one-click "change" flips to.
+  const otherVerdict =
+    c.disposition === 'CONFIRMED' ? 'FALSE_POSITIVE' : 'CONFIRMED'
 
   return (
     <div className='rounded-md border border-border bg-background px-3 py-2.5'>
@@ -352,6 +366,41 @@ function CrossingRow({
         </p>
       )}
 
+      {/* A re-disposition reads as a correction, not a silent swap (LUM-450):
+          who changed it, and the from -> to transition. */}
+      {c.lastDispositionChange && (
+        <p
+          data-testid={`boundary-corrected-${c.id}`}
+          className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
+        >
+          <UserCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+          <span>
+            {intl.formatMessage(
+              {
+                id: 'boundary.panel.corrected',
+                defaultMessage: 'Corrected by {by}: {from} → {to}',
+              },
+              {
+                by:
+                  changeReviewerName ??
+                  intl.formatMessage({
+                    id: 'boundary.panel.someone',
+                    defaultMessage: 'a reviewer',
+                  }),
+                from: boundaryDispositionOrOpenLabel(
+                  c.lastDispositionChange.from,
+                  intl
+                ),
+                to: boundaryDispositionOrOpenLabel(
+                  c.lastDispositionChange.to,
+                  intl
+                ),
+              }
+            )}
+          </span>
+        </p>
+      )}
+
       {open && (
         <div className='mt-2.5 space-y-2'>
           <input
@@ -387,6 +436,56 @@ function CrossingRow({
               {intl.formatMessage({
                 id: 'boundary.panel.confirmCrossing',
                 defaultMessage: 'Confirm crossing',
+              })}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Re-disposition (LUM-450): a human can correct an already-dispositioned
+          crossing — flip it to the other verdict, or reopen it (reverting to
+          undispositioned, which re-blocks Done). Same human-only write path. */}
+      {!open && (
+        <div className='mt-2.5 space-y-2'>
+          <input
+            type='text'
+            value={note}
+            disabled={pending}
+            onChange={e => onNote(e.target.value)}
+            placeholder={intl.formatMessage({
+              id: 'boundary.panel.redispositionNotePlaceholder',
+              defaultMessage: 'Reason for the change (optional)',
+            })}
+            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+          />
+          <div className='flex flex-wrap items-center gap-2'>
+            <button
+              type='button'
+              data-testid={`boundary-change-${c.id}`}
+              disabled={pending}
+              onClick={() => onDisposition(otherVerdict)}
+              className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+            >
+              <FlagOff className='size-3.5' aria-hidden />
+              {intl.formatMessage(
+                {
+                  id: 'boundary.panel.changeTo',
+                  defaultMessage: 'Change to {verdict}',
+                },
+                { verdict: boundaryDispositionLabel(otherVerdict, intl) }
+              )}
+            </button>
+            <button
+              type='button'
+              data-testid={`boundary-reopen-${c.id}`}
+              disabled={pending}
+              onClick={() => onDisposition('OPEN')}
+              className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning-subtle disabled:opacity-50'
+            >
+              <Unlock className='size-3.5' aria-hidden />
+              {intl.formatMessage({
+                id: 'boundary.panel.reopen',
+                defaultMessage: 'Reopen (re-block Done)',
               })}
             </button>
           </div>

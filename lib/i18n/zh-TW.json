@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} 項人工覆寫",
   "acceptance.zone.machineFailedCount": "{count} 項失敗",
   "acceptance.verdict.overrideWarning": "此檢查的 checkpointer 尚未通過——放行將記為人工覆寫，而非機器驗證。",
-  "acceptance.verdict.overrideConfirm": "仍然覆寫"
+  "acceptance.verdict.overrideConfirm": "仍然覆寫",
+  "activity.boundaryRedispositioned": "將越界處置從 {from} 改為 {to}",
+  "activity.boundaryReopened": "將越界重新開啟（原為 {from}）——DONE 重新阻擋",
+  "boundary.panel.corrected": "由 {by} 更正：{from} → {to}",
+  "boundary.panel.someone": "某審閱者",
+  "boundary.panel.redispositionNotePlaceholder": "更改原因（選填）",
+  "boundary.panel.changeTo": "改為{verdict}",
+  "boundary.panel.reopen": "重新開啟（重新阻擋 DONE）",
+  "boundary.disposition.open": "未處置",
+  "boundary.toast.reopened": "越界已重新開啟——DONE 重新阻擋"
 }

@@ -43,11 +43,16 @@ export async function POST(request: NextRequest, { params }: Params) {
   const parsed = dispositionBoundaryCrossingSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
+  // The OPEN sentinel (LUM-450) reverts a crossing back to undispositioned —
+  // mapped to a null disposition for the service, which re-blocks the gate.
+  const target =
+    parsed.data.disposition === 'OPEN' ? null : parsed.data.disposition
+
   try {
     const outcome = await boundaryCrossingService.disposition(
       task.id,
       parsed.data.crossingId,
-      parsed.data.disposition,
+      target,
       parsed.data.dispositionNote ?? null,
       {
         actorMemberId: identity.memberId,

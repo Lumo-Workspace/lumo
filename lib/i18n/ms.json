@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} pengatasan manusia",
   "acceptance.zone.machineFailedCount": "{count} gagal",
   "acceptance.verdict.overrideWarning": "Checkpointer pemeriksaan ini belum lulus — meluluskannya merekod pengatasan manusia, bukan pengesahan mesin.",
-  "acceptance.verdict.overrideConfirm": "Atasi juga"
+  "acceptance.verdict.overrideConfirm": "Atasi juga",
+  "activity.boundaryRedispositioned": "menukar pelupusan pencerobohan sempadan daripada {from} kepada {to}",
+  "activity.boundaryReopened": "membuka semula pencerobohan sempadan (sebelum ini {from}) — Selesai disekat semula",
+  "boundary.panel.corrected": "Dibetulkan oleh {by}: {from} → {to}",
+  "boundary.panel.someone": "seorang penyemak",
+  "boundary.panel.redispositionNotePlaceholder": "Sebab perubahan (pilihan)",
+  "boundary.panel.changeTo": "Tukar kepada {verdict}",
+  "boundary.panel.reopen": "Buka semula (sekat semula Selesai)",
+  "boundary.disposition.open": "terbuka",
+  "boundary.toast.reopened": "Pencerobohan dibuka semula — Selesai disekat semula"
 }

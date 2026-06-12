@@ -177,6 +177,102 @@ describe('BoundaryCrossingsPanel', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })
 
+  it('a dispositioned crossing offers re-disposition: change + reopen (LUM-450)', () => {
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-fp',
+        disposition: 'FALSE_POSITIVE',
+        dispositionedAt: '2026-06-11T01:00:00.000Z',
+        dispositionedById: 'actor-1',
+      },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
+    // It is NOT open, so the first-disposition buttons are absent…
+    expect(
+      screen.queryByTestId('boundary-confirm-bc-fp')
+    ).not.toBeInTheDocument()
+    // …but a human can still correct it: change to the other verdict, or reopen.
+    expect(screen.getByTestId('boundary-change-bc-fp')).toBeInTheDocument()
+    expect(screen.getByTestId('boundary-reopen-bc-fp')).toBeInTheDocument()
+  })
+
+  it('reopening a crossing reverts it to OPEN via the human-only write (LUM-450)', async () => {
+    const onChanged = jest.fn()
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-c',
+        disposition: 'CONFIRMED',
+        dispositionedById: 'a1',
+      },
+    ])
+    render(
+      <BoundaryCrossingsPanel
+        taskIdentifier='LUM-450'
+        enabled
+        onChanged={onChanged}
+      />
+    )
+    fireEvent.click(screen.getByTestId('boundary-reopen-bc-c'))
+    expect(mockDisposition).toHaveBeenCalledWith(
+      'LUM-450',
+      'bc-c',
+      'OPEN',
+      undefined
+    )
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('changing a FALSE_POSITIVE flips it to CONFIRMED (LUM-450)', () => {
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-fp',
+        disposition: 'FALSE_POSITIVE',
+        dispositionedById: 'a1',
+      },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
+    fireEvent.click(screen.getByTestId('boundary-change-bc-fp'))
+    expect(mockDisposition).toHaveBeenCalledWith(
+      'LUM-450',
+      'bc-fp',
+      'CONFIRMED',
+      undefined
+    )
+  })
+
+  it('a re-dispositioned crossing reads as corrected — by whom, from what to what (LUM-450)', () => {
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-1',
+        disposition: 'CONFIRMED',
+        dispositionedById: 'actor-2',
+        lastDispositionChange: {
+          from: 'FALSE_POSITIVE',
+          to: 'CONFIRMED',
+          actorId: 'actor-2',
+          at: '2026-06-11T02:00:00.000Z',
+        },
+      },
+    ])
+    render(
+      <BoundaryCrossingsPanel
+        taskIdentifier='LUM-450'
+        enabled
+        members={[{ actorId: 'actor-2', name: 'Chao' } as never]}
+      />
+    )
+    // The correction is visible — not a silent swap: who changed it, and the
+    // full from -> to transition, all in the dedicated corrected line.
+    const corrected = screen.getByTestId('boundary-corrected-bc-1')
+    expect(corrected).toHaveTextContent('Corrected by Chao')
+    expect(corrected).toHaveTextContent('false positive')
+    expect(corrected).toHaveTextContent('confirmed')
+  })
+
   it('a remediated crossing surfaces the linked task as a clickable link', () => {
     setCrossings([
       {

@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} 件人間による上書き",
   "acceptance.zone.machineFailedCount": "{count} 件不合格",
   "acceptance.verdict.overrideWarning": "このチェックのチェックポインターは合格していません。合格にすると、マシン検証ではなく人間による上書きとして記録されます。",
-  "acceptance.verdict.overrideConfirm": "それでも上書き"
+  "acceptance.verdict.overrideConfirm": "それでも上書き",
+  "activity.boundaryRedispositioned": "違反の判定を{from}から{to}に変更しました",
+  "activity.boundaryReopened": "違反を再オープンしました（以前は{from}）— 完了が再びブロックされました",
+  "boundary.panel.corrected": "{by} が修正: {from} → {to}",
+  "boundary.panel.someone": "レビュー担当者",
+  "boundary.panel.redispositionNotePlaceholder": "変更の理由（任意）",
+  "boundary.panel.changeTo": "{verdict}に変更",
+  "boundary.panel.reopen": "再オープン（完了を再ブロック）",
+  "boundary.disposition.open": "未処理",
+  "boundary.toast.reopened": "違反を再オープンしました — 完了が再びブロックされました"
 }

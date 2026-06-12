@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} 项人工覆盖",
   "acceptance.zone.machineFailedCount": "{count} 项失败",
   "acceptance.verdict.overrideWarning": "该检查的 checkpointer 尚未通过——放行将记为人工覆盖，而非机器验证。",
-  "acceptance.verdict.overrideConfirm": "仍然覆盖"
+  "acceptance.verdict.overrideConfirm": "仍然覆盖",
+  "activity.boundaryRedispositioned": "将越界处置从 {from} 改为 {to}",
+  "activity.boundaryReopened": "将越界重新打开（原为 {from}）——DONE 重新阻塞",
+  "boundary.panel.corrected": "由 {by} 更正：{from} → {to}",
+  "boundary.panel.someone": "某审阅者",
+  "boundary.panel.redispositionNotePlaceholder": "更改原因（选填）",
+  "boundary.panel.changeTo": "改为{verdict}",
+  "boundary.panel.reopen": "重新打开（重新阻塞 DONE）",
+  "boundary.disposition.open": "未处置",
+  "boundary.toast.reopened": "越界已重新打开——DONE 重新阻塞"
 }

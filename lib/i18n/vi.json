@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} ghi đè thủ công",
   "acceptance.zone.machineFailedCount": "{count} thất bại",
   "acceptance.verdict.overrideWarning": "Checkpointer của kiểm tra này chưa đạt — việc cho đạt sẽ được ghi nhận là ghi đè thủ công, không phải xác minh bằng máy.",
-  "acceptance.verdict.overrideConfirm": "Vẫn ghi đè"
+  "acceptance.verdict.overrideConfirm": "Vẫn ghi đè",
+  "activity.boundaryRedispositioned": "đã đổi cách xử lý vi phạm ranh giới từ {from} thành {to}",
+  "activity.boundaryReopened": "đã mở lại vi phạm ranh giới (trước đó là {from}) — Hoàn thành bị chặn lại",
+  "boundary.panel.corrected": "Được sửa bởi {by}: {from} → {to}",
+  "boundary.panel.someone": "một người đánh giá",
+  "boundary.panel.redispositionNotePlaceholder": "Lý do thay đổi (tùy chọn)",
+  "boundary.panel.changeTo": "Đổi thành {verdict}",
+  "boundary.panel.reopen": "Mở lại (chặn lại Hoàn thành)",
+  "boundary.disposition.open": "đang mở",
+  "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn"
 }

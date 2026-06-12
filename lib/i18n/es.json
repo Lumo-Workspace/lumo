@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} anulación humana",
   "acceptance.zone.machineFailedCount": "{count} fallidos",
   "acceptance.verdict.overrideWarning": "El checkpointer de esta comprobación no ha pasado: aprobarla registra una anulación humana, no una verificación por máquina.",
-  "acceptance.verdict.overrideConfirm": "Anular de todos modos"
+  "acceptance.verdict.overrideConfirm": "Anular de todos modos",
+  "activity.boundaryRedispositioned": "cambió la disposición de la infracción de límite de {from} a {to}",
+  "activity.boundaryReopened": "reabrió la infracción de límite (era {from}) — Hecho vuelve a estar bloqueado",
+  "boundary.panel.corrected": "Corregido por {by}: {from} → {to}",
+  "boundary.panel.someone": "un revisor",
+  "boundary.panel.redispositionNotePlaceholder": "Motivo del cambio (opcional)",
+  "boundary.panel.changeTo": "Cambiar a {verdict}",
+  "boundary.panel.reopen": "Reabrir (volver a bloquear Hecho)",
+  "boundary.disposition.open": "abierta",
+  "boundary.toast.reopened": "Infracción reabierta — Hecho vuelve a estar bloqueado"
 }

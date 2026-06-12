@@ -172,14 +172,16 @@ export const tasksClient = {
   },
 
   /**
-   * Disposition a boundary-crossing (FALSE_POSITIVE | CONFIRMED), clearing its
-   * DONE block (LUM-435). Human-only — the server refuses bearer (agent/CLI)
-   * identities with 403 before parse. The note is optional.
+   * Disposition — or RE-disposition (LUM-450) — a boundary-crossing. A first
+   * disposition (FALSE_POSITIVE | CONFIRMED) clears its DONE block (LUM-435); a
+   * later call changes it, and `OPEN` reverts it to undispositioned (re-blocking
+   * the gate). Human-only — the server refuses bearer (agent/CLI) identities
+   * with 403 before parse. The note is optional.
    */
   dispositionBoundaryCrossing<T>(
     taskId: string,
     crossingId: string,
-    disposition: 'FALSE_POSITIVE' | 'CONFIRMED',
+    disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN',
     dispositionNote?: string
   ) {
     return apiFetch<T>(API.tasks.boundaryDisposition(taskId), {

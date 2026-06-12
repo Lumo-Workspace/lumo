@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} ручное переопределение",
   "acceptance.zone.machineFailedCount": "{count} не пройдено",
   "acceptance.verdict.overrideWarning": "Чекпойнтер этой проверки не пройден — отметка «пройдено» фиксируется как ручное переопределение, а не машинная проверка.",
-  "acceptance.verdict.overrideConfirm": "Всё равно переопределить"
+  "acceptance.verdict.overrideConfirm": "Всё равно переопределить",
+  "activity.boundaryRedispositioned": "изменил(а) классификацию нарушения границы с {from} на {to}",
+  "activity.boundaryReopened": "повторно открыл(а) нарушение границы (было {from}) — «Готово» снова заблокировано",
+  "boundary.panel.corrected": "Исправлено {by}: {from} → {to}",
+  "boundary.panel.someone": "проверяющий",
+  "boundary.panel.redispositionNotePlaceholder": "Причина изменения (необязательно)",
+  "boundary.panel.changeTo": "Изменить на {verdict}",
+  "boundary.panel.reopen": "Открыть снова (снова заблокировать «Готово»)",
+  "boundary.disposition.open": "открыто",
+  "boundary.toast.reopened": "Нарушение снова открыто — «Готово» снова заблокировано"
 }

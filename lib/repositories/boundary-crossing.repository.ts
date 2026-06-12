@@ -122,24 +122,32 @@ export const boundaryCrossingRepository = {
   },
 
   /**
-   * Disposition a crossing as a human actor (LUM-435). Idempotent on the
-   * already-dispositioned row (updateMany guarded by disposition: null) so a
-   * double click can't rewrite the original reviewer/disposition/timestamp.
+   * Set (or clear) a crossing's disposition as a human actor (LUM-435/450).
+   * Unconditional — re-disposition (LUM-450) overwrites the CURRENT state, so
+   * the old `disposition: null` write guard is gone; idempotency (a no-op when
+   * the value isn't actually changing) is owned by the service, which reads the
+   * prior value to compute from->to and emit the append-only audit row.
+   *
+   * `disposition === null` reverts the crossing to OPEN: the whole disposition
+   * tuple (note / timestamp / reviewer) is reset to null so an open row looks
+   * exactly like a freshly-detected one — the gate keys on `disposition: null`,
+   * and who/when/why the revert happened lives in the TaskActivity trail, not
+   * on this mutable row.
    */
   async disposition(
     id: string,
-    disposition: BoundaryCrossingDisposition,
+    disposition: BoundaryCrossingDisposition | null,
     note: string | null,
     actorId: string | null,
     now: Date
   ) {
     return prisma.boundaryCrossing.updateMany({
-      where: { id, disposition: null },
+      where: { id },
       data: {
         disposition,
-        dispositionNote: note,
-        dispositionedAt: now,
-        dispositionedById: actorId,
+        dispositionNote: disposition === null ? null : note,
+        dispositionedAt: disposition === null ? null : now,
+        dispositionedById: disposition === null ? null : actorId,
       },
     })
   },

@@ -1626,5 +1626,14 @@
   "acceptance.zone.machineOverrideCount": "{count} dérogation humaine",
   "acceptance.zone.machineFailedCount": "{count} en échec",
   "acceptance.verdict.overrideWarning": "Le checkpointer de cette vérification n'a pas réussi — la valider enregistre une dérogation humaine, pas une vérification par la machine.",
-  "acceptance.verdict.overrideConfirm": "Déroger quand même"
+  "acceptance.verdict.overrideConfirm": "Déroger quand même",
+  "activity.boundaryRedispositioned": "a changé le classement du franchissement de limite de {from} à {to}",
+  "activity.boundaryReopened": "a rouvert le franchissement de limite (était {from}) — Terminé de nouveau bloqué",
+  "boundary.panel.corrected": "Corrigé par {by} : {from} → {to}",
+  "boundary.panel.someone": "un relecteur",
+  "boundary.panel.redispositionNotePlaceholder": "Motif du changement (facultatif)",
+  "boundary.panel.changeTo": "Changer en {verdict}",
+  "boundary.panel.reopen": "Rouvrir (rebloquer Terminé)",
+  "boundary.disposition.open": "ouvert",
+  "boundary.toast.reopened": "Franchissement rouvert — Terminé est de nouveau bloqué"
 }

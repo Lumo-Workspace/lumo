@@ -23,7 +23,9 @@ export interface DispositionAttribution {
 
 export interface DispositionOutcome {
   crossingId: string
-  disposition: BoundaryCrossingDisposition
+  /** The crossing's disposition after the write; null when reverted to OPEN
+   *  (undispositioned) by a re-disposition (LUM-450). */
+  disposition: BoundaryCrossingDisposition | null
 }
 
 export interface SpawnRemediationOutcome {
@@ -75,6 +77,21 @@ export interface EditChangeView {
   agentTurnContext: string | null
 }
 
+/**
+ * The most recent re-disposition of a crossing (LUM-450) — surfaced on the
+ * acceptance bar so a correction reads as a correction (from -> to, by whom),
+ * never a silent swap. Only a genuine CHANGE is surfaced: an initial
+ * undispositioned -> X disposition is not a correction (`from` is null there),
+ * so it is excluded. `from`/`to` use null for OPEN; a revert to open has
+ * `to === null`.
+ */
+export interface DispositionChangeView {
+  from: BoundaryCrossingDisposition | null
+  to: BoundaryCrossingDisposition | null
+  actorId: string | null
+  at: string
+}
+
 /** Full crossing view for the acceptance bar — open AND dispositioned (LUM-435). */
 export interface BoundaryCrossingView {
   id: string
@@ -92,6 +109,9 @@ export interface BoundaryCrossingView {
   /** Inline before→after of the triggering edit, for display-safe crossings only
    *  (LUM-452). Null for non-display-safe (secret-bearing) crossings. */
   editChange: EditChangeView | null
+  /** The latest re-disposition of this crossing (LUM-450), or null when it was
+   *  never corrected (still open, or dispositioned exactly once). */
+  lastDispositionChange: DispositionChangeView | null
 }
 
 /**
@@ -259,6 +279,51 @@ function iso(d: Date | string | null): string | null {
   return d instanceof Date ? d.toISOString() : d
 }
 
+/** A disposition activity row, narrowed to what the correction view needs. */
+export interface DispositionActivityRow {
+  payload: unknown
+  actorId: string | null
+  createdAt: Date | string
+}
+
+/** Normalize a disposition activity payload's transition, tolerating legacy
+ *  rows (pre-LUM-450) that carry only `disposition` (the new value) and no
+ *  explicit `from`/`to`. */
+function readTransition(payload: unknown): {
+  from: BoundaryCrossingDisposition | null
+  to: BoundaryCrossingDisposition | null
+} {
+  const p = (payload ?? {}) as Record<string, unknown>
+  const norm = (v: unknown): BoundaryCrossingDisposition | null =>
+    v === 'FALSE_POSITIVE' || v === 'CONFIRMED' ? v : null
+  const to = 'to' in p ? norm(p.to) : norm(p.disposition)
+  return { from: norm(p.from), to }
+}
+
+/**
+ * The latest *correction* among a crossing's disposition activities (LUM-450):
+ * the most recent change whose `from` is non-null — i.e. it changed an existing
+ * disposition (re-classified or reverted to open), not the initial disposition.
+ * Rows arrive oldest-first; null when the crossing was dispositioned at most
+ * once. Pure.
+ */
+export function lastDispositionChange(
+  rows: DispositionActivityRow[]
+): DispositionChangeView | null {
+  let latest: DispositionChangeView | null = null
+  for (const row of rows) {
+    const { from, to } = readTransition(row.payload)
+    if (from === null) continue // an initial disposition is not a correction
+    latest = {
+      from,
+      to,
+      actorId: row.actorId,
+      at: iso(row.createdAt) ?? '',
+    }
+  }
+  return latest
+}
+
 /** Descending prominence — higher = more severe, surfaced first (LUM-442). */
 const SEVERITY_RANK: Record<BoundaryCrossingSeverity, number> = {
   HIGH: 3,
@@ -275,6 +340,21 @@ export const boundaryCrossingService = {
    */
   async listAll(taskId: string): Promise<BoundaryCrossingView[]> {
     const rows = await boundaryCrossingRepository.findAllByTask(taskId)
+
+    // Disposition-change history (LUM-450), grouped per crossing, so the read
+    // model can mark a crossing as *corrected* (from -> to, by whom) rather than
+    // a silent swap. One read for the whole task; folded in memory.
+    const changeRows =
+      await activityRepository.listDispositionChangesByTask(taskId)
+    const changesByCrossing = new Map<string, DispositionActivityRow[]>()
+    for (const row of changeRows) {
+      const id = (row.payload as { boundaryCrossingId?: unknown } | null)
+        ?.boundaryCrossingId
+      if (typeof id !== 'string') continue
+      const list = changesByCrossing.get(id) ?? []
+      list.push(row)
+      changesByCrossing.set(id, list)
+    }
 
     // Only display-safe crossings (TEST_TAMPERING) surface an inline edit-change.
     // Gather their linked hook-event ids and, once, the task's PR url for the
@@ -343,6 +423,9 @@ export const boundaryCrossingService = {
         dispositionedById: c.dispositionedById,
         remediationTask,
         editChange,
+        lastDispositionChange: lastDispositionChange(
+          changesByCrossing.get(c.id) ?? []
+        ),
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
@@ -353,23 +436,30 @@ export const boundaryCrossingService = {
   },
 
   /**
-   * Disposition a boundary-crossing — the human-only half of the gate (LUM-435,
-   * mirrors LUM-422/426). The route guard refuses bearer identities before parse;
-   * this service is only ever reached by a Clerk human. Either disposition
-   * (FALSE_POSITIVE | CONFIRMED) clears the DONE block for that crossing, and the
-   * note is optional. Idempotent: re-dispositioning an already-dispositioned
-   * crossing is a no-op success (the repository's guarded updateMany keeps the
-   * original reviewer/disposition/timestamp), and only the first write emits a
-   * timeline marker.
+   * Disposition — or RE-disposition (LUM-450) — a boundary-crossing. The
+   * human-only half of the gate (LUM-435, mirrors LUM-422/426): the route guard
+   * refuses bearer identities before parse, so this service is only ever reached
+   * by a Clerk human. The `target` is the new state: FALSE_POSITIVE | CONFIRMED
+   * (either clears the DONE block for that crossing) or `null` to revert the
+   * crossing back to OPEN (undispositioned), which re-blocks DONE. The note is
+   * optional.
    *
-   * RED LINE: a clearing action can never originate from an agent. There is no
-   * machine write path to this service — an agent cannot disposition its own
-   * forbidden action to unblock its own DONE transition.
+   * Re-disposition overwrites the CURRENT state and is fully auditable: every
+   * real change (from -> to) appends its own BOUNDARY_CROSSING_DISPOSITIONED
+   * activity — append-only, so prior history is never erased and the change
+   * trail is recoverable from the task timeline (criterion 2). Idempotent: when
+   * the target equals the current value nothing is written and no redundant
+   * audit row is emitted, preserving the original reviewer/timestamp.
+   *
+   * RED LINE: a clearing (or re-clearing) action can never originate from an
+   * agent. There is no machine write path to this service — an agent cannot
+   * alter the disposition of its own forbidden action to unblock its own DONE
+   * transition.
    */
   async disposition(
     taskId: string,
     crossingId: string,
-    disposition: BoundaryCrossingDisposition,
+    target: BoundaryCrossingDisposition | null,
     note: string | null,
     attribution: DispositionAttribution
   ): Promise<DispositionOutcome> {
@@ -381,34 +471,46 @@ export const boundaryCrossingService = {
       )
     }
 
+    const from = crossing.disposition
+
+    // No-op when the disposition isn't actually changing — keeps the original
+    // reviewer/timestamp and emits no redundant audit row (idempotent).
+    if (from === target) {
+      return { crossingId, disposition: target }
+    }
+
     const actor = await memberRepository.findActorByMemberId(
       attribution.actorMemberId
     )
     const actorId = actor?.id ?? null
 
-    if (crossing.disposition == null) {
-      await boundaryCrossingRepository.disposition(
-        crossingId,
-        disposition,
-        note,
-        actorId,
-        new Date()
-      )
-      await activityRepository.create({
-        taskId,
-        actorId,
-        type: 'BOUNDARY_CROSSING_DISPOSITIONED',
-        payload: {
-          boundaryCrossingId: crossingId,
-          category: crossing.category,
-          detail: crossing.detail,
-          disposition,
-          note: note ?? null,
-        },
-      })
-    }
+    await boundaryCrossingRepository.disposition(
+      crossingId,
+      target,
+      note,
+      actorId,
+      new Date()
+    )
+    // Append-only audit of THIS change. `from`/`to` carry the transition (null
+    // = OPEN on either side); `disposition` mirrors the new value for back-compat
+    // with existing timeline readers. A later change appends another row — it
+    // never rewrites this one (criterion 2).
+    await activityRepository.create({
+      taskId,
+      actorId,
+      type: 'BOUNDARY_CROSSING_DISPOSITIONED',
+      payload: {
+        boundaryCrossingId: crossingId,
+        category: crossing.category,
+        detail: crossing.detail,
+        from,
+        to: target,
+        disposition: target,
+        note: note ?? null,
+      },
+    })
 
-    return { crossingId, disposition }
+    return { crossingId, disposition: target }
   },
 
   /**

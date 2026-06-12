@@ -28,6 +28,14 @@ export interface EditChangeView {
   agentTurnContext: string | null
 }
 
+/** The latest re-disposition of a crossing (LUM-450): from -> to + who. */
+export interface DispositionChangeView {
+  from: BoundaryDisposition | null
+  to: BoundaryDisposition | null
+  actorId: string | null
+  at: string
+}
+
 export interface BoundaryCrossingView {
   id: string
   category: string
@@ -41,6 +49,8 @@ export interface BoundaryCrossingView {
   dispositionedById: string | null
   remediationTask: RemediationTaskView | null
   editChange: EditChangeView | null
+  /** Set when the crossing's disposition was corrected (re-dispositioned). */
+  lastDispositionChange: DispositionChangeView | null
 }
 
 interface BoundaryCrossingsResponse {
