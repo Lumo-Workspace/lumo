@@ -37,6 +37,14 @@ jest.mock('@/lib/db/prisma', () => ({
     verificationRun: {
       findMany: (...args: any[]) => mockRunFindMany(...args),
     },
+    // LUM-461 birth-task resolution reads these via memoryProvenanceRepository;
+    // no provenance/birth in this fixture, so empty results → no exclusion.
+    memoryProvenance: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    memory: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }))
 
@@ -231,9 +239,7 @@ describe('dual-path consistency (immediate stamp vs cron sweep)', () => {
     const expected = deriveAllPassRoundTaskIds(LOG as any)
 
     for (const taskId of ['t-verified', 't-unverified']) {
-      mockRunFindMany.mockResolvedValue(
-        LOG.filter(r => r.taskId === taskId)
-      )
+      mockRunFindMany.mockResolvedValue(LOG.filter(r => r.taskId === taskId))
       const single = await verificationRunRepository.hasAllPassRound(taskId)
       expect(single).toBe(expected.has(taskId))
     }
@@ -282,8 +288,20 @@ describe('flywheel scoring ignores the strength column', () => {
     mockEdgeGroupBy.mockResolvedValue([
       // A verified-merged task and an unverified-merged task: both must count
       // identically — the groupBy shape carries no strength at all.
-      { fragmentType: 'MEMORY', fragmentId: 'm-1', taskId: 't-a', outcome: 'MERGED', _count: { _all: 1 } },
-      { fragmentType: 'MEMORY', fragmentId: 'm-1', taskId: 't-b', outcome: 'MERGED', _count: { _all: 1 } },
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'm-1',
+        taskId: 't-a',
+        outcome: 'MERGED',
+        _count: { _all: 1 },
+      },
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'm-1',
+        taskId: 't-b',
+        outcome: 'MERGED',
+        _count: { _all: 1 },
+      },
     ])
 
     const rates = await lineageEdgeRepository.mergeRateByFragments([

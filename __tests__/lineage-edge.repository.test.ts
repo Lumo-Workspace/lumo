@@ -1,4 +1,5 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 
 // ── Mock Prisma ─────────────────────────────────────────────────────────────
 
@@ -18,7 +19,21 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-beforeEach(() => jest.clearAllMocks())
+// Birth-task resolution (LUM-461) is delegated to the provenance repo; default
+// to "no births" so existing merge-rate assertions are unaffected, and override
+// per-test for the exclusion cases.
+jest.mock('@/lib/repositories/memory-provenance.repository', () => ({
+  memoryProvenanceRepository: {
+    birthTaskIdsByMemory: jest.fn(),
+  },
+}))
+const mockBirthTaskIdsByMemory =
+  memoryProvenanceRepository.birthTaskIdsByMemory as jest.Mock
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockBirthTaskIdsByMemory.mockResolvedValue(new Map())
+})
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -376,41 +391,184 @@ describe('lineageEdgeRepository', () => {
 
     it('dedupes by task: many edges for one task count as one resolved/merged task', async () => {
       mockGroupBy.mockResolvedValue([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'MERGED', _count: { _all: 2 } },
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'UNKNOWN', _count: { _all: 1 } },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'A',
+          outcome: 'MERGED',
+          _count: { _all: 2 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'A',
+          outcome: 'UNKNOWN',
+          _count: { _all: 1 },
+        },
       ])
       const result = await lineageEdgeRepository.mergeRateByFragments([
         { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
       ])
       expect(result).toEqual([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 1, mergedTasks: 1 },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          resolvedTasks: 1,
+          mergedTasks: 1,
+        },
       ])
     })
 
     it('excludes UNKNOWN-only tasks from the denominator', async () => {
       mockGroupBy.mockResolvedValue([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'A', outcome: 'MERGED', _count: { _all: 1 } },
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'B', outcome: 'REJECTED', _count: { _all: 1 } },
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', taskId: 'C', outcome: 'UNKNOWN', _count: { _all: 3 } },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'A',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'B',
+          outcome: 'REJECTED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'C',
+          outcome: 'UNKNOWN',
+          _count: { _all: 3 },
+        },
       ])
       const result = await lineageEdgeRepository.mergeRateByFragments([
         { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
       ])
       expect(result).toEqual([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-1', resolvedTasks: 2, mergedTasks: 1 },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          resolvedTasks: 2,
+          mergedTasks: 1,
+        },
       ])
     })
 
     it('omits fragments with no edges and preserves requested order', async () => {
       mockGroupBy.mockResolvedValue([
-        { fragmentType: 'PR', fragmentId: 'pr-7', taskId: 'A', outcome: 'MERGED', _count: { _all: 1 } },
+        {
+          fragmentType: 'PR',
+          fragmentId: 'pr-7',
+          taskId: 'A',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
       ])
       const result = await lineageEdgeRepository.mergeRateByFragments([
         { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
         { fragmentType: 'PR', fragmentId: 'pr-7' },
       ])
       expect(result).toEqual([
-        { fragmentType: 'PR', fragmentId: 'pr-7', resolvedTasks: 1, mergedTasks: 1 },
+        {
+          fragmentType: 'PR',
+          fragmentId: 'pr-7',
+          resolvedTasks: 1,
+          mergedTasks: 1,
+        },
+      ])
+    })
+
+    it('excludes the birth-task fragment-task pair from resolved and merged counts', async () => {
+      // mem-1 was injected back into its birth task `birth` (a MERGED edge) AND
+      // into a foreign task `other` (also MERGED). Only `other` may earn credit.
+      mockGroupBy.mockResolvedValue([
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'birth',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'other',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+      ])
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['mem-1', new Set(['birth'])]])
+      )
+      const result = await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+      ])
+      expect(result).toEqual([
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          resolvedTasks: 1,
+          mergedTasks: 1,
+        },
+      ])
+      // only MEMORY fragment ids are sent for birth resolution
+      expect(mockBirthTaskIdsByMemory).toHaveBeenCalledWith(
+        ['mem-1'],
+        undefined
+      )
+    })
+
+    it('keeps non-birth tasks and non-MEMORY fragments fully credited', async () => {
+      // PR fragment never gets a birth set; its birth task `birth` (which for a
+      // PR is meaningless) must NOT be excluded even if it collides by name.
+      mockGroupBy.mockResolvedValue([
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'birth',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          taskId: 'X',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'PR',
+          fragmentId: 'pr-7',
+          taskId: 'birth',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+      ])
+      // Only mem-1 has a birth; PR fragments are absent from the birth map.
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['mem-1', new Set(['birth'])]])
+      )
+      const result = await lineageEdgeRepository.mergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
+        { fragmentType: 'PR', fragmentId: 'pr-7' },
+      ])
+      expect(result).toEqual([
+        // mem-1: `birth` dropped, `X` kept
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          resolvedTasks: 1,
+          mergedTasks: 1,
+        },
+        // pr-7: `birth` keeps full credit — non-MEMORY is never birth-excluded
+        {
+          fragmentType: 'PR',
+          fragmentId: 'pr-7',
+          resolvedTasks: 1,
+          mergedTasks: 1,
+        },
       ])
     })
   })
@@ -419,9 +577,15 @@ describe('lineageEdgeRepository', () => {
     it('returns this session edges with current used/usedAt flags', async () => {
       mockFindMany.mockResolvedValue([
         { fragmentType: 'MEMORY', fragmentId: 'm1', used: null, usedAt: null },
-        { fragmentType: 'WEB_LINK', fragmentId: 'w1', used: true, usedAt: new Date() },
+        {
+          fragmentType: 'WEB_LINK',
+          fragmentId: 'w1',
+          used: true,
+          usedAt: new Date(),
+        },
       ])
-      const rows = await lineageEdgeRepository.findSessionFragmentEdges('sess-1')
+      const rows =
+        await lineageEdgeRepository.findSessionFragmentEdges('sess-1')
       expect(rows).toHaveLength(2)
       expect(mockFindMany).toHaveBeenCalledWith({
         where: { sessionId: 'sess-1' },
@@ -472,9 +636,27 @@ describe('lineageEdgeRepository', () => {
   describe('usageMergeRateByFragments', () => {
     it('counts only used=true (fragment,task) pairs, task-deduped', async () => {
       mockGroupBy.mockResolvedValue([
-        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tA', outcome: 'MERGED', _count: { _all: 1 } },
-        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tB', outcome: 'REJECTED', _count: { _all: 1 } },
-        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tC', outcome: 'UNKNOWN', _count: { _all: 1 } },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'tA',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'tB',
+          outcome: 'REJECTED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'tC',
+          outcome: 'UNKNOWN',
+          _count: { _all: 1 },
+        },
       ])
       const [rate] = await lineageEdgeRepository.usageMergeRateByFragments([
         { fragmentType: 'MEMORY', fragmentId: 'm1' },
@@ -494,8 +676,43 @@ describe('lineageEdgeRepository', () => {
     })
 
     it('returns [] for empty input', async () => {
-      expect(await lineageEdgeRepository.usageMergeRateByFragments([])).toEqual([])
+      expect(await lineageEdgeRepository.usageMergeRateByFragments([])).toEqual(
+        []
+      )
       expect(mockGroupBy).not.toHaveBeenCalled()
+    })
+
+    it('excludes the birth-task pair under usage gating', async () => {
+      // Both edges are used=true; one is against m1's birth task and must not
+      // earn usage-gated credit.
+      mockGroupBy.mockResolvedValue([
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'birth',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'tB',
+          outcome: 'MERGED',
+          _count: { _all: 1 },
+        },
+      ])
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['m1', new Set(['birth'])]])
+      )
+      const [rate] = await lineageEdgeRepository.usageMergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(rate).toEqual({
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        usedResolvedTasks: 1,
+        usedMergedTasks: 1,
+      })
     })
   })
 })
