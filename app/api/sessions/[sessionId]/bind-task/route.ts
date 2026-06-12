@@ -6,9 +6,6 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 interface Body {
   taskIdentifier?: unknown
-  /** Set true to overwrite an existing binding to a different task without the
-   *  "already-bound" guard. The CLI sends this only after the user confirms. */
-  force?: unknown
 }
 
 export async function POST(
@@ -41,7 +38,6 @@ export async function POST(
       identity,
       sessionId,
       taskIdentifier,
-      force: body.force === true,
     })
     return NextResponse.json(result)
   } catch (error) {
@@ -50,36 +46,25 @@ export async function POST(
       const message = error instanceof Error ? error.message : 'Error'
       return NextResponse.json({ error: message }, { status })
     }
+    if (status === 409) {
+      const e = error as {
+        message?: string
+        currentTaskIdentifier?: string
+        currentTaskTitle?: string
+      }
+      return NextResponse.json(
+        {
+          error: e.message ?? 'Session is already bound to another task',
+          currentTaskIdentifier: e.currentTaskIdentifier,
+          currentTaskTitle: e.currentTaskTitle,
+        },
+        { status: 409 }
+      )
+    }
     console.error('POST /api/sessions/[sessionId]/bind-task error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
     )
   }
-}
-
-/**
- * DELETE /api/sessions/[sessionId]/bind-task
- *
- * Detach the session from its current task. Ownership-scoped: 404 if the
- * session doesn't exist or belongs to another member (no enumeration).
- *
- * Idempotent — re-detaching returns 200 with `alreadyUnbound: true`.
- * Existing HookEvent rows are not retagged; only future events get
- * `taskId: null`.
- */
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ sessionId: string }> }
-): Promise<Response> {
-  const identity = await verifyBearer(request)
-  if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
-
-  const { sessionId } = await context.params
-
-  const result = await sessionService.unbindSession({ identity, sessionId })
-  if (!result.found) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-  }
-  return NextResponse.json(result)
 }
