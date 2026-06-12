@@ -53,6 +53,27 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
+// LUM-467: the tab now leads with the shared `header` VerdictDecision and
+// removed its own VerdictBanner. Stub it to a status surface so these tests stay
+// focused on the tab's own composition (reorder, no whole-contract control)
+// without pulling VerdictDecision's verdict-ritual subtree + its deps.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
+  () => ({
+    VerdictDecision: () => <div data-testid='verdict-status' />,
+  })
+)
+
+// Stub the panel to a bare anchor div so the ordering test can assert position
+// without constructing a full BoundaryCrossingView fixture. `#boundary-crossings`
+// matches the real panel's root id.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BoundaryCrossingsPanel',
+  () => ({
+    BoundaryCrossingsPanel: () => <div id='boundary-crossings' />,
+  })
+)
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
@@ -149,7 +170,13 @@ function unjudgedHuman(
 }
 
 function render_() {
-  return render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
+  return render(
+    <AcceptanceTab
+      taskIdentifier='LUM-1'
+      enabled={true}
+      onVerdictRecorded={jest.fn()}
+    />
+  )
 }
 
 // LUM-451: the machine-verified zone collapses by default when every machine
@@ -166,7 +193,10 @@ it('renders an empty state when the task has no criteria', () => {
   expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
 })
 
-it('leads with a verdict banner: machine passed, awaiting the human criterion', () => {
+// LUM-467: the verdict banner moved into the shared header VerdictDecision (it
+// owns the status text + round badge now, covered by VerdictDecision's tests).
+// The tab's job is to lead with that surface — assert it's first.
+it('leads with the header verdict surface', () => {
   set(
     statusView({
       criteria: [
@@ -192,10 +222,7 @@ it('leads with a verdict banner: machine passed, awaiting the human criterion', 
     })
   )
   render_()
-  expect(
-    screen.getByText('Machine acceptance passed · awaiting human verdict')
-  ).toBeInTheDocument()
-  expect(screen.getByText('round 1/3')).toBeInTheDocument()
+  expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
 })
 
 it('renders each criterion with a result badge, type, and notable provenance', () => {
@@ -411,6 +438,49 @@ it('shows a FAIL result and reason inline on the row, with no redundant footer s
   expect(screen.queryByText('Next actions')).toBeNull()
 })
 
+// LUM-467: the tab leads with the shared header VerdictDecision (replacing the
+// old VerdictBanner AND the bottom whole-contract pass/send-back), and reorders
+// so the criteria contract sits before the boundary-crossings panel.
+describe('header verdict surface + section order (LUM-467)', () => {
+  function reviewView(): TaskAcceptanceStatusView {
+    return statusView({
+      task: { id: 't1', identifier: 'LUM-7', title: 'x', status: 'IN_REVIEW' },
+      criteria: [machinePass(), unjudgedHuman()],
+    })
+  }
+
+  it('renders the header verdict surface and no whole-contract control', () => {
+    set(reviewView())
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-7'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+    expect(screen.queryByText(/whole contract|整份合约/i)).toBeNull()
+  })
+
+  it('orders the criteria contract before the boundary crossings panel', () => {
+    set(reviewView())
+    const { container } = render(
+      <AcceptanceTab
+        taskIdentifier='LUM-7'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    const contract = screen.getByText(/acceptance criteria|验收标准/i)
+    const panel = container.querySelector('#boundary-crossings')
+    expect(panel).not.toBeNull()
+    expect(
+      contract.compareDocumentPosition(panel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+})
+
 // LUM-425: inline per-criterion human actions, shown only while the task is
 // IN_REVIEW (the acceptance tab renders only in the Clerk web UI). An unjudged /
 // HUMAN row gets a prominent pass / send-back; a machine-passed row hides its
@@ -426,7 +496,7 @@ describe('per-criterion verdict controls', () => {
 
   beforeEach(() => mockSubmit.mockResolvedValue({}))
 
-  it('exposes prominent pass / send-back on the HUMAN row, a secondary override on the machine-passed row, and keeps the task-level quick action', () => {
+  it('exposes prominent pass / send-back on the HUMAN row and a secondary override on the machine-passed row', () => {
     set(reviewView())
     render_()
     expandMachine()
@@ -437,9 +507,10 @@ describe('per-criterion verdict controls', () => {
     // control is NOT directly present until the override is opened.
     expect(screen.queryByTestId('verdict-pass-m1')).toBeNull()
     expect(screen.getByTestId('verdict-override-m1')).toBeInTheDocument()
-    // Task-level 'pass all / send back all' remains available.
-    expect(screen.getByTestId('verdict-pass-all')).toBeInTheDocument()
-    expect(screen.getByTestId('verdict-sendback-all')).toBeInTheDocument()
+    // LUM-467: the task-level whole-contract quick action is gone — its job is
+    // now the header VerdictDecision's verdict ritual.
+    expect(screen.queryByTestId('verdict-pass-all')).toBeNull()
+    expect(screen.queryByTestId('verdict-sendback-all')).toBeNull()
   })
 
   it('passing one HUMAN criterion calls the human-verdict client scoped to just that criterion', async () => {
@@ -471,15 +542,18 @@ describe('per-criterion verdict controls', () => {
     )
   })
 
-  it('opening the machine override reveals scoped controls; the task-level quick action passes the whole contract (no criterionIds)', async () => {
+  it('opening the machine override reveals scoped controls that pass just that criterion', async () => {
     set(reviewView())
     render_()
     expandMachine()
     fireEvent.click(screen.getByTestId('verdict-override-m1'))
     expect(screen.getByTestId('verdict-pass-m1')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('verdict-pass-all'))
+    fireEvent.click(screen.getByTestId('verdict-pass-m1'))
     await waitFor(() =>
-      expect(mockSubmit).toHaveBeenCalledWith('LUM-1', { verdict: 'PASS' })
+      expect(mockSubmit).toHaveBeenCalledWith('LUM-1', {
+        verdict: 'PASS',
+        criterionIds: ['m1'],
+      })
     )
   })
 

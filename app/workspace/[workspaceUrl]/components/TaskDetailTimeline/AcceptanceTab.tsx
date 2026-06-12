@@ -4,9 +4,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   ClipboardCheck,
-  CheckCircle2,
-  XCircle,
-  Clock,
   AlertTriangle,
   ChevronRight,
   Pencil,
@@ -25,8 +22,10 @@ import type {
   RemovedCriterionView,
   CriteriaSetItemInput,
 } from '../../types'
+import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
+import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { isPass, isHumanOverride, machineRollup } from './verdict-status'
 
 interface AcceptanceTabProps {
@@ -37,6 +36,10 @@ interface AcceptanceTabProps {
   /** For resolving the disposition reviewer's name on the crossings panel. */
   members?: WorkspaceMemberInfo[]
   agentActors?: { actorId: string; name: string }[]
+  /** Bubbled up from the header VerdictDecision when a human verdict lands. */
+  onVerdictRecorded: (result: HumanVerdictResult) => void
+  /** Mention sources for the FAIL send-back editor in the verdict ritual. */
+  mentionSources?: MentionSources
 }
 
 /** Records a human verdict (whole-contract when criterionIds is omitted). */
@@ -70,146 +73,6 @@ function parseExitCode(evidence: string | null | undefined): number | null {
   if (!evidence) return null
   const m = evidence.match(/#exit=(-?\d+)\s*$/)
   return m ? Number(m[1]) : null
-}
-
-// ── Verdict banner ───────────────────────────────────────────────────────────
-
-type Tone = 'success' | 'danger' | 'neutral'
-
-const TONE_BOX: Record<Tone, string> = {
-  success: 'bg-success-subtle border-success-border',
-  danger: 'bg-danger-subtle border-danger-border',
-  neutral: 'bg-muted border-border',
-}
-const TONE_TEXT: Record<Tone, string> = {
-  success: 'text-success',
-  danger: 'text-danger',
-  neutral: 'text-muted-foreground',
-}
-
-function VerdictBanner({ data }: { data: TaskAcceptanceStatusView }) {
-  const intl = useIntl()
-  const total = data.criteria.length
-  const met = data.criteria.filter(c => isPass(c.latestVerdict?.verdict)).length
-  const hasFail = data.criteria.some(c => c.latestVerdict?.verdict === 'FAIL')
-  const hasHumanOverride = data.criteria.some(isHumanOverride)
-  const anyHumanVerdict = data.criteria.some(
-    c => c.latestVerdict?.verifierType === 'HUMAN'
-  )
-  // "Machine acceptance passed" must mean a checkpointer actually passed every
-  // MACHINE criterion (LUM-456) — a human override does not count, or the banner
-  // would impersonate machine verification.
-  const machineStats = machineRollup(data.criteria)
-  const machineAllPass =
-    machineStats.total > 0 && machineStats.verified === machineStats.total
-
-  let tone: Tone = 'neutral'
-  let Icon = Clock
-  let title: string
-
-  if (data.escalated) {
-    tone = 'danger'
-    Icon = AlertTriangle
-    title = intl.formatMessage({
-      id: 'acceptance.banner.escalated',
-      defaultMessage: 'Escalated to human · machine loop exhausted',
-    })
-  } else if (hasFail) {
-    tone = 'danger'
-    Icon = XCircle
-    const count = data.criteria.filter(
-      c => c.latestVerdict?.verdict === 'FAIL'
-    ).length
-    title = intl.formatMessage(
-      {
-        id: 'acceptance.banner.sentBack',
-        defaultMessage:
-          '{count, plural, one {# criterion sent back} other {# criteria sent back}} · blocks DONE',
-      },
-      { count }
-    )
-  } else if (data.task.status === 'DONE') {
-    tone = 'success'
-    Icon = CheckCircle2
-    title = anyHumanVerdict
-      ? intl.formatMessage({
-          id: 'acceptance.banner.done',
-          defaultMessage: 'Completed',
-        })
-      : intl.formatMessage({
-          id: 'acceptance.banner.doneNoHumanVerdict',
-          defaultMessage: 'Completed · no human verdict (shown as-is)',
-        })
-  } else if (met === total && total > 0) {
-    tone = 'success'
-    Icon = CheckCircle2
-    title = intl.formatMessage({
-      id: 'acceptance.banner.allPassed',
-      defaultMessage: 'All criteria met',
-    })
-  } else if (machineAllPass) {
-    tone = 'success'
-    Icon = CheckCircle2
-    title = intl.formatMessage({
-      id: 'acceptance.banner.machineAwaitingHuman',
-      defaultMessage: 'Machine acceptance passed · awaiting human verdict',
-    })
-  } else {
-    title = intl.formatMessage({
-      id: 'acceptance.banner.inProgress',
-      defaultMessage: 'Acceptance in progress',
-    })
-  }
-
-  const gate = hasFail
-    ? intl.formatMessage({
-        id: 'acceptance.banner.gateBlocked',
-        defaultMessage: 'a send-back blocks DONE',
-      })
-    : intl.formatMessage({
-        id: 'acceptance.banner.gateOpen',
-        defaultMessage: 'no send-back · human PASS or DONE allowed',
-      })
-
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 ${TONE_BOX[tone]}`}
-    >
-      <Icon className={`size-6 shrink-0 ${TONE_TEXT[tone]}`} aria-hidden />
-      <div className='min-w-0 flex-1'>
-        <div className='text-sm font-medium text-foreground'>{title}</div>
-        <div className='mt-0.5 text-xs text-muted-foreground'>
-          {intl.formatMessage(
-            {
-              id: 'acceptance.banner.metCount',
-              defaultMessage: '{passed}/{total} met',
-            },
-            { passed: met, total }
-          )}
-          {hasHumanOverride ? (
-            <>
-              {' · '}
-              {intl.formatMessage({
-                id: 'acceptance.tab.humanOverride',
-                defaultMessage: 'human override',
-              })}
-            </>
-          ) : null}
-          {' · '}
-          {gate}
-        </div>
-      </div>
-      <span className='shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground'>
-        {intl.formatMessage(
-          {
-            id: 'acceptance.banner.roundBadge',
-            defaultMessage: 'round {round}/{max}',
-          },
-          { round: data.currentRound, max: data.maxRounds }
-        )}
-      </span>
-    </div>
-  )
 }
 
 // ── Verification record (round history) ──────────────────────────────────────
@@ -1095,6 +958,8 @@ export function AcceptanceTab({
   workspaceUrl = '',
   members = [],
   agentActors = [],
+  onVerdictRecorded,
+  mentionSources,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh } = useTaskStatus({
@@ -1222,20 +1087,16 @@ export function AcceptanceTab({
 
   return (
     <div className='space-y-5 py-1'>
-      <VerdictBanner data={data} />
-
-      <BoundaryCrossingsPanel
+      <VerdictDecision
+        variant='header'
         taskIdentifier={taskIdentifier}
-        enabled={enabled}
-        workspaceUrl={workspaceUrl}
-        members={members}
-        agentActors={agentActors}
-        onChanged={() => {
+        data={data}
+        onVerdictRecorded={r => {
+          onVerdictRecorded(r)
           void refresh?.()
         }}
+        {...(mentionSources ? { mentionSources } : {})}
       />
-
-      <VerificationHistory data={data} />
 
       <div>
         <div className='mb-2 flex items-center gap-2'>
@@ -1259,26 +1120,6 @@ export function AcceptanceTab({
               )}
             </span>
           </div>
-          {/* Task-level quick action (LUM-425 Fork 3) — pass / send back the
-              whole contract in one click; per-criterion controls below are the
-              addition, not a replacement. */}
-          {interactive ? (
-            <div className='ml-auto flex items-center gap-2'>
-              <span className='text-[11px] text-muted-foreground/70'>
-                {intl.formatMessage({
-                  id: 'acceptance.verdict.allLabel',
-                  defaultMessage: 'Whole contract:',
-                })}
-              </span>
-              <VerdictControls
-                idSuffix='all'
-                criterionIds={undefined}
-                secondary={false}
-                submitting={submitting}
-                onVerdict={submitVerdict}
-              />
-            </div>
-          ) : null}
         </div>
         <div className='space-y-4'>
           {machineCriteria.length > 0 ? (
@@ -1387,6 +1228,19 @@ export function AcceptanceTab({
           </div>
         </div>
       </div>
+
+      <BoundaryCrossingsPanel
+        taskIdentifier={taskIdentifier}
+        enabled={enabled}
+        workspaceUrl={workspaceUrl}
+        members={members}
+        agentActors={agentActors}
+        onChanged={() => {
+          void refresh?.()
+        }}
+      />
+
+      <VerificationHistory data={data} />
 
       {/* C — Removed criteria section */}
       {data.removedCriteria.length > 0 ? (

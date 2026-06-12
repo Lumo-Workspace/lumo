@@ -40,6 +40,15 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
+// LUM-467: the tab leads with the shared header VerdictDecision — stub it so this
+// stale-verdict render suite isn't coupled to its subtree.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
+  () => ({
+    VerdictDecision: () => <div data-testid='verdict-status' />,
+  })
+)
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
@@ -125,7 +134,13 @@ beforeEach(() => jest.clearAllMocks())
 
 it('downgrades a stale PASS with a pre-edit-version marker and a re-run hint', () => {
   set([criterion({ verdictStale: true })])
-  render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
+  render(
+    <AcceptanceTab
+      taskIdentifier='LUM-1'
+      enabled={true}
+      onVerdictRecorded={jest.fn()}
+    />
+  )
   expandMachine()
 
   expect(screen.getByTestId('stale-marker')).toHaveTextContent(
@@ -136,7 +151,13 @@ it('downgrades a stale PASS with a pre-edit-version marker and a re-run hint', (
 
 it('downgrades a checkpointer-mismatch PASS the same way', () => {
   set([criterion({ checkMismatch: true })])
-  render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
+  render(
+    <AcceptanceTab
+      taskIdentifier='LUM-1'
+      enabled={true}
+      onVerdictRecorded={jest.fn()}
+    />
+  )
   expandMachine()
 
   expect(screen.getByTestId('stale-marker')).toBeInTheDocument()
@@ -144,7 +165,13 @@ it('downgrades a checkpointer-mismatch PASS the same way', () => {
 
 it('leaves a genuinely fresh PASS unmarked', () => {
   set([criterion()])
-  render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
+  render(
+    <AcceptanceTab
+      taskIdentifier='LUM-1'
+      enabled={true}
+      onVerdictRecorded={jest.fn()}
+    />
+  )
   expandMachine()
 
   expect(screen.queryByTestId('stale-marker')).not.toBeInTheDocument()
@@ -167,7 +194,13 @@ it('disambiguates an override PASS from a never-run check (no bare "not yet run"
       },
     }),
   ])
-  render(<AcceptanceTab taskIdentifier='LUM-1' enabled={true} />)
+  render(
+    <AcceptanceTab
+      taskIdentifier='LUM-1'
+      enabled={true}
+      onVerdictRecorded={jest.fn()}
+    />
+  )
   expandMachine()
   // Open the check-output disclosure.
   fireEvent.click(screen.getByRole('button', { name: /view check output/i }))
