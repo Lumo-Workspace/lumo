@@ -135,3 +135,20 @@ describe('reviseAsHuman REVIEW_ADDED derivation', () => {
     expect(repo.create).not.toHaveBeenCalled()
   })
 })
+
+describe('revision audit comment via web', () => {
+  it('revision audit comment attributes via web for a clerk-origin edit', async () => {
+    repo.listByTask.mockResolvedValue([existingHuman()] as any)
+    await taskCriteriaService.reviseAsHuman(
+      't1',
+      [{ id: 'c-old', statement: 'reworded by human', verifierType: 'HUMAN' }],
+      { actorMemberId: 'm1', sourceSessionId: null, origin: 'web' },
+      'IN_REVIEW'
+    )
+    await Promise.all(waitUntilPromises.splice(0))
+    const calls = (commentService.createComment as jest.Mock).mock.calls
+    const body = calls[calls.length - 1]![0].body as string
+    expect(body).toMatch(/via web/)
+    expect(body).not.toMatch(/session unknown/)
+  })
+})

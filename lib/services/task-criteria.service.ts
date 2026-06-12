@@ -19,6 +19,9 @@ export interface CriteriaAttribution {
   actorMemberId: string
   /** Claude Code session the revision was transcribed from, when known. */
   sourceSessionId: string | null
+  /** 'web' = a Clerk browser session (a human editing by hand); 'cli' (default)
+   *  = a bearer caller (CLI/MCP). Drives the audit-comment attribution. */
+  origin?: 'web' | 'cli'
 }
 
 /** Shape of a criterion snapshotted into a CRITERION_CHANGED activity. */
@@ -244,11 +247,14 @@ function scheduleRevisionAuditComment(
       const authorActorId = await getHumanActorId(attribution.actorMemberId)
       if (!authorActorId) return
 
-      const origin = attribution.sourceSessionId
-        ? `session ${attribution.sourceSessionId.slice(0, 8)}`
-        : '(session unknown)'
+      const originLabel =
+        attribution.origin === 'web'
+          ? '· via web'
+          : attribution.sourceSessionId
+            ? `· origin session ${attribution.sourceSessionId.slice(0, 8)}`
+            : '· origin (session unknown)'
       const lines: string[] = [
-        `[Lumo] Acceptance contract revised (HUMAN_EDIT) · ${changes.added.length} added / ${changes.updated.length} updated / ${changes.deleted.length} deleted · origin ${origin}`,
+        `[Lumo] Acceptance contract revised (HUMAN_EDIT) · ${changes.added.length} added / ${changes.updated.length} updated / ${changes.deleted.length} deleted ${originLabel}`,
       ]
       for (const s of changes.added)
         lines.push(`+ ${truncate(s, AUDIT_STATEMENT_MAX)}`)
