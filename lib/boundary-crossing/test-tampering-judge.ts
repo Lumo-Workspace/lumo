@@ -42,32 +42,11 @@ import {
   classifyTestTamperingPrefilter,
   type PrefilterInput,
 } from './test-tampering-prefilter'
+// Shared best-effort timeout — the SAME primitive the LUM-466 action-category
+// confirmation reuses, so both judges share one exit-0 guarantee.
+import { withTimeout } from './judge-timeout'
 
 const DEFAULT_TIMEOUT_MS = 10_000
-
-/** Reject after `ms` so a hung judge can never block ingestion (criterion 3). */
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error('test-tampering judge timed out')),
-      ms
-    )
-    // Never let a pending judge timeout hold the process open (Node only).
-    if (typeof (timer as { unref?: () => void }).unref === 'function') {
-      ;(timer as { unref: () => void }).unref()
-    }
-    p.then(
-      v => {
-        clearTimeout(timer)
-        resolve(v)
-      },
-      e => {
-        clearTimeout(timer)
-        reject(e instanceof Error ? e : new Error(String(e)))
-      }
-    )
-  })
-}
 
 /**
  * Classify a TEST_TAMPERING edit as a downgrade (LEGIT) or a flag (WEAKENING).
