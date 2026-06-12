@@ -89,6 +89,42 @@ describe('POST /api/hooks/post-tool-use — boundary detection', () => {
     )
   })
 
+  it('hook still exits 0 when an evasion or high-severity crossing is detected', async () => {
+    // A base64-obfuscated forbidden command (the evasion headline case).
+    const encoded = Buffer.from('git push origin main --force').toString(
+      'base64'
+    )
+    const EVASION_PAYLOAD = {
+      session_id: 'sess_1',
+      tool_name: 'Bash',
+      tool_input: { command: `echo ${encoded} | base64 -d | sh` },
+    }
+
+    // The REAL detector genuinely flags this payload (HIGH-severity evasion), so
+    // the test name isn't vacuous: a crossing IS detected here…
+    const { detectCrossings } = jest.requireActual(
+      '@/lib/services/boundary-detector.service'
+    )
+    const detected = detectCrossings({
+      toolName: 'Bash',
+      filePath: null,
+      payload: EVASION_PAYLOAD,
+    })
+    expect(detected.length).toBeGreaterThan(0)
+    expect(
+      detected.some((c: { severity: string }) => c.severity === 'HIGH')
+    ).toBe(true)
+
+    // …and yet the hook ingestion path still exits 0 / { ok: true } and never
+    // blocks the tool call (LUM-426 / LUM-348 exit-0 invariant).
+    const res = await postPost(post(EVASION_PAYLOAD))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(mockDetect).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: 't-1', payload: EVASION_PAYLOAD })
+    )
+  })
+
   it('a detector failure never flips the hook response off 200 (best-effort)', async () => {
     mockDetect.mockRejectedValue(new Error('detector exploded'))
     const res = await postPost(post(FORBIDDEN_PAYLOAD))

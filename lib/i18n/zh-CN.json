@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "越界已处置——DONE 已解除阻塞",
   "boundary.toast.error": "操作失败——请重试",
   "boundary.category.testTampering": "修改了某项检查依赖的测试",
-  "boundary.panel.testTamperingHint": "奖励操纵检查:请确认是修复了底层代码,而非削弱测试来强行通过。属于合法的测试修复?将其标记为误报。"
+  "boundary.panel.testTamperingHint": "奖励操纵检查:请确认是修复了底层代码,而非削弱测试来强行通过。属于合法的测试修复?将其标记为误报。",
+  "boundary.category.exfiltration": "向公网外泄数据",
+  "boundary.category.cloudDelete": "删除了云存储数据",
+  "boundary.category.infra": "终止或重启了基础设施",
+  "boundary.severity.high": "高",
+  "boundary.severity.medium": "中",
+  "boundary.severity.low": "低",
+  "boundary.panel.severityBadge": "{severity} 严重度",
+  "boundary.panel.defenseInDepth": "这是纵深防御，而非硬性边界：它在动作执行之后才运行，可能被绕过（例如混淆过的命令）。面板干净并不能证明什么都没发生——请把它当作一个信号，而非保证。"
 }

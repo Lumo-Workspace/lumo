@@ -1590,5 +1590,13 @@
   "acceptance.removed.lastVerdict": "最後裁定：{v}",
   "acceptance.removed.runsPreserved": "已保留 {n} 次驗證執行",
   "boundary.category.testTampering": "修改了某項檢查依賴的測試",
-  "boundary.panel.testTamperingHint": "獎勵操縱檢查:請確認是修復了底層程式碼,而非削弱測試以強行通過。屬於合法的測試修復?請將其標記為誤報。"
+  "boundary.panel.testTamperingHint": "獎勵操縱檢查:請確認是修復了底層程式碼,而非削弱測試以強行通過。屬於合法的測試修復?請將其標記為誤報。",
+  "boundary.category.exfiltration": "向公網外洩資料",
+  "boundary.category.cloudDelete": "刪除了雲端儲存資料",
+  "boundary.category.infra": "終止或重啟了基礎設施",
+  "boundary.severity.high": "高",
+  "boundary.severity.medium": "中",
+  "boundary.severity.low": "低",
+  "boundary.panel.severityBadge": "{severity} 嚴重度",
+  "boundary.panel.defenseInDepth": "這是縱深防禦，而非硬性邊界：它在動作執行之後才運行，可能被繞過（例如混淆過的命令）。面板乾淨並不能證明什麼都沒發生——請將它視為一個訊號，而非保證。"
 }

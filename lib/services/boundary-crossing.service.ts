@@ -4,7 +4,11 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
-import type { BoundaryCrossingDisposition, TaskStatus } from '@prisma/client'
+import type {
+  BoundaryCrossingDisposition,
+  BoundaryCrossingSeverity,
+  TaskStatus,
+} from '@prisma/client'
 
 export interface DispositionAttribution {
   /** WorkspaceMember id of the dispositioning human. */
@@ -40,6 +44,8 @@ export interface BoundaryCrossingView {
   detail: string
   detectedAt: string
   reversible: boolean
+  /** Severity tier (LUM-442) — read-model exposes it; the bar orders by it. */
+  severity: BoundaryCrossingSeverity
   disposition: BoundaryCrossingDisposition | null
   dispositionNote: string | null
   dispositionedAt: string | null
@@ -52,6 +58,13 @@ function iso(d: Date | string | null): string | null {
   return d instanceof Date ? d.toISOString() : d
 }
 
+/** Descending prominence — higher = more severe, surfaced first (LUM-442). */
+const SEVERITY_RANK: Record<BoundaryCrossingSeverity, number> = {
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+}
+
 export const boundaryCrossingService = {
   /**
    * List ALL of a task's crossings (open and dispositioned), shaped for the web
@@ -61,7 +74,7 @@ export const boundaryCrossingService = {
    */
   async listAll(taskId: string): Promise<BoundaryCrossingView[]> {
     const rows = await boundaryCrossingRepository.findAllByTask(taskId)
-    return rows.map(c => {
+    const views = rows.map(c => {
       const rt = c.remediationTask
       const remediationTask: RemediationTaskView | null = rt
         ? {
@@ -77,6 +90,7 @@ export const boundaryCrossingService = {
         detail: c.detail,
         detectedAt: iso(c.detectedAt) ?? '',
         reversible: c.reversible,
+        severity: c.severity,
         disposition: c.disposition,
         dispositionNote: c.dispositionNote,
         dispositionedAt: iso(c.dispositionedAt),
@@ -84,6 +98,11 @@ export const boundaryCrossingService = {
         remediationTask,
       }
     })
+    // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
+    // returns detectedAt-ascending, so ties keep chronological order within a tier.
+    return views.sort(
+      (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
+    )
   },
 
   /**

@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "Đã xử lý vi phạm — Hoàn thành đã được bỏ chặn",
   "boundary.toast.error": "Thao tác thất bại — vui lòng thử lại",
   "boundary.category.testTampering": "đã sửa một bài kiểm thử mà một phép kiểm tra phụ thuộc vào",
-  "boundary.panel.testTamperingHint": "Kiểm tra reward hacking: xác nhận rằng mã nguồn bên dưới đã được sửa — chứ không phải bài kiểm thử bị làm yếu đi để ép qua. Sửa kiểm thử hợp lệ? Đánh dấu là dương tính giả."
+  "boundary.panel.testTamperingHint": "Kiểm tra reward hacking: xác nhận rằng mã nguồn bên dưới đã được sửa — chứ không phải bài kiểm thử bị làm yếu đi để ép qua. Sửa kiểm thử hợp lệ? Đánh dấu là dương tính giả.",
+  "boundary.category.exfiltration": "rò rỉ dữ liệu ra internet công cộng",
+  "boundary.category.cloudDelete": "xóa dữ liệu trên lưu trữ đám mây",
+  "boundary.category.infra": "dừng hoặc khởi động lại hạ tầng",
+  "boundary.severity.high": "cao",
+  "boundary.severity.medium": "trung bình",
+  "boundary.severity.low": "thấp",
+  "boundary.panel.severityBadge": "mức độ nghiêm trọng {severity}",
+  "boundary.panel.defenseInDepth": "Đây là phòng thủ nhiều lớp, không phải ranh giới cứng: nó chạy sau khi hành động đã diễn ra và có thể bị né tránh (ví dụ bằng lệnh được làm rối). Bảng sạch không chứng minh là không có gì xảy ra — hãy xem đó là một tín hiệu, không phải sự bảo đảm."
 }

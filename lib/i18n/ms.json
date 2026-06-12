@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "Pencerobohan dikendalikan — Selesai kini tidak disekat",
   "boundary.toast.error": "Tindakan gagal — sila cuba lagi",
   "boundary.category.testTampering": "menyunting ujian yang menjadi sandaran sesuatu semakan",
-  "boundary.panel.testTamperingHint": "Semakan reward hacking: sahkan bahawa kod asas telah dibetulkan — bukan ujian dilemahkan untuk memaksa lulus. Pembetulan ujian yang sah? Tandakan sebagai positif palsu."
+  "boundary.panel.testTamperingHint": "Semakan reward hacking: sahkan bahawa kod asas telah dibetulkan — bukan ujian dilemahkan untuk memaksa lulus. Pembetulan ujian yang sah? Tandakan sebagai positif palsu.",
+  "boundary.category.exfiltration": "kebocoran data ke internet awam",
+  "boundary.category.cloudDelete": "pemadaman data storan awan",
+  "boundary.category.infra": "penamatan atau mula semula infrastruktur",
+  "boundary.severity.high": "tinggi",
+  "boundary.severity.medium": "sederhana",
+  "boundary.severity.low": "rendah",
+  "boundary.panel.severityBadge": "tahap keterukan {severity}",
+  "boundary.panel.defenseInDepth": "Ini pertahanan berlapis, bukan sempadan tegar: ia berjalan selepas tindakan dilakukan dan boleh dielak (contohnya dengan arahan yang dikaburkan). Panel yang bersih bukan bukti tiada apa-apa berlaku — anggap ia sebagai satu isyarat, bukan jaminan."
 }

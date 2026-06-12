@@ -1590,5 +1590,13 @@
   "boundary.toast.dispositioned": "Pelanggaran ditangani — Selesai sudah tidak diblokir",
   "boundary.toast.error": "Tindakan gagal — silakan coba lagi",
   "boundary.category.testTampering": "mengedit tes yang menjadi sandaran sebuah pemeriksaan",
-  "boundary.panel.testTamperingHint": "Pemeriksaan reward hacking: pastikan kode yang mendasari telah diperbaiki — bukan tesnya yang dilemahkan agar lulus. Perbaikan tes yang sah? Tandai sebagai positif palsu."
+  "boundary.panel.testTamperingHint": "Pemeriksaan reward hacking: pastikan kode yang mendasari telah diperbaiki — bukan tesnya yang dilemahkan agar lulus. Perbaikan tes yang sah? Tandai sebagai positif palsu.",
+  "boundary.category.exfiltration": "pembocoran data ke internet publik",
+  "boundary.category.cloudDelete": "penghapusan data penyimpanan cloud",
+  "boundary.category.infra": "penghentian atau pemulaian ulang infrastruktur",
+  "boundary.severity.high": "tinggi",
+  "boundary.severity.medium": "sedang",
+  "boundary.severity.low": "rendah",
+  "boundary.panel.severityBadge": "tingkat keparahan {severity}",
+  "boundary.panel.defenseInDepth": "Ini pertahanan berlapis, bukan batas yang kaku: pemeriksaan berjalan setelah tindakan dilakukan dan dapat dielakkan (misalnya dengan perintah yang dikaburkan). Panel yang bersih bukan bukti bahwa tidak ada yang terjadi — perlakukan sebagai satu sinyal, bukan jaminan."
 }
