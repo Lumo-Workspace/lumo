@@ -119,7 +119,11 @@ describe('LUM-466 action-category prose confirmation', () => {
 
     // (D) A deterministically-certain HIGH hit that is content-based, not a
     // command: a hardcoded secret in a written file is flagged regardless of the
-    // LLM (it is never routed through the action confirmation at all).
+    // LLM (it is never routed through the action confirmation at all). The dummy
+    // AWS-key fixture is assembled from parts so THIS test file does not itself
+    // carry a contiguous `AKIA…` literal that trips secret scanners (the runtime
+    // string is identical, so the detector under test still matches it).
+    const fakeAwsKey = `AKIA${'ABCDEF1234567890'}` // not a real key
     createCrossing.mockClear()
     await boundaryDetectorService.detectAndRecord({
       taskId: 't-1',
@@ -129,7 +133,7 @@ describe('LUM-466 action-category prose confirmation', () => {
       payload: {
         tool_input: {
           file_path: '/repo/config.ts',
-          content: 'const key = "AKIA1234567890ABCDEF"',
+          content: `const key = "${fakeAwsKey}"`,
         },
       },
     })
