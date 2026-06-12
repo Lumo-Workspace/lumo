@@ -5,6 +5,10 @@ export interface CreateRevisionData {
   workspaceId: string
   authorId: string
   content: string | null
+  // Byte-identical markdown source captured with this snapshot (LUM-445), or
+  // null for an HTML-authored body. Restored alongside content so a markdown
+  // revision stays editable through the markdown write path after a restore.
+  sourceMarkdown?: string | null
   title: string
   emoji: string | null
   label?: string | null
@@ -14,6 +18,7 @@ export interface CreateRevisionData {
 
 export interface UpdateRevisionContentData {
   content: string | null
+  sourceMarkdown?: string | null
   title: string
   emoji: string | null
   wordCount?: number | null
@@ -33,6 +38,7 @@ export const documentRevisionRepository = {
         workspaceId: data.workspaceId,
         authorId: data.authorId,
         content: data.content,
+        sourceMarkdown: data.sourceMarkdown ?? null,
         title: data.title,
         emoji: data.emoji ?? null,
         label: data.label ?? null,
@@ -55,6 +61,7 @@ export const documentRevisionRepository = {
       where: { id },
       data: {
         content: data.content,
+        sourceMarkdown: data.sourceMarkdown ?? null,
         title: data.title,
         emoji: data.emoji ?? null,
         wordCount: data.wordCount ?? null,

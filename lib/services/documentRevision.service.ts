@@ -16,6 +16,9 @@ function htmlWordCount(content: string | null): number | null {
 
 export interface SnapshotInput {
   content: string | null
+  // Byte-identical markdown source for this snapshot (LUM-445), null when the
+  // body was written HTML-direct. Captured so a restore can re-establish it.
+  sourceMarkdown: string | null
   title: string
   emoji: string | null
 }
@@ -48,6 +51,7 @@ async function loadDocOr404(
   }
   return doc as DocWithShares & {
     content: string | null
+    sourceMarkdown: string | null
     title: string
     emoji: string | null
   }
@@ -79,6 +83,7 @@ export const documentRevisionService = {
     if (withinWindow && latest) {
       await documentRevisionRepository.updateContent(latest.id, {
         content: snapshot.content,
+        sourceMarkdown: snapshot.sourceMarkdown,
         title: snapshot.title,
         emoji: snapshot.emoji,
         wordCount,
@@ -91,6 +96,7 @@ export const documentRevisionService = {
       workspaceId,
       authorId,
       content: snapshot.content,
+      sourceMarkdown: snapshot.sourceMarkdown,
       title: snapshot.title,
       emoji: snapshot.emoji,
       wordCount,
@@ -110,6 +116,7 @@ export const documentRevisionService = {
       workspaceId,
       authorId: memberId,
       content: doc.content ?? null,
+      sourceMarkdown: doc.sourceMarkdown ?? null,
       title: doc.title,
       emoji: doc.emoji ?? null,
       label,
@@ -127,7 +134,10 @@ export const documentRevisionService = {
     const rows = await documentRevisionRepository.listByDocument(doc.id)
 
     const clerkIds = [...new Set(rows.map(r => r.author.clerkId))]
-    const nameById = new Map<string, { name: string; imageUrl: string | null }>()
+    const nameById = new Map<
+      string,
+      { name: string; imageUrl: string | null }
+    >()
     if (clerkIds.length > 0) {
       const client = await clerkClient()
       const users = await client.users.getUserList({
@@ -192,13 +202,21 @@ export const documentRevisionService = {
     if (!rev) {
       throw Object.assign(new Error('Revision not found'), { status: 404 })
     }
-    const { documentService: svc } = await import('@/lib/services/document.service')
+    const { documentService: svc } =
+      await import('@/lib/services/document.service')
+    // LUM-445: hand the snapshot's stored markdown source back to the write so
+    // restoring a markdown-authored revision re-establishes Document.sourceMarkdown
+    // (raw/append stay alive) instead of nulling it via the HTML-direct path. A
+    // null source (HTML-authored revision) preserves the old null-on-restore rule.
     return svc.updateDocument(
       doc.id,
       memberId,
       workspaceId,
       { content: rev.content },
-      { forceNewRevision: true }
+      {
+        forceNewRevision: true,
+        restoreSourceMarkdown: rev.sourceMarkdown ?? null,
+      }
     )
   },
 

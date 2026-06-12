@@ -32,6 +32,7 @@ import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
+import { logger } from '@/lib/logger'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -456,6 +457,7 @@ export const documentService = {
         documentRevisionService
           .snapshotOnSave(document.id, workspaceId, memberId, {
             content,
+            sourceMarkdown: sourceMarkdown ?? null,
             title: document.title,
             emoji: document.emoji ?? null,
           })
@@ -506,6 +508,14 @@ export const documentService = {
        * re-judge structure outside the addressed section.
        */
       skipStructureGuard?: boolean
+      /**
+       * Internal (LUM-445): set by restoreRevision to re-establish the restored
+       * snapshot's byte-identical markdown source on an HTML-direct write. A
+       * string re-validates the source; null keeps the old null-on-restore rule
+       * for an HTML-authored revision; undefined (the default) leaves the normal
+       * markdown-double-write / null-on-HTML behaviour untouched.
+       */
+      restoreSourceMarkdown?: string | null
     } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
@@ -549,13 +559,36 @@ export const documentService = {
     const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =
       {}
     // Markdown source bookkeeping (LUM-408): a markdown update double-writes
-    // the byte-identical source; an HTML-direct update (web editor, revision
-    // restore) invalidates it so `doc show --raw` can never serve a stale
-    // source. Updates that don't touch the body leave it alone.
+    // the byte-identical source; an HTML-direct update (web editor) invalidates
+    // it so `doc show --raw` can never serve a stale source. A revision restore
+    // (LUM-445) re-establishes the restored snapshot's stored source instead of
+    // nulling it. Updates that don't touch the body leave it alone (undefined).
+    let nextSourceMarkdown: string | null | undefined
     if (data.contentMarkdown !== undefined) {
-      updateData.sourceMarkdown = data.contentMarkdown
+      nextSourceMarkdown = data.contentMarkdown
+    } else if (options.restoreSourceMarkdown !== undefined) {
+      nextSourceMarkdown = options.restoreSourceMarkdown
     } else if (htmlDirectUpdate) {
-      updateData.sourceMarkdown = null
+      nextSourceMarkdown = null
+    }
+    if (nextSourceMarkdown !== undefined) {
+      updateData.sourceMarkdown = nextSourceMarkdown
+      // P5 signal (LUM-445): an HTML-direct write that drops a previously-valid
+      // source silently locks the agent's markdown write path (raw/append now
+      // fail). Emit an observable warning so the invalidation is traceable
+      // rather than silent — the agent's "append succeeded" is no longer durable.
+      if (
+        nextSourceMarkdown === null &&
+        (doc as { sourceMarkdown: string | null }).sourceMarkdown != null
+      ) {
+        logger.warn(
+          'document markdown source invalidated by HTML-direct write',
+          {
+            documentId: doc.id,
+            memberId,
+          }
+        )
+      }
     }
     if (data.title !== undefined) {
       updateData.title = data.title
@@ -670,6 +703,7 @@ export const documentService = {
             memberId,
             {
               content: data.content,
+              sourceMarkdown: nextSourceMarkdown ?? null,
               title: updated.title,
               emoji: updated.emoji,
             },
