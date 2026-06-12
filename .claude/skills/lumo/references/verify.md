@@ -146,12 +146,15 @@ statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with it
 - **Open boundary crossings** (LUM-448) — a trailing safety block when the
   task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then
   one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>`
-  (highest-severity first), then a pointer to the web acceptance panel. Silent
-  when there are none, so it never overshadows the criteria. **Read-only
-  awareness** — this surfaces crossings detected elsewhere (LUM-426/435/442);
-  there is no CLI path to disposition or clear one. Disposition stays web +
-  human-only (LUM-426/435/422): an agent/CLI bearer cannot clear its own
-  crossing from the terminal.
+  (highest-severity first), each followed by a read-only **attribution** line
+  `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (LUM-469 —
+  who/what crossed; any dimension that couldn't be resolved server-side prints
+  `unknown`, never a fabricated value), then a pointer to the web acceptance
+  panel. Silent when there are none, so it never overshadows the criteria.
+  **Read-only awareness** — this surfaces crossings detected elsewhere
+  (LUM-426/435/442); there is no CLI path to disposition or clear one.
+  Disposition stays web + human-only (LUM-426/435/422): an agent/CLI bearer
+  cannot clear its own crossing from the terminal.
 
 ### --json contract
 
@@ -159,8 +162,11 @@ statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with it
 (currently `1`). The schema is versioned: breaking shape changes bump the
 major; additive fields don't. Pin on `version` when scripting against it.
 The open boundary crossings ride along as an additive top-level
-`openCrossings[]` (each `{ id, category, severity, detail }`; the array length
-is the count; empty when none) — same read-only awareness, no write path.
+`openCrossings[]` (each `{ id, category, severity, detail, attribution }`,
+where `attribution` is `{ workspaceMemberId, sessionId, agent, worktreeBranch,
+model }` with every field nullable — null = unknown, never fabricated; LUM-469;
+the array length is the count; empty when none) — same read-only awareness, no
+write path.
 
 `status` reads; `verify` judges. Running status never starts a round, never
 escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on

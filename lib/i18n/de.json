@@ -1641,5 +1641,10 @@
   "boundary.toast.reopened": "Überschreitung wieder geöffnet — Erledigt ist erneut blockiert",
   "acceptance.judge.label": "Wie bewerten",
   "acceptance.judge.missing": "Keine Bewertungsanleitung — füge judgeSteps hinzu, damit der Prüfer Schritte hat, nicht nur eine Behauptung",
+  "boundary.panel.attribution.unknown": "unbekannt",
+  "boundary.panel.attribution.model": "Modell: {model}",
+  "boundary.panel.attribution.agent": "Agent: {agent}",
+  "boundary.panel.attribution.session": "Sitzung: {session}",
+  "boundary.panel.attribution.owner": "Inhaber: {owner}",
   "boundary.panel.allCleared": "{count, plural, one {# bearbeitet} other {# bearbeitet}} · 0 offen"
 }

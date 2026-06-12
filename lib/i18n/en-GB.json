@@ -1641,5 +1641,10 @@
   "boundary.toast.reopened": "Crossing reopened — Done is blocked again",
   "acceptance.judge.label": "How to judge",
   "acceptance.judge.missing": "No judging guidance — add judgeSteps so the reviewer has steps, not just an assertion",
+  "boundary.panel.attribution.unknown": "unknown",
+  "boundary.panel.attribution.model": "model: {model}",
+  "boundary.panel.attribution.agent": "agent: {agent}",
+  "boundary.panel.attribution.session": "session: {session}",
+  "boundary.panel.attribution.owner": "owner: {owner}",
   "boundary.panel.allCleared": "{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open"
 }

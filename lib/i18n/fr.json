@@ -1641,5 +1641,10 @@
   "boundary.toast.reopened": "Franchissement rouvert — Terminé est de nouveau bloqué",
   "acceptance.judge.label": "Comment juger",
   "acceptance.judge.missing": "Aucune consigne de jugement — ajoutez judgeSteps pour que le relecteur ait des étapes, pas seulement une assertion",
+  "boundary.panel.attribution.unknown": "inconnu",
+  "boundary.panel.attribution.model": "modèle : {model}",
+  "boundary.panel.attribution.agent": "agent : {agent}",
+  "boundary.panel.attribution.session": "session : {session}",
+  "boundary.panel.attribution.owner": "propriétaire : {owner}",
   "boundary.panel.allCleared": "{count, plural, one {# traité} other {# traités}} · 0 ouvert"
 }

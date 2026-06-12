@@ -65,6 +65,13 @@ const OPEN = {
   dispositionedAt: null,
   dispositionedById: null,
   remediationTask: null,
+  attribution: {
+    workspaceMemberId: 'member-7',
+    sessionId: 'sess-abcdef0123456789',
+    agent: 'CLAUDE_CODE',
+    worktreeBranch: 'lumo/LUM-469',
+    model: 'claude-opus-4-8',
+  },
 }
 
 function setCrossings(crossings: unknown[]) {
@@ -104,6 +111,33 @@ describe('BoundaryCrossingsPanel', () => {
     expect(
       screen.getByText(/Defense-in-depth, not a hard boundary/)
     ).toBeInTheDocument()
+  })
+
+  it('surfaces read-only attribution — which model + which agent/session crossed (LUM-469)', () => {
+    render(
+      <BoundaryCrossingsPanel
+        taskIdentifier='LUM-469'
+        enabled
+        members={[{ id: 'member-7', name: 'Chao' } as never]}
+      />
+    )
+    // The reviewer can read the model and the agent/session that committed it.
+    expect(screen.getByText('model: claude-opus-4-8')).toBeInTheDocument()
+    expect(
+      screen.getByText('agent: CLAUDE_CODE · lumo/LUM-469')
+    ).toBeInTheDocument()
+    // Session UUID is clipped to a correlatable prefix.
+    expect(screen.getByText('session: sess-abc')).toBeInTheDocument()
+    // Owner resolves to the member display name from the members list.
+    expect(screen.getByText('owner: Chao')).toBeInTheDocument()
+  })
+
+  it('attribution degrades to unknown when unresolved, without crashing (LUM-469)', () => {
+    setCrossings([{ ...OPEN, id: 'bc-unknown', attribution: undefined }])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-469' enabled />)
+    expect(screen.getByText('model: unknown')).toBeInTheDocument()
+    expect(screen.getByText('agent: unknown')).toBeInTheDocument()
+    expect(screen.getByText('session: unknown')).toBeInTheDocument()
   })
 
   it('surfaces a HIGH-severity crossing prominently (LUM-442)', () => {

@@ -19,9 +19,30 @@ function jsonResponse(status: number, body: unknown): Response {
   } as unknown as Response
 }
 
+/** Attribution unresolved — the reminder doesn't render it; any shape works. */
+const NO_ATTRIB = {
+  workspaceMemberId: null,
+  sessionId: null,
+  agent: null,
+  worktreeBranch: null,
+  model: null,
+}
+
 const OPEN: OpenCrossing[] = [
-  { id: 'a', category: 'TEST_TAMPERING', severity: 'HIGH', detail: 'd1' },
-  { id: 'b', category: 'INFRA_TERMINATION', severity: 'LOW', detail: 'd2' },
+  {
+    id: 'a',
+    category: 'TEST_TAMPERING',
+    severity: 'HIGH',
+    detail: 'd1',
+    attribution: NO_ATTRIB,
+  },
+  {
+    id: 'b',
+    category: 'INFRA_TERMINATION',
+    severity: 'LOW',
+    detail: 'd2',
+    attribution: NO_ATTRIB,
+  },
 ]
 
 const OLD_SESSION = process.env.CLAUDE_CODE_SESSION_ID

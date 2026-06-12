@@ -1641,5 +1641,10 @@
   "boundary.toast.reopened": "Vi phạm đã được mở lại — Hoàn thành lại bị chặn",
   "acceptance.judge.label": "Cách đánh giá",
   "acceptance.judge.missing": "Không có hướng dẫn đánh giá — thêm judgeSteps để người duyệt có các bước, không chỉ là một khẳng định",
+  "boundary.panel.attribution.unknown": "không xác định",
+  "boundary.panel.attribution.model": "mô hình: {model}",
+  "boundary.panel.attribution.agent": "tác nhân: {agent}",
+  "boundary.panel.attribution.session": "phiên: {session}",
+  "boundary.panel.attribution.owner": "chủ sở hữu: {owner}",
   "boundary.panel.allCleared": "{count, plural, other {đã xử lý #}} · 0 chưa xử lý"
 }

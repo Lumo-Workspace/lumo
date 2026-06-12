@@ -78,6 +78,54 @@ export const hookEventRepository = {
   },
 
   /**
+   * Fetch hook events by id, narrowed to the fields the LUM-469 attribution read
+   * model needs: the owning member, the session it fired in (+ that session's
+   * agent type and worktree branch), the raw payload (a best-effort model may be
+   * carried there), and `createdAt` to correlate the turn's usageByModel. A pure
+   * read — joins one level into the session for agent/branch. Skipped entirely
+   * when a task has no crossing with a linked hook event.
+   */
+  async findManyByIdsForAttribution(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        workspaceMemberId: true,
+        sessionId: true,
+        payload: true,
+        createdAt: true,
+        session: {
+          select: {
+            agent: true,
+            worktree: { select: { branch: true } },
+          },
+        },
+      },
+    })
+  },
+
+  /**
+   * Every STOP / STOP_FAILURE row carrying a per-turn `usageByModel` delta
+   * (LUM-298) for the given sessions, oldest-first — the raw signal the LUM-469
+   * attribution read model correlates to name the model that ran for the turn a
+   * crossing's edit belongs to. Mirrors `findTurnSummariesForSessions` but
+   * projects `usageByModel` instead of `turnSummary`. Skipped when no session id.
+   */
+  async findTurnUsageForSessions(sessionIds: string[]) {
+    if (sessionIds.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        type: { in: ['STOP', 'STOP_FAILURE'] },
+        usageByModel: { not: Prisma.DbNull },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { sessionId: true, createdAt: true, usageByModel: true },
+    })
+  },
+
+  /**
    * Every STOP / STOP_FAILURE row (with its LLM turn summary) for the given
    * sessions, oldest-first (LUM-455). The boundary-crossing read model uses these
    * to attach the summary of the turn an edit belongs to — the closest available

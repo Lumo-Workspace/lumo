@@ -6,6 +6,7 @@ import {
   fetchOpenCrossings,
   dispositionUrl,
   type OpenCrossing,
+  type CrossingAttribution,
 } from '../lib/open-crossings'
 
 export interface TaskStatusOptions {
@@ -255,11 +256,29 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
     const detail = oneLineDetail(c.detail)
     const tail = detail ? ` — ${detail}` : ''
     lines.push(`  • [${c.severity}] ${sanitizeField(c.category)}${tail}`)
+    lines.push(`    ${formatAttribution(c.attribution)}`)
   }
   lines.push('  Disposition is human-only in the web acceptance panel:')
   if (extras.dispositionUrl) {
     lines.push(`    ${extras.dispositionUrl}`)
   }
+}
+
+/**
+ * Compact attribution line for an open crossing (LUM-469): which model + which
+ * agent/session committed it, so a reviewer can audit who/what crossed from the
+ * terminal. Every dimension that the server couldn't resolve renders `unknown`
+ * — never a fabricated value. The session UUID is clipped to a correlatable
+ * prefix; the worktree branch (which branch) is appended to the agent when known.
+ */
+function formatAttribution(a: CrossingAttribution): string {
+  const agent = a.agent
+    ? a.worktreeBranch
+      ? `${a.agent}/${a.worktreeBranch}`
+      : a.agent
+    : 'unknown'
+  const session = a.sessionId ? a.sessionId.slice(0, 8) : 'unknown'
+  return `↳ by model=${a.model ?? 'unknown'} · agent=${agent} · session=${session}`
 }
 
 /**
