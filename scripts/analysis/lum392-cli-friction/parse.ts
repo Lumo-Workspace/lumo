@@ -49,7 +49,6 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'milestone unarchive',
   'milestone update',
   'session attach',
-  'session detach',
   'session status',
   'session wrap',
   'setup',
@@ -183,7 +182,8 @@ export function extractLumoSegments(command: string): string[] {
     .filter(Boolean)
   const out: string[] = []
   // Leading `FOO=bar ` / `FOO="b a r" ` env assignment (quoted values kept).
-  const envAssignRe = /^[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|\S*)\s+/
+  const envAssignRe =
+    /^[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|\S*)\s+/
   for (const seg of segments) {
     // Doc-content artifacts: heredoc/echo/sed lines that mention lumo commands
     // (line continuations, sed addresses over SKILL.md, markdown bullets).
