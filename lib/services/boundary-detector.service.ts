@@ -150,12 +150,32 @@ function matchProtectedPush(cmd: string): boolean {
   return false
 }
 
-/** `rm` / `git rm` of anything under prisma/migrations/. */
+/** A `.worktrees/` path segment marks a throwaway git-worktree checkout — a
+ *  per-worktree copy of prisma/migrations/, NOT the canonical tracked repo
+ *  migrations the CLAUDE.md red line protects (LUM-482). */
+const WORKTREE_PATH_SEGMENT = /(?:^|\/)\.worktrees\//
+
+/**
+ * `rm` / `git rm` of a CANONICAL repo migration under prisma/migrations/.
+ *
+ * LUM-482: a deletion confined to a git worktree checkout
+ * (`.worktrees/<name>/prisma/migrations/…`) is NOT a canonical-migration delete —
+ * those checkouts are throwaway, so removing one (e.g. after a detached
+ * prod-migrate run) used to false-trip this MEDIUM crossing. We flag only when at
+ * least one `rm`/`git rm` target references `prisma/migrations/` OUTSIDE a
+ * `.worktrees/` segment, so a real repo migration delete (`rm prisma/migrations/…`,
+ * relative or absolute to the main checkout) is unchanged while a worktree cleanup
+ * no longer trips. A command that deletes BOTH a real migration and a worktree
+ * copy still flags on the real one (the conservative direction).
+ */
 function matchMigrationDelete(cmd: string): boolean {
-  return (
-    /(?:^|[\s;&|])(?:rm|git\s+rm)\b/.test(cmd) &&
-    /prisma\/migrations\//.test(cmd)
-  )
+  if (!/(?:^|[\s;&|])(?:rm|git\s+rm)\b/.test(cmd)) return false
+  return cmd
+    .split(/\s+/)
+    .some(
+      tok =>
+        tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
+    )
 }
 
 /** Irreversible / data-destroying DB commands. */
