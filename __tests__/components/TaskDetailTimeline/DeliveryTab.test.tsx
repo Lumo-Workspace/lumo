@@ -107,4 +107,19 @@ describe('DeliveryTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Acceptance' }))
     expect(onSubTabChange).toHaveBeenCalledWith('acceptance')
   })
+
+  it('omits the token section when runs exist but captured no model usage', () => {
+    mockUseAgentRuns.mockReturnValue({
+      data: {
+        runs: [{ sessionId: 's0', runNumber: 1 }],
+        totals: { runCount: 1, turnCount: 1, loopCount: 1, byModel: [] },
+        perMember: [],
+      },
+      loading: false,
+      error: null,
+    })
+    render(<DeliveryTab {...baseProps} subTab='runs' />)
+    expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
+    expect(screen.queryByTestId('token-section')).not.toBeInTheDocument()
+  })
 })
