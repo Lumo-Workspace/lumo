@@ -578,4 +578,39 @@ export const sessionRepository = {
     })
     return row?.task ?? null
   },
+
+  /**
+   * Sessions on a task that have no run summary yet (LUM-481), newest-first.
+   * Each row carries its STOP-row `turnSummary`s (oldest-first) so the
+   * generation service can synthesize a one-paragraph run summary from them.
+   */
+  async listForTaskMissingRunSummary(taskId: string) {
+    return prisma.session.findMany({
+      where: { taskId, runSummary: null },
+      orderBy: { lastActivityAt: 'desc' },
+      select: {
+        id: true,
+        events: {
+          where: {
+            type: { in: ['STOP', 'STOP_FAILURE'] },
+            turnSummary: { not: null },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { turnSummary: true },
+        },
+      },
+    })
+  },
+
+  /**
+   * Persist a generated run summary on a session (LUM-481). `at` doubles as the
+   * idempotency watermark so a re-DONE can skip already-summarized sessions.
+   */
+  async setRunSummary(sessionId: string, summary: string, at: Date) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { runSummary: summary, runSummaryGeneratedAt: at },
+      select: { id: true },
+    })
+  },
 }
