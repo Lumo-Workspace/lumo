@@ -320,15 +320,15 @@ session
 session
   .command('wrap')
   .description(
-    "Session-end wrap-up: draft a progress comment from this session's turn summaries and post it to the bound task after confirmation."
+    'Session-end wrap-up: review the memories sedimented this session, vote which injected context fragments were actually used, and optionally flag the bound task blocked.'
   )
   .option(
     '-y, --yes',
-    'Post the drafted comment without prompting (agent-friendly)'
+    'Keep all memories without prompting (agent-friendly); does not auto-apply the blocked tag'
   )
   .option(
     '--dry-run',
-    'Print the draft but do not post or advance the watermark'
+    'Print the section drafts but do not mutate memories/tags or advance watermarks'
   )
   .option(
     '--used <indices>',
