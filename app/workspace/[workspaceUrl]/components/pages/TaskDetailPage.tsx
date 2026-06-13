@@ -351,6 +351,8 @@ export function TaskDetailPage({
             <TimelineTabs
               taskId={task.id}
               taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+              taskStatus={task.status}
+              agentStatus={task.agentStatus}
               workspaceId={task.project.workspaceId ?? ''}
               workspaceUrl={workspaceUrl}
               initialTimelinePresence={initialTimelinePresence}
