@@ -91,6 +91,7 @@ describe('getRetrospective', () => {
       tokenCost: 2.95e7,
       iterations: 3,
       clarifyRounds: 2,
+      totalDurationSec: 0,
     })
     countRef.mockResolvedValue(27)
 
@@ -117,6 +118,7 @@ describe('getRetrospective', () => {
       tokenCost: null,
       iterations: 4,
       clarifyRounds: 3,
+      totalDurationSec: 0,
     })
     countRef.mockResolvedValue(10)
 
@@ -147,5 +149,31 @@ describe('getRetrospective', () => {
     })
     loadActuals.mockResolvedValue(null)
     expect(await retrospectiveService.getRetrospective('t1')).toBeNull()
+  })
+
+  it('exposes totalDuration as an actual-only metric (no forecast)', async () => {
+    findSnapshot.mockResolvedValue({
+      iterations: iv(1, 2, 2),
+      clarifyRounds: iv(0, 1, 1),
+      tokenCost: iv(1e7, 2e7, 3e7),
+      cohortSize: 4,
+      tokenCostBasis: 8,
+      capturedAt: new Date(),
+    })
+    loadActuals.mockResolvedValue({
+      projectId: 'p1',
+      tokenCost: 1.5e7,
+      iterations: 2,
+      clarifyRounds: 1,
+      totalDurationSec: 900,
+    })
+    countRef.mockResolvedValue(5)
+    const retro = await retrospectiveService.getRetrospective('t1')
+    expect(retro?.totalDuration).toEqual({
+      forecast: null,
+      actual: 900,
+      deltaPct: null,
+      band: null,
+    })
   })
 })

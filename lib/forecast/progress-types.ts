@@ -23,4 +23,5 @@ export interface TaskProgress {
   tokenCost: ProgressMetric
   iterations: ProgressMetric
   clarifyRounds: ProgressMetric
+  totalDuration: ProgressMetric
 }

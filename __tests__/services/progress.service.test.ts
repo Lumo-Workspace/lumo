@@ -44,6 +44,7 @@ it('returns forecast + sessionCount even when no sessions yet (pre-delivery)', a
     tokenCost: null,
     iterations: 0,
     clarifyRounds: 0,
+    totalDurationSec: 0,
   })
   getForecast.mockResolvedValue(baseForecast)
   const r = await progressService.getProgress('t1')
@@ -57,10 +58,29 @@ it('computes per-metric bands against live actuals (over on token)', async () =>
     tokenCost: 52e6, // > p75 (35M) → over
     iterations: 2, // within (1..3) → on-track
     clarifyRounds: 0,
+    totalDurationSec: 0,
   })
   getForecast.mockResolvedValue(baseForecast)
   const r = await progressService.getProgress('t1')
   expect(r?.sessionCount).toBe(2)
   expect(r?.tokenCost.band).toBe('over')
   expect(r?.iterations.band).toBe('on-track')
+})
+
+it('exposes totalDuration as an actual-only progress metric', async () => {
+  loadActuals.mockResolvedValue({
+    projectId: 'p1',
+    tokenCost: null,
+    iterations: 1,
+    clarifyRounds: 0,
+    totalDurationSec: 900,
+  })
+  getForecast.mockResolvedValue(baseForecast)
+  const progress = await progressService.getProgress('t1')
+  expect(progress?.totalDuration).toEqual({
+    forecast: null,
+    actual: 900,
+    deltaPct: null,
+    band: null,
+  })
 })
