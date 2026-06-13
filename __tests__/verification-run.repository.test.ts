@@ -181,6 +181,18 @@ describe('verificationRunRepository', () => {
       expect(ids).toEqual(new Set())
       expect(mockFindMany).not.toHaveBeenCalled()
     })
+
+    it('omits the taskId filter when called with no argument', async () => {
+      mockFindMany.mockResolvedValue([{ taskId: 't-1' }])
+
+      await verificationRunRepository.taskIdsWithSendBack()
+
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: { verdict: 'FAIL', verifierType: { in: ['HUMAN', 'AGENT'] } },
+        select: { taskId: true },
+        distinct: ['taskId'],
+      })
+    })
   })
 
   describe('latestRunsByCriterion', () => {

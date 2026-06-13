@@ -244,8 +244,8 @@ export const verificationRunRepository = {
    * the loop working as designed, not a send-back. Backs the LUM-484
    * negative-class derivation — a task tainted here is recounted as non-merged
    * in the flywheel discrimination metric even if it later reached DONE.
-   * Workspace scoping comes from the caller's `taskIds` (derived from
-   * workspace-filtered edges). Empty `taskIds` → empty set, no query.
+   * Pass `taskIds` to restrict the scan to a (workspace-filtered) set; omit it
+   * for a full-table scan. Empty `taskIds` array → empty set, no query.
    */
   async taskIdsWithSendBack(
     taskIds?: string[],
