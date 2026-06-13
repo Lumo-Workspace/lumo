@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { ChevronRight } from 'lucide-react'
 import {
   AccordionContent,
   AccordionItem,
@@ -37,14 +38,15 @@ export function ContextSection({
   return (
     <AccordionItem
       value={value}
-      className='border border-border rounded-md mb-2 last:mb-0'
+      className='bg-card border border-border rounded-lg mb-2 last:mb-0'
     >
       <div
         className='flex items-center pr-2 cursor-pointer'
         onClick={handleRowClick}
       >
-        <AccordionTrigger className='flex-1 cursor-pointer px-3 py-2 text-body hover:no-underline'>
+        <AccordionTrigger className='flex-1 cursor-pointer px-3 py-2.5 text-body hover:no-underline [&>svg:last-child]:hidden [&[data-state=open]_.ctx-chevron]:rotate-90'>
           <span className='flex items-center gap-2'>
+            <ChevronRight className='ctx-chevron size-3.5 shrink-0 text-muted-foreground transition-transform duration-200' />
             {icon}
             <span className='font-medium'>{label}</span>
             <span
