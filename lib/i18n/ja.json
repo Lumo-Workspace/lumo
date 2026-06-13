@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "オーナー: {owner}",
   "boundary.panel.allCleared": "{count, plural, other {処置済み # 件}} · 未対応 0 件",
   "context.group.reference": "参照",
-  "task.delivery": "デリバリー"
+  "task.delivery": "デリバリー",
+  "boundary.panel.recurrence": "{count}回検出",
+  "boundary.panel.lastSeen": "最終検出 {at}"
 }

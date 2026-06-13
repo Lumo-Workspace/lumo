@@ -23,7 +23,10 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: { create: jest.fn() },
+  boundaryCrossingRepository: {
+    create: jest.fn(),
+    coalesceRecurrence: jest.fn().mockResolvedValue(0),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },

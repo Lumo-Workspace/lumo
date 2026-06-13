@@ -777,6 +777,17 @@ model BoundaryCrossing {
   hookEventId       String?
   category          BoundaryCrossingCategory
   detail            String
+  // Coalescing key (LUM-477): the specific target an OPEN crossing is deduped
+  // on alongside (taskId, category) — the edited file for TEST_TAMPERING/secret,
+  // the normalized command for action classes. Nullable: legacy rows have none
+  // and simply never coalesce.
+  target            String?
+  // How many detections have coalesced into this OPEN crossing (LUM-477) — 1 for
+  // a never-repeated crossing; a recurrence bumps it instead of inserting a row.
+  occurrenceCount   Int                          @default(1)
+  // When this crossing was last (re)detected (LUM-477) — null until it first
+  // recurs; readers fall back to detectedAt.
+  lastSeenAt        DateTime?
   detectedAt        DateTime                     @default(now())
   reversible        Boolean                      @default(false)
   severity          BoundaryCrossingSeverity     @default(MEDIUM)
@@ -790,6 +801,8 @@ model BoundaryCrossing {
   remediationTask Task? @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
 
   @@index([taskId, disposition])
+  // Supports the LUM-477 open-crossing coalescing lookup (taskId, category, target).
+  @@index([taskId, category, target])
   @@map("boundary_crossings")
 }
 

@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "소유자: {owner}",
   "boundary.panel.allCleared": "{count, plural, other {처리됨 #건}} · 미처리 0건",
   "context.group.reference": "참조",
-  "task.delivery": "딜리버리"
+  "task.delivery": "딜리버리",
+  "boundary.panel.recurrence": "{count}회 감지됨",
+  "boundary.panel.lastSeen": "마지막 감지 {at}"
 }

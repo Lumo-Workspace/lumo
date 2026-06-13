@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "所有者：{owner}",
   "boundary.panel.allCleared": "{count, plural, other {已处置 # 项}} · 0 项待处理",
   "context.group.reference": "引用",
-  "task.delivery": "交付"
+  "task.delivery": "交付",
+  "boundary.panel.recurrence": "出现 {count} 次",
+  "boundary.panel.lastSeen": "最后出现 {at}"
 }

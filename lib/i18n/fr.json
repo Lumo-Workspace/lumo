@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "propriétaire : {owner}",
   "boundary.panel.allCleared": "{count, plural, one {# traité} other {# traités}} · 0 ouvert",
   "context.group.reference": "Références",
-  "task.delivery": "Livraison"
+  "task.delivery": "Livraison",
+  "boundary.panel.recurrence": "vu ×{count}",
+  "boundary.panel.lastSeen": "Vu pour la dernière fois {at}"
 }

@@ -146,6 +146,33 @@ describe('BoundaryCrossingsPanel', () => {
     expect(screen.getByText('high severity')).toBeInTheDocument()
   })
 
+  it('shows a recurrence count when a crossing coalesced repeats (LUM-477)', () => {
+    // A coalesced crossing carries occurrenceCount > 1 → the reviewer sees it
+    // recurred (and still dispositions it once, on the single row).
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-rep',
+        occurrenceCount: 3,
+        lastSeenAt: '2026-06-12T00:00:00.000Z',
+      },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-477' enabled />)
+    expect(screen.getByTestId('crossing-recurrence-bc-rep')).toHaveTextContent(
+      'seen ×3'
+    )
+    // Still exactly one disposition control for the repeated crossing.
+    expect(screen.getByTestId('boundary-confirm-bc-rep')).toBeInTheDocument()
+  })
+
+  it('shows no recurrence badge for a single-occurrence crossing (LUM-477)', () => {
+    setCrossings([{ ...OPEN, id: 'bc-once', occurrenceCount: 1 }])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-477' enabled />)
+    expect(
+      screen.queryByTestId('crossing-recurrence-bc-once')
+    ).not.toBeInTheDocument()
+  })
+
   it('confirming drives the human-only write and refreshes both views', async () => {
     const onChanged = jest.fn()
     render(

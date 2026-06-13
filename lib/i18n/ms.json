@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "pemilik: {owner}",
   "boundary.panel.allCleared": "{count, plural, other {# diselesaikan}} · 0 belum diselesaikan",
   "context.group.reference": "Rujukan",
-  "task.delivery": "Penghantaran"
+  "task.delivery": "Penghantaran",
+  "boundary.panel.recurrence": "dilihat ×{count}",
+  "boundary.panel.lastSeen": "Terakhir dilihat {at}"
 }
