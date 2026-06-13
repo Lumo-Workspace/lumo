@@ -353,7 +353,6 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       <TimelineTabs
         {...baseProps}
         initialTimelinePresence={{
-          hasAgentRuns: true,
           hasMemories: true,
           hasLineage: true,
         }}
@@ -372,7 +371,6 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       <TimelineTabs
         {...baseProps}
         initialTimelinePresence={{
-          hasAgentRuns: false,
           hasMemories: false,
           hasLineage: false,
         }}
@@ -393,7 +391,6 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       <TimelineTabs
         {...baseProps}
         initialTimelinePresence={{
-          hasAgentRuns: true,
           hasMemories: true,
           hasLineage: true,
         }}

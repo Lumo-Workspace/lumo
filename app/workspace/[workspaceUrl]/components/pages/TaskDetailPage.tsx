@@ -51,11 +51,10 @@ interface TaskDetailPageProps {
   source?: string | undefined
   /** Whether this workspace has a connected Slack integration. */
   slackConnected: boolean
-  /** SSR-computed presence of the Agent Run / Memory / Lineage tabs (LUM-321),
+  /** SSR-computed presence of the Memory / Lineage / Acceptance tabs (LUM-321),
    *  so the tab bar renders correctly on first paint without waiting for the
    *  client presence probes. */
   initialTimelinePresence?: {
-    hasAgentRuns: boolean
     hasMemories: boolean
     hasLineage: boolean
     hasCriteria: boolean

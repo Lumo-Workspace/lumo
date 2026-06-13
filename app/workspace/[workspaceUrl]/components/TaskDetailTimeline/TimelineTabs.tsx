@@ -27,10 +27,9 @@ interface PullRequestSummary {
   ciStatus: string | null
 }
 
-/** Server-computed presence of the three "rare" tabs, so the tab bar can paint
+/** Server-computed presence of the "rare" tabs, so the tab bar can paint
  *  on first render instead of waiting for the client probes (LUM-321). */
 interface TimelinePresence {
-  hasAgentRuns: boolean
   hasMemories: boolean
   hasLineage: boolean
   hasCriteria: boolean
