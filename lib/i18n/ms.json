@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Cipta tugas pemulihan",
   "boundary.disposition.falsePositive": "positif palsu",
   "boundary.disposition.confirmed": "disahkan",
+  "boundary.disposition.autoLegit": "diselesaikan automatik (sah)",
   "boundary.reversible": "boleh balik",
   "boundary.irreversible": "tidak boleh balik",
   "acceptance.batch.contractRevisedAgent": "menyemak semula kontrak penerimaan (draf agen)",

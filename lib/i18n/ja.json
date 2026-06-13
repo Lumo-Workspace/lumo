@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "対処タスクを作成",
   "boundary.disposition.falsePositive": "誤検知",
   "boundary.disposition.confirmed": "確認済み",
+  "boundary.disposition.autoLegit": "自動解決（正当）",
   "boundary.reversible": "取り消し可能",
   "boundary.irreversible": "取り消し不可",
   "acceptance.batch.contractRevisedAgent": "検収契約を修正しました（エージェント草稿）",

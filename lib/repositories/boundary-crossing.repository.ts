@@ -19,6 +19,16 @@ export interface CreateBoundaryCrossingInput {
   reversible: boolean
   /** Taxonomy-driven severity tier (LUM-442). */
   severity: BoundaryCrossingSeverity
+  /** LUM-478: a SYSTEM disposition stamped at creation time (AUTO_LEGIT only) —
+   *  a deterministic high-confidence legit TEST_TAMPERING edit is recorded for
+   *  audit but resolved out of the open queue with NO human actor. Omitted for an
+   *  ordinary (open) crossing, which is created undispositioned. There is
+   *  deliberately no `dispositionedById` here: a system auto-resolution has no
+   *  human reviewer, and that null actor is exactly what distinguishes it from a
+   *  human FALSE_POSITIVE on the audit trail. */
+  disposition?: BoundaryCrossingDisposition | null
+  dispositionNote?: string | null
+  dispositionedAt?: Date | null
 }
 
 /** Lightweight projection for the gate / write paths. */
@@ -80,6 +90,12 @@ export const boundaryCrossingRepository = {
         target: input.target ?? null,
         reversible: input.reversible,
         severity: input.severity,
+        // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
+        // timestamp/note but NO dispositionedById — the null actor is the
+        // audit-trail marker that this was a detector decision, not a human one.
+        disposition: input.disposition ?? null,
+        dispositionNote: input.dispositionNote ?? null,
+        dispositionedAt: input.dispositionedAt ?? null,
       },
       select: SELECT,
     })

@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
-export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED'
+// AUTO_LEGIT (LUM-478) is a SYSTEM disposition the read model can surface; a
+// human can only WRITE FALSE_POSITIVE | CONFIRMED | OPEN (see the api-client),
+// never AUTO_LEGIT.
+export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT'
 export type BoundarySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface RemediationTaskView {

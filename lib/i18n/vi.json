@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Tạo nhiệm vụ khắc phục",
   "boundary.disposition.falsePositive": "dương tính giả",
   "boundary.disposition.confirmed": "đã xác nhận",
+  "boundary.disposition.autoLegit": "tự động xử lý (hợp lệ)",
   "boundary.reversible": "có thể đảo ngược",
   "boundary.irreversible": "không thể đảo ngược",
   "acceptance.batch.contractRevisedAgent": "đã sửa đổi hợp đồng chấp nhận (bản nháp tác nhân)",

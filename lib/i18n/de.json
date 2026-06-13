@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Behebungsaufgabe erstellen",
   "boundary.disposition.falsePositive": "Fehlalarm",
   "boundary.disposition.confirmed": "bestätigt",
+  "boundary.disposition.autoLegit": "automatisch geklärt (legitim)",
   "boundary.reversible": "umkehrbar",
   "boundary.irreversible": "nicht umkehrbar",
   "acceptance.batch.contractRevisedAgent": "Abnahmevertrag überarbeitet (Agentenentwurf)",

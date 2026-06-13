@@ -462,8 +462,12 @@ function formatActivityText(
       // LUM-450: a disposition activity may be a first disposition (from absent
       // / null) OR a re-disposition (from non-null) — including a revert to OPEN
       // (to === null). Legacy rows carry only `disposition` (the new value).
-      const norm = (v: unknown): 'FALSE_POSITIVE' | 'CONFIRMED' | null =>
-        v === 'FALSE_POSITIVE' || v === 'CONFIRMED' ? v : null
+      const norm = (
+        v: unknown
+      ): 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT' | null =>
+        v === 'FALSE_POSITIVE' || v === 'CONFIRMED' || v === 'AUTO_LEGIT'
+          ? v
+          : null
       const to = 'to' in p ? norm(p.to) : norm(p.disposition)
       const from = norm(p.from)
       if (from !== null) {

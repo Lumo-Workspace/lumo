@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Spawn remediation task",
   "boundary.disposition.falsePositive": "false positive",
   "boundary.disposition.confirmed": "confirmed",
+  "boundary.disposition.autoLegit": "auto-resolved (legit)",
   "boundary.reversible": "reversible",
   "boundary.irreversible": "irreversible",
   "acceptance.batch.contractRevisedAgent": "revised the acceptance contract (agent draft)",

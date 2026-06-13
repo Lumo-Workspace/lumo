@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Crear tarea de remediación",
   "boundary.disposition.falsePositive": "falso positivo",
   "boundary.disposition.confirmed": "confirmada",
+  "boundary.disposition.autoLegit": "resuelta automáticamente (legítima)",
   "boundary.reversible": "reversible",
   "boundary.irreversible": "irreversible",
   "acceptance.batch.contractRevisedAgent": "revisó el contrato de aceptación (borrador del agente)",

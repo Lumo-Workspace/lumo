@@ -125,6 +125,29 @@ describe('boundary-crossing false-positive rate (LUM-449)', () => {
     }
   })
 
+  it('tracks system AUTO_LEGIT separately and keeps it out of the human FP rate (LUM-478)', () => {
+    // The human FP rate must measure HUMAN-disposition noise only. A system
+    // auto-resolution (AUTO_LEGIT) is tracked per category so an auto-release
+    // volume is always visible, but it never enters the rate denominator — else
+    // an auto-cleared crossing would silently masquerade as a "confirmed real"
+    // and deflate the noise signal.
+    const crossings: DispositionedCrossing[] = [
+      ...rep('TEST_TAMPERING', 'FALSE_POSITIVE', 9),
+      ...rep('TEST_TAMPERING', 'CONFIRMED', 3),
+      ...rep('TEST_TAMPERING', 'AUTO_LEGIT', 20),
+    ]
+
+    const report = computeFalsePositiveRates(crossings, { minSamples: 10 })
+    const tamper = byCategory(report, 'TEST_TAMPERING')
+
+    // Rate is the SAME as without the auto-legit rows — 9 / (9 + 3) = 0.75.
+    expect(tamper.dispositioned).toBe(12)
+    expect(tamper.falsePositiveRate).toBeCloseTo(0.75, 10)
+    // …and the auto-legit volume is surfaced, not folded into `confirmed`.
+    expect(tamper.confirmed).toBe(3)
+    expect(tamper.autoLegit).toBe(20)
+  })
+
   it('exposes a documented default sample threshold', () => {
     expect(DEFAULT_MIN_SAMPLES).toBeGreaterThanOrEqual(1)
     expect(Number.isInteger(DEFAULT_MIN_SAMPLES)).toBe(true)
@@ -140,7 +163,7 @@ describe('boundary-crossing false-positive rate (LUM-449)', () => {
 /** Expand a category/disposition pair into `n` rows. */
 function rep(
   category: string,
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED',
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT',
   n: number
 ): DispositionedCrossing[] {
   return Array.from({ length: n }, () => ({ category, disposition }))
@@ -158,6 +181,7 @@ function byCategory(
     dispositioned: number
     falsePositives: number
     confirmed: number
+    autoLegit: number
     status: 'measured' | 'insufficient'
     falsePositiveRate: number | null
   }

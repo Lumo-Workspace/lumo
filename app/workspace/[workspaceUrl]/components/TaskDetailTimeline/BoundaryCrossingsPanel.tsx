@@ -384,6 +384,14 @@ function CrossingRow({
             {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
           </Badge>
         )}
+        {/* LUM-478: a system auto-resolution — on record + auditable but out of
+        the open queue and non-blocking. Distinct badge so an auditor reads it as
+        "detector auto-cleared (legit)", not a human ruling. */}
+        {c.disposition === 'AUTO_LEGIT' && (
+          <Badge tone='muted'>
+            {boundaryDispositionLabel('AUTO_LEGIT', intl)}
+          </Badge>
+        )}
         <Badge tone={c.reversible ? 'muted' : 'danger'}>
           {c.reversible ? (
             <Unlock className='size-3' aria-hidden />

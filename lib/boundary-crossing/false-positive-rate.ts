@@ -24,14 +24,18 @@
  * thin to divide into a believable rate).
  */
 
-/** A single human-dispositioned crossing — the only input this module needs. */
+/** A single dispositioned crossing — the only input this module needs. */
 export interface DispositionedCrossing {
   /** BoundaryCrossingCategory (kept as a plain string so the pure core carries
    *  no Prisma import; the harness passes the enum value through verbatim). */
   category: string
-  /** A non-null disposition: FALSE_POSITIVE or CONFIRMED. Open (null) crossings
-   *  are not dispositions and must be filtered out before this module sees them. */
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED'
+  /** A non-null disposition. FALSE_POSITIVE / CONFIRMED are HUMAN rulings and the
+   *  only ones that feed the false-positive RATE. AUTO_LEGIT (LUM-478) is a SYSTEM
+   *  auto-resolution — it is counted and surfaced per category (so an auto-release
+   *  drift can never hide) but kept OUT of the FP-rate denominator, which measures
+   *  human-disposition noise. Open (null) crossings are not dispositions and must
+   *  be filtered out before this module sees them. */
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT'
 }
 
 /**
@@ -52,10 +56,16 @@ export const DEFAULT_MIN_SAMPLES = 10
 /** One category's false-positive picture. */
 export interface CategoryFalsePositiveRate {
   category: string
-  /** Total dispositioned crossings (FALSE_POSITIVE + CONFIRMED). */
+  /** HUMAN-dispositioned crossings (FALSE_POSITIVE + CONFIRMED) — the FP-rate
+   *  denominator. AUTO_LEGIT is excluded here (it is a system call, not a human
+   *  noise signal); see `autoLegit`. */
   dispositioned: number
   falsePositives: number
   confirmed: number
+  /** System AUTO_LEGIT auto-resolutions (LUM-478) — surfaced so an auto-release
+   *  volume is always visible and can never silently drift, but kept out of the
+   *  human FP rate above. */
+  autoLegit: number
   /** `measured` when `dispositioned >= minSamples`, else `insufficient`. */
   status: 'measured' | 'insufficient'
   /** FALSE_POSITIVE ÷ dispositioned in [0,1] when `measured`; `null` when
@@ -75,6 +85,7 @@ export interface FalsePositiveReport {
 interface Tally {
   falsePositives: number
   confirmed: number
+  autoLegit: number
 }
 
 /**
@@ -90,14 +101,21 @@ export function computeFalsePositiveRates(
 
   const tallies = new Map<string, Tally>()
   for (const { category, disposition } of crossings) {
-    const t = tallies.get(category) ?? { falsePositives: 0, confirmed: 0 }
+    const t = tallies.get(category) ?? {
+      falsePositives: 0,
+      confirmed: 0,
+      autoLegit: 0,
+    }
     if (disposition === 'FALSE_POSITIVE') t.falsePositives++
+    else if (disposition === 'AUTO_LEGIT') t.autoLegit++
     else t.confirmed++
     tallies.set(category, t)
   }
 
   const categories: CategoryFalsePositiveRate[] = []
   for (const [category, t] of tallies) {
+    // Human dispositions only — a system AUTO_LEGIT is tracked but never enters
+    // the FP rate (it carries no human-noise signal).
     const dispositioned = t.falsePositives + t.confirmed
     const sufficient = dispositioned >= minSamples
     categories.push({
@@ -105,6 +123,7 @@ export function computeFalsePositiveRates(
       dispositioned,
       falsePositives: t.falsePositives,
       confirmed: t.confirmed,
+      autoLegit: t.autoLegit,
       status: sufficient ? 'measured' : 'insufficient',
       // Guard the division behind the sufficiency check: an insufficient (incl.
       // zero) category never reaches it, so no NaN/Infinity and no misleading
@@ -141,16 +160,19 @@ export function formatReport(report: FalsePositiveReport): string {
     return lines.join('\n') + '\n'
   }
   for (const c of report.categories) {
+    // LUM-478: always echo the system auto-legit volume so an auto-release drift
+    // is visible alongside (but never folded into) the human FP rate.
+    const auto = c.autoLegit > 0 ? `, ${c.autoLegit} auto-legit` : ''
     if (c.status === 'measured') {
       const pct = ((c.falsePositiveRate ?? 0) * 100).toFixed(1)
       lines.push(
         `  ${c.category}: ${pct}% false-positive ` +
-          `(${c.falsePositives} FP / ${c.dispositioned} dispositioned, ${c.confirmed} confirmed)`
+          `(${c.falsePositives} FP / ${c.dispositioned} dispositioned, ${c.confirmed} confirmed${auto})`
       )
     } else {
       lines.push(
         `  ${c.category}: insufficient data ` +
-          `(${c.dispositioned} dispositioned < ${report.minSamples} — rate withheld)`
+          `(${c.dispositioned} dispositioned < ${report.minSamples} — rate withheld${auto})`
       )
     }
   }
