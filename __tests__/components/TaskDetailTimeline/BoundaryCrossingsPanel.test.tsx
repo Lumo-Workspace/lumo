@@ -185,6 +185,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings are dispositioned — expand the panel to see body content
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-confirmed'))
     // disposition badge + reviewer attribution
     expect(screen.getByText('confirmed')).toBeInTheDocument()
     expect(screen.getByText(/by Chao/)).toBeInTheDocument()
@@ -210,6 +211,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-c'))
     fireEvent.click(screen.getByTestId('boundary-spawn-remediation-bc-c'))
     expect(mockSpawn).toHaveBeenCalledWith('LUM-435', 'bc-c')
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
@@ -228,6 +230,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-fp'))
     // It is NOT open, so the first-disposition buttons are absent…
     expect(
       screen.queryByTestId('boundary-confirm-bc-fp')
@@ -256,6 +259,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-c'))
     fireEvent.click(screen.getByTestId('boundary-reopen-bc-c'))
     expect(mockDisposition).toHaveBeenCalledWith(
       'LUM-450',
@@ -278,6 +282,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-fp'))
     fireEvent.click(screen.getByTestId('boundary-change-bc-fp'))
     expect(mockDisposition).toHaveBeenCalledWith(
       'LUM-450',
@@ -311,6 +316,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-1'))
     // The correction is visible — not a silent swap: who changed it, and the
     // full from -> to transition, all in the dedicated corrected line.
     const corrected = screen.getByTestId('boundary-corrected-bc-1')
@@ -342,6 +348,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-r'))
     expect(screen.getByText(/Remediated by/)).toBeInTheDocument()
     expect(screen.getByText('LUM-441')).toBeInTheDocument()
     expect(screen.getByText('Restore migration')).toBeInTheDocument()
@@ -371,6 +378,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
     expect(screen.queryByText('git push origin main')).toBeNull()
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    fireEvent.click(screen.getByTestId('crossing-toggle-a'))
     expect(screen.getByText('git push origin main')).toBeVisible()
   })
 
@@ -382,5 +390,27 @@ describe('BoundaryCrossingsPanel', () => {
     expect(cmd.className).toMatch(/truncate|whitespace-nowrap/)
     fireEvent.click(cmd)
     expect(cmd.className).toMatch(/whitespace-pre-wrap|break/)
+  })
+
+  it('collapses a dispositioned crossing by default and expands it on click', () => {
+    setCrossings([
+      {
+        ...OPEN,
+        id: 'bc-fp',
+        detail: 'edited a test file',
+        disposition: 'FALSE_POSITIVE',
+        dispositionedById: 'a1',
+      },
+      { ...OPEN, id: 'bc-open2', detail: 'git push origin main --force' },
+    ])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-475' enabled />)
+    // The mix has one open crossing, so the panel auto-expands. The OPEN
+    // crossing's body is visible by default…
+    expect(screen.getByText('git push origin main --force')).toBeVisible()
+    // …but the already-dispositioned one is collapsed — only its summary header
+    // shows; the detail stays hidden until the row is clicked open.
+    expect(screen.queryByText('edited a test file')).toBeNull()
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-fp'))
+    expect(screen.getByText('edited a test file')).toBeVisible()
   })
 })

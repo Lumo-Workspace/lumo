@@ -331,6 +331,10 @@ function CrossingRow({
 }) {
   const [cmdOpen, setCmdOpen] = useState(false)
   const open = c.disposition == null
+  // Already-dispositioned crossings collapse by default — handled, kept for the
+  // record but out of the way; open ones start expanded since they still need a
+  // human decision and block Done.
+  const [collapsed, setCollapsed] = useState(!open)
   const rt = c.remediationTask
   // The other verdict a one-click "change" flips to.
   const otherVerdict =
@@ -338,7 +342,17 @@ function CrossingRow({
 
   return (
     <div className='rounded-md border border-border bg-background px-3 py-2.5'>
-      <div className='flex flex-wrap items-center gap-2'>
+      <button
+        type='button'
+        onClick={() => setCollapsed(v => !v)}
+        aria-expanded={!collapsed}
+        data-testid={`crossing-toggle-${c.id}`}
+        className='flex w-full flex-wrap items-center gap-2 text-left'
+      >
+        <ChevronRight
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '' : 'rotate-90'}`}
+          aria-hidden
+        />
         <span className='text-[13px] font-medium text-foreground'>
           {boundaryCategoryLabel(c.category, intl)}
         </span>
@@ -401,238 +415,250 @@ function CrossingRow({
                 }
               )}
         </span>
-      </div>
+      </button>
 
-      <code
-        data-testid={`crossing-cmd-${c.id}`}
-        onClick={() => setCmdOpen(o => !o)}
-        className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
-        title={cmdOpen ? undefined : c.detail}
-      >
-        {c.detail}
-      </code>
+      {!collapsed && (
+        <>
+          <code
+            data-testid={`crossing-cmd-${c.id}`}
+            onClick={() => setCmdOpen(o => !o)}
+            className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+            title={cmdOpen ? undefined : c.detail}
+          >
+            {c.detail}
+          </code>
 
-      <AttributionLine
-        attribution={c.attribution ?? UNKNOWN_ATTRIBUTION}
-        ownerName={ownerName}
-        intl={intl}
-      />
-
-      {c.editChange && <EditChangeBlock change={c.editChange} intl={intl} />}
-
-      {c.category === 'TEST_TAMPERING' && open && (
-        <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
-          <ShieldAlert
-            className='mt-0.5 size-3.5 shrink-0 text-warning'
-            aria-hidden
+          <AttributionLine
+            attribution={c.attribution ?? UNKNOWN_ATTRIBUTION}
+            ownerName={ownerName}
+            intl={intl}
           />
-          <span>
-            {intl.formatMessage({
-              id: 'boundary.panel.testTamperingHint',
-              defaultMessage:
-                'Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.',
-            })}
-          </span>
-        </p>
-      )}
 
-      {c.dispositionNote && (
-        <p className='mt-1.5 text-[11px] text-muted-foreground'>
-          {intl.formatMessage(
-            { id: 'boundary.panel.note', defaultMessage: 'Note: {note}' },
-            { note: c.dispositionNote }
+          {c.editChange && (
+            <EditChangeBlock change={c.editChange} intl={intl} />
           )}
-        </p>
-      )}
 
-      {/* A re-disposition reads as a correction, not a silent swap (LUM-450):
+          {c.category === 'TEST_TAMPERING' && open && (
+            <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
+              <ShieldAlert
+                className='mt-0.5 size-3.5 shrink-0 text-warning'
+                aria-hidden
+              />
+              <span>
+                {intl.formatMessage({
+                  id: 'boundary.panel.testTamperingHint',
+                  defaultMessage:
+                    'Reward-hacking check: confirm the underlying code was fixed — not that the test was weakened to force a pass. Legit test fix? Mark it a false positive.',
+                })}
+              </span>
+            </p>
+          )}
+
+          {c.dispositionNote && (
+            <p className='mt-1.5 text-[11px] text-muted-foreground'>
+              {intl.formatMessage(
+                { id: 'boundary.panel.note', defaultMessage: 'Note: {note}' },
+                { note: c.dispositionNote }
+              )}
+            </p>
+          )}
+
+          {/* A re-disposition reads as a correction, not a silent swap (LUM-450):
           who changed it, and the from -> to transition. */}
-      {c.lastDispositionChange && (
-        <p
-          data-testid={`boundary-corrected-${c.id}`}
-          className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
-        >
-          <UserCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-          <span>
-            {intl.formatMessage(
-              {
-                id: 'boundary.panel.corrected',
-                defaultMessage: 'Corrected by {by}: {from} → {to}',
-              },
-              {
-                by:
-                  changeReviewerName ??
-                  intl.formatMessage({
-                    id: 'boundary.panel.someone',
-                    defaultMessage: 'a reviewer',
-                  }),
-                from: boundaryDispositionOrOpenLabel(
-                  c.lastDispositionChange.from,
-                  intl
-                ),
-                to: boundaryDispositionOrOpenLabel(
-                  c.lastDispositionChange.to,
-                  intl
-                ),
-              }
-            )}
-          </span>
-        </p>
-      )}
-
-      {open && (
-        <div className='mt-2.5 space-y-2'>
-          <input
-            type='text'
-            value={note}
-            disabled={pending}
-            onChange={e => onNote(e.target.value)}
-            placeholder={intl.formatMessage({
-              id: 'boundary.panel.notePlaceholder',
-              defaultMessage: 'Disposition note (optional)',
-            })}
-            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
-          />
-          <div className='flex items-center gap-2'>
-            <button
-              type='button'
-              data-testid={`boundary-false-positive-${c.id}`}
-              disabled={pending}
-              onClick={() => onDisposition('FALSE_POSITIVE')}
-              className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+          {c.lastDispositionChange && (
+            <p
+              data-testid={`boundary-corrected-${c.id}`}
+              className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
             >
-              <FlagOff className='size-3.5' aria-hidden />
-              {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
-            </button>
-            <button
-              type='button'
-              data-testid={`boundary-confirm-${c.id}`}
-              disabled={pending}
-              onClick={() => onDisposition('CONFIRMED')}
-              className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger hover:bg-danger-subtle disabled:opacity-50'
-            >
-              <AlertTriangle className='size-3.5' aria-hidden />
-              {intl.formatMessage({
-                id: 'boundary.panel.confirmCrossing',
-                defaultMessage: 'Confirm crossing',
-              })}
-            </button>
-          </div>
-        </div>
-      )}
+              <UserCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+              <span>
+                {intl.formatMessage(
+                  {
+                    id: 'boundary.panel.corrected',
+                    defaultMessage: 'Corrected by {by}: {from} → {to}',
+                  },
+                  {
+                    by:
+                      changeReviewerName ??
+                      intl.formatMessage({
+                        id: 'boundary.panel.someone',
+                        defaultMessage: 'a reviewer',
+                      }),
+                    from: boundaryDispositionOrOpenLabel(
+                      c.lastDispositionChange.from,
+                      intl
+                    ),
+                    to: boundaryDispositionOrOpenLabel(
+                      c.lastDispositionChange.to,
+                      intl
+                    ),
+                  }
+                )}
+              </span>
+            </p>
+          )}
 
-      {/* Re-disposition (LUM-450): a human can correct an already-dispositioned
+          {open && (
+            <div className='mt-2.5 space-y-2'>
+              <input
+                type='text'
+                value={note}
+                disabled={pending}
+                onChange={e => onNote(e.target.value)}
+                placeholder={intl.formatMessage({
+                  id: 'boundary.panel.notePlaceholder',
+                  defaultMessage: 'Disposition note (optional)',
+                })}
+                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              />
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  data-testid={`boundary-false-positive-${c.id}`}
+                  disabled={pending}
+                  onClick={() => onDisposition('FALSE_POSITIVE')}
+                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                >
+                  <FlagOff className='size-3.5' aria-hidden />
+                  {boundaryDispositionLabel('FALSE_POSITIVE', intl)}
+                </button>
+                <button
+                  type='button'
+                  data-testid={`boundary-confirm-${c.id}`}
+                  disabled={pending}
+                  onClick={() => onDisposition('CONFIRMED')}
+                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger hover:bg-danger-subtle disabled:opacity-50'
+                >
+                  <AlertTriangle className='size-3.5' aria-hidden />
+                  {intl.formatMessage({
+                    id: 'boundary.panel.confirmCrossing',
+                    defaultMessage: 'Confirm crossing',
+                  })}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Re-disposition (LUM-450): a human can correct an already-dispositioned
           crossing — flip it to the other verdict, or reopen it (reverting to
           undispositioned, which re-blocks Done). Same human-only write path. */}
-      {!open && (
-        <div className='mt-2.5 space-y-2'>
-          <input
-            type='text'
-            value={note}
-            disabled={pending}
-            onChange={e => onNote(e.target.value)}
-            placeholder={intl.formatMessage({
-              id: 'boundary.panel.redispositionNotePlaceholder',
-              defaultMessage: 'Reason for the change (optional)',
-            })}
-            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
-          />
-          <div className='flex flex-wrap items-center gap-2'>
-            <button
-              type='button'
-              data-testid={`boundary-change-${c.id}`}
-              disabled={pending}
-              onClick={() => onDisposition(otherVerdict)}
-              className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
-            >
-              <FlagOff className='size-3.5' aria-hidden />
-              {intl.formatMessage(
-                {
-                  id: 'boundary.panel.changeTo',
-                  defaultMessage: 'Change to {verdict}',
-                },
-                { verdict: boundaryDispositionLabel(otherVerdict, intl) }
-              )}
-            </button>
-            <button
-              type='button'
-              data-testid={`boundary-reopen-${c.id}`}
-              disabled={pending}
-              onClick={() => onDisposition('OPEN')}
-              className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning-subtle disabled:opacity-50'
-            >
-              <Unlock className='size-3.5' aria-hidden />
-              {intl.formatMessage({
-                id: 'boundary.panel.reopen',
-                defaultMessage: 'Reopen (re-block Done)',
-              })}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {rt && (
-        <Link
-          href={
-            workspaceUrl
-              ? `/workspace/${workspaceUrl}/my-tasks/${rt.identifier}`
-              : '#'
-          }
-          className='mt-2 flex items-center gap-3 rounded-md border border-success-border bg-success-subtle/50 px-3 py-2.5 transition-colors hover:bg-success-subtle'
-        >
-          <CircleCheck className='size-5 shrink-0 text-success' aria-hidden />
-          <div className='min-w-0 flex-1'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='text-xs font-medium text-success'>
-                {rt.remediated
-                  ? intl.formatMessage({
-                      id: 'boundary.panel.remediatedBy',
-                      defaultMessage: 'Remediated by',
-                    })
-                  : intl.formatMessage({
-                      id: 'boundary.panel.remediationLinked',
-                      defaultMessage: 'Remediation:',
-                    })}
-              </span>
-              <span className='text-[13px] font-medium text-foreground'>
-                {rt.identifier}
-              </span>
-              <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
-                {rt.status}
-              </span>
+          {!open && (
+            <div className='mt-2.5 space-y-2'>
+              <input
+                type='text'
+                value={note}
+                disabled={pending}
+                onChange={e => onNote(e.target.value)}
+                placeholder={intl.formatMessage({
+                  id: 'boundary.panel.redispositionNotePlaceholder',
+                  defaultMessage: 'Reason for the change (optional)',
+                })}
+                className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+              />
+              <div className='flex flex-wrap items-center gap-2'>
+                <button
+                  type='button'
+                  data-testid={`boundary-change-${c.id}`}
+                  disabled={pending}
+                  onClick={() => onDisposition(otherVerdict)}
+                  className='inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+                >
+                  <FlagOff className='size-3.5' aria-hidden />
+                  {intl.formatMessage(
+                    {
+                      id: 'boundary.panel.changeTo',
+                      defaultMessage: 'Change to {verdict}',
+                    },
+                    { verdict: boundaryDispositionLabel(otherVerdict, intl) }
+                  )}
+                </button>
+                <button
+                  type='button'
+                  data-testid={`boundary-reopen-${c.id}`}
+                  disabled={pending}
+                  onClick={() => onDisposition('OPEN')}
+                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning-subtle disabled:opacity-50'
+                >
+                  <Unlock className='size-3.5' aria-hidden />
+                  {intl.formatMessage({
+                    id: 'boundary.panel.reopen',
+                    defaultMessage: 'Reopen (re-block Done)',
+                  })}
+                </button>
+              </div>
             </div>
-            <div className='truncate text-xs text-muted-foreground'>
-              {rt.title}
-            </div>
-          </div>
-          <ExternalLink className='size-4 shrink-0 text-success' aria-hidden />
-        </Link>
-      )}
+          )}
 
-      {c.disposition === 'CONFIRMED' && !rt && (
-        <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5'>
-          <Lightbulb className='size-4 shrink-0 text-warning' aria-hidden />
-          <span className='text-[11px] text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'boundary.panel.remediationNudge',
-              defaultMessage:
-                'Confirmed and unremediated — consider opening a fix.',
-            })}
-          </span>
-          <button
-            type='button'
-            data-testid={`boundary-spawn-remediation-${c.id}`}
-            disabled={pending}
-            onClick={onSpawnRemediation}
-            className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
-          >
-            <Plus className='size-3.5' aria-hidden />
-            {intl.formatMessage({
-              id: 'boundary.panel.spawnRemediation',
-              defaultMessage: 'Spawn remediation task',
-            })}
-          </button>
-        </div>
+          {rt && (
+            <Link
+              href={
+                workspaceUrl
+                  ? `/workspace/${workspaceUrl}/my-tasks/${rt.identifier}`
+                  : '#'
+              }
+              className='mt-2 flex items-center gap-3 rounded-md border border-success-border bg-success-subtle/50 px-3 py-2.5 transition-colors hover:bg-success-subtle'
+            >
+              <CircleCheck
+                className='size-5 shrink-0 text-success'
+                aria-hidden
+              />
+              <div className='min-w-0 flex-1'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  <span className='text-xs font-medium text-success'>
+                    {rt.remediated
+                      ? intl.formatMessage({
+                          id: 'boundary.panel.remediatedBy',
+                          defaultMessage: 'Remediated by',
+                        })
+                      : intl.formatMessage({
+                          id: 'boundary.panel.remediationLinked',
+                          defaultMessage: 'Remediation:',
+                        })}
+                  </span>
+                  <span className='text-[13px] font-medium text-foreground'>
+                    {rt.identifier}
+                  </span>
+                  <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
+                    {rt.status}
+                  </span>
+                </div>
+                <div className='truncate text-xs text-muted-foreground'>
+                  {rt.title}
+                </div>
+              </div>
+              <ExternalLink
+                className='size-4 shrink-0 text-success'
+                aria-hidden
+              />
+            </Link>
+          )}
+
+          {c.disposition === 'CONFIRMED' && !rt && (
+            <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5'>
+              <Lightbulb className='size-4 shrink-0 text-warning' aria-hidden />
+              <span className='text-[11px] text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'boundary.panel.remediationNudge',
+                  defaultMessage:
+                    'Confirmed and unremediated — consider opening a fix.',
+                })}
+              </span>
+              <button
+                type='button'
+                data-testid={`boundary-spawn-remediation-${c.id}`}
+                disabled={pending}
+                onClick={onSpawnRemediation}
+                className='ml-auto inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+              >
+                <Plus className='size-3.5' aria-hidden />
+                {intl.formatMessage({
+                  id: 'boundary.panel.spawnRemediation',
+                  defaultMessage: 'Spawn remediation task',
+                })}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
