@@ -476,12 +476,14 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
   })
 })
 
-describe('TimelineTabs floating VerdictDecision mutual exclusion', () => {
+describe('TimelineTabs floating VerdictDecision pinned during IN_REVIEW', () => {
   // DeliveryTab is mocked to an empty div in this file, so the ONLY node that
   // can carry `verdict-status` is the floating VerdictDecision rendered by
   // TimelineTabs itself. That makes presence/absence of `verdict-status` a
-  // faithful proxy for "floating shown" vs "hidden".
-  it('shows floating verdict when IN_REVIEW and not viewing the acceptance sub-segment', () => {
+  // faithful proxy for "floating shown" vs "hidden". The verdict is now pinned
+  // as the single floating bar whenever IN_REVIEW + criteria, on every tab; the
+  // in-content header is suppressed inside AcceptanceTab during review.
+  it('shows the floating verdict whenever IN_REVIEW with criteria', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -489,12 +491,12 @@ describe('TimelineTabs floating VerdictDecision mutual exclusion', () => {
       criteria: true,
       taskStatus: 'IN_REVIEW',
     })
-    // mockNav.tab undefined → Comments active, so viewingAcceptance is false.
+    // mockNav.tab undefined → Comments active.
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
     expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
   })
 
-  it('hides floating verdict while viewing the acceptance sub-segment', () => {
+  it('keeps the floating verdict pinned on the delivery tab too', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -502,14 +504,15 @@ describe('TimelineTabs floating VerdictDecision mutual exclusion', () => {
       criteria: true,
       taskStatus: 'IN_REVIEW',
     })
-    // Delivery tab active + IN_REVIEW + criteria → default sub-tab is acceptance.
+    // Delivery tab active (incl. its acceptance sub-segment) — the verdict no
+    // longer hides here; it stays pinned as the single floating bar.
     mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
     mockNav.tab = ['delivery']
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(screen.queryByTestId('verdict-status')).toBeNull()
+    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
   })
 
-  it('never renders two VerdictDecisions at once', () => {
+  it('renders at most one VerdictDecision', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -523,5 +526,17 @@ describe('TimelineTabs floating VerdictDecision mutual exclusion', () => {
     expect(
       screen.queryAllByTestId('verdict-status').length
     ).toBeLessThanOrEqual(1)
+  })
+
+  it('does not show the floating verdict when the task is not IN_REVIEW', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+      taskStatus: 'DONE',
+    })
+    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
+    expect(screen.queryByTestId('verdict-status')).toBeNull()
   })
 })

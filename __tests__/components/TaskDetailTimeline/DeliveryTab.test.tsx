@@ -34,8 +34,8 @@ const baseProps = {
 }
 
 describe('DeliveryTab', () => {
-  it('always renders the DeliveryPanel summary above the sub-segments', () => {
-    render(<DeliveryTab {...baseProps} />)
+  it('renders the DeliveryPanel summary in the runs sub-segment', () => {
+    render(<DeliveryTab {...baseProps} subTab='runs' />)
     expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
   })
 
@@ -49,6 +49,11 @@ describe('DeliveryTab', () => {
     render(<DeliveryTab {...baseProps} subTab='acceptance' />)
     expect(screen.getByTestId('panel-acceptance')).toBeInTheDocument()
     expect(screen.queryByTestId('panel-runs')).not.toBeInTheDocument()
+  })
+
+  it('hides the DeliveryPanel in the acceptance sub-segment', () => {
+    render(<DeliveryTab {...baseProps} subTab='acceptance' />)
+    expect(screen.queryByTestId('panel-delivery')).not.toBeInTheDocument()
   })
 
   it('calls onSubTabChange when a segment button is clicked', () => {

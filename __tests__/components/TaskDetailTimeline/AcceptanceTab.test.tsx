@@ -449,7 +449,7 @@ describe('header verdict surface + section order (LUM-467)', () => {
     })
   }
 
-  it('renders the header verdict surface and no whole-contract control', () => {
+  it('suppresses the in-content header verdict during review and keeps no whole-contract control', () => {
     set(reviewView())
     render(
       <AcceptanceTab
@@ -458,7 +458,10 @@ describe('header verdict surface + section order (LUM-467)', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
-    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+    // During IN_REVIEW the verdict is shown once as the pinned floating bar
+    // (rendered by TimelineTabs); the in-content header is suppressed here so
+    // there is never a duplicate. The whole-contract control stays gone too.
+    expect(screen.queryByTestId('verdict-status')).toBeNull()
     expect(screen.queryByText(/whole contract|整份合约/i)).toBeNull()
   })
 

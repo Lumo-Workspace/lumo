@@ -1088,16 +1088,23 @@ export function AcceptanceTab({
 
   return (
     <div className='space-y-5 py-1'>
-      <VerdictDecision
-        variant='header'
-        taskIdentifier={taskIdentifier}
-        data={data}
-        onVerdictRecorded={r => {
-          onVerdictRecorded(r)
-          void refresh?.()
-        }}
-        {...(mentionSources ? { mentionSources } : {})}
-      />
+      {/* During IN_REVIEW the verdict is shown once, pinned, as the floating
+          bar above the tab bar (TimelineTabs) — so the in-content header is
+          suppressed here to avoid a second copy. Outside review there is no
+          pending verdict to pin, so the header stays as the passive status
+          banner (e.g. a DONE task's "passed" summary). */}
+      {!interactive && (
+        <VerdictDecision
+          variant='header'
+          taskIdentifier={taskIdentifier}
+          data={data}
+          onVerdictRecorded={r => {
+            onVerdictRecorded(r)
+            void refresh?.()
+          }}
+          {...(mentionSources ? { mentionSources } : {})}
+        />
+      )}
 
       <div>
         <div className='mb-2 flex items-center gap-2'>
