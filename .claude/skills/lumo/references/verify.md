@@ -125,10 +125,23 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 
 - Header: task identifier/title/status + `verification round N/3` (round 0 =
   never verified) + an escalation warning when the machine loop is exhausted.
+- **Machine verification rollup** (LUM-470) — directly under the `Criteria`
+  header, one line `Machine verification: N machine-verified / M human override
+(of T MACHINE criteria)` over the active MACHINE criteria, aligned with the web
+  read model (LUM-456). Printed whenever the contract has ≥1 MACHINE criterion,
+  so the terminal rollup never reads as all-human when a checkpointer actually
+  verified the work.
 - **Criteria** — every criterion as `<glyph> <id>  [TYPE]  SOURCE@rN
 statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its
   checkpointer and latest verdict line (evidence pointer on pass, failure
   tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
+  - A passing **MACHINE** criterion's verdict line carries a machine-state tag
+    derived from the read model's `machinePassed` flag, NOT the latest verdict
+    (LUM-470): `· machine-verified` when a checkpointer actually passed it (even
+    after a human later signs the task off), or `· human override (no machine
+pass)` when it passes only on a human sign-off with no machine run underneath.
+    This keeps the terminal honest with web — a machine-verified criterion that
+    a human co-signed no longer reads as a plain human pass.
   - A pass can carry a **`⚠ pre-edit version`** note (LUM-457): the criterion
     was changed after that verdict (reworded, or its checkpointer was swapped so
     the recorded evidence ran a different command). The pass still counts as met
@@ -166,6 +179,11 @@ could not confirm whether any are undispositioned` instead of staying silent.
 `--json` emits the full read model with a top-level `version` field
 (currently `1`). The schema is versioned: breaking shape changes bump the
 major; additive fields don't. Pin on `version` when scripting against it.
+Each criterion carries `machinePassed` (boolean — a checkpointer currently
+vouches for it; LUM-456/470), and the payload carries a top-level
+`machineVerification` aggregate `{ total, machineVerified, humanOverridden }`
+over the active MACHINE criteria — read these, not `latestVerdict` alone, to
+tell a machine-verified criterion from a human override.
 The open boundary crossings ride along as an additive top-level
 `openCrossings` (each entry `{ id, category, severity, detail, attribution }`,
 where `attribution` is `{ workspaceMemberId, sessionId, agent, worktreeBranch,
