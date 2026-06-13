@@ -50,13 +50,7 @@ export function DeliveryTab({
 
   return (
     <div>
-      <DeliveryPanel
-        taskId={taskId}
-        status={taskStatus}
-        agentStatus={agentStatus}
-      />
-
-      <div className='inline-flex gap-1 bg-muted p-1 rounded-lg my-4'>
+      <div className='inline-flex gap-1 bg-muted p-1 rounded-lg mb-4'>
         <button
           type='button'
           className={segBtn(subTab === 'runs')}
@@ -79,12 +73,23 @@ export function DeliveryTab({
         </button>
       </div>
 
+      {/* The delivery forecast/cost summary belongs with the runs — it's the
+          headline for "what this task burned". The Acceptance sub-segment is
+          kept clean (verdict + criteria only), so the budget panel never sits
+          on top of the adjudication surface. */}
       {subTab === 'runs' && (
-        <AgentRunTab
-          taskId={taskId}
-          taskIdentifier={taskIdentifier}
-          enabled={enabled && subTab === 'runs'}
-        />
+        <div className='space-y-4'>
+          <DeliveryPanel
+            taskId={taskId}
+            status={taskStatus}
+            agentStatus={agentStatus}
+          />
+          <AgentRunTab
+            taskId={taskId}
+            taskIdentifier={taskIdentifier}
+            enabled={enabled && subTab === 'runs'}
+          />
+        </div>
       )}
       {subTab === 'acceptance' && (
         <AcceptanceTab

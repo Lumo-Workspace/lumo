@@ -142,8 +142,6 @@ export function TimelineTabs({
       ? 'acceptance'
       : 'runs'
   const resolvedSubTab = deliverySubTab ?? defaultSubTab
-  const viewingAcceptance =
-    activeTab === 'agent' && resolvedSubTab === 'acceptance'
 
   // Reconcile the rendered tab with the URL: handles reload, back/forward, and
   // the case where the URL targets an unknown or currently-hidden tab — fall
@@ -216,8 +214,7 @@ export function TimelineTabs({
 
   return (
     <div className='mt-8'>
-      {!viewingAcceptance &&
-        status.data &&
+      {status.data &&
         status.data.task.status === 'IN_REVIEW' &&
         hasCriteria && (
           <VerdictDecision
