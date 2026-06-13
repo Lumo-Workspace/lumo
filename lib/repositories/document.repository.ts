@@ -2,6 +2,7 @@ import {
   type DocVisibility,
   type DocShareRole,
   DocMentionSource,
+  type Prisma,
 } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
@@ -304,6 +305,39 @@ export const documentRepository = {
     return prisma.document.update({
       where: { id },
       data: data as Parameters<typeof prisma.document.update>[0]['data'],
+    })
+  },
+
+  /**
+   * Update only the rendered body content. Unlike `update`, this accepts an
+   * outer transaction so a content write can be grouped atomically with mention
+   * inserts by the caller.
+   */
+  async updateContent(
+    id: string,
+    content: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.document.update({
+      where: { id },
+      data: { content },
+    })
+  },
+
+  /**
+   * Batch-insert doc↔task mentions, skipping duplicates. Accepts an outer
+   * transaction so the caller can group it with a content update.
+   */
+  async createMentions(
+    rows: { documentId: string; taskId: string; source: DocMentionSource }[],
+    tx?: Prisma.TransactionClient
+  ) {
+    if (rows.length === 0) return { count: 0 }
+    const client = tx ?? prisma
+    return client.documentMention.createMany({
+      data: rows,
+      skipDuplicates: true,
     })
   },
 

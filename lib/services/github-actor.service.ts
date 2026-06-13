@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { actorRepository } from '@/lib/repositories/actor.repository'
 
 interface GithubUser {
   id: number
@@ -10,19 +10,15 @@ export const githubActorService = {
   /** Find-or-create a GITHUB_USER actor for an unmapped GitHub login. */
   async upsertPseudoActor(workspaceId: string, user: GithubUser) {
     const externalIdentity = `github:${user.login}`
-    const existing = await prisma.actor.findUnique({
-      where: {
-        workspaceId_externalIdentity: { workspaceId, externalIdentity },
-      },
-    })
+    const existing = await actorRepository.findByExternalIdentity(
+      workspaceId,
+      externalIdentity
+    )
     if (existing) return existing
-    return prisma.actor.create({
-      data: {
-        workspaceId,
-        type: 'GITHUB_USER',
-        externalIdentity,
-        externalAvatarUrl: user.avatar_url,
-      },
+    return actorRepository.createPseudoActor({
+      workspaceId,
+      externalIdentity,
+      externalAvatarUrl: user.avatar_url,
     })
   },
 }

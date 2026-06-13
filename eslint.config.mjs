@@ -22,6 +22,27 @@ export default [
     },
   },
   {
+    // Layered architecture: the Service layer must not access Prisma directly.
+    // Use runInTransaction from @/lib/db/transaction and the repositories in
+    // @/lib/repositories. (@/lib/db/errors and @/lib/db/transaction stay allowed.)
+    files: ['lib/services/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/db/prisma',
+              message:
+                'Services must not import the Prisma client. Use runInTransaction ' +
+                'from @/lib/db/transaction and the repositories in @/lib/repositories.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: ['node_modules/', '.next/', 'out/', 'build/'],
   },
 ];

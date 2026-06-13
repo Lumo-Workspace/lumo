@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import type { MentionPrState, MentionStatusItem } from '@/types/mention'
 
 /** Pure: `<TEAM>-<n>` → its parts (uppercased), or null if it isn't one. */
@@ -36,21 +36,9 @@ export const mentionStatusService = {
     }
     if (parsed.size === 0) return []
 
-    const rows = await prisma.task.findMany({
-      where: {
-        project: { workspaceId },
-        OR: [...parsed.values()].map(p => ({
-          number: p.number,
-          team: { identifier: p.prefix },
-        })),
-      },
-      select: {
-        number: true,
-        status: true,
-        team: { select: { identifier: true } },
-        pullRequests: { select: { state: true } },
-      },
-    })
+    const rows = await taskRepository.findManyForMentionStatus(workspaceId, [
+      ...parsed.values(),
+    ])
 
     return rows.map(r => ({
       identifier: `${r.team.identifier}-${r.number}`,

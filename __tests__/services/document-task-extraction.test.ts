@@ -2,6 +2,10 @@
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
     findEditable: jest.fn(),
+    createMentions: jest.fn(async () => ({ count: 0 })),
+    updateContent: jest.fn(async () => ({
+      updatedAt: new Date('2026-05-24T10:00:00Z'),
+    })),
   },
 }))
 
@@ -30,23 +34,12 @@ jest.mock('@/lib/repositories/member.repository', () => ({
   },
 }))
 
+// runInTransaction delegates to prisma.$transaction; the document writes go
+// through the mocked documentRepository, so the tx client is unused here.
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
-    $transaction: jest.fn(
-      async (
-        fn: (tx: {
-          documentMention: { createMany: jest.Mock }
-          document: { update: jest.Mock }
-        }) => Promise<unknown>
-      ) =>
-        fn({
-          documentMention: { createMany: jest.fn(async () => ({ count: 0 })) },
-          document: {
-            update: jest.fn(async () => ({
-              updatedAt: new Date('2026-05-24T10:00:00Z'),
-            })),
-          },
-        })
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({})
     ),
   },
 }))

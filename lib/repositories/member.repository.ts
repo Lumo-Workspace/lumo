@@ -32,6 +32,15 @@ export const memberRepository = {
     })
   },
 
+  /** The Clerk user id for a member, or null if the member is missing. */
+  async findClerkIdById(memberId: string): Promise<string | null> {
+    const row = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      select: { clerkId: true },
+    })
+    return row?.clerkId ?? null
+  },
+
   /** Update a member's role. */
   async updateRole(memberId: string, role: WorkspaceRole) {
     return prisma.workspaceMember.update({

@@ -75,7 +75,7 @@ export function replaceWithTaskLink(
 // Orchestrator
 // ---------------------------------------------------------------------------
 
-import { prisma } from '@/lib/db/prisma'
+import { runInTransaction } from '@/lib/db/transaction'
 import { documentRepository } from '@/lib/repositories/document.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { createTask as createTaskService } from '@/lib/services/task-creation.service'
@@ -194,24 +194,20 @@ export async function extractTasksFromDoc(
 
   const updatedHtml = root.toString()
 
-  // Inline tx.document.update — the repository wrapper opens its own transaction
-  // which we can't nest with the mention insert. Grouping both in one $transaction
-  // ensures that if doc.update fails, the mention insert rolls back too.
-  const updated = await prisma.$transaction(async tx => {
-    if (created.length > 0) {
-      await tx.documentMention.createMany({
-        data: created.map(t => ({
-          documentId: doc.id,
-          taskId: t.id,
-          source: 'EXPLICIT' as const,
-        })),
-        skipDuplicates: true,
-      })
-    }
-    return tx.document.update({
-      where: { id: doc.id },
-      data: { content: updatedHtml },
-    })
+  // Group the mention insert and content update in one transaction so that if
+  // the content update fails, the mention insert rolls back too. Both repo
+  // methods accept the outer `tx` (transaction-composable, unlike the plain
+  // `documentRepository.update`).
+  const updated = await runInTransaction(async tx => {
+    await documentRepository.createMentions(
+      created.map(t => ({
+        documentId: doc.id,
+        taskId: t.id,
+        source: 'EXPLICIT' as const,
+      })),
+      tx
+    )
+    return documentRepository.updateContent(doc.id, updatedHtml, tx)
   })
 
   return {

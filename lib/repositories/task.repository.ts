@@ -953,4 +953,30 @@ export const taskRepository = {
       data: { commentsSummary: summary, commentsSummaryAt: new Date() },
     })
   },
+
+  /**
+   * Resolve a batch of `(team identifier, number)` pairs to status + PR state,
+   * scoped to a single workspace. Pairs the caller can't see are simply absent
+   * from the result — the mention renderer degrades those to a plain chip.
+   */
+  async findManyForMentionStatus(
+    workspaceId: string,
+    identifiers: { prefix: string; number: number }[]
+  ) {
+    return prisma.task.findMany({
+      where: {
+        project: { workspaceId },
+        OR: identifiers.map(p => ({
+          number: p.number,
+          team: { identifier: p.prefix },
+        })),
+      },
+      select: {
+        number: true,
+        status: true,
+        team: { select: { identifier: true } },
+        pullRequests: { select: { state: true } },
+      },
+    })
+  },
 }

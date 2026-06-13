@@ -100,6 +100,28 @@ describe('memberRepository', () => {
     })
   })
 
+  describe('findClerkIdById', () => {
+    it('returns the clerkId for the member', async () => {
+      mockMemberFindUnique.mockResolvedValue({ clerkId: 'user_123' })
+
+      const result = await memberRepository.findClerkIdById('m-1')
+
+      expect(result).toBe('user_123')
+      expect(mockMemberFindUnique).toHaveBeenCalledWith({
+        where: { id: 'm-1' },
+        select: { clerkId: true },
+      })
+    })
+
+    it('returns null when the member is missing', async () => {
+      mockMemberFindUnique.mockResolvedValue(null)
+
+      const result = await memberRepository.findClerkIdById('nope')
+
+      expect(result).toBeNull()
+    })
+  })
+
   describe('updateRole', () => {
     it('updates member role and returns id + role', async () => {
       mockMemberUpdate.mockResolvedValue({ id: 'm-1', role: 'OWNER' })

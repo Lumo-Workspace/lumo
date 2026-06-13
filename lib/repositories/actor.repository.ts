@@ -15,4 +15,29 @@ export const actorRepository = {
       select: { id: true, externalIdentity: true },
     })
   },
+
+  /** Look up an actor by the `(workspaceId, externalIdentity)` composite key. */
+  async findByExternalIdentity(workspaceId: string, externalIdentity: string) {
+    return prisma.actor.findUnique({
+      where: {
+        workspaceId_externalIdentity: { workspaceId, externalIdentity },
+      },
+    })
+  },
+
+  /** Create a GITHUB_USER pseudo-actor for an unmapped GitHub login. */
+  async createPseudoActor(input: {
+    workspaceId: string
+    externalIdentity: string
+    externalAvatarUrl: string
+  }) {
+    return prisma.actor.create({
+      data: {
+        workspaceId: input.workspaceId,
+        type: 'GITHUB_USER',
+        externalIdentity: input.externalIdentity,
+        externalAvatarUrl: input.externalAvatarUrl,
+      },
+    })
+  },
 }

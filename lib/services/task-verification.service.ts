@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { runInTransaction } from '@/lib/db/transaction'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -352,7 +352,7 @@ export const taskVerificationService = {
       results.map(r => [r.criterionId, r.rejectionReasonEnum ?? null])
     )
 
-    await prisma.$transaction(async tx => {
+    await runInTransaction(async tx => {
       const rows: CreateVerificationRunInput[] = cleaned.map(r => ({
         taskId,
         criterionId: r.criterionId,
