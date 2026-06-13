@@ -58,6 +58,13 @@ export interface TaskStatusResponse {
     /** A MACHINE pass whose evidence ran a different command than the current
      *  checkpointer (LUM-457). */
     checkMismatch: boolean
+    /** Whether a checkpointer currently vouches for this criterion — true only
+     *  for a MACHINE criterion whose latest MACHINE-authored verdict is a PASS
+     *  (LUM-456). A passing MACHINE criterion with this false is carried by a
+     *  human override, never a machine run; HUMAN criteria are always false.
+     *  Read from the server read model so the CLI matches web — never inferred
+     *  from latestVerdict alone (LUM-470). */
+    machinePassed: boolean
     latestVerdict: {
       round: number
       verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
@@ -67,6 +74,15 @@ export interface TaskStatusResponse {
       recordedAt: string
     } | null
   }>
+  /** Honest machine-verification rollup over the active MACHINE criteria
+   *  (LUM-456): genuine checkpointer passes vs human overrides. Mirrored from
+   *  the server read model so the terminal rollup never reads as all-human when
+   *  criteria were machine-verified (LUM-470). */
+  machineVerification: {
+    total: number
+    machineVerified: number
+    humanOverridden: number
+  }
   verificationHistory: Array<{
     round: number
     recordedAt: string
@@ -134,6 +150,15 @@ export function formatTaskStatus(
   lines.push(
     `Criteria (${data.criteria.length} total, ${data.nextActions.length} unmet):`
   )
+  // LUM-470: honest machine-verification rollup over the active MACHINE criteria
+  // (same read model as web, LUM-456) — so the terminal rollup never reads as
+  // all-human when a checkpointer actually verified the work.
+  const mv = data.machineVerification
+  if (mv.total > 0) {
+    lines.push(
+      `Machine verification: ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
+    )
+  }
   for (const c of data.criteria) {
     const glyph =
       c.latestVerdict == null
@@ -170,7 +195,17 @@ export function formatTaskStatus(
       const evidencePart = v.evidencePointer
         ? ` · ${sanitizeField(v.evidencePointer)}`
         : ''
-      lines.push(`      ✓ ${v.verdict}@r${v.round}${evidencePart}`)
+      // LUM-470: tag a passing MACHINE criterion by the read model's
+      // machinePassed flag, not the latest verdict — a criterion a checkpointer
+      // verified reads as machine-verified even after a human signs off, and a
+      // pass with no machine run underneath reads as a human override.
+      const machineTag =
+        c.verifierType === 'MACHINE'
+          ? c.machinePassed
+            ? ' · machine-verified'
+            : ' · human override (no machine pass)'
+          : ''
+      lines.push(`      ✓ ${v.verdict}@r${v.round}${evidencePart}${machineTag}`)
       // LUM-457: a pass that vouches for a pre-edit version of the criterion —
       // render-only downgrade, the criterion still counts met.
       if (c.verdictStale || c.checkMismatch) {

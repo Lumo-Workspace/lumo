@@ -16,6 +16,7 @@ function base(): TaskStatusResponse {
     maxRounds: 3,
     escalated: false,
     criteria: [],
+    machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
     verificationHistory: [],
     lastRoundFailures: [],
     nextActions: [],
@@ -34,6 +35,7 @@ function criterion(over: Partial<TaskStatusResponse['criteria'][number]> = {}) {
     addedAtRound: 0,
     verdictStale: false,
     checkMismatch: false,
+    machinePassed: true,
     latestVerdict: {
       round: 1,
       verdict: 'PASS' as const,

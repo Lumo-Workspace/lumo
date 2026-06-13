@@ -47,6 +47,7 @@ const PAYLOAD: TaskStatusResponse = {
       addedAtRound: 0,
       verdictStale: false,
       checkMismatch: false,
+      machinePassed: false,
       latestVerdict: {
         round: 1,
         verdict: 'FAIL',
@@ -67,6 +68,7 @@ const PAYLOAD: TaskStatusResponse = {
       addedAtRound: 1,
       verdictStale: false,
       checkMismatch: false,
+      machinePassed: false,
       latestVerdict: null,
     },
     {
@@ -80,6 +82,7 @@ const PAYLOAD: TaskStatusResponse = {
       addedAtRound: 0,
       verdictStale: false,
       checkMismatch: false,
+      machinePassed: false,
       latestVerdict: {
         round: 1,
         verdict: 'PASS',
@@ -90,6 +93,7 @@ const PAYLOAD: TaskStatusResponse = {
       },
     },
   ],
+  machineVerification: { total: 2, machineVerified: 0, humanOverridden: 0 },
   verificationHistory: [
     { round: 1, recordedAt: '2026-06-02T10:00:00.000Z', passed: 1, failed: 1 },
   ],
@@ -312,6 +316,125 @@ describe('taskStatus — output', () => {
     })
     expect(out).not.toContain('\x1b')
     expect(out).toContain('red')
+  })
+})
+
+// ── LUM-470: machine-verified vs human-override, aligned with the web read ──
+// model (LUM-456). The CLI must read each criterion's machinePassed flag and the
+// machineVerification aggregate, not infer machine verification from latestVerdict.
+
+/** Two MACHINE criteria that BOTH currently pass with an identical latest
+ *  verdict (a human-signed PASS), differing only in whether a checkpointer
+ *  actually ran underneath (machinePassed). If the renderer read latestVerdict
+ *  alone it could not tell them apart — so distinct rendering proves it reads
+ *  machinePassed. */
+const SIGNED_PAYLOAD: TaskStatusResponse = {
+  ...PAYLOAD,
+  criteria: [
+    {
+      id: 'm-verified',
+      statement: 'route rejects bad input',
+      verifierType: 'MACHINE',
+      checkpointer: 'npx jest x.test.ts',
+      evidenceRequired: false,
+      judgeSteps: null,
+      source: 'AGENT_DRAFT',
+      addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
+      machinePassed: true,
+      latestVerdict: {
+        round: 2,
+        verdict: 'PASS',
+        evidencePointer: 'human:signed',
+        rejectionReason: null,
+        rejectionReasonEnum: null,
+        recordedAt: '2026-06-02T11:00:00.000Z',
+      },
+    },
+    {
+      id: 'm-override',
+      statement: 'config migration applied',
+      verifierType: 'MACHINE',
+      checkpointer: 'npx jest mig.test.ts',
+      evidenceRequired: false,
+      judgeSteps: null,
+      source: 'AGENT_DRAFT',
+      addedAtRound: 0,
+      verdictStale: false,
+      checkMismatch: false,
+      machinePassed: false,
+      latestVerdict: {
+        round: 2,
+        verdict: 'PASS',
+        evidencePointer: 'human:signed',
+        rejectionReason: null,
+        rejectionReasonEnum: null,
+        recordedAt: '2026-06-02T11:00:00.000Z',
+      },
+    },
+  ],
+  machineVerification: { total: 2, machineVerified: 1, humanOverridden: 1 },
+  verificationHistory: [],
+  lastRoundFailures: [],
+  nextActions: [],
+}
+
+/** Pull the rendered block for a criterion (its row plus the indented lines
+ *  beneath it) so a verdict-line tag can be tied to the right criterion. */
+function criterionBlock(out: string, statement: string): string {
+  const lines = out.split('\n')
+  const start = lines.findIndex(l => l.includes(statement))
+  let end = start + 1
+  while (end < lines.length && lines[end]!.startsWith('      ')) end++
+  return lines.slice(start, end).join('\n')
+}
+
+/** Mock fetch so the status read returns `body` and the crossings read is empty. */
+function statusFetch(body: TaskStatusResponse) {
+  return jest.spyOn(global, 'fetch').mockImplementation(async url => {
+    if (String(url).includes('/boundary-crossings'))
+      return jsonResponse(200, { crossings: [] })
+    return jsonResponse(200, body)
+  })
+}
+
+describe('taskStatus — machine-verified vs human-override (LUM-470)', () => {
+  it('task status renders machine-verified vs human-override from machinePassed not latest verdict', async () => {
+    const out = formatTaskStatus(SIGNED_PAYLOAD)
+    // Both criteria show an identical ✓ PASS latest verdict, so the tag cannot
+    // come from latestVerdict — only machinePassed distinguishes them.
+    const verified = criterionBlock(out, 'route rejects bad input')
+    const override = criterionBlock(out, 'config migration applied')
+    expect(verified).toContain('machine-verified')
+    expect(override).toContain('human override (no machine pass)')
+    expect(override).not.toContain('machine-verified')
+
+    // --json carries the per-criterion machinePassed flag through unchanged.
+    statusFetch(SIGNED_PAYLOAD)
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    const byId = (id: string) =>
+      parsed.criteria.find((c: { id: string }) => c.id === id)
+    expect(byId('m-verified').machinePassed).toBe(true)
+    expect(byId('m-override').machinePassed).toBe(false)
+  })
+
+  it('task status shows the machine-verification aggregate of verified vs override', async () => {
+    const out = formatTaskStatus(SIGNED_PAYLOAD)
+    expect(out).toContain(
+      'Machine verification: 1 machine-verified / 1 human override (of 2 MACHINE criteria)'
+    )
+
+    // --json carries the aggregate so a consumer never reads the rollup as all-human.
+    statusFetch(SIGNED_PAYLOAD)
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    expect(parsed.machineVerification).toEqual({
+      total: 2,
+      machineVerified: 1,
+      humanOverridden: 1,
+    })
   })
 })
 
