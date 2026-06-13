@@ -497,3 +497,61 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(reader).not.toMatch(/method:\s*['"`](POST|PUT|PATCH|DELETE)/)
   })
 })
+
+// ── LUM-480: a crossings-check FAILURE must not read as "0 open / safe" ─────
+/** Route fetch so the status read succeeds but the boundary-crossings read
+ *  fails — either with a non-ok HTTP status or by throwing (transport error). */
+function failingCrossingsFetch(mode: 'http' | 'transport' = 'http') {
+  return jest.spyOn(global, 'fetch').mockImplementation(async url => {
+    const u = String(url)
+    if (u.includes('/boundary-crossings')) {
+      if (mode === 'transport') throw new Error('ECONNREFUSED')
+      return jsonResponse(500, {})
+    }
+    return jsonResponse(200, PAYLOAD)
+  })
+}
+
+describe('task status warns when the boundary-crossing check fails (LUM-480)', () => {
+  it('prose prints a check-failed warning instead of an implicitly-safe block', async () => {
+    failingCrossingsFetch('http')
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    const out = stdout()
+    // The warning is explicit; it never claims "0 open" or renders a clear block.
+    expect(out).toContain('Boundary-crossing check failed')
+    expect(out).toContain('could not confirm')
+    expect(out).not.toContain('Open boundary crossings (')
+  })
+
+  it('a transport failure is warned about too, not swallowed', async () => {
+    failingCrossingsFetch('transport')
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    expect(stdout()).toContain('Boundary-crossing check failed')
+  })
+
+  it('a genuine empty read stays silent (no false alarm)', async () => {
+    routedFetch({ crossings: [] })
+    expect(await taskStatus('LUM-9')).toBeUndefined()
+    const out = stdout()
+    expect(out).not.toContain('Boundary-crossing check failed')
+    expect(out).not.toContain('Open boundary crossings')
+  })
+})
+
+describe('task status --json sets openCrossings null on a check failure (LUM-480)', () => {
+  it('--json emits openCrossings:null when the check fails — distinct from []', async () => {
+    failingCrossingsFetch('http')
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    // null (failure) is observably different from [] (successful empty read).
+    expect(parsed.openCrossings).toBeNull()
+  })
+
+  it('--json emits an array (here empty) on a successful read', async () => {
+    routedFetch({ crossings: [] })
+    expect(await taskStatus('LUM-9', { json: true })).toBeUndefined()
+    const parsed = JSON.parse(stdout())
+    expect(Array.isArray(parsed.openCrossings)).toBe(true)
+    expect(parsed.openCrossings).toHaveLength(0)
+  })
+})

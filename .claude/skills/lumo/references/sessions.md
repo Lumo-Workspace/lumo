@@ -181,12 +181,16 @@ nothing to prompt, the section prints "(no content)".
 finish, `session wrap` prints a one-shot read-only reminder **if** the bound
 task has ≥1 OPEN (undispositioned) boundary crossing: `⚠ N open boundary
 crossing(s) on LUM-N still undispositioned:` then a line per crossing `• [SEVERITY]
-CATEGORY` and a web pointer. When there are none — or the session is unbound —
-it prints **nothing** (truly silent, not a "(no content)" line), so a clean task
-adds no wrap-up noise. **Awareness only:** it points at the web acceptance panel;
-there is **no CLI path** to disposition or clear a crossing. Disposition stays
-web + human-only (LUM-426/435/422) — an agent/CLI bearer cannot clear its own
-crossing from the terminal.
+CATEGORY` and a web pointer. When the read genuinely comes back empty — or the
+session is unbound — it prints **nothing** (truly silent, not a "(no content)"
+line), so a clean task adds no wrap-up noise. **But a crossings-check failure is
+not silent (LUM-480):** if the read errors (network / server), it prints
+`⚠ Could not check boundary crossings on LUM-N (network/server error) — unable
+to confirm whether any are still undispositioned`, so a failed safety check never
+masquerades as "0 open / safe". **Awareness only:** it points at the web
+acceptance panel; there is **no CLI path** to disposition or clear a crossing.
+Disposition stays web + human-only (LUM-426/435/422) — an agent/CLI bearer cannot
+clear its own crossing from the terminal.
 
 ```bash
 lumo session wrap                  # interactive: preview each section, choose per-section

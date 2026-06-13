@@ -5,7 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import {
   fetchOpenCrossings,
   dispositionUrl,
-  type OpenCrossing,
+  type OpenCrossingsResult,
   type CrossingAttribution,
 } from '../lib/open-crossings'
 
@@ -15,9 +15,13 @@ export interface TaskStatusOptions {
 }
 
 /** Extra render inputs layered onto the status read model (LUM-448): the task's
- *  OPEN boundary crossings + the human-only web disposition link. */
+ *  OPEN boundary-crossings read result + the human-only web disposition link.
+ *  The result carries an explicit failure state (LUM-480) so a failed check
+ *  renders a warning instead of an implicitly-safe empty block. Absent
+ *  (`undefined`) means no read was attempted — e.g. a direct `formatTaskStatus`
+ *  call in a unit test — and the block is skipped entirely. */
 export interface TaskStatusExtras {
-  openCrossings?: OpenCrossing[]
+  openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
 }
 
@@ -248,7 +252,18 @@ export function formatTaskStatus(
  * a crossing from the terminal (LUM-426/435/422).
  */
 function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
-  const open = extras.openCrossings ?? []
+  const result = extras.openCrossings
+  if (!result) return
+  // LUM-480: a failed check is NOT "0 open / safe" — say so explicitly rather
+  // than rendering an empty (implicitly-clear) block.
+  if (result.status === 'error') {
+    lines.push('')
+    lines.push(
+      '⚠ Boundary-crossing check failed (network/server error) — could not confirm whether any are undispositioned.'
+    )
+    return
+  }
+  const open = result.crossings
   if (open.length === 0) return
   lines.push('')
   lines.push(`⚠ Open boundary crossings (${open.length} undispositioned):`)
@@ -340,16 +355,21 @@ export async function taskStatus(
   const data = (await res.json()) as TaskStatusResponse
 
   // Read-only awareness (LUM-448): surface the task's OPEN boundary crossings
-  // via the existing LUM-435 endpoint. Best-effort — fetchOpenCrossings already
-  // swallows failures to an empty list, so this supplementary safety signal can
-  // never block the primary acceptance status. The resolved taskId (the
-  // identifier the status was fetched for) is the key here.
-  const openCrossings = await fetchOpenCrossings(base, creds.token, taskId)
+  // via the existing LUM-435 endpoint. fetchOpenCrossings returns a result that
+  // distinguishes a check FAILURE from a genuine 0-open read (LUM-480), so this
+  // supplementary safety signal never masquerades a hiccup as "all clear" — yet
+  // it still never throws, so it can't block the primary acceptance status. The
+  // resolved taskId (the identifier the status was fetched for) is the key here.
+  const crossingsResult = await fetchOpenCrossings(base, creds.token, taskId)
 
   if (options.json) {
     // JSON.stringify escapes control chars (…), so the payload is safe
     // to emit raw — and consumers get byte-faithful server data.
-    // The open crossings ride alongside as an additive field (count = length).
+    // openCrossings rides alongside as an additive field: an array on success
+    // (count = length), or `null` when the check failed (LUM-480) — distinct
+    // from `[]`, which is a successful read with zero open crossings.
+    const openCrossings =
+      crossingsResult.status === 'ok' ? crossingsResult.crossings : null
     process.stdout.write(
       JSON.stringify({ ...data, openCrossings }, null, 2) + '\n'
     )
@@ -357,7 +377,7 @@ export async function taskStatus(
   }
   process.stdout.write(
     formatTaskStatus(data, {
-      openCrossings,
+      openCrossings: crossingsResult,
       dispositionUrl: dispositionUrl(
         base,
         creds.workspaceSlug ?? 'lumo',

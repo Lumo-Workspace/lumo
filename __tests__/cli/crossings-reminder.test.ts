@@ -73,14 +73,20 @@ function routedFetch(
 }
 
 describe('formatCrossingReminder (LUM-448) — pure', () => {
-  it('returns null on an empty list (silent)', () => {
-    expect(formatCrossingReminder('LUM-9', [], 'https://x')).toBeNull()
+  it('returns null on a genuine empty read (silent)', () => {
+    expect(
+      formatCrossingReminder(
+        'LUM-9',
+        { status: 'ok', crossings: [] },
+        'https://x'
+      )
+    ).toBeNull()
   })
 
   it('renders count + per-crossing severity when some exist', () => {
     const out = formatCrossingReminder(
       'LUM-9',
-      OPEN,
+      { status: 'ok', crossings: OPEN },
       'https://x#boundary-crossings'
     )!
     expect(out).toContain('2 open boundary crossings on LUM-9')
@@ -90,9 +96,57 @@ describe('formatCrossingReminder (LUM-448) — pure', () => {
   })
 
   it('singularizes for a single crossing', () => {
-    const out = formatCrossingReminder('LUM-9', [OPEN[0]!], 'https://x')!
+    const out = formatCrossingReminder(
+      'LUM-9',
+      { status: 'ok', crossings: [OPEN[0]!] },
+      'https://x'
+    )!
     expect(out).toContain('1 open boundary crossing on LUM-9')
     expect(out).not.toContain('crossings on')
+  })
+})
+
+describe('wrap reminder warns when the crossing check fails (LUM-480)', () => {
+  it('formatCrossingReminder emits a warning, not silence, on an error result', () => {
+    const out = formatCrossingReminder(
+      'LUM-9',
+      { status: 'error', reason: 'HTTP 500' },
+      'https://x#boundary-crossings'
+    )
+    // NOT null — a failed safety check must never read as "0 open / safe".
+    expect(out).not.toBeNull()
+    expect(out!).toContain('Could not check boundary crossings on LUM-9')
+    expect(out!).toContain('unable to confirm')
+    // Still points at the web disposition panel.
+    expect(out!).toContain('https://x#boundary-crossings')
+    // Never implies a zero count / all-clear.
+    expect(out!).not.toContain('still undispositioned:')
+  })
+
+  it('openCrossingReminder surfaces the warning when the crossings fetch errors', async () => {
+    // Session binding resolves, but the crossings endpoint 500s.
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      const u = String(url)
+      if (u.includes('/api/sessions/'))
+        return jsonResponse(200, { taskIdentifier: 'LUM-9' })
+      if (u.includes('/boundary-crossings')) return jsonResponse(500, {})
+      return jsonResponse(404, {})
+    })
+    const out = await openCrossingReminder(CREDS)
+    expect(out).not.toBeNull()
+    expect(out!).toContain('Could not check boundary crossings on LUM-9')
+  })
+
+  it('openCrossingReminder surfaces the warning on a transport failure', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      const u = String(url)
+      if (u.includes('/api/sessions/'))
+        return jsonResponse(200, { taskIdentifier: 'LUM-9' })
+      throw new Error('ECONNREFUSED')
+    })
+    const out = await openCrossingReminder(CREDS)
+    expect(out).not.toBeNull()
+    expect(out!).toContain('Could not check boundary crossings on LUM-9')
   })
 })
 
