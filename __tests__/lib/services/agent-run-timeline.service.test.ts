@@ -403,3 +403,42 @@ describe('agentRunTimelineService.getTimeline — agent identity', () => {
     expect(orphan!.toolCallCount).toBeGreaterThan(0)
   })
 })
+
+it('run durationMs is turn-active time (prompt→STOP), excluding inter-turn idle', async () => {
+  const p1 = new Date('2026-06-01T10:00:00Z')
+  const s1 = new Date('2026-06-01T10:00:30Z') // turn 1: 30s
+  const p2 = new Date('2026-06-01T15:00:00Z') // ~5h idle gap (user away)
+  const s2 = new Date('2026-06-01T15:00:20Z') // turn 2: 20s
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_1',
+      startedAt: p1,
+      lastActivityAt: s2,
+      eventCount: 4,
+      loopCount: 2,
+      usageByModel: null,
+    },
+  ])
+  const mk = (id: string, type: string, createdAt: Date) => ({
+    id,
+    sessionId: 'sess_1',
+    type,
+    toolName: type === 'PRE_TOOL_USE' ? 'Read' : null,
+    payload: {},
+    turnSummary: null,
+    usageByModel: null,
+    createdAt,
+  })
+  events.mockResolvedValue([
+    mk('e1', 'USER_PROMPT_SUBMIT', p1),
+    mk('e2', 'PRE_TOOL_USE', new Date(p1.getTime() + 5_000)),
+    mk('e3', 'STOP', s1),
+    mk('e4', 'USER_PROMPT_SUBMIT', p2),
+    mk('e5', 'STOP', s2),
+  ])
+
+  const { runs } = await agentRunTimelineService.getTimeline('task_1')
+
+  // span would be ~5h; active time is 30s + 20s = 50s.
+  expect(runs[0]!.durationMs).toBe(50_000)
+})
