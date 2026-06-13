@@ -4,6 +4,7 @@ jest.mock('@/lib/db/prisma', () => ({
     taskForecastSnapshot: { findUnique: jest.fn(), create: jest.fn() },
     task: { findUnique: jest.fn(), count: jest.fn() },
     notification: { count: jest.fn() },
+    hookEvent: { findMany: jest.fn() },
   },
 }))
 
@@ -15,11 +16,14 @@ const snapCreate = prisma.taskForecastSnapshot.create as jest.Mock
 const taskFind = prisma.task.findUnique as jest.Mock
 const taskCount = prisma.task.count as jest.Mock
 const notifCount = prisma.notification.count as jest.Mock
+const hookFind = prisma.hookEvent.findMany as jest.Mock
 
 beforeEach(() => {
-  ;[snapFind, snapCreate, taskFind, taskCount, notifCount].forEach(m =>
-    m.mockReset()
+  ;[snapFind, snapCreate, taskFind, taskCount, notifCount, hookFind].forEach(
+    m => m.mockReset()
   )
+  // Default: no turn events → active time 0. Duration-specific tests override.
+  hookFind.mockResolvedValue([])
 })
 
 it('loadActuals sums session usage, counts sessions and clarify notifications', async () => {
@@ -126,65 +130,50 @@ it('countReferenceLibrary counts DONE tasks with sessions', async () => {
   })
 })
 
-describe('loadActuals — totalDurationSec', () => {
-  it('sums each session lastActivityAt − startedAt (seconds), incl. a still-running session', async () => {
-    const base = new Date('2024-01-01T00:00:00Z')
-    const sessionA = {
-      inputTokens: null,
-      outputTokens: null,
-      cacheReadTokens: null,
-      cacheCreationTokens: null,
-      startedAt: base,
-      // 10 minutes = 600s
-      lastActivityAt: new Date(base.getTime() + 10 * 60 * 1000),
-    }
-    const sessionB = {
-      inputTokens: null,
-      outputTokens: null,
-      cacheReadTokens: null,
-      cacheCreationTokens: null,
-      startedAt: base,
-      // 5 minutes = 300s — still "running" (no STOP event), frozen at lastActivityAt
-      lastActivityAt: new Date(base.getTime() + 5 * 60 * 1000),
-    }
-    taskFind.mockResolvedValue({
-      projectId: 'p1',
-      sessions: [sessionA, sessionB],
-    })
-    notifCount.mockResolvedValue(0)
+describe('loadActuals — totalDurationSec (turn-active time)', () => {
+  const base = new Date('2024-01-01T00:00:00Z')
+  const at = (msOffset: number) => new Date(base.getTime() + msOffset)
 
-    const actuals = await retrospectiveRepository.loadActuals('t1')
-    expect(actuals?.totalDurationSec).toBe(900)
+  beforeEach(() => {
+    taskFind.mockResolvedValue({ projectId: 'p1', sessions: [] })
+    notifCount.mockResolvedValue(0)
   })
 
-  it('is 0 when the task has no sessions', async () => {
-    taskFind.mockResolvedValue({
-      projectId: 'p1',
-      sessions: [],
-    })
-    notifCount.mockResolvedValue(0)
+  it('sums per-session turn-active time (prompt→STOP), excluding idle between turns', async () => {
+    // One session, two turns with a ~5h idle gap in between (the merged-bug
+    // case): turn1 30s + turn2 20s = 50s; the idle is excluded.
+    hookFind.mockResolvedValue([
+      { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+      { sessionId: 's1', type: 'STOP', createdAt: at(30_000) },
+      {
+        sessionId: 's1',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: at(5 * 60 * 60 * 1000),
+      },
+      {
+        sessionId: 's1',
+        type: 'STOP',
+        createdAt: at(5 * 60 * 60 * 1000 + 20_000),
+      },
+    ])
 
     const actuals = await retrospectiveRepository.loadActuals('t1')
-    expect(actuals?.totalDurationSec).toBe(0)
+    expect(actuals?.totalDurationSec).toBe(50)
   })
 
-  it('never goes negative when lastActivityAt === startedAt', async () => {
-    const t0 = new Date('2024-06-01T12:00:00Z')
-    taskFind.mockResolvedValue({
-      projectId: 'p1',
-      sessions: [
-        {
-          inputTokens: null,
-          outputTokens: null,
-          cacheReadTokens: null,
-          cacheCreationTokens: null,
-          startedAt: t0,
-          lastActivityAt: t0,
-        },
-      ],
-    })
-    notifCount.mockResolvedValue(0)
+  it('queries only the turn-boundary event types', async () => {
+    await retrospectiveRepository.loadActuals('t1')
+    expect(hookFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+        }),
+      })
+    )
+  })
 
+  it('is 0 when there are no turn events', async () => {
+    hookFind.mockResolvedValue([])
     const actuals = await retrospectiveRepository.loadActuals('t1')
     expect(actuals?.totalDurationSec).toBe(0)
   })

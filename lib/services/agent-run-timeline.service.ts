@@ -9,6 +9,7 @@ import {
   type ModelUsage,
 } from '@/lib/services/model-cost'
 import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import { activeDurationMs } from '@/lib/agent-run/active-time'
 import type { HookEventType, MemoryCategory } from '@prisma/client'
 import { TaskArtifactAgent } from '@prisma/client'
 
@@ -280,10 +281,10 @@ export const agentRunTimelineService = {
         runNumber: i + 1,
         startedAt: s.startedAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
-        durationMs: Math.max(
-          0,
-          s.lastActivityAt.getTime() - s.startedAt.getTime()
-        ),
+        // Active time: Σ per-turn (STOP − prompt), excluding inter-turn idle —
+        // a span (lastActivityAt − startedAt) would count a resumed session's
+        // idle gap. See lib/agent-run/active-time.
+        durationMs: activeDurationMs(sessionEvents),
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,
@@ -314,7 +315,7 @@ export const agentRunTimelineService = {
         runNumber: runs.length + 1,
         startedAt: first,
         lastActivityAt: last,
-        durationMs: new Date(last).getTime() - new Date(first).getTime(),
+        durationMs: activeDurationMs(orphanEvents),
         toolCallCount: orphanEvents.filter(e => e.type === 'PRE_TOOL_USE')
           .length,
         eventCount: orphanEvents.length,
