@@ -31,6 +31,19 @@ export interface OpenCrossing {
   attribution: CrossingAttribution
 }
 
+/**
+ * The outcome of a crossings read (LUM-480), explicitly separating a successful
+ * read — `{ status: 'ok', crossings }`, the list possibly empty — from a check
+ * FAILURE — `{ status: 'error', reason }` (transport / non-ok HTTP / unparseable
+ * body). The previous best-effort shape collapsed both into `[]`, so one
+ * endpoint hiccup read as "0 open / all clear": a safety signal failing *open*.
+ * Callers must branch on `status` and surface a "check failed — could not
+ * confirm" warning rather than implying zero.
+ */
+export type OpenCrossingsResult =
+  | { status: 'ok'; crossings: OpenCrossing[] }
+  | { status: 'error'; reason: string }
+
 const SEVERITY_RANK: Record<CrossingSeverity, number> = {
   HIGH: 3,
   MEDIUM: 2,
@@ -77,33 +90,40 @@ function normalizeSeverity(s: string): CrossingSeverity {
  * way to clear a crossing — disposition stays web + human-only
  * (LUM-426/435/422).
  *
- * Best-effort: any transport / HTTP / parse failure yields an empty list, so a
- * supplementary safety signal can never break the caller's primary output
- * (the acceptance status, the wrap-up panel).
+ * Fails *closed*, not open (LUM-480): any transport / non-ok HTTP / parse
+ * failure returns `{ status: 'error', reason }` so the caller can say "check
+ * failed — could not confirm" instead of mistaking a hiccup for "0 open / all
+ * clear". A successful read returns `{ status: 'ok', crossings }`; the list is
+ * empty only when the server genuinely reports no open crossings. Either way the
+ * supplementary safety signal never throws into the caller's primary output (the
+ * acceptance status, the wrap-up panel) — failure is a value, not an exception.
  */
 export async function fetchOpenCrossings(
   apiUrl: string,
   token: string,
   taskIdentifier: string
-): Promise<OpenCrossing[]> {
+): Promise<OpenCrossingsResult> {
   const url = `${trimTrailingSlash(apiUrl)}/api/tasks/${encodeURIComponent(
     taskIdentifier
   )}/boundary-crossings`
   let res: Response
   try {
     res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  } catch {
-    return []
+  } catch (err) {
+    return {
+      status: 'error',
+      reason: err instanceof Error ? err.message : 'network error',
+    }
   }
-  if (!res.ok) return []
+  if (!res.ok) return { status: 'error', reason: `HTTP ${res.status}` }
   let data: { crossings?: RawCrossing[] }
   try {
     data = (await res.json()) as { crossings?: RawCrossing[] }
   } catch {
-    return []
+    return { status: 'error', reason: 'invalid response body' }
   }
   const rows = Array.isArray(data.crossings) ? data.crossings : []
-  return rows
+  const crossings = rows
     .filter(c => c.disposition == null)
     .map(c => ({
       id: c.id,
@@ -113,6 +133,7 @@ export async function fetchOpenCrossings(
       attribution: normalizeAttribution(c.attribution),
     }))
     .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity])
+  return { status: 'ok', crossings }
 }
 
 /**

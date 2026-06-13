@@ -154,7 +154,12 @@ statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with it
   **Read-only awareness** — this surfaces crossings detected elsewhere
   (LUM-426/435/442); there is no CLI path to disposition or clear one.
   Disposition stays web + human-only (LUM-426/435/422): an agent/CLI bearer
-  cannot clear its own crossing from the terminal.
+  cannot clear its own crossing from the terminal. **The check fails closed
+  (LUM-480):** if the crossings read itself errors (network / server / parse),
+  the block prints `⚠ Boundary-crossing check failed (network/server error) —
+could not confirm whether any are undispositioned` instead of staying silent.
+  Silence means a successful read with zero open crossings, never a failed
+  check — a hiccup can no longer masquerade as "all clear".
 
 ### --json contract
 
@@ -162,11 +167,13 @@ statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with it
 (currently `1`). The schema is versioned: breaking shape changes bump the
 major; additive fields don't. Pin on `version` when scripting against it.
 The open boundary crossings ride along as an additive top-level
-`openCrossings[]` (each `{ id, category, severity, detail, attribution }`,
+`openCrossings` (each entry `{ id, category, severity, detail, attribution }`,
 where `attribution` is `{ workspaceMemberId, sessionId, agent, worktreeBranch,
 model }` with every field nullable — null = unknown, never fabricated; LUM-469;
-the array length is the count; empty when none) — same read-only awareness, no
-write path.
+the array length is the count) — same read-only awareness, no write path.
+**`openCrossings` is `null` when the crossings check failed (LUM-480)** —
+distinct from `[]`, which is a successful read with zero open crossings. Script
+consumers must treat `null` as "unknown / could not confirm", not "safe".
 
 `status` reads; `verify` judges. Running status never starts a round, never
 escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on
