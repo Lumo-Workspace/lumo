@@ -114,6 +114,44 @@ describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', ()
     ).toContain('MIGRATION_FILE_DELETED')
   })
 
+  it('flags a canonical repo-root prisma migration delete', () => {
+    // Relative, git rm, and absolute-main-checkout forms of a CANONICAL repo
+    // migration delete all stay flagged — the CLAUDE.md red line is unchanged.
+    for (const command of [
+      'rm prisma/migrations/20240101000000_init/migration.sql',
+      'git rm -r prisma/migrations/20240101000000_init',
+      'rm -rf /Users/dev/lumo/prisma/migrations/20240101000000_init',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
+  it('does not flag a prisma migration delete inside a worktrees checkout', () => {
+    // LUM-482: a per-worktree checkout copy of prisma/migrations/ under
+    // .worktrees/ is throwaway, not a canonical tracked repo migration. Cleaning
+    // up such a worktree (relative or absolute path, rm or git rm) must NOT
+    // false-trip MIGRATION_FILE_DELETED.
+    for (const command of [
+      'rm -rf .worktrees/prod-migrate/prisma/migrations/20240101000000_init',
+      'git rm -r .worktrees/foo/prisma/migrations/20240101000000_init',
+      'rm -rf /Users/dev/lumo/.worktrees/prod-migrate/prisma/migrations',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).not.toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
   it('flags a destructive DB command (migrate reset / force-reset)', () => {
     expect(
       detectCrossings({
