@@ -238,6 +238,34 @@ export const verificationRunRepository = {
   },
 
   /**
+   * Of the given tasks, which carry a send-back — a HUMAN or AGENT FAIL verdict
+   * (the cross-actor rejection that bounced the task to IN_PROGRESS, LUM-422)?
+   * MACHINE FAILs are excluded: a within-loop verify round that later passes is
+   * the loop working as designed, not a send-back. Backs the LUM-484
+   * negative-class derivation — a task tainted here is recounted as non-merged
+   * in the flywheel discrimination metric even if it later reached DONE.
+   * Workspace scoping comes from the caller's `taskIds` (derived from
+   * workspace-filtered edges). Empty `taskIds` → empty set, no query.
+   */
+  async taskIdsWithSendBack(
+    taskIds?: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    if (taskIds && taskIds.length === 0) return new Set()
+    const client = tx ?? prisma
+    const rows = await client.verificationRun.findMany({
+      where: {
+        verdict: 'FAIL',
+        verifierType: { in: ['HUMAN', 'AGENT'] },
+        ...(taskIds ? { taskId: { in: taskIds } } : {}),
+      },
+      select: { taskId: true },
+      distinct: ['taskId'],
+    })
+    return new Set(rows.map(r => r.taskId))
+  },
+
+  /**
    * Criterion ids whose latest MACHINE-authored verdict is a PASS — a
    * checkpointer currently vouches for them (LUM-456). Derived from the
    * append-only log via {@link deriveMachinePassedCriteria}; the human-verdict

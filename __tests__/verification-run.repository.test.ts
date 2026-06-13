@@ -132,7 +132,9 @@ describe('verificationRunRepository', () => {
     it('returns the max round (the derived "current round")', async () => {
       mockAggregate.mockResolvedValue({ _max: { round: 3 } })
 
-      await expect(verificationRunRepository.maxRoundByTask('t-1')).resolves.toBe(3)
+      await expect(
+        verificationRunRepository.maxRoundByTask('t-1')
+      ).resolves.toBe(3)
       expect(mockAggregate).toHaveBeenCalledWith({
         where: { taskId: 't-1' },
         _max: { round: true },
@@ -148,6 +150,39 @@ describe('verificationRunRepository', () => {
     })
   })
 
+  describe('taskIdsWithSendBack', () => {
+    it('qualifies only HUMAN and AGENT FAIL verdicts', async () => {
+      mockFindMany.mockResolvedValue([
+        { taskId: 't-human' },
+        { taskId: 't-agent' },
+      ])
+
+      const ids = await verificationRunRepository.taskIdsWithSendBack([
+        't-human',
+        't-agent',
+        't-machine',
+        't-pass',
+      ])
+
+      expect(ids).toEqual(new Set(['t-human', 't-agent']))
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: {
+          verdict: 'FAIL',
+          verifierType: { in: ['HUMAN', 'AGENT'] },
+          taskId: { in: ['t-human', 't-agent', 't-machine', 't-pass'] },
+        },
+        select: { taskId: true },
+        distinct: ['taskId'],
+      })
+    })
+
+    it('returns an empty set for empty input without querying', async () => {
+      const ids = await verificationRunRepository.taskIdsWithSendBack([])
+      expect(ids).toEqual(new Set())
+      expect(mockFindMany).not.toHaveBeenCalled()
+    })
+  })
+
   describe('latestRunsByCriterion', () => {
     it('keeps the highest-round / latest run per criterion', async () => {
       mockFindMany.mockResolvedValue([
@@ -157,7 +192,8 @@ describe('verificationRunRepository', () => {
         { criterionId: 'c-1', round: 2, verdict: 'PASS', id: 'r-3' },
       ])
 
-      const result = await verificationRunRepository.latestRunsByCriterion('t-1')
+      const result =
+        await verificationRunRepository.latestRunsByCriterion('t-1')
 
       expect(result.get('c-1')).toEqual(
         expect.objectContaining({ id: 'r-3', verdict: 'PASS', round: 2 })
