@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "एजेंट: {agent}",
   "boundary.panel.attribution.session": "सत्र: {session}",
   "boundary.panel.attribution.owner": "स्वामी: {owner}",
-  "boundary.panel.allCleared": "{count, plural, one {# निपटाया} other {# निपटाए}} · 0 खुले"
+  "boundary.panel.allCleared": "{count, plural, one {# निपटाया} other {# निपटाए}} · 0 खुले",
+  "context.group.reference": "संदर्भ",
+  "task.delivery": "डिलीवरी"
 }

@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "에이전트: {agent}",
   "boundary.panel.attribution.session": "세션: {session}",
   "boundary.panel.attribution.owner": "소유자: {owner}",
-  "boundary.panel.allCleared": "{count, plural, other {처리됨 #건}} · 미처리 0건"
+  "boundary.panel.allCleared": "{count, plural, other {처리됨 #건}} · 미처리 0건",
+  "context.group.reference": "참조",
+  "task.delivery": "딜리버리"
 }

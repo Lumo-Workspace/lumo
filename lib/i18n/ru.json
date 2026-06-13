@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "агент: {agent}",
   "boundary.panel.attribution.session": "сессия: {session}",
   "boundary.panel.attribution.owner": "владелец: {owner}",
-  "boundary.panel.allCleared": "{count, plural, one {# обработано} few {# обработано} other {# обработано}} · 0 открытых"
+  "boundary.panel.allCleared": "{count, plural, one {# обработано} few {# обработано} other {# обработано}} · 0 открытых",
+  "context.group.reference": "Ссылки",
+  "task.delivery": "Поставка"
 }

@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "agente: {agent}",
   "boundary.panel.attribution.session": "sesión: {session}",
   "boundary.panel.attribution.owner": "propietario: {owner}",
-  "boundary.panel.allCleared": "{count, plural, one {# procesada} other {# procesadas}} · 0 abiertas"
+  "boundary.panel.allCleared": "{count, plural, one {# procesada} other {# procesadas}} · 0 abiertas",
+  "context.group.reference": "Referencias",
+  "task.delivery": "Entrega"
 }

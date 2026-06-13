@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "エージェント: {agent}",
   "boundary.panel.attribution.session": "セッション: {session}",
   "boundary.panel.attribution.owner": "オーナー: {owner}",
-  "boundary.panel.allCleared": "{count, plural, other {処置済み # 件}} · 未対応 0 件"
+  "boundary.panel.allCleared": "{count, plural, other {処置済み # 件}} · 未対応 0 件",
+  "context.group.reference": "参照",
+  "task.delivery": "デリバリー"
 }
