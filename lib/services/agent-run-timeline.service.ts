@@ -50,6 +50,9 @@ export interface AgentRunSession {
   toolCallCount: number
   eventCount: number
   memoryCount: number
+  /** LLM-generated one-paragraph summary of the whole run; null until the
+   *  generation service has synthesized one (LUM-481). */
+  runSummary: string | null
   /** Per-run cost split by model; null when nothing captured. */
   cost: { byModel: ModelCost[]; loopCount: number | null } | null
   /** Owning member (Clerk-resolved name + avatar) shown in the run header;
@@ -284,6 +287,7 @@ export const agentRunTimelineService = {
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,
+        runSummary: s.runSummary,
         cost: costByModel
           ? { byModel: costByModel, loopCount: s.loopCount }
           : null,
@@ -315,6 +319,7 @@ export const agentRunTimelineService = {
           .length,
         eventCount: orphanEvents.length,
         memoryCount: orphanMemories.length,
+        runSummary: null,
         cost: null,
         member: null,
         items,

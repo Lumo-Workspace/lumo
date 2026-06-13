@@ -1651,5 +1651,7 @@
   "context.group.reference": "References",
   "task.delivery": "Delivery",
   "boundary.panel.recurrence": "seen ×{count}",
-  "boundary.panel.lastSeen": "Last seen {at}"
+  "boundary.panel.lastSeen": "Last seen {at}",
+  "acceptance.runSummary": "Current run",
+  "agentRun.summaryLabel": "Current run"
 }

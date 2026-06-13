@@ -300,6 +300,58 @@ it('sums only runs with a captured loop count, ignoring null ones', async () => 
   expect(totals.loopCount).toBe(3)
 })
 
+it('surfaces runSummary on the run, and null when a session has none (LUM-481)', async () => {
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_with_summary',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: null,
+      usageByModel: null,
+      runSummary: 'polished',
+    },
+    {
+      id: 'sess_no_summary',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: null,
+      usageByModel: null,
+      runSummary: null,
+    },
+  ])
+  events.mockResolvedValue([
+    {
+      id: 'e1',
+      sessionId: 'sess_with_summary',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+    {
+      id: 'e2',
+      sessionId: 'sess_no_summary',
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    },
+  ])
+
+  const { runs } = await agentRunTimelineService.getTimeline('task_1')
+
+  const withSummary = runs.find(r => r.sessionId === 'sess_with_summary')
+  expect(withSummary!.runSummary).toBe('polished')
+  const noSummary = runs.find(r => r.sessionId === 'sess_no_summary')
+  expect(noSummary!.runSummary).toBeNull()
+})
+
 describe('agentRunTimelineService.getTimeline — agent identity', () => {
   it('passes the session agent through, and defaults the orphan bucket to CLAUDE_CODE', async () => {
     sessions.mockResolvedValue([

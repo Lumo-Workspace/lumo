@@ -297,25 +297,6 @@ export const hookEventRepository = {
   },
 
   /**
-   * Turn summaries for a session, oldest-first. Only STOP / STOP_FAILURE rows
-   * carry a turnSummary; `turnSummary IS NOT NULL` drops turns the LLM skipped.
-   * `since` (the session's lastProgressCommentAt watermark) excludes already-
-   * posted turns so `lumo session wrap` never re-posts the same progress.
-   */
-  async findTurnSummariesBySession(sessionId: string, since?: Date) {
-    return prisma.hookEvent.findMany({
-      where: {
-        sessionId,
-        type: { in: ['STOP', 'STOP_FAILURE'] },
-        turnSummary: { not: null },
-        ...(since ? { createdAt: { gt: since } } : {}),
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, turnSummary: true, createdAt: true },
-    })
-  },
-
-  /**
    * Failure events for a session, oldest-first — the raw signal for the
    * `lumo session wrap` blocked-tag prompt (LUM-153). Returns both explicit
    * tool failures (`POST_TOOL_USE_FAILURE`, carrying `toolName` + the raw

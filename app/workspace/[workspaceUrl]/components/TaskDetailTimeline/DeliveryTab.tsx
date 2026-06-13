@@ -7,6 +7,7 @@ import { DeliveryPanel } from '../DeliveryPanel'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { TokenUsageSection } from '../AgentRunTimeline/TokenUsageSection'
 import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
+import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
 import { AcceptanceTab } from './AcceptanceTab'
 import type { HumanVerdictResult } from './VerdictDecision'
 
@@ -43,11 +44,20 @@ export function DeliveryTab({
 }: DeliveryTabProps) {
   const intl = useIntl()
 
+  // Runs power both sub-views now: the runs list AND the acceptance verdict
+  // card's latest-run summary (LUM-481). Enabled for the whole delivery tab so
+  // `runs[0]` is available on the acceptance sub-view — same react-query key,
+  // so switching sub-segments does not refetch.
   const { data, loading, error } = useAgentRuns({
     taskId,
-    enabled: enabled && subTab === 'runs',
+    enabled,
   })
   const runs = data?.runs ?? []
+  // Same two-layer rule as the run card: prefer the LLM-synthesized summary,
+  // else fall back to the raw digest joined into one line, else nothing.
+  const latestRunSummary =
+    runs[0]?.runSummary ??
+    (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
   const hasModels = (data?.totals.byModel.length ?? 0) > 0
   // Footer = the token-usage body of the delivery card. Null only when runs
   // exist but captured no model usage, so the card shows no empty divider.
@@ -116,6 +126,7 @@ export function DeliveryTab({
           members={members}
           agentActors={agentActors}
           onVerdictRecorded={onVerdictRecorded}
+          latestRunSummary={latestRunSummary}
           {...(mentionSources ? { mentionSources } : {})}
         />
       )}

@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { useSearchParams } from 'next/navigation'
-import { Clock, XCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
+import {
+  Clock,
+  XCircle,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { tasksClient } from '@/lib/api-client'
@@ -45,6 +51,13 @@ interface VerdictDecisionProps {
   onVerdictRecorded: (result: HumanVerdictResult) => void
   /** Mention sources for the FAIL send-back editor (reuses the comment editor). */
   mentionSources?: MentionSources
+  /**
+   * LUM-481 — the latest run's one-line summary, surfaced on the `header`
+   * variant only so a reviewer adjudicating at IN_REVIEW sees what the agent
+   * did. Already resolved by the caller (LLM runSummary, else the digest line);
+   * null/undefined renders nothing. The `floating` variant never shows it.
+   */
+  latestRunSummary?: string | null | undefined
 }
 
 // Status-banner chrome: status.kind → icon + title message id. Mirrors the
@@ -174,6 +187,7 @@ export function VerdictDecision({
   data,
   onVerdictRecorded,
   mentionSources,
+  latestRunSummary,
 }: VerdictDecisionProps) {
   const intl = useIntl()
   const searchParams = useSearchParams()
@@ -467,6 +481,26 @@ export function VerdictDecision({
           gate={gate}
           roundBadge={roundBadge}
         />
+        {/* LUM-481: latest run's summary — context for the reviewer right under
+            the status banner. Header variant only; the floating bar never
+            renders it. */}
+        {latestRunSummary ? (
+          <div
+            data-testid='verdict-run-summary'
+            className='mt-2.5 border-t border-border pt-2.5'
+          >
+            <div className='flex items-center gap-1 text-caption font-medium text-violet-600 dark:text-violet-400'>
+              <Sparkles className='size-3' aria-hidden />
+              {intl.formatMessage({
+                id: 'acceptance.runSummary',
+                defaultMessage: '本次运行',
+              })}
+            </div>
+            <p className='mt-1 text-caption text-foreground'>
+              {latestRunSummary}
+            </p>
+          </div>
+        ) : null}
         {isReview && (
           <div className='mt-3 border-t border-border pt-3'>
             {actionButtons}

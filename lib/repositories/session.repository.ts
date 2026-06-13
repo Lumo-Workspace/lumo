@@ -303,7 +303,7 @@ export const sessionRepository = {
 
   /**
    * Member-scoped read for `lumo session wrap`: returns the bound task (flat
-   * identifier) plus the progress-comment watermark, or null if the session
+   * identifier) plus the memory-review watermark, or null if the session
    * doesn't exist / belongs to another member. Task fields are null when the
    * session has no binding.
    */
@@ -314,13 +314,11 @@ export const sessionRepository = {
     taskId: string | null
     taskIdentifier: string | null
     taskTitle: string | null
-    lastProgressCommentAt: Date | null
     lastMemoryReviewAt: Date | null
   } | null> {
     const row = await prisma.session.findFirst({
       where: { id: sessionId, workspaceMemberId },
       select: {
-        lastProgressCommentAt: true,
         lastMemoryReviewAt: true,
         task: {
           select: {
@@ -339,18 +337,8 @@ export const sessionRepository = {
         ? `${row.task.team.identifier}-${row.task.number}`
         : null,
       taskTitle: row.task?.title ?? null,
-      lastProgressCommentAt: row.lastProgressCommentAt,
       lastMemoryReviewAt: row.lastMemoryReviewAt,
     }
-  },
-
-  /** Advance the progress-comment watermark after a wrap posts a comment. */
-  async setLastProgressCommentAt(sessionId: string, at: Date) {
-    return prisma.session.update({
-      where: { id: sessionId },
-      data: { lastProgressCommentAt: at },
-      select: { id: true },
-    })
   },
 
   /** Advance the memory-review watermark after a wrap applies a review. */
@@ -419,6 +407,7 @@ export const sessionRepository = {
         summary: true,
         summaryType: true,
         summaryGeneratedAt: true,
+        runSummary: true,
         usageByModel: true,
         // Flat cumulative columns: mid-turn events update these but not
         // usageByModel, so the timeline derives the in-flight burn from the
@@ -589,5 +578,40 @@ export const sessionRepository = {
       select: { task: { select: { title: true } } },
     })
     return row?.task ?? null
+  },
+
+  /**
+   * Sessions on a task that have no run summary yet (LUM-481), newest-first.
+   * Each row carries its STOP-row `turnSummary`s (oldest-first) so the
+   * generation service can synthesize a one-paragraph run summary from them.
+   */
+  async listForTaskMissingRunSummary(taskId: string) {
+    return prisma.session.findMany({
+      where: { taskId, runSummary: null },
+      orderBy: { lastActivityAt: 'desc' },
+      select: {
+        id: true,
+        events: {
+          where: {
+            type: { in: ['STOP', 'STOP_FAILURE'] },
+            turnSummary: { not: null },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { turnSummary: true },
+        },
+      },
+    })
+  },
+
+  /**
+   * Persist a generated run summary on a session (LUM-481). `at` doubles as the
+   * idempotency watermark so a re-DONE can skip already-summarized sessions.
+   */
+  async setRunSummary(sessionId: string, summary: string, at: Date) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { runSummary: summary, runSummaryGeneratedAt: at },
+      select: { id: true },
+    })
   },
 }

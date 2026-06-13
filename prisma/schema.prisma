@@ -1580,11 +1580,11 @@ model Session {
   summaryClassifyModel  String?
   summaryContentModel   String?
   summaryEventCount     Int?
-  /// Watermark for `lumo session wrap`: createdAt of the newest turnSummary
-  /// already posted as a progress comment. NULL = nothing posted yet. Turn
-  /// summaries with createdAt > this are "unposted" and eligible for the next
-  /// wrap draft.
-  lastProgressCommentAt DateTime?
+  // LLM-generated one-paragraph summary of this run, generated server-side when
+  // the bound task reaches DONE. Null until generated (legacy / in-flight runs).
+  runSummary            String?
+  // Idempotency guard: a re-DONE skips sessions already summarized.
+  runSummaryGeneratedAt DateTime?
   /// Memory-review watermark for `lumo session wrap` (LUM-152): Layer1 memories
   /// with createdAt > this are "unreviewed" and listed in the next wrap draft.
   lastMemoryReviewAt    DateTime?

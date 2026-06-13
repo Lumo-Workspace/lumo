@@ -1651,5 +1651,7 @@
   "context.group.reference": "Ссылки",
   "task.delivery": "Поставка",
   "boundary.panel.recurrence": "замечено ×{count}",
-  "boundary.panel.lastSeen": "Последний раз {at}"
+  "boundary.panel.lastSeen": "Последний раз {at}",
+  "acceptance.runSummary": "Текущий запуск",
+  "agentRun.summaryLabel": "Текущий запуск"
 }
