@@ -125,3 +125,39 @@ it('degrades a row to actual-only when its forecast is null', async () => {
     screen.getByText(en['retrospective.noForecast']!, { exact: false })
   ).toBeInTheDocument()
 })
+
+it('renders a footer slot under a divider when provided', async () => {
+  fetchRetro.mockResolvedValue({
+    retrospective: {
+      tokenCost: {
+        forecast: iv(2.4e7, 2.6e7, 3e7),
+        actual: 2.95e7,
+        deltaPct: 13,
+        band: 'within',
+      },
+      iterations: {
+        forecast: iv(2, 3, 3),
+        actual: 3,
+        deltaPct: 0,
+        band: 'within',
+      },
+      clarifyRounds: {
+        forecast: iv(1, 1, 2),
+        actual: 2,
+        deltaPct: 100,
+        band: 'within',
+      },
+      referenceLibrarySize: 27,
+      capturedAt: '2026-06-01',
+    },
+  })
+  wrap(
+    <RetrospectivePanel
+      taskId='t1'
+      status='DONE'
+      footer={<div data-testid='slot' />}
+    />
+  )
+  await screen.findByText(en['retrospective.title']!)
+  expect(screen.getByTestId('slot')).toBeInTheDocument()
+})

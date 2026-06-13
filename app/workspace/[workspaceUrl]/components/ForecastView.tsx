@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import type {
   Interval,
@@ -41,7 +42,13 @@ function ConfidenceBadge({ level }: { level: ForecastConfidence }) {
 }
 
 /** 交付前的纯预测视图。forecast 由编排器传入（不自取数）。 */
-export function ForecastView({ forecast }: { forecast: TaskForecast }) {
+export function ForecastView({
+  forecast,
+  footer,
+}: {
+  forecast: TaskForecast
+  footer?: ReactNode
+}) {
   const intl = useIntl()
   const [showSources, setShowSources] = useState(false)
   const title = intl.formatMessage({ id: 'forecast.title' })
@@ -55,6 +62,9 @@ export function ForecastView({ forecast }: { forecast: TaskForecast }) {
         <p className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'forecast.insufficient' })}
         </p>
+        {footer && (
+          <div className='mt-4 border-t border-border pt-3'>{footer}</div>
+        )}
       </section>
     )
   }
@@ -163,6 +173,9 @@ export function ForecastView({ forecast }: { forecast: TaskForecast }) {
             </ul>
           )}
         </>
+      )}
+      {footer && (
+        <div className='mt-4 border-t border-border pt-3'>{footer}</div>
       )}
     </section>
   )

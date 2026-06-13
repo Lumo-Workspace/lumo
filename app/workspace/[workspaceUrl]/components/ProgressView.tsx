@@ -76,9 +76,11 @@ function SummaryLine({ children }: { children: ReactNode }) {
 export function ProgressView({
   progress,
   agentStatus,
+  footer,
 }: {
   progress: TaskProgress
   agentStatus?: string | null
+  footer?: ReactNode
 }) {
   const intl = useIntl()
   const { tokenCost, iterations, clarifyRounds } = progress
@@ -183,6 +185,9 @@ export function ProgressView({
             </SummaryLine>
           )}
         </ul>
+      )}
+      {footer && (
+        <div className='mt-4 border-t border-border pt-3'>{footer}</div>
       )}
     </section>
   )

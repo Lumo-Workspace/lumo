@@ -170,3 +170,14 @@ it('renders the token band AND a runs-only summary when token forecast exists bu
   // not the compare section
   expect(screen.queryByText('Progress')).not.toBeInTheDocument()
 })
+
+it('renders a footer slot under a divider when provided', () => {
+  render(
+    <ProgressView
+      progress={onTrack}
+      agentStatus={null}
+      footer={<div data-testid='slot' />}
+    />
+  )
+  expect(screen.getByTestId('slot')).toBeInTheDocument()
+})
