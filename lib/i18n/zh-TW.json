@@ -1651,5 +1651,7 @@
   "context.group.reference": "引用",
   "task.delivery": "交付",
   "boundary.panel.recurrence": "出現 {count} 次",
-  "boundary.panel.lastSeen": "最後出現 {at}"
+  "boundary.panel.lastSeen": "最後出現 {at}",
+  "acceptance.runSummary": "本次執行",
+  "agentRun.summaryLabel": "本次執行"
 }

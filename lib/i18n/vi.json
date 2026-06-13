@@ -1651,5 +1651,7 @@
   "context.group.reference": "Tham chiếu",
   "task.delivery": "Bàn giao",
   "boundary.panel.recurrence": "thấy ×{count} lần",
-  "boundary.panel.lastSeen": "Thấy lần cuối {at}"
+  "boundary.panel.lastSeen": "Thấy lần cuối {at}",
+  "acceptance.runSummary": "Lần chạy hiện tại",
+  "agentRun.summaryLabel": "Lần chạy hiện tại"
 }

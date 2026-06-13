@@ -1651,5 +1651,7 @@
   "context.group.reference": "Rujukan",
   "task.delivery": "Penghantaran",
   "boundary.panel.recurrence": "dilihat ×{count}",
-  "boundary.panel.lastSeen": "Terakhir dilihat {at}"
+  "boundary.panel.lastSeen": "Terakhir dilihat {at}",
+  "acceptance.runSummary": "Larian semasa",
+  "agentRun.summaryLabel": "Larian semasa"
 }
