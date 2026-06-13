@@ -1652,7 +1652,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Print the draft but do not post or advance the watermark"
+          "description": "Print the section drafts but do not mutate memories/tags or advance watermarks"
         },
         "--used": {
           "long": "--used",
@@ -1668,11 +1668,11 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Post the drafted comment without prompting (agent-friendly)"
+          "description": "Keep all memories without prompting (agent-friendly); does not auto-apply the blocked tag"
         }
       },
       "hasSubcommands": false,
-      "description": "Session-end wrap-up: draft a progress comment from this session's turn summaries and post it to the bound task after confirmation."
+      "description": "Session-end wrap-up: review the memories sedimented this session, vote which injected context fragments were actually used, and optionally flag the bound task blocked."
     },
     "setup": {
       "arguments": [],
