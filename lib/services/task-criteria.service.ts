@@ -1,6 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import type { Prisma, TaskStatus } from '@prisma/client'
-import { prisma } from '@/lib/db/prisma'
+import { runInTransaction } from '@/lib/db/transaction'
 import {
   acceptanceCriterionRepository,
   type AcceptanceCriterionRow,
@@ -143,7 +143,7 @@ async function applyContractDiff(
   })
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
-  await prisma.$transaction(async tx => {
+  await runInTransaction(async tx => {
     for (const c of toDelete) {
       if (runsByCriterion.has(c.id)) {
         await acceptanceCriterionRepository.softDelete(c.id, tx)
@@ -354,7 +354,7 @@ export const taskCriteriaService = {
       } else {
         // First TODO (never started): free full-group replace. A never-started
         // task has no runs, so the hard delete is safe.
-        await prisma.$transaction(async tx => {
+        await runInTransaction(async tx => {
           for (const c of existing) {
             await acceptanceCriterionRepository.delete(c.id, tx)
             await recordCriterionChanged(tx, {
@@ -395,7 +395,7 @@ export const taskCriteriaService = {
         })
       }
     } else {
-      await prisma.$transaction(async tx => {
+      await runInTransaction(async tx => {
         // Re-check inside the transaction to narrow the double-submit race.
         const count = await acceptanceCriterionRepository.countByTask(
           taskId,

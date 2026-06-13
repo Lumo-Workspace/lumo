@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { runInTransaction } from '@/lib/db/transaction'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
   verificationRunRepository,
@@ -80,9 +80,7 @@ export const taskAgentVerdictService = {
       const unknown = input.criterionIds.filter(id => !byId.has(id))
       if (unknown.length > 0) {
         throw Object.assign(
-          new Error(
-            `Criterion(s) not on this task: ${unknown.join(', ')}`
-          ),
+          new Error(`Criterion(s) not on this task: ${unknown.join(', ')}`),
           { status: 400 }
         )
       }
@@ -93,7 +91,8 @@ export const taskAgentVerdictService = {
     // Round = current max, never incremented (same semantics as a human
     // verdict). Floored at 1 so a send-back before any machine round still
     // lands on a valid 1-based round.
-    const maxRound = (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
+    const maxRound =
+      (await verificationRunRepository.maxRoundByTask(taskId)) ?? 0
     const round = Math.max(1, maxRound)
 
     const callerActor = await memberRepository.findActorByMemberId(
@@ -119,7 +118,7 @@ export const taskAgentVerdictService = {
     }
     const summary = summarizeSendBackNote(input.note)
 
-    await prisma.$transaction(async tx => {
+    await runInTransaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
         taskId,
         criterionId: c.id,

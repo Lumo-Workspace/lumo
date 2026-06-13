@@ -20,7 +20,6 @@ import {
   GithubApiError,
 } from '@/lib/integrations/github/pr-comment-client'
 import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
-import { prisma } from '@/lib/db/prisma'
 import { githubActorService } from '@/lib/services/github-actor.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
@@ -96,14 +95,11 @@ async function resolveAuthorDisplayName(actorId: string): Promise<string> {
   try {
     const member = await memberRepository.findByActorId(actorId)
     if (!member) return 'Someone'
-    const row = await prisma.workspaceMember.findUnique({
-      where: { id: member.id },
-      select: { clerkId: true },
-    })
-    if (!row?.clerkId) return 'Someone'
+    const clerkId = await memberRepository.findClerkIdById(member.id)
+    if (!clerkId) return 'Someone'
     const { clerkClient } = await import('@clerk/nextjs/server')
     const client = await clerkClient()
-    const user = await client.users.getUser(row.clerkId)
+    const user = await client.users.getUser(clerkId)
     const fullName = [user.firstName, user.lastName]
       .filter(Boolean)
       .join(' ')

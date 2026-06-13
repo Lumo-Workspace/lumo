@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { runInTransaction } from '@/lib/db/transaction'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
   verificationRunRepository,
@@ -193,7 +193,7 @@ export const taskHumanVerdictService = {
     const priorLatest =
       await verificationRunRepository.latestRunsByCriterion(taskId)
 
-    await prisma.$transaction(async tx => {
+    await runInTransaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
         taskId,
         criterionId: c.id,

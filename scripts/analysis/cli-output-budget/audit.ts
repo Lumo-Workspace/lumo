@@ -145,10 +145,18 @@ function makeStatus(n: number): TaskStatusResponse {
     verifierType: c.verifierType,
     checkpointer: c.checkpointer,
     evidenceRequired: c.evidenceRequired,
+    judgeSteps: null,
     source: c.source,
     addedAtRound: c.addedAtRound,
+    verdictStale: false,
+    checkMismatch: false,
+    machinePassed: false,
     latestVerdict: null,
   }))
+  // Honest machine-verification rollup (LUM-470): a required field on the read
+  // model, so the fixture must carry it too — otherwise formatTaskStatus reads
+  // `machineVerification.total` off undefined.
+  const machineTotal = criteria.filter(c => c.verifierType === 'MACHINE').length
   return {
     version: 1,
     task: { id: 't', identifier: 'LUM-428', title: 'audit', status: 'TODO' },
@@ -156,6 +164,11 @@ function makeStatus(n: number): TaskStatusResponse {
     maxRounds: 3,
     escalated: false,
     criteria,
+    machineVerification: {
+      total: machineTotal,
+      machineVerified: machineTotal,
+      humanOverridden: 0,
+    },
     verificationHistory: [],
     lastRoundFailures: [],
     nextActions: criteria.map(c => ({
@@ -163,6 +176,7 @@ function makeStatus(n: number): TaskStatusResponse {
       statement: c.statement,
       verifierType: c.verifierType,
       checkpointer: c.checkpointer,
+      judgeSteps: null,
       source: c.source,
       addedAtRound: c.addedAtRound,
       rejectionReason: null,
