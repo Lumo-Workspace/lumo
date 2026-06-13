@@ -17,7 +17,6 @@ import {
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import { TaskMilestoneField } from './milestones/TaskMilestoneField'
-import { DeliveryPanel } from './DeliveryPanel'
 import React from 'react'
 
 interface TaskDetailSidebarProps {
@@ -161,11 +160,6 @@ export function TaskDetailSidebar({
           </div>
         ))}
       </div>
-      <DeliveryPanel
-        taskId={task.id}
-        status={task.status}
-        agentStatus={task.agentStatus}
-      />
     </div>
   )
 }
