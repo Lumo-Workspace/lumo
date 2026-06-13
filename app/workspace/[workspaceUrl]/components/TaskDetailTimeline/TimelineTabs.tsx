@@ -153,12 +153,13 @@ export function TimelineTabs({
   useEffect(() => {
     if (!urlSlug) return
     // Wait until the probe backing this tab has resolved before treating it as
-    // hidden — otherwise a deep link to a probe-backed tab (agent/memory/
-    // lineage/acceptance) gets normalized away on the transient unresolved
-    // value before the probe lands, flashing to Comments and writing a stale
-    // URL. The "resolved" signals mirror the visibility derivation below:
-    // useAgentRuns/useTaskLineage/useTaskStatus expose data !== null once
-    // loaded; useMemories signals it via loading === false.
+    // hidden — otherwise a deep link to a probe-backed tab (memory/lineage)
+    // gets normalized away on the transient unresolved value before the probe
+    // lands, flashing to Comments and writing a stale URL. The "resolved"
+    // signals mirror the visibility derivation below: useTaskLineage exposes
+    // data !== null once loaded; useMemories signals it via loading === false.
+    // The Delivery tab (slug 'delivery' → urlTab 'agent') is always visible, so
+    // it needs no probe gate.
     const probeResolved =
       urlTab === 'memory'
         ? !taskMemories.loading
