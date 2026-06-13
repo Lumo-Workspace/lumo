@@ -60,3 +60,8 @@ it('renders iterations + token rows from the forecast prop', () => {
   expect(screen.getByText('Iterations')).toBeInTheDocument()
   expect(screen.getByText('Token cost')).toBeInTheDocument()
 })
+
+it('renders a footer slot under a divider when provided', () => {
+  render(<ForecastView forecast={base} footer={<div data-testid='slot' />} />)
+  expect(screen.getByTestId('slot')).toBeInTheDocument()
+})

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
 import type { Interval } from '@/lib/forecast/types'
@@ -98,9 +99,11 @@ function CompareRow({
 export function RetrospectivePanel({
   taskId,
   status,
+  footer,
 }: {
   taskId: string
   status: ApiStatus
+  footer?: ReactNode
 }) {
   const intl = useIntl()
   const isTerminal = status === 'DONE'
@@ -180,6 +183,9 @@ export function RetrospectivePanel({
           )}
         </p>
       </div>
+      {footer && (
+        <div className='mt-4 border-t border-border pt-3'>{footer}</div>
+      )}
     </section>
   )
 }

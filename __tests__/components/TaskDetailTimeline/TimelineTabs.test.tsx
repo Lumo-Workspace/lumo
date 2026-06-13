@@ -87,10 +87,6 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/ContextTab',
   () => ({ ContextTab: () => <div data-testid='panel-context' /> })
 )
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunTab',
-  () => ({ AgentRunTab: () => <div data-testid='panel-agent' /> })
-)
 // The Delivery tab folds runs + acceptance behind a sub-segment; stub it to an
 // empty div so the only `verdict-status` node that can appear is the floating
 // VerdictDecision rendered by TimelineTabs itself.

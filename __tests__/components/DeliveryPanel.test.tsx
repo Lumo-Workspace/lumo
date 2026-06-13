@@ -1,13 +1,16 @@
 /** @jest-environment jsdom */
 
-jest.mock('@/app/workspace/[workspaceUrl]/components/RetrospectivePanel', () => ({
-  RetrospectivePanel: () => <div>RETRO</div>,
-}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/RetrospectivePanel',
+  () => ({
+    RetrospectivePanel: () => <div>RETRO</div>,
+  })
+)
 jest.mock('@/app/workspace/[workspaceUrl]/components/ForecastView', () => ({
   ForecastView: () => <div>FORECAST</div>,
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/components/ProgressView', () => ({
-  ProgressView: () => <div>PROGRESS</div>,
+  ProgressView: ({ footer }: { footer?: any }) => <div>PROGRESS{footer}</div>,
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskProgress', () => ({
   useTaskProgress: jest.fn(),
@@ -52,4 +55,19 @@ it('renders nothing while loading', () => {
     <DeliveryPanel taskId='t1' status='IN_PROGRESS' />
   )
   expect(container).toBeEmptyDOMElement()
+})
+
+it('passes footer through to the active view', () => {
+  useProgress.mockReturnValue({
+    progress: { sessionCount: 2, forecast: {} },
+    isLoading: false,
+  })
+  render(
+    <DeliveryPanel
+      taskId='t1'
+      status='IN_REVIEW'
+      footer={<div data-testid='slot' />}
+    />
+  )
+  expect(screen.getByTestId('slot')).toBeInTheDocument()
 })
