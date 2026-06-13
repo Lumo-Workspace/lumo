@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl'
 import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
 import type { MentionSources } from '@/types/mention'
 import { DeliveryPanel } from '../DeliveryPanel'
-import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
+import { useAgentRuns } from '../../hooks/useAgentRuns'
+import { TokenUsageSection } from '../AgentRunTimeline/TokenUsageSection'
+import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
 import { AcceptanceTab } from './AcceptanceTab'
 import type { HumanVerdictResult } from './VerdictDecision'
 
@@ -40,6 +42,24 @@ export function DeliveryTab({
   mentionSources,
 }: DeliveryTabProps) {
   const intl = useIntl()
+
+  const { data, loading, error } = useAgentRuns({
+    taskId,
+    enabled: enabled && subTab === 'runs',
+  })
+  const runs = data?.runs ?? []
+  const hasModels = (data?.totals.byModel.length ?? 0) > 0
+  // Footer = the token-usage body of the delivery card. Null only when runs
+  // exist but captured no model usage, so the card shows no empty divider.
+  const showTokenSection = loading || !!error || runs.length === 0 || hasModels
+  const tokenFooter = showTokenSection ? (
+    <TokenUsageSection
+      data={data}
+      loading={loading}
+      error={error}
+      taskIdentifier={taskIdentifier}
+    />
+  ) : null
 
   const segBtn = (active: boolean) =>
     `px-4 py-1 text-sm rounded-md transition-colors ${
@@ -83,12 +103,9 @@ export function DeliveryTab({
             taskId={taskId}
             status={taskStatus}
             agentStatus={agentStatus}
+            footer={tokenFooter}
           />
-          <AgentRunTab
-            taskId={taskId}
-            taskIdentifier={taskIdentifier}
-            enabled={enabled && subTab === 'runs'}
-          />
+          {runs.length > 0 && <AgentRunList runs={runs} />}
         </div>
       )}
       {subTab === 'acceptance' && (
