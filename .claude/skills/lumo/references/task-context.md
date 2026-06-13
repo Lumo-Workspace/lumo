@@ -132,7 +132,7 @@ identifier (`LUM-N`), prints the causal trail:
 
 ```bash
 lumo task lineage LUM-42            # per-session causal trail + cost
-lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
+lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health; used-vs-base merge rate uses iteration-taint fold (send-back/reopen/PR-close = negative class even if later merged); shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet
 ```
 
 - **Totals banner** — distinct sessions, fragment count, edge count,
