@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import type { Interval } from '@/lib/forecast/types'
+import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
 
 /** Converts a nullable Interval to a Prisma-compatible nullable JSON value. */
 function toJsonValue(
@@ -73,7 +74,11 @@ export const retrospectiveRepository = {
     }
   },
 
-  /** 实算 actual：token 求和（无 usage→null）、session 数、AGENT_CLARIFY 数。 */
+  /**
+   * 实算 actual：token 求和（无 usage→null）、session 数、AGENT_CLARIFY 数、
+   * agent 活跃时长（每 turn `STOP − prompt` 之和，排除轮次间空闲 — 见
+   * `lib/agent-run/active-time`）。
+   */
   async loadActuals(taskId: string): Promise<RetrospectiveActuals | null> {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
@@ -85,8 +90,6 @@ export const retrospectiveRepository = {
             outputTokens: true,
             cacheReadTokens: true,
             cacheCreationTokens: true,
-            startedAt: true,
-            lastActivityAt: true,
           },
         },
       },
@@ -110,12 +113,22 @@ export const retrospectiveRepository = {
       where: { taskId, type: 'AGENT_CLARIFY' },
     })
 
-    const totalDurationSec = Math.round(
-      task.sessions.reduce(
-        (sum, s) =>
-          sum + Math.max(0, s.lastActivityAt.getTime() - s.startedAt.getTime()),
-        0
-      ) / 1000
+    // Active time from the turn-boundary hook events (prompt / STOP) of every
+    // session linked to the task — span-based timing counts idle, this doesn't.
+    const turnEvents = await prisma.hookEvent.findMany({
+      where: {
+        OR: [{ taskId }, { taskId: null, session: { taskId } }],
+        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, type: true, createdAt: true },
+    })
+    const totalDurationSec = sumActiveDurationSec(
+      turnEvents.map(e => ({
+        sessionId: e.sessionId ?? '__none__',
+        type: e.type,
+        createdAt: e.createdAt,
+      }))
     )
 
     return {
