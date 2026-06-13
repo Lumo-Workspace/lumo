@@ -407,6 +407,7 @@ export const sessionRepository = {
         summary: true,
         summaryType: true,
         summaryGeneratedAt: true,
+        runSummary: true,
         usageByModel: true,
         // Flat cumulative columns: mid-turn events update these but not
         // usageByModel, so the timeline derives the in-flight burn from the
