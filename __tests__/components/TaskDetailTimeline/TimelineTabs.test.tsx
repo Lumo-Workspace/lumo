@@ -91,6 +91,17 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunTab',
   () => ({ AgentRunTab: () => <div data-testid='panel-agent' /> })
 )
+// The Delivery tab folds runs + acceptance behind a sub-segment; stub it to an
+// empty div so the only `verdict-status` node that can appear is the floating
+// VerdictDecision rendered by TimelineTabs itself.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/DeliveryTab',
+  () => ({
+    DeliveryTab: ({ subTab }: { subTab: string }) => (
+      <div data-testid='panel-delivery' data-subtab={subTab} />
+    ),
+  })
+)
 jest.mock('@/app/workspace/[workspaceUrl]/components/memory/MemoryTab', () => ({
   MemoryTab: () => <div data-testid='panel-memory' />,
 }))
@@ -119,7 +130,7 @@ jest.mock(
   })
 )
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { TimelineTabs } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs'
 import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useMemories } from '@/app/workspace/[workspaceUrl]/hooks/useMemories'
@@ -134,9 +145,11 @@ const mockStatus = useTaskStatus as jest.Mock
 const baseProps: any = {
   taskId: 'task-1',
   taskIdentifier: 'LUM-1',
+  taskStatus: 'IN_PROGRESS',
+  agentStatus: null,
   workspaceId: 'ws-1',
   workspaceUrl: 'acme',
-  commentsProps: { members: [] },
+  commentsProps: { members: [], agentActors: [] },
   slackConnected: false,
   pullRequests: [],
   onLinkPr: jest.fn(),
@@ -239,37 +252,34 @@ beforeEach(() => {
 })
 
 describe('TimelineTabs tab visibility', () => {
-  it('hides Agent Run / Memory / Lineage when all three are empty', () => {
+  it('hides Memory / Lineage when both are empty but keeps the always-on tabs', () => {
     setPresence({ agent: false, memory: false, lineage: false })
     render(<TimelineTabs {...baseProps} />)
 
-    // The always-present tabs anchor the bar.
+    // The always-present tabs anchor the bar — Delivery is now always on.
     expect(screen.getByRole('button', { name: 'Comments' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
 
-    // The three empty tabs are hidden.
-    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
+    // The two empty rare tabs are hidden.
     expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
   })
 
-  it('shows all three tabs when each has content', () => {
+  it('shows Memory and Lineage when each has content', () => {
     setPresence({ agent: true, memory: true, lineage: true })
     render(<TimelineTabs {...baseProps} />)
 
-    expect(
-      screen.getByRole('button', { name: 'Agent 运行' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lineage' })).toBeInTheDocument()
   })
 
-  it('shows only the tabs that have content', () => {
+  it('shows only the rare tabs that have content', () => {
     setPresence({ agent: false, memory: true, lineage: false })
     render(<TimelineTabs {...baseProps} />)
 
-    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
   })
@@ -282,25 +292,38 @@ describe('TimelineTabs tab visibility', () => {
     expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
   })
 
-  it('hides the Acceptance tab when the task has no criteria', () => {
+  it('always shows the Delivery tab even with no agent runs', () => {
     setPresence({
       agent: false,
       memory: false,
       lineage: false,
       criteria: false,
+      taskStatus: 'TODO',
+    })
+    render(<TimelineTabs {...baseProps} taskStatus='TODO' />)
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
+  })
+
+  it('does not render a top-level Acceptance tab', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+      taskStatus: 'IN_REVIEW',
     })
     render(<TimelineTabs {...baseProps} />)
+    // Acceptance is now a sub-segment inside Delivery, never a top-level tab.
+    expect(screen.queryByRole('button', { name: 'Acceptance' })).toBeNull()
     expect(screen.queryByRole('button', { name: '验收' })).toBeNull()
   })
 
-  it('shows the Acceptance tab and opens its panel when a contract exists', () => {
-    setPresence({ agent: false, memory: false, lineage: false, criteria: true })
+  it('opens the Delivery panel when the Delivery tab is clicked', () => {
+    setPresence({ agent: true, memory: false, lineage: false })
     render(<TimelineTabs {...baseProps} />)
 
-    const tab = screen.getByRole('button', { name: '验收' })
-    expect(tab).toBeInTheDocument()
-    fireEvent.click(tab)
-    expect(screen.getByTestId('panel-acceptance')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delivery' }))
+    expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
   })
 })
 
@@ -324,7 +347,7 @@ function setProbesUnresolved() {
 }
 
 describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
-  it('shows the three tabs from SSR presence before the probes resolve', () => {
+  it('shows Memory and Lineage from SSR presence before the probes resolve', () => {
     setProbesUnresolved()
     render(
       <TimelineTabs
@@ -337,14 +360,13 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       />
     )
 
-    expect(
-      screen.getByRole('button', { name: 'Agent 运行' })
-    ).toBeInTheDocument()
+    // Delivery is always on regardless of probe state.
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lineage' })).toBeInTheDocument()
   })
 
-  it('hides the tabs when SSR presence is false and the probes have not resolved', () => {
+  it('hides Memory and Lineage when SSR presence is false and the probes have not resolved', () => {
     setProbesUnresolved()
     render(
       <TimelineTabs
@@ -357,12 +379,13 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       />
     )
 
-    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
+    // Delivery stays on even when SSR presence is empty.
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
   })
 
-  it('lets a resolved probe override an over-eager SSR presence', () => {
+  it('lets a resolved probe override an over-eager SSR presence for the rare tabs', () => {
     // SSR said "has content" but the probe lands empty — reconcile to the
     // probe (the source of truth) and hide the tab.
     setPresence({ agent: false, memory: false, lineage: false })
@@ -377,24 +400,23 @@ describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
       />
     )
 
-    expect(screen.queryByRole('button', { name: 'Agent 运行' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
   })
 })
 
 describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
-  it('renders the tab named by the URL path segment', () => {
+  it('renders the Delivery panel named by the delivery URL path segment', () => {
     setPresence({
       agent: false,
       memory: false,
       lineage: false,
       criteria: true,
     })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
-    mockNav.tab = ['acceptance']
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
+    mockNav.tab = ['delivery']
     render(<TimelineTabs {...baseProps} />)
-    expect(screen.getByTestId('panel-acceptance')).toBeInTheDocument()
+    expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
   })
 
   it('falls back to Comments and normalizes the URL when the segment targets a hidden tab', () => {
@@ -404,8 +426,8 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
       lineage: false,
       criteria: false,
     })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
-    mockNav.tab = ['acceptance']
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/memory'
+    mockNav.tab = ['memory']
     render(<TimelineTabs {...baseProps} />)
     expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
     expect(mockNav.replace).toHaveBeenCalledWith(
@@ -413,6 +435,24 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
       { scroll: false }
     )
     expect(mockNav.replace).toHaveBeenCalledTimes(1)
+  })
+
+  it('normalizes the dropped acceptance slug to Comments', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+    })
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
+    mockNav.tab = ['acceptance']
+    render(<TimelineTabs {...baseProps} />)
+    // tabFromSlug('acceptance') is now null → the effect normalizes to Comments.
+    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
+    expect(mockNav.replace).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1',
+      { scroll: false }
+    )
   })
 
   it('pushes the tab path and switches panel on click', () => {
@@ -439,8 +479,12 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
   })
 })
 
-describe('TimelineTabs floating VerdictDecision (LUM-467)', () => {
-  it('shows the floating verdict bar off the acceptance tab and hides it on it', async () => {
+describe('TimelineTabs floating VerdictDecision mutual exclusion', () => {
+  // DeliveryTab is mocked to an empty div in this file, so the ONLY node that
+  // can carry `verdict-status` is the floating VerdictDecision rendered by
+  // TimelineTabs itself. That makes presence/absence of `verdict-status` a
+  // faithful proxy for "floating shown" vs "hidden".
+  it('shows floating verdict when IN_REVIEW and not viewing the acceptance sub-segment', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -448,13 +492,39 @@ describe('TimelineTabs floating VerdictDecision (LUM-467)', () => {
       criteria: true,
       taskStatus: 'IN_REVIEW',
     })
+    // mockNav.tab undefined → Comments active, so viewingAcceptance is false.
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    // Default tab is comments → floating bar should be visible
-    expect(await screen.findByTestId('task-verdict-bar')).toBeInTheDocument()
-    // Click the acceptance tab
-    fireEvent.click(screen.getByRole('button', { name: /验收|acceptance/i }))
-    await waitFor(() =>
-      expect(screen.queryByTestId('task-verdict-bar')).toBeNull()
-    )
+    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+  })
+
+  it('hides floating verdict while viewing the acceptance sub-segment', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+      taskStatus: 'IN_REVIEW',
+    })
+    // Delivery tab active + IN_REVIEW + criteria → default sub-tab is acceptance.
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
+    mockNav.tab = ['delivery']
+    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
+    expect(screen.queryByTestId('verdict-status')).toBeNull()
+  })
+
+  it('never renders two VerdictDecisions at once', () => {
+    setPresence({
+      agent: false,
+      memory: false,
+      lineage: false,
+      criteria: true,
+      taskStatus: 'IN_REVIEW',
+    })
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
+    mockNav.tab = ['delivery']
+    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
+    expect(
+      screen.queryAllByTestId('verdict-status').length
+    ).toBeLessThanOrEqual(1)
   })
 })
