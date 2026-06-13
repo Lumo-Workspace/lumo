@@ -179,3 +179,45 @@ it('the detector stamps a coalescing target per category — file for tampering,
   const secretRow = secret.find(c => c.category === 'HARDCODED_SECRET')
   expect(secretRow!.target).toBe('lib/config.ts')
 })
+
+it('an action-class target is the matched forbidden segment, not the whole command line', () => {
+  // The forbidden segment (`pkill foo`) is the target — surrounding noise (a
+  // trailing echo) is stripped, so two near-identical runs share one target.
+  const a = detectCrossings({
+    toolName: 'Bash',
+    filePath: null,
+    payload: bash('pkill foo; echo "run 1"'),
+  })
+  const b = detectCrossings({
+    toolName: 'Bash',
+    filePath: null,
+    payload: bash('pkill foo; echo "run 2"'),
+  })
+  const aInfra = a.find(c => c.category === 'INFRA_TERMINATION')
+  const bInfra = b.find(c => c.category === 'INFRA_TERMINATION')
+  expect(aInfra!.target).toBe('pkill foo')
+  expect(bInfra!.target).toBe('pkill foo')
+  // …yet the full command is still preserved in the detail for the reviewer.
+  expect(aInfra!.detail).toBe('pkill foo; echo "run 1"')
+})
+
+it('the same dangerous action amid differing noise coalesces into one open crossing', async () => {
+  // Same forbidden segment, different trailing prose each event — the LUM-477
+  // dogfood gap: these used to record as N separate crossings. Now they merge.
+  await boundaryDetectorService.detectAndRecord(
+    bashEvent('t-1', 'e-1', 'pkill foo; echo "run 1"')
+  )
+  await boundaryDetectorService.detectAndRecord(
+    bashEvent('t-1', 'e-2', 'pkill foo; echo "run 2"')
+  )
+  await boundaryDetectorService.detectAndRecord(
+    bashEvent('t-1', 'e-3', 'pkill foo && echo done')
+  )
+
+  const open = rows.filter(
+    r => r.category === 'INFRA_TERMINATION' && r.disposition == null
+  )
+  expect(open).toHaveLength(1)
+  expect(open[0]!.target).toBe('pkill foo')
+  expect(open[0]!.occurrenceCount).toBe(3)
+})

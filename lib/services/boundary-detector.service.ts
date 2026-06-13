@@ -318,26 +318,55 @@ function decodeBase64Segments(cmd: string): string[] {
   return out
 }
 
+/** The command-shaped matchers, paired with their category — single source for
+ *  both detection (matchCommand) and the coalescing fingerprint below. */
+const COMMAND_MATCHERS: ReadonlyArray<{
+  category: BoundaryCrossingCategory
+  fn: (cmd: string) => boolean
+}> = [
+  { category: 'PUSH_TO_PROTECTED_BRANCH', fn: matchProtectedPush },
+  { category: 'MIGRATION_FILE_DELETED', fn: matchMigrationDelete },
+  { category: 'DESTRUCTIVE_DB_COMMAND', fn: matchDestructiveDb },
+  { category: 'NEW_NPM_DEPENDENCY', fn: matchNewNpmDependency },
+  { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
+  { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
+  { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
+]
+
+/**
+ * The coalescing target (LUM-477) for an action-class crossing: the single shell
+ * segment that actually tripped the matcher, NOT the whole command line. So
+ * `pkill foo; echo "run 1"` and `pkill foo; echo "run 2"` both fingerprint to
+ * `pkill foo` and coalesce into one open crossing — surrounding noise (a trailing
+ * echo, a differing comment, an unrelated sibling command) no longer splits a
+ * recurrence of the same dangerous action. Falls back to the whole command when
+ * no single segment matches in isolation (e.g. a match that spans separators),
+ * which keeps the conservative behaviour (its own crossing) rather than
+ * over-merging.
+ */
+function fingerprintSegment(cmd: string, fn: (cmd: string) => boolean): string {
+  for (const seg of splitCommandSegments(cmd)) {
+    const t = seg.trim()
+    if (t && fn(t)) return clip(t)
+  }
+  return clip(cmd)
+}
+
 /** Run the command-shaped matchers and emit a crossing per hit. */
 function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
   const out: DetectedCrossing[] = []
-  const add = (category: BoundaryCrossingCategory) =>
+  for (const { category, fn } of COMMAND_MATCHERS) {
+    if (!fn(cmd)) continue
     out.push({
       category,
       detail: clip(evasion ? `${EVASION_MARKER}${cmd}` : cmd),
       // Evasion is itself OpenAI's highest-frequency class — always HIGH.
       severity: evasion ? 'HIGH' : severityFor(category),
-      // The normalized command is the coalescing target (LUM-477): the same
-      // action re-run merges; a different command stays its own crossing.
-      target: clip(cmd),
+      // Coalesce on the matched forbidden segment, not the whole line (LUM-477)
+      // — the same action recurs as one crossing even amid differing noise.
+      target: fingerprintSegment(cmd, fn),
     })
-  if (matchProtectedPush(cmd)) add('PUSH_TO_PROTECTED_BRANCH')
-  if (matchMigrationDelete(cmd)) add('MIGRATION_FILE_DELETED')
-  if (matchDestructiveDb(cmd)) add('DESTRUCTIVE_DB_COMMAND')
-  if (matchNewNpmDependency(cmd)) add('NEW_NPM_DEPENDENCY')
-  if (matchExfiltrationPublic(cmd)) add('EXFILTRATION_PUBLIC')
-  if (matchCloudDataDeletion(cmd)) add('CLOUD_DATA_DELETION')
-  if (matchInfraTermination(cmd)) add('INFRA_TERMINATION')
+  }
   return out
 }
 
