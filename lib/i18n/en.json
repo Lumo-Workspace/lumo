@@ -979,6 +979,7 @@
   "boundary.panel.allCleared": "{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open",
   "boundary.disposition.falsePositive": "false positive",
   "boundary.disposition.confirmed": "confirmed",
+  "boundary.disposition.autoLegit": "auto-resolved (legit)",
   "boundary.disposition.open": "open",
   "boundary.reversible": "reversible",
   "boundary.irreversible": "irreversible",

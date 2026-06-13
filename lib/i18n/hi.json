@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "समाधान कार्य बनाएँ",
   "boundary.disposition.falsePositive": "गलत पहचान",
   "boundary.disposition.confirmed": "पुष्ट",
+  "boundary.disposition.autoLegit": "स्वतः समाधानित (वैध)",
   "boundary.reversible": "प्रतिवर्ती",
   "boundary.irreversible": "अपरिवर्तनीय",
   "acceptance.batch.contractRevisedAgent": "स्वीकृति अनुबंध संशोधित किया (एजेंट मसौदा)",

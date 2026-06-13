@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "해결 작업 생성",
   "boundary.disposition.falsePositive": "오탐",
   "boundary.disposition.confirmed": "확인됨",
+  "boundary.disposition.autoLegit": "자동 처리됨 (정상)",
   "boundary.reversible": "되돌릴 수 있음",
   "boundary.irreversible": "되돌릴 수 없음",
   "acceptance.batch.contractRevisedAgent": "수락 계약을 수정했습니다 (에이전트 초안)",

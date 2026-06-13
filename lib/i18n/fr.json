@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Créer une tâche de correction",
   "boundary.disposition.falsePositive": "faux positif",
   "boundary.disposition.confirmed": "confirmé",
+  "boundary.disposition.autoLegit": "résolu automatiquement (légitime)",
   "boundary.reversible": "réversible",
   "boundary.irreversible": "irréversible",
   "acceptance.batch.contractRevisedAgent": "a révisé le contrat d'acceptation (brouillon agent)",

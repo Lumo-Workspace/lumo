@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "衍生補救任務",
   "boundary.disposition.falsePositive": "誤判",
   "boundary.disposition.confirmed": "已確認",
+  "boundary.disposition.autoLegit": "自動處置(合法)",
   "boundary.reversible": "可逆",
   "boundary.irreversible": "不可逆",
   "boundary.toast.remediationSpawned": "已建立補救任務 {identifier}",

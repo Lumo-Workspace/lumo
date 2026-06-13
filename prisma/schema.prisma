@@ -178,6 +178,13 @@ enum BoundaryCrossingCategory {
 enum BoundaryCrossingDisposition {
   FALSE_POSITIVE
   CONFIRMED
+  // LUM-478: a SYSTEM auto-resolution (no human actor). The deterministic
+  // pre-filter judged a TEST_TAMPERING edit high-confidence legit (production
+  // code co-changed AND assertions intact) → recorded for audit but resolved out
+  // of the open queue and non-DONE-blocking. Distinct from a human FALSE_POSITIVE
+  // (which carries a dispositionedById) so an auditor can tell "system auto" from
+  // "human ruled". A human can still re-open or re-dispose it (LUM-450).
+  AUTO_LEGIT
 }
 
 // LUM-442: severity tier per boundary-crossing (OpenAI frequency×severity model).

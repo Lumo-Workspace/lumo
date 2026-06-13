@@ -72,6 +72,14 @@ export interface DetectedCrossing {
    *  into one OPEN crossing instead of recording a duplicate per event. Never the
    *  secret VALUE — a secret's target is its file, so it stays redacted. */
   target: string
+  /** LUM-478: set ONLY on a TEST_TAMPERING crossing the DETERMINISTIC pre-filter
+   *  judged high-confidence legit (production code co-changed AND assertions
+   *  intact). The recorder auto-resolves it with the system AUTO_LEGIT disposition
+   *  — on record + auditable, but out of the open queue and non-DONE-blocking.
+   *  Never set for a judge-only (LLM) legit verdict, which stays a
+   *  human-dispositioned LOW crossing: the LLM is not trusted to auto-clear the
+   *  gate (the narrow, deterministic-only softening). */
+  autoResolve?: boolean
 }
 
 const DETAIL_MAX = 200
@@ -679,6 +687,12 @@ const TEST_PATH_RE = /\.(?:test|spec)\.[tj]sx?$/
 const PRODUCTION_CODE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|prisma)$/
 const CODE_DIFF_CAP = 8_000
 
+/** Audit note stamped on a system AUTO_LEGIT auto-resolution (LUM-478) — names
+ *  WHY it was auto-cleared so an auditor reading the crossing later sees the
+ *  deterministic reason, not a bare disposition. */
+const AUTO_LEGIT_NOTE =
+  'Auto-resolved by the detector: deterministic high-confidence legit (production code co-changed, assertions intact). Not a human disposition — re-openable.'
+
 /** Pull a write event's target file path out of its stored payload. */
 function readEventFilePath(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
@@ -858,11 +872,20 @@ async function annotateTampering(
       { judge }
     )
     if (result.outcome === 'LEGIT') {
-      const how = result.stage === 'PREFILTER' ? 'pre-filter' : 'judge'
+      // LUM-478: a DETERMINISTIC pre-filter LEGIT (positive signals: production
+      // code co-changed + assertions intact) is high-confidence enough to
+      // auto-resolve; a judge-only (LLM) LEGIT stays a human-dispositioned LOW
+      // crossing — the LLM is not trusted to auto-clear the DONE gate. The detail
+      // keeps the "downgraded (legit, …)" marker either way (the alignment eval
+      // and read model key on it), and `autoResolve` carries the recorder's
+      // auto-disposition decision.
+      const fromPrefilter = result.stage === 'PREFILTER'
+      const how = fromPrefilter ? 'pre-filter' : 'judge'
       return {
         ...base,
         severity: 'LOW',
         detail: clip(`${base.detail} · downgraded (legit, ${how})`),
+        ...(fromPrefilter ? { autoResolve: true } : {}),
       }
     }
     return base
@@ -1097,6 +1120,12 @@ export const boundaryDetectorService = {
           new Date()
         )
         if (coalesced > 0) continue
+        // LUM-478: a deterministic high-confidence legit TEST_TAMPERING edit is
+        // recorded for audit but auto-resolved with the system AUTO_LEGIT
+        // disposition — no human actor, out of the open queue (the gate and the
+        // CLI both key on `disposition: null`), and non-DONE-blocking. This is a
+        // server-internal detector decision, NOT the human-only disposition API
+        // (which stays 403-before-parse): an agent still cannot clear any crossing.
         const row = await boundaryCrossingRepository.create({
           taskId: input.taskId,
           hookEventId: input.hookEventId ?? null,
@@ -1105,6 +1134,13 @@ export const boundaryDetectorService = {
           target: c.target,
           reversible: isReversible(c.category),
           severity: c.severity,
+          ...(c.autoResolve
+            ? {
+                disposition: 'AUTO_LEGIT',
+                dispositionNote: AUTO_LEGIT_NOTE,
+                dispositionedAt: new Date(),
+              }
+            : {}),
         })
         await activityRepository.create({
           taskId: input.taskId,
@@ -1116,6 +1152,9 @@ export const boundaryDetectorService = {
             detail: c.detail,
             severity: c.severity,
             hookEventId: input.hookEventId ?? null,
+            // Audit marker: an auto-resolved crossing reads as auto-resolved on
+            // the timeline, never as an open one a human still owes a decision on.
+            ...(c.autoResolve ? { disposition: 'AUTO_LEGIT' } : {}),
           },
         })
       }

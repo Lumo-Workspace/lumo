@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "派生补救任务",
   "boundary.disposition.falsePositive": "误报",
   "boundary.disposition.confirmed": "已确认",
+  "boundary.disposition.autoLegit": "自动处置(合法)",
   "boundary.reversible": "可逆",
   "boundary.irreversible": "不可逆",
   "acceptance.batch.contractRevisedAgent": "修订了验收合约（代理草稿）",

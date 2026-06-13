@@ -1573,6 +1573,7 @@
   "boundary.panel.spawnRemediation": "Создать задачу устранения",
   "boundary.disposition.falsePositive": "ложное срабатывание",
   "boundary.disposition.confirmed": "подтверждено",
+  "boundary.disposition.autoLegit": "разрешено автоматически (легитимно)",
   "boundary.reversible": "обратимо",
   "boundary.irreversible": "необратимо",
   "acceptance.batch.contractRevisedAgent": "пересмотрел контракт приёмки (черновик агента)",

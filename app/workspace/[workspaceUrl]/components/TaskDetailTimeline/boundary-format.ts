@@ -85,20 +85,25 @@ export function boundarySeverityLabel(
   }
 }
 
-/** Label for a disposition (LUM-435). */
+/** Label for a disposition (LUM-435; AUTO_LEGIT added LUM-478). */
 export function boundaryDispositionLabel(
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED',
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT',
   intl: ReturnType<typeof useIntl>
 ): string {
-  return disposition === 'FALSE_POSITIVE'
-    ? intl.formatMessage({
-        id: 'boundary.disposition.falsePositive',
-        defaultMessage: 'false positive',
-      })
-    : intl.formatMessage({
-        id: 'boundary.disposition.confirmed',
-        defaultMessage: 'confirmed',
-      })
+  if (disposition === 'FALSE_POSITIVE')
+    return intl.formatMessage({
+      id: 'boundary.disposition.falsePositive',
+      defaultMessage: 'false positive',
+    })
+  if (disposition === 'AUTO_LEGIT')
+    return intl.formatMessage({
+      id: 'boundary.disposition.autoLegit',
+      defaultMessage: 'auto-resolved (legit)',
+    })
+  return intl.formatMessage({
+    id: 'boundary.disposition.confirmed',
+    defaultMessage: 'confirmed',
+  })
 }
 
 /**
@@ -107,7 +112,7 @@ export function boundaryDispositionLabel(
  * disposition "corrected from -> to" line and the timeline change marker.
  */
 export function boundaryDispositionOrOpenLabel(
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | null,
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT' | null,
   intl: ReturnType<typeof useIntl>
 ): string {
   return disposition === null
