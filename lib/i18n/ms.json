@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "ejen: {agent}",
   "boundary.panel.attribution.session": "sesi: {session}",
   "boundary.panel.attribution.owner": "pemilik: {owner}",
-  "boundary.panel.allCleared": "{count, plural, other {# diselesaikan}} · 0 belum diselesaikan"
+  "boundary.panel.allCleared": "{count, plural, other {# diselesaikan}} · 0 belum diselesaikan",
+  "context.group.reference": "Rujukan",
+  "task.delivery": "Penghantaran"
 }

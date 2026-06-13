@@ -5,18 +5,17 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import { TAB_SLUGS, tabFromSlug, type TabValue } from './taskTabs'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
-import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { useMemories } from '../../hooks/useMemories'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
-import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
 import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
-import { AcceptanceTab } from './AcceptanceTab'
+import { DeliveryTab, type DeliverySubTab } from './DeliveryTab'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { MemoryTab } from '../memory/MemoryTab'
+import type { TaskDetail } from '../../types'
 import type { MentionSources } from '@/types/mention'
 
 interface PullRequestSummary {
@@ -28,10 +27,9 @@ interface PullRequestSummary {
   ciStatus: string | null
 }
 
-/** Server-computed presence of the three "rare" tabs, so the tab bar can paint
+/** Server-computed presence of the "rare" tabs, so the tab bar can paint
  *  on first render instead of waiting for the client probes (LUM-321). */
 interface TimelinePresence {
-  hasAgentRuns: boolean
   hasMemories: boolean
   hasLineage: boolean
   hasCriteria: boolean
@@ -40,6 +38,8 @@ interface TimelinePresence {
 interface TimelineTabsProps {
   taskId: string
   taskIdentifier: string
+  taskStatus: TaskDetail['status']
+  agentStatus?: string | null | undefined
   workspaceId: string
   workspaceUrl: string
   commentsProps: React.ComponentProps<typeof TaskDetailComments>
@@ -56,6 +56,8 @@ interface TimelineTabsProps {
 export function TimelineTabs({
   taskId,
   taskIdentifier,
+  taskStatus,
+  agentStatus,
   workspaceId,
   workspaceUrl,
   commentsProps,
@@ -103,7 +105,6 @@ export function TimelineTabs({
   // data each panel uses to decide its own empty state, so the tab bar can
   // never drift out of sync with the panel (show a tab that then says "empty",
   // or hide one that has content).
-  const agentRuns = useAgentRuns({ taskId, enabled: true })
   const taskMemories = useMemories({
     scope: 'task',
     parentId: taskId,
@@ -114,12 +115,9 @@ export function TimelineTabs({
 
   // Until a probe resolves, fall back to the SSR-seeded presence so the tab
   // bar paints correctly on first render (no pop-in); once a probe lands it
-  // becomes the source of truth and reconciles any drift. useAgentRuns /
-  // useTaskLineage signal "not yet resolved" via data===null; useMemories has
-  // no null sentinel, so its initial load is read from `loading`.
-  const hasAgentRuns = agentRuns.data
-    ? agentRuns.data.runs.length > 0
-    : (initialTimelinePresence?.hasAgentRuns ?? false)
+  // becomes the source of truth and reconciles any drift. useTaskLineage
+  // signals "not yet resolved" via data===null; useMemories has no null
+  // sentinel, so its initial load is read from `loading`.
   const hasMemories = taskMemories.loading
     ? (initialTimelinePresence?.hasMemories ?? false)
     : taskMemories.memories.length > 0
@@ -132,6 +130,21 @@ export function TimelineTabs({
     ? status.data.criteria.length > 0
     : (initialTimelinePresence?.hasCriteria ?? false)
 
+  // The Delivery tab folds Agent Runs + Acceptance into one tab with a sub-
+  // segment. `null` here means "use the status-derived default"; an explicit
+  // user click on the sub-segment overrides it. Computed each render (no
+  // effect) so it stays in sync with the live status without an extra pass.
+  const [deliverySubTab, setDeliverySubTab] = useState<DeliverySubTab | null>(
+    null
+  )
+  const defaultSubTab: DeliverySubTab =
+    status.data?.task.status === 'IN_REVIEW' && hasCriteria
+      ? 'acceptance'
+      : 'runs'
+  const resolvedSubTab = deliverySubTab ?? defaultSubTab
+  const viewingAcceptance =
+    activeTab === 'agent' && resolvedSubTab === 'acceptance'
+
   // Reconcile the rendered tab with the URL: handles reload, back/forward, and
   // the case where the URL targets an unknown or currently-hidden tab — fall
   // back to Comments and strip the dead segment from the URL (replace, so the
@@ -139,33 +152,28 @@ export function TimelineTabs({
   useEffect(() => {
     if (!urlSlug) return
     // Wait until the probe backing this tab has resolved before treating it as
-    // hidden — otherwise a deep link to a probe-backed tab (agent/memory/
-    // lineage/acceptance) gets normalized away on the transient unresolved
-    // value before the probe lands, flashing to Comments and writing a stale
-    // URL. The "resolved" signals mirror the visibility derivation below:
-    // useAgentRuns/useTaskLineage/useTaskStatus expose data !== null once
-    // loaded; useMemories signals it via loading === false.
+    // hidden — otherwise a deep link to a probe-backed tab (memory/lineage)
+    // gets normalized away on the transient unresolved value before the probe
+    // lands, flashing to Comments and writing a stale URL. The "resolved"
+    // signals mirror the visibility derivation below: useTaskLineage exposes
+    // data !== null once loaded; useMemories signals it via loading === false.
+    // The Delivery tab (slug 'delivery' → urlTab 'agent') is always visible, so
+    // it needs no probe gate.
     const probeResolved =
-      urlTab === 'agent'
-        ? agentRuns.data !== null
-        : urlTab === 'memory'
-          ? !taskMemories.loading
-          : urlTab === 'lineage'
-            ? lineage.data !== null
-            : urlTab === 'acceptance'
-              ? status.data !== null
-              : true
+      urlTab === 'memory'
+        ? !taskMemories.loading
+        : urlTab === 'lineage'
+          ? lineage.data !== null
+          : true
     if (!probeResolved) return
     const visible =
       urlTab === 'agent'
-        ? hasAgentRuns
+        ? true
         : urlTab === 'memory'
           ? hasMemories
           : urlTab === 'lineage'
             ? hasLineage
-            : urlTab === 'acceptance'
-              ? hasCriteria
-              : urlTab !== null
+            : urlTab !== null
     if (urlTab && visible) {
       setActiveTab(urlTab)
     } else {
@@ -177,14 +185,10 @@ export function TimelineTabs({
     urlSlug,
     basePath,
     router,
-    hasAgentRuns,
     hasMemories,
     hasLineage,
-    hasCriteria,
-    agentRuns.data,
     taskMemories.loading,
     lineage.data,
-    status.data,
   ])
 
   // Switch tab: instant client switch (optimistic) + URL update so back/forward
@@ -212,7 +216,7 @@ export function TimelineTabs({
 
   return (
     <div className='mt-8'>
-      {activeTab !== 'acceptance' &&
+      {!viewingAcceptance &&
         status.data &&
         status.data.task.status === 'IN_REVIEW' &&
         hasCriteria && (
@@ -252,17 +256,15 @@ export function TimelineTabs({
             defaultMessage: 'Context',
           })}
         </button>
-        {hasAgentRuns && (
-          <button
-            className={tabClass(activeTab === 'agent')}
-            onClick={() => selectTab('agent')}
-          >
-            {intl.formatMessage({
-              id: 'task.agentRun',
-              defaultMessage: 'Agent 运行',
-            })}
-          </button>
-        )}
+        <button
+          className={tabClass(activeTab === 'agent')}
+          onClick={() => selectTab('agent')}
+        >
+          {intl.formatMessage({
+            id: 'task.delivery',
+            defaultMessage: 'Delivery',
+          })}
+        </button>
         {hasMemories && (
           <button
             className={tabClass(activeTab === 'memory')}
@@ -282,17 +284,6 @@ export function TimelineTabs({
             {intl.formatMessage({
               id: 'task.lineage',
               defaultMessage: 'Lineage',
-            })}
-          </button>
-        )}
-        {hasCriteria && (
-          <button
-            className={tabClass(activeTab === 'acceptance')}
-            onClick={() => selectTab('acceptance')}
-          >
-            {intl.formatMessage({
-              id: 'task.acceptance',
-              defaultMessage: '验收',
             })}
           </button>
         )}
@@ -323,10 +314,19 @@ export function TimelineTabs({
         />
       )}
       {activeTab === 'agent' && (
-        <AgentRunTab
+        <DeliveryTab
           taskId={taskId}
           taskIdentifier={taskIdentifier}
+          taskStatus={taskStatus}
+          agentStatus={agentStatus}
+          workspaceUrl={workspaceUrl}
+          members={commentsProps.members}
+          agentActors={commentsProps.agentActors}
           enabled={activeTab === 'agent'}
+          subTab={resolvedSubTab}
+          onSubTabChange={setDeliverySubTab}
+          onVerdictRecorded={onVerdictRecorded}
+          {...(mentionSources ? { mentionSources } : {})}
         />
       )}
       {activeTab === 'memory' && (
@@ -341,17 +341,6 @@ export function TimelineTabs({
         <LineageTab
           taskIdentifier={taskIdentifier}
           enabled={activeTab === 'lineage'}
-        />
-      )}
-      {activeTab === 'acceptance' && (
-        <AcceptanceTab
-          taskIdentifier={taskIdentifier}
-          enabled={activeTab === 'acceptance'}
-          workspaceUrl={workspaceUrl}
-          members={commentsProps.members}
-          agentActors={commentsProps.agentActors}
-          onVerdictRecorded={onVerdictRecorded}
-          {...(mentionSources ? { mentionSources } : {})}
         />
       )}
     </div>

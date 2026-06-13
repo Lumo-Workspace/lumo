@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "代理：{agent}",
   "boundary.panel.attribution.session": "工作階段：{session}",
   "boundary.panel.attribution.owner": "擁有者：{owner}",
-  "boundary.panel.allCleared": "{count, plural, other {已處置 # 項}} · 0 項待處理"
+  "boundary.panel.allCleared": "{count, plural, other {已處置 # 項}} · 0 項待處理",
+  "context.group.reference": "引用",
+  "task.delivery": "交付"
 }

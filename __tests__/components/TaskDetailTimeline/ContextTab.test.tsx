@@ -29,6 +29,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span />,
   CiIcon: () => <span />,
 }))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup',
+  () => ({ SpecArtifactGroup: () => <div data-testid='spec-artifacts' /> })
+)
 
 import { render, screen } from '@testing-library/react'
 import { ContextTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/ContextTab'
@@ -131,5 +135,15 @@ describe('ContextTab', () => {
     expect(
       screen.queryByText('task.context.documents.empty')
     ).not.toBeInTheDocument()
+  })
+
+  it('renders the spec artifacts group at the top of the context tab', () => {
+    render(<ContextTab {...baseProps} />)
+    expect(screen.getByTestId('spec-artifacts')).toBeInTheDocument()
+  })
+
+  it('labels the external links as the References group', () => {
+    render(<ContextTab {...baseProps} />)
+    expect(screen.getByText('context.group.reference')).toBeInTheDocument()
   })
 })

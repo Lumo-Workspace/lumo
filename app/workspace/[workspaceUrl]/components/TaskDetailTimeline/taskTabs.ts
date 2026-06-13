@@ -5,21 +5,19 @@ export type TabValue =
   | 'agent'
   | 'memory'
   | 'lineage'
-  | 'acceptance'
 
 /**
  * URL path segment for each tab. Comments is the default tab and carries no
  * segment (the bare task URL, e.g. /my-tasks/LUM-1), so its slug is the empty
- * string. The rest append a segment (e.g. /my-tasks/LUM-1/acceptance).
+ * string. The rest append a segment (e.g. /my-tasks/LUM-1/delivery).
  */
 export const TAB_SLUGS: Record<TabValue, string> = {
   comments: '',
   activity: 'activity',
   context: 'context',
-  agent: 'agent',
+  agent: 'delivery',
   memory: 'memory',
   lineage: 'lineage',
-  acceptance: 'acceptance',
 }
 
 const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(

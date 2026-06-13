@@ -1646,5 +1646,7 @@
   "boundary.panel.attribution.agent": "agen: {agent}",
   "boundary.panel.attribution.session": "sesi: {session}",
   "boundary.panel.attribution.owner": "pemilik: {owner}",
-  "boundary.panel.allCleared": "{count, plural, other {# ditangani}} · 0 belum ditangani"
+  "boundary.panel.allCleared": "{count, plural, other {# ditangani}} · 0 belum ditangani",
+  "context.group.reference": "Referensi",
+  "task.delivery": "Pengiriman"
 }

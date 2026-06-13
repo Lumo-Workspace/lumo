@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import { Accordion } from '@/components/landing/ui/accordion'
 import { useSlackContexts } from '../../hooks/useSlackContexts'
 import { useTaskDocuments } from '../../hooks/useTaskDocuments'
@@ -10,6 +11,7 @@ import { WebLinkSection } from './sections/WebLinkSection'
 import { FigmaSection } from './sections/FigmaSection'
 import { PullRequestsSection } from './sections/PullRequestsSection'
 import { DocumentsSection } from './sections/DocumentsSection'
+import { SpecArtifactGroup } from '../SpecArtifactGroup'
 
 interface PullRequestSummary {
   id: string
@@ -41,6 +43,7 @@ export function ContextTab({
   onUnlinkPr,
   enabled,
 }: Props): React.ReactElement {
+  const intl = useIntl()
   const slack = useSlackContexts(taskId, enabled)
   const docs = useTaskDocuments(taskId, enabled)
   const figma = useFigmaLinks(taskId, enabled)
@@ -60,33 +63,44 @@ export function ContextTab({
   ])
 
   return (
-    <Accordion
-      type='multiple'
-      defaultValue={defaultOpen}
-      key={defaultOpen.join(',')}
-    >
-      <SlackContextSection
-        contexts={slack.contexts}
-        slackConnected={slackConnected}
-        onLink={slack.link}
-        onRefreshOne={slack.refreshOne}
-        onUnlink={slack.unlink}
-      />
-      <WebLinkSection taskId={taskId} />
-      <FigmaSection taskId={taskId} />
-      <PullRequestsSection
-        taskId={taskId}
-        workspaceId={workspaceId}
-        pullRequests={pullRequests}
-        onLinkPr={onLinkPr}
-        onUnlinkPr={onUnlinkPr}
-      />
-      <DocumentsSection
-        documents={docs.documents}
-        workspaceUrl={workspaceUrl}
-        taskId={taskId}
-        onAttached={docs.refresh}
-      />
-    </Accordion>
+    <div>
+      <SpecArtifactGroup taskId={taskId} />
+
+      <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-3'>
+        {intl.formatMessage({
+          id: 'context.group.reference',
+          defaultMessage: 'References',
+        })}
+      </p>
+
+      <Accordion
+        type='multiple'
+        defaultValue={defaultOpen}
+        key={defaultOpen.join(',')}
+      >
+        <SlackContextSection
+          contexts={slack.contexts}
+          slackConnected={slackConnected}
+          onLink={slack.link}
+          onRefreshOne={slack.refreshOne}
+          onUnlink={slack.unlink}
+        />
+        <WebLinkSection taskId={taskId} />
+        <FigmaSection taskId={taskId} />
+        <PullRequestsSection
+          taskId={taskId}
+          workspaceId={workspaceId}
+          pullRequests={pullRequests}
+          onLinkPr={onLinkPr}
+          onUnlinkPr={onUnlinkPr}
+        />
+        <DocumentsSection
+          documents={docs.documents}
+          workspaceUrl={workspaceUrl}
+          taskId={taskId}
+          onAttached={docs.refresh}
+        />
+      </Accordion>
+    </div>
   )
 }

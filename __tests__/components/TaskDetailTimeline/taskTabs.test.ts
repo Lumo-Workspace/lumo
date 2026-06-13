@@ -34,4 +34,19 @@ describe('taskTabs slug mapping', () => {
   it('returns null for the literal "comments" slug (canonical URL is bare)', () => {
     expect(tabFromSlug('comments')).toBeNull()
   })
+
+  it('uses the "delivery" slug for the agent (Delivery) tab', () => {
+    expect(TAB_SLUGS.agent).toBe('delivery')
+    expect(tabFromSlug('delivery')).toBe('agent')
+  })
+
+  it('no longer recognizes the old "agent" slug', () => {
+    expect(tabFromSlug('agent')).toBeNull()
+  })
+
+  it('no longer recognizes the "acceptance" tab/slug', () => {
+    // @ts-expect-error 'acceptance' is removed from TabValue
+    expect(TAB_SLUGS.acceptance).toBeUndefined()
+    expect(tabFromSlug('acceptance')).toBeNull()
+  })
 })

@@ -41,7 +41,6 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
-import { SpecArtifactGroup } from '../SpecArtifactGroup'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -52,11 +51,10 @@ interface TaskDetailPageProps {
   source?: string | undefined
   /** Whether this workspace has a connected Slack integration. */
   slackConnected: boolean
-  /** SSR-computed presence of the Agent Run / Memory / Lineage tabs (LUM-321),
+  /** SSR-computed presence of the Memory / Lineage / Acceptance tabs (LUM-321),
    *  so the tab bar renders correctly on first paint without waiting for the
    *  client presence probes. */
   initialTimelinePresence?: {
-    hasAgentRuns: boolean
     hasMemories: boolean
     hasLineage: boolean
     hasCriteria: boolean
@@ -297,12 +295,7 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
-            {/* Definition layer: spec artifacts (renders nothing when there are none) */}
-            <SpecArtifactGroup taskId={task.id} />
-
-            {/* Description — always rendered as the normal editor, below the
-                spec layer when artifacts exist (no "background discussion"
-                relabeling). */}
+            {/* Description */}
             {desc.descriptionLoading ? (
               <Spinner className='size-4 text-muted-foreground' />
             ) : (
@@ -351,6 +344,8 @@ export function TaskDetailPage({
             <TimelineTabs
               taskId={task.id}
               taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+              taskStatus={task.status}
+              agentStatus={task.agentStatus}
               workspaceId={task.project.workspaceId ?? ''}
               workspaceUrl={workspaceUrl}
               initialTimelinePresence={initialTimelinePresence}
