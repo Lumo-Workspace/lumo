@@ -40,6 +40,8 @@ interface AcceptanceTabProps {
   onVerdictRecorded: (result: HumanVerdictResult) => void
   /** Mention sources for the FAIL send-back editor in the verdict ritual. */
   mentionSources?: MentionSources
+  /** LUM-481 — latest run summary, surfaced on the header verdict card. */
+  latestRunSummary?: string | null
 }
 
 /** Records a human verdict for a specific criterion (criterionIds identifies
@@ -961,6 +963,7 @@ export function AcceptanceTab({
   agentActors = [],
   onVerdictRecorded,
   mentionSources,
+  latestRunSummary,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh } = useTaskStatus({
@@ -1102,6 +1105,7 @@ export function AcceptanceTab({
             onVerdictRecorded(r)
             void refresh?.()
           }}
+          latestRunSummary={latestRunSummary}
           {...(mentionSources ? { mentionSources } : {})}
         />
       )}

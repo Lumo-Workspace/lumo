@@ -481,3 +481,49 @@ describe('VerdictDecision', () => {
     )
   })
 })
+
+// LUM-481: the always-on header status card surfaces the latest run's summary
+// so a reviewer adjudicating at IN_REVIEW sees "what the agent did" in context.
+// The floating bar (the compact off-tab chrome) must NEVER carry it.
+describe('VerdictDecision run summary', () => {
+  it('renders run summary in header variant when provided', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
+        onVerdictRecorded={jest.fn()}
+        latestRunSummary='abc'
+      />
+    )
+    expect(screen.getByTestId('verdict-run-summary')).toHaveTextContent('abc')
+  })
+
+  it('omits run summary block when null', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
+        onVerdictRecorded={jest.fn()}
+        latestRunSummary={null}
+      />
+    )
+    expect(screen.queryByTestId('verdict-run-summary')).toBeNull()
+  })
+
+  it('never renders in floating variant', () => {
+    render(
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
+        onVerdictRecorded={jest.fn()}
+        latestRunSummary='abc'
+      />
+    )
+    // The floating bar renders (IN_REVIEW), but never the run-summary block.
+    expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-run-summary')).toBeNull()
+  })
+})

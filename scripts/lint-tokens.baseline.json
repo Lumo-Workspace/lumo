@@ -72,6 +72,7 @@
   "app/workspace/[workspaceUrl]/components/TaskDetailTimeline/items/PrItem.tsx": 4,
   "app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SlackContextCard.tsx": 2,
   "app/workspace/[workspaceUrl]/components/TaskDetailTimeline/slackMrkdwn.tsx": 3,
+  "app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision.tsx": 2,
   "app/workspace/[workspaceUrl]/components/TaskDetailTimeline/WebLinkCard.tsx": 2,
   "app/workspace/[workspaceUrl]/constants.ts": 6,
   "app/workspace/[workspaceUrl]/sprints/components/RetroPanel.tsx": 4,
