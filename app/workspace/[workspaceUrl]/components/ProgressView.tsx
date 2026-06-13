@@ -94,7 +94,7 @@ export function ProgressView({
     clarifyRounds.actual !== null && clarifyRounds.actual > 0
 
   return (
-    <section className='mt-6 border-t border-border pt-6'>
+    <section className='rounded-lg border border-border bg-card p-4'>
       <div className='mb-3 flex items-center justify-between gap-2'>
         <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
           {intl.formatMessage({ id: 'progress.title' })}

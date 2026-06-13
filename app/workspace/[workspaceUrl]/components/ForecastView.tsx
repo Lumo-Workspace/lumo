@@ -48,7 +48,7 @@ export function ForecastView({ forecast }: { forecast: TaskForecast }) {
 
   if (forecast.insufficientData) {
     return (
-      <section className='mt-6 pt-6 border-t border-border'>
+      <section className='rounded-lg border border-border bg-card p-4'>
         <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-2'>
           {title}
         </p>
@@ -81,13 +81,17 @@ export function ForecastView({ forecast }: { forecast: TaskForecast }) {
   const tokenRange = (iv: Interval) =>
     intl.formatMessage(
       { id: 'forecast.range' },
-      { median: compact(iv.median), low: compact(iv.p25), high: compact(iv.p75) }
+      {
+        median: compact(iv.median),
+        low: compact(iv.p25),
+        high: compact(iv.p75),
+      }
     )
 
   const hasCohortMetrics = !!forecast.iterations
 
   return (
-    <section className='mt-6 pt-6 border-t border-border'>
+    <section className='rounded-lg border border-border bg-card p-4'>
       <div className='flex items-center justify-between gap-2 mb-1'>
         <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider'>
           {title}
