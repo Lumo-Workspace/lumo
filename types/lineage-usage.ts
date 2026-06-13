@@ -4,10 +4,18 @@ export interface UsageSignalHealth {
    *  carry ≥1 vote. ~0 means the judge is acting like a constant. */
   perSessionVariance: number
   votedSessions: number
-  /** Task-deduped merge rate among used=true edges vs the base resolved rate.
-   *  usedMergeRate meaningfully above baseMergeRate ⇒ the signal discriminates. */
+  /** Task-deduped merge rate among used=true edges vs the base resolved rate,
+   *  computed over the LUM-484 iteration-taint fold: a resolved task carrying a
+   *  HUMAN/AGENT FAIL send-back verdict is recounted as non-merged even if it
+   *  later completed (REWORKED/REJECTED tasks already fold as non-merged via
+   *  their edge outcomes). usedMergeRate meaningfully above baseMergeRate ⇒ the
+   *  signal discriminates. */
   usedMergeRate: number | null
   baseMergeRate: number | null
   usedResolvedTasks: number
   baseResolvedTasks: number
+  /** Size of the negative class (resolved-but-not-merged after taint). 0 ⇒ no
+   *  failure outcomes exist yet, so the rates cannot discriminate (LUM-484). */
+  usedFailedTasks: number
+  baseFailedTasks: number
 }

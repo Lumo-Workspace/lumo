@@ -56,6 +56,8 @@ it('renders signal health discrimination line', () => {
     baseMergeRate: 0.46,
     usedResolvedTasks: 7,
     baseResolvedTasks: 20,
+    usedFailedTasks: 2,
+    baseFailedTasks: 11,
   })
   expect(out).toContain('used 6')
   expect(out).toMatch(/71%/)
@@ -124,6 +126,44 @@ it('formatSignalHealth shows insufficient-data message when merge rates are null
     baseMergeRate: null,
     usedResolvedTasks: 0,
     baseResolvedTasks: 5,
+    usedFailedTasks: 0,
+    baseFailedTasks: 0,
   })
   expect(out).toContain('insufficient resolved tasks')
+})
+
+describe('formatSignalHealth negative-class display', () => {
+  it('shows the honesty guard when the negative class is empty', () => {
+    const out = formatSignalHealth({
+      distribution: { used: 6, unused: 0, abstained: 4 },
+      perSessionVariance: 0,
+      votedSessions: 2,
+      usedMergeRate: 1,
+      baseMergeRate: 1,
+      usedResolvedTasks: 6,
+      baseResolvedTasks: 20,
+      usedFailedTasks: 0,
+      baseFailedTasks: 0,
+    })
+    expect(out).toContain('cannot discriminate')
+    expect(out).not.toMatch(/100%/)
+    expect(out).not.toContain('merge-rate(used)')
+  })
+
+  it('shows rates with negative-class size when non-empty', () => {
+    const out = formatSignalHealth({
+      distribution: { used: 6, unused: 0, abstained: 4 },
+      perSessionVariance: 0.18,
+      votedSessions: 2,
+      usedMergeRate: 0.71,
+      baseMergeRate: 0.46,
+      usedResolvedTasks: 7,
+      baseResolvedTasks: 20,
+      usedFailedTasks: 2,
+      baseFailedTasks: 11,
+    })
+    expect(out).toMatch(/46%/)
+    expect(out).toContain('11 failed')
+    expect(out).toContain('2 failed')
+  })
 })

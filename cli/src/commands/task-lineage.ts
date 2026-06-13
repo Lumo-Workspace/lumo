@@ -33,7 +33,13 @@ export interface LineageResponse {
     runCount: number
     fragmentCount: number
     edgeCount: number
-    tokens: { input: number; output: number; cacheRead: number; cacheCreation: number; total: number }
+    tokens: {
+      input: number
+      output: number
+      cacheRead: number
+      cacheCreation: number
+      total: number
+    }
     loopCount: number
     outcomes: Record<Outcome, number>
   }
@@ -49,6 +55,8 @@ export interface UsageSignalHealth {
   baseMergeRate: number | null
   usedResolvedTasks: number
   baseResolvedTasks: number
+  usedFailedTasks: number
+  baseFailedTasks: number
 }
 
 export async function taskLineage(
@@ -109,9 +117,7 @@ export async function taskLineage(
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(
-        `Warning: could not fetch signal health (${msg})\n`
-      )
+      process.stderr.write(`Warning: could not fetch signal health (${msg})\n`)
       return
     }
     if (!signalRes.ok) {
@@ -163,7 +169,9 @@ function usageMarker(used: boolean | null): string {
  */
 export function formatLineageMarkdown(data: LineageResponse): string {
   const lines: string[] = []
-  lines.push(`# Lineage: ${data.task.identifier} — ${sanitizeField(data.task.title)}`)
+  lines.push(
+    `# Lineage: ${data.task.identifier} — ${sanitizeField(data.task.title)}`
+  )
   lines.push(`**Status**: ${data.task.status}`)
   lines.push('')
 
@@ -227,9 +235,17 @@ export function formatSignalHealth(h: UsageSignalHealth): string {
     `- Per-session variance: ${h.perSessionVariance.toFixed(2)} (${h.votedSessions} voted sessions)`
   )
   if (h.usedMergeRate !== null && h.baseMergeRate !== null) {
-    lines.push(
-      `- Used × outcome: merge-rate(used) ${Math.round(h.usedMergeRate * 100)}% vs base ${Math.round(h.baseMergeRate * 100)}%`
-    )
+    if (h.baseFailedTasks === 0) {
+      // No failure outcomes exist yet, so any rate is non-discriminating by
+      // construction — say so honestly instead of printing a misleading 100%.
+      lines.push(
+        '- Used × outcome: no failure outcomes yet — metric cannot discriminate'
+      )
+    } else {
+      lines.push(
+        `- Used × outcome: merge-rate(used) ${Math.round(h.usedMergeRate * 100)}% (${h.usedResolvedTasks} resolved, ${h.usedFailedTasks} failed) vs base ${Math.round(h.baseMergeRate * 100)}% (${h.baseResolvedTasks} resolved, ${h.baseFailedTasks} failed)`
+      )
+    }
   } else {
     lines.push('- Used × outcome: insufficient resolved tasks')
   }
