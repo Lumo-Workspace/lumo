@@ -388,6 +388,22 @@ export function dispatchDoneAudit(taskId: string): void {
 }
 
 /**
+ * Fire the LUM-481 per-session run-summary generation for a just-completed
+ * task. Dynamic import keeps the run-summary client's @ai-sdk/gateway graph out
+ * of this module's static graph (jest trap) — same reason as the layer2 /
+ * done-audit dynamic imports. Best-effort; the service swallows its own errors.
+ */
+export function dispatchRunSummaries(taskId: string): void {
+  waitUntil(
+    (async () => {
+      const { runSummaryService } =
+        await import('@/lib/services/run-summary.service')
+      await runSummaryService.generateForTask(taskId)
+    })()
+  )
+}
+
+/**
  * `updateTask` + fan-out to activity events, real-time push, and
  * notifications. The dispatch call is fire-and-forget — failures there
  * don't roll back the update.
@@ -460,6 +476,9 @@ export async function updateTaskWithSideEffects(
 
     // LUM-314: evidence-gated fragment-usage audit (used + outcome land together).
     dispatchDoneAudit(taskId)
+
+    // LUM-481: generate per-session run summaries for the delivery tab.
+    dispatchRunSummaries(taskId)
 
     // Auto-add to the team's ACTIVE sprint when the task finished with no
     // sprint binding and the team opted into `sprintAutoAddCompleted`. The
