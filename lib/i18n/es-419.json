@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "visto ×{count}",
   "boundary.panel.lastSeen": "Visto por última vez {at}",
   "acceptance.runSummary": "Ejecución actual",
-  "agentRun.summaryLabel": "Ejecución actual"
+  "agentRun.summaryLabel": "Ejecución actual",
+  "retrospective.totalDuration": "Tiempo de ejecución",
+  "progress.totalDuration": "Tiempo de ejecución",
+  "progress.summaryDuration": "Ejecutado {value}"
 }

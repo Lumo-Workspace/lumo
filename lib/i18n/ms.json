@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "dilihat ×{count}",
   "boundary.panel.lastSeen": "Terakhir dilihat {at}",
   "acceptance.runSummary": "Larian semasa",
-  "agentRun.summaryLabel": "Larian semasa"
+  "agentRun.summaryLabel": "Larian semasa",
+  "retrospective.totalDuration": "Masa larian",
+  "progress.totalDuration": "Masa larian",
+  "progress.summaryDuration": "Berjalan {value}"
 }

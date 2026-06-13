@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "×{count} बार देखा गया",
   "boundary.panel.lastSeen": "अंतिम बार देखा गया {at}",
   "acceptance.runSummary": "वर्तमान रन",
-  "agentRun.summaryLabel": "वर्तमान रन"
+  "agentRun.summaryLabel": "वर्तमान रन",
+  "retrospective.totalDuration": "रन टाइम",
+  "progress.totalDuration": "रन टाइम",
+  "progress.summaryDuration": "{value} तक चला"
 }

@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "seen ×{count}",
   "boundary.panel.lastSeen": "Last seen {at}",
   "acceptance.runSummary": "Current run",
-  "agentRun.summaryLabel": "Current run"
+  "agentRun.summaryLabel": "Current run",
+  "retrospective.totalDuration": "Run time",
+  "progress.totalDuration": "Run time",
+  "progress.summaryDuration": "Ran {value}"
 }

@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "замечено ×{count}",
   "boundary.panel.lastSeen": "Последний раз {at}",
   "acceptance.runSummary": "Текущий запуск",
-  "agentRun.summaryLabel": "Текущий запуск"
+  "agentRun.summaryLabel": "Текущий запуск",
+  "retrospective.totalDuration": "Время выполнения",
+  "progress.totalDuration": "Время выполнения",
+  "progress.summaryDuration": "Выполнялось {value}"
 }

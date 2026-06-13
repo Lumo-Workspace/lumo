@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "{count}× gesehen",
   "boundary.panel.lastSeen": "Zuletzt gesehen {at}",
   "acceptance.runSummary": "Aktueller Lauf",
-  "agentRun.summaryLabel": "Aktueller Lauf"
+  "agentRun.summaryLabel": "Aktueller Lauf",
+  "retrospective.totalDuration": "Laufzeit",
+  "progress.totalDuration": "Laufzeit",
+  "progress.summaryDuration": "Lief {value}"
 }

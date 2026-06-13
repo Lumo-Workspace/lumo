@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "{count}회 감지됨",
   "boundary.panel.lastSeen": "마지막 감지 {at}",
   "acceptance.runSummary": "현재 실행",
-  "agentRun.summaryLabel": "현재 실행"
+  "agentRun.summaryLabel": "현재 실행",
+  "retrospective.totalDuration": "실행 시간",
+  "progress.totalDuration": "실행 시간",
+  "progress.summaryDuration": "{value} 실행"
 }
