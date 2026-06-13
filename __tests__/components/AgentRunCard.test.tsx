@@ -34,7 +34,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/AgentBadge', () => ({
 
 import { render, screen } from '@testing-library/react'
 import { AgentRunCard } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard'
-import type { AgentRunSession } from '@/app/workspace/[workspaceUrl]/types'
+import type {
+  AgentRunItem,
+  AgentRunSession,
+} from '@/app/workspace/[workspaceUrl]/types'
 
 const baseRun = (over: Partial<AgentRunSession> = {}): AgentRunSession =>
   ({
@@ -104,5 +107,52 @@ describe('AgentRunCard — in-flight cost label (LUM-345)', () => {
       />
     )
     expect(screen.getByText('10600 tok')).toBeInTheDocument()
+  })
+})
+
+describe('AgentRunCard summary region', () => {
+  const stopItem = (
+    id: string,
+    turnSummary: string | null,
+    createdAt: string
+  ) =>
+    ({
+      id,
+      kind: 'hook',
+      type: 'STOP',
+      toolName: null,
+      payload: null,
+      turnSummary,
+      turnCost: null,
+      createdAt,
+    }) as AgentRunItem
+
+  it('renders the LLM summary when present', () => {
+    render(<AgentRunCard run={baseRun({ runSummary: 'polished text' })} />)
+    expect(screen.getByTestId('run-summary')).toHaveTextContent('polished text')
+    expect(screen.queryByTestId('run-digest')).not.toBeInTheDocument()
+  })
+
+  it('falls back to raw digest when no runSummary', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          runSummary: null,
+          items: [
+            stopItem('h1', 'first turn did a thing', '2026-06-07T15:50:00Z'),
+            stopItem('h2', 'second turn did another', '2026-06-07T15:55:00Z'),
+          ],
+        })}
+      />
+    )
+    expect(screen.getByTestId('run-digest')).toBeInTheDocument()
+    expect(screen.getByText('first turn did a thing')).toBeInTheDocument()
+    expect(screen.queryByTestId('run-summary')).not.toBeInTheDocument()
+  })
+
+  it('renders no summary region when empty', () => {
+    render(<AgentRunCard run={baseRun({ runSummary: null, items: [] })} />)
+    expect(screen.queryByTestId('run-summary')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('run-digest')).not.toBeInTheDocument()
   })
 })

@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronDown, ChevronRight, Bot } from 'lucide-react'
+import { ChevronDown, ChevronRight, Bot, Sparkles } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunSession } from '../../types'
 import { segmentIntoTurns } from './segment-turns'
+import { deriveRunDigest } from './derive-run-digest'
 import { fmtCompact, modelLabel } from './model-cost-format'
 import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
@@ -24,6 +25,7 @@ export function AgentRunCard({
   const intl = useIntl()
   const [expanded, setExpanded] = useState(defaultExpanded)
 
+  const digest = run.runSummary ? [] : deriveRunDigest(run.items)
   const durationLabel = formatDuration(run.durationMs)
   const startLabel = new Date(run.startedAt).toLocaleString(intl.locale, {
     month: 'short',
@@ -138,6 +140,35 @@ export function AgentRunCard({
           )}
         </span>
       </button>
+
+      {run.runSummary ? (
+        <div
+          className='border-t border-border/80 px-4 py-2.5'
+          data-testid='run-summary'
+        >
+          <div className='flex items-center gap-1.5 text-caption font-medium text-violet-600 dark:text-violet-400'>
+            <Sparkles className='size-3' />
+            {intl.formatMessage({
+              id: 'agentRun.summaryLabel',
+              defaultMessage: '本次运行',
+            })}
+          </div>
+          <p className='text-caption text-muted-foreground'>{run.runSummary}</p>
+        </div>
+      ) : digest.length > 0 ? (
+        <div className='border-t border-border/80 px-4 py-2.5'>
+          <ul
+            className='list-disc space-y-0.5 pl-5 text-caption text-muted-foreground'
+            data-testid='run-digest'
+          >
+            {digest.map((line, i) => (
+              <li key={`digest-${i}`} className='truncate'>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {expanded && (
         <div className='border-t border-border/80 px-4 py-2'>
