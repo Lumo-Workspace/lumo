@@ -28,9 +28,8 @@ describe('sessionRepository.setLastMemoryReviewAt', () => {
 })
 
 describe('sessionRepository.findProgressContextForMember', () => {
-  it('returns lastMemoryReviewAt alongside the progress watermark', async () => {
+  it('returns lastMemoryReviewAt for the bound session', async () => {
     mockFindFirst.mockResolvedValue({
-      lastProgressCommentAt: null,
       lastMemoryReviewAt: new Date('2026-06-01T09:00:00.000Z'),
       task: null,
     })

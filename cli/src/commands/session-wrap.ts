@@ -1,6 +1,5 @@
 import { readCredentials } from '../lib/config'
 import { runWrapPanel } from '../lib/wrap-panel'
-import { ProgressCommentSection } from './wrap/progress-comment-section'
 import { MemoryReviewSection } from './wrap/memory-review-section'
 import { FragmentUsageSection } from './wrap/fragment-usage-section'
 import { BlockedPromptSection } from './wrap/blocked-prompt-section'
@@ -17,13 +16,12 @@ interface SessionWrapOptions {
 /**
  * `lumo session wrap [--yes] [--dry-run]`
  *
- * Session-end wrap-up panel with four sections, run in order: (1) draft a
- * progress comment from this session's unposted turnSummaries and post it
- * (after y/e/s confirmation) to the bound task; (2) review the Layer1 memories
- * this session sedimented — keep/delete/promote, deduped by a per-session
- * watermark; (3) vote which injected context fragments were actually used
- * (LUM-300, via `--used`); (4) if the session repeatedly hit the same failure,
- * prompt whether to flag the bound task with a `blocked` tag (LUM-153).
+ * Session-end wrap-up panel with three sections, run in order: (1) review the
+ * Layer1 memories this session sedimented — keep/delete/promote, deduped by a
+ * per-session watermark; (2) vote which injected context fragments were
+ * actually used (LUM-300, via `--used`); (3) if the session repeatedly hit the
+ * same failure, prompt whether to flag the bound task with a `blocked` tag
+ * (LUM-153).
  */
 export async function sessionWrap(
   options: SessionWrapOptions
@@ -44,7 +42,6 @@ export async function sessionWrap(
   }
 
   const sections = [
-    new ProgressCommentSection({ creds, sessionId }),
     new MemoryReviewSection({ creds, sessionId }),
     new FragmentUsageSection({ creds, sessionId, used: options.used }),
     new BlockedPromptSection({ creds, sessionId }),

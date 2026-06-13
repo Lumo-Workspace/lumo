@@ -45,7 +45,6 @@ const boundCtx = {
   taskId: 't1',
   taskIdentifier: 'LUM-42',
   taskTitle: 'T',
-  lastProgressCommentAt: null,
   lastMemoryReviewAt: null,
 }
 
@@ -68,14 +67,25 @@ beforeEach(() => {
 describe('getSessionFailureDraft', () => {
   it('returns no-prompt when session is missing/not owned', async () => {
     ctx.mockResolvedValue(null)
-    const r = await sessionService.getSessionFailureDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionFailureDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.shouldPrompt).toBe(false)
     expect(failures).not.toHaveBeenCalled()
   })
 
   it('returns no-prompt when the session has no bound task', async () => {
-    ctx.mockResolvedValue({ ...boundCtx, taskId: null, taskIdentifier: null, taskTitle: null })
-    const r = await sessionService.getSessionFailureDraft({ identity, sessionId: 's1' })
+    ctx.mockResolvedValue({
+      ...boundCtx,
+      taskId: null,
+      taskIdentifier: null,
+      taskTitle: null,
+    })
+    const r = await sessionService.getSessionFailureDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.shouldPrompt).toBe(false)
     expect(failures).not.toHaveBeenCalled()
   })
@@ -83,7 +93,10 @@ describe('getSessionFailureDraft', () => {
   it('prompts when same tool failed ≥3 times and task is not already blocked', async () => {
     ctx.mockResolvedValue(boundCtx)
     failures.mockResolvedValue(bashFails(3))
-    const r = await sessionService.getSessionFailureDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionFailureDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.shouldPrompt).toBe(true)
     expect(r.taskIdentifier).toBe('LUM-42')
     expect(r.topFailure!.label).toBe('Bash')
@@ -94,7 +107,10 @@ describe('getSessionFailureDraft', () => {
   it('does NOT prompt below the threshold', async () => {
     ctx.mockResolvedValue(boundCtx)
     failures.mockResolvedValue(bashFails(2))
-    const r = await sessionService.getSessionFailureDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionFailureDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.shouldPrompt).toBe(false)
   })
 
@@ -102,7 +118,10 @@ describe('getSessionFailureDraft', () => {
     ctx.mockResolvedValue(boundCtx)
     failures.mockResolvedValue(bashFails(5))
     findByTask.mockResolvedValue([{ id: 'tag1', name: 'blocked' }])
-    const r = await sessionService.getSessionFailureDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionFailureDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.alreadyBlocked).toBe(true)
     expect(r.shouldPrompt).toBe(false)
   })
@@ -112,7 +131,10 @@ describe('markBoundTaskBlocked', () => {
   it('finds-or-creates the blocked tag and attaches it to the bound task', async () => {
     ctx.mockResolvedValue(boundCtx)
     findOrCreate.mockResolvedValue([{ id: 'tagB', name: 'blocked' }])
-    const r = await sessionService.markBoundTaskBlocked({ identity, sessionId: 's1' })
+    const r = await sessionService.markBoundTaskBlocked({
+      identity,
+      sessionId: 's1',
+    })
     expect(findOrCreate).toHaveBeenCalledWith('w1', ['blocked'])
     expect(addTaskTags).toHaveBeenCalledWith('t1', ['tagB'])
     expect(r).toEqual({ taskIdentifier: 'LUM-42', tag: 'blocked' })

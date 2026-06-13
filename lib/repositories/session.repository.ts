@@ -303,7 +303,7 @@ export const sessionRepository = {
 
   /**
    * Member-scoped read for `lumo session wrap`: returns the bound task (flat
-   * identifier) plus the progress-comment watermark, or null if the session
+   * identifier) plus the memory-review watermark, or null if the session
    * doesn't exist / belongs to another member. Task fields are null when the
    * session has no binding.
    */
@@ -314,13 +314,11 @@ export const sessionRepository = {
     taskId: string | null
     taskIdentifier: string | null
     taskTitle: string | null
-    lastProgressCommentAt: Date | null
     lastMemoryReviewAt: Date | null
   } | null> {
     const row = await prisma.session.findFirst({
       where: { id: sessionId, workspaceMemberId },
       select: {
-        lastProgressCommentAt: true,
         lastMemoryReviewAt: true,
         task: {
           select: {
@@ -339,18 +337,8 @@ export const sessionRepository = {
         ? `${row.task.team.identifier}-${row.task.number}`
         : null,
       taskTitle: row.task?.title ?? null,
-      lastProgressCommentAt: row.lastProgressCommentAt,
       lastMemoryReviewAt: row.lastMemoryReviewAt,
     }
-  },
-
-  /** Advance the progress-comment watermark after a wrap posts a comment. */
-  async setLastProgressCommentAt(sessionId: string, at: Date) {
-    return prisma.session.update({
-      where: { id: sessionId },
-      data: { lastProgressCommentAt: at },
-      select: { id: true },
-    })
   },
 
   /** Advance the memory-review watermark after a wrap applies a review. */

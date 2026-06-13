@@ -47,35 +47,79 @@ beforeEach(() => {
 describe('getSessionMemoryDraft', () => {
   it('returns empty payload when the session is missing/unowned', async () => {
     ctx.mockResolvedValue(null)
-    const r = await sessionService.getSessionMemoryDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionMemoryDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r).toEqual({ taskIdentifier: null, memories: [], watermark: null })
     expect(findMem).not.toHaveBeenCalled()
   })
 
   it('lists session memories since the watermark and computes the new watermark', async () => {
     ctx.mockResolvedValue({
-      taskId: 't1', taskIdentifier: 'LUM-42', taskTitle: 'T',
-      lastProgressCommentAt: null,
+      taskId: 't1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'T',
       lastMemoryReviewAt: new Date('2026-06-01T09:00:00.000Z'),
     })
     findMem.mockResolvedValue([
-      { id: 'm1', scope: 'TASK', category: 'TRAP', content: { trigger: 'x' }, createdByMemberId: null, createdAt: new Date('2026-06-01T10:00:00.000Z') },
-      { id: 'm2', scope: 'TASK', category: 'DECISION', content: { what: 'y' }, createdByMemberId: null, createdAt: new Date('2026-06-01T11:00:00.000Z') },
+      {
+        id: 'm1',
+        scope: 'TASK',
+        category: 'TRAP',
+        content: { trigger: 'x' },
+        createdByMemberId: null,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      },
+      {
+        id: 'm2',
+        scope: 'TASK',
+        category: 'DECISION',
+        content: { what: 'y' },
+        createdByMemberId: null,
+        createdAt: new Date('2026-06-01T11:00:00.000Z'),
+      },
     ])
-    const r = await sessionService.getSessionMemoryDraft({ identity, sessionId: 's1' })
-    expect(findMem).toHaveBeenCalledWith('s1', new Date('2026-06-01T09:00:00.000Z'))
+    const r = await sessionService.getSessionMemoryDraft({
+      identity,
+      sessionId: 's1',
+    })
+    expect(findMem).toHaveBeenCalledWith(
+      's1',
+      new Date('2026-06-01T09:00:00.000Z')
+    )
     expect(r.taskIdentifier).toBe('LUM-42')
     expect(r.memories).toEqual([
-      { id: 'm1', scope: 'TASK', category: 'TRAP', content: { trigger: 'x' }, createdByMemberId: null },
-      { id: 'm2', scope: 'TASK', category: 'DECISION', content: { what: 'y' }, createdByMemberId: null },
+      {
+        id: 'm1',
+        scope: 'TASK',
+        category: 'TRAP',
+        content: { trigger: 'x' },
+        createdByMemberId: null,
+      },
+      {
+        id: 'm2',
+        scope: 'TASK',
+        category: 'DECISION',
+        content: { what: 'y' },
+        createdByMemberId: null,
+      },
     ])
     expect(r.watermark).toBe('2026-06-01T11:00:00.000Z')
   })
 
   it('null watermark when there are no new memories', async () => {
-    ctx.mockResolvedValue({ taskId: 't1', taskIdentifier: 'LUM-42', taskTitle: 'T', lastProgressCommentAt: null, lastMemoryReviewAt: null })
+    ctx.mockResolvedValue({
+      taskId: 't1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'T',
+      lastMemoryReviewAt: null,
+    })
     findMem.mockResolvedValue([])
-    const r = await sessionService.getSessionMemoryDraft({ identity, sessionId: 's1' })
+    const r = await sessionService.getSessionMemoryDraft({
+      identity,
+      sessionId: 's1',
+    })
     expect(r.watermark).toBeNull()
     expect(r.memories).toEqual([])
   })
@@ -86,28 +130,52 @@ describe('applyMemoryReview', () => {
     ctx.mockResolvedValue(null)
     await expect(
       sessionService.applyMemoryReview({
-        identity, sessionId: 's1',
+        identity,
+        sessionId: 's1',
         watermark: '2026-06-01T11:00:00.000Z',
-        deleteIds: ['m1'], promoteIds: [],
+        deleteIds: ['m1'],
+        promoteIds: [],
       })
     ).rejects.toMatchObject({ status: 404 })
   })
 
   it('drops ids not belonging to this session, runs the rest atomically, advances watermark', async () => {
-    ctx.mockResolvedValue({ taskId: 't1', taskIdentifier: 'LUM-42', taskTitle: 'T', lastProgressCommentAt: null, lastMemoryReviewAt: null })
+    ctx.mockResolvedValue({
+      taskId: 't1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'T',
+      lastMemoryReviewAt: null,
+    })
     findMem.mockResolvedValue([
-      { id: 'm1', scope: 'TASK', category: 'TRAP', content: {}, createdByMemberId: null, createdAt: new Date('2026-06-01T10:00:00.000Z') },
-      { id: 'm2', scope: 'TASK', category: 'DECISION', content: {}, createdByMemberId: null, createdAt: new Date('2026-06-01T11:00:00.000Z') },
+      {
+        id: 'm1',
+        scope: 'TASK',
+        category: 'TRAP',
+        content: {},
+        createdByMemberId: null,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      },
+      {
+        id: 'm2',
+        scope: 'TASK',
+        category: 'DECISION',
+        content: {},
+        createdByMemberId: null,
+        createdAt: new Date('2026-06-01T11:00:00.000Z'),
+      },
     ])
     const tx = {} as never
     const del = memoryRepository.delete as jest.Mock
     const upd = memoryRepository.update as jest.Mock
-    apply.mockImplementation(async (plans: Array<(tx: never) => Promise<void>>) => {
-      for (const p of plans) await p(tx)
-    })
+    apply.mockImplementation(
+      async (plans: Array<(tx: never) => Promise<void>>) => {
+        for (const p of plans) await p(tx)
+      }
+    )
 
     const r = await sessionService.applyMemoryReview({
-      identity, sessionId: 's1',
+      identity,
+      sessionId: 's1',
       watermark: '2026-06-01T11:00:00.000Z',
       deleteIds: ['m1', 'm9'],
       promoteIds: ['m2'],
@@ -117,22 +185,44 @@ describe('applyMemoryReview', () => {
     expect(del).toHaveBeenCalledWith('m1', tx)
     expect(del).not.toHaveBeenCalledWith('m9', tx)
     expect(upd).toHaveBeenCalledWith('m2', { scope: 'PROJECT' }, tx)
-    expect(setWm).toHaveBeenCalledWith('s1', new Date('2026-06-01T11:00:00.000Z'))
-    expect(apply.mock.invocationCallOrder[0]!).toBeLessThan(setWm.mock.invocationCallOrder[0]!)
+    expect(setWm).toHaveBeenCalledWith(
+      's1',
+      new Date('2026-06-01T11:00:00.000Z')
+    )
+    expect(apply.mock.invocationCallOrder[0]!).toBeLessThan(
+      setWm.mock.invocationCallOrder[0]!
+    )
   })
 
   it('advances the watermark even when nothing is deleted/promoted (keep-all)', async () => {
-    ctx.mockResolvedValue({ taskId: 't1', taskIdentifier: 'LUM-42', taskTitle: 'T', lastProgressCommentAt: null, lastMemoryReviewAt: null })
+    ctx.mockResolvedValue({
+      taskId: 't1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'T',
+      lastMemoryReviewAt: null,
+    })
     findMem.mockResolvedValue([
-      { id: 'm1', scope: 'TASK', category: 'TRAP', content: {}, createdByMemberId: null, createdAt: new Date('2026-06-01T10:00:00.000Z') },
+      {
+        id: 'm1',
+        scope: 'TASK',
+        category: 'TRAP',
+        content: {},
+        createdByMemberId: null,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      },
     ])
     const r = await sessionService.applyMemoryReview({
-      identity, sessionId: 's1',
+      identity,
+      sessionId: 's1',
       watermark: '2026-06-01T10:00:00.000Z',
-      deleteIds: [], promoteIds: [],
+      deleteIds: [],
+      promoteIds: [],
     })
     expect(r).toEqual({ deleted: 0, promoted: 0 })
     expect(apply).not.toHaveBeenCalled()
-    expect(setWm).toHaveBeenCalledWith('s1', new Date('2026-06-01T10:00:00.000Z'))
+    expect(setWm).toHaveBeenCalledWith(
+      's1',
+      new Date('2026-06-01T10:00:00.000Z')
+    )
   })
 })

@@ -3,11 +3,6 @@
  */
 jest.mock('@/cli/src/lib/config', () => ({ readCredentials: jest.fn() }))
 jest.mock('@/cli/src/lib/wrap-panel', () => ({ runWrapPanel: jest.fn() }))
-jest.mock('@/cli/src/commands/wrap/progress-comment-section', () => ({
-  ProgressCommentSection: jest
-    .fn()
-    .mockImplementation(() => ({ tag: 'progress' })),
-}))
 jest.mock('@/cli/src/commands/wrap/memory-review-section', () => ({
   MemoryReviewSection: jest.fn().mockImplementation(() => ({ tag: 'review' })),
 }))
@@ -26,7 +21,6 @@ jest.mock('@/cli/src/commands/wrap/crossings-reminder', () => ({
 import { readCredentials } from '@/cli/src/lib/config'
 import { openCrossingReminder } from '@/cli/src/commands/wrap/crossings-reminder'
 import { runWrapPanel } from '@/cli/src/lib/wrap-panel'
-import { ProgressCommentSection } from '@/cli/src/commands/wrap/progress-comment-section'
 import { MemoryReviewSection } from '@/cli/src/commands/wrap/memory-review-section'
 import { FragmentUsageSection } from '@/cli/src/commands/wrap/fragment-usage-section'
 import { BlockedPromptSection } from '@/cli/src/commands/wrap/blocked-prompt-section'
@@ -66,14 +60,13 @@ it('exits 1 when not logged in', async () => {
   expect(code).toBe(1)
 })
 
-it('runs the panel with progress + memory-review + fragment-usage + blocked-prompt sections and passes opts', async () => {
+it('runs the panel with memory-review + fragment-usage + blocked-prompt sections and passes opts', async () => {
   process.env.CLAUDE_CODE_SESSION_ID = 'sess_1'
   await sessionWrap({ yes: true, used: '1,3' })
   const expectedArgs = {
     creds: { token: 't', apiUrl: 'https://x', workspaceSlug: 'lumo' },
     sessionId: 'sess_1',
   }
-  expect(ProgressCommentSection).toHaveBeenCalledWith(expectedArgs)
   expect(MemoryReviewSection).toHaveBeenCalledWith(expectedArgs)
   expect(FragmentUsageSection).toHaveBeenCalledWith({
     ...expectedArgs,
@@ -81,12 +74,7 @@ it('runs the panel with progress + memory-review + fragment-usage + blocked-prom
   })
   expect(BlockedPromptSection).toHaveBeenCalledWith(expectedArgs)
   expect(mockRun).toHaveBeenCalledWith(
-    [
-      { tag: 'progress' },
-      { tag: 'review' },
-      { tag: 'usage' },
-      { tag: 'blocked' },
-    ],
+    [{ tag: 'review' }, { tag: 'usage' }, { tag: 'blocked' }],
     { yes: true, dryRun: false }
   )
 })
