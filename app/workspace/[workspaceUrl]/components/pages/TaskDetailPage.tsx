@@ -41,7 +41,6 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
-import { SpecArtifactGroup } from '../SpecArtifactGroup'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -297,12 +296,7 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
-            {/* Definition layer: spec artifacts (renders nothing when there are none) */}
-            <SpecArtifactGroup taskId={task.id} />
-
-            {/* Description — always rendered as the normal editor, below the
-                spec layer when artifacts exist (no "background discussion"
-                relabeling). */}
+            {/* Description */}
             {desc.descriptionLoading ? (
               <Spinner className='size-4 text-muted-foreground' />
             ) : (
