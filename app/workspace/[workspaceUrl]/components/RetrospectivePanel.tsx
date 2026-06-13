@@ -6,6 +6,7 @@ import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
 import type { Interval } from '@/lib/forecast/types'
 import { RangeBand } from './RangeBand'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
+import { formatDuration } from './AgentRunTimeline/format-duration'
 import type {
   RetrospectiveMetric,
   VarianceBand,
@@ -51,16 +52,19 @@ function range(
 }
 
 // Delivery row: shows predicted range · actual N; degrades to actual N ·
-// "no forecast history yet" when forecast is absent.
+// "no forecast history yet" when forecast is absent (unless forecastable=false).
 function CompareRow({
   label,
   metric,
+  format = (n: number) => String(Math.round(n)),
+  forecastable = true,
 }: {
   label: string
   metric: RetrospectiveMetric
+  format?: (n: number) => string
+  forecastable?: boolean
 }) {
   const intl = useIntl()
-  const fmt = (n: number) => String(Math.round(n))
   return (
     <div className='flex items-baseline justify-between gap-2 py-1'>
       <span className='text-caption text-foreground'>{label}</span>
@@ -69,13 +73,13 @@ function CompareRow({
           <>
             {intl.formatMessage(
               { id: 'retrospective.predicted' },
-              { value: range(intl, metric.forecast, fmt) }
+              { value: range(intl, metric.forecast, format) }
             )}
             <span className='mx-1.5 text-muted-foreground/60'>·</span>
             <span className='font-semibold text-foreground'>
               {intl.formatMessage(
                 { id: 'retrospective.actual' },
-                { value: metric.actual ?? '—' }
+                { value: metric.actual !== null ? format(metric.actual) : '—' }
               )}
             </span>
           </>
@@ -84,11 +88,15 @@ function CompareRow({
             <span className='font-semibold text-foreground'>
               {intl.formatMessage(
                 { id: 'retrospective.actual' },
-                { value: metric.actual ?? '—' }
+                { value: metric.actual !== null ? format(metric.actual) : '—' }
               )}
             </span>
-            <span className='mx-1.5 text-muted-foreground/60'>·</span>
-            {intl.formatMessage({ id: 'retrospective.noForecast' })}
+            {forecastable && (
+              <>
+                <span className='mx-1.5 text-muted-foreground/60'>·</span>
+                {intl.formatMessage({ id: 'retrospective.noForecast' })}
+              </>
+            )}
           </>
         )}
       </span>
@@ -114,8 +122,13 @@ export function RetrospectivePanel({
   if (!isTerminal) return null
   if (isLoading || error || !retrospective) return null
 
-  const { tokenCost, iterations, clarifyRounds, referenceLibrarySize } =
-    retrospective
+  const {
+    tokenCost,
+    iterations,
+    clarifyRounds,
+    totalDuration,
+    referenceLibrarySize,
+  } = retrospective
   const showToken = !!tokenCost.forecast && tokenCost.actual !== null
 
   return (
@@ -169,6 +182,12 @@ export function RetrospectivePanel({
         <CompareRow
           label={intl.formatMessage({ id: 'retrospective.clarifyRounds' })}
           metric={clarifyRounds}
+        />
+        <CompareRow
+          label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
+          metric={totalDuration}
+          format={n => formatDuration(n * 1000)}
+          forecastable={false}
         />
       </div>
 

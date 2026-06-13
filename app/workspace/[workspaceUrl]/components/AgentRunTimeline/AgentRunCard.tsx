@@ -12,6 +12,7 @@ import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
 import { initialsOf } from '../initials'
+import { formatDuration } from './format-duration'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -199,13 +200,4 @@ export function AgentRunCard({
       )}
     </div>
   )
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  const sec = Math.round(ms / 1000)
-  if (sec < 60) return `${sec}s`
-  const min = Math.floor(sec / 60)
-  const rem = sec % 60
-  return rem === 0 ? `${min}m` : `${min}m ${rem}s`
 }

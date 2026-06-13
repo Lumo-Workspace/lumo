@@ -66,6 +66,7 @@ export const retrospectiveService = {
       tokenCost: metric(snap.tokenCost, actuals.tokenCost),
       iterations: metric(snap.iterations, actuals.iterations),
       clarifyRounds: metric(snap.clarifyRounds, actuals.clarifyRounds),
+      totalDuration: metric(null, actuals.totalDurationSec),
       referenceLibrarySize,
       capturedAt: snap.capturedAt,
     }

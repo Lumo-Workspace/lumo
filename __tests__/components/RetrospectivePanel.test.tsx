@@ -12,6 +12,7 @@ const en: Record<string, string> = {
   'retrospective.delivery': 'Delivery',
   'retrospective.iterations': 'Runs',
   'retrospective.clarifyRounds': 'Clarification rounds',
+  'retrospective.totalDuration': 'Run time',
   'retrospective.noForecast': 'no forecast history yet',
   'retrospective.bandWithin': 'within the usual range',
   'retrospective.bandAbove': 'above the usual range',
@@ -93,6 +94,12 @@ it('renders token compare + delivery rows + flywheel count', async () => {
         deltaPct: 100,
         band: 'within',
       },
+      totalDuration: {
+        forecast: null,
+        actual: 100,
+        deltaPct: null,
+        band: null,
+      },
       referenceLibrarySize: 27,
       capturedAt: '2026-06-01',
     },
@@ -114,6 +121,7 @@ it('degrades a row to actual-only when its forecast is null', async () => {
         band: 'above',
       },
       clarifyRounds: { forecast: null, actual: 3, deltaPct: null, band: null },
+      totalDuration: { forecast: null, actual: 60, deltaPct: null, band: null },
       referenceLibrarySize: 10,
       capturedAt: '2026-06-01',
     },
@@ -147,6 +155,12 @@ it('renders a footer slot under a divider when provided', async () => {
         deltaPct: 100,
         band: 'within',
       },
+      totalDuration: {
+        forecast: null,
+        actual: 100,
+        deltaPct: null,
+        band: null,
+      },
       referenceLibrarySize: 27,
       capturedAt: '2026-06-01',
     },
@@ -160,4 +174,37 @@ it('renders a footer slot under a divider when provided', async () => {
   )
   await screen.findByText(en['retrospective.title']!)
   expect(screen.getByTestId('slot')).toBeInTheDocument()
+})
+
+it('renders run-time row actual-only, duration-formatted, with no no-forecast tail', async () => {
+  fetchRetro.mockResolvedValue({
+    retrospective: {
+      tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
+      iterations: {
+        forecast: iv(2, 3, 3),
+        actual: 3,
+        deltaPct: 0,
+        band: 'within',
+      },
+      clarifyRounds: {
+        forecast: iv(1, 1, 2),
+        actual: 2,
+        deltaPct: 100,
+        band: 'within',
+      },
+      totalDuration: {
+        forecast: null,
+        actual: 17692,
+        deltaPct: null,
+        band: null,
+      },
+      referenceLibrarySize: 5,
+      capturedAt: '2026-06-01',
+    },
+  })
+  wrap(<RetrospectivePanel taskId='t1' status='DONE' />)
+  expect(await screen.findByText('Run time')).toBeInTheDocument()
+  expect(screen.getByText(/294m 52s/)).toBeInTheDocument()
+  const row = screen.getByText('Run time').closest('div')!
+  expect(row).not.toHaveTextContent('no forecast history yet')
 })

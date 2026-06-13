@@ -23,6 +23,7 @@ beforeEach(() => {
 })
 
 it('loadActuals sums session usage, counts sessions and clarify notifications', async () => {
+  const t0 = new Date('2024-01-01T00:00:00Z')
   taskFind.mockResolvedValue({
     projectId: 'p1',
     sessions: [
@@ -31,12 +32,16 @@ it('loadActuals sums session usage, counts sessions and clarify notifications', 
         outputTokens: 20,
         cacheReadTokens: 5,
         cacheCreationTokens: 0,
+        startedAt: t0,
+        lastActivityAt: t0,
       },
       {
         inputTokens: 1,
         outputTokens: 2,
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
+        startedAt: t0,
+        lastActivityAt: t0,
       },
     ],
   })
@@ -48,10 +53,12 @@ it('loadActuals sums session usage, counts sessions and clarify notifications', 
     tokenCost: 38,
     iterations: 2,
     clarifyRounds: 2,
+    totalDurationSec: 0,
   })
 })
 
 it('loadActuals returns tokenCost null when no session carries usage', async () => {
+  const t0 = new Date('2024-01-01T00:00:00Z')
   taskFind.mockResolvedValue({
     projectId: 'p1',
     sessions: [
@@ -60,6 +67,8 @@ it('loadActuals returns tokenCost null when no session carries usage', async () 
         outputTokens: null,
         cacheReadTokens: null,
         cacheCreationTokens: null,
+        startedAt: t0,
+        lastActivityAt: t0,
       },
     ],
   })
@@ -70,6 +79,7 @@ it('loadActuals returns tokenCost null when no session carries usage', async () 
     tokenCost: null,
     iterations: 1,
     clarifyRounds: 0,
+    totalDurationSec: 0,
   })
 })
 
@@ -113,5 +123,69 @@ it('countReferenceLibrary counts DONE tasks with sessions', async () => {
   expect(await retrospectiveRepository.countReferenceLibrary('p1')).toBe(27)
   expect(taskCount).toHaveBeenCalledWith({
     where: { projectId: 'p1', status: 'DONE', sessions: { some: {} } },
+  })
+})
+
+describe('loadActuals — totalDurationSec', () => {
+  it('sums each session lastActivityAt − startedAt (seconds), incl. a still-running session', async () => {
+    const base = new Date('2024-01-01T00:00:00Z')
+    const sessionA = {
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheCreationTokens: null,
+      startedAt: base,
+      // 10 minutes = 600s
+      lastActivityAt: new Date(base.getTime() + 10 * 60 * 1000),
+    }
+    const sessionB = {
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheCreationTokens: null,
+      startedAt: base,
+      // 5 minutes = 300s — still "running" (no STOP event), frozen at lastActivityAt
+      lastActivityAt: new Date(base.getTime() + 5 * 60 * 1000),
+    }
+    taskFind.mockResolvedValue({
+      projectId: 'p1',
+      sessions: [sessionA, sessionB],
+    })
+    notifCount.mockResolvedValue(0)
+
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    expect(actuals?.totalDurationSec).toBe(900)
+  })
+
+  it('is 0 when the task has no sessions', async () => {
+    taskFind.mockResolvedValue({
+      projectId: 'p1',
+      sessions: [],
+    })
+    notifCount.mockResolvedValue(0)
+
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    expect(actuals?.totalDurationSec).toBe(0)
+  })
+
+  it('never goes negative when lastActivityAt === startedAt', async () => {
+    const t0 = new Date('2024-06-01T12:00:00Z')
+    taskFind.mockResolvedValue({
+      projectId: 'p1',
+      sessions: [
+        {
+          inputTokens: null,
+          outputTokens: null,
+          cacheReadTokens: null,
+          cacheCreationTokens: null,
+          startedAt: t0,
+          lastActivityAt: t0,
+        },
+      ],
+    })
+    notifCount.mockResolvedValue(0)
+
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    expect(actuals?.totalDurationSec).toBe(0)
   })
 })

@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "{count}回検出",
   "boundary.panel.lastSeen": "最終検出 {at}",
   "acceptance.runSummary": "今回の実行",
-  "agentRun.summaryLabel": "今回の実行"
+  "agentRun.summaryLabel": "今回の実行",
+  "retrospective.totalDuration": "実行時間",
+  "progress.totalDuration": "実行時間",
+  "progress.summaryDuration": "実行 {value}"
 }

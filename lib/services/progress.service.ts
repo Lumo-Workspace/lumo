@@ -23,6 +23,7 @@ export const progressService = {
         forecast.clarifyRounds,
         actuals.clarifyRounds
       ),
+      totalDuration: progressMetric(null, actuals.totalDurationSec),
     }
   },
 }

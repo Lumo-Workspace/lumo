@@ -1653,5 +1653,8 @@
   "boundary.panel.recurrence": "terlihat ×{count}",
   "boundary.panel.lastSeen": "Terakhir terlihat {at}",
   "acceptance.runSummary": "Proses saat ini",
-  "agentRun.summaryLabel": "Proses saat ini"
+  "agentRun.summaryLabel": "Proses saat ini",
+  "retrospective.totalDuration": "Waktu berjalan",
+  "progress.totalDuration": "Waktu berjalan",
+  "progress.summaryDuration": "Berjalan {value}"
 }
