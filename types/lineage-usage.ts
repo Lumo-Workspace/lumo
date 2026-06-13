@@ -5,9 +5,11 @@ export interface UsageSignalHealth {
   perSessionVariance: number
   votedSessions: number
   /** Task-deduped merge rate among used=true edges vs the base resolved rate,
-   *  computed over the LUM-484 iteration-taint fold (a task with a send-back /
-   *  reopen / PR-close counts as non-merged even if later merged). usedMergeRate
-   *  meaningfully above baseMergeRate ⇒ the signal discriminates. */
+   *  computed over the LUM-484 iteration-taint fold: a resolved task carrying a
+   *  HUMAN/AGENT FAIL send-back verdict is recounted as non-merged even if it
+   *  later completed (REWORKED/REJECTED tasks already fold as non-merged via
+   *  their edge outcomes). usedMergeRate meaningfully above baseMergeRate ⇒ the
+   *  signal discriminates. */
   usedMergeRate: number | null
   baseMergeRate: number | null
   usedResolvedTasks: number
