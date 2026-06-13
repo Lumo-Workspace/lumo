@@ -8,6 +8,7 @@ import type {
 } from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
+import { formatDuration } from './AgentRunTimeline/format-duration'
 
 // over 预警 pill（warning token）。on-track 不渲染 —— 飞行途中偏低是正常进度。
 function OverPill({ metric }: { metric: ProgressMetric }) {
@@ -26,9 +27,11 @@ function OverPill({ metric }: { metric: ProgressMetric }) {
 function ProgressCompareRow({
   label,
   metric,
+  format = n => String(Math.round(n)),
 }: {
   label: string
   metric: ProgressMetric
+  format?: (n: number) => string
 }) {
   const intl = useIntl()
   const over = metric.band === 'over'
@@ -55,7 +58,7 @@ function ProgressCompareRow({
         >
           {intl.formatMessage(
             { id: 'progress.soFar' },
-            { value: metric.actual ?? '—' }
+            { value: metric.actual !== null ? format(metric.actual) : '—' }
           )}
         </span>
       </span>
@@ -83,7 +86,7 @@ export function ProgressView({
   footer?: ReactNode
 }) {
   const intl = useIntl()
-  const { tokenCost, iterations, clarifyRounds } = progress
+  const { tokenCost, iterations, clarifyRounds, totalDuration } = progress
   const running = agentStatus === 'WORKING'
   const tokenOver = tokenCost.band === 'over'
 
@@ -94,6 +97,8 @@ export function ProgressView({
     !hasTokenBand && tokenCost.actual !== null && tokenCost.actual > 0
   const showClarifySummary =
     clarifyRounds.actual !== null && clarifyRounds.actual > 0
+  const showDurationSummary =
+    totalDuration.actual !== null && totalDuration.actual > 0
 
   return (
     <section className='rounded-lg border border-border bg-card p-4'>
@@ -159,6 +164,11 @@ export function ProgressView({
             label={intl.formatMessage({ id: 'progress.clarifyRounds' })}
             metric={clarifyRounds}
           />
+          <ProgressCompareRow
+            label={intl.formatMessage({ id: 'progress.totalDuration' })}
+            metric={totalDuration}
+            format={n => formatDuration(n * 1000)}
+          />
         </div>
       ) : (
         <ul className='border-t border-border pt-3'>
@@ -181,6 +191,18 @@ export function ProgressView({
               {intl.formatMessage(
                 { id: 'progress.summaryClarify' },
                 { value: clarifyRounds.actual as number }
+              )}
+            </SummaryLine>
+          )}
+          {showDurationSummary && (
+            <SummaryLine>
+              {intl.formatMessage(
+                { id: 'progress.summaryDuration' },
+                {
+                  value: formatDuration(
+                    (totalDuration.actual as number) * 1000
+                  ),
+                }
               )}
             </SummaryLine>
           )}

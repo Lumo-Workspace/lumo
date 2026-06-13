@@ -16,6 +16,8 @@ const en: Record<string, string> = {
   'progress.summaryRuns': '{value} runs so far',
   'progress.summaryTokens': '{value} tokens used',
   'progress.summaryClarify': '{value} clarification rounds',
+  'progress.totalDuration': 'Run time',
+  'progress.summaryDuration': 'Ran {value}',
 }
 
 jest.mock('react-intl', () => ({
@@ -61,6 +63,7 @@ const onTrack: TaskProgress = {
     deltaPct: null,
     band: 'on-track',
   },
+  totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 
 const over: TaskProgress = {
@@ -102,6 +105,7 @@ const noForecastWithToken: TaskProgress = {
   tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
   clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 
 const noForecastMinimal: TaskProgress = {
@@ -155,6 +159,7 @@ const tokenBandNoCohort: TaskProgress = {
   },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
   clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 
 it('renders the token band AND a runs-only summary when token forecast exists but cohort does not', () => {
@@ -180,4 +185,31 @@ it('renders a footer slot under a divider when provided', () => {
     />
   )
   expect(screen.getByTestId('slot')).toBeInTheDocument()
+})
+
+const withDuration: TaskProgress = {
+  ...onTrack,
+  totalDuration: { forecast: null, actual: 18760, deltaPct: null, band: null },
+}
+
+it('shows the run-time row in the cohort-forecast layout', () => {
+  render(<ProgressView progress={withDuration} agentStatus={null} />)
+  expect(screen.getByText('Run time')).toBeInTheDocument()
+  expect(screen.getByText(/312m 40s/)).toBeInTheDocument()
+})
+
+const noForecastWithDuration: TaskProgress = {
+  ...noForecastMinimal,
+  totalDuration: { forecast: null, actual: 18760, deltaPct: null, band: null },
+}
+
+it('shows a run-time summary line in the no-forecast layout when > 0', () => {
+  render(<ProgressView progress={noForecastWithDuration} agentStatus={null} />)
+  expect(screen.getByText(/312m 40s/)).toBeInTheDocument()
+})
+
+it('omits the run-time summary line when duration is 0', () => {
+  render(<ProgressView progress={noForecastMinimal} agentStatus={null} />)
+  expect(screen.queryByText(/312m 40s/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Ran /)).not.toBeInTheDocument()
 })
