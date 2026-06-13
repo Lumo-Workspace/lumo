@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "chủ sở hữu: {owner}",
   "boundary.panel.allCleared": "{count, plural, other {đã xử lý #}} · 0 chưa xử lý",
   "context.group.reference": "Tham chiếu",
-  "task.delivery": "Bàn giao"
+  "task.delivery": "Bàn giao",
+  "boundary.panel.recurrence": "thấy ×{count} lần",
+  "boundary.panel.lastSeen": "Thấy lần cuối {at}"
 }

@@ -127,6 +127,13 @@ export interface BoundaryCrossingView {
   detail: string
   detectedAt: string
   reversible: boolean
+  /** How many detections coalesced into this crossing (LUM-477) — 1 unless the
+   *  same action/file recurred while open. The bar shows "seen ×N" when > 1 so a
+   *  reviewer dispositions a repeated crossing once and still sees it recurred. */
+  occurrenceCount: number
+  /** When the crossing was last (re)detected (LUM-477); falls back to detectedAt
+   *  for a crossing that never recurred. */
+  lastSeenAt: string
   /** Severity tier (LUM-442) — read-model exposes it; the bar orders by it. */
   severity: BoundaryCrossingSeverity
   disposition: BoundaryCrossingDisposition | null
@@ -559,6 +566,11 @@ export const boundaryCrossingService = {
         category: c.category,
         detail: c.detail,
         detectedAt: iso(c.detectedAt) ?? '',
+        // LUM-477: recurrence signal. lastSeenAt is null until the crossing first
+        // recurs (and on legacy rows) — fall back to detectedAt so the bar always
+        // has a "last seen" timestamp.
+        occurrenceCount: c.occurrenceCount ?? 1,
+        lastSeenAt: iso(c.lastSeenAt) ?? iso(c.detectedAt) ?? '',
         reversible: c.reversible,
         severity: c.severity,
         disposition: c.disposition,

@@ -12,6 +12,9 @@ export interface CreateBoundaryCrossingInput {
   category: BoundaryCrossingCategory
   /** Human-readable detail: the matched command / path / pattern. */
   detail: string
+  /** Coalescing target (LUM-477) — the edited file / normalized command this
+   *  crossing is deduped on alongside (taskId, category). */
+  target?: string | null
   /** Taxonomy-driven reversibility (LUM-435) — only npm installs are reversible. */
   reversible: boolean
   /** Taxonomy-driven severity tier (LUM-442). */
@@ -24,6 +27,9 @@ const SELECT = {
   taskId: true,
   category: true,
   detail: true,
+  target: true,
+  occurrenceCount: true,
+  lastSeenAt: true,
   detectedAt: true,
   reversible: true,
   severity: true,
@@ -71,11 +77,37 @@ export const boundaryCrossingRepository = {
         hookEventId: input.hookEventId ?? null,
         category: input.category,
         detail: input.detail,
+        target: input.target ?? null,
         reversible: input.reversible,
         severity: input.severity,
       },
       select: SELECT,
     })
+  },
+
+  /**
+   * Coalesce a recurrence of an OPEN crossing (LUM-477). Atomically bump every
+   * OPEN (undispositioned) crossing on the task whose (category, target) matches
+   * — `occurrenceCount++` and `lastSeenAt = now` — and return how many rows were
+   * touched. A return of 0 means there is no open match (a first occurrence, a
+   * different target/category, or a prior matching crossing that was already
+   * dispositioned) and the caller should insert a fresh row instead.
+   *
+   * `target == null` never coalesces: a null is "no coalescing key" (legacy
+   * rows), so the WHERE never matches and the recurrence records anew.
+   */
+  async coalesceRecurrence(
+    taskId: string,
+    category: BoundaryCrossingCategory,
+    target: string | null,
+    now: Date
+  ): Promise<number> {
+    if (target == null) return 0
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { taskId, category, target, disposition: null },
+      data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
+    })
+    return count
   },
 
   /**

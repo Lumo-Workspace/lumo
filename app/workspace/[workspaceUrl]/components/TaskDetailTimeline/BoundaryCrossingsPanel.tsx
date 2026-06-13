@@ -21,6 +21,7 @@ import {
   ChevronDown,
   FileWarning,
   Bot,
+  Repeat,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import {
@@ -391,6 +392,35 @@ function CrossingRow({
           )}
           {boundaryReversibilityLabel(c.reversible, intl)}
         </Badge>
+        {/* Recurrence (LUM-477): the same action/file tripped the detector more
+        than once while open. Surfaced so the reviewer dispositions it ONCE yet
+        still sees it repeated; titled with the last-seen time. */}
+        {(c.occurrenceCount ?? 1) > 1 && (
+          <span
+            data-testid={`crossing-recurrence-${c.id}`}
+            title={
+              c.lastSeenAt
+                ? intl.formatMessage(
+                    {
+                      id: 'boundary.panel.lastSeen',
+                      defaultMessage: 'Last seen {at}',
+                    },
+                    { at: new Date(c.lastSeenAt).toLocaleString(intl.locale) }
+                  )
+                : undefined
+            }
+            className='inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
+          >
+            <Repeat className='size-3' aria-hidden />
+            {intl.formatMessage(
+              {
+                id: 'boundary.panel.recurrence',
+                defaultMessage: 'seen ×{count}',
+              },
+              { count: c.occurrenceCount }
+            )}
+          </span>
+        )}
         <span className='ml-auto text-[11px] text-muted-foreground/80'>
           {open
             ? new Date(c.detectedAt).toLocaleString(intl.locale)

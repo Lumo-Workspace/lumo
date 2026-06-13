@@ -948,6 +948,8 @@
   "boundary.severity.medium": "medium",
   "boundary.severity.low": "low",
   "boundary.panel.severityBadge": "{severity} severity",
+  "boundary.panel.recurrence": "seen ×{count}",
+  "boundary.panel.lastSeen": "Last seen {at}",
   "boundary.panel.defenseInDepth": "Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.",
   "boundary.panel.title": "Boundary crossings",
   "boundary.panel.openCount": "{count, plural, one {# open} other {# open}}",

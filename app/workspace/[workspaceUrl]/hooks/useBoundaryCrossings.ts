@@ -52,6 +52,11 @@ export interface BoundaryCrossingView {
   detail: string
   detectedAt: string
   reversible: boolean
+  /** How many detections coalesced into this crossing (LUM-477); 1 unless it
+   *  recurred while open. */
+  occurrenceCount: number
+  /** When the crossing was last (re)detected (LUM-477); falls back to detectedAt. */
+  lastSeenAt: string
   severity: BoundarySeverity
   disposition: BoundaryDisposition | null
   dispositionNote: string | null

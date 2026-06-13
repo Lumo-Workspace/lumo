@@ -66,6 +66,12 @@ export interface DetectedCrossing {
   /** Severity tier (LUM-442). HIGH crossings are surfaced most prominently and
    *  force the DONE gate even where the workspace opted out. */
   severity: BoundaryCrossingSeverity
+  /** Coalescing target (LUM-477): the specific thing this crossing is about — the
+   *  edited file for TEST_TAMPERING/secret, the normalized command for action
+   *  classes. Repeated detections with the same (taskId, category, target) merge
+   *  into one OPEN crossing instead of recording a duplicate per event. Never the
+   *  secret VALUE — a secret's target is its file, so it stays redacted. */
+  target: string
 }
 
 const DETAIL_MAX = 200
@@ -321,6 +327,9 @@ function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
       detail: clip(evasion ? `${EVASION_MARKER}${cmd}` : cmd),
       // Evasion is itself OpenAI's highest-frequency class — always HIGH.
       severity: evasion ? 'HIGH' : severityFor(category),
+      // The normalized command is the coalescing target (LUM-477): the same
+      // action re-run merges; a different command stays its own crossing.
+      target: clip(cmd),
     })
   if (matchProtectedPush(cmd)) add('PUSH_TO_PROTECTED_BRANCH')
   if (matchMigrationDelete(cmd)) add('MIGRATION_FILE_DELETED')
@@ -368,6 +377,9 @@ export function detectCrossings(
         // Never echo the secret — store the redacted pattern label + file only.
         detail: clip(`${label} in ${input.filePath ?? 'a written file'}`),
         severity: severityFor('HARDCODED_SECRET'),
+        // Coalesce by the written FILE, never the secret value (LUM-477) —
+        // repeated secret writes to the same file merge into one crossing.
+        target: input.filePath ?? 'a written file',
       })
   }
 
@@ -613,6 +625,9 @@ export function detectTestTampering(input: {
         category: 'TEST_TAMPERING',
         detail: clip(`edited ${hit}${because}`),
         severity: severityFor('TEST_TAMPERING'),
+        // Coalesce repeated edits to the SAME test file (LUM-477): the edited
+        // file is the target, so three edits to one test = one OPEN crossing.
+        target: normalizePath(input.filePath as string),
       }
     }
   }
@@ -1040,11 +1055,25 @@ export const boundaryDetectorService = {
       const tampering = await detectTestTamperingForTask(input)
       if (tampering) confirmed.push(tampering)
       for (const c of confirmed) {
+        // LUM-477: coalesce a recurrence of an OPEN crossing with the same
+        // (taskId, category, target) — bump its count/lastSeenAt instead of
+        // inserting a duplicate row + a duplicate timeline marker. A return of 0
+        // means no open match (first occurrence, distinct target/category, or a
+        // prior match already dispositioned) → record a fresh crossing. A
+        // post-disposition recurrence is therefore never silently swallowed.
+        const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+          input.taskId,
+          c.category,
+          c.target,
+          new Date()
+        )
+        if (coalesced > 0) continue
         const row = await boundaryCrossingRepository.create({
           taskId: input.taskId,
           hookEventId: input.hookEventId ?? null,
           category: c.category,
           detail: c.detail,
+          target: c.target,
           reversible: isReversible(c.category),
           severity: c.severity,
         })

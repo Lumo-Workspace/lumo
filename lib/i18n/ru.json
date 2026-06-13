@@ -1648,5 +1648,7 @@
   "boundary.panel.attribution.owner": "владелец: {owner}",
   "boundary.panel.allCleared": "{count, plural, one {# обработано} few {# обработано} other {# обработано}} · 0 открытых",
   "context.group.reference": "Ссылки",
-  "task.delivery": "Поставка"
+  "task.delivery": "Поставка",
+  "boundary.panel.recurrence": "замечено ×{count}",
+  "boundary.panel.lastSeen": "Последний раз {at}"
 }

@@ -35,6 +35,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     create: jest.fn(),
+    coalesceRecurrence: jest.fn().mockResolvedValue(0),
     findUndispositionedByTask: jest.fn(),
     isGateEnabledForWorkspace: jest.fn(),
   },

@@ -21,7 +21,10 @@ import type { PrefilterInput } from '@/lib/boundary-crossing/test-tampering-pref
 
 // Repo + LLM mocks for the ingestion-path assertions.
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: { create: jest.fn() },
+  boundaryCrossingRepository: {
+    create: jest.fn(),
+    coalesceRecurrence: jest.fn().mockResolvedValue(0),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },

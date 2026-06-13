@@ -8,7 +8,10 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: { create: jest.fn() },
+  boundaryCrossingRepository: {
+    create: jest.fn(),
+    coalesceRecurrence: jest.fn().mockResolvedValue(0),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
