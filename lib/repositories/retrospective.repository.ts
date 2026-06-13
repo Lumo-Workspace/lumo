@@ -31,6 +31,7 @@ export interface RetrospectiveActuals {
   tokenCost: number | null
   iterations: number
   clarifyRounds: number
+  totalDurationSec: number
 }
 
 export const retrospectiveRepository = {
@@ -84,6 +85,8 @@ export const retrospectiveRepository = {
             outputTokens: true,
             cacheReadTokens: true,
             cacheCreationTokens: true,
+            startedAt: true,
+            lastActivityAt: true,
           },
         },
       },
@@ -107,11 +110,20 @@ export const retrospectiveRepository = {
       where: { taskId, type: 'AGENT_CLARIFY' },
     })
 
+    const totalDurationSec = Math.round(
+      task.sessions.reduce(
+        (sum, s) =>
+          sum + Math.max(0, s.lastActivityAt.getTime() - s.startedAt.getTime()),
+        0
+      ) / 1000
+    )
+
     return {
       projectId: task.projectId,
       tokenCost,
       iterations: task.sessions.length,
       clarifyRounds,
+      totalDurationSec,
     }
   },
 
