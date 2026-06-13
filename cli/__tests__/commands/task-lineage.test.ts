@@ -147,6 +147,7 @@ describe('formatSignalHealth negative-class display', () => {
     })
     expect(out).toContain('cannot discriminate')
     expect(out).not.toMatch(/100%/)
+    expect(out).not.toContain('merge-rate(used)')
   })
 
   it('shows rates with negative-class size when non-empty', () => {
@@ -163,5 +164,6 @@ describe('formatSignalHealth negative-class display', () => {
     })
     expect(out).toMatch(/46%/)
     expect(out).toContain('11 failed')
+    expect(out).toContain('2 failed')
   })
 })

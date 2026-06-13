@@ -243,7 +243,7 @@ export function formatSignalHealth(h: UsageSignalHealth): string {
       )
     } else {
       lines.push(
-        `- Used × outcome: merge-rate(used) ${Math.round(h.usedMergeRate * 100)}% (${h.usedResolvedTasks} used, ${h.usedFailedTasks} failed) vs base ${Math.round(h.baseMergeRate * 100)}% (${h.baseResolvedTasks} resolved, ${h.baseFailedTasks} failed)`
+        `- Used × outcome: merge-rate(used) ${Math.round(h.usedMergeRate * 100)}% (${h.usedResolvedTasks} resolved, ${h.usedFailedTasks} failed) vs base ${Math.round(h.baseMergeRate * 100)}% (${h.baseResolvedTasks} resolved, ${h.baseFailedTasks} failed)`
       )
     }
   } else {
