@@ -2015,6 +2015,11 @@ enum LineageOutcome {
   UNKNOWN
 }
 
+enum LineageDisclosure {
+  FULL
+  INDEX
+}
+
 model LineageEdge {
   id           String              @id @default(cuid())
   workspaceId  String
@@ -2042,6 +2047,10 @@ model LineageEdge {
   // voted?" (avoids a separate Session watermark column).
   used         Boolean?
   usedAt       DateTime?
+  // 渐进式披露漏斗：FULL = Tier1 全文注入；INDEX = Tier2 仅索引行。
+  disclosure   LineageDisclosure   @default(FULL)
+  // agent 经 `lumo … show <id>` 主动拉取该 fragment 正文的时刻（漏斗中间环）。
+  pulledAt     DateTime?
   updatedAt    DateTime            @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
