@@ -13,7 +13,6 @@ import {
 import { tasksClient } from '@/lib/api-client'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import type {
-  AcceptanceVerdict,
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
   VerificationHistoryRoundView,
