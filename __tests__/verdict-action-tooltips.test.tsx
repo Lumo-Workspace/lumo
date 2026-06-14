@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 /**
- * LUM-489 (Task 6): tooltips explaining the human verdict actions on the
- * VerdictDecision header in review (IN_REVIEW) mode — the pass-with-follow-up
- * and fail action buttons. Each InfoTooltip is a SIBLING next to its button
- * (never nested inside it). Renders the REAL VerdictDecision; mirrors the
- * verdict-header-passive.test.tsx harness.
+ * LUM-492: tooltips explaining the human verdict actions on the VerdictDecision
+ * header in review (IN_REVIEW) mode. The PASS and FAIL buttons are themselves
+ * the tooltip triggers (via ActionTooltip) — hovering or focusing a button
+ * reveals its explanation, with no separate `ⓘ` sibling and no nested button.
+ * The pass-with-follow-up action was removed entirely. Renders the REAL
+ * VerdictDecision; mirrors the verdict-header-passive.test.tsx harness.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -36,11 +37,27 @@ jest.mock('next/navigation', () => ({
 
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { VerdictDecision } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision'
 import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
 } from '@/app/workspace/[workspaceUrl]/types'
+
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  // jsdom has no ResizeObserver; Radix tooltip arrow uses it for sizing.
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  }
+})
 
 const reviewCrit: TaskStatusCriterionView = {
   id: 'c-1',
@@ -88,39 +105,31 @@ function renderReview() {
 }
 
 describe('Verdict action tooltips', () => {
-  it('pass-with-follow-up action carries an explanatory tooltip', () => {
+  it('the pass-with-follow-up action is gone', () => {
     renderReview()
-    expect(
-      screen.getByLabelText(
-        'Mark passed but leave a follow-up note — the task is accepted with a tracked loose end.'
-      )
-    ).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-followup')).toBeNull()
   })
 
-  it('fail action carries an explanatory tooltip', () => {
+  it('pass button is its own tooltip trigger (no nested button, no separate ⓘ)', () => {
     renderReview()
-    expect(
-      screen.getByLabelText(
-        'Reject and send the task back — it cannot be marked Done until re-verified.'
-      )
-    ).toBeInTheDocument()
+    const pass = screen.getByTestId('verdict-pass')
+    expect(pass.tagName).toBe('BUTTON')
+    expect(pass.querySelector('button')).toBeNull()
   })
 
-  it('the action tooltips are siblings of their buttons, not nested inside them', () => {
+  it('fail button is its own tooltip trigger (no nested button)', () => {
     renderReview()
-    // A button must never be a descendant of another button (DOM nesting).
-    const followupButton = screen.getByTestId('verdict-followup')
-    const failButton = screen.getByTestId('verdict-fail')
-    expect(followupButton.querySelector('button')).toBeNull()
-    expect(failButton.querySelector('button')).toBeNull()
+    const fail = screen.getByTestId('verdict-fail')
+    expect(fail.querySelector('button')).toBeNull()
   })
 
-  it('pass action carries an explanatory tooltip', () => {
+  it('pass tip is reachable by focusing the button', async () => {
     renderReview()
+    screen.getByTestId('verdict-pass').focus()
     expect(
-      screen.getByLabelText(
+      await screen.findAllByText(
         'Accept the task as done — all criteria are met and it moves to completed.'
       )
-    ).toBeInTheDocument()
+    ).not.toHaveLength(0)
   })
 })

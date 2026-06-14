@@ -59,6 +59,23 @@ jest.mock(
 const submit = tasksClient.submitHumanVerdict as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
 
+// The action buttons are wrapped in Radix-backed ActionTooltips (LUM-492);
+// Radix's sizing hook needs a ResizeObserver / pointer-capture / scrollIntoView
+// that jsdom doesn't provide. Shim them so mounting the buttons doesn't throw.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  }
+})
+
 let seq = 0
 
 // Mirror the verdict-status.test.ts fixture: a minimal but type-complete
@@ -121,7 +138,6 @@ beforeEach(() => {
   submit.mockResolvedValue({
     taskStatus: 'DONE',
     verdict: 'PASS',
-    followUpTask: null,
   })
 })
 
@@ -159,7 +175,7 @@ describe('VerdictDecision', () => {
     )
     expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
     expect(screen.getByTestId('verdict-pass')).toBeInTheDocument()
-    expect(screen.getByTestId('verdict-followup')).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-followup')).toBeNull()
     expect(screen.getByTestId('verdict-fail')).toBeInTheDocument()
   })
 
@@ -263,7 +279,6 @@ describe('VerdictDecision', () => {
     submit.mockResolvedValue({
       taskStatus: 'IN_PROGRESS',
       verdict: 'FAIL',
-      followUpTask: null,
     })
     render(
       <VerdictDecision
@@ -290,7 +305,6 @@ describe('VerdictDecision', () => {
     submit.mockResolvedValue({
       taskStatus: 'IN_PROGRESS',
       verdict: 'FAIL',
-      followUpTask: null,
     })
     render(
       <VerdictDecision
@@ -305,47 +319,6 @@ describe('VerdictDecision', () => {
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith('LUM-7', { verdict: 'FAIL' })
     )
-  })
-
-  it('PASS_WITH_FOLLOWUP submits the outstanding-items note and no enum', async () => {
-    submit.mockResolvedValue({
-      taskStatus: 'DONE',
-      verdict: 'PASS_WITH_FOLLOWUP',
-      followUpTask: { id: 't-fu', number: 43, title: 'follow-up: x' },
-    })
-    render(
-      <VerdictDecision
-        variant='floating'
-        taskIdentifier='LUM-7'
-        data={baseData('IN_REVIEW')}
-        onVerdictRecorded={jest.fn()}
-      />
-    )
-    fireEvent.click(screen.getByTestId('verdict-followup'))
-    expect(screen.queryByTestId('verdict-reason-select')).toBeNull()
-    fireEvent.change(screen.getByTestId('verdict-note'), {
-      target: { value: 'docs still missing' },
-    })
-    fireEvent.click(screen.getByTestId('verdict-confirm'))
-    await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith('LUM-7', {
-        verdict: 'PASS_WITH_FOLLOWUP',
-        note: 'docs still missing',
-      })
-    )
-  })
-
-  it('LUM-422 ③: a ?verdict=pass_with_followup deep link auto-opens the follow-up panel', () => {
-    mockVerdictParam = 'pass_with_followup'
-    render(
-      <VerdictDecision
-        variant='floating'
-        taskIdentifier='LUM-7'
-        data={baseData('IN_REVIEW')}
-        onVerdictRecorded={jest.fn()}
-      />
-    )
-    expect(screen.getByTestId('verdict-note')).toBeInTheDocument()
   })
 
   it('LUM-422 ③: a ?verdict=pass deep link focuses the Pass button', () => {

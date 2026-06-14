@@ -12,12 +12,12 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { tasksClient } from '@/lib/api-client'
 // Imported from the concrete module (not the `@/lib/api-client` barrel) so the
 // real class survives when a test mocks the barrel — instanceof stays meaningful.
 import { ApiClientError } from '@/lib/api-client/base'
 import { CommentEditor } from '../comments/CommentEditor'
+import { ActionTooltip } from './ActionTooltip'
 import { InfoTooltip } from './InfoTooltip'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import { boundaryCategoryLabel } from './boundary-format'
@@ -29,12 +29,11 @@ import {
 import type { TaskAcceptanceStatusView } from '../../types'
 import type { MentionSources } from '@/types/mention'
 
-type HumanVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+type HumanVerdict = 'PASS' | 'FAIL'
 
 export interface HumanVerdictResult {
   taskStatus: string
   verdict: HumanVerdict
-  followUpTask: { id: string; number: number; title: string } | null
 }
 
 interface VerdictDecisionProps {
@@ -170,13 +169,14 @@ function StatusBannerRow({
  * human-initiated entry point to the human-verdict write path (milestone rule 5:
  * agents/CLI can never reach it):
  *
- * LUM-422 ① de-enumeration: a send-back carries ZERO structured burden — no
+ * The two actions are PASS (accept → Done) and FAIL (send back). LUM-422 ①
+ * de-enumeration: a send-back carries ZERO structured burden — no
  * rejection-reason selector. FAIL opens the comment editor (markdown, @mentions,
  * images for free); the note is posted as a task comment server-side and the
- * FAIL verdict carries no enum. PASS_WITH_FOLLOWUP keeps a plain textarea.
+ * FAIL verdict carries no enum.
  *
- * LUM-422 ③ deep link: a `?verdict=pass|pass_with_followup` query param (set by
- * `lumo verdict --pass`) focuses the matching action.
+ * LUM-422 ③ deep link: a `?verdict=pass` query param (set by
+ * `lumo verdict --pass`) focuses the PASS action.
  *
  * LUM-454 DONE gate: when a PASS can't reach Done because boundary crossings are
  * undispositioned (409), render a compact deduplicated notice built from the
@@ -193,7 +193,7 @@ export function VerdictDecision({
   const intl = useIntl()
   const searchParams = useSearchParams()
   const deepLinkVerdict = searchParams?.get('verdict') ?? null
-  const [panel, setPanel] = useState<'FAIL' | 'PASS_WITH_FOLLOWUP' | null>(null)
+  const [panel, setPanel] = useState<'FAIL' | null>(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -233,10 +233,7 @@ export function VerdictDecision({
   // Deep-link focus: carry the human to the one click that records the verdict.
   useEffect(() => {
     if (!isReview) return
-    if (deepLinkVerdict === 'pass_with_followup') {
-      setPanel('PASS_WITH_FOLLOWUP')
-      setNote('')
-    } else if (deepLinkVerdict === 'pass') {
+    if (deepLinkVerdict === 'pass') {
       passButtonRef.current?.focus()
     }
   }, [deepLinkVerdict, isReview])
@@ -289,7 +286,7 @@ export function VerdictDecision({
     }
   }
 
-  const openPanel = (next: 'FAIL' | 'PASS_WITH_FOLLOWUP') => {
+  const openPanel = (next: 'FAIL') => {
     setPanel(prev => (prev === next ? null : next))
     setNote('')
     setFailed(false)
@@ -313,54 +310,40 @@ export function VerdictDecision({
 
   const actionButtons = (
     <div className='flex items-center gap-2'>
-      <Button
-        ref={passButtonRef}
-        size='sm'
-        data-testid='verdict-pass'
-        disabled={submitting}
-        onClick={() => submit('PASS')}
-      >
-        {intl.formatMessage({ id: 'task.verdict.pass' })}
-      </Button>
-      <InfoTooltip
-        label={intl.formatMessage({
+      <ActionTooltip
+        tip={intl.formatMessage({
           id: 'task.verdict.passTip',
           defaultMessage:
             'Accept the task as done — all criteria are met and it moves to completed.',
         })}
-      />
-      <Button
-        size='sm'
-        variant='outline'
-        data-testid='verdict-followup'
-        disabled={submitting}
-        onClick={() => openPanel('PASS_WITH_FOLLOWUP')}
       >
-        {intl.formatMessage({ id: 'task.verdict.passWithFollowUp' })}
-      </Button>
-      <InfoTooltip
-        label={intl.formatMessage({
-          id: 'task.verdict.passWithFollowUpTip',
-          defaultMessage:
-            'Mark passed but leave a follow-up note — the task is accepted with a tracked loose end.',
-        })}
-      />
-      <Button
-        size='sm'
-        variant='outline'
-        data-testid='verdict-fail'
-        disabled={submitting}
-        onClick={() => openPanel('FAIL')}
-      >
-        {intl.formatMessage({ id: 'task.verdict.fail' })}
-      </Button>
-      <InfoTooltip
-        label={intl.formatMessage({
+        <Button
+          ref={passButtonRef}
+          size='sm'
+          data-testid='verdict-pass'
+          disabled={submitting}
+          onClick={() => submit('PASS')}
+        >
+          {intl.formatMessage({ id: 'task.verdict.pass' })}
+        </Button>
+      </ActionTooltip>
+      <ActionTooltip
+        tip={intl.formatMessage({
           id: 'task.verdict.failTip',
           defaultMessage:
             'Reject and send the task back — it cannot be marked Done until re-verified.',
         })}
-      />
+      >
+        <Button
+          size='sm'
+          variant='outline'
+          data-testid='verdict-fail'
+          disabled={submitting}
+          onClick={() => openPanel('FAIL')}
+        >
+          {intl.formatMessage({ id: 'task.verdict.fail' })}
+        </Button>
+      </ActionTooltip>
     </div>
   )
 
@@ -369,44 +352,27 @@ export function VerdictDecision({
       {panel !== null && (
         <div className='mt-3 space-y-2 border-t border-border pt-3'>
           <label className='block text-caption font-medium text-muted-foreground'>
-            {intl.formatMessage({
-              id:
-                panel === 'FAIL'
-                  ? 'task.verdict.noteLabel'
-                  : 'task.verdict.followUpNoteLabel',
-            })}
+            {intl.formatMessage({ id: 'task.verdict.noteLabel' })}
           </label>
-          {panel === 'FAIL' ? (
-            <div
-              data-testid='verdict-note'
-              className='rounded-md border border-input bg-background'
-            >
-              <CommentEditor
-                onCommit={html => setNote(html ?? '')}
-                onSubmit={() => submit('FAIL')}
-                clearRef={editorClearRef}
-                placeholderId='task.verdict.notePlaceholder'
-                {...(mentionSources ? { mentionSources } : {})}
-              />
-            </div>
-          ) : (
-            <Textarea
-              data-testid='verdict-note'
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder={intl.formatMessage({
-                id: 'task.verdict.followUpNotePlaceholder',
-              })}
-              rows={2}
+          <div
+            data-testid='verdict-note'
+            className='rounded-md border border-input bg-background'
+          >
+            <CommentEditor
+              onCommit={html => setNote(html ?? '')}
+              onSubmit={() => submit('FAIL')}
+              clearRef={editorClearRef}
+              placeholderId='task.verdict.notePlaceholder'
+              {...(mentionSources ? { mentionSources } : {})}
             />
-          )}
+          </div>
           <div className='flex items-center gap-2'>
             <Button
               size='sm'
-              variant={panel === 'FAIL' ? 'destructive' : 'default'}
+              variant='destructive'
               data-testid='verdict-confirm'
               disabled={submitting}
-              onClick={() => submit(panel)}
+              onClick={() => submit('FAIL')}
             >
               {intl.formatMessage({ id: 'task.verdict.confirm' })}
             </Button>
