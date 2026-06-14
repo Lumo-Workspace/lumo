@@ -68,6 +68,15 @@ import {
   type BudgetSectionMetric,
 } from '@/lib/context/budget'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
+import { bigramSimilarity } from '@/lib/similarity'
+import { memoryContentToText } from '@/lib/memory/content-text'
+import {
+  gateProjectMemories,
+  type RelevanceGateInput,
+  type SimilarityRanking,
+  type RelevanceGateResult,
+} from '@/lib/services/memory/relevance-gate'
+import { logger } from '@/lib/logger'
 
 export interface SessionContext {
   id: string
@@ -373,23 +382,27 @@ function mirrorBodyToText(html: string): string {
  * memories. Shared by `buildMemorySectionForTask` (which budgets + renders)
  * and `getContextForIdentifier` (which budgets + renders AND derives the memory
  * fragment ids), so the ordering/shape lives in exactly one place.
+ *
+ * LUM-486: project memories are passed through the relevance gate so the
+ * displayed set matches what session-start injects. Task-scoped memories are
+ * never gated.
  */
-async function fetchOrderedTaskMemories(
-  taskId: string,
+async function fetchOrderedTaskMemories(task: {
+  id: string
+  title: string
+  description: string | null
   projectId: string
-): Promise<RenderableMemory[]> {
+}): Promise<RenderableMemory[]> {
   const [taskMemories, projectMemories] = await Promise.all([
-    memoryRepository.findActiveTaskMemories(taskId),
-    memoryRepository.findActiveProjectMemories(projectId),
+    memoryRepository.findActiveTaskMemories(task.id),
+    memoryRepository.findActiveProjectMemories(task.projectId),
   ])
+  const projectRenderable = toProjectRenderables(projectMemories)
+  // LUM-486: gate the project corpus by relevance before rendering, so the
+  // displayed memory matches what session-start injects.
+  const gate = await selectRelevantProjectMemories(task, projectRenderable)
   return [
-    ...projectMemories.map(m => ({
-      id: m.id,
-      scope: 'PROJECT' as const,
-      category: m.category,
-      content: m.content,
-      source: memorySource(m.createdByMemberId),
-    })),
+    ...gate.selected,
     ...taskMemories.map(m => ({
       id: m.id,
       scope: 'TASK' as const,
@@ -401,12 +414,118 @@ async function fetchOrderedTaskMemories(
 }
 
 /**
+ * Wire the real deps to the pure project-memory relevance gate (LUM-486):
+ * embedding-first cosine ranking via pgvector, lexical-bigram fallback when the
+ * corpus is cold or no embedding key, and merge-contribution trust. Never
+ * throws — the gate itself degrades to the full corpus on any dep failure.
+ */
+async function selectRelevantProjectMemories(
+  task: {
+    id: string
+    title: string
+    description: string | null
+    projectId: string
+  },
+  projectMemories: RenderableMemory[]
+): Promise<RelevanceGateResult> {
+  const queryText = [task.title, task.description ?? ''].join('\n').trim()
+
+  const lexicalRanking = (input: RelevanceGateInput): SimilarityRanking => ({
+    mechanism: 'lexical',
+    ranked: input.projectMemories
+      .map(m => ({
+        id: m.id,
+        score: bigramSimilarity(
+          queryText,
+          memoryContentToText(m.category, m.content)
+        ),
+      }))
+      .sort((a, b) => b.score - a.score),
+  })
+
+  const rankBySimilarity = async (
+    input: RelevanceGateInput
+  ): Promise<SimilarityRanking | null> => {
+    try {
+      const { embedTexts } = await import('@/lib/ai/embedding')
+      const [v] = await embedTexts([queryText])
+      const vector = v && v.length > 0 ? v : undefined
+      // Empty embedding response → treat as a cold corpus, not an outage.
+      if (!vector) return lexicalRanking(input)
+      const { neighbors, scopeHasEmbeddings } =
+        await memoryRepository.findNeighborEmbeddings({
+          scope: { kind: 'PROJECT', projectId: task.projectId },
+          queryVector: vector,
+          k: input.projectMemories.length,
+        })
+      // Cold corpus (no stored embeddings yet) → lexical relevance still gates.
+      if (!scopeHasEmbeddings) return lexicalRanking(input)
+      return {
+        mechanism: 'embedding',
+        ranked: neighbors.map(n => ({ id: n.id, score: n.score })),
+      }
+    } catch {
+      // Embedding-gateway / pgvector outage → null lets the gate degrade to the
+      // FULL corpus (status quo); never silently re-gate via a different signal.
+      return null
+    }
+  }
+
+  const trustByFragment = async (
+    ids: string[]
+  ): Promise<Map<string, { resolvedTasks: number; mergedTasks: number }>> => {
+    // Gated memories are ACTIVE PROJECT rows, which are canonical (a fully
+    // promoted PROJECT memory has no provenance child), so keying the trust
+    // lookup by current id matches how LineageEdges store the fragment id. If a
+    // non-canonical PROJECT row ever reaches here, the worst case is a missed
+    // always-keep (trust is the additive layer; similarity can still select it)
+    // — never a wrong fragment recorded.
+    const rates = await lineageEdgeRepository.mergeRateByFragments(
+      ids.map(id => ({ fragmentType: 'MEMORY' as const, fragmentId: id }))
+    )
+    return new Map(
+      rates.map(r => [
+        r.fragmentId,
+        { resolvedTasks: r.resolvedTasks, mergedTasks: r.mergedTasks },
+      ])
+    )
+  }
+
+  return gateProjectMemories(
+    {
+      task: { title: task.title, description: task.description },
+      projectMemories,
+      projectId: task.projectId,
+    },
+    { rankBySimilarity, trustByFragment }
+  )
+}
+
+/** Test-only export of the wiring helper (LUM-486). */
+export const __test__selectRelevantProjectMemories =
+  selectRelevantProjectMemories
+
+/**
  * Derive the rendering-layer source attribution (LUM-347) from authorship:
  * rows without a creating member were distilled by an agent (Layer 1/2
  * extraction); rows with one were recorded by a human via the CLI/UI.
  */
 function memorySource(createdByMemberId: string | null): MemorySource {
   return createdByMemberId ? 'user' : 'agent'
+}
+
+/** Map raw active PROJECT memory rows to the RenderableMemory shape the gate and
+ * renderer consume (LUM-486 — shared by session-start and the display path). */
+function toProjectRenderables(
+  rows: Awaited<ReturnType<typeof memoryRepository.findActiveProjectMemories>>
+): RenderableMemory[] {
+  return rows.map(m => ({
+    id: m.id,
+    scope: 'PROJECT' as const,
+    category: m.category,
+    content: m.content,
+    source: memorySource(m.createdByMemberId),
+  }))
 }
 
 /**
@@ -497,7 +616,12 @@ export const taskContextService = {
     if (!task) return ''
 
     // applyTokenBudget drops the tail on overflow.
-    const ordered = await fetchOrderedTaskMemories(taskId, task.projectId)
+    const ordered = await fetchOrderedTaskMemories({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      projectId: task.projectId,
+    })
     // Wrap in an explicit trust boundary before the section leaves the
     // service: this string is auto-injected into the agent via SessionStart
     // `additionalContext` and is authored by arbitrary workspace members, so
@@ -609,14 +733,26 @@ export const taskContextService = {
         ),
       ])
 
+    const projectRenderable = toProjectRenderables(projectMemories)
+    // LUM-486: relevance-gate the project corpus before it becomes both the
+    // rendered block AND the lineage manifest. Task memories are never gated.
+    const gate = await selectRelevantProjectMemories(
+      {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        projectId: task.projectId,
+      },
+      projectRenderable
+    )
+    logger.info('memory.relevanceGate', {
+      taskId,
+      corpusSize: gate.telemetry.corpusSize,
+      selectedCount: gate.telemetry.selectedCount,
+      mechanism: gate.telemetry.mechanism,
+    })
     const orderedMemories: RenderableMemory[] = [
-      ...projectMemories.map(m => ({
-        id: m.id,
-        scope: 'PROJECT' as const,
-        category: m.category,
-        content: m.content,
-        source: memorySource(m.createdByMemberId),
-      })),
+      ...gate.selected,
       ...taskMemories.map(m => ({
         id: m.id,
         scope: 'TASK' as const,
@@ -963,7 +1099,12 @@ export const taskContextService = {
     // so the fragment ids come from the *budgeted* set — the memories that
     // actually survive into the rendered section, i.e. what the agent sees.
     const budgetedMemories = applyTokenBudget(
-      await fetchOrderedTaskMemories(full.id, full.projectId)
+      await fetchOrderedTaskMemories({
+        id: full.id,
+        title: full.title,
+        description: full.description,
+        projectId: full.projectId,
+      })
     )
     const memorySection = wrapUntrustedMemory(
       renderMemorySection(budgetedMemories)
