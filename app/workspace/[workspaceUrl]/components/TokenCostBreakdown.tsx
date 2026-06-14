@@ -282,6 +282,12 @@ interface TokenCostBreakdownProps {
    * When provided, renders a "N turns" chip in the footer row.
    */
   turnCount?: number | null
+  /**
+   * When true, suppresses the "models not price-comparable · no total" warning.
+   * Use on by-member groups where rows are summable across the member dimension
+   * (the cross-model price caveat does not apply there).
+   */
+  summable?: boolean
 }
 
 export function TokenCostBreakdown({
@@ -293,6 +299,7 @@ export function TokenCostBreakdown({
   collapsibleDetails = false,
   rowHeader,
   turnCount,
+  summable = false,
 }: TokenCostBreakdownProps) {
   const intl = useIntl()
 
@@ -332,7 +339,7 @@ export function TokenCostBreakdown({
         )
       : null
 
-  const hasFooter = !!loopChip || !!turnsChip || !!chips?.length || multi
+  const hasFooter = !!loopChip || !!turnsChip || !!chips?.length || (multi && !summable)
 
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
@@ -378,7 +385,7 @@ export function TokenCostBreakdown({
               })}
             </span>
           ))}
-          {multi && (
+          {multi && !summable && (
             <span className='rounded-full border border-warning-border bg-warning-subtle px-1.5 py-px text-[10px] text-foreground'>
               {intl.formatMessage({
                 id: 'tokenCost.mixedNoTotal',

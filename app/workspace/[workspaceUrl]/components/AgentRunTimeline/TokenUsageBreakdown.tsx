@@ -56,6 +56,7 @@ export function TokenUsageBreakdown({ totals, perMember }: TokenUsageBreakdownPr
             models={memberRows}
             loopCount={null}
             rowHeader={memberHeader}
+            summable
           />
           <GroupLabel
             icon={<Cpu className='size-3.5' aria-hidden />}

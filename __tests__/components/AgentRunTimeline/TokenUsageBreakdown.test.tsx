@@ -110,5 +110,8 @@ describe('TokenUsageBreakdown', () => {
     expect(screen.getByText('By model')).toBeInTheDocument()
     expect(screen.getByText('Ada')).toBeInTheDocument()
     expect(screen.getByText('Bo')).toBeInTheDocument()
+    // the by-model group (2 models) shows the no-total warning once;
+    // the by-member group must NOT (members are summable)
+    expect(screen.getAllByText('models not price-comparable · no total')).toHaveLength(1)
   })
 })
