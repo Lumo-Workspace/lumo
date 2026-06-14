@@ -1656,5 +1656,12 @@
   "agentRun.summaryLabel": "현재 실행",
   "retrospective.totalDuration": "실행 시간",
   "progress.totalDuration": "실행 시간",
-  "progress.summaryDuration": "{value} 실행"
+  "progress.summaryDuration": "{value} 실행",
+  "acceptance.tab.humanOverrideTip": "[TODO:ko] Passed because a person signed off — no machine check confirmed this criterion.",
+  "acceptance.tab.humanOverrideBadgeTip": "[TODO:ko] A person marked this criterion passed without a machine check confirming it.",
+  "acceptance.check.tip": "[TODO:ko] The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.",
+  "acceptance.criterion.staleTip": "[TODO:ko] This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
+  "acceptance.zone.machineTip": "[TODO:ko] Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.",
+  "acceptance.zone.humanTip": "[TODO:ko] Human criteria need a person to judge and sign off — they are not machine-checkable.",
+  "acceptance.zone.humanQuotaTip": "[TODO:ko] A task can have at most 7 human criteria, to keep human review focused."
 }

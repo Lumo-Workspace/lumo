@@ -60,7 +60,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 
@@ -161,6 +161,134 @@ describe('Acceptance tab — zone tooltips', () => {
     expect(
       screen.getByLabelText(
         'Human criteria need a person to judge and sign off — they are not machine-checkable.'
+      )
+    ).toBeInTheDocument()
+  })
+})
+
+// LUM-489 (Task 4): per-row term tooltips on CriterionRow.
+function machineCriterion(over: Record<string, unknown> = {}) {
+  return {
+    id: 'mc1',
+    statement: 'jest green',
+    verifierType: 'MACHINE',
+    checkpointer: 'npx jest',
+    evidenceRequired: false,
+    judgeSteps: null,
+    source: 'AGENT_DRAFT',
+    addedAtRound: 0,
+    latestVerdict: null,
+    machinePassed: false,
+    verdictStale: false,
+    checkMismatch: false,
+    changeState: null,
+    changedAtRound: null,
+    lastEdit: null,
+    ...over,
+  }
+}
+
+function renderWithCriteria(criteria: Record<string, unknown>[]) {
+  mockUseTaskStatus.mockReturnValue({
+    data: statusView({ criteria }),
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })
+  return render(
+    <AcceptanceTab
+      taskIdentifier='LUM-489'
+      enabled
+      onVerdictRecorded={jest.fn()}
+    />
+  )
+}
+
+describe('CriterionRow term tooltips', () => {
+  it('human-override badge on a criterion has a tooltip', () => {
+    // A MACHINE criterion currently passing without a checkpointer pass behind
+    // it (machinePassed=false) is the canonical human override. It is not
+    // machine-verified, so the machine zone is open by default.
+    renderWithCriteria([
+      machineCriterion({
+        id: 'override-crit',
+        latestVerdict: {
+          round: 1,
+          verdict: 'PASS',
+          verifierType: 'HUMAN',
+          evidencePointer: null,
+          rejectionReason: null,
+          rejectionReasonEnum: null,
+          recordedAt: '2026-06-13T00:00:00.000Z',
+        },
+        machinePassed: false,
+      }),
+    ])
+    expect(
+      screen.getByLabelText(
+        'A person marked this criterion passed without a machine check confirming it.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('evidence/checkpointer disclosure has a tooltip explaining the proof', () => {
+    // A machine criterion with a checkpointer + passing machine evidence. Its
+    // disclosure ("View check output") is collapsed by default; expand it.
+    renderWithCriteria([
+      machineCriterion({
+        id: 'evidence-crit',
+        checkpointer: 'npx jest',
+        latestVerdict: {
+          round: 1,
+          verdict: 'PASS',
+          verifierType: 'MACHINE',
+          evidencePointer: 'cmd:npx jest#exit=0',
+          rejectionReason: null,
+          rejectionReasonEnum: null,
+          recordedAt: '2026-06-13T00:00:00.000Z',
+        },
+        machinePassed: true,
+      }),
+    ])
+    // Zone may be collapsed (all verified) — open it, then expand the row.
+    const zoneToggle = screen.getByRole('button', { name: /Machine-verified/ })
+    if (zoneToggle.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(zoneToggle)
+    }
+    fireEvent.click(screen.getByRole('button', { name: /View check output/ }))
+    expect(
+      screen.getByLabelText(
+        'The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('stale-pass marker has a tooltip', () => {
+    // A passing MACHINE criterion flagged stale (verdict predates an edit).
+    renderWithCriteria([
+      machineCriterion({
+        id: 'stale-crit',
+        latestVerdict: {
+          round: 1,
+          verdict: 'PASS',
+          verifierType: 'MACHINE',
+          evidencePointer: 'cmd:npx jest#exit=0',
+          rejectionReason: null,
+          rejectionReasonEnum: null,
+          recordedAt: '2026-06-13T00:00:00.000Z',
+        },
+        machinePassed: true,
+        verdictStale: true,
+      }),
+    ])
+    // A stale-but-verified machine crit collapses the zone — open it.
+    const zoneToggle = screen.getByRole('button', { name: /Machine-verified/ })
+    if (zoneToggle.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(zoneToggle)
+    }
+    expect(
+      screen.getByLabelText(
+        'This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.'
       )
     ).toBeInTheDocument()
   })

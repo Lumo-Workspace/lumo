@@ -1656,5 +1656,12 @@
   "agentRun.summaryLabel": "वर्तमान रन",
   "retrospective.totalDuration": "रन टाइम",
   "progress.totalDuration": "रन टाइम",
-  "progress.summaryDuration": "{value} तक चला"
+  "progress.summaryDuration": "{value} तक चला",
+  "acceptance.tab.humanOverrideTip": "[TODO:hi] Passed because a person signed off — no machine check confirmed this criterion.",
+  "acceptance.tab.humanOverrideBadgeTip": "[TODO:hi] A person marked this criterion passed without a machine check confirming it.",
+  "acceptance.check.tip": "[TODO:hi] The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.",
+  "acceptance.criterion.staleTip": "[TODO:hi] This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
+  "acceptance.zone.machineTip": "[TODO:hi] Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.",
+  "acceptance.zone.humanTip": "[TODO:hi] Human criteria need a person to judge and sign off — they are not machine-checkable.",
+  "acceptance.zone.humanQuotaTip": "[TODO:hi] A task can have at most 7 human criteria, to keep human review focused."
 }

@@ -1656,5 +1656,12 @@
   "context.group.reference": "引用",
   "task.delivery": "交付",
   "boundary.panel.recurrence": "出现 {count} 次",
-  "boundary.panel.lastSeen": "最后出现 {at}"
+  "boundary.panel.lastSeen": "最后出现 {at}",
+  "acceptance.tab.humanOverrideTip": "[TODO:zh-CN] Passed because a person signed off — no machine check confirmed this criterion.",
+  "acceptance.tab.humanOverrideBadgeTip": "[TODO:zh-CN] A person marked this criterion passed without a machine check confirming it.",
+  "acceptance.check.tip": "[TODO:zh-CN] The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.",
+  "acceptance.criterion.staleTip": "[TODO:zh-CN] This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
+  "acceptance.zone.machineTip": "[TODO:zh-CN] Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.",
+  "acceptance.zone.humanTip": "[TODO:zh-CN] Human criteria need a person to judge and sign off — they are not machine-checkable.",
+  "acceptance.zone.humanQuotaTip": "[TODO:zh-CN] A task can have at most 7 human criteria, to keep human review focused."
 }

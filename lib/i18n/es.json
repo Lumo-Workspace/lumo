@@ -1656,5 +1656,12 @@
   "agentRun.summaryLabel": "Ejecución actual",
   "retrospective.totalDuration": "Tiempo de ejecución",
   "progress.totalDuration": "Tiempo de ejecución",
-  "progress.summaryDuration": "Ejecutado {value}"
+  "progress.summaryDuration": "Ejecutado {value}",
+  "acceptance.tab.humanOverrideTip": "[TODO:es] Passed because a person signed off — no machine check confirmed this criterion.",
+  "acceptance.tab.humanOverrideBadgeTip": "[TODO:es] A person marked this criterion passed without a machine check confirming it.",
+  "acceptance.check.tip": "[TODO:es] The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.",
+  "acceptance.criterion.staleTip": "[TODO:es] This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
+  "acceptance.zone.machineTip": "[TODO:es] Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.",
+  "acceptance.zone.humanTip": "[TODO:es] Human criteria need a person to judge and sign off — they are not machine-checkable.",
+  "acceptance.zone.humanQuotaTip": "[TODO:es] A task can have at most 7 human criteria, to keep human review focused."
 }
