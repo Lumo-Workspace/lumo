@@ -117,3 +117,50 @@ export async function recordUnboundCrossing({
     console.error('recordUnboundCrossing error:', error)
   }
 }
+
+export type BindingAdvisory = 'unbound' | 'unconfirmed' | null
+
+/**
+ * The single decision point both work-boundary call sites use (LUM-491).
+ * - mismatch  → throws a 409 mirroring the LUM-459 bind lock (no crossing).
+ * - unbound   → records the MEDIUM crossing, returns `{ advisory: 'unbound' }`.
+ * - unconfirmed → returns `{ advisory: 'unconfirmed' }` (soft nudge, no crossing).
+ * - ok        → `{ advisory: null }`.
+ *
+ * `action` is a short human label ('machine verification' | 'status change')
+ * baked into the crossing detail.
+ */
+export async function enforceSessionBinding({
+  source,
+  sessionId,
+  memberId,
+  targetTaskId,
+  action,
+}: ClassifyBindingInput & { action: string }): Promise<{
+  advisory: BindingAdvisory
+}> {
+  const check = await classifyBinding({
+    source,
+    sessionId,
+    memberId,
+    targetTaskId,
+  })
+  if (check.kind === 'mismatch') {
+    throw Object.assign(
+      new Error(
+        `This Claude Code session is permanently bound to ${check.boundIdentifier} (LUM-459) — start a new session to work on this task.`
+      ),
+      {
+        status: 409,
+        boundTaskIdentifier: check.boundIdentifier,
+        boundTaskTitle: check.boundTitle,
+      }
+    )
+  }
+  if (check.kind === 'unbound') {
+    await recordUnboundCrossing({ taskId: targetTaskId, action })
+    return { advisory: 'unbound' }
+  }
+  if (check.kind === 'unconfirmed') return { advisory: 'unconfirmed' }
+  return { advisory: null }
+}

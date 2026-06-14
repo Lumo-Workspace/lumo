@@ -147,3 +147,70 @@ describe('recordUnboundCrossing', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
+
+describe('enforceSessionBinding', () => {
+  it('throws 409 with the bound identifier on a mismatch', async () => {
+    findBinding.mockResolvedValue(boundTo('t2', 'LUM', 487, 'Other'))
+    await expect(
+      enforceSessionBinding({
+        source: 'bearer',
+        sessionId: 'sess',
+        memberId: 'm1',
+        targetTaskId: 't1',
+        action: 'machine verification',
+      })
+    ).rejects.toMatchObject({ status: 409, boundTaskIdentifier: 'LUM-487' })
+    expect(createCrossing).not.toHaveBeenCalled()
+  })
+  it('records a crossing and returns the unbound advisory', async () => {
+    findBinding.mockResolvedValue({ id: 'sess', task: null })
+    coalesce.mockResolvedValue(0)
+    createCrossing.mockResolvedValue({ id: 'bc1' })
+    const r = await enforceSessionBinding({
+      source: 'bearer',
+      sessionId: 'sess',
+      memberId: 'm1',
+      targetTaskId: 't1',
+      action: 'machine verification',
+    })
+    expect(r).toEqual({ advisory: 'unbound' })
+    expect(createCrossing).toHaveBeenCalled()
+  })
+  it('returns the unconfirmed advisory without recording when it cannot prove unbound', async () => {
+    findBinding.mockResolvedValue(null)
+    const r = await enforceSessionBinding({
+      source: 'bearer',
+      sessionId: 'sess',
+      memberId: 'm1',
+      targetTaskId: 't1',
+      action: 'status change',
+    })
+    expect(r).toEqual({ advisory: 'unconfirmed' })
+    expect(createCrossing).not.toHaveBeenCalled()
+  })
+  it('returns no advisory when bound correctly, and never records', async () => {
+    findBinding.mockResolvedValue(boundTo('t1'))
+    const r = await enforceSessionBinding({
+      source: 'bearer',
+      sessionId: 'sess',
+      memberId: 'm1',
+      targetTaskId: 't1',
+      action: 'machine verification',
+    })
+    expect(r).toEqual({ advisory: null })
+    expect(createCrossing).not.toHaveBeenCalled()
+  })
+  it('returns no advisory for the clerk path (RED LINE — never records/throws)', async () => {
+    const r = await enforceSessionBinding({
+      source: 'clerk',
+      sessionId: 'sess',
+      memberId: 'm1',
+      targetTaskId: 't1',
+      action: 'status change',
+    })
+    expect(r).toEqual({ advisory: null })
+    expect(createCrossing).not.toHaveBeenCalled()
+  })
+})
