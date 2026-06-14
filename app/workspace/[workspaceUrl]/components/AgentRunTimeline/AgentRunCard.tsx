@@ -177,6 +177,7 @@ export function AgentRunCard({
             <div className='mb-2'>
               <TokenCostBreakdown
                 variant='compact'
+                collapsibleDetails
                 models={run.cost.byModel}
                 loopCount={run.cost.loopCount}
               />
