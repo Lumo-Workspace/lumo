@@ -1428,7 +1428,6 @@
   "retrospective.delivery": "Доставка",
   "retrospective.iterations": "Запуски",
   "retrospective.clarifyRounds": "Раунды уточнений",
-  "retrospective.noForecast": "Недостаточно данных для прогноза",
   "retrospective.bandWithin": "В обычном диапазоне",
   "retrospective.bandAbove": "Выше обычного диапазона",
   "retrospective.bandBelow": "Ниже обычного диапазона",

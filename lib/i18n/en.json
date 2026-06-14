@@ -1604,7 +1604,6 @@
   "retrospective.iterations": "Runs",
   "retrospective.totalDuration": "Run time",
   "retrospective.clarifyRounds": "Clarification rounds",
-  "retrospective.noForecast": "no forecast history yet",
   "retrospective.bandWithin": "within the usual range",
   "retrospective.bandAbove": "above the usual range",
   "retrospective.bandBelow": "below the usual range",

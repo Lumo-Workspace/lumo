@@ -13,7 +13,6 @@ const en: Record<string, string> = {
   'retrospective.iterations': 'Runs',
   'retrospective.clarifyRounds': 'Clarification rounds',
   'retrospective.totalDuration': 'Run time',
-  'retrospective.noForecast': 'no forecast history yet',
   'retrospective.bandWithin': 'within the usual range',
   'retrospective.bandAbove': 'above the usual range',
   'retrospective.bandBelow': 'below the usual range',
