@@ -349,6 +349,13 @@ function VerdictControls({
             defaultMessage: 'Send back',
           })}
         </button>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.verdict.sendBackTip',
+            defaultMessage:
+              'Reject this criterion and send the task back to the agent for another round.',
+          })}
+        />
         {secondary ? (
           <button
             type='button'

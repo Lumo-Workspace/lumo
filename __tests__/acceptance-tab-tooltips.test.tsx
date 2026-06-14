@@ -204,6 +204,29 @@ function renderWithCriteria(criteria: Record<string, unknown>[]) {
   )
 }
 
+// LUM-489 (Task 6): tooltip explaining the per-criterion send-back action in
+// the interactive (IN_REVIEW) VerdictControls. The HUMAN criterion in the
+// default fixture is unverified, so its VerdictControls (pass + send-back)
+// render. The InfoTooltip sits as a SIBLING next to the send-back button.
+describe('Verdict action tooltips (send-back)', () => {
+  it('send-back action carries an explanatory tooltip', () => {
+    renderAcceptanceTab()
+    // Each unverified criterion's VerdictControls carries its own send-back
+    // tooltip; assert the explanatory label is present (one per criterion row).
+    expect(
+      screen.getAllByLabelText(
+        'Reject this criterion and send the task back to the agent for another round.'
+      ).length
+    ).toBeGreaterThan(0)
+  })
+
+  it('the send-back tooltip is a sibling of the button, not nested inside it', () => {
+    renderAcceptanceTab()
+    const sendBack = screen.getByTestId('verdict-sendback-h1')
+    expect(sendBack.querySelector('button')).toBeNull()
+  })
+})
+
 describe('CriterionRow term tooltips', () => {
   it('human-override badge on a criterion has a tooltip', () => {
     // A MACHINE criterion currently passing without a checkpointer pass behind

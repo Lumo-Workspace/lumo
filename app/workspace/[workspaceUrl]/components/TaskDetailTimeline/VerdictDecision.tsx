@@ -331,6 +331,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.passWithFollowUp' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.passWithFollowUpTip',
+          defaultMessage:
+            'Mark passed but leave a follow-up note — the task is accepted with a tracked loose end.',
+        })}
+      />
       <Button
         size='sm'
         variant='outline'
@@ -340,6 +347,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.fail' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.failTip',
+          defaultMessage:
+            'Reject and send the task back — it cannot be marked Done until re-verified.',
+        })}
+      />
     </div>
   )
 
