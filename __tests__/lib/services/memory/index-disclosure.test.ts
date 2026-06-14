@@ -13,7 +13,9 @@ describe('buildMemoryIndex', () => {
     const bulletLines = out.split('\n').filter(l => l.startsWith('- '))
     expect(bulletLines.length).toBe(9) // 8 index lines + 1 pointer line
     expect(out).toContain('+4')
-    expect(out).toContain('lumo memory')
+    expect(out).toContain('lumo project memory list')
+    expect(out).toContain('lumo task memory list')
+    expect(out).toContain('lumo memory show')
   })
 
   it('returns empty string for no memories', () => {

@@ -24,7 +24,7 @@ export function buildMemoryIndex(
   ]
   if (rest > 0) {
     lines.push(
-      `- +${rest} more — \`lumo memory project-list\` / \`lumo memory task-list\` to browse, \`lumo memory show <id>\` to pull one`
+      `- +${rest} more — \`lumo project memory list\` / \`lumo task memory list\` to browse, \`lumo memory show <id>\` to pull one`
     )
   }
   return lines.join('\n')
