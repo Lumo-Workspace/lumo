@@ -474,6 +474,12 @@ async function selectRelevantProjectMemories(
   const trustByFragment = async (
     ids: string[]
   ): Promise<Map<string, { resolvedTasks: number; mergedTasks: number }>> => {
+    // Gated memories are ACTIVE PROJECT rows, which are canonical (a fully
+    // promoted PROJECT memory has no provenance child), so keying the trust
+    // lookup by current id matches how LineageEdges store the fragment id. If a
+    // non-canonical PROJECT row ever reaches here, the worst case is a missed
+    // always-keep (trust is the additive layer; similarity can still select it)
+    // — never a wrong fragment recorded.
     const rates = await lineageEdgeRepository.mergeRateByFragments(
       ids.map(id => ({ fragmentType: 'MEMORY' as const, fragmentId: id }))
     )
