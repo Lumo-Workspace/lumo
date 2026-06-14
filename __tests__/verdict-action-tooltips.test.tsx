@@ -37,7 +37,6 @@ jest.mock('next/navigation', () => ({
 
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { VerdictDecision } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision'
 import type {
   TaskAcceptanceStatusView,
@@ -129,6 +128,16 @@ describe('Verdict action tooltips', () => {
     expect(
       await screen.findAllByText(
         'Accept the task as done — all criteria are met and it moves to completed.'
+      )
+    ).not.toHaveLength(0)
+  })
+
+  it('fail tip is reachable by focusing the button', async () => {
+    renderReview()
+    screen.getByTestId('verdict-fail').focus()
+    expect(
+      await screen.findAllByText(
+        'Reject and send the task back — it cannot be marked Done until re-verified.'
       )
     ).not.toHaveLength(0)
   })
