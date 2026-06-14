@@ -25,6 +25,7 @@ import type {
 import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
+import { InfoTooltip } from './InfoTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { isPass, isHumanOverride, machineRollup } from './verdict-status'
 
@@ -1116,40 +1117,35 @@ export function AcceptanceTab({
             {intl.formatMessage({
               id: 'acceptance.contract.title',
               defaultMessage: 'Acceptance criteria',
-            })}{' '}
-            <span className='font-normal text-muted-foreground/70'>
-              ·{' '}
-              {intl.formatMessage(
-                {
-                  id: 'acceptance.contract.count',
-                  defaultMessage: '{total} · {machine} MACHINE / {human} HUMAN',
-                },
-                {
-                  total: data.criteria.length,
-                  machine: machineCriteria.length,
-                  human: humanCriteria.length,
-                }
-              )}
-            </span>
+            })}
           </div>
         </div>
         <div className='space-y-4'>
           {machineCriteria.length > 0 ? (
             <div>
-              <button
-                type='button'
-                onClick={() => setMachineOpen(!machineZoneOpen)}
-                aria-expanded={machineZoneOpen}
-                className='mb-1.5 flex w-full items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground'
-              >
-                <ChevronRight
-                  className={`size-3 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
-                  aria-hidden
+              <div className='mb-1.5 flex w-full items-center gap-1.5 text-[11px] font-medium text-muted-foreground'>
+                <button
+                  type='button'
+                  onClick={() => setMachineOpen(!machineZoneOpen)}
+                  aria-expanded={machineZoneOpen}
+                  className='flex items-center gap-1.5 hover:text-foreground'
+                >
+                  <ChevronRight
+                    className={`size-3 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
+                  {intl.formatMessage({
+                    id: 'acceptance.zone.machine',
+                    defaultMessage: 'Machine-verified',
+                  })}
+                </button>
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.zone.machineTip',
+                    defaultMessage:
+                      'Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.',
+                  })}
                 />
-                {intl.formatMessage({
-                  id: 'acceptance.zone.machine',
-                  defaultMessage: 'Machine-verified · read-only',
-                })}
                 <span className='ml-auto font-normal text-muted-foreground/70'>
                   {allMachineVerified
                     ? intl.formatMessage(
@@ -1189,7 +1185,7 @@ export function AcceptanceTab({
                         .filter(Boolean)
                         .join(' · ')}
                 </span>
-              </button>
+              </div>
               {machineZoneOpen ? (
                 <div className='overflow-hidden rounded-lg border border-border'>
                   {machineCriteria.map(c => (
@@ -1213,8 +1209,22 @@ export function AcceptanceTab({
                 id: 'acceptance.zone.human',
                 defaultMessage: 'Needs human judgment',
               })}
-              <span className='ml-auto text-muted-foreground/70'>
-                {humanCriteria.length} / 7
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.zone.humanTip',
+                  defaultMessage:
+                    'Human criteria need a person to judge and sign off — they are not machine-checkable.',
+                })}
+              />
+              <span className='ml-auto inline-flex items-center gap-1 text-muted-foreground/70'>
+                {humanCriteria.length}
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.zone.humanQuotaTip',
+                    defaultMessage:
+                      'A task can have at most 7 human criteria, to keep human review focused.',
+                  })}
+                />
               </span>
             </div>
             {humanCriteria.length > 0 ? (
