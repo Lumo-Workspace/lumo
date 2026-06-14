@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Lihat output check",
   "acceptance.hideCheck": "Sembunyikan output check",
   "acceptance.check.label": "bukti",
-  "acceptance.check.evidence": "bukti",
   "acceptance.check.none": "Pemeriksaan mesin belum dijalankan",
   "acceptance.check.exitCode": "kod keluar {code}",
   "acceptance.verdict.pass": "Lulus",

@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "check 출력 보기",
   "acceptance.hideCheck": "check 출력 숨기기",
   "acceptance.check.label": "증거",
-  "acceptance.check.evidence": "증거",
   "acceptance.check.none": "머신 검사 미실행",
   "acceptance.check.exitCode": "종료 코드 {code}",
   "acceptance.verdict.pass": "통과",

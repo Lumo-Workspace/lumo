@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Voir la sortie du check",
   "acceptance.hideCheck": "Masquer la sortie du check",
   "acceptance.check.label": "Preuve",
-  "acceptance.check.evidence": "preuve",
   "acceptance.check.none": "Vérification machine pas encore exécutée",
   "acceptance.check.exitCode": "code de sortie {code}",
   "acceptance.verdict.pass": "Valider",

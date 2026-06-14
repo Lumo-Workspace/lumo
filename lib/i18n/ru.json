@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Показать вывод проверки",
   "acceptance.hideCheck": "Скрыть вывод проверки",
   "acceptance.check.label": "Доказательства",
-  "acceptance.check.evidence": "подтверждение",
   "acceptance.check.none": "Машинная проверка ещё не выполнялась",
   "acceptance.check.exitCode": "код выхода {code}",
   "acceptance.verdict.pass": "Принять",

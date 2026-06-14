@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Ver salida del check",
   "acceptance.hideCheck": "Ocultar salida del check",
   "acceptance.check.label": "Evidencia",
-  "acceptance.check.evidence": "evidencia",
   "acceptance.check.none": "Comprobación automática aún sin ejecutar",
   "acceptance.check.exitCode": "código de salida {code}",
   "acceptance.verdict.pass": "Aprobar",

@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "View check output",
   "acceptance.hideCheck": "Hide check output",
   "acceptance.check.label": "Evidence",
-  "acceptance.check.evidence": "evidence",
   "acceptance.check.none": "Machine check not yet run",
   "acceptance.check.exitCode": "exit code {code}",
   "acceptance.verdict.pass": "Pass",
