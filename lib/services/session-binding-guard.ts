@@ -1,4 +1,10 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+import {
+  severityFor,
+  isReversible,
+} from '@/lib/services/boundary-detector.service'
 
 /**
  * Classification of a bearer/agent request against the session-binding lock
@@ -54,5 +60,60 @@ export async function classifyBinding({
     kind: 'mismatch',
     boundIdentifier: `${session.task.team.identifier}-${session.task.number}`,
     boundTitle: session.task.title,
+  }
+}
+
+const CATEGORY = 'SESSION_BINDING_MISSING' as const
+
+/**
+ * Record (or coalesce) a MEDIUM SESSION_BINDING_MISSING crossing for task work
+ * done from a provably-unbound session. Mirrors the detector's coalesce→create
+ * +activity pattern (LUM-477/478) but request-driven rather than hook-driven —
+ * the dedup key (`target`) is the task id itself, so all unbound work on one task
+ * folds into a single open row. Best-effort: it owns its errors and never throws,
+ * so it can't break the host verify/update request (the detector's observe-only
+ * invariant).
+ */
+export async function recordUnboundCrossing({
+  taskId,
+  action,
+}: {
+  taskId: string
+  action: string
+}): Promise<void> {
+  try {
+    const now = new Date()
+    const detail = `${action} recorded from a Claude Code session not attached to this task — run \`lumo session attach\` to bind`
+    const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+      taskId,
+      CATEGORY,
+      taskId,
+      now
+    )
+    if (coalesced > 0) return
+
+    const severity = severityFor(CATEGORY)
+    const row = await boundaryCrossingRepository.create({
+      taskId,
+      category: CATEGORY,
+      detail,
+      target: taskId,
+      reversible: isReversible(CATEGORY),
+      severity,
+    })
+    await activityRepository.create({
+      taskId,
+      actorId: null,
+      type: 'BOUNDARY_CROSSING_DETECTED',
+      payload: {
+        boundaryCrossingId: row.id,
+        category: CATEGORY,
+        detail,
+        severity,
+      },
+    })
+  } catch (error) {
+    // Observe-only: a recording failure must never disrupt the host request.
+    console.error('recordUnboundCrossing error:', error)
   }
 }

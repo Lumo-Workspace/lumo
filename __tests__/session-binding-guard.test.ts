@@ -4,6 +4,15 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { findForMemberWithBinding: jest.fn() },
 }))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: {
+    coalesceRecurrence: jest.fn(),
+    create: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { create: jest.fn() },
+}))
 
 const findBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 
@@ -83,5 +92,58 @@ describe('classifyBinding', () => {
       boundIdentifier: 'LUM-487',
       boundTitle: 'Other task',
     })
+  })
+})
+
+import { recordUnboundCrossing } from '@/lib/services/session-binding-guard'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+
+const coalesce = boundaryCrossingRepository.coalesceRecurrence as jest.Mock
+const createCrossing = boundaryCrossingRepository.create as jest.Mock
+const createActivity = activityRepository.create as jest.Mock
+
+describe('recordUnboundCrossing', () => {
+  it('coalesces into an existing open crossing without creating a new row', async () => {
+    coalesce.mockResolvedValue(1)
+    await recordUnboundCrossing({
+      taskId: 't1',
+      action: 'machine verification',
+    })
+    expect(createCrossing).not.toHaveBeenCalled()
+    expect(createActivity).not.toHaveBeenCalled()
+  })
+  it('creates a MEDIUM, non-reversible crossing + timeline marker on first occurrence', async () => {
+    coalesce.mockResolvedValue(0)
+    createCrossing.mockResolvedValue({ id: 'bc1' })
+    await recordUnboundCrossing({ taskId: 't1', action: 'status change' })
+    expect(createCrossing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't1',
+        category: 'SESSION_BINDING_MISSING',
+        target: 't1',
+        severity: 'MEDIUM',
+        reversible: false,
+        detail: expect.stringContaining('status change'),
+      })
+    )
+    expect(createActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't1',
+        actorId: null,
+        type: 'BOUNDARY_CROSSING_DETECTED',
+        payload: expect.objectContaining({
+          boundaryCrossingId: 'bc1',
+          category: 'SESSION_BINDING_MISSING',
+          severity: 'MEDIUM',
+        }),
+      })
+    )
+  })
+  it('never throws — swallows repository errors (observe-only)', async () => {
+    coalesce.mockRejectedValue(new Error('db down'))
+    await expect(
+      recordUnboundCrossing({ taskId: 't1', action: 'machine verification' })
+    ).resolves.toBeUndefined()
   })
 })
