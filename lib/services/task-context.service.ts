@@ -427,39 +427,9 @@ async function selectRelevantProjectMemories(
 ): Promise<RelevanceGateResult> {
   const queryText = [task.title, task.description ?? ''].join('\n').trim()
 
-  const rankBySimilarity = async (
-    input: RelevanceGateInput
-  ): Promise<SimilarityRanking | null> => {
-    // 1) embedding path
-    let vector: number[] | undefined
-    try {
-      const [v] = await embedTexts([queryText])
-      if (v && v.length > 0) vector = v
-    } catch {
-      vector = undefined
-    }
-
-    if (vector) {
-      try {
-        const { neighbors, scopeHasEmbeddings } =
-          await memoryRepository.findNeighborEmbeddings({
-            scope: { kind: 'PROJECT', projectId: task.projectId },
-            queryVector: vector,
-            k: input.projectMemories.length,
-          })
-        if (scopeHasEmbeddings) {
-          return {
-            mechanism: 'embedding',
-            ranked: neighbors.map(n => ({ id: n.id, score: n.score })),
-          }
-        }
-      } catch {
-        // fall through to lexical
-      }
-    }
-
-    // 2) lexical fallback over the in-memory candidate pool
-    const ranked = input.projectMemories
+  const lexicalRanking = (input: RelevanceGateInput): SimilarityRanking => ({
+    mechanism: 'lexical',
+    ranked: input.projectMemories
       .map(m => ({
         id: m.id,
         score: bigramSimilarity(
@@ -467,8 +437,34 @@ async function selectRelevantProjectMemories(
           memoryContentToText(m.category, m.content)
         ),
       }))
-      .sort((a, b) => b.score - a.score)
-    return { mechanism: 'lexical', ranked }
+      .sort((a, b) => b.score - a.score),
+  })
+
+  const rankBySimilarity = async (
+    input: RelevanceGateInput
+  ): Promise<SimilarityRanking | null> => {
+    try {
+      const [v] = await embedTexts([queryText])
+      const vector = v && v.length > 0 ? v : undefined
+      // Empty embedding response → treat as a cold corpus, not an outage.
+      if (!vector) return lexicalRanking(input)
+      const { neighbors, scopeHasEmbeddings } =
+        await memoryRepository.findNeighborEmbeddings({
+          scope: { kind: 'PROJECT', projectId: task.projectId },
+          queryVector: vector,
+          k: input.projectMemories.length,
+        })
+      // Cold corpus (no stored embeddings yet) → lexical relevance still gates.
+      if (!scopeHasEmbeddings) return lexicalRanking(input)
+      return {
+        mechanism: 'embedding',
+        ranked: neighbors.map(n => ({ id: n.id, score: n.score })),
+      }
+    } catch {
+      // Embedding-gateway / pgvector outage → null lets the gate degrade to the
+      // FULL corpus (status quo); never silently re-gate via a different signal.
+      return null
+    }
   }
 
   const trustByFragment = async (

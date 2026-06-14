@@ -150,18 +150,19 @@ describe('buildSessionStartSections — relevance gate on project memories', () 
     expect(memFragmentIds).not.toContain('m0')
   })
 
-  it('cold-start fallback: embedTexts rejection → method does not throw and fragments is a well-formed array', async () => {
+  it('embedding outage falls back to the full project corpus (no memory dropped)', async () => {
     findProjectMemories.mockResolvedValue(corpus30())
     findTaskMemories.mockResolvedValue([])
-    // Hard embedding failure — gate must degrade gracefully.
+    mockMergeRate.mockResolvedValue([])
+    // Hard embedding failure — gate must degrade to the full corpus.
     mockEmbedTexts.mockRejectedValue(new Error('no embedding key'))
-    findNeighborEmbeddings.mockResolvedValue({
-      scopeHasEmbeddings: false,
-      neighbors: [],
-    })
 
     const out = await taskContextService.buildSessionStartSections('t-1')
-    expect(out).toBeDefined()
-    expect(Array.isArray(out.fragments)).toBe(true)
+    // Embedding outage → fallback-all → the full project corpus is injected
+    // (no worse than the pre-gate behavior; memory is never dropped on an error).
+    const memFragmentIds = out.fragments
+      .filter(f => f.fragmentType === 'MEMORY')
+      .map(f => f.fragmentId)
+    expect(memFragmentIds).toHaveLength(30)
   })
 })

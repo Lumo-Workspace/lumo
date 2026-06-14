@@ -101,20 +101,29 @@ test('cold corpus (scopeHasEmbeddings=false) → lexical fallback ranking', asyn
   expect(res.selected.map(m => m.id)).toContain('hit')
 })
 
-test('embed failure → lexical fallback, generic content yields the safe no-relevant outcome', async () => {
-  ;(embedTexts as jest.Mock).mockRejectedValue(new Error('no key'))
-  ;(memoryRepository.findNeighborEmbeddings as jest.Mock).mockResolvedValue({
-    scopeHasEmbeddings: false,
-    neighbors: [],
-  })
+test('embedding exception → gate degrades to the FULL corpus (fallback-all)', async () => {
+  ;(embedTexts as jest.Mock).mockRejectedValue(new Error('gateway down'))
   ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
     []
   )
-  const res = await select(task, corpus(20))
-  // generic 'mN' content shares no meaningful bigrams with the task text → lexical
-  // ranks low, nothing clears the floor → empty selection (the intended
-  // "no relevant memory" outcome), and crucially NOT a crash.
-  expect(res.telemetry.mechanism).toBe('lexical')
+  const candidates = corpus(20)
+  const res = await select(task, candidates)
+  expect(res.telemetry.mechanism).toBe('fallback-all')
+  expect(res.selected).toHaveLength(candidates.length)
+})
+
+test('pgvector exception → gate degrades to the FULL corpus (fallback-all)', async () => {
+  ;(embedTexts as jest.Mock).mockResolvedValue([[0.1, 0.2, 0.3]])
+  ;(memoryRepository.findNeighborEmbeddings as jest.Mock).mockRejectedValue(
+    new Error('pgvector down')
+  )
+  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
+    []
+  )
+  const candidates = corpus(20)
+  const res = await select(task, candidates)
+  expect(res.telemetry.mechanism).toBe('fallback-all')
+  expect(res.selected).toHaveLength(candidates.length)
 })
 
 test('high-trust fragment is always kept even with no similarity hit', async () => {
