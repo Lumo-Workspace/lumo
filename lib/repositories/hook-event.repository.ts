@@ -146,6 +146,24 @@ export const hookEventRepository = {
   },
 
   /**
+   * Turn-boundary events (prompt / STOP) for the given sessions, oldest-first —
+   * the raw signal `lib/agent-run/active-time` reduces to agent ACTIVE time
+   * (Σ per-session STOP − prompt, excluding inter-turn idle). Skipped when no
+   * session id.
+   */
+  async findTurnBoundaryEventsForSessions(sessionIds: string[]) {
+    if (sessionIds.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, type: true, createdAt: true },
+    })
+  },
+
+  /**
    * Recent write events to `filePath` from sessions other than the caller's,
    * within the `since` window — the raw signal for the parallel-edit collision
    * warning (LUM-150 step ③). Index-served by

@@ -380,11 +380,22 @@ describe('extractSessionMetadata', () => {
     )
   })
 
-  it('computes durationMs from first to last event', () => {
+  it('computes durationMs as turn-active time (Σ STOP − prompt), excluding inter-turn idle', () => {
+    const promptEv = (id: string, at: string): RawEvent => ({
+      id,
+      type: 'USER_PROMPT_SUBMIT',
+      toolName: null,
+      payload: {},
+      createdAt: new Date(at),
+    })
     const m = extractSessionMetadata([
-      pre('p1', 'u1', 'Read', { file_path: '/a' }, '2026-04-23T10:00:00Z'),
-      pre('p2', 'u2', 'Read', { file_path: '/b' }, '2026-04-23T10:05:00Z'),
+      promptEv('q1', '2026-04-23T10:00:00Z'),
+      pre('p1', 'u1', 'Read', { file_path: '/a' }, '2026-04-23T10:00:10Z'),
+      stop('s1', 'done', '2026-04-23T10:00:30Z'), // turn 1: 30s
+      // ~5 min idle (user away) — must NOT be counted
+      promptEv('q2', '2026-04-23T10:05:00Z'),
+      stop('s2', 'done again', '2026-04-23T10:05:10Z'), // turn 2: 10s
     ])
-    expect(m.durationMs).toBe(5 * 60 * 1000)
+    expect(m.durationMs).toBe(40 * 1000)
   })
 })

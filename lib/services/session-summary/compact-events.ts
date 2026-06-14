@@ -10,6 +10,8 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
+import { activeDurationMs } from '@/lib/agent-run/active-time'
+
 export type HookEventType =
   | 'PRE_TOOL_USE'
   | 'POST_TOOL_USE'
@@ -140,12 +142,9 @@ export function extractSessionMetadata(events: RawEvent[]): SessionMetadata {
     }
   }
 
-  const first = events[0]!
-  const last = events[events.length - 1]!
-  const durationMs = Math.max(
-    0,
-    last.createdAt.getTime() - first.createdAt.getTime()
-  )
+  // Agent active time (Σ per-turn STOP − prompt), not first→last event span —
+  // the span counts idle when a session resumes across a pause (LUM-487).
+  const durationMs = activeDurationMs(events)
 
   const toolDistribution: Record<string, number> = {}
   let toolCallCount = 0

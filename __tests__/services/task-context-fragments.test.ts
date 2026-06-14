@@ -12,7 +12,9 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
@@ -49,6 +51,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { listForTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: {
+    findTurnBoundaryEventsForSessions: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
@@ -229,7 +236,13 @@ function attachOneOfEverything(): void {
     },
   ])
   listPRs.mockResolvedValue([
-    { id: 'pr_1', number: 42, title: 'Add the thing', state: 'open', ciStatus: 'passing' },
+    {
+      id: 'pr_1',
+      number: 42,
+      title: 'Add the thing',
+      state: 'open',
+      ciStatus: 'passing',
+    },
   ])
   listPRIds.mockResolvedValue([{ id: 'pr_1', number: 42 }])
   listReviewTodos.mockResolvedValue([
