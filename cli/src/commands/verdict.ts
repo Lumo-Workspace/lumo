@@ -19,7 +19,6 @@ type FailReason = (typeof FAIL_REASONS)[number]
 
 export interface VerdictOptions {
   pass?: boolean
-  passWithFollowup?: boolean
   fail?: boolean
   reason?: string
   note?: string
@@ -43,10 +42,10 @@ interface AgentVerdictOutcome {
 /**
  * `lumo verdict [task]` — human + agent acceptance verdicts (LUM-422).
  *
- * Three modes, exactly one required:
- *   --pass / --pass-with-followup  open the browser to the task's verdict bar,
- *       focused on the passing action (a deep link — writes NOTHING; a passing
- *       data row is only ever produced by a human's own click, red line).
+ * Two modes, exactly one required:
+ *   --pass  opens the browser to the task's verdict bar, focused on Pass (a deep
+ *       link — writes NOTHING; a passing data row is only ever produced by a
+ *       human's own click, red line).
  *   --fail --reason <enum> [--note] [--criterion …]  records an AGENT send-back
  *       (verdict hard-coded FAIL server-side) and bounces the task to
  *       IN_PROGRESS. Bearer-authed.
@@ -57,15 +56,9 @@ export async function verdict(
   identifier: string | undefined,
   options: VerdictOptions = {}
 ): Promise<number | void> {
-  const modes = [
-    options.pass && 'pass',
-    options.passWithFollowup && 'pass-with-followup',
-    options.fail && 'fail',
-  ].filter(Boolean)
+  const modes = [options.pass && 'pass', options.fail && 'fail'].filter(Boolean)
   if (modes.length === 0) {
-    console.error(
-      'Error: choose a verdict mode — --pass, --pass-with-followup, or --fail.'
-    )
+    console.error('Error: choose a verdict mode — --pass or --fail.')
     return 1
   }
   if (modes.length > 1) {
@@ -123,25 +116,18 @@ export async function verdict(
   if (options.fail) {
     return failVerdict(base, headers, taskId, options, creds.workspaceSlug)
   }
-  return passDeepLink(
-    base,
-    headers,
-    taskId,
-    options.passWithFollowup ? 'pass_with_followup' : 'pass',
-    creds.workspaceSlug
-  )
+  return passDeepLink(base, headers, taskId, creds.workspaceSlug)
 }
 
 /**
- * --pass / --pass-with-followup: open the human's verdict bar pre-focused on the
- * passing action. The CLI never writes the verdict — it only carries the human
- * to the one click that does (red line: no agent-produced passing row).
+ * --pass: open the human's verdict bar pre-focused on Pass. The CLI never writes
+ * the verdict — it only carries the human to the one click that does (red line:
+ * no agent-produced passing row).
  */
 async function passDeepLink(
   base: string,
   headers: Record<string, string>,
   taskId: string,
-  verdictParam: 'pass' | 'pass_with_followup',
   workspaceSlug: string
 ): Promise<number | void> {
   let res: Response
@@ -160,7 +146,9 @@ async function passDeepLink(
     return 1
   }
   if (res.status === 404) {
-    console.error(`Error: task ${taskId} not found in workspace ${workspaceSlug}`)
+    console.error(
+      `Error: task ${taskId} not found in workspace ${workspaceSlug}`
+    )
     return 1
   }
   if (!res.ok) {
@@ -173,12 +161,10 @@ async function passDeepLink(
     return 1
   }
   const sep = task.url.includes('?') ? '&' : '?'
-  const deepLink = `${task.url}${sep}verdict=${verdictParam}`
+  const deepLink = `${task.url}${sep}verdict=pass`
 
-  const label =
-    verdictParam === 'pass_with_followup' ? 'Pass with follow-up' : 'Pass'
   process.stdout.write(
-    `Opening ${taskId} for a human "${label}" verdict (nothing is recorded until they click):\n` +
+    `Opening ${taskId} for a human "Pass" verdict (nothing is recorded until they click):\n` +
       `  ${sanitizeField(deepLink)}\n`
   )
   openBrowser(deepLink)
@@ -242,7 +228,9 @@ async function failVerdict(
     return 1
   }
   if (res.status === 404) {
-    console.error(`Error: task ${taskId} not found in workspace ${workspaceSlug}`)
+    console.error(
+      `Error: task ${taskId} not found in workspace ${workspaceSlug}`
+    )
     return 1
   }
   if (!res.ok) {

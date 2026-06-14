@@ -163,7 +163,6 @@ jest.mock(
           onVerdictRecorded?.({
             taskStatus: 'DONE',
             verdict: 'PASS',
-            followUpTask: null,
           })
         }
       >
@@ -192,7 +191,6 @@ beforeEach(() => {
   mockSubmitVerdict.mockResolvedValue({
     taskStatus: 'DONE',
     verdict: 'PASS',
-    followUpTask: null,
   })
 })
 

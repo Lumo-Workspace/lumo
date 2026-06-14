@@ -53,7 +53,6 @@ beforeEach(() => {
     verdict: 'PASS',
     taskStatus: 'DONE',
     criterionIds: ['c-1'],
-    followUpTask: null,
   })
 })
 
@@ -128,7 +127,6 @@ describe('POST /api/tasks/[id]/human-verdict', () => {
       verdict: 'FAIL',
       taskStatus: 'IN_PROGRESS',
       criterionIds: ['c-1'],
-      followUpTask: null,
       commentId: null,
     })
     const res = await POST(req({ verdict: 'FAIL' }), params)

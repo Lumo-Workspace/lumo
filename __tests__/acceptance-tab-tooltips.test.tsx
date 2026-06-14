@@ -5,6 +5,21 @@
  * - drops the "· read-only" machine-zone decoration and the human-zone "/ 7" quota
  * - adds InfoTooltip explanations to the machine and human zone headers
  */
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  // jsdom has no ResizeObserver; Radix tooltip arrow uses it for sizing.
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  }
+})
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -60,7 +75,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 
@@ -204,33 +219,41 @@ function renderWithCriteria(criteria: Record<string, unknown>[]) {
   )
 }
 
-// LUM-489 (Task 6): tooltip explaining the per-criterion send-back action in
-// the interactive (IN_REVIEW) VerdictControls. The HUMAN criterion in the
-// default fixture is unverified, so its VerdictControls (pass + send-back)
-// render. The InfoTooltip sits as a SIBLING next to the send-back button.
+// LUM-492 (Task 3): verdict action tooltips are now on the buttons themselves
+// (ActionTooltip / Radix), not on a sibling ⓘ (InfoTooltip). The HUMAN
+// criterion in the default fixture is unverified so its VerdictControls render.
 describe('Verdict action tooltips (send-back)', () => {
-  it('send-back action carries an explanatory tooltip', () => {
-    renderAcceptanceTab()
-    // Each unverified criterion's VerdictControls carries its own send-back
-    // tooltip; assert the explanatory label is present (one per criterion row).
-    expect(
-      screen.getAllByLabelText(
-        'Reject this criterion and send the task back to the agent for another round.'
-      ).length
-    ).toBeGreaterThan(0)
-  })
-
-  it('the send-back tooltip is a sibling of the button, not nested inside it', () => {
+  it('send-back button is itself the tooltip trigger — no nested button inside it', () => {
     renderAcceptanceTab()
     const sendBack = screen.getByTestId('verdict-sendback-h1')
     expect(sendBack.querySelector('button')).toBeNull()
   })
 
-  it('pass action carries an explanatory tooltip', () => {
+  it('pass button is itself the tooltip trigger — no nested button inside it', () => {
     renderAcceptanceTab()
-    expect(
-      screen.getAllByLabelText('Mark this criterion met.').length
-    ).toBeGreaterThan(0)
+    const passBtn = screen.getByTestId('verdict-pass-h1')
+    expect(passBtn.querySelector('button')).toBeNull()
+  })
+
+  it('focusing the pass button reveals the pass tip text', async () => {
+    renderAcceptanceTab()
+    act(() => {
+      screen.getByTestId('verdict-pass-h1').focus()
+    })
+    // Radix renders a visually-hidden duplicate; findAllByText covers both copies.
+    const hits = await screen.findAllByText('Mark this criterion met.')
+    expect(hits.length).toBeGreaterThan(0)
+  })
+
+  it('focusing the send-back button reveals the send-back tip text', async () => {
+    renderAcceptanceTab()
+    act(() => {
+      screen.getByTestId('verdict-sendback-h1').focus()
+    })
+    const hits = await screen.findAllByText(
+      'Reject this criterion and send the task back to the agent for another round.'
+    )
+    expect(hits.length).toBeGreaterThan(0)
   })
 })
 

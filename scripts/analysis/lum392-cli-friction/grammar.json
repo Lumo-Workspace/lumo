@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.34.0",
+  "cliVersion": "1.35.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3083,14 +3083,6 @@
           "enumCaseInsensitive": false,
           "description": "Open the verdict bar focused on Pass (human one-click; no write)"
         },
-        "--pass-with-followup": {
-          "long": "--pass-with-followup",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Open the verdict bar focused on Pass with follow-up (human one-click; no write)"
-        },
         "--reason": {
           "long": "--reason",
           "short": null,
@@ -3107,7 +3099,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Acceptance verdict (LUM-422). --pass / --pass-with-followup open the browser to the human verdict bar focused on the passing action (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
+      "description": "Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
     },
     "verify": {
       "arguments": [
