@@ -300,6 +300,20 @@ function summaryUnresolved(
   }
 }
 
+/**
+ * Format an active duration in milliseconds to a compact human label for
+ * the Tier-1 "Progress so far" headline suffix, e.g. "23min" or "1h 5min".
+ * Uses Math.round so that e.g. 89 500 ms → 1min (not 0min) and 3 599 000 → 60min.
+ * Returns null when ms is 0 (caller omits the suffix entirely).
+ */
+function formatActiveDuration(ms: number): string | null {
+  if (ms <= 0) return null
+  const m = Math.round(ms / 60_000)
+  if (m === 0) return null
+  if (m < 60) return `${m}min`
+  return `${Math.floor(m / 60)}h ${m % 60}min`
+}
+
 const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
 
 function scheduleLazyRefresh(
@@ -977,10 +991,22 @@ export const taskContextService = {
         currentSessionId
       )
     if (!recovery) return ''
-    const lines = ['## Progress so far', recovery.headline]
+    const durationLabel = formatActiveDuration(recovery.durationMs)
+    const headline = durationLabel
+      ? `${recovery.headline} (${durationLabel} active)`
+      : recovery.headline
+    const lines = ['## Progress so far', headline]
     if (recovery.unresolved.length > 0) {
+      const CAP = 5
+      const visible = recovery.unresolved.slice(0, CAP)
+      const overflow = recovery.unresolved.length - CAP
       lines.push('', 'Unresolved:')
-      for (const item of recovery.unresolved) lines.push(`- [ ] ${item}`)
+      for (const item of visible) lines.push(`- [ ] ${item}`)
+      if (overflow > 0) {
+        lines.push(
+          `- +${overflow} more — \`lumo task context\` for the full list`
+        )
+      }
     }
     return lines.join('\n')
   },
