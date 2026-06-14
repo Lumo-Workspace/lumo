@@ -18,6 +18,7 @@ import { tasksClient } from '@/lib/api-client'
 // real class survives when a test mocks the barrel — instanceof stays meaningful.
 import { ApiClientError } from '@/lib/api-client/base'
 import { CommentEditor } from '../comments/CommentEditor'
+import { InfoTooltip } from './InfoTooltip'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import { boundaryCategoryLabel } from './boundary-format'
 import {
@@ -321,6 +322,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.pass' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.passTip',
+          defaultMessage:
+            'Accept the task as done — all criteria are met and it moves to completed.',
+        })}
+      />
       <Button
         size='sm'
         variant='outline'
@@ -330,6 +338,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.passWithFollowUp' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.passWithFollowUpTip',
+          defaultMessage:
+            'Mark passed but leave a follow-up note — the task is accepted with a tracked loose end.',
+        })}
+      />
       <Button
         size='sm'
         variant='outline'
@@ -339,6 +354,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.fail' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.failTip',
+          defaultMessage:
+            'Reject and send the task back — it cannot be marked Done until re-verified.',
+        })}
+      />
     </div>
   )
 
@@ -455,6 +477,14 @@ export function VerdictDecision({
         <>
           {' · '}
           {intl.formatMessage({ id: 'acceptance.tab.humanOverride' })}
+          <InfoTooltip
+            className='ml-0.5 align-middle'
+            label={intl.formatMessage({
+              id: 'acceptance.tab.humanOverrideTip',
+              defaultMessage:
+                'Passed because a person signed off — no machine check confirmed this criterion.',
+            })}
+          />
         </>
       ) : null}
     </>
@@ -471,7 +501,14 @@ export function VerdictDecision({
 
   if (variant === 'header') {
     return (
-      <div className={`rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`}>
+      <div
+        data-testid='verdict-status-banner'
+        className={
+          isReview
+            ? `rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`
+            : 'py-1'
+        }
+      >
         <StatusBannerRow
           layout='header'
           Icon={Icon}

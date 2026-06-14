@@ -25,6 +25,7 @@ import type {
 import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
+import { InfoTooltip } from './InfoTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { isPass, isHumanOverride, machineRollup } from './verdict-status'
 
@@ -144,11 +145,18 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
 
   return (
     <div>
-      <div className='mb-2 text-xs font-medium text-muted-foreground'>
+      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
         {intl.formatMessage({
           id: 'acceptance.history.title',
           defaultMessage: 'Verification record',
         })}
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.history.tip',
+            defaultMessage:
+              'Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.',
+          })}
+        />
       </div>
       <div className='overflow-hidden rounded-lg border border-border'>
         {rounds.map((r, i) => {
@@ -335,6 +343,12 @@ function VerdictControls({
             defaultMessage: 'Pass',
           })}
         </button>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.verdict.passTip',
+            defaultMessage: 'Mark this criterion met.',
+          })}
+        />
         <button
           type='button'
           data-testid={`verdict-sendback-${idSuffix}`}
@@ -348,6 +362,13 @@ function VerdictControls({
             defaultMessage: 'Send back',
           })}
         </button>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.verdict.sendBackTip',
+            defaultMessage:
+              'Reject this criterion and send the task back to the agent for another round.',
+          })}
+        />
         {secondary ? (
           <button
             type='button'
@@ -503,11 +524,18 @@ function JudgeStepsBlock({ c }: { c: TaskStatusCriterionView }) {
       data-testid='judge-steps'
       className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
     >
-      <div className='mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70'>
+      <div className='mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70'>
         {intl.formatMessage({
           id: 'acceptance.judge.label',
           defaultMessage: 'How to judge',
         })}
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.judge.tip',
+            defaultMessage:
+              'Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.',
+          })}
+        />
       </div>
       <div className='space-y-0.5 text-[11px] text-foreground break-words'>
         {lines.map((line, i) => (
@@ -634,11 +662,6 @@ function CriterionRow({
           {stalePass ? (
             <span
               data-testid='stale-marker'
-              title={intl.formatMessage({
-                id: 'acceptance.criterion.staleHint',
-                defaultMessage:
-                  'Criterion changed since this check — re-run lumo verify to re-confirm',
-              })}
               className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle border border-warning-border px-1.5 py-0.5 font-medium text-foreground'
             >
               <AlertTriangle className='size-3' aria-hidden />
@@ -646,6 +669,13 @@ function CriterionRow({
                 id: 'acceptance.criterion.staleVerdict',
                 defaultMessage: 'Passed · pre-edit version',
               })}
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.criterion.staleTip',
+                  defaultMessage:
+                    'This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.',
+                })}
+              />
             </span>
           ) : null}
           <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
@@ -660,11 +690,18 @@ function CriterionRow({
             </span>
           ) : null}
           {isHumanOverride(c) ? (
-            <span className='rounded-sm bg-success-subtle border border-success-border px-1.5 py-0.5 font-medium text-foreground'>
+            <span className='inline-flex items-center gap-1 rounded-sm bg-success-subtle border border-success-border px-1.5 py-0.5 font-medium text-foreground'>
               {intl.formatMessage({
                 id: 'acceptance.tab.humanOverride',
                 defaultMessage: 'human override',
               })}
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.tab.humanOverrideBadgeTip',
+                  defaultMessage:
+                    'A person marked this criterion passed without a machine check confirming it.',
+                })}
+              />
             </span>
           ) : null}
           {/* A — change-state markers */}
@@ -845,6 +882,19 @@ function CriterionRow({
         ) : null}
         {hasCheck && showCheck ? (
           <div className='mt-1.5 space-y-0.5 rounded-md bg-muted/50 px-2 py-1.5 font-mono text-[10px] text-muted-foreground'>
+            <div className='flex items-center gap-1 font-sans text-muted-foreground/70'>
+              {intl.formatMessage({
+                id: 'acceptance.check.label',
+                defaultMessage: 'Evidence',
+              })}
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.check.tip',
+                  defaultMessage:
+                    'The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.',
+                })}
+              />
+            </div>
             {c.checkpointer ? (
               <div className='break-all'>
                 <span className='text-muted-foreground/50'>$ </span>
@@ -1116,40 +1166,35 @@ export function AcceptanceTab({
             {intl.formatMessage({
               id: 'acceptance.contract.title',
               defaultMessage: 'Acceptance criteria',
-            })}{' '}
-            <span className='font-normal text-muted-foreground/70'>
-              ·{' '}
-              {intl.formatMessage(
-                {
-                  id: 'acceptance.contract.count',
-                  defaultMessage: '{total} · {machine} MACHINE / {human} HUMAN',
-                },
-                {
-                  total: data.criteria.length,
-                  machine: machineCriteria.length,
-                  human: humanCriteria.length,
-                }
-              )}
-            </span>
+            })}
           </div>
         </div>
         <div className='space-y-4'>
           {machineCriteria.length > 0 ? (
             <div>
-              <button
-                type='button'
-                onClick={() => setMachineOpen(!machineZoneOpen)}
-                aria-expanded={machineZoneOpen}
-                className='mb-1.5 flex w-full items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground'
-              >
-                <ChevronRight
-                  className={`size-3 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
-                  aria-hidden
+              <div className='mb-1.5 flex w-full items-center gap-1.5 text-[11px] font-medium text-muted-foreground'>
+                <button
+                  type='button'
+                  onClick={() => setMachineOpen(!machineZoneOpen)}
+                  aria-expanded={machineZoneOpen}
+                  className='flex items-center gap-1.5 hover:text-foreground'
+                >
+                  <ChevronRight
+                    className={`size-3 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
+                  {intl.formatMessage({
+                    id: 'acceptance.zone.machine',
+                    defaultMessage: 'Machine-verified',
+                  })}
+                </button>
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.zone.machineTip',
+                    defaultMessage:
+                      'Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.',
+                  })}
                 />
-                {intl.formatMessage({
-                  id: 'acceptance.zone.machine',
-                  defaultMessage: 'Machine-verified · read-only',
-                })}
                 <span className='ml-auto font-normal text-muted-foreground/70'>
                   {allMachineVerified
                     ? intl.formatMessage(
@@ -1189,7 +1234,7 @@ export function AcceptanceTab({
                         .filter(Boolean)
                         .join(' · ')}
                 </span>
-              </button>
+              </div>
               {machineZoneOpen ? (
                 <div className='overflow-hidden rounded-lg border border-border'>
                   {machineCriteria.map(c => (
@@ -1213,8 +1258,22 @@ export function AcceptanceTab({
                 id: 'acceptance.zone.human',
                 defaultMessage: 'Needs human judgment',
               })}
-              <span className='ml-auto text-muted-foreground/70'>
-                {humanCriteria.length} / 7
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.zone.humanTip',
+                  defaultMessage:
+                    'Human criteria need a person to judge and sign off — they are not machine-checkable.',
+                })}
+              />
+              <span className='ml-auto inline-flex items-center gap-1 text-muted-foreground/70'>
+                {humanCriteria.length}
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.zone.humanQuotaTip',
+                    defaultMessage:
+                      'A task can have at most 7 human criteria, to keep human review focused.',
+                  })}
+                />
               </span>
             </div>
             {humanCriteria.length > 0 ? (
