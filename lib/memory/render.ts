@@ -263,11 +263,11 @@ function memoryHeadline(m: RenderableMemory): string {
   return JSON.stringify(m.content)
 }
 
-/** One-line manifest for an overflowed memory: scope tag + truncated headline. */
+/** One-line manifest for an overflowed memory: scope tag + truncated headline + fetch hint. */
 export function memoryManifestLine(m: RenderableMemory): string {
   const head = memoryHeadline(m)
   const truncated = head.length > 100 ? head.slice(0, 100) + '…' : head
-  return `- ${tag(m)} ${truncated}`
+  return `- ${tag(m)} ${truncated} → lumo memory show ${m.id}`
 }
 
 /**

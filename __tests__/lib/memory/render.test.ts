@@ -350,7 +350,7 @@ describe('memoryManifestLine (LUM-147)', () => {
       category: 'TRAP',
       content: { trigger: 'Do X before Y', outcome: 'crash' },
     })
-    expect(line).toBe('- [project] Do X before Y')
+    expect(line).toBe('- [project] Do X before Y → lumo memory show m1')
   })
 
   it('truncates long headlines to 100 chars with an ellipsis', () => {
@@ -362,8 +362,12 @@ describe('memoryManifestLine (LUM-147)', () => {
       content: { rule: long, scope: 'where' },
     })
     expect(line.startsWith('- [task] ')).toBe(true)
-    expect(line.length).toBeLessThanOrEqual('- [task] '.length + 101)
-    expect(line.endsWith('…')).toBe(true)
+    expect(line).toContain('→ lumo memory show m2')
+    // headline part (after tag, before arrow) must be <= 101 chars (100 + ellipsis)
+    const arrowIdx = line.indexOf(' → lumo memory show')
+    const headlinePart = line.slice('- [task] '.length, arrowIdx)
+    expect(headlinePart.length).toBeLessThanOrEqual(101)
+    expect(headlinePart.endsWith('…')).toBe(true)
   })
 
   it('falls back gracefully on unparseable content', () => {
@@ -374,6 +378,7 @@ describe('memoryManifestLine (LUM-147)', () => {
       content: { bogus: true },
     })
     expect(line.startsWith('- [task] ')).toBe(true)
+    expect(line).toContain('lumo memory show m3')
   })
 
   it('carries the source label into the manifest line (LUM-347)', () => {
@@ -384,7 +389,24 @@ describe('memoryManifestLine (LUM-147)', () => {
       content: { trigger: 'Do X before Y', outcome: 'crash' },
       source: 'user',
     })
-    expect(line).toBe('- [project · user-authored] Do X before Y')
+    expect(line).toBe(
+      '- [project · user-authored] Do X before Y → lumo memory show m4'
+    )
+  })
+
+  it('memory manifest carries id + fetch hint and keeps the headline (LUM-500)', () => {
+    const line = memoryManifestLine({
+      id: 'cmem_9f3a2',
+      scope: 'TASK',
+      category: 'TRAP',
+      content: {
+        trigger: 'worktree 下 Edit 默认落主 checkout 不落 worktree',
+        outcome: 'edits land in the wrong file',
+      },
+    })
+    expect(line).toContain('cmem_9f3a2')
+    expect(line).toContain('lumo memory show cmem_9f3a2')
+    expect(line).toContain('worktree')
   })
 })
 
@@ -408,6 +430,7 @@ describe('memoryBudgetSection (LUM-147)', () => {
     expect(out).toContain(renderMemorySection([mem('a', 'one')]))
     expect(out).toContain('Remaining 1 memories (manifest only):')
     expect(out).toContain('- [project] two')
+    expect(out).toContain('lumo memory show b')
   })
 
   it('render(0) emits only the heading + manifest list', () => {
@@ -415,6 +438,7 @@ describe('memoryBudgetSection (LUM-147)', () => {
     const out = memoryBudgetSection(items).render(0)
     expect(out).toContain('## Relevant Memory')
     expect(out).toContain('- [project] one')
+    expect(out).toContain('lumo memory show a')
   })
 
   it('cardTokens has one entry per memory', () => {
