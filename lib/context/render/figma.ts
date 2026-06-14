@@ -1,5 +1,4 @@
 import type { TaskFigmaLink } from '@prisma/client'
-import { makeBudgetSection } from '@/lib/context/budget'
 
 function figmaTitle(link: TaskFigmaLink): string {
   return link.frameName
@@ -55,9 +54,4 @@ export function renderFigmaSection(links: TaskFigmaLink[]): string {
     lines.push('')
   }
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for Figma links (LUM-147). */
-export function figmaBudgetSection(links: TaskFigmaLink[]) {
-  return makeBudgetSection('## Figma Designs', links, figmaCard, figmaManifest)
 }

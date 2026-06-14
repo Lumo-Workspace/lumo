@@ -1,5 +1,3 @@
-import { makeBudgetSection } from '@/lib/context/budget'
-
 /**
  * Strip Slack mrkdwn tokens that would confuse the agent. Local to the slack
  * renderer — the only consumer of Slack message text.
@@ -101,14 +99,4 @@ export function renderSlackContextSection(
     lines.push('')
   }
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for Slack contexts (LUM-147). */
-export function slackBudgetSection(contexts: SlackContextCard[]) {
-  return makeBudgetSection(
-    '## Slack Context',
-    contexts,
-    slackCard,
-    slackManifest
-  )
 }

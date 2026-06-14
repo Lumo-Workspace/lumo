@@ -1,5 +1,3 @@
-import { makeBudgetSection } from '@/lib/context/budget'
-
 export interface WebLinkCard {
   id: string
   url: string
@@ -56,17 +54,4 @@ export function renderWebLinkSection(links: WebLinkCard[]): string {
   for (const l of links) lines.push(webLinkCard(l))
   lines.push('')
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for web links (LUM-147). */
-export function webLinkBudgetSection(links: WebLinkCard[]) {
-  // Single-newline separator to match `renderWebLinkSection`, which packs web
-  // cards with no blank line between them (same reason `prBudgetSection` does).
-  return makeBudgetSection(
-    '## Web Links',
-    links,
-    webLinkCard,
-    webLinkManifest,
-    '\n'
-  )
 }

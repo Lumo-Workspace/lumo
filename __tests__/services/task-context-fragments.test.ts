@@ -72,9 +72,7 @@ jest.mock('@/lib/memory/render', () => ({
   ),
   applyTokenBudget: jest.fn((xs: unknown[]) => xs),
   wrapUntrustedMemory: jest.fn((s: string) => s),
-  // unused by getContextForIdentifier but imported by the service module
   renderLayer2ReviewSection: jest.fn(() => ''),
-  memoryBudgetSection: jest.fn(() => ''),
   wrapUntrustedLinked: jest.fn((s: string) => s),
   wrapUntrustedLinkedGroup: jest.fn((xs: string[]) => xs),
 }))

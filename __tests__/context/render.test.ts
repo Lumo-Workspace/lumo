@@ -13,16 +13,12 @@ import * as render from '@/lib/context/render'
 import {
   slackCard,
   slackManifest,
-  slackBudgetSection,
   webLinkCard,
   webLinkManifest,
-  webLinkBudgetSection,
   figmaCard,
   figmaManifest,
-  figmaBudgetSection,
   prCard,
   prManifest,
-  prBudgetSection,
 } from '@/lib/context/render'
 
 describe('renderSlackContextSection', () => {
@@ -529,12 +525,6 @@ describe('slackCard / slackManifest (LUM-147)', () => {
       '- [external:slack] #channel — Decided to ship Friday. → lumo task slack show ctx_1'
     )
   })
-
-  it('slackBudgetSection.render(all) equals the legacy section output', () => {
-    const { renderSlackContextSection } = require('@/lib/context/render')
-    const section = slackBudgetSection([card])
-    expect(section.render(1)).toBe(renderSlackContextSection([card]))
-  })
 })
 
 describe('webLinkCard / webLinkManifest (LUM-147)', () => {
@@ -564,22 +554,6 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
     )
     expect(webLinkManifest({ ...link, title: null })).toBe(
       '- [external:web] https://ex.com/a — ex.com → lumo task web show wl_1'
-    )
-  })
-
-  it('webLinkBudgetSection.render(all) equals the legacy section output', () => {
-    const { renderWebLinkSection } = require('@/lib/context/render')
-    expect(webLinkBudgetSection([link]).render(1)).toBe(
-      renderWebLinkSection([link])
-    )
-  })
-
-  it('webLinkBudgetSection.render(2) equals the legacy multi-link section output', () => {
-    const { renderWebLinkSection } = require('@/lib/context/render')
-    const a = link
-    const b = { ...link, id: 'wl_2', url: 'https://ex.com/b', title: 'B Title' }
-    expect(webLinkBudgetSection([a, b]).render(2)).toBe(
-      renderWebLinkSection([a, b])
     )
   })
 })
@@ -615,22 +589,6 @@ describe('figmaCard / figmaManifest (LUM-147)', () => {
       '- [external:figma] Onboarding _(file-level)_ → lumo task figma context cfl_1'
     )
   })
-
-  it('figmaBudgetSection.render(all) equals the legacy section output', () => {
-    const { renderFigmaSection } = require('@/lib/context/render')
-    expect(figmaBudgetSection([link]).render(1)).toBe(
-      renderFigmaSection([link])
-    )
-  })
-
-  it('figmaBudgetSection.render(2) equals the legacy multi-link section output', () => {
-    const { renderFigmaSection } = require('@/lib/context/render')
-    const a = link
-    const b = { ...link, id: 'cfl_2', frameName: 'Other' } as typeof link
-    expect(figmaBudgetSection([a, b]).render(2)).toBe(
-      renderFigmaSection([a, b])
-    )
-  })
 })
 
 describe('prCard / prManifest (LUM-147)', () => {
@@ -652,17 +610,5 @@ describe('prCard / prManifest (LUM-147)', () => {
     expect(prManifest(pr)).toBe(
       '- [external:github] #42 Fix bug → lumo task pr show 42'
     )
-  })
-
-  it('prBudgetSection.render(all) equals the legacy section output', () => {
-    const { renderPRSection } = require('@/lib/context/render')
-    expect(prBudgetSection([pr]).render(1)).toBe(renderPRSection([pr]))
-  })
-
-  it('prBudgetSection.render(2) equals the legacy multi-PR section output', () => {
-    const { renderPRSection } = require('@/lib/context/render')
-    const a = { number: 1, title: 'one', state: 'OPEN', ciStatus: 'passing' }
-    const b = { number: 2, title: 'two', state: 'MERGED', ciStatus: null }
-    expect(prBudgetSection([a, b]).render(2)).toBe(renderPRSection([a, b]))
   })
 })

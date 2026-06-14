@@ -3,7 +3,6 @@
  */
 import {
   applyTokenBudget,
-  memoryBudgetSection,
   memoryManifestLine,
   renderLayer2ReviewSection,
   renderMemorySection,
@@ -407,44 +406,6 @@ describe('memoryManifestLine (LUM-147)', () => {
     expect(line).toContain('cmem_9f3a2')
     expect(line).toContain('lumo memory show cmem_9f3a2')
     expect(line).toContain('worktree')
-  })
-})
-
-describe('memoryBudgetSection (LUM-147)', () => {
-  const mem = (id: string, trigger: string) => ({
-    id,
-    scope: 'PROJECT' as const,
-    category: 'TRAP' as const,
-    content: { trigger, outcome: 'boom' },
-  })
-
-  it('render(all) equals the grouped renderMemorySection output', () => {
-    const items = [mem('a', 'one'), mem('b', 'two')]
-    const section = memoryBudgetSection(items)
-    expect(section.render(2)).toBe(renderMemorySection(items))
-  })
-
-  it('render(partial) keeps the grouped fulls and lists the rest as manifest', () => {
-    const items = [mem('a', 'one'), mem('b', 'two')]
-    const out = memoryBudgetSection(items).render(1)
-    expect(out).toContain(renderMemorySection([mem('a', 'one')]))
-    expect(out).toContain('Remaining 1 memories (manifest only):')
-    expect(out).toContain('- [project] two')
-    expect(out).toContain('lumo memory show b')
-  })
-
-  it('render(0) emits only the heading + manifest list', () => {
-    const items = [mem('a', 'one')]
-    const out = memoryBudgetSection(items).render(0)
-    expect(out).toContain('## Relevant Memory')
-    expect(out).toContain('- [project] one')
-    expect(out).toContain('lumo memory show a')
-  })
-
-  it('cardTokens has one entry per memory', () => {
-    expect(
-      memoryBudgetSection([mem('a', 'x'), mem('b', 'y')]).cardTokens
-    ).toHaveLength(2)
   })
 })
 

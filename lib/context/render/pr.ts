@@ -1,5 +1,3 @@
-import { makeBudgetSection } from '@/lib/context/budget'
-
 export interface PRCard {
   number: number
   title: string
@@ -47,9 +45,4 @@ export function renderPRSection(prs: PRCard[]): string {
   const lines: string[] = ['## Pull Requests', '']
   for (const pr of prs) lines.push(prCard(pr))
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for PRs (LUM-147). */
-export function prBudgetSection(prs: PRCard[]) {
-  return makeBudgetSection('## Pull Requests', prs, prCard, prManifest, '\n')
 }
