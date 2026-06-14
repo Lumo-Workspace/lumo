@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Alle {count} Fragmente anzeigen",
   "lineage.fragments.collapse": "Einklappen",
-  "agentRun.summary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
   "tokenCost.label": "Token-Nutzung",

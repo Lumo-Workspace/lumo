@@ -24,7 +24,7 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { TokenUsageBreakdown } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/TokenUsageBreakdown'
 import type {
   AgentRunMemberStat,
@@ -39,20 +39,13 @@ const opus: ModelCost = {
   cacheCreation: 1_200_000,
   total: 12_300_000,
 }
-const sonnetLive: ModelCost = {
+const sonnet: ModelCost = {
   model: 'claude-sonnet-4-6',
   input: 48,
   output: 92,
   cacheRead: 2_900_000,
   cacheCreation: 410_000,
   total: 3_300_000,
-  inFlight: {
-    input: 10,
-    output: 5,
-    cacheRead: 80,
-    cacheCreation: 5,
-    total: 100,
-  },
 }
 
 function mem(id: string, name: string, total: number): AgentRunMemberStat {
@@ -72,70 +65,50 @@ function totals(byModel: ModelCost[]) {
   return { runCount: 1, turnCount: 2, loopCount: 4, byModel }
 }
 
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+})
+
 describe('TokenUsageBreakdown', () => {
-  it('is collapsed by default: details out of the DOM, header carries title + per-model totals', () => {
-    render(
-      <TokenUsageBreakdown totals={totals([opus, sonnetLive])} perMember={[]} />
-    )
-    const toggle = screen.getByTestId('token-usage-toggle')
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByText('Token usage')).toBeInTheDocument()
-    expect(screen.getByText('1 run · 2 turns · 2 models')).toBeInTheDocument()
-    expect(
-      screen.getByText('opus-4-8 12300000 · sonnet-4-6 3300000')
-    ).toBeInTheDocument()
-    expect(screen.queryByText('output')).not.toBeInTheDocument()
-  })
-
-  it('toggle expands to the full per-model breakdown and collapses back', () => {
-    render(
-      <TokenUsageBreakdown totals={totals([opus, sonnetLive])} perMember={[]} />
-    )
-    const toggle = screen.getByTestId('token-usage-toggle')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getAllByText('output').length).toBeGreaterThan(0)
+  it('renders the per-model breakdown without an outer collapse or duplicate title', () => {
+    render(<TokenUsageBreakdown totals={totals([opus, sonnet])} perMember={[]} />)
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
-    expect(screen.getAllByText('Token usage')).toHaveLength(1)
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('output')).not.toBeInTheDocument()
+    expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument()
+    expect(screen.queryByText('Token usage')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('token-usage-toggle')).not.toBeInTheDocument()
   })
 
-  it('keeps a pulse indicator while collapsed when any model has in-flight burn', () => {
-    render(
-      <TokenUsageBreakdown totals={totals([opus, sonnetLive])} perMember={[]} />
-    )
-    expect(screen.getByTestId('collapsed-in-flight-dot')).toBeInTheDocument()
+  it('shows a turns chip in the by-model footer', () => {
+    render(<TokenUsageBreakdown totals={totals([opus, sonnet])} perMember={[]} />)
+    expect(screen.getByText('2 turns')).toBeInTheDocument()
   })
 
-  it('shows no in-flight indicator when all models are settled', () => {
-    render(<TokenUsageBreakdown totals={totals([opus])} perMember={[]} />)
-    expect(
-      screen.queryByTestId('collapsed-in-flight-dot')
-    ).not.toBeInTheDocument()
+  it('omits by-member / by-model group labels for a single contributor', () => {
+    render(<TokenUsageBreakdown totals={totals([opus])} perMember={[mem('mA', 'Ada', 100)]} />)
+    expect(screen.queryByText('By member')).not.toBeInTheDocument()
+    expect(screen.queryByText('By model')).not.toBeInTheDocument()
   })
 
-  it('shows the by-person summary when expanded and 2+ members contributed', () => {
+  it('renders by-member and by-model groups when 2+ members contributed', () => {
     render(
       <TokenUsageBreakdown
-        totals={totals([opus])}
-        perMember={[mem('a', 'Ann', 9_000_000), mem('b', 'Bo', 3_300_000)]}
+        totals={totals([opus, sonnet])}
+        perMember={[mem('mA', 'Ada', 9_000_000), mem('mB', 'Bo', 3_000_000)]}
       />
     )
-    fireEvent.click(screen.getByTestId('token-usage-toggle'))
-    expect(screen.getByTestId('per-member-summary')).toBeInTheDocument()
-    expect(screen.getByText('Ann')).toBeInTheDocument()
-  })
-
-  it('omits the by-person summary for a single member', () => {
-    render(
-      <TokenUsageBreakdown
-        totals={totals([opus])}
-        perMember={[mem('a', 'Ann', 12_300_000)]}
-      />
-    )
-    fireEvent.click(screen.getByTestId('token-usage-toggle'))
-    expect(screen.queryByTestId('per-member-summary')).not.toBeInTheDocument()
+    expect(screen.getByText('By member')).toBeInTheDocument()
+    expect(screen.getByText('By model')).toBeInTheDocument()
+    expect(screen.getByText('Ada')).toBeInTheDocument()
+    expect(screen.getByText('Bo')).toBeInTheDocument()
   })
 })

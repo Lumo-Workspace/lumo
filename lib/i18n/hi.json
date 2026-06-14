@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "सभी {count} अंश दिखाएँ",
   "lineage.fragments.collapse": "समेटें",
-  "agentRun.summary": "{runs, plural, one {# रन} other {# रन}} · {turns, plural, one {# चक्र} other {# चक्र}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# लूप} other {# लूप}}",
   "tokenCost.label": "टोकन उपयोग",

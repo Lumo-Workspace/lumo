@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Afficher les {count} fragments",
   "lineage.fragments.collapse": "Réduire",
-  "agentRun.summary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# boucle} other {# boucles}}",
   "tokenCost.label": "Utilisation des tokens",

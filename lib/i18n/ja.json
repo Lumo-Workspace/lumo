@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "{count} 件すべてを表示",
   "lineage.fragments.collapse": "折りたたむ",
-  "agentRun.summary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# ループ}}",
   "tokenCost.label": "トークン使用量",

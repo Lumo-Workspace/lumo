@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Hiện tất cả {count} mảnh",
   "lineage.fragments.collapse": "Thu gọn",
-  "agentRun.summary": "{runs, plural, other {# lần chạy}} · {turns, plural, other {# lượt}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# vòng lặp}}",
   "tokenCost.label": "Lượng token sử dụng",
