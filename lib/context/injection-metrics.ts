@@ -50,6 +50,13 @@ export interface SessionStartContextMetrics {
   }
   /** Sum of sectionTokens — the total estimated injection size. */
   totalTokens: number
+  /**
+   * Per-tier token split (LUM-500 progressive disclosure):
+   *  - tier0 = always-full red-line context: criteria + blockerWarning
+   *  - tier1 = always-full orienting context: previousSession (progress) + reviewTodos + layer2Review
+   *  - tier2 = pull-on-demand index/manifest surface: memory (index) + linkedResources (manifests)
+   */
+  tierTokens: { tier0: number; tier1: number; tier2: number }
 }
 
 interface BuildMetricsInput {
@@ -83,11 +90,20 @@ export function buildSessionStartContextMetrics(
     (sum, tokens) => sum + tokens,
     0
   )
+  const tierTokens = {
+    tier0: sectionTokens.criteria + sectionTokens.blockerWarning,
+    tier1:
+      sectionTokens.previousSession +
+      sectionTokens.reviewTodos +
+      sectionTokens.layer2Review,
+    tier2: sectionTokens.memory + sectionTokens.linkedResources,
+  }
   return {
     version: 1,
     budgetTokens: input.budgetTokens,
     allocation: input.allocation,
     sectionTokens,
     totalTokens,
+    tierTokens,
   }
 }
