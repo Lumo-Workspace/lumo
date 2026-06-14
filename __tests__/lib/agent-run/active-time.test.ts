@@ -1,5 +1,6 @@
 import {
   activeDurationMs,
+  activeDurationMsBySession,
   sumActiveDurationSec,
 } from '@/lib/agent-run/active-time'
 
@@ -135,5 +136,28 @@ describe('sumActiveDurationSec', () => {
 
   it('is 0 for an empty stream', () => {
     expect(sumActiveDurationSec([])).toBe(0)
+  })
+})
+
+describe('activeDurationMsBySession', () => {
+  it('returns per-session active ms (a session with no completed turn maps to 0)', () => {
+    const map = activeDurationMsBySession([
+      { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+      { sessionId: 's1', type: 'STOP', createdAt: at(40_000) },
+      // s2 has only an open prompt (no STOP) → 0
+      { sessionId: 's2', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+    ])
+    expect(map.get('s1')).toBe(40_000)
+    expect(map.get('s2')).toBe(0)
+  })
+
+  it('excludes inter-turn idle within a session', () => {
+    const map = activeDurationMsBySession([
+      { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+      { sessionId: 's1', type: 'STOP', createdAt: at(30_000) },
+      { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(5 * HOUR) },
+      { sessionId: 's1', type: 'STOP', createdAt: at(5 * HOUR + 20_000) },
+    ])
+    expect(map.get('s1')).toBe(50_000)
   })
 })

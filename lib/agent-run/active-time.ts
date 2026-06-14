@@ -26,8 +26,13 @@ export interface SessionTurnEvent {
 }
 
 export interface TaskTurnEvent extends SessionTurnEvent {
-  sessionId: string
+  // Nullable to accept raw HookEvent rows (the column is nullable); a null
+  // sessionId is bucketed under a sentinel so it never cross-pairs with a
+  // real session.
+  sessionId: string | null
 }
+
+const NO_SESSION = '__none__'
 
 function ms(at: Date | string): number {
   return new Date(at).getTime()
@@ -59,21 +64,35 @@ export function activeDurationMs(events: SessionTurnEvent[]): number {
 }
 
 /**
- * Whole seconds of active time for a flat, possibly-unordered event stream
+ * Active milliseconds per session for a flat, possibly-unordered event stream
  * spanning multiple sessions. Groups by `sessionId` and sorts each group by
- * time so a STOP in one session can never close a prompt in another.
+ * time so a STOP in one session can never close a prompt in another. Keyed by
+ * sessionId → active ms (a session with no completed turn maps to 0).
  */
-export function sumActiveDurationSec(events: TaskTurnEvent[]): number {
+export function activeDurationMsBySession(
+  events: TaskTurnEvent[]
+): Map<string, number> {
   const bySession = new Map<string, SessionTurnEvent[]>()
   for (const ev of events) {
-    const list = bySession.get(ev.sessionId)
+    const key = ev.sessionId ?? NO_SESSION
+    const list = bySession.get(key)
     if (list) list.push(ev)
-    else bySession.set(ev.sessionId, [ev])
+    else bySession.set(key, [ev])
   }
-  let totalMs = 0
-  for (const list of bySession.values()) {
+  const out = new Map<string, number>()
+  for (const [sessionId, list] of bySession) {
     const ordered = [...list].sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
-    totalMs += activeDurationMs(ordered)
+    out.set(sessionId, activeDurationMs(ordered))
   }
+  return out
+}
+
+/**
+ * Whole seconds of active time for a flat, possibly-unordered event stream
+ * spanning multiple sessions.
+ */
+export function sumActiveDurationSec(events: TaskTurnEvent[]): number {
+  let totalMs = 0
+  for (const v of activeDurationMsBySession(events).values()) totalMs += v
   return Math.round(totalMs / 1000)
 }

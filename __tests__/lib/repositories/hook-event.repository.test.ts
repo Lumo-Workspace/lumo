@@ -213,3 +213,24 @@ describe('hookEventRepository.groupTaskFilesTouched', () => {
     })
   })
 })
+
+describe('hookEventRepository.findTurnBoundaryEventsForSessions', () => {
+  it('returns [] without querying when no session ids', async () => {
+    const out = await hookEventRepository.findTurnBoundaryEventsForSessions([])
+    expect(out).toEqual([])
+    expect(mockFindMany).not.toHaveBeenCalled()
+  })
+
+  it('queries only prompt/STOP types for the given sessions, oldest-first', async () => {
+    mockFindMany.mockResolvedValue([])
+    await hookEventRepository.findTurnBoundaryEventsForSessions(['s1', 's2'])
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        sessionId: { in: ['s1', 's2'] },
+        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, type: true, createdAt: true },
+    })
+  })
+})
