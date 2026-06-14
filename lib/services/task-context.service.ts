@@ -383,23 +383,33 @@ function mirrorBodyToText(html: string): string {
  * memories. Shared by `buildMemorySectionForTask` (which budgets + renders)
  * and `getContextForIdentifier` (which budgets + renders AND derives the memory
  * fragment ids), so the ordering/shape lives in exactly one place.
+ *
+ * LUM-486: project memories are passed through the relevance gate so the
+ * displayed set matches what session-start injects. Task-scoped memories are
+ * never gated.
  */
-async function fetchOrderedTaskMemories(
-  taskId: string,
+async function fetchOrderedTaskMemories(task: {
+  id: string
+  title: string
+  description: string | null
   projectId: string
-): Promise<RenderableMemory[]> {
+}): Promise<RenderableMemory[]> {
   const [taskMemories, projectMemories] = await Promise.all([
-    memoryRepository.findActiveTaskMemories(taskId),
-    memoryRepository.findActiveProjectMemories(projectId),
+    memoryRepository.findActiveTaskMemories(task.id),
+    memoryRepository.findActiveProjectMemories(task.projectId),
   ])
+  const projectRenderable: RenderableMemory[] = projectMemories.map(m => ({
+    id: m.id,
+    scope: 'PROJECT' as const,
+    category: m.category,
+    content: m.content,
+    source: memorySource(m.createdByMemberId),
+  }))
+  // LUM-486: gate the project corpus by relevance before rendering, so the
+  // displayed memory matches what session-start injects.
+  const gate = await selectRelevantProjectMemories(task, projectRenderable)
   return [
-    ...projectMemories.map(m => ({
-      id: m.id,
-      scope: 'PROJECT' as const,
-      category: m.category,
-      content: m.content,
-      source: memorySource(m.createdByMemberId),
-    })),
+    ...gate.selected,
     ...taskMemories.map(m => ({
       id: m.id,
       scope: 'TASK' as const,
@@ -592,7 +602,12 @@ export const taskContextService = {
     if (!task) return ''
 
     // applyTokenBudget drops the tail on overflow.
-    const ordered = await fetchOrderedTaskMemories(taskId, task.projectId)
+    const ordered = await fetchOrderedTaskMemories({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      projectId: task.projectId,
+    })
     // Wrap in an explicit trust boundary before the section leaves the
     // service: this string is auto-injected into the agent via SessionStart
     // `additionalContext` and is authored by arbitrary workspace members, so
@@ -1076,7 +1091,12 @@ export const taskContextService = {
     // so the fragment ids come from the *budgeted* set — the memories that
     // actually survive into the rendered section, i.e. what the agent sees.
     const budgetedMemories = applyTokenBudget(
-      await fetchOrderedTaskMemories(full.id, full.projectId)
+      await fetchOrderedTaskMemories({
+        id: full.id,
+        title: full.title,
+        description: full.description,
+        projectId: full.projectId,
+      })
     )
     const memorySection = wrapUntrustedMemory(
       renderMemorySection(budgetedMemories)
