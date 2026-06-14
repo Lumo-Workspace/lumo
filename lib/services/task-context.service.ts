@@ -36,10 +36,10 @@ import {
   renderCommentsSection,
   renderPRSection,
   renderPrReviewTodosSection,
-  slackBudgetSection,
-  webLinkBudgetSection,
-  figmaBudgetSection,
-  prBudgetSection,
+  slackManifest,
+  webLinkManifest,
+  figmaManifest,
+  prManifest,
   type ReviewTodoItem,
   type SlackContextCard,
   type WebLinkCard,
@@ -791,38 +791,20 @@ export const taskContextService = {
       }
     )
 
-    // Priority order: criteria > memory > PR > Slack > Figma > web. The
-    // acceptance contract (LUM-342) outranks everything — it's what the work
-    // is judged against — and at 3–7 short statements it's also the cheapest.
-    // LUM-500: memory is no longer a full budgeted card. It degrades to a
-    // Tier-2 one-line addressable index (top-K manifest lines + a "+N more"
-    // pointer), computed directly below — so it leaves the shared budget and
-    // the allocator now spans only criteria + the linked-resource cards.
+    // Priority order: criteria > memory > resources. The acceptance contract
+    // (LUM-342) outranks everything — it's what the work is judged against —
+    // and at 3–7 short statements it's also the cheapest. It is the only
+    // Tier-0 always-full section, so it's the only thing left in the shared
+    // token budget. LUM-500: memory degrades to a Tier-2 addressable index
+    // (computed below), and the linked resources (PR/Slack/Figma/web) degrade
+    // to descriptive one-line manifests (computed below) — both leave the
+    // budget allocator, which now spans criteria alone.
     const { rendered, metrics } = allocateBudgetWithMetrics(
-      [
-        criteriaBudgetSection(criteria),
-        prBudgetSection(ranked.prs as unknown as PRCard[]),
-        slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
-        figmaBudgetSection(ranked.figma),
-        webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
-      ],
+      [criteriaBudgetSection(criteria)],
       SESSION_START_BUDGET_TOKENS
     )
-    const [criteriaOut, prOut, slackOut, figmaOut, webOut] = rendered as [
-      string,
-      string,
-      string,
-      string,
-      string,
-    ]
-    const [criteriaMetric, prMetric, slackMetric, figmaMetric, webMetric] =
-      metrics as [
-        BudgetSectionMetric,
-        BudgetSectionMetric,
-        BudgetSectionMetric,
-        BudgetSectionMetric,
-        BudgetSectionMetric,
-      ]
+    const [criteriaOut = ''] = rendered
+    const [criteriaMetric = emptyMetric] = metrics
 
     // Tier-2 memory: top-K addressable index, then a pointer for the rest.
     // Wrapped in the same untrusted boundary as the old full card.
@@ -857,30 +839,98 @@ export const taskContextService = {
           ? renderCriteriaDraftNudge()
           : ''
 
-    const linkedJoined = [prOut, slackOut, figmaOut, webOut]
+    // LUM-500: linked resources are Tier-2 — each renders as a clean manifest
+    // block (heading + one descriptive one-line manifest per card), never a
+    // full budgeted card. An agent reads the index and pulls only what it
+    // needs. Empty list → empty block, dropped from the joined section.
+    const manifestBlock = <T>(
+      heading: string,
+      cards: T[],
+      toManifest: (card: T) => string
+    ): string =>
+      cards.length === 0
+        ? ''
+        : `${heading}\n\n${cards.map(toManifest).join('\n')}`
+
+    const prManifestBlock = manifestBlock(
+      '## Pull Requests',
+      ranked.prs as unknown as PRCard[],
+      prManifest
+    )
+    const slackManifestBlock = manifestBlock(
+      '## Slack Context',
+      ranked.slack as unknown as SlackContextCard[],
+      slackManifest
+    )
+    const figmaManifestBlock = manifestBlock(
+      '## Figma Designs',
+      ranked.figma,
+      figmaManifest
+    )
+    const webManifestBlock = manifestBlock(
+      '## Web Links',
+      ranked.web as unknown as WebLinkCard[],
+      webLinkManifest
+    )
+
+    const linkedJoined = [
+      prManifestBlock,
+      slackManifestBlock,
+      figmaManifestBlock,
+      webManifestBlock,
+    ]
       .filter(s => s !== '')
       .join('\n\n')
 
+    // Observe-only telemetry (LUM-402): resources no longer compete for the
+    // token budget — they're all rendered as Tier-2 manifests. Keep the metric
+    // shape so the return type and the metrics stamp stay intact: every card is
+    // "dropped" to a manifest (keptCards 0), with the manifest's own cheap
+    // tokens recorded as keptTokens.
+    const manifestMetric = (
+      block: string,
+      count: number
+    ): BudgetSectionMetric => ({
+      keptCards: 0,
+      droppedCards: count,
+      keptTokens: estimateTokens(block),
+      droppedTokens: 0,
+    })
+    const prMetric = manifestMetric(prManifestBlock, ranked.prs.length)
+    const slackMetric = manifestMetric(slackManifestBlock, ranked.slack.length)
+    const figmaMetric = manifestMetric(figmaManifestBlock, ranked.figma.length)
+    const webMetric = manifestMetric(webManifestBlock, ranked.web.length)
+
+    // LUM-500: every session-start fragment is now Tier-2 — memory is an
+    // addressable index and the resources are descriptive manifests — so each
+    // edge is tagged INDEX. The route's extra fragments (review-todos, layer2,
+    // SESSION) carry no disclosure and correctly default to FULL, since they're
+    // injected as full content.
     const fragments: FragmentRef[] = [
       ...ranked.memories.map(m => ({
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.slack.map(s => ({
         fragmentType: 'SLACK_CONTEXT' as const,
         fragmentId: s.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.web.map(w => ({
         fragmentType: 'WEB_LINK' as const,
         fragmentId: w.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.figma.map(f => ({
         fragmentType: 'FIGMA' as const,
         fragmentId: f.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.prs.map(p => ({
         fragmentType: 'PR' as const,
         fragmentId: p.id,
+        disclosure: 'INDEX' as const,
       })),
     ]
 

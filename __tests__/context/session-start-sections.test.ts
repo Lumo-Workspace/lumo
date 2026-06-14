@@ -49,19 +49,26 @@ describe('buildSessionStartSections (LUM-147)', () => {
     expect(out.fragments).toEqual([])
   })
 
-  it('renders a PR linked section wrapped in the untrusted-linked boundary', async () => {
+  it('renders a PR linked section as a Tier-2 manifest wrapped in the untrusted-linked boundary', async () => {
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValueOnce([
       { number: 7, title: 'Add thing', state: 'OPEN', ciStatus: 'passing' },
     ])
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('<untrusted-linked-context>')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
-    expect(out.linkedResourcesSection).toContain('- [external:github] #7 Add thing — OPEN · passing')
+    // LUM-500: resources are one-line descriptive manifests, not full cards.
+    expect(out.linkedResourcesSection).toContain(
+      '- [external:github] #7 Add thing → lumo task pr show 7'
+    )
+    // The full-card body (state · CI) no longer appears in session-start.
+    expect(out.linkedResourcesSection).not.toContain('OPEN · passing')
     expect(out.memorySection).toBe('')
   })
 
   it('wraps memory in the untrusted-team-memory boundary', async () => {
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValueOnce([
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValueOnce([
       { id: 'm1', category: 'TRAP', content: { trigger: 'X', outcome: 'Y' } },
     ])
     const out = await taskContextService.buildSessionStartSections('tsk_1')
@@ -89,10 +96,10 @@ describe('buildSessionStartSections (LUM-147)', () => {
     expect(out.fragments).toEqual([])
   })
 
-  it('degrades over-budget cards to a manifest list (end-to-end overflow → manifest)', async () => {
-    // Far more PRs than fit the 2500-token budget: each long-titled card is
-    // ~140 tokens, so 30 cards (>4000 tokens) force overflow. The first few
-    // render full; the rest collapse to a one-line manifest block.
+  it('renders every resource as a Tier-2 manifest line (no budget overflow, no full cards)', async () => {
+    // LUM-500: resources no longer compete for the token budget — they all
+    // render as one-line manifests regardless of count. 30 PRs → 30 manifest
+    // lines, each carrying its retrieval command.
     const prs = Array.from({ length: 30 }, (_, i) => ({
       number: i + 1,
       title: `Refactor module ${i} ` + 'x'.repeat(400),
@@ -102,8 +109,11 @@ describe('buildSessionStartSections (LUM-147)', () => {
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValueOnce(prs)
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
-    expect(out.linkedResourcesSection).toContain('manifest only')
-    // A manifest line carries the retrieval command for an overflowed PR.
+    // Manifest lines carry the retrieval command for every PR, first and last.
+    expect(out.linkedResourcesSection).toContain('lumo task pr show 1')
     expect(out.linkedResourcesSection).toContain('lumo task pr show 30')
+    // Tier-2: no "manifest only" overflow framing and no full-card body.
+    expect(out.linkedResourcesSection).not.toContain('manifest only')
+    expect(out.linkedResourcesSection).not.toContain('OPEN · passing')
   })
 })

@@ -174,16 +174,19 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     const metrics = payload[CONTEXT_METRICS_KEY] as SessionStartContextMetrics
     expect(metrics.version).toBe(1)
     expect(metrics.budgetTokens).toBe(2500)
-    // One memory and one PR, both well under budget: kept in full, none dropped.
+    // One memory (kept as the top-K index) and one PR. LUM-500: the PR is a
+    // Tier-2 manifest, so keptCards is 0 (no full card) and the single PR is
+    // counted as droppedCards — the manifest's cheap tokens are keptTokens.
     expect(metrics.allocation.memory).toMatchObject({
       keptCards: 1,
       droppedCards: 0,
     })
     expect(metrics.allocation.memory.keptTokens).toBeGreaterThan(0)
     expect(metrics.allocation.pr).toMatchObject({
-      keptCards: 1,
-      droppedCards: 0,
+      keptCards: 0,
+      droppedCards: 1,
     })
+    expect(metrics.allocation.pr.keptTokens).toBeGreaterThan(0)
     expect(metrics.allocation.layer2Review).toEqual({
       keptCards: 0,
       droppedCards: 0,
@@ -264,9 +267,10 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     expect(memory.keptCards).toBe(RELEVANCE_GATE_TOP_K)
     expect(memory.droppedCards).toBe(40 - RELEVANCE_GATE_TOP_K)
     expect('droppedTokens' in memory ? memory.droppedTokens : -1).toBe(0)
-    // …and because memory left the shared allocator, the PR card is no longer
-    // starved by a fat memory corpus: it renders in full.
-    expect(pr.keptCards).toBe(1)
+    // …and the PR is a Tier-2 manifest (LUM-500): no full card competes for the
+    // budget, so keptCards is 0 and the single PR is counted as dropped.
+    expect(pr.keptCards).toBe(0)
+    expect(pr.droppedCards).toBe(1)
     // Kept tokens across the budgeted sections respect the budget.
     const keptTotal = Object.values(metrics.allocation)
       .map(m => ('keptTokens' in m ? m.keptTokens : 0))

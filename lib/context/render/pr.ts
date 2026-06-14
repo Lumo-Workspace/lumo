@@ -17,9 +17,25 @@ export function prCard(pr: PRCard): string {
   ].join('\n')
 }
 
-/** One-line manifest for an overflowed PR. */
+/**
+ * Truncate a one-line descriptor for a manifest line. Collapses internal
+ * whitespace, then clips at `max` chars with an ellipsis. Returns "" for
+ * empty/whitespace-only input.
+ */
+function truncateDescriptor(text: string, max = 80): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (flat.length === 0) return ''
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/**
+ * One-line manifest for a Tier-2 PR (LUM-500): number + a truncated title so
+ * an agent can decide whether to pull the diff, plus the retrieval hint.
+ */
 export function prManifest(pr: PRCard): string {
-  return `- [external:github] #${pr.number} ${pr.title} — lumo task pr show ${pr.number}`
+  const title = truncateDescriptor(pr.title)
+  const descriptor = title ? `#${pr.number} ${title}` : `#${pr.number}`
+  return `- [external:github] ${descriptor} → lumo task pr show ${pr.number}`
 }
 
 /**
