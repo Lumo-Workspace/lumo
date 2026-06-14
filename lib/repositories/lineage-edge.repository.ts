@@ -47,10 +47,15 @@ const STAMPABLE_FROM: Record<StampableOutcome, LineageOutcome[]> = {
   REWORKED: ['MERGED'],
 }
 
-/** Polymorphic fragment identity (type + id), used to scope aggregate queries. */
+/** Polymorphic fragment identity (type + id), used to scope aggregate queries.
+ * `disclosure` (LUM-500) is the Tier-1/2 tag carried from session-start so the
+ * lineage edge records whether the fragment was injected as full content (FULL)
+ * or as an addressable index/manifest (INDEX). Optional — omit → DB default
+ * FULL — so aggregate-query callers that don't tag edges are unaffected. */
 export interface FragmentRef {
   fragmentType: LineageFragmentType
   fragmentId: string
+  disclosure?: LineageDisclosure
 }
 
 /** Per-fragment rollup of edge outcomes, returned by `aggregateByFragments`. */
