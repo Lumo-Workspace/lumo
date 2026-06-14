@@ -715,4 +715,128 @@ describe('lineageEdgeRepository', () => {
       })
     })
   })
+
+  describe('usageSignalAggregates (signal vs-base path)', () => {
+    // usageSignalAggregates fires four groupBys; route each mock by its shape:
+    // ['used'] → distribution, ['sessionId','used'] → per-session, and the
+    // fragment-grained task rollup (used vs base) by the `where` clause.
+    function routeGroupBy(opts: {
+      dist?: any[]
+      perSession?: any[]
+      used?: any[]
+      base?: any[]
+    }) {
+      mockGroupBy.mockImplementation((args: any) => {
+        const by: string[] = args.by
+        if (by.length === 1 && by[0] === 'used')
+          return Promise.resolve(opts.dist ?? [])
+        if (by.includes('sessionId'))
+          return Promise.resolve(opts.perSession ?? [])
+        // taskMergeRows: fragment-grained rollup
+        if (args.where?.used === true) return Promise.resolve(opts.used ?? [])
+        return Promise.resolve(opts.base ?? [])
+      })
+    }
+
+    it('excludes birth-task self-credit from usedTasks on the signal path', async () => {
+      routeGroupBy({
+        used: [
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'birth',
+            outcome: 'MERGED',
+          },
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'tB',
+            outcome: 'MERGED',
+          },
+        ],
+      })
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['m1', new Set(['birth'])]])
+      )
+
+      const agg = await lineageEdgeRepository.usageSignalAggregates('ws1')
+
+      expect(agg.usedTasks).toEqual([
+        { taskId: 'tB', resolved: true, merged: true },
+      ])
+    })
+
+    it('excludes birth-task self-credit from baseTasks on the signal path', async () => {
+      routeGroupBy({
+        base: [
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'birth',
+            outcome: 'MERGED',
+          },
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'tB',
+            outcome: 'REJECTED',
+          },
+        ],
+      })
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['m1', new Set(['birth'])]])
+      )
+
+      const agg = await lineageEdgeRepository.usageSignalAggregates('ws1')
+
+      expect(agg.baseTasks).toEqual([
+        { taskId: 'tB', resolved: true, merged: false },
+      ])
+    })
+
+    it('keeps tasks whose non-birth edges survive on the signal path', async () => {
+      routeGroupBy({
+        base: [
+          // m1 is born in tX → that one pair is self-credit and drops…
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'tX',
+            outcome: 'MERGED',
+          },
+          // …but m2 (not born in tX) keeps tX in the population, merged.
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm2',
+            taskId: 'tX',
+            outcome: 'MERGED',
+          },
+          // a non-MEMORY fragment has no birth concept and is never dropped.
+          {
+            fragmentType: 'PR',
+            fragmentId: 'pr1',
+            taskId: 'tZ',
+            outcome: 'REJECTED',
+          },
+          // a task whose ONLY edge is birth-self-credit drops out entirely.
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm1',
+            taskId: 'tY',
+            outcome: 'MERGED',
+          },
+        ],
+      })
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['m1', new Set(['tX', 'tY'])]])
+      )
+
+      const agg = await lineageEdgeRepository.usageSignalAggregates('ws1')
+
+      const byTask = Object.fromEntries(agg.baseTasks.map(t => [t.taskId, t]))
+      expect(byTask.tX).toEqual({ taskId: 'tX', resolved: true, merged: true })
+      expect(byTask.tZ).toEqual({ taskId: 'tZ', resolved: true, merged: false })
+      expect(byTask.tY).toBeUndefined()
+    })
+  })
 })
