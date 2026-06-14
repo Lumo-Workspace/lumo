@@ -42,7 +42,7 @@ jest.mock('@/lib/api-client', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { BoundaryCrossingsPanel } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BoundaryCrossingsPanel'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
 
@@ -72,18 +72,29 @@ const CROSSING = {
   attribution: null,
 }
 
-beforeEach(() => {
+// Renders the panel with a single crossing whose disposition is `disposition`.
+// A dispositioned crossing leaves the panel collapsed (no open crossings), so
+// we expand it via the summary toggle to mount the row's header; an OPEN
+// crossing (disposition: null) makes openCount > 0 so the panel and its row
+// start expanded already.
+function renderWithDisposition(disposition: string | null) {
   jest.clearAllMocks()
   mockHook.mockReturnValue({
-    crossings: [CROSSING],
+    crossings: [{ ...CROSSING, disposition }],
     loading: false,
     error: null,
     refresh,
   })
   render(<BoundaryCrossingsPanel taskIdentifier='LUM-489' enabled />)
-  // No open crossing → panel starts collapsed; expand it to mount the row's
-  // header (where all four tooltips live).
-  fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+  if (disposition != null) {
+    fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+  }
+}
+
+beforeEach(() => {
+  // Default harness: a dispositioned crossing, expanded — all four tooltips live
+  // on the row's header.
+  renderWithDisposition('FALSE_POSITIVE')
 })
 
 describe('Boundary crossing tooltips', () => {
@@ -114,5 +125,16 @@ describe('Boundary crossing tooltips', () => {
         'This same crossing was detected multiple times; the count is how many times.'
       )
     ).toBeInTheDocument()
+  })
+  it('open crossing has no disposition tooltip', () => {
+    // Drop the default (dispositioned) render and mount an OPEN crossing
+    // (disposition: null); openCount > 0 so the panel/row render expanded.
+    cleanup()
+    renderWithDisposition(null)
+    expect(
+      screen.queryByLabelText(
+        'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.'
+      )
+    ).not.toBeInTheDocument()
   })
 })
