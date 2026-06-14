@@ -12,6 +12,11 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     listForTask: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: {
+    findTurnBoundaryEventsForSessions: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     findActiveTaskMemories: jest.fn().mockResolvedValue([]),
@@ -29,7 +34,9 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: {
@@ -100,12 +107,15 @@ jest.mock('@/lib/services/task-notifications.service', () => ({
 
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
 
 const mockResolve = taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockFindById = taskRepository.findById as jest.Mock
 const mockSessions = sessionRepository.listForTask as jest.Mock
+const mockTurnEvents =
+  hookEventRepository.findTurnBoundaryEventsForSessions as jest.Mock
 const mockTaskMem = memoryRepository.findActiveTaskMemories as jest.Mock
 const mockProjMem = memoryRepository.findActiveProjectMemories as jest.Mock
 
@@ -169,6 +179,20 @@ describe('taskContextService.getContextForIdentifier', () => {
         summaryGeneratedAt: new Date('2026-04-24T11:30:00Z'),
       },
     ])
+    // Active time = Σ per-turn (STOP − prompt): one 12-min turn, not the
+    // 90-min wall-clock span.
+    mockTurnEvents.mockResolvedValueOnce([
+      {
+        sessionId: 'sess_1',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: new Date('2026-04-24T10:00:00Z'),
+      },
+      {
+        sessionId: 'sess_1',
+        type: 'STOP',
+        createdAt: new Date('2026-04-24T10:12:00Z'),
+      },
+    ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
       'member_1',
@@ -179,7 +203,7 @@ describe('taskContextService.getContextForIdentifier', () => {
         id: 'sess_1',
         startedAt: '2026-04-24T10:00:00.000Z',
         lastActivityAt: '2026-04-24T11:30:00.000Z',
-        durationMs: 90 * 60 * 1000,
+        durationMs: 12 * 60 * 1000,
         eventCount: 42,
         summaryType: 'implementation',
         headline: 'Wire the thing',
@@ -308,9 +332,9 @@ describe('taskContextService.getContextForIdentifier', () => {
       'LUM-30'
     )
     expect(out?.memorySection.startsWith('<untrusted-team-memory>')).toBe(true)
-    expect(out!.memorySection.trimEnd().endsWith('</untrusted-team-memory>')).toBe(
-      true
-    )
+    expect(
+      out!.memorySection.trimEnd().endsWith('</untrusted-team-memory>')
+    ).toBe(true)
     // The rendered memory still lives inside the boundary.
     expect(out?.memorySection).toContain('## Relevant Memory')
   })

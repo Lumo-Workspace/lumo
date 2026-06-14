@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 import { mergeEvents, type RawEvent } from './merge-events'
 import { Timeline } from './Timeline'
 import { SummaryCard } from './SummaryCard'
+import { activeDurationMs } from '@/lib/agent-run/active-time'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,8 +53,9 @@ export default async function SessionDetailPage({
 
   const items = mergeEvents(rawEvents as RawEvent[])
 
-  const durationMs =
-    session.lastActivityAt.getTime() - session.startedAt.getTime()
+  // Agent active time (Σ per-turn STOP − prompt), not the session wall-clock
+  // span — a resumed session's idle gap would otherwise inflate it (LUM-487).
+  const durationMs = activeDurationMs(rawEvents)
   const durationMin = Math.round(durationMs / 60000)
 
   const toolCallCount = items.filter(

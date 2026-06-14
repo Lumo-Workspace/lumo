@@ -1,6 +1,11 @@
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import {
+  activeDurationMs,
+  activeDurationMsBySession,
+} from '@/lib/agent-run/active-time'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -779,14 +784,15 @@ export const taskContextService = {
       if (s.id === currentSessionId) continue
       const headline = summaryHeadline(s.summary)
       if (headline === NO_SUMMARY) continue
+      // Agent active time (Σ per-turn STOP − prompt), not the session span —
+      // a resumed session's idle gap would otherwise inflate it (LUM-487).
+      const turnEvents =
+        await hookEventRepository.findTurnBoundaryEventsForSessions([s.id])
       return {
         sessionId: s.id,
         headline,
         unresolved: summaryUnresolved(s.summary, s.summaryType),
-        durationMs: Math.max(
-          0,
-          s.lastActivityAt.getTime() - s.startedAt.getTime()
-        ),
+        durationMs: activeDurationMs(turnEvents),
         lastActivityAt: s.lastActivityAt.toISOString(),
       }
     }
@@ -879,6 +885,13 @@ export const taskContextService = {
     if (!full) return null
 
     const sessions = await sessionRepository.listForTask(resolved.id)
+    // Per-session agent active time (Σ per-turn STOP − prompt), not the session
+    // wall-clock span — excludes idle when a session resumes (LUM-487).
+    const sessionDurationMs = activeDurationMsBySession(
+      await hookEventRepository.findTurnBoundaryEventsForSessions(
+        sessions.map(s => s.id)
+      )
+    )
 
     const slackContexts = await taskSlackContextRepository.listByTask(
       resolved.id
@@ -1069,10 +1082,7 @@ export const taskContextService = {
         id: s.id,
         startedAt: s.startedAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
-        durationMs: Math.max(
-          0,
-          s.lastActivityAt.getTime() - s.startedAt.getTime()
-        ),
+        durationMs: sessionDurationMs.get(s.id) ?? 0,
         eventCount: s.eventCount,
         summaryType: s.summaryType,
         headline: summaryHeadline(s.summary),
