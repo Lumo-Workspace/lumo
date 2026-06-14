@@ -26,6 +26,7 @@ import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
 import { InfoTooltip } from './InfoTooltip'
+import { ActionTooltip } from './ActionTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { isPass, isHumanOverride, machineRollup } from './verdict-status'
 
@@ -48,7 +49,7 @@ interface AcceptanceTabProps {
 /** Records a human verdict for a specific criterion (criterionIds identifies
  *  the criterion being adjudicated; currently only called per-criterion). */
 type SubmitVerdict = (
-  verdict: AcceptanceVerdict,
+  verdict: 'PASS' | 'FAIL',
   criterionIds?: string[],
   note?: string
 ) => void
@@ -327,48 +328,50 @@ function VerdictControls({
   return (
     <div className='flex flex-col gap-1.5'>
       <div className='flex items-center gap-1.5'>
-        <button
-          type='button'
-          data-testid={`verdict-pass-${idSuffix}`}
-          disabled={submitting}
-          onClick={() =>
-            overrideConfirm
-              ? setConfirmOverride(true)
-              : onVerdict('PASS', criterionIds)
-          }
-          className={`${passCls} disabled:opacity-50`}
-        >
-          {intl.formatMessage({
-            id: 'acceptance.verdict.pass',
-            defaultMessage: 'Pass',
-          })}
-        </button>
-        <InfoTooltip
-          label={intl.formatMessage({
+        <ActionTooltip
+          tip={intl.formatMessage({
             id: 'acceptance.verdict.passTip',
             defaultMessage: 'Mark this criterion met.',
           })}
-        />
-        <button
-          type='button'
-          data-testid={`verdict-sendback-${idSuffix}`}
-          aria-expanded={sendBack}
-          disabled={submitting}
-          onClick={() => setSendBack(s => !s)}
-          className='rounded-sm border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50'
         >
-          {intl.formatMessage({
-            id: 'acceptance.verdict.sendBack',
-            defaultMessage: 'Send back',
-          })}
-        </button>
-        <InfoTooltip
-          label={intl.formatMessage({
+          <button
+            type='button'
+            data-testid={`verdict-pass-${idSuffix}`}
+            disabled={submitting}
+            onClick={() =>
+              overrideConfirm
+                ? setConfirmOverride(true)
+                : onVerdict('PASS', criterionIds)
+            }
+            className={`${passCls} disabled:opacity-50`}
+          >
+            {intl.formatMessage({
+              id: 'acceptance.verdict.pass',
+              defaultMessage: 'Pass',
+            })}
+          </button>
+        </ActionTooltip>
+        <ActionTooltip
+          tip={intl.formatMessage({
             id: 'acceptance.verdict.sendBackTip',
             defaultMessage:
               'Reject this criterion and send the task back to the agent for another round.',
           })}
-        />
+        >
+          <button
+            type='button'
+            data-testid={`verdict-sendback-${idSuffix}`}
+            aria-expanded={sendBack}
+            disabled={submitting}
+            onClick={() => setSendBack(s => !s)}
+            className='rounded-sm border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50'
+          >
+            {intl.formatMessage({
+              id: 'acceptance.verdict.sendBack',
+              defaultMessage: 'Send back',
+            })}
+          </button>
+        </ActionTooltip>
         {secondary ? (
           <button
             type='button'
