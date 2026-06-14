@@ -16,6 +16,13 @@ jest.mock('@/lib/repositories', () => ({
 jest.mock('@/lib/services/task-verification.service', () => ({
   taskVerificationService: { recordMachineRound: jest.fn() },
 }))
+// LUM-491: the verify route now runs the session-binding guard before recording
+// the round. Stub it to a no-op (bound-correct) so these pre-existing route tests
+// keep exercising the round-recording path; the guard's own behavior is covered
+// in __tests__/session-binding-guard.test.ts and __tests__/verify-route-binding.test.ts.
+jest.mock('@/lib/services/session-binding-guard', () => ({
+  enforceSessionBinding: jest.fn().mockResolvedValue({ advisory: null }),
+}))
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockFindByIdentifier =
