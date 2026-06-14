@@ -635,11 +635,6 @@ function CriterionRow({
           {stalePass ? (
             <span
               data-testid='stale-marker'
-              title={intl.formatMessage({
-                id: 'acceptance.criterion.staleHint',
-                defaultMessage:
-                  'Criterion changed since this check — re-run lumo verify to re-confirm',
-              })}
               className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle border border-warning-border px-1.5 py-0.5 font-medium text-foreground'
             >
               <AlertTriangle className='size-3' aria-hidden />
