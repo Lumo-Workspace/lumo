@@ -699,6 +699,7 @@
   "acceptance.tab.summary": "{passed}/{total} met · round {round}/{maxRounds}",
   "acceptance.tab.escalated": "escalated to human",
   "acceptance.tab.humanOverride": "human override",
+  "acceptance.tab.humanOverrideTip": "Passed because a person signed off — no machine check confirmed this criterion.",
   "acceptance.tab.verdictRound": "round {round}",
   "acceptance.tab.unjudged": "not yet judged",
   "acceptance.tab.lastFailures": "Last round failures",

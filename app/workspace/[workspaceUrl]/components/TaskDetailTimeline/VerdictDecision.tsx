@@ -18,6 +18,7 @@ import { tasksClient } from '@/lib/api-client'
 // real class survives when a test mocks the barrel — instanceof stays meaningful.
 import { ApiClientError } from '@/lib/api-client/base'
 import { CommentEditor } from '../comments/CommentEditor'
+import { InfoTooltip } from './InfoTooltip'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import { boundaryCategoryLabel } from './boundary-format'
 import {
@@ -455,6 +456,14 @@ export function VerdictDecision({
         <>
           {' · '}
           {intl.formatMessage({ id: 'acceptance.tab.humanOverride' })}
+          <InfoTooltip
+            className='ml-0.5 align-middle'
+            label={intl.formatMessage({
+              id: 'acceptance.tab.humanOverrideTip',
+              defaultMessage:
+                'Passed because a person signed off — no machine check confirmed this criterion.',
+            })}
+          />
         </>
       ) : null}
     </>
@@ -471,7 +480,14 @@ export function VerdictDecision({
 
   if (variant === 'header') {
     return (
-      <div className={`rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`}>
+      <div
+        data-testid='verdict-status-banner'
+        className={
+          isReview
+            ? `rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`
+            : 'py-1'
+        }
+      >
         <StatusBannerRow
           layout='header'
           Icon={Icon}
