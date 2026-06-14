@@ -1672,5 +1672,7 @@
   "task.verdict.failTip": "[TODO:de] Reject and send the task back — it cannot be marked Done until re-verified.",
   "acceptance.verdict.sendBackTip": "[TODO:de] Reject this criterion and send the task back to the agent for another round.",
   "task.verdict.passTip": "[TODO:de] Accept the task as done — all criteria are met and it moves to completed.",
-  "acceptance.verdict.passTip": "[TODO:de] Mark this criterion met."
+  "acceptance.verdict.passTip": "[TODO:de] Mark this criterion met.",
+  "acceptance.history.tip": "[TODO:de] Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.",
+  "acceptance.judge.tip": "[TODO:de] Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail."
 }

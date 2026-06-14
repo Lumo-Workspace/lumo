@@ -323,3 +323,92 @@ describe('CriterionRow term tooltips', () => {
     ).toBeInTheDocument()
   })
 })
+
+// LUM-489 (Task 7): tooltips for the judgeSteps "How to judge" heading and the
+// verification record (round history) title.
+function humanCriterion(over: Record<string, unknown> = {}) {
+  return {
+    id: 'hc1',
+    statement: 'UX feels right',
+    verifierType: 'HUMAN',
+    checkpointer: null,
+    evidenceRequired: false,
+    judgeSteps: null,
+    source: 'HUMAN_EDIT',
+    addedAtRound: 0,
+    latestVerdict: null,
+    machinePassed: false,
+    verdictStale: false,
+    checkMismatch: false,
+    changeState: null,
+    changedAtRound: null,
+    lastEdit: null,
+    ...over,
+  }
+}
+
+function verificationRound(over: Record<string, unknown> = {}) {
+  return {
+    round: 1,
+    recordedAt: '2026-06-13T00:00:00.000Z',
+    passed: 1,
+    failed: 0,
+    verdicts: [
+      {
+        criterionId: 'm1',
+        verdict: 'PASS',
+        verifierType: 'MACHINE',
+        evidencePointer: 'cmd:npx jest#exit=0',
+        rejectionReason: null,
+        rejectionReasonEnum: null,
+      },
+    ],
+    ...over,
+  }
+}
+
+function renderWithData(over: Record<string, unknown>) {
+  mockUseTaskStatus.mockReturnValue({
+    data: statusView(over),
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })
+  return render(
+    <AcceptanceTab
+      taskIdentifier='LUM-489'
+      enabled
+      onVerdictRecorded={jest.fn()}
+    />
+  )
+}
+
+describe('Judge steps & history tooltips', () => {
+  it('judge-steps heading has a tooltip', () => {
+    // A HUMAN criterion carrying judgeSteps renders the JudgeStepsBlock, whose
+    // "How to judge" heading now carries the explanatory tooltip.
+    renderWithCriteria([
+      humanCriterion({
+        id: 'judged-crit',
+        judgeSteps: 'Open the dialog. Confirm the layout. Pass if no overlap.',
+      }),
+    ])
+    expect(
+      screen.getByLabelText(
+        'Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('verification history title has a tooltip explaining round markers', () => {
+    // The history section renders its title (and tooltip) whenever there is at
+    // least one round — no expansion needed; the title is a plain div, not a
+    // toggle button, so the tooltip sits beside it.
+    renderWithData({ verificationHistory: [verificationRound()] })
+    expect(
+      screen.getByLabelText(
+        'Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.'
+      )
+    ).toBeInTheDocument()
+  })
+})

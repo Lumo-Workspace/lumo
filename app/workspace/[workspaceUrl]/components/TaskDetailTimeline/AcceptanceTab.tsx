@@ -145,11 +145,18 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
 
   return (
     <div>
-      <div className='mb-2 text-xs font-medium text-muted-foreground'>
+      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
         {intl.formatMessage({
           id: 'acceptance.history.title',
           defaultMessage: 'Verification record',
         })}
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.history.tip',
+            defaultMessage:
+              'Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.',
+          })}
+        />
       </div>
       <div className='overflow-hidden rounded-lg border border-border'>
         {rounds.map((r, i) => {
@@ -517,11 +524,18 @@ function JudgeStepsBlock({ c }: { c: TaskStatusCriterionView }) {
       data-testid='judge-steps'
       className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
     >
-      <div className='mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70'>
+      <div className='mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70'>
         {intl.formatMessage({
           id: 'acceptance.judge.label',
           defaultMessage: 'How to judge',
         })}
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.judge.tip',
+            defaultMessage:
+              'Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.',
+          })}
+        />
       </div>
       <div className='space-y-0.5 text-[11px] text-foreground break-words'>
         {lines.map((line, i) => (
