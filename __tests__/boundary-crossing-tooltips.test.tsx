@@ -126,6 +126,19 @@ describe('Boundary crossing tooltips', () => {
       )
     ).toBeInTheDocument()
   })
+  it('crossing row toggles collapse on Enter key', () => {
+    // The CROSSING fixture has disposition: FALSE_POSITIVE (not null), so the
+    // row starts collapsed (aria-expanded="false") — open=false → collapsed=true.
+    const toggle = screen.getByTestId('crossing-toggle-bc-1')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    // Press Enter — should expand the row.
+    fireEvent.keyDown(toggle, { key: 'Enter' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    // Press Enter again — should collapse it back.
+    fireEvent.keyDown(toggle, { key: 'Enter' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('open crossing has no disposition tooltip', () => {
     // Drop the default (dispositioned) render and mount an OPEN crossing
     // (disposition: null); openCount > 0 so the panel/row render expanded.
