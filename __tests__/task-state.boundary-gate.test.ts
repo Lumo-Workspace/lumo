@@ -296,4 +296,73 @@ describe('LUM-426 DONE gate — assertNoUnacknowledgedBoundaryCrossings', () => 
     expect(msg).toContain('2 TEST_TAMPERING')
     expect(msg).toContain('1 HARDCODED_SECRET')
   })
+
+  // LUM-491: SESSION_BINDING_MISSING is a new MEDIUM-severity category — the
+  // gate is category-agnostic, so it should participate automatically.
+  describe('LUM-491 SESSION_BINDING_MISSING participates in the DONE gate', () => {
+    it('an open SESSION_BINDING_MISSING crossing blocks DONE with 409 while the gate is enabled', async () => {
+      findOpen.mockResolvedValue([
+        {
+          id: 'bc-sbm-1',
+          taskId: 't-1',
+          category: 'SESSION_BINDING_MISSING',
+          detail: 'agent ran without a bound task session',
+          severity: 'MEDIUM',
+          disposition: null,
+        },
+      ])
+      gateEnabled.mockResolvedValue(true)
+
+      await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject(
+        {
+          status: 409,
+        }
+      )
+      expect(update).not.toHaveBeenCalled()
+    })
+
+    it('an open SESSION_BINDING_MISSING crossing allows DONE once cleared', async () => {
+      // Undispositioned → blocked.
+      findOpen.mockResolvedValue([
+        {
+          id: 'bc-sbm-2',
+          taskId: 't-1',
+          category: 'SESSION_BINDING_MISSING',
+          detail: 'agent ran without a bound task session',
+          severity: 'MEDIUM',
+          disposition: null,
+        },
+      ])
+      gateEnabled.mockResolvedValue(true)
+      await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject(
+        {
+          status: 409,
+        }
+      )
+
+      // After a human disposes the crossing → no open crossings → DONE flows.
+      findOpen.mockResolvedValue([])
+      await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+      expect(update).toHaveBeenCalledWith(
+        't-1',
+        expect.objectContaining({ status: 'DONE' })
+      )
+    })
+
+    it('SESSION_BINDING_MISSING (MEDIUM) respects the opt-out toggle, unlike HIGH', async () => {
+      findOpen.mockResolvedValue([
+        {
+          id: 'bc-sbm-3',
+          taskId: 't-1',
+          category: 'SESSION_BINDING_MISSING',
+          detail: 'agent ran without a bound task session',
+          severity: 'MEDIUM',
+          disposition: null,
+        },
+      ])
+      // Gate disabled → MEDIUM crossing no longer blocks DONE.
+      gateEnabled.mockResolvedValue(false)
+      await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    })
+  })
 })

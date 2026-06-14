@@ -63,6 +63,18 @@ only).
   them; the server rejects partial rounds.
 - Criteria added during review (`REVIEW_ADDED`) appear in the contract and
   are picked up automatically by the next round.
+- **Session bound to a different task (LUM-459)** → the server returns 409,
+  which the command surfaces as an error. No advisory is printed; the verify
+  round is rejected outright.
+- **Provably-unbound session** → the server includes `bindingAdvisory: 'unbound'`
+  in the round response, and the command prints:
+  `⚠ Working unbound — this verify ran from a Claude Code session not attached to the task.`
+  The run is recorded as a `SESSION_BINDING_MISSING` boundary crossing visible in
+  `lumo task status` open crossings. Run `lumo session attach <LUM-N>` before the
+  next verify to bind the session.
+- **Unconfirmed session binding** → `bindingAdvisory: 'unconfirmed'` causes a
+  softer advisory: `⚠ Could not confirm this session is attached to the task.`
+  Same remediation: `lumo session attach <LUM-N>`.
 
 ## Round discipline
 

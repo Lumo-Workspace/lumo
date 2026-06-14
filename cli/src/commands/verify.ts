@@ -25,6 +25,7 @@ interface RoundOutcome {
   allPassed: boolean
   escalated: boolean
   taskStatus: string
+  bindingAdvisory?: 'unbound' | 'unconfirmed' | null
   results: Array<{
     criterionId: string
     statement: string
@@ -221,7 +222,11 @@ export async function verify(
       `\n[${i + 1}/${machine.length}] ${sanitizeField(c.statement)}\n` +
         `  $ ${sanitizeField(c.checkpointer!)}\n`
     )
-    const verdict = runCheckpointer(c.id, c.checkpointer!, timeoutSeconds * 1000)
+    const verdict = runCheckpointer(
+      c.id,
+      c.checkpointer!,
+      timeoutSeconds * 1000
+    )
     results.push(verdict)
     if (verdict.verdict === 'PASS') {
       process.stdout.write('  ✓ PASS\n')
@@ -235,11 +240,14 @@ export async function verify(
   // ── Report the round to the judge ─────────────────────────────────────────
   let res: Response
   try {
-    res = await fetch(`${base}/api/tasks/${encodeURIComponent(taskId)}/verify`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ results }),
-    })
+    res = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(taskId)}/verify`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results }),
+      }
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not report the round to Lumo (${msg})`)
@@ -261,6 +269,18 @@ export async function verify(
   process.stdout.write(
     `\nRound ${outcome.round}/${outcome.maxRounds} recorded.\n`
   )
+
+  if (outcome.bindingAdvisory === 'unbound') {
+    process.stdout.write(
+      '⚠ Working unbound — this verify ran from a Claude Code session not attached to the task. ' +
+        'Run `lumo session attach <LUM-N>` to bind (recorded as a boundary crossing).\n'
+    )
+  } else if (outcome.bindingAdvisory === 'unconfirmed') {
+    process.stdout.write(
+      '⚠ Could not confirm this session is attached to the task. ' +
+        'If you are working with Claude Code, run `lumo session attach <LUM-N>`.\n'
+    )
+  }
 
   if (outcome.allPassed) {
     process.stdout.write(

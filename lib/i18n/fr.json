@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "Accepter la tâche comme terminée — tous les critères sont remplis et elle passe à l'état complété.",
   "acceptance.verdict.passTip": "Marquer ce critère comme rempli.",
   "acceptance.history.tip": "Chaque cycle est un passage de vérification. MACHINE = exécution du checkpointer, HUMAN = verdict humain, AGENT = l'agent a renvoyé la tâche.",
-  "acceptance.judge.tip": "Consignes rédigées par l'agent pour le relecteur humain : où regarder et ce qui compte comme réussi ou échoué."
+  "acceptance.judge.tip": "Consignes rédigées par l'agent pour le relecteur humain : où regarder et ce qui compte comme réussi ou échoué.",
+  "boundary.category.sessionBindingMissing": "travail sur une tâche sans session attachée"
 }

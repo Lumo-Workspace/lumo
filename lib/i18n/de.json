@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "Die Aufgabe als erledigt akzeptieren — alle Kriterien sind erfüllt und sie wird als abgeschlossen markiert.",
   "acceptance.verdict.passTip": "Dieses Kriterium als erfüllt markieren.",
   "acceptance.history.tip": "Jede Runde ist ein Prüfdurchlauf. MACHINE = checkpointer-Lauf, HUMAN = menschliches Urteil, AGENT = Agent hat die Aufgabe zurückgeschickt.",
-  "acceptance.judge.tip": "Vom Agenten erstellte Anleitung für den menschlichen Prüfer: wo nachzuschauen ist und was als bestanden oder fehlgeschlagen gilt."
+  "acceptance.judge.tip": "Vom Agenten erstellte Anleitung für den menschlichen Prüfer: wo nachzuschauen ist und was als bestanden oder fehlgeschlagen gilt.",
+  "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung"
 }

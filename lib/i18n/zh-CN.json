@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "接受任务为已完成——所有标准都达成,任务进入已完成。",
   "acceptance.verdict.passTip": "将这条标准标记为达成。",
   "acceptance.history.tip": "每一轮是一次验证。MACHINE=checkpointer 运行,HUMAN=人工裁决,AGENT=agent 退回任务。",
-  "acceptance.judge.tip": "agent 为人工 reviewer 草拟的指引:看哪里、什么算通过/失败。"
+  "acceptance.judge.tip": "agent 为人工 reviewer 草拟的指引:看哪里、什么算通过/失败。",
+  "boundary.category.sessionBindingMissing": "未绑定会话即处理任务"
 }

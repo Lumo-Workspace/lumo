@@ -56,6 +56,11 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.infra',
         defaultMessage: 'terminated or restarted infrastructure',
       })
+    case 'SESSION_BINDING_MISSING':
+      return intl.formatMessage({
+        id: 'boundary.category.sessionBindingMissing',
+        defaultMessage: 'task work from an unattached session',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

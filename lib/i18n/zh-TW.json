@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "接受任務為已完成——所有標準都達成，任務進入已完成。",
   "acceptance.verdict.passTip": "將這條標準標記為達成。",
   "acceptance.history.tip": "每一輪是一次驗證。MACHINE=checkpointer 執行，HUMAN=人工裁決，AGENT=agent 退回任務。",
-  "acceptance.judge.tip": "agent 為人工 reviewer 草擬的指引：看哪裡、什麼算通過/失敗。"
+  "acceptance.judge.tip": "agent 為人工 reviewer 草擬的指引：看哪裡、什麼算通過/失敗。",
+  "boundary.category.sessionBindingMissing": "未綁定工作階段即處理任務"
 }

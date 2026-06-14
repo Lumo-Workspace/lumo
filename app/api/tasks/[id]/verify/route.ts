@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { taskVerificationService } from '@/lib/services/task-verification.service'
+import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
 import { machineRoundBodySchema } from '@/lib/validation/acceptance'
 import { zodError } from '@/lib/api/helpers'
 
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
+    const { advisory } = await enforceSessionBinding({
+      source: identity.source,
+      sessionId: request.headers.get('X-Lumo-Session-Id'),
+      memberId: identity.memberId,
+      targetTaskId: task.id,
+      action: 'machine verification',
+    })
     const outcome = await taskVerificationService.recordMachineRound(
       task.id,
       identity.workspaceId,
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
       }
     )
-    return NextResponse.json(outcome)
+    return NextResponse.json({ ...outcome, bindingAdvisory: advisory })
   } catch (error) {
     const maybeStatus = (error as { status?: unknown } | null)?.status
     const status = typeof maybeStatus === 'number' ? maybeStatus : 500

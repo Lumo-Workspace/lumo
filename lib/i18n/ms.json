@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "Terima tugasan sebagai selesai — semua kriteria dipenuhi dan ia beralih ke status selesai.",
   "acceptance.verdict.passTip": "Tandai kriteria ini dipenuhi.",
   "acceptance.history.tip": "Setiap pusingan adalah satu laluan pengesahan. MACHINE = jalankan checkpointer, HUMAN = keputusan orang, AGENT = ejen memulangkan tugasan.",
-  "acceptance.judge.tip": "Panduan yang dirangka ejen untuk penyemak manusia: di mana hendak melihat dan apa yang dikira lulus atau gagal."
+  "acceptance.judge.tip": "Panduan yang dirangka ejen untuk penyemak manusia: di mana hendak melihat dan apa yang dikira lulus atau gagal.",
+  "boundary.category.sessionBindingMissing": "kerja tugasan tanpa sesi yang dilampirkan"
 }
