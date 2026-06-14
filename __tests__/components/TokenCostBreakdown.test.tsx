@@ -32,13 +32,25 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-import { render, screen, fireEvent, within } from '@testing-library/react'
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+})
+
+import { render, screen, fireEvent } from '@testing-library/react'
 import {
   TokenCostBreakdown,
-  memberBreakdownFor,
 } from '@/app/workspace/[workspaceUrl]/components/TokenCostBreakdown'
 import type {
-  AgentRunMemberStat,
   ModelCost,
 } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -57,47 +69,6 @@ const sonnet: ModelCost = {
   cacheRead: 2_900_000,
   cacheCreation: 410_000,
   total: 3_300_000,
-}
-
-// Two members whose per-kind values sum to the opus aggregate (output 120+60
-// = 180), so the expanded breakdown demonstrably reconciles with the line.
-const ada: AgentRunMemberStat = {
-  workspaceMemberId: 'mA',
-  clerkId: 'cA',
-  name: 'Ada',
-  imageUrl: '',
-  runCount: 1,
-  turnCount: 1,
-  loopCount: 0,
-  byModel: [
-    {
-      model: 'claude-opus-4-8',
-      input: 60,
-      output: 120,
-      cacheRead: 7_000_000,
-      cacheCreation: 800_000,
-      total: 7_860_180,
-    },
-  ],
-}
-const babbage: AgentRunMemberStat = {
-  workspaceMemberId: 'mB',
-  clerkId: 'cB',
-  name: 'Babbage',
-  imageUrl: '',
-  runCount: 1,
-  turnCount: 1,
-  loopCount: 0,
-  byModel: [
-    {
-      model: 'claude-opus-4-8',
-      input: 35,
-      output: 60,
-      cacheRead: 3_900_000,
-      cacheCreation: 400_000,
-      total: 4_439_095,
-    },
-  ],
 }
 
 describe('TokenCostBreakdown', () => {
@@ -177,93 +148,39 @@ describe('TokenCostBreakdown', () => {
       screen.getByText('No captured cost on this trail')
     ).toBeInTheDocument()
   })
-
-  describe('per-person expandable rows (LUM-308)', () => {
-    it('keeps rows non-expandable when no perMember is passed', () => {
-      render(
-        <TokenCostBreakdown variant='compact' models={[opus]} loopCount={1} />
-      )
-      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
-    })
-
-    it('keeps rows non-expandable when perMember is empty', () => {
-      render(
-        <TokenCostBreakdown
-          variant='full'
-          models={[opus]}
-          loopCount={1}
-          perMember={[]}
-        />
-      )
-      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
-    })
-
-    it('keeps a single contributor as a plain, non-expandable row (LUM-313)', () => {
-      render(
-        <TokenCostBreakdown
-          variant='full'
-          models={[opus]}
-          loopCount={1}
-          perMember={[ada]}
-        />
-      )
-      // A lone contributor's row would just restate the line (its bar always
-      // 100% full), so there is no disclosure button and no breakdown.
-      expect(screen.queryByTestId('cost-line-output')).not.toBeInTheDocument()
-      expect(
-        screen.queryByTestId('cost-breakdown-output')
-      ).not.toBeInTheDocument()
-    })
-
-    it('expands a line into a per-member breakdown that reconciles with the line total', () => {
-      render(
-        <TokenCostBreakdown
-          variant='full'
-          models={[opus]}
-          loopCount={1}
-          perMember={[ada, babbage]}
-        />
-      )
-
-      const line = screen.getByTestId('cost-line-output')
-      expect(line).toHaveAttribute('aria-expanded', 'false')
-      // The aggregate output value is shown on the line.
-      expect(within(line).getByText('180')).toBeInTheDocument()
-      // Breakdown hidden until the line is clicked.
-      expect(
-        screen.queryByTestId('cost-breakdown-output')
-      ).not.toBeInTheDocument()
-
-      fireEvent.click(line)
-
-      expect(line).toHaveAttribute('aria-expanded', 'true')
-      const bd = screen.getByTestId('cost-breakdown-output')
-      expect(within(bd).getByText('Ada')).toBeInTheDocument()
-      expect(within(bd).getByText('Babbage')).toBeInTheDocument()
-      // 120 + 60 = 180, the line aggregate.
-      expect(within(bd).getByText('120')).toBeInTheDocument()
-      expect(within(bd).getByText('60')).toBeInTheDocument()
-
-      // Toggling collapses it again.
-      fireEvent.click(line)
-      expect(
-        screen.queryByTestId('cost-breakdown-output')
-      ).not.toBeInTheDocument()
-    })
-  })
 })
 
-describe('memberBreakdownFor', () => {
-  it('returns contributing members for one (model, kind) cell, biggest first', () => {
-    const rows = memberBreakdownFor([babbage, ada], 'claude-opus-4-8', 'output')
-    expect(rows.map(r => r.name)).toEqual(['Ada', 'Babbage'])
-    expect(rows.map(r => r.value)).toEqual([120, 60])
-    expect(rows.reduce((n, r) => n + r.value, 0)).toBe(opus.output)
+describe('collapsibleDetails mode', () => {
+  it('defaults to four detail rows visible when collapsibleDetails is absent', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} />)
+    expect(screen.getByText('output')).toBeInTheDocument()
+    expect(screen.getByText('cache-read')).toBeInTheDocument()
   })
 
-  it('drops members with no value for the cell and members of other models', () => {
-    const rows = memberBreakdownFor([ada, babbage], 'claude-sonnet-4-6', 'input')
-    expect(rows).toEqual([])
+  it('hides the four detail rows by default and reveals them on per-model toggle', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails />)
+    expect(screen.queryByText('output')).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: /claude-opus-4-8/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('output')).toBeInTheDocument()
+  })
+
+  it('keeps the segmented bar rendered while collapsed', () => {
+    const { container } = render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails />)
+    expect(container.querySelector('[data-testid="cost-bar"]')).toBeInTheDocument()
+  })
+
+  it('renders a custom rowHeader in place of the model name', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails rowHeader={() => <span>Ada Lovelace</span>} />)
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
+    expect(screen.queryByText('claude-opus-4-8')).not.toBeInTheDocument()
+  })
+
+  it('renders a turns chip in the footer when turnCount is provided', () => {
+    render(<TokenCostBreakdown variant='full' models={[opus, sonnet]} loopCount={null} turnCount={3} />)
+    expect(screen.getByText('3 turns')).toBeInTheDocument()
   })
 })
 
