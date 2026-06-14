@@ -62,6 +62,12 @@ const GOLD: GoldCase[] = [
       'doc-patch',
       'milestone-slug',
       'tiptap-html',
+      // padding noise — low score, must never be selected
+      'n1',
+      'n2',
+      'n3',
+      'n4',
+      'n5',
     ],
   },
 ]
