@@ -298,6 +298,9 @@ export function severityFor(
     // identical) and high-false-positive, so MEDIUM: visible/tiered, but it
     // honours the workspace opt-out rather than force-gating like a HIGH class.
     case 'TEST_TAMPERING':
+    // LUM-491: unbound-session work is serious (session-binding lock bypass) but
+    // deterministically detectable and not data-destructive, so MEDIUM.
+    case 'SESSION_BINDING_MISSING':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':

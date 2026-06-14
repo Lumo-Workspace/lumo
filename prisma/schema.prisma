@@ -173,6 +173,10 @@ enum BoundaryCrossingCategory {
   EXFILTRATION_PUBLIC // exfiltration / upload to the public internet, incl. making a repo public
   CLOUD_DATA_DELETION // deleting cloud-storage data (s3/gcs/blob rm)
   INFRA_TERMINATION // terminating / restarting infrastructure (kill process, restart cluster)
+  // LUM-491: task work (machine verification / status transition) recorded from
+  // a Claude Code session that is not attached to the task — the session-binding
+  // lock (LUM-459) applied at the work boundary, not just the bind boundary.
+  SESSION_BINDING_MISSING
 }
 
 enum BoundaryCrossingDisposition {
