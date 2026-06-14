@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "Accept the task as done — all criteria are met and it moves to completed.",
   "acceptance.verdict.passTip": "Mark this criterion met.",
   "acceptance.history.tip": "Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.",
-  "acceptance.judge.tip": "Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail."
+  "acceptance.judge.tip": "Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.",
+  "boundary.category.sessionBindingMissing": "task work from an unattached session"
 }

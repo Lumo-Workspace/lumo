@@ -1673,5 +1673,6 @@
   "task.verdict.passTip": "Chấp nhận nhiệm vụ là đã hoàn thành — tất cả tiêu chí đều đạt và nhiệm vụ chuyển sang trạng thái hoàn thành.",
   "acceptance.verdict.passTip": "Đánh dấu tiêu chí này đã đạt.",
   "acceptance.history.tip": "Mỗi vòng là một lượt xác minh. MACHINE = chạy checkpointer, HUMAN = phán quyết của con người, AGENT = agent trả lại nhiệm vụ.",
-  "acceptance.judge.tip": "Hướng dẫn do agent soạn thảo cho người duyệt: nơi cần xem và tiêu chí nào được tính là đạt hay không đạt."
+  "acceptance.judge.tip": "Hướng dẫn do agent soạn thảo cho người duyệt: nơi cần xem và tiêu chí nào được tính là đạt hay không đạt.",
+  "boundary.category.sessionBindingMissing": "làm việc trên nhiệm vụ mà không gắn phiên"
 }
