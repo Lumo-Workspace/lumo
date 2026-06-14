@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       const sessionId = ctx.sessionId
       const binding = await sessionRepository.findTaskBinding(sessionId)
       let criteriaSection = ''
+      let progressSection = ''
       let memorySection = ''
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
@@ -29,26 +30,42 @@ export async function POST(request: Request) {
       let blockerWarningSection = ''
       let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
-        const [sections, todos, previous, layer2Review, blockerWarning] =
-          await Promise.all([
-            taskContextService.buildSessionStartSections(binding.taskId),
-            taskContextService.buildReviewTodosSectionForTask(binding.taskId),
-            taskContextService.buildPreviousSessionRecoveryForTask(
-              binding.taskId,
-              sessionId
-            ),
-            taskContextService.buildLayer2ReviewSectionForTask(
-              binding.taskId,
-              sessionId
-            ),
-            // Never throws — returns '' on failure, so the warning can't
-            // break session-start context injection (LUM-172).
-            taskDependencyService.buildBlockerWarningSectionForTask(
-              binding.taskId,
-              binding.taskIdentifier
-            ),
-          ])
+        const [
+          sections,
+          todos,
+          previous,
+          progress,
+          layer2Review,
+          blockerWarning,
+        ] = await Promise.all([
+          taskContextService.buildSessionStartSections(binding.taskId),
+          taskContextService.buildReviewTodosSectionForTask(binding.taskId),
+          // Structured recovery: still drives the lineage SESSION fragment and
+          // the LUM-402 metrics stamp. The CLI no longer renders it as a card —
+          // the server-rendered Tier-1 progressSection below replaces it.
+          taskContextService.buildPreviousSessionRecoveryForTask(
+            binding.taskId,
+            sessionId
+          ),
+          // LUM-500 Tier-1: the prior-session progress summary, rendered
+          // server-side so it injects in full alongside the criteria contract.
+          taskContextService.buildProgressSectionForTask(
+            binding.taskId,
+            sessionId
+          ),
+          taskContextService.buildLayer2ReviewSectionForTask(
+            binding.taskId,
+            sessionId
+          ),
+          // Never throws — returns '' on failure, so the warning can't
+          // break session-start context injection (LUM-172).
+          taskDependencyService.buildBlockerWarningSectionForTask(
+            binding.taskId,
+            binding.taskIdentifier
+          ),
+        ])
         criteriaSection = sections.criteriaSection
+        progressSection = progress
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
         reviewTodosSection = todos.section
@@ -122,6 +139,7 @@ export async function POST(request: Request) {
         sessionId,
         taskBinding: binding,
         criteriaSection,
+        progressSection,
         memorySection,
         linkedResourcesSection,
         reviewTodosSection,

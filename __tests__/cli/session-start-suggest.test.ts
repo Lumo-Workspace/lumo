@@ -95,32 +95,31 @@ describe('resolveSessionStartStdout — suggest, not auto-bind', () => {
     expect(env.hookSpecificOutput.additionalContext).toBe('mem\n\ntodos')
   })
 
-  it('still injects the recovery card on the bound path (LUM-146 survives)', () => {
+  it('injects the Tier-1 progress section on the bound path (LUM-500)', () => {
+    // The bound path delegates to formatHookStdoutLines, which injects the
+    // server-rendered progressSection (replacing the old CLI recovery card)
+    // before the memory index, and never runs extractTask.
     const lines = resolveSessionStartStdout(
       {
         sessionId: SID,
         taskBinding: { bound: true, taskIdentifier: 'LUM-146', taskTitle: 'T' },
-        memorySection: '## Relevant Memory\n- x',
-        previousSession: {
-          headline: 'cross-branch carry-over',
-          unresolved: ['ship it'],
-          durationMs: 60_000,
-          lastActivityAt: '2026-06-01T10:00:00Z',
-        },
+        progressSection:
+          '## Progress so far\ncross-branch carry-over\n\nUnresolved:\n- [ ] ship it',
+        memorySection: '## Relevant Memory (index)\n- x',
       },
       {
         extractTask: () => {
           throw new Error('extractTask must not run on the bound path')
         },
-      },
-      new Date('2026-06-01T12:00:00Z')
+      }
     )
     const ctx = JSON.parse(lines[1]!).hookSpecificOutput
       .additionalContext as string
-    expect(ctx).toContain('## Resuming previous session')
-    expect(ctx).toContain('Last stopped at: cross-branch carry-over')
-    expect(ctx).toContain('- ship it')
-    expect(ctx.indexOf('Resuming previous session')).toBeLessThan(
+    expect(ctx).toContain('## Progress so far')
+    expect(ctx).toContain('cross-branch carry-over')
+    expect(ctx).toContain('- [ ] ship it')
+    expect(ctx).not.toContain('Resuming previous session')
+    expect(ctx.indexOf('Progress so far')).toBeLessThan(
       ctx.indexOf('Relevant Memory')
     )
   })

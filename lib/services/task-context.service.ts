@@ -955,6 +955,37 @@ export const taskContextService = {
   },
 
   /**
+   * Render the prior-session progress summary as a Tier-1 full markdown section
+   * (LUM-500). Tier 1 of progressive disclosure: where Tier-0 acceptance
+   * criteria and Tier-1 progress always inject in full and everything else
+   * degrades to an addressable index, this is the "what the last session got
+   * done / left open" block, rendered server-side so it injects identically to
+   * the criteria contract.
+   *
+   * A pure render of {@link buildPreviousSessionRecoveryForTask} — no fetching
+   * beyond that one call. Returns "" when there is no prior session with a
+   * summary, so the caller can omit the section. The "Unresolved" checklist is
+   * dropped entirely when the prior session left nothing open.
+   */
+  async buildProgressSectionForTask(
+    taskId: string,
+    currentSessionId: string
+  ): Promise<string> {
+    const recovery =
+      await taskContextService.buildPreviousSessionRecoveryForTask(
+        taskId,
+        currentSessionId
+      )
+    if (!recovery) return ''
+    const lines = ['## Progress so far', recovery.headline]
+    if (recovery.unresolved.length > 0) {
+      lines.push('', 'Unresolved:')
+      for (const item of recovery.unresolved) lines.push(`- [ ] ${item}`)
+    }
+    return lines.join('\n')
+  },
+
+  /**
    * Build the session-start "review the project memories the previous session
    * just promoted" section (LUM-165). Layer 2 consolidation runs async on
    * task→done and stamps the triggering session id onto each promoted PROJECT

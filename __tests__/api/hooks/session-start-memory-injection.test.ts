@@ -17,6 +17,7 @@ jest.mock('@/lib/services/task-context.service', () => ({
       .fn()
       .mockResolvedValue({ section: '', fragments: [] }),
     buildPreviousSessionRecoveryForTask: jest.fn().mockResolvedValue(null),
+    buildProgressSectionForTask: jest.fn().mockResolvedValue(''),
     buildLayer2ReviewSectionForTask: jest
       .fn()
       .mockResolvedValue({ section: '', fragments: [], dropped: 0 }),
