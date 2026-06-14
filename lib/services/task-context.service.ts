@@ -398,13 +398,7 @@ async function fetchOrderedTaskMemories(task: {
     memoryRepository.findActiveTaskMemories(task.id),
     memoryRepository.findActiveProjectMemories(task.projectId),
   ])
-  const projectRenderable: RenderableMemory[] = projectMemories.map(m => ({
-    id: m.id,
-    scope: 'PROJECT' as const,
-    category: m.category,
-    content: m.content,
-    source: memorySource(m.createdByMemberId),
-  }))
+  const projectRenderable = toProjectRenderables(projectMemories)
   // LUM-486: gate the project corpus by relevance before rendering, so the
   // displayed memory matches what session-start injects.
   const gate = await selectRelevantProjectMemories(task, projectRenderable)
@@ -512,6 +506,20 @@ export const __test__selectRelevantProjectMemories =
  */
 function memorySource(createdByMemberId: string | null): MemorySource {
   return createdByMemberId ? 'user' : 'agent'
+}
+
+/** Map raw active PROJECT memory rows to the RenderableMemory shape the gate and
+ * renderer consume (LUM-486 — shared by session-start and the display path). */
+function toProjectRenderables(
+  rows: Awaited<ReturnType<typeof memoryRepository.findActiveProjectMemories>>
+): RenderableMemory[] {
+  return rows.map(m => ({
+    id: m.id,
+    scope: 'PROJECT' as const,
+    category: m.category,
+    content: m.content,
+    source: memorySource(m.createdByMemberId),
+  }))
 }
 
 /**
@@ -719,13 +727,7 @@ export const taskContextService = {
         ),
       ])
 
-    const projectRenderable: RenderableMemory[] = projectMemories.map(m => ({
-      id: m.id,
-      scope: 'PROJECT' as const,
-      category: m.category,
-      content: m.content,
-      source: memorySource(m.createdByMemberId),
-    }))
+    const projectRenderable = toProjectRenderables(projectMemories)
     // LUM-486: relevance-gate the project corpus before it becomes both the
     // rendered block AND the lineage manifest. Task memories are never gated.
     const gate = await selectRelevantProjectMemories(

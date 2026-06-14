@@ -239,4 +239,24 @@ describe('getContextForIdentifier — relevance gate on project memories (LUM-48
     // Only the two gate-selected ids should appear — not all 30.
     expect(memFragmentIds).toEqual(['m3', 'm7'])
   })
+
+  it('display path: embedding outage falls back to the full project corpus', async () => {
+    findProjectMemories.mockResolvedValue(corpus30())
+    findTaskMemories.mockResolvedValue([])
+    mockMergeRate.mockResolvedValue([])
+    // Hard embedding failure — gate must degrade gracefully to the full corpus.
+    mockEmbedTexts.mockRejectedValue(new Error('gateway down'))
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws-1',
+      'member-1',
+      'LUM-1'
+    )
+    // Embedding outage → fallback-all → all 30 project memories survive in the
+    // display fragments (no memory dropped on the display path either).
+    const memFragmentIds = (ctx?.fragments ?? [])
+      .filter(f => f.type === 'MEMORY')
+      .map(f => f.id)
+    expect(memFragmentIds).toHaveLength(30)
+  })
 })
