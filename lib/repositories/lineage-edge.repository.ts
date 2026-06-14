@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type {
   Prisma,
+  LineageDisclosure,
   LineageFragmentType,
   LineageOutcome,
 } from '@prisma/client'
@@ -19,6 +20,7 @@ export interface CreateLineageEdgeInput {
   fragmentId: string
   sessionId?: string | null
   outcome?: LineageOutcome
+  disclosure?: LineageDisclosure
 }
 
 /** A closing verdict that can be stamped onto an edge — everything but the
@@ -196,8 +198,30 @@ export const lineageEdgeRepository = {
         fragmentId: i.fragmentId,
         sessionId: i.sessionId ?? null,
         ...(i.outcome ? { outcome: i.outcome } : {}),
+        ...(i.disclosure ? { disclosure: i.disclosure } : {}),
       })),
     })
+  },
+
+  /**
+   * Stamp `pulledAt` on the unfetched edge that matches the given
+   * (sessionId, fragmentType, fragmentId) triple. The `pulledAt: null` guard
+   * makes the stamp idempotent — a second pull of the same fragment in the same
+   * session is a no-op. Returns the number of rows updated (0 or 1).
+   */
+  async recordPull(
+    ref: {
+      sessionId: string
+      fragmentType: LineageFragmentType
+      fragmentId: string
+    },
+    pulledAt: Date
+  ): Promise<number> {
+    const res = await prisma.lineageEdge.updateMany({
+      where: { ...ref, pulledAt: null },
+      data: { pulledAt },
+    })
+    return res.count
   },
 
   /**
