@@ -100,6 +100,9 @@ describe('gateProjectMemories', () => {
   })
 
   test('does NOT always-keep a low-merge-rate or thin-sample fragment', async () => {
+    // Guard: the fixtures below are only meaningful if these hold.
+    expect((1 / 5) * 100).toBeLessThan(RELEVANCE_GATE_TRUST_KEEP_PCT) // m1 rate (20%)
+    expect(2).toBeLessThan(RELEVANCE_GATE_TRUST_MIN_TASKS) // m2 sample size
     const candidates = corpus(20)
     const ranker: RelevanceGateDeps['rankBySimilarity'] = async () => ({
       mechanism: 'embedding',

@@ -114,7 +114,7 @@ test('embed failure → lexical fallback, generic content yields the safe no-rel
   // generic 'mN' content shares no meaningful bigrams with the task text → lexical
   // ranks low, nothing clears the floor → empty selection (the intended
   // "no relevant memory" outcome), and crucially NOT a crash.
-  expect(['lexical', 'fallback-all']).toContain(res.telemetry.mechanism)
+  expect(res.telemetry.mechanism).toBe('lexical')
 })
 
 test('high-trust fragment is always kept even with no similarity hit', async () => {
