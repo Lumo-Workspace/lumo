@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { reportPull } from '../lib/report-pull'
 
 interface Memory {
   id: string
@@ -62,4 +63,8 @@ export async function memoryShow(
   const { memory } = (await res.json()) as { memory: Memory }
   console.log(sanitizeField(`[${memory.category}]`))
   console.log(sanitizeField(JSON.stringify(memory.content, null, 2)))
+
+  // LUM-500: stamp the disclosure funnel. The arg id == lineage MEMORY
+  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
+  await reportPull({ fragmentType: 'MEMORY', fragmentId: id })
 }
