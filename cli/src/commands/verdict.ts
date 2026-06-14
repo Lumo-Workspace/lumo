@@ -163,9 +163,8 @@ async function passDeepLink(
   const sep = task.url.includes('?') ? '&' : '?'
   const deepLink = `${task.url}${sep}verdict=pass`
 
-  const label = 'Pass'
   process.stdout.write(
-    `Opening ${taskId} for a human "${label}" verdict (nothing is recorded until they click):\n` +
+    `Opening ${taskId} for a human "Pass" verdict (nothing is recorded until they click):\n` +
       `  ${sanitizeField(deepLink)}\n`
   )
   openBrowser(deepLink)
