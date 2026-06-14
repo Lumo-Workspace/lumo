@@ -225,6 +225,13 @@ describe('Verdict action tooltips (send-back)', () => {
     const sendBack = screen.getByTestId('verdict-sendback-h1')
     expect(sendBack.querySelector('button')).toBeNull()
   })
+
+  it('pass action carries an explanatory tooltip', () => {
+    renderAcceptanceTab()
+    expect(
+      screen.getAllByLabelText('Mark this criterion met.').length
+    ).toBeGreaterThan(0)
+  })
 })
 
 describe('CriterionRow term tooltips', () => {

@@ -1670,5 +1670,7 @@
   "boundary.tip.recurrence": "[TODO:es] This same crossing was detected multiple times; the count is how many times.",
   "task.verdict.passWithFollowUpTip": "[TODO:es] Mark passed but leave a follow-up note — the task is accepted with a tracked loose end.",
   "task.verdict.failTip": "[TODO:es] Reject and send the task back — it cannot be marked Done until re-verified.",
-  "acceptance.verdict.sendBackTip": "[TODO:es] Reject this criterion and send the task back to the agent for another round."
+  "acceptance.verdict.sendBackTip": "[TODO:es] Reject this criterion and send the task back to the agent for another round.",
+  "task.verdict.passTip": "[TODO:es] Accept the task as done — all criteria are met and it moves to completed.",
+  "acceptance.verdict.passTip": "[TODO:es] Mark this criterion met."
 }

@@ -114,4 +114,13 @@ describe('Verdict action tooltips', () => {
     expect(followupButton.querySelector('button')).toBeNull()
     expect(failButton.querySelector('button')).toBeNull()
   })
+
+  it('pass action carries an explanatory tooltip', () => {
+    renderReview()
+    expect(
+      screen.getByLabelText(
+        'Accept the task as done — all criteria are met and it moves to completed.'
+      )
+    ).toBeInTheDocument()
+  })
 })

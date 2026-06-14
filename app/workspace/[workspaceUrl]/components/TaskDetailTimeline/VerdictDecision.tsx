@@ -322,6 +322,13 @@ export function VerdictDecision({
       >
         {intl.formatMessage({ id: 'task.verdict.pass' })}
       </Button>
+      <InfoTooltip
+        label={intl.formatMessage({
+          id: 'task.verdict.passTip',
+          defaultMessage:
+            'Accept the task as done — all criteria are met and it moves to completed.',
+        })}
+      />
       <Button
         size='sm'
         variant='outline'

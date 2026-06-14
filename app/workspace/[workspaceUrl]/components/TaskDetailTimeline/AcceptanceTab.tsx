@@ -336,6 +336,12 @@ function VerdictControls({
             defaultMessage: 'Pass',
           })}
         </button>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.verdict.passTip',
+            defaultMessage: 'Mark this criterion met.',
+          })}
+        />
         <button
           type='button'
           data-testid={`verdict-sendback-${idSuffix}`}
