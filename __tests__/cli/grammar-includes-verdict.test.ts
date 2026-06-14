@@ -11,10 +11,7 @@ import { join } from 'path'
 describe('grammar.json includes the verdict command', () => {
   const grammar = JSON.parse(
     readFileSync(
-      join(
-        process.cwd(),
-        'scripts/analysis/lum392-cli-friction/grammar.json'
-      ),
+      join(process.cwd(), 'scripts/analysis/lum392-cli-friction/grammar.json'),
       'utf8'
     )
   ) as { commands: Record<string, { flags?: Record<string, unknown> }> }
@@ -26,7 +23,6 @@ describe('grammar.json includes the verdict command', () => {
   it('carries the three verdict modes plus --reason and --criterion', () => {
     const flags = grammar.commands.verdict?.flags ?? {}
     expect(flags['--pass']).toBeDefined()
-    expect(flags['--pass-with-followup']).toBeDefined()
     expect(flags['--fail']).toBeDefined()
     expect(flags['--reason']).toBeDefined()
     expect(flags['--criterion']).toBeDefined()

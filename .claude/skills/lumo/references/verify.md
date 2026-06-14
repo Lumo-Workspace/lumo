@@ -205,17 +205,17 @@ is ever agent-produced.**
 
 ```
 lumo verdict --pass
-lumo verdict LUM-42 --pass-with-followup
+lumo verdict LUM-42 --pass
 lumo verdict --fail --reason CRITERION_UNMET --note "the retry path is still missing"
 lumo verdict LUM-42 --fail --reason scope_mismatch --criterion c-abc123
 ```
 
-### --pass / --pass-with-followup — a deep link, never a write
+### --pass — a deep link, never a write
 
-These resolve the task, then open the browser to its verdict bar focused on the
-passing action. **The CLI writes nothing** — PASS / PASS_WITH_FOLLOWUP only ever
-land from a human's own click (Clerk session). Use this to hand a finished task
-to a human for the final pass; it carries them one click from recording it.
+This resolves the task, then opens the browser to its verdict bar focused on
+Pass. **The CLI writes nothing** — PASS only ever lands from a human's own click
+(Clerk session). Use this to hand a finished task to a human for the final pass;
+it carries them one click from recording it.
 
 ### --fail — the AGENT send-back
 

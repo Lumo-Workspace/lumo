@@ -258,15 +258,11 @@ program
 program
   .command('verdict [task]')
   .description(
-    'Acceptance verdict (LUM-422). --pass / --pass-with-followup open the browser to the human verdict bar focused on the passing action (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task.'
+    'Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task.'
   )
   .option(
     '--pass',
     'Open the verdict bar focused on Pass (human one-click; no write)'
-  )
-  .option(
-    '--pass-with-followup',
-    'Open the verdict bar focused on Pass with follow-up (human one-click; no write)'
   )
   .option(
     '--fail',

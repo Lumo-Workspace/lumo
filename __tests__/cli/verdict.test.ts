@@ -51,7 +51,9 @@ describe('mode validation', () => {
   it('errors when no mode is given', async () => {
     const code = await verdict('LUM-42', {})
     expect(code).toBe(1)
-    expect(stderr.join('\n')).toMatch(/choose a verdict mode/)
+    expect(stderr.join('\n')).toMatch(
+      /choose a verdict mode — --pass or --fail/
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -60,11 +62,26 @@ describe('mode validation', () => {
     expect(code).toBe(1)
     expect(stderr.join('\n')).toMatch(/exactly one verdict mode/)
   })
+
+  it('no longer recognizes a pass-with-followup mode (retired LUM-492)', async () => {
+    // `passWithFollowup` was removed from VerdictOptions; an old caller passing
+    // it is an unknown property, so no mode is selected and verdict errors.
+    const code = await verdict('LUM-42', {
+      passWithFollowup: true,
+    } as unknown as Parameters<typeof verdict>[1])
+    expect(code).toBe(1)
+    expect(stderr.join('\n')).toMatch(
+      /choose a verdict mode — --pass or --fail/
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })
 
-describe('--pass / --pass-with-followup deep link (writes nothing)', () => {
+describe('--pass deep link (writes nothing)', () => {
   it('opens the task page with ?verdict=pass and never POSTs', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { task: { url: TASK_URL } }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { task: { url: TASK_URL } })
+    )
     await verdict('LUM-42', { pass: true })
 
     // The only network call is the GET to resolve the task URL.
@@ -75,12 +92,6 @@ describe('--pass / --pass-with-followup deep link (writes nothing)', () => {
 
     expect(mockOpen).toHaveBeenCalledTimes(1)
     expect(mockOpen.mock.calls[0]![0]).toBe(`${TASK_URL}?verdict=pass`)
-  })
-
-  it('uses verdict=pass_with_followup for the follow-up mode', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { task: { url: TASK_URL } }))
-    await verdict('LUM-42', { passWithFollowup: true })
-    expect(mockOpen.mock.calls[0]![0]).toBe(`${TASK_URL}?verdict=pass_with_followup`)
   })
 
   it('errors (no open) when the server returns no task url', async () => {
@@ -144,6 +155,9 @@ describe('--fail (AGENT send-back)', () => {
 
 describe('collectCriterion', () => {
   it('accumulates repeatable --criterion flags', () => {
-    expect(collectCriterion('c-2', collectCriterion('c-1'))).toEqual(['c-1', 'c-2'])
+    expect(collectCriterion('c-2', collectCriterion('c-1'))).toEqual([
+      'c-1',
+      'c-2',
+    ])
   })
 })
