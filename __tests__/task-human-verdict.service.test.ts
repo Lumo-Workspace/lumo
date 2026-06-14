@@ -1,7 +1,4 @@
-import {
-  taskHumanVerdictService,
-  FOLLOW_UP_TITLE_PREFIX,
-} from '@/lib/services/task-human-verdict.service'
+import { taskHumanVerdictService } from '@/lib/services/task-human-verdict.service'
 import { taskVerificationService } from '@/lib/services/task-verification.service'
 import { humanVerdictBodySchema } from '@/lib/validation/acceptance'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -10,10 +7,6 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
-import {
-  createTask,
-  createFromAutomation,
-} from '@/lib/services/task-creation.service'
 import {
   postSendBackComment,
   summarizeSendBackNote,
@@ -52,10 +45,6 @@ jest.mock('@/lib/services/task.service', () => ({
     updateTaskWithSideEffects: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/task-creation.service', () => ({
-  createTask: jest.fn(),
-  createFromAutomation: jest.fn(),
-}))
 jest.mock('@/lib/services/sendback-comment.service', () => ({
   postSendBackComment: jest.fn(),
   summarizeSendBackNote: jest.fn(),
@@ -81,8 +70,6 @@ const findActor = memberRepository.findActorByMemberId as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
 const getDetail = taskService.getTaskDetail as jest.Mock
 const updateWithSideEffects = taskService.updateTaskWithSideEffects as jest.Mock
-const createTaskMock = createTask as jest.Mock
-const createFromAutomationMock = createFromAutomation as jest.Mock
 const postComment = postSendBackComment as jest.Mock
 const summarize = summarizeSendBackNote as jest.Mock
 
@@ -150,21 +137,6 @@ beforeEach(() => {
   findActor.mockResolvedValue({ id: 'actor-1' })
   getDetail.mockResolvedValue({ ...DETAIL })
   updateWithSideEffects.mockResolvedValue({})
-  createTaskMock.mockResolvedValue({
-    task: {
-      id: 't-fu',
-      number: 43,
-      title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing`,
-    },
-    taskTags: [],
-  })
-  createFromAutomationMock.mockResolvedValue({
-    task: {
-      id: 't-fu',
-      number: 43,
-      title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing`,
-    },
-  })
   postComment.mockResolvedValue('comment-1')
   summarize.mockImplementation((n: string | null | undefined) =>
     n ? 'the send-back summary' : null
@@ -351,7 +323,6 @@ describe('FAIL semantics', () => {
       null
     )
     expect(out.taskStatus).toBe('IN_PROGRESS')
-    expect(out.followUpTask).toBeNull()
   })
 
   it('surfaces the human rejection reason in the status read model nextActions (free consumption)', async () => {
@@ -404,7 +375,7 @@ describe('FAIL semantics', () => {
   })
 })
 
-describe('PASS and PASS_WITH_FOLLOWUP semantics', () => {
+describe('PASS semantics', () => {
   it('PASS transitions the task to DONE through the state machine and opens nothing', async () => {
     const out = await taskHumanVerdictService.recordHumanVerdict(
       't-1',
@@ -420,8 +391,6 @@ describe('PASS and PASS_WITH_FOLLOWUP semantics', () => {
       null
     )
     expect(out.taskStatus).toBe('DONE')
-    expect(out.followUpTask).toBeNull()
-    expect(createTaskMock).not.toHaveBeenCalled()
     const rows = createMany.mock.calls[0]![0]
     for (const row of rows) {
       expect(row.rejectionReason).toBeNull()
@@ -439,59 +408,6 @@ describe('PASS and PASS_WITH_FOLLOWUP semantics', () => {
     expect(updateWithSideEffects).not.toHaveBeenCalled()
     expect(out.taskStatus).toBe('DONE')
     expect(createMany).toHaveBeenCalled()
-  })
-
-  it('PASS_WITH_FOLLOWUP transitions to DONE and auto-creates the follow-up: prefixed task referencing the origin, no sprint', async () => {
-    const out = await taskHumanVerdictService.recordHumanVerdict(
-      't-1',
-      { verdict: 'PASS_WITH_FOLLOWUP', note: 'docs still missing' },
-      ATTR
-    )
-    expect(createTaskMock).toHaveBeenCalledTimes(1)
-    const [projectId, input, actorId, actorClerkId] =
-      createTaskMock.mock.calls[0]!
-    expect(projectId).toBe('p-1')
-    expect(input.title).toBe(`${FOLLOW_UP_TITLE_PREFIX}Ship the thing`)
-    expect(input.title.startsWith('follow-up: ')).toBe(true)
-    expect(input.description).toContain('LUM-42')
-    expect(input.description).toContain('docs still missing')
-    expect(input.status).toBe('TODO')
-    expect(input.sprintId).toBeNull()
-    expect(input.milestoneId).toBeUndefined()
-    expect(actorId).toBe('actor-1')
-    expect(actorClerkId).toBe('clerk-1')
-    expect(updateWithSideEffects).toHaveBeenCalledWith(
-      't-1',
-      { status: 'DONE' },
-      expect.anything(),
-      'actor-1',
-      'clerk-1',
-      null
-    )
-    expect(out.taskStatus).toBe('DONE')
-    expect(out.followUpTask).toEqual({
-      id: 't-fu',
-      number: 43,
-      title: `${FOLLOW_UP_TITLE_PREFIX}Ship the thing`,
-    })
-    // The note rides along on the rows as the human's outstanding-items text.
-    const rows = createMany.mock.calls[0]![0]
-    for (const row of rows) {
-      expect(row.rejectionReason).toBe('docs still missing')
-      expect(row.rejectionReasonEnum).toBeNull()
-    }
-  })
-
-  it('PASS_WITH_FOLLOWUP falls back to the automation create path when the adjudicator has no Actor row', async () => {
-    findActor.mockResolvedValue(null)
-    const out = await taskHumanVerdictService.recordHumanVerdict(
-      't-1',
-      { verdict: 'PASS_WITH_FOLLOWUP', note: 'edge case' },
-      ATTR
-    )
-    expect(createTaskMock).not.toHaveBeenCalled()
-    expect(createFromAutomationMock).toHaveBeenCalledTimes(1)
-    expect(out.followUpTask).not.toBeNull()
   })
 })
 

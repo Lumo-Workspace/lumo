@@ -249,14 +249,13 @@ export type MachineVerdictInput = z.infer<typeof machineVerdictInputSchema>
  * there is no rejection-reason enum on the human path (the service stamps it
  * null and leaves enum classification to a downstream agent). FAIL's note is
  * a free-form markdown send-back reason (posted as a task comment so @mentions
- * and images come for free); PASS_WITH_FOLLOWUP's note is the outstanding
- * items that seed the follow-up task. A clean PASS carries no note. The note
- * may be rich-text HTML (the verdict bar reuses the comment editor), so the
- * ceiling is generous.
+ * and images come for free). A clean PASS carries no note. The note may be
+ * rich-text HTML (the verdict bar reuses the comment editor), so the ceiling
+ * is generous.
  */
 export const humanVerdictBodySchema = z
   .object({
-    verdict: z.enum(['PASS', 'FAIL', 'PASS_WITH_FOLLOWUP']),
+    verdict: z.enum(['PASS', 'FAIL']),
     note: z.string().trim().min(1).max(16_000).nullish(),
     criterionIds: z
       .array(z.string().trim().min(1))
@@ -271,7 +270,7 @@ export const humanVerdictBodySchema = z
         code: z.ZodIssueCode.custom,
         path: ['note'],
         message:
-          'A clean PASS carries no note — use FAIL for a send-back reason or PASS_WITH_FOLLOWUP for outstanding items',
+          'A clean PASS carries no note — use FAIL to send the task back with a reason',
       })
     }
   })
