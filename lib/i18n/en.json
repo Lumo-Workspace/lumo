@@ -746,7 +746,6 @@
   "acceptance.result.awaitingCheck": "Awaiting verification",
   "acceptance.viewCheck": "View check output",
   "acceptance.hideCheck": "Hide check output",
-  "acceptance.check.label": "check",
   "acceptance.check.evidence": "evidence",
   "acceptance.check.none": "Machine check not yet run",
   "acceptance.check.overrideNoRun": "No machine check ran — passed by human override",
