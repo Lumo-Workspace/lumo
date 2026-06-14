@@ -82,6 +82,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
+import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
 import {
   CONTEXT_METRICS_KEY,
   type SessionStartContextMetrics,
@@ -223,11 +224,13 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     expect(stampedPayload()[CONTEXT_METRICS_KEY]).toBeDefined()
   })
 
-  it('overflow attribution: budget exhaustion lands as droppedCards>0 on the squeezed section', async () => {
+  it('memory index attribution: keeps top-K as index lines, the rest become droppedCards (LUM-500)', async () => {
     bindTask()
-    // Far more memory than the 2500-token budget: each fat card is ~150+
-    // tokens, so 40 cards force overflow inside the memory section, and the
-    // PR section (lower priority) is starved entirely.
+    // 40 memories. Under LUM-500 memory no longer competes for the token
+    // budget — it degrades to a Tier-2 one-line index that keeps the top-K
+    // (RELEVANCE_GATE_TOP_K = 8) and points to the remainder. So keptCards is
+    // capped at the index size, the tail is droppedCards, and the index itself
+    // costs nothing against the shared budget (droppedTokens stays 0).
     const fat = Array.from({ length: 40 }, (_, i) => ({
       id: `m${i}`,
       category: 'TRAP',
@@ -256,14 +259,15 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
       CONTEXT_METRICS_KEY
     ] as SessionStartContextMetrics
     const { memory, pr } = metrics.allocation
-    // The memory section absorbed the budget and dropped its tail…
-    expect(memory.keptCards).toBeGreaterThan(0)
-    expect(memory.droppedCards).toBeGreaterThan(0)
-    expect(memory.droppedTokens).toBeGreaterThan(0)
-    expect(memory.keptCards + memory.droppedCards).toBe(40)
-    // …and the lower-priority PR section was starved entirely.
-    expect(pr).toMatchObject({ keptCards: 0, droppedCards: 1, keptTokens: 0 })
-    // Kept tokens across all sections respect the budget.
+    // The index keeps the top-K and counts the rest as dropped, but never
+    // overflows the token budget (it's a manifest, not full cards).
+    expect(memory.keptCards).toBe(RELEVANCE_GATE_TOP_K)
+    expect(memory.droppedCards).toBe(40 - RELEVANCE_GATE_TOP_K)
+    expect('droppedTokens' in memory ? memory.droppedTokens : -1).toBe(0)
+    // …and because memory left the shared allocator, the PR card is no longer
+    // starved by a fat memory corpus: it renders in full.
+    expect(pr.keptCards).toBe(1)
+    // Kept tokens across the budgeted sections respect the budget.
     const keptTotal = Object.values(metrics.allocation)
       .map(m => ('keptTokens' in m ? m.keptTokens : 0))
       .reduce((a, b) => a + b, 0)

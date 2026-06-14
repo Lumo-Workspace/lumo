@@ -57,7 +57,6 @@ import {
   renderMemorySection,
   renderLayer2ReviewSection,
   wrapUntrustedMemory,
-  memoryBudgetSection,
   wrapUntrustedLinked,
   wrapUntrustedLinkedGroup,
   type MemorySource,
@@ -65,8 +64,11 @@ import {
 } from '@/lib/memory/render'
 import {
   allocateBudgetWithMetrics,
+  estimateTokens,
   type BudgetSectionMetric,
 } from '@/lib/context/budget'
+import { buildMemoryIndex } from '@/lib/services/memory/index-disclosure'
+import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
 import { bigramSimilarity } from '@/lib/similarity'
 import { memoryContentToText } from '@/lib/memory/content-text'
@@ -778,10 +780,13 @@ export const taskContextService = {
     // Priority order: criteria > memory > PR > Slack > Figma > web. The
     // acceptance contract (LUM-342) outranks everything — it's what the work
     // is judged against — and at 3–7 short statements it's also the cheapest.
+    // LUM-500: memory is no longer a full budgeted card. It degrades to a
+    // Tier-2 one-line addressable index (top-K manifest lines + a "+N more"
+    // pointer), computed directly below — so it leaves the shared budget and
+    // the allocator now spans only criteria + the linked-resource cards.
     const { rendered, metrics } = allocateBudgetWithMetrics(
       [
         criteriaBudgetSection(criteria),
-        memoryBudgetSection(ranked.memories),
         prBudgetSection(ranked.prs as unknown as PRCard[]),
         slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
         figmaBudgetSection(ranked.figma),
@@ -789,23 +794,37 @@ export const taskContextService = {
       ],
       SESSION_START_BUDGET_TOKENS
     )
-    const [criteriaOut, memoryOut, prOut, slackOut, figmaOut, webOut] =
-      rendered as [string, string, string, string, string, string]
-    const [
-      criteriaMetric,
-      memoryMetric,
-      prMetric,
-      slackMetric,
-      figmaMetric,
-      webMetric,
-    ] = metrics as [
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
+    const [criteriaOut, prOut, slackOut, figmaOut, webOut] = rendered as [
+      string,
+      string,
+      string,
+      string,
+      string,
     ]
+    const [criteriaMetric, prMetric, slackMetric, figmaMetric, webMetric] =
+      metrics as [
+        BudgetSectionMetric,
+        BudgetSectionMetric,
+        BudgetSectionMetric,
+        BudgetSectionMetric,
+        BudgetSectionMetric,
+      ]
+
+    // Tier-2 memory: top-K addressable index, then a pointer for the rest.
+    // Wrapped in the same untrusted boundary as the old full card.
+    const memorySection = wrapUntrustedMemory(
+      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K)
+    )
+    // Observe-only telemetry (LUM-402): keep the `memory` metric shape so the
+    // return type and the session-start metrics stamp stay intact. Memory no
+    // longer competes for the token budget, so nothing is "dropped" to overflow
+    // here — droppedCards counts entries that fell past the top-K index.
+    const memoryMetric: BudgetSectionMetric = {
+      keptCards: Math.min(RELEVANCE_GATE_TOP_K, ranked.memories.length),
+      droppedCards: Math.max(0, ranked.memories.length - RELEVANCE_GATE_TOP_K),
+      keptTokens: estimateTokens(memorySection),
+      droppedTokens: 0,
+    }
 
     // No criteria on a still-open task → nudge the agent to draft the
     // contract before the first line of code (the SKILL.md guide has the
@@ -858,7 +877,7 @@ export const taskContextService = {
       // value; adding one means a migration + the LUM-276 write-key==read-key
       // contract on the read side — deferred rather than half-joined).
       criteriaSection,
-      memorySection: wrapUntrustedMemory(memoryOut),
+      memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       fragments,
       budget: {
