@@ -137,7 +137,7 @@ export const tasksClient = {
   submitHumanVerdict<T>(
     taskId: string,
     data: {
-      verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+      verdict: 'PASS' | 'FAIL'
       // LUM-422 ① de-enumeration: no rejection-reason enum on the human path —
       // a FAIL's `note` is the send-back reason (posted as a comment).
       note?: string
