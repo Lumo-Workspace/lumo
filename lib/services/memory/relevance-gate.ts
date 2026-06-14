@@ -125,6 +125,8 @@ export async function gateProjectMemories(
     // keep similarity-only selection
   }
 
+  // Preserves the caller's input order (similarity + trust-union as a set); the
+  // caller owns final ordering (see render.ts).
   const selected = projectMemories.filter(m => selectedIds.has(m.id))
   return {
     selected,

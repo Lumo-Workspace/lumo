@@ -2,7 +2,11 @@ import {
   gateProjectMemories,
   type RelevanceGateDeps,
 } from '@/lib/services/memory/relevance-gate'
-import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
+import {
+  RELEVANCE_GATE_TOP_K,
+  RELEVANCE_GATE_TRUST_KEEP_PCT,
+  RELEVANCE_GATE_TRUST_MIN_TASKS,
+} from '@/lib/services/memory/relevance-gate.constants'
 import type { RenderableMemory } from '@/lib/memory/render'
 
 function mem(id: string): RenderableMemory {
@@ -14,7 +18,7 @@ function mem(id: string): RenderableMemory {
   }
 }
 
-// candidates large enough to defeat the bypass (TOP_K + a margin)
+// fixture generator; corpus(n) of n memories (use n > TOP_K to defeat the bypass)
 function corpus(n: number): RenderableMemory[] {
   return Array.from({ length: n }, (_, i) => mem(`m${i}`))
 }
@@ -103,8 +107,10 @@ describe('gateProjectMemories', () => {
     })
     const trust: RelevanceGateDeps['trustByFragment'] = async () =>
       new Map([
-        ['m1', { resolvedTasks: 5, mergedTasks: 1 }], // 20% — below TRUST_KEEP_PCT
-        ['m2', { resolvedTasks: 2, mergedTasks: 2 }], // 100% but < MIN_TASKS
+        // 20% < RELEVANCE_GATE_TRUST_KEEP_PCT → not always-kept
+        ['m1', { resolvedTasks: 5, mergedTasks: 1 }],
+        // 100% but resolvedTasks (2) < RELEVANCE_GATE_TRUST_MIN_TASKS → not always-kept
+        ['m2', { resolvedTasks: 2, mergedTasks: 2 }],
       ])
     const res = await gateProjectMemories(
       {
@@ -147,6 +153,27 @@ describe('gateProjectMemories', () => {
     )
     expect(res.selected).toHaveLength(candidates.length)
     expect(res.telemetry.mechanism).toBe('fallback-all')
+  })
+
+  test('falls back to similarity-only selection when trustByFragment throws', async () => {
+    const candidates = corpus(20)
+    const ranker: RelevanceGateDeps['rankBySimilarity'] = async () => ({
+      mechanism: 'embedding',
+      ranked: candidates.map((c, i) => ({ id: c.id, score: 0.9 - i * 0.05 })),
+    })
+    const trust: RelevanceGateDeps['trustByFragment'] = async () => {
+      throw new Error('trust db down')
+    }
+    const res = await gateProjectMemories(
+      {
+        task: { title: 't', description: 'd' },
+        projectMemories: candidates,
+        projectId: 'p1',
+      },
+      { rankBySimilarity: ranker, trustByFragment: trust }
+    )
+    expect(res.selected).toHaveLength(RELEVANCE_GATE_TOP_K)
+    expect(res.telemetry.mechanism).toBe('embedding')
   })
 
   test('uses the lexical floor when mechanism is lexical', async () => {
