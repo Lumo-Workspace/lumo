@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { memoryRepository } from '@/lib/repositories'
 import { memoryManagementService } from '@/lib/services'
+import { getMemoryByIdForWorkspace } from '@/lib/services/memory/memory-read.service'
 import { patchMemoryBodySchema } from '@/lib/validation/memory'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { zodError } from '@/lib/api/helpers'
@@ -11,6 +12,38 @@ export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ memoryId: string }> }
 
+/**
+ * GET /api/memories/[memoryId]
+ * Full-card fetch for one memory (LUM-500), consumed by `lumo memory show
+ * <id>`. Workspace isolation lives in the service, which collapses
+ * cross-workspace and missing ids to a single 404.
+ */
+export async function GET(request: NextRequest, { params }: Params) {
+  try {
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
+    const { memoryId } = await params
+
+    const memory = await getMemoryByIdForWorkspace(
+      memoryId,
+      identity.workspaceId
+    )
+    return NextResponse.json({ memory })
+  } catch (error) {
+    if (error instanceof Error && 'status' in error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
+    }
+    console.error('GET /api/memories/[memoryId] error:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const identity = await requireIdentity(request)
@@ -18,7 +51,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { memoryId } = await params
 
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
-    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!existing)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (existing.workspaceId !== identity.workspaceId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -32,7 +66,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       try {
         content = parseMemoryContent(existing.category, parsed.data.content)
       } catch {
-        return NextResponse.json({ error: 'Content does not match the category schema' }, { status: 400 })
+        return NextResponse.json(
+          { error: 'Content does not match the category schema' },
+          { status: 400 }
+        )
       }
     }
 
@@ -54,10 +91,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ memory }, { status: 200 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
-      return NextResponse.json({ error: error.message }, { status: (error as Error & { status: number }).status })
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
     }
     console.error('PATCH /api/memories/[memoryId] error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -68,7 +111,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const { memoryId } = await params
 
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
-    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!existing)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (existing.workspaceId !== identity.workspaceId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -77,9 +121,15 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     return new NextResponse(null, { status: 204 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
-      return NextResponse.json({ error: error.message }, { status: (error as Error & { status: number }).status })
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
     }
     console.error('DELETE /api/memories/[memoryId] error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }
