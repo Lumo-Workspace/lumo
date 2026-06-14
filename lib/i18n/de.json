@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Prüfausgabe anzeigen",
   "acceptance.hideCheck": "Prüfausgabe ausblenden",
   "acceptance.check.label": "Nachweis",
-  "acceptance.check.evidence": "Nachweis",
   "acceptance.check.none": "Maschinenprüfung noch nicht ausgeführt",
   "acceptance.check.exitCode": "Exit-Code {code}",
   "acceptance.verdict.pass": "Freigeben",

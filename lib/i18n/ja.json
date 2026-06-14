@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "check の出力を表示",
   "acceptance.hideCheck": "check の出力を隠す",
   "acceptance.check.label": "証拠",
-  "acceptance.check.evidence": "証拠",
   "acceptance.check.none": "機械チェックは未実行",
   "acceptance.check.exitCode": "終了コード {code}",
   "acceptance.verdict.pass": "合格",

@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "查看 check 產出",
   "acceptance.hideCheck": "收起 check 產出",
   "acceptance.check.label": "證據",
-  "acceptance.check.evidence": "證據",
   "acceptance.check.none": "機器檢查尚未執行",
   "acceptance.check.exitCode": "退出碼 {code}",
   "acceptance.verdict.pass": "通過",

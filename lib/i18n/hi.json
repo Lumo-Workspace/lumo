@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "check आउटपुट देखें",
   "acceptance.hideCheck": "check आउटपुट छिपाएँ",
   "acceptance.check.label": "प्रमाण",
-  "acceptance.check.evidence": "प्रमाण",
   "acceptance.check.none": "मशीन जाँच अभी तक नहीं चली",
   "acceptance.check.exitCode": "एग्ज़िट कोड {code}",
   "acceptance.verdict.pass": "पास",

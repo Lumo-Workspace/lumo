@@ -1527,7 +1527,6 @@
   "acceptance.viewCheck": "Xem kết quả check",
   "acceptance.hideCheck": "Ẩn kết quả check",
   "acceptance.check.label": "bằng chứng",
-  "acceptance.check.evidence": "bằng chứng",
   "acceptance.check.none": "Kiểm tra máy chưa chạy",
   "acceptance.check.exitCode": "mã thoát {code}",
   "acceptance.verdict.pass": "Đạt",
