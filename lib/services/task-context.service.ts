@@ -68,7 +68,6 @@ import {
   type BudgetSectionMetric,
 } from '@/lib/context/budget'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
-import { embedTexts } from '@/lib/ai/embedding'
 import { bigramSimilarity } from '@/lib/similarity'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import {
@@ -448,6 +447,7 @@ async function selectRelevantProjectMemories(
     input: RelevanceGateInput
   ): Promise<SimilarityRanking | null> => {
     try {
+      const { embedTexts } = await import('@/lib/ai/embedding')
       const [v] = await embedTexts([queryText])
       const vector = v && v.length > 0 ? v : undefined
       // Empty embedding response → treat as a cold corpus, not an outage.
