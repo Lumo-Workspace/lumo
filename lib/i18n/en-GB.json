@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "within the usual range",
   "retrospective.bandAbove": "above the usual range",
   "retrospective.bandBelow": "below the usual range",
-  "retrospective.flywheel": "Added to the reference library for forecasting future similar tasks ({count} now)",
+  "retrospective.flywheel": "Based on {count} similar tasks in the reference library · this run included",
   "progress.title": "Delivery in progress",
   "progress.agentRunning": "Agent running",
   "progress.tokenUsage": "Token usage · live",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.",
   "acceptance.judge.tip": "Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.",
   "boundary.category.sessionBindingMissing": "task work from an unattached session",
-  "agentRun.turnsSummary": "[TODO:en-GB] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:en-GB] By member",
-  "tokenCost.byModel": "[TODO:en-GB] By model"
+  "agentRun.turnsSummary": "{turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "By member",
+  "tokenCost.byModel": "By model"
 }

@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "В обычном диапазоне",
   "retrospective.bandAbove": "Выше обычного диапазона",
   "retrospective.bandBelow": "Ниже обычного диапазона",
-  "retrospective.flywheel": "Добавлено в справочную библиотеку для прогнозирования аналогичных задач (сейчас {count})",
+  "retrospective.flywheel": "На основе {count} похожих задач в справочной библиотеке · текущий запуск учтён",
   "progress.title": "Поставка выполняется",
   "progress.agentRunning": "Agent работает",
   "progress.tokenUsage": "Использование токенов · в реальном времени",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Каждый раунд — один проход проверки. MACHINE = запуск checkpointer, HUMAN = вердикт человека, AGENT = агент вернул задачу.",
   "acceptance.judge.tip": "Руководство, составленное агентом для проверяющего-человека: где смотреть и что считается прохождением или провалом.",
   "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии",
-  "agentRun.turnsSummary": "[TODO:ru] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:ru] By member",
-  "tokenCost.byModel": "[TODO:ru] By model"
+  "agentRun.turnsSummary": "{turns, plural, one {# раунд} few {# раунда} many {# раундов} other {# раунда}}",
+  "tokenCost.byMember": "По участникам",
+  "tokenCost.byModel": "По моделям"
 }

@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "일반 범위 내",
   "retrospective.bandAbove": "일반 범위 초과",
   "retrospective.bandBelow": "일반 범위 미만",
-  "retrospective.flywheel": "참조 라이브러리에 추가되어 향후 유사 작업 예측에 사용됩니다 (현재 {count}개)",
+  "retrospective.flywheel": "참조 라이브러리의 유사 작업 {count}개 기반 · 이번 실행 포함",
   "progress.title": "배포 진행 중",
   "progress.agentRunning": "Agent 실행 중",
   "progress.tokenUsage": "token 사용량 · 실시간",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "각 라운드는 검증 1회입니다. MACHINE=checkpointer 실행, HUMAN=담당자 판정, AGENT=에이전트가 작업을 반려.",
   "acceptance.judge.tip": "에이전트가 사람 검토자를 위해 작성한 안내입니다: 어디를 확인하고 무엇이 통과/실패인지를 설명합니다.",
   "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업",
-  "agentRun.turnsSummary": "[TODO:ko] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:ko] By member",
-  "tokenCost.byModel": "[TODO:ko] By model"
+  "agentRun.turnsSummary": "{turns, plural, other {# 턴}}",
+  "tokenCost.byMember": "멤버별",
+  "tokenCost.byModel": "모델별"
 }

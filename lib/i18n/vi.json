@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "Trong phạm vi thông thường",
   "retrospective.bandAbove": "Vượt phạm vi thông thường",
   "retrospective.bandBelow": "Dưới phạm vi thông thường",
-  "retrospective.flywheel": "Đã thêm vào thư viện tham chiếu để dự báo các tác vụ tương tự trong tương lai ({count} hiện tại)",
+  "retrospective.flywheel": "Dựa trên {count} tác vụ tương tự trong thư viện tham chiếu · lần chạy này được tính",
   "progress.title": "Đang giao hàng",
   "progress.agentRunning": "Agent đang chạy",
   "progress.tokenUsage": "Sử dụng token · trực tiếp",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Mỗi vòng là một lượt xác minh. MACHINE = chạy checkpointer, HUMAN = phán quyết của con người, AGENT = agent trả lại nhiệm vụ.",
   "acceptance.judge.tip": "Hướng dẫn do agent soạn thảo cho người duyệt: nơi cần xem và tiêu chí nào được tính là đạt hay không đạt.",
   "boundary.category.sessionBindingMissing": "làm việc trên nhiệm vụ mà không gắn phiên",
-  "agentRun.turnsSummary": "[TODO:vi] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:vi] By member",
-  "tokenCost.byModel": "[TODO:vi] By model"
+  "agentRun.turnsSummary": "{turns, plural, other {# lượt}}",
+  "tokenCost.byMember": "Theo thành viên",
+  "tokenCost.byModel": "Theo mô hình"
 }

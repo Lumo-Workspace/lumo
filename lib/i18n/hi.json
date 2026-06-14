@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "सामान्य सीमा में",
   "retrospective.bandAbove": "सामान्य सीमा से ऊपर",
   "retrospective.bandBelow": "सामान्य सीमा से नीचे",
-  "retrospective.flywheel": "संदर्भ लाइब्रेरी में जोड़ा गया, भविष्य के समान कार्यों के पूर्वानुमान के लिए उपयोग होगा (अभी {count})",
+  "retrospective.flywheel": "संदर्भ लाइब्रेरी में {count} समान कार्यों पर आधारित · यह रन शामिल",
   "progress.title": "डिलीवरी जारी है",
   "progress.agentRunning": "Agent चल रहा है",
   "progress.tokenUsage": "token उपयोग · लाइव",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "प्रत्येक राउंड एक सत्यापन पास है। MACHINE = checkpointer रन, HUMAN = व्यक्ति का निर्णय, AGENT = एजेंट ने कार्य वापस भेजा।",
   "acceptance.judge.tip": "मानव समीक्षक के लिए एजेंट द्वारा तैयार मार्गदर्शन: कहाँ देखें और पास या फेल का मानक क्या है।",
   "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना",
-  "agentRun.turnsSummary": "[TODO:hi] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:hi] By member",
-  "tokenCost.byModel": "[TODO:hi] By model"
+  "agentRun.turnsSummary": "{turns, plural, one {# चक्र} other {# चक्र}}",
+  "tokenCost.byMember": "सदस्य अनुसार",
+  "tokenCost.byModel": "मॉडल अनुसार"
 }

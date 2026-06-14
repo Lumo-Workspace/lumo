@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "Dentro del rango habitual",
   "retrospective.bandAbove": "Por encima del rango habitual",
   "retrospective.bandBelow": "Por debajo del rango habitual",
-  "retrospective.flywheel": "Añadido a la biblioteca de referencia para previsiones de tareas similares ({count} ahora)",
+  "retrospective.flywheel": "Basado en {count} tareas similares en la biblioteca de referencia · esta ejecución incluida",
   "progress.title": "Entrega en curso",
   "progress.agentRunning": "Agent en ejecución",
   "progress.tokenUsage": "Uso de tokens · en directo",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Cada ronda es un pase de verificación. MACHINE = ejecución del checkpointer, HUMAN = veredicto humano, AGENT = el agente devolvió la tarea.",
   "acceptance.judge.tip": "Guía redactada por el agente para el revisor humano: dónde mirar y qué cuenta como aprobado o rechazado.",
   "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada",
-  "agentRun.turnsSummary": "[TODO:es] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:es] By member",
-  "tokenCost.byModel": "[TODO:es] By model"
+  "agentRun.turnsSummary": "{turns, plural, one {# ronda} other {# rondas}}",
+  "tokenCost.byMember": "Por persona",
+  "tokenCost.byModel": "Por modelo"
 }

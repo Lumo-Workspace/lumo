@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "Im üblichen Bereich",
   "retrospective.bandAbove": "Über dem üblichen Bereich",
   "retrospective.bandBelow": "Unter dem üblichen Bereich",
-  "retrospective.flywheel": "Zur Referenzbibliothek hinzugefügt – wird für zukünftige ähnliche Aufgaben verwendet (jetzt {count})",
+  "retrospective.flywheel": "Basiert auf {count} ähnlichen Aufgaben in der Referenzbibliothek · dieser Lauf einbezogen",
   "progress.title": "Lieferung läuft",
   "progress.agentRunning": "Agent aktiv",
   "progress.tokenUsage": "Token-Nutzung · live",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Jede Runde ist ein Prüfdurchlauf. MACHINE = checkpointer-Lauf, HUMAN = menschliches Urteil, AGENT = Agent hat die Aufgabe zurückgeschickt.",
   "acceptance.judge.tip": "Vom Agenten erstellte Anleitung für den menschlichen Prüfer: wo nachzuschauen ist und was als bestanden oder fehlgeschlagen gilt.",
   "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung",
-  "agentRun.turnsSummary": "[TODO:de] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:de] By member",
-  "tokenCost.byModel": "[TODO:de] By model"
+  "agentRun.turnsSummary": "{turns, plural, one {# Runde} other {# Runden}}",
+  "tokenCost.byMember": "Nach Person",
+  "tokenCost.byModel": "Nach Modell"
 }

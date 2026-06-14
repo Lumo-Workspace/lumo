@@ -1431,7 +1431,7 @@
   "retrospective.bandWithin": "Dalam julat biasa",
   "retrospective.bandAbove": "Melebihi julat biasa",
   "retrospective.bandBelow": "Di bawah julat biasa",
-  "retrospective.flywheel": "Ditambah ke perpustakaan rujukan untuk ramalan tugas serupa pada masa hadapan ({count} sekarang)",
+  "retrospective.flywheel": "Berdasarkan {count} tugasan serupa dalam pustaka rujukan · larian ini disertakan",
   "progress.title": "Penghantaran sedang berjalan",
   "progress.agentRunning": "Agent sedang berjalan",
   "progress.tokenUsage": "Penggunaan token · langsung",
@@ -1669,7 +1669,7 @@
   "acceptance.history.tip": "Setiap pusingan adalah satu laluan pengesahan. MACHINE = jalankan checkpointer, HUMAN = keputusan orang, AGENT = ejen memulangkan tugasan.",
   "acceptance.judge.tip": "Panduan yang dirangka ejen untuk penyemak manusia: di mana hendak melihat dan apa yang dikira lulus atau gagal.",
   "boundary.category.sessionBindingMissing": "kerja tugasan tanpa sesi yang dilampirkan",
-  "agentRun.turnsSummary": "[TODO:ms] {turns, plural, one {# turn} other {# turns}}",
-  "tokenCost.byMember": "[TODO:ms] By member",
-  "tokenCost.byModel": "[TODO:ms] By model"
+  "agentRun.turnsSummary": "{turns, plural, other {# pusingan}}",
+  "tokenCost.byMember": "Per anggota",
+  "tokenCost.byModel": "Per model"
 }
