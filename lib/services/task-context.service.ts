@@ -68,6 +68,15 @@ import {
   type BudgetSectionMetric,
 } from '@/lib/context/budget'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
+import { embedTexts } from '@/lib/ai/embedding'
+import { bigramSimilarity } from '@/lib/similarity'
+import { memoryContentToText } from '@/lib/memory/content-text'
+import {
+  gateProjectMemories,
+  type RelevanceGateInput,
+  type SimilarityRanking,
+  type RelevanceGateResult,
+} from '@/lib/services/memory/relevance-gate'
 
 export interface SessionContext {
   id: string
@@ -399,6 +408,95 @@ async function fetchOrderedTaskMemories(
     })),
   ]
 }
+
+/**
+ * Wire the real deps to the pure project-memory relevance gate (LUM-486):
+ * embedding-first cosine ranking via pgvector, lexical-bigram fallback when the
+ * corpus is cold or no embedding key, and merge-contribution trust. Never
+ * throws — the gate itself degrades to the full corpus on any dep failure.
+ */
+async function selectRelevantProjectMemories(
+  task: {
+    id: string
+    title: string
+    description: string | null
+    projectId: string
+  },
+  projectMemories: RenderableMemory[]
+): Promise<RelevanceGateResult> {
+  const queryText = [task.title, task.description ?? ''].join('\n').trim()
+
+  const rankBySimilarity = async (
+    input: RelevanceGateInput
+  ): Promise<SimilarityRanking | null> => {
+    // 1) embedding path
+    let vector: number[] | undefined
+    try {
+      const [v] = await embedTexts([queryText])
+      if (v && v.length > 0) vector = v
+    } catch {
+      vector = undefined
+    }
+
+    if (vector) {
+      try {
+        const { neighbors, scopeHasEmbeddings } =
+          await memoryRepository.findNeighborEmbeddings({
+            scope: { kind: 'PROJECT', projectId: task.projectId },
+            queryVector: vector,
+            k: input.projectMemories.length,
+          })
+        if (scopeHasEmbeddings) {
+          return {
+            mechanism: 'embedding',
+            ranked: neighbors.map(n => ({ id: n.id, score: n.score })),
+          }
+        }
+      } catch {
+        // fall through to lexical
+      }
+    }
+
+    // 2) lexical fallback over the in-memory candidate pool
+    const ranked = input.projectMemories
+      .map(m => ({
+        id: m.id,
+        score: bigramSimilarity(
+          queryText,
+          memoryContentToText(m.category, m.content)
+        ),
+      }))
+      .sort((a, b) => b.score - a.score)
+    return { mechanism: 'lexical', ranked }
+  }
+
+  const trustByFragment = async (
+    ids: string[]
+  ): Promise<Map<string, { resolvedTasks: number; mergedTasks: number }>> => {
+    const rates = await lineageEdgeRepository.mergeRateByFragments(
+      ids.map(id => ({ fragmentType: 'MEMORY' as const, fragmentId: id }))
+    )
+    return new Map(
+      rates.map(r => [
+        r.fragmentId,
+        { resolvedTasks: r.resolvedTasks, mergedTasks: r.mergedTasks },
+      ])
+    )
+  }
+
+  return gateProjectMemories(
+    {
+      task: { title: task.title, description: task.description },
+      projectMemories,
+      projectId: task.projectId,
+    },
+    { rankBySimilarity, trustByFragment }
+  )
+}
+
+/** Test-only export of the wiring helper (LUM-486). */
+export const __test__selectRelevantProjectMemories =
+  selectRelevantProjectMemories
 
 /**
  * Derive the rendering-layer source attribution (LUM-347) from authorship:
