@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "이 기준을 달성됨으로 표시합니다.",
   "acceptance.history.tip": "각 라운드는 검증 1회입니다. MACHINE=checkpointer 실행, HUMAN=담당자 판정, AGENT=에이전트가 작업을 반려.",
   "acceptance.judge.tip": "에이전트가 사람 검토자를 위해 작성한 안내입니다: 어디를 확인하고 무엇이 통과/실패인지를 설명합니다.",
-  "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업"
+  "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업",
+  "agentRun.turnsSummary": "[TODO:ko] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:ko] By member",
+  "tokenCost.byModel": "[TODO:ko] By model"
 }

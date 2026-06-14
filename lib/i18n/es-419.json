@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Marcar este criterio como cumplido.",
   "acceptance.history.tip": "Cada ronda es un pase de verificación. MACHINE = ejecución del checkpointer, HUMAN = veredicto humano, AGENT = el agente devolvió la tarea.",
   "acceptance.judge.tip": "Guía redactada por el agente para el revisor humano: dónde mirar y qué cuenta como aprobado o rechazado.",
-  "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada"
+  "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada",
+  "agentRun.turnsSummary": "[TODO:es-419] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:es-419] By member",
+  "tokenCost.byModel": "[TODO:es-419] By model"
 }

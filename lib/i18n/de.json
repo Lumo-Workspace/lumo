@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Dieses Kriterium als erfüllt markieren.",
   "acceptance.history.tip": "Jede Runde ist ein Prüfdurchlauf. MACHINE = checkpointer-Lauf, HUMAN = menschliches Urteil, AGENT = Agent hat die Aufgabe zurückgeschickt.",
   "acceptance.judge.tip": "Vom Agenten erstellte Anleitung für den menschlichen Prüfer: wo nachzuschauen ist und was als bestanden oder fehlgeschlagen gilt.",
-  "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung"
+  "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung",
+  "agentRun.turnsSummary": "[TODO:de] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:de] By member",
+  "tokenCost.byModel": "[TODO:de] By model"
 }

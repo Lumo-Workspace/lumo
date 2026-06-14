@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Mark this criterion met.",
   "acceptance.history.tip": "Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.",
   "acceptance.judge.tip": "Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.",
-  "boundary.category.sessionBindingMissing": "task work from an unattached session"
+  "boundary.category.sessionBindingMissing": "task work from an unattached session",
+  "agentRun.turnsSummary": "[TODO:en-AU] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:en-AU] By member",
+  "tokenCost.byModel": "[TODO:en-AU] By model"
 }

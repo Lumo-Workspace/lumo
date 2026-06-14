@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Отметить этот критерий как выполненный.",
   "acceptance.history.tip": "Каждый раунд — один проход проверки. MACHINE = запуск checkpointer, HUMAN = вердикт человека, AGENT = агент вернул задачу.",
   "acceptance.judge.tip": "Руководство, составленное агентом для проверяющего-человека: где смотреть и что считается прохождением или провалом.",
-  "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии"
+  "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии",
+  "agentRun.turnsSummary": "[TODO:ru] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:ru] By member",
+  "tokenCost.byModel": "[TODO:ru] By model"
 }

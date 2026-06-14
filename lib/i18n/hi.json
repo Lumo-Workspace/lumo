@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "इस मानदंड को पूरा चिह्नित करें।",
   "acceptance.history.tip": "प्रत्येक राउंड एक सत्यापन पास है। MACHINE = checkpointer रन, HUMAN = व्यक्ति का निर्णय, AGENT = एजेंट ने कार्य वापस भेजा।",
   "acceptance.judge.tip": "मानव समीक्षक के लिए एजेंट द्वारा तैयार मार्गदर्शन: कहाँ देखें और पास या फेल का मानक क्या है।",
-  "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना"
+  "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना",
+  "agentRun.turnsSummary": "[TODO:hi] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:hi] By member",
+  "tokenCost.byModel": "[TODO:hi] By model"
 }

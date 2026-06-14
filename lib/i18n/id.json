@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Tandai kriteria ini terpenuhi.",
   "acceptance.history.tip": "Setiap putaran adalah satu siklus verifikasi. MACHINE = jalankan checkpointer, HUMAN = putusan orang, AGENT = agen mengembalikan tugas.",
   "acceptance.judge.tip": "Panduan yang dibuat agen untuk peninjau manusia: di mana harus melihat dan apa yang dianggap lulus atau gagal.",
-  "boundary.category.sessionBindingMissing": "mengerjakan tugas tanpa sesi yang terlampir"
+  "boundary.category.sessionBindingMissing": "mengerjakan tugas tanpa sesi yang terlampir",
+  "agentRun.turnsSummary": "[TODO:id] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:id] By member",
+  "tokenCost.byModel": "[TODO:id] By model"
 }

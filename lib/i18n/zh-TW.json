@@ -1433,7 +1433,7 @@
   "retrospective.bandWithin": "落在常見區間內",
   "retrospective.bandAbove": "高於常見區間",
   "retrospective.bandBelow": "低於常見區間",
-  "retrospective.flywheel": "已計入參考庫，將用於未來同類任務的預測（現 {count} 個）",
+  "retrospective.flywheel": "基於參考庫 {count} 個同類任務 · 本次已計入",
   "progress.title": "交付進行中",
   "progress.agentRunning": "Agent 執行中",
   "progress.tokenUsage": "token 用量 · 即時",
@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "將這條標準標記為達成。",
   "acceptance.history.tip": "每一輪是一次驗證。MACHINE=checkpointer 執行，HUMAN=人工裁決，AGENT=agent 退回任務。",
   "acceptance.judge.tip": "agent 為人工 reviewer 草擬的指引：看哪裡、什麼算通過/失敗。",
-  "boundary.category.sessionBindingMissing": "未綁定工作階段即處理任務"
+  "boundary.category.sessionBindingMissing": "未綁定工作階段即處理任務",
+  "agentRun.turnsSummary": "{turns, plural, other {# 輪}}",
+  "tokenCost.byMember": "按人",
+  "tokenCost.byModel": "按 model"
 }

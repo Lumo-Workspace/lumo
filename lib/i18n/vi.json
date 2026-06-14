@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "Đánh dấu tiêu chí này đã đạt.",
   "acceptance.history.tip": "Mỗi vòng là một lượt xác minh. MACHINE = chạy checkpointer, HUMAN = phán quyết của con người, AGENT = agent trả lại nhiệm vụ.",
   "acceptance.judge.tip": "Hướng dẫn do agent soạn thảo cho người duyệt: nơi cần xem và tiêu chí nào được tính là đạt hay không đạt.",
-  "boundary.category.sessionBindingMissing": "làm việc trên nhiệm vụ mà không gắn phiên"
+  "boundary.category.sessionBindingMissing": "làm việc trên nhiệm vụ mà không gắn phiên",
+  "agentRun.turnsSummary": "[TODO:vi] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:vi] By member",
+  "tokenCost.byModel": "[TODO:vi] By model"
 }

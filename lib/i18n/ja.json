@@ -1670,5 +1670,8 @@
   "acceptance.verdict.passTip": "この基準を達成済みとしてマークします。",
   "acceptance.history.tip": "各ラウンドは 1 回の検証パスです。MACHINE=checkpointer の実行、HUMAN=担当者の判定、AGENT=エージェントによるタスクの差し戻し。",
   "acceptance.judge.tip": "エージェントが人間のレビュアー向けに作成したガイダンスです：どこを確認するか、何が合格・不合格かを示します。",
-  "boundary.category.sessionBindingMissing": "セッションを紐付けずにタスクを作業"
+  "boundary.category.sessionBindingMissing": "セッションを紐付けずにタスクを作業",
+  "agentRun.turnsSummary": "[TODO:ja] {turns, plural, one {# turn} other {# turns}}",
+  "tokenCost.byMember": "[TODO:ja] By member",
+  "tokenCost.byModel": "[TODO:ja] By model"
 }
