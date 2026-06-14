@@ -35,6 +35,7 @@ import { memoryProjectList } from './commands/memory-project-list'
 import { memoryProjectAdd } from './commands/memory-project-add'
 import { memoryPromote } from './commands/memory-promote'
 import { memoryRm } from './commands/memory-rm'
+import { memoryShow } from './commands/memory-show'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskCriteriaSet } from './commands/task-criteria-set'
 import { taskCriteriaList } from './commands/task-criteria-list'
@@ -819,6 +820,13 @@ const memoryCmd = program
   .description(
     'Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)'
   )
+
+memoryCmd
+  .command('show <memoryId>')
+  .description(
+    "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
+  )
+  .action(wrap((id: unknown) => memoryShow(id as string)))
 
 memoryCmd
   .command('promote <memoryId>')

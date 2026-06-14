@@ -120,6 +120,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 **Memory** — see [memory.md](references/memory.md)
 
 - `lumo task memory add/list` · `lumo project memory add/list` — record/curate Memory (TASK vs PROJECT)
+- `lumo memory show <id>` — show one memory's full card (category + content) by id (progressive disclosure from a one-line index entry)
 - `lumo memory promote <id>` / `lumo memory rm <id> --yes` — TASK→PROJECT / delete
 
 **Sessions** — see [sessions.md](references/sessions.md)

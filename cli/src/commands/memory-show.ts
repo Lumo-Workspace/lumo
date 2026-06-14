@@ -1,0 +1,65 @@
+import { readCredentials } from '../lib/config'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
+
+interface Memory {
+  id: string
+  category: string
+  content: unknown
+}
+
+/**
+ * `lumo memory show <memory-id>`
+ *
+ * Progressive disclosure: fetch one memory's full card by id from
+ * `/api/memories/:id`. The agent sees memories as one-line index entries at
+ * session start; this pulls the body of a specific one on demand. Prints the
+ * category tag and the structured content.
+ */
+export async function memoryShow(
+  id: string | undefined
+): Promise<number | void> {
+  if (!id) {
+    console.error('Error: usage: lumo memory show <memory-id>')
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const base = trimTrailingSlash(apiUrl)
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/memories/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (res.status === 404) {
+    console.error(
+      `Error: memory ${id} not found in workspace ${creds.workspaceSlug}`
+    )
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: memory show failed (HTTP ${res.status})`)
+    return 1
+  }
+
+  const { memory } = (await res.json()) as { memory: Memory }
+  console.log(sanitizeField(`[${memory.category}]`))
+  console.log(sanitizeField(JSON.stringify(memory.content, null, 2)))
+}

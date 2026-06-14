@@ -26,6 +26,7 @@ lumo project memory add [<project>] --category convention --rule "..." --applies
 # Omitting --agent records the memory as produced by Claude Code.
 
 # Single-memory ops (memoryId from `... memory list` column 1)
+lumo memory show <memoryId>        # show one memory's full card by id
 lumo memory promote <memoryId>     # TASK → PROJECT
 lumo memory rm <memoryId> --yes    # hard delete
 ```
@@ -47,9 +48,28 @@ lumo task memory add LUM-42 --category decision --what "Store doc content as Tip
 lumo project memory add lumo --category procedural --workflow "Regenerate the CLI grammar snapshot" --trigger "any cli/src/commands change" --step "npx tsx scripts/analysis/lum392-cli-friction/emit-grammar.ts" --step "npx jest scripts/analysis/lum392-cli-friction" --agent claude-code
 
 # Curate
+lumo memory show cmpi19iqabc123
 lumo memory promote cmpi19iqabc123
 lumo memory rm cmpi19iqabc123 --yes
 ```
+
+### `lumo memory show <id>` (progressive disclosure)
+
+Fetches one memory's full card by id from the server and prints its category tag
+(`[TRAP]`, `[DECISION]`, `[CONVENTION]`, `[WORKFLOW]`, …) followed by the
+structured `content` body (pretty-printed JSON).
+
+- **Arg**: `<memoryId>` (required) — the id you saw in `... memory list` column 1
+  or as a one-line index entry at session start. Without it the command errors
+  with a usage line and exits 1.
+- **Errors**: not-logged-in (run `lumo auth login`), `401` invalid/revoked key,
+  `404` memory not found in your workspace (cross-workspace ids 404 too), other
+  non-2xx → generic HTTP error; all exit 1.
+
+**When to suggest**: at session start memories arrive as one-line index entries.
+When a specific entry looks relevant to the task at hand, run
+`lumo memory show <id>` to pull its full body before acting on it — read the
+detail on demand instead of carrying every memory's content in context.
 
 ### Reconcile-on-write & deduplication
 
