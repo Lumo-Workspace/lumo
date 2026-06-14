@@ -31,6 +31,7 @@ import {
   type EditChangeView,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
+import { InfoTooltip } from './InfoTooltip'
 import {
   boundaryCategoryLabel,
   boundaryDispositionLabel,
@@ -354,8 +355,15 @@ function CrossingRow({
           className={`size-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '' : 'rotate-90'}`}
           aria-hidden
         />
-        <span className='text-[13px] font-medium text-foreground'>
+        <span className='inline-flex items-center gap-1 text-[13px] font-medium text-foreground'>
           {boundaryCategoryLabel(c.category, intl)}
+          <InfoTooltip
+            label={intl.formatMessage({
+              id: 'boundary.tip.category',
+              defaultMessage:
+                'A boundary crossing is a forbidden or risky action the agent took. The category says what kind.',
+            })}
+          />
         </span>
         <Badge
           tone={
@@ -374,6 +382,13 @@ function CrossingRow({
             { severity: boundarySeverityLabel(c.severity, intl) }
           )}
         </Badge>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'boundary.tip.severity',
+            defaultMessage:
+              'How serious this crossing is. HIGH crossings block marking the task Done until resolved.',
+          })}
+        />
         {c.disposition === 'CONFIRMED' && (
           <Badge tone='warning'>
             {boundaryDispositionLabel('CONFIRMED', intl)}
@@ -392,6 +407,15 @@ function CrossingRow({
             {boundaryDispositionLabel('AUTO_LEGIT', intl)}
           </Badge>
         )}
+        {c.disposition ? (
+          <InfoTooltip
+            label={intl.formatMessage({
+              id: 'boundary.tip.disposition',
+              defaultMessage:
+                'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.',
+            })}
+          />
+        ) : null}
         <Badge tone={c.reversible ? 'muted' : 'danger'}>
           {c.reversible ? (
             <Unlock className='size-3' aria-hidden />
@@ -427,6 +451,13 @@ function CrossingRow({
               },
               { count: c.occurrenceCount }
             )}
+            <InfoTooltip
+              label={intl.formatMessage({
+                id: 'boundary.tip.recurrence',
+                defaultMessage:
+                  'This same crossing was detected multiple times; the count is how many times.',
+              })}
+            />
           </span>
         )}
         <span className='ml-auto text-[11px] text-muted-foreground/80'>

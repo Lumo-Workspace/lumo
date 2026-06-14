@@ -1663,5 +1663,9 @@
   "acceptance.criterion.staleTip": "[TODO:es] This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
   "acceptance.zone.machineTip": "[TODO:es] Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.",
   "acceptance.zone.humanTip": "[TODO:es] Human criteria need a person to judge and sign off — they are not machine-checkable.",
-  "acceptance.zone.humanQuotaTip": "[TODO:es] A task can have at most 7 human criteria, to keep human review focused."
+  "acceptance.zone.humanQuotaTip": "[TODO:es] A task can have at most 7 human criteria, to keep human review focused.",
+  "boundary.tip.category": "[TODO:es] A boundary crossing is a forbidden or risky action the agent took. The category says what kind.",
+  "boundary.tip.severity": "[TODO:es] How serious this crossing is. HIGH crossings block marking the task Done until resolved.",
+  "boundary.tip.disposition": "[TODO:es] How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.",
+  "boundary.tip.recurrence": "[TODO:es] This same crossing was detected multiple times; the count is how many times."
 }
