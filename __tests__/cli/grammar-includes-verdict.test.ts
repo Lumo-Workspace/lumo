@@ -20,7 +20,7 @@ describe('grammar.json includes the verdict command', () => {
     expect(grammar.commands.verdict).toBeDefined()
   })
 
-  it('carries the three verdict modes plus --reason and --criterion', () => {
+  it('carries the two verdict modes plus --reason and --criterion', () => {
     const flags = grammar.commands.verdict?.flags ?? {}
     expect(flags['--pass']).toBeDefined()
     expect(flags['--fail']).toBeDefined()
