@@ -116,7 +116,7 @@ export async function POST(request: Request) {
           memorySection,
           linkedResourcesSection,
           reviewTodosSection,
-          previousSession,
+          progressSection,
           layer2ReviewSection,
           blockerWarningSection,
         })

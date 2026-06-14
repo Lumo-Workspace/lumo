@@ -115,6 +115,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
     ).mockResolvedValue(null)
     ;(
+      taskContextService.buildProgressSectionForTask as jest.Mock
+    ).mockResolvedValue('')
+    ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
       criteriaSection: '',

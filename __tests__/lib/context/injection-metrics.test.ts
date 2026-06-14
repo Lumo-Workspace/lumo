@@ -33,7 +33,7 @@ const INPUT = {
   memorySection: 'memory-section ' + 'b'.repeat(300),
   linkedResourcesSection: 'linked-resources-section ' + 'c'.repeat(150),
   reviewTodosSection: 'review-todos-section ' + 'd'.repeat(80),
-  previousSession: { step: 'last-step', summary: 'e'.repeat(100) },
+  progressSection: 'progress-section ' + 'e'.repeat(100),
   layer2ReviewSection: 'layer2-review-section ' + 'f'.repeat(120),
   blockerWarningSection: 'blocker-warning-section ' + 'g'.repeat(60),
 }
@@ -56,7 +56,7 @@ describe('buildSessionStartContextMetrics', () => {
       sectionTokens.memory +
       sectionTokens.linkedResources +
       sectionTokens.reviewTodos +
-      sectionTokens.previousSession +
+      sectionTokens.progress +
       sectionTokens.layer2Review +
       sectionTokens.blockerWarning
     expect(totalTokens).toBe(sum)
@@ -70,10 +70,10 @@ describe('buildSessionStartContextMetrics', () => {
       )
     })
 
-    it('tier1 equals previousSession + reviewTodos + layer2Review', () => {
+    it('tier1 equals progress + reviewTodos + layer2Review', () => {
       const { sectionTokens, tierTokens } = metrics
       expect(tierTokens.tier1).toBe(
-        sectionTokens.previousSession +
+        sectionTokens.progress +
           sectionTokens.reviewTodos +
           sectionTokens.layer2Review
       )
@@ -103,23 +103,23 @@ describe('buildSessionStartContextMetrics', () => {
     })
   })
 
-  it('works when previousSession is null (zero tokens for that section)', () => {
-    const metricsNull = buildSessionStartContextMetrics({
+  it('works when progressSection is empty (zero tokens for that section)', () => {
+    const metricsEmpty = buildSessionStartContextMetrics({
       ...INPUT,
-      previousSession: null,
+      progressSection: '',
     })
-    expect(metricsNull.sectionTokens.previousSession).toBe(0)
+    expect(metricsEmpty.sectionTokens.progress).toBe(0)
     // tier1 still sums correctly
-    expect(metricsNull.tierTokens.tier1).toBe(
+    expect(metricsEmpty.tierTokens.tier1).toBe(
       0 +
-        metricsNull.sectionTokens.reviewTodos +
-        metricsNull.sectionTokens.layer2Review
+        metricsEmpty.sectionTokens.reviewTodos +
+        metricsEmpty.sectionTokens.layer2Review
     )
     // invariant holds
     expect(
-      metricsNull.tierTokens.tier0 +
-        metricsNull.tierTokens.tier1 +
-        metricsNull.tierTokens.tier2
-    ).toBe(metricsNull.totalTokens)
+      metricsEmpty.tierTokens.tier0 +
+        metricsEmpty.tierTokens.tier1 +
+        metricsEmpty.tierTokens.tier2
+    ).toBe(metricsEmpty.totalTokens)
   })
 })

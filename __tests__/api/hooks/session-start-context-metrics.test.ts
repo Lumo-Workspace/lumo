@@ -195,7 +195,7 @@ describe('POST /api/hooks/session-start — injection metrics (LUM-402)', () => 
     expect(metrics.sectionTokens.memory).toBeGreaterThan(0)
     expect(metrics.sectionTokens.linkedResources).toBeGreaterThan(0)
     expect(metrics.sectionTokens.reviewTodos).toBeGreaterThan(0)
-    expect(metrics.sectionTokens.previousSession).toBe(0)
+    expect(metrics.sectionTokens.progress).toBe(0)
     expect(metrics.totalTokens).toBeGreaterThanOrEqual(
       metrics.sectionTokens.memory + metrics.sectionTokens.linkedResources
     )
