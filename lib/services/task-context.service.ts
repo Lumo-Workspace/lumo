@@ -77,6 +77,7 @@ import {
   type SimilarityRanking,
   type RelevanceGateResult,
 } from '@/lib/services/memory/relevance-gate'
+import { logger } from '@/lib/logger'
 
 export interface SessionContext {
   id: string
@@ -707,14 +708,32 @@ export const taskContextService = {
         ),
       ])
 
+    const projectRenderable: RenderableMemory[] = projectMemories.map(m => ({
+      id: m.id,
+      scope: 'PROJECT' as const,
+      category: m.category,
+      content: m.content,
+      source: memorySource(m.createdByMemberId),
+    }))
+    // LUM-486: relevance-gate the project corpus before it becomes both the
+    // rendered block AND the lineage manifest. Task memories are never gated.
+    const gate = await selectRelevantProjectMemories(
+      {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        projectId: task.projectId,
+      },
+      projectRenderable
+    )
+    logger.info('memory.relevanceGate', {
+      taskId,
+      corpusSize: gate.telemetry.corpusSize,
+      selectedCount: gate.telemetry.selectedCount,
+      mechanism: gate.telemetry.mechanism,
+    })
     const orderedMemories: RenderableMemory[] = [
-      ...projectMemories.map(m => ({
-        id: m.id,
-        scope: 'PROJECT' as const,
-        category: m.category,
-        content: m.content,
-        source: memorySource(m.createdByMemberId),
-      })),
+      ...gate.selected,
       ...taskMemories.map(m => ({
         id: m.id,
         scope: 'TASK' as const,

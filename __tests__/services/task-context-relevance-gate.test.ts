@@ -1,0 +1,167 @@
+/** @jest-environment node */
+// LUM-486: buildSessionStartSections must gate project memories through the
+// relevance gate BEFORE they enter both the rendered section and the `fragments`
+// manifest. Task-scoped memories are never gated.
+
+jest.mock('@/lib/services/task.service', () => ({
+  taskService: { resolveIdentifier: jest.fn() },
+}))
+jest.mock('@/lib/services/document.service', () => ({
+  scheduleDocumentSummary: jest.fn(),
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findById: jest.fn(async () => ({
+      id: 't-1',
+      title: 'narrow refactor',
+      description: 'remove prisma direct calls',
+      projectId: 'proj-1',
+      status: 'TODO',
+    })),
+  },
+}))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: {
+    findActiveTaskMemories: jest.fn().mockResolvedValue([]),
+    findActiveProjectMemories: jest.fn().mockResolvedValue([]),
+    findProjectMemoriesBySession: jest.fn().mockResolvedValue([]),
+    findNeighborEmbeddings: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
+  taskSlackContextRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/task-web-link.repository', () => ({
+  taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/services/task-figma-link.service', () => ({
+  taskFigmaLinkService: { listForTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    findPreviousSessionIdForMember: jest.fn().mockResolvedValue(null),
+  },
+}))
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findAcceptanceModeByTask: jest.fn().mockResolvedValue(false),
+  },
+}))
+jest.mock('@/lib/repositories/memory-provenance.repository', () => ({
+  memoryProvenanceRepository: {
+    resolveCanonicalFragment: jest.fn(async (_t: string, id: string) => id),
+  },
+}))
+jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
+  lineageEdgeRepository: {
+    mergeRateByFragments: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/ai/embedding', () => ({ embedTexts: jest.fn() }))
+
+import { taskContextService } from '@/lib/services/task-context.service'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { embedTexts } from '@/lib/ai/embedding'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+
+const findProjectMemories =
+  memoryRepository.findActiveProjectMemories as jest.Mock
+const findTaskMemories = memoryRepository.findActiveTaskMemories as jest.Mock
+const findNeighborEmbeddings =
+  memoryRepository.findNeighborEmbeddings as jest.Mock
+const mockEmbedTexts = embedTexts as jest.Mock
+const mockMergeRate = lineageEdgeRepository.mergeRateByFragments as jest.Mock
+
+/** Build a raw project-memory row fixture (as returned by the repository). */
+const makeProjectMem = (id: string) => ({
+  id,
+  category: 'CONVENTION' as const,
+  content: { summary: `content for ${id}` },
+  createdByMemberId: null,
+})
+
+/** Build 30 project memory rows with ids m0..m29. */
+const corpus30 = () =>
+  Array.from({ length: 30 }, (_, i) => makeProjectMem(`m${i}`))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  // Reset to safe defaults.
+  findProjectMemories.mockResolvedValue([])
+  findTaskMemories.mockResolvedValue([])
+  mockMergeRate.mockResolvedValue([])
+})
+
+describe('buildSessionStartSections — relevance gate on project memories', () => {
+  it('gated fragments: only the embedding-selected ids appear in the MEMORY fragment manifest', async () => {
+    findProjectMemories.mockResolvedValue(corpus30())
+    findTaskMemories.mockResolvedValue([])
+    mockEmbedTexts.mockResolvedValue([[0.1, 0.2, 0.3]])
+    findNeighborEmbeddings.mockResolvedValue({
+      scopeHasEmbeddings: true,
+      neighbors: [
+        { id: 'm3', category: 'CONVENTION', content: {}, score: 0.9 },
+        { id: 'm7', category: 'CONVENTION', content: {}, score: 0.8 },
+      ],
+    })
+
+    const out = await taskContextService.buildSessionStartSections('t-1')
+    const memFragmentIds = out.fragments
+      .filter(f => f.fragmentType === 'MEMORY')
+      .map(f => f.fragmentId)
+      .sort()
+
+    // Only the two gated survivors should be in the manifest — not all 30.
+    expect(memFragmentIds).toEqual(['m3', 'm7'])
+  })
+
+  it('task memories never gated: task mems survive even when gate yields empty from project side', async () => {
+    findProjectMemories.mockResolvedValue(corpus30())
+    findTaskMemories.mockResolvedValue([
+      makeProjectMem('task-mem-1'),
+      makeProjectMem('task-mem-2'),
+    ])
+    mockEmbedTexts.mockResolvedValue([[0.1, 0.2, 0.3]])
+    // Embedding path returns scopeHasEmbeddings:true but zero neighbors above
+    // the floor → project memories are gated to 0.
+    findNeighborEmbeddings.mockResolvedValue({
+      scopeHasEmbeddings: true,
+      neighbors: [],
+    })
+
+    const out = await taskContextService.buildSessionStartSections('t-1')
+    const memFragmentIds = out.fragments
+      .filter(f => f.fragmentType === 'MEMORY')
+      .map(f => f.fragmentId)
+
+    // Task memories must survive regardless of the project gate outcome.
+    expect(memFragmentIds).toContain('task-mem-1')
+    expect(memFragmentIds).toContain('task-mem-2')
+    // No project memories survived the gate (0 neighbors above floor).
+    expect(memFragmentIds).not.toContain('m0')
+  })
+
+  it('cold-start fallback: embedTexts rejection → method does not throw and fragments is a well-formed array', async () => {
+    findProjectMemories.mockResolvedValue(corpus30())
+    findTaskMemories.mockResolvedValue([])
+    // Hard embedding failure — gate must degrade gracefully.
+    mockEmbedTexts.mockRejectedValue(new Error('no embedding key'))
+    findNeighborEmbeddings.mockResolvedValue({
+      scopeHasEmbeddings: false,
+      neighbors: [],
+    })
+
+    const out = await taskContextService.buildSessionStartSections('t-1')
+    expect(out).toBeDefined()
+    expect(Array.isArray(out.fragments)).toBe(true)
+  })
+})
