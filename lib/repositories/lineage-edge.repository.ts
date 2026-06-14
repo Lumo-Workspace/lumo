@@ -721,19 +721,41 @@ export const lineageEdgeRepository = {
   },
 }
 
+/**
+ * Per-task resolved/merged rollup backing the LUM-314 signal-health vs-base
+ * 口径. Grouped by fragment FIRST so the LUM-461 birth-task self-credit
+ * exclusion can run via the shared `foldByTaskWithBirthExclusion` fold (a memory
+ * earns no merge contribution for the task that created it), then re-collapsed
+ * across fragments to one resolved/merged flag per task — a task survives if it
+ * has at least one non-birth surviving (fragment, task) pair. This keeps the
+ * `--signal` used/base rates consistent with the per-fragment Flywheel path
+ * (mergeRateByFragments / usageMergeRateByFragments), which LUM-485 wires up.
+ */
 async function taskMergeRows(
   where: Prisma.LineageEdgeWhereInput
 ): Promise<{ taskId: string; resolved: boolean; merged: boolean }[]> {
   const rows = await prisma.lineageEdge.groupBy({
-    by: ['taskId', 'outcome'],
+    by: ['fragmentType', 'fragmentId', 'taskId', 'outcome'],
     where,
   })
+  const fragments = [
+    ...new Map(
+      rows.map(r => [
+        fragmentKey(r.fragmentType, r.fragmentId),
+        { fragmentType: r.fragmentType, fragmentId: r.fragmentId },
+      ])
+    ).values(),
+  ]
+  const perFragment = await foldByTaskWithBirthExclusion(rows, fragments)
+
   const byTask = new Map<string, { resolved: boolean; merged: boolean }>()
-  for (const r of rows) {
-    const acc = byTask.get(r.taskId) ?? { resolved: false, merged: false }
-    if (r.outcome !== 'UNKNOWN') acc.resolved = true
-    if (r.outcome === 'MERGED') acc.merged = true
-    byTask.set(r.taskId, acc)
+  for (const entry of perFragment.values()) {
+    for (const [taskId, t] of entry.tasks) {
+      const acc = byTask.get(taskId) ?? { resolved: false, merged: false }
+      acc.resolved = acc.resolved || t.resolved
+      acc.merged = acc.merged || t.merged
+      byTask.set(taskId, acc)
+    }
   }
   return [...byTask.entries()].map(([taskId, v]) => ({ taskId, ...v }))
 }
