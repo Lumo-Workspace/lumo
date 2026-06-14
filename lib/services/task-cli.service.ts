@@ -6,6 +6,7 @@ import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
+import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
 import type { TaskPriority } from '@prisma/client'
 
 function httpError(status: number, message: string): Error {
@@ -331,6 +332,20 @@ async function updateFromCli(args: {
   if (input.addTagIds !== undefined) updateInput.addTagIds = input.addTagIds
   if (input.removeTagIds !== undefined)
     updateInput.removeTagIds = input.removeTagIds
+
+  // LUM-491: a status transition is "doing the task". Enforce the session-binding
+  // lock at this work boundary — a session bound to a different task is refused
+  // (409, mirroring LUM-459); a provably-unbound session records a MEDIUM crossing
+  // and proceeds (the DONE gate then catches it). Bearer-only route → source bearer.
+  if (updateInput.status !== undefined) {
+    await enforceSessionBinding({
+      source: 'bearer',
+      sessionId: sourceSessionId ?? null,
+      memberId: callerMember.id,
+      targetTaskId: resolved.id,
+      action: 'status change',
+    })
+  }
 
   // Only forward the session id once we've confirmed it's a real session in
   // this workspace. A bogus/cross-workspace id would otherwise either fail

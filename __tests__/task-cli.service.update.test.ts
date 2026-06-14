@@ -18,11 +18,15 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { findWorkspaceId: jest.fn() },
 }))
+jest.mock('@/lib/services/session-binding-guard', () => ({
+  enforceSessionBinding: jest.fn().mockResolvedValue({ advisory: null }),
+}))
 
 import { taskService } from '@/lib/services/task.service'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
 
 const mockFindSessionWs = sessionRepository.findWorkspaceId as jest.Mock
 
@@ -212,5 +216,59 @@ describe('taskCliService.updateFromCli', () => {
       expect(mockFindSessionWs).not.toHaveBeenCalled()
       expect(mockUpdate.mock.calls[0][5]).toBeNull()
     })
+  })
+})
+
+describe('updateFromCli session-binding guard', () => {
+  const enforce = enforceSessionBinding as jest.Mock
+
+  beforeEach(() => {
+    enforce.mockResolvedValue({ advisory: null })
+  })
+
+  it('invokes the guard with source=bearer + action=status change on a status transition', async () => {
+    await taskCliService.updateFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      callerClerkId: 'clerk_1',
+      identifier: 'LUM-48',
+      sourceSessionId: 'sess_abc',
+      input: { status: 'IN_PROGRESS' },
+    })
+    expect(enforce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'bearer',
+        sessionId: 'sess_abc',
+        action: 'status change',
+      })
+    )
+  })
+
+  it('does NOT invoke the guard when no status field is present', async () => {
+    await taskCliService.updateFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      callerClerkId: 'clerk_1',
+      identifier: 'LUM-48',
+      sourceSessionId: 'sess_abc',
+      input: { title: 'just a title change' },
+    })
+    expect(enforce).not.toHaveBeenCalled()
+  })
+
+  it('propagates a 409 from a mismatch (work is blocked)', async () => {
+    enforce.mockRejectedValue(
+      Object.assign(new Error('bound to LUM-487'), { status: 409 })
+    )
+    await expect(
+      taskCliService.updateFromCli({
+        workspaceId: 'ws_1',
+        workspaceSlug: 'ws',
+        callerClerkId: 'clerk_1',
+        identifier: 'LUM-48',
+        sourceSessionId: 'sess_mismatch',
+        input: { status: 'IN_PROGRESS' },
+      })
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
