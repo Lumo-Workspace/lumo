@@ -822,6 +822,11 @@ export const lineageEdgeRepository = {
       }),
     ])
     const tokenCount = tokenAgg._count._all
+    // Sum-difference (Σfull − Σindex) rather than the single-task path's
+    // per-edge Σmax(0, full−index). The two agree because fullTokens ≥
+    // indexTokens always holds (the full rendered body ⊇ its one-line manifest;
+    // asserted in session-start-fragments). The outer Math.max(0, …) clamps the
+    // pathological case so this can never report negative savings.
     const tokensSaved =
       tokenCount > 0
         ? Math.max(
