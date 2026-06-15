@@ -167,15 +167,32 @@ const WORKTREE_PATH_SEGMENT = /(?:^|\/)\.worktrees\//
  * relative or absolute to the main checkout) is unchanged while a worktree cleanup
  * no longer trips. A command that deletes BOTH a real migration and a worktree
  * copy still flags on the real one (the conservative direction).
+ *
+ * LUM-511: scoped to the rm invocation's OWN segment, not the whole command line
+ * — mirroring `matchProtectedPush`. The old check tested for an `rm`/`git rm`
+ * token ANYWHERE and a `prisma/migrations/` token ANYWHERE, independently, so a
+ * command that deletes an unrelated temp file (`rm -f checkcol.ts`) while a
+ * SIBLING command merely *applies* a migration (`prisma db execute --file
+ * prisma/migrations/…`) or *checks* for one (`git ls-tree | grep
+ * prisma/migrations/…`) false-tripped. We now split on shell separators, keep
+ * only segment(s) that invoke `rm`/`git rm`, and require the migration path to
+ * appear in that segment's args AFTER the rm verb — the path must actually be a
+ * delete target, not just co-occur elsewhere in the line.
  */
 function matchMigrationDelete(cmd: string): boolean {
-  if (!/(?:^|[\s;&|])(?:rm|git\s+rm)\b/.test(cmd)) return false
-  return cmd
-    .split(/\s+/)
-    .some(
-      tok =>
-        tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
-    )
+  for (const seg of splitCommandSegments(cmd)) {
+    const m = seg.match(/(?:^|[\s(])(?:rm|git\s+rm)\b/)
+    if (!m) continue
+    const args = seg.slice((m.index ?? 0) + m[0].length)
+    const deletesMigration = args
+      .split(/\s+/)
+      .some(
+        tok =>
+          tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
+      )
+    if (deletesMigration) return true
+  }
+  return false
 }
 
 /** Irreversible / data-destroying DB commands. */

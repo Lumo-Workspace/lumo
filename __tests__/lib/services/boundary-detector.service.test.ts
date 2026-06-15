@@ -163,6 +163,48 @@ describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', ()
     }
   })
 
+  it('does not flag when rm targets a temp file and a sibling command merely references prisma/migrations/', () => {
+    // LUM-511: the matcher used to check for an `rm`/`git rm` token ANYWHERE and a
+    // `prisma/migrations/` token ANYWHERE in the command, independently — so a
+    // command that deletes an unrelated temp file (`rm -f checkcol.ts`) while a
+    // SIBLING segment merely *applies* a migration (`prisma db execute --file
+    // prisma/migrations/…`) or *checks* for one (`git ls-tree | grep
+    // prisma/migrations/…`) false-tripped MIGRATION_FILE_DELETED. The path must
+    // be an argument to the rm invocation's OWN segment, not just co-occur.
+    for (const command of [
+      // The real dogfood FP: apply-via-db-execute next to a temp-file cleanup.
+      'NAME=foo\nnpx prisma db execute --file "prisma/migrations/$NAME/migration.sql" --url "$DATABASE_URL"\nrm -f checkcol.ts',
+      // Presence check piped to grep, then an unrelated scratch-file delete.
+      'git ls-tree -r --name-only origin/main | grep prisma/migrations/20260613 ; rm -f /tmp/scratch.ts',
+      'cat prisma/migrations/20240101_init/migration.sql && rm -f /tmp/out.txt',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).not.toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
+  it('still flags a real migration delete sitting among unrelated sibling commands', () => {
+    // Scoping to the rm segment must NOT lose recall: a genuine
+    // `rm prisma/migrations/…` is still flagged even when wrapped in noise.
+    for (const command of [
+      'echo cleaning up; rm -rf prisma/migrations/20240101_init; echo done',
+      'git status | cat && git rm -r prisma/migrations/20240101_init',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
   it('flags a destructive DB command (migrate reset / force-reset)', () => {
     expect(
       detectCrossings({
