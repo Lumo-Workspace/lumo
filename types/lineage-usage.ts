@@ -31,5 +31,8 @@ export interface UsageSignalHealth {
     index: number
     pulled: number
     used: number
+    /** LUM-522: Σ(fullTokens − indexTokens) over un-pulled INDEX edges with
+     *  token data. Null when no workspace edge carries token columns yet. */
+    tokensSaved: number | null
   }
 }

@@ -45,7 +45,14 @@ export interface LineageResponse {
     }
     loopCount: number
     outcomes: Record<Outcome, number>
-    funnel: { impressions: number; index: number; pulled: number; used: number }
+    funnel: {
+      impressions: number
+      index: number
+      pulled: number
+      used: number
+      /** LUM-522: tokens saved over un-pulled INDEX edges; null = no token data. */
+      tokensSaved?: number | null
+    }
   }
   groups: LineageGroup[]
 }
@@ -67,6 +74,8 @@ export interface UsageSignalHealth {
     index: number
     pulled: number
     used: number
+    /** LUM-522: tokens saved over un-pulled INDEX edges; null = no token data. */
+    tokensSaved?: number | null
   }
 }
 
@@ -216,11 +225,13 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   const totalsOutcome = outcomeSummary(t.outcomes)
   if (totalsOutcome) lines.push(`- Outcomes: ${totalsOutcome}`)
   const f = t.funnel
+  const fSavedSuffix =
+    f.tokensSaved != null ? ` · ~${f.tokensSaved} tokens saved` : ''
   lines.push(
     `- Disclosure funnel: ${f.impressions} impressions · ` +
       `${f.index} INDEX (${pct(f.index, f.impressions)}%) · ` +
       `${f.pulled} pulled (${pct(f.pulled, f.index)}% of INDEX) · ` +
-      `${f.used} used (${pct(f.used, f.impressions)}%)`
+      `${f.used} used (${pct(f.used, f.impressions)}%)${fSavedSuffix}`
   )
   lines.push('')
 
@@ -282,11 +293,13 @@ export function formatSignalHealth(h: UsageSignalHealth): string {
     `- Spinoffs during in-flight work: ${h.spinoffsDuringInFlight} (recorded, not yet judged)`
   )
   const f = h.disclosureFunnel
+  const fSavedSuffix =
+    f.tokensSaved != null ? ` · ~${f.tokensSaved} tokens saved` : ''
   lines.push(
     `- Disclosure funnel: ${f.impressions} impressions · ` +
       `${f.index} INDEX (${pct(f.index, f.impressions)}%) · ` +
       `${f.pulled} pulled (${pct(f.pulled, f.index)}% of INDEX) · ` +
-      `${f.used} used (${pct(f.used, f.impressions)}%)`
+      `${f.used} used (${pct(f.used, f.impressions)}%)${fSavedSuffix}`
   )
   return lines.join('\n')
 }

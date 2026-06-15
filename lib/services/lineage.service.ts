@@ -79,7 +79,18 @@ export interface LineageDto {
      * was pulled, so `pulled / index` is an honest "did the lean index suffice"
      * rate; `index`/`used` are over `impressions`.
      */
-    funnel: { impressions: number; index: number; pulled: number; used: number }
+    funnel: {
+      impressions: number
+      index: number
+      pulled: number
+      used: number
+      /**
+       * LUM-522 tokens saved: Σ(fullTokens − indexTokens) over INDEX edges
+       * that were never pulled (pulledAt null) and carry both token columns.
+       * Null when no edge in this task carries token data yet.
+       */
+      tokensSaved: number | null
+    }
   }
   groups: LineageGroup[]
 }
@@ -293,7 +304,14 @@ export const lineageService = {
     const groups = new Map<string, LineageGroup>()
     const seenFragment = new Set<string>()
     const outcomes = emptyOutcomes()
-    const funnel = { impressions: 0, index: 0, pulled: 0, used: 0 }
+    const funnel = {
+      impressions: 0,
+      index: 0,
+      pulled: 0,
+      used: 0,
+      tokensSaved: 0,
+    }
+    let hasTokenData = false
 
     for (const { e, cid } of withCanon) {
       outcomes[e.outcome] += 1
@@ -301,7 +319,16 @@ export const lineageService = {
       if (e.disclosure === 'INDEX') {
         funnel.index += 1
         if (e.pulledAt !== null) funnel.pulled += 1
+        if (
+          e.pulledAt == null &&
+          e.indexTokens != null &&
+          e.fullTokens != null
+        ) {
+          hasTokenData = true
+          funnel.tokensSaved += Math.max(0, e.fullTokens - e.indexTokens)
+        }
       }
+      if (e.indexTokens != null && e.fullTokens != null) hasTokenData = true
       if (e.used === true) funnel.used += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
 
@@ -375,7 +402,10 @@ export const lineageService = {
         tokens,
         loopCount,
         outcomes,
-        funnel,
+        funnel: {
+          ...funnel,
+          tokensSaved: hasTokenData ? funnel.tokensSaved : null,
+        },
       },
       groups: groupList,
     }

@@ -798,16 +798,38 @@ export const lineageEdgeRepository = {
     index: number
     pulled: number
     used: number
+    /** LUM-522: Σ(fullTokens − indexTokens) over un-pulled INDEX edges that
+     *  carry both token columns. Null when no such edges exist yet. */
+    tokensSaved: number | null
   }> {
-    const [impressions, index, pulled, used] = await Promise.all([
+    const [impressions, index, pulled, used, tokenAgg] = await Promise.all([
       prisma.lineageEdge.count({ where: { workspaceId } }),
       prisma.lineageEdge.count({ where: { workspaceId, disclosure: 'INDEX' } }),
       prisma.lineageEdge.count({
         where: { workspaceId, disclosure: 'INDEX', pulledAt: { not: null } },
       }),
       prisma.lineageEdge.count({ where: { workspaceId, used: true } }),
+      prisma.lineageEdge.aggregate({
+        where: {
+          workspaceId,
+          disclosure: 'INDEX',
+          pulledAt: null,
+          indexTokens: { not: null },
+          fullTokens: { not: null },
+        },
+        _sum: { fullTokens: true, indexTokens: true },
+        _count: { _all: true },
+      }),
     ])
-    return { impressions, index, pulled, used }
+    const tokenCount = tokenAgg._count._all
+    const tokensSaved =
+      tokenCount > 0
+        ? Math.max(
+            0,
+            (tokenAgg._sum.fullTokens ?? 0) - (tokenAgg._sum.indexTokens ?? 0)
+          )
+        : null
+    return { impressions, index, pulled, used, tokensSaved }
   },
 }
 
