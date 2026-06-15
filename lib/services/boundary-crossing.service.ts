@@ -4,6 +4,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
@@ -286,6 +287,50 @@ export function buildAttributionView(
   }
 }
 
+/** The session projection a hook-less crossing attributes through (LUM-511). */
+export interface AttributionSession {
+  id: string
+  workspaceMemberId: string
+  agent: TaskArtifactAgent | null
+  worktree?: { branch: string | null } | null
+  /** Cumulative per-model token map (LUM-298) — its dominant model names the
+   *  model that ran the session. */
+  usageByModel: unknown
+}
+
+/**
+ * Build the attribution view from the originating session (LUM-511). The
+ * fallback for crossings recorded without a hook event (spinoff laundering is
+ * detected on a `lumo task create` call): owner/agent/worktree come straight off
+ * the session, and the model is the dominant one in its cumulative usageByModel
+ * (LUM-298, highest total tokens) — the session-level analog of
+ * {@link modelForEvent}'s per-turn read. Every field degrades to null, never
+ * fabricated; a missing session yields all-null attribution.
+ */
+export function attributionFromSession(
+  session: AttributionSession | null
+): CrossingAttributionView {
+  if (!session) {
+    return {
+      workspaceMemberId: null,
+      sessionId: null,
+      agent: null,
+      worktreeBranch: null,
+      model: null,
+    }
+  }
+  const costs = toModelCosts(
+    session.usageByModel as Record<string, ModelUsage> | null
+  )
+  return {
+    workspaceMemberId: session.workspaceMemberId,
+    sessionId: session.id,
+    agent: session.agent,
+    worktreeBranch: session.worktree?.branch ?? null,
+    model: costs?.[0]?.model ?? null,
+  }
+}
+
 function readToolInput(payload: unknown): Record<string, unknown> | null {
   if (!payload || typeof payload !== 'object') return null
   const input = (payload as Record<string, unknown>).tool_input
@@ -532,6 +577,24 @@ export const boundaryCrossingService = {
         ? await hookEventRepository.findTurnUsageForSessions(attribSessionIds)
         : []
 
+    // LUM-511: crossings recorded from a CLI path (spinoff laundering) carry no
+    // hook event but do carry the originating sessionId — attribute them through
+    // the Session directly (owner/agent/worktree + dominant model from cumulative
+    // usageByModel). One id-scoped read, skipped when no such crossing exists.
+    const directSessionIds = [
+      ...new Set(
+        rows
+          .filter(c => !c.hookEventId && c.sessionId)
+          .map(c => c.sessionId)
+          .filter((id): id is string => !!id)
+      ),
+    ]
+    const directSessions =
+      directSessionIds.length > 0
+        ? await sessionRepository.findManyForAttribution(directSessionIds)
+        : []
+    const directSessionById = new Map(directSessions.map(s => [s.id, s]))
+
     const views = rows.map(c => {
       const rt = c.remediationTask
       const remediationTask: RemediationTaskView | null = rt
@@ -557,10 +620,16 @@ export const boundaryCrossingService = {
       const attribEvent = c.hookEventId
         ? (attribEventById.get(c.hookEventId) ?? null)
         : null
-      const attribution = buildAttributionView(
-        attribEvent,
-        modelForEvent(attribEvent, usageStops)
-      )
+      // Hook event wins; otherwise fall back to the originating session
+      // (LUM-511 — hook-less CLI crossings). All-null when neither resolves.
+      const attribution = attribEvent
+        ? buildAttributionView(
+            attribEvent,
+            modelForEvent(attribEvent, usageStops)
+          )
+        : c.sessionId
+          ? attributionFromSession(directSessionById.get(c.sessionId) ?? null)
+          : buildAttributionView(null, null)
       return {
         id: c.id,
         category: c.category,

@@ -4,6 +4,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 
@@ -41,6 +42,9 @@ jest.mock('@/lib/repositories/hook-event.repository', () => ({
     findTurnUsageForSessions: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: { findManyForAttribution: jest.fn() },
+}))
 
 const findById = boundaryCrossingRepository.findById as jest.Mock
 const findAll = boundaryCrossingRepository.findAllByTask as jest.Mock
@@ -57,6 +61,7 @@ const addManual = taskDependencyService.addManual as jest.Mock
 const findAttribEvents =
   hookEventRepository.findManyByIdsForAttribution as jest.Mock
 const findTurnUsage = hookEventRepository.findTurnUsageForSessions as jest.Mock
+const findAttribSessions = sessionRepository.findManyForAttribution as jest.Mock
 
 const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
 
@@ -72,6 +77,8 @@ beforeEach(() => {
   // event degrades to unknown attribution (LUM-469).
   findAttribEvents.mockResolvedValue([])
   findTurnUsage.mockResolvedValue([])
+  // No hook-less (CLI-sourced) crossings by default (LUM-511).
+  findAttribSessions.mockResolvedValue([])
 })
 
 describe('boundaryCrossingService.disposition', () => {
@@ -631,6 +638,66 @@ describe('boundaryCrossingService.listAll — attribution audit (LUM-469)', () =
     // the human-only red line (LUM-435/426) is structurally untouched.
     expect(disposition).not.toHaveBeenCalled()
     expect(createActivity).not.toHaveBeenCalled()
+  })
+
+  it('resolves attribution from the originating session for a hook-less crossing (LUM-511)', async () => {
+    // A spinoff-laundering crossing is recorded on a `lumo task create` call —
+    // no hook event, but it carries the originating sessionId.
+    findAll.mockResolvedValue([
+      crossing({
+        id: 'bc-spinoff',
+        category: 'SPINOFF_LAUNDERED',
+        hookEventId: null,
+        sessionId: 'sess-cli',
+      }),
+    ])
+    findAttribSessions.mockResolvedValue([
+      {
+        id: 'sess-cli',
+        workspaceMemberId: 'member-9',
+        agent: 'CLAUDE_CODE',
+        worktree: { branch: 'lumo/LUM-511-rework' },
+        usageByModel: {
+          'claude-opus-4-8': { input: 8000, output: 3000 },
+          'claude-haiku-4-5': { input: 50, output: 10 },
+        },
+      },
+    ])
+
+    const v = (await boundaryCrossingService.listAll('t-1'))[0]!
+    expect(v.attribution).toEqual({
+      workspaceMemberId: 'member-9',
+      sessionId: 'sess-cli',
+      agent: 'CLAUDE_CODE',
+      worktreeBranch: 'lumo/LUM-511-rework',
+      // Dominant model from the session's cumulative usageByModel (LUM-298).
+      model: 'claude-opus-4-8',
+    })
+    // The session read was scoped to exactly the hook-less crossing's session,
+    // and no hook-event attribution fetch was needed for it.
+    expect(findAttribSessions).toHaveBeenCalledWith(['sess-cli'])
+  })
+
+  it('hook event wins over session when a crossing somehow carries both (LUM-511)', async () => {
+    findAll.mockResolvedValue([
+      crossing({ id: 'bc-both', hookEventId: 'he-1', sessionId: 'sess-cli' }),
+    ])
+    findAttribEvents.mockResolvedValue([
+      {
+        id: 'he-1',
+        workspaceMemberId: 'member-hook',
+        sessionId: 'sess-hook',
+        payload: {},
+        createdAt: new Date('2026-06-11T00:00:00.000Z'),
+        session: { agent: 'CLAUDE_CODE', worktree: { branch: 'from-hook' } },
+      },
+    ])
+
+    const v = (await boundaryCrossingService.listAll('t-1'))[0]!
+    expect(v.attribution.workspaceMemberId).toBe('member-hook')
+    expect(v.attribution.worktreeBranch).toBe('from-hook')
+    // The session fallback isn't consulted when a hook event resolves.
+    expect(findAttribSessions).not.toHaveBeenCalled()
   })
 })
 

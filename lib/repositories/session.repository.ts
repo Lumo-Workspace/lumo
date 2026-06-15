@@ -247,6 +247,26 @@ export const sessionRepository = {
   },
 
   /**
+   * Attribution projection (LUM-511) for crossings recorded without a hook
+   * event: the owner, agent, worktree branch, and cumulative per-model usage
+   * needed to fill the LUM-469 attribution view from the session directly.
+   * Mirrors `hookEventRepository.findManyByIdsForAttribution`. Skipped when no id.
+   */
+  async findManyForAttribution(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.session.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        workspaceMemberId: true,
+        agent: true,
+        usageByModel: true,
+        worktree: { select: { branch: true } },
+      },
+    })
+  },
+
+  /**
    * Resolve a sessionId to its workspace. Used by routes that need to do a
    * workspace-membership check before serving a session-scoped resource.
    */
