@@ -31,6 +31,7 @@ jest.mock('@/lib/repositories/hook-event.repository', () => ({
 jest.mock('@/lib/services/lineage.service', () => ({
   lineageService: {
     recordSessionStartEdges: jest.fn().mockResolvedValue(undefined),
+    recordDroppedFragments: jest.fn().mockResolvedValue(undefined),
   },
 }))
 jest.mock('@/lib/services/task-dependency.service', () => ({
@@ -125,6 +126,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
       fragments: [],
+      droppedFragments: [],
     })
     ;(
       taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
@@ -146,6 +148,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
       fragments: [],
+      droppedFragments: [],
     })
 
     const req = post({ sessionId: 's-1' })
@@ -178,6 +181,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
         '<untrusted-linked-context>\n## Pull Requests\n- #7 x\n</untrusted-linked-context>',
       budget: EMPTY_BUDGET,
       fragments: [],
+      droppedFragments: [],
     })
     ;(
       taskContextService.buildReviewTodosSectionForTask as jest.Mock
@@ -223,6 +227,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
       fragments: [],
+      droppedFragments: [],
     })
 
     const req = post({ sessionId: 's-3' })

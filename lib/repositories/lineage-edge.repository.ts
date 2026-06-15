@@ -21,6 +21,9 @@ export interface CreateLineageEdgeInput {
   sessionId?: string | null
   outcome?: LineageOutcome
   disclosure?: LineageDisclosure
+  indexTokens?: number
+  fullTokens?: number
+  relevanceScore?: number
 }
 
 /** A closing verdict that can be stamped onto an edge — everything but the
@@ -56,6 +59,9 @@ export interface FragmentRef {
   fragmentType: LineageFragmentType
   fragmentId: string
   disclosure?: LineageDisclosure
+  indexTokens?: number
+  fullTokens?: number
+  relevanceScore?: number
 }
 
 /** Per-fragment rollup of edge outcomes, returned by `aggregateByFragments`. */
@@ -204,6 +210,11 @@ export const lineageEdgeRepository = {
         sessionId: i.sessionId ?? null,
         ...(i.outcome ? { outcome: i.outcome } : {}),
         ...(i.disclosure ? { disclosure: i.disclosure } : {}),
+        ...(i.indexTokens != null ? { indexTokens: i.indexTokens } : {}),
+        ...(i.fullTokens != null ? { fullTokens: i.fullTokens } : {}),
+        ...(i.relevanceScore != null
+          ? { relevanceScore: i.relevanceScore }
+          : {}),
       })),
     })
   },
@@ -450,6 +461,29 @@ export const lineageEdgeRepository = {
       data: { used: false, usedAt: now },
     })
     return { used: usedRes.count, unused: unusedRes.count }
+  },
+
+  /**
+   * LUM-522: additively mark specific fragments used=false for a session —
+   * ONLY where `used` is currently NULL, so an existing true is never demoted
+   * and a later true is never blocked. No-op on empty input.
+   */
+  async applyUnusedVote(
+    sessionId: string,
+    unusedRefs: FragmentRef[],
+    opts: { tx?: Prisma.TransactionClient } = {}
+  ): Promise<{ unused: number }> {
+    if (unusedRefs.length === 0) return { unused: 0 }
+    const client = opts.tx ?? prisma
+    const or = unusedRefs.map(r => ({
+      fragmentType: r.fragmentType,
+      fragmentId: r.fragmentId,
+    }))
+    const res = await client.lineageEdge.updateMany({
+      where: { sessionId, used: null, OR: or },
+      data: { used: false, usedAt: new Date() },
+    })
+    return { unused: res.count }
   },
 
   /**
@@ -764,16 +798,43 @@ export const lineageEdgeRepository = {
     index: number
     pulled: number
     used: number
+    /** LUM-522: Σ(fullTokens − indexTokens) over un-pulled INDEX edges that
+     *  carry both token columns. Null when no such edges exist yet. */
+    tokensSaved: number | null
   }> {
-    const [impressions, index, pulled, used] = await Promise.all([
+    const [impressions, index, pulled, used, tokenAgg] = await Promise.all([
       prisma.lineageEdge.count({ where: { workspaceId } }),
       prisma.lineageEdge.count({ where: { workspaceId, disclosure: 'INDEX' } }),
       prisma.lineageEdge.count({
         where: { workspaceId, disclosure: 'INDEX', pulledAt: { not: null } },
       }),
       prisma.lineageEdge.count({ where: { workspaceId, used: true } }),
+      prisma.lineageEdge.aggregate({
+        where: {
+          workspaceId,
+          disclosure: 'INDEX',
+          pulledAt: null,
+          indexTokens: { not: null },
+          fullTokens: { not: null },
+        },
+        _sum: { fullTokens: true, indexTokens: true },
+        _count: { _all: true },
+      }),
     ])
-    return { impressions, index, pulled, used }
+    const tokenCount = tokenAgg._count._all
+    // Sum-difference (Σfull − Σindex) rather than the single-task path's
+    // per-edge Σmax(0, full−index). The two agree because fullTokens ≥
+    // indexTokens always holds (the full rendered body ⊇ its one-line manifest;
+    // asserted in session-start-fragments). The outer Math.max(0, …) clamps the
+    // pathological case so this can never report negative savings.
+    const tokensSaved =
+      tokenCount > 0
+        ? Math.max(
+            0,
+            (tokenAgg._sum.fullTokens ?? 0) - (tokenAgg._sum.indexTokens ?? 0)
+          )
+        : null
+    return { impressions, index, pulled, used, tokensSaved }
   },
 }
 

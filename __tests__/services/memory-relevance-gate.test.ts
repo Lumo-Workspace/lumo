@@ -197,4 +197,56 @@ describe('gateProjectMemories', () => {
     expect(res.selected).toHaveLength(RELEVANCE_GATE_TOP_K) // 8 kept under lexical floor
     expect(res.telemetry.mechanism).toBe('lexical')
   })
+
+  it('exposes per-id scores for selected and the dropped below-floor set', async () => {
+    const memories = Array.from({ length: 12 }, (_, i) => ({
+      id: `m${i}`,
+      scope: 'PROJECT' as const,
+      category: 'TRAP' as const,
+      content: {},
+    }))
+    const ranked = memories.map((m, i) => ({ id: m.id, score: 0.9 - i * 0.05 }))
+    const result = await gateProjectMemories(
+      {
+        task: { title: 't', description: null },
+        projectMemories: memories,
+        projectId: 'p',
+      },
+      {
+        rankBySimilarity: async () => ({ mechanism: 'embedding', ranked }),
+        trustByFragment: async () => new Map(),
+      }
+    )
+    expect(result.scores.get(result.selected[0]!.id)).toBeCloseTo(0.9)
+    expect(result.dropped.length).toBeGreaterThan(0)
+    expect(result.dropped.every(d => typeof d.score === 'number')).toBe(true)
+    const sel = new Set(result.selected.map(m => m.id))
+    expect(result.dropped.every(d => !sel.has(d.id))).toBe(true)
+  })
+
+  it('returns empty scores and dropped on fallback-all', async () => {
+    // Corpus > TOP_K so the small-corpus bypass does NOT short-circuit — a null
+    // ranking is what forces the fallback-all branch (the path under test).
+    const corpus = Array.from({ length: 20 }, (_, i) => ({
+      id: `m${i}`,
+      scope: 'PROJECT' as const,
+      category: 'TRAP' as const,
+      content: {},
+    }))
+    const r1 = await gateProjectMemories(
+      {
+        task: { title: 't', description: null },
+        projectMemories: corpus,
+        projectId: 'p',
+      },
+      {
+        rankBySimilarity: async () => null,
+        trustByFragment: async () => new Map(),
+      }
+    )
+    expect(r1.telemetry.mechanism).toBe('fallback-all')
+    expect(r1.selected).toHaveLength(corpus.length)
+    expect(r1.scores.size).toBe(0)
+    expect(r1.dropped).toEqual([])
+  })
 })

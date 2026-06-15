@@ -99,6 +99,18 @@ export async function POST(request: Request) {
           )
         }
 
+        // LUM-522: persist relevance-gate-dropped fragments (fire-and-forget).
+        if (sections.droppedFragments.length > 0) {
+          waitUntil(
+            lineageService.recordDroppedFragments({
+              workspaceId: ctx.workspaceId,
+              taskId: binding.taskId,
+              sessionId,
+              dropped: sections.droppedFragments,
+            })
+          )
+        }
+
         // LUM-402: stamp per-section injection metrics onto the stored
         // SESSION_START row so budget pressure is SQL-queryable after the
         // fact. Observe-only (the metrics never enter the injected context)

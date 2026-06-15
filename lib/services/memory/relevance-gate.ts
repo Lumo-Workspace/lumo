@@ -47,6 +47,12 @@ export interface RelevanceGateResult {
     selectedCount: number
     mechanism: GateMechanism
   }
+  /** Similarity score per SELECTED fragment id (LUM-522). Empty for
+   * bypass-small / fallback-all (no scoring happened). */
+  scores: Map<string, number>
+  /** Candidates the gate dropped below floor / past top-K, id+score (LUM-522).
+   * Empty unless a real similarity ranking ran. */
+  dropped: Array<{ id: string; score: number }>
 }
 
 function isAlwaysKeep(rate: {
@@ -80,6 +86,8 @@ export async function gateProjectMemories(
         selectedCount: corpusSize,
         mechanism: 'bypass-small',
       },
+      scores: new Map(),
+      dropped: [],
     }
   }
 
@@ -98,6 +106,8 @@ export async function gateProjectMemories(
         selectedCount: corpusSize,
         mechanism: 'fallback-all',
       },
+      scores: new Map(),
+      dropped: [],
     }
   }
 
@@ -128,6 +138,18 @@ export async function gateProjectMemories(
   // Preserves the caller's input order (similarity + trust-union as a set); the
   // caller owns final ordering (see render.ts).
   const selected = projectMemories.filter(m => selectedIds.has(m.id))
+
+  const scoreById = new Map(ranking.ranked.map(r => [r.id, r.score]))
+  const scores = new Map<string, number>()
+  for (const m of selected) {
+    const s = scoreById.get(m.id)
+    if (s != null) scores.set(m.id, s)
+  }
+  const selectedIdSet = new Set(selected.map(m => m.id))
+  const dropped = ranking.ranked
+    .filter(r => !selectedIdSet.has(r.id))
+    .map(r => ({ id: r.id, score: r.score }))
+
   return {
     selected,
     telemetry: {
@@ -135,5 +157,7 @@ export async function gateProjectMemories(
       selectedCount: selected.length,
       mechanism: ranking.mechanism,
     },
+    scores,
+    dropped,
   }
 }

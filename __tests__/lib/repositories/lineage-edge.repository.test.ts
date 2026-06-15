@@ -53,19 +53,77 @@ describe('lineageEdgeRepository.recordPull', () => {
   })
 })
 
+describe('lineageEdgeRepository.createMany token/score fields', () => {
+  it('persists indexTokens fullTokens and relevanceScore when present, omits when absent', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 })
+    ;(prisma as any).lineageEdge = { createMany }
+    await lineageEdgeRepository.createMany([
+      {
+        workspaceId: 'w',
+        taskId: 't',
+        fragmentType: 'MEMORY',
+        fragmentId: 'a',
+        disclosure: 'INDEX',
+        indexTokens: 12,
+        fullTokens: 300,
+        relevanceScore: 0.81,
+      },
+      {
+        workspaceId: 'w',
+        taskId: 't',
+        fragmentType: 'SESSION',
+        fragmentId: 'b',
+      },
+    ])
+    const data = createMany.mock.calls[0][0].data
+    expect(data[0]).toMatchObject({
+      indexTokens: 12,
+      fullTokens: 300,
+      relevanceScore: 0.81,
+    })
+    expect(data[1]).not.toHaveProperty('indexTokens')
+    expect(data[1]).not.toHaveProperty('relevanceScore')
+  })
+})
+
+describe('lineageEdgeRepository.applyUnusedVote', () => {
+  it('applyUnusedVote marks used false only where currently null', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 })
+    ;(prisma as any).lineageEdge = { updateMany }
+    await lineageEdgeRepository.applyUnusedVote('s', [
+      { fragmentType: 'MEMORY', fragmentId: 'b' },
+    ])
+    const arg = updateMany.mock.calls[0][0]
+    expect(arg.where).toMatchObject({ sessionId: 's', used: null })
+    expect(arg.where.OR).toEqual([{ fragmentType: 'MEMORY', fragmentId: 'b' }])
+    expect(arg.data).toMatchObject({ used: false })
+  })
+})
+
 describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
-  it('issues four workspace-scoped counts and returns the funnel shape', async () => {
+  it('issues four workspace-scoped counts plus a token-savings aggregate and returns the funnel shape', async () => {
     const count = jest.fn()
-    ;(prisma.lineageEdge as unknown as { count: jest.Mock }).count = count
+    const aggregate = jest.fn()
+    ;(prisma as any).lineageEdge = { count, aggregate }
     count
       .mockResolvedValueOnce(277) // impressions
       .mockResolvedValueOnce(277) // index
       .mockResolvedValueOnce(0) // pulled
       .mockResolvedValueOnce(12) // used
+    aggregate.mockResolvedValueOnce({
+      _sum: { fullTokens: 5000, indexTokens: 200 },
+      _count: { _all: 10 },
+    })
 
     const res = await lineageEdgeRepository.disclosureFunnelAggregates('ws-1')
 
-    expect(res).toEqual({ impressions: 277, index: 277, pulled: 0, used: 12 })
+    expect(res).toEqual({
+      impressions: 277,
+      index: 277,
+      pulled: 0,
+      used: 12,
+      tokensSaved: 4800, // 5000 - 200
+    })
     expect(count).toHaveBeenNthCalledWith(1, { where: { workspaceId: 'ws-1' } })
     expect(count).toHaveBeenNthCalledWith(2, {
       where: { workspaceId: 'ws-1', disclosure: 'INDEX' },
@@ -80,5 +138,33 @@ describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
     expect(count).toHaveBeenNthCalledWith(4, {
       where: { workspaceId: 'ws-1', used: true },
     })
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: 'ws-1',
+          disclosure: 'INDEX',
+          pulledAt: null,
+        }),
+        _sum: { fullTokens: true, indexTokens: true },
+      })
+    )
+  })
+
+  it('returns tokensSaved: null when no un-pulled INDEX edges carry token data', async () => {
+    const count = jest.fn()
+    const aggregate = jest.fn()
+    ;(prisma as any).lineageEdge = { count, aggregate }
+    count
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+    aggregate.mockResolvedValueOnce({
+      _sum: { fullTokens: null, indexTokens: null },
+      _count: { _all: 0 }, // zero matching edges
+    })
+
+    const res = await lineageEdgeRepository.disclosureFunnelAggregates('ws-1')
+    expect(res.tokensSaved).toBeNull()
   })
 })

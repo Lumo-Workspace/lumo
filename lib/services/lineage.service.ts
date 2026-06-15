@@ -1,4 +1,5 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { droppedFragmentRepository } from '@/lib/repositories/dropped-fragment.repository'
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
@@ -78,7 +79,18 @@ export interface LineageDto {
      * was pulled, so `pulled / index` is an honest "did the lean index suffice"
      * rate; `index`/`used` are over `impressions`.
      */
-    funnel: { impressions: number; index: number; pulled: number; used: number }
+    funnel: {
+      impressions: number
+      index: number
+      pulled: number
+      used: number
+      /**
+       * LUM-522 tokens saved: Σ(fullTokens − indexTokens) over INDEX edges
+       * that were never pulled (pulledAt null) and carry both token columns.
+       * Null when no edge in this task carries token data yet.
+       */
+      tokensSaved: number | null
+    }
   }
   groups: LineageGroup[]
 }
@@ -163,6 +175,38 @@ export const lineageService = {
     } catch (err) {
       // Best-effort: log and swallow.
       logger.error('lineageService.recordSessionStartEdges failed', err)
+    }
+  },
+
+  /**
+   * LUM-522: persist the relevance-gate-dropped fragments (id+score) for a
+   * session. Best-effort; never throws — drop telemetry must not break the
+   * session-start hot path. No-op on empty input.
+   */
+  async recordDroppedFragments(input: {
+    workspaceId: string
+    taskId: string
+    sessionId: string
+    dropped: Array<{
+      fragmentType: LineageFragmentType
+      fragmentId: string
+      relevanceScore: number
+    }>
+  }): Promise<void> {
+    try {
+      if (input.dropped.length === 0) return
+      await droppedFragmentRepository.createMany(
+        input.dropped.map(d => ({
+          workspaceId: input.workspaceId,
+          taskId: input.taskId,
+          sessionId: input.sessionId,
+          fragmentType: d.fragmentType,
+          fragmentId: d.fragmentId,
+          relevanceScore: d.relevanceScore,
+        }))
+      )
+    } catch (err) {
+      logger.error('lineageService.recordDroppedFragments failed', err)
     }
   },
 
@@ -260,7 +304,14 @@ export const lineageService = {
     const groups = new Map<string, LineageGroup>()
     const seenFragment = new Set<string>()
     const outcomes = emptyOutcomes()
-    const funnel = { impressions: 0, index: 0, pulled: 0, used: 0 }
+    const funnel = {
+      impressions: 0,
+      index: 0,
+      pulled: 0,
+      used: 0,
+      tokensSaved: 0,
+    }
+    let hasTokenData = false
 
     for (const { e, cid } of withCanon) {
       outcomes[e.outcome] += 1
@@ -268,6 +319,14 @@ export const lineageService = {
       if (e.disclosure === 'INDEX') {
         funnel.index += 1
         if (e.pulledAt !== null) funnel.pulled += 1
+        if (
+          e.pulledAt == null &&
+          e.indexTokens != null &&
+          e.fullTokens != null
+        ) {
+          hasTokenData = true
+          funnel.tokensSaved += Math.max(0, e.fullTokens - e.indexTokens)
+        }
       }
       if (e.used === true) funnel.used += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
@@ -342,7 +401,10 @@ export const lineageService = {
         tokens,
         loopCount,
         outcomes,
-        funnel,
+        funnel: {
+          ...funnel,
+          tokensSaved: hasTokenData ? funnel.tokensSaved : null,
+        },
       },
       groups: groupList,
     }

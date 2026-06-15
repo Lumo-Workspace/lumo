@@ -33,7 +33,8 @@ async function auditSession(
   const fragments: JudgeFragment[] = edges.map(e => ({
     fragmentType: e.fragmentType,
     fragmentId: e.fragmentId,
-    content: contentMap.get(`${e.fragmentType}::${e.fragmentId}`) ?? e.fragmentId,
+    content:
+      contentMap.get(`${e.fragmentType}::${e.fragmentId}`) ?? e.fragmentId,
   }))
 
   const events = await sessionRepository.listEventsForSession(sessionId)
@@ -44,19 +45,36 @@ async function auditSession(
 
   // Dynamic import keeps the @ai-sdk/gateway static graph out of this service's
   // (and its callers') jest path — see project_ai_sdk_gateway_jest_trap.
-  const { judgeFragmentUsage } = await import(
-    '@/lib/services/lineage/usage-judge'
-  )
-  const confirmed = await judgeFragmentUsage({ taskTitle, fragments, eventLog })
-  if (confirmed.length === 0) return
+  const { judgeFragmentUsage } =
+    await import('@/lib/services/lineage/usage-judge')
+  const { used, unused } = await judgeFragmentUsage({
+    taskTitle,
+    fragments,
+    eventLog,
+  })
+  if (used.length === 0 && unused.length === 0) return
 
-  await lineageEdgeRepository.applyUsageVote(
-    sessionId,
-    confirmed.map(c => ({ fragmentType: c.fragmentType, fragmentId: c.fragmentId })),
-    { mode: 'additive' }
-  )
+  if (used.length > 0) {
+    await lineageEdgeRepository.applyUsageVote(
+      sessionId,
+      used.map(c => ({
+        fragmentType: c.fragmentType as LineageFragmentType,
+        fragmentId: c.fragmentId,
+      })),
+      { mode: 'additive' }
+    )
+  }
+  if (unused.length > 0) {
+    await lineageEdgeRepository.applyUnusedVote(
+      sessionId,
+      unused.map(c => ({
+        fragmentType: c.fragmentType as LineageFragmentType,
+        fragmentId: c.fragmentId,
+      }))
+    )
+  }
   logger.debug(
-    `[lineage.usageAudit] session=${sessionId} voted used=${confirmed.length}/${edges.length}`
+    `[lineage.usageAudit] session=${sessionId} used=${used.length} unused=${unused.length}/${edges.length}`
   )
 }
 

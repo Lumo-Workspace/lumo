@@ -24,6 +24,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { getStatus: jest.fn().mockResolvedValue('TODO') },
 }))
 jest.mock('@/lib/logger', () => ({ logger: { error: jest.fn() } }))
+jest.mock('@/lib/repositories/dropped-fragment.repository', () => ({
+  droppedFragmentRepository: {
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
+}))
 
 import { lineageService } from '@/lib/services/lineage.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
@@ -33,6 +38,8 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
+import { droppedFragmentRepository } from '@/lib/repositories/dropped-fragment.repository'
+import { formatLineageMarkdown } from '../../cli/src/commands/task-lineage'
 
 const mockCreateMany = lineageEdgeRepository.createMany as jest.Mock
 const mockStampOutcomeByTask =
@@ -365,6 +372,45 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
   })
 })
 
+describe('lineageService.recordDroppedFragments', () => {
+  it('records gate dropped fragments via the repository', async () => {
+    const createMany = jest
+      .spyOn(droppedFragmentRepository, 'createMany')
+      .mockResolvedValue({ count: 2 })
+    await lineageService.recordDroppedFragments({
+      workspaceId: 'w',
+      taskId: 't',
+      sessionId: 's',
+      dropped: [
+        { fragmentType: 'MEMORY', fragmentId: 'a', relevanceScore: 0.1 },
+        { fragmentType: 'MEMORY', fragmentId: 'b', relevanceScore: 0.2 },
+      ],
+    })
+    expect(createMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: 'w',
+          taskId: 't',
+          sessionId: 's',
+          fragmentId: 'a',
+        }),
+      ])
+    )
+    // best-effort: a repo rejection must not throw
+    createMany.mockRejectedValueOnce(new Error('boom'))
+    await expect(
+      lineageService.recordDroppedFragments({
+        workspaceId: 'w',
+        taskId: 't',
+        sessionId: 's',
+        dropped: [
+          { fragmentType: 'MEMORY', fragmentId: 'a', relevanceScore: 0.1 },
+        ],
+      })
+    ).resolves.toBeUndefined()
+  })
+})
+
 describe('getLineageForIdentifier disclosure funnel', () => {
   it('carries per-fragment disclosure/pulled and edge-level totals.funnel', async () => {
     mockResolveIdentifier.mockResolvedValue({
@@ -417,6 +463,7 @@ describe('getLineageForIdentifier disclosure funnel', () => {
       index: 2,
       pulled: 1,
       used: 1,
+      tokensSaved: null, // no token data in these fixtures → null
     })
     const frags = dto!.groups[0]!.fragments
     const m1 = frags.find(f => f.fragmentId === 'm1')!
@@ -428,5 +475,102 @@ describe('getLineageForIdentifier disclosure funnel', () => {
     const p1 = frags.find(f => f.fragmentId === 'p1')!
     expect(p1.disclosure).toBe('FULL')
     expect(p1.pulled).toBe(false)
+  })
+})
+
+describe('getLineageForIdentifier disclosure funnel — tokens saved (LUM-522)', () => {
+  const taskStub = {
+    id: 't-2',
+    identifier: 'LUM-2',
+    title: 'Tokens',
+    status: 'DONE',
+  }
+
+  beforeEach(() => {
+    mockResolveIdentifier.mockResolvedValue(taskStub)
+  })
+
+  it('funnel summary surfaces tokens saved over unpulled index edges', async () => {
+    // Arrange: 3 INDEX edges, pulledAt null, with token data.
+    // savings = (300-12) + (250-10) + (200-8) = 288 + 240 + 192 = 720.
+    mockListByTaskWithCost.mockResolvedValue([
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'ma',
+        sessionId: 's2',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'INDEX',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+        fullTokens: 300,
+        indexTokens: 12,
+      },
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'mb',
+        sessionId: 's2',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'INDEX',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+        fullTokens: 250,
+        indexTokens: 10,
+      },
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'mc',
+        sessionId: 's2',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'INDEX',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+        fullTokens: 200,
+        indexTokens: 8,
+      },
+    ])
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-2',
+      'mem-2',
+      'LUM-2'
+    )
+    expect(dto).not.toBeNull()
+    expect(dto!.totals.funnel.tokensSaved).toBe(720)
+
+    const summaryLine = formatLineageMarkdown(dto!)
+    expect(summaryLine).toContain('~720 tokens saved')
+  })
+
+  it('omits tokens-saved when no edge carries token data', async () => {
+    // Edges with null token columns → tokensSaved must be null and the
+    // funnel summary must NOT contain 'tokens saved'.
+    mockListByTaskWithCost.mockResolvedValue([
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'mx',
+        sessionId: 's3',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'INDEX',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+        fullTokens: null,
+        indexTokens: null,
+      },
+    ])
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-3',
+      'mem-3',
+      'LUM-2'
+    )
+    expect(dto).not.toBeNull()
+    expect(dto!.totals.funnel.tokensSaved).toBeNull()
+
+    const summaryLine = formatLineageMarkdown(dto!)
+    expect(summaryLine).not.toContain('tokens saved')
   })
 })

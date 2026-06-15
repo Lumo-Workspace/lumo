@@ -59,6 +59,8 @@ import {
   wrapUntrustedMemory,
   wrapUntrustedLinked,
   wrapUntrustedLinkedGroup,
+  memoryManifestLine,
+  renderMemoryItem,
   type MemorySource,
   type RenderableMemory,
 } from '@/lib/memory/render'
@@ -681,6 +683,12 @@ export const taskContextService = {
     memorySection: string
     linkedResourcesSection: string
     fragments: FragmentRef[]
+    /** Fragments dropped by the relevance gate before ranking (LUM-522). */
+    droppedFragments: Array<{
+      fragmentType: 'MEMORY'
+      fragmentId: string
+      relevanceScore: number
+    }>
     /** Per-section budget attribution (LUM-402 telemetry) — observe-only. */
     budget: {
       budgetTokens: number
@@ -701,6 +709,11 @@ export const taskContextService = {
       memorySection: '',
       linkedResourcesSection: '',
       fragments: [] as FragmentRef[],
+      droppedFragments: [] as Array<{
+        fragmentType: 'MEMORY'
+        fragmentId: string
+        relevanceScore: number
+      }>,
       budget: {
         budgetTokens: SESSION_START_BUDGET_TOKENS,
         sections: {
@@ -910,12 +923,26 @@ export const taskContextService = {
     // edge is tagged INDEX. The route's extra fragments (review-todos, layer2,
     // SESSION) carry no disclosure and correctly default to FULL, since they're
     // injected as full content.
+    const droppedFragments = gate.dropped.map(d => ({
+      fragmentType: 'MEMORY' as const,
+      fragmentId: d.id,
+      relevanceScore: d.score,
+    }))
+
     const fragments: FragmentRef[] = [
-      ...ranked.memories.map(m => ({
-        fragmentType: 'MEMORY' as const,
-        fragmentId: m.id,
-        disclosure: 'INDEX' as const,
-      })),
+      ...ranked.memories.map(m => {
+        const indexTokens = estimateTokens(memoryManifestLine(m))
+        const fullTokens = estimateTokens(renderMemoryItem(m))
+        const score = gate.scores.get(m.id)
+        return {
+          fragmentType: 'MEMORY' as const,
+          fragmentId: m.id,
+          disclosure: 'INDEX' as const,
+          indexTokens,
+          fullTokens,
+          ...(score != null ? { relevanceScore: score } : {}),
+        }
+      }),
       ...ranked.slack.map(s => ({
         fragmentType: 'SLACK_CONTEXT' as const,
         fragmentId: s.id,
@@ -948,6 +975,7 @@ export const taskContextService = {
       memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       fragments,
+      droppedFragments,
       budget: {
         budgetTokens: SESSION_START_BUDGET_TOKENS,
         sections: {

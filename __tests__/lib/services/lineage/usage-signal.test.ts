@@ -147,7 +147,13 @@ it('includes the workspace disclosure funnel', async () => {
   )
   ;(
     lineageEdgeRepository.disclosureFunnelAggregates as jest.Mock
-  ).mockResolvedValue({ impressions: 277, index: 277, pulled: 0, used: 12 })
+  ).mockResolvedValue({
+    impressions: 277,
+    index: 277,
+    pulled: 0,
+    used: 12,
+    tokensSaved: null,
+  })
 
   const health = await usageSignalService.getUsageSignalHealth('ws-1')
 
@@ -156,6 +162,7 @@ it('includes the workspace disclosure funnel', async () => {
     index: 277,
     pulled: 0,
     used: 12,
+    tokensSaved: null,
   })
   expect(lineageEdgeRepository.disclosureFunnelAggregates).toHaveBeenCalledWith(
     'ws-1'
