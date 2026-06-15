@@ -678,3 +678,32 @@ describe('task status --json sets openCrossings null on a check failure (LUM-480
     expect(parsed.openCrossings).toHaveLength(0)
   })
 })
+
+describe('formatTaskStatus — send-back lifecycle (Phase 5)', () => {
+  function withResolution(sendBackResolution: unknown) {
+    return formatTaskStatus({
+      ...PAYLOAD,
+      criteria: [{ ...PAYLOAD.criteria[0]!, sendBackResolution }],
+    } as Parameters<typeof formatTaskStatus>[0])
+  }
+
+  it('renders a resolved send-back with the closing PR', () => {
+    const out = withResolution({
+      status: 'resolved',
+      failedAtRound: 1,
+      resolvedAtRound: 3,
+      closingPrNumber: 42,
+    })
+    expect(out).toMatch(/send-back \(r1\) resolved in r3 · PR #42/)
+  })
+
+  it('renders an open send-back', () => {
+    const out = withResolution({ status: 'open', failedAtRound: 1 })
+    expect(out).toMatch(/send-back \(r1\) open/)
+  })
+
+  it('renders no send-back line when there is none', () => {
+    const out = withResolution(null)
+    expect(out).not.toMatch(/send-back/)
+  })
+})
