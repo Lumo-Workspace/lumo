@@ -28,11 +28,18 @@ jest.mock('@/lib/repositories/session.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  verificationRunRepository: {
+    latestRunsByCriterion: jest.fn(),
+  },
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -41,10 +48,13 @@ const mockFindAllProfiles =
   memberRepository.findAllWithProfilesForCli as jest.Mock
 const mockCreateTask = taskService.createTask as jest.Mock
 const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
+const mockLatestRuns =
+  verificationRunRepository.latestRunsByCriterion as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockFindBinding.mockResolvedValue(null)
+  mockLatestRuns.mockResolvedValue(new Map())
 })
 
 describe('taskCliService.resolveProjectId', () => {
@@ -522,6 +532,80 @@ describe('taskCliService.createFromCli — intent gating (Layer 1)', () => {
       sessionId: null,
       input: { title: 'anything', priority: 'LOW' },
     })
+    expect(result.identifier).toBe('LUM-9')
+    expect(mockCreateTask).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('taskCliService.createFromCli — open send-back hard block (Phase 2)', () => {
+  beforeEach(() => {
+    mockFindProjects.mockResolvedValue([
+      { id: 'p-1', name: 'Lumo', description: null },
+    ])
+    mockFindMember.mockResolvedValue({ id: 'mem-1' })
+    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-1',
+        title: 'x',
+        teamIdentifier: 'LUM',
+        teamId: 'team-1',
+        number: 9,
+      },
+      taskTags: [],
+    })
+    mockFindBinding.mockResolvedValue({
+      id: 'sess-1',
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+      eventCount: 1,
+      task: {
+        id: 't-7',
+        number: 7,
+        title: 'Build widget',
+        status: 'IN_PROGRESS',
+        team: { identifier: 'LUM' },
+      },
+    })
+  })
+
+  function call(input: Record<string, unknown>) {
+    return taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-1',
+      input: { title: 't', priority: 'LOW', ...input },
+    } as Parameters<typeof taskCliService.createFromCli>[0])
+  }
+
+  it('hard-blocks (409) when the bound task has a standing FAIL, even with --new-scope', async () => {
+    mockLatestRuns.mockResolvedValue(
+      new Map([
+        ['c-1', { criterionId: 'c-1', verifierType: 'AGENT', verdict: 'FAIL' }],
+      ])
+    )
+    await expect(call({ newScope: true })).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('LUM-7'),
+    })
+    expect(mockCreateTask).not.toHaveBeenCalled()
+  })
+
+  it('queries the bound task id for its latest runs', async () => {
+    mockLatestRuns.mockResolvedValue(new Map())
+    await call({ newScope: true })
+    expect(mockLatestRuns).toHaveBeenCalledWith('t-7')
+  })
+
+  it('allows --new-scope when the latest verdicts are all PASS (send-back resolved)', async () => {
+    mockLatestRuns.mockResolvedValue(
+      new Map([
+        ['c-1', { criterionId: 'c-1', verifierType: 'AGENT', verdict: 'PASS' }],
+      ])
+    )
+    const result = await call({ newScope: true })
     expect(result.identifier).toBe('LUM-9')
     expect(mockCreateTask).toHaveBeenCalledTimes(1)
   })
