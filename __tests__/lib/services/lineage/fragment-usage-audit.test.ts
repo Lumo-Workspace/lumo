@@ -12,6 +12,7 @@ jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
     findVotedSessionIds: jest.fn(),
     findSessionFragmentEdges: jest.fn(),
     applyUsageVote: jest.fn().mockResolvedValue({ used: 1, unused: 0 }),
+    applyUnusedVote: jest.fn().mockResolvedValue({ unused: 0 }),
   },
 }))
 jest.mock('@/lib/repositories/lineage-source.repository', () => ({
@@ -110,5 +111,37 @@ describe('auditForTask', () => {
     await expect(
       fragmentUsageAuditService.auditForTask('task1')
     ).resolves.toBeUndefined()
+  })
+
+  it('calls applyUnusedVote with unused refs when judge returns non-empty unused', async () => {
+    judgeMock.mockResolvedValue({
+      used: [],
+      unused: [
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          evidence: 'no evidence found',
+        },
+      ],
+    })
+    await fragmentUsageAuditService.auditForTask('task1')
+    expect(lineageEdgeRepository.applyUnusedVote).toHaveBeenCalledWith('s1', [
+      { fragmentType: 'MEMORY', fragmentId: 'm1' },
+    ])
+    expect(lineageEdgeRepository.applyUsageVote).not.toHaveBeenCalled()
+  })
+
+  it('does not call applyUnusedVote when unused is empty', async () => {
+    judgeMock.mockResolvedValue({
+      used: [{ fragmentType: 'MEMORY', fragmentId: 'm1', evidence: 'used it' }],
+      unused: [],
+    })
+    await fragmentUsageAuditService.auditForTask('task1')
+    expect(lineageEdgeRepository.applyUsageVote).toHaveBeenCalledWith(
+      's1',
+      [{ fragmentType: 'MEMORY', fragmentId: 'm1' }],
+      { mode: 'additive' }
+    )
+    expect(lineageEdgeRepository.applyUnusedVote).not.toHaveBeenCalled()
   })
 })

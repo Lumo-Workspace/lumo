@@ -86,6 +86,20 @@ describe('lineageEdgeRepository.createMany token/score fields', () => {
   })
 })
 
+describe('lineageEdgeRepository.applyUnusedVote', () => {
+  it('applyUnusedVote marks used false only where currently null', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 })
+    ;(prisma as any).lineageEdge = { updateMany }
+    await lineageEdgeRepository.applyUnusedVote('s', [
+      { fragmentType: 'MEMORY', fragmentId: 'b' },
+    ])
+    const arg = updateMany.mock.calls[0][0]
+    expect(arg.where).toMatchObject({ sessionId: 's', used: null })
+    expect(arg.where.OR).toEqual([{ fragmentType: 'MEMORY', fragmentId: 'b' }])
+    expect(arg.data).toMatchObject({ used: false })
+  })
+})
+
 describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
   it('issues four workspace-scoped counts and returns the funnel shape', async () => {
     const count = jest.fn()

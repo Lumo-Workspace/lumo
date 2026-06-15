@@ -464,6 +464,29 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * LUM-522: additively mark specific fragments used=false for a session —
+   * ONLY where `used` is currently NULL, so an existing true is never demoted
+   * and a later true is never blocked. No-op on empty input.
+   */
+  async applyUnusedVote(
+    sessionId: string,
+    unusedRefs: FragmentRef[],
+    opts: { tx?: Prisma.TransactionClient } = {}
+  ): Promise<{ unused: number }> {
+    if (unusedRefs.length === 0) return { unused: 0 }
+    const client = opts.tx ?? prisma
+    const or = unusedRefs.map(r => ({
+      fragmentType: r.fragmentType,
+      fragmentId: r.fragmentId,
+    }))
+    const res = await client.lineageEdge.updateMany({
+      where: { sessionId, used: null, OR: or },
+      data: { used: false, usedAt: new Date() },
+    })
+    return { unused: res.count }
+  },
+
+  /**
    * Usage-gated merge rate: same task-dedupe as mergeRateByFragments, but a
    * (fragment, task) pair only counts when the fragment was voted used=true.
    * Cold-start gating (min sample) is the caller's responsibility. The LUM-461
