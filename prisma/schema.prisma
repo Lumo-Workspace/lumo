@@ -185,6 +185,11 @@ enum BoundaryCrossingCategory {
   // LUM-511 Phase 4: an acceptance criterion was weakened (statement lowered to
   // dodge an open send-back) rather than legitimately evolved — judge-confirmed.
   CONTRACT_WEAKENING
+  // LUM-511 Phase 6: judge-confirmed laundering, surfaced as crossings (was a
+  // TaskActivity marker in Phase 4): SPINOFF_LAUNDERED = a --new-scope task that
+  // is rework of the parent; SILENT_FIX = a post-IN_REVIEW fix with no send-back.
+  SPINOFF_LAUNDERED
+  SILENT_FIX
 }
 
 enum BoundaryCrossingDisposition {

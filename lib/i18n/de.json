@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "Nach Modell",
   "acceptance.sendBack.resolved": "Rückläufer (Runde {failed}) in Runde {resolved} behoben",
   "acceptance.sendBack.open": "Rückläufer offen seit Runde {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "ein fehlschlagendes Akzeptanzkriterium abgeschwächt",
+  "boundary.category.spinoffLaundered": "Nacharbeit in eine neue Aufgabe ausgelagert",
+  "boundary.category.silentFix": "eingereichte Arbeit still korrigiert (ohne Rückläufer)"
 }

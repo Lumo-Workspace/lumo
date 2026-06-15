@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "Por modelo",
   "acceptance.sendBack.resolved": "Devolución (ronda {failed}) resuelta en la ronda {resolved}",
   "acceptance.sendBack.open": "Devolución abierta desde la ronda {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "debilitó un criterio de aceptación que estaba fallando",
+  "boundary.category.spinoffLaundered": "desvió retrabajo a una tarea nueva",
+  "boundary.category.silentFix": "corrigió en silencio trabajo ya entregado (sin devolución)"
 }

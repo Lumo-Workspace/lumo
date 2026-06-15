@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "By model",
   "acceptance.sendBack.resolved": "Send-back (round {failed}) resolved in round {resolved}",
   "acceptance.sendBack.open": "Send-back open since round {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "weakened a failing acceptance criterion",
+  "boundary.category.spinoffLaundered": "laundered rework into a new task",
+  "boundary.category.silentFix": "silently fixed submitted work (no send-back)"
 }

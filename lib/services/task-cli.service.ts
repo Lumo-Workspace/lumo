@@ -35,12 +35,14 @@ const openSendBackMessage = (identifier: string, title: string): string =>
  * LUM-511 Phase 4: judge whether a mid-flight `--new-scope` spinoff is laundered
  * rework of its parent, off the hot path. Audit-only — runs in the background via
  * `waitUntil`, never blocks the create response, and swallows all errors. On a
- * LAUNDERED verdict it records a task-level `SPINOFF_LAUNDERED` marker on the
- * parent (fed into the flywheel negative class). Exported for direct testing.
+ * LAUNDERED verdict it records a `SPINOFF_LAUNDERED` boundary crossing on the
+ * parent (LUM-511 Phase 6 — visible/dismissable, fed into the negative class).
+ * Exported for direct testing.
  */
 export function dispatchSpinoffJudge(args: {
   parentTaskId: string
   spunOffTaskId: string
+  spunOffIdentifier: string
   newTaskTitle: string
   newTaskDescription: string | null
 }): void {
@@ -64,12 +66,26 @@ export function dispatchSpinoffJudge(args: {
           { judge: judgeSpinoff }
         )
         if (verdict === 'LAUNDERED') {
-          await activityRepository.create({
-            taskId: args.parentTaskId,
-            actorId: null,
-            type: 'SPINOFF_LAUNDERED',
-            payload: { spunOffTaskId: args.spunOffTaskId },
-          })
+          // LUM-511 Phase 6: surface as a DONE-blocking, dismissable crossing on
+          // the parent (was a TaskActivity marker) — visible in the crossings panel.
+          const { boundaryCrossingRepository } =
+            await import('@/lib/repositories/boundary-crossing.repository')
+          const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+            args.parentTaskId,
+            'SPINOFF_LAUNDERED',
+            args.spunOffTaskId,
+            new Date()
+          )
+          if (coalesced === 0) {
+            await boundaryCrossingRepository.create({
+              taskId: args.parentTaskId,
+              category: 'SPINOFF_LAUNDERED',
+              detail: `Work spun off to ${args.spunOffIdentifier} during this task — judged laundered rework (should have been a fix-in-place).`,
+              target: args.spunOffTaskId,
+              reversible: false,
+              severity: 'MEDIUM',
+            })
+          }
         }
       } catch (err) {
         console.error('dispatchSpinoffJudge error:', err)
@@ -360,6 +376,7 @@ async function createFromCli(args: {
     dispatchSpinoffJudge({
       parentTaskId: spinoffParentTaskId,
       spunOffTaskId: task.id,
+      spunOffIdentifier: identifier,
       newTaskTitle: input.title,
       newTaskDescription: input.description ?? null,
     })

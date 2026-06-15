@@ -128,16 +128,20 @@ export const boundaryCrossingRepository = {
 
   /**
    * Task ids (within the candidate set) carrying ≥1 crossing of the given
-   * category — LUM-511 Phase 4 folds CONTRACT_WEAKENING into the flywheel
-   * negative class (disposition-agnostic: a recorded weakening counts).
+   * category (or any of the categories) — LUM-511 folds the judge-confirmed
+   * laundering crossings (CONTRACT_WEAKENING, SPINOFF_LAUNDERED, SILENT_FIX)
+   * into the flywheel negative class (disposition-agnostic: a recorded one counts).
    */
   async taskIdsWithCategory(
     taskIds: string[],
-    category: BoundaryCrossingCategory
+    category: BoundaryCrossingCategory | BoundaryCrossingCategory[]
   ): Promise<Set<string>> {
     if (taskIds.length === 0) return new Set()
     const rows = await prisma.boundaryCrossing.findMany({
-      where: { taskId: { in: taskIds }, category },
+      where: {
+        taskId: { in: taskIds },
+        category: Array.isArray(category) ? { in: category } : category,
+      },
       select: { taskId: true },
       distinct: ['taskId'],
     })

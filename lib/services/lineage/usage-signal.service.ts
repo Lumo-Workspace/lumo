@@ -46,15 +46,13 @@ export const usageSignalService = {
     // weakening). All additive failure sources fold the same way.
     const sendBack =
       await verificationRunRepository.taskIdsWithSendBack(candidateTaskIds)
-    const markers = await activityRepository.taskIdsWithMarkers(
+    // LUM-511 Phase 6: the judge-confirmed laundering signals are now boundary
+    // crossings (spinoff / silent-fix / contract-weakening) — fold all three.
+    const laundered = await boundaryCrossingRepository.taskIdsWithCategory(
       candidateTaskIds,
-      ['SPINOFF_LAUNDERED', 'SILENT_FIX_DETECTED']
+      ['SPINOFF_LAUNDERED', 'SILENT_FIX', 'CONTRACT_WEAKENING']
     )
-    const weakened = await boundaryCrossingRepository.taskIdsWithCategory(
-      candidateTaskIds,
-      'CONTRACT_WEAKENING'
-    )
-    const failed = new Set([...sendBack, ...markers, ...weakened])
+    const failed = new Set([...sendBack, ...laundered])
     const fractions = agg.perSession
       .filter(s => s.injected > 0)
       .map(s => s.used / s.injected)

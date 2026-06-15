@@ -304,6 +304,10 @@ export function severityFor(
     // LUM-511 Phase 4: criterion weakening (judge-confirmed) is tampering-class
     // but not data-destructive, so MEDIUM (like TEST_TAMPERING).
     case 'CONTRACT_WEAKENING':
+    // LUM-511 Phase 6: judge-confirmed laundering (spinoff / silent-fix) — MEDIUM,
+    // visible + dismissable, blocks DONE until a human acknowledges it.
+    case 'SPINOFF_LAUNDERED':
+    case 'SILENT_FIX':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
@@ -1156,12 +1160,15 @@ export async function recordSilentFixIfDetected(
     input.taskId,
   ])
   if (sendBacks.size > 0) return
-  // One marker per task is enough — don't spam the timeline per edit.
-  const existing = await activityRepository.listByTaskAndType(
+  // LUM-511 Phase 6: dedup on (taskId, SILENT_FIX, filePath) — if this file's
+  // silent fix was already flagged, bump it and skip the LLM call (cost guard).
+  const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
     input.taskId,
-    'SILENT_FIX_DETECTED'
+    'SILENT_FIX',
+    input.filePath,
+    new Date()
   )
-  if (existing.length > 0) return
+  if (coalesced > 0) return
   const { classifySilentFix } =
     await import('@/lib/boundary-crossing/silent-fix-judge')
   const { judgeSilentFix } = await import('@/lib/llm/silent-fix-judge-client')
@@ -1170,14 +1177,15 @@ export async function recordSilentFixIfDetected(
     { judge: judgeSilentFix }
   )
   if (verdict !== 'REAL_FIX') return
-  await activityRepository.create({
+  // Phase 6: a DONE-blocking, dismissable crossing on the task (was a marker).
+  await boundaryCrossingRepository.create({
     taskId: input.taskId,
-    actorId: null,
-    type: 'SILENT_FIX_DETECTED',
-    payload: {
-      filePath: input.filePath,
-      hookEventId: input.hookEventId ?? null,
-    },
+    hookEventId: input.hookEventId ?? null,
+    category: 'SILENT_FIX',
+    detail: `Post-review edit to ${input.filePath} with no recorded send-back — judged a real defect fix (should have left a send-back trace).`,
+    target: input.filePath,
+    reversible: false,
+    severity: 'MEDIUM',
   })
 }
 

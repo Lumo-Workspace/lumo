@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "Per model",
   "acceptance.sendBack.resolved": "Hantar balik (pusingan {failed}) diselesaikan pada pusingan {resolved}",
   "acceptance.sendBack.open": "Hantar balik terbuka sejak pusingan {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "melemahkan kriteria penerimaan yang gagal",
+  "boundary.category.spinoffLaundered": "mengalihkan kerja semula ke tugasan baharu",
+  "boundary.category.silentFix": "diam-diam membaiki kerja yang dihantar (tanpa hantar balik)"
 }

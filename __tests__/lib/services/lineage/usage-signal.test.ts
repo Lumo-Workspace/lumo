@@ -145,13 +145,11 @@ it('folds judge-confirmed laundering markers + CONTRACT_WEAKENING into the negat
       ],
     }
   )
-  // No HUMAN/AGENT send-backs, but t1 has a laundering marker and t2 a weakening.
-  ;(activityRepository.taskIdsWithMarkers as jest.Mock).mockResolvedValue(
-    new Set(['t1'])
-  )
+  // No HUMAN/AGENT send-backs, but both tasks carry a judge-confirmed laundering
+  // crossing (spinoff / silent-fix / contract-weakening) → folded into the negative class.
   ;(
     boundaryCrossingRepository.taskIdsWithCategory as jest.Mock
-  ).mockResolvedValue(new Set(['t2']))
+  ).mockResolvedValue(new Set(['t1', 't2']))
 
   const h = await usageSignalService.getUsageSignalHealth('ws1')
   // Both resolved tasks are tainted as failed → merge rate 0, failed 2.
