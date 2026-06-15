@@ -161,7 +161,7 @@ export function ProgressView({
             metric={iterations}
           />
           <ProgressCompareRow
-            label={intl.formatMessage({ id: 'progress.clarifyRounds' })}
+            label={intl.formatMessage({ id: 'progress.interactionRounds' })}
             metric={interactionRounds}
           />
           <ProgressCompareRow
@@ -189,7 +189,7 @@ export function ProgressView({
           {showInteractionSummary && (
             <SummaryLine>
               {intl.formatMessage(
-                { id: 'progress.summaryClarify' },
+                { id: 'progress.summaryInteraction' },
                 { value: interactionRounds.actual as number }
               )}
             </SummaryLine>

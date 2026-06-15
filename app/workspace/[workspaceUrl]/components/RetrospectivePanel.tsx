@@ -167,7 +167,9 @@ export function RetrospectivePanel({
             hint={iterHint}
           />
           <KpiMetric
-            label={intl.formatMessage({ id: 'retrospective.clarifyRounds' })}
+            label={intl.formatMessage({
+              id: 'retrospective.interactionRounds',
+            })}
             value={fmtCount(interactionRounds.actual)}
           />
           <KpiMetric

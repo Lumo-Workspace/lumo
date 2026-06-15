@@ -11,7 +11,7 @@ const en: Record<string, string> = {
   'retrospective.actualLabel': 'actual',
   'retrospective.delivery': 'Delivery',
   'retrospective.iterations': 'Runs',
-  'retrospective.clarifyRounds': 'Clarification rounds',
+  'retrospective.interactionRounds': 'Interaction rounds',
   'retrospective.totalDuration': 'Run time',
   'retrospective.bandWithin': 'within the usual range',
   'retrospective.bandAbove': 'above the usual range',
@@ -176,7 +176,7 @@ it('renders the three delivery metrics (labels present, run-time duration-format
     </Wrapper>
   )
   expect(await screen.findByText('Runs')).toBeInTheDocument()
-  expect(screen.getByText('Clarification rounds')).toBeInTheDocument()
+  expect(screen.getByText('Interaction rounds')).toBeInTheDocument()
   expect(screen.getByText('Run time')).toBeInTheDocument()
 })
 
