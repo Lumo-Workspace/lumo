@@ -146,15 +146,18 @@ it('always renders all three KPI metrics even when zero/null (em-dash for null d
   expect(screen.queryByText('used')).not.toBeInTheDocument()
 })
 
-it('renders a footer slot under a divider when provided', () => {
-  render(
+it('renders the footer slot above the Delivery KPI block (matches the done card order)', () => {
+  const { container } = render(
     <ProgressView
       progress={onTrack}
       agentStatus={null}
-      footer={<div data-testid='slot' />}
+      footer={<div data-testid='slot'>FOOTERMARK</div>}
     />
   )
   expect(screen.getByTestId('slot')).toBeInTheDocument()
+  const html = container.innerHTML
+  // per-model footer comes first; the 交付 KPI block ("Delivery") sits last
+  expect(html.indexOf('FOOTERMARK')).toBeLessThan(html.indexOf('>Delivery<'))
 })
 
 const withDuration: TaskProgress = {
