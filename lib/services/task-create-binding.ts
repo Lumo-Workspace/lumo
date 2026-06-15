@@ -1,10 +1,14 @@
 import type { TaskStatus } from '@prisma/client'
 
-/** A task is "in-flight" once it is being worked or reviewed — not TODO, not DONE. */
 const IN_FLIGHT_STATUSES: ReadonlySet<TaskStatus> = new Set<TaskStatus>([
   'IN_PROGRESS',
   'IN_REVIEW',
 ])
+
+/** A task is "in-flight" once it is being worked or reviewed — not TODO, not DONE. */
+export function isInFlightStatus(status: TaskStatus): boolean {
+  return IN_FLIGHT_STATUSES.has(status)
+}
 
 export interface BoundTaskRef {
   identifier: string
@@ -48,7 +52,7 @@ export function classifyTaskCreateIntent({
   if (reworkOf) {
     return { kind: 'redirect-rework', target: reworkOf }
   }
-  if (boundTask && IN_FLIGHT_STATUSES.has(boundTask.status)) {
+  if (boundTask && isInFlightStatus(boundTask.status)) {
     // Layer 2: a standing send-back is the hardest stop — resolve it before
     // opening new work; even a --new-scope declaration can't escape it.
     if (boundTaskHasOpenSendBack) {
