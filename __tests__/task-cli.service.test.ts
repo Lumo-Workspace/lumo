@@ -40,6 +40,24 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn(),
+  },
+}))
+
+jest.mock('@/lib/llm/spinoff-judge-client', () => ({
+  judgeSpinoff: jest.fn(),
+}))
+
+// Capture waitUntil promises so the background spinoff judge can be awaited.
+const waitUntilPromises: Promise<unknown>[] = []
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => {
+    waitUntilPromises.push(p)
+  },
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -47,6 +65,8 @@ import { taskService } from '@/lib/services/task.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { judgeSpinoff } from '@/lib/llm/spinoff-judge-client'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -58,12 +78,21 @@ const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 const mockLatestRuns =
   verificationRunRepository.latestRunsByCriterion as jest.Mock
 const mockActivityCreate = activityRepository.create as jest.Mock
+const mockListCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
+const mockJudgeSpinoff = judgeSpinoff as jest.Mock
+
+async function flushWaitUntil(): Promise<void> {
+  await Promise.all(waitUntilPromises)
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
+  waitUntilPromises.length = 0
   mockFindBinding.mockResolvedValue(null)
   mockLatestRuns.mockResolvedValue(new Map())
   mockActivityCreate.mockResolvedValue({ id: 'act-1' })
+  mockListCriteria.mockResolvedValue([])
+  mockJudgeSpinoff.mockResolvedValue('LEGIT')
 })
 
 describe('taskCliService.resolveProjectId', () => {
@@ -711,5 +740,83 @@ describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
     mockActivityCreate.mockRejectedValueOnce(new Error('db blip'))
     const result = await create({ newScope: true })
     expect(result.identifier).toBe('LUM-9')
+  })
+})
+
+describe('taskCliService.createFromCli — spinoff judge (Phase 4)', () => {
+  beforeEach(() => {
+    mockFindProjects.mockResolvedValue([
+      { id: 'p-1', name: 'Lumo', description: null },
+    ])
+    mockFindMember.mockResolvedValue({ id: 'mem-1' })
+    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
+    mockLatestRuns.mockResolvedValue(new Map())
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-B',
+        title: 'x',
+        teamIdentifier: 'LUM',
+        teamId: 'team-1',
+        number: 9,
+      },
+      taskTags: [],
+    })
+    mockFindBinding.mockResolvedValue({
+      id: 'sess-1',
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+      eventCount: 1,
+      task: {
+        id: 't-7',
+        number: 7,
+        title: 'Parent',
+        status: 'IN_PROGRESS',
+        team: { identifier: 'LUM' },
+      },
+    })
+    mockListCriteria.mockResolvedValue([{ statement: 'The widget renders' }])
+  })
+
+  function createNewScope() {
+    return taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-1',
+      input: { title: 'fix the widget', priority: 'LOW', newScope: true },
+    } as Parameters<typeof taskCliService.createFromCli>[0])
+  }
+
+  it('records SPINOFF_LAUNDERED on the parent when the judge says LAUNDERED', async () => {
+    mockJudgeSpinoff.mockResolvedValue('LAUNDERED')
+    await createNewScope()
+    await flushWaitUntil()
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't-7',
+        type: 'SPINOFF_LAUNDERED',
+        payload: expect.objectContaining({ spunOffTaskId: 'task-B' }),
+      })
+    )
+  })
+
+  it('records no SPINOFF_LAUNDERED when the judge says LEGIT', async () => {
+    mockJudgeSpinoff.mockResolvedValue('LEGIT')
+    await createNewScope()
+    await flushWaitUntil()
+    expect(mockActivityCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SPINOFF_LAUNDERED' })
+    )
+  })
+
+  it('skips the judge entirely when the parent has no criteria', async () => {
+    mockListCriteria.mockResolvedValue([])
+    await createNewScope()
+    await flushWaitUntil()
+    expect(mockJudgeSpinoff).not.toHaveBeenCalled()
+    expect(mockActivityCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SPINOFF_LAUNDERED' })
+    )
   })
 })
