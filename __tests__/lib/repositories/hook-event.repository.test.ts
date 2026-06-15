@@ -234,3 +234,71 @@ describe('hookEventRepository.findTurnBoundaryEventsForSessions', () => {
     })
   })
 })
+
+describe('findToolAttributionEvents', () => {
+  it('scopes by task with the findByTaskId precedence and the attribution event types', async () => {
+    mockFindMany.mockResolvedValue([])
+    await hookEventRepository.findToolAttributionEvents({ taskId: 't1' })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          type: {
+            in: [
+              'POST_TOOL_USE',
+              'POST_TOOL_USE_FAILURE',
+              'POST_TOOL_BATCH',
+              'STOP',
+              'STOP_FAILURE',
+            ],
+          },
+          OR: [{ taskId: 't1' }, { taskId: null, session: { taskId: 't1' } }],
+        }),
+      })
+    )
+  })
+
+  it('scopes by a single session', async () => {
+    mockFindMany.mockResolvedValue([])
+    await hookEventRepository.findToolAttributionEvents({ sessionId: 's9' })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ sessionId: 's9' }),
+      })
+    )
+  })
+
+  it('scopes by a workspace window', async () => {
+    mockFindMany.mockResolvedValue([])
+    const since = new Date('2026-06-01T00:00:00Z')
+    await hookEventRepository.findToolAttributionEvents({
+      workspaceId: 'w1',
+      since,
+    })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: 'w1',
+          createdAt: { gte: since },
+        }),
+      })
+    )
+  })
+
+  it('orders per session by time and selects the attribution projection', async () => {
+    mockFindMany.mockResolvedValue([])
+    await hookEventRepository.findToolAttributionEvents({ sessionId: 's9' })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ sessionId: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          sessionId: true,
+          workspaceMemberId: true,
+          type: true,
+          toolName: true,
+          usageByModel: true,
+          createdAt: true,
+        },
+      })
+    )
+  })
+})

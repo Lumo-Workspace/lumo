@@ -357,4 +357,56 @@ export const hookEventRepository = {
       },
     })
   },
+
+  /**
+   * Raw events for the per-operation cost read model (LUM-523): the tool-result
+   * rows (carry toolName) + the batch rows (carry per-step usageByModel delta) +
+   * the STOP rows (carry per-turn usageByModel delta, for the thinking residual),
+   * ordered per session by time. Three scopes: a task (same taskId precedence as
+   * findByTaskId), a single session, or a workspace window.
+   */
+  async findToolAttributionEvents(
+    scope:
+      | { taskId: string }
+      | { sessionId: string }
+      | { workspaceId: string; since: Date }
+  ) {
+    const type: Prisma.HookEventWhereInput['type'] = {
+      in: [
+        'POST_TOOL_USE',
+        'POST_TOOL_USE_FAILURE',
+        'POST_TOOL_BATCH',
+        'STOP',
+        'STOP_FAILURE',
+      ],
+    }
+    const where: Prisma.HookEventWhereInput =
+      'taskId' in scope
+        ? {
+            type,
+            OR: [
+              { taskId: scope.taskId },
+              { taskId: null, session: { taskId: scope.taskId } },
+            ],
+          }
+        : 'sessionId' in scope
+          ? { type, sessionId: scope.sessionId }
+          : {
+              type,
+              workspaceId: scope.workspaceId,
+              createdAt: { gte: scope.since },
+            }
+    return prisma.hookEvent.findMany({
+      where,
+      orderBy: [{ sessionId: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        sessionId: true,
+        workspaceMemberId: true,
+        type: true,
+        toolName: true,
+        usageByModel: true,
+        createdAt: true,
+      },
+    })
+  },
 }
