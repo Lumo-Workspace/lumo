@@ -53,7 +53,6 @@ function armRuns(runCount: number) {
       })),
       totals: {
         runCount,
-        turnCount: runCount,
         loopCount: runCount,
         byModel: runCount ? [{ model: 'm', total: 1 }] : [],
       },
@@ -112,7 +111,7 @@ describe('DeliveryTab', () => {
     mockUseAgentRuns.mockReturnValue({
       data: {
         runs: [{ sessionId: 's0', runNumber: 1 }],
-        totals: { runCount: 1, turnCount: 1, loopCount: 1, byModel: [] },
+        totals: { runCount: 1, loopCount: 1, byModel: [] },
         perMember: [],
       },
       loading: false,

@@ -73,7 +73,6 @@ export interface AgentRunMemberCost {
   workspaceMemberId: string
   clerkId: string | null
   runCount: number
-  turnCount: number
   loopCount: number
   byModel: ModelCost[]
 }
@@ -88,7 +87,6 @@ export interface AgentRunTimelineResult {
   runs: AgentRunSession[]
   totals: {
     runCount: number
-    turnCount: number
     /** Sum of per-run loop counts, or null when no run captured one. Null
      *  renders as "loops n/a" rather than a misleading 0. */
     loopCount: number | null
@@ -103,7 +101,6 @@ export interface AgentRunTimelineResult {
 export interface MemberRunInput {
   workspaceMemberId: string | null
   clerkId: string | null
-  turnCount: number
   loopCount: number | null
   byModel: ModelCost[] | null
 }
@@ -126,7 +123,6 @@ export function aggregateRunsByMember(
     {
       clerkId: string | null
       runCount: number
-      turnCount: number
       loopCount: number
       lists: (ModelCost[] | null)[]
     }
@@ -136,12 +132,10 @@ export function aggregateRunsByMember(
     const cur = acc.get(r.workspaceMemberId) ?? {
       clerkId: null,
       runCount: 0,
-      turnCount: 0,
       loopCount: 0,
       lists: [],
     }
     cur.runCount += 1
-    cur.turnCount += r.turnCount
     cur.loopCount += r.loopCount ?? 0
     cur.lists.push(r.byModel)
     if (!cur.clerkId && r.clerkId) cur.clerkId = r.clerkId
@@ -156,7 +150,6 @@ export function aggregateRunsByMember(
       workspaceMemberId,
       clerkId: v.clerkId,
       runCount: v.runCount,
-      turnCount: v.turnCount,
       loopCount: v.loopCount,
       byModel,
     })
@@ -169,13 +162,6 @@ export function aggregateRunsByMember(
     if (d !== 0) return d
     return a.workspaceMemberId.localeCompare(b.workspaceMemberId)
   })
-}
-
-/** STOP / STOP_FAILURE items on a run = its turn count. */
-function countTurns(run: AgentRunSession): number {
-  return run.items.filter(
-    i => i.kind === 'hook' && (i.type === 'STOP' || i.type === 'STOP_FAILURE')
-  ).length
 }
 
 export const agentRunTimelineService = {
@@ -345,7 +331,6 @@ export const agentRunTimelineService = {
       .filter((n): n is number => typeof n === 'number')
     const totals = {
       runCount: ordered.length,
-      turnCount: ordered.reduce((n, r) => n + countTurns(r), 0),
       loopCount: capturedLoops.length
         ? capturedLoops.reduce((n, c) => n + c, 0)
         : null,
@@ -366,7 +351,6 @@ export const agentRunTimelineService = {
         return {
           workspaceMemberId: owner?.workspaceMemberId ?? null,
           clerkId: owner?.clerkId ?? null,
-          turnCount: countTurns(r),
           loopCount: r.cost?.loopCount ?? null,
           byModel: r.cost?.byModel ?? null,
         }

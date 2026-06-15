@@ -6,11 +6,14 @@ import { Users, Cpu } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AgentRunMemberStat, ModelCost } from '../../types'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
-import { foldMembersToCostRows, type MemberCostRow } from './fold-members-to-cost'
+import {
+  foldMembersToCostRows,
+  type MemberCostRow,
+} from './fold-members-to-cost'
 import { initialsOf } from '../initials'
 
 interface TokenUsageBreakdownProps {
-  totals: { runCount: number; turnCount: number; loopCount: number; byModel: ModelCost[] }
+  totals: { runCount: number; loopCount: number; byModel: ModelCost[] }
   perMember: AgentRunMemberStat[]
 }
 
@@ -29,14 +32,19 @@ function memberHeader(m: ModelCost) {
     <span className='flex items-center gap-1.5 text-caption font-semibold'>
       <Avatar className='size-4 shrink-0'>
         <AvatarImage src={r.imageUrl || undefined} />
-        <AvatarFallback className='text-[8px]'>{initialsOf(r.name)}</AvatarFallback>
+        <AvatarFallback className='text-[8px]'>
+          {initialsOf(r.name)}
+        </AvatarFallback>
       </Avatar>
       {r.name}
     </span>
   )
 }
 
-export function TokenUsageBreakdown({ totals, perMember }: TokenUsageBreakdownProps) {
+export function TokenUsageBreakdown({
+  totals,
+  perMember,
+}: TokenUsageBreakdownProps) {
   const intl = useIntl()
   const memberRows = foldMembersToCostRows(perMember)
   const showGroups = memberRows.length >= 2
@@ -47,7 +55,10 @@ export function TokenUsageBreakdown({ totals, perMember }: TokenUsageBreakdownPr
         <>
           <GroupLabel
             icon={<Users className='size-3.5' aria-hidden />}
-            label={intl.formatMessage({ id: 'tokenCost.byMember', defaultMessage: 'By member' })}
+            label={intl.formatMessage({
+              id: 'tokenCost.byMember',
+              defaultMessage: 'By member',
+            })}
           />
           <TokenCostBreakdown
             variant='full'
@@ -56,11 +67,13 @@ export function TokenUsageBreakdown({ totals, perMember }: TokenUsageBreakdownPr
             models={memberRows}
             loopCount={null}
             rowHeader={memberHeader}
-            summable
           />
           <GroupLabel
             icon={<Cpu className='size-3.5' aria-hidden />}
-            label={intl.formatMessage({ id: 'tokenCost.byModel', defaultMessage: 'By model' })}
+            label={intl.formatMessage({
+              id: 'tokenCost.byModel',
+              defaultMessage: 'By model',
+            })}
           />
         </>
       )}
@@ -70,7 +83,6 @@ export function TokenUsageBreakdown({ totals, perMember }: TokenUsageBreakdownPr
         collapsibleDetails
         models={totals.byModel}
         loopCount={totals.loopCount}
-        turnCount={totals.turnCount}
       />
     </div>
   )

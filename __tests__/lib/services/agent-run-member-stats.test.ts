@@ -54,14 +54,12 @@ describe('aggregateRunsByMember', () => {
       {
         workspaceMemberId: 'm1',
         clerkId: 'c1',
-        turnCount: 2,
         loopCount: 2,
         byModel: [opus(100)],
       },
       {
         workspaceMemberId: 'm1',
         clerkId: 'c1',
-        turnCount: 1,
         loopCount: 1,
         byModel: [opus(50)],
       },
@@ -71,7 +69,6 @@ describe('aggregateRunsByMember', () => {
       workspaceMemberId: 'm1',
       clerkId: 'c1',
       runCount: 2,
-      turnCount: 3,
       loopCount: 3,
     })
     expect(out[0]!.byModel).toEqual([
@@ -91,14 +88,12 @@ describe('aggregateRunsByMember', () => {
       {
         workspaceMemberId: 'small',
         clerkId: 'cs',
-        turnCount: 1,
         loopCount: 1,
         byModel: [opus(10)],
       },
       {
         workspaceMemberId: 'big',
         clerkId: 'cb',
-        turnCount: 1,
         loopCount: 1,
         byModel: [opus(1000)],
       },
@@ -111,7 +106,6 @@ describe('aggregateRunsByMember', () => {
       {
         workspaceMemberId: null,
         clerkId: null,
-        turnCount: 1,
         loopCount: 1,
         byModel: [opus(100)],
       },
@@ -124,7 +118,6 @@ describe('aggregateRunsByMember', () => {
       {
         workspaceMemberId: 'm1',
         clerkId: 'c1',
-        turnCount: 1,
         loopCount: 0,
         byModel: null,
       },
@@ -137,14 +130,12 @@ describe('aggregateRunsByMember', () => {
       {
         workspaceMemberId: 'm1',
         clerkId: null,
-        turnCount: 0,
         loopCount: 0,
         byModel: [opus(10)],
       },
       {
         workspaceMemberId: 'm1',
         clerkId: 'c1',
-        turnCount: 0,
         loopCount: 0,
         byModel: [opus(10)],
       },
@@ -199,13 +190,19 @@ describe('getTimeline — perMember', () => {
     ])
     enrich.mockResolvedValue(
       new Map([
-        ['clerk_1', { clerkId: 'clerk_1', name: 'Ada Lovelace', imageUrl: 'http://img/ada.png' }],
+        [
+          'clerk_1',
+          {
+            clerkId: 'clerk_1',
+            name: 'Ada Lovelace',
+            imageUrl: 'http://img/ada.png',
+          },
+        ],
       ])
     )
 
-    const { perMember, runs } = await agentRunTimelineService.getTimeline(
-      'task_1'
-    )
+    const { perMember, runs } =
+      await agentRunTimelineService.getTimeline('task_1')
 
     expect(enrich).toHaveBeenCalledWith(['clerk_1'])
     expect(perMember).toHaveLength(1)
@@ -215,7 +212,6 @@ describe('getTimeline — perMember', () => {
       name: 'Ada Lovelace',
       imageUrl: 'http://img/ada.png',
       runCount: 1,
-      turnCount: 1,
       loopCount: 1,
     })
     expect(perMember[0]!.byModel[0]!.total).toBe(170)
@@ -254,9 +250,8 @@ describe('getTimeline — perMember', () => {
       },
     ])
 
-    const { perMember, runs } = await agentRunTimelineService.getTimeline(
-      'task_1'
-    )
+    const { perMember, runs } =
+      await agentRunTimelineService.getTimeline('task_1')
     expect(perMember).toEqual([])
     // The run captured no cost, but its owner is still resolved so the run
     // header can show who ran it (LUM-308).

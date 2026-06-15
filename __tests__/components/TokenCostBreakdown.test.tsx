@@ -47,12 +47,8 @@ beforeAll(() => {
 })
 
 import { render, screen, fireEvent } from '@testing-library/react'
-import {
-  TokenCostBreakdown,
-} from '@/app/workspace/[workspaceUrl]/components/TokenCostBreakdown'
-import type {
-  ModelCost,
-} from '@/app/workspace/[workspaceUrl]/types'
+import { TokenCostBreakdown } from '@/app/workspace/[workspaceUrl]/components/TokenCostBreakdown'
+import type { ModelCost } from '@/app/workspace/[workspaceUrl]/types'
 
 const opus: ModelCost = {
   model: 'claude-opus-4-8',
@@ -122,7 +118,11 @@ describe('TokenCostBreakdown', () => {
 
   it('separates multi-model groups with whitespace, not border-t dividers', () => {
     const { container } = render(
-      <TokenCostBreakdown variant='full' models={[opus, sonnet]} loopCount={null} />
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus, sonnet]}
+        loopCount={null}
+      />
     )
     expect(container.querySelector('.border-t')).toBeNull()
   })
@@ -137,9 +137,6 @@ describe('TokenCostBreakdown', () => {
     )
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument()
-    expect(
-      screen.getByText('models not price-comparable · no total')
-    ).toBeInTheDocument()
   })
 
   it('renders the empty state when models is empty', () => {
@@ -152,13 +149,22 @@ describe('TokenCostBreakdown', () => {
 
 describe('collapsibleDetails mode', () => {
   it('defaults to four detail rows visible when collapsibleDetails is absent', () => {
-    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} />)
+    render(
+      <TokenCostBreakdown variant='full' models={[opus]} loopCount={null} />
+    )
     expect(screen.getByText('output')).toBeInTheDocument()
     expect(screen.getByText('cache-read')).toBeInTheDocument()
   })
 
   it('hides the four detail rows by default and reveals them on per-model toggle', () => {
-    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails />)
+    render(
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus]}
+        loopCount={null}
+        collapsibleDetails
+      />
+    )
     expect(screen.queryByText('output')).not.toBeInTheDocument()
     const toggle = screen.getByRole('button', { name: /claude-opus-4-8/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
@@ -168,19 +174,49 @@ describe('collapsibleDetails mode', () => {
   })
 
   it('keeps the segmented bar rendered while collapsed', () => {
-    const { container } = render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails />)
-    expect(container.querySelector('[data-testid="cost-bar"]')).toBeInTheDocument()
+    const { container } = render(
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus]}
+        loopCount={null}
+        collapsibleDetails
+      />
+    )
+    expect(
+      container.querySelector('[data-testid="cost-bar"]')
+    ).toBeInTheDocument()
   })
 
   it('renders a custom rowHeader in place of the model name', () => {
-    render(<TokenCostBreakdown variant='full' models={[opus]} loopCount={null} collapsibleDetails rowHeader={() => <span>Ada Lovelace</span>} />)
+    render(
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus]}
+        loopCount={null}
+        collapsibleDetails
+        rowHeader={() => <span>Ada Lovelace</span>}
+      />
+    )
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
     expect(screen.queryByText('claude-opus-4-8')).not.toBeInTheDocument()
   })
 
-  it('renders a turns chip in the footer when turnCount is provided', () => {
-    render(<TokenCostBreakdown variant='full' models={[opus, sonnet]} loopCount={null} turnCount={3} />)
-    expect(screen.getByText('3 turns')).toBeInTheDocument()
+  it('TokenCostBreakdown multi-model footer omits turns chip and cross-model warning', () => {
+    // LUM-525: the per-model "N turns" chip and the "not price-comparable ·
+    // no total" warning were both removed from the footer. Render the
+    // multi-model case (where the warning previously appeared) and assert
+    // neither survives.
+    render(
+      <TokenCostBreakdown
+        variant='full'
+        models={[opus, sonnet]}
+        loopCount={null}
+      />
+    )
+    expect(screen.queryByText(/turn/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('models not price-comparable · no total')
+    ).not.toBeInTheDocument()
   })
 })
 
@@ -215,7 +251,13 @@ describe('per-model in-flight share (LUM-345 follow-up)', () => {
     cacheRead: 40,
     cacheCreation: 30,
     total: 300,
-    inFlight: { input: 50, output: 30, cacheRead: 30, cacheCreation: 20, total: 130 },
+    inFlight: {
+      input: 50,
+      output: 30,
+      cacheRead: 30,
+      cacheCreation: 20,
+      total: 130,
+    },
   }
 
   it('annotates a row carrying in-flight burn with the provisional share', () => {

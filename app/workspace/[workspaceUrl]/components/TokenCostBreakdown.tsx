@@ -98,22 +98,20 @@ function ModelGroup({
       ? 'text-heading'
       : 'text-title'
 
-  const nameNode = rowHeader
-    ? rowHeader(m)
-    : m.model === IN_FLIGHT_MODEL
-      ? (
-          // Mid-turn burn not yet settled into a per-model split (LUM-345);
-          // muted because it's a state, not a model name.
-          <span className='text-caption font-semibold text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'tokenCost.inFlight',
-              defaultMessage: 'in progress',
-            })}
-          </span>
-        )
-      : m.model
-        ? <span className='text-caption font-semibold'>{m.model}</span>
-        : null
+  const nameNode = rowHeader ? (
+    rowHeader(m)
+  ) : m.model === IN_FLIGHT_MODEL ? (
+    // Mid-turn burn not yet settled into a per-model split (LUM-345);
+    // muted because it's a state, not a model name.
+    <span className='text-caption font-semibold text-muted-foreground'>
+      {intl.formatMessage({
+        id: 'tokenCost.inFlight',
+        defaultMessage: 'in progress',
+      })}
+    </span>
+  ) : m.model ? (
+    <span className='text-caption font-semibold'>{m.model}</span>
+  ) : null
 
   const totalNode = (
     <span className={`${headlineSize} ml-auto tabular-nums`}>
@@ -147,7 +145,10 @@ function ModelGroup({
   )
 
   const bar = (
-    <div data-testid='cost-bar' className='mt-2 flex h-2 overflow-hidden rounded-full'>
+    <div
+      data-testid='cost-bar'
+      className='mt-2 flex h-2 overflow-hidden rounded-full'
+    >
       {SEGMENTS.map(seg => {
         // The flat fields include the in-flight share; the colored segment
         // shows only the settled part — the provisional remainder renders
@@ -282,16 +283,6 @@ interface TokenCostBreakdownProps {
    * Called once per ModelGroup with the ModelCost for that group.
    */
   rowHeader?: (m: ModelCost) => ReactNode
-  /**
-   * When provided, renders a "N turns" chip in the footer row.
-   */
-  turnCount?: number | null
-  /**
-   * When true, suppresses the "models not price-comparable · no total" warning.
-   * Use on by-member groups where rows are summable across the member dimension
-   * (the cross-model price caveat does not apply there).
-   */
-  summable?: boolean
 }
 
 export function TokenCostBreakdown({
@@ -302,8 +293,6 @@ export function TokenCostBreakdown({
   showTitle = true,
   collapsibleDetails = false,
   rowHeader,
-  turnCount,
-  summable = false,
 }: TokenCostBreakdownProps) {
   const intl = useIntl()
 
@@ -332,18 +321,7 @@ export function TokenCostBreakdown({
         )
       : null
 
-  const turnsChip =
-    typeof turnCount === 'number'
-      ? intl.formatMessage(
-          {
-            id: 'agentRun.turnsSummary',
-            defaultMessage: '{turns, plural, one {# turn} other {# turns}}',
-          },
-          { turns: turnCount }
-        )
-      : null
-
-  const hasFooter = !!loopChip || !!turnsChip || !!chips?.length || (multi && !summable)
+  const hasFooter = !!loopChip || !!chips?.length
 
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
@@ -368,11 +346,6 @@ export function TokenCostBreakdown({
       ))}
       {hasFooter && (
         <div className='mt-2 flex flex-wrap gap-1'>
-          {turnsChip && (
-            <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
-              {turnsChip}
-            </span>
-          )}
           {loopChip && (
             <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
               {loopChip}
@@ -389,14 +362,6 @@ export function TokenCostBreakdown({
               })}
             </span>
           ))}
-          {multi && !summable && (
-            <span className='rounded-full border border-warning-border bg-warning-subtle px-1.5 py-px text-[10px] text-foreground'>
-              {intl.formatMessage({
-                id: 'tokenCost.mixedNoTotal',
-                defaultMessage: 'models not price-comparable · no total',
-              })}
-            </span>
-          )}
         </div>
       )}
     </div>
