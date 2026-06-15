@@ -99,7 +99,7 @@ describe('memoryRepository.update', () => {
 })
 
 describe('memoryRepository.findByIdWithWorkspace', () => {
-  it('selects the auth-relevant fields', async () => {
+  it('selects the auth-relevant fields plus the full card', async () => {
     mockFindUnique.mockResolvedValue({
       id: 'm1',
       workspaceId: 'w1',
@@ -107,6 +107,11 @@ describe('memoryRepository.findByIdWithWorkspace', () => {
       taskId: 't1',
       scope: 'TASK',
       category: 'TRAP',
+      agent: null,
+      content: { rule: 'x' },
+      createdByMemberId: 'mem1',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-02T00:00:00Z'),
     })
     const row = await memoryRepository.findByIdWithWorkspace('m1')
     expect(mockFindUnique).toHaveBeenCalledWith({
@@ -118,6 +123,11 @@ describe('memoryRepository.findByIdWithWorkspace', () => {
         taskId: true,
         scope: true,
         category: true,
+        agent: true,
+        content: true,
+        createdByMemberId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
     expect(row?.workspaceId).toBe('w1')
@@ -193,7 +203,11 @@ describe('memoryRepository.findBySourceSessionId', () => {
     await memoryRepository.findBySourceSessionId('s1', since)
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { sourceSessionId: 's1', status: 'ACTIVE', createdAt: { gt: since } },
+        where: {
+          sourceSessionId: 's1',
+          status: 'ACTIVE',
+          createdAt: { gt: since },
+        },
       })
     )
   })

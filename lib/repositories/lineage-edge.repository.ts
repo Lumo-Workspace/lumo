@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type {
   Prisma,
+  LineageDisclosure,
   LineageFragmentType,
   LineageOutcome,
 } from '@prisma/client'
@@ -19,6 +20,7 @@ export interface CreateLineageEdgeInput {
   fragmentId: string
   sessionId?: string | null
   outcome?: LineageOutcome
+  disclosure?: LineageDisclosure
 }
 
 /** A closing verdict that can be stamped onto an edge — everything but the
@@ -45,10 +47,15 @@ const STAMPABLE_FROM: Record<StampableOutcome, LineageOutcome[]> = {
   REWORKED: ['MERGED'],
 }
 
-/** Polymorphic fragment identity (type + id), used to scope aggregate queries. */
+/** Polymorphic fragment identity (type + id), used to scope aggregate queries.
+ * `disclosure` (LUM-500) is the Tier-1/2 tag carried from session-start so the
+ * lineage edge records whether the fragment was injected as full content (FULL)
+ * or as an addressable index/manifest (INDEX). Optional — omit → DB default
+ * FULL — so aggregate-query callers that don't tag edges are unaffected. */
 export interface FragmentRef {
   fragmentType: LineageFragmentType
   fragmentId: string
+  disclosure?: LineageDisclosure
 }
 
 /** Per-fragment rollup of edge outcomes, returned by `aggregateByFragments`. */
@@ -196,8 +203,30 @@ export const lineageEdgeRepository = {
         fragmentId: i.fragmentId,
         sessionId: i.sessionId ?? null,
         ...(i.outcome ? { outcome: i.outcome } : {}),
+        ...(i.disclosure ? { disclosure: i.disclosure } : {}),
       })),
     })
+  },
+
+  /**
+   * Stamp `pulledAt` on the unfetched edge that matches the given
+   * (sessionId, fragmentType, fragmentId) triple. The `pulledAt: null` guard
+   * makes the stamp idempotent — a second pull of the same fragment in the same
+   * session is a no-op. Returns the number of rows updated (0 or 1).
+   */
+  async recordPull(
+    ref: {
+      sessionId: string
+      fragmentType: LineageFragmentType
+      fragmentId: string
+    },
+    pulledAt: Date
+  ): Promise<number> {
+    const res = await prisma.lineageEdge.updateMany({
+      where: { ...ref, pulledAt: null },
+      data: { pulledAt },
+    })
+    return res.count
   },
 
   /**

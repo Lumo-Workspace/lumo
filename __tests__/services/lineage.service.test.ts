@@ -85,6 +85,39 @@ describe('lineageService.recordSessionStartEdges', () => {
     ])
   })
 
+  it('threads the disclosure tag through to createMany (LUM-500)', async () => {
+    await lineageService.recordSessionStartEdges({
+      workspaceId: 'ws-1',
+      taskId: 't-1',
+      sessionId: 's-1',
+      fragments: [
+        { fragmentType: 'MEMORY', fragmentId: 'mem-1', disclosure: 'INDEX' },
+        { fragmentType: 'WEB_LINK', fragmentId: 'web-1', disclosure: 'INDEX' },
+      ],
+    })
+    expect(mockCreateMany).toHaveBeenCalledWith([
+      expect.objectContaining({ fragmentId: 'mem-1', disclosure: 'INDEX' }),
+      expect.objectContaining({ fragmentId: 'web-1', disclosure: 'INDEX' }),
+    ])
+  })
+
+  it('omits disclosure for an untagged fragment (→ DB default FULL) (LUM-500)', async () => {
+    await lineageService.recordSessionStartEdges({
+      workspaceId: 'ws-1',
+      taskId: 't-1',
+      sessionId: 's-1',
+      // No disclosure field — e.g. the route's SESSION / review-todo extras.
+      fragments: [{ fragmentType: 'SESSION', fragmentId: 'sess-1' }],
+    })
+    const arg = mockCreateMany.mock.calls[0][0]
+    expect(arg).toHaveLength(1)
+    expect(arg[0]).not.toHaveProperty('disclosure')
+    expect(arg[0]).toMatchObject({
+      fragmentType: 'SESSION',
+      fragmentId: 'sess-1',
+    })
+  })
+
   it('resolves MEMORY fragments to their canonical id', async () => {
     mockResolve.mockImplementation(async (type: string, id: string) =>
       type === 'MEMORY' && id === 'mem-task' ? 'mem-project' : id

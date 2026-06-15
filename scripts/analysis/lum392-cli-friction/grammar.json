@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.35.0",
+  "cliVersion": "1.36.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1050,6 +1050,18 @@
       },
       "hasSubcommands": false,
       "description": "Delete a memory (hard delete). Requires --yes."
+    },
+    "memory show": {
+      "arguments": [
+        {
+          "name": "memoryId",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
     },
     "milestone": {
       "arguments": [],

@@ -81,8 +81,8 @@ describe('buildSessionStartSections — lineage-aware ranking', () => {
 
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([
-      { fragmentType: 'MEMORY', fragmentId: 'mem-hot' },
-      { fragmentType: 'MEMORY', fragmentId: 'mem-cold' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-hot', disclosure: 'INDEX' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-cold', disclosure: 'INDEX' },
     ])
   })
 
@@ -104,7 +104,7 @@ describe('buildSessionStartSections — lineage-aware ranking', () => {
 
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([
-      { fragmentType: 'MEMORY', fragmentId: 'mem-p' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-p', disclosure: 'INDEX' },
     ])
     expect(out.memorySection).toContain('mem-p')
     expect(out.memorySection).not.toContain('mem-t')
@@ -126,8 +126,8 @@ describe('buildSessionStartSections — lineage-aware ranking', () => {
 
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([
-      { fragmentType: 'MEMORY', fragmentId: 'mem-p' },
-      { fragmentType: 'MEMORY', fragmentId: 'mem-t' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-p', disclosure: 'INDEX' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-t', disclosure: 'INDEX' },
     ])
   })
 })

@@ -4,7 +4,6 @@ import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
-import { formatDuration, relativeTime } from './format'
 import { sumTranscriptUsage } from './transcript-usage'
 
 /**
@@ -97,7 +96,10 @@ function readStdin(): Promise<string> {
 export function formatHookStdoutLines(
   path: string,
   responseBody: unknown,
-  now: Date = new Date()
+  // Retained for signature stability (callers/tests still pass it). LUM-500
+  // removed the only time-dependent rendering (the recovery card), so it is no
+  // longer read.
+  _now: Date = new Date()
 ): string[] {
   if (path === 'pre-tool-use') {
     if (responseBody == null || typeof responseBody !== 'object') return []
@@ -129,24 +131,27 @@ export function formatHookStdoutLines(
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
   }
-  // Recovery card + blocker warning + memory + linked resources + PR-review
-  // todos share one additionalContext block so Claude Code injects a single
-  // coherent context payload at session start. The card slots in first so it's
-  // the first thing the model reads; the dependency blocker warning (LUM-172)
-  // comes right after so it stays prominent, ahead of the memory section.
-  const card = renderRecoveryCard(
-    body.previousSession,
-    tb?.taskIdentifier ?? '',
-    now
-  )
+  // Blocker warning + criteria + progress + memory + linked resources +
+  // PR-review todos share one additionalContext block so Claude Code injects a
+  // single coherent context payload at session start. The dependency blocker
+  // warning (LUM-172) slots in first so it stays prominent — it can preempt the
+  // session's work entirely. Then the progressive-disclosure tiers (LUM-500):
+  // Tier-0 acceptance contract → Tier-1 prior-session progress → Tier-2 memory
+  // index → linked resources.
+  //
+  // LUM-500: the prior-session recovery is now the server-rendered Tier-1
+  // `progressSection`, which REPLACES the CLI-rendered recovery card so progress
+  // isn't injected twice. `body.previousSession` is still sent (it drives the
+  // server's lineage/metrics) but is no longer rendered here.
   const envelope = sessionContextEnvelope([
-    card,
-    // Blocker warning right after the card: it can preempt the session's
-    // work entirely (wait for the blocker instead of starting) — LUM-172.
+    // Blocker warning first: it can preempt the session's work entirely (wait
+    // for the blocker instead of starting) — LUM-172.
     body.blockerWarningSection,
-    // Acceptance contract next: it's what the session's work is judged
-    // against (LUM-342).
+    // Tier-0 acceptance contract: what the session's work is judged against
+    // (LUM-342).
     body.criteriaSection,
+    // Tier-1 prior-session progress (LUM-500), server-rendered.
+    body.progressSection,
     body.memorySection,
     body.linkedResourcesSection,
     body.reviewTodosSection,
@@ -171,11 +176,18 @@ type SessionStartBody = {
     taskTitle?: string
   }
   criteriaSection?: string
+  /** LUM-500 Tier-1: server-rendered prior-session progress summary. */
+  progressSection?: string
   memorySection?: string
   linkedResourcesSection?: string
   reviewTodosSection?: string
   layer2ReviewSection?: string
   blockerWarningSection?: string
+  /**
+   * Structured prior-session recovery. Still sent by the server (it drives the
+   * lineage SESSION fragment + LUM-402 metrics), but LUM-500 stopped rendering
+   * it as a CLI card — `progressSection` is the rendered Tier-1 surface now.
+   */
   previousSession?: PreviousSessionCard | null
 }
 
@@ -185,44 +197,6 @@ type SessionStartBody = {
  */
 function unboundPromptLine(sessionId: string): string {
   return `[Lumo] session_id=${sessionId} | No task bound. Tell me the task you want to work on (e.g. LUM-42), or say "skip".`
-}
-
-const MAX_UNRESOLVED = 5
-
-/**
- * Render the "resuming previous session" recovery card from the structured previousSession
- * payload. Returns undefined when there's nothing to show (null payload or an
- * empty headline). Free text (headline / unresolved) is sanitized here — it's
- * LLM-generated and routed to Claude Code stdout. unresolved is capped at
- * MAX_UNRESOLVED with a "+M more" pointer to `lumo task context`.
- */
-function renderRecoveryCard(
-  prev: PreviousSessionCard | null | undefined,
-  taskIdentifier: string,
-  now: Date
-): string | undefined {
-  if (!prev || typeof prev.headline !== 'string' || prev.headline === '') {
-    return undefined
-  }
-  const ago = relativeTime(new Date(prev.lastActivityAt), now)
-  const dur = formatDuration(prev.durationMs)
-  const lines: string[] = [
-    `## Resuming previous session (${ago} · ${dur})`,
-    `Last stopped at: ${sanitizeField(prev.headline)}`,
-  ]
-  const unresolved = Array.isArray(prev.unresolved) ? prev.unresolved : []
-  if (unresolved.length > 0) {
-    lines.push('Unfinished:')
-    const shown = unresolved.slice(0, MAX_UNRESOLVED)
-    for (const u of shown) lines.push(`- ${sanitizeField(u)}`)
-    const extra = unresolved.length - shown.length
-    if (extra > 0) {
-      lines.push(
-        `- … (+${extra} more — run \`lumo task context ${taskIdentifier}\` for the full list)`
-      )
-    }
-  }
-  return lines.join('\n')
 }
 
 /**
@@ -282,7 +256,8 @@ export function formatSuggestLine(
 export function resolveSessionStartStdout(
   responseBody: unknown,
   deps: SessionStartDeps,
-  now: Date = new Date()
+  // Retained for signature stability; no longer read (see formatHookStdoutLines).
+  _now: Date = new Date()
 ): string[] {
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as SessionStartBody
@@ -291,7 +266,7 @@ export function resolveSessionStartStdout(
   const tb = body.taskBinding
 
   if (tb && tb.bound === true) {
-    return formatHookStdoutLines('session-start', responseBody, now)
+    return formatHookStdoutLines('session-start', responseBody)
   }
   if (!tb || tb.bound !== false) return []
 

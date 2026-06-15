@@ -1,5 +1,4 @@
 import type { MemoryCategory, MemoryScope } from '@prisma/client'
-import { type BudgetSection, estimateTokens } from '@/lib/context/budget'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { parseMemoryContent } from './schemas'
 
@@ -263,40 +262,11 @@ function memoryHeadline(m: RenderableMemory): string {
   return JSON.stringify(m.content)
 }
 
-/** One-line manifest for an overflowed memory: scope tag + truncated headline. */
+/** One-line manifest for an overflowed memory: scope tag + truncated headline + fetch hint. */
 export function memoryManifestLine(m: RenderableMemory): string {
   const head = memoryHeadline(m)
   const truncated = head.length > 100 ? head.slice(0, 100) + '…' : head
-  return `- ${tag(m)} ${truncated}`
-}
-
-/**
- * Memory as a budget section (LUM-147). Highest priority; keeps the existing
- * category sub-grouping for the kept (full) cards, lists overflow as manifest.
- * Hand-written rather than via makeBudgetSection so grouping survives.
- */
-export function memoryBudgetSection(
-  ordered: RenderableMemory[]
-): BudgetSection {
-  return {
-    cardTokens: ordered.map(m => estimateTokens(renderMemoryItem(m))),
-    render: (fullCount: number): string => {
-      if (ordered.length === 0) return ''
-      const kept = ordered.slice(0, fullCount)
-      const overflow = ordered.slice(fullCount)
-      let body = renderMemorySection(kept) // '' when kept is empty
-      if (overflow.length > 0) {
-        const head = body ? body.trimEnd() + '\n\n' : '## Relevant Memory\n\n'
-        body =
-          head +
-          [
-            `Remaining ${overflow.length} memories (manifest only):`,
-            ...overflow.map(memoryManifestLine),
-          ].join('\n')
-      }
-      return body
-    },
-  }
+  return `- ${tag(m)} ${truncated} → lumo memory show ${m.id}`
 }
 
 /**

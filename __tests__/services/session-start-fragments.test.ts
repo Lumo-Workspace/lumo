@@ -70,11 +70,12 @@ describe('buildSessionStartSections — fragment manifest', () => {
     ])
 
     const out = await taskContextService.buildSessionStartSections('t-1')
+    // LUM-500: every session-start fragment is Tier-2, tagged disclosure INDEX.
     expect(out.fragments).toEqual(
       expect.arrayContaining([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-p' },
-        { fragmentType: 'MEMORY', fragmentId: 'mem-t' },
-        { fragmentType: 'WEB_LINK', fragmentId: 'web-1' },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-p', disclosure: 'INDEX' },
+        { fragmentType: 'MEMORY', fragmentId: 'mem-t', disclosure: 'INDEX' },
+        { fragmentType: 'WEB_LINK', fragmentId: 'web-1', disclosure: 'INDEX' },
       ])
     )
   })
@@ -100,8 +101,8 @@ describe('buildSessionStartSections — fragment manifest', () => {
 
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([
-      { fragmentType: 'MEMORY', fragmentId: 'mem-1' },
-      { fragmentType: 'MEMORY', fragmentId: 'mem-2' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-1', disclosure: 'INDEX' },
+      { fragmentType: 'MEMORY', fragmentId: 'mem-2', disclosure: 'INDEX' },
     ])
   })
 

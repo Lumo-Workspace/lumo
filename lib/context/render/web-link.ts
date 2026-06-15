@@ -1,5 +1,3 @@
-import { makeBudgetSection } from '@/lib/context/budget'
-
 export interface WebLinkCard {
   id: string
   url: string
@@ -24,10 +22,26 @@ export function webLinkCard(l: WebLinkCard): string {
   return lines.join('\n')
 }
 
-/** One-line manifest for an overflowed web link. */
+/**
+ * Truncate a one-line descriptor for a manifest line. Collapses internal
+ * whitespace, then clips at `max` chars with an ellipsis. Returns "" for
+ * empty/whitespace-only input.
+ */
+function truncateDescriptor(text: string, max = 70): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (flat.length === 0) return ''
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/**
+ * One-line manifest for a Tier-2 web link (LUM-500): the page title (truncated)
+ * plus the host so an agent can decide whether to pull the body, plus the
+ * retrieval hint. Falls back to url + host when there is no title.
+ */
 export function webLinkManifest(l: WebLinkCard): string {
-  const label = l.title ? `[${l.title}](${l.url})` : l.url
-  return `- [external:web] ${label} — lumo task web show ${l.id}`
+  const title = truncateDescriptor(l.title ?? '')
+  const descriptor = title ? `${title} — ${l.domain}` : `${l.url} — ${l.domain}`
+  return `- [external:web] ${descriptor} → lumo task web show ${l.id}`
 }
 
 /**
@@ -40,11 +54,4 @@ export function renderWebLinkSection(links: WebLinkCard[]): string {
   for (const l of links) lines.push(webLinkCard(l))
   lines.push('')
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for web links (LUM-147). */
-export function webLinkBudgetSection(links: WebLinkCard[]) {
-  // Single-newline separator to match `renderWebLinkSection`, which packs web
-  // cards with no blank line between them (same reason `prBudgetSection` does).
-  return makeBudgetSection('## Web Links', links, webLinkCard, webLinkManifest, '\n')
 }

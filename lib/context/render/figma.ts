@@ -1,5 +1,4 @@
 import type { TaskFigmaLink } from '@prisma/client'
-import { makeBudgetSection } from '@/lib/context/budget'
 
 function figmaTitle(link: TaskFigmaLink): string {
   return link.frameName
@@ -25,9 +24,22 @@ export function figmaCard(link: TaskFigmaLink): string {
   return lines.join('\n')
 }
 
-/** One-line manifest for an overflowed Figma link. */
+/**
+ * Truncate a one-line descriptor for a manifest line. Collapses internal
+ * whitespace, then clips at `max` chars with an ellipsis.
+ */
+function truncateDescriptor(text: string, max = 70): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/**
+ * One-line manifest for a Tier-2 Figma link (LUM-500): the file/frame name
+ * (truncated) so an agent can decide whether to pull the design context, plus
+ * the retrieval hint.
+ */
 export function figmaManifest(link: TaskFigmaLink): string {
-  return `- [external:figma] ${figmaTitle(link)} — lumo task figma context ${link.id}`
+  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${link.id}`
 }
 
 /**
@@ -42,9 +54,4 @@ export function renderFigmaSection(links: TaskFigmaLink[]): string {
     lines.push('')
   }
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for Figma links (LUM-147). */
-export function figmaBudgetSection(links: TaskFigmaLink[]) {
-  return makeBudgetSection('## Figma Designs', links, figmaCard, figmaManifest)
 }

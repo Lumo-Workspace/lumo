@@ -98,9 +98,18 @@ export const lineageService = {
             f.fragmentType,
             f.fragmentId
           ),
+          // LUM-500: carry the Tier-1/2 disclosure tag through canonicalization
+          // so the persisted edge records how the fragment was injected
+          // (INDEX vs the default FULL). Conditional spread keeps it absent
+          // (not `undefined`) under exactOptionalPropertyTypes.
+          ...(f.disclosure ? { disclosure: f.disclosure } : {}),
         }))
       )
 
+      // Dedup keys on fragmentType+fragmentId (the DB unique constraint's
+      // fragment half); on collision we keep the first. Two edges that collapse
+      // to the same canonical id were the same injected fragment, so their
+      // disclosure matches — keeping the first loses nothing.
       const seen = new Set<string>()
       const unique = resolved.filter(f => {
         const key = fragmentKey(f)
@@ -116,6 +125,9 @@ export const lineageService = {
           fragmentType: f.fragmentType,
           fragmentId: f.fragmentId,
           sessionId,
+          // Conditional spread → absent (not `undefined`) when untagged, so
+          // createMany falls through to the DB default FULL.
+          ...(f.disclosure ? { disclosure: f.disclosure } : {}),
         }))
       )
 

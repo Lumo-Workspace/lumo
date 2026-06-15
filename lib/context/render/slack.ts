@@ -1,5 +1,3 @@
-import { makeBudgetSection } from '@/lib/context/budget'
-
 /**
  * Strip Slack mrkdwn tokens that would confuse the agent. Local to the slack
  * renderer — the only consumer of Slack message text.
@@ -33,7 +31,9 @@ const FALLBACK_MESSAGE_COUNT = 3
 
 /** Render a single Slack context card body (no section heading). */
 export function slackCard(c: SlackContextCard): string {
-  const channelLabel = c.slackChannelName ? `#${c.slackChannelName}` : '#channel'
+  const channelLabel = c.slackChannelName
+    ? `#${c.slackChannelName}`
+    : '#channel'
   const fetchedAt =
     c.snapshotAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
   const meta = c.isThread
@@ -60,10 +60,29 @@ export function slackCard(c: SlackContextCard): string {
   return lines.join('\n')
 }
 
-/** One-line manifest for an overflowed Slack card. */
+/**
+ * Truncate a one-line descriptor to keep a manifest line short and decision-
+ * useful. Collapses internal whitespace, then clips at `max` chars with an
+ * ellipsis. Returns "" for empty/whitespace-only input.
+ */
+function truncateDescriptor(text: string, max = 60): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (flat.length === 0) return ''
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/**
+ * One-line manifest for a Tier-2 Slack card (LUM-500): channel + a short
+ * snippet of the summary so an agent can decide whether to pull, plus the
+ * retrieval hint. Falls back to channel-only when there is no summary.
+ */
 export function slackManifest(c: SlackContextCard): string {
-  const channelLabel = c.slackChannelName ? `#${c.slackChannelName}` : '#channel'
-  return `- [external:slack] ${channelLabel} — lumo task slack show ${c.id}`
+  const channelLabel = c.slackChannelName
+    ? `#${c.slackChannelName}`
+    : '#channel'
+  const snippet = truncateDescriptor(c.summary ?? '')
+  const descriptor = snippet ? `${channelLabel} — ${snippet}` : channelLabel
+  return `- [external:slack] ${descriptor} → lumo task slack show ${c.id}`
 }
 
 /**
@@ -80,14 +99,4 @@ export function renderSlackContextSection(
     lines.push('')
   }
   return lines.join('\n').trimEnd()
-}
-
-/** Budget-section wrapper for Slack contexts (LUM-147). */
-export function slackBudgetSection(contexts: SlackContextCard[]) {
-  return makeBudgetSection(
-    '## Slack Context',
-    contexts,
-    slackCard,
-    slackManifest
-  )
 }

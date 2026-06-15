@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { reportPull } from '../lib/report-pull'
 
 interface FigmaMetadata {
   id: string
@@ -85,4 +86,8 @@ export async function taskFigmaContext(
   if (metadata.lastSyncError)
     console.log(`syncError: ${sanitizeField(metadata.lastSyncError)}`)
   if (note) console.log(`\nnote: ${sanitizeField(note)}`)
+
+  // LUM-500: stamp the disclosure funnel. The linkId arg == lineage FIGMA
+  // fragmentId. Fire-and-forget — never blocks output, swallows failures.
+  await reportPull({ fragmentType: 'FIGMA', fragmentId: linkId })
 }

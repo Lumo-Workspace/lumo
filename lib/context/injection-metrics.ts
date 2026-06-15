@@ -36,20 +36,28 @@ export interface SessionStartContextMetrics {
   /** Per-section kept/dropped card attribution from the budget allocator. */
   allocation: SessionStartAllocation
   /**
-   * Estimated tokens of each section string actually shipped to the CLI
-   * (previousSession is structured data, estimated over its JSON form).
+   * Estimated tokens of each section string actually shipped to the CLI.
+   * `progress` is measured over the rendered Tier-1 progress markdown the
+   * agent actually receives (LUM-500), not the structured recovery object.
    */
   sectionTokens: {
     criteria: number
     memory: number
     linkedResources: number
     reviewTodos: number
-    previousSession: number
+    progress: number
     layer2Review: number
     blockerWarning: number
   }
   /** Sum of sectionTokens — the total estimated injection size. */
   totalTokens: number
+  /**
+   * Per-tier token split (LUM-500 progressive disclosure):
+   *  - tier0 = always-full red-line context: criteria + blockerWarning
+   *  - tier1 = always-full orienting context: progress + reviewTodos + layer2Review
+   *  - tier2 = pull-on-demand index/manifest surface: memory (index) + linkedResources (manifests)
+   */
+  tierTokens: { tier0: number; tier1: number; tier2: number }
 }
 
 interface BuildMetricsInput {
@@ -59,7 +67,7 @@ interface BuildMetricsInput {
   memorySection: string
   linkedResourcesSection: string
   reviewTodosSection: string
-  previousSession: unknown
+  progressSection: string
   layer2ReviewSection: string
   blockerWarningSection: string
 }
@@ -72,10 +80,7 @@ export function buildSessionStartContextMetrics(
     memory: estimateTokens(input.memorySection),
     linkedResources: estimateTokens(input.linkedResourcesSection),
     reviewTodos: estimateTokens(input.reviewTodosSection),
-    previousSession:
-      input.previousSession == null
-        ? 0
-        : estimateTokens(JSON.stringify(input.previousSession)),
+    progress: estimateTokens(input.progressSection),
     layer2Review: estimateTokens(input.layer2ReviewSection),
     blockerWarning: estimateTokens(input.blockerWarningSection),
   }
@@ -83,11 +88,20 @@ export function buildSessionStartContextMetrics(
     (sum, tokens) => sum + tokens,
     0
   )
+  const tierTokens = {
+    tier0: sectionTokens.criteria + sectionTokens.blockerWarning,
+    tier1:
+      sectionTokens.progress +
+      sectionTokens.reviewTodos +
+      sectionTokens.layer2Review,
+    tier2: sectionTokens.memory + sectionTokens.linkedResources,
+  }
   return {
     version: 1,
     budgetTokens: input.budgetTokens,
     allocation: input.allocation,
     sectionTokens,
     totalTokens,
+    tierTokens,
   }
 }

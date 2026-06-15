@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { reportPull } from '../lib/report-pull'
 
 interface SlackMessage {
   ts?: string
@@ -71,10 +72,14 @@ export async function taskSlackShow(
   const messages = snapshot?.messages ?? []
   if (messages.length === 0) {
     console.log('(no messages in stored snapshot)')
-    return
+  } else {
+    for (const m of messages) {
+      const author = sanitizeField(m.userName ?? '@' + m.userId)
+      console.log(`${author}: ${sanitizeField(m.text)}`)
+    }
   }
-  for (const m of messages) {
-    const author = sanitizeField(m.userName ?? '@' + m.userId)
-    console.log(`${author}: ${sanitizeField(m.text)}`)
-  }
+
+  // LUM-500: stamp the disclosure funnel. The contextId arg == lineage
+  // SLACK_CONTEXT fragmentId. Fire-and-forget — never blocks, swallows failures.
+  await reportPull({ fragmentType: 'SLACK_CONTEXT', fragmentId: contextId })
 }

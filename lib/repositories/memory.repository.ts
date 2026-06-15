@@ -134,7 +134,12 @@ export const memoryRepository = {
    */
   async findRecentTaskScopeMemoriesByProject(projectId: string, limit: number) {
     return prisma.memory.findMany({
-      where: { projectId, scope: 'TASK', taskId: { not: null }, status: 'ACTIVE' },
+      where: {
+        projectId,
+        scope: 'TASK',
+        taskId: { not: null },
+        status: 'ACTIVE',
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
@@ -287,7 +292,13 @@ export const memoryRepository = {
     })
   },
 
-  /** Auth-relevant fields for PATCH/DELETE routes. */
+  /**
+   * Auth-relevant fields plus the full card. PATCH/DELETE routes use the
+   * `workspaceId`/`scope`/`category` fields for authorization; `GET
+   * /api/memories/[id]` (LUM-500) additionally renders `content`/`agent`/
+   * `createdByMemberId`/timestamps. `workspaceId` is a top-level column on the
+   * Memory row, so workspace ownership reads straight off `memory.workspaceId`.
+   */
   async findByIdWithWorkspace(id: string) {
     return prisma.memory.findUnique({
       where: { id },
@@ -298,6 +309,11 @@ export const memoryRepository = {
         taskId: true,
         scope: true,
         category: true,
+        agent: true,
+        content: true,
+        createdByMemberId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
   },

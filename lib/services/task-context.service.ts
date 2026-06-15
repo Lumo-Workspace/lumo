@@ -36,10 +36,10 @@ import {
   renderCommentsSection,
   renderPRSection,
   renderPrReviewTodosSection,
-  slackBudgetSection,
-  webLinkBudgetSection,
-  figmaBudgetSection,
-  prBudgetSection,
+  slackManifest,
+  webLinkManifest,
+  figmaManifest,
+  prManifest,
   type ReviewTodoItem,
   type SlackContextCard,
   type WebLinkCard,
@@ -57,7 +57,6 @@ import {
   renderMemorySection,
   renderLayer2ReviewSection,
   wrapUntrustedMemory,
-  memoryBudgetSection,
   wrapUntrustedLinked,
   wrapUntrustedLinkedGroup,
   type MemorySource,
@@ -65,8 +64,11 @@ import {
 } from '@/lib/memory/render'
 import {
   allocateBudgetWithMetrics,
+  estimateTokens,
   type BudgetSectionMetric,
 } from '@/lib/context/budget'
+import { buildMemoryIndex } from '@/lib/services/memory/index-disclosure'
+import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
 import { bigramSimilarity } from '@/lib/similarity'
 import { memoryContentToText } from '@/lib/memory/content-text'
@@ -296,6 +298,20 @@ function summaryUnresolved(
     default:
       return stringList(s.unresolved)
   }
+}
+
+/**
+ * Format an active duration in milliseconds to a compact human label for
+ * the Tier-1 "Progress so far" headline suffix, e.g. "23min" or "1h 5min".
+ * Uses Math.round so that e.g. 89 500 ms → 1min (not 0min) and 3 599 000 → 60min.
+ * Returns null when ms is 0 (caller omits the suffix entirely).
+ */
+function formatActiveDuration(ms: number): string | null {
+  if (ms <= 0) return null
+  const m = Math.round(ms / 60_000)
+  if (m === 0) return null
+  if (m < 60) return `${m}min`
+  return `${Math.floor(m / 60)}h ${m % 60}min`
 }
 
 const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
@@ -775,37 +791,36 @@ export const taskContextService = {
       }
     )
 
-    // Priority order: criteria > memory > PR > Slack > Figma > web. The
-    // acceptance contract (LUM-342) outranks everything — it's what the work
-    // is judged against — and at 3–7 short statements it's also the cheapest.
+    // Priority order: criteria > memory > resources. The acceptance contract
+    // (LUM-342) outranks everything — it's what the work is judged against —
+    // and at 3–7 short statements it's also the cheapest. It is the only
+    // Tier-0 always-full section, so it's the only thing left in the shared
+    // token budget. LUM-500: memory degrades to a Tier-2 addressable index
+    // (computed below), and the linked resources (PR/Slack/Figma/web) degrade
+    // to descriptive one-line manifests (computed below) — both leave the
+    // budget allocator, which now spans criteria alone.
     const { rendered, metrics } = allocateBudgetWithMetrics(
-      [
-        criteriaBudgetSection(criteria),
-        memoryBudgetSection(ranked.memories),
-        prBudgetSection(ranked.prs as unknown as PRCard[]),
-        slackBudgetSection(ranked.slack as unknown as SlackContextCard[]),
-        figmaBudgetSection(ranked.figma),
-        webLinkBudgetSection(ranked.web as unknown as WebLinkCard[]),
-      ],
+      [criteriaBudgetSection(criteria)],
       SESSION_START_BUDGET_TOKENS
     )
-    const [criteriaOut, memoryOut, prOut, slackOut, figmaOut, webOut] =
-      rendered as [string, string, string, string, string, string]
-    const [
-      criteriaMetric,
-      memoryMetric,
-      prMetric,
-      slackMetric,
-      figmaMetric,
-      webMetric,
-    ] = metrics as [
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-      BudgetSectionMetric,
-    ]
+    const [criteriaOut = ''] = rendered
+    const [criteriaMetric = emptyMetric] = metrics
+
+    // Tier-2 memory: top-K addressable index, then a pointer for the rest.
+    // Wrapped in the same untrusted boundary as the old full card.
+    const memorySection = wrapUntrustedMemory(
+      buildMemoryIndex(ranked.memories, RELEVANCE_GATE_TOP_K)
+    )
+    // Observe-only telemetry (LUM-402): keep the `memory` metric shape so the
+    // return type and the session-start metrics stamp stay intact. Memory no
+    // longer competes for the token budget, so nothing is "dropped" to overflow
+    // here — droppedCards counts entries that fell past the top-K index.
+    const memoryMetric: BudgetSectionMetric = {
+      keptCards: Math.min(RELEVANCE_GATE_TOP_K, ranked.memories.length),
+      droppedCards: Math.max(0, ranked.memories.length - RELEVANCE_GATE_TOP_K),
+      keptTokens: estimateTokens(memorySection),
+      droppedTokens: 0,
+    }
 
     // No criteria on a still-open task → nudge the agent to draft the
     // contract before the first line of code (the SKILL.md guide has the
@@ -824,30 +839,98 @@ export const taskContextService = {
           ? renderCriteriaDraftNudge()
           : ''
 
-    const linkedJoined = [prOut, slackOut, figmaOut, webOut]
+    // LUM-500: linked resources are Tier-2 — each renders as a clean manifest
+    // block (heading + one descriptive one-line manifest per card), never a
+    // full budgeted card. An agent reads the index and pulls only what it
+    // needs. Empty list → empty block, dropped from the joined section.
+    const manifestBlock = <T>(
+      heading: string,
+      cards: T[],
+      toManifest: (card: T) => string
+    ): string =>
+      cards.length === 0
+        ? ''
+        : `${heading}\n\n${cards.map(toManifest).join('\n')}`
+
+    const prManifestBlock = manifestBlock(
+      '## Pull Requests',
+      ranked.prs as unknown as PRCard[],
+      prManifest
+    )
+    const slackManifestBlock = manifestBlock(
+      '## Slack Context',
+      ranked.slack as unknown as SlackContextCard[],
+      slackManifest
+    )
+    const figmaManifestBlock = manifestBlock(
+      '## Figma Designs',
+      ranked.figma,
+      figmaManifest
+    )
+    const webManifestBlock = manifestBlock(
+      '## Web Links',
+      ranked.web as unknown as WebLinkCard[],
+      webLinkManifest
+    )
+
+    const linkedJoined = [
+      prManifestBlock,
+      slackManifestBlock,
+      figmaManifestBlock,
+      webManifestBlock,
+    ]
       .filter(s => s !== '')
       .join('\n\n')
 
+    // Observe-only telemetry (LUM-402): resources no longer compete for the
+    // token budget — they're all rendered as Tier-2 manifests. Keep the metric
+    // shape so the return type and the metrics stamp stay intact: every card is
+    // "dropped" to a manifest (keptCards 0), with the manifest's own cheap
+    // tokens recorded as keptTokens.
+    const manifestMetric = (
+      block: string,
+      count: number
+    ): BudgetSectionMetric => ({
+      keptCards: 0,
+      droppedCards: count,
+      keptTokens: estimateTokens(block),
+      droppedTokens: 0,
+    })
+    const prMetric = manifestMetric(prManifestBlock, ranked.prs.length)
+    const slackMetric = manifestMetric(slackManifestBlock, ranked.slack.length)
+    const figmaMetric = manifestMetric(figmaManifestBlock, ranked.figma.length)
+    const webMetric = manifestMetric(webManifestBlock, ranked.web.length)
+
+    // LUM-500: every session-start fragment is now Tier-2 — memory is an
+    // addressable index and the resources are descriptive manifests — so each
+    // edge is tagged INDEX. The route's extra fragments (review-todos, layer2,
+    // SESSION) carry no disclosure and correctly default to FULL, since they're
+    // injected as full content.
     const fragments: FragmentRef[] = [
       ...ranked.memories.map(m => ({
         fragmentType: 'MEMORY' as const,
         fragmentId: m.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.slack.map(s => ({
         fragmentType: 'SLACK_CONTEXT' as const,
         fragmentId: s.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.web.map(w => ({
         fragmentType: 'WEB_LINK' as const,
         fragmentId: w.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.figma.map(f => ({
         fragmentType: 'FIGMA' as const,
         fragmentId: f.id,
+        disclosure: 'INDEX' as const,
       })),
       ...ranked.prs.map(p => ({
         fragmentType: 'PR' as const,
         fragmentId: p.id,
+        disclosure: 'INDEX' as const,
       })),
     ]
 
@@ -858,7 +941,7 @@ export const taskContextService = {
       // value; adding one means a migration + the LUM-276 write-key==read-key
       // contract on the read side — deferred rather than half-joined).
       criteriaSection,
-      memorySection: wrapUntrustedMemory(memoryOut),
+      memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       fragments,
       budget: {
@@ -933,6 +1016,49 @@ export const taskContextService = {
       }
     }
     return null
+  },
+
+  /**
+   * Render the prior-session progress summary as a Tier-1 full markdown section
+   * (LUM-500). Tier 1 of progressive disclosure: where Tier-0 acceptance
+   * criteria and Tier-1 progress always inject in full and everything else
+   * degrades to an addressable index, this is the "what the last session got
+   * done / left open" block, rendered server-side so it injects identically to
+   * the criteria contract.
+   *
+   * A pure render of {@link buildPreviousSessionRecoveryForTask} — no fetching
+   * beyond that one call. Returns "" when there is no prior session with a
+   * summary, so the caller can omit the section. The "Unresolved" checklist is
+   * dropped entirely when the prior session left nothing open.
+   */
+  async buildProgressSectionForTask(
+    taskId: string,
+    currentSessionId: string
+  ): Promise<string> {
+    const recovery =
+      await taskContextService.buildPreviousSessionRecoveryForTask(
+        taskId,
+        currentSessionId
+      )
+    if (!recovery) return ''
+    const durationLabel = formatActiveDuration(recovery.durationMs)
+    const headline = durationLabel
+      ? `${recovery.headline} (${durationLabel} active)`
+      : recovery.headline
+    const lines = ['## Progress so far', headline]
+    if (recovery.unresolved.length > 0) {
+      const CAP = 5
+      const visible = recovery.unresolved.slice(0, CAP)
+      const overflow = recovery.unresolved.length - CAP
+      lines.push('', 'Unresolved:')
+      for (const item of visible) lines.push(`- [ ] ${item}`)
+      if (overflow > 0) {
+        lines.push(
+          `- +${overflow} more — \`lumo task context\` for the full list`
+        )
+      }
+    }
+    return lines.join('\n')
   },
 
   /**
