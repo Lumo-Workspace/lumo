@@ -215,15 +215,19 @@ function ModelGroup({
             {SEGMENTS.map(seg => (
               <div
                 key={seg.key}
-                className='flex justify-between gap-4 tabular-nums'
+                className='flex items-center justify-between gap-4'
               >
-                <span>
+                <span className='flex items-center gap-1.5'>
+                  <span
+                    className={`size-1.5 rounded-full ${seg.dot}`}
+                    aria-hidden
+                  />
                   {intl.formatMessage({
                     id: seg.labelId,
                     defaultMessage: seg.defaultLabel,
                   })}
                 </span>
-                <span>{fmt(m[seg.key])}</span>
+                <span className='tabular-nums'>{fmt(m[seg.key])}</span>
               </div>
             ))}
           </TooltipContent>
