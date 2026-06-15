@@ -214,7 +214,7 @@ describe('formatLineageMarkdown disclosure funnel', () => {
     )
   })
 
-  it('annotates each fragment with its disclosure + pull state', () => {
+  it('annotates each fragment with its disclosure and pull state', () => {
     const out = formatLineageMarkdown(withDisclosure)
     expect(out).toContain('INDEX pulled')
     expect(out).toContain('INDEX not-pulled')
