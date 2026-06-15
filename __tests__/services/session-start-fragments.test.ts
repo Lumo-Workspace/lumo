@@ -76,10 +76,20 @@ describe('buildSessionStartSections — fragment manifest', () => {
 
     const out = await taskContextService.buildSessionStartSections('t-1')
     // LUM-500: every session-start fragment is Tier-2, tagged disclosure INDEX.
+    // LUM-522: MEMORY fragments additionally carry indexTokens/fullTokens —
+    // use objectContaining so the assertions are additive-change safe.
     expect(out.fragments).toEqual(
       expect.arrayContaining([
-        { fragmentType: 'MEMORY', fragmentId: 'mem-p', disclosure: 'INDEX' },
-        { fragmentType: 'MEMORY', fragmentId: 'mem-t', disclosure: 'INDEX' },
+        expect.objectContaining({
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-p',
+          disclosure: 'INDEX',
+        }),
+        expect.objectContaining({
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-t',
+          disclosure: 'INDEX',
+        }),
         { fragmentType: 'WEB_LINK', fragmentId: 'web-1', disclosure: 'INDEX' },
       ])
     )
@@ -105,9 +115,19 @@ describe('buildSessionStartSections — fragment manifest', () => {
     ;(taskWebLinkRepository.listByTask as jest.Mock).mockResolvedValue([])
 
     const out = await taskContextService.buildSessionStartSections('t-1')
+    // LUM-522: MEMORY fragments carry additional token-weight fields; use
+    // objectContaining so the assertions are additive-change safe.
     expect(out.fragments).toEqual([
-      { fragmentType: 'MEMORY', fragmentId: 'mem-1', disclosure: 'INDEX' },
-      { fragmentType: 'MEMORY', fragmentId: 'mem-2', disclosure: 'INDEX' },
+      expect.objectContaining({
+        fragmentType: 'MEMORY',
+        fragmentId: 'mem-1',
+        disclosure: 'INDEX',
+      }),
+      expect.objectContaining({
+        fragmentType: 'MEMORY',
+        fragmentId: 'mem-2',
+        disclosure: 'INDEX',
+      }),
     ])
   })
 
@@ -121,6 +141,31 @@ describe('buildSessionStartSections — fragment manifest', () => {
     ;(taskWebLinkRepository.listByTask as jest.Mock).mockResolvedValue([])
     const out = await taskContextService.buildSessionStartSections('t-1')
     expect(out.fragments).toEqual([])
+  })
+})
+
+describe('buildSessionStartSections — token weights and dropped fragments', () => {
+  it('session start memory fragments carry token weights and relevance score', async () => {
+    // Arrange: one project memory so buildSessionStartSections returns a MEMORY fragment
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'mem-w',
+        category: 'DECISION',
+        content: { what: 'use bigram similarity', why: 'fast and no API call' },
+        createdByMemberId: null,
+      },
+    ])
+    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue(
+      []
+    )
+
+    const out = await taskContextService.buildSessionStartSections('t-1')
+    const mem = out.fragments.find(f => f.fragmentType === 'MEMORY')!
+    expect(mem.indexTokens).toBeGreaterThan(0)
+    expect(mem.fullTokens).toBeGreaterThanOrEqual(mem.indexTokens!)
+    expect(out.droppedFragments).toBeDefined()
   })
 })
 
