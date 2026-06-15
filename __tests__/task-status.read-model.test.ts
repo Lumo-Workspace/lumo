@@ -10,6 +10,11 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
     listByTaskIncludingDeleted: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    listForLifecycle: jest.fn(() => Promise.resolve([])),
+  },
+}))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   // Keep the real pure exports (isPassVerdict) — only the DB-backed repo is faked.
   ...jest.requireActual('@/lib/repositories/verification-run.repository'),

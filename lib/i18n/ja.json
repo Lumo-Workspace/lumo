@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "セッションを紐付けずにタスクを作業",
   "agentRun.turnsSummary": "{turns, plural, other {# ターン}}",
   "tokenCost.byMember": "メンバー別",
-  "tokenCost.byModel": "モデル別"
+  "tokenCost.byModel": "モデル別",
+  "acceptance.sendBack.resolved": "差し戻し(ラウンド{failed})はラウンド{resolved}で解決",
+  "acceptance.sendBack.open": "差し戻しはラウンド{failed}から未解決",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

@@ -11,6 +11,11 @@ import {
 } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import {
+  deriveSendBackResolution,
+  type SendBackResolution,
+} from '@/lib/services/send-back-lifecycle'
 import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 import { taskService } from '@/lib/services/task.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
@@ -127,6 +132,10 @@ export interface TaskStatusCriterion {
   changedAtRound: number | null
   /** For 'edited', the statement before/after the latest reword; else null. */
   lastEdit: { before: string; after: string } | null
+  /** LUM-511 Phase 5: the send-back lifecycle for this criterion — a HUMAN/AGENT
+   *  FAIL that is now resolved (with the resolving round + best-effort closing
+   *  PR) or still open; null when the criterion was never sent back. */
+  sendBackResolution: SendBackResolution | null
 }
 
 /** A criterion that was removed (soft-deleted / tombstoned) from the live
@@ -485,13 +494,14 @@ export const taskVerificationService = {
    * pass — there is no separately maintained plan state to drift.
    */
   async statusForTask(taskId: string): Promise<TaskAcceptanceStatus> {
-    const [header, criteria, runs, allCriteria, changeEvents] =
+    const [header, criteria, runs, allCriteria, changeEvents, lifecyclePrs] =
       await Promise.all([
         taskRepository.findHeaderById(taskId),
         acceptanceCriterionRepository.listByTask(taskId),
         verificationRunRepository.listByTask(taskId),
         acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId),
         activityRepository.listByTaskAndType(taskId, 'CRITERION_CHANGED'),
+        pullRequestRepository.listForLifecycle(taskId),
       ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -700,6 +710,11 @@ export const taskVerificationService = {
           lastEdit: edited
             ? { before: edit!.before, after: edit!.after }
             : null,
+          sendBackResolution: deriveSendBackResolution(
+            c.id,
+            runs,
+            lifecyclePrs
+          ),
         }
       }),
       machineVerification,

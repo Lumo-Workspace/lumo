@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "làm việc trên nhiệm vụ mà không gắn phiên",
   "agentRun.turnsSummary": "{turns, plural, other {# lượt}}",
   "tokenCost.byMember": "Theo thành viên",
-  "tokenCost.byModel": "Theo mô hình"
+  "tokenCost.byModel": "Theo mô hình",
+  "acceptance.sendBack.resolved": "Trả lại (vòng {failed}) đã giải quyết ở vòng {resolved}",
+  "acceptance.sendBack.open": "Trả lại còn mở từ vòng {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

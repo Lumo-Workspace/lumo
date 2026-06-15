@@ -4,6 +4,7 @@ import {
 } from '@/lib/services/task-verification.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -15,6 +16,11 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: {
     listByTask: jest.fn(),
     listByTaskIncludingDeleted: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    listForLifecycle: jest.fn(() => Promise.resolve([])),
   },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
@@ -61,6 +67,7 @@ const listChangeEvents = activityRepository.listByTaskAndType as jest.Mock
 const createMany = verificationRunRepository.createMany as jest.Mock
 const maxRound = verificationRunRepository.maxRoundByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
+const listLifecyclePrs = pullRequestRepository.listForLifecycle as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const findStatus = taskRepository.findStatus as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
@@ -500,5 +507,55 @@ describe('configured maxRounds', () => {
     const status = await taskVerificationService.statusForTask('t-1')
     expect(status.maxRounds).toBe(VERIFICATION_MAX_ROUNDS)
     expect(status.escalated).toBe(true) // 3 >= 3 with a failure
+  })
+})
+
+describe('statusForTask — send-back lifecycle (Phase 5)', () => {
+  it('attaches resolved sendBackResolution with the in-window closing PR', async () => {
+    findHeader.mockResolvedValue({
+      id: 't-1',
+      number: 42,
+      title: 'Ship it',
+      status: 'IN_PROGRESS',
+      team: { identifier: 'LUM' },
+      project: { workspace: { verificationMaxRounds: null } },
+    })
+    listByTask.mockResolvedValue([
+      {
+        id: 'c-1',
+        verifierType: 'MACHINE',
+        statement: 's',
+        checkpointer: 'npx jest',
+      },
+    ])
+    listRuns.mockResolvedValue([
+      {
+        criterionId: 'c-1',
+        round: 1,
+        verdict: 'FAIL',
+        verifierType: 'AGENT',
+        createdAt: new Date('2026-06-01'),
+      },
+      {
+        criterionId: 'c-1',
+        round: 2,
+        verdict: 'PASS',
+        verifierType: 'MACHINE',
+        createdAt: new Date('2026-06-03'),
+      },
+    ])
+    listLifecyclePrs.mockResolvedValue([
+      { number: 42, url: 'http://pr/42', createdAt: new Date('2026-06-02') },
+    ])
+
+    const status = await taskVerificationService.statusForTask('t-1')
+    const c = status.criteria.find(x => x.id === 'c-1')
+    expect(c?.sendBackResolution).toEqual({
+      status: 'resolved',
+      failedAtRound: 1,
+      resolvedAtRound: 2,
+      closingPrNumber: 42,
+      closingPrUrl: 'http://pr/42',
+    })
   })
 })

@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "task work from an unattached session",
   "agentRun.turnsSummary": "{turns, plural, one {# turn} other {# turns}}",
   "tokenCost.byMember": "By member",
-  "tokenCost.byModel": "By model"
+  "tokenCost.byModel": "By model",
+  "acceptance.sendBack.resolved": "Send-back (round {failed}) resolved in round {resolved}",
+  "acceptance.sendBack.open": "Send-back open since round {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

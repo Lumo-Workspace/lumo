@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung",
   "agentRun.turnsSummary": "{turns, plural, one {# Runde} other {# Runden}}",
   "tokenCost.byMember": "Nach Person",
-  "tokenCost.byModel": "Nach Modell"
+  "tokenCost.byModel": "Nach Modell",
+  "acceptance.sendBack.resolved": "Rückläufer (Runde {failed}) in Runde {resolved} behoben",
+  "acceptance.sendBack.open": "Rückläufer offen seit Runde {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

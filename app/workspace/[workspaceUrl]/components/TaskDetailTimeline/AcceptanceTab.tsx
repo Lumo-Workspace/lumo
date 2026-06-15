@@ -867,6 +867,63 @@ function CriterionRow({
             {v.rejectionReason}
           </div>
         ) : null}
+        {/* LUM-511 Phase 5 — send-back lifecycle: resolved (with closing PR) / open. */}
+        {c.sendBackResolution ? (
+          <div className='mt-1 text-[11px] text-muted-foreground'>
+            {c.sendBackResolution.status === 'resolved' ? (
+              <>
+                {intl.formatMessage(
+                  {
+                    id: 'acceptance.sendBack.resolved',
+                    defaultMessage:
+                      'Send-back (round {failed}) resolved in round {resolved}',
+                  },
+                  {
+                    failed: c.sendBackResolution.failedAtRound,
+                    resolved: c.sendBackResolution.resolvedAtRound,
+                  }
+                )}
+                {c.sendBackResolution.closingPrNumber ? (
+                  <>
+                    {' · '}
+                    {c.sendBackResolution.closingPrUrl ? (
+                      <a
+                        href={c.sendBackResolution.closingPrUrl}
+                        target='_blank'
+                        rel='noreferrer'
+                        className='text-info hover:underline'
+                      >
+                        {intl.formatMessage(
+                          {
+                            id: 'acceptance.sendBack.pr',
+                            defaultMessage: 'PR #{number}',
+                          },
+                          { number: c.sendBackResolution.closingPrNumber }
+                        )}
+                      </a>
+                    ) : (
+                      intl.formatMessage(
+                        {
+                          id: 'acceptance.sendBack.pr',
+                          defaultMessage: 'PR #{number}',
+                        },
+                        { number: c.sendBackResolution.closingPrNumber }
+                      )
+                    )}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              intl.formatMessage(
+                {
+                  id: 'acceptance.sendBack.open',
+                  defaultMessage: 'Send-back open since round {failed}',
+                },
+                { failed: c.sendBackResolution.failedAtRound }
+              )
+            )}
+          </div>
+        ) : null}
         {/* B — edited old→new disclosure */}
         {hasEditDisclosure && showEdit ? (
           <div className='mt-1.5 rounded-md border border-border overflow-hidden text-[11px]'>

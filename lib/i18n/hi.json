@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना",
   "agentRun.turnsSummary": "{turns, plural, one {# चक्र} other {# चक्र}}",
   "tokenCost.byMember": "सदस्य अनुसार",
-  "tokenCost.byModel": "मॉडल अनुसार"
+  "tokenCost.byModel": "मॉडल अनुसार",
+  "acceptance.sendBack.resolved": "वापसी (राउंड {failed}) राउंड {resolved} में हल हुई",
+  "acceptance.sendBack.open": "वापसी राउंड {failed} से लंबित",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

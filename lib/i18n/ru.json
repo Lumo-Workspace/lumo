@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии",
   "agentRun.turnsSummary": "{turns, plural, one {# раунд} few {# раунда} many {# раундов} other {# раунда}}",
   "tokenCost.byMember": "По участникам",
-  "tokenCost.byModel": "По моделям"
+  "tokenCost.byModel": "По моделям",
+  "acceptance.sendBack.resolved": "Возврат (раунд {failed}) устранён в раунде {resolved}",
+  "acceptance.sendBack.open": "Возврат открыт с раунда {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

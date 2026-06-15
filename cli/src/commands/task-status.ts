@@ -73,6 +73,15 @@ export interface TaskStatusResponse {
       rejectionReasonEnum: string | null
       recordedAt: string
     } | null
+    /** LUM-511 Phase 5: send-back lifecycle for this criterion (null = never
+     *  sent back). */
+    sendBackResolution?: {
+      status: 'open' | 'resolved'
+      failedAtRound: number
+      resolvedAtRound?: number
+      closingPrNumber?: number
+      closingPrUrl?: string
+    } | null
   }>
   /** Honest machine-verification rollup over the active MACHINE criteria
    *  (LUM-456): genuine checkpointer passes vs human overrides. Mirrored from
@@ -212,6 +221,19 @@ export function formatTaskStatus(
         lines.push(
           '      ⚠ pre-edit version — criterion changed since this check; re-run `lumo verify` to re-confirm'
         )
+      }
+    }
+    // LUM-511 Phase 5: send-back lifecycle (was this criterion's send-back
+    // resolved, and by which PR).
+    const sb = c.sendBackResolution
+    if (sb) {
+      if (sb.status === 'resolved') {
+        const pr = sb.closingPrNumber ? ` · PR #${sb.closingPrNumber}` : ''
+        lines.push(
+          `      ↳ send-back (r${sb.failedAtRound}) resolved in r${sb.resolvedAtRound}${pr}`
+        )
+      } else {
+        lines.push(`      ↳ send-back (r${sb.failedAtRound}) open`)
       }
     }
   }
