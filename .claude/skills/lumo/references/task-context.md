@@ -142,6 +142,10 @@ lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
   where impressions = edge count, INDEX% and used% are over impressions,
   pull% is over INDEX only (FULL fragments have no pull opportunity).
   Divide-by-zero is guarded (zero impressions or zero INDEX renders `0%`).
+  When per-fragment token weights have been collected (LUM-522), the line also
+  appends `· ~T tokens saved` = Σ(fullTokens − indexTokens) over un-pulled INDEX
+  edges (the token cost the index-only injection avoided); the suffix is omitted
+  cleanly when no edge carries token data yet (older edges predate the columns).
 - **One block per session** — the group's cost shown **once** (token/loop),
   the date it consumed context, then each context fragment as
   `[OUTCOME] TYPE — <source label>`, plus a disclosure annotation suffix:
@@ -157,7 +161,8 @@ consolidation drift.
 **`--signal` workspace funnel:** the workspace-level usage signal-health block
 appended by `--signal` ends with a workspace-wide disclosure funnel in the
 same format: `- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`
-aggregated over all edges in the workspace (not just this task).
+aggregated over all edges in the workspace (not just this task) — including the
+same `· ~T tokens saved` suffix when token data exists (LUM-522).
 
 **Cold start:** a task with no edges prints a friendly note (lineage is captured
 when a session-bound run consumes the task's context), not an error.
