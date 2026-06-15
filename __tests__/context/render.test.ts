@@ -509,20 +509,20 @@ describe('slackCard / slackManifest (LUM-147)', () => {
   })
 
   it('slackManifest is one line with channel + summary snippet + retrieval command (LUM-500)', () => {
-    expect(slackManifest(card)).toBe(
-      '- [external:slack] #eng — Decided to ship Friday. → lumo task slack show ctx_1'
+    expect(slackManifest(card, 'LUM-42')).toBe(
+      '- [external:slack] #eng — Decided to ship Friday. → lumo task slack show LUM-42 ctx_1'
     )
   })
 
   it('slackManifest omits the snippet when there is no summary (LUM-500)', () => {
-    expect(slackManifest({ ...card, summary: null })).toBe(
-      '- [external:slack] #eng → lumo task slack show ctx_1'
+    expect(slackManifest({ ...card, summary: null }, 'LUM-42')).toBe(
+      '- [external:slack] #eng → lumo task slack show LUM-42 ctx_1'
     )
   })
 
   it('slackManifest falls back to #channel when name is null', () => {
-    expect(slackManifest({ ...card, slackChannelName: null })).toBe(
-      '- [external:slack] #channel — Decided to ship Friday. → lumo task slack show ctx_1'
+    expect(slackManifest({ ...card, slackChannelName: null }, 'LUM-42')).toBe(
+      '- [external:slack] #channel — Decided to ship Friday. → lumo task slack show LUM-42 ctx_1'
     )
   })
 })
@@ -549,11 +549,11 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
   })
 
   it('webLinkManifest carries the title + host, falls back to url + host (LUM-500)', () => {
-    expect(webLinkManifest(link)).toBe(
-      '- [external:web] A Title — ex.com → lumo task web show wl_1'
+    expect(webLinkManifest(link, 'LUM-42')).toBe(
+      '- [external:web] A Title — ex.com → lumo task web show LUM-42 wl_1'
     )
-    expect(webLinkManifest({ ...link, title: null })).toBe(
-      '- [external:web] https://ex.com/a — ex.com → lumo task web show wl_1'
+    expect(webLinkManifest({ ...link, title: null }, 'LUM-42')).toBe(
+      '- [external:web] https://ex.com/a — ex.com → lumo task web show LUM-42 wl_1'
     )
   })
 })
@@ -578,15 +578,15 @@ describe('figmaCard / figmaManifest (LUM-147)', () => {
   })
 
   it('figmaManifest is one line: file/frame name + retrieval command (LUM-500)', () => {
-    expect(figmaManifest(link)).toBe(
-      '- [external:figma] Onboarding · Welcome → lumo task figma context cfl_1'
+    expect(figmaManifest(link, 'LUM-42')).toBe(
+      '- [external:figma] Onboarding · Welcome → lumo task figma context LUM-42 cfl_1'
     )
   })
 
   it('figmaManifest marks file-level links', () => {
     const fileLevel = { ...link, frameName: null } as typeof link
-    expect(figmaManifest(fileLevel)).toBe(
-      '- [external:figma] Onboarding _(file-level)_ → lumo task figma context cfl_1'
+    expect(figmaManifest(fileLevel, 'LUM-42')).toBe(
+      '- [external:figma] Onboarding _(file-level)_ → lumo task figma context LUM-42 cfl_1'
     )
   })
 })
@@ -607,8 +607,8 @@ describe('prCard / prManifest (LUM-147)', () => {
   })
 
   it('prManifest is one line: PR number + title + retrieval command (LUM-500)', () => {
-    expect(prManifest(pr)).toBe(
-      '- [external:github] #42 Fix bug → lumo task pr show 42'
+    expect(prManifest(pr, 'LUM-42')).toBe(
+      '- [external:github] #42 Fix bug → lumo task pr show LUM-42 42'
     )
   })
 })

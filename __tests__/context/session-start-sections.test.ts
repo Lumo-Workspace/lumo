@@ -13,7 +13,12 @@ jest.mock('@/lib/services/document.service', () => ({
 
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
-    findById: jest.fn(async () => ({ id: 'tsk_1', projectId: 'proj_1' })),
+    findById: jest.fn(async () => ({
+      id: 'tsk_1',
+      projectId: 'proj_1',
+      number: 1,
+      team: { identifier: 'LUM' },
+    })),
   },
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
@@ -58,7 +63,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
     // LUM-500: resources are one-line descriptive manifests, not full cards.
     expect(out.linkedResourcesSection).toContain(
-      '- [external:github] #7 Add thing → lumo task pr show 7'
+      '- [external:github] #7 Add thing → lumo task pr show LUM-1 7'
     )
     // The full-card body (state · CI) no longer appears in session-start.
     expect(out.linkedResourcesSection).not.toContain('OPEN · passing')
@@ -110,8 +115,8 @@ describe('buildSessionStartSections (LUM-147)', () => {
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
     // Manifest lines carry the retrieval command for every PR, first and last.
-    expect(out.linkedResourcesSection).toContain('lumo task pr show 1')
-    expect(out.linkedResourcesSection).toContain('lumo task pr show 30')
+    expect(out.linkedResourcesSection).toContain('lumo task pr show LUM-1 1')
+    expect(out.linkedResourcesSection).toContain('lumo task pr show LUM-1 30')
     // Tier-2: no "manifest only" overflow framing and no full-card body.
     expect(out.linkedResourcesSection).not.toContain('manifest only')
     expect(out.linkedResourcesSection).not.toContain('OPEN · passing')

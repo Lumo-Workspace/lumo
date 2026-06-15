@@ -18,6 +18,8 @@ jest.mock('@/lib/repositories/task.repository', () => ({
       description: 'remove prisma direct calls',
       projectId: 'proj-1',
       status: 'TODO',
+      number: 1,
+      team: { identifier: 'LUM' },
     })),
   },
 }))

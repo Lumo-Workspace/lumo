@@ -50,6 +50,8 @@ jest.mock('@/lib/repositories/task.repository', () => ({
       id: 'tsk_1',
       projectId: 'proj_1',
       status: 'IN_PROGRESS',
+      number: 1,
+      team: { identifier: 'LUM' },
     })),
   },
 }))
