@@ -273,6 +273,12 @@ separate work). If the send-back reveals the **contract itself** was wrong,
 amend it on this task (`lumo task criteria set`) rather than opening a new
 task — see criteria.md.
 
+**Hard rule:** while THIS task has an unresolved send-back (any criterion's
+latest verdict is FAIL — the same condition that blocks DONE), `lumo task create`
+is refused with 409 **even with `--new-scope`**. A standing send-back means the
+task can't be completed yet; resolve it (fix + `lumo verify`, or amend the
+contract) before opening any new work. `--rework-of` still redirects you to it.
+
 ## Human-reported defects, once a task is submitted
 
 When someone reports a defect in conversation, your action depends on whether the
@@ -280,9 +286,9 @@ task has **ever entered IN_REVIEW**:
 
 - **Not yet** (still your first working pass) → just fix it and continue. No
   verdict needed — nothing was claimed complete, so there's nothing to contradict.
-- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently
+- **Already submitted** (entered IN*REVIEW / DONE / merged) → **do not silently
   fix and re-pass.** Either record your own send-back (`lumo verdict --fail`,
-  noting it was human-reported — this is _your_ honest concurrence, not a forged
+  noting it was human-reported — this is \_your* honest concurrence, not a forged
   human verdict), or ask the reporter to record a human FAIL via the web UI /
   Slack (the only channel that can attribute it to a human). If the defect is a
   **new requirement** not covered by any criterion, first transcribe it with
