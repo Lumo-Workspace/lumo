@@ -61,6 +61,16 @@ export const activityRepository = {
     })
   },
 
+  /** Count TASK_SPUN_OFF audit events across a workspace (LUM-511 Phase 3). */
+  async countSpinoffsForWorkspace(workspaceId: string): Promise<number> {
+    return prisma.taskActivity.count({
+      where: {
+        type: 'TASK_SPUN_OFF',
+        task: { project: { workspaceId } },
+      },
+    })
+  },
+
   /**
    * Every boundary-crossing disposition activity for a task, oldest first, with
    * the acting actor (LUM-450). The read model folds these to surface, on the

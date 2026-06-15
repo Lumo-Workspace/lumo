@@ -1,6 +1,7 @@
 import { usageSignalService } from '@/lib/services/lineage/usage-signal.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: { usageSignalAggregates: jest.fn() },
@@ -8,11 +9,17 @@ jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: { taskIdsWithSendBack: jest.fn() },
 }))
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { countSpinoffsForWorkspace: jest.fn() },
+}))
 
 beforeEach(() => {
   ;(
     verificationRunRepository.taskIdsWithSendBack as jest.Mock
   ).mockResolvedValue(new Set())
+  ;(
+    activityRepository.countSpinoffsForWorkspace as jest.Mock
+  ).mockResolvedValue(0)
 })
 
 it('computes distribution, variance, and discrimination', async () => {
@@ -91,4 +98,20 @@ describe('getUsageSignalHealth iteration-taint', () => {
     expect(h.usedResolvedTasks).toBe(2)
     expect(h.usedFailedTasks).toBe(1)
   })
+})
+
+it('includes the raw spinoff count', async () => {
+  ;(lineageEdgeRepository.usageSignalAggregates as jest.Mock).mockResolvedValue(
+    {
+      distribution: { used: 0, unused: 0, abstained: 0 },
+      perSession: [],
+      usedTasks: [],
+      baseTasks: [],
+    }
+  )
+  ;(
+    activityRepository.countSpinoffsForWorkspace as jest.Mock
+  ).mockResolvedValue(3)
+  const h = await usageSignalService.getUsageSignalHealth('ws1')
+  expect(h.spinoffsDuringInFlight).toBe(3)
 })

@@ -51,7 +51,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
 - `lumo task comments list <id>` — comment thread, capped to the output budget (`--full` prints every comment; read-only; ≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata (v1)
-- `lumo task lineage <id>` — show the causal trail: fragments that fed the task + each one's outcome + the run's token/loop cost (read-only audit view); `lumo task lineage <id> --signal` also appends workspace-level usage signal-health (used distribution, per-session variance, used-vs-base merge rate via iteration-taint fold — tasks with a send-back/reopen/PR-close count as the negative class even if later merged; shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet)
+- `lumo task lineage <id>` — show the causal trail: fragments that fed the task + each one's outcome + the run's token/loop cost (read-only audit view); `lumo task lineage <id> --signal` also appends workspace-level usage signal-health (used distribution, per-session variance, used-vs-base merge rate via iteration-taint fold — tasks with a send-back/reopen/PR-close count as the negative class even if later merged; shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet; also prints a raw count of mid-flight `--new-scope` spinoffs (recorded, not yet judged — LUM-511 Phase 3))
 
 **Tasks** — see [tasks.md](references/tasks.md)
 

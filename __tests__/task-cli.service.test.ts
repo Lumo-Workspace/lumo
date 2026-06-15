@@ -34,12 +34,19 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: {
+    create: jest.fn(),
+  },
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -50,11 +57,13 @@ const mockCreateTask = taskService.createTask as jest.Mock
 const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 const mockLatestRuns =
   verificationRunRepository.latestRunsByCriterion as jest.Mock
+const mockActivityCreate = activityRepository.create as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockFindBinding.mockResolvedValue(null)
   mockLatestRuns.mockResolvedValue(new Map())
+  mockActivityCreate.mockResolvedValue({ id: 'act-1' })
 })
 
 describe('taskCliService.resolveProjectId', () => {
@@ -608,5 +617,99 @@ describe('taskCliService.createFromCli — open send-back hard block (Phase 2)',
     const result = await call({ newScope: true })
     expect(result.identifier).toBe('LUM-9')
     expect(mockCreateTask).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
+  beforeEach(() => {
+    mockFindProjects.mockResolvedValue([
+      { id: 'p-1', name: 'Lumo', description: null },
+    ])
+    mockFindMember.mockResolvedValue({ id: 'mem-1' })
+    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
+    mockLatestRuns.mockResolvedValue(new Map())
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-B',
+        title: 'x',
+        teamIdentifier: 'LUM',
+        teamId: 'team-1',
+        number: 9,
+      },
+      taskTags: [],
+    })
+  })
+
+  function boundInProgress() {
+    return {
+      id: 'sess-1',
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+      eventCount: 1,
+      task: {
+        id: 't-7',
+        number: 7,
+        title: 'Parent',
+        status: 'IN_PROGRESS',
+        team: { identifier: 'LUM' },
+      },
+    }
+  }
+
+  function create(
+    input: Record<string, unknown>,
+    sessionId: string | null = 'sess-1'
+  ) {
+    return taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId,
+      input: { title: 't', priority: 'LOW', ...input },
+    } as Parameters<typeof taskCliService.createFromCli>[0])
+  }
+
+  it('records TASK_SPUN_OFF on the parent when --new-scope is used mid-flight', async () => {
+    mockFindBinding.mockResolvedValue(boundInProgress())
+    await create({ newScope: true })
+    expect(mockActivityCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't-7',
+        type: 'TASK_SPUN_OFF',
+        payload: expect.objectContaining({
+          spunOffTaskId: 'task-B',
+          spunOffIdentifier: 'LUM-9',
+          sessionId: 'sess-1',
+        }),
+      })
+    )
+  })
+
+  it('does NOT record a spinoff for an unbound create', async () => {
+    mockFindBinding.mockResolvedValue(null)
+    await create({}, null)
+    expect(mockActivityCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'TASK_SPUN_OFF' })
+    )
+  })
+
+  it('does NOT record a spinoff when bound to a non-in-flight (TODO) task', async () => {
+    const b = boundInProgress()
+    mockFindBinding.mockResolvedValue({
+      ...b,
+      task: { ...b.task, status: 'TODO' },
+    })
+    await create({})
+    expect(mockActivityCreate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'TASK_SPUN_OFF' })
+    )
+  })
+
+  it('a spinoff-recording failure does not break task creation', async () => {
+    mockFindBinding.mockResolvedValue(boundInProgress())
+    mockActivityCreate.mockRejectedValueOnce(new Error('db blip'))
+    const result = await create({ newScope: true })
+    expect(result.identifier).toBe('LUM-9')
   })
 })

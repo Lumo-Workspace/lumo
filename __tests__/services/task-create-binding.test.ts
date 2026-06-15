@@ -1,5 +1,8 @@
 /** @jest-environment node */
-import { classifyTaskCreateIntent } from '@/lib/services/task-create-binding'
+import {
+  classifyTaskCreateIntent,
+  isInFlightStatus,
+} from '@/lib/services/task-create-binding'
 
 const boundInReview = {
   identifier: 'LUM-7',
@@ -134,5 +137,14 @@ describe('classifyTaskCreateIntent — open send-back (Phase 2)', () => {
         newScope: true,
       })
     ).toEqual({ kind: 'allow' })
+  })
+})
+
+describe('isInFlightStatus', () => {
+  it('is true for IN_PROGRESS and IN_REVIEW, false for TODO and DONE', () => {
+    expect(isInFlightStatus('IN_PROGRESS')).toBe(true)
+    expect(isInFlightStatus('IN_REVIEW')).toBe(true)
+    expect(isInFlightStatus('TODO')).toBe(false)
+    expect(isInFlightStatus('DONE')).toBe(false)
   })
 })
