@@ -7,11 +7,21 @@ import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
 import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
+import {
+  classifyTaskCreateIntent,
+  type BoundTaskRef,
+} from '@/lib/services/task-create-binding'
 import type { TaskPriority } from '@prisma/client'
 
 function httpError(status: number, message: string): Error {
   return Object.assign(new Error(message), { status })
 }
+
+const reworkRedirectMessage = (target: string): string =>
+  `This belongs on ${target}. Either fix it in place and re-run \`lumo verify\`, or — if ${target}'s acceptance contract is itself wrong/incomplete — amend it with \`lumo task criteria set ${target}\` and re-verify. Don't open a new task for ${target}'s own scope.`
+
+const mustDeclareMessage = (identifier: string, title: string): string =>
+  `You're working on ${identifier} ("${title}"). If this defect is rework of ${identifier}, fix it there and re-run \`lumo verify\` — pass \`--rework-of ${identifier}\`. If it's genuinely new, separate work, pass \`--new-scope\`.`
 
 /**
  * Resolve a `--project <ref>` argument to a project id within a workspace.
@@ -149,6 +159,8 @@ async function createFromCli(args: {
     assigneeRef?: string | undefined
     milestoneRef?: string | undefined
     tagIds?: string[] | undefined
+    reworkOfRef?: string | undefined
+    newScope?: boolean | undefined
   }
 }): Promise<{
   id: string
@@ -159,6 +171,44 @@ async function createFromCli(args: {
   taskTags: Array<{ id: string; name: string }>
 }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
+
+  // Layer 1: force an explicit intent. --rework-of always redirects (the work
+  // belongs on the existing task); otherwise a mid-task binding forces a
+  // --new-scope declaration. The binding lookup only runs when a session is
+  // present. The bearer/CLI path is the only caller here, so the human/web
+  // red line needs no extra guard.
+  {
+    let boundTask: BoundTaskRef | null = null
+    if (args.sessionId && args.memberId) {
+      const bound = await sessionRepository.findForMemberWithBinding(
+        args.sessionId,
+        args.memberId
+      )
+      boundTask = bound?.task
+        ? {
+            identifier: `${bound.task.team.identifier}-${bound.task.number}`,
+            title: bound.task.title,
+            status: bound.task.status,
+          }
+        : null
+    }
+
+    const intent = classifyTaskCreateIntent({
+      boundTask,
+      reworkOf: input.reworkOfRef,
+      newScope: input.newScope ?? false,
+    })
+
+    if (intent.kind === 'redirect-rework') {
+      throw httpError(409, reworkRedirectMessage(intent.target))
+    }
+    if (intent.kind === 'must-declare') {
+      throw httpError(
+        409,
+        mustDeclareMessage(intent.boundIdentifier, intent.boundTitle)
+      )
+    }
+  }
 
   const projectId = await resolveProjectId(workspaceId, input.projectRef)
   const assigneeActorId = await resolveAssigneeActorId({

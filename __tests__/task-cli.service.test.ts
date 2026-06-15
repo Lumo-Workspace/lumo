@@ -22,10 +22,17 @@ jest.mock('@/lib/services/task.service', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    findForMemberWithBinding: jest.fn(),
+  },
+}))
+
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -33,8 +40,12 @@ const mockFindActor = memberRepository.findActorByMemberId as jest.Mock
 const mockFindAllProfiles =
   memberRepository.findAllWithProfilesForCli as jest.Mock
 const mockCreateTask = taskService.createTask as jest.Mock
+const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockFindBinding.mockResolvedValue(null)
+})
 
 describe('taskCliService.resolveProjectId', () => {
   it('returns the single project when ref is omitted', async () => {
@@ -400,5 +411,118 @@ describe('taskCliService.createFromCli', () => {
     } finally {
       process.env.LUMO_PUBLIC_URL = original
     }
+  })
+})
+
+describe('taskCliService.createFromCli — intent gating (Layer 1)', () => {
+  beforeEach(() => {
+    mockFindProjects.mockResolvedValue([
+      { id: 'p-1', name: 'Lumo', description: null },
+    ])
+    mockFindMember.mockResolvedValue({ id: 'mem-1' })
+    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-1',
+        title: 'x',
+        teamIdentifier: 'LUM',
+        teamId: 'team-1',
+        number: 9,
+      },
+      taskTags: [],
+    })
+  })
+
+  function boundTo(status: string) {
+    return {
+      id: 'sess-1',
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+      eventCount: 1,
+      task: {
+        id: 't-7',
+        number: 7,
+        title: 'Build widget',
+        status,
+        team: { identifier: 'LUM' },
+      },
+    }
+  }
+
+  it('throws a 409 redirect when --rework-of is given and creates nothing', async () => {
+    await expect(
+      taskCliService.createFromCli({
+        workspaceId: 'ws-1',
+        workspaceSlug: 'lumo',
+        callerClerkId: 'clerk-1',
+        memberId: 'mem-1',
+        sessionId: 'sess-1',
+        input: { title: 'fix color', priority: 'LOW', reworkOfRef: 'LUM-7' },
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('LUM-7'),
+    })
+    expect(mockCreateTask).not.toHaveBeenCalled()
+  })
+
+  it('throws a 409 must-declare when bound to an in-flight task with no flag', async () => {
+    mockFindBinding.mockResolvedValue(boundTo('IN_REVIEW'))
+    await expect(
+      taskCliService.createFromCli({
+        workspaceId: 'ws-1',
+        workspaceSlug: 'lumo',
+        callerClerkId: 'clerk-1',
+        memberId: 'mem-1',
+        sessionId: 'sess-1',
+        input: { title: 'other thing', priority: 'LOW' },
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('LUM-7'),
+    })
+    expect(mockCreateTask).not.toHaveBeenCalled()
+  })
+
+  it('allows creation with --new-scope while bound to an in-flight task', async () => {
+    mockFindBinding.mockResolvedValue(boundTo('IN_REVIEW'))
+    const result = await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-1',
+      input: { title: 'genuinely new', priority: 'LOW', newScope: true },
+    })
+    expect(result.identifier).toBe('LUM-9')
+    expect(mockCreateTask).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows creation when bound to a non-in-flight (TODO) task', async () => {
+    mockFindBinding.mockResolvedValue(boundTo('TODO'))
+    const result = await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: 'sess-1',
+      input: { title: 'anything', priority: 'LOW' },
+    })
+    expect(result.identifier).toBe('LUM-9')
+    expect(mockCreateTask).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows creation when no session is bound', async () => {
+    mockFindBinding.mockResolvedValue(null)
+    const result = await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      memberId: 'mem-1',
+      sessionId: null,
+      input: { title: 'anything', priority: 'LOW' },
+    })
+    expect(result.identifier).toBe('LUM-9')
+    expect(mockCreateTask).toHaveBeenCalledTimes(1)
   })
 })
