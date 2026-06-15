@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { sessionWrap } from './commands/session-wrap'
 import { nextCommand } from './commands/next'
+import { cost } from './commands/cost'
 import { verify } from './commands/verify'
 import {
   verdict,
@@ -295,6 +296,36 @@ program
   )
   .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
   .action(wrap(options => nextCommand(options as { count?: string })))
+
+program
+  .command('cost')
+  .description(
+    'Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session'
+  )
+  .option('--task <id>', 'Aggregate a single task (e.g. LUM-42)')
+  .option('--session <id>', 'Aggregate a single Claude Code session')
+  .option(
+    '--since <date>',
+    'Workspace window lower bound (ISO date); default last 30 days'
+  )
+  .option(
+    '--by <dim>',
+    'Headline grouping: tool | model | member | session (case-insensitive; default tool)'
+  )
+  .option('--json', 'Emit the versioned payload as JSON')
+  .action(
+    wrap(options =>
+      cost(
+        options as {
+          task?: string
+          session?: string
+          since?: string
+          by?: string
+          json?: boolean
+        }
+      )
+    )
+  )
 
 const session = program
   .command('session')
