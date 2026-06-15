@@ -16,6 +16,8 @@ export interface CreateTaskOptions {
   tag?: string[]
   tagId?: string[]
   sprint?: string
+  reworkOf?: string
+  newScope?: boolean
 }
 
 interface CreatedTaskResponse {
@@ -66,7 +68,13 @@ async function bindTaskToSprint(
   sprintRef: string,
   task: { id: string; teamId: string; identifier: string }
 ): Promise<SprintInfo> {
-  let sprint = await resolveSprintId(base, token, sprintRef, undefined, workspaceSlug)
+  let sprint = await resolveSprintId(
+    base,
+    token,
+    sprintRef,
+    undefined,
+    workspaceSlug
+  )
 
   // UUID path: resolveSprintId returns a placeholder with teamId === ''
   if (sprint.teamId === '') {
@@ -79,7 +87,12 @@ async function bindTaskToSprint(
     const { sprint: full } = (await sprintRes.json()) as {
       sprint: { id: string; number: number; name: string; teamId: string }
     }
-    sprint = { id: full.id, number: full.number, name: full.name, teamId: full.teamId }
+    sprint = {
+      id: full.id,
+      number: full.number,
+      name: full.name,
+      teamId: full.teamId,
+    }
   }
 
   assertSameTeam(task, sprint)
@@ -198,15 +211,21 @@ export async function taskCreate(
   if (opts.assignee !== undefined) body.assigneeRef = opts.assignee
   if (opts.milestone !== undefined) body.milestoneRef = opts.milestone
   if (tagIds && tagIds.length > 0) body.tagIds = tagIds
+  if (opts.reworkOf !== undefined) body.reworkOfRef = opts.reworkOf
+  if (opts.newScope) body.newScope = true
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${creds.token}`,
+    'Content-Type': 'application/json',
+  }
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   let res: Response
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${creds.token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     })
   } catch (err) {
@@ -236,7 +255,11 @@ export async function taskCreate(
           creds.token,
           workspaceSlug,
           opts.sprint,
-          { id: data.task.id, teamId: data.task.teamId, identifier: data.task.identifier }
+          {
+            id: data.task.id,
+            teamId: data.task.teamId,
+            identifier: data.task.identifier,
+          }
         )
         process.stdout.write(
           `Sprint: #${sprint.number} "${sanitizeField(sprint.name)}"\n`

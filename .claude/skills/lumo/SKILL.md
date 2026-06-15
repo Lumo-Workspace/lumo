@@ -55,7 +55,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 **Tasks** — see [tasks.md](references/tasks.md)
 
-- `lumo task create <title> [flags]` — create a task
+- `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a send-back, fix in place / amend the contract instead of spinning off a new task — see [verify.md](references/verify.md) and [criteria.md](references/criteria.md).
 - `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo next [--count N]` — recommend the next task to work on (read-only)

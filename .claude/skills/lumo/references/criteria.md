@@ -49,6 +49,19 @@ across all stages: a criterion that already has verification runs is
 run-free criterion is hard-deleted. Either way, reword rather than delete when
 possible.
 
+### A send-back may mean the contract was wrong — amend it, don't spin off
+
+If a send-back reveals the **contract itself** was wrong or incomplete, the right
+move is to **amend the criteria on this task** (`lumo task criteria set <id>`,
+and with `--human` annotate the reason via `--cause NEW_INFO | SCOPE_CHANGE |
+DRAFT_BLIND_SPOT`) and re-verify — **not** to open a new task. Sharpening the
+contract as understanding grows is expected; that's what the drift trail is
+_for_, not something to avoid. **The line:** amending to reflect reality is
+legitimate; **weakening a criterion you were just FAILed on, purely to make it
+pass, is tampering** — it's audited and counts as a failure either way. Deleting
+a failed criterion doesn't help: the DONE gate still blocks on its standing FAIL
+(the run is soft-deleted, the verdict survives).
+
 ## Scale the contract to the task size
 
 The 3–7 range is calibrated for typical multi-file tasks. The criterion count

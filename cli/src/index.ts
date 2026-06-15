@@ -417,6 +417,14 @@ task
     '--sprint <ref>',
     'Sprint number or UUID to add the task to after creation'
   )
+  .option(
+    '--rework-of <id>',
+    'Declare this is rework of an existing task (redirects you to fix it; creates nothing)'
+  )
+  .option(
+    '--new-scope',
+    'Declare this is genuinely new work, outside your current task’s scope'
+  )
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)

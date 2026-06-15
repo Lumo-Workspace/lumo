@@ -2316,6 +2316,14 @@
           "enumCaseInsensitive": false,
           "description": "Milestone name (case-insensitive)"
         },
+        "--new-scope": {
+          "long": "--new-scope",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Declare this is genuinely new work, outside your current task’s scope"
+        },
         "--priority": {
           "long": "--priority",
           "short": "-p",
@@ -2331,6 +2339,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Project name or slug"
+        },
+        "--rework-of": {
+          "long": "--rework-of",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Declare this is rework of an existing task (redirects you to fix it; creates nothing)"
         },
         "--sprint": {
           "long": "--sprint",

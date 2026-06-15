@@ -292,6 +292,7 @@ export const sessionRepository = {
             id: true,
             number: true,
             title: true,
+            status: true,
             team: { select: { identifier: true } },
           },
         },

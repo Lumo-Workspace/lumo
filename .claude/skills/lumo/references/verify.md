@@ -256,3 +256,36 @@ criteria were never adjudicated, transitions freely — the gate only blocks an
 actual send-back, never an un-adjudicated criterion. When the machine loop has
 left a task IN_REVIEW with no send-back standing, the agent may move it to DONE
 directly; a human-PASS row is a provable manual override, not a required ticket.
+
+## When a defect appears — fix in place, don't spin off a new task
+
+On a send-back **or** a self-review finding: if the issue falls under any
+existing acceptance criterion of **this** task, fix it in place and re-run
+`lumo verify`. **Do not** `lumo task create` for it. New tasks are only for work
+genuinely _outside_ this task's acceptance contract. Creating a task (and PR)
+for in-scope rework launders a first-attempt failure — it bypasses the DONE
+gate's send-back protection and corrupts the flywheel signal.
+
+This is now enforced: when you're mid-task, `lumo task create` refuses the bare
+form and makes you declare intent — `--rework-of <id>` (it redirects you back to
+fix the existing task and creates nothing) or `--new-scope` (genuinely new,
+separate work). If the send-back reveals the **contract itself** was wrong,
+amend it on this task (`lumo task criteria set`) rather than opening a new
+task — see criteria.md.
+
+## Human-reported defects, once a task is submitted
+
+When someone reports a defect in conversation, your action depends on whether the
+task has **ever entered IN_REVIEW**:
+
+- **Not yet** (still your first working pass) → just fix it and continue. No
+  verdict needed — nothing was claimed complete, so there's nothing to contradict.
+- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently
+  fix and re-pass.** Either record your own send-back (`lumo verdict --fail`,
+  noting it was human-reported — this is _your_ honest concurrence, not a forged
+  human verdict), or ask the reporter to record a human FAIL via the web UI /
+  Slack (the only channel that can attribute it to a human). If the defect is a
+  **new requirement** not covered by any criterion, first transcribe it with
+  `lumo task criteria set --human`, then proceed. You can never write a human
+  _verdict_ — the terminal can't prove a human is behind the command
+  (attribution integrity, not anti-forgery).
