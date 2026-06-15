@@ -21,7 +21,7 @@ const EMPTY: TaskForecast = {
   cycleHours: null,
   tokenCost: null,
   tokenCostBasis: 0,
-  clarifyRounds: null,
+  interactionRounds: null,
   confidence: 'low',
   sources: [],
 }
@@ -96,7 +96,7 @@ export const forecastService = {
         cycleHours: null,
         tokenCost,
         tokenCostBasis,
-        clarifyRounds: null,
+        interactionRounds: null,
         confidence: deriveConfidence(tokenCost ? [tokenCostBasis] : []),
         sources: sources.slice(0, 2),
       }
@@ -106,8 +106,8 @@ export const forecastService = {
       .map(s => s.cycleHours)
       .filter((v): v is number => v !== null)
 
-    const clarifyValues = sources.map(
-      (_, i) => cohort[i]!.candidate.clarifyRounds
+    const interactionValues = sources.map(
+      (_, i) => cohort[i]!.candidate.interactionRounds
     )
 
     return {
@@ -119,7 +119,7 @@ export const forecastService = {
         cycleValues.length >= MIN_COHORT ? interval(cycleValues) : null,
       tokenCost,
       tokenCostBasis,
-      clarifyRounds: interval(clarifyValues),
+      interactionRounds: interval(interactionValues),
       // Both tracks may back the badge; take the strongest leg.
       confidence: deriveConfidence([
         sources.length,

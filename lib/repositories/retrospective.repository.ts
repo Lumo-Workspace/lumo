@@ -12,7 +12,7 @@ function toJsonValue(
 
 export interface SnapshotRow {
   iterations: Interval | null
-  clarifyRounds: Interval | null
+  interactionRounds: Interval | null
   tokenCost: Interval | null
   cohortSize: number
   tokenCostBasis: number
@@ -21,7 +21,7 @@ export interface SnapshotRow {
 
 export interface SnapshotPayload {
   iterations: Interval | null
-  clarifyRounds: Interval | null
+  interactionRounds: Interval | null
   tokenCost: Interval | null
   cohortSize: number
   tokenCostBasis: number
@@ -31,7 +31,7 @@ export interface RetrospectiveActuals {
   projectId: string
   tokenCost: number | null
   iterations: number
-  clarifyRounds: number
+  interactionRounds: number
   totalDurationSec: number
 }
 
@@ -44,7 +44,7 @@ export const retrospectiveRepository = {
     if (!row) return null
     return {
       iterations: row.iterations as Interval | null,
-      clarifyRounds: row.clarifyRounds as Interval | null,
+      interactionRounds: row.interactionRounds as Interval | null,
       tokenCost: row.tokenCost as Interval | null,
       cohortSize: row.cohortSize,
       tokenCostBasis: row.tokenCostBasis,
@@ -62,7 +62,7 @@ export const retrospectiveRepository = {
         data: {
           taskId,
           iterations: toJsonValue(p.iterations),
-          clarifyRounds: toJsonValue(p.clarifyRounds),
+          interactionRounds: toJsonValue(p.interactionRounds),
           tokenCost: toJsonValue(p.tokenCost),
           cohortSize: p.cohortSize,
           tokenCostBasis: p.tokenCostBasis,
@@ -135,7 +135,7 @@ export const retrospectiveRepository = {
       projectId: task.projectId,
       tokenCost,
       iterations: task.sessions.length,
-      clarifyRounds,
+      interactionRounds: clarifyRounds,
       totalDurationSec,
     }
   },

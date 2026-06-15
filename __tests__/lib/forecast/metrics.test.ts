@@ -10,7 +10,7 @@ function candidate(over: Partial<ForecastCandidate>): ForecastCandidate {
     runs: [],
     mergedPrAt: [],
     tokenCost: null,
-    clarifyRounds: 0,
+    interactionRounds: 0,
     ...over,
   }
 }
@@ -84,7 +84,7 @@ describe('extractMetrics', () => {
   })
 })
 
-it('passes clarifyRounds through from the candidate', () => {
+it('passes interactionRounds through from the candidate', () => {
   const c: ForecastCandidate = {
     id: 'a',
     title: 'X',
@@ -93,7 +93,7 @@ it('passes clarifyRounds through from the candidate', () => {
     runs: [],
     mergedPrAt: [],
     tokenCost: null,
-    clarifyRounds: 4,
+    interactionRounds: 4,
   }
-  expect(extractMetrics(c).clarifyRounds).toBe(4)
+  expect(extractMetrics(c).interactionRounds).toBe(4)
 })

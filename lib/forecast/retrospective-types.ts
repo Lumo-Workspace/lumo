@@ -15,7 +15,7 @@ export interface RetrospectiveMetric {
 export interface TaskRetrospective {
   tokenCost: RetrospectiveMetric
   iterations: RetrospectiveMetric
-  clarifyRounds: RetrospectiveMetric
+  interactionRounds: RetrospectiveMetric
   totalDuration: RetrospectiveMetric
   referenceLibrarySize: number
   capturedAt: Date

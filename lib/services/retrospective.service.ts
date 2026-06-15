@@ -37,14 +37,14 @@ export const retrospectiveService = {
     const f = await forecastService.getTaskForecast(taskId)
     if (
       f.iterations === null &&
-      f.clarifyRounds === null &&
+      f.interactionRounds === null &&
       f.tokenCost === null
     )
       return
 
     await retrospectiveRepository.createSnapshotIfAbsent(taskId, {
       iterations: f.iterations,
-      clarifyRounds: f.clarifyRounds,
+      interactionRounds: f.interactionRounds,
       tokenCost: f.tokenCost,
       cohortSize: f.cohortSize,
       tokenCostBasis: f.tokenCostBasis,
@@ -65,7 +65,10 @@ export const retrospectiveService = {
     return {
       tokenCost: metric(snap.tokenCost, actuals.tokenCost),
       iterations: metric(snap.iterations, actuals.iterations),
-      clarifyRounds: metric(snap.clarifyRounds, actuals.clarifyRounds),
+      interactionRounds: metric(
+        snap.interactionRounds,
+        actuals.interactionRounds
+      ),
       totalDuration: metric(null, actuals.totalDurationSec),
       referenceLibrarySize,
       capturedAt: snap.capturedAt,

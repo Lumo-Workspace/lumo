@@ -19,9 +19,9 @@ export const progressService = {
       forecast,
       tokenCost: progressMetric(forecast.tokenCost, actuals.tokenCost),
       iterations: progressMetric(forecast.iterations, actuals.iterations),
-      clarifyRounds: progressMetric(
-        forecast.clarifyRounds,
-        actuals.clarifyRounds
+      interactionRounds: progressMetric(
+        forecast.interactionRounds,
+        actuals.interactionRounds
       ),
       totalDuration: progressMetric(null, actuals.totalDurationSec),
     }

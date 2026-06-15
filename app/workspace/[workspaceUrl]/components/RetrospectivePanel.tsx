@@ -96,7 +96,7 @@ export function RetrospectivePanel({
   const {
     tokenCost,
     iterations,
-    clarifyRounds,
+    interactionRounds,
     totalDuration,
     referenceLibrarySize,
   } = retrospective
@@ -168,7 +168,7 @@ export function RetrospectivePanel({
           />
           <KpiMetric
             label={intl.formatMessage({ id: 'retrospective.clarifyRounds' })}
-            value={fmtCount(clarifyRounds.actual)}
+            value={fmtCount(interactionRounds.actual)}
           />
           <KpiMetric
             label={intl.formatMessage({ id: 'retrospective.totalDuration' })}

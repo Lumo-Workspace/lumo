@@ -28,9 +28,9 @@ export interface ForecastCandidate {
   // sessions that never reached a STOP with usage). Only ~10% of tasks have
   // this today, so the token forecast is computed project-wide, not per-cohort.
   tokenCost: number | null
-  // Count of AGENT_CLARIFY notifications raised for this task (LUM-319).
-  // The clarify forecast track; 0 for tasks that never needed clarification.
-  clarifyRounds: number
+  // Count of USER_PROMPT_SUBMIT hook events attributed to this task — the
+  // human↔agent interaction-rounds track. 0 for tasks with none recorded.
+  interactionRounds: number
 }
 
 export interface ForecastInputs {
@@ -44,7 +44,7 @@ export interface CandidateMetrics {
   mergedPrs: number
   cycleHours: number | null
   tokenCost: number | null
-  clarifyRounds: number
+  interactionRounds: number
 }
 
 /** A historical task that contributed to the interval (explainability). */
@@ -71,9 +71,9 @@ export interface TaskForecast {
   // as an honest "based on N tasks with cost data" caveat).
   tokenCost: Interval | null
   tokenCostBasis: number
-  // Clarification-rounds forecast over the similarity cohort (LUM-319), same
-  // cohort + MIN_COHORT gating as iterations. null when the cohort is too thin.
-  clarifyRounds: Interval | null
+  // Interaction-rounds forecast over the similarity cohort, same cohort +
+  // MIN_COHORT gating as iterations. null when the cohort is too thin.
+  interactionRounds: Interval | null
   // Evidence-strength badge, derived from the sample sizes behind the shown
   // tracks. 'low' when insufficientData (no badge is rendered in that case).
   confidence: ForecastConfidence

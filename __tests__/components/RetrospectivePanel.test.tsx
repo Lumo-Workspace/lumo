@@ -70,7 +70,7 @@ function full(overrides?: Partial<TaskRetrospective>): TaskRetrospective {
       deltaPct: 0,
       band: 'within',
     },
-    clarifyRounds: {
+    interactionRounds: {
       forecast: null,
       actual: 0,
       deltaPct: null,
@@ -157,7 +157,9 @@ it('orders the Token section (forecast + footer) above the Delivery section', as
 })
 
 it('renders the flywheel note inline with the interpolated count', async () => {
-  fetchRetro.mockResolvedValue({ retrospective: full({ referenceLibrarySize: 368 }) })
+  fetchRetro.mockResolvedValue({
+    retrospective: full({ referenceLibrarySize: 368 }),
+  })
   render(
     <Wrapper>
       <RetrospectivePanel taskId='t1' status='DONE' />
@@ -180,7 +182,14 @@ it('renders the three delivery metrics (labels present, run-time duration-format
 
 it('duration-formats totalDuration in the delivery section', async () => {
   fetchRetro.mockResolvedValue({
-    retrospective: full({ totalDuration: { forecast: null, actual: 17692, deltaPct: null, band: null } }),
+    retrospective: full({
+      totalDuration: {
+        forecast: null,
+        actual: 17692,
+        deltaPct: null,
+        band: null,
+      },
+    }),
   })
   render(
     <Wrapper>

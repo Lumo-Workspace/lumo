@@ -57,7 +57,7 @@ const onTrack: TaskProgress = {
     deltaPct: null,
     band: 'on-track',
   },
-  clarifyRounds: {
+  interactionRounds: {
     forecast: iv(0, 1, 1),
     actual: 0,
     deltaPct: null,
@@ -104,7 +104,7 @@ const noForecastWithToken: TaskProgress = {
   forecast: {} as TaskProgress['forecast'],
   tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
-  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
   totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 
@@ -115,7 +115,7 @@ const noForecastMinimal: TaskProgress = {
 
 const noForecastWithClarify: TaskProgress = {
   ...noForecastMinimal,
-  clarifyRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
 }
 
 it('renders an in-progress summary (runs + token) when there is no forecast', () => {
@@ -158,7 +158,7 @@ const tokenBandNoCohort: TaskProgress = {
     band: 'on-track',
   },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
-  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
   totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 

@@ -86,17 +86,17 @@ export function ProgressView({
   footer?: ReactNode
 }) {
   const intl = useIntl()
-  const { tokenCost, iterations, clarifyRounds, totalDuration } = progress
+  const { tokenCost, iterations, interactionRounds, totalDuration } = progress
   const running = agentStatus === 'WORKING'
   const tokenOver = tokenCost.band === 'over'
 
-  // token 是独立轨道；cohort 指标 iterations/clarifyRounds 同生同灭（判一个即可）。
+  // token 是独立轨道；cohort 指标 iterations/interactionRounds 同生同灭（判一个即可）。
   const hasTokenBand = !!tokenCost.forecast && tokenCost.actual !== null
   const hasCohortForecast = !!iterations.forecast
   const showTokenSummary =
     !hasTokenBand && tokenCost.actual !== null && tokenCost.actual > 0
-  const showClarifySummary =
-    clarifyRounds.actual !== null && clarifyRounds.actual > 0
+  const showInteractionSummary =
+    interactionRounds.actual !== null && interactionRounds.actual > 0
   const showDurationSummary =
     totalDuration.actual !== null && totalDuration.actual > 0
 
@@ -162,7 +162,7 @@ export function ProgressView({
           />
           <ProgressCompareRow
             label={intl.formatMessage({ id: 'progress.clarifyRounds' })}
-            metric={clarifyRounds}
+            metric={interactionRounds}
           />
           <ProgressCompareRow
             label={intl.formatMessage({ id: 'progress.totalDuration' })}
@@ -186,11 +186,11 @@ export function ProgressView({
               )}
             </SummaryLine>
           )}
-          {showClarifySummary && (
+          {showInteractionSummary && (
             <SummaryLine>
               {intl.formatMessage(
                 { id: 'progress.summaryClarify' },
-                { value: clarifyRounds.actual as number }
+                { value: interactionRounds.actual as number }
               )}
             </SummaryLine>
           )}

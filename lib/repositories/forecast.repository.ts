@@ -92,7 +92,7 @@ export const forecastRepository = {
         })),
         mergedPrAt: r.pullRequests.map(p => p.mergedAt),
         tokenCost,
-        clarifyRounds: clarifyByTask.get(r.id) ?? 0,
+        interactionRounds: clarifyByTask.get(r.id) ?? 0,
       }
     })
 

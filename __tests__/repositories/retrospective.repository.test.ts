@@ -56,7 +56,7 @@ it('loadActuals sums session usage, counts sessions and clarify notifications', 
     projectId: 'p1',
     tokenCost: 38,
     iterations: 2,
-    clarifyRounds: 2,
+    interactionRounds: 2,
     totalDurationSec: 0,
   })
 })
@@ -82,7 +82,7 @@ it('loadActuals returns tokenCost null when no session carries usage', async () 
     projectId: 'p1',
     tokenCost: null,
     iterations: 1,
-    clarifyRounds: 0,
+    interactionRounds: 0,
     totalDurationSec: 0,
   })
 })
@@ -99,7 +99,7 @@ it('createSnapshotIfAbsent swallows unique-violation (keep-first)', async () => 
   await expect(
     retrospectiveRepository.createSnapshotIfAbsent('t1', {
       iterations: null,
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 0,
       tokenCostBasis: 0,
@@ -114,7 +114,7 @@ it('createSnapshotIfAbsent rethrows non-P2002 errors', async () => {
   await expect(
     retrospectiveRepository.createSnapshotIfAbsent('t1', {
       iterations: null,
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 0,
       tokenCostBasis: 0,

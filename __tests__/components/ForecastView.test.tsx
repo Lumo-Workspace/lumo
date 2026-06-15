@@ -44,7 +44,7 @@ const base: TaskForecast = {
   cycleHours: null,
   tokenCost: iv(12e6, 22e6, 35e6),
   tokenCostBasis: 8,
-  clarifyRounds: iv(0, 1, 1),
+  interactionRounds: iv(0, 1, 1),
   confidence: 'medium',
   sources: [],
 }

@@ -139,10 +139,10 @@ describe('loadForecastInputs', () => {
     groupBy.mockResolvedValue([{ taskId: 't2', _count: { _all: 3 } }])
 
     const res = await forecastRepository.loadForecastInputs('t1')
-    expect(res!.candidates[0]!.clarifyRounds).toBe(3)
+    expect(res!.candidates[0]!.interactionRounds).toBe(3)
   })
 
-  it('defaults clarifyRounds to 0 when a candidate has no clarify notifications', async () => {
+  it('defaults interactionRounds to 0 when a candidate has no clarify notifications', async () => {
     findUnique.mockResolvedValue({
       id: 't1',
       title: 'Target',
@@ -163,6 +163,6 @@ describe('loadForecastInputs', () => {
     groupBy.mockResolvedValue([])
 
     const res = await forecastRepository.loadForecastInputs('t1')
-    expect(res!.candidates[0]!.clarifyRounds).toBe(0)
+    expect(res!.candidates[0]!.interactionRounds).toBe(0)
   })
 })
