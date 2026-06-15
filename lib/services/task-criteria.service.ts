@@ -208,11 +208,82 @@ async function applyContractDiff(
       })
     }
   })
+
+  // LUM-511 Phase 4: judge whether an AGENT edit to a criterion carrying an open
+  // send-back weakened it (to dodge the failure) — off the hot path, audit-only.
+  if (cfg.source === 'AGENT_DRAFT') {
+    for (const u of toUpdate) {
+      const before = existingById.get(u.id)!
+      const statementChanged = before.statement !== u.desired.statement
+      const hasOpenFail = runsByCriterion.get(u.id)?.verdict === 'FAIL'
+      if (statementChanged && hasOpenFail) {
+        dispatchWeakeningJudge({
+          taskId,
+          oldStatement: before.statement,
+          newStatement: u.desired.statement,
+          causeTag: cfg.causeTag ?? null,
+        })
+      }
+    }
+  }
+
   return {
     added: toCreate.map(c => c.statement),
     updated: toUpdate.map(u => u.desired.statement),
     deleted: toDelete.map(c => c.statement),
   }
+}
+
+/**
+ * LUM-511 Phase 4: judge an open-FAIL criterion edit as WEAKENED vs EVOLVED,
+ * off the hot path. Audit-only — runs via `waitUntil`, never blocks the
+ * `criteria set` response, swallows all errors. On WEAKENED it records a
+ * CONTRACT_WEAKENING boundary crossing (coalesced). Exported for direct testing.
+ */
+export function dispatchWeakeningJudge(args: {
+  taskId: string
+  oldStatement: string
+  newStatement: string
+  causeTag: string | null
+}): void {
+  waitUntil(
+    (async () => {
+      try {
+        const { classifyWeakening } =
+          await import('@/lib/boundary-crossing/contract-weakening-judge')
+        const { judgeWeakening } =
+          await import('@/lib/llm/contract-weakening-judge-client')
+        const verdict = await classifyWeakening(
+          {
+            oldStatement: args.oldStatement,
+            newStatement: args.newStatement,
+            causeTag: args.causeTag,
+          },
+          { judge: judgeWeakening }
+        )
+        if (verdict !== 'WEAKENED') return
+        const { boundaryCrossingRepository } =
+          await import('@/lib/repositories/boundary-crossing.repository')
+        const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+          args.taskId,
+          'CONTRACT_WEAKENING',
+          args.taskId,
+          new Date()
+        )
+        if (coalesced > 0) return
+        await boundaryCrossingRepository.create({
+          taskId: args.taskId,
+          category: 'CONTRACT_WEAKENING',
+          detail: `Acceptance criterion weakened under an open send-back: "${args.oldStatement}" → "${args.newStatement}"`,
+          target: args.taskId,
+          reversible: false,
+          severity: 'MEDIUM',
+        })
+      } catch (err) {
+        console.error('dispatchWeakeningJudge error:', err)
+      }
+    })()
+  )
 }
 
 /** Max statement length echoed into the audit comment per line. */
