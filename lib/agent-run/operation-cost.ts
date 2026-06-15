@@ -1,0 +1,197 @@
+import type { ModelUsage } from '@/lib/services/model-cost'
+
+/** Bucket label for token spent on model steps that ran no tool (the final
+ * wrap-up generation + pure-thinking turns). */
+export const THINKING_BUCKET = '(thinking / no tool)'
+
+export interface OperationCostEvent {
+  sessionId: string | null
+  workspaceMemberId: string | null
+  /** HookEventType as a string (avoids importing the Prisma enum into a pure module). */
+  type: string
+  toolName: string | null
+  /** Per-step delta on POST_TOOL_BATCH; per-turn delta on STOP/STOP_FAILURE; null on history. */
+  usageByModel: Record<string, ModelUsage> | null
+  createdAt: Date
+}
+
+export interface OperationCostRow {
+  tool: string
+  model: string
+  sessionId: string | null
+  workspaceMemberId: string | null
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+}
+
+export interface OperationCostCoverage {
+  /** Turns that used >= 1 tool. */
+  toolTurns: number
+  /** Of `toolTurns`, those that had >= 1 batch delta (per-step granularity). */
+  perStepTurns: number
+}
+
+export interface OperationAttribution {
+  rows: OperationCostRow[]
+  coverage: OperationCostCoverage
+}
+
+const TOOL_TYPES = new Set(['POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'])
+const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE'])
+
+type Acc = Map<string, OperationCostRow>
+
+function addToAcc(
+  acc: Acc,
+  tool: string,
+  model: string,
+  sessionId: string | null,
+  memberId: string | null,
+  u: ModelUsage
+): void {
+  const key = `${tool} ${model} ${sessionId ?? ''}`
+  const cur = acc.get(key) ?? {
+    tool,
+    model,
+    sessionId,
+    workspaceMemberId: memberId,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+  }
+  cur.input += u.input
+  cur.output += u.output
+  cur.cacheRead += u.cacheRead
+  cur.cacheCreation += u.cacheCreation
+  acc.set(key, cur)
+}
+
+/** Attribute one per-model delta to a list of tool invocations (even split). */
+function attributeDelta(
+  delta: Record<string, ModelUsage>,
+  invocations: string[],
+  sessionId: string | null,
+  memberId: string | null,
+  acc: Acc
+): void {
+  const targets = invocations.length ? invocations : [THINKING_BUCKET]
+  const n = targets.length
+  for (const [model, u] of Object.entries(delta)) {
+    for (const tool of targets) {
+      addToAcc(acc, tool, model, sessionId, memberId, {
+        input: u.input / n,
+        output: u.output / n,
+        cacheRead: u.cacheRead / n,
+        cacheCreation: u.cacheCreation / n,
+      })
+    }
+  }
+}
+
+/** per-model per-kind (a - b), clamped >= 0. Models only in `a` keep full value. */
+function subtractClamp(
+  a: Record<string, ModelUsage>,
+  b: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = {}
+  for (const [model, av] of Object.entries(a)) {
+    const bv = b[model]
+    out[model] = {
+      input: Math.max(0, av.input - (bv?.input ?? 0)),
+      output: Math.max(0, av.output - (bv?.output ?? 0)),
+      cacheRead: Math.max(0, av.cacheRead - (bv?.cacheRead ?? 0)),
+      cacheCreation: Math.max(0, av.cacheCreation - (bv?.cacheCreation ?? 0)),
+    }
+  }
+  return out
+}
+
+function addInto(
+  target: Record<string, ModelUsage>,
+  src: Record<string, ModelUsage>
+): void {
+  for (const [model, u] of Object.entries(src)) {
+    const cur = target[model] ?? {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+    }
+    cur.input += u.input
+    cur.output += u.output
+    cur.cacheRead += u.cacheRead
+    cur.cacheCreation += u.cacheCreation
+    target[model] = cur
+  }
+}
+
+/**
+ * Attribute each turn's token cost to the tools that ran in it, at per-step
+ * (batch) granularity where available, per-turn otherwise. Pure + deterministic.
+ *
+ * Reconciliation guarantee: for every turn, the sum of attributed tokens equals
+ * the STOP per-turn delta (the residual `(thinking/no tool)` bucket absorbs the
+ * difference). So the grand total matches the existing per-turn token panel.
+ */
+export function attributeOperationCost(
+  events: OperationCostEvent[]
+): OperationAttribution {
+  const acc: Acc = new Map()
+  let toolTurns = 0
+  let perStepTurns = 0
+
+  const bySession = new Map<string, OperationCostEvent[]>()
+  for (const e of events) {
+    const k = e.sessionId ?? ''
+    const list = bySession.get(k) ?? []
+    list.push(e)
+    bySession.set(k, list)
+  }
+
+  for (const list of bySession.values()) {
+    const ordered = [...list].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    )
+    let pendingTools: string[] = []
+    let turnBatchSum: Record<string, ModelUsage> = {}
+    let turnHadTool = false
+    let turnHadBatch = false
+    const memberId = ordered[0]?.workspaceMemberId ?? null
+    const sessionId = ordered[0]?.sessionId ?? null
+
+    for (const e of ordered) {
+      if (TOOL_TYPES.has(e.type)) {
+        if (e.toolName) {
+          pendingTools.push(e.toolName)
+          turnHadTool = true
+        }
+        continue
+      }
+      if (e.type === 'POST_TOOL_BATCH') {
+        if (e.usageByModel) {
+          attributeDelta(e.usageByModel, pendingTools, sessionId, memberId, acc)
+          addInto(turnBatchSum, e.usageByModel)
+          turnHadBatch = true
+        }
+        pendingTools = []
+        continue
+      }
+      if (STOP_TYPES.has(e.type)) {
+        const perTurn = e.usageByModel ?? {}
+        const residual = subtractClamp(perTurn, turnBatchSum)
+        attributeDelta(residual, pendingTools, sessionId, memberId, acc)
+        if (turnHadTool) toolTurns += 1
+        if (turnHadTool && turnHadBatch) perStepTurns += 1
+        pendingTools = []
+        turnBatchSum = {}
+        turnHadTool = false
+        turnHadBatch = false
+      }
+    }
+  }
+
+  return { rows: [...acc.values()], coverage: { toolTurns, perStepTurns } }
+}
