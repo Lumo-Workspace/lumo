@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 
 type Outcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
+type Disclosure = 'FULL' | 'INDEX'
 
 interface LineageCost {
   input: number
@@ -18,6 +19,8 @@ interface LineageFragmentEntry {
   sourceLabel: string
   outcome: Outcome
   used: boolean | null
+  disclosure: Disclosure
+  pulled: boolean
 }
 interface LineageGroup {
   kind: 'session' | 'orphan'
@@ -42,6 +45,7 @@ export interface LineageResponse {
     }
     loopCount: number
     outcomes: Record<Outcome, number>
+    funnel: { impressions: number; index: number; pulled: number; used: number }
   }
   groups: LineageGroup[]
 }
@@ -137,6 +141,11 @@ function groupThousands(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
+/** Integer percentage, 0 when the denominator is 0 (never NaN). */
+function pct(num: number, den: number): number {
+  return den === 0 ? 0 : Math.round((num / den) * 100)
+}
+
 const OUTCOME_ORDER: Outcome[] = ['MERGED', 'REWORKED', 'REJECTED', 'UNKNOWN']
 
 /** "2 MERGED · 1 UNKNOWN", fixed order, zeros omitted. */
@@ -200,6 +209,13 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   lines.push(`- Loops: ${t.loopCount}`)
   const totalsOutcome = outcomeSummary(t.outcomes)
   if (totalsOutcome) lines.push(`- Outcomes: ${totalsOutcome}`)
+  const f = t.funnel
+  lines.push(
+    `- Disclosure funnel: ${f.impressions} impressions · ` +
+      `${f.index} INDEX (${pct(f.index, f.impressions)}%) · ` +
+      `${f.pulled} pulled (${pct(f.pulled, f.index)}% of INDEX) · ` +
+      `${f.used} used (${pct(f.used, f.impressions)}%)`
+  )
   lines.push('')
 
   for (const g of data.groups) {
@@ -217,8 +233,14 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     )
     lines.push('_✓ used · · abstained · ✗ unused (manual)_')
     for (const f of g.fragments) {
+      const tag =
+        f.disclosure === 'INDEX'
+          ? f.pulled
+            ? 'INDEX pulled'
+            : 'INDEX not-pulled'
+          : 'FULL'
       lines.push(
-        `- ${usageMarker(f.used)} [${f.outcome}] ${f.fragmentType} — ${sanitizeField(f.sourceLabel)}`
+        `- ${usageMarker(f.used)} [${f.outcome}] ${f.fragmentType} — ${sanitizeField(f.sourceLabel)} · ${tag}`
       )
     }
     lines.push('')
