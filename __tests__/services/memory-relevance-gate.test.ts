@@ -225,18 +225,18 @@ describe('gateProjectMemories', () => {
   })
 
   it('returns empty scores and dropped on fallback-all', async () => {
-    const small = [
-      {
-        id: 'a',
-        scope: 'PROJECT' as const,
-        category: 'TRAP' as const,
-        content: {},
-      },
-    ]
+    // Corpus > TOP_K so the small-corpus bypass does NOT short-circuit — a null
+    // ranking is what forces the fallback-all branch (the path under test).
+    const corpus = Array.from({ length: 20 }, (_, i) => ({
+      id: `m${i}`,
+      scope: 'PROJECT' as const,
+      category: 'TRAP' as const,
+      content: {},
+    }))
     const r1 = await gateProjectMemories(
       {
         task: { title: 't', description: null },
-        projectMemories: small,
+        projectMemories: corpus,
         projectId: 'p',
       },
       {
@@ -244,6 +244,8 @@ describe('gateProjectMemories', () => {
         trustByFragment: async () => new Map(),
       }
     )
+    expect(r1.telemetry.mechanism).toBe('fallback-all')
+    expect(r1.selected).toHaveLength(corpus.length)
     expect(r1.scores.size).toBe(0)
     expect(r1.dropped).toEqual([])
   })
