@@ -8,16 +8,11 @@ const en: Record<string, string> = {
   'progress.usedLabel': 'used',
   'progress.over': 'over budget',
   'progress.onTrackNote': 'within range · still accumulating',
-  'progress.sectionLabel': 'Progress',
-  'progress.iterations': 'Runs',
-  'progress.interactionRounds': 'Interaction rounds',
-  'progress.predictedRange': 'Forecast {value}',
-  'progress.soFar': 'so far {value}',
-  'progress.summaryRuns': '{value} runs so far',
-  'progress.summaryTokens': '{value} tokens used',
-  'progress.summaryInteraction': '{value} interaction rounds',
-  'progress.totalDuration': 'Run time',
-  'progress.summaryDuration': 'Ran {value}',
+  // shared delivery-KPI labels (DeliveryKpis reuses the retrospective.* keys)
+  'retrospective.delivery': 'Delivery',
+  'retrospective.iterations': 'Runs',
+  'retrospective.interactionRounds': 'Interaction rounds',
+  'retrospective.totalDuration': 'Run time',
 }
 
 jest.mock('react-intl', () => ({
@@ -59,11 +54,11 @@ const onTrack: TaskProgress = {
   },
   interactionRounds: {
     forecast: iv(0, 1, 1),
-    actual: 0,
+    actual: 4,
     deltaPct: null,
     band: 'on-track',
   },
-  totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
+  totalDuration: { forecast: null, actual: 766, deltaPct: null, band: null },
 }
 
 const over: TaskProgress = {
@@ -99,6 +94,24 @@ it('shows the running pulse only when agentStatus is WORKING', () => {
   ).not.toBeInTheDocument()
 })
 
+it('ProgressView renders the unified DeliveryKpis block without forecast compare rows', () => {
+  render(<ProgressView progress={onTrack} agentStatus='WORKING' />)
+  // shared labeled KPI block (same as the done card)
+  expect(screen.getByText('Delivery')).toBeInTheDocument()
+  expect(screen.getByText('Runs')).toBeInTheDocument()
+  expect(screen.getByText('Interaction rounds')).toBeInTheDocument()
+  expect(screen.getByText('Run time')).toBeInTheDocument()
+  // values only — no forecast compare rows, no plain summary lines
+  expect(screen.getByText('2')).toBeInTheDocument()
+  expect(screen.getByText('4')).toBeInTheDocument()
+  expect(screen.getByText('12m 46s')).toBeInTheDocument()
+  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
+  expect(screen.queryByText(/so far/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/runs so far/)).not.toBeInTheDocument()
+  // token zone keeps its own forecast; the KPI block carries none
+  expect(screen.getByText(/Forecast median/)).toBeInTheDocument()
+})
+
 const noForecastWithToken: TaskProgress = {
   sessionCount: 1,
   forecast: {} as TaskProgress['forecast'],
@@ -113,69 +126,24 @@ const noForecastMinimal: TaskProgress = {
   tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
 }
 
-const noForecastWithInteraction: TaskProgress = {
-  ...noForecastMinimal,
-  interactionRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
-}
-
-it('renders an in-progress summary (runs + token) when there is no forecast', () => {
+it('renders a token-used line in the token zone when there is no forecast band', () => {
   render(<ProgressView progress={noForecastWithToken} agentStatus={null} />)
-  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
-  expect(screen.getByText('12K tokens used')).toBeInTheDocument()
-  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
-  expect(screen.queryByText('so far 1')).not.toBeInTheDocument()
-  expect(screen.queryByText(/Forecast/)).not.toBeInTheDocument()
+  // token-used relocated into the token zone (label + compact value), not a KPI
+  expect(screen.getByText('Token usage · live')).toBeInTheDocument()
+  expect(screen.getByText('used')).toBeInTheDocument()
+  expect(screen.getByText('12K')).toBeInTheDocument()
+  // KPI block still present with all three metrics
+  expect(screen.getByText('Delivery')).toBeInTheDocument()
+  expect(screen.getByText('Runs')).toBeInTheDocument()
 })
 
-it('hides zero/no-signal metrics in summary mode (LUM-324 case)', () => {
+it('always renders all three KPI metrics even when zero/null (em-dash for null duration)', () => {
   render(<ProgressView progress={noForecastMinimal} agentStatus={null} />)
-  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
-  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
-  expect(screen.queryByText(/interaction rounds/)).not.toBeInTheDocument()
-  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
-})
-
-it('shows the interaction summary line only when actual > 0', () => {
-  render(
-    <ProgressView progress={noForecastWithInteraction} agentStatus={null} />
-  )
-  expect(screen.getByText('2 interaction rounds')).toBeInTheDocument()
-  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
-})
-
-it('does NOT render summary lines when a forecast is present', () => {
-  render(<ProgressView progress={onTrack} agentStatus='WORKING' />)
-  expect(screen.queryByText(/runs so far/)).not.toBeInTheDocument()
-  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
-  expect(screen.getByText('Progress')).toBeInTheDocument()
-})
-
-const tokenBandNoCohort: TaskProgress = {
-  sessionCount: 1,
-  forecast: {} as TaskProgress['forecast'],
-  tokenCost: {
-    forecast: iv(12e6, 22e6, 35e6),
-    actual: 18e6,
-    deltaPct: null,
-    band: 'on-track',
-  },
-  iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
-  interactionRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
-  totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
-}
-
-it('renders the token band AND a runs-only summary when token forecast exists but cohort does not', () => {
-  render(<ProgressView progress={tokenBandNoCohort} agentStatus={null} />)
-  // band block present (on-track note)
-  expect(
-    screen.getByText('within range · still accumulating')
-  ).toBeInTheDocument()
-  // summary runs line present
-  expect(screen.getByText('1 runs so far')).toBeInTheDocument()
-  // NO duplicate token summary line (band already shows token; showTokenSummary is false)
-  expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
-  // not the compare section
-  expect(screen.queryByText('Progress')).not.toBeInTheDocument()
+  expect(screen.getByText('Runs')).toBeInTheDocument()
+  expect(screen.getByText('Interaction rounds')).toBeInTheDocument()
+  expect(screen.getByText('Run time')).toBeInTheDocument()
+  // no token-used line when there is no token actual
+  expect(screen.queryByText('used')).not.toBeInTheDocument()
 })
 
 it('renders a footer slot under a divider when provided', () => {
@@ -194,24 +162,8 @@ const withDuration: TaskProgress = {
   totalDuration: { forecast: null, actual: 18760, deltaPct: null, band: null },
 }
 
-it('shows the run-time row in the cohort-forecast layout', () => {
+it('duration-formats the run-time KPI', () => {
   render(<ProgressView progress={withDuration} agentStatus={null} />)
   expect(screen.getByText('Run time')).toBeInTheDocument()
   expect(screen.getByText(/312m 40s/)).toBeInTheDocument()
-})
-
-const noForecastWithDuration: TaskProgress = {
-  ...noForecastMinimal,
-  totalDuration: { forecast: null, actual: 18760, deltaPct: null, band: null },
-}
-
-it('shows a run-time summary line in the no-forecast layout when > 0', () => {
-  render(<ProgressView progress={noForecastWithDuration} agentStatus={null} />)
-  expect(screen.getByText(/312m 40s/)).toBeInTheDocument()
-})
-
-it('omits the run-time summary line when duration is 0', () => {
-  render(<ProgressView progress={noForecastMinimal} agentStatus={null} />)
-  expect(screen.queryByText(/312m 40s/)).not.toBeInTheDocument()
-  expect(screen.queryByText(/Ran /)).not.toBeInTheDocument()
 })

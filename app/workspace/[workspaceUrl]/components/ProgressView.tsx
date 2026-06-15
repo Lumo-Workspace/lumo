@@ -7,8 +7,8 @@ import type {
   TaskProgress,
 } from '@/lib/forecast/progress-types'
 import { RangeBand } from './RangeBand'
+import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
-import { formatDuration } from './AgentRunTimeline/format-duration'
 
 // over 预警 pill（warning token）。on-track 不渲染 —— 飞行途中偏低是正常进度。
 function OverPill({ metric }: { metric: ProgressMetric }) {
@@ -23,59 +23,7 @@ function OverPill({ metric }: { metric: ProgressMetric }) {
   )
 }
 
-// 进度行：预测区间 · 已 N。over 时 actual 标 warning 色。forecast 缺失 → 仅 actual。
-function ProgressCompareRow({
-  label,
-  metric,
-  format = n => String(Math.round(n)),
-}: {
-  label: string
-  metric: ProgressMetric
-  format?: (n: number) => string
-}) {
-  const intl = useIntl()
-  const over = metric.band === 'over'
-  const rangeText = metric.forecast
-    ? intl.formatMessage(
-        { id: 'progress.predictedRange' },
-        {
-          value: `${Math.round(metric.forecast.p25)}–${Math.round(metric.forecast.p75)}`,
-        }
-      )
-    : null
-  return (
-    <div className='flex items-baseline justify-between gap-2 py-1'>
-      <span className='text-caption text-foreground'>{label}</span>
-      <span className='text-right text-caption text-muted-foreground tabular-nums'>
-        {rangeText && (
-          <>
-            {rangeText}
-            <span className='mx-1.5 text-muted-foreground/60'>·</span>
-          </>
-        )}
-        <span
-          className={`font-semibold ${over ? 'text-warning' : 'text-foreground'}`}
-        >
-          {intl.formatMessage(
-            { id: 'progress.soFar' },
-            { value: metric.actual !== null ? format(metric.actual) : '—' }
-          )}
-        </span>
-      </span>
-    </div>
-  )
-}
-
-// 无预测时的中性进行态摘要行：左对齐自然语言事实句，不走 forecast 对比框架。
-function SummaryLine({ children }: { children: ReactNode }) {
-  return (
-    <li className='py-1 text-body-strong text-foreground tabular-nums'>
-      {children}
-    </li>
-  )
-}
-
-/** 交付中态：活预测 + 累计 actual 的实时 burn 对比；无预测时降级为中性进行态摘要。 */
+/** 交付中态：活预测 + 累计 actual 的实时 burn 对比；底部 KPI 与交付后共用同一块。 */
 export function ProgressView({
   progress,
   agentStatus,
@@ -90,15 +38,10 @@ export function ProgressView({
   const running = agentStatus === 'WORKING'
   const tokenOver = tokenCost.band === 'over'
 
-  // token 是独立轨道；cohort 指标 iterations/interactionRounds 同生同灭（判一个即可）。
   const hasTokenBand = !!tokenCost.forecast && tokenCost.actual !== null
-  const hasCohortForecast = !!iterations.forecast
-  const showTokenSummary =
+  // 无预测区间但有累计用量时，token 仍归 token 区（一行 已用 X），KPI 块只剩三项。
+  const showTokenUsedOnly =
     !hasTokenBand && tokenCost.actual !== null && tokenCost.actual > 0
-  const showInteractionSummary =
-    interactionRounds.actual !== null && interactionRounds.actual > 0
-  const showDurationSummary =
-    totalDuration.actual !== null && totalDuration.actual > 0
 
   return (
     <section className='rounded-lg border border-border bg-card p-4'>
@@ -151,63 +94,28 @@ export function ProgressView({
         </div>
       )}
 
-      {hasCohortForecast ? (
-        <div className='border-t border-border pt-3'>
-          <p className='mb-1 text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'progress.sectionLabel' })}
+      {showTokenUsedOnly && (
+        <div className='mb-4'>
+          <p className='mb-2 text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'progress.tokenUsage' })}
           </p>
-          <ProgressCompareRow
-            label={intl.formatMessage({ id: 'progress.iterations' })}
-            metric={iterations}
-          />
-          <ProgressCompareRow
-            label={intl.formatMessage({ id: 'progress.interactionRounds' })}
-            metric={interactionRounds}
-          />
-          <ProgressCompareRow
-            label={intl.formatMessage({ id: 'progress.totalDuration' })}
-            metric={totalDuration}
-            format={n => formatDuration(n * 1000)}
-          />
+          <div className='flex items-baseline justify-end gap-3'>
+            <span className='mr-1.5 text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: 'progress.usedLabel' })}
+            </span>
+            <span className='text-title-strong text-foreground tabular-nums'>
+              {fmtCompact(intl, tokenCost.actual as number)}
+            </span>
+          </div>
         </div>
-      ) : (
-        <ul className='border-t border-border pt-3'>
-          <SummaryLine>
-            {intl.formatMessage(
-              { id: 'progress.summaryRuns' },
-              { value: iterations.actual ?? 0 }
-            )}
-          </SummaryLine>
-          {showTokenSummary && (
-            <SummaryLine>
-              {intl.formatMessage(
-                { id: 'progress.summaryTokens' },
-                { value: fmtCompact(intl, tokenCost.actual as number) }
-              )}
-            </SummaryLine>
-          )}
-          {showInteractionSummary && (
-            <SummaryLine>
-              {intl.formatMessage(
-                { id: 'progress.summaryInteraction' },
-                { value: interactionRounds.actual as number }
-              )}
-            </SummaryLine>
-          )}
-          {showDurationSummary && (
-            <SummaryLine>
-              {intl.formatMessage(
-                { id: 'progress.summaryDuration' },
-                {
-                  value: formatDuration(
-                    (totalDuration.actual as number) * 1000
-                  ),
-                }
-              )}
-            </SummaryLine>
-          )}
-        </ul>
       )}
+
+      <DeliveryKpis
+        runs={iterations.actual}
+        interactionRounds={interactionRounds.actual}
+        duration={totalDuration.actual}
+      />
+
       {footer && (
         <div className='mt-4 border-t border-border pt-3'>{footer}</div>
       )}
