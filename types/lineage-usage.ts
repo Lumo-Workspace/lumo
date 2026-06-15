@@ -22,4 +22,14 @@ export interface UsageSignalHealth {
    *  the workspace. Informational only — NOT folded into the merge-rate; the
    *  judge-gated negative-class counting lands in LUM-511 Phase 4. */
   spinoffsDuringInFlight: number
+  /** LUM-521 workspace-wide progressive-disclosure funnel (edge-level counts).
+   *  impressions = all edges; index = INDEX-disclosed; pulled = INDEX edges
+   *  whose body was pulled; used = used=true. The CLI derives the percentages
+   *  (pull% over index, index%/used% over impressions). */
+  disclosureFunnel: {
+    impressions: number
+    index: number
+    pulled: number
+    used: number
+  }
 }

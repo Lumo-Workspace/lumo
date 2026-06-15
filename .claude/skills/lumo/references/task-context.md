@@ -137,14 +137,27 @@ lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
 
 - **Totals banner** — distinct sessions, fragment count, edge count,
   total tokens (input/output/cache split) and loops, and the outcome
-  distribution.
+  distribution. After the outcome summary, one funnel line is appended:
+  `- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`
+  where impressions = edge count, INDEX% and used% are over impressions,
+  pull% is over INDEX only (FULL fragments have no pull opportunity).
+  Divide-by-zero is guarded (zero impressions or zero INDEX renders `0%`).
 - **One block per session** — the group's cost shown **once** (token/loop),
   the date it consumed context, then each context fragment as
-  `[OUTCOME] TYPE — <source label>`, plus a per-group outcome summary.
+  `[OUTCOME] TYPE — <source label>`, plus a disclosure annotation suffix:
+  `· INDEX pulled` (INDEX fragment, `pulledAt` is set) /
+  `· INDEX not-pulled` (INDEX fragment, never pulled) /
+  `· FULL` (injected in full at session-start).
+  Per-group outcome summary follows.
 
 Cost is attributed once per session (a session that injected many fragments is
 not double-counted). Fragment ids are canonical — MEMORY fragments survive
 consolidation drift.
+
+**`--signal` workspace funnel:** the workspace-level usage signal-health block
+appended by `--signal` ends with a workspace-wide disclosure funnel in the
+same format: `- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`
+aggregated over all edges in the workspace (not just this task).
 
 **Cold start:** a task with no edges prints a friendly note (lineage is captured
 when a session-bound run consumes the task's context), not an error.

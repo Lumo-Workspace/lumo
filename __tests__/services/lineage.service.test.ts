@@ -364,3 +364,69 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
     expect(dto?.totals.tokens.total).toBe(0)
   })
 })
+
+describe('getLineageForIdentifier disclosure funnel', () => {
+  it('carries per-fragment disclosure/pulled and edge-level totals.funnel', async () => {
+    mockResolveIdentifier.mockResolvedValue({
+      id: 't-1',
+      identifier: 'LUM-1',
+      title: 'T',
+      status: 'DONE',
+    })
+    mockListByTaskWithCost.mockResolvedValue([
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        sessionId: 's1',
+        outcome: 'MERGED',
+        used: true,
+        disclosure: 'INDEX',
+        pulledAt: new Date('2026-06-15T00:00:00Z'),
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+      },
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'm2',
+        sessionId: 's1',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'INDEX',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+      },
+      {
+        fragmentType: 'PR',
+        fragmentId: 'p1',
+        sessionId: 's1',
+        outcome: 'MERGED',
+        used: null,
+        disclosure: 'FULL',
+        pulledAt: null,
+        includedAt: new Date('2026-06-01T00:00:00Z'),
+      },
+    ])
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-1',
+      'mem-1',
+      'LUM-1'
+    )
+    expect(dto).not.toBeNull()
+    expect(dto!.totals.funnel).toEqual({
+      impressions: 3,
+      index: 2,
+      pulled: 1,
+      used: 1,
+    })
+    const frags = dto!.groups[0]!.fragments
+    const m1 = frags.find(f => f.fragmentId === 'm1')!
+    expect(m1.disclosure).toBe('INDEX')
+    expect(m1.pulled).toBe(true)
+    const m2 = frags.find(f => f.fragmentId === 'm2')!
+    expect(m2.disclosure).toBe('INDEX')
+    expect(m2.pulled).toBe(false)
+    const p1 = frags.find(f => f.fragmentId === 'p1')!
+    expect(p1.disclosure).toBe('FULL')
+    expect(p1.pulled).toBe(false)
+  })
+})

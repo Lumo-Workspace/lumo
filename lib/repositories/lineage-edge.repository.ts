@@ -748,6 +748,33 @@ export const lineageEdgeRepository = {
 
     return { distribution, perSession, usedTasks, baseTasks }
   },
+
+  /**
+   * LUM-521 progressive-disclosure funnel, workspace-scoped edge counts:
+   *   impressions = all edges
+   *   index       = edges injected as an addressable INDEX (LUM-500)
+   *   pulled      = INDEX edges whose body was pulled on demand (pulledAt set)
+   *   used        = edges voted used=true
+   * `pulled` is scoped to INDEX so the read-side `pulled / index` rate answers
+   * "of the lean-index fragments, how many needed their full body". Four cheap
+   * counts; the service derives the percentages.
+   */
+  async disclosureFunnelAggregates(workspaceId: string): Promise<{
+    impressions: number
+    index: number
+    pulled: number
+    used: number
+  }> {
+    const [impressions, index, pulled, used] = await Promise.all([
+      prisma.lineageEdge.count({ where: { workspaceId } }),
+      prisma.lineageEdge.count({ where: { workspaceId, disclosure: 'INDEX' } }),
+      prisma.lineageEdge.count({
+        where: { workspaceId, disclosure: 'INDEX', pulledAt: { not: null } },
+      }),
+      prisma.lineageEdge.count({ where: { workspaceId, used: true } }),
+    ])
+    return { impressions, index, pulled, used }
+  },
 }
 
 /**

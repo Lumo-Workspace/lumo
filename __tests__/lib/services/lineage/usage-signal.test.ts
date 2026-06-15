@@ -4,7 +4,10 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
-  lineageEdgeRepository: { usageSignalAggregates: jest.fn() },
+  lineageEdgeRepository: {
+    usageSignalAggregates: jest.fn(),
+    disclosureFunnelAggregates: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: { taskIdsWithSendBack: jest.fn() },
@@ -34,6 +37,9 @@ beforeEach(() => {
   ;(
     boundaryCrossingRepository.taskIdsWithCategory as jest.Mock
   ).mockResolvedValue(new Set())
+  ;(
+    lineageEdgeRepository.disclosureFunnelAggregates as jest.Mock
+  ).mockResolvedValue({ impressions: 0, index: 0, pulled: 0, used: 0 })
 })
 
 it('computes distribution, variance, and discrimination', async () => {
@@ -128,6 +134,32 @@ it('includes the raw spinoff count', async () => {
   ).mockResolvedValue(3)
   const h = await usageSignalService.getUsageSignalHealth('ws1')
   expect(h.spinoffsDuringInFlight).toBe(3)
+})
+
+it('includes the workspace disclosure funnel', async () => {
+  ;(lineageEdgeRepository.usageSignalAggregates as jest.Mock).mockResolvedValue(
+    {
+      distribution: { used: 0, unused: 0, abstained: 0 },
+      perSession: [],
+      usedTasks: [],
+      baseTasks: [],
+    }
+  )
+  ;(
+    lineageEdgeRepository.disclosureFunnelAggregates as jest.Mock
+  ).mockResolvedValue({ impressions: 277, index: 277, pulled: 0, used: 12 })
+
+  const health = await usageSignalService.getUsageSignalHealth('ws-1')
+
+  expect(health.disclosureFunnel).toEqual({
+    impressions: 277,
+    index: 277,
+    pulled: 0,
+    used: 12,
+  })
+  expect(lineageEdgeRepository.disclosureFunnelAggregates).toHaveBeenCalledWith(
+    'ws-1'
+  )
 })
 
 it('folds judge-confirmed laundering markers + CONTRACT_WEAKENING into the negative class', async () => {
