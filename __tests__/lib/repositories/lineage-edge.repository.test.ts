@@ -101,18 +101,29 @@ describe('lineageEdgeRepository.applyUnusedVote', () => {
 })
 
 describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
-  it('issues four workspace-scoped counts and returns the funnel shape', async () => {
+  it('issues four workspace-scoped counts plus a token-savings aggregate and returns the funnel shape', async () => {
     const count = jest.fn()
-    ;(prisma.lineageEdge as unknown as { count: jest.Mock }).count = count
+    const aggregate = jest.fn()
+    ;(prisma as any).lineageEdge = { count, aggregate }
     count
       .mockResolvedValueOnce(277) // impressions
       .mockResolvedValueOnce(277) // index
       .mockResolvedValueOnce(0) // pulled
       .mockResolvedValueOnce(12) // used
+    aggregate.mockResolvedValueOnce({
+      _sum: { fullTokens: 5000, indexTokens: 200 },
+      _count: { _all: 10 },
+    })
 
     const res = await lineageEdgeRepository.disclosureFunnelAggregates('ws-1')
 
-    expect(res).toEqual({ impressions: 277, index: 277, pulled: 0, used: 12 })
+    expect(res).toEqual({
+      impressions: 277,
+      index: 277,
+      pulled: 0,
+      used: 12,
+      tokensSaved: 4800, // 5000 - 200
+    })
     expect(count).toHaveBeenNthCalledWith(1, { where: { workspaceId: 'ws-1' } })
     expect(count).toHaveBeenNthCalledWith(2, {
       where: { workspaceId: 'ws-1', disclosure: 'INDEX' },
@@ -127,5 +138,33 @@ describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
     expect(count).toHaveBeenNthCalledWith(4, {
       where: { workspaceId: 'ws-1', used: true },
     })
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: 'ws-1',
+          disclosure: 'INDEX',
+          pulledAt: null,
+        }),
+        _sum: { fullTokens: true, indexTokens: true },
+      })
+    )
+  })
+
+  it('returns tokensSaved: null when no un-pulled INDEX edges carry token data', async () => {
+    const count = jest.fn()
+    const aggregate = jest.fn()
+    ;(prisma as any).lineageEdge = { count, aggregate }
+    count
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+    aggregate.mockResolvedValueOnce({
+      _sum: { fullTokens: null, indexTokens: null },
+      _count: { _all: 0 }, // zero matching edges
+    })
+
+    const res = await lineageEdgeRepository.disclosureFunnelAggregates('ws-1')
+    expect(res.tokensSaved).toBeNull()
   })
 })
