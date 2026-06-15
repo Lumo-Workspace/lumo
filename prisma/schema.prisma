@@ -2120,6 +2120,7 @@ model DroppedFragment {
   @@index([taskId])
   @@index([sessionId])
   @@index([workspaceId])
+  @@map("dropped_fragments")
 }
 
 /// 交付时固化的 forecast 快照（LUM-319）。只存预测区间；actual 渲染时实算。

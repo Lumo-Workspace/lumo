@@ -1,9 +1,12 @@
 -- LUM-522: token-level funnel collection (additive, nullable — no backfill)
-ALTER TABLE "LineageEdge" ADD COLUMN "indexTokens" INTEGER;
-ALTER TABLE "LineageEdge" ADD COLUMN "fullTokens" INTEGER;
-ALTER TABLE "LineageEdge" ADD COLUMN "relevanceScore" DOUBLE PRECISION;
+-- Table names follow the @@map snake_case convention (lineage_edges, etc.);
+-- columns are camelCase and the enum keeps its PascalCase Postgres type name,
+-- mirroring 20260606120000_add_lineage_edge.
+ALTER TABLE "lineage_edges" ADD COLUMN "indexTokens" INTEGER;
+ALTER TABLE "lineage_edges" ADD COLUMN "fullTokens" INTEGER;
+ALTER TABLE "lineage_edges" ADD COLUMN "relevanceScore" DOUBLE PRECISION;
 
-CREATE TABLE "DroppedFragment" (
+CREATE TABLE "dropped_fragments" (
     "id" TEXT NOT NULL,
     "workspaceId" TEXT NOT NULL,
     "taskId" TEXT NOT NULL,
@@ -12,13 +15,14 @@ CREATE TABLE "DroppedFragment" (
     "fragmentId" TEXT NOT NULL,
     "relevanceScore" DOUBLE PRECISION,
     "droppedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "DroppedFragment_pkey" PRIMARY KEY ("id")
+
+    CONSTRAINT "dropped_fragments_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "DroppedFragment_taskId_idx" ON "DroppedFragment"("taskId");
-CREATE INDEX "DroppedFragment_sessionId_idx" ON "DroppedFragment"("sessionId");
-CREATE INDEX "DroppedFragment_workspaceId_idx" ON "DroppedFragment"("workspaceId");
+CREATE INDEX "dropped_fragments_taskId_idx" ON "dropped_fragments"("taskId");
+CREATE INDEX "dropped_fragments_sessionId_idx" ON "dropped_fragments"("sessionId");
+CREATE INDEX "dropped_fragments_workspaceId_idx" ON "dropped_fragments"("workspaceId");
 
-ALTER TABLE "DroppedFragment" ADD CONSTRAINT "DroppedFragment_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "DroppedFragment" ADD CONSTRAINT "DroppedFragment_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "DroppedFragment" ADD CONSTRAINT "DroppedFragment_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "dropped_fragments" ADD CONSTRAINT "dropped_fragments_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "dropped_fragments" ADD CONSTRAINT "dropped_fragments_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "tasks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "dropped_fragments" ADD CONSTRAINT "dropped_fragments_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
