@@ -3,10 +3,9 @@
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
-import type { Interval } from '@/lib/forecast/types'
 import { RangeBand } from './RangeBand'
+import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
-import { formatDuration } from './AgentRunTimeline/format-duration'
 import type {
   RetrospectiveMetric,
   VarianceBand,
@@ -40,41 +39,6 @@ function VariancePill({ metric }: { metric: RetrospectiveMetric }) {
   )
 }
 
-function range(
-  intl: ReturnType<typeof useIntl>,
-  iv: Interval,
-  fmt: (n: number) => string
-) {
-  return intl.formatMessage(
-    { id: 'forecast.range' },
-    { median: fmt(iv.median), low: fmt(iv.p25), high: fmt(iv.p75) }
-  )
-}
-
-function KpiMetric({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint?: string | undefined
-}) {
-  return (
-    <div className='flex flex-col'>
-      <span className='text-caption text-muted-foreground'>{label}</span>
-      <span className='text-body-strong tabular-nums'>
-        {value}
-        {hint && (
-          <span className='ml-1 text-caption font-normal text-muted-foreground'>
-            {hint}
-          </span>
-        )}
-      </span>
-    </div>
-  )
-}
-
 export function RetrospectivePanel({
   taskId,
   status,
@@ -101,13 +65,6 @@ export function RetrospectivePanel({
     referenceLibrarySize,
   } = retrospective
   const showToken = !!tokenCost.forecast && tokenCost.actual !== null
-
-  const fmtCount = (n: number | null) =>
-    n !== null ? String(Math.round(n)) : '—'
-  const iterHint =
-    iterations.forecast !== null
-      ? `(${range(intl, iterations.forecast, n => String(Math.round(n)))})`
-      : undefined
 
   return (
     <section className='rounded-lg border border-border bg-card p-4'>
@@ -156,32 +113,11 @@ export function RetrospectivePanel({
       </p>
       {footer}
 
-      <div className='mt-4 border-t border-border pt-3'>
-        <p className='mb-2 text-caption text-muted-foreground'>
-          {intl.formatMessage({ id: 'retrospective.delivery' })}
-        </p>
-        <div className='flex flex-wrap gap-x-8 gap-y-2'>
-          <KpiMetric
-            label={intl.formatMessage({ id: 'retrospective.iterations' })}
-            value={fmtCount(iterations.actual)}
-            hint={iterHint}
-          />
-          <KpiMetric
-            label={intl.formatMessage({
-              id: 'retrospective.interactionRounds',
-            })}
-            value={fmtCount(interactionRounds.actual)}
-          />
-          <KpiMetric
-            label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
-            value={
-              totalDuration.actual !== null
-                ? formatDuration(totalDuration.actual * 1000)
-                : '—'
-            }
-          />
-        </div>
-      </div>
+      <DeliveryKpis
+        runs={iterations.actual}
+        interactionRounds={interactionRounds.actual}
+        duration={totalDuration.actual}
+      />
     </section>
   )
 }

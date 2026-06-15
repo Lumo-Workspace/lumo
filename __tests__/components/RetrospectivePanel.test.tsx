@@ -180,6 +180,22 @@ it('renders the three delivery metrics (labels present, run-time duration-format
   expect(screen.getByText('Run time')).toBeInTheDocument()
 })
 
+it('RetrospectivePanel renders the KPI block without the forecast hint', async () => {
+  // full() has iterations.forecast = (1,1,1); the old design showed a "(1–1)" hint
+  fetchRetro.mockResolvedValue({ retrospective: full() })
+  render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
+  await screen.findByText('Runs')
+  // the labeled block + value are present
+  expect(screen.getByText('Delivery')).toBeInTheDocument()
+  // but no forecast range hint on 运行次数
+  expect(screen.queryByText(/1–1/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/\(1/)).not.toBeInTheDocument()
+})
+
 it('duration-formats totalDuration in the delivery section', async () => {
   fetchRetro.mockResolvedValue({
     retrospective: full({
