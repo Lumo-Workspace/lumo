@@ -13,6 +13,7 @@ import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
 import { DeliveryTab, type DeliverySubTab } from './DeliveryTab'
+import { resolveDefaultDeliverySubTab } from './delivery-subtab'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { MemoryTab } from '../memory/MemoryTab'
 import type { TaskDetail } from '../../types'
@@ -33,6 +34,7 @@ interface TimelinePresence {
   hasMemories: boolean
   hasLineage: boolean
   hasCriteria: boolean
+  hasOpenCrossings: boolean
 }
 
 interface TimelineTabsProps {
@@ -129,6 +131,10 @@ export function TimelineTabs({
   const hasCriteria = status.data
     ? status.data.criteria.length > 0
     : (initialTimelinePresence?.hasCriteria ?? false)
+  // An OPEN boundary crossing nudges the delivery tab to default to Acceptance
+  // even with no criteria (LUM-520) — SSR-seed only (no client probe): this only
+  // governs the initial landing, which an explicit sub-segment click overrides.
+  const hasOpenCrossings = initialTimelinePresence?.hasOpenCrossings ?? false
 
   // The Delivery tab folds Agent Runs + Acceptance into one tab with a sub-
   // segment. `null` here means "use the status-derived default"; an explicit
@@ -137,10 +143,11 @@ export function TimelineTabs({
   const [deliverySubTab, setDeliverySubTab] = useState<DeliverySubTab | null>(
     null
   )
-  const defaultSubTab: DeliverySubTab =
-    status.data?.task.status === 'IN_REVIEW' && hasCriteria
-      ? 'acceptance'
-      : 'runs'
+  const defaultSubTab = resolveDefaultDeliverySubTab({
+    status: status.data?.task.status,
+    hasCriteria,
+    hasOpenCrossings,
+  })
   const resolvedSubTab = deliverySubTab ?? defaultSubTab
 
   // Reconcile the rendered tab with the URL: handles reload, back/forward, and

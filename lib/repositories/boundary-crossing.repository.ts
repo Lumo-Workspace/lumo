@@ -169,6 +169,20 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * Cheap existence check: does the task have ≥1 OPEN (undispositioned)
+   * crossing? Mirrors `findUndispositionedByTask`'s predicate but selects only a
+   * single id — used by the SSR timeline-presence probe to decide whether the
+   * delivery tab should default to the Acceptance sub-segment (LUM-520).
+   */
+  async hasOpenForTask(taskId: string): Promise<boolean> {
+    const row = await prisma.boundaryCrossing.findFirst({
+      where: { taskId, disposition: null },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
+  /**
    * ALL crossings on a task including dispositioned ones (LUM-435 read model) —
    * dispositioned crossings (CONFIRMED especially) stay on record, never hidden.
    */
