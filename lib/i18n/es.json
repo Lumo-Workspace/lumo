@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Mostrar los {count} fragmentos",
   "lineage.fragments.collapse": "Contraer",
-  "agentRun.summary": "{runs, plural, one {# ejecución} other {# ejecuciones}} · {turns, plural, one {# turno} other {# turnos}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# iteración} other {# iteraciones}}",
   "tokenCost.label": "Uso de tokens",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "Entrega",
   "retrospective.iterations": "Ejecuciones",
   "retrospective.clarifyRounds": "Rondas de aclaración",
-  "retrospective.noForecast": "Aún no hay suficiente historial",
   "retrospective.bandWithin": "Dentro del rango habitual",
   "retrospective.bandAbove": "Por encima del rango habitual",
   "retrospective.bandBelow": "Por debajo del rango habitual",
-  "retrospective.flywheel": "Añadido a la biblioteca de referencia para previsiones de tareas similares ({count} ahora)",
+  "retrospective.flywheel": "Basado en {count} tareas similares en la biblioteca de referencia · esta ejecución incluida",
   "progress.title": "Entrega en curso",
   "progress.agentRunning": "Agent en ejecución",
   "progress.tokenUsage": "Uso de tokens · en directo",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "Marcar este criterio como cumplido.",
   "acceptance.history.tip": "Cada ronda es un pase de verificación. MACHINE = ejecución del checkpointer, HUMAN = veredicto humano, AGENT = el agente devolvió la tarea.",
   "acceptance.judge.tip": "Guía redactada por el agente para el revisor humano: dónde mirar y qué cuenta como aprobado o rechazado.",
-  "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada"
+  "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada",
+  "agentRun.turnsSummary": "{turns, plural, one {# ronda} other {# rondas}}",
+  "tokenCost.byMember": "Por persona",
+  "tokenCost.byModel": "Por modelo"
 }

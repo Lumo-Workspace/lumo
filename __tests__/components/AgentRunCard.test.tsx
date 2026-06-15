@@ -1,5 +1,19 @@
 /** @jest-environment jsdom */
 
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+})
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -154,5 +168,27 @@ describe('AgentRunCard summary region', () => {
     render(<AgentRunCard run={baseRun({ runSummary: null, items: [] })} />)
     expect(screen.queryByTestId('run-summary')).not.toBeInTheDocument()
     expect(screen.queryByTestId('run-digest')).not.toBeInTheDocument()
+  })
+})
+
+describe('AgentRunCard — collapsible token details (LUM-501)', () => {
+  const mc = (model: string, total: number) => ({
+    model,
+    input: total,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+    total,
+  })
+
+  it('collapses per-run model details by default when the run is expanded (new style)', () => {
+    const run = baseRun({
+      cost: { byModel: [mc('claude-opus-4-8', 1000), mc('claude-sonnet-4-6', 500)], loopCount: null },
+      items: [],
+    })
+    render(<AgentRunCard run={run} defaultExpanded />)
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    // four detail rows are now hidden until per-model toggle
+    expect(screen.queryByText('output')).not.toBeInTheDocument()
   })
 })

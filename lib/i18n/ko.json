@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "{count}개 조각 모두 보기",
   "lineage.fragments.collapse": "접기",
-  "agentRun.summary": "{runs, plural, other {# 회 실행}} · {turns, plural, other {# 턴}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# 루프}}",
   "tokenCost.label": "토큰 사용량",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "전달",
   "retrospective.iterations": "실행 횟수",
   "retrospective.clarifyRounds": "명확화 라운드",
-  "retrospective.noForecast": "아직 예측 기록이 부족합니다",
   "retrospective.bandWithin": "일반 범위 내",
   "retrospective.bandAbove": "일반 범위 초과",
   "retrospective.bandBelow": "일반 범위 미만",
-  "retrospective.flywheel": "참조 라이브러리에 추가되어 향후 유사 작업 예측에 사용됩니다 (현재 {count}개)",
+  "retrospective.flywheel": "참조 라이브러리의 유사 작업 {count}개 기반 · 이번 실행 포함",
   "progress.title": "배포 진행 중",
   "progress.agentRunning": "Agent 실행 중",
   "progress.tokenUsage": "token 사용량 · 실시간",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "이 기준을 달성됨으로 표시합니다.",
   "acceptance.history.tip": "각 라운드는 검증 1회입니다. MACHINE=checkpointer 실행, HUMAN=담당자 판정, AGENT=에이전트가 작업을 반려.",
   "acceptance.judge.tip": "에이전트가 사람 검토자를 위해 작성한 안내입니다: 어디를 확인하고 무엇이 통과/실패인지를 설명합니다.",
-  "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업"
+  "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업",
+  "agentRun.turnsSummary": "{turns, plural, other {# 턴}}",
+  "tokenCost.byMember": "멤버별",
+  "tokenCost.byModel": "모델별"
 }

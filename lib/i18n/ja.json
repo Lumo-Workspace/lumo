@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "{count} 件すべてを表示",
   "lineage.fragments.collapse": "折りたたむ",
-  "agentRun.summary": "{runs, plural, other {# 回実行}} · {turns, plural, other {# ターン}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# ループ}}",
   "tokenCost.label": "トークン使用量",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "デリバリー",
   "retrospective.iterations": "実行回数",
   "retrospective.clarifyRounds": "確認ラウンド数",
-  "retrospective.noForecast": "予測の履歴がまだ不足しています",
   "retrospective.bandWithin": "通常範囲内",
   "retrospective.bandAbove": "通常範囲を超過",
   "retrospective.bandBelow": "通常範囲を下回る",
-  "retrospective.flywheel": "参照ライブラリに追加されました。今後の類似タスクの予測に使用されます（現在 {count} 件）",
+  "retrospective.flywheel": "参照ライブラリの類似タスク {count} 件に基づく · 今回の実行を含む",
   "progress.title": "デリバリー進行中",
   "progress.agentRunning": "Agent 実行中",
   "progress.tokenUsage": "token 使用量 · ライブ",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "この基準を達成済みとしてマークします。",
   "acceptance.history.tip": "各ラウンドは 1 回の検証パスです。MACHINE=checkpointer の実行、HUMAN=担当者の判定、AGENT=エージェントによるタスクの差し戻し。",
   "acceptance.judge.tip": "エージェントが人間のレビュアー向けに作成したガイダンスです：どこを確認するか、何が合格・不合格かを示します。",
-  "boundary.category.sessionBindingMissing": "セッションを紐付けずにタスクを作業"
+  "boundary.category.sessionBindingMissing": "セッションを紐付けずにタスクを作業",
+  "agentRun.turnsSummary": "{turns, plural, other {# ターン}}",
+  "tokenCost.byMember": "メンバー別",
+  "tokenCost.byModel": "モデル別"
 }

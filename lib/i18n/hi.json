@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "सभी {count} अंश दिखाएँ",
   "lineage.fragments.collapse": "समेटें",
-  "agentRun.summary": "{runs, plural, one {# रन} other {# रन}} · {turns, plural, one {# चक्र} other {# चक्र}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# लूप} other {# लूप}}",
   "tokenCost.label": "टोकन उपयोग",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "डिलीवरी",
   "retrospective.iterations": "रन",
   "retrospective.clarifyRounds": "स्पष्टीकरण राउंड",
-  "retrospective.noForecast": "अभी पर्याप्त इतिहास नहीं है",
   "retrospective.bandWithin": "सामान्य सीमा में",
   "retrospective.bandAbove": "सामान्य सीमा से ऊपर",
   "retrospective.bandBelow": "सामान्य सीमा से नीचे",
-  "retrospective.flywheel": "संदर्भ लाइब्रेरी में जोड़ा गया, भविष्य के समान कार्यों के पूर्वानुमान के लिए उपयोग होगा (अभी {count})",
+  "retrospective.flywheel": "संदर्भ लाइब्रेरी में {count} समान कार्यों पर आधारित · यह रन शामिल",
   "progress.title": "डिलीवरी जारी है",
   "progress.agentRunning": "Agent चल रहा है",
   "progress.tokenUsage": "token उपयोग · लाइव",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "इस मानदंड को पूरा चिह्नित करें।",
   "acceptance.history.tip": "प्रत्येक राउंड एक सत्यापन पास है। MACHINE = checkpointer रन, HUMAN = व्यक्ति का निर्णय, AGENT = एजेंट ने कार्य वापस भेजा।",
   "acceptance.judge.tip": "मानव समीक्षक के लिए एजेंट द्वारा तैयार मार्गदर्शन: कहाँ देखें और पास या फेल का मानक क्या है।",
-  "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना"
+  "boundary.category.sessionBindingMissing": "बिना संलग्न सत्र के किसी कार्य पर काम करना",
+  "agentRun.turnsSummary": "{turns, plural, one {# चक्र} other {# चक्र}}",
+  "tokenCost.byMember": "सदस्य अनुसार",
+  "tokenCost.byModel": "मॉडल अनुसार"
 }

@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Tunjukkan semua {count} serpihan",
   "lineage.fragments.collapse": "Runtuhkan",
-  "agentRun.summary": "{runs, plural, other {# jalankan}} · {turns, plural, other {# pusingan}} · {models, plural, other {# model}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, other {# gelung}}",
   "tokenCost.label": "Penggunaan token",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "Penghantaran",
   "retrospective.iterations": "Jalankan",
   "retrospective.clarifyRounds": "Pusingan penjelasan",
-  "retrospective.noForecast": "Belum cukup sejarah ramalan",
   "retrospective.bandWithin": "Dalam julat biasa",
   "retrospective.bandAbove": "Melebihi julat biasa",
   "retrospective.bandBelow": "Di bawah julat biasa",
-  "retrospective.flywheel": "Ditambah ke perpustakaan rujukan untuk ramalan tugas serupa pada masa hadapan ({count} sekarang)",
+  "retrospective.flywheel": "Berdasarkan {count} tugasan serupa dalam pustaka rujukan · larian ini disertakan",
   "progress.title": "Penghantaran sedang berjalan",
   "progress.agentRunning": "Agent sedang berjalan",
   "progress.tokenUsage": "Penggunaan token · langsung",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "Tandai kriteria ini dipenuhi.",
   "acceptance.history.tip": "Setiap pusingan adalah satu laluan pengesahan. MACHINE = jalankan checkpointer, HUMAN = keputusan orang, AGENT = ejen memulangkan tugasan.",
   "acceptance.judge.tip": "Panduan yang dirangka ejen untuk penyemak manusia: di mana hendak melihat dan apa yang dikira lulus atau gagal.",
-  "boundary.category.sessionBindingMissing": "kerja tugasan tanpa sesi yang dilampirkan"
+  "boundary.category.sessionBindingMissing": "kerja tugasan tanpa sesi yang dilampirkan",
+  "agentRun.turnsSummary": "{turns, plural, other {# pusingan}}",
+  "tokenCost.byMember": "Per anggota",
+  "tokenCost.byModel": "Per model"
 }

@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Alle {count} Fragmente anzeigen",
   "lineage.fragments.collapse": "Einklappen",
-  "agentRun.summary": "{runs, plural, one {# Durchlauf} other {# Durchläufe}} · {turns, plural, one {# Runde} other {# Runden}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# Schleife} other {# Schleifen}}",
   "tokenCost.label": "Token-Nutzung",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "Lieferung",
   "retrospective.iterations": "Durchläufe",
   "retrospective.clarifyRounds": "Klärungsrunden",
-  "retrospective.noForecast": "Noch nicht genug Verlaufsdaten",
   "retrospective.bandWithin": "Im üblichen Bereich",
   "retrospective.bandAbove": "Über dem üblichen Bereich",
   "retrospective.bandBelow": "Unter dem üblichen Bereich",
-  "retrospective.flywheel": "Zur Referenzbibliothek hinzugefügt – wird für zukünftige ähnliche Aufgaben verwendet (jetzt {count})",
+  "retrospective.flywheel": "Basiert auf {count} ähnlichen Aufgaben in der Referenzbibliothek · dieser Lauf einbezogen",
   "progress.title": "Lieferung läuft",
   "progress.agentRunning": "Agent aktiv",
   "progress.tokenUsage": "Token-Nutzung · live",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "Dieses Kriterium als erfüllt markieren.",
   "acceptance.history.tip": "Jede Runde ist ein Prüfdurchlauf. MACHINE = checkpointer-Lauf, HUMAN = menschliches Urteil, AGENT = Agent hat die Aufgabe zurückgeschickt.",
   "acceptance.judge.tip": "Vom Agenten erstellte Anleitung für den menschlichen Prüfer: wo nachzuschauen ist und was als bestanden oder fehlgeschlagen gilt.",
-  "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung"
+  "boundary.category.sessionBindingMissing": "Arbeit an einer Aufgabe ohne verbundene Sitzung",
+  "agentRun.turnsSummary": "{turns, plural, one {# Runde} other {# Runden}}",
+  "tokenCost.byMember": "Nach Person",
+  "tokenCost.byModel": "Nach Modell"
 }

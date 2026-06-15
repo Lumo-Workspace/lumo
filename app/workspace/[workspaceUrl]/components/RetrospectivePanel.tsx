@@ -51,53 +51,24 @@ function range(
   )
 }
 
-// Delivery row: shows predicted range · actual N; degrades to actual N ·
-// "no forecast history yet" when forecast is absent (unless forecastable=false).
-function CompareRow({
+function KpiMetric({
   label,
-  metric,
-  format = (n: number) => String(Math.round(n)),
-  forecastable = true,
+  value,
+  hint,
 }: {
   label: string
-  metric: RetrospectiveMetric
-  format?: (n: number) => string
-  forecastable?: boolean
+  value: string
+  hint?: string | undefined
 }) {
-  const intl = useIntl()
   return (
-    <div className='flex items-baseline justify-between gap-2 py-1'>
-      <span className='text-caption text-foreground'>{label}</span>
-      <span className='text-right text-caption text-muted-foreground tabular-nums'>
-        {metric.forecast ? (
-          <>
-            {intl.formatMessage(
-              { id: 'retrospective.predicted' },
-              { value: range(intl, metric.forecast, format) }
-            )}
-            <span className='mx-1.5 text-muted-foreground/60'>·</span>
-            <span className='font-semibold text-foreground'>
-              {intl.formatMessage(
-                { id: 'retrospective.actual' },
-                { value: metric.actual !== null ? format(metric.actual) : '—' }
-              )}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className='font-semibold text-foreground'>
-              {intl.formatMessage(
-                { id: 'retrospective.actual' },
-                { value: metric.actual !== null ? format(metric.actual) : '—' }
-              )}
-            </span>
-            {forecastable && (
-              <>
-                <span className='mx-1.5 text-muted-foreground/60'>·</span>
-                {intl.formatMessage({ id: 'retrospective.noForecast' })}
-              </>
-            )}
-          </>
+    <div className='flex flex-col'>
+      <span className='text-caption text-muted-foreground'>{label}</span>
+      <span className='text-body-strong tabular-nums'>
+        {value}
+        {hint && (
+          <span className='ml-1 text-caption font-normal text-muted-foreground'>
+            {hint}
+          </span>
         )}
       </span>
     </div>
@@ -131,6 +102,13 @@ export function RetrospectivePanel({
   } = retrospective
   const showToken = !!tokenCost.forecast && tokenCost.actual !== null
 
+  const fmtCount = (n: number | null) =>
+    n !== null ? String(Math.round(n)) : '—'
+  const iterHint =
+    iterations.forecast !== null
+      ? `(${range(intl, iterations.forecast, n => String(Math.round(n)))})`
+      : undefined
+
   return (
     <section className='rounded-lg border border-border bg-card p-4'>
       <div className='mb-3 flex items-center justify-between gap-2'>
@@ -142,11 +120,11 @@ export function RetrospectivePanel({
         </span>
       </div>
 
+      <p className='mb-2 text-caption font-medium text-muted-foreground'>
+        {intl.formatMessage({ id: 'retrospective.tokenUsage' })}
+      </p>
       {showToken && tokenCost.forecast && (
-        <div className='mb-4'>
-          <p className='mb-2 text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'retrospective.tokenUsage' })}
-          </p>
+        <div className='mb-2'>
           <div className='flex items-baseline justify-between gap-3'>
             <span className='text-caption text-muted-foreground'>
               {intl.formatMessage(
@@ -170,41 +148,38 @@ export function RetrospectivePanel({
           />
         </div>
       )}
+      <p className='mb-2 text-caption text-muted-foreground'>
+        {intl.formatMessage(
+          { id: 'retrospective.flywheel' },
+          { count: referenceLibrarySize }
+        )}
+      </p>
+      {footer}
 
-      <div className='border-t border-border pt-3'>
-        <p className='mb-1 text-caption text-muted-foreground'>
+      <div className='mt-4 border-t border-border pt-3'>
+        <p className='mb-2 text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'retrospective.delivery' })}
         </p>
-        <CompareRow
-          label={intl.formatMessage({ id: 'retrospective.iterations' })}
-          metric={iterations}
-        />
-        <CompareRow
-          label={intl.formatMessage({ id: 'retrospective.clarifyRounds' })}
-          metric={clarifyRounds}
-        />
-        <CompareRow
-          label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
-          metric={totalDuration}
-          format={n => formatDuration(n * 1000)}
-          forecastable={false}
-        />
+        <div className='flex flex-wrap gap-x-8 gap-y-2'>
+          <KpiMetric
+            label={intl.formatMessage({ id: 'retrospective.iterations' })}
+            value={fmtCount(iterations.actual)}
+            hint={iterHint}
+          />
+          <KpiMetric
+            label={intl.formatMessage({ id: 'retrospective.clarifyRounds' })}
+            value={fmtCount(clarifyRounds.actual)}
+          />
+          <KpiMetric
+            label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
+            value={
+              totalDuration.actual !== null
+                ? formatDuration(totalDuration.actual * 1000)
+                : '—'
+            }
+          />
+        </div>
       </div>
-
-      <div className='mt-4 flex items-start gap-2.5 rounded-xl bg-muted/50 px-3 py-3'>
-        <span className='mt-0.5 text-info' aria-hidden>
-          ↻
-        </span>
-        <p className='text-caption leading-relaxed text-muted-foreground'>
-          {intl.formatMessage(
-            { id: 'retrospective.flywheel' },
-            { count: referenceLibrarySize }
-          )}
-        </p>
-      </div>
-      {footer && (
-        <div className='mt-4 border-t border-border pt-3'>{footer}</div>
-      )}
     </section>
   )
 }

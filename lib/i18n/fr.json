@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Afficher les {count} fragments",
   "lineage.fragments.collapse": "Réduire",
-  "agentRun.summary": "{runs, plural, one {# exécution} other {# exécutions}} · {turns, plural, one {# tour} other {# tours}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# boucle} other {# boucles}}",
   "tokenCost.label": "Utilisation des tokens",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "Livraison",
   "retrospective.iterations": "Exécutions",
   "retrospective.clarifyRounds": "Cycles de clarification",
-  "retrospective.noForecast": "Pas encore assez d'historique",
   "retrospective.bandWithin": "Dans la plage habituelle",
   "retrospective.bandAbove": "Au-dessus de la plage habituelle",
   "retrospective.bandBelow": "En dessous de la plage habituelle",
-  "retrospective.flywheel": "Ajouté à la bibliothèque de référence pour les prévisions de tâches similaires ({count} maintenant)",
+  "retrospective.flywheel": "Basé sur {count} tâches similaires dans la bibliothèque de référence · cette exécution incluse",
   "progress.title": "Livraison en cours",
   "progress.agentRunning": "Agent en cours d'exécution",
   "progress.tokenUsage": "Consommation de tokens · en direct",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "Marquer ce critère comme rempli.",
   "acceptance.history.tip": "Chaque cycle est un passage de vérification. MACHINE = exécution du checkpointer, HUMAN = verdict humain, AGENT = l'agent a renvoyé la tâche.",
   "acceptance.judge.tip": "Consignes rédigées par l'agent pour le relecteur humain : où regarder et ce qui compte comme réussi ou échoué.",
-  "boundary.category.sessionBindingMissing": "travail sur une tâche sans session attachée"
+  "boundary.category.sessionBindingMissing": "travail sur une tâche sans session attachée",
+  "agentRun.turnsSummary": "{turns, plural, one {# tour} other {# tours}}",
+  "tokenCost.byMember": "Par personne",
+  "tokenCost.byModel": "Par modèle"
 }

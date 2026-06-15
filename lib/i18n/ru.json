@@ -1401,7 +1401,6 @@
   "lineage.chip.loopsNa": "loops n/a",
   "lineage.fragments.showAll": "Показать все {count} фрагментов",
   "lineage.fragments.collapse": "Свернуть",
-  "agentRun.summary": "{runs, plural, one {# запуск} few {# запуска} other {# запусков}} · {turns, plural, one {# ход} few {# хода} other {# ходов}} · {models, plural, one {# model} other {# models}}",
   "agentRun.cost.perRunTok": "{tok} tok",
   "agentRun.cost.loops": "{n, plural, one {# итерация} few {# итерации} other {# итераций}}",
   "tokenCost.label": "Использование токенов",
@@ -1429,11 +1428,10 @@
   "retrospective.delivery": "Доставка",
   "retrospective.iterations": "Запуски",
   "retrospective.clarifyRounds": "Раунды уточнений",
-  "retrospective.noForecast": "Недостаточно данных для прогноза",
   "retrospective.bandWithin": "В обычном диапазоне",
   "retrospective.bandAbove": "Выше обычного диапазона",
   "retrospective.bandBelow": "Ниже обычного диапазона",
-  "retrospective.flywheel": "Добавлено в справочную библиотеку для прогнозирования аналогичных задач (сейчас {count})",
+  "retrospective.flywheel": "На основе {count} похожих задач в справочной библиотеке · текущий запуск учтён",
   "progress.title": "Поставка выполняется",
   "progress.agentRunning": "Agent работает",
   "progress.tokenUsage": "Использование токенов · в реальном времени",
@@ -1670,5 +1668,8 @@
   "acceptance.verdict.passTip": "Отметить этот критерий как выполненный.",
   "acceptance.history.tip": "Каждый раунд — один проход проверки. MACHINE = запуск checkpointer, HUMAN = вердикт человека, AGENT = агент вернул задачу.",
   "acceptance.judge.tip": "Руководство, составленное агентом для проверяющего-человека: где смотреть и что считается прохождением или провалом.",
-  "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии"
+  "boundary.category.sessionBindingMissing": "работа над задачей без привязанной сессии",
+  "agentRun.turnsSummary": "{turns, plural, one {# раунд} few {# раунда} many {# раундов} other {# раунда}}",
+  "tokenCost.byMember": "По участникам",
+  "tokenCost.byModel": "По моделям"
 }

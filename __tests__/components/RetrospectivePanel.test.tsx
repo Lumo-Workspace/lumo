@@ -13,12 +13,11 @@ const en: Record<string, string> = {
   'retrospective.iterations': 'Runs',
   'retrospective.clarifyRounds': 'Clarification rounds',
   'retrospective.totalDuration': 'Run time',
-  'retrospective.noForecast': 'no forecast history yet',
   'retrospective.bandWithin': 'within the usual range',
   'retrospective.bandAbove': 'above the usual range',
   'retrospective.bandBelow': 'below the usual range',
   'retrospective.flywheel':
-    'Added to the reference library for forecasting future similar tasks ({count} now)',
+    'Based on {count} similar tasks in the reference library · this run included',
   'forecast.range': '{median} ({low}–{high})',
 }
 
@@ -46,21 +45,56 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RetrospectivePanel } from '@/app/workspace/[workspaceUrl]/components/RetrospectivePanel'
 import { tasksClient } from '@/lib/api-client'
+import type { TaskRetrospective } from '@/lib/forecast/retrospective-types'
 
 const fetchRetro = tasksClient.retrospective as jest.Mock
 
-function wrap(ui: React.ReactNode) {
+function Wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>)
+  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>
 }
 
 const iv = (p25: number, median: number, p75: number) => ({ p25, median, p75 })
 
+function full(overrides?: Partial<TaskRetrospective>): TaskRetrospective {
+  return {
+    tokenCost: {
+      forecast: iv(2.4e7, 2.9e7, 3e7),
+      actual: 1.6e8,
+      deltaPct: 13,
+      band: 'within',
+    },
+    iterations: {
+      forecast: iv(1, 1, 1),
+      actual: 1,
+      deltaPct: 0,
+      band: 'within',
+    },
+    clarifyRounds: {
+      forecast: null,
+      actual: 0,
+      deltaPct: null,
+      band: null,
+    },
+    totalDuration: {
+      forecast: null,
+      actual: 217,
+      deltaPct: null,
+      band: null,
+    },
+    referenceLibrarySize: 27,
+    capturedAt: new Date('2026-06-01'),
+    ...overrides,
+  }
+}
+
 beforeEach(() => fetchRetro.mockReset())
 
 it('renders nothing for a non-DONE task (no fetch)', () => {
-  const { container } = wrap(
-    <RetrospectivePanel taskId='t1' status='IN_PROGRESS' />
+  const { container } = render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='IN_PROGRESS' />
+    </Wrapper>
   )
   expect(container).toBeEmptyDOMElement()
   expect(fetchRetro).not.toHaveBeenCalled()
@@ -68,143 +102,91 @@ it('renders nothing for a non-DONE task (no fetch)', () => {
 
 it('renders nothing when retrospective is null', async () => {
   fetchRetro.mockResolvedValue({ retrospective: null })
-  const { container } = wrap(<RetrospectivePanel taskId='t1' status='DONE' />)
+  const { container } = render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
   await waitFor(() => expect(fetchRetro).toHaveBeenCalled())
   expect(container).toBeEmptyDOMElement()
 })
 
-it('renders token compare + delivery rows + flywheel count', async () => {
-  fetchRetro.mockResolvedValue({
-    retrospective: {
-      tokenCost: {
-        forecast: iv(2.4e7, 2.6e7, 3e7),
-        actual: 2.95e7,
-        deltaPct: 13,
-        band: 'within',
-      },
-      iterations: {
-        forecast: iv(2, 3, 3),
-        actual: 3,
-        deltaPct: 0,
-        band: 'within',
-      },
-      clarifyRounds: {
-        forecast: iv(1, 1, 2),
-        actual: 2,
-        deltaPct: 100,
-        band: 'within',
-      },
-      totalDuration: {
-        forecast: null,
-        actual: 100,
-        deltaPct: null,
-        band: null,
-      },
-      referenceLibrarySize: 27,
-      capturedAt: '2026-06-01',
-    },
-  })
-  wrap(<RetrospectivePanel taskId='t1' status='DONE' />)
+it('renders token compare + flywheel count', async () => {
+  fetchRetro.mockResolvedValue({ retrospective: full() })
+  render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
   await screen.findByText(en['retrospective.title']!)
   expect(screen.getByText('+13%', { exact: false })).toBeInTheDocument()
-  expect(screen.getByText('27', { exact: false })).toBeInTheDocument()
+  expect(screen.getByText(/27/, { exact: false })).toBeInTheDocument()
 })
 
-it('degrades a row to actual-only when its forecast is null', async () => {
-  fetchRetro.mockResolvedValue({
-    retrospective: {
-      tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
-      iterations: {
-        forecast: iv(1, 2, 2),
-        actual: 4,
-        deltaPct: 100,
-        band: 'above',
-      },
-      clarifyRounds: { forecast: null, actual: 3, deltaPct: null, band: null },
-      totalDuration: { forecast: null, actual: 60, deltaPct: null, band: null },
-      referenceLibrarySize: 10,
-      capturedAt: '2026-06-01',
-    },
-  })
-  wrap(<RetrospectivePanel taskId='t1' status='DONE' />)
-  await screen.findByText(en['retrospective.title']!)
-  // clarify row degrades — "no forecast history yet" text appears
-  expect(
-    screen.getByText(en['retrospective.noForecast']!, { exact: false })
-  ).toBeInTheDocument()
-})
-
-it('renders a footer slot under a divider when provided', async () => {
-  fetchRetro.mockResolvedValue({
-    retrospective: {
-      tokenCost: {
-        forecast: iv(2.4e7, 2.6e7, 3e7),
-        actual: 2.95e7,
-        deltaPct: 13,
-        band: 'within',
-      },
-      iterations: {
-        forecast: iv(2, 3, 3),
-        actual: 3,
-        deltaPct: 0,
-        band: 'within',
-      },
-      clarifyRounds: {
-        forecast: iv(1, 1, 2),
-        actual: 2,
-        deltaPct: 100,
-        band: 'within',
-      },
-      totalDuration: {
-        forecast: null,
-        actual: 100,
-        deltaPct: null,
-        band: null,
-      },
-      referenceLibrarySize: 27,
-      capturedAt: '2026-06-01',
-    },
-  })
-  wrap(
-    <RetrospectivePanel
-      taskId='t1'
-      status='DONE'
-      footer={<div data-testid='slot' />}
-    />
+it('renders a footer slot when provided', async () => {
+  fetchRetro.mockResolvedValue({ retrospective: full() })
+  render(
+    <Wrapper>
+      <RetrospectivePanel
+        taskId='t1'
+        status='DONE'
+        footer={<div data-testid='slot' />}
+      />
+    </Wrapper>
   )
   await screen.findByText(en['retrospective.title']!)
   expect(screen.getByTestId('slot')).toBeInTheDocument()
 })
 
-it('renders run-time row actual-only, duration-formatted, with no no-forecast tail', async () => {
+it('orders the Token section (forecast + footer) above the Delivery section', async () => {
+  fetchRetro.mockResolvedValue({ retrospective: full() })
+  const { container } = render(
+    <Wrapper>
+      <RetrospectivePanel
+        taskId='t1'
+        status='DONE'
+        footer={<div data-testid='slot'>FOOTERMARK</div>}
+      />
+    </Wrapper>
+  )
+  await screen.findByTestId('slot')
+  const html = container.innerHTML
+  // ">Delivery<" isolates the delivery-section heading from "Delivery retrospective" in the title
+  expect(html.indexOf('Token usage')).toBeLessThan(html.indexOf('FOOTERMARK'))
+  expect(html.indexOf('FOOTERMARK')).toBeLessThan(html.indexOf('>Delivery<'))
+})
+
+it('renders the flywheel note inline with the interpolated count', async () => {
+  fetchRetro.mockResolvedValue({ retrospective: full({ referenceLibrarySize: 368 }) })
+  render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
+  expect(await screen.findByText(/368/)).toBeInTheDocument()
+})
+
+it('renders the three delivery metrics (labels present, run-time duration-formatted)', async () => {
+  fetchRetro.mockResolvedValue({ retrospective: full() })
+  render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
+  expect(await screen.findByText('Runs')).toBeInTheDocument()
+  expect(screen.getByText('Clarification rounds')).toBeInTheDocument()
+  expect(screen.getByText('Run time')).toBeInTheDocument()
+})
+
+it('duration-formats totalDuration in the delivery section', async () => {
   fetchRetro.mockResolvedValue({
-    retrospective: {
-      tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
-      iterations: {
-        forecast: iv(2, 3, 3),
-        actual: 3,
-        deltaPct: 0,
-        band: 'within',
-      },
-      clarifyRounds: {
-        forecast: iv(1, 1, 2),
-        actual: 2,
-        deltaPct: 100,
-        band: 'within',
-      },
-      totalDuration: {
-        forecast: null,
-        actual: 17692,
-        deltaPct: null,
-        band: null,
-      },
-      referenceLibrarySize: 5,
-      capturedAt: '2026-06-01',
-    },
+    retrospective: full({ totalDuration: { forecast: null, actual: 17692, deltaPct: null, band: null } }),
   })
-  wrap(<RetrospectivePanel taskId='t1' status='DONE' />)
+  render(
+    <Wrapper>
+      <RetrospectivePanel taskId='t1' status='DONE' />
+    </Wrapper>
+  )
   expect(await screen.findByText('Run time')).toBeInTheDocument()
   expect(screen.getByText(/294m 52s/)).toBeInTheDocument()
-  const row = screen.getByText('Run time').closest('div')!
-  expect(row).not.toHaveTextContent('no forecast history yet')
 })
