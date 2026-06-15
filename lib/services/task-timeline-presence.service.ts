@@ -1,6 +1,7 @@
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 /**
  * Whether each of the "rare" timeline tabs (Memory / Lineage / Acceptance) has
@@ -8,11 +9,17 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
  * can decide visibility on first paint instead of waiting for the client
  * presence probes to round-trip (LUM-321) — eliminating tab pop-in. (The
  * Delivery tab is unconditionally visible since LUM-471, so it needs no probe.)
+ *
+ * `hasOpenCrossings` (LUM-520) is not a tab-visibility signal — the delivery tab
+ * is always shown — but a sub-tab default: an open boundary crossing makes the
+ * delivery tab land on its Acceptance sub-segment so the crossing is seen even
+ * when the task has no acceptance criteria.
  */
 export interface TaskTimelinePresence {
   hasMemories: boolean
   hasLineage: boolean
   hasCriteria: boolean
+  hasOpenCrossings: boolean
 }
 
 export const taskTimelinePresenceService = {
@@ -24,17 +31,21 @@ export const taskTimelinePresenceService = {
    * Run in parallel — they're independent indexed lookups.
    */
   async getPresence(taskId: string): Promise<TaskTimelinePresence> {
-    const [hasMemories, hasLineage, criterionCount] = await Promise.all([
-      memoryRepository.hasForTask(taskId),
-      lineageEdgeRepository.hasForTask(taskId),
-      // Acceptance tab: any criterion (the contract) → tab is shown.
-      acceptanceCriterionRepository.countByTask(taskId),
-    ])
+    const [hasMemories, hasLineage, criterionCount, hasOpenCrossings] =
+      await Promise.all([
+        memoryRepository.hasForTask(taskId),
+        lineageEdgeRepository.hasForTask(taskId),
+        // Acceptance tab: any criterion (the contract) → tab is shown.
+        acceptanceCriterionRepository.countByTask(taskId),
+        // Delivery sub-tab default: any OPEN crossing → land on Acceptance.
+        boundaryCrossingRepository.hasOpenForTask(taskId),
+      ])
 
     return {
       hasMemories,
       hasLineage,
       hasCriteria: criterionCount > 0,
+      hasOpenCrossings,
     }
   },
 }

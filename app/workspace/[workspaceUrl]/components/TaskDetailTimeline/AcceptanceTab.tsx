@@ -1161,16 +1161,40 @@ export function AcceptanceTab({
     return <div className='py-8 text-center text-xs text-danger'>{error}</div>
   }
 
-  if (!data || data.criteria.length === 0) {
+  const emptyContractNote = (
+    <div className='py-8 flex flex-col items-center gap-2 text-muted-foreground'>
+      <ClipboardCheck className='size-6' />
+      <p className='text-xs'>
+        {intl.formatMessage({
+          id: 'acceptance.tab.empty',
+          defaultMessage: '此任务暂无验收标准',
+        })}
+      </p>
+    </div>
+  )
+
+  if (!data) {
+    return emptyContractNote
+  }
+
+  // No acceptance contract — but a boundary crossing can still exist and must
+  // stay visible (LUM-520): render the panel above the empty note instead of
+  // short-circuiting before it. The panel self-hides when there are no
+  // crossings, so with none this is just the empty note as before.
+  if (data.criteria.length === 0) {
     return (
-      <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
-        <ClipboardCheck className='size-6' />
-        <p className='text-xs'>
-          {intl.formatMessage({
-            id: 'acceptance.tab.empty',
-            defaultMessage: '此任务暂无验收标准',
-          })}
-        </p>
+      <div className='space-y-5 py-1'>
+        <BoundaryCrossingsPanel
+          taskIdentifier={taskIdentifier}
+          enabled={enabled}
+          workspaceUrl={workspaceUrl}
+          members={members}
+          agentActors={agentActors}
+          onChanged={() => {
+            void refresh?.()
+          }}
+        />
+        {emptyContractNote}
       </div>
     )
   }

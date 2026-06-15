@@ -78,6 +78,7 @@ import '@testing-library/jest-dom'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
+import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
 import { tasksClient } from '@/lib/api-client'
 import type {
   TaskAcceptanceStatusView,
@@ -190,6 +191,23 @@ beforeEach(() => jest.clearAllMocks())
 it('renders an empty state when the task has no criteria', () => {
   set(statusView({ criteria: [] }))
   render_()
+  expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
+})
+
+// LUM-520: a task can have a boundary crossing but no acceptance criteria. The
+// crossings panel must NOT be swallowed by the "no criteria" empty state — it
+// renders alongside the empty note so the crossing is visible.
+it('renders boundary crossings when the contract is empty', () => {
+  ;(useBoundaryCrossings as jest.Mock).mockReturnValue({
+    crossings: [{ id: 'c1' }],
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })
+  set(statusView({ criteria: [] }))
+  const { container } = render_()
+  // Both surface: the panel (anchor id) and the no-criteria note.
+  expect(container.querySelector('#boundary-crossings')).not.toBeNull()
   expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
 })
 

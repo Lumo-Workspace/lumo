@@ -58,6 +58,7 @@ interface TaskDetailPageProps {
     hasMemories: boolean
     hasLineage: boolean
     hasCriteria: boolean
+    hasOpenCrossings: boolean
   }
 }
 
