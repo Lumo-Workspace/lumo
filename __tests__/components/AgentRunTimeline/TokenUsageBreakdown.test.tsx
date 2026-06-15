@@ -55,14 +55,13 @@ function mem(id: string, name: string, total: number): AgentRunMemberStat {
     name,
     imageUrl: '',
     runCount: 1,
-    turnCount: 1,
     loopCount: 1,
     byModel: [{ ...opus, total }],
   }
 }
 
 function totals(byModel: ModelCost[]) {
-  return { runCount: 1, turnCount: 2, loopCount: 4, byModel }
+  return { runCount: 1, loopCount: 4, byModel }
 }
 
 beforeAll(() => {
@@ -81,20 +80,22 @@ beforeAll(() => {
 
 describe('TokenUsageBreakdown', () => {
   it('renders the per-model breakdown without an outer collapse or duplicate title', () => {
-    render(<TokenUsageBreakdown totals={totals([opus, sonnet])} perMember={[]} />)
+    render(
+      <TokenUsageBreakdown totals={totals([opus, sonnet])} perMember={[]} />
+    )
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument()
     expect(screen.queryByText('Token usage')).not.toBeInTheDocument()
     expect(screen.queryByTestId('token-usage-toggle')).not.toBeInTheDocument()
   })
 
-  it('shows a turns chip in the by-model footer', () => {
-    render(<TokenUsageBreakdown totals={totals([opus, sonnet])} perMember={[]} />)
-    expect(screen.getByText('2 turns')).toBeInTheDocument()
-  })
-
   it('omits by-member / by-model group labels for a single contributor', () => {
-    render(<TokenUsageBreakdown totals={totals([opus])} perMember={[mem('mA', 'Ada', 100)]} />)
+    render(
+      <TokenUsageBreakdown
+        totals={totals([opus])}
+        perMember={[mem('mA', 'Ada', 100)]}
+      />
+    )
     expect(screen.queryByText('By member')).not.toBeInTheDocument()
     expect(screen.queryByText('By model')).not.toBeInTheDocument()
   })
@@ -110,8 +111,10 @@ describe('TokenUsageBreakdown', () => {
     expect(screen.getByText('By model')).toBeInTheDocument()
     expect(screen.getByText('Ada')).toBeInTheDocument()
     expect(screen.getByText('Bo')).toBeInTheDocument()
-    // the by-model group (2 models) shows the no-total warning once;
-    // the by-member group must NOT (members are summable)
-    expect(screen.getAllByText('models not price-comparable · no total')).toHaveLength(1)
+    // LUM-525: the cross-model "no total" warning was removed, so neither the
+    // by-model nor the by-member group renders it.
+    expect(
+      screen.queryByText('models not price-comparable · no total')
+    ).not.toBeInTheDocument()
   })
 })

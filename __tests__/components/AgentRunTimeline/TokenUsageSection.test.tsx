@@ -45,7 +45,7 @@ function data(
       sessionId: `s${i}`,
       runNumber: i + 1,
     })) as unknown as AgentRunTimelineResponse['runs'],
-    totals: { runCount: runs, turnCount: runs, loopCount: runs, byModel },
+    totals: { runCount: runs, loopCount: runs, byModel },
     perMember: [],
   }
 }

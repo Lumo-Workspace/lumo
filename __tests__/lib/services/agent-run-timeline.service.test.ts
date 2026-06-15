@@ -99,7 +99,6 @@ it('maps per-run model cost and a STOP turn delta, and aggregates tab totals', a
   })
   expect(totals).toEqual({
     runCount: 1,
-    turnCount: 1,
     loopCount: 1,
     byModel: [
       {
@@ -244,7 +243,6 @@ it('leaves cost null when a session captured no usage', async () => {
   expect(runs[0]!.cost).toBeNull()
   expect(totals).toEqual({
     runCount: 1,
-    turnCount: 0,
     // No run captured a loop count → aggregate stays null ("loops n/a"),
     // not a misleading 0 (which would read as "ran 0 loops"). LUM-311.
     loopCount: null,

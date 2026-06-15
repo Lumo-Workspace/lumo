@@ -10,8 +10,8 @@ export interface MemberCostRow extends ModelCost {
 
 /** Fold each member's per-model costs into one cross-model row. Members with a
  *  zero grand total are dropped; input order (already spend-desc) is preserved.
- *  The "cross-model not summable" caveat is about comparing models for price,
- *  not about per-person attribution share, so summing here is correct. */
+ *  Summing across models is correct here: this is a per-person attribution
+ *  share, not a price comparison between models. */
 export function foldMembersToCostRows(
   perMember: AgentRunMemberStat[]
 ): MemberCostRow[] {

@@ -597,7 +597,6 @@ export interface AgentRunMemberStat {
   name: string
   imageUrl: string
   runCount: number
-  turnCount: number
   loopCount: number
   byModel: ModelCost[]
 }
@@ -606,7 +605,6 @@ export interface AgentRunTimelineResponse {
   runs: AgentRunSession[]
   totals: {
     runCount: number
-    turnCount: number
     loopCount: number
     byModel: ModelCost[]
   }
