@@ -110,15 +110,15 @@ export function ProgressView({
         </div>
       )}
 
+      {footer}
+
+      {/* KPI block sits last — after the per-model footer — to match the done
+          card's order (token → per-model breakdown → 交付 KPIs). */}
       <DeliveryKpis
         runs={iterations.actual}
         interactionRounds={interactionRounds.actual}
         duration={totalDuration.actual}
       />
-
-      {footer && (
-        <div className='mt-4 border-t border-border pt-3'>{footer}</div>
-      )}
     </section>
   )
 }
