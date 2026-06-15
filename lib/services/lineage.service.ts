@@ -7,7 +7,11 @@ import { toModelCosts } from '@/lib/services/model-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
-import type { LineageFragmentType, LineageOutcome } from '@prisma/client'
+import type {
+  LineageDisclosure,
+  LineageFragmentType,
+  LineageOutcome,
+} from '@prisma/client'
 import { computeFragmentTrust, trustKey } from '@/lib/services/lineage-signal'
 import type { TrustVerdict } from '@/types/lineage'
 
@@ -39,6 +43,10 @@ export interface LineageFragmentEntry {
   sourceLabel: string
   outcome: LineageOutcome
   used: boolean | null
+  /** LUM-521: how this fragment was injected at session-start (LUM-500 tag). */
+  disclosure: LineageDisclosure
+  /** LUM-521: whether the agent pulled this edge's body on demand (pulledAt set). */
+  pulled: boolean
 }
 export interface LineageGroup {
   kind: 'session' | 'orphan'
@@ -64,6 +72,13 @@ export interface LineageDto {
     }
     loopCount: number
     outcomes: Record<LineageOutcome, number>
+    /**
+     * LUM-521 progressive-disclosure funnel, EDGE-LEVEL (one impression per
+     * session×fragment injection). `pulled` counts only INDEX edges whose body
+     * was pulled, so `pulled / index` is an honest "did the lean index suffice"
+     * rate; `index`/`used` are over `impressions`.
+     */
+    funnel: { impressions: number; index: number; pulled: number; used: number }
   }
   groups: LineageGroup[]
 }
@@ -245,9 +260,16 @@ export const lineageService = {
     const groups = new Map<string, LineageGroup>()
     const seenFragment = new Set<string>()
     const outcomes = emptyOutcomes()
+    const funnel = { impressions: 0, index: 0, pulled: 0, used: 0 }
 
     for (const { e, cid } of withCanon) {
       outcomes[e.outcome] += 1
+      funnel.impressions += 1
+      if (e.disclosure === 'INDEX') {
+        funnel.index += 1
+        if (e.pulledAt !== null) funnel.pulled += 1
+      }
+      if (e.used === true) funnel.used += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
 
       const gkey = e.sessionId ?? ORPHAN
@@ -278,6 +300,8 @@ export const lineageService = {
         sourceLabel: labelFor(e.fragmentType, cid),
         outcome: e.outcome,
         used: e.used,
+        disclosure: e.disclosure,
+        pulled: e.pulledAt !== null,
       })
     }
 
@@ -318,6 +342,7 @@ export const lineageService = {
         tokens,
         loopCount,
         outcomes,
+        funnel,
       },
       groups: groupList,
     }
