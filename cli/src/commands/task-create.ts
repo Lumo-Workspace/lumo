@@ -16,6 +16,8 @@ export interface CreateTaskOptions {
   tag?: string[]
   tagId?: string[]
   sprint?: string
+  reworkOf?: string
+  newScope?: boolean
 }
 
 interface CreatedTaskResponse {
@@ -209,6 +211,8 @@ export async function taskCreate(
   if (opts.assignee !== undefined) body.assigneeRef = opts.assignee
   if (opts.milestone !== undefined) body.milestoneRef = opts.milestone
   if (tagIds && tagIds.length > 0) body.tagIds = tagIds
+  if (opts.reworkOf !== undefined) body.reworkOfRef = opts.reworkOf
+  if (opts.newScope) body.newScope = true
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,

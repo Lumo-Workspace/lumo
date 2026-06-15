@@ -70,3 +70,41 @@ describe('task create — session header', () => {
     ).toBeUndefined()
   })
 })
+
+describe('task create — rework/new-scope flags', () => {
+  it('sends reworkOfRef in the body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+    await taskCreate('fix color', { reworkOf: 'LUM-7' })
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse(init!.body as string)).toMatchObject({
+      reworkOfRef: 'LUM-7',
+    })
+  })
+
+  it('sends newScope:true in the body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+    await taskCreate('new thing', { newScope: true })
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse(init!.body as string)).toMatchObject({ newScope: true })
+  })
+
+  it('does not send reworkOfRef/newScope when neither flag is passed', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { task: created }))
+    await taskCreate('plain', {})
+    const [, init] = fetchMock.mock.calls[0]!
+    const body = JSON.parse(init!.body as string)
+    expect(body.reworkOfRef).toBeUndefined()
+    expect(body.newScope).toBeUndefined()
+  })
+
+  it('prints the server 409 message on stderr and returns nonzero', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, {
+        error: 'This belongs on LUM-7. Either fix it in place...',
+      })
+    )
+    const code = await taskCreate('fix color', { reworkOf: 'LUM-7' })
+    expect(code).toBe(1)
+    expect(stderr.join('\n')).toMatch(/This belongs on LUM-7/)
+  })
+})
