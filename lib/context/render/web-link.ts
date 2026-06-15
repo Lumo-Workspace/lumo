@@ -9,8 +9,12 @@ export interface WebLinkCard {
   fetchError: string | null
 }
 
-/** Render a single web-link card body (no section heading). */
-export function webLinkCard(l: WebLinkCard): string {
+/**
+ * Render a single web-link card body (no section heading). `identifier` is the
+ * LUM-N task identifier — the first positional of the on-demand fetch command,
+ * not the cuid.
+ */
+export function webLinkCard(l: WebLinkCard, identifier: string): string {
   // LUM-347: entry-level source attribution — fetched external web content.
   const titleLine = l.title
     ? `- [external:web] [${l.title}](${l.url}) — ${l.domain}`
@@ -18,7 +22,7 @@ export function webLinkCard(l: WebLinkCard): string {
   const lines: string[] = [titleLine]
   const body = l.note ?? l.description
   if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
-  lines.push(`  ↳ body: lumo task web show ${l.id}`)
+  lines.push(`  ↳ body: lumo task web show ${identifier} ${l.id}`)
   return lines.join('\n')
 }
 
@@ -48,10 +52,13 @@ export function webLinkManifest(l: WebLinkCard): string {
  * Render the "## Web Links" section. Unchanged public output; now composed
  * from `webLinkCard`.
  */
-export function renderWebLinkSection(links: WebLinkCard[]): string {
+export function renderWebLinkSection(
+  links: WebLinkCard[],
+  identifier: string
+): string {
   if (links.length === 0) return ''
   const lines: string[] = ['## Web Links', '']
-  for (const l of links) lines.push(webLinkCard(l))
+  for (const l of links) lines.push(webLinkCard(l, identifier))
   lines.push('')
   return lines.join('\n').trimEnd()
 }

@@ -93,9 +93,10 @@ describe('wrapUntrustedMemory — control-char sanitization (LUM-346)', () => {
 
 describe('wrapUntrustedLinked — control-char sanitization (LUM-346)', () => {
   it('strips ESC sequences from an LLM-generated Slack summary', () => {
-    const section = renderSlackContextSection([
-      slackCard(`Decision: ship.${ESC}]0;owned${ESC}\\ after review.`),
-    ])
+    const section = renderSlackContextSection(
+      [slackCard(`Decision: ship.${ESC}]0;owned${ESC}\\ after review.`)],
+      'LUM-1'
+    )
     const out = wrapUntrustedLinked(section)
     expect(out).not.toContain(ESC)
     expect(out).toContain('Decision: ship.]0;owned\\ after review.')
@@ -114,7 +115,7 @@ describe('wrapUntrustedLinked — control-char sanitization (LUM-346)', () => {
         fetchError: null,
       },
     ]
-    const out = wrapUntrustedLinked(renderWebLinkSection(links))
+    const out = wrapUntrustedLinked(renderWebLinkSection(links, 'LUM-1'))
     expect(out).not.toContain(ESC)
     expect(out).toContain('desc with [1;31mcolor[0m')
     // URLs pass through verbatim (no control chars to strip).
@@ -122,7 +123,10 @@ describe('wrapUntrustedLinked — control-char sanitization (LUM-346)', () => {
   })
 
   it('keeps clean linked content byte-identical inside the boundary', () => {
-    const section = renderSlackContextSection([slackCard('正常总结，无注入。')])
+    const section = renderSlackContextSection(
+      [slackCard('正常总结，无注入。')],
+      'LUM-1'
+    )
     const out = wrapUntrustedLinked(section)
     expect(out).toContain(section.trimEnd())
   })

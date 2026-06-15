@@ -29,8 +29,12 @@ export interface SlackContextCard {
 
 const FALLBACK_MESSAGE_COUNT = 3
 
-/** Render a single Slack context card body (no section heading). */
-export function slackCard(c: SlackContextCard): string {
+/**
+ * Render a single Slack context card body (no section heading). `identifier` is
+ * the LUM-N task identifier — the first positional of the on-demand fetch
+ * command, not the cuid.
+ */
+export function slackCard(c: SlackContextCard, identifier: string): string {
   const channelLabel = c.slackChannelName
     ? `#${c.slackChannelName}`
     : '#channel'
@@ -56,7 +60,7 @@ export function slackCard(c: SlackContextCard): string {
       lines.push(`- ${author}: ${plainText(m.text)}`)
     }
   }
-  lines.push(`  ↳ full text: lumo task slack show ${c.id}`)
+  lines.push(`  ↳ full text: lumo task slack show ${identifier} ${c.id}`)
   return lines.join('\n')
 }
 
@@ -90,12 +94,13 @@ export function slackManifest(c: SlackContextCard): string {
  * now composed from `slackCard`.
  */
 export function renderSlackContextSection(
-  contexts: SlackContextCard[]
+  contexts: SlackContextCard[],
+  identifier: string
 ): string {
   if (contexts.length === 0) return ''
   const lines: string[] = ['## Slack Context', '']
   for (const c of contexts) {
-    lines.push(slackCard(c))
+    lines.push(slackCard(c, identifier))
     lines.push('')
   }
   return lines.join('\n').trimEnd()

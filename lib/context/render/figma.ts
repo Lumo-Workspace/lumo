@@ -6,8 +6,12 @@ function figmaTitle(link: TaskFigmaLink): string {
     : `${link.fileName} _(file-level)_`
 }
 
-/** Render a single Figma link card body (no section heading). */
-export function figmaCard(link: TaskFigmaLink): string {
+/**
+ * Render a single Figma link card body (no section heading). `identifier` is the
+ * LUM-N task identifier — the first positional of the on-demand fetch command,
+ * not the cuid.
+ */
+export function figmaCard(link: TaskFigmaLink, identifier: string): string {
   // LUM-347: entry-level source attribution — synced external Figma metadata.
   const lines: string[] = [`- [external:figma] **${figmaTitle(link)}**`]
   lines.push(`  - URL: ${link.url}`)
@@ -20,7 +24,9 @@ export function figmaCard(link: TaskFigmaLink): string {
     lines.push(`  - Thumbnail unavailable ${reason}`)
   }
   lines.push(`  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`)
-  lines.push(`  ↳ design context: lumo task figma context ${link.id}`)
+  lines.push(
+    `  ↳ design context: lumo task figma context ${identifier} ${link.id}`
+  )
   return lines.join('\n')
 }
 
@@ -46,11 +52,14 @@ export function figmaManifest(link: TaskFigmaLink): string {
  * Render the "## Figma Designs" section. Unchanged public output; now composed
  * from `figmaCard`.
  */
-export function renderFigmaSection(links: TaskFigmaLink[]): string {
+export function renderFigmaSection(
+  links: TaskFigmaLink[],
+  identifier: string
+): string {
   if (links.length === 0) return ''
   const lines: string[] = ['## Figma Designs', '']
   for (const link of links) {
-    lines.push(figmaCard(link))
+    lines.push(figmaCard(link, identifier))
     lines.push('')
   }
   return lines.join('\n').trimEnd()

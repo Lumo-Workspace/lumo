@@ -16,8 +16,14 @@ const FALLBACK_CONTENT_LINES = 5
  * `## [kind] title · agent` heading, the cached one-line `summary` (or the
  * first few content lines as a fallback when no summary exists yet), and the
  * retrieval command for the full content. Content is no longer inlined.
+ *
+ * `identifier` is the LUM-N task identifier — the first positional of the
+ * on-demand fetch command, not the cuid.
  */
-export function renderArtifactSection(artifacts: ArtifactCard[]): string {
+export function renderArtifactSection(
+  artifacts: ArtifactCard[],
+  identifier: string
+): string {
   if (artifacts.length === 0) return ''
   const blocks: string[] = []
   for (const a of artifacts) {
@@ -42,7 +48,7 @@ export function renderArtifactSection(artifacts: ArtifactCard[]): string {
       if (preview) blocks.push(preview)
     }
 
-    blocks.push(`  ↳ full text: lumo task artifact show ${a.id}`)
+    blocks.push(`  ↳ full text: lumo task artifact show ${identifier} ${a.id}`)
     blocks.push('')
   }
   return blocks.join('\n').trimEnd()

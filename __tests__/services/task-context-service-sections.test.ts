@@ -11,7 +11,9 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
@@ -108,8 +110,7 @@ const listPRs = pullRequestRepository.listByTask as jest.Mock
 const listPRIds = pullRequestRepository.listIdAndNumberByTask as jest.Mock
 const listReviewTodos =
   prCommentMirrorRepository.listReviewTodosForPrs as jest.Mock
-const listGithubIdents =
-  actorRepository.findGithubIdentitiesByIds as jest.Mock
+const listGithubIdents = actorRepository.findGithubIdentitiesByIds as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -157,7 +158,7 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
 
     expect(ctx?.prSection).toContain('## Pull Requests')
     expect(ctx?.prSection).toContain('#42 Add the thing')
-    expect(ctx?.prSection).toContain('lumo task pr show 42')
+    expect(ctx?.prSection).toContain('lumo task pr show LUM-1 42')
   })
 
   it('routes member/externally-authored sections through the untrusted-linked boundary (LUM-347)', async () => {
