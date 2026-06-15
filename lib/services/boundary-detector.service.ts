@@ -268,14 +268,37 @@ function matchInfraTermination(cmd: string): boolean {
 }
 
 /**
- * Taxonomy-driven reversibility (LUM-435), single source alongside the matchers.
- * Only installing a dependency is reversible (uninstall undoes it). Leaking a
- * secret, force-pushing main, deleting a migration, a destructive DB command,
- * exfiltration, cloud-data deletion, or infra termination cannot be taken back —
- * those drive a louder remediation nudge on the bar.
+ * Taxonomy-driven reversibility (LUM-435; reclassified LUM-516). Anchored on the
+ * world/external-state boundary: a crossing is REVERSIBLE when it mutates only
+ * repo or Lumo-internal state (restorable from git or Lumo state), and
+ * IRREVERSIBLE only when it destroys external world state that neither git nor
+ * Lumo can bring back — a leaked secret, dropped/exfiltrated/deleted data, or
+ * terminated infra. Editorial crossings (test/criterion edits, laundered
+ * spinoffs, silent fixes, migration-file deletes, unbound-session work,
+ * protected-branch pushes) are reversible: `git restore` / archive-and-reopen /
+ * a follow-up commit undoes the artifact.
+ *
+ * Reversibility is ORTHOGONAL to severity. The DONE gate blocks on severity
+ * (HIGH), never on reversibility — so this classification weakens no gate; it
+ * only sets the lock/unlock label and the loudness of the remediation nudge. Do
+ * NOT "simplify" the editorial classes back to irreversible.
+ *
+ * Enumerate the reversible set; any unknown/future category falls through to
+ * irreversible — the conservative default until it is deliberately classified.
  */
+const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
+  'NEW_NPM_DEPENDENCY',
+  'TEST_TAMPERING',
+  'CONTRACT_WEAKENING',
+  'SPINOFF_LAUNDERED',
+  'SILENT_FIX',
+  'MIGRATION_FILE_DELETED',
+  'SESSION_BINDING_MISSING',
+  'PUSH_TO_PROTECTED_BRANCH',
+])
+
 export function isReversible(category: BoundaryCrossingCategory): boolean {
-  return category === 'NEW_NPM_DEPENDENCY'
+  return REVERSIBLE_CATEGORIES.has(category)
 }
 
 /**

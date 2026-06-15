@@ -6,6 +6,7 @@ import {
 } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
@@ -16,9 +17,18 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
+// A Write event carrying a file path runs the test-tampering check, which reads
+// this task's acceptance criteria. With no MACHINE checkpointers it short-circuits
+// before any judge call, so detectAndRecord records only the content-signal crossing.
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
+const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 
 const bash = (command: string) => ({
   tool_input: { command },
@@ -28,6 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
+  listByTask.mockResolvedValue([])
 })
 
 describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', () => {
@@ -362,14 +373,20 @@ describe('boundaryDetectorService.detectAndRecord', () => {
     )
   })
 
-  it('stamps reversibility from the taxonomy when recording (LUM-435)', async () => {
-    // Irreversible: a force-push to main cannot be taken back.
+  it('stamps reversibility from the taxonomy when recording (LUM-435; LUM-516)', async () => {
+    // Irreversible: a hardcoded secret is compromised once written. Content
+    // signal, so it records deterministically without the action-confirm judge.
     await boundaryDetectorService.detectAndRecord({
       taskId: 't-1',
       hookEventId: 'evt-1',
-      toolName: 'Bash',
-      filePath: null,
-      payload: bash('git push origin main --force'),
+      toolName: 'Write',
+      filePath: 'lib/config.ts',
+      payload: {
+        tool_input: {
+          file_path: 'lib/config.ts',
+          content: 'export const KEY = "AKIAIOSFODNN7EXAMPLE"',
+        },
+      },
     })
     expect(createCrossing).toHaveBeenCalledWith(
       expect.objectContaining({ reversible: false })
@@ -392,10 +409,11 @@ describe('boundaryDetectorService.detectAndRecord', () => {
     )
   })
 
-  it('isReversible: only npm dependency installs are reversible', () => {
+  it('isReversible: world-boundary classification (LUM-516)', () => {
     expect(isReversible('NEW_NPM_DEPENDENCY')).toBe(true)
-    expect(isReversible('PUSH_TO_PROTECTED_BRANCH')).toBe(false)
-    expect(isReversible('MIGRATION_FILE_DELETED')).toBe(false)
+    expect(isReversible('TEST_TAMPERING')).toBe(true)
+    expect(isReversible('PUSH_TO_PROTECTED_BRANCH')).toBe(true)
+    expect(isReversible('MIGRATION_FILE_DELETED')).toBe(true)
     expect(isReversible('HARDCODED_SECRET')).toBe(false)
     expect(isReversible('DESTRUCTIVE_DB_COMMAND')).toBe(false)
   })
