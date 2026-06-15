@@ -35,8 +35,9 @@ const openSendBackMessage = (identifier: string, title: string): string =>
  * LUM-511 Phase 4: judge whether a mid-flight `--new-scope` spinoff is laundered
  * rework of its parent, off the hot path. Audit-only — runs in the background via
  * `waitUntil`, never blocks the create response, and swallows all errors. On a
- * LAUNDERED verdict it records a task-level `SPINOFF_LAUNDERED` marker on the
- * parent (fed into the flywheel negative class). Exported for direct testing.
+ * LAUNDERED verdict it records a `SPINOFF_LAUNDERED` boundary crossing on the
+ * parent (LUM-511 Phase 6 — visible/dismissable, fed into the negative class).
+ * Exported for direct testing.
  */
 export function dispatchSpinoffJudge(args: {
   parentTaskId: string
