@@ -19,6 +19,11 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
     softDelete: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    listForLifecycle: jest.fn(() => Promise.resolve([])),
+  },
+}))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   ...jest.requireActual('@/lib/repositories/verification-run.repository'),
   verificationRunRepository: {

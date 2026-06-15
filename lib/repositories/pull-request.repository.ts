@@ -135,6 +135,21 @@ export const pullRequestRepository = {
   },
 
   /**
+   * Minimal PR rows for the send-back lifecycle window match (LUM-511 Phase 5):
+   * the number/url to display + createdAt to test against the
+   * [send-back → resolving PASS] window. Oldest-first.
+   */
+  async listForLifecycle(
+    taskId: string
+  ): Promise<Array<{ number: number; url: string; createdAt: Date }>> {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      select: { number: true, url: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    })
+  },
+
+  /**
    * `(id, number)` for every PR linked to a task, newest first. The id is the
    * join key for fetching mirrored review comments; the number labels todos
    * when a task spans more than one PR. Lighter than `listByTask` (no
