@@ -328,7 +328,6 @@ export const lineageService = {
           funnel.tokensSaved += Math.max(0, e.fullTokens - e.indexTokens)
         }
       }
-      if (e.indexTokens != null && e.fullTokens != null) hasTokenData = true
       if (e.used === true) funnel.used += 1
       seenFragment.add(`${e.fragmentType}::${cid}`)
 
