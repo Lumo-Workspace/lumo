@@ -12,7 +12,12 @@ jest.mock('@/lib/services/document.service', () => ({
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
-    findById: jest.fn(async () => ({ id: 't-1', projectId: 'proj-1' })),
+    findById: jest.fn(async () => ({
+      id: 't-1',
+      projectId: 'proj-1',
+      number: 1,
+      team: { identifier: 'LUM' },
+    })),
   },
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({

@@ -75,14 +75,17 @@ function truncateDescriptor(text: string, max = 60): string {
  * One-line manifest for a Tier-2 Slack card (LUM-500): channel + a short
  * snippet of the summary so an agent can decide whether to pull, plus the
  * retrieval hint. Falls back to channel-only when there is no summary.
+ *
+ * `identifier` is the human task id (e.g. "LUM-42") — emitted as the first
+ * positional of the `lumo task slack show` hint so an agent can run it verbatim.
  */
-export function slackManifest(c: SlackContextCard): string {
+export function slackManifest(c: SlackContextCard, identifier: string): string {
   const channelLabel = c.slackChannelName
     ? `#${c.slackChannelName}`
     : '#channel'
   const snippet = truncateDescriptor(c.summary ?? '')
   const descriptor = snippet ? `${channelLabel} — ${snippet}` : channelLabel
-  return `- [external:slack] ${descriptor} → lumo task slack show ${c.id}`
+  return `- [external:slack] ${descriptor} → lumo task slack show ${identifier} ${c.id}`
 }
 
 /**

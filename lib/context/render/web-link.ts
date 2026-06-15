@@ -37,11 +37,14 @@ function truncateDescriptor(text: string, max = 70): string {
  * One-line manifest for a Tier-2 web link (LUM-500): the page title (truncated)
  * plus the host so an agent can decide whether to pull the body, plus the
  * retrieval hint. Falls back to url + host when there is no title.
+ *
+ * `identifier` is the human task id (e.g. "LUM-42") — emitted as the first
+ * positional of the `lumo task web show` hint so an agent can run it verbatim.
  */
-export function webLinkManifest(l: WebLinkCard): string {
+export function webLinkManifest(l: WebLinkCard, identifier: string): string {
   const title = truncateDescriptor(l.title ?? '')
   const descriptor = title ? `${title} — ${l.domain}` : `${l.url} — ${l.domain}`
-  return `- [external:web] ${descriptor} → lumo task web show ${l.id}`
+  return `- [external:web] ${descriptor} → lumo task web show ${identifier} ${l.id}`
 }
 
 /**

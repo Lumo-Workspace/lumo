@@ -37,9 +37,13 @@ function truncateDescriptor(text: string, max = 70): string {
  * One-line manifest for a Tier-2 Figma link (LUM-500): the file/frame name
  * (truncated) so an agent can decide whether to pull the design context, plus
  * the retrieval hint.
+ *
+ * `identifier` is the human task id (e.g. "LUM-42") — emitted as the first
+ * positional of the `lumo task figma context` hint so an agent can run it
+ * verbatim.
  */
-export function figmaManifest(link: TaskFigmaLink): string {
-  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${link.id}`
+export function figmaManifest(link: TaskFigmaLink, identifier: string): string {
+  return `- [external:figma] ${truncateDescriptor(figmaTitle(link))} → lumo task figma context ${identifier} ${link.id}`
 }
 
 /**

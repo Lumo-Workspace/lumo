@@ -852,25 +852,29 @@ export const taskContextService = {
         ? ''
         : `${heading}\n\n${cards.map(toManifest).join('\n')}`
 
+    // LUM-500: the manifest retrieval hints (`lumo task <kind> show …`) require
+    // the human task identifier (e.g. "LUM-42") as their first positional, so an
+    // agent can run them verbatim. Compose it from the team prefix + number.
+    const taskIdentifier = `${task.team.identifier}-${task.number}`
     const prManifestBlock = manifestBlock(
       '## Pull Requests',
       ranked.prs as unknown as PRCard[],
-      prManifest
+      pr => prManifest(pr, taskIdentifier)
     )
     const slackManifestBlock = manifestBlock(
       '## Slack Context',
       ranked.slack as unknown as SlackContextCard[],
-      slackManifest
+      c => slackManifest(c, taskIdentifier)
     )
     const figmaManifestBlock = manifestBlock(
       '## Figma Designs',
       ranked.figma,
-      figmaManifest
+      link => figmaManifest(link, taskIdentifier)
     )
     const webManifestBlock = manifestBlock(
       '## Web Links',
       ranked.web as unknown as WebLinkCard[],
-      webLinkManifest
+      l => webLinkManifest(l, taskIdentifier)
     )
 
     const linkedJoined = [

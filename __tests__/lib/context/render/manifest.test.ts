@@ -28,26 +28,26 @@ describe('slackManifest (LUM-500)', () => {
     snapshot: { messages: [] },
   }
 
-  it('carries the type tag, the channel, a summary descriptor, and the show hint', () => {
-    const line = slackManifest(base)
+  it('carries the type tag, the channel, a summary descriptor, and the show hint with the task identifier', () => {
+    const line = slackManifest(base, 'LUM-42')
     expect(line).toContain('[external:slack]')
     expect(line).toContain('#eng-backend')
     expect(line).toContain('Decided to migrate') // descriptor from summary
-    expect(line).toContain('lumo task slack show slk_1')
+    expect(line).toContain('lumo task slack show LUM-42 slk_1')
     expect(line.split('\n')).toHaveLength(1) // one line
   })
 
   it('truncates a long summary and stays one line', () => {
-    const line = slackManifest({ ...base, summary: 'A'.repeat(300) })
+    const line = slackManifest({ ...base, summary: 'A'.repeat(300) }, 'LUM-42')
     expect(line.split('\n')).toHaveLength(1)
     expect(line.length).toBeLessThan(200)
   })
 
   it('omits the descriptor gracefully when there is no summary', () => {
-    const line = slackManifest({ ...base, summary: null })
+    const line = slackManifest({ ...base, summary: null }, 'LUM-42')
     expect(line).toContain('[external:slack]')
     expect(line).toContain('#eng-backend')
-    expect(line).toContain('lumo task slack show slk_1')
+    expect(line).toContain('lumo task slack show LUM-42 slk_1')
     expect(line.split('\n')).toHaveLength(1)
   })
 })
@@ -64,20 +64,20 @@ describe('webLinkManifest (LUM-500)', () => {
     fetchError: null,
   }
 
-  it('carries the type tag, the page title, the host, and the show hint', () => {
-    const line = webLinkManifest(base)
+  it('carries the type tag, the page title, the host, and the show hint with the task identifier', () => {
+    const line = webLinkManifest(base, 'LUM-42')
     expect(line).toContain('[external:web]')
     expect(line).toContain('Deployment Runbook') // descriptor from title
     expect(line).toContain('docs.example.com') // host
-    expect(line).toContain('lumo task web show web_1')
+    expect(line).toContain('lumo task web show LUM-42 web_1')
     expect(line.split('\n')).toHaveLength(1)
   })
 
   it('falls back to the url + host when there is no title', () => {
-    const line = webLinkManifest({ ...base, title: null })
+    const line = webLinkManifest({ ...base, title: null }, 'LUM-42')
     expect(line).toContain('[external:web]')
     expect(line).toContain('docs.example.com')
-    expect(line).toContain('lumo task web show web_1')
+    expect(line).toContain('lumo task web show LUM-42 web_1')
     expect(line.split('\n')).toHaveLength(1)
   })
 })
@@ -89,20 +89,23 @@ describe('figmaManifest (LUM-500)', () => {
     frameName: 'Login Screen',
   } as TaskFigmaLink
 
-  it('carries the type tag, the file/frame name, and the context hint', () => {
-    const line = figmaManifest(base)
+  it('carries the type tag, the file/frame name, and the context hint with the task identifier', () => {
+    const line = figmaManifest(base, 'LUM-42')
     expect(line).toContain('[external:figma]')
     expect(line).toContain('Design System') // descriptor
     expect(line).toContain('Login Screen')
-    expect(line).toContain('lumo task figma context fig_1')
+    expect(line).toContain('lumo task figma context LUM-42 fig_1')
     expect(line.split('\n')).toHaveLength(1)
   })
 
   it('handles a file-level link without a frame name', () => {
-    const line = figmaManifest({ ...base, frameName: null } as TaskFigmaLink)
+    const line = figmaManifest(
+      { ...base, frameName: null } as TaskFigmaLink,
+      'LUM-42'
+    )
     expect(line).toContain('[external:figma]')
     expect(line).toContain('Design System')
-    expect(line).toContain('lumo task figma context fig_1')
+    expect(line).toContain('lumo task figma context LUM-42 fig_1')
     expect(line.split('\n')).toHaveLength(1)
   })
 })
@@ -115,17 +118,20 @@ describe('prManifest (LUM-500)', () => {
     ciStatus: 'passing',
   }
 
-  it('carries the type tag, the PR title, and the show hint', () => {
-    const line = prManifest(base)
+  it('carries the type tag, the PR title, and the show hint with the task identifier', () => {
+    const line = prManifest(base, 'LUM-42')
     expect(line).toContain('[external:github]')
     expect(line).toContain('#42')
     expect(line).toContain('Add Google OAuth login') // descriptor
-    expect(line).toContain('lumo task pr show 42')
+    expect(line).toContain('lumo task pr show LUM-42 42')
     expect(line.split('\n')).toHaveLength(1)
   })
 
   it('truncates a very long PR title and stays one line', () => {
-    const line = prManifest({ ...base, title: 'Refactor '.repeat(40) })
+    const line = prManifest(
+      { ...base, title: 'Refactor '.repeat(40) },
+      'LUM-42'
+    )
     expect(line.split('\n')).toHaveLength(1)
     expect(line.length).toBeLessThan(200)
   })

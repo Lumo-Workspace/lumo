@@ -29,11 +29,14 @@ function truncateDescriptor(text: string, max = 80): string {
 /**
  * One-line manifest for a Tier-2 PR (LUM-500): number + a truncated title so
  * an agent can decide whether to pull the diff, plus the retrieval hint.
+ *
+ * `identifier` is the human task id (e.g. "LUM-42") — emitted as the first
+ * positional of the `lumo task pr show` hint so an agent can run it verbatim.
  */
-export function prManifest(pr: PRCard): string {
+export function prManifest(pr: PRCard, identifier: string): string {
   const title = truncateDescriptor(pr.title)
   const descriptor = title ? `#${pr.number} ${title}` : `#${pr.number}`
-  return `- [external:github] ${descriptor} → lumo task pr show ${pr.number}`
+  return `- [external:github] ${descriptor} → lumo task pr show ${identifier} ${pr.number}`
 }
 
 /**

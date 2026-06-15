@@ -98,6 +98,8 @@ function task(over: Record<string, unknown> = {}) {
   return {
     id: 'tsk_1',
     projectId: 'proj_1',
+    number: 1,
+    team: { identifier: 'LUM' },
     title: 'T',
     status: 'IN_PROGRESS',
     description: null,
