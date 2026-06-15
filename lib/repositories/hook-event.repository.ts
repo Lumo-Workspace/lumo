@@ -18,7 +18,7 @@ interface CreateHookEventData {
    * LUM-146 "last file changed"). Null for events that carry no file path.
    */
   filePath?: string | null
-  /** Per-turn per-model token delta (LUM-298). Set only on STOP rows. */
+  /** Per-turn delta on STOP rows; per-step delta on POST_TOOL_BATCH rows (LUM-523). Null elsewhere. */
   usageByModel?: Prisma.InputJsonValue | null
 }
 

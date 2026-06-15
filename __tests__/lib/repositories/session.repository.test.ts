@@ -282,10 +282,12 @@ describe('sessionRepository.upsertForHookEvent — mid-turn usage (LUM-345)', ()
     expect(args.update.outputTokens).toBe(50)
     expect(args.update.cacheReadTokens).toBe(1000)
     expect(args.update.cacheCreationTokens).toBe(20)
-    // usageByModel is the per-turn-delta anchor — only STOP may advance it.
+    // usageByModel column (the per-turn-delta anchor) — only STOP may advance it.
     expect(args.update).not.toHaveProperty('usageByModel')
     expect(args.update).not.toHaveProperty('loopCount')
-    expect(result.turnUsageByModel).toBeNull()
+    // LUM-523: with no prior snapshot, the per-step delta is the full batch
+    // usage, returned so the caller can store it on the HookEvent row.
+    expect(result.turnUsageByModel).toEqual(usage.byModel)
   })
 
   it('sets flat token columns on create but leaves usageByModel unset so the first STOP settles the full turn', async () => {
@@ -308,8 +310,30 @@ describe('sessionRepository.upsertForHookEvent — mid-turn usage (LUM-345)', ()
     expect(args.create).not.toHaveProperty('loopCount')
   })
 
-  it('does not open a transaction for mid-turn usage writes', async () => {
-    await sessionRepository.upsertForHookEvent({
+  it('opens a transaction and computes the per-step delta against the prior snapshot (LUM-523)', async () => {
+    // Prior cumulative: last STOP anchor at 60 in, live snapshot stale at 40.
+    // pickLatestCumulative picks the larger total (the STOP anchor), so the
+    // per-step delta is the batch usage minus that baseline.
+    findUnique.mockResolvedValueOnce({
+      usageByModel: {
+        'claude-fable-5': {
+          input: 60,
+          output: 30,
+          cacheRead: 600,
+          cacheCreation: 10,
+        },
+      },
+      liveUsageByModel: {
+        'claude-fable-5': {
+          input: 40,
+          output: 20,
+          cacheRead: 400,
+          cacheCreation: 5,
+        },
+      },
+    })
+
+    const result = await sessionRepository.upsertForHookEvent({
       id: 'sess_1',
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
@@ -319,7 +343,15 @@ describe('sessionRepository.upsertForHookEvent — mid-turn usage (LUM-345)', ()
       isStop: false,
     })
 
-    expect(prisma.$transaction).not.toHaveBeenCalled()
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(result.turnUsageByModel).toEqual({
+      'claude-fable-5': {
+        input: 40,
+        output: 20,
+        cacheRead: 400,
+        cacheCreation: 10,
+      },
+    })
   })
 })
 
