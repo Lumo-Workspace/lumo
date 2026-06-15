@@ -1,8 +1,12 @@
 import { config } from 'dotenv'
-import {
-  diffUsageByModel,
-  type ModelUsage,
-} from '@/lib/repositories/session.repository'
+// Type-only import: erased at compile time, so it does NOT pull in
+// session.repository → `@/lib/db/prisma` at module load. That matters because
+// ES imports are hoisted ABOVE the `config()` call below — a *value* import that
+// transitively constructs the Prisma client would read an unset DATABASE_URL and
+// connect to a default/localhost (ECONNREFUSED against the real DB). The only
+// thing that constructs Prisma is the dynamic `import('@/lib/db/prisma')` inside
+// main(), which runs after config() has loaded the env.
+import type { ModelUsage } from '@/lib/repositories/session.repository'
 
 config({ path: process.env.DOTENV_CONFIG_PATH ?? '.env.production' })
 
@@ -10,6 +14,27 @@ export interface SnapshotRow {
   id: string
   type: string
   cumulative: Record<string, ModelUsage>
+}
+
+/** Per-model per-kind delta (next − prior), clamped >= 0. Inlined mirror of
+ * `diffUsageByModel` in session.repository (kept local so this migration script
+ * carries no static import that would construct Prisma before dotenv runs —
+ * see the import note above). */
+function diffClamped(
+  prior: Record<string, ModelUsage> | null,
+  next: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = {}
+  for (const [model, n] of Object.entries(next)) {
+    const p = prior?.[model]
+    out[model] = {
+      input: Math.max(0, n.input - (p?.input ?? 0)),
+      output: Math.max(0, n.output - (p?.output ?? 0)),
+      cacheRead: Math.max(0, n.cacheRead - (p?.cacheRead ?? 0)),
+      cacheCreation: Math.max(0, n.cacheCreation - (p?.cacheCreation ?? 0)),
+    }
+  }
+  return out
 }
 
 /** For one session's ordered batch+STOP rows, the per-STEP delta of each batch
@@ -22,7 +47,7 @@ export function computeBatchDeltasForSession(
   let prev: Record<string, ModelUsage> | null = null
   for (const r of rows) {
     if (r.type === 'POST_TOOL_BATCH') {
-      out.set(r.id, diffUsageByModel(prev, r.cumulative))
+      out.set(r.id, diffClamped(prev, r.cumulative))
     }
     prev = r.cumulative
   }
