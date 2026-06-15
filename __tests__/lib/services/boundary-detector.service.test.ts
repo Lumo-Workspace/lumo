@@ -6,6 +6,7 @@ import {
 } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
@@ -16,9 +17,18 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
+// A Write event carrying a file path runs the test-tampering check, which reads
+// this task's acceptance criteria. With no MACHINE checkpointers it short-circuits
+// before any judge call, so detectAndRecord records only the content-signal crossing.
+jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
+const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 
 const bash = (command: string) => ({
   tool_input: { command },
@@ -28,6 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
+  listByTask.mockResolvedValue([])
 })
 
 describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', () => {
@@ -149,6 +160,48 @@ describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', ()
           payload: bash(command),
         }).map(c => c.category)
       ).not.toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
+  it('does not flag when rm targets a temp file and a sibling command merely references prisma/migrations/', () => {
+    // LUM-511: the matcher used to check for an `rm`/`git rm` token ANYWHERE and a
+    // `prisma/migrations/` token ANYWHERE in the command, independently — so a
+    // command that deletes an unrelated temp file (`rm -f checkcol.ts`) while a
+    // SIBLING segment merely *applies* a migration (`prisma db execute --file
+    // prisma/migrations/…`) or *checks* for one (`git ls-tree | grep
+    // prisma/migrations/…`) false-tripped MIGRATION_FILE_DELETED. The path must
+    // be an argument to the rm invocation's OWN segment, not just co-occur.
+    for (const command of [
+      // The real dogfood FP: apply-via-db-execute next to a temp-file cleanup.
+      'NAME=foo\nnpx prisma db execute --file "prisma/migrations/$NAME/migration.sql" --url "$DATABASE_URL"\nrm -f checkcol.ts',
+      // Presence check piped to grep, then an unrelated scratch-file delete.
+      'git ls-tree -r --name-only origin/main | grep prisma/migrations/20260613 ; rm -f /tmp/scratch.ts',
+      'cat prisma/migrations/20240101_init/migration.sql && rm -f /tmp/out.txt',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).not.toContain('MIGRATION_FILE_DELETED')
+    }
+  })
+
+  it('still flags a real migration delete sitting among unrelated sibling commands', () => {
+    // Scoping to the rm segment must NOT lose recall: a genuine
+    // `rm prisma/migrations/…` is still flagged even when wrapped in noise.
+    for (const command of [
+      'echo cleaning up; rm -rf prisma/migrations/20240101_init; echo done',
+      'git status | cat && git rm -r prisma/migrations/20240101_init',
+    ]) {
+      expect(
+        detectCrossings({
+          toolName: 'Bash',
+          filePath: null,
+          payload: bash(command),
+        }).map(c => c.category)
+      ).toContain('MIGRATION_FILE_DELETED')
     }
   })
 
@@ -362,14 +415,20 @@ describe('boundaryDetectorService.detectAndRecord', () => {
     )
   })
 
-  it('stamps reversibility from the taxonomy when recording (LUM-435)', async () => {
-    // Irreversible: a force-push to main cannot be taken back.
+  it('stamps reversibility from the taxonomy when recording (LUM-435; LUM-516)', async () => {
+    // Irreversible: a hardcoded secret is compromised once written. Content
+    // signal, so it records deterministically without the action-confirm judge.
     await boundaryDetectorService.detectAndRecord({
       taskId: 't-1',
       hookEventId: 'evt-1',
-      toolName: 'Bash',
-      filePath: null,
-      payload: bash('git push origin main --force'),
+      toolName: 'Write',
+      filePath: 'lib/config.ts',
+      payload: {
+        tool_input: {
+          file_path: 'lib/config.ts',
+          content: 'export const KEY = "AKIAIOSFODNN7EXAMPLE"',
+        },
+      },
     })
     expect(createCrossing).toHaveBeenCalledWith(
       expect.objectContaining({ reversible: false })
@@ -392,10 +451,11 @@ describe('boundaryDetectorService.detectAndRecord', () => {
     )
   })
 
-  it('isReversible: only npm dependency installs are reversible', () => {
+  it('isReversible: world-boundary classification (LUM-516)', () => {
     expect(isReversible('NEW_NPM_DEPENDENCY')).toBe(true)
-    expect(isReversible('PUSH_TO_PROTECTED_BRANCH')).toBe(false)
-    expect(isReversible('MIGRATION_FILE_DELETED')).toBe(false)
+    expect(isReversible('TEST_TAMPERING')).toBe(true)
+    expect(isReversible('PUSH_TO_PROTECTED_BRANCH')).toBe(true)
+    expect(isReversible('MIGRATION_FILE_DELETED')).toBe(true)
     expect(isReversible('HARDCODED_SECRET')).toBe(false)
     expect(isReversible('DESTRUCTIVE_DB_COMMAND')).toBe(false)
   })

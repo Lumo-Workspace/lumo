@@ -167,15 +167,32 @@ const WORKTREE_PATH_SEGMENT = /(?:^|\/)\.worktrees\//
  * relative or absolute to the main checkout) is unchanged while a worktree cleanup
  * no longer trips. A command that deletes BOTH a real migration and a worktree
  * copy still flags on the real one (the conservative direction).
+ *
+ * LUM-511: scoped to the rm invocation's OWN segment, not the whole command line
+ * — mirroring `matchProtectedPush`. The old check tested for an `rm`/`git rm`
+ * token ANYWHERE and a `prisma/migrations/` token ANYWHERE, independently, so a
+ * command that deletes an unrelated temp file (`rm -f checkcol.ts`) while a
+ * SIBLING command merely *applies* a migration (`prisma db execute --file
+ * prisma/migrations/…`) or *checks* for one (`git ls-tree | grep
+ * prisma/migrations/…`) false-tripped. We now split on shell separators, keep
+ * only segment(s) that invoke `rm`/`git rm`, and require the migration path to
+ * appear in that segment's args AFTER the rm verb — the path must actually be a
+ * delete target, not just co-occur elsewhere in the line.
  */
 function matchMigrationDelete(cmd: string): boolean {
-  if (!/(?:^|[\s;&|])(?:rm|git\s+rm)\b/.test(cmd)) return false
-  return cmd
-    .split(/\s+/)
-    .some(
-      tok =>
-        tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
-    )
+  for (const seg of splitCommandSegments(cmd)) {
+    const m = seg.match(/(?:^|[\s(])(?:rm|git\s+rm)\b/)
+    if (!m) continue
+    const args = seg.slice((m.index ?? 0) + m[0].length)
+    const deletesMigration = args
+      .split(/\s+/)
+      .some(
+        tok =>
+          tok.includes('prisma/migrations/') && !WORKTREE_PATH_SEGMENT.test(tok)
+      )
+    if (deletesMigration) return true
+  }
+  return false
 }
 
 /** Irreversible / data-destroying DB commands. */
@@ -268,14 +285,37 @@ function matchInfraTermination(cmd: string): boolean {
 }
 
 /**
- * Taxonomy-driven reversibility (LUM-435), single source alongside the matchers.
- * Only installing a dependency is reversible (uninstall undoes it). Leaking a
- * secret, force-pushing main, deleting a migration, a destructive DB command,
- * exfiltration, cloud-data deletion, or infra termination cannot be taken back —
- * those drive a louder remediation nudge on the bar.
+ * Taxonomy-driven reversibility (LUM-435; reclassified LUM-516). Anchored on the
+ * world/external-state boundary: a crossing is REVERSIBLE when it mutates only
+ * repo or Lumo-internal state (restorable from git or Lumo state), and
+ * IRREVERSIBLE only when it destroys external world state that neither git nor
+ * Lumo can bring back — a leaked secret, dropped/exfiltrated/deleted data, or
+ * terminated infra. Editorial crossings (test/criterion edits, laundered
+ * spinoffs, silent fixes, migration-file deletes, unbound-session work,
+ * protected-branch pushes) are reversible: `git restore` / archive-and-reopen /
+ * a follow-up commit undoes the artifact.
+ *
+ * Reversibility is ORTHOGONAL to severity. The DONE gate blocks on severity
+ * (HIGH), never on reversibility — so this classification weakens no gate; it
+ * only sets the lock/unlock label and the loudness of the remediation nudge. Do
+ * NOT "simplify" the editorial classes back to irreversible.
+ *
+ * Enumerate the reversible set; any unknown/future category falls through to
+ * irreversible — the conservative default until it is deliberately classified.
  */
+const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
+  'NEW_NPM_DEPENDENCY',
+  'TEST_TAMPERING',
+  'CONTRACT_WEAKENING',
+  'SPINOFF_LAUNDERED',
+  'SILENT_FIX',
+  'MIGRATION_FILE_DELETED',
+  'SESSION_BINDING_MISSING',
+  'PUSH_TO_PROTECTED_BRANCH',
+])
+
 export function isReversible(category: BoundaryCrossingCategory): boolean {
-  return category === 'NEW_NPM_DEPENDENCY'
+  return REVERSIBLE_CATEGORIES.has(category)
 }
 
 /**

@@ -113,7 +113,7 @@ describe('recordUnboundCrossing', () => {
     expect(createCrossing).not.toHaveBeenCalled()
     expect(createActivity).not.toHaveBeenCalled()
   })
-  it('creates a MEDIUM, non-reversible crossing + timeline marker on first occurrence', async () => {
+  it('creates a MEDIUM, reversible crossing + timeline marker on first occurrence', async () => {
     coalesce.mockResolvedValue(0)
     createCrossing.mockResolvedValue({ id: 'bc1' })
     await recordUnboundCrossing({ taskId: 't1', action: 'status change' })
@@ -123,7 +123,7 @@ describe('recordUnboundCrossing', () => {
         category: 'SESSION_BINDING_MISSING',
         target: 't1',
         severity: 'MEDIUM',
-        reversible: false,
+        reversible: true,
         detail: expect.stringContaining('status change'),
       })
     )
