@@ -1,4 +1,5 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { droppedFragmentRepository } from '@/lib/repositories/dropped-fragment.repository'
 import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
@@ -163,6 +164,38 @@ export const lineageService = {
     } catch (err) {
       // Best-effort: log and swallow.
       logger.error('lineageService.recordSessionStartEdges failed', err)
+    }
+  },
+
+  /**
+   * LUM-522: persist the relevance-gate-dropped fragments (id+score) for a
+   * session. Best-effort; never throws — drop telemetry must not break the
+   * session-start hot path. No-op on empty input.
+   */
+  async recordDroppedFragments(input: {
+    workspaceId: string
+    taskId: string
+    sessionId: string
+    dropped: Array<{
+      fragmentType: LineageFragmentType
+      fragmentId: string
+      relevanceScore: number
+    }>
+  }): Promise<void> {
+    try {
+      if (input.dropped.length === 0) return
+      await droppedFragmentRepository.createMany(
+        input.dropped.map(d => ({
+          workspaceId: input.workspaceId,
+          taskId: input.taskId,
+          sessionId: input.sessionId,
+          fragmentType: d.fragmentType,
+          fragmentId: d.fragmentId,
+          relevanceScore: d.relevanceScore,
+        }))
+      )
+    } catch (err) {
+      logger.error('lineageService.recordDroppedFragments failed', err)
     }
   },
 

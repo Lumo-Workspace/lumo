@@ -24,6 +24,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { getStatus: jest.fn().mockResolvedValue('TODO') },
 }))
 jest.mock('@/lib/logger', () => ({ logger: { error: jest.fn() } }))
+jest.mock('@/lib/repositories/dropped-fragment.repository', () => ({
+  droppedFragmentRepository: {
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
+}))
 
 import { lineageService } from '@/lib/services/lineage.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
@@ -33,6 +38,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
+import { droppedFragmentRepository } from '@/lib/repositories/dropped-fragment.repository'
 
 const mockCreateMany = lineageEdgeRepository.createMany as jest.Mock
 const mockStampOutcomeByTask =
@@ -362,6 +368,45 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
 
     // No deltas → cost is null/zero, never the 999_999 cumulative.
     expect(dto?.totals.tokens.total).toBe(0)
+  })
+})
+
+describe('lineageService.recordDroppedFragments', () => {
+  it('records gate dropped fragments via the repository', async () => {
+    const createMany = jest
+      .spyOn(droppedFragmentRepository, 'createMany')
+      .mockResolvedValue({ count: 2 })
+    await lineageService.recordDroppedFragments({
+      workspaceId: 'w',
+      taskId: 't',
+      sessionId: 's',
+      dropped: [
+        { fragmentType: 'MEMORY', fragmentId: 'a', relevanceScore: 0.1 },
+        { fragmentType: 'MEMORY', fragmentId: 'b', relevanceScore: 0.2 },
+      ],
+    })
+    expect(createMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: 'w',
+          taskId: 't',
+          sessionId: 's',
+          fragmentId: 'a',
+        }),
+      ])
+    )
+    // best-effort: a repo rejection must not throw
+    createMany.mockRejectedValueOnce(new Error('boom'))
+    await expect(
+      lineageService.recordDroppedFragments({
+        workspaceId: 'w',
+        taskId: 't',
+        sessionId: 's',
+        dropped: [
+          { fragmentType: 'MEMORY', fragmentId: 'a', relevanceScore: 0.1 },
+        ],
+      })
+    ).resolves.toBeUndefined()
   })
 })
 
