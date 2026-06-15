@@ -257,12 +257,15 @@ describe('findToolAttributionEvents', () => {
     )
   })
 
-  it('scopes by a single session', async () => {
+  it('scopes by a single session and is workspace-scoped to block cross-workspace reads', async () => {
     mockFindMany.mockResolvedValue([])
-    await hookEventRepository.findToolAttributionEvents({ sessionId: 's9' })
+    await hookEventRepository.findToolAttributionEvents({
+      sessionId: 's9',
+      workspaceId: 'w1',
+    })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ sessionId: 's9' }),
+        where: expect.objectContaining({ sessionId: 's9', workspaceId: 'w1' }),
       })
     )
   })
@@ -286,7 +289,10 @@ describe('findToolAttributionEvents', () => {
 
   it('orders per session by time and selects the attribution projection', async () => {
     mockFindMany.mockResolvedValue([])
-    await hookEventRepository.findToolAttributionEvents({ sessionId: 's9' })
+    await hookEventRepository.findToolAttributionEvents({
+      sessionId: 's9',
+      workspaceId: 'w1',
+    })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ sessionId: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],

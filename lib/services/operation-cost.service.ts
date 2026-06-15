@@ -73,6 +73,7 @@ export const operationCostService = {
     } else if (scope.kind === 'session') {
       events = await hookEventRepository.findToolAttributionEvents({
         sessionId: scope.sessionId,
+        workspaceId,
       })
       scopeLabel = scope.sessionId
     } else {

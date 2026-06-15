@@ -363,12 +363,13 @@ export const hookEventRepository = {
    * rows (carry toolName) + the batch rows (carry per-step usageByModel delta) +
    * the STOP rows (carry per-turn usageByModel delta, for the thinking residual),
    * ordered per session by time. Three scopes: a task (same taskId precedence as
-   * findByTaskId), a single session, or a workspace window.
+   * findByTaskId), a single session (workspace-scoped so a session id from
+   * another workspace can never be read), or a workspace window.
    */
   async findToolAttributionEvents(
     scope:
       | { taskId: string }
-      | { sessionId: string }
+      | { sessionId: string; workspaceId: string }
       | { workspaceId: string; since: Date }
   ) {
     const type: Prisma.HookEventWhereInput['type'] = {
@@ -390,7 +391,7 @@ export const hookEventRepository = {
             ],
           }
         : 'sessionId' in scope
-          ? { type, sessionId: scope.sessionId }
+          ? { type, sessionId: scope.sessionId, workspaceId: scope.workspaceId }
           : {
               type,
               workspaceId: scope.workspaceId,
