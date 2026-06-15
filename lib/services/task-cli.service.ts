@@ -41,6 +41,7 @@ const openSendBackMessage = (identifier: string, title: string): string =>
 export function dispatchSpinoffJudge(args: {
   parentTaskId: string
   spunOffTaskId: string
+  spunOffIdentifier: string
   newTaskTitle: string
   newTaskDescription: string | null
 }): void {
@@ -64,12 +65,26 @@ export function dispatchSpinoffJudge(args: {
           { judge: judgeSpinoff }
         )
         if (verdict === 'LAUNDERED') {
-          await activityRepository.create({
-            taskId: args.parentTaskId,
-            actorId: null,
-            type: 'SPINOFF_LAUNDERED',
-            payload: { spunOffTaskId: args.spunOffTaskId },
-          })
+          // LUM-511 Phase 6: surface as a DONE-blocking, dismissable crossing on
+          // the parent (was a TaskActivity marker) — visible in the crossings panel.
+          const { boundaryCrossingRepository } =
+            await import('@/lib/repositories/boundary-crossing.repository')
+          const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+            args.parentTaskId,
+            'SPINOFF_LAUNDERED',
+            args.spunOffTaskId,
+            new Date()
+          )
+          if (coalesced === 0) {
+            await boundaryCrossingRepository.create({
+              taskId: args.parentTaskId,
+              category: 'SPINOFF_LAUNDERED',
+              detail: `Work spun off to ${args.spunOffIdentifier} during this task — judged laundered rework (should have been a fix-in-place).`,
+              target: args.spunOffTaskId,
+              reversible: false,
+              severity: 'MEDIUM',
+            })
+          }
         }
       } catch (err) {
         console.error('dispatchSpinoffJudge error:', err)
@@ -360,6 +375,7 @@ async function createFromCli(args: {
     dispatchSpinoffJudge({
       parentTaskId: spinoffParentTaskId,
       spunOffTaskId: task.id,
+      spunOffIdentifier: identifier,
       newTaskTitle: input.title,
       newTaskDescription: input.description ?? null,
     })

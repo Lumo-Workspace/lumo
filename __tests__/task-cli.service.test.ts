@@ -50,6 +50,13 @@ jest.mock('@/lib/llm/spinoff-judge-client', () => ({
   judgeSpinoff: jest.fn(),
 }))
 
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: {
+    coalesceRecurrence: jest.fn(),
+    create: jest.fn(),
+  },
+}))
+
 // Capture waitUntil promises so the background spinoff judge can be awaited.
 const waitUntilPromises: Promise<unknown>[] = []
 jest.mock('@vercel/functions', () => ({
@@ -67,6 +74,7 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { judgeSpinoff } from '@/lib/llm/spinoff-judge-client'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -80,6 +88,9 @@ const mockLatestRuns =
 const mockActivityCreate = activityRepository.create as jest.Mock
 const mockListCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
 const mockJudgeSpinoff = judgeSpinoff as jest.Mock
+const mockBoundaryCoalesce =
+  boundaryCrossingRepository.coalesceRecurrence as jest.Mock
+const mockBoundaryCreate = boundaryCrossingRepository.create as jest.Mock
 
 async function flushWaitUntil(): Promise<void> {
   await Promise.all(waitUntilPromises)
@@ -93,6 +104,8 @@ beforeEach(() => {
   mockActivityCreate.mockResolvedValue({ id: 'act-1' })
   mockListCriteria.mockResolvedValue([])
   mockJudgeSpinoff.mockResolvedValue('LEGIT')
+  mockBoundaryCoalesce.mockResolvedValue(0)
+  mockBoundaryCreate.mockResolvedValue({ id: 'bc-1' })
 })
 
 describe('taskCliService.resolveProjectId', () => {
@@ -788,26 +801,25 @@ describe('taskCliService.createFromCli — spinoff judge (Phase 4)', () => {
     } as Parameters<typeof taskCliService.createFromCli>[0])
   }
 
-  it('records SPINOFF_LAUNDERED on the parent when the judge says LAUNDERED', async () => {
+  it('records a SPINOFF_LAUNDERED crossing on the parent when the judge says LAUNDERED', async () => {
     mockJudgeSpinoff.mockResolvedValue('LAUNDERED')
     await createNewScope()
     await flushWaitUntil()
-    expect(mockActivityCreate).toHaveBeenCalledWith(
+    expect(mockBoundaryCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId: 't-7',
-        type: 'SPINOFF_LAUNDERED',
-        payload: expect.objectContaining({ spunOffTaskId: 'task-B' }),
+        category: 'SPINOFF_LAUNDERED',
+        target: 'task-B',
+        severity: 'MEDIUM',
       })
     )
   })
 
-  it('records no SPINOFF_LAUNDERED when the judge says LEGIT', async () => {
+  it('records no crossing when the judge says LEGIT', async () => {
     mockJudgeSpinoff.mockResolvedValue('LEGIT')
     await createNewScope()
     await flushWaitUntil()
-    expect(mockActivityCreate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'SPINOFF_LAUNDERED' })
-    )
+    expect(mockBoundaryCreate).not.toHaveBeenCalled()
   })
 
   it('skips the judge entirely when the parent has no criteria', async () => {
@@ -815,8 +827,6 @@ describe('taskCliService.createFromCli — spinoff judge (Phase 4)', () => {
     await createNewScope()
     await flushWaitUntil()
     expect(mockJudgeSpinoff).not.toHaveBeenCalled()
-    expect(mockActivityCreate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'SPINOFF_LAUNDERED' })
-    )
+    expect(mockBoundaryCreate).not.toHaveBeenCalled()
   })
 })
