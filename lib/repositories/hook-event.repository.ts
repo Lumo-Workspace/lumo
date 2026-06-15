@@ -18,7 +18,7 @@ interface CreateHookEventData {
    * LUM-146 "last file changed"). Null for events that carry no file path.
    */
   filePath?: string | null
-  /** Per-turn per-model token delta (LUM-298). Set only on STOP rows. */
+  /** Per-turn delta on STOP rows; per-step delta on POST_TOOL_BATCH rows (LUM-523). Null elsewhere. */
   usageByModel?: Prisma.InputJsonValue | null
 }
 
@@ -354,6 +354,59 @@ export const hookEventRepository = {
         taskId: { not: null },
         filePath: { not: null },
         toolName: { in: opts.toolNames },
+      },
+    })
+  },
+
+  /**
+   * Raw events for the per-operation cost read model (LUM-523): the tool-result
+   * rows (carry toolName) + the batch rows (carry per-step usageByModel delta) +
+   * the STOP rows (carry per-turn usageByModel delta, for the thinking residual),
+   * ordered per session by time. Three scopes: a task (same taskId precedence as
+   * findByTaskId), a single session (workspace-scoped so a session id from
+   * another workspace can never be read), or a workspace window.
+   */
+  async findToolAttributionEvents(
+    scope:
+      | { taskId: string }
+      | { sessionId: string; workspaceId: string }
+      | { workspaceId: string; since: Date }
+  ) {
+    const type: Prisma.HookEventWhereInput['type'] = {
+      in: [
+        'POST_TOOL_USE',
+        'POST_TOOL_USE_FAILURE',
+        'POST_TOOL_BATCH',
+        'STOP',
+        'STOP_FAILURE',
+      ],
+    }
+    const where: Prisma.HookEventWhereInput =
+      'taskId' in scope
+        ? {
+            type,
+            OR: [
+              { taskId: scope.taskId },
+              { taskId: null, session: { taskId: scope.taskId } },
+            ],
+          }
+        : 'sessionId' in scope
+          ? { type, sessionId: scope.sessionId, workspaceId: scope.workspaceId }
+          : {
+              type,
+              workspaceId: scope.workspaceId,
+              createdAt: { gte: scope.since },
+            }
+    return prisma.hookEvent.findMany({
+      where,
+      orderBy: [{ sessionId: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        sessionId: true,
+        workspaceMemberId: true,
+        type: true,
+        toolName: true,
+        usageByModel: true,
+        createdAt: true,
       },
     })
   },

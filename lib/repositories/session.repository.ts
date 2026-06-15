@@ -31,6 +31,37 @@ export function diffUsageByModel(
   return out
 }
 
+/** Total tokens across all models/kinds in a cumulative snapshot. */
+function snapshotTotal(
+  s: Record<string, ModelUsage> | null | undefined
+): number {
+  if (!s) return -1
+  let t = 0
+  for (const u of Object.values(s)) {
+    t += u.input + u.output + u.cacheRead + u.cacheCreation
+  }
+  return t
+}
+
+/**
+ * The more recent of two cumulative snapshots (the one with the larger total).
+ * Cumulative token maps grow monotonically within a session, so "larger total"
+ * = "later snapshot". Used as the baseline for a POST_TOOL_BATCH per-step delta:
+ * the previous snapshot is either the last batch (liveUsageByModel) or the last
+ * STOP (usageByModel), whichever is more recent. Null-safe.
+ */
+export function pickLatestCumulative(
+  a: Record<string, ModelUsage> | null | undefined,
+  b: Record<string, ModelUsage> | null | undefined
+): Record<string, ModelUsage> | null {
+  const ta = snapshotTotal(a)
+  const tb = snapshotTotal(b)
+  if (ta < 0 && tb < 0) return null
+  return ta >= tb
+    ? (a as Record<string, ModelUsage>)
+    : (b as Record<string, ModelUsage>)
+}
+
 interface UpsertSessionData {
   id: string
   workspaceId: string
@@ -82,9 +113,9 @@ export const sessionRepository = {
    * incremented) — the CLI re-reads the whole transcript each time, so the
    * latest value is the running total. On STOP all columns including
    * usageByModel are settled (with the per-turn delta computed against the
-   * prior usageByModel); mid-turn (POST_TOOL_BATCH) only the flat columns are
-   * written so the STOP delta anchor stays intact. `isStop` increments
-   * loopCount.
+   * prior usageByModel); mid-turn (POST_TOOL_BATCH) writes the flat columns +
+   * liveUsageByModel and returns a per-STEP delta (LUM-523) without advancing
+   * the STOP usageByModel anchor. `isStop` increments loopCount.
    */
   async upsertForHookEvent(data: UpsertSessionData) {
     // STOP carrying usage: compute the per-turn per-model delta atomically
@@ -135,34 +166,62 @@ export const sessionRepository = {
       })
     }
 
-    // Mid-turn usage (POST_TOOL_BATCH, LUM-345): overwrite ONLY the flat
-    // cumulative columns so the delivery card shows live burn during a long
-    // turn. usageByModel is deliberately untouched — it is the anchor the
-    // STOP settlement diffs against, so advancing it here would shrink the
-    // next per-turn delta. The per-model snapshot lands in liveUsageByModel
-    // instead, so the run tab can attribute the in-flight burn per model;
-    // it never needs clearing — once STOP advances the anchor to the same
-    // cumulative totals, the read-side diff (live − settled) clamps to zero.
-    // No transaction needed: there is no delta to settle.
-    const midTurnFlat =
-      !data.isStop && data.usage
-        ? {
-            inputTokens: data.usage.inputTokens,
-            outputTokens: data.usage.outputTokens,
-            cacheReadTokens: data.usage.cacheReadTokens,
-            cacheCreationTokens: data.usage.cacheCreationTokens,
-            liveUsageByModel: data.usage
-              .byModel as unknown as Prisma.InputJsonValue,
-          }
-        : null
+    // Mid-turn usage (POST_TOOL_BATCH, LUM-345): overwrite the flat cumulative
+    // columns + the live per-model snapshot for the delivery card's in-flight
+    // burn. LUM-523 ALSO computes a per-STEP delta against the previous snapshot
+    // (last batch or last STOP cumulative) and returns it so the caller can
+    // store it on the HookEvent row's usageByModel — the per-operation read
+    // model buckets these deltas by the tool that ran in the step. The STOP
+    // anchor (Session.usageByModel) is still untouched here.
+    if (!data.isStop && data.usage) {
+      const usage = data.usage
+      return prisma.$transaction(async tx => {
+        const prior = await tx.session.findUnique({
+          where: { id: data.id },
+          select: { usageByModel: true, liveUsageByModel: true },
+        })
+        const baseline = pickLatestCumulative(
+          (prior?.usageByModel as Record<string, ModelUsage> | null) ?? null,
+          (prior?.liveUsageByModel as Record<string, ModelUsage> | null) ?? null
+        )
+        const batchStepDelta = diffUsageByModel(baseline, usage.byModel)
+        const midTurnFlat = {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheCreationTokens: usage.cacheCreationTokens,
+          liveUsageByModel: usage.byModel as unknown as Prisma.InputJsonValue,
+        }
+        const row = await tx.session.upsert({
+          where: { id: data.id },
+          create: {
+            id: data.id,
+            workspaceId: data.workspaceId,
+            workspaceMemberId: data.workspaceMemberId,
+            cwd: data.cwd,
+            taskId: null,
+            ...(data.agent !== undefined ? { agent: data.agent } : {}),
+            startedAt: data.now,
+            lastActivityAt: data.now,
+            eventCount: 1,
+            ...midTurnFlat,
+          },
+          update: {
+            lastActivityAt: data.now,
+            eventCount: { increment: 1 },
+            ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+            ...midTurnFlat,
+          },
+          select: { id: true, taskId: true },
+        })
+        return { taskId: row.taskId, turnUsageByModel: batchStepDelta }
+      })
+    }
 
-    // Non-STOP (or STOP without usage): cheap single upsert, no token write
-    // beyond the optional mid-turn flat overwrite. A STOP without usage still
-    // bumps loopCount.
+    // Non-STOP without usage (or STOP without usage): cheap single upsert.
     const setOnUpdate: Prisma.SessionUpdateInput = {
       lastActivityAt: data.now,
       eventCount: { increment: 1 },
-      ...(midTurnFlat ?? {}),
     }
     if (data.cwd !== null) setOnUpdate.cwd = data.cwd
     if (data.isStop) setOnUpdate.loopCount = { increment: 1 }
@@ -179,7 +238,6 @@ export const sessionRepository = {
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
-        ...(midTurnFlat ?? {}),
         ...(data.isStop ? { loopCount: 1 } : {}),
       },
       update: setOnUpdate,

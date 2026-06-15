@@ -18,6 +18,12 @@ jest.mock('@/lib/repositories/lineage-source.repository', () => ({
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findTurnUsageByTask: jest.fn() },
 }))
+// LUM-523: getLineageForIdentifier dynamically imports operationCostService for
+// the Top-5 ops quick view. Mock it (default null → topOperations: []) so these
+// tests don't pull the per-operation attribution graph.
+jest.mock('@/lib/services/operation-cost.service', () => ({
+  operationCostService: { getOperationCost: jest.fn().mockResolvedValue(null) },
+}))
 
 import { taskService } from '@/lib/services/task.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'

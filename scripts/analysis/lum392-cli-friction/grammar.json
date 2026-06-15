@@ -19,6 +19,53 @@
       "hasSubcommands": false,
       "description": "Log out and remove local credentials"
     },
+    "cost": {
+      "arguments": [],
+      "flags": {
+        "--by": {
+          "long": "--by",
+          "short": null,
+          "value": "required",
+          "enum": ["tool", "model", "member", "session"],
+          "enumCaseInsensitive": true,
+          "description": "Headline grouping: tool | model | member | session (case-insensitive; default tool)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the versioned payload as JSON"
+        },
+        "--session": {
+          "long": "--session",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Aggregate a single Claude Code session"
+        },
+        "--since": {
+          "long": "--since",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Workspace window lower bound (ISO date); default last 30 days"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Aggregate a single task (e.g. LUM-42)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
+    },
     "doc": {
       "arguments": [],
       "flags": {},

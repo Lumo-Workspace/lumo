@@ -172,3 +172,48 @@ use, and what did it cost" for a task / merged PR — CFO / compliance / trust
 narratives.
 
 Entry point is the task identifier only; PR-number lookup is a future addition.
+
+**Top operations by token cost (LUM-523):** the lineage totals also append a
+per-task **"Top operations by token cost"** Top-5 — the most expensive tools by
+attributed token cost (`<tool> — N tokens`), ending with the pointer
+`(full breakdown: lumo cost --task <id>)`. The block is omitted when no
+per-operation cost has been attributed yet.
+
+## `lumo cost`
+
+Per-operation (per-tool) token cost read-out. Where `task lineage` answers
+"what context fed this task and what did the run cost," `lumo cost` answers
+"which _operations_ (tools) burned the tokens." It attributes each model step's
+token delta to the tool(s) that ran in it — **per-step** where the
+`POST_TOOL_BATCH` hook captured the tool list, **per-turn fallback** otherwise
+(a parallel-tool step splits its tokens evenly across the tools, hence the
+"heuristic" note). `output` (generation) and `cache_read` (~95%, structural —
+turns × context) are shown in separate columns.
+
+```bash
+lumo cost --task LUM-42
+lumo cost --session <session-id> --by model
+lumo cost --since 2026-06-01 --by member --json
+```
+
+- **Scope (mutually exclusive)** — `--task <id>` scopes to one task,
+  `--session <id>` to one Claude Code session, `--since <ISO-date>` to a
+  workspace window from that date. With none given, the default is a
+  **workspace last-30-days** window. (If more than one is passed, the CLI
+  picks task > session > since.)
+- **`--by tool|model|member|session`** (default `tool`) — only changes which
+  grouping is the **headline** table; the other groupings are still printed
+  below when non-trivial (member/session tables appear only when there is more
+  than one). Case-insensitive.
+- **`--json`** — emit the versioned payload (`version: 1`, scope, grandTotal,
+  coverage, and `byTool` / `byModel` / `byMember` / `bySession` row arrays)
+  instead of the rendered tables.
+- **Coverage line** — `Per-step attribution: X% of N tool-using turns` tells
+  you how much of the report is precise per-step attribution vs the per-turn
+  fallback. `n/a` when there were no tool-using turns.
+
+**When to suggest:** the user asks where their tokens went _by operation_ —
+"which tools are most expensive," cost attribution by model / teammate /
+session, or a workspace cost window. For the quick per-task Top-5 inline, point
+them at `lumo task lineage <id>` instead; reach for `lumo cost` for the full
+breakdown or any non-task scope.

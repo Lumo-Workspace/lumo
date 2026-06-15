@@ -133,6 +133,65 @@ export const memberRepository = {
     })
   },
 
+  /**
+   * Display labels for member ids — best-effort map for rollups (LUM-523).
+   *
+   * WorkspaceMember has no DB-local name/email (profiles live in Clerk), so we
+   * resolve clerkId → display name via Clerk in one batch call. Falls back to
+   * the email local-part, then the raw clerkId, then the member id, so every
+   * requested id gets *some* label and callers never see an empty cell. Never
+   * throws — Clerk failures degrade to the member-id label.
+   */
+  async labelsByIds(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map()
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, clerkId: true },
+    })
+
+    // Default every id to itself so unresolved ids still render.
+    const labels = new Map<string, string>(members.map(m => [m.id, m.id]))
+
+    const clerkIds = [...new Set(members.map(m => m.clerkId))]
+    if (clerkIds.length === 0) return labels
+
+    try {
+      const { createClerkClient } = await import('@clerk/nextjs/server')
+      const clerk = createClerkClient({
+        secretKey: process.env.CLERK_SECRET_KEY!,
+      })
+      const { data: users } = await clerk.users.getUserList({
+        userId: clerkIds,
+        limit: Math.min(clerkIds.length, 500),
+      })
+
+      const labelByClerkId = new Map<string, string>()
+      for (const u of users) {
+        const email =
+          u.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
+            ?.emailAddress ??
+          u.emailAddresses[0]?.emailAddress ??
+          ''
+        const fullName = [u.firstName, u.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim()
+        const display = fullName || email.split('@')[0] || email || u.id
+        labelByClerkId.set(u.id, display)
+      }
+
+      for (const m of members) {
+        const display = labelByClerkId.get(m.clerkId)
+        if (display) labels.set(m.id, display)
+      }
+    } catch {
+      // Clerk unavailable: keep the member-id fallback labels.
+    }
+
+    return labels
+  },
+
   /** Create a coding agent profile + actor for a workspace. */
   async createCodingAgent(workspaceId: string) {
     const profile = await prisma.agentProfile.create({

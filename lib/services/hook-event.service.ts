@@ -126,8 +126,10 @@ export const hookEventService = {
     // (matches Day 3 tolerance) with no taskId tag.
     const isStop = type === 'STOP' || type === 'STOP_FAILURE'
     // POST_TOOL_BATCH also carries usage (LUM-345) so long single turns
-    // surface live burn; the repository writes it flat-columns-only, keeping
-    // usageByModel as the STOP-anchored per-turn-delta baseline.
+    // surface live burn. The repository writes the Session flat columns +
+    // liveUsageByModel and returns a per-STEP delta (LUM-523) stored on this
+    // HookEvent row's usageByModel; the Session.usageByModel STOP anchor that
+    // the per-turn-delta diff settles against stays untouched.
     const usage =
       isStop || type === 'POST_TOOL_BATCH'
         ? extractInjectedUsage(payload)

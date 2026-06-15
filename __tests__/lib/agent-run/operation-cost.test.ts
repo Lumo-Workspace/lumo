@@ -1,0 +1,138 @@
+import {
+  attributeOperationCost,
+  THINKING_BUCKET,
+  type OperationCostEvent,
+} from '@/lib/agent-run/operation-cost'
+
+const M = 'claude-opus-4-8'
+function u(
+  input: number,
+  output: number,
+  cacheRead: number,
+  cacheCreation = 0
+) {
+  return { [M]: { input, output, cacheRead, cacheCreation } }
+}
+function ev(
+  partial: Partial<OperationCostEvent> & Pick<OperationCostEvent, 'type'>
+): OperationCostEvent {
+  return {
+    sessionId: 's1',
+    workspaceMemberId: 'm1',
+    toolName: null,
+    usageByModel: null,
+    createdAt: new Date('2026-06-01T00:00:00Z'),
+    ...partial,
+  }
+}
+function totalOf(
+  rows: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreation: number
+  }[]
+) {
+  return rows.reduce(
+    (t, r) => t + r.input + r.output + r.cacheRead + r.cacheCreation,
+    0
+  )
+}
+
+describe('attributeOperationCost', () => {
+  it('attributes each step delta to the tool that ran in that step', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Bash', createdAt: at(1) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 10, 0),
+        createdAt: at(2),
+      }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Read', createdAt: at(3) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 4, 0),
+        createdAt: at(4),
+      }),
+      ev({ type: 'STOP', usageByModel: u(0, 16, 0), createdAt: at(5) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    const out = (tool: string) =>
+      rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+    expect(out('Bash')).toBe(10)
+    expect(out('Read')).toBe(4)
+    expect(out(THINKING_BUCKET)).toBe(2)
+    expect(totalOf(rows)).toBe(16)
+  })
+
+  it('splits a shared batch evenly across parallel tool invocations', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Read', createdAt: at(1) }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Read', createdAt: at(2) }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Grep', createdAt: at(3) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 9, 0),
+        createdAt: at(4),
+      }),
+      ev({ type: 'STOP', usageByModel: u(0, 9, 0), createdAt: at(5) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    const out = (tool: string) =>
+      rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+    expect(out('Read')).toBeCloseTo(6)
+    expect(out('Grep')).toBeCloseTo(3)
+    expect(totalOf(rows)).toBeCloseTo(9)
+  })
+
+  it('falls back to whole-turn split when a turn has tools but no batch', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Bash', createdAt: at(1) }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Edit', createdAt: at(2) }),
+      ev({ type: 'STOP', usageByModel: u(0, 8, 0), createdAt: at(3) }),
+    ]
+    const { rows, coverage } = attributeOperationCost(events)
+    const out = (tool: string) =>
+      rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+    expect(out('Bash')).toBeCloseTo(4)
+    expect(out('Edit')).toBeCloseTo(4)
+    expect(coverage.toolTurns).toBe(1)
+    expect(coverage.perStepTurns).toBe(0)
+  })
+
+  it('routes a pure-thinking turn entirely to the thinking bucket and excludes it from coverage', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({ type: 'STOP', usageByModel: u(0, 5, 0), createdAt: at(1) }),
+    ]
+    const { rows, coverage } = attributeOperationCost(events)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.tool).toBe(THINKING_BUCKET)
+    expect(coverage.toolTurns).toBe(0)
+  })
+
+  it('tolerates a null STOP delta historical row without throwing', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Bash', createdAt: at(1) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 3, 0),
+        createdAt: at(2),
+      }),
+      ev({ type: 'STOP', usageByModel: null, createdAt: at(3) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    const out = (tool: string) =>
+      rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+    expect(out('Bash')).toBe(3)
+  })
+})
