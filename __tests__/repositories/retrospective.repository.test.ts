@@ -26,7 +26,7 @@ beforeEach(() => {
   hookFind.mockResolvedValue([])
 })
 
-it('loadActuals sums session usage, counts sessions and clarify notifications', async () => {
+it('loadActuals sums session usage and counts sessions', async () => {
   const t0 = new Date('2024-01-01T00:00:00Z')
   taskFind.mockResolvedValue({
     projectId: 'p1',
@@ -49,16 +49,35 @@ it('loadActuals sums session usage, counts sessions and clarify notifications', 
       },
     ],
   })
-  notifCount.mockResolvedValue(2)
-
   const a = await retrospectiveRepository.loadActuals('t1')
   expect(a).toEqual({
     projectId: 'p1',
     tokenCost: 38,
     iterations: 2,
-    clarifyRounds: 2,
+    interactionRounds: 0,
     totalDurationSec: 0,
   })
+})
+
+it('interactionRounds counts prompt submissions', async () => {
+  const t0 = new Date('2024-01-01T00:00:00Z')
+  const at = (ms: number) => new Date(t0.getTime() + ms)
+  taskFind.mockResolvedValue({ projectId: 'p1', sessions: [] })
+  // 3 USER_PROMPT_SUBMIT events (plus STOPs) → interactionRounds === 3.
+  hookFind.mockResolvedValue([
+    { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+    { sessionId: 's1', type: 'STOP', createdAt: at(1000) },
+    { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(2000) },
+    { sessionId: 's1', type: 'STOP', createdAt: at(3000) },
+    { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(4000) },
+    { sessionId: 's1', type: 'STOP', createdAt: at(5000) },
+  ])
+
+  const a = await retrospectiveRepository.loadActuals('t1')
+  expect(a?.interactionRounds).toBe(3)
+  // The notification table must NOT drive this metric at all — the count comes
+  // purely from the USER_PROMPT_SUBMIT turn events.
+  expect(notifCount).not.toHaveBeenCalled()
 })
 
 it('loadActuals returns tokenCost null when no session carries usage', async () => {
@@ -76,13 +95,12 @@ it('loadActuals returns tokenCost null when no session carries usage', async () 
       },
     ],
   })
-  notifCount.mockResolvedValue(0)
   const a = await retrospectiveRepository.loadActuals('t1')
   expect(a).toEqual({
     projectId: 'p1',
     tokenCost: null,
     iterations: 1,
-    clarifyRounds: 0,
+    interactionRounds: 0,
     totalDurationSec: 0,
   })
 })
@@ -99,7 +117,7 @@ it('createSnapshotIfAbsent swallows unique-violation (keep-first)', async () => 
   await expect(
     retrospectiveRepository.createSnapshotIfAbsent('t1', {
       iterations: null,
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 0,
       tokenCostBasis: 0,
@@ -114,7 +132,7 @@ it('createSnapshotIfAbsent rethrows non-P2002 errors', async () => {
   await expect(
     retrospectiveRepository.createSnapshotIfAbsent('t1', {
       iterations: null,
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 0,
       tokenCostBasis: 0,
@@ -136,7 +154,6 @@ describe('loadActuals — totalDurationSec (turn-active time)', () => {
 
   beforeEach(() => {
     taskFind.mockResolvedValue({ projectId: 'p1', sessions: [] })
-    notifCount.mockResolvedValue(0)
   })
 
   it('sums per-session turn-active time (prompt→STOP), excluding idle between turns', async () => {

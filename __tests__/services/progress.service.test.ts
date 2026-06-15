@@ -22,7 +22,7 @@ const baseForecast = {
   cycleHours: null,
   tokenCost: iv(12e6, 22e6, 35e6),
   tokenCostBasis: 8,
-  clarifyRounds: iv(0, 1, 1),
+  interactionRounds: iv(0, 1, 1),
   confidence: 'medium' as const,
   sources: [],
 }
@@ -43,7 +43,7 @@ it('returns forecast + sessionCount even when no sessions yet (pre-delivery)', a
     projectId: 'p1',
     tokenCost: null,
     iterations: 0,
-    clarifyRounds: 0,
+    interactionRounds: 0,
     totalDurationSec: 0,
   })
   getForecast.mockResolvedValue(baseForecast)
@@ -57,7 +57,7 @@ it('computes per-metric bands against live actuals (over on token)', async () =>
     projectId: 'p1',
     tokenCost: 52e6, // > p75 (35M) → over
     iterations: 2, // within (1..3) → on-track
-    clarifyRounds: 0,
+    interactionRounds: 0,
     totalDurationSec: 0,
   })
   getForecast.mockResolvedValue(baseForecast)
@@ -72,7 +72,7 @@ it('exposes totalDuration as an actual-only progress metric', async () => {
     projectId: 'p1',
     tokenCost: null,
     iterations: 1,
-    clarifyRounds: 0,
+    interactionRounds: 0,
     totalDurationSec: 900,
   })
   getForecast.mockResolvedValue(baseForecast)

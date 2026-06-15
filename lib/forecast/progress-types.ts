@@ -22,6 +22,6 @@ export interface TaskProgress {
   forecast: TaskForecast
   tokenCost: ProgressMetric
   iterations: ProgressMetric
-  clarifyRounds: ProgressMetric
+  interactionRounds: ProgressMetric
   totalDuration: ProgressMetric
 }

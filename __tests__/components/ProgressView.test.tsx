@@ -10,12 +10,12 @@ const en: Record<string, string> = {
   'progress.onTrackNote': 'within range · still accumulating',
   'progress.sectionLabel': 'Progress',
   'progress.iterations': 'Runs',
-  'progress.clarifyRounds': 'Clarification rounds',
+  'progress.interactionRounds': 'Interaction rounds',
   'progress.predictedRange': 'Forecast {value}',
   'progress.soFar': 'so far {value}',
   'progress.summaryRuns': '{value} runs so far',
   'progress.summaryTokens': '{value} tokens used',
-  'progress.summaryClarify': '{value} clarification rounds',
+  'progress.summaryInteraction': '{value} interaction rounds',
   'progress.totalDuration': 'Run time',
   'progress.summaryDuration': 'Ran {value}',
 }
@@ -57,7 +57,7 @@ const onTrack: TaskProgress = {
     deltaPct: null,
     band: 'on-track',
   },
-  clarifyRounds: {
+  interactionRounds: {
     forecast: iv(0, 1, 1),
     actual: 0,
     deltaPct: null,
@@ -104,7 +104,7 @@ const noForecastWithToken: TaskProgress = {
   forecast: {} as TaskProgress['forecast'],
   tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
-  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
   totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 
@@ -113,9 +113,9 @@ const noForecastMinimal: TaskProgress = {
   tokenCost: { forecast: null, actual: null, deltaPct: null, band: null },
 }
 
-const noForecastWithClarify: TaskProgress = {
+const noForecastWithInteraction: TaskProgress = {
   ...noForecastMinimal,
-  clarifyRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 2, deltaPct: null, band: null },
 }
 
 it('renders an in-progress summary (runs + token) when there is no forecast', () => {
@@ -131,13 +131,15 @@ it('hides zero/no-signal metrics in summary mode (LUM-324 case)', () => {
   render(<ProgressView progress={noForecastMinimal} agentStatus={null} />)
   expect(screen.getByText('1 runs so far')).toBeInTheDocument()
   expect(screen.queryByText(/tokens used/)).not.toBeInTheDocument()
-  expect(screen.queryByText(/clarification rounds/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/interaction rounds/)).not.toBeInTheDocument()
   expect(screen.queryByText('Progress')).not.toBeInTheDocument()
 })
 
-it('shows the clarify summary line only when actual > 0', () => {
-  render(<ProgressView progress={noForecastWithClarify} agentStatus={null} />)
-  expect(screen.getByText('2 clarification rounds')).toBeInTheDocument()
+it('shows the interaction summary line only when actual > 0', () => {
+  render(
+    <ProgressView progress={noForecastWithInteraction} agentStatus={null} />
+  )
+  expect(screen.getByText('2 interaction rounds')).toBeInTheDocument()
   expect(screen.getByText('1 runs so far')).toBeInTheDocument()
 })
 
@@ -158,7 +160,7 @@ const tokenBandNoCohort: TaskProgress = {
     band: 'on-track',
   },
   iterations: { forecast: null, actual: 1, deltaPct: null, band: null },
-  clarifyRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
+  interactionRounds: { forecast: null, actual: 0, deltaPct: null, band: null },
   totalDuration: { forecast: null, actual: 0, deltaPct: null, band: null },
 }
 

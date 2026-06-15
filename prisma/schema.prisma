@@ -2087,14 +2087,14 @@ model LineageEdge {
 /// 交付时固化的 forecast 快照（LUM-319）。只存预测区间；actual 渲染时实算。
 /// keep-first：taskId 唯一，reopen 重交付不覆盖，留住首次交付的真实预测。
 model TaskForecastSnapshot {
-  id             String   @id @default(cuid())
-  taskId         String   @unique
-  iterations     Json? // { p25, median, p75 } | null
-  clarifyRounds  Json?
-  tokenCost      Json?
-  cohortSize     Int // 相似 cohort 大小（喂 iterations/clarify）
-  tokenCostBasis Int // 项目级样本数（喂 token）
-  capturedAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  taskId            String   @unique
+  iterations        Json? // { p25, median, p75 } | null
+  interactionRounds Json?
+  tokenCost         Json?
+  cohortSize        Int // 相似 cohort 大小（喂 iterations/interaction）
+  tokenCostBasis    Int // 项目级样本数（喂 token）
+  capturedAt        DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 

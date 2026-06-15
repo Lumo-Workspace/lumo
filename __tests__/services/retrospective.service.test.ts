@@ -41,7 +41,7 @@ describe('captureSnapshot', () => {
     findSnapshot.mockResolvedValue(null)
     getForecast.mockResolvedValue({
       iterations: null,
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 0,
       tokenCostBasis: 0,
@@ -54,7 +54,7 @@ describe('captureSnapshot', () => {
     findSnapshot.mockResolvedValue(null)
     getForecast.mockResolvedValue({
       iterations: iv(2, 3, 3),
-      clarifyRounds: iv(1, 1, 2),
+      interactionRounds: iv(1, 1, 2),
       tokenCost: iv(2e7, 2.6e7, 3e7),
       cohortSize: 5,
       tokenCostBasis: 8,
@@ -62,7 +62,7 @@ describe('captureSnapshot', () => {
     await retrospectiveService.captureSnapshot('t1')
     expect(createSnap).toHaveBeenCalledWith('t1', {
       iterations: iv(2, 3, 3),
-      clarifyRounds: iv(1, 1, 2),
+      interactionRounds: iv(1, 1, 2),
       tokenCost: iv(2e7, 2.6e7, 3e7),
       cohortSize: 5,
       tokenCostBasis: 8,
@@ -80,7 +80,7 @@ describe('getRetrospective', () => {
     const capturedAt = new Date('2026-06-01')
     findSnapshot.mockResolvedValue({
       iterations: iv(2, 3, 3),
-      clarifyRounds: iv(1, 1, 2),
+      interactionRounds: iv(1, 1, 2),
       tokenCost: iv(2.4e7, 2.6e7, 3e7),
       cohortSize: 5,
       tokenCostBasis: 8,
@@ -90,7 +90,7 @@ describe('getRetrospective', () => {
       projectId: 'p1',
       tokenCost: 2.95e7,
       iterations: 3,
-      clarifyRounds: 2,
+      interactionRounds: 2,
       totalDurationSec: 0,
     })
     countRef.mockResolvedValue(27)
@@ -99,7 +99,7 @@ describe('getRetrospective', () => {
     expect(r!.tokenCost.band).toBe('within') // 2.95e7 ∈ [2.4e7, 3e7]
     expect(r!.tokenCost.deltaPct).toBe(13) // round((2.95-2.6)/2.6*100)
     expect(r!.iterations.band).toBe('within') // 3 ∈ [2,3]
-    expect(r!.clarifyRounds.band).toBe('within') // actual=2, p75=2 → 2 is NOT > 2 → within
+    expect(r!.interactionRounds.band).toBe('within') // actual=2, p75=2 → 2 is NOT > 2 → within
     expect(r!.referenceLibrarySize).toBe(27)
     expect(r!.capturedAt).toBe(capturedAt)
   })
@@ -107,7 +107,7 @@ describe('getRetrospective', () => {
   it('degrades a metric to actual-only when its forecast is null', async () => {
     findSnapshot.mockResolvedValue({
       iterations: iv(1, 2, 2),
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 4,
       tokenCostBasis: 0,
@@ -117,13 +117,13 @@ describe('getRetrospective', () => {
       projectId: 'p1',
       tokenCost: null,
       iterations: 4,
-      clarifyRounds: 3,
+      interactionRounds: 3,
       totalDurationSec: 0,
     })
     countRef.mockResolvedValue(10)
 
     const r = await retrospectiveService.getRetrospective('t1')
-    expect(r!.clarifyRounds).toEqual({
+    expect(r!.interactionRounds).toEqual({
       forecast: null,
       actual: 3,
       deltaPct: null,
@@ -141,7 +141,7 @@ describe('getRetrospective', () => {
   it('returns null when actuals cannot be loaded', async () => {
     findSnapshot.mockResolvedValue({
       iterations: iv(1, 2, 2),
-      clarifyRounds: null,
+      interactionRounds: null,
       tokenCost: null,
       cohortSize: 4,
       tokenCostBasis: 0,
@@ -154,7 +154,7 @@ describe('getRetrospective', () => {
   it('exposes totalDuration as an actual-only metric (no forecast)', async () => {
     findSnapshot.mockResolvedValue({
       iterations: iv(1, 2, 2),
-      clarifyRounds: iv(0, 1, 1),
+      interactionRounds: iv(0, 1, 1),
       tokenCost: iv(1e7, 2e7, 3e7),
       cohortSize: 4,
       tokenCostBasis: 8,
@@ -164,7 +164,7 @@ describe('getRetrospective', () => {
       projectId: 'p1',
       tokenCost: 1.5e7,
       iterations: 2,
-      clarifyRounds: 1,
+      interactionRounds: 1,
       totalDurationSec: 900,
     })
     countRef.mockResolvedValue(5)

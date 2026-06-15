@@ -37,6 +37,6 @@ export function extractMetrics(c: ForecastCandidate): CandidateMetrics {
     mergedPrs,
     cycleHours,
     tokenCost: c.tokenCost,
-    clarifyRounds: c.clarifyRounds,
+    interactionRounds: c.interactionRounds,
   }
 }

@@ -32,7 +32,7 @@ function cand(
     })),
     mergedPrAt: Array.from({ length: prs }, () => h(end)),
     tokenCost,
-    clarifyRounds: clarify,
+    interactionRounds: clarify,
   }
 }
 
@@ -161,7 +161,7 @@ it('returns null cycleHours when fewer than 3 candidates have a cycle', async ()
   expect(f.cycleHours).toBeNull()
 })
 
-it('produces a clarifyRounds interval from the cohort', async () => {
+it('produces a interactionRounds interval from the cohort', async () => {
   load.mockResolvedValue({
     target,
     candidates: [
@@ -171,12 +171,12 @@ it('produces a clarifyRounds interval from the cohort', async () => {
     ],
   })
   const f = await forecastService.getTaskForecast('tgt')
-  expect(f.clarifyRounds).not.toBeNull()
-  expect(f.clarifyRounds!.median).toBe(2)
+  expect(f.interactionRounds).not.toBeNull()
+  expect(f.interactionRounds!.median).toBe(2)
 })
 
-it('returns null clarifyRounds when the cohort is too thin', async () => {
+it('returns null interactionRounds when the cohort is too thin', async () => {
   load.mockResolvedValue({ target, candidates: [cand('1', 2, 1, 5, null, 1)] })
   const f = await forecastService.getTaskForecast('tgt')
-  expect(f.clarifyRounds).toBeNull()
+  expect(f.interactionRounds).toBeNull()
 })
