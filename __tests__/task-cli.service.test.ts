@@ -811,6 +811,7 @@ describe('taskCliService.createFromCli — spinoff judge (Phase 4)', () => {
         category: 'SPINOFF_LAUNDERED',
         target: 'task-B',
         severity: 'MEDIUM',
+        reversible: true,
         // LUM-511: the originating session rides onto the crossing so the
         // attribution read model can name who/agent/model (it has no hook event).
         sessionId: 'sess-1',

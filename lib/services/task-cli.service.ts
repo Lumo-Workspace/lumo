@@ -74,6 +74,8 @@ export function dispatchSpinoffJudge(args: {
           // the parent (was a TaskActivity marker) — visible in the crossings panel.
           const { boundaryCrossingRepository } =
             await import('@/lib/repositories/boundary-crossing.repository')
+          const { isReversible } =
+            await import('@/lib/services/boundary-detector.service')
           const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
             args.parentTaskId,
             'SPINOFF_LAUNDERED',
@@ -87,7 +89,7 @@ export function dispatchSpinoffJudge(args: {
               detail: `Work spun off to ${args.spunOffIdentifier} during this task — judged laundered rework (should have been a fix-in-place).`,
               target: args.spunOffTaskId,
               sessionId: args.sessionId,
-              reversible: false,
+              reversible: isReversible('SPINOFF_LAUNDERED'),
               severity: 'MEDIUM',
             })
           }

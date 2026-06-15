@@ -747,6 +747,7 @@ describe('contract-weakening guard (Phase 4)', () => {
         taskId: 't-1',
         category: 'CONTRACT_WEAKENING',
         severity: 'MEDIUM',
+        reversible: true,
       })
     )
   })

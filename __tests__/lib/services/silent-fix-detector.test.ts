@@ -60,6 +60,7 @@ describe('recordSilentFixIfDetected', () => {
         category: 'SILENT_FIX',
         target: 'app/x.tsx',
         severity: 'MEDIUM',
+        reversible: true,
       })
     )
   })
