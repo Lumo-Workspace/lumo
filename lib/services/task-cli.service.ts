@@ -139,6 +139,8 @@ async function createFromCli(args: {
   workspaceId: string
   workspaceSlug: string
   callerClerkId: string
+  memberId?: string | null
+  sessionId?: string | null
   input: {
     title: string
     description?: string | null | undefined

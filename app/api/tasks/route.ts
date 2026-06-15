@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { cliCreateTaskSchema } from '@/lib/validation/schemas'
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -32,11 +33,19 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
+  const memberId = await miscRepository.findMemberIdForHook(
+    identity.user.id,
+    identity.workspace.id
+  )
+  const sessionId = request.headers.get('X-Lumo-Session-Id')
+
   try {
     const task = await taskCliService.createFromCli({
       workspaceId: identity.workspace.id,
       workspaceSlug: identity.workspace.slug,
       callerClerkId: identity.user.id,
+      memberId,
+      sessionId,
       input: parsed.data,
     })
     return NextResponse.json({ task }, { status: 201 })

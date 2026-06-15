@@ -12,12 +12,20 @@ jest.mock('@/lib/services/task-cli.service', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: {
+    findMemberIdForHook: jest.fn(),
+  },
+}))
+
 import { POST } from '@/app/api/tasks/route'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 
 const mockVerify = verifyBearer as jest.Mock
 const mockCreate = taskCliService.createFromCli as jest.Mock
+const mockFindMember = miscRepository.findMemberIdForHook as jest.Mock
 
 function makeRequest(body: unknown, headers: Record<string, string> = {}) {
   return new Request('http://x/api/tasks', {
@@ -37,7 +45,10 @@ const IDENTITY = {
   apiKey: { id: 'k-1', name: 'CLI', prefix: 'lum_test' },
 }
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockFindMember.mockResolvedValue('member-1')
+})
 
 describe('POST /api/tasks', () => {
   it('returns 401 when bearer is missing or invalid', async () => {
@@ -75,8 +86,45 @@ describe('POST /api/tasks', () => {
       workspaceId: 'ws-1',
       workspaceSlug: 'lumo',
       callerClerkId: 'clerk-1',
+      memberId: 'member-1',
+      sessionId: null,
       input: expect.objectContaining({ title: 'Hi', priority: 'LOW' }),
     })
+  })
+
+  it('forwards the resolved memberId and X-Lumo-Session-Id to the service', async () => {
+    mockVerify.mockResolvedValue(IDENTITY)
+    mockCreate.mockResolvedValue({
+      id: 't-1',
+      identifier: 'LUM-9',
+      title: 'x',
+      url: 'u',
+    })
+
+    const res = await POST(
+      makeRequest({ title: 'New task' }, { 'X-Lumo-Session-Id': 'sess-123' })
+    )
+
+    expect(res.status).toBe(201)
+    const arg = mockCreate.mock.calls[0]![0]
+    expect(arg.sessionId).toBe('sess-123')
+    expect(arg.memberId).toBe('member-1')
+  })
+
+  it('passes sessionId: null when no session header is present (unbound — still creates)', async () => {
+    mockVerify.mockResolvedValue(IDENTITY)
+    mockCreate.mockResolvedValue({
+      id: 't-1',
+      identifier: 'LUM-9',
+      title: 'x',
+      url: 'u',
+    })
+
+    const res = await POST(makeRequest({ title: 'New task' }))
+
+    expect(res.status).toBe(201)
+    const arg = mockCreate.mock.calls[0]![0]
+    expect(arg.sessionId).toBeNull()
   })
 
   it('maps service errors with status to that status', async () => {
