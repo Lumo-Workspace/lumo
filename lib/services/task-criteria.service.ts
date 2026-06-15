@@ -264,6 +264,8 @@ export function dispatchWeakeningJudge(args: {
         if (verdict !== 'WEAKENED') return
         const { boundaryCrossingRepository } =
           await import('@/lib/repositories/boundary-crossing.repository')
+        const { isReversible } =
+          await import('@/lib/services/boundary-detector.service')
         const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
           args.taskId,
           'CONTRACT_WEAKENING',
@@ -276,7 +278,7 @@ export function dispatchWeakeningJudge(args: {
           category: 'CONTRACT_WEAKENING',
           detail: `Acceptance criterion weakened under an open send-back: "${args.oldStatement}" → "${args.newStatement}"`,
           target: args.taskId,
-          reversible: false,
+          reversible: isReversible('CONTRACT_WEAKENING'),
           severity: 'MEDIUM',
         })
       } catch (err) {

@@ -1224,7 +1224,7 @@ export async function recordSilentFixIfDetected(
     category: 'SILENT_FIX',
     detail: `Post-review edit to ${input.filePath} with no recorded send-back — judged a real defect fix (should have left a send-back trace).`,
     target: input.filePath,
-    reversible: false,
+    reversible: isReversible('SILENT_FIX'),
     severity: 'MEDIUM',
   })
 }
