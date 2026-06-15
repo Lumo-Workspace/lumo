@@ -35,6 +35,8 @@ function populationVariance(xs: number[]): number {
 export const usageSignalService = {
   async getUsageSignalHealth(workspaceId: string): Promise<UsageSignalHealth> {
     const agg = await lineageEdgeRepository.usageSignalAggregates(workspaceId)
+    const disclosureFunnel =
+      await lineageEdgeRepository.disclosureFunnelAggregates(workspaceId)
     const candidateTaskIds = [
       ...new Set([
         ...agg.usedTasks.map(t => t.taskId),
@@ -71,6 +73,7 @@ export const usageSignalService = {
       usedFailedTasks: used.failed,
       baseFailedTasks: base.failed,
       spinoffsDuringInFlight,
+      disclosureFunnel,
     }
   },
 }
