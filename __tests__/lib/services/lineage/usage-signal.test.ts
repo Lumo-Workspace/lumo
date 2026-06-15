@@ -10,8 +10,16 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: { taskIdsWithSendBack: jest.fn() },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { countSpinoffsForWorkspace: jest.fn() },
+  activityRepository: {
+    countSpinoffsForWorkspace: jest.fn(),
+    taskIdsWithMarkers: jest.fn(),
+  },
 }))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: { taskIdsWithCategory: jest.fn() },
+}))
+
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 beforeEach(() => {
   ;(
@@ -20,6 +28,12 @@ beforeEach(() => {
   ;(
     activityRepository.countSpinoffsForWorkspace as jest.Mock
   ).mockResolvedValue(0)
+  ;(activityRepository.taskIdsWithMarkers as jest.Mock).mockResolvedValue(
+    new Set()
+  )
+  ;(
+    boundaryCrossingRepository.taskIdsWithCategory as jest.Mock
+  ).mockResolvedValue(new Set())
 })
 
 it('computes distribution, variance, and discrimination', async () => {
@@ -114,4 +128,33 @@ it('includes the raw spinoff count', async () => {
   ).mockResolvedValue(3)
   const h = await usageSignalService.getUsageSignalHealth('ws1')
   expect(h.spinoffsDuringInFlight).toBe(3)
+})
+
+it('folds judge-confirmed laundering markers + CONTRACT_WEAKENING into the negative class', async () => {
+  ;(lineageEdgeRepository.usageSignalAggregates as jest.Mock).mockResolvedValue(
+    {
+      distribution: { used: 2, unused: 0, abstained: 0 },
+      perSession: [],
+      usedTasks: [
+        { taskId: 't1', resolved: true, merged: true },
+        { taskId: 't2', resolved: true, merged: true },
+      ],
+      baseTasks: [
+        { taskId: 't1', resolved: true, merged: true },
+        { taskId: 't2', resolved: true, merged: true },
+      ],
+    }
+  )
+  // No HUMAN/AGENT send-backs, but t1 has a laundering marker and t2 a weakening.
+  ;(activityRepository.taskIdsWithMarkers as jest.Mock).mockResolvedValue(
+    new Set(['t1'])
+  )
+  ;(
+    boundaryCrossingRepository.taskIdsWithCategory as jest.Mock
+  ).mockResolvedValue(new Set(['t2']))
+
+  const h = await usageSignalService.getUsageSignalHealth('ws1')
+  // Both resolved tasks are tainted as failed → merge rate 0, failed 2.
+  expect(h.baseMergeRate).toBe(0)
+  expect(h.baseFailedTasks).toBe(2)
 })
