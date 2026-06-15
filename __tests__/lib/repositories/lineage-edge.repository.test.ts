@@ -2,7 +2,7 @@ import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repositor
 import { prisma } from '@/lib/db/prisma'
 
 jest.mock('@/lib/db/prisma', () => ({
-  prisma: { lineageEdge: { updateMany: jest.fn() } },
+  prisma: { lineageEdge: { updateMany: jest.fn(), count: jest.fn() } },
 }))
 
 describe('lineageEdgeRepository.recordPull', () => {
@@ -49,6 +49,36 @@ describe('lineageEdgeRepository.recordPull', () => {
         pulledAt: null,
       },
       data: { pulledAt: now },
+    })
+  })
+})
+
+describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
+  it('issues four workspace-scoped counts and returns the funnel shape', async () => {
+    const count = jest.fn()
+    ;(prisma.lineageEdge as unknown as { count: jest.Mock }).count = count
+    count
+      .mockResolvedValueOnce(277) // impressions
+      .mockResolvedValueOnce(277) // index
+      .mockResolvedValueOnce(0) // pulled
+      .mockResolvedValueOnce(12) // used
+
+    const res = await lineageEdgeRepository.disclosureFunnelAggregates('ws-1')
+
+    expect(res).toEqual({ impressions: 277, index: 277, pulled: 0, used: 12 })
+    expect(count).toHaveBeenNthCalledWith(1, { where: { workspaceId: 'ws-1' } })
+    expect(count).toHaveBeenNthCalledWith(2, {
+      where: { workspaceId: 'ws-1', disclosure: 'INDEX' },
+    })
+    expect(count).toHaveBeenNthCalledWith(3, {
+      where: {
+        workspaceId: 'ws-1',
+        disclosure: 'INDEX',
+        pulledAt: { not: null },
+      },
+    })
+    expect(count).toHaveBeenNthCalledWith(4, {
+      where: { workspaceId: 'ws-1', used: true },
     })
   })
 })
