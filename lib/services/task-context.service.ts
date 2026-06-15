@@ -1166,13 +1166,16 @@ export const taskContextService = {
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
     const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
-    const figmaSection = renderFigmaSection(figmaLinks)
+    const figmaSection = renderFigmaSection(figmaLinks, resolved.identifier)
     if (figmaLinks.length > 0) {
       scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
     }
 
     const artifacts = await taskArtifactRepository.listByTask(resolved.id)
-    const artifactSection = renderArtifactSection(artifacts)
+    const artifactSection = renderArtifactSection(
+      artifacts,
+      resolved.identifier
+    )
 
     // Contract — or, on a still-open task without one, the draft nudge:
     // `task context` is exactly the read-the-context moment the drafting
@@ -1216,7 +1219,7 @@ export const taskContextService = {
     })
 
     const prs = await pullRequestRepository.listByTask(resolved.id)
-    const prSection = renderPRSection(prs)
+    const prSection = renderPRSection(prs, resolved.identifier)
 
     // collectReviewTodos returns the rendered todos AND their stable mirror
     // ids in lockstep, so the fragment manifest references exactly the todos
@@ -1294,8 +1297,11 @@ export const taskContextService = {
       wrappedComments = '',
       wrappedPr = '',
     ] = wrapUntrustedLinkedGroup([
-      renderSlackContextSection(slackContexts as unknown as SlackContextCard[]),
-      renderWebLinkSection(webLinks),
+      renderSlackContextSection(
+        slackContexts as unknown as SlackContextCard[],
+        resolved.identifier
+      ),
+      renderWebLinkSection(webLinks, resolved.identifier),
       figmaSection,
       artifactSection,
       docSection,

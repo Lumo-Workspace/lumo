@@ -6,7 +6,9 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+  acceptanceCriterionRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
@@ -154,7 +156,9 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     expect(ctx?.slackContextSection).toContain('#design')
     expect(ctx?.slackContextSection).toContain('Single message')
     expect(ctx?.slackContextSection).toContain('Decided to ship after review.')
-    expect(ctx?.slackContextSection).toContain('lumo task slack show ctx_1')
+    expect(ctx?.slackContextSection).toContain(
+      'lumo task slack show LUM-1 ctx_1'
+    )
     // Full thread is no longer inlined when a summary exists.
     expect(ctx?.slackContextSection).not.toContain('alice: hello')
   })

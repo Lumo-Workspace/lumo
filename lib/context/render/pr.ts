@@ -5,13 +5,16 @@ export interface PRCard {
   ciStatus: string | null
 }
 
-/** Render a single PR card body (no section heading). */
-export function prCard(pr: PRCard): string {
+/**
+ * Render a single PR card body (no section heading). `identifier` is the LUM-N
+ * task identifier — the first positional of the on-demand fetch command.
+ */
+export function prCard(pr: PRCard, identifier: string): string {
   const ci = pr.ciStatus ?? 'no CI'
   // LUM-347: entry-level source attribution — synced GitHub PR metadata.
   return [
     `- [external:github] #${pr.number} ${pr.title} — ${pr.state} · ${ci}`,
-    `  ↳ diff: lumo task pr show ${pr.number}`,
+    `  ↳ diff: lumo task pr show ${identifier} ${pr.number}`,
   ].join('\n')
 }
 
@@ -43,9 +46,9 @@ export function prManifest(pr: PRCard, identifier: string): string {
  * Render the "## Pull Requests" section. Unchanged public output; now composed
  * from `prCard`.
  */
-export function renderPRSection(prs: PRCard[]): string {
+export function renderPRSection(prs: PRCard[], identifier: string): string {
   if (prs.length === 0) return ''
   const lines: string[] = ['## Pull Requests', '']
-  for (const pr of prs) lines.push(prCard(pr))
+  for (const pr of prs) lines.push(prCard(pr, identifier))
   return lines.join('\n').trimEnd()
 }

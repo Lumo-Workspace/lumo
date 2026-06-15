@@ -23,113 +23,128 @@ import {
 
 describe('renderSlackContextSection', () => {
   it('shows summary + retrieval command, no inlined thread', () => {
-    const out = renderSlackContextSection([
-      {
-        id: 'clx_a',
-        isThread: true,
-        slackChannelName: 'design',
-        permalink: 'https://x',
-        snapshotAt: new Date('2026-05-28T10:12:00Z'),
-        refreshError: null,
-        summary: 'Decided to ship after review.',
-        snapshot: {
-          messages: [{ ts: '1', userId: 'U1', userName: 'A', text: 'hi' }],
+    const out = renderSlackContextSection(
+      [
+        {
+          id: 'clx_a',
+          isThread: true,
+          slackChannelName: 'design',
+          permalink: 'https://x',
+          snapshotAt: new Date('2026-05-28T10:12:00Z'),
+          refreshError: null,
+          summary: 'Decided to ship after review.',
+          snapshot: {
+            messages: [{ ts: '1', userId: 'U1', userName: 'A', text: 'hi' }],
+          },
         },
-      },
-    ] as any)
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## Slack Context')
     expect(out).toContain('### [external:slack] #design')
     expect(out).toContain('Decided to ship after review.')
-    expect(out).toContain('lumo task slack show clx_a')
+    expect(out).toContain('lumo task slack show LUM-42 clx_a')
     // full thread NOT inlined anymore
     expect(out).not.toContain('- **A**: hi')
   })
 
   it('falls back to first 3 messages when summary is empty', () => {
-    const out = renderSlackContextSection([
-      {
-        id: 'clx_b',
-        isThread: true,
-        slackChannelName: null,
-        permalink: 'https://y',
-        snapshotAt: new Date('2026-05-28T10:12:00Z'),
-        refreshError: null,
-        summary: null,
-        snapshot: {
-          messages: [
-            { ts: '1', userId: 'U1', userName: 'A', text: 'one' },
-            { ts: '2', userId: 'U2', userName: 'B', text: 'two' },
-            { ts: '3', userId: 'U3', userName: 'C', text: 'three' },
-            { ts: '4', userId: 'U4', userName: 'D', text: 'four' },
-          ],
+    const out = renderSlackContextSection(
+      [
+        {
+          id: 'clx_b',
+          isThread: true,
+          slackChannelName: null,
+          permalink: 'https://y',
+          snapshotAt: new Date('2026-05-28T10:12:00Z'),
+          refreshError: null,
+          summary: null,
+          snapshot: {
+            messages: [
+              { ts: '1', userId: 'U1', userName: 'A', text: 'one' },
+              { ts: '2', userId: 'U2', userName: 'B', text: 'two' },
+              { ts: '3', userId: 'U3', userName: 'C', text: 'three' },
+              { ts: '4', userId: 'U4', userName: 'D', text: 'four' },
+            ],
+          },
         },
-      },
-    ] as any)
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('#channel')
     expect(out).toContain('A: one')
     expect(out).toContain('C: three')
     // 4th message dropped (only first 3 in fallback)
     expect(out).not.toContain('D: four')
     // command still printed
-    expect(out).toContain('lumo task slack show clx_b')
+    expect(out).toContain('lumo task slack show LUM-42 clx_b')
   })
 
   it('returns empty string for empty set', () => {
-    expect(renderSlackContextSection([] as any)).toBe('')
+    expect(renderSlackContextSection([] as any, 'LUM-42')).toBe('')
   })
 })
 
 describe('renderWebLinkSection', () => {
   it('keeps OG title/desc and appends retrieval command', () => {
-    const out = renderWebLinkSection([
-      {
-        id: 'wl_1',
-        url: 'https://example.com/post',
-        domain: 'example.com',
-        title: 'A Post',
-        description: 'the gist',
-        note: null,
-        fetchedAt: new Date(),
-        fetchError: null,
-      },
-    ] as any)
+    const out = renderWebLinkSection(
+      [
+        {
+          id: 'wl_1',
+          url: 'https://example.com/post',
+          domain: 'example.com',
+          title: 'A Post',
+          description: 'the gist',
+          note: null,
+          fetchedAt: new Date(),
+          fetchError: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## Web Links')
     expect(out).toContain('[A Post](https://example.com/post) — example.com')
     expect(out).toContain('> the gist')
-    expect(out).toContain('lumo task web show wl_1')
+    expect(out).toContain('lumo task web show LUM-42 wl_1')
   })
 
   it('renders body line from note, preferring it over description', () => {
-    const out = renderWebLinkSection([
-      {
-        id: 'wl_note',
-        url: 'https://example.com/n',
-        domain: 'example.com',
-        title: 'Noted',
-        description: 'og description',
-        note: 'my own note',
-        fetchedAt: new Date(),
-        fetchError: null,
-      },
-    ] as any)
+    const out = renderWebLinkSection(
+      [
+        {
+          id: 'wl_note',
+          url: 'https://example.com/n',
+          domain: 'example.com',
+          title: 'Noted',
+          description: 'og description',
+          note: 'my own note',
+          fetchedAt: new Date(),
+          fetchError: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('> my own note')
     // note wins over the OG description
     expect(out).not.toContain('og description')
   })
 
   it('falls back to bare url + no-preview marker when title is missing', () => {
-    const out = renderWebLinkSection([
-      {
-        id: 'wl_bare',
-        url: 'https://example.com/raw',
-        domain: 'example.com',
-        title: null,
-        description: null,
-        note: null,
-        fetchedAt: null,
-        fetchError: 'fetch failed',
-      },
-    ] as any)
+    const out = renderWebLinkSection(
+      [
+        {
+          id: 'wl_bare',
+          url: 'https://example.com/raw',
+          domain: 'example.com',
+          title: null,
+          description: null,
+          note: null,
+          fetchedAt: null,
+          fetchError: 'fetch failed',
+        },
+      ] as any,
+      'LUM-42'
+    )
     // no markdown title link, just the raw url + domain
     expect(out).toContain(
       '- [external:web] https://example.com/raw — example.com'
@@ -140,22 +155,25 @@ describe('renderWebLinkSection', () => {
     // no body line when there is neither note nor description
     expect(out).not.toContain('  > ')
     // retrieval command still printed
-    expect(out).toContain('lumo task web show wl_bare')
+    expect(out).toContain('lumo task web show LUM-42 wl_bare')
   })
 
   it('omits the no-preview marker once the page has been fetched', () => {
-    const out = renderWebLinkSection([
-      {
-        id: 'wl_fetched',
-        url: 'https://example.com/ok',
-        domain: 'example.com',
-        title: null,
-        description: null,
-        note: null,
-        fetchedAt: new Date(),
-        fetchError: null,
-      },
-    ] as any)
+    const out = renderWebLinkSection(
+      [
+        {
+          id: 'wl_fetched',
+          url: 'https://example.com/ok',
+          domain: 'example.com',
+          title: null,
+          description: null,
+          note: null,
+          fetchedAt: new Date(),
+          fetchError: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain(
       '- [external:web] https://example.com/ok — example.com'
     )
@@ -163,120 +181,135 @@ describe('renderWebLinkSection', () => {
   })
 
   it('renders every link in a multi-link set', () => {
-    const out = renderWebLinkSection([
-      {
-        id: 'wl_a',
-        url: 'https://a.com/1',
-        domain: 'a.com',
-        title: 'First',
-        description: 'first desc',
-        note: null,
-        fetchedAt: new Date(),
-        fetchError: null,
-      },
-      {
-        id: 'wl_b',
-        url: 'https://b.com/2',
-        domain: 'b.com',
-        title: 'Second',
-        description: null,
-        note: null,
-        fetchedAt: new Date(),
-        fetchError: null,
-      },
-    ] as any)
+    const out = renderWebLinkSection(
+      [
+        {
+          id: 'wl_a',
+          url: 'https://a.com/1',
+          domain: 'a.com',
+          title: 'First',
+          description: 'first desc',
+          note: null,
+          fetchedAt: new Date(),
+          fetchError: null,
+        },
+        {
+          id: 'wl_b',
+          url: 'https://b.com/2',
+          domain: 'b.com',
+          title: 'Second',
+          description: null,
+          note: null,
+          fetchedAt: new Date(),
+          fetchError: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('[First](https://a.com/1) — a.com')
     expect(out).toContain('[Second](https://b.com/2) — b.com')
-    expect(out).toContain('lumo task web show wl_a')
-    expect(out).toContain('lumo task web show wl_b')
+    expect(out).toContain('lumo task web show LUM-42 wl_a')
+    expect(out).toContain('lumo task web show LUM-42 wl_b')
   })
 
   it('returns empty string for empty set', () => {
-    expect(renderWebLinkSection([] as any)).toBe('')
+    expect(renderWebLinkSection([] as any, 'LUM-42')).toBe('')
   })
 })
 
 describe('renderFigmaSection', () => {
   it('keeps metadata and appends design-context command', () => {
-    const out = renderFigmaSection([
-      {
-        id: 'fg_1',
-        url: 'https://figma.com/file/abc',
-        fileName: 'Designs',
-        frameName: 'Home',
-        thumbnailUrl: 'https://t/x.png',
-        thumbnailFetchedAt: new Date(),
-        lastSyncedAt: new Date('2026-05-20T00:00:00Z'),
-        lastSyncError: null,
-      },
-    ] as any)
+    const out = renderFigmaSection(
+      [
+        {
+          id: 'fg_1',
+          url: 'https://figma.com/file/abc',
+          fileName: 'Designs',
+          frameName: 'Home',
+          thumbnailUrl: 'https://t/x.png',
+          thumbnailFetchedAt: new Date(),
+          lastSyncedAt: new Date('2026-05-20T00:00:00Z'),
+          lastSyncError: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## Figma Designs')
     expect(out).toContain('Designs · Home')
-    expect(out).toContain('lumo task figma context fg_1')
+    expect(out).toContain('lumo task figma context LUM-42 fg_1')
   })
 
   it('returns empty string for empty set', () => {
-    expect(renderFigmaSection([] as any)).toBe('')
+    expect(renderFigmaSection([] as any, 'LUM-42')).toBe('')
   })
 })
 
 describe('renderArtifactSection', () => {
   it('shows summary + retrieval command, no inlined content', () => {
-    const out = renderArtifactSection([
-      {
-        id: 'art_1',
-        kind: 'SPEC',
-        title: 'Auth Spec',
-        content: 'line1\nline2\nline3',
-        agent: 'CLAUDE_CODE',
-        summary: 'Covers OAuth login.',
-      },
-    ] as any)
+    const out = renderArtifactSection(
+      [
+        {
+          id: 'art_1',
+          kind: 'SPEC',
+          title: 'Auth Spec',
+          content: 'line1\nline2\nline3',
+          agent: 'CLAUDE_CODE',
+          summary: 'Covers OAuth login.',
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## [SPEC] Auth Spec · Claude Code')
     expect(out).toContain('Covers OAuth login.')
-    expect(out).toContain('lumo task artifact show art_1')
+    expect(out).toContain('lumo task artifact show LUM-42 art_1')
     expect(out).not.toContain('line2')
   })
 
   it('falls back to first N content lines when summary empty', () => {
-    const out = renderArtifactSection([
-      {
-        id: 'art_2',
-        kind: 'PLAN',
-        title: 'Plan',
-        content:
-          'line-one\nline-two\nline-three\nline-four\nline-five\nline-six\nline-seven',
-        agent: null,
-        summary: null,
-      },
-    ] as any)
+    const out = renderArtifactSection(
+      [
+        {
+          id: 'art_2',
+          kind: 'PLAN',
+          title: 'Plan',
+          content:
+            'line-one\nline-two\nline-three\nline-four\nline-five\nline-six\nline-seven',
+          agent: null,
+          summary: null,
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## [PLAN] Plan')
     expect(out).toContain('line-one')
     expect(out).toContain('line-five')
     // 6th+ line dropped (fallback caps at 5)
     expect(out).not.toContain('line-six')
-    expect(out).toContain('lumo task artifact show art_2')
+    expect(out).toContain('lumo task artifact show LUM-42 art_2')
   })
 
   it('renders a known agent label and passes unknown agents through verbatim', () => {
-    const out = renderArtifactSection([
-      {
-        id: 'art_known',
-        kind: 'SPEC',
-        title: 'Known',
-        content: 'x',
-        agent: 'CURSOR',
-        summary: 's',
-      },
-      {
-        id: 'art_unknown',
-        kind: 'NOTE',
-        title: 'Unknown',
-        content: 'y',
-        agent: 'SOME_NEW_AGENT',
-        summary: 's2',
-      },
-    ] as any)
+    const out = renderArtifactSection(
+      [
+        {
+          id: 'art_known',
+          kind: 'SPEC',
+          title: 'Known',
+          content: 'x',
+          agent: 'CURSOR',
+          summary: 's',
+        },
+        {
+          id: 'art_unknown',
+          kind: 'NOTE',
+          title: 'Unknown',
+          content: 'y',
+          agent: 'SOME_NEW_AGENT',
+          summary: 's2',
+        },
+      ] as any,
+      'LUM-42'
+    )
     // known agent maps to its display label
     expect(out).toContain('## [SPEC] Known · Cursor')
     // unknown agent code is passed through as-is, not dropped
@@ -284,50 +317,56 @@ describe('renderArtifactSection', () => {
   })
 
   it('omits the agent suffix when no agent is set', () => {
-    const out = renderArtifactSection([
-      {
-        id: 'art_noagent',
-        kind: 'PLAN',
-        title: 'No Agent',
-        content: 'c',
-        agent: null,
-        summary: 'sum',
-      },
-    ] as any)
+    const out = renderArtifactSection(
+      [
+        {
+          id: 'art_noagent',
+          kind: 'PLAN',
+          title: 'No Agent',
+          content: 'c',
+          agent: null,
+          summary: 'sum',
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## [PLAN] No Agent')
     expect(out).not.toContain('·')
     expect(out).toContain('sum')
   })
 
   it('renders every artifact in a multi-artifact set', () => {
-    const out = renderArtifactSection([
-      {
-        id: 'art_m1',
-        kind: 'SPEC',
-        title: 'One',
-        content: 'a',
-        agent: null,
-        summary: 'sum one',
-      },
-      {
-        id: 'art_m2',
-        kind: 'PLAN',
-        title: 'Two',
-        content: 'b',
-        agent: null,
-        summary: 'sum two',
-      },
-    ] as any)
+    const out = renderArtifactSection(
+      [
+        {
+          id: 'art_m1',
+          kind: 'SPEC',
+          title: 'One',
+          content: 'a',
+          agent: null,
+          summary: 'sum one',
+        },
+        {
+          id: 'art_m2',
+          kind: 'PLAN',
+          title: 'Two',
+          content: 'b',
+          agent: null,
+          summary: 'sum two',
+        },
+      ] as any,
+      'LUM-42'
+    )
     expect(out).toContain('## [SPEC] One')
     expect(out).toContain('sum one')
-    expect(out).toContain('lumo task artifact show art_m1')
+    expect(out).toContain('lumo task artifact show LUM-42 art_m1')
     expect(out).toContain('## [PLAN] Two')
     expect(out).toContain('sum two')
-    expect(out).toContain('lumo task artifact show art_m2')
+    expect(out).toContain('lumo task artifact show LUM-42 art_m2')
   })
 
   it('returns empty string for empty set', () => {
-    expect(renderArtifactSection([] as any)).toBe('')
+    expect(renderArtifactSection([] as any, 'LUM-42')).toBe('')
   })
 })
 
@@ -386,22 +425,25 @@ describe('renderCommentsSection', () => {
 
 describe('renderPRSection', () => {
   it('renders a line per PR with diff retrieval command', () => {
-    const out = renderPRSection([
-      {
-        number: 42,
-        title: 'Add login',
-        state: 'open',
-        ciStatus: 'success',
-      },
-    ] as any)
+    const out = renderPRSection(
+      [
+        {
+          number: 42,
+          title: 'Add login',
+          state: 'open',
+          ciStatus: 'success',
+        },
+      ] as any,
+      'LUM-7'
+    )
     expect(out).toContain('## Pull Requests')
     expect(out).toContain('#42 Add login — open')
     expect(out).toContain('success')
-    expect(out).toContain('lumo task pr show 42')
+    expect(out).toContain('lumo task pr show LUM-7 42')
   })
 
   it('returns empty string for empty set', () => {
-    expect(renderPRSection([] as any)).toBe('')
+    expect(renderPRSection([] as any, 'LUM-7')).toBe('')
   })
 })
 
@@ -499,13 +541,13 @@ describe('slackCard / slackManifest (LUM-147)', () => {
   }
 
   it('slackCard renders one card body without the section heading', () => {
-    const out = slackCard(card)
+    const out = slackCard(card, 'LUM-42')
     expect(out).not.toContain('## Slack Context')
     expect(out).toContain(
       '### [external:slack] #eng · Thread (0 messages, fetched 2026-06-01 10:00 UTC)'
     )
     expect(out).toContain('Decided to ship Friday.')
-    expect(out).toContain('↳ full text: lumo task slack show ctx_1')
+    expect(out).toContain('↳ full text: lumo task slack show LUM-42 ctx_1')
   })
 
   it('slackManifest is one line with channel + summary snippet + retrieval command (LUM-500)', () => {
@@ -540,12 +582,12 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
   }
 
   it('webLinkCard renders the bullet block without the section heading', () => {
-    const out = webLinkCard(link)
+    const out = webLinkCard(link, 'LUM-42')
     expect(out).not.toContain('## Web Links')
     expect(out).toContain(
       '- [external:web] [A Title](https://ex.com/a) — ex.com'
     )
-    expect(out).toContain('↳ body: lumo task web show wl_1')
+    expect(out).toContain('↳ body: lumo task web show LUM-42 wl_1')
   })
 
   it('webLinkManifest carries the title + host, falls back to url + host (LUM-500)', () => {
@@ -571,10 +613,12 @@ describe('figmaCard / figmaManifest (LUM-147)', () => {
   } as unknown as import('@prisma/client').TaskFigmaLink
 
   it('figmaCard renders one link without the section heading', () => {
-    const out = figmaCard(link)
+    const out = figmaCard(link, 'LUM-42')
     expect(out).not.toContain('## Figma Designs')
     expect(out).toContain('- [external:figma] **Onboarding · Welcome**')
-    expect(out).toContain('↳ design context: lumo task figma context cfl_1')
+    expect(out).toContain(
+      '↳ design context: lumo task figma context LUM-42 cfl_1'
+    )
   })
 
   it('figmaManifest is one line: file/frame name + retrieval command (LUM-500)', () => {
@@ -600,10 +644,10 @@ describe('prCard / prManifest (LUM-147)', () => {
   }
 
   it('prCard renders one PR without the section heading', () => {
-    const out = prCard(pr)
+    const out = prCard(pr, 'LUM-7')
     expect(out).not.toContain('## Pull Requests')
     expect(out).toContain('- [external:github] #42 Fix bug — OPEN · passing')
-    expect(out).toContain('↳ diff: lumo task pr show 42')
+    expect(out).toContain('↳ diff: lumo task pr show LUM-7 42')
   })
 
   it('prManifest is one line: PR number + title + retrieval command (LUM-500)', () => {
