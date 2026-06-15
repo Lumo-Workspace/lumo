@@ -1,5 +1,11 @@
-import { formatLineageMarkdown } from '../../cli/src/commands/task-lineage'
-import type { LineageResponse } from '../../cli/src/commands/task-lineage'
+import {
+  formatLineageMarkdown,
+  formatSignalHealth,
+} from '../../cli/src/commands/task-lineage'
+import type {
+  LineageResponse,
+  UsageSignalHealth,
+} from '../../cli/src/commands/task-lineage'
 
 const base: LineageResponse = {
   task: { identifier: 'LUM-1', title: 'Add lineage', status: 'DONE' },
@@ -242,6 +248,40 @@ describe('formatLineageMarkdown disclosure funnel', () => {
     const out = formatLineageMarkdown(noIndex)
     expect(out).toContain(
       '1 impressions · 0 INDEX (0%) · 0 pulled (0% of INDEX) · 0 used (0%)'
+    )
+    expect(out).not.toContain('NaN')
+  })
+})
+
+describe('formatSignalHealth disclosure funnel', () => {
+  const signalBase: UsageSignalHealth = {
+    distribution: { used: 0, unused: 0, abstained: 0 },
+    perSessionVariance: 0,
+    votedSessions: 0,
+    usedMergeRate: null,
+    baseMergeRate: null,
+    usedResolvedTasks: 0,
+    baseResolvedTasks: 0,
+    usedFailedTasks: 0,
+    baseFailedTasks: 0,
+    spinoffsDuringInFlight: 0,
+    disclosureFunnel: { impressions: 277, index: 277, pulled: 0, used: 12 },
+  }
+
+  it('renders a workspace disclosure funnel line', () => {
+    const out = formatSignalHealth(signalBase)
+    expect(out).toContain(
+      '- Disclosure funnel: 277 impressions · 277 INDEX (100%) · 0 pulled (0% of INDEX) · 12 used (4%)'
+    )
+  })
+
+  it('guards divide-by-zero for an empty funnel', () => {
+    const out = formatSignalHealth({
+      ...signalBase,
+      disclosureFunnel: { impressions: 0, index: 0, pulled: 0, used: 0 },
+    })
+    expect(out).toContain(
+      '0 impressions · 0 INDEX (0%) · 0 pulled (0% of INDEX) · 0 used (0%)'
     )
     expect(out).not.toContain('NaN')
   })

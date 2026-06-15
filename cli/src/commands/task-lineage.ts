@@ -62,6 +62,12 @@ export interface UsageSignalHealth {
   usedFailedTasks: number
   baseFailedTasks: number
   spinoffsDuringInFlight: number
+  disclosureFunnel: {
+    impressions: number
+    index: number
+    pulled: number
+    used: number
+  }
 }
 
 export async function taskLineage(
@@ -274,6 +280,13 @@ export function formatSignalHealth(h: UsageSignalHealth): string {
   }
   lines.push(
     `- Spinoffs during in-flight work: ${h.spinoffsDuringInFlight} (recorded, not yet judged)`
+  )
+  const f = h.disclosureFunnel
+  lines.push(
+    `- Disclosure funnel: ${f.impressions} impressions · ` +
+      `${f.index} INDEX (${pct(f.index, f.impressions)}%) · ` +
+      `${f.pulled} pulled (${pct(f.pulled, f.index)}% of INDEX) · ` +
+      `${f.used} used (${pct(f.used, f.impressions)}%)`
   )
   return lines.join('\n')
 }
