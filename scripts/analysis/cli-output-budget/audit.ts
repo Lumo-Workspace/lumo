@@ -100,6 +100,10 @@ function makeLineage(nFragments: number): LineageResponse {
         sourceLabel: `mem fragment ${g}-${i} about layered architecture`,
         outcome: 'MERGED' as const,
         used: i % 2 === 0 ? true : null,
+        // LUM-521: longest per-fragment tag (INDEX not-pulled) → conservative
+        // for the output-byte budget audit.
+        disclosure: 'INDEX' as const,
+        pulled: false,
       })),
     })
     remaining -= take
@@ -120,6 +124,13 @@ function makeLineage(nFragments: number): LineageResponse {
       },
       loopCount: 6,
       outcomes: { MERGED: nFragments, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
+      // LUM-521 disclosure funnel (edge-level): all INDEX, none pulled, ~half used.
+      funnel: {
+        impressions: nFragments,
+        index: nFragments,
+        pulled: 0,
+        used: Math.ceil(nFragments / 2),
+      },
     },
     groups,
   }
