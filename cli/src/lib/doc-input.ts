@@ -71,6 +71,12 @@ export async function resolveDocContent(
   }
   if (!args.stdinIsTTY) {
     const text = await args.readStdin()
+    // A non-TTY shell with nothing piped (the common agent/CI case) yields an
+    // empty read. Treat empty/whitespace-only stdin as "no content channel"
+    // so a title-only `doc update` doesn't ship an empty body and trip the
+    // LUM-410 structure guard / blank the document (LUM-505). To clear a body
+    // deliberately, pass an explicit `--content ""` (handled above).
+    if (text.trim().length === 0) return { kind: 'none' }
     return { kind: 'ok', markdown: text }
   }
   return { kind: 'none' }
