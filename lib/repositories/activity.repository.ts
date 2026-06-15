@@ -72,6 +72,24 @@ export const activityRepository = {
   },
 
   /**
+   * Task ids (within the candidate set) carrying any of the given activity-type
+   * markers — LUM-511 Phase 4 judge-confirmed laundering signals folded into the
+   * flywheel negative class.
+   */
+  async taskIdsWithMarkers(
+    taskIds: string[],
+    types: TaskActivityType[]
+  ): Promise<Set<string>> {
+    if (taskIds.length === 0) return new Set()
+    const rows = await prisma.taskActivity.findMany({
+      where: { taskId: { in: taskIds }, type: { in: types } },
+      select: { taskId: true },
+      distinct: ['taskId'],
+    })
+    return new Set(rows.map(r => r.taskId))
+  },
+
+  /**
    * Every boundary-crossing disposition activity for a task, oldest first, with
    * the acting actor (LUM-450). The read model folds these to surface, on the
    * acceptance bar, that a crossing's disposition was *corrected* (from -> to,

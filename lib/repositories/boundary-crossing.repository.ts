@@ -127,6 +127,24 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * Task ids (within the candidate set) carrying ≥1 crossing of the given
+   * category — LUM-511 Phase 4 folds CONTRACT_WEAKENING into the flywheel
+   * negative class (disposition-agnostic: a recorded weakening counts).
+   */
+  async taskIdsWithCategory(
+    taskIds: string[],
+    category: BoundaryCrossingCategory
+  ): Promise<Set<string>> {
+    if (taskIds.length === 0) return new Set()
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: { taskId: { in: taskIds }, category },
+      select: { taskId: true },
+      distinct: ['taskId'],
+    })
+    return new Set(rows.map(r => r.taskId))
+  },
+
+  /**
    * Open (undispositioned) crossings on a task — what the DONE gate blocks on.
    * A crossing is open while `disposition` is null; either disposition clears it.
    */

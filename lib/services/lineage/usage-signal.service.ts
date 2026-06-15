@@ -1,6 +1,7 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import type { UsageSignalHealth } from '@/types/lineage-usage'
 
 type TaskRow = { taskId: string; resolved: boolean; merged: boolean }
@@ -40,8 +41,20 @@ export const usageSignalService = {
         ...agg.baseTasks.map(t => t.taskId),
       ]),
     ]
-    const failed =
+    // Negative class = HUMAN/AGENT send-backs ∪ judge-confirmed laundering
+    // (LUM-511 Phase 4: laundered spinoffs + silent-fix markers + contract
+    // weakening). All additive failure sources fold the same way.
+    const sendBack =
       await verificationRunRepository.taskIdsWithSendBack(candidateTaskIds)
+    const markers = await activityRepository.taskIdsWithMarkers(
+      candidateTaskIds,
+      ['SPINOFF_LAUNDERED', 'SILENT_FIX_DETECTED']
+    )
+    const weakened = await boundaryCrossingRepository.taskIdsWithCategory(
+      candidateTaskIds,
+      'CONTRACT_WEAKENING'
+    )
+    const failed = new Set([...sendBack, ...markers, ...weakened])
     const fractions = agg.perSession
       .filter(s => s.injected > 0)
       .map(s => s.used / s.injected)

@@ -301,6 +301,9 @@ export function severityFor(
     // LUM-491: unbound-session work is serious (session-binding lock bypass) but
     // deterministically detectable and not data-destructive, so MEDIUM.
     case 'SESSION_BINDING_MISSING':
+    // LUM-511 Phase 4: criterion weakening (judge-confirmed) is tampering-class
+    // but not data-destructive, so MEDIUM (like TEST_TAMPERING).
+    case 'CONTRACT_WEAKENING':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
@@ -1111,6 +1114,73 @@ export async function confirmActionCandidates(
   return out
 }
 
+/** Best-effort one-line summary of an Edit/Write payload for the silent-fix judge. */
+function summarizeEdit(payload: unknown): string {
+  if (payload && typeof payload === 'object') {
+    const root = payload as Record<string, unknown>
+    const input = (root.tool_input ?? root) as Record<string, unknown>
+    const parts: string[] = []
+    if (typeof input.old_string === 'string')
+      parts.push(`- old: ${input.old_string}`)
+    if (typeof input.new_string === 'string')
+      parts.push(`+ new: ${input.new_string}`)
+    else if (typeof input.content === 'string') parts.push(input.content)
+    if (parts.length) return parts.join('\n')
+  }
+  return '(edit content unavailable)'
+}
+
+/**
+ * LUM-511 Phase 4 (silent-fix): when a file edit lands on a task that has already
+ * been submitted for acceptance (ever entered IN_REVIEW) with NO recorded
+ * send-back, the agent may be silently fixing a defect that should have left a
+ * send-back trace. Judge REAL_FIX vs COSMETIC and, on REAL_FIX, record a
+ * task-level SILENT_FIX_DETECTED marker (one per task) for the flywheel negative
+ * class. Cheap short-circuits run before any DB/LLM work; audit-only.
+ */
+export async function recordSilentFixIfDetected(
+  input: BoundaryDetectionInput
+): Promise<void> {
+  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return
+  if (!input.filePath) return
+  const statusChanges = await activityRepository.listByTaskAndType(
+    input.taskId,
+    'STATUS_CHANGED'
+  )
+  const everInReview = statusChanges.some(
+    a => (a.payload as { toStatus?: string } | null)?.toStatus === 'IN_REVIEW'
+  )
+  if (!everInReview) return
+  // A recorded send-back means the fix is a normal, traced rework — not silent.
+  const sendBacks = await verificationRunRepository.taskIdsWithSendBack([
+    input.taskId,
+  ])
+  if (sendBacks.size > 0) return
+  // One marker per task is enough — don't spam the timeline per edit.
+  const existing = await activityRepository.listByTaskAndType(
+    input.taskId,
+    'SILENT_FIX_DETECTED'
+  )
+  if (existing.length > 0) return
+  const { classifySilentFix } =
+    await import('@/lib/boundary-crossing/silent-fix-judge')
+  const { judgeSilentFix } = await import('@/lib/llm/silent-fix-judge-client')
+  const verdict = await classifySilentFix(
+    { filePath: input.filePath, editSummary: summarizeEdit(input.payload) },
+    { judge: judgeSilentFix }
+  )
+  if (verdict !== 'REAL_FIX') return
+  await activityRepository.create({
+    taskId: input.taskId,
+    actorId: null,
+    type: 'SILENT_FIX_DETECTED',
+    payload: {
+      filePath: input.filePath,
+      hookEventId: input.hookEventId ?? null,
+    },
+  })
+}
+
 export const boundaryDetectorService = {
   /**
    * Detect forbidden actions on an ingested hook event and, for each match,
@@ -1181,6 +1251,10 @@ export const boundaryDetectorService = {
           },
         })
       }
+      // LUM-511 Phase 4: silent-fix detection (post-submission edit with no
+      // recorded send-back). Separate from the crossing loop — it records a
+      // task-level marker, not a crossing.
+      await recordSilentFixIfDetected(input)
     } catch (error) {
       // Observe-only: a detector failure must never disrupt ingestion.
       console.error('boundaryDetectorService.detectAndRecord error:', error)

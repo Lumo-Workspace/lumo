@@ -4,6 +4,8 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { commentService } from '@/lib/services/comment.service'
 import { getHumanActorId } from '@/lib/actor'
+import { judgeWeakening } from '@/lib/llm/contract-weakening-judge-client'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: {
@@ -50,6 +52,16 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     findActorByMemberId: jest.fn(async () => ({ id: 'actor-1' })),
   },
 }))
+// LUM-511 Phase 4: contract-weakening judge dispatch (dynamic-imported).
+jest.mock('@/lib/llm/contract-weakening-judge-client', () => ({
+  judgeWeakening: jest.fn(),
+}))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: {
+    coalesceRecurrence: jest.fn(),
+    create: jest.fn(),
+  },
+}))
 
 const repo = acceptanceCriterionRepository as jest.Mocked<
   typeof acceptanceCriterionRepository
@@ -61,6 +73,14 @@ const runRepo = verificationRunRepository as unknown as {
 const mockCreateComment = commentService.createComment as jest.Mock
 const mockGetHumanActorId = getHumanActorId as jest.Mock
 const mockActivityCreate = activityRepository.create as jest.Mock
+const mockJudgeWeakening = judgeWeakening as jest.Mock
+const mockBoundaryCoalesce =
+  boundaryCrossingRepository.coalesceRecurrence as jest.Mock
+const mockBoundaryCreate = boundaryCrossingRepository.create as jest.Mock
+
+async function flushWaitUntil(): Promise<void> {
+  await Promise.all(waitUntilPromises)
+}
 
 /** CRITERION_CHANGED payloads recorded with the given op. */
 function driftPayloads(op: 'ADDED' | 'UPDATED' | 'DELETED') {
@@ -98,6 +118,9 @@ beforeEach(() => {
   waitUntilPromises.length = 0
   mockGetHumanActorId.mockResolvedValue('actor-1')
   mockCreateComment.mockResolvedValue({ id: 'comment-1' })
+  mockJudgeWeakening.mockResolvedValue('EVOLVED')
+  mockBoundaryCoalesce.mockResolvedValue(0)
+  mockBoundaryCreate.mockResolvedValue({ id: 'bc-1' })
 })
 
 describe('taskCriteriaService.listForTask', () => {
@@ -683,5 +706,85 @@ describe('taskCriteriaService.reviseAsHuman', () => {
 
     expect(repo.update).not.toHaveBeenCalled()
     expect(waitUntilPromises).toHaveLength(0)
+  })
+})
+
+describe('contract-weakening guard (Phase 4)', () => {
+  const failedRuns = new Map([
+    ['c-1', { criterionId: 'c-1', verifierType: 'AGENT', verdict: 'FAIL' }],
+  ])
+
+  beforeEach(() => {
+    repo.listByTask.mockResolvedValue([criterion({ id: 'c-1' })])
+    runRepo.maxRoundByTask.mockResolvedValue(2)
+    ;(repo.update as jest.Mock).mockResolvedValue(criterion({ id: 'c-1' }))
+  })
+
+  function agentReword(statement: string) {
+    return taskCriteriaService.submitDraft(
+      't-1',
+      [
+        {
+          id: 'c-1',
+          statement,
+          verifierType: 'MACHINE' as const,
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION,
+      'IN_PROGRESS',
+      new Date('2026-06-05')
+    )
+  }
+
+  it('records a CONTRACT_WEAKENING crossing when an open-FAIL criterion is reworded and judged WEAKENED', async () => {
+    runRepo.latestRunsByCriterion.mockResolvedValue(failedRuns)
+    mockJudgeWeakening.mockResolvedValue('WEAKENED')
+    await agentReword('returns something')
+    await flushWaitUntil()
+    expect(mockBoundaryCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't-1',
+        category: 'CONTRACT_WEAKENING',
+        severity: 'MEDIUM',
+      })
+    )
+  })
+
+  it('records no crossing when the judge says EVOLVED', async () => {
+    runRepo.latestRunsByCriterion.mockResolvedValue(failedRuns)
+    mockJudgeWeakening.mockResolvedValue('EVOLVED')
+    await agentReword('returns the full payload with status and body')
+    await flushWaitUntil()
+    expect(mockBoundaryCreate).not.toHaveBeenCalled()
+  })
+
+  it('does not judge when the reworded criterion has no open send-back', async () => {
+    runRepo.latestRunsByCriterion.mockResolvedValue(new Map())
+    await agentReword('returns something')
+    await flushWaitUntil()
+    expect(mockJudgeWeakening).not.toHaveBeenCalled()
+    expect(mockBoundaryCreate).not.toHaveBeenCalled()
+  })
+
+  it('exempts HUMAN_EDIT revisions from the weakening guard', async () => {
+    runRepo.latestRunsByCriterion.mockResolvedValue(failedRuns)
+    mockJudgeWeakening.mockResolvedValue('WEAKENED')
+    await taskCriteriaService.reviseAsHuman(
+      't-1',
+      [
+        {
+          id: 'c-1',
+          statement: 'returns something',
+          verifierType: 'MACHINE' as const,
+          checkpointer: 'npx jest',
+        },
+      ],
+      ATTRIBUTION,
+      'IN_PROGRESS'
+    )
+    await flushWaitUntil()
+    expect(mockJudgeWeakening).not.toHaveBeenCalled()
+    expect(mockBoundaryCreate).not.toHaveBeenCalled()
   })
 })

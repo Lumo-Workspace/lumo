@@ -4,7 +4,9 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { taskService } from '@/lib/services/task.service'
+import { waitUntil } from '@vercel/functions'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
@@ -28,6 +30,53 @@ const mustDeclareMessage = (identifier: string, title: string): string =>
 
 const openSendBackMessage = (identifier: string, title: string): string =>
   `${identifier} ("${title}") has unresolved verification failures — a standing send-back. Resolve it on ${identifier} (\`lumo task status\` → fix + \`lumo verify\`, or amend the contract) before opening new work; don't spin off a new task while it's failing.`
+
+/**
+ * LUM-511 Phase 4: judge whether a mid-flight `--new-scope` spinoff is laundered
+ * rework of its parent, off the hot path. Audit-only — runs in the background via
+ * `waitUntil`, never blocks the create response, and swallows all errors. On a
+ * LAUNDERED verdict it records a task-level `SPINOFF_LAUNDERED` marker on the
+ * parent (fed into the flywheel negative class). Exported for direct testing.
+ */
+export function dispatchSpinoffJudge(args: {
+  parentTaskId: string
+  spunOffTaskId: string
+  newTaskTitle: string
+  newTaskDescription: string | null
+}): void {
+  waitUntil(
+    (async () => {
+      try {
+        const criteria = await acceptanceCriterionRepository.listByTask(
+          args.parentTaskId
+        )
+        // Nothing to compare against ⇒ not laundering; skip the SDK load entirely.
+        if (criteria.length === 0) return
+        const { classifySpinoff } =
+          await import('@/lib/boundary-crossing/spinoff-judge')
+        const { judgeSpinoff } = await import('@/lib/llm/spinoff-judge-client')
+        const verdict = await classifySpinoff(
+          {
+            parentCriteria: criteria.map(c => c.statement),
+            newTaskTitle: args.newTaskTitle,
+            newTaskDescription: args.newTaskDescription,
+          },
+          { judge: judgeSpinoff }
+        )
+        if (verdict === 'LAUNDERED') {
+          await activityRepository.create({
+            taskId: args.parentTaskId,
+            actorId: null,
+            type: 'SPINOFF_LAUNDERED',
+            payload: { spunOffTaskId: args.spunOffTaskId },
+          })
+        }
+      } catch (err) {
+        console.error('dispatchSpinoffJudge error:', err)
+      }
+    })()
+  )
+}
 
 /**
  * Resolve a `--project <ref>` argument to a project id within a workspace.
@@ -307,6 +356,13 @@ async function createFromCli(args: {
     } catch (err) {
       console.error('TASK_SPUN_OFF record error:', err)
     }
+    // Phase 4: judge laundered-vs-legit in the background (off the hot path).
+    dispatchSpinoffJudge({
+      parentTaskId: spinoffParentTaskId,
+      spunOffTaskId: task.id,
+      newTaskTitle: input.title,
+      newTaskDescription: input.description ?? null,
+    })
   }
 
   return {
