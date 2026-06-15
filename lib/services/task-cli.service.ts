@@ -2,6 +2,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -22,6 +23,9 @@ const reworkRedirectMessage = (target: string): string =>
 
 const mustDeclareMessage = (identifier: string, title: string): string =>
   `You're working on ${identifier} ("${title}"). If this defect is rework of ${identifier}, fix it there and re-run \`lumo verify\` — pass \`--rework-of ${identifier}\`. If it's genuinely new, separate work, pass \`--new-scope\`.`
+
+const openSendBackMessage = (identifier: string, title: string): string =>
+  `${identifier} ("${title}") has unresolved verification failures — a standing send-back. Resolve it on ${identifier} (\`lumo task status\` → fix + \`lumo verify\`, or amend the contract) before opening new work; don't spin off a new task while it's failing.`
 
 /**
  * Resolve a `--project <ref>` argument to a project id within a workspace.
@@ -179,28 +183,45 @@ async function createFromCli(args: {
   // red line needs no extra guard.
   {
     let boundTask: BoundTaskRef | null = null
+    let boundTaskHasOpenSendBack = false
     if (args.sessionId && args.memberId) {
       const bound = await sessionRepository.findForMemberWithBinding(
         args.sessionId,
         args.memberId
       )
-      boundTask = bound?.task
-        ? {
-            identifier: `${bound.task.team.identifier}-${bound.task.number}`,
-            title: bound.task.title,
-            status: bound.task.status,
-          }
-        : null
+      if (bound?.task) {
+        boundTask = {
+          identifier: `${bound.task.team.identifier}-${bound.task.number}`,
+          title: bound.task.title,
+          status: bound.task.status,
+        }
+        // Layer 2: mirror the DONE gate (task-state.service.ts
+        // assertNoUnresolvedSendBack) — any criterion whose latest verdict is
+        // FAIL is a standing send-back.
+        const latest = await verificationRunRepository.latestRunsByCriterion(
+          bound.task.id
+        )
+        boundTaskHasOpenSendBack = [...latest.values()].some(
+          r => r.verdict === 'FAIL'
+        )
+      }
     }
 
     const intent = classifyTaskCreateIntent({
       boundTask,
+      boundTaskHasOpenSendBack,
       reworkOf: input.reworkOfRef,
       newScope: input.newScope ?? false,
     })
 
     if (intent.kind === 'redirect-rework') {
       throw httpError(409, reworkRedirectMessage(intent.target))
+    }
+    if (intent.kind === 'blocked-open-sendback') {
+      throw httpError(
+        409,
+        openSendBackMessage(intent.boundIdentifier, intent.boundTitle)
+      )
     }
     if (intent.kind === 'must-declare') {
       throw httpError(
