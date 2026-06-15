@@ -11,6 +11,7 @@ const BASE_TOTALS: LineageResponse['totals'] = {
   tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, total: 0 },
   loopCount: 0,
   outcomes: { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
+  funnel: { impressions: 2, index: 0, pulled: 0, used: 0 },
 }
 
 it('renders a usage marker per fragment', () => {
@@ -31,6 +32,8 @@ it('renders a usage marker per fragment', () => {
             sourceLabel: 'drift',
             outcome: 'MERGED',
             used: true,
+            disclosure: 'FULL',
+            pulled: false,
           },
           {
             fragmentType: 'WEB_LINK',
@@ -38,6 +41,8 @@ it('renders a usage marker per fragment', () => {
             sourceLabel: 'neon',
             outcome: 'MERGED',
             used: null,
+            disclosure: 'FULL',
+            pulled: false,
           },
         ],
       },
@@ -83,6 +88,8 @@ it('renders unused marker for used: false', () => {
             sourceLabel: 'old',
             outcome: 'REJECTED',
             used: false,
+            disclosure: 'FULL',
+            pulled: false,
           },
         ],
       },
@@ -109,6 +116,8 @@ it('renders the legend line in a group with fragments', () => {
             sourceLabel: 'pr title',
             outcome: 'UNKNOWN',
             used: null,
+            disclosure: 'FULL',
+            pulled: false,
           },
         ],
       },
