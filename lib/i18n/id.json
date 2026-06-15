@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "mengerjakan tugas tanpa sesi yang terlampir",
   "agentRun.turnsSummary": "{turns, plural, other {# putaran}}",
   "tokenCost.byMember": "Per anggota",
-  "tokenCost.byModel": "Per model"
+  "tokenCost.byModel": "Per model",
+  "acceptance.sendBack.resolved": "Pengembalian (ronde {failed}) diselesaikan di ronde {resolved}",
+  "acceptance.sendBack.open": "Pengembalian terbuka sejak ronde {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

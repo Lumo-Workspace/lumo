@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "未綁定工作階段即處理任務",
   "agentRun.turnsSummary": "{turns, plural, other {# 輪}}",
   "tokenCost.byMember": "按人",
-  "tokenCost.byModel": "按 model"
+  "tokenCost.byModel": "按 model",
+  "acceptance.sendBack.resolved": "退回(第 {failed} 輪)已於第 {resolved} 輪解決",
+  "acceptance.sendBack.open": "退回自第 {failed} 輪起未解決",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

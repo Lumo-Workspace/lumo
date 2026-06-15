@@ -723,6 +723,16 @@ export interface TaskStatusCriterionView {
   changeState: 'added' | 'edited' | null
   changedAtRound: number | null
   lastEdit: { before: string; after: string } | null
+  /** LUM-511 Phase 5: send-back lifecycle — a HUMAN/AGENT FAIL now resolved
+   *  (with the resolving round + best-effort closing PR) or still open; null
+   *  when the criterion was never sent back. */
+  sendBackResolution?: {
+    status: 'open' | 'resolved'
+    failedAtRound: number
+    resolvedAtRound?: number
+    closingPrNumber?: number
+    closingPrUrl?: string
+  } | null
 }
 
 /** Honest machine-verification rollup over the active MACHINE criteria

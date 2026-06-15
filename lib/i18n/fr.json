@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "travail sur une tâche sans session attachée",
   "agentRun.turnsSummary": "{turns, plural, one {# tour} other {# tours}}",
   "tokenCost.byMember": "Par personne",
-  "tokenCost.byModel": "Par modèle"
+  "tokenCost.byModel": "Par modèle",
+  "acceptance.sendBack.resolved": "Renvoi (tour {failed}) résolu au tour {resolved}",
+  "acceptance.sendBack.open": "Renvoi ouvert depuis le tour {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

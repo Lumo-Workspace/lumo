@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "세션을 연결하지 않고 진행한 작업",
   "agentRun.turnsSummary": "{turns, plural, other {# 턴}}",
   "tokenCost.byMember": "멤버별",
-  "tokenCost.byModel": "모델별"
+  "tokenCost.byModel": "모델별",
+  "acceptance.sendBack.resolved": "반려(라운드 {failed})가 라운드 {resolved}에서 해결됨",
+  "acceptance.sendBack.open": "라운드 {failed}부터 반려 미해결",
+  "acceptance.sendBack.pr": "PR #{number}"
 }

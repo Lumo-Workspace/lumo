@@ -1671,5 +1671,8 @@
   "boundary.category.sessionBindingMissing": "trabajo en una tarea sin sesión vinculada",
   "agentRun.turnsSummary": "{turns, plural, one {# ronda} other {# rondas}}",
   "tokenCost.byMember": "Por persona",
-  "tokenCost.byModel": "Por modelo"
+  "tokenCost.byModel": "Por modelo",
+  "acceptance.sendBack.resolved": "Devolución (ronda {failed}) resuelta en la ronda {resolved}",
+  "acceptance.sendBack.open": "Devolución abierta desde la ronda {failed}",
+  "acceptance.sendBack.pr": "PR #{number}"
 }
