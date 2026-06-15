@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "按 model",
   "acceptance.sendBack.resolved": "打回(第 {failed} 轮)已在第 {resolved} 轮解决",
   "acceptance.sendBack.open": "打回自第 {failed} 轮起未解决",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "弱化了一条未通过的验收标准",
+  "boundary.category.spinoffLaundered": "把返工洗成了新任务",
+  "boundary.category.silentFix": "对已提交的工作偷偷修复(无打回)"
 }

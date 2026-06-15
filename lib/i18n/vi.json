@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "Theo mô hình",
   "acceptance.sendBack.resolved": "Trả lại (vòng {failed}) đã giải quyết ở vòng {resolved}",
   "acceptance.sendBack.open": "Trả lại còn mở từ vòng {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "làm yếu một tiêu chí nghiệm thu đang thất bại",
+  "boundary.category.spinoffLaundered": "tuồn việc làm lại sang một nhiệm vụ mới",
+  "boundary.category.silentFix": "âm thầm sửa công việc đã nộp (không trả lại)"
 }

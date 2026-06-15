@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "모델별",
   "acceptance.sendBack.resolved": "반려(라운드 {failed})가 라운드 {resolved}에서 해결됨",
   "acceptance.sendBack.open": "라운드 {failed}부터 반려 미해결",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "실패 중인 인수 기준을 약화시킴",
+  "boundary.category.spinoffLaundered": "재작업을 새 작업으로 빼돌림",
+  "boundary.category.silentFix": "제출된 작업을 반려 없이 조용히 수정함"
 }

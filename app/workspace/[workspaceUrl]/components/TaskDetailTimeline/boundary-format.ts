@@ -61,6 +61,21 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.sessionBindingMissing',
         defaultMessage: 'task work from an unattached session',
       })
+    case 'CONTRACT_WEAKENING':
+      return intl.formatMessage({
+        id: 'boundary.category.contractWeakening',
+        defaultMessage: 'weakened a failing acceptance criterion',
+      })
+    case 'SPINOFF_LAUNDERED':
+      return intl.formatMessage({
+        id: 'boundary.category.spinoffLaundered',
+        defaultMessage: 'laundered rework into a new task',
+      })
+    case 'SILENT_FIX':
+      return intl.formatMessage({
+        id: 'boundary.category.silentFix',
+        defaultMessage: 'silently fixed submitted work (no send-back)',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

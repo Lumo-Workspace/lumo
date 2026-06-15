@@ -1674,5 +1674,8 @@
   "tokenCost.byModel": "По моделям",
   "acceptance.sendBack.resolved": "Возврат (раунд {failed}) устранён в раунде {resolved}",
   "acceptance.sendBack.open": "Возврат открыт с раунда {failed}",
-  "acceptance.sendBack.pr": "PR #{number}"
+  "acceptance.sendBack.pr": "PR #{number}",
+  "boundary.category.contractWeakening": "ослабил проваленный критерий приёмки",
+  "boundary.category.spinoffLaundered": "увёл доработку в новую задачу",
+  "boundary.category.silentFix": "втихую исправил сданную работу (без возврата)"
 }
