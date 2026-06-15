@@ -271,6 +271,7 @@ model Workspace {
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
+  droppedFragments        DroppedFragment[]
   taskDependencies        TaskDependency[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
@@ -565,6 +566,7 @@ model Task {
   artifacts          TaskArtifact[]
   complexity         TaskComplexity?
   lineageEdges       LineageEdge[]
+  droppedFragments   DroppedFragment[]
   forecastSnapshot   TaskForecastSnapshot?
   acceptanceCriteria AcceptanceCriterion[]
   verificationRuns   VerificationRun[]
@@ -1621,7 +1623,8 @@ model Session {
   worktree     Worktree?       @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
   events       HookEvent[]
   memories     Memory[]
-  lineageEdges LineageEdge[]
+  lineageEdges     LineageEdge[]
+  droppedFragments DroppedFragment[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
@@ -2071,6 +2074,18 @@ model LineageEdge {
   disclosure   LineageDisclosure   @default(FULL)
   // agent 经 `lumo … show <id>` 主动拉取该 fragment 正文的时刻（漏斗中间环）。
   pulledAt     DateTime?
+  // LUM-522 token-level funnel: per-fragment injection cost. indexTokens =
+  // the INDEX/manifest line actually injected; fullTokens = the FULL rendered
+  // body this INDEX impression avoided. Savings = Σ(fullTokens − indexTokens)
+  // over un-pulled INDEX edges, computed read-time (nulls skipped, never 0).
+  // Nullable + additive: historical edges and non-tagging aggregate callers
+  // are unaffected (mirrors disclosure/pulledAt).
+  indexTokens     Int?
+  fullTokens      Int?
+  // LUM-522: relevance-gate similarity score at injection time (LUM-486).
+  // Null when the fragment was not gate-scored (small-corpus bypass,
+  // fallback-all, or a non-MEMORY fragment).
+  relevanceScore  Float?
   updatedAt    DateTime            @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -2082,6 +2097,29 @@ model LineageEdge {
   @@index([taskId])
   @@index([workspaceId])
   @@map("lineage_edges")
+}
+
+/// LUM-522: a PROJECT-memory fragment the relevance gate (LUM-486) dropped
+/// below its floor / past top-K — recorded id+score only (not a full edge),
+/// so gate precision can be measured (did we drop something that later
+/// mattered?). Side table keeps every LineageEdge an "injected impression".
+model DroppedFragment {
+  id             String              @id @default(cuid())
+  workspaceId    String
+  taskId         String
+  sessionId      String?
+  fragmentType   LineageFragmentType
+  fragmentId     String
+  relevanceScore Float?
+  droppedAt      DateTime            @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([sessionId])
+  @@index([workspaceId])
 }
 
 /// 交付时固化的 forecast 快照（LUM-319）。只存预测区间；actual 渲染时实算。
