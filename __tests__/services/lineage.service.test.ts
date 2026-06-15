@@ -29,6 +29,13 @@ jest.mock('@/lib/repositories/dropped-fragment.repository', () => ({
     createMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
 }))
+// LUM-523: getLineageForIdentifier now dynamically imports operationCostService
+// for the Top-5 operations quick view. Mock it so the lineage tests don't pull
+// the per-operation attribution graph (hookEventRepository.findToolAttributionEvents
+// etc., which these tests don't mock). Default: null → topOperations defaults to [].
+jest.mock('@/lib/services/operation-cost.service', () => ({
+  operationCostService: { getOperationCost: jest.fn().mockResolvedValue(null) },
+}))
 
 import { lineageService } from '@/lib/services/lineage.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
@@ -39,6 +46,7 @@ import { taskService } from '@/lib/services/task.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { logger } from '@/lib/logger'
 import { droppedFragmentRepository } from '@/lib/repositories/dropped-fragment.repository'
+import { operationCostService } from '@/lib/services/operation-cost.service'
 import { formatLineageMarkdown } from '../../cli/src/commands/task-lineage'
 
 const mockCreateMany = lineageEdgeRepository.createMany as jest.Mock
@@ -53,6 +61,7 @@ const mockFindTurnUsageByTask =
   hookEventRepository.findTurnUsageByTask as jest.Mock
 const mockResolveIdentifier = taskService.resolveIdentifier as jest.Mock
 const mockGetStatus = taskRepository.getStatus as jest.Mock
+const mockGetOperationCost = operationCostService.getOperationCost as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -61,6 +70,7 @@ beforeEach(() => {
   mockLabelsByType.mockResolvedValue(new Map())
   mockFindTurnUsageByTask.mockResolvedValue([])
   mockListByTaskWithCost.mockResolvedValue([])
+  mockGetOperationCost.mockResolvedValue(null)
 })
 
 describe('lineageService.recordSessionStartEdges', () => {
@@ -369,6 +379,52 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
 
     // No deltas → cost is null/zero, never the 999_999 cumulative.
     expect(dto?.totals.tokens.total).toBe(0)
+  })
+
+  it('maps the top-5 operations from byTool into totals.topOperations (LUM-523)', async () => {
+    mockListByTaskWithCost.mockResolvedValue([sessionEdge()])
+    mockGetOperationCost.mockResolvedValue({
+      byTool: [
+        { label: 'Bash', total: 5000 },
+        { label: 'Edit', total: 1200 },
+        { label: 'Read', total: 800 },
+        { label: 'Grep', total: 400 },
+        { label: 'Write', total: 200 },
+        { label: 'Glob', total: 50 },
+      ],
+    })
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-1',
+      'm-1',
+      'LUM-263'
+    )
+
+    expect(mockGetOperationCost).toHaveBeenCalledWith('ws-1', {
+      kind: 'task',
+      identifier: 'LUM-263',
+    })
+    // Top-5 only, projected to { tool, total } (sixth row dropped).
+    expect(dto?.totals.topOperations).toEqual([
+      { tool: 'Bash', total: 5000 },
+      { tool: 'Edit', total: 1200 },
+      { tool: 'Read', total: 800 },
+      { tool: 'Grep', total: 400 },
+      { tool: 'Write', total: 200 },
+    ])
+  })
+
+  it('defaults totals.topOperations to [] when operation cost is null (LUM-523)', async () => {
+    mockListByTaskWithCost.mockResolvedValue([sessionEdge()])
+    mockGetOperationCost.mockResolvedValue(null)
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-1',
+      'm-1',
+      'LUM-263'
+    )
+
+    expect(dto?.totals.topOperations).toEqual([])
   })
 })
 

@@ -131,6 +131,7 @@ function makeLineage(nFragments: number): LineageResponse {
         pulled: 0,
         used: Math.ceil(nFragments / 2),
       },
+      topOperations: [],
     },
     groups,
   }

@@ -53,6 +53,8 @@ export interface LineageResponse {
       /** LUM-522: tokens saved over un-pulled INDEX edges; null = no token data. */
       tokensSaved?: number | null
     }
+    /** LUM-523: Top-5 most expensive operations (tools) by token cost. */
+    topOperations: { tool: string; total: number }[]
   }
   groups: LineageGroup[]
 }
@@ -234,6 +236,15 @@ export function formatLineageMarkdown(data: LineageResponse): string {
       `${f.used} used (${pct(f.used, f.impressions)}%)${fSavedSuffix}`
   )
   lines.push('')
+
+  if (data.totals.topOperations.length > 0) {
+    lines.push('')
+    lines.push('Top operations by token cost:')
+    for (const op of data.totals.topOperations) {
+      lines.push(`  ${op.tool} — ${op.total.toLocaleString('en-US')} tokens`)
+    }
+    lines.push('  (full breakdown: lumo cost --task <id>)')
+  }
 
   for (const g of data.groups) {
     lines.push(`## ${sanitizeField(g.label)} · ${g.includedAt.slice(0, 10)}`)

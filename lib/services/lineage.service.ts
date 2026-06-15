@@ -91,6 +91,11 @@ export interface LineageDto {
        */
       tokensSaved: number | null
     }
+    /**
+     * LUM-523: Top-5 most expensive operations (tools) for this task, by token
+     * cost. A compact quick view; the full breakdown lives in `lumo cost --task`.
+     */
+    topOperations: { tool: string; total: number }[]
   }
   groups: LineageGroup[]
 }
@@ -388,6 +393,19 @@ export const lineageService = {
       }
     }
 
+    // LUM-523: per-task "most expensive operations" Top-5 quick view. Reuses
+    // the per-operation attribution; the full breakdown lives in `lumo cost --task`.
+    const { operationCostService } =
+      await import('@/lib/services/operation-cost.service')
+    const opCost = await operationCostService.getOperationCost(workspaceId, {
+      kind: 'task',
+      identifier,
+    })
+    const topOperations =
+      opCost?.byTool
+        .slice(0, 5)
+        .map(r => ({ tool: r.label, total: r.total })) ?? []
+
     return {
       task: {
         identifier: resolved.identifier,
@@ -405,6 +423,7 @@ export const lineageService = {
           ...funnel,
           tokensSaved: hasTokenData ? funnel.tokensSaved : null,
         },
+        topOperations,
       },
       groups: groupList,
     }

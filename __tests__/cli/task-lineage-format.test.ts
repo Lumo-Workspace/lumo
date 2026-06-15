@@ -23,6 +23,7 @@ const base: LineageResponse = {
     loopCount: 4,
     outcomes: { MERGED: 2, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
     funnel: { impressions: 2, index: 0, pulled: 0, used: 0 },
+    topOperations: [],
   },
   groups: [
     {
@@ -124,6 +125,7 @@ describe('formatLineageMarkdown', () => {
         loopCount: 0,
         outcomes: { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 1 },
         funnel: { impressions: 1, index: 0, pulled: 0, used: 0 },
+        topOperations: [],
       },
       groups: [
         {
@@ -166,6 +168,7 @@ describe('formatLineageMarkdown disclosure funnel', () => {
       loopCount: 0,
       outcomes: { MERGED: 3, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
       funnel: { impressions: 3, index: 2, pulled: 1, used: 1 },
+      topOperations: [],
     },
     groups: [
       {

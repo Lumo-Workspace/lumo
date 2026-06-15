@@ -12,6 +12,7 @@ const BASE_TOTALS: LineageResponse['totals'] = {
   loopCount: 0,
   outcomes: { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
   funnel: { impressions: 2, index: 0, pulled: 0, used: 0 },
+  topOperations: [],
 }
 
 it('renders a usage marker per fragment', () => {
@@ -126,6 +127,43 @@ it('renders the legend line in a group with fragments', () => {
   })
   expect(md).toContain('✓ used')
   expect(md).toContain('✗ unused')
+})
+
+it('renders the top operations by token cost section', () => {
+  const md = formatLineageMarkdown({
+    task: { identifier: 'LUM-4', title: 'Ops', status: 'DONE' },
+    totals: {
+      ...BASE_TOTALS,
+      topOperations: [
+        { tool: 'Bash', total: 12345 },
+        { tool: 'Edit', total: 678 },
+      ],
+    },
+    groups: [
+      {
+        kind: 'session',
+        sessionId: 's4',
+        label: 'Session s4',
+        includedAt: '',
+        cost: null,
+        fragments: [
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'm4',
+            sourceLabel: 'note',
+            outcome: 'MERGED',
+            used: true,
+            disclosure: 'FULL',
+            pulled: false,
+          },
+        ],
+      },
+    ],
+  })
+  expect(md).toContain('Top operations by token cost')
+  expect(md).toContain('Bash')
+  expect(md).toContain('12,345 tokens')
+  expect(md).toContain('lumo cost --task')
 })
 
 it('formatSignalHealth shows insufficient-data message when merge rates are null', () => {
