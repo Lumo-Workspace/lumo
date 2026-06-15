@@ -799,6 +799,13 @@ model BoundaryCrossing {
   id                String                       @id @default(cuid())
   taskId            String
   hookEventId       String?
+  // The originating Claude Code session, when the crossing was recorded from a
+  // path that has no hook event to attribute through (LUM-511 spinoff laundering
+  // is detected on a `lumo task create` call, not an Edit/Bash hook). The LUM-469
+  // attribution read model falls back to this session — owner/agent/worktree +
+  // dominant model from its cumulative usageByModel — when hookEventId is null.
+  // Null for hook-sourced crossings (they attribute via hookEventId) and legacy rows.
+  sessionId         String?
   category          BoundaryCrossingCategory
   detail            String
   // Coalescing key (LUM-477): the specific target an OPEN crossing is deduped

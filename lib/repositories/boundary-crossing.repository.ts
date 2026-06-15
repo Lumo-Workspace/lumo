@@ -9,6 +9,10 @@ import type {
 export interface CreateBoundaryCrossingInput {
   taskId: string
   hookEventId?: string | null
+  /** LUM-511: the originating session for a CLI-sourced crossing (spinoff
+   *  laundering) that has no hook event — the attribution read model resolves
+   *  owner/agent/worktree/model from it when hookEventId is null. */
+  sessionId?: string | null
   category: BoundaryCrossingCategory
   /** Human-readable detail: the matched command / path / pattern. */
   detail: string
@@ -59,6 +63,9 @@ const VIEW_SELECT = {
   // The triggering hook event id — the read model joins it to surface the
   // inline edit-change for display-safe crossings (LUM-452).
   hookEventId: true,
+  // LUM-511: the originating session for a hook-less (CLI-sourced) crossing —
+  // the attribution read model falls back to it when hookEventId is null.
+  sessionId: true,
   remediationTask: {
     select: {
       number: true,
@@ -85,6 +92,7 @@ export const boundaryCrossingRepository = {
       data: {
         taskId: input.taskId,
         hookEventId: input.hookEventId ?? null,
+        sessionId: input.sessionId ?? null,
         category: input.category,
         detail: input.detail,
         target: input.target ?? null,

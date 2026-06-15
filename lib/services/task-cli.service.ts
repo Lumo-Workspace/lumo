@@ -45,6 +45,10 @@ export function dispatchSpinoffJudge(args: {
   spunOffIdentifier: string
   newTaskTitle: string
   newTaskDescription: string | null
+  /** Originating session (X-Lumo-Session-Id) — stored on the crossing so the
+   *  LUM-469 attribution read model can name who/which-agent/which-model spun
+   *  the work off, since a CLI-create path carries no hook event (LUM-511). */
+  sessionId: string | null
 }): void {
   waitUntil(
     (async () => {
@@ -82,6 +86,7 @@ export function dispatchSpinoffJudge(args: {
               category: 'SPINOFF_LAUNDERED',
               detail: `Work spun off to ${args.spunOffIdentifier} during this task — judged laundered rework (should have been a fix-in-place).`,
               target: args.spunOffTaskId,
+              sessionId: args.sessionId,
               reversible: false,
               severity: 'MEDIUM',
             })
@@ -379,6 +384,7 @@ async function createFromCli(args: {
       spunOffIdentifier: identifier,
       newTaskTitle: input.title,
       newTaskDescription: input.description ?? null,
+      sessionId: args.sessionId ?? null,
     })
   }
 
