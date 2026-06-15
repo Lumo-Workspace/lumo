@@ -21,6 +21,9 @@ export interface CreateLineageEdgeInput {
   sessionId?: string | null
   outcome?: LineageOutcome
   disclosure?: LineageDisclosure
+  indexTokens?: number
+  fullTokens?: number
+  relevanceScore?: number
 }
 
 /** A closing verdict that can be stamped onto an edge — everything but the
@@ -56,6 +59,9 @@ export interface FragmentRef {
   fragmentType: LineageFragmentType
   fragmentId: string
   disclosure?: LineageDisclosure
+  indexTokens?: number
+  fullTokens?: number
+  relevanceScore?: number
 }
 
 /** Per-fragment rollup of edge outcomes, returned by `aggregateByFragments`. */
@@ -204,6 +210,11 @@ export const lineageEdgeRepository = {
         sessionId: i.sessionId ?? null,
         ...(i.outcome ? { outcome: i.outcome } : {}),
         ...(i.disclosure ? { disclosure: i.disclosure } : {}),
+        ...(i.indexTokens != null ? { indexTokens: i.indexTokens } : {}),
+        ...(i.fullTokens != null ? { fullTokens: i.fullTokens } : {}),
+        ...(i.relevanceScore != null
+          ? { relevanceScore: i.relevanceScore }
+          : {}),
       })),
     })
   },

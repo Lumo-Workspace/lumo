@@ -53,6 +53,39 @@ describe('lineageEdgeRepository.recordPull', () => {
   })
 })
 
+describe('lineageEdgeRepository.createMany token/score fields', () => {
+  it('persists indexTokens fullTokens and relevanceScore when present, omits when absent', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 })
+    ;(prisma as any).lineageEdge = { createMany }
+    await lineageEdgeRepository.createMany([
+      {
+        workspaceId: 'w',
+        taskId: 't',
+        fragmentType: 'MEMORY',
+        fragmentId: 'a',
+        disclosure: 'INDEX',
+        indexTokens: 12,
+        fullTokens: 300,
+        relevanceScore: 0.81,
+      },
+      {
+        workspaceId: 'w',
+        taskId: 't',
+        fragmentType: 'SESSION',
+        fragmentId: 'b',
+      },
+    ])
+    const data = createMany.mock.calls[0][0].data
+    expect(data[0]).toMatchObject({
+      indexTokens: 12,
+      fullTokens: 300,
+      relevanceScore: 0.81,
+    })
+    expect(data[1]).not.toHaveProperty('indexTokens')
+    expect(data[1]).not.toHaveProperty('relevanceScore')
+  })
+})
+
 describe('lineageEdgeRepository.disclosureFunnelAggregates', () => {
   it('issues four workspace-scoped counts and returns the funnel shape', async () => {
     const count = jest.fn()
