@@ -57,6 +57,7 @@ export interface UsageSignalHealth {
   baseResolvedTasks: number
   usedFailedTasks: number
   baseFailedTasks: number
+  spinoffsDuringInFlight: number
 }
 
 export async function taskLineage(
@@ -249,5 +250,8 @@ export function formatSignalHealth(h: UsageSignalHealth): string {
   } else {
     lines.push('- Used × outcome: insufficient resolved tasks')
   }
+  lines.push(
+    `- Spinoffs during in-flight work: ${h.spinoffsDuringInFlight} (recorded, not yet judged)`
+  )
   return lines.join('\n')
 }

@@ -58,6 +58,7 @@ it('renders signal health discrimination line', () => {
     baseResolvedTasks: 20,
     usedFailedTasks: 2,
     baseFailedTasks: 11,
+    spinoffsDuringInFlight: 0,
   })
   expect(out).toContain('used 6')
   expect(out).toMatch(/71%/)
@@ -128,6 +129,7 @@ it('formatSignalHealth shows insufficient-data message when merge rates are null
     baseResolvedTasks: 5,
     usedFailedTasks: 0,
     baseFailedTasks: 0,
+    spinoffsDuringInFlight: 0,
   })
   expect(out).toContain('insufficient resolved tasks')
 })
@@ -144,6 +146,7 @@ describe('formatSignalHealth negative-class display', () => {
       baseResolvedTasks: 20,
       usedFailedTasks: 0,
       baseFailedTasks: 0,
+      spinoffsDuringInFlight: 0,
     })
     expect(out).toContain('cannot discriminate')
     expect(out).not.toMatch(/100%/)
@@ -161,6 +164,7 @@ describe('formatSignalHealth negative-class display', () => {
       baseResolvedTasks: 20,
       usedFailedTasks: 2,
       baseFailedTasks: 11,
+      spinoffsDuringInFlight: 0,
     })
     expect(out).toMatch(/46%/)
     expect(out).toContain('11 failed')

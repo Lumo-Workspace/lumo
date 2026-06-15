@@ -1,5 +1,6 @@
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 import type { UsageSignalHealth } from '@/types/lineage-usage'
 
 type TaskRow = { taskId: string; resolved: boolean; merged: boolean }
@@ -46,6 +47,8 @@ export const usageSignalService = {
       .map(s => s.used / s.injected)
     const used = foldWithTaint(agg.usedTasks, failed)
     const base = foldWithTaint(agg.baseTasks, failed)
+    const spinoffsDuringInFlight =
+      await activityRepository.countSpinoffsForWorkspace(workspaceId)
     return {
       distribution: agg.distribution,
       perSessionVariance: populationVariance(fractions),
@@ -56,6 +59,7 @@ export const usageSignalService = {
       baseResolvedTasks: base.resolved,
       usedFailedTasks: used.failed,
       baseFailedTasks: base.failed,
+      spinoffsDuringInFlight,
     }
   },
 }

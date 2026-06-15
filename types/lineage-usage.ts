@@ -18,4 +18,8 @@ export interface UsageSignalHealth {
    *  failure outcomes exist yet, so the rates cannot discriminate (LUM-484). */
   usedFailedTasks: number
   baseFailedTasks: number
+  /** Raw count of TASK_SPUN_OFF events (mid-flight --new-scope spinoffs) across
+   *  the workspace. Informational only — NOT folded into the merge-rate; the
+   *  judge-gated negative-class counting lands in LUM-511 Phase 4. */
+  spinoffsDuringInFlight: number
 }
