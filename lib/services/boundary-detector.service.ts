@@ -304,6 +304,10 @@ export function severityFor(
     // LUM-511 Phase 4: criterion weakening (judge-confirmed) is tampering-class
     // but not data-destructive, so MEDIUM (like TEST_TAMPERING).
     case 'CONTRACT_WEAKENING':
+    // LUM-511 Phase 6: judge-confirmed laundering (spinoff / silent-fix) — MEDIUM,
+    // visible + dismissable, blocks DONE until a human acknowledges it.
+    case 'SPINOFF_LAUNDERED':
+    case 'SILENT_FIX':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
