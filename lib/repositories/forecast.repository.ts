@@ -54,16 +54,20 @@ export const forecastRepository = {
       },
     })
 
-    // Clarification rounds per candidate = count of AGENT_CLARIFY notifications
-    // (LUM-319). Notification has only a bare taskId (no Task relation), so we
-    // aggregate separately and map back. Tasks with none simply stay at 0.
-    const clarifyCounts = await prisma.notification.groupBy({
+    // Interaction rounds per candidate = count of USER_PROMPT_SUBMIT hook events
+    // attributed to the task (replaces the dead AGENT_CLARIFY notification
+    // count). Bare-taskId grouping mirrors the prior aggregation; the per-task
+    // actual (retrospective.repository) uses the exact session-fallback count.
+    const promptCounts = await prisma.hookEvent.groupBy({
       by: ['taskId'],
-      where: { taskId: { in: rows.map(r => r.id) }, type: 'AGENT_CLARIFY' },
+      where: {
+        taskId: { in: rows.map(r => r.id) },
+        type: 'USER_PROMPT_SUBMIT',
+      },
       _count: { _all: true },
     })
-    const clarifyByTask = new Map<string, number>(
-      clarifyCounts.map(c => [c.taskId as string, c._count._all])
+    const interactionByTask = new Map<string, number>(
+      promptCounts.map(c => [c.taskId as string, c._count._all])
     )
 
     const candidates: ForecastCandidate[] = rows.map(r => {
@@ -92,7 +96,7 @@ export const forecastRepository = {
         })),
         mergedPrAt: r.pullRequests.map(p => p.mergedAt),
         tokenCost,
-        interactionRounds: clarifyByTask.get(r.id) ?? 0,
+        interactionRounds: interactionByTask.get(r.id) ?? 0,
       }
     })
 

@@ -75,9 +75,9 @@ export const retrospectiveRepository = {
   },
 
   /**
-   * 实算 actual：token 求和（无 usage→null）、session 数、AGENT_CLARIFY 数、
-   * agent 活跃时长（每 turn `STOP − prompt` 之和，排除轮次间空闲 — 见
-   * `lib/agent-run/active-time`）。
+   * 实算 actual：token 求和（无 usage→null）、session 数、USER_PROMPT_SUBMIT 数
+   * （交互轮次）、agent 活跃时长（每 turn `STOP − prompt` 之和，排除轮次间空闲 —
+   * 见 `lib/agent-run/active-time`）。
    */
   async loadActuals(taskId: string): Promise<RetrospectiveActuals | null> {
     const task = await prisma.task.findUnique({
@@ -109,10 +109,6 @@ export const retrospectiveRepository = {
         )
       : null
 
-    const clarifyRounds = await prisma.notification.count({
-      where: { taskId, type: 'AGENT_CLARIFY' },
-    })
-
     // Active time from the turn-boundary hook events (prompt / STOP) of every
     // session linked to the task — span-based timing counts idle, this doesn't.
     const turnEvents = await prisma.hookEvent.findMany({
@@ -131,11 +127,18 @@ export const retrospectiveRepository = {
       }))
     )
 
+    // Interaction rounds = USER_PROMPT_SUBMIT events for the task (reuses the
+    // turn-event fetch above — no extra query). Replaces the dead AGENT_CLARIFY
+    // notification count (workspace-wide that signal was ~always 0).
+    const interactionRounds = turnEvents.filter(
+      e => e.type === 'USER_PROMPT_SUBMIT'
+    ).length
+
     return {
       projectId: task.projectId,
       tokenCost,
       iterations: task.sessions.length,
-      interactionRounds: clarifyRounds,
+      interactionRounds,
       totalDurationSec,
     }
   },

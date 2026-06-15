@@ -2,7 +2,7 @@
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn(), findMany: jest.fn() },
-    notification: { groupBy: jest.fn() },
+    hookEvent: { groupBy: jest.fn() },
   },
 }))
 
@@ -11,7 +11,7 @@ import { forecastRepository } from '@/lib/repositories/forecast.repository'
 
 const findUnique = prisma.task.findUnique as jest.Mock
 const findMany = prisma.task.findMany as jest.Mock
-const groupBy = prisma.notification.groupBy as unknown as jest.Mock
+const groupBy = prisma.hookEvent.groupBy as unknown as jest.Mock
 
 beforeEach(() => {
   findUnique.mockReset()
@@ -118,7 +118,7 @@ describe('loadForecastInputs', () => {
     expect(result!.candidates[0]!.tokenCost).toBeNull()
   })
 
-  it('counts AGENT_CLARIFY notifications per candidate', async () => {
+  it('interactionRounds from prompt submissions', async () => {
     findUnique.mockResolvedValue({
       id: 't1',
       title: 'Target',
@@ -140,9 +140,15 @@ describe('loadForecastInputs', () => {
 
     const res = await forecastRepository.loadForecastInputs('t1')
     expect(res!.candidates[0]!.interactionRounds).toBe(3)
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['taskId'],
+        where: expect.objectContaining({ type: 'USER_PROMPT_SUBMIT' }),
+      })
+    )
   })
 
-  it('defaults interactionRounds to 0 when a candidate has no clarify notifications', async () => {
+  it('defaults interactionRounds to 0 when a candidate has no prompt submissions', async () => {
     findUnique.mockResolvedValue({
       id: 't1',
       title: 'Target',
