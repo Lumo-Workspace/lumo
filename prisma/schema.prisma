@@ -159,6 +159,10 @@ enum TaskActivityType {
   BOUNDARY_CROSSING_DISPOSITIONED
   BOUNDARY_CROSSING_REMEDIATION_SPAWNED
   TASK_SPUN_OFF
+  // LUM-511 Phase 4: judge-confirmed laundering markers (task-level — fed into
+  // the flywheel negative class; not VerificationRuns, which require a criterion).
+  SPINOFF_LAUNDERED
+  SILENT_FIX_DETECTED
 }
 
 enum BoundaryCrossingCategory {
@@ -178,6 +182,9 @@ enum BoundaryCrossingCategory {
   // a Claude Code session that is not attached to the task — the session-binding
   // lock (LUM-459) applied at the work boundary, not just the bind boundary.
   SESSION_BINDING_MISSING
+  // LUM-511 Phase 4: an acceptance criterion was weakened (statement lowered to
+  // dodge an open send-back) rather than legitimately evolved — judge-confirmed.
+  CONTRACT_WEAKENING
 }
 
 enum BoundaryCrossingDisposition {

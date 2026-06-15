@@ -301,6 +301,9 @@ export function severityFor(
     // LUM-491: unbound-session work is serious (session-binding lock bypass) but
     // deterministically detectable and not data-destructive, so MEDIUM.
     case 'SESSION_BINDING_MISSING':
+    // LUM-511 Phase 4: criterion weakening (judge-confirmed) is tampering-class
+    // but not data-destructive, so MEDIUM (like TEST_TAMPERING).
+    case 'CONTRACT_WEAKENING':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
