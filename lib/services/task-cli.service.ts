@@ -3,6 +3,7 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -10,6 +11,7 @@ import { slugify } from '@/lib/utils/slugify'
 import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
 import {
   classifyTaskCreateIntent,
+  isInFlightStatus,
   type BoundTaskRef,
 } from '@/lib/services/task-create-binding'
 import type { TaskPriority } from '@prisma/client'
@@ -181,8 +183,12 @@ async function createFromCli(args: {
   // --new-scope declaration. The binding lookup only runs when a session is
   // present. The bearer/CLI path is the only caller here, so the human/web
   // red line needs no extra guard.
+  // Phase 3: when a mid-flight --new-scope create is allowed, the parent task
+  // id is captured here so the spinoff can be recorded after B is created.
+  let spinoffParentTaskId: string | null = null
   {
     let boundTask: BoundTaskRef | null = null
+    let boundTaskId: string | null = null
     let boundTaskHasOpenSendBack = false
     if (args.sessionId && args.memberId) {
       const bound = await sessionRepository.findForMemberWithBinding(
@@ -190,6 +196,7 @@ async function createFromCli(args: {
         args.memberId
       )
       if (bound?.task) {
+        boundTaskId = bound.task.id
         boundTask = {
           identifier: `${bound.task.team.identifier}-${bound.task.number}`,
           title: bound.task.title,
@@ -228,6 +235,12 @@ async function createFromCli(args: {
         409,
         mustDeclareMessage(intent.boundIdentifier, intent.boundTitle)
       )
+    }
+
+    // Allowed past the gate: if this was a --new-scope spinoff from an in-flight
+    // bound task, remember the parent for the Phase 3 audit record below.
+    if (boundTask && boundTaskId && isInFlightStatus(boundTask.status)) {
+      spinoffParentTaskId = boundTaskId
     }
   }
 
@@ -276,6 +289,25 @@ async function createFromCli(args: {
 
   const identifier = `${task.teamIdentifier}-${task.number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
+
+  // Phase 3 (LUM-511): record the A→B spinoff on the parent. Audit-only — a
+  // recording failure must never break task creation.
+  if (spinoffParentTaskId) {
+    try {
+      await activityRepository.create({
+        taskId: spinoffParentTaskId,
+        actorId: callerActor.id,
+        type: 'TASK_SPUN_OFF',
+        payload: {
+          spunOffTaskId: task.id,
+          spunOffIdentifier: identifier,
+          sessionId: args.sessionId ?? null,
+        },
+      })
+    } catch (err) {
+      console.error('TASK_SPUN_OFF record error:', err)
+    }
+  }
 
   return {
     id: task.id,
