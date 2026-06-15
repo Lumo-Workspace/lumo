@@ -197,6 +197,8 @@ export const cliCreateTaskSchema = z.object({
   projectRef: z.string().trim().min(1).max(200).optional(),
   assigneeRef: z.string().trim().min(1).max(200).optional(),
   milestoneRef: z.string().trim().min(1).max(200).optional(),
+  reworkOfRef: z.string().trim().min(1).max(200).optional(),
+  newScope: z.boolean().optional().default(false),
   ...tagIdsShape,
 })
 
