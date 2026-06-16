@@ -26,6 +26,11 @@ export const droppedFragmentRepository = {
         fragmentId: i.fragmentId,
         relevanceScore: i.relevanceScore ?? null,
       })),
+      // Idempotent against the (sessionId, taskId, fragmentType, fragmentId)
+      // unique constraint: a bound session re-records the same dropped fragments
+      // on every session-start (attach + later resume/clear/compact). Mirrors
+      // LineageEdge.createMany (LUM-530).
+      skipDuplicates: true,
     })
   },
 }

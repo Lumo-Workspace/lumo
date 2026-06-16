@@ -2117,6 +2117,11 @@ model DroppedFragment {
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
+  // Idempotent collection: a bound session re-records the same dropped
+  // fragments on every session-start. Mirrors LineageEdge's unique key
+  // (LUM-530). Postgres treats NULL as distinct, so null-session rows are
+  // never deduped by the index — same semantics as LineageEdge.
+  @@unique([sessionId, taskId, fragmentType, fragmentId])
   @@index([taskId])
   @@index([sessionId])
   @@index([workspaceId])
