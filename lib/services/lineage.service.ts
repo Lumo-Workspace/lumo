@@ -135,6 +135,15 @@ export const lineageService = {
           // (INDEX vs the default FULL). Conditional spread keeps it absent
           // (not `undefined`) under exactOptionalPropertyTypes.
           ...(f.disclosure ? { disclosure: f.disclosure } : {}),
+          // LUM-522: carry the per-fragment token weights + injection-time
+          // relevance score through canonicalization too — otherwise they are
+          // dropped here and never reach the edge (the funnel's "tokens saved"
+          // stays empty). `!= null` keeps a legitimate 0.
+          ...(f.indexTokens != null ? { indexTokens: f.indexTokens } : {}),
+          ...(f.fullTokens != null ? { fullTokens: f.fullTokens } : {}),
+          ...(f.relevanceScore != null
+            ? { relevanceScore: f.relevanceScore }
+            : {}),
         }))
       )
 
@@ -160,6 +169,12 @@ export const lineageService = {
           // Conditional spread → absent (not `undefined`) when untagged, so
           // createMany falls through to the DB default FULL.
           ...(f.disclosure ? { disclosure: f.disclosure } : {}),
+          // LUM-522: persist the token weights + relevance score onto the edge.
+          ...(f.indexTokens != null ? { indexTokens: f.indexTokens } : {}),
+          ...(f.fullTokens != null ? { fullTokens: f.fullTokens } : {}),
+          ...(f.relevanceScore != null
+            ? { relevanceScore: f.relevanceScore }
+            : {}),
         }))
       )
 

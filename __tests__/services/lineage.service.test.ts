@@ -135,6 +135,48 @@ describe('lineageService.recordSessionStartEdges', () => {
     })
   })
 
+  // CONTRACT-BOUND (LUM-522 C1): proves the write path PERSISTS the token
+  // weights + relevance score onto the edge — not merely that
+  // buildSessionStartSections constructs fragments carrying them. This is the
+  // seam the original test missed: recordSessionStartEdges re-maps fragments,
+  // so the fields must be threaded through both the canonicalization map and
+  // the createMany map to reach the DB.
+  it('persists token weights and relevance score onto edges', async () => {
+    await lineageService.recordSessionStartEdges({
+      workspaceId: 'ws-1',
+      taskId: 't-1',
+      sessionId: 's-1',
+      fragments: [
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'mem-1',
+          disclosure: 'INDEX',
+          indexTokens: 12,
+          fullTokens: 300,
+          relevanceScore: 0.81,
+        },
+        // A resource fragment with no fullTokens (body absent at injection):
+        // fullTokens must stay omitted, never fabricated.
+        {
+          fragmentType: 'WEB_LINK',
+          fragmentId: 'web-1',
+          disclosure: 'INDEX',
+          indexTokens: 7,
+        },
+      ],
+    })
+    const arg = mockCreateMany.mock.calls[0][0]
+    expect(arg[0]).toMatchObject({
+      fragmentId: 'mem-1',
+      indexTokens: 12,
+      fullTokens: 300,
+      relevanceScore: 0.81,
+    })
+    expect(arg[1]).toMatchObject({ fragmentId: 'web-1', indexTokens: 7 })
+    expect(arg[1]).not.toHaveProperty('fullTokens')
+    expect(arg[1]).not.toHaveProperty('relevanceScore')
+  })
+
   it('resolves MEMORY fragments to their canonical id', async () => {
     mockResolve.mockImplementation(async (type: string, id: string) =>
       type === 'MEMORY' && id === 'mem-task' ? 'mem-project' : id
