@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "Top-Operationen nach token-Kosten",
   "lineage.operations.col.tool": "Werkzeug",
   "lineage.operations.col.output": "Ausgabe",
+  "lineage.operations.col.input": "Eingabe",
+  "lineage.operations.col.cacheCreate": "Cache-Erstellung",
   "lineage.operations.col.cacheRead": "Cache-Lesevorgang",
   "lineage.operations.col.total": "Gesamt",
   "lineage.operations.footnote": "Die Zuordnung ist heuristisch (parallele Werkzeuge teilen sich einen Schritt gleichmäßig); Cache-Lesevorgänge sind strukturelle Kosten. Vollständige Aufschlüsselung: lumo cost --task {id}",

@@ -40,6 +40,18 @@ export function TopOperations({
             </th>
             <th className='py-1 text-right font-medium'>
               {intl.formatMessage({
+                id: 'lineage.operations.col.input',
+                defaultMessage: '输入',
+              })}
+            </th>
+            <th className='py-1 text-right font-medium'>
+              {intl.formatMessage({
+                id: 'lineage.operations.col.cacheCreate',
+                defaultMessage: '缓存创建',
+              })}
+            </th>
+            <th className='py-1 text-right font-medium'>
+              {intl.formatMessage({
                 id: 'lineage.operations.col.cacheRead',
                 defaultMessage: '缓存读取',
               })}
@@ -58,6 +70,12 @@ export function TopOperations({
               <td className='py-1 font-mono text-foreground'>{op.tool}</td>
               <td className='py-1 text-right tabular-nums text-muted-foreground'>
                 {intl.formatNumber(op.output)}
+              </td>
+              <td className='py-1 text-right tabular-nums text-muted-foreground'>
+                {intl.formatNumber(op.input)}
+              </td>
+              <td className='py-1 text-right tabular-nums text-muted-foreground'>
+                {intl.formatNumber(op.cacheCreation)}
               </td>
               <td className='py-1 text-right tabular-nums text-muted-foreground'>
                 {intl.formatNumber(op.cacheRead)}

@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "Топ операций по стоимости в токенах",
   "lineage.operations.col.tool": "Инструмент",
   "lineage.operations.col.output": "Вывод",
+  "lineage.operations.col.input": "Ввод",
+  "lineage.operations.col.cacheCreate": "Создание кэша",
   "lineage.operations.col.cacheRead": "Чтение из кэша",
   "lineage.operations.col.total": "Итого",
   "lineage.operations.footnote": "Атрибуция эвристическая (параллельные инструменты делят шаг поровну); чтение из кэша — структурная стоимость. Полная разбивка: lumo cost --task {id}",

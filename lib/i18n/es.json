@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "Principales operaciones por coste en tokens",
   "lineage.operations.col.tool": "Herramienta",
   "lineage.operations.col.output": "Salida",
+  "lineage.operations.col.input": "Entrada",
+  "lineage.operations.col.cacheCreate": "Creación de caché",
   "lineage.operations.col.cacheRead": "Lectura de caché",
   "lineage.operations.col.total": "Total",
   "lineage.operations.footnote": "La atribución es heurística (las herramientas paralelas reparten un paso a partes iguales); la lectura de caché es un coste estructural. Desglose completo: lumo cost --task {id}",

@@ -98,6 +98,8 @@ export interface LineageDto {
     topOperations: {
       tool: string
       output: number
+      input: number
+      cacheCreation: number
       cacheRead: number
       total: number
     }[]
@@ -425,6 +427,8 @@ export const lineageService = {
       opCost?.byTool.slice(0, 5).map(r => ({
         tool: r.label,
         output: r.output,
+        input: r.input,
+        cacheCreation: r.cacheCreation,
         cacheRead: r.cacheRead,
         total: r.total,
       })) ?? []

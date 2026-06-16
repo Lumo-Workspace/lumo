@@ -44,15 +44,41 @@ function groupThousands(value: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
+/** Render one ranking row: label + the four token categories + total, aligned. */
+function rankRow(
+  label: string,
+  output: string,
+  input: string,
+  cacheCreate: string,
+  cacheRead: string,
+  total: string
+): string {
+  return `  ${label.slice(0, 20).padEnd(20)}  ${output.padStart(10)}  ${input.padStart(10)}  ${cacheCreate.padStart(12)}  ${cacheRead.padStart(12)}  ${total.padStart(12)}`
+}
+
 function rankTable(title: string, rows: OperationCostRowDto[]): string {
   if (rows.length === 0) return ''
   const lines = [
     title,
-    '  operation              output      cache_read       total',
+    rankRow(
+      'operation',
+      'output',
+      'input',
+      'cache_create',
+      'cache_read',
+      'total'
+    ),
   ]
   for (const r of rows.slice(0, 20)) {
     lines.push(
-      `  ${r.label.slice(0, 20).padEnd(20)}  ${groupThousands(r.output).padStart(10)}  ${groupThousands(r.cacheRead).padStart(12)}  ${groupThousands(r.total).padStart(12)}`
+      rankRow(
+        r.label,
+        groupThousands(r.output),
+        groupThousands(r.input),
+        groupThousands(r.cacheCreation),
+        groupThousands(r.cacheRead),
+        groupThousands(r.total)
+      )
     )
   }
   return lines.join('\n')
@@ -81,7 +107,7 @@ export function formatOperationCost(
   const out: string[] = []
   out.push(`Per-operation cost — ${data.scope.kind} ${data.scope.label}`)
   out.push(
-    `Total: output ${groupThousands(data.grandTotal.output)} · cache_read ${groupThousands(data.grandTotal.cacheRead)} · all ${groupThousands(data.grandTotal.total)} tokens`
+    `Total: output ${groupThousands(data.grandTotal.output)} · input ${groupThousands(data.grandTotal.input)} · cache_create ${groupThousands(data.grandTotal.cacheCreation)} · cache_read ${groupThousands(data.grandTotal.cacheRead)} · all ${groupThousands(data.grandTotal.total)} tokens`
   )
   out.push(
     `Per-step attribution: ${pct} of ${data.coverage.toolTurns} tool-using turns (rest fall back to per-turn split)`
@@ -96,7 +122,7 @@ export function formatOperationCost(
     out.push('\n' + rankTable('By session:', data.bySession))
   out.push('')
   out.push(
-    'Note: token→tool attribution is heuristic — a model step that fires several tools in parallel splits its tokens evenly across them; cache_read (~95%) is structural (turns × context), shown alongside output (generation).'
+    'Note: token→tool attribution is heuristic — a model step that fires several tools in parallel splits its tokens evenly across them. output (generation) and cache_read (~95%, structural — turns × context) attribute cleanly per step; input and cache_create are bursty (prompt + cache checkpoints) and per-tool figures for those two are coarse.'
   )
   return out.join('\n')
 }
