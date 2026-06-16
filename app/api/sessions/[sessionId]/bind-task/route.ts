@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
+import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
+import { waitUntil } from '@vercel/functions'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -39,6 +41,22 @@ export async function POST(
       sessionId,
       taskIdentifier,
     })
+    // LUM-528: the first session-start (startup) is structurally unbound, so a
+    // bind-then-work-then-end session would never record lineage edges. Record
+    // them here, mirroring the session-start hook. Fire-and-forget — must not
+    // block or fail the bind response. `collectAndRecord` already self-catches;
+    // the `.catch` guards the non-awaited promise as a belt-and-suspenders.
+    waitUntil(
+      sessionStartEdgesService
+        .collectAndRecord({
+          workspaceId: identity.workspace.id,
+          taskId: result.taskId,
+          sessionId,
+        })
+        .catch(error =>
+          console.error('attach lineage edge recording error:', error)
+        )
+    )
     return NextResponse.json(result)
   } catch (error) {
     const status = (error as { status?: number } | null)?.status

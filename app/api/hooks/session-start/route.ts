@@ -5,8 +5,8 @@ import {
   type PreviousSessionRecovery,
 } from '@/lib/services/task-context.service'
 import { lineageService } from '@/lib/services/lineage.service'
+import { aggregateSessionStartFragments } from '@/lib/services/session-start-edges.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
-import type { FragmentRef } from '@/lib/repositories/lineage-edge.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
   buildSessionStartContextMetrics,
@@ -75,19 +75,12 @@ export async function POST(request: Request) {
 
         // LUM-276: record one lineage edge per fragment this session consumed.
         // Fire-and-forget — must not block or fail the context injection.
-        const fragments: FragmentRef[] = [
-          ...sections.fragments,
-          ...todos.fragments,
-          ...layer2Review.fragments,
-          ...(previous
-            ? [
-                {
-                  fragmentType: 'SESSION' as const,
-                  fragmentId: previous.sessionId,
-                },
-              ]
-            : []),
-        ]
+        const fragments = aggregateSessionStartFragments({
+          sectionFragments: sections.fragments,
+          todoFragments: todos.fragments,
+          layer2Fragments: layer2Review.fragments,
+          previousSessionId: previous?.sessionId ?? null,
+        })
         if (fragments.length > 0) {
           waitUntil(
             lineageService.recordSessionStartEdges({
