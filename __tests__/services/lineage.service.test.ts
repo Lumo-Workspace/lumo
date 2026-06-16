@@ -427,12 +427,12 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
     mockListByTaskWithCost.mockResolvedValue([sessionEdge()])
     mockGetOperationCost.mockResolvedValue({
       byTool: [
-        { label: 'Bash', total: 5000 },
-        { label: 'Edit', total: 1200 },
-        { label: 'Read', total: 800 },
-        { label: 'Grep', total: 400 },
-        { label: 'Write', total: 200 },
-        { label: 'Glob', total: 50 },
+        { label: 'Bash', output: 4000, cacheRead: 1000, total: 5000 },
+        { label: 'Edit', output: 1000, cacheRead: 200, total: 1200 },
+        { label: 'Read', output: 600, cacheRead: 200, total: 800 },
+        { label: 'Grep', output: 300, cacheRead: 100, total: 400 },
+        { label: 'Write', output: 150, cacheRead: 50, total: 200 },
+        { label: 'Glob', output: 40, cacheRead: 10, total: 50 },
       ],
     })
 
@@ -446,13 +446,13 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
       kind: 'task',
       identifier: 'LUM-263',
     })
-    // Top-5 only, projected to { tool, total } (sixth row dropped).
+    // Top-5 only, projected to { tool, output, cacheRead, total } (sixth row dropped).
     expect(dto?.totals.topOperations).toEqual([
-      { tool: 'Bash', total: 5000 },
-      { tool: 'Edit', total: 1200 },
-      { tool: 'Read', total: 800 },
-      { tool: 'Grep', total: 400 },
-      { tool: 'Write', total: 200 },
+      { tool: 'Bash', output: 4000, cacheRead: 1000, total: 5000 },
+      { tool: 'Edit', output: 1000, cacheRead: 200, total: 1200 },
+      { tool: 'Read', output: 600, cacheRead: 200, total: 800 },
+      { tool: 'Grep', output: 300, cacheRead: 100, total: 400 },
+      { tool: 'Write', output: 150, cacheRead: 50, total: 200 },
     ])
   })
 

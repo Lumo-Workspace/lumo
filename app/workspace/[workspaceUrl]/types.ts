@@ -619,6 +619,8 @@ export interface AgentRunTimelineResponse {
 // client bundle — keep this shape in sync with that DTO if the API changes.
 export type LineageOutcome = 'MERGED' | 'REJECTED' | 'REWORKED' | 'UNKNOWN'
 
+export type LineageDisclosure = 'FULL' | 'INDEX'
+
 export interface LineageTokens {
   input: number
   output: number
@@ -632,6 +634,12 @@ export interface LineageFragment {
   fragmentId: string
   sourceLabel: string
   outcome: LineageOutcome
+  /** LUM-522 manual usage judgment (true=used, false=unused, null=no vote). */
+  used: boolean | null
+  /** LUM-500/521 how the fragment was injected at session-start. */
+  disclosure: LineageDisclosure
+  /** LUM-521 whether the agent pulled this edge's body on demand. */
+  pulled: boolean
 }
 
 export interface LineageGroup {
@@ -659,6 +667,19 @@ export interface LineageResponse {
     tokens: LineageTokens
     loopCount: number
     outcomes: Record<LineageOutcome, number>
+    funnel: {
+      impressions: number
+      index: number
+      pulled: number
+      used: number
+      tokensSaved: number | null
+    }
+    topOperations: {
+      tool: string
+      output: number
+      cacheRead: number
+      total: number
+    }[]
   }
   groups: LineageGroup[]
 }

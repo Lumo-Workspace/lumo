@@ -5,7 +5,13 @@ import { useIntl } from 'react-intl'
 import { GitBranch } from 'lucide-react'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
-import type { LineageFragment, LineageOutcome } from '../../types'
+import type {
+  LineageDisclosure,
+  LineageFragment,
+  LineageOutcome,
+} from '../../types'
+import { DisclosureFunnel } from './DisclosureFunnel'
+import { TopOperations } from './TopOperations'
 
 interface LineageTabProps {
   taskIdentifier: string
@@ -32,7 +38,46 @@ const OUTCOME_BADGE: Record<LineageOutcome, string> = {
   UNKNOWN: 'border border-border text-muted-foreground',
 }
 
-const COLLAPSED_FRAGMENT_COUNT = 10
+function disclosureLabel(
+  intl: ReturnType<typeof useIntl>,
+  disclosure: LineageDisclosure,
+  pulled: boolean
+): string {
+  if (disclosure === 'FULL')
+    return intl.formatMessage({
+      id: 'lineage.fragment.disclosure.full',
+      defaultMessage: '全文',
+    })
+  return pulled
+    ? intl.formatMessage({
+        id: 'lineage.fragment.disclosure.indexPulled',
+        defaultMessage: '仅索引·已展开',
+      })
+    : intl.formatMessage({
+        id: 'lineage.fragment.disclosure.indexNotPulled',
+        defaultMessage: '仅索引·未展开',
+      })
+}
+
+function usedLabel(
+  intl: ReturnType<typeof useIntl>,
+  used: boolean | null
+): string {
+  if (used === true)
+    return intl.formatMessage({
+      id: 'lineage.fragment.used.yes',
+      defaultMessage: '✓ 已采用',
+    })
+  if (used === false)
+    return intl.formatMessage({
+      id: 'lineage.fragment.used.no',
+      defaultMessage: '✗ 未采用',
+    })
+  return intl.formatMessage({
+    id: 'lineage.fragment.used.abstained',
+    defaultMessage: '· 未表态',
+  })
+}
 
 export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
   const intl = useIntl()
@@ -92,9 +137,7 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
     .map(o => `${totals.outcomes[o]} ${o}`)
     .join(' · ')
 
-  const visibleFragments = showAllFragments
-    ? fragments
-    : fragments.slice(0, COLLAPSED_FRAGMENT_COUNT)
+  const visibleFragments = showAllFragments ? fragments : []
 
   return (
     <div className='rounded-lg border border-border text-xs'>
@@ -113,6 +156,12 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
           }
         )}
       </div>
+
+      <DisclosureFunnel funnel={totals.funnel} />
+      <TopOperations
+        operations={totals.topOperations}
+        taskIdentifier={taskIdentifier}
+      />
 
       {/* Cost block — reuses the shared breakdown. Lineage is session-level &
           flat, so pass a single unnamed model group + loopCount=null so the
@@ -172,10 +221,16 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
             <span className='truncate'>
               {f.fragmentType} — {f.sourceLabel}
             </span>
+            <span className='ml-auto shrink-0 text-[10px] text-muted-foreground/80'>
+              {disclosureLabel(intl, f.disclosure, f.pulled)}
+            </span>
+            <span className='shrink-0 text-[10px] text-muted-foreground/80'>
+              {usedLabel(intl, f.used)}
+            </span>
           </div>
         ))}
 
-        {fragments.length > COLLAPSED_FRAGMENT_COUNT && (
+        {fragments.length > 0 && (
           <button
             type='button'
             onClick={() => setShowAllFragments(v => !v)}
@@ -189,7 +244,7 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
               : intl.formatMessage(
                   {
                     id: 'lineage.fragments.showAll',
-                    defaultMessage: '展开全部 {count} 条',
+                    defaultMessage: 'Show all {count} fragments',
                   },
                   { count: fragments.length }
                 )}

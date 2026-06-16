@@ -38,6 +38,9 @@ function makeFragments(n: number): LineageFragment[] {
     fragmentId: `frag-${i}`,
     sourceLabel: `Source label ${i}`,
     outcome: 'MERGED' as const,
+    used: null,
+    disclosure: 'FULL' as const,
+    pulled: false,
   }))
 }
 
@@ -64,6 +67,14 @@ function makeData(overrides: Partial<LineageResponse> = {}): LineageResponse {
         REWORKED: 0,
         UNKNOWN: 0,
       },
+      funnel: {
+        impressions: 0,
+        index: 0,
+        pulled: 0,
+        used: 0,
+        tokensSaved: null,
+      },
+      topOperations: [],
     },
     groups: [
       {
@@ -131,14 +142,15 @@ describe('LineageTab', () => {
     expect(screen.queryByText('7')).toBeNull()
   })
 
-  it('renders fragment rows with outcome badges', () => {
+  it('renders fragment rows with outcome badges (after expand)', () => {
     mockHook.mockReturnValue({ data: makeData(), loading: false, error: null })
     render(<LineageTab {...baseProps} />)
+    fireEvent.click(screen.getByText(/Show all/))
     expect(screen.getByText(/Source label 0/)).toBeInTheDocument()
     expect(screen.getAllByText('MERGED').length).toBeGreaterThan(0)
   })
 
-  it('collapses to 10 fragments and expands on toggle', () => {
+  it('starts collapsed and reveals all fragments on toggle', () => {
     const fragments = makeFragments(12)
     mockHook.mockReturnValue({
       data: makeData({
@@ -165,6 +177,14 @@ describe('LineageTab', () => {
           },
           loopCount: 0,
           outcomes: { MERGED: 12, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
+          funnel: {
+            impressions: 0,
+            index: 0,
+            pulled: 0,
+            used: 0,
+            tokensSaved: null,
+          },
+          topOperations: [],
         },
       }),
       loading: false,
@@ -172,15 +192,42 @@ describe('LineageTab', () => {
     })
     render(<LineageTab {...baseProps} />)
 
-    // First 10 visible, 11th hidden.
-    expect(screen.getByText(/Source label 9/)).toBeInTheDocument()
-    expect(screen.queryByText(/Source label 10/)).toBeNull()
+    // Default collapsed: zero fragment rows visible.
+    expect(screen.queryByText(/Source label 0/)).toBeNull()
+    expect(screen.queryByText(/Source label 11/)).toBeNull()
 
-    fireEvent.click(screen.getByText(/展开全部 12 条/))
+    fireEvent.click(screen.getByText(/Show all 12 fragments/))
+    expect(screen.getByText(/Source label 0/)).toBeInTheDocument()
     expect(screen.getByText(/Source label 10/)).toBeInTheDocument()
     expect(screen.getByText(/Source label 11/)).toBeInTheDocument()
 
     // Cost block falls back to the "no cost" note when total is 0.
     expect(screen.getByText('此条线索暂无采集到的成本')).toBeInTheDocument()
+  })
+
+  it('renders no fragment rows until expanded (default collapsed)', () => {
+    mockHook.mockReturnValue({ data: makeData(), loading: false, error: null })
+    render(<LineageTab taskIdentifier='LUM-1' enabled />)
+    expect(screen.queryByText(/Source label 0/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText(/Show all 3 fragments/))
+    expect(screen.getByText(/Source label 0/)).toBeInTheDocument()
+  })
+
+  it('tags an expanded INDEX-not-pulled, unused fragment', () => {
+    const data = makeData()
+    data.groups[0]!.fragments[0] = {
+      fragmentType: 'MEMORY',
+      fragmentId: 'x',
+      sourceLabel: 'Tagged frag',
+      outcome: 'MERGED',
+      used: false,
+      disclosure: 'INDEX',
+      pulled: false,
+    }
+    mockHook.mockReturnValue({ data, loading: false, error: null })
+    render(<LineageTab taskIdentifier='LUM-1' enabled />)
+    fireEvent.click(screen.getByText(/Show all/))
+    expect(screen.getByText(/仅索引·未展开/)).toBeInTheDocument()
+    expect(screen.getByText(/✗ 未采用/)).toBeInTheDocument()
   })
 })
