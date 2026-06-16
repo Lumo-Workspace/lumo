@@ -427,12 +427,12 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
     mockListByTaskWithCost.mockResolvedValue([sessionEdge()])
     mockGetOperationCost.mockResolvedValue({
       byTool: [
-        { label: 'Bash', output: 4000, cacheRead: 1000, total: 5000 },
-        { label: 'Edit', output: 1000, cacheRead: 200, total: 1200 },
-        { label: 'Read', output: 600, cacheRead: 200, total: 800 },
-        { label: 'Grep', output: 300, cacheRead: 100, total: 400 },
-        { label: 'Write', output: 150, cacheRead: 50, total: 200 },
-        { label: 'Glob', output: 40, cacheRead: 10, total: 50 },
+        { label: 'Bash', output: 4000, input: 300, cacheCreation: 80, cacheRead: 1000, total: 5380 }, // prettier-ignore
+        { label: 'Edit', output: 1000, input: 50, cacheCreation: 20, cacheRead: 200, total: 1270 }, // prettier-ignore
+        { label: 'Read', output: 600, input: 30, cacheCreation: 10, cacheRead: 200, total: 840 }, // prettier-ignore
+        { label: 'Grep', output: 300, input: 20, cacheCreation: 5, cacheRead: 100, total: 425 }, // prettier-ignore
+        { label: 'Write', output: 150, input: 10, cacheCreation: 2, cacheRead: 50, total: 212 }, // prettier-ignore
+        { label: 'Glob', output: 40, input: 5, cacheCreation: 1, cacheRead: 10, total: 56 }, // prettier-ignore
       ],
     })
 
@@ -446,13 +446,13 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
       kind: 'task',
       identifier: 'LUM-263',
     })
-    // Top-5 only, projected to { tool, output, cacheRead, total } (sixth row dropped).
+    // Top-5 only, projected to { tool, output, input, cacheCreation, cacheRead, total } (sixth row dropped).
     expect(dto?.totals.topOperations).toEqual([
-      { tool: 'Bash', output: 4000, cacheRead: 1000, total: 5000 },
-      { tool: 'Edit', output: 1000, cacheRead: 200, total: 1200 },
-      { tool: 'Read', output: 600, cacheRead: 200, total: 800 },
-      { tool: 'Grep', output: 300, cacheRead: 100, total: 400 },
-      { tool: 'Write', output: 150, cacheRead: 50, total: 200 },
+      { tool: 'Bash', output: 4000, input: 300, cacheCreation: 80, cacheRead: 1000, total: 5380 }, // prettier-ignore
+      { tool: 'Edit', output: 1000, input: 50, cacheCreation: 20, cacheRead: 200, total: 1270 }, // prettier-ignore
+      { tool: 'Read', output: 600, input: 30, cacheCreation: 10, cacheRead: 200, total: 840 }, // prettier-ignore
+      { tool: 'Grep', output: 300, input: 20, cacheCreation: 5, cacheRead: 100, total: 425 }, // prettier-ignore
+      { tool: 'Write', output: 150, input: 10, cacheCreation: 2, cacheRead: 50, total: 212 }, // prettier-ignore
     ])
   })
 

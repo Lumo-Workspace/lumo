@@ -677,6 +677,8 @@ export interface LineageResponse {
     topOperations: {
       tool: string
       output: number
+      input: number
+      cacheCreation: number
       cacheRead: number
       total: number
     }[]

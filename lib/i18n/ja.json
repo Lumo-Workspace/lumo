@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "トークンコスト別の上位オペレーション",
   "lineage.operations.col.tool": "ツール",
   "lineage.operations.col.output": "出力",
+  "lineage.operations.col.input": "入力",
+  "lineage.operations.col.cacheCreate": "キャッシュ作成",
   "lineage.operations.col.cacheRead": "キャッシュ読み取り",
   "lineage.operations.col.total": "合計",
   "lineage.operations.footnote": "帰属はヒューリスティックです（並列ツールは 1 ステップを均等に分割）。キャッシュ読み取りは構造的コストです。完全な内訳: lumo cost --task {id}",

@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "Các thao tác hàng đầu theo chi phí token",
   "lineage.operations.col.tool": "Công cụ",
   "lineage.operations.col.output": "Đầu ra",
+  "lineage.operations.col.input": "Đầu vào",
+  "lineage.operations.col.cacheCreate": "Tạo bộ nhớ đệm",
   "lineage.operations.col.cacheRead": "Đọc bộ nhớ đệm",
   "lineage.operations.col.total": "Tổng",
   "lineage.operations.footnote": "Quy gán mang tính suy nghiệm (các công cụ song song chia đều một bước); đọc bộ nhớ đệm là chi phí cấu trúc. Chi tiết đầy đủ: lumo cost --task {id}",

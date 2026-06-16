@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "토큰 비용별 상위 작업",
   "lineage.operations.col.tool": "도구",
   "lineage.operations.col.output": "출력",
+  "lineage.operations.col.input": "입력",
+  "lineage.operations.col.cacheCreate": "캐시 생성",
   "lineage.operations.col.cacheRead": "캐시 읽기",
   "lineage.operations.col.total": "합계",
   "lineage.operations.footnote": "귀속은 휴리스틱입니다(병렬 도구는 한 단계를 균등하게 분할). 캐시 읽기는 구조적 비용입니다. 전체 세부 내역: lumo cost --task {id}",

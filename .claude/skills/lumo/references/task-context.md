@@ -187,8 +187,11 @@ Per-operation (per-tool) token cost read-out. Where `task lineage` answers
 token delta to the tool(s) that ran in it — **per-step** where the
 `POST_TOOL_BATCH` hook captured the tool list, **per-turn fallback** otherwise
 (a parallel-tool step splits its tokens evenly across the tools, hence the
-"heuristic" note). `output` (generation) and `cache_read` (~95%, structural —
-turns × context) are shown in separate columns.
+"heuristic" note). Each ranking row breaks the cost into four columns —
+`output` (generation), `input`, `cache_create`, `cache_read` (~95%, structural —
+turns × context) — plus `total`. `output` and `cache_read` attribute cleanly
+per step; `input` and `cache_create` are bursty (prompt + cache checkpoints), so
+their per-tool figures are coarser.
 
 ```bash
 lumo cost --task LUM-42

@@ -1423,6 +1423,8 @@
   "lineage.operations.title": "Top operations · 按 token 成本",
   "lineage.operations.col.tool": "工具",
   "lineage.operations.col.output": "输出",
+  "lineage.operations.col.input": "输入",
+  "lineage.operations.col.cacheCreate": "缓存创建",
   "lineage.operations.col.cacheRead": "缓存读取",
   "lineage.operations.col.total": "合计",
   "lineage.operations.footnote": "归因为启发式（并行工具按步均分）；缓存读取为结构性成本。完整明细见 lumo cost --task {id}",

@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "token लागत के अनुसार शीर्ष ऑपरेशन",
   "lineage.operations.col.tool": "टूल",
   "lineage.operations.col.output": "आउटपुट",
+  "lineage.operations.col.input": "इनपुट",
+  "lineage.operations.col.cacheCreate": "कैश निर्माण",
   "lineage.operations.col.cacheRead": "कैश रीड",
   "lineage.operations.col.total": "कुल",
   "lineage.operations.footnote": "विशेषण ह्यूरिस्टिक है (समानांतर टूल एक चरण को बराबर बाँटते हैं); कैश रीड एक संरचनात्मक लागत है। पूरा विवरण: lumo cost --task {id}",

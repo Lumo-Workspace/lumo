@@ -1685,6 +1685,8 @@
   "lineage.operations.title": "Operasi teratas mengikut kos token",
   "lineage.operations.col.tool": "Alat",
   "lineage.operations.col.output": "Output",
+  "lineage.operations.col.input": "Input",
+  "lineage.operations.col.cacheCreate": "Cipta cache",
   "lineage.operations.col.cacheRead": "Baca cache",
   "lineage.operations.col.total": "Jumlah",
   "lineage.operations.footnote": "Atribusi bersifat heuristik (alat selari membahagikan satu langkah sama rata); baca cache ialah kos struktur. Pecahan penuh: lumo cost --task {id}",
