@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "예측 {value}",
   "retrospective.actual": "실제 {value}",
   "retrospective.actualLabel": "실제",
-  "retrospective.delivery": "전달",
+  "retrospective.delivery": "실행 요약",
   "retrospective.iterations": "실행 횟수",
   "retrospective.interactionRounds": "상호작용 횟수",
   "retrospective.bandWithin": "일반 범위 내",

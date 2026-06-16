@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Прогноз {value}",
   "retrospective.actual": "фактически {value}",
   "retrospective.actualLabel": "фактически",
-  "retrospective.delivery": "Доставка",
+  "retrospective.delivery": "Сводка выполнения",
   "retrospective.iterations": "Запуски",
   "retrospective.interactionRounds": "Раунды взаимодействия",
   "retrospective.bandWithin": "В обычном диапазоне",

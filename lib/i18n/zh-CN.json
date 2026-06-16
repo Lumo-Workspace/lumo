@@ -1425,7 +1425,7 @@
   "retrospective.predicted": "预测 {value}",
   "retrospective.actual": "实际 {value}",
   "retrospective.actualLabel": "实际",
-  "retrospective.delivery": "交付",
+  "retrospective.delivery": "运行概况",
   "retrospective.iterations": "运行次数",
   "retrospective.totalDuration": "运行时长",
   "retrospective.interactionRounds": "交互轮次",

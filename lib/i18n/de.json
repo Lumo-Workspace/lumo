@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Prognose {value}",
   "retrospective.actual": "Tatsächlich {value}",
   "retrospective.actualLabel": "Tatsächlich",
-  "retrospective.delivery": "Lieferung",
+  "retrospective.delivery": "Laufübersicht",
   "retrospective.iterations": "Durchläufe",
   "retrospective.interactionRounds": "Interaktionsrunden",
   "retrospective.bandWithin": "Im üblichen Bereich",

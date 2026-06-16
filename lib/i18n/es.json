@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Previsión {value}",
   "retrospective.actual": "real {value}",
   "retrospective.actualLabel": "real",
-  "retrospective.delivery": "Entrega",
+  "retrospective.delivery": "Resumen de ejecución",
   "retrospective.iterations": "Ejecuciones",
   "retrospective.interactionRounds": "Rondas de interacción",
   "retrospective.bandWithin": "Dentro del rango habitual",

@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "予測 {value}",
   "retrospective.actual": "実績 {value}",
   "retrospective.actualLabel": "実績",
-  "retrospective.delivery": "デリバリー",
+  "retrospective.delivery": "実行概要",
   "retrospective.iterations": "実行回数",
   "retrospective.interactionRounds": "対話ラウンド数",
   "retrospective.bandWithin": "通常範囲内",

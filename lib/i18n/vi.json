@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Dự báo {value}",
   "retrospective.actual": "thực tế {value}",
   "retrospective.actualLabel": "thực tế",
-  "retrospective.delivery": "Bàn giao",
+  "retrospective.delivery": "Tóm tắt lần chạy",
   "retrospective.iterations": "Số lần chạy",
   "retrospective.interactionRounds": "Số lượt tương tác",
   "retrospective.bandWithin": "Trong phạm vi thông thường",

@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Prediksi {value}",
   "retrospective.actual": "aktual {value}",
   "retrospective.actualLabel": "aktual",
-  "retrospective.delivery": "Pengiriman",
+  "retrospective.delivery": "Ringkasan eksekusi",
   "retrospective.iterations": "Eksekusi",
   "retrospective.interactionRounds": "Putaran interaksi",
   "retrospective.bandWithin": "Dalam rentang biasa",
