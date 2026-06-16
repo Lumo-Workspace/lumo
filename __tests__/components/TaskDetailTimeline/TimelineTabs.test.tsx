@@ -88,8 +88,9 @@ jest.mock(
   () => ({ ContextTab: () => <div data-testid='panel-context' /> })
 )
 // The Delivery tab folds runs + acceptance behind a sub-segment; stub it to an
-// empty div so the only `verdict-status` node that can appear is the floating
-// VerdictDecision rendered by TimelineTabs itself.
+// empty div. Since LUM-529 moved the floating verdict bar out of TimelineTabs,
+// no `verdict-status` node should come from this component at all — the stub
+// keeps that absence assertion unambiguous (no panel can smuggle one in).
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/DeliveryTab',
   () => ({
@@ -110,9 +111,9 @@ jest.mock(
   () => ({ AcceptanceTab: () => <div data-testid='panel-acceptance' /> })
 )
 
-// VerdictDecision is rendered by TimelineTabs in the floating variant — mock its
-// deps that aren't already covered by the hooks mocked above, so the real
-// component can render without pulling in its full dependency tree.
+// LUM-529 removed the floating VerdictDecision from TimelineTabs. These verdict
+// deps are still stubbed defensively so any child that transitively reaches for
+// them stays hermetic and the suite never hits the network.
 jest.mock('@/lib/api-client', () => ({
   tasksClient: { submitHumanVerdict: jest.fn() },
 }))
@@ -472,14 +473,14 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
   })
 })
 
-describe('TimelineTabs floating VerdictDecision pinned during IN_REVIEW', () => {
-  // DeliveryTab is mocked to an empty div in this file, so the ONLY node that
-  // can carry `verdict-status` is the floating VerdictDecision rendered by
-  // TimelineTabs itself. That makes presence/absence of `verdict-status` a
-  // faithful proxy for "floating shown" vs "hidden". The verdict is now pinned
-  // as the single floating bar whenever IN_REVIEW + criteria, on every tab; the
-  // in-content header is suppressed inside AcceptanceTab during review.
-  it('shows the floating verdict whenever IN_REVIEW with criteria', () => {
+describe('TimelineTabs no longer renders the floating verdict bar (LUM-529)', () => {
+  // The floating verdict bar moved to the top of the task detail (rendered by
+  // ReviewVerdictBar in TaskDetailPage, above the description). TimelineTabs
+  // must NOT render it — even during IN_REVIEW with criteria — so a reviewer
+  // never sees a second copy. DeliveryTab and AcceptanceTab are mocked to empty
+  // divs here, so a `verdict-status` node could only come from TimelineTabs
+  // itself; its absence proves the bar is gone from this layer.
+  it('does not render the floating verdict during IN_REVIEW with criteria', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -487,28 +488,11 @@ describe('TimelineTabs floating VerdictDecision pinned during IN_REVIEW', () => 
       criteria: true,
       taskStatus: 'IN_REVIEW',
     })
-    // mockNav.tab undefined → Comments active.
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
+    expect(screen.queryByTestId('verdict-status')).toBeNull()
   })
 
-  it('keeps the floating verdict pinned on the delivery tab too', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-      taskStatus: 'IN_REVIEW',
-    })
-    // Delivery tab active (incl. its acceptance sub-segment) — the verdict no
-    // longer hides here; it stays pinned as the single floating bar.
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
-    mockNav.tab = ['delivery']
-    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
-  })
-
-  it('renders at most one VerdictDecision', () => {
+  it('does not render the floating verdict on the delivery tab either', () => {
     setPresence({
       agent: false,
       memory: false,
@@ -518,20 +502,6 @@ describe('TimelineTabs floating VerdictDecision pinned during IN_REVIEW', () => 
     })
     mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
     mockNav.tab = ['delivery']
-    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(
-      screen.queryAllByTestId('verdict-status').length
-    ).toBeLessThanOrEqual(1)
-  })
-
-  it('does not show the floating verdict when the task is not IN_REVIEW', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-      taskStatus: 'DONE',
-    })
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
     expect(screen.queryByTestId('verdict-status')).toBeNull()
   })

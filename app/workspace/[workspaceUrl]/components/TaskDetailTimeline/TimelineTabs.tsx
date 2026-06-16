@@ -14,7 +14,7 @@ import { ContextTab } from './ContextTab'
 import { LineageTab } from './LineageTab'
 import { DeliveryTab, type DeliverySubTab } from './DeliveryTab'
 import { resolveDefaultDeliverySubTab } from './delivery-subtab'
-import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
+import { type HumanVerdictResult } from './VerdictDecision'
 import { MemoryTab } from '../memory/MemoryTab'
 import type { TaskDetail } from '../../types'
 import type { MentionSources } from '@/types/mention'
@@ -221,17 +221,6 @@ export function TimelineTabs({
 
   return (
     <div className='mt-8'>
-      {status.data &&
-        status.data.task.status === 'IN_REVIEW' &&
-        hasCriteria && (
-          <VerdictDecision
-            variant='floating'
-            taskIdentifier={taskIdentifier}
-            data={status.data}
-            onVerdictRecorded={onVerdictRecorded}
-            {...(mentionSources ? { mentionSources } : {})}
-          />
-        )}
       <div className='flex gap-4 mb-4'>
         <button
           className={tabClass(activeTab === 'comments')}

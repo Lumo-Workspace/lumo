@@ -40,6 +40,8 @@ import { useTags } from '../../hooks/useTags'
 import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
+import { ReviewVerdictBar } from '../TaskDetailTimeline/ReviewVerdictBar'
+import type { HumanVerdictResult } from '../TaskDetailTimeline/VerdictDecision'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 
 interface TaskDetailPageProps {
@@ -129,6 +131,27 @@ export function TaskDetailPage({
       }
     },
     [rawHandlePatch]
+  )
+
+  const handleVerdictRecorded = useCallback(
+    (result: HumanVerdictResult) => {
+      setTask(prev => ({
+        ...prev,
+        status: result.taskStatus as TaskDetail['status'],
+      }))
+      // A human verdict fans out across the contract and writes
+      // mirror activities — invalidate the read models the
+      // acceptance tab + timeline render from so they sync instead
+      // of showing the pre-verdict state (LUM-423: the status read
+      // model is keyed by identifier, the timeline by task id).
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.taskStatus(`${task.teamIdentifier}-${task.number}`),
+      })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline(task.id),
+      })
+    },
+    [queryClient, setTask, task.teamIdentifier, task.number, task.id]
   )
   const { tags: allTags, createTag } = useTags()
 
@@ -296,6 +319,14 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
+            {/* LUM-529: review verdict bar pinned above the description so the 通过/打回
+                action is visible without scrolling on an IN_REVIEW task. */}
+            <ReviewVerdictBar
+              taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+              onVerdictRecorded={handleVerdictRecorded}
+              {...(mentionSources ? { mentionSources } : {})}
+            />
+
             {/* Description */}
             {desc.descriptionLoading ? (
               <Spinner className='size-4 text-muted-foreground' />
@@ -365,25 +396,7 @@ export function TaskDetailPage({
               slackConnected={slackConnected}
               pullRequests={task.pullRequests ?? []}
               mentionSources={mentionSources}
-              onVerdictRecorded={result => {
-                setTask(prev => ({
-                  ...prev,
-                  status: result.taskStatus as TaskDetail['status'],
-                }))
-                // A human verdict fans out across the contract and writes
-                // mirror activities — invalidate the read models the
-                // acceptance tab + timeline render from so they sync instead
-                // of showing the pre-verdict state (LUM-423: the status read
-                // model is keyed by identifier, the timeline by task id).
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.taskStatus(
-                    `${task.teamIdentifier}-${task.number}`
-                  ),
-                })
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.timeline(task.id),
-                })
-              }}
+              onVerdictRecorded={handleVerdictRecorded}
               onLinkPr={async () => {
                 const data = await tasksClient.getById<{ task: TaskDetail }>(
                   task.id
