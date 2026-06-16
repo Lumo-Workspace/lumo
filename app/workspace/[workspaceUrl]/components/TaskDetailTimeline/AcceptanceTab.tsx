@@ -1248,10 +1248,11 @@ export function AcceptanceTab({
   return (
     <div className='space-y-5 py-1'>
       {/* During IN_REVIEW the verdict is shown once, pinned, as the floating
-          bar above the tab bar (TimelineTabs) — so the in-content header is
-          suppressed here to avoid a second copy. Outside review there is no
-          pending verdict to pin, so the header stays as the passive status
-          banner (e.g. a DONE task's "passed" summary). */}
+          bar at the top of the task detail (above the description, via
+          ReviewVerdictBar) — so the in-content header is suppressed here to
+          avoid a second copy. Outside review there is no pending verdict to
+          pin, so the header stays as the passive status banner (e.g. a DONE
+          task's "passed" summary). */}
       {!interactive && (
         <VerdictDecision
           variant='header'
