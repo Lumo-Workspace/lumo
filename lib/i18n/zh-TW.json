@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "弱化了一條未通過的驗收標準",
   "boundary.category.spinoffLaundered": "把返工洗成了新任務",
-  "boundary.category.silentFix": "對已提交的工作偷偷修復(無退回)"
+  "boundary.category.silentFix": "對已提交的工作偷偷修復(無退回)",
+  "acceptance.history.sendBackCount": "{count, plural, one {退回 # 條} other {退回 # 條}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {Agent 退回 · #} other {Agent 退回 · #}}"
 }

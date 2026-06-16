@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "ein fehlschlagendes Akzeptanzkriterium abgeschwächt",
   "boundary.category.spinoffLaundered": "Nacharbeit in eine neue Aufgabe ausgelagert",
-  "boundary.category.silentFix": "eingereichte Arbeit still korrigiert (ohne Rückläufer)"
+  "boundary.category.silentFix": "eingereichte Arbeit still korrigiert (ohne Rückläufer)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# zurückgewiesen} other {# zurückgewiesen}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {Agent-Rückweisung · #} other {Agent-Rückweisung · #}}"
 }

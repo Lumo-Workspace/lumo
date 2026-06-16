@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "làm yếu một tiêu chí nghiệm thu đang thất bại",
   "boundary.category.spinoffLaundered": "tuồn việc làm lại sang một nhiệm vụ mới",
-  "boundary.category.silentFix": "âm thầm sửa công việc đã nộp (không trả lại)"
+  "boundary.category.silentFix": "âm thầm sửa công việc đã nộp (không trả lại)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# đã trả lại} other {# đã trả lại}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {agent trả lại · #} other {agent trả lại · #}}"
 }

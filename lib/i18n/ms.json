@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "melemahkan kriteria penerimaan yang gagal",
   "boundary.category.spinoffLaundered": "mengalihkan kerja semula ke tugasan baharu",
-  "boundary.category.silentFix": "diam-diam membaiki kerja yang dihantar (tanpa hantar balik)"
+  "boundary.category.silentFix": "diam-diam membaiki kerja yang dihantar (tanpa hantar balik)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# dipulangkan} other {# dipulangkan}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {pemulangan ejen · #} other {pemulangan ejen · #}}"
 }

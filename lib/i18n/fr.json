@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "a affaibli un critère d'acceptation en échec",
   "boundary.category.spinoffLaundered": "a détourné une reprise vers une nouvelle tâche",
-  "boundary.category.silentFix": "a corrigé en silence un travail soumis (sans renvoi)"
+  "boundary.category.silentFix": "a corrigé en silence un travail soumis (sans renvoi)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# renvoyé} other {# renvoyés}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {renvoi de l’agent · #} other {renvoi de l’agent · #}}"
 }
