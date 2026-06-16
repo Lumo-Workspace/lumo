@@ -95,7 +95,12 @@ export interface LineageDto {
      * LUM-523: Top-5 most expensive operations (tools) for this task, by token
      * cost. A compact quick view; the full breakdown lives in `lumo cost --task`.
      */
-    topOperations: { tool: string; total: number }[]
+    topOperations: {
+      tool: string
+      output: number
+      cacheRead: number
+      total: number
+    }[]
   }
   groups: LineageGroup[]
 }
@@ -417,9 +422,12 @@ export const lineageService = {
       identifier,
     })
     const topOperations =
-      opCost?.byTool
-        .slice(0, 5)
-        .map(r => ({ tool: r.label, total: r.total })) ?? []
+      opCost?.byTool.slice(0, 5).map(r => ({
+        tool: r.label,
+        output: r.output,
+        cacheRead: r.cacheRead,
+        total: r.total,
+      })) ?? []
 
     return {
       task: {
