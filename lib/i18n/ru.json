@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "ослабил проваленный критерий приёмки",
   "boundary.category.spinoffLaundered": "увёл доработку в новую задачу",
-  "boundary.category.silentFix": "втихую исправил сданную работу (без возврата)"
+  "boundary.category.silentFix": "втихую исправил сданную работу (без возврата)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# возврат} other {# возвратов}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {возврат агентом · #} other {возврат агентом · #}}"
 }

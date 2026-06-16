@@ -725,6 +725,8 @@
   "acceptance.history.roundAgent": "round {round} · agent send-back",
   "acceptance.history.roundGeneric": "round {round}",
   "acceptance.history.passCount": "{passed}/{total} passed",
+  "acceptance.history.sendBackCount": "{count, plural, one {# sent back} other {# sent back}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {agent send-back · #} other {agent send-back · #}}",
   "acceptance.contract.title": "Acceptance criteria",
   "acceptance.contract.count": "{total} · {machine} MACHINE / {human} HUMAN",
   "acceptance.criterion.editedAtRound": "Edited · round {round}",

@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "失敗中の受け入れ基準を弱めた",
   "boundary.category.spinoffLaundered": "手戻りを新しいタスクに横流しした",
-  "boundary.category.silentFix": "提出済みの作業を差し戻しなしで黙って修正した"
+  "boundary.category.silentFix": "提出済みの作業を差し戻しなしで黙って修正した",
+  "acceptance.history.sendBackCount": "{count, plural, one {# 件差し戻し} other {# 件差し戻し}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {エージェントの差し戻し · #} other {エージェントの差し戻し · #}}"
 }

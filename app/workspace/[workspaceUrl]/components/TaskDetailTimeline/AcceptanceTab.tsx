@@ -28,6 +28,7 @@ import { InfoTooltip } from './InfoTooltip'
 import { ActionTooltip } from './ActionTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
 import { isPass, isHumanOverride, machineRollup } from './verdict-status'
+import { roundHeadline } from './verification-history'
 
 interface AcceptanceTabProps {
   taskIdentifier: string
@@ -81,13 +82,6 @@ function parseExitCode(evidence: string | null | undefined): number | null {
 
 // ── Verification record (round history) ──────────────────────────────────────
 
-function roundVerifier(
-  round: VerificationHistoryRoundView
-): AcceptanceVerifier | null {
-  const set = new Set(round.verdicts.map(v => v.verifierType))
-  return set.size === 1 ? [...set][0]! : null
-}
-
 function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
   const intl = useIntl()
   const [open, setOpen] = useState<Set<number>>(() => new Set())
@@ -108,8 +102,10 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
       return next
     })
 
-  const roundLabel = (r: VerificationHistoryRoundView): string => {
-    const v = roundVerifier(r)
+  const roundLabel = (
+    r: VerificationHistoryRoundView,
+    v: AcceptanceVerifier | null
+  ): string => {
     if (v === 'MACHINE')
       return intl.formatMessage(
         {
@@ -161,7 +157,8 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
       <div className='overflow-hidden rounded-lg border border-border'>
         {rounds.map((r, i) => {
           const expanded = open.has(r.round)
-          const tonePass = r.failed === 0
+          const headline = roundHeadline(r)
+          const tonePass = headline.tonePass
           return (
             <div
               key={r.round}
@@ -177,7 +174,9 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
                   className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
                   aria-hidden
                 />
-                <span className='text-xs text-foreground'>{roundLabel(r)}</span>
+                <span className='text-xs text-foreground'>
+                  {roundLabel(r, headline.verifier)}
+                </span>
                 <span
                   className={`rounded-sm px-1.5 text-[11px] font-medium ${
                     tonePass
@@ -185,18 +184,42 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
                       : 'bg-danger-subtle border border-danger-border text-foreground'
                   }`}
                 >
-                  {intl.formatMessage(
-                    {
-                      id: 'acceptance.history.passCount',
-                      defaultMessage: '{passed}/{total} passed',
-                    },
-                    { passed: r.passed, total: r.verdicts.length }
-                  )}
+                  {headline.isSendBackOnly
+                    ? intl.formatMessage(
+                        {
+                          id: 'acceptance.history.sendBackCount',
+                          defaultMessage:
+                            '{count, plural, one {# sent back} other {# sent back}}',
+                        },
+                        { count: headline.sendBackCount }
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'acceptance.history.passCount',
+                          defaultMessage: '{passed}/{total} passed',
+                        },
+                        { passed: headline.passed, total: headline.total }
+                      )}
                 </span>
                 <span className='ml-auto text-[11px] text-muted-foreground'>
                   {new Date(r.recordedAt).toLocaleString(intl.locale)}
                 </span>
               </button>
+              {!headline.isSendBackOnly && headline.sendBackCount > 0 ? (
+                <div className='flex items-center gap-1.5 px-3 pb-2.5 pl-8 -mt-1 text-[11px] text-danger'>
+                  <span aria-hidden>↳</span>
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        id: 'acceptance.history.sendBackInline',
+                        defaultMessage:
+                          '{count, plural, one {agent send-back · #} other {agent send-back · #}}',
+                      },
+                      { count: headline.sendBackCount }
+                    )}
+                  </span>
+                </div>
+              ) : null}
               {expanded ? (
                 <div className='space-y-1 border-t border-border/60 px-3 py-2 pl-8'>
                   {r.verdicts.map(v => (

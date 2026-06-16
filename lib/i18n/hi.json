@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "विफल हो रहे स्वीकृति मानदंड को कमज़ोर किया",
   "boundary.category.spinoffLaundered": "पुनःकार्य को नए कार्य में छिपा दिया",
-  "boundary.category.silentFix": "सबमिट किए गए काम को चुपचाप ठीक किया (कोई वापसी नहीं)"
+  "boundary.category.silentFix": "सबमिट किए गए काम को चुपचाप ठीक किया (कोई वापसी नहीं)",
+  "acceptance.history.sendBackCount": "{count, plural, one {# वापस} other {# वापस}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {एजेंट वापसी · #} other {एजेंट वापसी · #}}"
 }

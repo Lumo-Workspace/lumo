@@ -1665,5 +1665,7 @@
   "acceptance.sendBack.pr": "PR #{number}",
   "boundary.category.contractWeakening": "실패 중인 인수 기준을 약화시킴",
   "boundary.category.spinoffLaundered": "재작업을 새 작업으로 빼돌림",
-  "boundary.category.silentFix": "제출된 작업을 반려 없이 조용히 수정함"
+  "boundary.category.silentFix": "제출된 작업을 반려 없이 조용히 수정함",
+  "acceptance.history.sendBackCount": "{count, plural, one {# 건 반려} other {# 건 반려}}",
+  "acceptance.history.sendBackInline": "{count, plural, one {에이전트 반려 · #} other {에이전트 반려 · #}}"
 }
