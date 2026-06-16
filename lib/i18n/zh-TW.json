@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "預測 {value}",
   "retrospective.actual": "實際 {value}",
   "retrospective.actualLabel": "實際",
-  "retrospective.delivery": "交付",
+  "retrospective.delivery": "執行概況",
   "retrospective.iterations": "執行次數",
   "retrospective.interactionRounds": "互動輪次",
   "retrospective.bandWithin": "落在常見區間內",

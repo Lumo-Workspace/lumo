@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Forecast {value}",
   "retrospective.actual": "actual {value}",
   "retrospective.actualLabel": "actual",
-  "retrospective.delivery": "Delivery",
+  "retrospective.delivery": "Run summary",
   "retrospective.iterations": "Runs",
   "retrospective.interactionRounds": "Interaction rounds",
   "retrospective.bandWithin": "within the usual range",

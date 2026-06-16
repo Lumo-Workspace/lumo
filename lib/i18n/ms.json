@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Ramalan {value}",
   "retrospective.actual": "sebenar {value}",
   "retrospective.actualLabel": "sebenar",
-  "retrospective.delivery": "Penghantaran",
+  "retrospective.delivery": "Ringkasan larian",
   "retrospective.iterations": "Jalankan",
   "retrospective.interactionRounds": "Pusingan interaksi",
   "retrospective.bandWithin": "Dalam julat biasa",

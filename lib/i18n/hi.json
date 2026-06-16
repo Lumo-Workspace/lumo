@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "पूर्वानुमान {value}",
   "retrospective.actual": "वास्तविक {value}",
   "retrospective.actualLabel": "वास्तविक",
-  "retrospective.delivery": "डिलीवरी",
+  "retrospective.delivery": "रन सारांश",
   "retrospective.iterations": "रन",
   "retrospective.interactionRounds": "इंटरैक्शन राउंड",
   "retrospective.bandWithin": "सामान्य सीमा में",

@@ -1424,7 +1424,7 @@
   "retrospective.predicted": "Prévision {value}",
   "retrospective.actual": "réel {value}",
   "retrospective.actualLabel": "réel",
-  "retrospective.delivery": "Livraison",
+  "retrospective.delivery": "Récapitulatif d'exécution",
   "retrospective.iterations": "Exécutions",
   "retrospective.interactionRounds": "Tours d'interaction",
   "retrospective.bandWithin": "Dans la plage habituelle",
