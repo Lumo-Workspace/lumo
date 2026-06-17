@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Index · nicht erweitert",
   "lineage.fragment.used.yes": "✓ genutzt",
   "lineage.fragment.used.no": "✗ ungenutzt",
-  "lineage.fragment.used.abstained": "· keine Wertung"
+  "lineage.fragment.used.abstained": "· keine Wertung",
+  "boundary.panel.explanations.label": "Selbstauskunft des Agents · ungeprüft",
+  "boundary.panel.explanations.disclaimer": "Die eigene Schilderung des Agents, warum er gehandelt hat — Kontext für Ihre Entscheidung, kein Urteil und keine Disposition."
 }

@@ -12,6 +12,7 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     findById: jest.fn(),
     findAllByTask: jest.fn(),
+    listExplanationsByCrossingIds: jest.fn(() => []),
     disposition: jest.fn(),
     setRemediationTask: jest.fn(),
   },

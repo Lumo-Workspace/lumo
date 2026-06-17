@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "인덱스 · 확장 안 됨",
   "lineage.fragment.used.yes": "✓ 사용됨",
   "lineage.fragment.used.no": "✗ 미사용",
-  "lineage.fragment.used.abstained": "· 투표 없음"
+  "lineage.fragment.used.abstained": "· 투표 없음",
+  "boundary.panel.explanations.label": "에이전트 자기 보고 · 미검증",
+  "boundary.panel.explanations.disclaimer": "에이전트가 직접 밝힌 행동 이유입니다. 판단을 돕는 참고일 뿐, 판정이나 처분이 아닙니다."
 }

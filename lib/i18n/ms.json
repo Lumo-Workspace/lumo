@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Indeks · tidak diperluas",
   "lineage.fragment.used.yes": "✓ digunakan",
   "lineage.fragment.used.no": "✗ tidak digunakan",
-  "lineage.fragment.used.abstained": "· tiada undi"
+  "lineage.fragment.used.abstained": "· tiada undi",
+  "boundary.panel.explanations.label": "Laporan kendiri ejen · belum disahkan",
+  "boundary.panel.explanations.disclaimer": "Keterangan ejen sendiri tentang sebab ia bertindak — konteks untuk keputusan anda, bukan keputusan muktamad dan bukan disposisi."
 }

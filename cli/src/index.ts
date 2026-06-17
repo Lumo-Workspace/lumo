@@ -19,6 +19,10 @@ import {
   collectCriterion,
   type VerdictOptions,
 } from './commands/verdict'
+import {
+  crossingExplain,
+  type CrossingExplainOptions,
+} from './commands/crossing-explain'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -286,6 +290,25 @@ program
   .action(
     wrap((task: unknown, options: unknown) =>
       verdict(task as string | undefined, options as VerdictOptions)
+    )
+  )
+
+const crossing = program
+  .command('crossing')
+  .description('Inspect and annotate boundary crossings')
+
+crossing
+  .command('explain <id>')
+  .description(
+    'Append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Targets a crossing on the session-bound task.'
+  )
+  .requiredOption(
+    '--note <text>',
+    'The explanation to record (the rationale for the action / why it may be a false positive)'
+  )
+  .action(
+    wrap((id: unknown, options: unknown) =>
+      crossingExplain(id as string, options as CrossingExplainOptions)
     )
   )
 

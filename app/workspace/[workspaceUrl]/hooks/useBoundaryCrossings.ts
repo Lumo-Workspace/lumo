@@ -71,6 +71,18 @@ export interface BoundaryCrossingView {
   lastDispositionChange: DispositionChangeView | null
   /** Who/what crossed (LUM-469) — owner, agent/session, model. Always present. */
   attribution: CrossingAttributionView
+  /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first; each
+   *  note is sanitized server-side. Empty when the agent recorded none. */
+  explanations: ExplanationView[]
+}
+
+/** LUM-542: an append-only agent self-explanation on a crossing. */
+export interface ExplanationView {
+  id: string
+  note: string
+  authorAgent: string | null
+  authorSessionId: string | null
+  createdAt: string
 }
 
 interface BoundaryCrossingsResponse {

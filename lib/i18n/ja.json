@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "インデックス · 未展開",
   "lineage.fragment.used.yes": "✓ 使用済み",
   "lineage.fragment.used.no": "✗ 未使用",
-  "lineage.fragment.used.abstained": "· 投票なし"
+  "lineage.fragment.used.abstained": "· 投票なし",
+  "boundary.panel.explanations.label": "エージェントの自己申告 · 未検証",
+  "boundary.panel.explanations.disclaimer": "エージェント自身による行動理由の説明です。判断の参考であり、判定でもディスポジションでもありません。"
 }

@@ -1016,6 +1016,8 @@
   "boundary.panel.attribution.session": "session: {session}",
   "boundary.panel.attribution.owner": "owner: {owner}",
   "boundary.panel.note": "Note: {note}",
+  "boundary.panel.explanations.label": "Agent self-report · unverified",
+  "boundary.panel.explanations.disclaimer": "The agent's own account of why it acted — context for your decision, not a verdict, and never a disposition.",
   "boundary.panel.remediatedBy": "Remediated by",
   "boundary.panel.remediationLinked": "Remediation:",
   "boundary.panel.remediationNudge": "Confirmed and unremediated — consider opening a fix.",

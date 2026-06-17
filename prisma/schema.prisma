@@ -829,14 +829,48 @@ model BoundaryCrossing {
   dispositionedAt   DateTime?
   dispositionedById String?
   remediationTaskId String?
+  // LUM-542: when the agent was first reminded (via the next hook's stdout) that
+  // this crossing exists and can be explained. Set once, the first time a
+  // reminder is emitted, so the reminder fires exactly once per crossing and a
+  // later hook never re-nags. Null = not yet reminded; orthogonal to disposition
+  // and the DONE gate (which key only on `disposition`).
+  agentNotifiedAt   DateTime?
 
   task            Task  @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   remediationTask Task? @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
+  // LUM-542: append-only agent self-explanations ("申辩"). A purely additive
+  // annotation layer — never read by the DONE gate, never a disposition.
+  explanations    BoundaryCrossingExplanation[]
 
   @@index([taskId, disposition])
   // Supports the LUM-477 open-crossing coalescing lookup (taskId, category, target).
   @@index([taskId, category, target])
   @@map("boundary_crossings")
+}
+
+/**
+ * LUM-542: an append-only agent self-explanation ("申辩") attached to a
+ * BoundaryCrossing. When a crossing is detected the agent gets one reminder and
+ * may record why it took the action; the note is shown to the human reviewer at
+ * disposition time and kept for later review, but is **never** a disposition and
+ * never touches the DONE gate. Rows are insert-only — there is deliberately no
+ * update or delete path (a correction is a new row, so prior wording survives).
+ * `authorSessionId` / `authorAgent` carry attribution (the originating Claude
+ * Code session and its agent type); both nullable for resilience. The note is
+ * untrusted free text — every render boundary sanitizes it.
+ */
+model BoundaryCrossingExplanation {
+  id              String   @id @default(cuid())
+  crossingId      String
+  note            String
+  authorSessionId String?
+  authorAgent     String?
+  createdAt       DateTime @default(now())
+
+  crossing BoundaryCrossing @relation(fields: [crossingId], references: [id], onDelete: Cascade)
+
+  @@index([crossingId, createdAt])
+  @@map("boundary_crossing_explanations")
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

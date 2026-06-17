@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Indeks · tidak diperluas",
   "lineage.fragment.used.yes": "✓ dipakai",
   "lineage.fragment.used.no": "✗ tidak dipakai",
-  "lineage.fragment.used.abstained": "· tanpa suara"
+  "lineage.fragment.used.abstained": "· tanpa suara",
+  "boundary.panel.explanations.label": "Laporan mandiri agen · belum terverifikasi",
+  "boundary.panel.explanations.disclaimer": "Penjelasan agen sendiri tentang alasan tindakannya — konteks untuk keputusan Anda, bukan vonis, dan bukan disposisi."
 }

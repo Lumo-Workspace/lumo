@@ -35,6 +35,26 @@ export interface CreateBoundaryCrossingInput {
   dispositionedAt?: Date | null
 }
 
+/** LUM-542: input for an append-only agent self-explanation row. */
+export interface CreateExplanationInput {
+  crossingId: string
+  note: string
+  /** Originating Claude Code session (attribution); nullable for resilience. */
+  authorSessionId?: string | null
+  /** The session's agent type, as sent on the X-Lumo-Agent header; nullable. */
+  authorAgent?: string | null
+}
+
+/** Projection for an explanation row (LUM-542). */
+const EXPLANATION_SELECT = {
+  id: true,
+  crossingId: true,
+  note: true,
+  authorSessionId: true,
+  authorAgent: true,
+  createdAt: true,
+} as const
+
 /** Lightweight projection for the gate / write paths. */
 const SELECT = {
   id: true,
@@ -261,5 +281,64 @@ export const boundaryCrossingRepository = {
     })
     // Absent workspace → treat as enabled (fail safe: the gate stays on).
     return ws?.boundaryGateEnabled ?? true
+  },
+
+  // ─── LUM-542: append-only agent self-explanations ("申辩") ──────────────────
+  // This layer is purely additive. None of these methods read or write
+  // `disposition`, and there is deliberately NO update/delete on an explanation
+  // row — a correction is a new insert, so earlier wording always survives.
+
+  /** Insert one append-only explanation. Insert-only by design. */
+  async createExplanation(input: CreateExplanationInput) {
+    return prisma.boundaryCrossingExplanation.create({
+      data: {
+        crossingId: input.crossingId,
+        note: input.note,
+        authorSessionId: input.authorSessionId ?? null,
+        authorAgent: input.authorAgent ?? null,
+      },
+      select: EXPLANATION_SELECT,
+    })
+  },
+
+  /** All explanations for a set of crossings, oldest-first (append order). The
+   *  web read model groups these per crossing in memory. */
+  async listExplanationsByCrossingIds(crossingIds: string[]) {
+    if (crossingIds.length === 0) return []
+    return prisma.boundaryCrossingExplanation.findMany({
+      where: { crossingId: { in: crossingIds } },
+      select: EXPLANATION_SELECT,
+      orderBy: { createdAt: 'asc' },
+    })
+  },
+
+  /**
+   * Open (undispositioned) crossings on a task the agent has NOT yet been
+   * reminded about (LUM-542). Drives the one-time hook reminder: only OPEN
+   * crossings are worth explaining, and `agentNotifiedAt: null` guarantees each
+   * is surfaced exactly once. Minimal projection — the reminder only needs the
+   * id/category/severity.
+   */
+  async findUnnotifiedOpenByTask(taskId: string) {
+    return prisma.boundaryCrossing.findMany({
+      where: { taskId, disposition: null, agentNotifiedAt: null },
+      select: { id: true, category: true, severity: true },
+      orderBy: { detectedAt: 'asc' },
+    })
+  },
+
+  /**
+   * Stamp `agentNotifiedAt` on crossings that haven't been reminded yet
+   * (LUM-542). Guarded by `agentNotifiedAt: null` so it is idempotent — a second
+   * call touches nothing and the reminder never re-fires. Returns how many rows
+   * were freshly stamped.
+   */
+  async markAgentNotified(crossingIds: string[], now: Date): Promise<number> {
+    if (crossingIds.length === 0) return 0
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { id: { in: crossingIds }, agentNotifiedAt: null },
+      data: { agentNotifiedAt: now },
+    })
+    return count
   },
 }

@@ -27,3 +27,20 @@ export type DispositionBoundaryCrossingInput = z.infer<
  * (LUM-435). The crossing id is a path param; the body carries nothing required.
  */
 export const spawnRemediationSchema = z.object({}).strict()
+
+/**
+ * Body for POST /api/tasks/[id]/boundary-crossings/[crossingId]/explain
+ * (LUM-542) — an agent appends a self-explanation ("申辩"). Strict and minimal:
+ * the ONLY field is the note. There is deliberately no disposition field here —
+ * the schema itself makes a disposition write unrepresentable on this route.
+ * The crossing id is a path param.
+ */
+export const explainBoundaryCrossingSchema = z
+  .object({
+    note: z.string().trim().min(1).max(4000),
+  })
+  .strict()
+
+export type ExplainBoundaryCrossingInput = z.infer<
+  typeof explainBoundaryCrossingSchema
+>

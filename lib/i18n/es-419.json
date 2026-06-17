@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Índice · no expandido",
   "lineage.fragment.used.yes": "✓ usado",
   "lineage.fragment.used.no": "✗ sin usar",
-  "lineage.fragment.used.abstained": "· sin voto"
+  "lineage.fragment.used.abstained": "· sin voto",
+  "boundary.panel.explanations.label": "Autoinforme del agente · sin verificar",
+  "boundary.panel.explanations.disclaimer": "El relato del propio agente sobre por qué actuó: contexto para tu decisión, no un veredicto ni una disposición."
 }

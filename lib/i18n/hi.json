@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "इंडेक्स · विस्तृत नहीं",
   "lineage.fragment.used.yes": "✓ उपयोग किया गया",
   "lineage.fragment.used.no": "✗ अनुपयोगी",
-  "lineage.fragment.used.abstained": "· कोई वोट नहीं"
+  "lineage.fragment.used.abstained": "· कोई वोट नहीं",
+  "boundary.panel.explanations.label": "एजेंट का स्व-विवरण · असत्यापित",
+  "boundary.panel.explanations.disclaimer": "एजेंट का अपना विवरण कि उसने ऐसा क्यों किया — आपके निर्णय के लिए संदर्भ, कोई फैसला नहीं और कोई डिस्पोज़िशन नहीं।"
 }
