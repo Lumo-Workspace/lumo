@@ -26,6 +26,13 @@ import {
   type SeparationCase,
 } from './ar-metrics'
 import { scoreSfRun } from './sf-runner'
+import {
+  nearDupRetrievalReport,
+  nearDupClusters,
+  type NearDupPair,
+  type VecItem,
+} from './near-dup-cluster'
+import { EMBEDDING_SCORE_FLOOR } from '@/lib/services/memory/embedding-neighbor-retriever'
 
 const FLOORS = Array.from(
   { length: 31 },
@@ -189,6 +196,29 @@ async function main(): Promise<void> {
   }
   log(
     `\n  lexical recall@1/@3/@10 = ${lex.at1.toFixed(3)}/${lex.at3.toFixed(3)}/${lex.at10.toFixed(3)}  vs  embedding(${PROD_MODEL}) recall@1/@10 = ${prod.recallAt1.toFixed(3)}/${prod.recallAt10.toFixed(3)}`
+  )
+
+  // LUM-538 — near-duplicate gate health at the SHIPPED dedup floor. A missed
+  // near-dup pair never reaches the reconcile LLM → spurious ADD → residual
+  // cluster. This is the metric the milestone "cluster count down, not
+  // rebounding" is judged on; the regression lives in near-dup-cluster.test.ts.
+  const ndPairs: NearDupPair[] = sameLangSet.filter(isPositiveCase).map(c => ({
+    id: c.id,
+    candidate: fx.cases[c.id]!.candidate[PROD_MODEL]!,
+    existing: fx.cases[c.id]!.existing[PROD_MODEL]!,
+  }))
+  const ndShipped = nearDupRetrievalReport(ndPairs, EMBEDDING_SCORE_FLOOR)
+  const ndOldKnee = nearDupRetrievalReport(ndPairs, 0.78)
+  const residualCorpus: VecItem[] = sameLangSet.map(c => ({
+    id: c.id,
+    vector: fx.cases[c.id]!.existing[PROD_MODEL]!,
+  }))
+  const residualClusters = nearDupClusters(residualCorpus, 0.85)
+  log(
+    `\n— NEAR-DUP GATE (LUM-538, ${PROD_MODEL}) —\n` +
+      `  shipped floor ${EMBEDDING_SCORE_FLOOR}: caught=${ndShipped.caught}/${ndShipped.total} (recall=${ndShipped.recall.toFixed(3)}) missed=${ndShipped.missed}\n` +
+      `  vs old 0.78 knee:    caught=${ndOldKnee.caught}/${ndOldKnee.total} (recall=${ndOldKnee.recall.toFixed(3)}) missed=${ndOldKnee.missed}\n` +
+      `  residual near-dup clusters in corpus (existing set, cos≥0.85): ${residualClusters.length}`
   )
 
   const xl = crossLingualReport(PROD_MODEL)

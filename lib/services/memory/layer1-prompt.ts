@@ -109,7 +109,7 @@ Rules of thumb (not laws — judge per memory):
 
 Tight by default. A whole memory is usually 1–2 lines. Only PROCEDURAL earns a step list.
 
-- Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`): one line, ideally under ~15 words. Readable on their own. A clear fragment is fine; it does NOT have to be a grammatically complete sentence.
+- Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`): one line, ideally under ~15 words. Readable on their own. A terse fragment is fine if it still states a complete fact — an action, a rule, or a cause→effect ("No console.log in prod", "Run prisma generate before tsc"). What is NOT fine is a bare label with no claim ("taskId divergence", "embedding mismatch"): that is an incomplete fact and will be discarded at the extraction gate. It does not need to be a grammatically complete sentence; it DOES need to carry the actionable point.
 - Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence — not a paragraph. Add a second sentence ONLY when the point is genuinely counter-intuitive and needs the "why". File paths, line numbers, error codes go here when they matter.
 - Don't write to a length. If the lesson is one clause, ship one clause. Don't manufacture "alternatives"/"implications"/narration to look thorough.
 

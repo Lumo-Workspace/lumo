@@ -1,8 +1,12 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import type { MemoryCategory } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
+import { loadConstitution } from './constitution'
+
+// Constitution loading moved to ./constitution (LUM-538) so the Layer-1 and
+// manual write paths can run the source de-dup gate without importing Layer-2.
+// Re-exported here to keep the existing import surface (and its unit test).
+export { loadConstitution } from './constitution'
 
 export interface Layer2Input {
   project: {
@@ -37,36 +41,6 @@ export interface Layer2Input {
   constitution: {
     claudeMd: string | null
     agentsMd: string | null
-  }
-}
-
-/**
- * Read the project constitution files from the repo root for injection into
- * the Layer 2 prompt. Both reads degrade to null on any error (missing file,
- * permission, runtime where the file wasn't bundled) so consolidation never
- * fails just because a constitution file is absent.
- *
- * On Vercel these files only reach the serverless bundle because
- * `outputFileTracingIncludes` in next.config.mjs lists them for the API
- * routes; without that, `process.cwd()` would not contain them and both reads
- * would fall back to null.
- */
-export async function loadConstitution(): Promise<Layer2Input['constitution']> {
-  const root = process.cwd()
-  const [claudeMd, agentsMd] = await Promise.all([
-    readConstitutionFile(path.join(root, 'CLAUDE.md')),
-    readConstitutionFile(path.join(root, 'AGENTS.md')),
-  ])
-  return { claudeMd, agentsMd }
-}
-
-async function readConstitutionFile(filePath: string): Promise<string | null> {
-  try {
-    const content = await readFile(filePath, 'utf8')
-    const trimmed = content.trim()
-    return trimmed.length > 0 ? trimmed : null
-  } catch {
-    return null
   }
 }
 

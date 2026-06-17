@@ -11,18 +11,31 @@ import type {
  *
  * Calibrated by the LUM-329 eval harness over a 54-case in-domain corpus
  * (39 positive pairs). qwen cosines sit high, so the old 0.6 placeholder admitted
- * noise: the precision/recall F1 knee sits at 0.78 (P=0.478, R=0.846, F1=0.611),
- * with F1 within ~0.01 across the 0.76–0.82 band. 0.78 keeps ~85% of same-fact
- * neighbors while roughly doubling precision vs 0.6.
+ * noise; the precision/recall F1 *knee* sits at 0.78 (P=0.478, R=0.846, F1=0.611).
  *
- * Tradeoff note: the SF eval found the reconcile LLM never makes a destructive
- * error (non-conflict protection 1.000), so a recall-favoring floor (~0.74,
- * R=0.897) is defensible — but the eval did not measure whether a *distractor*
- * shown to the LLM provokes a spurious UPDATE, so we hold at the balanced knee.
- * Re-derive via `npx tsx scripts/eval/memory/run.ts`; the floor is model-coupled,
- * so a model swap re-opens the sweep.
+ * LUM-538 — recall-favoring move OFF the F1 knee (0.78 → 0.74). The knee
+ * optimizes balanced F1, but for reconcile-on-write the asymmetry is the point:
+ * a near-duplicate the floor filters out NEVER reaches the reconcile LLM, so it
+ * silently becomes a spurious ADD (this is the diagnosed root cause of the
+ * 40–60% near-dup leak — retrieval, not the LLM, is the bottleneck). At 0.78 the
+ * gate already drops ~15% of same-fact pairs (R=0.846); 0.74 lifts that to
+ * R=0.897 (recall +0.05) at a precision cost (P 0.478 → 0.427, i.e. a few more
+ * distractors shown to the LLM). That cost is bounded by the LLM's measured
+ * non-destructiveness — the SF eval found non-conflict protection = 1.000 (it
+ * does not SUPERSEDE/DELETE a non-conflicting neighbor), and high-trust rows are
+ * additionally SUPERSEDE-guarded (LUM-325). 0.74 stays above the task→fragment
+ * abstention ceiling (max negative-control cosine 0.673, retrieve.frozen test),
+ * so lowering it does not break injection abstention.
+ *
+ * NOT-yet-measured: whether a distractor newly admitted in the 0.74–0.78 band
+ * provokes a spurious UPDATE (a refine, non-destructive, but still drift). The
+ * SF eval (key-gated) should be re-run to confirm op-accuracy holds at 0.74
+ * before lowering further. Re-derive the sweep via
+ * `npx tsx scripts/eval/memory/run.ts`; the near-dup retrieval recall regression
+ * lives in `__tests__/eval/memory/near-dup-cluster.test.ts`. Model-coupled — a
+ * model swap re-opens the sweep.
  */
-export const EMBEDDING_SCORE_FLOOR = 0.78
+export const EMBEDDING_SCORE_FLOOR = 0.74
 
 /** Result the embedding path returns so the composite can tell a cold/cold-
  * starting corpus (fall back to lexical) from a genuinely empty result. */
