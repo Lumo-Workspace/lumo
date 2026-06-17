@@ -2,6 +2,16 @@ const mockCanonicalize = jest.fn()
 jest.mock('@/lib/services/memory/canonicalize-language', () => ({
   canonicalizeToEnglish: (...a: any[]) => mockCanonicalize(...a),
 }))
+// The LUM-538 source de-dup gate is exercised in its own suites
+// (extraction-gate.test.ts / constitution-redundancy.test.ts). Here it is a
+// no-op so these canonicalize/dedup/embedding tests can use terse placeholder
+// content without tripping the incomplete-fact screen.
+jest.mock('@/lib/services/memory/extraction-gate', () => ({
+  screenCandidate: () => ({ ok: true }),
+}))
+jest.mock('@/lib/services/memory/constitution', () => ({
+  loadConstitutionText: async () => null,
+}))
 const mockResolveDedup = jest.fn()
 jest.mock('@/lib/services/memory/manual-dedup', () => ({
   resolveManualDedup: (...a: any[]) => mockResolveDedup(...a),
@@ -44,7 +54,9 @@ beforeEach(() => {
   mockEmbedTexts.mockResolvedValue([[0.1, 0.2]])
   mockSetEmbedding.mockResolvedValue(undefined)
   // Default: pass-through canonicalize + ADD
-  mockCanonicalize.mockImplementation(async (_cat: any, content: any) => content)
+  mockCanonicalize.mockImplementation(
+    async (_cat: any, content: any) => content
+  )
   mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
   mockUpdateContent.mockResolvedValue({ id: 'u1' })
   mockSupersede.mockResolvedValue({ newId: 'sup1' })
@@ -183,7 +195,11 @@ describe('createForTask', () => {
 
 describe('editContent', () => {
   it('updates content only', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1' })
     await memoryManagementService.editContent('m1', { rule: 'r', scope: 's' })
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
@@ -192,18 +208,37 @@ describe('editContent', () => {
   })
 
   it('stamps embedding after edit', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    await memoryManagementService.editContent('m1', { summary: 'new rule', rule: 'r', scope: 's' })
+    await memoryManagementService.editContent('m1', {
+      summary: 'new rule',
+      rule: 'r',
+      scope: 's',
+    })
     expect(mockEmbedTexts).toHaveBeenCalled()
     expect(mockSetEmbedding).toHaveBeenCalledWith('m1', [0.1, 0.2])
   })
 
   it('content write succeeds even when embedTexts throws', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
-    mockUpdate.mockResolvedValue({ id: 'm1', content: { rule: 'r', scope: 's' } })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'm1',
+      content: { rule: 'r', scope: 's' },
+    })
     mockEmbedTexts.mockRejectedValue(new Error('gateway error'))
-    const result = await memoryManagementService.editContent('m1', { summary: 'test', rule: 'r', scope: 's' })
+    const result = await memoryManagementService.editContent('m1', {
+      summary: 'test',
+      rule: 'r',
+      scope: 's',
+    })
     expect(result).toEqual({ id: 'm1', content: { rule: 'r', scope: 's' } })
     expect(mockSetEmbedding).not.toHaveBeenCalled()
   })
@@ -218,7 +253,11 @@ describe('editContent', () => {
 
 describe('promoteToProject', () => {
   it('throws 409 when already PROJECT', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'PROJECT', category: 'TRAP' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'PROJECT',
+      category: 'TRAP',
+    })
     await expect(
       memoryManagementService.promoteToProject('m1')
     ).rejects.toMatchObject({ status: 409 })
@@ -233,7 +272,11 @@ describe('promoteToProject', () => {
   })
 
   it('promotes TASK→PROJECT and clears taskId', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'TRAP' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'TRAP',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1', scope: 'PROJECT' })
     const result = await memoryManagementService.promoteToProject('m1')
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
@@ -244,7 +287,11 @@ describe('promoteToProject', () => {
   })
 
   it('does NOT stamp embedding when only promoting scope (no content change)', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'TRAP' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'TRAP',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1', scope: 'PROJECT' })
     await memoryManagementService.promoteToProject('m1')
     expect(mockEmbedTexts).not.toHaveBeenCalled()
@@ -252,7 +299,11 @@ describe('promoteToProject', () => {
   })
 
   it('promotes and edits content in one update when content given', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1' })
     const result = await memoryManagementService.promoteToProject('m1', {
       rule: 'r',
@@ -267,18 +318,34 @@ describe('promoteToProject', () => {
   })
 
   it('stamps embedding when content is provided during promote', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    await memoryManagementService.promoteToProject('m1', { summary: 'rule summary', rule: 'r', scope: 's' })
+    await memoryManagementService.promoteToProject('m1', {
+      summary: 'rule summary',
+      rule: 'r',
+      scope: 's',
+    })
     expect(mockEmbedTexts).toHaveBeenCalled()
     expect(mockSetEmbedding).toHaveBeenCalledWith('m1', [0.1, 0.2])
   })
 
   it('content write succeeds even when embedTexts throws during promote', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK', category: 'CONVENTION' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      scope: 'TASK',
+      category: 'CONVENTION',
+    })
     mockUpdate.mockResolvedValue({ id: 'm1' })
     mockEmbedTexts.mockRejectedValue(new Error('gateway'))
-    const result = await memoryManagementService.promoteToProject('m1', { summary: 'rule', rule: 'r', scope: 's' })
+    const result = await memoryManagementService.promoteToProject('m1', {
+      summary: 'rule',
+      rule: 'r',
+      scope: 's',
+    })
     expect(result).toEqual({ id: 'm1' })
     expect(mockSetEmbedding).not.toHaveBeenCalled()
   })
@@ -289,22 +356,45 @@ describe('editContent — canonicalize', () => {
     mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', category: 'TRAP' })
     mockCanonicalize.mockResolvedValue({ trigger: 'EN', outcome: 'EN out' })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    await memoryManagementService.editContent('m1', { trigger: '中', outcome: '文' })
-    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '中', outcome: '文' })
-    expect(mockUpdate).toHaveBeenCalledWith('m1', { content: { trigger: 'EN', outcome: 'EN out' } })
+    await memoryManagementService.editContent('m1', {
+      trigger: '中',
+      outcome: '文',
+    })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', {
+      trigger: '中',
+      outcome: '文',
+    })
+    expect(mockUpdate).toHaveBeenCalledWith('m1', {
+      content: { trigger: 'EN', outcome: 'EN out' },
+    })
   })
 })
 
 describe('promoteToProject — canonicalize on content override', () => {
   it('canonicalizes the overridden content', async () => {
-    mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', category: 'TRAP', scope: 'TASK' })
+    mockFindByIdWithWorkspace.mockResolvedValue({
+      id: 'm1',
+      category: 'TRAP',
+      scope: 'TASK',
+    })
     mockCanonicalize.mockResolvedValue({ trigger: 'EN', outcome: 'EN out' })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    await memoryManagementService.promoteToProject('m1', { trigger: '中', outcome: '文' })
-    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '中', outcome: '文' })
-    expect(mockUpdate).toHaveBeenCalledWith('m1', expect.objectContaining({
-      scope: 'PROJECT', taskId: null, content: { trigger: 'EN', outcome: 'EN out' },
-    }))
+    await memoryManagementService.promoteToProject('m1', {
+      trigger: '中',
+      outcome: '文',
+    })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', {
+      trigger: '中',
+      outcome: '文',
+    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'm1',
+      expect.objectContaining({
+        scope: 'PROJECT',
+        taskId: null,
+        content: { trigger: 'EN', outcome: 'EN out' },
+      })
+    )
   })
 })
 
@@ -350,72 +440,124 @@ describe('agent forwarding', () => {
 
 describe('createForProject — canonicalize + dedup', () => {
   it('canonicalizes content before storing (ADD path)', async () => {
-    mockCanonicalize.mockResolvedValue({ trigger: 'EN trigger', outcome: 'EN outcome' })
+    mockCanonicalize.mockResolvedValue({
+      trigger: 'EN trigger',
+      outcome: 'EN outcome',
+    })
     mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
     mockCreate.mockResolvedValue({ id: 'm1' })
     await memoryManagementService.createForProject({
-      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: '触发', outcome: '后果' }, actorMemberId: 'mem1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: '触发', outcome: '后果' },
+      actorMemberId: 'mem1',
     })
-    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '触发', outcome: '后果' })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', {
+      trigger: '触发',
+      outcome: '后果',
+    })
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ content: { trigger: 'EN trigger', outcome: 'EN outcome' } })
+      expect.objectContaining({
+        content: { trigger: 'EN trigger', outcome: 'EN outcome' },
+      })
     )
   })
 
   it('NOOP → no create, returns the duplicate neighbor id', async () => {
     mockResolveDedup.mockResolvedValue({ kind: 'NOOP', id: 'dup1' })
     const r = await memoryManagementService.createForProject({
-      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' },
+      actorMemberId: 'mem1',
     })
     expect(mockCreate).not.toHaveBeenCalled()
     expect(r).toEqual({ outcome: 'NOOP', memory: { id: 'dup1' } })
   })
 
   it('UPDATE → updateContent on the neighbor, returns its id', async () => {
-    mockResolveDedup.mockResolvedValue({ kind: 'UPDATE', id: 'n1', content: { trigger: 't', outcome: 'o' } })
-    const r = await memoryManagementService.createForProject({
-      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+    mockResolveDedup.mockResolvedValue({
+      kind: 'UPDATE',
+      id: 'n1',
+      content: { trigger: 't', outcome: 'o' },
     })
-    expect(mockUpdateContent).toHaveBeenCalledWith('n1', { trigger: 't', outcome: 'o' })
+    const r = await memoryManagementService.createForProject({
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' },
+      actorMemberId: 'mem1',
+    })
+    expect(mockUpdateContent).toHaveBeenCalledWith('n1', {
+      trigger: 't',
+      outcome: 'o',
+    })
     expect(mockCreate).not.toHaveBeenCalled()
     expect(r).toEqual({ outcome: 'UPDATE', memory: { id: 'n1' } })
   })
 
   it('SUPERSEDE → supersede on the neighbor, returns the new id', async () => {
-    mockResolveDedup.mockResolvedValue({ kind: 'SUPERSEDE', id: 'n1', content: { trigger: 't', outcome: 'o' } })
+    mockResolveDedup.mockResolvedValue({
+      kind: 'SUPERSEDE',
+      id: 'n1',
+      content: { trigger: 't', outcome: 'o' },
+    })
     mockSupersede.mockResolvedValue({ newId: 'new9' })
     const r = await memoryManagementService.createForProject({
-      projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' },
+      actorMemberId: 'mem1',
     })
-    expect(mockSupersede).toHaveBeenCalledWith('n1', { trigger: 't', outcome: 'o' })
+    expect(mockSupersede).toHaveBeenCalledWith('n1', {
+      trigger: 't',
+      outcome: 'o',
+    })
     expect(r).toEqual({ outcome: 'SUPERSEDE', memory: { id: 'new9' } })
   })
 })
 
 describe('createForTask — canonicalize + dedup', () => {
   it('ADD — canonicalizes content before storing', async () => {
-    mockCanonicalize.mockResolvedValue({ trigger: 'EN trigger', outcome: 'EN outcome' })
+    mockCanonicalize.mockResolvedValue({
+      trigger: 'EN trigger',
+      outcome: 'EN outcome',
+    })
     mockResolveDedup.mockResolvedValue({ kind: 'ADD' })
     mockCreate.mockResolvedValue({ id: 'mt1' })
     await memoryManagementService.createForTask({
-      taskId: 't1', projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: '触发', outcome: '后果' }, actorMemberId: 'mem1',
+      taskId: 't1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: '触发', outcome: '后果' },
+      actorMemberId: 'mem1',
     })
-    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', { trigger: '触发', outcome: '后果' })
+    expect(mockCanonicalize).toHaveBeenCalledWith('TRAP', {
+      trigger: '触发',
+      outcome: '后果',
+    })
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: 'TASK', taskId: 't1', content: { trigger: 'EN trigger', outcome: 'EN outcome' } })
+      expect.objectContaining({
+        scope: 'TASK',
+        taskId: 't1',
+        content: { trigger: 'EN trigger', outcome: 'EN outcome' },
+      })
     )
   })
 
   it('NOOP → no create, returns the duplicate neighbor id', async () => {
     mockResolveDedup.mockResolvedValue({ kind: 'NOOP', id: 'dup1' })
     const r = await memoryManagementService.createForTask({
-      taskId: 't1', projectId: 'p1', workspaceId: 'w1', category: 'TRAP',
-      content: { trigger: 't', outcome: 'o' }, actorMemberId: 'mem1',
+      taskId: 't1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 't', outcome: 'o' },
+      actorMemberId: 'mem1',
     })
     expect(mockCreate).not.toHaveBeenCalled()
     expect(r).toEqual({ outcome: 'NOOP', memory: { id: 'dup1' } })

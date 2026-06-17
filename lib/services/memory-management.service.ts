@@ -4,12 +4,40 @@ import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { canonicalizeToEnglish } from './memory/canonicalize-language'
 import { resolveManualDedup } from './memory/manual-dedup'
+import { screenCandidate, type ScreenReason } from './memory/extraction-gate'
+import { loadConstitutionText } from './memory/constitution'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 import type { Prisma } from '@prisma/client'
 
 function httpError(message: string, status: number): Error {
   return Object.assign(new Error(message), { status })
+}
+
+/**
+ * Source de-dup gate (LUM-538) for the manual write paths. Rejects an
+ * incomplete-fact fragment or an entry the project constitution already
+ * documents with a 422 (the CLI surfaces the message) — the same screen the
+ * Layer-1 extraction path applies, so manual adds can't smuggle in what
+ * extraction now filters. Returns without throwing when the candidate is clean.
+ */
+async function screenManualCandidate(
+  category: MemoryCategory,
+  content: unknown
+): Promise<void> {
+  const verdict = screenCandidate({
+    category,
+    content,
+    constitution: await loadConstitutionText(),
+  })
+  if (verdict.ok) return
+  const messages: Record<ScreenReason, string> = {
+    INCOMPLETE_FACT:
+      'Memory rejected: this reads as an incomplete fact — give the headline an actionable claim (what happens / what to do), not a bare fragment.',
+    CONSTITUTION_REDUNDANT:
+      'Memory rejected: this is already documented in the project constitution (CLAUDE.md / AGENTS.md). Memory is for knowledge not already in code or docs.',
+  }
+  throw httpError(messages[verdict.reason], 422)
 }
 
 export type CreateOutcome = 'ADD' | 'UPDATE' | 'SUPERSEDE' | 'NOOP'
@@ -102,6 +130,7 @@ export const memoryManagementService = {
     input: CreateForProjectInput
   ): Promise<CreateMemoryResult> {
     const content = await canonicalizeToEnglish(input.category, input.content)
+    await screenManualCandidate(input.category, content)
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForProject(input.projectId)).map(
@@ -124,7 +153,11 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue
       )
-      await stampEmbeddingBestEffort(resolution.id, input.category, resolution.content)
+      await stampEmbeddingBestEffort(
+        resolution.id,
+        input.category,
+        resolution.content
+      )
       return { outcome: 'UPDATE', memory: { id: resolution.id } }
     }
     if (resolution.kind === 'SUPERSEDE') {
@@ -158,10 +191,9 @@ export const memoryManagementService = {
     return { outcome: 'ADD', memory: { id: created.id } }
   },
 
-  async createForTask(
-    input: CreateForTaskInput
-  ): Promise<CreateMemoryResult> {
+  async createForTask(input: CreateForTaskInput): Promise<CreateMemoryResult> {
     const content = await canonicalizeToEnglish(input.category, input.content)
+    await screenManualCandidate(input.category, content)
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForTask(input.taskId)).map(m => ({
@@ -186,7 +218,11 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue
       )
-      await stampEmbeddingBestEffort(resolution.id, input.category, resolution.content)
+      await stampEmbeddingBestEffort(
+        resolution.id,
+        input.category,
+        resolution.content
+      )
       return { outcome: 'UPDATE', memory: { id: resolution.id } }
     }
     if (resolution.kind === 'SUPERSEDE') {

@@ -10,7 +10,7 @@ export const RELEVANCE_GATE_TOP_K = 8
 /**
  * Min cosine similarity (1 - distance) for the embedding path. NOTE this is a
  * task↔memory match (looser than the fact↔fact extraction match), so it is
- * deliberately below the extraction floor (EMBEDDING_SCORE_FLOOR = 0.78). Seed
+ * deliberately below the extraction floor (EMBEDDING_SCORE_FLOOR = 0.74). Seed
  * value; re-derive with the calibration in memory-relevance-gate-eval.test.ts
  * and dogfood (LUM-486).
  */
