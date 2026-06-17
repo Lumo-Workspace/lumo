@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "僅索引·未展開",
   "lineage.fragment.used.yes": "✓ 已採用",
   "lineage.fragment.used.no": "✗ 未採用",
-  "lineage.fragment.used.abstained": "· 未表態"
+  "lineage.fragment.used.abstained": "· 未表態",
+  "boundary.panel.explanations.label": "Agent 自述 · 未經核實",
+  "boundary.panel.explanations.disclaimer": "Agent 對自己為何這樣做的說明——僅供你裁決時參考，不是結論，也不是處置（disposition）。"
 }

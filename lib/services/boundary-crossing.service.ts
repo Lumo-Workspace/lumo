@@ -121,6 +121,29 @@ export interface CrossingAttributionView {
   model: string | null
 }
 
+/**
+ * LUM-542: an append-only agent self-explanation ("申辩") on a crossing. A
+ * reviewer aid + retrospective record — NOT a disposition. `note` is sanitized
+ * at this read boundary (untrusted free text); the panel labels it as an agent
+ * self-report that is unverified.
+ */
+export interface ExplanationView {
+  id: string
+  /** Sanitized note text. */
+  note: string
+  /** Agent type that authored it (X-Lumo-Agent), when known. */
+  authorAgent: string | null
+  /** Originating session, when known. */
+  authorSessionId: string | null
+  createdAt: string
+}
+
+/** Outcome of recording one explanation (LUM-542). */
+export interface ExplainOutcome {
+  crossingId: string
+  explanation: ExplanationView
+}
+
 /** Full crossing view for the acceptance bar — open AND dispositioned (LUM-435). */
 export interface BoundaryCrossingView {
   id: string
@@ -151,6 +174,11 @@ export interface BoundaryCrossingView {
   /** Who/what crossed (LUM-469) — owner member, agent/session, model. Always
    *  present; every field is null when it can't be resolved (unknown). */
   attribution: CrossingAttributionView
+  /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first. Each
+   *  note is sanitized; the panel labels them agent self-report / unverified.
+   *  Orthogonal to disposition — a reviewer aid + retrospective record, never a
+   *  verdict. Empty when the agent recorded none. */
+  explanations: ExplanationView[]
 }
 
 /**
@@ -595,6 +623,28 @@ export const boundaryCrossingService = {
         : []
     const directSessionById = new Map(directSessions.map(s => [s.id, s]))
 
+    // LUM-542: append-only agent explanations for every crossing, grouped per
+    // crossing in memory. One id-scoped read; skipped when the task has no
+    // crossings. Each note is sanitized at this render boundary.
+    const explanationRows =
+      rows.length > 0
+        ? await boundaryCrossingRepository.listExplanationsByCrossingIds(
+            rows.map(c => c.id)
+          )
+        : []
+    const explanationsByCrossing = new Map<string, ExplanationView[]>()
+    for (const e of explanationRows) {
+      const list = explanationsByCrossing.get(e.crossingId) ?? []
+      list.push({
+        id: e.id,
+        note: sanitizeField(e.note),
+        authorAgent: e.authorAgent,
+        authorSessionId: e.authorSessionId,
+        createdAt: iso(e.createdAt) ?? '',
+      })
+      explanationsByCrossing.set(e.crossingId, list)
+    }
+
     const views = rows.map(c => {
       const rt = c.remediationTask
       const remediationTask: RemediationTaskView | null = rt
@@ -652,6 +702,7 @@ export const boundaryCrossingService = {
           changesByCrossing.get(c.id) ?? []
         ),
         attribution,
+        explanations: explanationsByCrossing.get(c.id) ?? [],
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
@@ -737,6 +788,107 @@ export const boundaryCrossingService = {
     })
 
     return { crossingId, disposition: target }
+  },
+
+  /**
+   * Record an append-only agent self-explanation ("申辩") on a crossing
+   * (LUM-542). This is the deliberate INVERSE of {@link disposition}: it is an
+   * agent/CLI write path, but it can only ever APPEND a note — it never reads or
+   * writes `disposition`, so an agent still cannot clear its own crossing or
+   * unblock its own DONE gate. The note is a reviewer aid + retrospective record.
+   *
+   * Scope guard: the crossing must belong to `taskId` (else 404), and when an
+   * originating session is supplied it must be bound to that same task (else
+   * 403) — an agent may only explain a crossing on the task its session owns,
+   * never reach across tasks. A missing session id (non-Claude-Code caller) is
+   * allowed through on the task/workspace scope alone and recorded as null.
+   *
+   * Append-only: every call inserts a fresh row; an earlier explanation is never
+   * modified or removed, so a correction is additive and prior wording survives.
+   */
+  async explain(
+    taskId: string,
+    crossingId: string,
+    note: string,
+    attribution: {
+      authorSessionId?: string | null
+      authorAgent?: string | null
+    }
+  ): Promise<ExplainOutcome> {
+    const crossing = await boundaryCrossingRepository.findById(crossingId)
+    if (!crossing || crossing.taskId !== taskId) {
+      throw Object.assign(
+        new Error('Boundary-crossing not found on this task'),
+        { status: 404 }
+      )
+    }
+
+    // Scope: an agent may only explain a crossing on the task its session is
+    // bound to. When a session id is present we enforce the binding; absent (a
+    // non-CC bearer caller) we fall back to the route's task/workspace scope.
+    const sessionId = attribution.authorSessionId ?? null
+    if (sessionId) {
+      const binding = await sessionRepository.findTaskBinding(sessionId)
+      if (!binding.bound || binding.taskId !== taskId) {
+        throw Object.assign(
+          new Error(
+            'A session can only explain a boundary-crossing on the task it is bound to'
+          ),
+          { status: 403 }
+        )
+      }
+    }
+
+    const row = await boundaryCrossingRepository.createExplanation({
+      crossingId,
+      note,
+      authorSessionId: sessionId,
+      authorAgent: attribution.authorAgent ?? null,
+    })
+
+    return {
+      crossingId,
+      explanation: {
+        id: row.id,
+        note: sanitizeField(row.note),
+        authorAgent: row.authorAgent,
+        authorSessionId: row.authorSessionId,
+        createdAt: iso(row.createdAt) ?? '',
+      },
+    }
+  },
+
+  /**
+   * Build the one-time agent reminder for a task's freshly-detected crossings
+   * (LUM-542). Returns reminder text for every OPEN crossing the agent hasn't
+   * been told about yet, and stamps `agentNotifiedAt` so it fires exactly once
+   * per crossing — a later hook for the same crossing produces nothing. Returns
+   * null when there is nothing new to surface (the common case, so the hot
+   * pre-tool-use path stays cheap). The text is built from our own strings plus
+   * enum-safe id/category/severity — the CLI sanitizes it before stdout anyway.
+   *
+   * Discovery only: it points the agent at `lumo crossing explain` and is
+   * explicit that an explanation is an append-only note, never a disposition.
+   */
+  async buildAgentReminder(taskId: string): Promise<string | null> {
+    const open =
+      await boundaryCrossingRepository.findUnnotifiedOpenByTask(taskId)
+    if (open.length === 0) return null
+    await boundaryCrossingRepository.markAgentNotified(
+      open.map(c => c.id),
+      new Date()
+    )
+    const items = open.map(c => `  • [${c.severity}] ${c.category} (${c.id})`)
+    return [
+      `⚠ Lumo recorded ${open.length} new boundary crossing${
+        open.length === 1 ? '' : 's'
+      } from your recent actions:`,
+      ...items,
+      'If you think one is a false positive — or want to leave a rationale for ' +
+        'the human reviewer — run: lumo crossing explain <id> --note "…". ' +
+        'That note is append-only and for review only: it does NOT clear the ' +
+        'crossing or unblock Done (a human dispositions that).',
+    ].join('\n')
   },
 
   /**

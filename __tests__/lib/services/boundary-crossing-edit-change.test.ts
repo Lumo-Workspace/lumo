@@ -23,7 +23,10 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: { findAllByTask: jest.fn() },
+  boundaryCrossingRepository: {
+    findAllByTask: jest.fn(),
+    listExplanationsByCrossingIds: jest.fn(() => []),
+  },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: {

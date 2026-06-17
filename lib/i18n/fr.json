@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Index · non développé",
   "lineage.fragment.used.yes": "✓ utilisé",
   "lineage.fragment.used.no": "✗ inutilisé",
-  "lineage.fragment.used.abstained": "· aucun vote"
+  "lineage.fragment.used.abstained": "· aucun vote",
+  "boundary.panel.explanations.label": "Compte rendu de l'agent · non vérifié",
+  "boundary.panel.explanations.disclaimer": "Le récit de l'agent expliquant pourquoi il a agi — un contexte pour votre décision, pas un verdict ni une disposition."
 }

@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Chỉ mục · chưa mở rộng",
   "lineage.fragment.used.yes": "✓ đã dùng",
   "lineage.fragment.used.no": "✗ không dùng",
-  "lineage.fragment.used.abstained": "· không bỏ phiếu"
+  "lineage.fragment.used.abstained": "· không bỏ phiếu",
+  "boundary.panel.explanations.label": "Tự thuật của tác nhân · chưa xác minh",
+  "boundary.panel.explanations.disclaimer": "Lời giải thích của chính tác nhân về lý do hành động — chỉ là bối cảnh cho quyết định của bạn, không phải phán quyết và cũng không phải disposition."
 }

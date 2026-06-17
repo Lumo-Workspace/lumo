@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Индекс · не развёрнут",
   "lineage.fragment.used.yes": "✓ использован",
   "lineage.fragment.used.no": "✗ не использован",
-  "lineage.fragment.used.abstained": "· без голоса"
+  "lineage.fragment.used.abstained": "· без голоса",
+  "boundary.panel.explanations.label": "Самоотчёт агента · не проверено",
+  "boundary.panel.explanations.disclaimer": "Собственное объяснение агента, почему он так поступил, — это контекст для вашего решения, а не вердикт и не диспозиция."
 }

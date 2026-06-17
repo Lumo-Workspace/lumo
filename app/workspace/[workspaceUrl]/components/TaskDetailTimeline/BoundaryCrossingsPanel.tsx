@@ -510,6 +510,42 @@ function CrossingRow({
             intl={intl}
           />
 
+          {/* LUM-542: append-only agent self-explanations ("申辩"). Explicitly
+          framed as the agent's own unverified account — context for the
+          reviewer's decision, never a verdict. Stays visible after disposition
+          so it doubles as the retrospective record. */}
+          {c.explanations && c.explanations.length > 0 && (
+            <div
+              data-testid={`crossing-explanations-${c.id}`}
+              className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
+            >
+              <p className='flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground'>
+                <Bot className='size-3.5 shrink-0' aria-hidden />
+                {intl.formatMessage({
+                  id: 'boundary.panel.explanations.label',
+                  defaultMessage: 'Agent self-report · unverified',
+                })}
+              </p>
+              <ul className='mt-1 space-y-1'>
+                {c.explanations.map(ex => (
+                  <li
+                    key={ex.id}
+                    className='whitespace-pre-wrap break-words text-[11px] text-foreground'
+                  >
+                    {ex.note}
+                  </li>
+                ))}
+              </ul>
+              <p className='mt-1 text-[10px] italic text-muted-foreground/80'>
+                {intl.formatMessage({
+                  id: 'boundary.panel.explanations.disclaimer',
+                  defaultMessage:
+                    "The agent's own account of why it acted — context for your decision, not a verdict, and never a disposition.",
+                })}
+              </p>
+            </div>
+          )}
+
           {c.editChange && (
             <EditChangeBlock change={c.editChange} intl={intl} />
           )}

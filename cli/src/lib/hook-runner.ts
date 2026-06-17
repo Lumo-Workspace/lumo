@@ -103,16 +103,31 @@ export function formatHookStdoutLines(
 ): string[] {
   if (path === 'pre-tool-use') {
     if (responseBody == null || typeof responseBody !== 'object') return []
-    const warning = (responseBody as { collisionWarning?: unknown })
-      .collisionWarning
-    if (typeof warning !== 'string' || warning === '') return []
+    const body = responseBody as {
+      collisionWarning?: unknown
+      crossingReminder?: unknown
+    }
+    // Two independent PreToolUse signals (LUM-150 collision, LUM-542 crossing
+    // reminder) share one additionalContext block when both are present.
+    const parts: string[] = []
+    if (
+      typeof body.collisionWarning === 'string' &&
+      body.collisionWarning !== ''
+    )
+      parts.push(body.collisionWarning)
+    if (
+      typeof body.crossingReminder === 'string' &&
+      body.crossingReminder !== ''
+    )
+      parts.push(body.crossingReminder)
+    if (parts.length === 0) return []
     return [
       JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
           // Server-built text routed back to stdout — sanitize untrusted free
           // text before Claude Code consumes it (ANSI/control-char injection).
-          additionalContext: sanitizeField(warning),
+          additionalContext: sanitizeField(parts.join('\n\n')),
         },
       }),
     ]

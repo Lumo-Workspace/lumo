@@ -1695,5 +1695,7 @@
   "boundary.category.spinoffLaundered": "把返工洗成了新任务",
   "boundary.category.silentFix": "对已提交的工作偷偷修复(无打回)",
   "acceptance.history.sendBackCount": "{count, plural, one {打回 # 条} other {打回 # 条}}",
-  "acceptance.history.sendBackInline": "{count, plural, one {Agent 打回 · #} other {Agent 打回 · #}}"
+  "acceptance.history.sendBackInline": "{count, plural, one {Agent 打回 · #} other {Agent 打回 · #}}",
+  "boundary.panel.explanations.label": "Agent 自述 · 未经核实",
+  "boundary.panel.explanations.disclaimer": "Agent 对自己为何这样做的说明——仅供你裁决时参考，不是结论，也不是处置（disposition）。"
 }

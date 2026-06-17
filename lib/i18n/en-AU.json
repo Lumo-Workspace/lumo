@@ -1695,5 +1695,7 @@
   "lineage.fragment.disclosure.indexNotPulled": "Index · not expanded",
   "lineage.fragment.used.yes": "✓ used",
   "lineage.fragment.used.no": "✗ unused",
-  "lineage.fragment.used.abstained": "· no vote"
+  "lineage.fragment.used.abstained": "· no vote",
+  "boundary.panel.explanations.label": "Agent self-report · unverified",
+  "boundary.panel.explanations.disclaimer": "The agent's own account of why it acted — context for your decision, not a verdict, and never a disposition."
 }
