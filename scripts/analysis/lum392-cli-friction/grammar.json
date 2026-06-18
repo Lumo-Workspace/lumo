@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.36.0",
+  "cliVersion": "1.39.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -65,6 +65,33 @@
       },
       "hasSubcommands": false,
       "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
+    },
+    "crossing": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect and annotate boundary crossings"
+    },
+    "crossing explain": {
+      "arguments": [
+        {
+          "name": "id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The explanation to record (the rationale for the action / why it may be a false positive)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Append an agent self-explanation (\"申辩\") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Targets a crossing on the session-bound task."
     },
     "doc": {
       "arguments": [],
@@ -1701,37 +1728,6 @@
       "flags": {},
       "hasSubcommands": false,
       "description": "Show the task currently bound to this Claude Code session (or \"no task\" if none)."
-    },
-    "session wrap": {
-      "arguments": [],
-      "flags": {
-        "--dry-run": {
-          "long": "--dry-run",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Print the section drafts but do not mutate memories/tags or advance watermarks"
-        },
-        "--used": {
-          "long": "--used",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Mark which injected context fragments you actually used (1-based indices, comma/space separated; \"none\" for all-unused). Omit to skip recording."
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": "-y",
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Keep all memories without prompting (agent-friendly); does not auto-apply the blocked tag"
-        }
-      },
-      "hasSubcommands": false,
-      "description": "Session-end wrap-up: review the memories sedimented this session, vote which injected context fragments were actually used, and optionally flag the bound task blocked."
     },
     "setup": {
       "arguments": [],

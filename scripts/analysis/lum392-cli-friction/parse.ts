@@ -13,6 +13,7 @@
 export const KNOWN_COMMAND_PATHS: string[] = [
   'auth login',
   'auth logout',
+  'crossing explain',
   'doc bind',
   'doc create',
   'doc delete',
@@ -50,7 +51,6 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'milestone update',
   'session attach',
   'session status',
-  'session wrap',
   'setup',
   'sprint add',
   'sprint close',
