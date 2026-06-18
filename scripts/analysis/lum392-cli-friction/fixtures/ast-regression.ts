@@ -103,7 +103,10 @@ export const VALID_CASES: AstCase[] = [
   },
   { raw: 'lumo verify --timeout 600', expect: 'valid' },
   { raw: 'lumo verify LUM-343', expect: 'valid' },
-  { raw: 'lumo session wrap --yes --used 1,3', expect: 'valid' },
+  {
+    raw: 'lumo crossing explain cr-abc123 --note "false positive"',
+    expect: 'valid',
+  },
   { raw: 'lumo task comment LUM-345 "multi word body here"', expect: 'valid' },
   {
     raw: 'lumo task list --status done > /tmp/tasks.txt',

@@ -186,6 +186,26 @@ could not confirm whether any are undispositioned` instead of staying silent.
   Silence means a successful read with zero open crossings, never a failed
   check — a hiccup can no longer masquerade as "all clear".
 
+### Responding to an open crossing — `lumo crossing explain` (LUM-542)
+
+When `lumo task status` surfaces an OPEN crossing you believe is a false
+positive — or you simply want to leave a rationale for the human reviewer —
+append a self-explanation ("申辩") to it:
+
+```
+lumo crossing explain <id> --note "this was a generated fixture, not a hand-edited migration"
+```
+
+This is the **inverse** of dispositioning, but it is the agent/CLI path
+(bearer-only; a clerk/human caller is refused) and it can **only append** an
+append-only note — it **never clears the crossing or unblocks Done**
+(disposition stays web + human-only, LUM-448). The note is shown to the human
+reviewer at disposition time, kept for later review, and explicitly labeled
+_agent self-report · unverified_. `<id>` must be a crossing on the
+**session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task
+targets and unbound/mismatched sessions are rejected). Earlier explanations are
+immutable — a correction is a new note.
+
 ### --json contract
 
 `--json` emits the full read model with a top-level `version` field
