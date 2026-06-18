@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Buscar tareas…",
   "task.dependencies.noResults": "No hay tareas coincidentes",
   "task.dependencies.loading": "Cargando dependencias…",
-  "task.dependencies.empty": "Aún no hay dependencias"
+  "task.dependencies.empty": "Aún no hay dependencias",
+  "task.dependencies.actionFailed": "No se pudieron actualizar las dependencias"
 }

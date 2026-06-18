@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Aufgaben suchen…",
   "task.dependencies.noResults": "Keine passenden Aufgaben",
   "task.dependencies.loading": "Abhängigkeiten werden geladen…",
-  "task.dependencies.empty": "Noch keine Abhängigkeiten"
+  "task.dependencies.empty": "Noch keine Abhängigkeiten",
+  "task.dependencies.actionFailed": "Abhängigkeiten konnten nicht aktualisiert werden"
 }

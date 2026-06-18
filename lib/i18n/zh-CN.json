@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "搜索任务…",
   "task.dependencies.noResults": "无匹配任务",
   "task.dependencies.loading": "正在加载依赖…",
-  "task.dependencies.empty": "暂无依赖"
+  "task.dependencies.empty": "暂无依赖",
+  "task.dependencies.actionFailed": "无法更新依赖"
 }

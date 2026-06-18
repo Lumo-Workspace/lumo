@@ -50,8 +50,17 @@ export function AddDependencyButton({
     )
   }
 
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setItems([])
+      setDirection('BLOCKED_BY')
+      setKind('BLOCKS')
+    }
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type='button'
@@ -114,7 +123,6 @@ export function AddDependencyButton({
                 onSelect={() => {
                   onAdd({ blockedBy: item.label, direction, kind })
                   setOpen(false)
-                  setItems([])
                 }}
               >
                 <span className='font-mono text-xs mr-2 text-muted-foreground'>

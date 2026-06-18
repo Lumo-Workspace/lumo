@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "搜尋任務…",
   "task.dependencies.noResults": "無符合任務",
   "task.dependencies.loading": "正在載入依賴…",
-  "task.dependencies.empty": "尚無依賴"
+  "task.dependencies.empty": "尚無依賴",
+  "task.dependencies.actionFailed": "無法更新依賴"
 }

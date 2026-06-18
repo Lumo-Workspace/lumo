@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Tìm kiếm công việc…",
   "task.dependencies.noResults": "Không có công việc phù hợp",
   "task.dependencies.loading": "Đang tải phụ thuộc…",
-  "task.dependencies.empty": "Chưa có phụ thuộc nào"
+  "task.dependencies.empty": "Chưa có phụ thuộc nào",
+  "task.dependencies.actionFailed": "Không thể cập nhật phụ thuộc"
 }

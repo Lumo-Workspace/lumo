@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "작업 검색…",
   "task.dependencies.noResults": "일치하는 작업 없음",
   "task.dependencies.loading": "종속성 로드 중…",
-  "task.dependencies.empty": "아직 종속성이 없습니다"
+  "task.dependencies.empty": "아직 종속성이 없습니다",
+  "task.dependencies.actionFailed": "종속성을 업데이트할 수 없습니다"
 }

@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Rechercher des tâches…",
   "task.dependencies.noResults": "Aucune tâche correspondante",
   "task.dependencies.loading": "Chargement des dépendances…",
-  "task.dependencies.empty": "Aucune dépendance pour l'instant"
+  "task.dependencies.empty": "Aucune dépendance pour l'instant",
+  "task.dependencies.actionFailed": "Impossible de mettre à jour les dépendances"
 }

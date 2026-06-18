@@ -905,6 +905,7 @@
   "task.dependencies.noResults": "No matching tasks",
   "task.dependencies.loading": "Loading dependencies…",
   "task.dependencies.empty": "No dependencies yet",
+  "task.dependencies.actionFailed": "Couldn't update dependencies",
   "task.field.milestone": "Milestone",
   "task.field.milestone.none": "No milestone",
   "task.filter.milestone": "Milestone",

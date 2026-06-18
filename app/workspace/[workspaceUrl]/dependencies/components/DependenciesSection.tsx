@@ -55,6 +55,11 @@ export function DependenciesSection({
   const liveBlockers = computeLiveBlockers(edges)
   const busy = add.isPending || patch.isPending || remove.isPending
   const isEmpty = edges.filter(e => e.status !== 'DISMISSED').length === 0
+  const mutationError =
+    (add.isError ? (add.error as Error | null)?.message : null) ??
+    (patch.isError ? (patch.error as Error | null)?.message : null) ??
+    (remove.isError ? (remove.error as Error | null)?.message : null) ??
+    null
 
   return (
     <section className='mt-6'>
@@ -81,6 +86,13 @@ export function DependenciesSection({
             }
           )}
         </div>
+      )}
+
+      {mutationError !== null && (
+        <p className='text-xs text-destructive mt-1'>
+          {mutationError ||
+            intl.formatMessage({ id: 'task.dependencies.actionFailed' })}
+        </p>
       )}
 
       {loading && (

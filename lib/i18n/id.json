@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Cari tugas…",
   "task.dependencies.noResults": "Tidak ada tugas yang cocok",
   "task.dependencies.loading": "Memuat dependensi…",
-  "task.dependencies.empty": "Belum ada dependensi"
+  "task.dependencies.empty": "Belum ada dependensi",
+  "task.dependencies.actionFailed": "Dependensi tidak dapat diperbarui"
 }

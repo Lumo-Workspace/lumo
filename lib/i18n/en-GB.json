@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Search tasks…",
   "task.dependencies.noResults": "No matching tasks",
   "task.dependencies.loading": "Loading dependencies…",
-  "task.dependencies.empty": "No dependencies yet"
+  "task.dependencies.empty": "No dependencies yet",
+  "task.dependencies.actionFailed": "Couldn't update dependencies"
 }

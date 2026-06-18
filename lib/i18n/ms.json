@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Cari tugasan…",
   "task.dependencies.noResults": "Tiada tugasan yang sepadan",
   "task.dependencies.loading": "Memuatkan kebergantungan…",
-  "task.dependencies.empty": "Tiada kebergantungan lagi"
+  "task.dependencies.empty": "Tiada kebergantungan lagi",
+  "task.dependencies.actionFailed": "Kebergantungan tidak dapat dikemas kini"
 }

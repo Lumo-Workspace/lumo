@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "タスクを検索…",
   "task.dependencies.noResults": "一致するタスクなし",
   "task.dependencies.loading": "依存関係を読み込み中…",
-  "task.dependencies.empty": "依存関係はまだありません"
+  "task.dependencies.empty": "依存関係はまだありません",
+  "task.dependencies.actionFailed": "依存関係を更新できませんでした"
 }

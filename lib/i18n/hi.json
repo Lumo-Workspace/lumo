@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "कार्य खोजें…",
   "task.dependencies.noResults": "कोई मिलता-जुलता कार्य नहीं",
   "task.dependencies.loading": "निर्भरताएँ लोड हो रही हैं…",
-  "task.dependencies.empty": "अभी तक कोई निर्भरता नहीं"
+  "task.dependencies.empty": "अभी तक कोई निर्भरता नहीं",
+  "task.dependencies.actionFailed": "निर्भरताएँ अपडेट नहीं हो सकीं"
 }

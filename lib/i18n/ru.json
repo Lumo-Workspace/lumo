@@ -1713,5 +1713,6 @@
   "task.dependencies.searchPlaceholder": "Поиск задач…",
   "task.dependencies.noResults": "Задачи не найдены",
   "task.dependencies.loading": "Загрузка зависимостей…",
-  "task.dependencies.empty": "Зависимостей пока нет"
+  "task.dependencies.empty": "Зависимостей пока нет",
+  "task.dependencies.actionFailed": "Не удалось обновить зависимости"
 }
