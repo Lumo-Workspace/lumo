@@ -1,10 +1,9 @@
 import type { RenderableMemory } from '@/lib/memory/render'
+import type { TrustVerdict } from '@/types/lineage'
 import {
   RELEVANCE_GATE_TOP_K,
   RELEVANCE_GATE_EMBED_FLOOR,
   RELEVANCE_GATE_LEXICAL_FLOOR,
-  RELEVANCE_GATE_TRUST_KEEP_PCT,
-  RELEVANCE_GATE_TRUST_MIN_TASKS,
 } from './relevance-gate.constants'
 
 export type GateMechanism =
@@ -33,11 +32,9 @@ export interface RelevanceGateDeps {
   rankBySimilarity: (
     input: RelevanceGateInput
   ) => Promise<SimilarityRanking | null>
-  /** Historical merge-contribution per candidate id (proven trust). Ids with no
-   * lineage edges are absent from the map. */
-  trustByFragment: (
-    ids: string[]
-  ) => Promise<Map<string, { resolvedTasks: number; mergedTasks: number }>>
+  /** Judged-used track-record verdict per candidate id (proven trust, LUM-539).
+   * Ids below the cold-start grace / with no lineage edges are absent. */
+  trustByFragment: (ids: string[]) => Promise<Map<string, TrustVerdict>>
 }
 
 export interface RelevanceGateResult {
@@ -55,13 +52,12 @@ export interface RelevanceGateResult {
   dropped: Array<{ id: string; score: number }>
 }
 
-function isAlwaysKeep(rate: {
-  resolvedTasks: number
-  mergedTasks: number
-}): boolean {
-  if (rate.resolvedTasks < RELEVANCE_GATE_TRUST_MIN_TASKS) return false
-  const pct = (rate.mergedTasks / rate.resolvedTasks) * 100
-  return pct >= RELEVANCE_GATE_TRUST_KEEP_PCT
+/** Always-keep a memory that is proven useful by its judged-used track record
+ * (LUM-539) — judged used across enough distinct tasks — even if a narrow task's
+ * similarity drops it. Proven-useful memory is not collateral. A fragment's
+ * merge rate no longer enters this decision. */
+function isAlwaysKeep(verdict: TrustVerdict): boolean {
+  return verdict.qualified
 }
 
 /**
@@ -128,8 +124,8 @@ export async function gateProjectMemories(
   try {
     const trust = await deps.trustByFragment(projectMemories.map(m => m.id))
     for (const m of projectMemories) {
-      const rate = trust.get(m.id)
-      if (rate && isAlwaysKeep(rate)) selectedIds.add(m.id)
+      const verdict = trust.get(m.id)
+      if (verdict && isAlwaysKeep(verdict)) selectedIds.add(m.id)
     }
   } catch {
     // keep similarity-only selection

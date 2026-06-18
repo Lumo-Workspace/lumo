@@ -6,6 +6,7 @@ import {
   compactEvents,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
+import { loadConstitutionText } from '@/lib/services/memory/constitution'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType } from '@prisma/client'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
@@ -47,10 +48,12 @@ async function auditSession(
   // (and its callers') jest path — see project_ai_sdk_gateway_jest_trap.
   const { judgeFragmentUsage } =
     await import('@/lib/services/lineage/usage-judge')
+  const constitution = await loadConstitutionText()
   const { used, unused } = await judgeFragmentUsage({
     taskTitle,
     fragments,
     eventLog,
+    constitution,
   })
   if (used.length === 0 && unused.length === 0) return
 

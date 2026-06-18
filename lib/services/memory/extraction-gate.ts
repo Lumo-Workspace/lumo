@@ -195,14 +195,27 @@ export function isConstitutionRedundant(
   content: unknown,
   constitution: string | null
 ): boolean {
+  return isTextConstitutionRedundant(
+    memoryContentToText(category, content),
+    constitution
+  )
+}
+
+/**
+ * Text-level variant: true when `text` closely restates some constitution line.
+ * The category-free core (shared by the LUM-538 extraction gate and the LUM-539
+ * judge marginal-value gate, which sees already-rendered fragment text). Skipped
+ * (fail-open) when the constitution is unavailable or the text is empty.
+ */
+export function isTextConstitutionRedundant(
+  text: string | null | undefined,
+  constitution: string | null
+): boolean {
   if (!constitution) return false
-  const text = memoryContentToText(category, content)
   if (!text) return false
-  let max = 0
   for (const line of constitutionLines(constitution)) {
-    const s = bigramSimilarity(text, line)
-    if (s > max) max = s
-    if (max >= CONSTITUTION_REDUNDANCY_FLOOR) return true
+    if (bigramSimilarity(text, line) >= CONSTITUTION_REDUNDANCY_FLOOR)
+      return true
   }
   return false
 }

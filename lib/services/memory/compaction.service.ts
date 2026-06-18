@@ -18,8 +18,8 @@ import { logger } from '@/lib/logger'
  * while keeping it visible to lineage/audit; flipping the status back fully
  * restores it.
  *
- * Ranking (coldest first): primary key is the LUM-300 usage-rate
- * (used-tasks / injected-resolved-tasks, task-deduped), tie-broken by the
+ * Ranking (coldest first): primary key is the LUM-539 judged-used rate
+ * (judged-used tasks / audited tasks, task-deduped), tie-broken by the
  * MemoryBank retention term R = e^(-t/S) with strength S = 1 + usedTasks and
  * t = days since the last used=true vote (creation when never used). The
  * corpus is currently too young for t to discriminate (prod: 0 rows >30d) —
@@ -27,8 +27,8 @@ import { logger } from '@/lib/logger'
  *
  * Protections (never archived): manual curation (createdByMemberId set),
  * rows inside the freshness window (new memories need time to accrue usage
- * votes), strong usage trust verdicts (mirror of the LUM-325 supersede-guard),
- * and rows used within the recent-use window.
+ * votes), `qualified` judged-used trust verdicts (mirror of the LUM-325
+ * supersede-guard), and rows used within the recent-use window.
  */
 
 /** A project participates in compaction only above this many ACTIVE PROJECT rows. */
@@ -157,47 +157,58 @@ async function compactProject(
     fragmentId: canonicalById.get(row.id) as string,
   }))
 
-  const [trust, presence, usage, lastUsed] = await Promise.all([
+  const [trust, judged, lastUsed] = await Promise.all([
     lineageService.fragmentTrustForMemories(rows.map(r => r.id)),
-    lineageEdgeRepository.mergeRateByFragments(refs),
-    lineageEdgeRepository.usageMergeRateByFragments(refs),
+    lineageEdgeRepository.judgedUsageByFragments(refs),
     lineageEdgeRepository.lastUsedAtByFragments(refs),
   ])
-  const resolvedTasksByFragment = new Map(
-    presence.map(p => [p.fragmentId, p.resolvedTasks])
+  // LUM-539: cold-eviction ranks on the judged-used track record, not merge rate.
+  // usageRate = judged-used tasks / audited tasks — never-audited appearances are
+  // excluded from the denominator (abstention is not negative evidence).
+  const auditedTasksByFragment = new Map(
+    judged.map(j => [j.fragmentId, j.auditedTasks])
   )
   const usedTasksByFragment = new Map(
-    usage.map(u => [u.fragmentId, u.usedResolvedTasks])
+    judged.map(j => [j.fragmentId, j.judgedUsedTasks])
   )
   const lastUsedByFragment = new Map(
     lastUsed.map(l => [l.fragmentId, l.lastUsedAt])
   )
 
   let protectedCount = 0
-  const candidates: { id: string; usageRate: number; retention: number; createdAt: Date }[] =
-    []
+  const candidates: {
+    id: string
+    usageRate: number
+    retention: number
+    createdAt: Date
+  }[] = []
   for (const row of rows) {
     const canonical = canonicalById.get(row.id) as string
     const lastUsedAt = lastUsedByFragment.get(canonical) ?? null
     const isProtected =
       row.createdByMemberId !== null ||
       row.createdAt > freshnessCutoff ||
-      trust[row.id]?.kind === 'usage' ||
+      trust[row.id]?.qualified === true ||
       (lastUsedAt !== null && lastUsedAt > recentUseCutoff)
     if (isProtected) {
       protectedCount++
       continue
     }
 
-    const resolvedTasks = resolvedTasksByFragment.get(canonical) ?? 0
+    const auditedTasks = auditedTasksByFragment.get(canonical) ?? 0
     const usedTasks = usedTasksByFragment.get(canonical) ?? 0
-    const usageRate = resolvedTasks > 0 ? usedTasks / resolvedTasks : 0
+    const usageRate = auditedTasks > 0 ? usedTasks / auditedTasks : 0
     // MemoryBank: R = e^(-t/S), S grows with each recall (used vote).
     const strength = 1 + usedTasks
     const tDays =
       (now.getTime() - (lastUsedAt ?? row.createdAt).getTime()) / DAY_MS
     const retention = Math.exp(-Math.max(0, tDays) / strength)
-    candidates.push({ id: row.id, usageRate, retention, createdAt: row.createdAt })
+    candidates.push({
+      id: row.id,
+      usageRate,
+      retention,
+      createdAt: row.createdAt,
+    })
   }
 
   candidates.sort(

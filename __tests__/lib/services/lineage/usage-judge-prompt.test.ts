@@ -8,6 +8,7 @@ jest.mock('@ai-sdk/gateway', () => ({
 import {
   buildUsageJudgePrompt,
   judgeFragmentUsage,
+  applyMarginalValueGate,
   usageJudgeSchema,
   type JudgeFragment,
 } from '@/lib/services/lineage/usage-judge'
@@ -38,7 +39,19 @@ describe('buildUsageJudgePrompt', () => {
     expect(user).toContain('npx prisma db execute')
   })
 
-  it('schema accepts confident-used refs and rejects unknown fragmentType', () => {
+  it('asks for marginal value beyond CLAUDE.md / common sense, graded HIGH/LOW', () => {
+    const { system } = buildUsageJudgePrompt({
+      taskTitle: 't',
+      fragments,
+      eventLog: 'x',
+    })
+    expect(system).toMatch(/marginal value/i)
+    expect(system).toMatch(/CLAUDE\.md/)
+    expect(system).toMatch(/HIGH/)
+    expect(system).toMatch(/LOW/)
+  })
+
+  it('schema grades a used ref (defaulting to HIGH) and rejects unknown fragmentType', () => {
     const ok = usageJudgeSchema.safeParse({
       used: [
         {
@@ -49,10 +62,130 @@ describe('buildUsageJudgePrompt', () => {
       ],
     })
     expect(ok.success).toBe(true)
+    // value defaults to HIGH when the (weak-schema) model omits it.
+    expect(ok.success && ok.data.used[0]?.value).toBe('HIGH')
+    const graded = usageJudgeSchema.safeParse({
+      used: [
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          evidence: 'e',
+          value: 'LOW',
+        },
+      ],
+    })
+    expect(graded.success && graded.data.used[0]?.value).toBe('LOW')
     const bad = usageJudgeSchema.safeParse({
       used: [{ fragmentType: 'NOPE', fragmentId: 'x', evidence: 'e' }],
     })
     expect(bad.success).toBe(false)
+  })
+})
+
+describe('applyMarginalValueGate (marginal-value credit)', () => {
+  const CLAUDE_MD = 'Prefer named exports over default exports'
+
+  it('withholds credit for constitution-redundant fragment', () => {
+    const frags: JudgeFragment[] = [
+      // restates a CLAUDE.md rule almost verbatim → no marginal value
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'dup',
+        content: 'Prefer named exports over default exports',
+      },
+      // non-obvious project knowledge → keeps credit
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'real',
+        content:
+          'Prisma NOT on a nullable Boolean compiles to <> true and skips NULL rows',
+      },
+    ]
+    const used = [
+      {
+        fragmentType: 'MEMORY' as const,
+        fragmentId: 'dup',
+        evidence: 'e',
+        value: 'HIGH' as const,
+      },
+      {
+        fragmentType: 'MEMORY' as const,
+        fragmentId: 'real',
+        evidence: 'e',
+        value: 'HIGH' as const,
+      },
+    ]
+    const credited = applyMarginalValueGate(used, frags, CLAUDE_MD)
+    expect(credited.map(u => u.fragmentId)).toEqual(['real'])
+  })
+
+  it('withholds credit for a LOW-graded use even when not constitution-redundant', () => {
+    const frags: JudgeFragment[] = [
+      { fragmentType: 'MEMORY', fragmentId: 'x', content: 'something novel' },
+    ]
+    const credited = applyMarginalValueGate(
+      [
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'x',
+          evidence: 'e',
+          value: 'LOW',
+        },
+      ],
+      frags,
+      null
+    )
+    expect(credited).toHaveLength(0)
+  })
+
+  it('keeps HIGH credit when there is no constitution (fail-open)', () => {
+    const frags: JudgeFragment[] = [
+      { fragmentType: 'MEMORY', fragmentId: 'x', content: 'anything' },
+    ]
+    const credited = applyMarginalValueGate(
+      [
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'x',
+          evidence: 'e',
+          value: 'HIGH',
+        },
+      ],
+      frags,
+      null
+    )
+    expect(credited).toHaveLength(1)
+  })
+
+  it('judgeFragmentUsage drops constitution-redundant used fragments end to end', async () => {
+    const generateObjectMock = generateObject as jest.Mock
+    const frags: JudgeFragment[] = [
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'dup',
+        content: 'Prefer named exports over default exports',
+      },
+    ]
+    generateObjectMock.mockResolvedValue({
+      object: {
+        used: [
+          {
+            fragmentType: 'MEMORY',
+            fragmentId: 'dup',
+            evidence: 'e',
+            value: 'HIGH',
+          },
+        ],
+        unused: [],
+      },
+    })
+    const out = await judgeFragmentUsage({
+      taskTitle: 't',
+      fragments: frags,
+      eventLog: 'work',
+      constitution: CLAUDE_MD,
+    })
+    expect(out.used).toHaveLength(0)
   })
 })
 

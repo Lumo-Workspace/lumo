@@ -5,7 +5,7 @@ import {
   syntheticLineageStats,
   validateRetrieveSet,
 } from '@/scripts/eval/memory/retrieve-set'
-import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/services/lineage-signal'
+import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/lineage/ranking'
 
 const poolIds = new Set(retrievePool.map(c => c.id))
 

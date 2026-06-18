@@ -28,13 +28,25 @@ describe('POST /api/lineage/fragment-trust', () => {
 
   it('returns the service trust map', async () => {
     svc.fragmentTrustForMemories.mockResolvedValue({
-      a: { kind: 'usage', resolvedTasks: 4, mergedTasks: 3, pct: 75 },
+      a: {
+        judgedUsedTasks: 4,
+        auditedTasks: 5,
+        appearanceTasks: 7,
+        usefulnessPct: 80,
+        qualified: true,
+      },
     })
     const res = await POST(req({ ids: ['a'] }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       trust: {
-        a: { kind: 'usage', resolvedTasks: 4, mergedTasks: 3, pct: 75 },
+        a: {
+          judgedUsedTasks: 4,
+          auditedTasks: 5,
+          appearanceTasks: 7,
+          usefulnessPct: 80,
+          qualified: true,
+        },
       },
     })
   })

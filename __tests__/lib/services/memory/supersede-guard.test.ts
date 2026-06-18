@@ -20,10 +20,22 @@ describe('resolveGuardedSupersedeIds (LUM-325 A-MEM reuse guardrail)', () => {
     expect(fragmentTrustForMemories).not.toHaveBeenCalled()
   })
 
-  it('guards only targets with a strong usage verdict, not presence/none', async () => {
+  it('guards only targets with a qualified judged-used verdict, not unproven/none', async () => {
     fragmentTrustForMemories.mockResolvedValue({
-      mem_used: { kind: 'usage', resolvedTasks: 5, mergedTasks: 4, pct: 80 },
-      mem_coloaded: { kind: 'presence', resolvedTasks: 6, mergedTasks: 3, pct: 50 },
+      mem_used: {
+        judgedUsedTasks: 4,
+        auditedTasks: 5,
+        appearanceTasks: 6,
+        usefulnessPct: 80,
+        qualified: true,
+      },
+      mem_coloaded: {
+        judgedUsedTasks: 1,
+        auditedTasks: 6,
+        appearanceTasks: 6,
+        usefulnessPct: 17,
+        qualified: false,
+      },
       // mem_fresh has no verdict → omitted from the map entirely
     })
 

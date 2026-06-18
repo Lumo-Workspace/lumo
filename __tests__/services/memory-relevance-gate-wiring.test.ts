@@ -36,7 +36,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
-  lineageEdgeRepository: { mergeRateByFragments: jest.fn() },
+  lineageEdgeRepository: { judgedUsageByFragments: jest.fn() },
 }))
 
 import type { RenderableMemory } from '@/lib/memory/render'
@@ -70,9 +70,9 @@ test('embedding path: keeps cosine winners above floor', async () => {
       { id: 'm7', category: 'CONVENTION', content: {}, score: 0.8 },
     ],
   })
-  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
-    []
-  )
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([])
   const res = await select(task, corpus(20))
   expect(res.selected.map(m => m.id).sort()).toEqual(['m3', 'm7'])
   expect(res.telemetry.mechanism).toBe('embedding')
@@ -84,9 +84,9 @@ test('cold corpus (scopeHasEmbeddings=false) → lexical fallback ranking', asyn
     scopeHasEmbeddings: false,
     neighbors: [],
   })
-  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
-    []
-  )
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([])
   const candidates = [
     {
       id: 'hit',
@@ -103,9 +103,9 @@ test('cold corpus (scopeHasEmbeddings=false) → lexical fallback ranking', asyn
 
 test('embedding exception → gate degrades to the FULL corpus (fallback-all)', async () => {
   ;(embedTexts as jest.Mock).mockRejectedValue(new Error('gateway down'))
-  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
-    []
-  )
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([])
   const candidates = corpus(20)
   const res = await select(task, candidates)
   expect(res.telemetry.mechanism).toBe('fallback-all')
@@ -117,9 +117,9 @@ test('pgvector exception → gate degrades to the FULL corpus (fallback-all)', a
   ;(memoryRepository.findNeighborEmbeddings as jest.Mock).mockRejectedValue(
     new Error('pgvector down')
   )
-  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue(
-    []
-  )
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([])
   const candidates = corpus(20)
   const res = await select(task, candidates)
   expect(res.telemetry.mechanism).toBe('fallback-all')
@@ -132,12 +132,15 @@ test('high-trust fragment is always kept even with no similarity hit', async () 
     scopeHasEmbeddings: true,
     neighbors: [],
   })
-  ;(lineageEdgeRepository.mergeRateByFragments as jest.Mock).mockResolvedValue([
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([
     {
       fragmentType: 'MEMORY',
       fragmentId: 'm9',
-      resolvedTasks: 6,
-      mergedTasks: 6,
+      judgedUsedTasks: 5, // proven by judged-used track record → always-kept
+      auditedTasks: 6,
+      appearanceTasks: 6,
     },
   ])
   const res = await select(task, corpus(20))

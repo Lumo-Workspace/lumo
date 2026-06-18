@@ -32,15 +32,27 @@ describe('FragmentTrustBadge', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders the percentage and the usage tooltip for a strong verdict', () => {
-    renderBadge({ kind: 'usage', resolvedTasks: 4, mergedTasks: 3, pct: 75 })
-    expect(screen.getByText('75%')).toBeInTheDocument()
-    expect(screen.getByTitle(/real-usage signal/)).toBeInTheDocument()
+  it('renders the usefulness percentage and the judged-used tooltip for a proven verdict', () => {
+    renderBadge({
+      judgedUsedTasks: 4,
+      auditedTasks: 5,
+      appearanceTasks: 7,
+      usefulnessPct: 80,
+      qualified: true,
+    })
+    expect(screen.getByText('80%')).toBeInTheDocument()
+    expect(screen.getByTitle(/judged-used track record/)).toBeInTheDocument()
   })
 
-  it('marks a presence verdict as weak', () => {
-    renderBadge({ kind: 'presence', resolvedTasks: 4, mergedTasks: 1, pct: 25 })
-    expect(screen.getByText('25%')).toBeInTheDocument()
-    expect(screen.getByTitle(/weak signal/)).toBeInTheDocument()
+  it('marks an unproven verdict', () => {
+    const { container } = renderBadge({
+      judgedUsedTasks: 1,
+      auditedTasks: 5,
+      appearanceTasks: 7,
+      usefulnessPct: 20,
+      qualified: false,
+    })
+    expect(screen.getByText('20%')).toBeInTheDocument()
+    expect(container.textContent).toContain('unproven')
   })
 })

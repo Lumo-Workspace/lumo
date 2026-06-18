@@ -573,6 +573,98 @@ describe('lineageEdgeRepository', () => {
     })
   })
 
+  describe('judgedUsageByFragments (LUM-539 judged-used track record)', () => {
+    it('returns [] and does not query for an empty fragment list', async () => {
+      expect(await lineageEdgeRepository.judgedUsageByFragments([])).toEqual([])
+      expect(mockGroupBy).not.toHaveBeenCalled()
+    })
+
+    it('groups by fragment + task + used — merge outcome is NOT read', async () => {
+      mockGroupBy.mockResolvedValue([])
+      await lineageEdgeRepository.judgedUsageByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      const args = mockGroupBy.mock.calls[0][0]
+      expect(args.by).toEqual(['fragmentType', 'fragmentId', 'taskId', 'used'])
+      expect(args.by).not.toContain('outcome')
+      expect(args.where).toEqual({
+        OR: [{ fragmentType: 'MEMORY', fragmentId: 'm1' }],
+      })
+    })
+
+    it('judged-used track record accumulates across tasks', async () => {
+      // mem-1 appears in 4 distinct tasks: judged used in 2, judged unused in 1,
+      // never audited (used=NULL) in 1. The track record accumulates across all
+      // of them, cross-task — judgedUsed=2 / audited=3 / appeared=4. The NULL
+      // appearance is counted as an appearance but excluded from `auditedTasks`
+      // (abstention is not negative evidence), and merge outcome never enters.
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tA', used: true },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tB', used: true },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tC', used: false },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tD', used: null },
+      ])
+      const [rec] = await lineageEdgeRepository.judgedUsageByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(rec).toEqual({
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        judgedUsedTasks: 2,
+        auditedTasks: 3,
+        appearanceTasks: 4,
+      })
+    })
+
+    it('dedupes multiple sessions/rows of one task (true wins over null)', async () => {
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tA', used: null },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tA', used: true },
+      ])
+      const [rec] = await lineageEdgeRepository.judgedUsageByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(rec).toEqual({
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        judgedUsedTasks: 1,
+        auditedTasks: 1,
+        appearanceTasks: 1,
+      })
+    })
+
+    it('excludes the birth-task self-credit pair from every count', async () => {
+      mockGroupBy.mockResolvedValue([
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'birth',
+          used: true,
+        },
+        {
+          fragmentType: 'MEMORY',
+          fragmentId: 'm1',
+          taskId: 'other',
+          used: true,
+        },
+      ])
+      mockBirthTaskIdsByMemory.mockResolvedValue(
+        new Map([['m1', new Set(['birth'])]])
+      )
+      const [rec] = await lineageEdgeRepository.judgedUsageByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(rec).toEqual({
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        judgedUsedTasks: 1,
+        auditedTasks: 1,
+        appearanceTasks: 1,
+      })
+      expect(mockBirthTaskIdsByMemory).toHaveBeenCalledWith(['m1'], undefined)
+    })
+  })
+
   describe('findSessionFragmentEdges', () => {
     it('returns this session edges with current used/usedAt flags', async () => {
       mockFindMany.mockResolvedValue([
