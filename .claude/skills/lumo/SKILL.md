@@ -129,6 +129,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo memory show <id>` — show one memory's full card (category + content) by id (progressive disclosure from a one-line index entry)
 - `lumo memory promote <id>` / `lumo memory rm <id> --yes` — TASK→PROJECT / delete
 - `lumo memory sync [--project <ref>] [--dir <path>] [--dry-run] [--clean]` — downsync team memory into the local Claude Code memory store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns, never your own memory; `--dry-run` previews, `--clean` fully reverts (runs alongside session-start injection)
+- `lumo memory push [--project <ref>] [--dir <path>] [--dry-run]` — upsync locally-authored memories (`<memory-dir>/outbox/*.json`, each `{category, content}`) to the team via the existing create-project-memory pipeline (canonicalize/dedup/reconcile-on-write); pushed files leave the outbox on success
 
 **Sessions** — see [sessions.md](references/sessions.md)
 

@@ -41,6 +41,7 @@ import { memoryPromote } from './commands/memory-promote'
 import { memoryRm } from './commands/memory-rm'
 import { memoryShow } from './commands/memory-show'
 import { memorySync } from './commands/memory-sync'
+import { memoryPush } from './commands/memory-push'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskCriteriaSet } from './commands/task-criteria-set'
 import { taskCriteriaList } from './commands/task-criteria-list'
@@ -912,6 +913,26 @@ memoryCmd
           clean?: boolean
         }
       )
+    )
+  )
+
+memoryCmd
+  .command('push')
+  .description(
+    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success.'
+  )
+  .option(
+    '--project <ref>',
+    'Project to push to (name/slug/id); default = bound session'
+  )
+  .option(
+    '--dir <path>',
+    'Memory dir (default: ~/.claude/projects/<cwd>/memory)'
+  )
+  .option('--dry-run', 'List what would be pushed without sending')
+  .action(
+    wrap((opts: unknown) =>
+      memoryPush(opts as { project?: string; dir?: string; dryRun?: boolean })
     )
   )
 

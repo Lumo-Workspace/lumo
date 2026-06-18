@@ -35,6 +35,10 @@ lumo memory sync                   # write team/<id>.md + a managed MEMORY.md bl
 lumo memory sync --dry-run         # preview the reconcile plan, write nothing
 lumo memory sync --project <ref>   # target a specific project (default: bound session)
 lumo memory sync --clean           # remove everything sync owns (full rollback)
+
+# Upsync locally-authored memories to the team (reverse direction)
+lumo memory push                   # promote <memory-dir>/outbox/*.json to the team
+lumo memory push --dry-run         # list what would be pushed without sending
 ```
 
 When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
@@ -112,6 +116,28 @@ Claude Code's native recall in their working copy (instead of, or in addition to
 session-start injection) — run `lumo memory sync` in the project. Suggest
 `--dry-run` first to confirm the resolved directory and plan, and `--clean` to
 back the change out.
+
+### `lumo memory push` (upsync to the team)
+
+The reverse of `sync`: promote memories a dev authored locally up to the team
+store. Each candidate is a JSON file in `<memory-dir>/outbox/` shaped
+`{ "category": "convention", "content": { ... } }` (the same per-category content
+shape as `lumo project memory add`). `push` POSTs each to the **existing**
+create-project-memory endpoint, so it runs through the same canonicalize → dedup →
+**reconcile-on-write** pipeline (LUM-538) — no parallel upsync path — and a
+successful push removes the file from the outbox.
+
+- **Scope**: structured local memories (the lossless path). A team file you edited
+  locally is rendered markdown that cannot be reversed back to structured content,
+  so those (P1 drift candidates) are **reported** by `lumo memory sync`, not
+  auto-promoted — re-express the improvement as an outbox entry or via
+  `lumo project memory add`.
+- **Project**: resolved from the bound session unless `--project <ref>` is given.
+- `--dry-run` lists what would be pushed without sending.
+
+**When to suggest**: when a dev has captured a reusable lesson locally and wants it
+shared with the team — drop a `{category, content}` JSON in the memory `outbox/`
+and run `lumo memory push` (or just use `lumo project memory add` for a one-off).
 
 ### Reconcile-on-write & deduplication
 
