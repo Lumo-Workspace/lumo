@@ -40,6 +40,8 @@ import { memoryProjectAdd } from './commands/memory-project-add'
 import { memoryPromote } from './commands/memory-promote'
 import { memoryRm } from './commands/memory-rm'
 import { memoryShow } from './commands/memory-show'
+import { memorySync } from './commands/memory-sync'
+import { memoryPush } from './commands/memory-push'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskCriteriaSet } from './commands/task-criteria-set'
 import { taskCriteriaList } from './commands/task-criteria-list'
@@ -880,6 +882,57 @@ memoryCmd
   .action(
     wrap((id: unknown, opts: unknown) =>
       memoryRm(id as string, opts as { yes?: boolean })
+    )
+  )
+
+memoryCmd
+  .command('sync')
+  .description(
+    'Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block). Only touches files it owns; never clobbers your own memory. Resolves the project from the bound session unless --project is given.'
+  )
+  .option(
+    '--project <ref>',
+    'Project to sync (name/slug/id); default = bound session'
+  )
+  .option(
+    '--dir <path>',
+    'Target memory dir (default: ~/.claude/projects/<cwd>/memory)'
+  )
+  .option('--dry-run', 'Print the reconcile plan without writing files')
+  .option(
+    '--clean',
+    'Remove every file + index block sync owns (full rollback)'
+  )
+  .action(
+    wrap((opts: unknown) =>
+      memorySync(
+        opts as {
+          project?: string
+          dir?: string
+          dryRun?: boolean
+          clean?: boolean
+        }
+      )
+    )
+  )
+
+memoryCmd
+  .command('push')
+  .description(
+    'Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success.'
+  )
+  .option(
+    '--project <ref>',
+    'Project to push to (name/slug/id); default = bound session'
+  )
+  .option(
+    '--dir <path>',
+    'Memory dir (default: ~/.claude/projects/<cwd>/memory)'
+  )
+  .option('--dry-run', 'List what would be pushed without sending')
+  .action(
+    wrap((opts: unknown) =>
+      memoryPush(opts as { project?: string; dir?: string; dryRun?: boolean })
     )
   )
 

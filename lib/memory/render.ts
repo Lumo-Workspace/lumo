@@ -240,7 +240,7 @@ function estimateMemoryItemTokens(m: RenderableMemory): number {
 }
 
 /** Extract a one-line headline from a memory's content, per category. */
-function memoryHeadline(m: RenderableMemory): string {
+export function memoryHeadline(m: RenderableMemory): string {
   try {
     const parsed = parseMemoryContent(m.category, m.content) as Record<
       string,
