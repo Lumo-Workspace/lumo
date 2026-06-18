@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ अनुपयोगी",
   "lineage.fragment.used.abstained": "· कोई वोट नहीं",
   "boundary.panel.explanations.label": "एजेंट का स्व-विवरण · असत्यापित",
-  "boundary.panel.explanations.disclaimer": "एजेंट का अपना विवरण कि उसने ऐसा क्यों किया — आपके निर्णय के लिए संदर्भ, कोई फैसला नहीं और कोई डिस्पोज़िशन नहीं।"
+  "boundary.panel.explanations.disclaimer": "एजेंट का अपना विवरण कि उसने ऐसा क्यों किया — आपके निर्णय के लिए संदर्भ, कोई फैसला नहीं और कोई डिस्पोज़िशन नहीं।",
+  "task.dependencies.title": "निर्भरताएँ",
+  "task.dependencies.addDependency": "निर्भरता जोड़ें",
+  "task.dependencies.blockedBy": "इसके द्वारा अवरुद्ध",
+  "task.dependencies.blocks": "अवरुद्ध करता है",
+  "task.dependencies.related": "संबंधित",
+  "task.dependencies.suggested": "सुझाया गया ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, one {# सक्रिय अवरोधक} other {# सक्रिय अवरोधक}} — {first} की प्रतीक्षा में",
+  "task.dependencies.confirm": "पुष्टि करें",
+  "task.dependencies.reverse": "दिशा उलटें",
+  "task.dependencies.dismiss": "अनदेखा करें",
+  "task.dependencies.remove": "निर्भरता हटाएँ",
+  "task.dependencies.kindBlocks": "अवरुद्ध करता है",
+  "task.dependencies.kindRelates": "संबंधित",
+  "task.dependencies.searchPlaceholder": "कार्य खोजें…",
+  "task.dependencies.noResults": "कोई मिलता-जुलता कार्य नहीं",
+  "task.dependencies.loading": "निर्भरताएँ लोड हो रही हैं…",
+  "task.dependencies.empty": "अभी तक कोई निर्भरता नहीं"
 }

@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ không dùng",
   "lineage.fragment.used.abstained": "· không bỏ phiếu",
   "boundary.panel.explanations.label": "Tự thuật của tác nhân · chưa xác minh",
-  "boundary.panel.explanations.disclaimer": "Lời giải thích của chính tác nhân về lý do hành động — chỉ là bối cảnh cho quyết định của bạn, không phải phán quyết và cũng không phải disposition."
+  "boundary.panel.explanations.disclaimer": "Lời giải thích của chính tác nhân về lý do hành động — chỉ là bối cảnh cho quyết định của bạn, không phải phán quyết và cũng không phải disposition.",
+  "task.dependencies.title": "Phụ thuộc",
+  "task.dependencies.addDependency": "Thêm phụ thuộc",
+  "task.dependencies.blockedBy": "Bị chặn bởi",
+  "task.dependencies.blocks": "Đang chặn",
+  "task.dependencies.related": "Liên quan",
+  "task.dependencies.suggested": "Đề xuất ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, other {# trình chặn đang hoạt động}} — đang chờ {first}",
+  "task.dependencies.confirm": "Xác nhận",
+  "task.dependencies.reverse": "Đảo ngược hướng",
+  "task.dependencies.dismiss": "Bỏ qua",
+  "task.dependencies.remove": "Xóa phụ thuộc",
+  "task.dependencies.kindBlocks": "Chặn",
+  "task.dependencies.kindRelates": "Liên quan",
+  "task.dependencies.searchPlaceholder": "Tìm kiếm công việc…",
+  "task.dependencies.noResults": "Không có công việc phù hợp",
+  "task.dependencies.loading": "Đang tải phụ thuộc…",
+  "task.dependencies.empty": "Chưa có phụ thuộc nào"
 }

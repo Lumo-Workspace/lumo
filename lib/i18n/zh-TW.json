@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ 未採用",
   "lineage.fragment.used.abstained": "· 未表態",
   "boundary.panel.explanations.label": "Agent 自述 · 未經核實",
-  "boundary.panel.explanations.disclaimer": "Agent 對自己為何這樣做的說明——僅供你裁決時參考，不是結論，也不是處置（disposition）。"
+  "boundary.panel.explanations.disclaimer": "Agent 對自己為何這樣做的說明——僅供你裁決時參考，不是結論，也不是處置（disposition）。",
+  "task.dependencies.title": "依賴",
+  "task.dependencies.addDependency": "新增依賴",
+  "task.dependencies.blockedBy": "被封鎖於",
+  "task.dependencies.blocks": "封鎖",
+  "task.dependencies.related": "相關",
+  "task.dependencies.suggested": "建議（{count}）",
+  "task.dependencies.blockedAlert": "{count, plural, other {# 個待解封鎖項}} — 等待 {first}",
+  "task.dependencies.confirm": "確認",
+  "task.dependencies.reverse": "反轉方向",
+  "task.dependencies.dismiss": "忽略",
+  "task.dependencies.remove": "移除依賴",
+  "task.dependencies.kindBlocks": "封鎖",
+  "task.dependencies.kindRelates": "相關",
+  "task.dependencies.searchPlaceholder": "搜尋任務…",
+  "task.dependencies.noResults": "無符合任務",
+  "task.dependencies.loading": "正在載入依賴…",
+  "task.dependencies.empty": "尚無依賴"
 }

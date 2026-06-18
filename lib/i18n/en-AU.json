@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ unused",
   "lineage.fragment.used.abstained": "· no vote",
   "boundary.panel.explanations.label": "Agent self-report · unverified",
-  "boundary.panel.explanations.disclaimer": "The agent's own account of why it acted — context for your decision, not a verdict, and never a disposition."
+  "boundary.panel.explanations.disclaimer": "The agent's own account of why it acted — context for your decision, not a verdict, and never a disposition.",
+  "task.dependencies.title": "Dependencies",
+  "task.dependencies.addDependency": "Add dependency",
+  "task.dependencies.blockedBy": "Blocked by",
+  "task.dependencies.blocks": "Blocks",
+  "task.dependencies.related": "Related",
+  "task.dependencies.suggested": "Suggested ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, one {# active blocker} other {# active blockers}} — waiting on {first}",
+  "task.dependencies.confirm": "Confirm",
+  "task.dependencies.reverse": "Reverse direction",
+  "task.dependencies.dismiss": "Dismiss",
+  "task.dependencies.remove": "Remove dependency",
+  "task.dependencies.kindBlocks": "Blocks",
+  "task.dependencies.kindRelates": "Relates",
+  "task.dependencies.searchPlaceholder": "Search tasks…",
+  "task.dependencies.noResults": "No matching tasks",
+  "task.dependencies.loading": "Loading dependencies…",
+  "task.dependencies.empty": "No dependencies yet"
 }

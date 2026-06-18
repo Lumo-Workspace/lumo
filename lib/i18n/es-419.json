@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ sin usar",
   "lineage.fragment.used.abstained": "· sin voto",
   "boundary.panel.explanations.label": "Autoinforme del agente · sin verificar",
-  "boundary.panel.explanations.disclaimer": "El relato del propio agente sobre por qué actuó: contexto para tu decisión, no un veredicto ni una disposición."
+  "boundary.panel.explanations.disclaimer": "El relato del propio agente sobre por qué actuó: contexto para tu decisión, no un veredicto ni una disposición.",
+  "task.dependencies.title": "Dependencias",
+  "task.dependencies.addDependency": "Agregar dependencia",
+  "task.dependencies.blockedBy": "Bloqueado por",
+  "task.dependencies.blocks": "Bloquea",
+  "task.dependencies.related": "Relacionado",
+  "task.dependencies.suggested": "Sugerido ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, one {# bloqueador activo} other {# bloqueadores activos}} — esperando a {first}",
+  "task.dependencies.confirm": "Confirmar",
+  "task.dependencies.reverse": "Invertir dirección",
+  "task.dependencies.dismiss": "Ignorar",
+  "task.dependencies.remove": "Eliminar dependencia",
+  "task.dependencies.kindBlocks": "Bloquea",
+  "task.dependencies.kindRelates": "Se relaciona",
+  "task.dependencies.searchPlaceholder": "Buscar tareas…",
+  "task.dependencies.noResults": "Sin tareas coincidentes",
+  "task.dependencies.loading": "Cargando dependencias…",
+  "task.dependencies.empty": "Aún no hay dependencias"
 }

@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ не использован",
   "lineage.fragment.used.abstained": "· без голоса",
   "boundary.panel.explanations.label": "Самоотчёт агента · не проверено",
-  "boundary.panel.explanations.disclaimer": "Собственное объяснение агента, почему он так поступил, — это контекст для вашего решения, а не вердикт и не диспозиция."
+  "boundary.panel.explanations.disclaimer": "Собственное объяснение агента, почему он так поступил, — это контекст для вашего решения, а не вердикт и не диспозиция.",
+  "task.dependencies.title": "Зависимости",
+  "task.dependencies.addDependency": "Добавить зависимость",
+  "task.dependencies.blockedBy": "Заблокировано",
+  "task.dependencies.blocks": "Блокирует",
+  "task.dependencies.related": "Связано",
+  "task.dependencies.suggested": "Предложено ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, one {# активный блокировщик} few {# активных блокировщика} other {# активных блокировщиков}} — ожидает {first}",
+  "task.dependencies.confirm": "Подтвердить",
+  "task.dependencies.reverse": "Изменить направление",
+  "task.dependencies.dismiss": "Отклонить",
+  "task.dependencies.remove": "Удалить зависимость",
+  "task.dependencies.kindBlocks": "Блокирует",
+  "task.dependencies.kindRelates": "Связано",
+  "task.dependencies.searchPlaceholder": "Поиск задач…",
+  "task.dependencies.noResults": "Задачи не найдены",
+  "task.dependencies.loading": "Загрузка зависимостей…",
+  "task.dependencies.empty": "Зависимостей пока нет"
 }

@@ -1696,5 +1696,22 @@
   "lineage.fragment.used.no": "✗ ungenutzt",
   "lineage.fragment.used.abstained": "· keine Wertung",
   "boundary.panel.explanations.label": "Selbstauskunft des Agents · ungeprüft",
-  "boundary.panel.explanations.disclaimer": "Die eigene Schilderung des Agents, warum er gehandelt hat — Kontext für Ihre Entscheidung, kein Urteil und keine Disposition."
+  "boundary.panel.explanations.disclaimer": "Die eigene Schilderung des Agents, warum er gehandelt hat — Kontext für Ihre Entscheidung, kein Urteil und keine Disposition.",
+  "task.dependencies.title": "Abhängigkeiten",
+  "task.dependencies.addDependency": "Abhängigkeit hinzufügen",
+  "task.dependencies.blockedBy": "Blockiert von",
+  "task.dependencies.blocks": "Blockiert",
+  "task.dependencies.related": "Verwandt",
+  "task.dependencies.suggested": "Vorgeschlagen ({count})",
+  "task.dependencies.blockedAlert": "{count, plural, one {# aktiver Blocker} other {# aktive Blocker}} — wartet auf {first}",
+  "task.dependencies.confirm": "Bestätigen",
+  "task.dependencies.reverse": "Richtung umkehren",
+  "task.dependencies.dismiss": "Verwerfen",
+  "task.dependencies.remove": "Abhängigkeit entfernen",
+  "task.dependencies.kindBlocks": "Blockiert",
+  "task.dependencies.kindRelates": "Verwandt",
+  "task.dependencies.searchPlaceholder": "Aufgaben suchen…",
+  "task.dependencies.noResults": "Keine passenden Aufgaben",
+  "task.dependencies.loading": "Abhängigkeiten werden geladen…",
+  "task.dependencies.empty": "Noch keine Abhängigkeiten"
 }
