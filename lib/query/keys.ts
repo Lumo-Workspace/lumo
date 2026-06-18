@@ -103,6 +103,8 @@ export const queryKeys = {
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
 
+  taskDependencies: (taskId: string) => ['task-dependencies', taskId] as const,
+
   documentComments: (docId: string) => ['document-comments', docId] as const,
 
   documentRevisions: (docId: string) => ['document-revisions', docId] as const,
