@@ -671,9 +671,15 @@ export const workspaceTaskFiltersSchema = z.object({
 // ─── Task Dependencies ─────────────────────────────────────────────────────
 
 export const addDependencyBodySchema = z.object({
-  /** Blocker 任务,LUM-N 或 cuid,路由层 resolveTask 解析。 */
+  /** 对端任务,LUM-N 或 cuid,路由层 resolveTask 解析。 */
   blockedBy: z.string().trim().min(1),
   kind: z.enum(['BLOCKS', 'RELATES']).optional(),
+  /**
+   * Which side the *current* task is on. BLOCKED_BY (default): current task is
+   * blocked by `blockedBy`. BLOCKS: current task blocks `blockedBy`. CLI never
+   * sends this, so the default preserves existing CLI behavior.
+   */
+  direction: z.enum(['BLOCKED_BY', 'BLOCKS']).default('BLOCKED_BY'),
 })
 
 export const patchDependencyBodySchema = z.object({

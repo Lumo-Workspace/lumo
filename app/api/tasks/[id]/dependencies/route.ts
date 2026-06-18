@@ -82,14 +82,22 @@ export async function POST(request: NextRequest, { params }: Params) {
     const parsed = addDependencyBodySchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const blocker = await resolveTask(parsed.data.blockedBy, identity.workspaceId)
-    if (!blocker)
-      return NextResponse.json({ error: 'Blocker task not found' }, { status: 404 })
+    const other = await resolveTask(parsed.data.blockedBy, identity.workspaceId)
+    if (!other)
+      return NextResponse.json(
+        { error: 'Linked task not found' },
+        { status: 404 }
+      )
+
+    const [blockedTaskId, blockingTaskId] =
+      parsed.data.direction === 'BLOCKS'
+        ? [other.id, task.id] // current task blocks `other`
+        : [task.id, other.id] // current task is blocked by `other`
 
     const dependency = await taskDependencyService.addManual({
       workspaceId: identity.workspaceId,
-      blockedTaskId: task.id,
-      blockingTaskId: blocker.id,
+      blockedTaskId,
+      blockingTaskId,
       kind: parsed.data.kind,
     })
     return NextResponse.json({ dependency }, { status: 201 })
