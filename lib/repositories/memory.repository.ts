@@ -528,6 +528,23 @@ export const memoryRepository = {
   },
 
   /**
+   * Soft-invalidate a memory (LUM-544, DONE-time Layer-1 curation). Flips an
+   * ACTIVE row to INVALIDATED and stamps supersededAt as the retire time — but
+   * leaves content + the row intact (audit) and writes NO replacement /
+   * provenance edge (unlike `supersede`). Invalidate-not-delete per LUM-325's
+   * "失效非删" rule. Guarded on status='ACTIVE' so a re-run can't re-stamp an
+   * already-retired row; returns how many rows flipped (0 or 1).
+   */
+  async invalidate(id: string, tx?: Prisma.TransactionClient): Promise<number> {
+    const client = tx ?? prisma
+    const res = await client.memory.updateMany({
+      where: { id, status: 'ACTIVE' },
+      data: { status: 'INVALIDATED', supersededAt: new Date() },
+    })
+    return res.count
+  },
+
+  /**
    * Hard-delete a memory row. Used by Layer 1 DELETE when the LLM retracts an
    * earlier memory because it was contradicted or superseded.
    */

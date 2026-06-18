@@ -33,7 +33,7 @@ just attach the correct task instead.
 
 When the session is bound, session-start may inject a **"🆕 Review needed: project memories auto-consolidated by the previous session"** section alongside the memory / PR-review blocks (LUM-165). It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
 
-- **Why it's here:** Layer 2 promotions land async, so they can't be reviewed in the synchronous `session wrap` panel — they're surfaced at the _next_ session-start instead, when they've definitely landed.
+- **Why it's here:** Layer 2 promotions land async (after the task hits DONE), so they're surfaced at the _next_ session-start instead, when they've definitely landed.
 - **Show-once:** the section appears only at the session that immediately follows the one that produced the memories. It does **not** re-nag on later sessions, so act on it now or it scrolls off.
 - **Agent guidance:** briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id> --yes` (ideally confirm with the user first). If they all look right, ignore the section and continue.
 
@@ -125,89 +125,47 @@ lumo session status
 
 When to suggest: the user asks "which task am I on", "what's this session bound to", or you need to decide whether to suggest `session attach` for a mentioned task ID.
 
-### `lumo session wrap [--yes] [--dry-run] [--used <indices>]` — wrap-up panel: memory review + fragment-usage vote + blocked-tag prompt
+### Automatic end-of-session housekeeping (no command — LUM-544)
 
-Session-end wrap-up panel with **three sections, run in order**:
+The old end-of-session command was **removed in LUM-544**. The three passes it
+used to run interactively now happen **automatically server-side**, all
+evidence-gated, best-effort, and silent — there is nothing for the agent to run
+or confirm. Two fire when the bound task reaches **DONE** (`lumo task update <id>
+--status done`, which threads `CLAUDE_CODE_SESSION_ID` so attribution lands), one
+runs continuously off the failure/progress hooks.
 
-**1. Memory review** — lists the Layer1 memories this session sedimented since the
-last review (deduped by a per-session watermark `Session.lastMemoryReviewAt`).
-Each new memory is shown as `[SCOPE] CATEGORY  headline`, numbered from 1. You
-curate with a single line: `d 1,3` deletes rows 1 and 3, `p 2` promotes row 2 to
-project scope, and they combine (`d 1,3 p 2`). **Enter (empty) keeps all**; `s`
-skips the section. Keeping all (Enter or `--yes`) still **advances the watermark**
-so the next wrap won't re-list reviewed memories; `s` leaves them for next time.
-Out-of-range indices are ignored. Deletes/promotes run server-side, scoped to
-memories this session created (you can't touch other sessions' memories through
-this panel). With no new memories the section prints "(no content)" and does nothing.
+**1. Layer-1 memory curation (on DONE).** An LLM judge reviews the Layer-1
+memories each of the task's sessions recorded, against that session's event log,
+and **soft-invalidates only the clearly-wrong / self-contradictory ones**
+(invalidate-not-delete: the row flips to `INVALIDATED` and is excluded from
+injection but **kept for audit — never hard-deleted**). **Uncertain memories are
+left untouched** — the judge defaults to keeping. Promotion to project scope is
+**not** done here; that stays with the Layer-2 flow (surfaced at the next
+session-start, see above).
 
-**2. Fragment-usage vote (LUM-300)** — lists the context
-fragments this session **consumed** (its lineage edges: memory / slack / web /
-figma / PR / review-todo / session), numbered from 1 with a content snippet
-label. The agent records which it **actually used** via
-`lumo session wrap --used <indices>` (1-based, comma/space separated; `--used
-none` = used nothing). Voted fragments get `used=true`, the rest of the
-session's fragments `used=false`. **Without `--used` the section only lists the
-candidates and writes nothing** (edges stay `null` = not voted — honest, not
-"unused"). A session that already voted (`usedAt` set) is skipped. **Why:** it
-upgrades the flywheel signal from "co-loaded" (constant, no information) to
-"actually used" (varies → discriminative); `task context` then prefers each
-fragment's usage-based merge rate, falling back to the weaker presence rate when
-usage samples are thin. With no consumed fragments the section prints "(no content)".
+**2. Fragment-usage audit (LUM-314, on DONE).** An LLM judge sees the fragments
+this session consumed (its lineage edges) plus the session's event log and votes
+which were **actually used**: confidently-used edges → **`used=true`**,
+confidently-unused → **`used=false`**, and **genuinely-uncertain edges stay
+`null`** (honest "not voted", not "unused"). Already-voted sessions are skipped;
+a cron backstop drains any backlog. **Why:** it upgrades the flywheel signal from
+"co-loaded" (constant) to "actually used" (discriminative); `task context` then
+prefers each fragment's usage-based merge rate, falling back to the presence rate
+when usage samples are thin.
 
-**3. Blocked check (blocked-tag prompt, LUM-153)** — if the **same kind of failure
-recurred ≥ 3 times** in this session (server-aggregated from
-`POST_TOOL_USE_FAILURE` events grouped by tool name, plus `STOP_FAILURE`
-turn-level failures), the section surfaces the dominant failure (`This session looks repeatedly stuck on <tool> (N failures).` + last error summary) and prompts `[y] tag / [s] skip` whether to
-flag the bound task with a **`blocked` tag**. **Prompt-only — never auto-flips
-status.** It uses a plain tag (no `TaskStatus` enum, no board column, **no
-schema migration**). The prompt is **suppressed** when: there's no bound task,
-the threshold isn't met, or the task **already** carries a `blocked` tag (the
-idempotent gate — there's no watermark, the existing tag is what prevents
-re-nagging). The default on empty input / `s` is **do nothing** (tagging is
-opt-in), so a stray Enter never tags the task. Confirming with an explicit `y`
-attaches the tag idempotently. **`--yes` does NOT auto-tag** — tagging the
-shared board requires an interactive `y`, so `--yes` (and non-TTY) prints the
-suggestion and moves on rather than silently flipping board state. When there's
-nothing to prompt, the section prints "(no content)".
+**3. Blocked-tag automation (LUM-544 §3, server-side).** When a session crosses
+the same-tool failure threshold (**≥ 3** same-type failures, aggregated from
+`POST_TOOL_USE_FAILURE` grouped by tool name + `STOP_FAILURE` turn-level
+failures), the server **auto-applies the shared `blocked` tag** to the bound
+task. This **inverts the old LUM-153 manual `y` gate** — no prompt, no human in
+the loop — and is safe because of three safeguards: **(idempotent)** at most one
+active auto-block per task, so re-crossing is a no-op; **(auto-untag on
+progress)** the next observable progress on the task (a successful tool call or a
+non-failure turn end) removes the tag; **(attribution)** the triggering session +
+model are recorded. A **human-applied** `blocked` tag has no auto-block record and
+is **never** auto-removed by progress.
 
-**After the panel — open-crossings reminder (LUM-448).** Once the three sections
-finish, `session wrap` prints a one-shot read-only reminder **if** the bound
-task has ≥1 OPEN (undispositioned) boundary crossing: `⚠ N open boundary
-crossing(s) on LUM-N still undispositioned:` then a line per crossing `• [SEVERITY]
-CATEGORY` and a web pointer. When the read genuinely comes back empty — or the
-session is unbound — it prints **nothing** (truly silent, not a "(no content)"
-line), so a clean task adds no wrap-up noise. **But a crossings-check failure is
-not silent (LUM-480):** if the read errors (network / server), it prints
-`⚠ Could not check boundary crossings on LUM-N (network/server error) — unable
-to confirm whether any are still undispositioned`, so a failed safety check never
-masquerades as "0 open / safe". **Awareness only:** it points at the web
-acceptance panel; there is **no CLI path** to disposition or clear a crossing.
-Disposition stays web + human-only (LUM-426/435/422) — an agent/CLI bearer cannot
-clear its own crossing from the terminal.
-
-```bash
-lumo session wrap                  # interactive: preview each section, choose per-section
-lumo session wrap --yes            # memories kept; blocked tag NOT auto-applied (needs interactive y)
-lumo session wrap --yes --used 1,3 # also record fragments 1 & 3 as used (the rest used=false)
-lumo session wrap --used none      # record that none of the injected fragments were used
-lumo session wrap --dry-run        # print all drafts only; never mutates, never advances watermarks
-```
-
-The usage vote is a two-step flow for agents: run `lumo session wrap` once to
-see the numbered fragment list, decide which you actually used, then re-run with
-`--used <indices>`. Re-running is safe — the other sections are watermark-guarded
-(reviewed memories won't re-list).
-
-- Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code) and a bound
-  task (`lumo session attach <LUM-N>` first).
-- `--yes` keeps all memories (no deletes/promotes) while advancing the
-  memory-review watermark; for the blocked-tag section it prints the suggestion
-  but does **not** apply the tag.
-- `--dry-run` prints all drafts; never mutates memories/tags, never advances the
-  memory-review watermark.
-- Non-TTY without `--yes`: prints the drafts and does **not** mutate or tag (safe
-  default).
-
-When to suggest: at the end of a working session on a bound task, to review the
-memories it sedimented, vote which injected fragments were actually used, and
-flag the task `blocked` if it got repeatedly stuck — offer `lumo session wrap`.
+When to suggest: nothing to suggest — these run on their own. If a teammate asks
+why a task shows `blocked`, explain it's the auto-block (repeated same-tool
+failures) and that it clears itself once the task makes progress; a human can also
+remove the tag manually from the board.

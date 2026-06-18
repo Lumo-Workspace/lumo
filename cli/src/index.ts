@@ -10,7 +10,6 @@ import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
-import { sessionWrap } from './commands/session-wrap'
 import { nextCommand } from './commands/next'
 import { cost } from './commands/cost'
 import { verify } from './commands/verify'
@@ -367,29 +366,6 @@ session
     'Show the task currently bound to this Claude Code session (or "no task" if none).'
   )
   .action(wrap(() => sessionStatus()))
-
-session
-  .command('wrap')
-  .description(
-    'Session-end wrap-up: review the memories sedimented this session, vote which injected context fragments were actually used, and optionally flag the bound task blocked.'
-  )
-  .option(
-    '-y, --yes',
-    'Keep all memories without prompting (agent-friendly); does not auto-apply the blocked tag'
-  )
-  .option(
-    '--dry-run',
-    'Print the section drafts but do not mutate memories/tags or advance watermarks'
-  )
-  .option(
-    '--used <indices>',
-    'Mark which injected context fragments you actually used (1-based indices, comma/space separated; "none" for all-unused). Omit to skip recording.'
-  )
-  .action(
-    wrap(options =>
-      sessionWrap(options as { yes?: boolean; dryRun?: boolean; used?: string })
-    )
-  )
 
 const task = program
   .command('task')

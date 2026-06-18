@@ -1,14 +1,15 @@
 import type { HookEventType } from '@prisma/client'
 
 /**
- * How many same-type failures in one Claude Code session count as "stuck" and
- * trigger the wrap-panel blocked-tag prompt. LUM-153: same error ≥3 times.
- * Borrows the "named threshold constant" style of lib/summaries/risk.ts but is
- * a separate concern (session diagnostics, not milestone health).
+ * How many same-type failures in one Claude Code session count as "stuck".
+ * LUM-153 introduced it as the (now-removed) blocked-tag prompt threshold; LUM-544
+ * reuses it as the server-side auto-block threshold (autoBlockService). Same
+ * error ≥3 times. Borrows the "named threshold constant" style of
+ * lib/summaries/risk.ts but is a separate concern (session diagnostics).
  */
 export const FAILURE_PROMPT_THRESHOLD = 3
 
-/** Max characters of error text surfaced in the prompt (terminal-friendly). */
+/** Max characters of error text surfaced in a failure summary (terminal-friendly). */
 const SUMMARY_MAX = 160
 
 /**

@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to work with Lumo (project management for dev teams) from the terminal: load task context, bind/wrap Claude Code sessions, and create/update/list/show/comment on tasks, projects, milestones, sprints, documents, artifacts, Figma links, dependencies, and team memory — plus acceptance criteria, machine verification (verify / task status), lineage audit, worktree scaffolding, and CLI setup/auth/update. Activate when the user mentions a Lumo task identifier (LUM-N) or the lumo CLI, in any language; asks to load task background or bind/check/wrap a session; manages any of the resources above in Lumo; is starting, resuming, or about to claim completion of a task; or asks what to work on next. Key triggers: "LUM-", "lumo", "task context", "session attach", "session wrap", "verify", "task status", "acceptance criteria", "milestone", "sprint", "docs", "memory", "deps", "lineage", "worktree", "design link", "what should I work on", "resume task".'
+description: 'Use the Lumo CLI to work with Lumo (project management for dev teams) from the terminal: load task context, bind Claude Code sessions, and create/update/list/show/comment on tasks, projects, milestones, sprints, documents, artifacts, Figma links, dependencies, and team memory — plus acceptance criteria, machine verification (verify / task status), lineage audit, worktree scaffolding, and CLI setup/auth/update. Activate when the user mentions a Lumo task identifier (LUM-N) or the lumo CLI, in any language; asks to load task background or bind/check a session; manages any of the resources above in Lumo; is starting, resuming, or about to claim completion of a task; or asks what to work on next. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "milestone", "sprint", "docs", "memory", "deps", "lineage", "worktree", "design link", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -32,7 +32,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `doc*`                                                                                  | [references/docs.md](references/docs.md)                       |
 | `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
 | `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
-| `session attach/status/wrap`, git-suggest on start, Layer-2 review                      | [references/sessions.md](references/sessions.md)               |
+| `session attach/status`, git-suggest on start, Layer-2 review                           | [references/sessions.md](references/sessions.md)               |
 | `worktree add/rm/list` (local dev tooling)                                              | [references/worktree.md](references/worktree.md)               |
 
 ## Command catalog
@@ -133,7 +133,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
 - `lumo session status` — show current binding
-- `lumo session wrap [--yes] [--dry-run] [--used <indices>]` — end-of-session panel: memory review + fragment-usage vote (`--used`, LUM-300) + blocked-tag prompt, then a read-only reminder when the bound task has ≥1 OPEN boundary crossing still undispositioned (silent only on a genuine empty read — no wrap-up noise; a crossings-check failure prints a "could not confirm" warning instead of staying silent, LUM-480; pointer is web + human-only, LUM-448). Usage is now also audited automatically when a task reaches DONE (evidence-gated, true-only — confident fragments marked used, the rest left NULL); `session wrap --used` remains the manual override and takes precedence for a session.
+- End-of-session housekeeping is fully automatic — the old end-of-session command was removed in LUM-544. When a task reaches DONE the server runs three evidence-gated passes, all best-effort and silent:
+  - **Layer-1 memory curation** — an LLM judge reviews the memories the task's sessions recorded and soft-invalidates only the clearly-wrong / self-contradictory ones (invalidate-not-delete; uncertain memories are left untouched). Promotion to project scope stays with the Layer-2 flow.
+  - **Fragment-usage audit** (LUM-314) — an LLM judge votes which injected context fragments were actually used: confidently-used edges → `used=true`, confidently-unused → `used=false`, genuinely-uncertain stay NULL.
+  - **Blocked-tag automation** (LUM-544 §3) — if a session crosses the same-tool failure threshold (≥3) the bound task is auto-tagged `blocked` (idempotent, attributed to the triggering session + model); the next observable progress on that task auto-removes the tag. Human-applied `blocked` tags are never auto-removed.
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
 **Worktrees (local dev tooling)** — see [worktree.md](references/worktree.md)

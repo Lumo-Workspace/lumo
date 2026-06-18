@@ -388,6 +388,23 @@ export function dispatchDoneAudit(taskId: string): void {
 }
 
 /**
+ * LUM-544 §1: fire the DONE-time Layer-1 memory curation pass for a
+ * just-completed task. An LLM judge soft-invalidates clearly-wrong memories the
+ * task's sessions recorded; uncertain ones are left untouched (no hard delete).
+ * Dynamic import keeps the judge's @ai-sdk/gateway graph out of this module's
+ * static graph (jest trap). Best-effort — the service swallows its own errors.
+ */
+export function dispatchDoneMemoryCuration(taskId: string): void {
+  waitUntil(
+    (async () => {
+      const { memoryCurationService } =
+        await import('@/lib/services/memory/curation.service')
+      await memoryCurationService.curateForTask(taskId)
+    })()
+  )
+}
+
+/**
  * Fire the LUM-481 per-session run-summary generation for a just-completed
  * task. Dynamic import keeps the run-summary client's @ai-sdk/gateway graph out
  * of this module's static graph (jest trap) — same reason as the layer2 /
@@ -476,6 +493,11 @@ export async function updateTaskWithSideEffects(
 
     // LUM-314: evidence-gated fragment-usage audit (used + outcome land together).
     dispatchDoneAudit(taskId)
+
+    // LUM-544 §1: evidence-gated Layer-1 memory curation — soft-invalidate
+    // clearly-wrong memories this task's sessions recorded (uncertain untouched,
+    // never hard-deleted). Promotion stays with the Layer-2 trigger above.
+    dispatchDoneMemoryCuration(taskId)
 
     // LUM-481: generate per-session run summaries for the delivery tab.
     dispatchRunSummaries(taskId)
