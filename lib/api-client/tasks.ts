@@ -296,4 +296,39 @@ export const tasksClient = {
       method: 'POST',
     })
   },
+
+  listDependencies<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.dependencies(taskId))
+  },
+
+  addDependency<T>(
+    taskId: string,
+    data: {
+      blockedBy: string
+      kind?: 'BLOCKS' | 'RELATES'
+      direction?: 'BLOCKED_BY' | 'BLOCKS'
+    }
+  ) {
+    return apiFetch<T>(API.tasks.dependencies(taskId), {
+      method: 'POST',
+      body: data,
+    })
+  },
+
+  patchDependency<T>(
+    taskId: string,
+    depId: string,
+    data: { action: 'confirm' | 'dismiss'; reverse?: boolean }
+  ) {
+    return apiFetch<T>(API.tasks.dependency(taskId, depId), {
+      method: 'PATCH',
+      body: data,
+    })
+  },
+
+  removeDependency(taskId: string, depId: string) {
+    return apiFetch<void>(API.tasks.dependency(taskId, depId), {
+      method: 'DELETE',
+    })
+  },
 }
