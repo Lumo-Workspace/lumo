@@ -29,6 +29,12 @@ lumo project memory add [<project>] --category convention --rule "..." --applies
 lumo memory show <memoryId>        # show one memory's full card by id
 lumo memory promote <memoryId>     # TASK → PROJECT
 lumo memory rm <memoryId> --yes    # hard delete
+
+# Downsync team memory into the local Claude Code memory store
+lumo memory sync                   # write team/<id>.md + a managed MEMORY.md block
+lumo memory sync --dry-run         # preview the reconcile plan, write nothing
+lumo memory sync --project <ref>   # target a specific project (default: bound session)
+lumo memory sync --clean           # remove everything sync owns (full rollback)
 ```
 
 When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
@@ -70,6 +76,38 @@ structured `content` body (pretty-printed JSON).
 When a specific entry looks relevant to the task at hand, run
 `lumo memory show <id>` to pull its full body before acting on it — read the
 detail on demand instead of carrying every memory's content in context.
+
+### `lumo memory sync` (downsync to local Claude Code memory)
+
+Writes the team's project memory into the dev's local Claude Code memory store so
+Claude Code's **native recall** surfaces it — the direction LUM-535/536 chose over
+per-session `<untrusted-team-memory>` injection. This is P3 (the sync build); it
+runs **alongside** the existing injection (retiring injection is LUM-540), so
+during the transition both paths are active and overlap is expected, not a bug.
+
+- **Where it writes**: `~/.claude/projects/<encoded-cwd>/memory/` — team files as
+  `team/<memoryId>.md` (YAML frontmatter + a `metadata.lumo` ownership marker),
+  plus a delimited `<!-- lumo:team-memory:start/end -->` block in `MEMORY.md`.
+  `--dir <path>` overrides the resolved directory.
+- **Only touches what it owns**: a file is owned only if its frontmatter carries
+  `metadata.lumo.source: team`. Your own hand-written memory files and any
+  `MEMORY.md` lines outside the managed block are **never** read or written.
+- **Selection**: judge-used 履历 (LUM-539) ranks first, with relevance/cold-start
+  grace as backfill, capped to the resident-index budget — so the local index
+  stays compact.
+- **Reconcile / drift**: re-running is idempotent. A team file you edited locally
+  is detected (its on-disk hash diverged from the recorded `contentHash`) and
+  **skipped, never overwritten** — your edit is preserved and flagged as an
+  upsync candidate (the reverse direction is a later phase).
+- **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
+  writing; `--clean` removes every owned file + the managed block (full rollback).
+- **Project**: resolved from the bound session unless `--project <ref>` is given.
+
+**When to suggest**: when a dev wants the team's accumulated memory available to
+Claude Code's native recall in their working copy (instead of, or in addition to,
+session-start injection) — run `lumo memory sync` in the project. Suggest
+`--dry-run` first to confirm the resolved directory and plan, and `--clean` to
+back the change out.
 
 ### Reconcile-on-write & deduplication
 

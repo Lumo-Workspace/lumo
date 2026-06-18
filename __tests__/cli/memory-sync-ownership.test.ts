@@ -17,10 +17,9 @@ import {
   removeBlock,
   BLOCK_START,
 } from '@/cli/src/lib/managed-block'
-import { applySync } from '@/cli/src/lib/apply-sync'
+import { applySync, type SyncBundle } from '@/cli/src/lib/apply-sync'
 import { toSyncEntry } from '@/lib/services/memory/sync-file-shape'
 import type { MemoryCategory, MemoryScope } from '@prisma/client'
-import type { SyncBundle } from '@/lib/api-client/memories'
 
 describe('resolveMemoryDir', () => {
   it('encodes cwd by replacing / with - under ~/.claude/projects', () => {

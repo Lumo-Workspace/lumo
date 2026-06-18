@@ -5,10 +5,9 @@ import { mkdtempSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { diffSync } from '@/cli/src/lib/memory-reconcile'
-import { applySync } from '@/cli/src/lib/apply-sync'
+import { applySync, type SyncBundle } from '@/cli/src/lib/apply-sync'
 import { toSyncEntry } from '@/lib/services/memory/sync-file-shape'
 import type { MemoryCategory, MemoryScope } from '@prisma/client'
-import type { SyncBundle } from '@/lib/api-client/memories'
 
 const owned = (id: string, hash: string) => ({
   id,

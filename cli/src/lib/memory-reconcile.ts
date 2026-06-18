@@ -1,4 +1,4 @@
-import type { OwnedLocalFile } from '@/cli/src/lib/local-memory-store'
+import type { OwnedLocalFile } from './local-memory-store'
 
 export interface BundleEntryRef {
   id: string

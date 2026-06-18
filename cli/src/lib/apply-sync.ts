@@ -1,13 +1,32 @@
-import type { SyncBundle } from '@/lib/api-client/memories'
 import {
   readOwned,
   writeEntry,
   removeEntry,
   readIndex,
   writeIndex,
-} from '@/cli/src/lib/local-memory-store'
-import { diffSync } from '@/cli/src/lib/memory-reconcile'
-import { upsertBlock, removeBlock } from '@/cli/src/lib/managed-block'
+} from './local-memory-store'
+import { diffSync } from './memory-reconcile'
+import { upsertBlock, removeBlock } from './managed-block'
+
+/**
+ * One downsync entry as it arrives over the wire (server's ShapedSyncEntry).
+ * Defined CLI-side because the CLI build (cli/tsconfig) cannot reach the main
+ * app's `lib/`; the CLI only talks to the server over HTTP. The server may send
+ * extra fields (slug/category/scope/description) — the CLI uses only these.
+ */
+export interface SyncBundleEntry {
+  id: string
+  relPath: string
+  frontmatter: string
+  body: string
+  contentHash: string
+  indexLine: string
+}
+
+export interface SyncBundle {
+  projectId: string
+  entries: SyncBundleEntry[]
+}
 
 export interface SyncSummary {
   added: string[]
