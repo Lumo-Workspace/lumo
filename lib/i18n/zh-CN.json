@@ -532,6 +532,8 @@
   "taskArtifact.crossAgent": "跨 agent",
   "taskArtifact.edit": "编辑",
   "taskArtifact.delete": "删除",
+  "taskArtifact.deleteConfirmTitle": "删除产物？",
+  "taskArtifact.deleteConfirmDesc": "该产物将被永久删除，此操作无法撤销。",
   "taskArtifact.editSource": "来源",
   "taskArtifact.saveError": "保存失败，请重试。",
   "task.bulkUpdateFailure": "{failed}/{total} 个任务更新失败",

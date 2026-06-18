@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "エージェント横断",
   "taskArtifact.edit": "編集",
   "taskArtifact.delete": "削除",
+  "taskArtifact.deleteConfirmTitle": "アーティファクトを削除しますか？",
+  "taskArtifact.deleteConfirmDesc": "このアーティファクトは完全に削除されます。この操作は取り消せません。",
   "taskArtifact.editSource": "ソース",
   "taskArtifact.saveError": "保存に失敗しました。もう一度お試しください。",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
