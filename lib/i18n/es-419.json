@@ -1714,5 +1714,13 @@
   "task.dependencies.noResults": "Sin tareas coincidentes",
   "task.dependencies.loading": "Cargando dependencias…",
   "task.dependencies.empty": "Aún no hay dependencias",
-  "task.dependencies.actionFailed": "No se pudieron actualizar las dependencias"
+  "task.dependencies.actionFailed": "No se pudieron actualizar las dependencias",
+  "memory.retire.heading": "{count, plural, one {# memoria propuesta para retirar} other {# memorias propuestas para retirar}}",
+  "memory.retire.description": "Retirar conserva la memoria para auditoría y es reversible. Conservar la deja activa.",
+  "memory.retire.reason.lowJudgedUsed": "poco usada",
+  "memory.retire.reason.contradiction": "contradice el estado actual",
+  "memory.retire.confirm": "Retirar",
+  "memory.retire.dismiss": "Conservar",
+  "memory.retire.confirmed": "Memoria retirada",
+  "memory.retire.error": "No se pudo retirar la memoria. Inténtalo de nuevo."
 }

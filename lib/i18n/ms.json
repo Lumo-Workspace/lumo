@@ -1714,5 +1714,13 @@
   "task.dependencies.noResults": "Tiada tugasan yang sepadan",
   "task.dependencies.loading": "Memuatkan kebergantungan…",
   "task.dependencies.empty": "Tiada kebergantungan lagi",
-  "task.dependencies.actionFailed": "Kebergantungan tidak dapat dikemas kini"
+  "task.dependencies.actionFailed": "Kebergantungan tidak dapat dikemas kini",
+  "memory.retire.heading": "{count, plural, other {# memori dicadangkan untuk disingkir}}",
+  "memory.retire.description": "Menyingkir mengekalkan memori untuk audit dan boleh dibalikkan. Simpan membiarkannya aktif.",
+  "memory.retire.reason.lowJudgedUsed": "jarang digunakan",
+  "memory.retire.reason.contradiction": "bercanggah dengan keadaan semasa",
+  "memory.retire.confirm": "Singkir",
+  "memory.retire.dismiss": "Simpan",
+  "memory.retire.confirmed": "Memori disingkirkan",
+  "memory.retire.error": "Tidak dapat menyingkirkan memori. Sila cuba lagi."
 }

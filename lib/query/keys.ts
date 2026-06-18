@@ -99,6 +99,9 @@ export const queryKeys = {
 
   fragmentTrust: (ids: string[]) => ['fragmentTrust', [...ids].sort()] as const,
 
+  retireCandidates: (projectId: string) =>
+    ['retireCandidates', projectId] as const,
+
   tags: () => ['tags'] as const,
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,

@@ -24,6 +24,15 @@ interface CreateBody {
   content: unknown
 }
 
+/** Why a memory is proposed for retirement (LUM-540 P4a). Mirrors the wire
+ *  shape of the service's RetireReason without importing server code. */
+export type RetireReason = 'low-judged-used' | 'contradiction'
+
+export interface RetireCandidate {
+  memoryId: string
+  reasons: RetireReason[]
+}
+
 export const memoriesClient = {
   listForProject(projectId: string): Promise<{ memories: MemoryRow[] }> {
     return apiFetch(`/api/projects/${projectId}/memories`)
@@ -75,5 +84,21 @@ export const memoriesClient = {
 
   remove(memoryId: string): Promise<void> {
     return apiFetch(`/api/memories/${memoryId}`, { method: 'DELETE' })
+  },
+
+  /** Derived list of a project's ACTIVE memories proposed for retirement
+   *  (LUM-540 P4a) — low judged-used track record and/or curation-judge
+   *  clearly-wrong. Read-only; nothing is persisted. */
+  retireCandidates(
+    projectId: string
+  ): Promise<{ candidates: RetireCandidate[] }> {
+    return apiFetch(`/api/projects/${projectId}/memories/retire-candidates`)
+  },
+
+  /** Human-confirmed retirement: flips the memory through the existing status
+   *  machine (ACTIVE→ARCHIVED, reversible) — never a hard delete. Human-only on
+   *  the server (a bearer/CLI caller is refused 403). */
+  confirmRetire(memoryId: string): Promise<{ retired: number }> {
+    return apiFetch(`/api/memories/${memoryId}/retire`, { method: 'POST' })
   },
 }

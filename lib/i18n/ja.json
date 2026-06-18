@@ -1714,5 +1714,13 @@
   "task.dependencies.noResults": "一致するタスクなし",
   "task.dependencies.loading": "依存関係を読み込み中…",
   "task.dependencies.empty": "依存関係はまだありません",
-  "task.dependencies.actionFailed": "依存関係を更新できませんでした"
+  "task.dependencies.actionFailed": "依存関係を更新できませんでした",
+  "memory.retire.heading": "{count, plural, other {# 件のメモリが廃止候補です}}",
+  "memory.retire.description": "廃止してもメモリは監査用に保持され、元に戻せます。「保持」を選ぶと有効なままになります。",
+  "memory.retire.reason.lowJudgedUsed": "ほとんど使われていない",
+  "memory.retire.reason.contradiction": "現状と矛盾している",
+  "memory.retire.confirm": "廃止",
+  "memory.retire.dismiss": "保持",
+  "memory.retire.confirmed": "メモリを廃止しました",
+  "memory.retire.error": "メモリを廃止できませんでした。もう一度お試しください。"
 }

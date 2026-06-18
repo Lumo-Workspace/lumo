@@ -1714,5 +1714,13 @@
   "task.dependencies.noResults": "No matching tasks",
   "task.dependencies.loading": "Loading dependencies…",
   "task.dependencies.empty": "No dependencies yet",
-  "task.dependencies.actionFailed": "Couldn't update dependencies"
+  "task.dependencies.actionFailed": "Couldn't update dependencies",
+  "memory.retire.heading": "{count, plural, one {# memory proposed for retirement} other {# memories proposed for retirement}}",
+  "memory.retire.description": "Retiring keeps the memory for audit and is reversible. Keep leaves it active.",
+  "memory.retire.reason.lowJudgedUsed": "rarely used",
+  "memory.retire.reason.contradiction": "contradicts current state",
+  "memory.retire.confirm": "Retire",
+  "memory.retire.dismiss": "Keep",
+  "memory.retire.confirmed": "Memory retired",
+  "memory.retire.error": "Could not retire the memory. Please try again."
 }

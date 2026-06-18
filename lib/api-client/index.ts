@@ -24,6 +24,6 @@ export type {
 export { waitlistClient } from './waitlist'
 export type { WaitlistSignupInput, WaitlistSignupResult } from './waitlist'
 export { memoriesClient } from './memories'
-export type { MemoryRow } from './memories'
+export type { MemoryRow, RetireCandidate, RetireReason } from './memories'
 export { lineageClient } from './lineage'
 export { mentionSearchClient } from './mention-search'
