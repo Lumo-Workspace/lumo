@@ -29,21 +29,19 @@ describe('useFragmentTrust', () => {
   })
 
   it('returns the fetched trust map', async () => {
-    client.fragmentTrust.mockResolvedValue({
-      trust: {
-        a: { kind: 'usage', resolvedTasks: 4, mergedTasks: 3, pct: 75 },
-      },
-    })
+    const verdict = {
+      judgedUsedTasks: 4,
+      auditedTasks: 5,
+      appearanceTasks: 7,
+      usefulnessPct: 80,
+      qualified: true,
+    }
+    client.fragmentTrust.mockResolvedValue({ trust: { a: verdict } })
     const { result } = renderHook(() => useFragmentTrust(['a'], true), {
       wrapper,
     })
     await waitFor(() => expect(result.current.a).toBeDefined())
-    expect(result.current.a).toEqual({
-      kind: 'usage',
-      resolvedTasks: 4,
-      mergedTasks: 3,
-      pct: 75,
-    })
+    expect(result.current.a).toEqual(verdict)
   })
 
   it('returns {} when the fetch rejects (never throws)', async () => {

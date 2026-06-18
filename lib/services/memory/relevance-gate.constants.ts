@@ -20,11 +20,7 @@ export const RELEVANCE_GATE_EMBED_FLOOR = 0.5
  * lexical floor of 0.3 — incidental letter-pair overlap is not relevance). */
 export const RELEVANCE_GATE_LEXICAL_FLOOR = 0.3
 
-/** Always-keep a project memory whose historical merge-contribution clears this
- * percentage over >= RELEVANCE_GATE_TRUST_MIN_TASKS resolved tasks, even if a
- * narrow task's similarity drops it. Proven-useful memory is not collateral. */
-export const RELEVANCE_GATE_TRUST_KEEP_PCT = 80
-
-/** Minimum resolved-task sample size before a fragment's merge-rate is trusted
- * enough to always-keep — guards against a high rate computed from 1–2 tasks. */
-export const RELEVANCE_GATE_TRUST_MIN_TASKS = 3
+// LUM-539: the trust always-keep threshold is no longer a merge percentage. A
+// memory is always-kept when its judged-used track-record verdict is `qualified`
+// (judged used in >= LINEAGE_PROVEN_USED_TASKS distinct tasks). That gate lives
+// in lib/services/lineage-signal.ts; the merge-rate constants are retired.

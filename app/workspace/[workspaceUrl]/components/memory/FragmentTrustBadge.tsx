@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl'
 import type { TrustVerdict } from '@/types/lineage'
 
 /**
- * Fragment-level "trust score" badge (LUM-303): the cross-task merge
- * contribution of a memory, rendered next to its category label. Neutral
- * muted pill — order via typography, no semantic color (a green low score
- * would mislead). Strong (usage) = solid border; weak (presence) = dashed
- * border + "weak" suffix + dimmed text. Undefined verdict → renders nothing
- * (cold-start / zero-variance / no edges don't get a badge).
+ * Fragment-level "trust score" badge (LUM-303, LUM-539): a memory's cross-task
+ * judged-used track record, rendered next to its category label. Neutral muted
+ * pill — order via typography, no semantic color (a green low score would
+ * mislead). Proven (`qualified`) = solid border; not-yet-proven = dashed border
+ * + "unproven" suffix + dimmed text. Undefined verdict → renders nothing
+ * (cold-start / no audited edges don't get a badge).
  */
 export function FragmentTrustBadge({
   verdict,
@@ -19,15 +19,18 @@ export function FragmentTrustBadge({
   const intl = useIntl()
   if (!verdict) return null
 
-  const isWeak = verdict.kind === 'presence'
+  const isWeak = !verdict.qualified
   const tooltip = intl.formatMessage(
     {
-      id: isWeak ? 'trust.tooltip.presence' : 'trust.tooltip.usage',
-      defaultMessage: isWeak
-        ? 'Co-loaded in {resolved} resolved tasks · {merged} merged · co-load only, weak signal'
-        : 'Used in {resolved} resolved tasks · {merged} merged · real-usage signal',
+      id: 'trust.tooltip.judgedUsed',
+      defaultMessage:
+        'Judged used in {used} of {appeared} tasks · {pct}% of audited · judged-used track record',
     },
-    { resolved: verdict.resolvedTasks, merged: verdict.mergedTasks }
+    {
+      used: verdict.judgedUsedTasks,
+      appeared: verdict.appearanceTasks,
+      pct: verdict.usefulnessPct,
+    }
   )
 
   return (
@@ -42,20 +45,20 @@ export function FragmentTrustBadge({
           isWeak ? 'text-muted-foreground' : 'text-foreground'
         }`}
       >
-        {verdict.pct}%
+        {verdict.usefulnessPct}%
       </span>
       <span className='text-[10px] text-muted-foreground'>
         {intl.formatMessage(
           {
-            id: 'trust.badge.meta',
-            defaultMessage: '· {n, plural, one {# task} other {# tasks}}',
+            id: 'trust.badge.judgedUsed',
+            defaultMessage: '· judged-used {used}/{appeared}',
           },
-          { n: verdict.resolvedTasks }
+          { used: verdict.judgedUsedTasks, appeared: verdict.appearanceTasks }
         )}
         {isWeak &&
           intl.formatMessage({
-            id: 'trust.badge.weak',
-            defaultMessage: ' · weak',
+            id: 'trust.badge.unproven',
+            defaultMessage: ' · unproven',
           })}
       </span>
     </span>

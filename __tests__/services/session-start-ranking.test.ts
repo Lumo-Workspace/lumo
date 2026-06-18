@@ -57,7 +57,7 @@ import { taskContextService } from '@/lib/services/task-context.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
-import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/services/lineage-signal'
+import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/lineage/ranking'
 
 const memRow = (id: string, category = 'TRAP') => ({
   id,

@@ -1,14 +1,13 @@
 import { assembleLineageSection } from '@/lib/services/lineage-signal'
 import type { ContextFragmentType } from '@/lib/services/task-context.service'
+import type { FragmentJudgedUsage } from '@/lib/repositories/lineage-edge.repository'
 
 function deps(
   over: Partial<Parameters<typeof assembleLineageSection>[2]> = {}
 ) {
   return {
     resolveCanonicalFragment: async (_t: string, id: string) => id,
-    mergeRateByFragments: async () => [],
-    usageMergeRateByFragments: async () => [],
-    countResolvedTasks: async () => 0,
+    judgedUsageByFragments: async () => [],
     ...over,
   }
 }
@@ -17,71 +16,61 @@ const frag = (id: string): { type: ContextFragmentType; id: string } => ({
   type: 'MEMORY',
   id,
 })
+const judged = (
+  id: string,
+  judgedUsedTasks: number,
+  auditedTasks: number,
+  appearanceTasks: number
+): FragmentJudgedUsage => ({
+  fragmentType: 'MEMORY',
+  fragmentId: id,
+  judgedUsedTasks,
+  auditedTasks,
+  appearanceTasks,
+})
 
-describe('assembleLineageSection markdown (post-refactor parity)', () => {
-  it('renders a usage line with the strong-signal suffix', async () => {
+describe('assembleLineageSection markdown (judged-used track record)', () => {
+  it('renders judged-used track record line', async () => {
     const out = await assembleLineageSection(
       [frag('a')],
       new Map([['a', 'Use waitUntil for side effects']]),
       deps({
-        usageMergeRateByFragments: async () => [
-          {
-            fragmentType: 'MEMORY',
-            fragmentId: 'a',
-            usedResolvedTasks: 4,
-            usedMergedTasks: 3,
-          },
-        ],
-        countResolvedTasks: async () => 10,
+        judgedUsageByFragments: async () => [judged('a', 4, 5, 7)],
       })
     )
-    expect(out).toContain('## Flywheel signal · historical merge contribution')
-    expect(out).toContain('used in 4 resolved tasks · 3 merged (75%) · real-usage signal')
+    expect(out).toContain('## Memory usefulness · judged-used track record')
+    expect(out).toContain('judged-used in 4 of 7 tasks · proven')
+    // The retired merge-rate framing is gone.
+    expect(out).not.toContain('merged')
+    expect(out).not.toContain('merge contribution')
   })
 
-  it('renders presence line + zero-variance note, usage grouped before presence', async () => {
+  it('tags a proven fragment and a retire candidate distinctly', async () => {
     const out = await assembleLineageSection(
-      [frag('strong'), frag('weak'), frag('global')],
+      [frag('proven'), frag('retire')],
       new Map([
-        ['strong', 'S'],
-        ['weak', 'W'],
-        ['global', 'G'],
+        ['proven', 'P'],
+        ['retire', 'R'],
       ]),
       deps({
-        usageMergeRateByFragments: async () => [
-          {
-            fragmentType: 'MEMORY',
-            fragmentId: 'strong',
-            usedResolvedTasks: 5,
-            usedMergedTasks: 5,
-          },
+        judgedUsageByFragments: async () => [
+          judged('proven', 5, 5, 5),
+          judged('retire', 0, 4, 8),
         ],
-        mergeRateByFragments: async () => [
-          {
-            fragmentType: 'MEMORY',
-            fragmentId: 'weak',
-            resolvedTasks: 4,
-            mergedTasks: 2,
-          },
-          {
-            fragmentType: 'MEMORY',
-            fragmentId: 'global',
-            resolvedTasks: 6,
-            mergedTasks: 6,
-          },
-        ],
-        countResolvedTasks: async () => 6,
       })
     )
-    const usageIdx = out.indexOf('real-usage signal')
-    const presenceIdx = out.indexOf('co-load only, weak signal')
-    expect(usageIdx).toBeGreaterThan(-1)
-    expect(presenceIdx).toBeGreaterThan(usageIdx) // usage grouped first
-    expect(out).toContain('Excluded 1 always-loaded fragment(s)')
+    expect(out).toContain('judged-used in 5 of 5 tasks · proven')
+    expect(out).toContain('judged-used in 0 of 8 tasks · retire candidate')
   })
 
-  it('returns "" when nothing qualifies and nothing excluded', async () => {
-    const out = await assembleLineageSection([frag('x')], new Map(), deps())
+  it('omits cold-start fragments (below the audit floor) and returns "" when nothing qualifies', async () => {
+    const out = await assembleLineageSection(
+      [frag('x')],
+      new Map([['x', 'X']]),
+      deps({
+        judgedUsageByFragments: async () => [judged('x', 0, 1, 3)],
+      })
+    )
     expect(out).toBe('')
   })
 })

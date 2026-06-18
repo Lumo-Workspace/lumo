@@ -101,6 +101,29 @@ export interface FragmentUsageRate {
   usedMergedTasks: number
 }
 
+/**
+ * LUM-539 judged-used track record, task-deduped, accumulated across every task
+ * a fragment appeared in. Merge OUTCOME is deliberately absent — the RFC LUM-535
+ *口径 retires the merge-rate signal (a ~100% workspace merge base rate makes it
+ * non-discriminative) and replaces it with "of the N tasks this appeared in, in
+ * X was it judged actually used".
+ *
+ * Three task counts (all birth-task self-credit excluded, LUM-461):
+ * - `judgedUsedTasks` — distinct tasks with a used=true edge (the numerator).
+ * - `auditedTasks`    — distinct tasks that returned a verdict (used != null).
+ *   Never-audited (used=NULL) appearances are EXCLUDED here, so abstention is
+ *   not counted as negative evidence (guardrail: judged-used is a lower bound).
+ * - `appearanceTasks` — distinct tasks the fragment appeared in at all. The
+ *   honest "N" in the X-of-N readout.
+ */
+export interface FragmentJudgedUsage {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  judgedUsedTasks: number
+  auditedTasks: number
+  appearanceTasks: number
+}
+
 /** Most recent used=true vote per fragment — the recency input to the LUM-328
  * forgetting-curve ranking. Fragments never voted used are simply absent. */
 export interface FragmentLastUsed {
@@ -128,29 +151,48 @@ interface DedupeRow {
   outcome: LineageOutcome
 }
 
-interface PerFragmentDedupe {
+/** One grouped edge row (fragment × task × used) for the LUM-539 judged-used fold. */
+interface JudgedRow {
   fragmentType: LineageFragmentType
   fragmentId: string
-  /** taskId → whether this task is resolved (non-UNKNOWN) / merged. */
-  tasks: Map<string, { resolved: boolean; merged: boolean }>
+  taskId: string
+  used: boolean | null
 }
 
+/** Minimal shape every foldable groupBy row shares. */
+interface FoldBaseRow {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  taskId: string
+}
+
+interface PerFragmentFold<T> {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  tasks: Map<string, T>
+}
+
+type PerFragmentDedupe = PerFragmentFold<{ resolved: boolean; merged: boolean }>
+
 /**
- * Collapse grouped (fragment, task, outcome) rows into per-fragment task sets,
- * deduping multiple runs of one task to a single resolved/merged flag — shared
- * by the presence- and usage-gated merge-rate queries.
+ * Generic core: collapse grouped (fragment, task, …) rows into per-fragment task
+ * sets, deduping multiple runs of one task into a single per-task accumulator.
  *
  * LUM-461 same-task self-credit exclusion: the (fragment, task) pair is dropped
- * when `task` is one of the fragment's birth tasks, so a memory earns no merge
- * contribution for the task that created it. Birth sets are resolved only for
- * MEMORY fragments (others have no birth concept); see
- * `memoryProvenanceRepository.birthTaskIdsByMemory`.
+ * when `task` is one of the fragment's birth tasks, so a memory earns no credit
+ * for the task that created it. Birth sets are resolved only for MEMORY fragments
+ * (others have no birth concept); see
+ * `memoryProvenanceRepository.birthTaskIdsByMemory`. Single-sourced here so the
+ * merge-rate path (LUM-278/300) and the judged-used path (LUM-539) can never
+ * drift on this invariant.
  */
-async function foldByTaskWithBirthExclusion(
-  rows: DedupeRow[],
+async function foldTasksWithBirthExclusion<R extends FoldBaseRow, T>(
+  rows: R[],
   fragments: FragmentRef[],
-  tx?: Prisma.TransactionClient
-): Promise<Map<string, PerFragmentDedupe>> {
+  tx: Prisma.TransactionClient | undefined,
+  makeTaskAcc: () => T,
+  applyRow: (acc: T, row: R) => void
+): Promise<Map<string, PerFragmentFold<T>>> {
   const memoryIds = fragments
     .filter(f => f.fragmentType === 'MEMORY')
     .map(f => f.fragmentId)
@@ -159,7 +201,7 @@ async function foldByTaskWithBirthExclusion(
       ? await memoryProvenanceRepository.birthTaskIdsByMemory(memoryIds, tx)
       : new Map<string, Set<string>>()
 
-  const perFragment = new Map<string, PerFragmentDedupe>()
+  const perFragment = new Map<string, PerFragmentFold<T>>()
   for (const row of rows) {
     if (birthByFragment.get(row.fragmentId)?.has(row.taskId)) continue
     const fKey = fragmentKey(row.fragmentType, row.fragmentId)
@@ -174,13 +216,37 @@ async function foldByTaskWithBirthExclusion(
     }
     let task = entry.tasks.get(row.taskId)
     if (!task) {
-      task = { resolved: false, merged: false }
+      task = makeTaskAcc()
       entry.tasks.set(row.taskId, task)
     }
-    if (row.outcome !== 'UNKNOWN') task.resolved = true
-    if (row.outcome === 'MERGED') task.merged = true
+    applyRow(task, row)
   }
   return perFragment
+}
+
+/**
+ * Collapse grouped (fragment, task, outcome) rows into per-fragment task sets,
+ * deduping multiple runs of one task to a single resolved/merged flag — shared
+ * by the presence- and usage-gated merge-rate queries.
+ */
+function foldByTaskWithBirthExclusion(
+  rows: DedupeRow[],
+  fragments: FragmentRef[],
+  tx?: Prisma.TransactionClient
+): Promise<Map<string, PerFragmentDedupe>> {
+  return foldTasksWithBirthExclusion<
+    DedupeRow,
+    { resolved: boolean; merged: boolean }
+  >(
+    rows,
+    fragments,
+    tx,
+    () => ({ resolved: false, merged: false }),
+    (task, row) => {
+      if (row.outcome !== 'UNKNOWN') task.resolved = true
+      if (row.outcome === 'MERGED') task.merged = true
+    }
+  )
 }
 
 export const lineageEdgeRepository = {
@@ -527,6 +593,67 @@ export const lineageEdgeRepository = {
           fragmentId: e.fragmentId,
           usedResolvedTasks,
           usedMergedTasks,
+        }
+      })
+  },
+
+  /**
+   * LUM-539 judged-used track record per fragment, task-deduped and accumulated
+   * across EVERY task the fragment appeared in (cross-task, cross-session). For
+   * each fragment returns `judgedUsedTasks` / `auditedTasks` / `appearanceTasks`
+   * (see {@link FragmentJudgedUsage}). Merge outcome is intentionally not read —
+   * this is the signal that REPLACES the merge-rate trust口径 (RFC LUM-535). The
+   * LUM-461 birth-task self-credit exclusion applies (via the shared fold), so a
+   * memory earns no track record for the task that created it. Cold-start /
+   * retire gating is the caller's responsibility (see lineage-signal.ts).
+   */
+  async judgedUsageByFragments(
+    fragments: FragmentRef[],
+    tx?: Prisma.TransactionClient
+  ): Promise<FragmentJudgedUsage[]> {
+    if (fragments.length === 0) return []
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['fragmentType', 'fragmentId', 'taskId', 'used'],
+      where: {
+        OR: fragments.map(f => ({
+          fragmentType: f.fragmentType,
+          fragmentId: f.fragmentId,
+        })),
+      },
+      _count: { _all: true },
+    })
+
+    const perFragment = await foldTasksWithBirthExclusion<
+      JudgedRow,
+      { audited: boolean; judgedUsed: boolean }
+    >(
+      rows,
+      fragments,
+      tx,
+      () => ({ audited: false, judgedUsed: false }),
+      (task, row) => {
+        if (row.used !== null) task.audited = true
+        if (row.used === true) task.judgedUsed = true
+      }
+    )
+
+    return fragments
+      .map(f => perFragment.get(fragmentKey(f.fragmentType, f.fragmentId)))
+      .filter((e): e is NonNullable<typeof e> => e !== undefined)
+      .map(e => {
+        let judgedUsedTasks = 0
+        let auditedTasks = 0
+        for (const task of e.tasks.values()) {
+          if (task.audited) auditedTasks++
+          if (task.judgedUsed) judgedUsedTasks++
+        }
+        return {
+          fragmentType: e.fragmentType,
+          fragmentId: e.fragmentId,
+          judgedUsedTasks,
+          auditedTasks,
+          appearanceTasks: e.tasks.size,
         }
       })
   },

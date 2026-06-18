@@ -20,7 +20,12 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
-import { assembleLineageSection } from '@/lib/services/lineage-signal'
+import {
+  assembleLineageSection,
+  computeFragmentTrust,
+  trustKey,
+} from '@/lib/services/lineage-signal'
+import type { TrustVerdict } from '@/types/lineage'
 import { rankSessionStartCards } from '@/lib/lineage/session-rank'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
@@ -491,22 +496,25 @@ async function selectRelevantProjectMemories(
 
   const trustByFragment = async (
     ids: string[]
-  ): Promise<Map<string, { resolvedTasks: number; mergedTasks: number }>> => {
+  ): Promise<Map<string, TrustVerdict>> => {
     // Gated memories are ACTIVE PROJECT rows, which are canonical (a fully
     // promoted PROJECT memory has no provenance child), so keying the trust
     // lookup by current id matches how LineageEdges store the fragment id. If a
     // non-canonical PROJECT row ever reaches here, the worst case is a missed
     // always-keep (trust is the additive layer; similarity can still select it)
     // — never a wrong fragment recorded.
-    const rates = await lineageEdgeRepository.mergeRateByFragments(
-      ids.map(id => ({ fragmentType: 'MEMORY' as const, fragmentId: id }))
-    )
-    return new Map(
-      rates.map(r => [
-        r.fragmentId,
-        { resolvedTasks: r.resolvedTasks, mergedTasks: r.mergedTasks },
-      ])
-    )
+    const refs = ids.map(id => ({
+      fragmentType: 'MEMORY' as const,
+      fragmentId: id,
+    }))
+    const judged = await lineageEdgeRepository.judgedUsageByFragments(refs)
+    const { verdicts } = computeFragmentTrust(refs, { judged })
+    const out = new Map<string, TrustVerdict>()
+    for (const id of ids) {
+      const v = verdicts.get(trustKey('MEMORY', id))
+      if (v) out.set(id, v)
+    }
+    return out
   }
 
   return gateProjectMemories(
@@ -1291,9 +1299,9 @@ export const taskContextService = {
       ...sessions.map(s => ({ type: 'SESSION' as const, id: s.id })),
     ]
 
-    // Trailing flywheel signal (LUM-278). Reads accumulated lineage edges,
-    // task-deduped, gated on a cold-start sample floor. Best-effort: any
-    // failure degrades to "" inside assembleLineageSection.
+    // Trailing judged-used track-record signal (LUM-539). Reads accumulated
+    // lineage edges, task-deduped, gated on the cold-start audit floor.
+    // Best-effort: any failure degrades to "" inside assembleLineageSection.
     const memoryContentById = new Map<string, string>(
       budgetedMemories.map(m => [
         m.id,
@@ -1306,11 +1314,8 @@ export const taskContextService = {
       {
         resolveCanonicalFragment: (type, id) =>
           memoryProvenanceRepository.resolveCanonicalFragment(type, id),
-        mergeRateByFragments: refs =>
-          lineageEdgeRepository.mergeRateByFragments(refs),
-        usageMergeRateByFragments: refs =>
-          lineageEdgeRepository.usageMergeRateByFragments(refs),
-        countResolvedTasks: () => lineageEdgeRepository.countResolvedTasks(),
+        judgedUsageByFragments: refs =>
+          lineageEdgeRepository.judgedUsageByFragments(refs),
       }
     )
 

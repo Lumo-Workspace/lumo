@@ -2,12 +2,20 @@ import {
   gateProjectMemories,
   type RelevanceGateDeps,
 } from '@/lib/services/memory/relevance-gate'
-import {
-  RELEVANCE_GATE_TOP_K,
-  RELEVANCE_GATE_TRUST_KEEP_PCT,
-  RELEVANCE_GATE_TRUST_MIN_TASKS,
-} from '@/lib/services/memory/relevance-gate.constants'
+import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
 import type { RenderableMemory } from '@/lib/memory/render'
+import type { TrustVerdict } from '@/types/lineage'
+
+/** LUM-539: always-keep is driven by the judged-used `qualified` flag. */
+function verdict(qualified: boolean): TrustVerdict {
+  return {
+    judgedUsedTasks: qualified ? 4 : 1,
+    auditedTasks: 5,
+    appearanceTasks: 6,
+    usefulnessPct: qualified ? 80 : 20,
+    qualified,
+  }
+}
 
 function mem(id: string): RenderableMemory {
   return {
@@ -87,7 +95,7 @@ describe('gateProjectMemories', () => {
       ranked: candidates.map(c => ({ id: c.id, score: 0.1 })), // all below floor
     })
     const trust: RelevanceGateDeps['trustByFragment'] = async () =>
-      new Map([['m17', { resolvedTasks: 5, mergedTasks: 5 }]]) // 100% over 5 tasks
+      new Map([['m17', verdict(true)]]) // proven by judged-used track record
     const res = await gateProjectMemories(
       {
         task: { title: 't', description: 'd' },
@@ -99,10 +107,7 @@ describe('gateProjectMemories', () => {
     expect(res.selected.map(m => m.id)).toEqual(['m17'])
   })
 
-  test('does NOT always-keep a low-merge-rate or thin-sample fragment', async () => {
-    // Guard: the fixtures below are only meaningful if these hold.
-    expect((1 / 5) * 100).toBeLessThan(RELEVANCE_GATE_TRUST_KEEP_PCT) // m1 rate (20%)
-    expect(2).toBeLessThan(RELEVANCE_GATE_TRUST_MIN_TASKS) // m2 sample size
+  test('does NOT always-keep an unproven (not-qualified) fragment', async () => {
     const candidates = corpus(20)
     const ranker: RelevanceGateDeps['rankBySimilarity'] = async () => ({
       mechanism: 'embedding',
@@ -110,10 +115,8 @@ describe('gateProjectMemories', () => {
     })
     const trust: RelevanceGateDeps['trustByFragment'] = async () =>
       new Map([
-        // 20% < RELEVANCE_GATE_TRUST_KEEP_PCT → not always-kept
-        ['m1', { resolvedTasks: 5, mergedTasks: 1 }],
-        // 100% but resolvedTasks (2) < RELEVANCE_GATE_TRUST_MIN_TASKS → not always-kept
-        ['m2', { resolvedTasks: 2, mergedTasks: 2 }],
+        // used but below the proven bar → not always-kept
+        ['m1', verdict(false)],
       ])
     const res = await gateProjectMemories(
       {

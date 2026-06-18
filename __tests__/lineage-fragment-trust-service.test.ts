@@ -13,32 +13,37 @@ const prov = memoryProvenanceRepository as jest.Mocked<
 describe('lineageService.fragmentTrustForMemories', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    edges.countResolvedTasks.mockResolvedValue(10)
-    edges.mergeRateByFragments.mockResolvedValue([])
-    edges.usageMergeRateByFragments.mockResolvedValue([])
+    edges.judgedUsageByFragments.mockResolvedValue([])
   })
 
   it('returns {} for empty input without hitting the DB', async () => {
     const out = await lineageService.fragmentTrustForMemories([])
     expect(out).toEqual({})
-    expect(edges.countResolvedTasks).not.toHaveBeenCalled()
+    expect(edges.judgedUsageByFragments).not.toHaveBeenCalled()
   })
 
-  it('maps a canonical verdict back to the original memory id', async () => {
+  it('maps a canonical judged-used verdict back to the original memory id', async () => {
     prov.resolveCanonicalFragment.mockImplementation(async (_t, id) =>
       id === 'raw' ? 'canon' : id
     )
-    edges.usageMergeRateByFragments.mockResolvedValue([
+    edges.judgedUsageByFragments.mockResolvedValue([
       {
         fragmentType: 'MEMORY',
         fragmentId: 'canon',
-        usedResolvedTasks: 4,
-        usedMergedTasks: 3,
+        judgedUsedTasks: 4,
+        auditedTasks: 5,
+        appearanceTasks: 7,
       },
     ])
     const out = await lineageService.fragmentTrustForMemories(['raw'])
     expect(out).toEqual({
-      raw: { kind: 'usage', resolvedTasks: 4, mergedTasks: 3, pct: 75 },
+      raw: {
+        judgedUsedTasks: 4,
+        auditedTasks: 5,
+        appearanceTasks: 7,
+        usefulnessPct: 80,
+        qualified: true,
+      },
     })
   })
 

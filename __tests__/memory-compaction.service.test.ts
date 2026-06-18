@@ -17,8 +17,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: {
-    mergeRateByFragments: jest.fn(),
-    usageMergeRateByFragments: jest.fn(),
+    judgedUsageByFragments: jest.fn(),
     lastUsedAtByFragments: jest.fn(),
   },
 }))
@@ -47,8 +46,7 @@ const mockOverThreshold =
 const mockRows =
   memoryRepository.findActiveProjectMemoriesForCompaction as jest.Mock
 const mockArchive = memoryRepository.archiveMemories as jest.Mock
-const mockPresence = lineageEdgeRepository.mergeRateByFragments as jest.Mock
-const mockUsage = lineageEdgeRepository.usageMergeRateByFragments as jest.Mock
+const mockJudged = lineageEdgeRepository.judgedUsageByFragments as jest.Mock
 const mockLastUsed = lineageEdgeRepository.lastUsedAtByFragments as jest.Mock
 const mockCanonical =
   memoryProvenanceRepository.resolveCanonicalFragment as jest.Mock
@@ -68,22 +66,19 @@ function row(
   return { id, createdAt: daysAgo(ageDays), createdByMemberId }
 }
 
-/** Presence stat (task-deduped) keyed by canonical fragment id. */
-function presence(fragmentId: string, resolvedTasks: number, mergedTasks = 0) {
-  return { fragmentType: 'MEMORY', fragmentId, resolvedTasks, mergedTasks }
-}
-
-/** Usage stat (used=true, task-deduped) keyed by canonical fragment id. */
-function usage(
+/** Judged-used track record (task-deduped) keyed by canonical fragment id. */
+function judged(
   fragmentId: string,
-  usedResolvedTasks: number,
-  usedMergedTasks = 0
+  judgedUsedTasks: number,
+  auditedTasks: number,
+  appearanceTasks: number = auditedTasks
 ) {
   return {
     fragmentType: 'MEMORY',
     fragmentId,
-    usedResolvedTasks,
-    usedMergedTasks,
+    judgedUsedTasks,
+    auditedTasks,
+    appearanceTasks,
   }
 }
 
@@ -98,8 +93,7 @@ beforeEach(() => {
   mockArchive.mockImplementation(async (ids: string[]) => ({
     count: ids.length,
   }))
-  mockPresence.mockResolvedValue([])
-  mockUsage.mockResolvedValue([])
+  mockJudged.mockResolvedValue([])
   mockLastUsed.mockResolvedValue([])
   mockCanonical.mockImplementation(async (_type: string, id: string) => id)
   mockTrust.mockResolvedValue({})
@@ -128,14 +122,17 @@ describe('memoryCompactionService.sweepColdProjectMemories', () => {
       row('m8', 60),
     ]
     mockRows.mockResolvedValue(rows)
-    // m1..m5 are warm (used in all 4 resolved tasks); m6..m8 injected but never used.
-    mockPresence.mockResolvedValue(rows.map(r => presence(r.id, 4, 2)))
-    mockUsage.mockResolvedValue([
-      usage('m1', 4, 2),
-      usage('m2', 4, 2),
-      usage('m3', 4, 2),
-      usage('m4', 4, 2),
-      usage('m5', 4, 2),
+    // m1..m5 are warm (judged used in all 4 audited tasks); m6..m8 audited but
+    // never judged used → usage-rate 0.
+    mockJudged.mockResolvedValue([
+      judged('m1', 4, 4),
+      judged('m2', 4, 4),
+      judged('m3', 4, 4),
+      judged('m4', 4, 4),
+      judged('m5', 4, 4),
+      judged('m6', 0, 4),
+      judged('m7', 0, 4),
+      judged('m8', 0, 4),
     ])
 
     const result = await memoryCompactionService.sweepColdProjectMemories({
@@ -164,18 +161,18 @@ describe('memoryCompactionService.sweepColdProjectMemories', () => {
       row('m7', 70),
       row('m8', 50),
     ])
-    mockUsage.mockResolvedValue([
-      usage('m1', 4),
-      usage('m2', 4),
-      usage('m3', 4),
-      usage('m4', 4),
-      usage('m5', 4),
+    // m1..m5 judged-used in all 4 audited (rate 1); m6..m8 audited, never used
+    // (rate 0) → tie-break on R (oldest first).
+    mockJudged.mockResolvedValue([
+      judged('m1', 4, 4),
+      judged('m2', 4, 4),
+      judged('m3', 4, 4),
+      judged('m4', 4, 4),
+      judged('m5', 4, 4),
+      judged('m6', 0, 4),
+      judged('m7', 0, 4),
+      judged('m8', 0, 4),
     ])
-    mockPresence.mockResolvedValue(
-      ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'].map(id =>
-        presence(id, 4)
-      )
-    )
 
     await memoryCompactionService.sweepColdProjectMemories({
       now: NOW,
@@ -241,7 +238,13 @@ describe('memoryCompactionService.sweepColdProjectMemories', () => {
       row('trusted', 90),
     ])
     mockTrust.mockResolvedValue({
-      trusted: { kind: 'usage', resolvedTasks: 3, mergedTasks: 3, pct: 100 },
+      trusted: {
+        judgedUsedTasks: 3,
+        auditedTasks: 3,
+        appearanceTasks: 3,
+        usefulnessPct: 100,
+        qualified: true,
+      },
     })
 
     await memoryCompactionService.sweepColdProjectMemories({
@@ -313,16 +316,13 @@ describe('memoryCompactionService.sweepColdProjectMemories', () => {
     mockCanonical.mockImplementation(async (_t: string, id: string) =>
       id === 'rekeyed' ? 'canon_1' : id
     )
-    mockPresence.mockResolvedValue([
-      presence('canon_1', 4),
-      ...['m1', 'm2', 'm3', 'm4', 'cold'].map(id => presence(id, 4)),
-    ])
-    mockUsage.mockResolvedValue([
-      usage('canon_1', 4),
-      usage('m1', 4),
-      usage('m2', 4),
-      usage('m3', 4),
-      usage('m4', 4),
+    // canon_1 + m1..m4 are warm (rate 1); `cold` has no track record (rate 0).
+    mockJudged.mockResolvedValue([
+      judged('canon_1', 4, 4),
+      judged('m1', 4, 4),
+      judged('m2', 4, 4),
+      judged('m3', 4, 4),
+      judged('m4', 4, 4),
     ])
 
     await memoryCompactionService.sweepColdProjectMemories({

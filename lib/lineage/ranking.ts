@@ -1,4 +1,7 @@
-import { LINEAGE_MIN_RESOLVED_TASKS } from '@/lib/services/lineage-signal'
+/** Min resolved tasks before this disclosure-tiering path trusts a merge rate.
+ * Owned by the LUM-500 disclosure ranking — the LUM-539 judged-used trust signal
+ * (lineage-signal.ts) no longer exposes a merge-rate floor. */
+export const LINEAGE_MIN_RESOLVED_TASKS = 3
 
 /** Merge rate at or above this lands a sampled fragment in the high tier. 50%
  * inclusive: "merged more often than not". */

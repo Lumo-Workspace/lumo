@@ -481,16 +481,8 @@ export const lineageService = {
         fragmentType: 'MEMORY',
         fragmentId: p.canonical,
       }))
-      const [universe, presence, usage] = await Promise.all([
-        lineageEdgeRepository.countResolvedTasks(),
-        lineageEdgeRepository.mergeRateByFragments(refs),
-        lineageEdgeRepository.usageMergeRateByFragments(refs),
-      ])
-      const { verdicts } = computeFragmentTrust(refs, {
-        universe,
-        presence,
-        usage,
-      })
+      const judged = await lineageEdgeRepository.judgedUsageByFragments(refs)
+      const { verdicts } = computeFragmentTrust(refs, { judged })
       const out: Record<string, TrustVerdict> = {}
       for (const p of pairs) {
         const v = verdicts.get(trustKey('MEMORY', p.canonical))

@@ -263,7 +263,9 @@ describe('formatTaskContextMarkdown — milestone', () => {
       { task: { ...baseTask, milestone: milestoneBase }, sessions: [] } as any,
       now
     )
-    expect(md).toContain('**Milestone**: Milestone 功能增强 (ACTIVE, target 2026-08-31)')
+    expect(md).toContain(
+      '**Milestone**: Milestone 功能增强 (ACTIVE, target 2026-08-31)'
+    )
   })
 
   it('renders the Milestone goal line when description is present', () => {
@@ -271,13 +273,18 @@ describe('formatTaskContextMarkdown — milestone', () => {
       {
         task: {
           ...baseTask,
-          milestone: { ...milestoneBase, description: 'Ship the milestone enhancements end to end.' },
+          milestone: {
+            ...milestoneBase,
+            description: 'Ship the milestone enhancements end to end.',
+          },
         },
         sessions: [],
       } as any,
       now
     )
-    expect(md).toContain('**Milestone goal**: Ship the milestone enhancements end to end.')
+    expect(md).toContain(
+      '**Milestone goal**: Ship the milestone enhancements end to end.'
+    )
   })
 
   it('omits the Milestone goal line when description is null, empty, or whitespace', () => {
@@ -301,22 +308,34 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
   it('appends lineageSection at the very end when sessions is empty', () => {
     const out = formatTaskContextMarkdown(
       {
-        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: null,
+        },
         sessions: [],
         lineageSection:
-          '## Flywheel signal · historical merge contribution\n\n- [MEMORY] "x" — appeared in 3 resolved tasks · 3 merged (100%)',
+          '## Memory usefulness · judged-used track record\n\n- [MEMORY] "x" — judged-used in 3 of 4 tasks · proven',
       } as any,
       LINEAGE_NOW
     )
     expect(out).toContain('## Previous Sessions (0)')
-    expect(out.indexOf('Flywheel signal')).toBeGreaterThan(out.indexOf('Previous Sessions'))
-    expect(out).toContain('appeared in 3 resolved tasks · 3 merged (100%)')
+    expect(out.indexOf('judged-used track record')).toBeGreaterThan(
+      out.indexOf('Previous Sessions')
+    )
+    expect(out).toContain('judged-used in 3 of 4 tasks · proven')
   })
 
   it('appends lineageSection after a non-empty sessions block', () => {
     const out = formatTaskContextMarkdown(
       {
-        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: null,
+        },
         sessions: [
           {
             id: 'abcdef1234',
@@ -330,22 +349,29 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
           },
         ],
         lineageSection:
-          '## Flywheel signal · historical merge contribution\n\n- [PR] #1 — appeared in 4 resolved tasks · 3 merged (75%)',
+          '## Memory usefulness · judged-used track record\n\n- [PR] #1 — judged-used in 3 of 4 tasks',
       } as any,
       LINEAGE_NOW
     )
-    expect(out.indexOf('Flywheel signal')).toBeGreaterThan(out.indexOf('Previous Sessions (1)'))
+    expect(out.indexOf('judged-used track record')).toBeGreaterThan(
+      out.indexOf('Previous Sessions (1)')
+    )
   })
 
   it('omits the lineage block when lineageSection is absent/empty', () => {
     const out = formatTaskContextMarkdown(
       {
-        task: { identifier: 'LUM-1', title: 'T', status: 'TODO', description: null },
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: null,
+        },
         sessions: [],
         lineageSection: '',
       } as any,
       LINEAGE_NOW
     )
-    expect(out).not.toContain('Flywheel signal')
+    expect(out).not.toContain('judged-used track record')
   })
 })
