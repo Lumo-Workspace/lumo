@@ -13,6 +13,12 @@ export interface ShapedSyncEntry extends MemorySyncEntry {
   indexLine: string
 }
 
+/** The over-the-wire downsync bundle the server returns and the CLI writes. */
+export interface ShapedSyncBundle {
+  projectId: string
+  entries: ShapedSyncEntry[]
+}
+
 function slugify(s: string): string {
   return (
     s

@@ -24,6 +24,26 @@ interface CreateBody {
   content: unknown
 }
 
+/**
+ * One downsync entry as it arrives over the wire. Structural mirror of the
+ * server's ShapedSyncEntry — kept local so the api-client (and the CLI that
+ * imports it) never pulls in `@/lib/services`. The server may include extra
+ * fields (slug/category/scope/description); the CLI only needs these.
+ */
+export interface SyncBundleEntry {
+  id: string
+  relPath: string
+  frontmatter: string
+  body: string
+  contentHash: string
+  indexLine: string
+}
+
+export interface SyncBundle {
+  projectId: string
+  entries: SyncBundleEntry[]
+}
+
 export const memoriesClient = {
   listForProject(projectId: string): Promise<{ memories: MemoryRow[] }> {
     return apiFetch(`/api/projects/${projectId}/memories`)
@@ -31,6 +51,10 @@ export const memoriesClient = {
 
   listForTask(taskId: string): Promise<{ memories: MemoryRow[] }> {
     return apiFetch(`/api/tasks/${taskId}/memories`)
+  },
+
+  getSyncBundle(projectId: string): Promise<{ bundle: SyncBundle }> {
+    return apiFetch(`/api/projects/${projectId}/memories/sync-bundle`)
   },
 
   createForProject(
