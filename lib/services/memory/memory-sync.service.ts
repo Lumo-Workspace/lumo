@@ -12,8 +12,6 @@ import {
   type ShapedSyncBundle,
 } from '@/lib/services/memory/sync-file-shape'
 
-const MEMORY_PREFIX = `MEMORY::`
-
 export const memorySyncService = {
   /**
    * Build the downsync bundle for a project: ACTIVE project memories, ranked by

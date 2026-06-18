@@ -38,8 +38,8 @@ export interface SyncSummary {
 }
 
 export interface ApplyOptions {
-  dryRun?: boolean
-  clean?: boolean
+  dryRun?: boolean | undefined
+  clean?: boolean | undefined
 }
 
 /**
