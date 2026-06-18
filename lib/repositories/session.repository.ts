@@ -325,6 +325,28 @@ export const sessionRepository = {
   },
 
   /**
+   * Minimal projection for the server-side blocked-tag automation (LUM-544):
+   * the bound task and the attribution fields (agent + cumulative per-model
+   * usage map). Returns null when the session row is missing.
+   */
+  async findTaskAndAttribution(id: string): Promise<{
+    taskId: string | null
+    workspaceId: string
+    agent: TaskArtifactAgent
+    usageByModel: unknown
+  } | null> {
+    return prisma.session.findUnique({
+      where: { id },
+      select: {
+        taskId: true,
+        workspaceId: true,
+        agent: true,
+        usageByModel: true,
+      },
+    })
+  },
+
+  /**
    * Resolve a sessionId to its workspace. Used by routes that need to do a
    * workspace-membership check before serving a session-scoped resource.
    */

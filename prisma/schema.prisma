@@ -572,6 +572,7 @@ model Task {
   verificationRuns   VerificationRun[]
   blockedByEdges     TaskDependency[]      @relation("TaskBlockedBy")
   blockingEdges      TaskDependency[]      @relation("TaskBlocking")
+  autoBlocks         AutoBlock[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1383,6 +1384,44 @@ model DocumentTag {
   @@map("document_tags")
 }
 
+/// Server-side auto-blocking ledger (LUM-544, Section 3 — automates the old
+/// `lumo session wrap` blocked-tag prompt). When a session crosses the
+/// same-tool failure threshold (FAILURE_PROMPT_THRESHOLD) the server applies the
+/// shared `blocked` tag to the bound task AND records one ACTIVE row here. This
+/// row is the seam for the three safeguards:
+///   • idempotency — a partial unique on (taskId) WHERE active gives at most one
+///     live auto-block per task, so re-crossing is a no-op insert.
+///   • auto-untag on progress — the next successful tool/turn on the task flips
+///     active→false (resolvedAt stamped) and removes the tag ONLY because this
+///     row proves Lumo applied it (a human-applied `blocked` tag has no AutoBlock
+///     row, so progress never silently clears it).
+///   • attribution — triggeringSessionId + model record who tripped the block.
+model AutoBlock {
+  id                  String    @id @default(cuid())
+  taskId              String
+  /// Session whose failures crossed the threshold. SetNull-FK-less by intent:
+  /// keep the audit row if the session is later pruned. Nullable for safety.
+  triggeringSessionId String?
+  /// Best-effort raw model string (first key of the session's usageByModel
+  /// cumulative map). Null when the session carried no usage yet.
+  model               String?
+  /// The dominant failure group label + count that tripped the block, for the
+  /// board/audit ("Bash ×3").
+  topFailureLabel     String?
+  failureCount        Int
+  /// Live flag. Exactly one ACTIVE row per task (partial unique index). Flipped
+  /// to false on auto-untag; the row is retained for audit.
+  active              Boolean   @default(true)
+  blockedAt           DateTime  @default(now())
+  /// Stamped when progress auto-cleared the block. Null while active.
+  resolvedAt          DateTime?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("auto_blocks")
+}
+
 model DocumentComment {
   id         String   @id @default(cuid())
   documentId String
@@ -1709,10 +1748,16 @@ enum MemoryScope {
 /// SUPERSEDED rows are kept for audit + flywheel lineage (a SUPERSEDE op flips
 /// the old row here and writes the new content to a fresh ACTIVE row).
 /// ARCHIVED is reserved for cold eviction (LUM-328) — unused in LUM-325.
+/// INVALIDATED (LUM-544) is the DONE-time curation outcome: a Layer-1 memory
+/// judged clearly-wrong / self-contradictory is retired WITHOUT a replacement
+/// row (so no SUPERSEDED + provenance edge). Like SUPERSEDED it's excluded from
+/// the ACTIVE injection/reconcile path but the row + content are preserved for
+/// audit — never hard-deleted.
 enum MemoryStatus {
   ACTIVE
   SUPERSEDED
   ARCHIVED
+  INVALIDATED
 }
 
 model Memory {
