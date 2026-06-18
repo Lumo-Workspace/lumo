@@ -39,7 +39,9 @@ describe('memorySyncService.buildBundle', () => {
       },
     ])
 
-    const bundle = await memorySyncService.buildBundle('proj_1', 'T')
+    const bundle = await memorySyncService.buildBundle('proj_1', {
+      syncedAtIso: 'T',
+    })
 
     expect(bundle.projectId).toBe('proj_1')
     expect(bundle.entries).toHaveLength(1)
@@ -52,7 +54,9 @@ describe('memorySyncService.buildBundle', () => {
   it('returns an empty bundle when the project has no memories', async () => {
     mockListForProject.mockResolvedValue([])
     mockJudged.mockResolvedValue([])
-    const bundle = await memorySyncService.buildBundle('proj_empty', 'T')
+    const bundle = await memorySyncService.buildBundle('proj_empty', {
+      syncedAtIso: 'T',
+    })
     expect(bundle.entries).toEqual([])
   })
 })

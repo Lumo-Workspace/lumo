@@ -95,6 +95,10 @@ during the transition both paths are active and overlap is expected, not a bug.
 - **Selection**: judge-used 履历 (LUM-539) ranks first, with relevance/cold-start
   grace as backfill, capped to the resident-index budget — so the local index
   stays compact.
+- **Routing (per recipient)**: the bundle is scoped to the calling dev — memories
+  are filtered by relevance to that dev's active (assigned, not-DONE) tasks in the
+  project, so different devs get differentiated sets rather than the whole corpus.
+  A dev with no active tasks falls back to the full budget-capped set.
 - **Reconcile / drift**: re-running is idempotent. A team file you edited locally
   is detected (its on-disk hash diverged from the recorded `contentHash`) and
   **skipped, never overwritten** — your edit is preserved and flagged as an

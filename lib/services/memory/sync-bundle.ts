@@ -34,7 +34,7 @@ export interface SyncRankInputs {
   /** Judge-used 履历 verdicts (LUM-539). Absent id = below cold-start grace. */
   trustById: Map<string, TrustVerdict>
   /** Optional relevance backfill used to break cold-start ties. */
-  relevanceScoreById?: Map<string, number>
+  relevanceScoreById?: Map<string, number> | undefined
 }
 
 // Three bands, highest sync priority first:

@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
-import { projectRepository } from '@/lib/repositories'
+import { getHumanActorId } from '@/lib/actor'
+import { projectRepository, taskRepository } from '@/lib/repositories'
 import { memorySyncService } from '@/lib/services/memory/memory-sync.service'
+
+/**
+ * Build the routing anchor for a recipient (P2): the text of their active
+ * (assigned, not-DONE) tasks in this project. Empty string when they have none
+ * — the service then falls back to the full budget-capped set.
+ */
+async function buildRoutingAnchor(
+  memberId: string,
+  projectId: string
+): Promise<string> {
+  const actorId = await getHumanActorId(memberId)
+  if (!actorId) return ''
+  const tasks = await taskRepository.findAssignedTasks(actorId)
+  return tasks
+    .filter(t => t.projectId === projectId && t.status !== 'DONE')
+    .map(t => `${t.title}\n${t.description ?? ''}`)
+    .join('\n\n')
+    .trim()
+}
 
 export const runtime = 'nodejs'
 
@@ -27,7 +47,11 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const bundle = await memorySyncService.buildBundle(id)
+    const anchorText = await buildRoutingAnchor(identity.memberId, id)
+    const bundle = await memorySyncService.buildBundle(
+      id,
+      anchorText ? { routing: { anchorText } } : {}
+    )
     return NextResponse.json({ bundle })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
