@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Đa tác nhân",
   "taskArtifact.edit": "Chỉnh sửa",
   "taskArtifact.delete": "Xóa",
+  "taskArtifact.deleteConfirmTitle": "Xóa artifact?",
+  "taskArtifact.deleteConfirmDesc": "Artifact này sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.",
   "taskArtifact.editSource": "Nguồn",
   "taskArtifact.saveError": "Lưu không thành công. Vui lòng thử lại.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

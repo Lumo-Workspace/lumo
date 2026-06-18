@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Lintas-agen",
   "taskArtifact.edit": "Edit",
   "taskArtifact.delete": "Hapus",
+  "taskArtifact.deleteConfirmTitle": "Hapus artifact?",
+  "taskArtifact.deleteConfirmDesc": "Artifact ini akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.",
   "taskArtifact.editSource": "Sumber",
   "taskArtifact.saveError": "Gagal menyimpan. Silakan coba lagi.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

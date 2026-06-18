@@ -560,6 +560,8 @@
   "taskArtifact.crossAgent": "Cross-agent",
   "taskArtifact.edit": "Edit",
   "taskArtifact.delete": "Delete",
+  "taskArtifact.deleteConfirmTitle": "Delete artifact?",
+  "taskArtifact.deleteConfirmDesc": "This artifact will be permanently removed. This action cannot be undone.",
   "taskArtifact.editSource": "Source",
   "taskArtifact.saveError": "Failed to save. Please try again.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

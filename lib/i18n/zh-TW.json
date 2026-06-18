@@ -640,6 +640,8 @@
   "taskArtifact.crossAgent": "跨 agent",
   "taskArtifact.edit": "編輯",
   "taskArtifact.delete": "刪除",
+  "taskArtifact.deleteConfirmTitle": "刪除產物？",
+  "taskArtifact.deleteConfirmDesc": "該產物將被永久刪除，此操作無法復原。",
   "taskArtifact.editSource": "來源",
   "taskArtifact.saveError": "儲存失敗，請重試。",
   "task.bulkUpdateFailure": "{failed}/{total} 個任務更新失敗",

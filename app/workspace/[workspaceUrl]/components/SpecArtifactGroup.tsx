@@ -15,6 +15,16 @@ import type {
   CreateArtifactPayload,
   UpdateArtifactPayload,
 } from '@/lib/api-client/task-artifacts'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
 import { useArtifacts, type OptimisticArtifact } from '../hooks/useArtifacts'
 import { RichTextViewer } from './RichTextViewer'
@@ -30,6 +40,14 @@ export function SpecArtifactGroup({ taskId }: Props) {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const confirmDelete = () => {
+    if (pendingDeleteId) {
+      void remove(pendingDeleteId)
+      setPendingDeleteId(null)
+    }
+  }
 
   const sourceLabel = useMemo(() => {
     const sources = Array.from(new Set(artifacts.map(a => a.source)))
@@ -130,9 +148,7 @@ export function SpecArtifactGroup({ taskId }: Props) {
                     </button>
                     <button
                       type='button'
-                      onClick={() => {
-                        void remove(a.id)
-                      }}
+                      onClick={() => setPendingDeleteId(a.id)}
                       aria-label={intl.formatMessage({
                         id: 'taskArtifact.delete',
                       })}
@@ -189,6 +205,30 @@ export function SpecArtifactGroup({ taskId }: Props) {
           }}
         />
       )}
+
+      <AlertDialog
+        open={!!pendingDeleteId}
+        onOpenChange={open => !open && setPendingDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'taskArtifact.deleteConfirmTitle' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage({ id: 'taskArtifact.deleteConfirmDesc' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'taskArtifact.cancel' })}
+            </AlertDialogCancel>
+            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
+              {intl.formatMessage({ id: 'taskArtifact.delete' })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

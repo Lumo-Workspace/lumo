@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Multiagente",
   "taskArtifact.edit": "Editar",
   "taskArtifact.delete": "Eliminar",
+  "taskArtifact.deleteConfirmTitle": "¿Eliminar el artefacto?",
+  "taskArtifact.deleteConfirmDesc": "Este artefacto se eliminará de forma permanente. Esta acción no se puede deshacer.",
   "taskArtifact.editSource": "Fuente",
   "taskArtifact.saveError": "No se pudo guardar. Inténtalo de nuevo.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

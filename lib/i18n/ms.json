@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Merentas-ejen",
   "taskArtifact.edit": "Edit",
   "taskArtifact.delete": "Padam",
+  "taskArtifact.deleteConfirmTitle": "Padam artifak?",
+  "taskArtifact.deleteConfirmDesc": "Artifak ini akan dipadamkan secara kekal. Tindakan ini tidak boleh dibatalkan.",
   "taskArtifact.editSource": "Sumber",
   "taskArtifact.saveError": "Gagal menyimpan. Sila cuba lagi.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

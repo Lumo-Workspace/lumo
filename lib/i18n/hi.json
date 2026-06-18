@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "क्रॉस-एजेंट",
   "taskArtifact.edit": "संपादित करें",
   "taskArtifact.delete": "हटाएं",
+  "taskArtifact.deleteConfirmTitle": "आर्टिफ़ैक्ट हटाएं?",
+  "taskArtifact.deleteConfirmDesc": "यह आर्टिफ़ैक्ट स्थायी रूप से हटा दिया जाएगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
   "taskArtifact.editSource": "स्रोत",
   "taskArtifact.saveError": "सहेजना विफल रहा। कृपया पुनः प्रयास करें।",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

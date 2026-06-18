@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Agentübergreifend",
   "taskArtifact.edit": "Bearbeiten",
   "taskArtifact.delete": "Löschen",
+  "taskArtifact.deleteConfirmTitle": "Artefakt löschen?",
+  "taskArtifact.deleteConfirmDesc": "Dieses Artefakt wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
   "taskArtifact.editSource": "Quelle",
   "taskArtifact.saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

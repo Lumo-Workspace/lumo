@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Multi-agent",
   "taskArtifact.edit": "Modifier",
   "taskArtifact.delete": "Supprimer",
+  "taskArtifact.deleteConfirmTitle": "Supprimer l'artefact ?",
+  "taskArtifact.deleteConfirmDesc": "Cet artefact sera définitivement supprimé. Cette action est irréversible.",
   "taskArtifact.editSource": "Source",
   "taskArtifact.saveError": "Échec de l'enregistrement. Veuillez réessayer.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",

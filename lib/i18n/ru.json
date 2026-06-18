@@ -490,6 +490,8 @@
   "taskArtifact.crossAgent": "Меж-агентный",
   "taskArtifact.edit": "Изменить",
   "taskArtifact.delete": "Удалить",
+  "taskArtifact.deleteConfirmTitle": "Удалить артефакт?",
+  "taskArtifact.deleteConfirmDesc": "Этот артефакт будет удалён без возможности восстановления. Это действие нельзя отменить.",
   "taskArtifact.editSource": "Источник",
   "taskArtifact.saveError": "Не удалось сохранить. Повторите попытку.",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
