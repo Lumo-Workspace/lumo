@@ -1104,6 +1104,37 @@
       "hasSubcommands": false,
       "description": "Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks."
     },
+    "memory push": {
+      "arguments": [],
+      "flags": {
+        "--dir": {
+          "long": "--dir",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Memory dir (default: ~/.claude/projects/<cwd>/memory)"
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "List what would be pushed without sending"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project to push to (name/slug/id); default = bound session"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success."
+    },
     "memory rm": {
       "arguments": [
         {
@@ -1136,6 +1167,45 @@
       "flags": {},
       "hasSubcommands": false,
       "description": "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
+    },
+    "memory sync": {
+      "arguments": [],
+      "flags": {
+        "--clean": {
+          "long": "--clean",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Remove every file + index block sync owns (full rollback)"
+        },
+        "--dir": {
+          "long": "--dir",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Target memory dir (default: ~/.claude/projects/<cwd>/memory)"
+        },
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print the reconcile plan without writing files"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project to sync (name/slug/id); default = bound session"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block). Only touches files it owns; never clobbers your own memory. Resolves the project from the bound session unless --project is given."
     },
     "milestone": {
       "arguments": [],
