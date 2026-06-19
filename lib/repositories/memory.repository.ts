@@ -477,6 +477,93 @@ export const memoryRepository = {
     return { newId: created.id }
   },
 
+  /**
+   * LUM-553 — topic folding. Many→one supersede in ONE transaction:
+   *   1. re-read which requested sources are STILL ACTIVE in this project
+   *      (guard: a concurrent run may have already superseded some); abort if
+   *      fewer than 2 remain (nothing meaningful to fold, no orphan coarse card),
+   *   2. create the coarse card (ACTIVE, PROJECT, agent-distilled),
+   *   3. flip the still-ACTIVE sources → SUPERSEDED, supersededById = coarse,
+   *   4. write a MemoryProvenance(parent=source, child=coarse) edge per source
+   *      (so resolveCanonicalFragment rolls lineage up to the coarse card).
+   * Never a hard delete (失效非删). Returns the new coarse card id; the caller
+   * embeds it.
+   */
+  async foldInto(params: {
+    sourceIds: string[]
+    coarseContent: Prisma.InputJsonValue
+    category: MemoryCategory
+    projectId: string
+    workspaceId: string
+    sourceSessionId?: string | null
+  }): Promise<{ coarseId: string }> {
+    return prisma.$transaction(async tx => {
+      const stillActive = await tx.memory.findMany({
+        where: {
+          id: { in: params.sourceIds },
+          status: 'ACTIVE',
+          scope: 'PROJECT',
+          projectId: params.projectId,
+        },
+        select: { id: true },
+      })
+      if (stillActive.length < 2) {
+        throw Object.assign(
+          new Error('fold aborted: fewer than 2 sources still ACTIVE'),
+          { status: 409 }
+        )
+      }
+      const activeIds = stillActive.map(s => s.id)
+
+      const coarse = await tx.memory.create({
+        data: {
+          workspaceId: params.workspaceId,
+          projectId: params.projectId,
+          scope: 'PROJECT',
+          category: params.category,
+          content: params.coarseContent,
+          agent: 'CLAUDE_CODE',
+          createdByMemberId: null,
+          sourceSessionId: params.sourceSessionId ?? null,
+          sourceTaskId: null,
+        },
+        select: { id: true },
+      })
+
+      await tx.memory.updateMany({
+        where: { id: { in: activeIds }, status: 'ACTIVE' },
+        data: {
+          status: 'SUPERSEDED',
+          supersededAt: new Date(),
+          supersededById: coarse.id,
+        },
+      })
+
+      await tx.memoryProvenance.createMany({
+        data: activeIds.map(id => ({
+          parentMemoryId: id,
+          childMemoryId: coarse.id,
+        })),
+        skipDuplicates: true,
+      })
+
+      return { coarseId: coarse.id }
+    })
+  },
+
+  /**
+   * LUM-553 — every project that currently has at least one ACTIVE PROJECT-scope
+   * memory, for the daily fold cron to iterate. Distinct projectId, non-null.
+   */
+  async findProjectIdsWithActiveProjectMemory(): Promise<string[]> {
+    const rows = await prisma.memory.findMany({
+      where: { scope: 'PROJECT', status: 'ACTIVE' },
+      distinct: ['projectId'],
+      select: { projectId: true },
+    })
+    return rows.map(r => r.projectId).filter((id): id is string => id !== null)
+  },
+
   // ---------------------------------------------------------------------------
   // pgvector raw-SQL — deliberate exception to the "no raw SQL" rule.
   // The `embedding vector(1024)` column is `Unsupported` in Prisma, so the
