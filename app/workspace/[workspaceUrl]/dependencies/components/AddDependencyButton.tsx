@@ -21,8 +21,8 @@ import { relationToEdge, type Relation } from '../relation'
 interface AddDependencyButtonProps {
   /** Excludes the current task from results. */
   currentIdentifier: string
-  /** Confirmed-dependency identifiers — shown disabled to avoid a 409. */
-  existingIdentifiers: Set<string>
+  /** "<relation>:<identifier>" keys of CONFIRMED edges — greys the exact pair that would 409. */
+  existingRelations: Set<string>
   onAdd: (data: {
     blockedBy: string
     direction: 'BLOCKED_BY' | 'BLOCKS'
@@ -40,7 +40,7 @@ const RELATION_LABEL: Record<Relation, string> = {
 
 export function AddDependencyButton({
   currentIdentifier,
-  existingIdentifiers,
+  existingRelations,
   onAdd,
   busy,
 }: AddDependencyButtonProps) {
@@ -139,13 +139,14 @@ export function AddDependencyButton({
             {trimmed &&
               !loading &&
               items.map(item => {
-                const already = existingIdentifiers.has(item.label)
+                const already = existingRelations.has(
+                  `${relation}:${item.label}`
+                )
                 return (
                   <CommandItem
                     key={item.id}
                     value={item.label}
                     disabled={already}
-                    className={already ? 'opacity-50' : undefined}
                     onSelect={() => {
                       if (already) return
                       onAdd({
