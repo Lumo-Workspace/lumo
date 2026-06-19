@@ -3,6 +3,17 @@
 import { useIntl } from 'react-intl'
 import { Check, X, ArrowLeftRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import type { DependencyEdge } from '../types'
 
@@ -48,15 +59,38 @@ export function DependencyRow({
           <span className='shrink-0 whitespace-nowrap'>
             <StatusBadge status={edge.other.status} size={14} />
           </span>
-          <button
-            type='button'
-            aria-label={intl.formatMessage({ id: 'task.dependencies.remove' })}
-            disabled={busy}
-            onClick={onRemove}
-            className='opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive'
-          >
-            <X className='h-3.5 w-3.5' />
-          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type='button'
+                aria-label={intl.formatMessage({
+                  id: 'task.dependencies.remove',
+                })}
+                disabled={busy}
+                className='opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive'
+              >
+                <X className='h-3.5 w-3.5' />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {intl.formatMessage({ id: 'task.dependencies.remove' })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {edge.other.identifier} · {edge.other.title}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>
+                  {intl.formatMessage({ id: 'common.cancel' })}
+                </AlertDialogCancel>
+                <AlertDialogAction variant='destructive' onClick={onRemove}>
+                  {intl.formatMessage({ id: 'common.remove' })}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
       {variant === 'suggested' && (

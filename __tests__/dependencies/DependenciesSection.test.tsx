@@ -31,7 +31,7 @@ jest.mock(
   })
 )
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { DependenciesSection } from '@/app/workspace/[workspaceUrl]/dependencies/components/DependenciesSection'
 import { useDependencies } from '@/app/workspace/[workspaceUrl]/hooks/useDependencies'
 import type { DependencyEdge } from '@/app/workspace/[workspaceUrl]/dependencies/types'
@@ -59,6 +59,25 @@ function renderSection(edges: DependencyEdge[]) {
   })
   return render(<DependenciesSection taskIdentifier='LUM-42' />)
 }
+
+it('does not remove a confirmed dependency until the confirmation is accepted', () => {
+  const removeMutate = jest.fn()
+  ;(useDependencies as jest.Mock).mockReturnValue({
+    edges: [edge({})],
+    loading: false,
+    error: null,
+    add: { mutate: jest.fn(), isPending: false },
+    patch: { mutate: jest.fn(), isPending: false },
+    remove: { mutate: removeMutate, isPending: false },
+  })
+  render(<DependenciesSection taskIdentifier='LUM-42' />)
+  // The remove (X) control is now an AlertDialog trigger — clicking it opens a
+  // confirmation rather than deleting immediately.
+  fireEvent.click(
+    screen.getByRole('button', { name: 'task.dependencies.remove' })
+  )
+  expect(removeMutate).not.toHaveBeenCalled()
+})
 
 it('shows the live-blocker banner when a confirmed BLOCKS blocker is not done', () => {
   // The react-intl mock returns the key id as-is (no defaultMessage in en.json calls).
