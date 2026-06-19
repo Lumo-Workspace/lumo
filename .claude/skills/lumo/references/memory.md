@@ -154,6 +154,22 @@ successful push removes the file from the outbox.
 shared with the team — drop a `{category, content}` JSON in the memory `outbox/`
 and run `lumo memory push` (or just use `lumo project memory add` for a one-off).
 
+### Automatic sync/push triggers (LUM-551)
+
+Both directions also fire automatically, best-effort — a failure never blocks the
+session or command:
+
+- **Downsync** runs on `lumo session attach` (throttle-gated, default 12h; see
+  [sessions.md](sessions.md)). Manual `lumo memory sync` stays unthrottled.
+- **Upsync** runs on the `session-end` / `stop` / `task-completed` lifecycle hooks:
+  a non-empty `<memory-dir>/outbox/*.json` is drained via the same
+  create-project-memory pipeline as `lumo memory push`. An **empty outbox does zero
+  network** (the fast path checked first), so the high-frequency `stop` hook stays
+  cheap. This fills the gap left by the deleted `lumo session wrap` (LUM-544).
+- **Env vars**: `LUMO_SYNC_THROTTLE_HOURS` (downsync throttle window, default 12),
+  `LUMO_DISABLE_MEMORY_AUTO=1` (disable **both** auto-paths). The `--no-anchor-check`
+  flag on `lumo memory sync` is unchanged.
+
 ### Reconcile-on-write & deduplication
 
 `memory add` does **not** unconditionally insert a new row. Before writing it:
