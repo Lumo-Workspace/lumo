@@ -7,6 +7,7 @@ import {
 } from './local-memory-store'
 import { diffSync } from './memory-reconcile'
 import { upsertBlock, removeBlock } from './managed-block'
+import { clearThrottleState } from './sync-throttle'
 
 /**
  * One downsync entry as it arrives over the wire (server's ShapedSyncEntry).
@@ -58,6 +59,7 @@ export function applySync(
     if (!opts.dryRun) {
       for (const o of owned) removeEntry(root, o.id)
       writeIndex(root, removeBlock(readIndex(root)))
+      clearThrottleState(root)
     }
     return {
       added: [],

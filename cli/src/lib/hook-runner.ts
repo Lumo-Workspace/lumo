@@ -5,6 +5,9 @@ import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
+import { resolveBoundProjectId } from './resolve-project'
+import { resolveBoundTaskIdentifier } from './resolve-bound-task'
+import { autoUpsyncOnDrain } from './memory-auto'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -414,6 +417,32 @@ export async function runHookWithBody(
       logHookError(`[${path}]`, err)
     } finally {
       clearTimeout(timer)
+    }
+
+    // LUM-551: upsync drain on session-wrap-equivalent hooks. The outbox-empty
+    // fast path inside autoUpsyncOnDrain means most `stop` events do zero
+    // network (and never resolve the project). Best-effort: a failure is
+    // logged, never thrown — the hook still exits 0.
+    if (
+      path === 'session-end' ||
+      path === 'stop' ||
+      path === 'task-completed'
+    ) {
+      try {
+        await autoUpsyncOnDrain({
+          cwd: process.cwd(),
+          base: trimTrailingSlash(apiUrl),
+          token: creds.token,
+          resolveProjectId: async () => {
+            const bound = await resolveBoundTaskIdentifier(apiUrl, creds.token)
+            if (!bound) return null
+            const r = await resolveBoundProjectId(apiUrl, creds.token, bound)
+            return r.ok ? r.id : null
+          },
+        })
+      } catch (err) {
+        logHookError(`[${path}] upsync`, err)
+      }
     }
   } catch (err) {
     logHookError(`[${path}] runner`, err)

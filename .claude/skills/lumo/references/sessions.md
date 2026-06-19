@@ -99,6 +99,10 @@ What it does:
 
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
+#### Auto-downsync on attach (LUM-551)
+
+A successful `session attach` also runs a **best-effort team-memory downsync** for the bound task's project — the same work as `lumo memory sync` (including the P4b code-anchor staleness check), so the team's memory lands in your local Claude Code memory store without a separate command. It is **throttle-gated**: the network is skipped entirely if this repo already synced within `LUMO_SYNC_THROTTLE_HOURS` (default **12h**), so re-attaches and same-day sessions are cheap. A sync failure is swallowed — it **never** changes the bind outcome. On a non-trivial sync the CLI prints one extra line (`memory sync → +N ~M -K`). Manual `lumo memory sync` stays unthrottled. Set `LUMO_DISABLE_MEMORY_AUTO=1` to turn the auto-downsync (and the hook auto-upsync — see [memory.md](memory.md)) off entirely; `--no-anchor-check` on `lumo memory sync` is unchanged.
+
 #### Lifetime lock (LUM-459)
 
 `Session.taskId` is **write-once**. Re-attaching to the **same** task is always a no-op re-bind (idempotent, re-emits context). Attaching to a **different** task is refused with HTTP 409 — the server returns `{ error, currentTaskIdentifier, currentTaskTitle }` and the CLI prints:
