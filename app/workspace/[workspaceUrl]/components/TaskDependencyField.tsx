@@ -130,7 +130,7 @@ export function TaskDependencyField({
                   href={`/workspace/${workspaceUrl}/my-tasks/${e.other.identifier}`}
                   data-blocker-state={satisfied ? 'satisfied' : 'live'}
                   className={cn(
-                    'inline-flex items-center gap-0.5 font-mono rounded-sm px-1',
+                    'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-mono rounded-sm px-1',
                     satisfied
                       ? 'text-success hover:bg-success/10'
                       : 'text-destructive hover:bg-destructive/10'
