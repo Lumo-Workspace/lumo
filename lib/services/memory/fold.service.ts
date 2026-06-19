@@ -36,6 +36,12 @@ export interface TriggerResult {
   pruned: number
   skipped?: 'within-cap' | 'cooldown' | 'no-project' | 'locked'
   error?: boolean
+  /** LUM-555 guardrail: fold should have produced cards (it had proposals, or
+   *  its LLM pipeline degraded) but folded nothing — prune was deliberately
+   *  SKIPPED so a fold-apply failure can't masquerade as a clean convergence
+   *  (the LUM-553 prod incident: 0 folded, whole overflow pruned). The project
+   *  is left over cap on purpose; the failure is logged at error level. */
+  foldFailed?: boolean
 }
 
 /** Days a card is shielded from pruning after creation — too new to have had a
@@ -174,9 +180,10 @@ export const foldService = {
 
         // 1. Fold related cards (info-preserving) toward the cap. Bound the
         // compute to ~K biggest clusters (each fold of N sources cuts N-1).
-        const proposals = await computeProjectFoldProposals(projectId, {
-          maxProposals: FOLD_MAX_CLUSTERS_PER_RUN,
-        })
+        const { proposals, degraded } = await computeProjectFoldProposals(
+          projectId,
+          { maxProposals: FOLD_MAX_CLUSTERS_PER_RUN }
+        )
         proposals.sort((a, b) => b.sourceIds.length - a.sourceIds.length)
         let remaining = active.length
         let folded = 0
@@ -200,7 +207,26 @@ export const foldService = {
           }
         }
 
-        // 2. Folding alone can't touch singletons — archive (reversibly) the
+        // 2a. Guardrail (LUM-555): if fold SHOULD have produced cards — it had
+        // proposals, or its LLM pipeline degraded — but folded nothing, do NOT
+        // let prune archive the overflow. Pruning here would mask a fold-apply
+        // failure as a clean convergence (the LUM-553 prod incident: 0 folded,
+        // whole overflow pruned, looked like success). Leave the project over
+        // cap on purpose and surface the failure loudly.
+        if (
+          remaining > MEMORY_CAP &&
+          folded === 0 &&
+          (degraded || proposals.length > 0)
+        ) {
+          logger.error(
+            `[memory.fold] fold produced no cards despite work to do — skipping ` +
+              `prune so the failure isn't masked as convergence project=${projectId} ` +
+              `proposals=${proposals.length} degraded=${degraded}`
+          )
+          return { folded, pruned: 0, foldFailed: true }
+        }
+
+        // 2b. Folding alone can't touch singletons — archive (reversibly) the
         // oldest never-judged-used cards the rest of the way to the cap.
         const pruned =
           remaining > MEMORY_CAP

@@ -80,7 +80,7 @@ async function main() {
     `[backfill] project=${project.name} ACTIVE=${before} mode=${apply ? 'APPLY' : 'DRY-RUN'}`
   )
 
-  const proposals = await computeProjectFoldProposals(projectId) // unbounded
+  const { proposals } = await computeProjectFoldProposals(projectId) // unbounded
   const wouldFold = proposals.reduce((n, p) => n + p.sourceIds.length, 0)
   console.error(
     `[backfill] ${proposals.length} coarse cards would fold ${wouldFold} fine cards → ` +

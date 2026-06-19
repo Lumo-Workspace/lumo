@@ -29,14 +29,17 @@ beforeEach(() => {
   // A bearer (agent/CLI) identity is allowed here.
   mockIdentity.mockResolvedValue({ workspaceId: 'w-1', source: 'bearer' })
   mockFindWs.mockResolvedValue({ workspaceId: 'w-1' })
-  mockCompute.mockResolvedValue([
-    {
-      category: 'TRAP',
-      coarseContent: { trigger: 't', outcome: 'o' },
-      sourceIds: ['a', 'b', 'c'],
-      excludedIds: [],
-    },
-  ])
+  mockCompute.mockResolvedValue({
+    proposals: [
+      {
+        category: 'TRAP',
+        coarseContent: { trigger: 't', outcome: 'o' },
+        sourceIds: ['a', 'b', 'c'],
+        excludedIds: [],
+      },
+    ],
+    degraded: false,
+  })
 })
 
 describe('fold-candidates GET is read-only bearer-allowed and workspace-scoped', () => {

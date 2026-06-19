@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const proposals = await computeProjectFoldProposals(id)
+    const { proposals } = await computeProjectFoldProposals(id)
     return NextResponse.json({ proposals })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

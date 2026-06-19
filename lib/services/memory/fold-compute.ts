@@ -134,12 +134,15 @@ export function selectCoveredSources(
 }
 
 /** Phase 1 — LLM: group one category's cards into subsystem clusters (ids only,
- *  no synthesis). Returns the id groups, or [] on any error. Tiny output, so a
+ *  no synthesis). Returns the id groups, or **null** when the LLM step errored
+ *  (retries exhausted) — distinct from `[]` (the model ran and found nothing to
+ *  cluster). The caller folds null into the `degraded` signal so a gateway
+ *  outage can't masquerade as "nothing to fold" (LUM-555). Tiny output, so a
  *  large category can't truncate the grouping. */
 async function clusterMemories(
   category: MemoryCategory,
   items: FoldItem[]
-): Promise<string[][]> {
+): Promise<string[][] | null> {
   const system =
     `You consolidate a software team's ${category} memory cards. Group cards that ` +
     `concern the SAME subsystem/theme but are NOT duplicates (e.g. several Prisma/` +
@@ -159,7 +162,7 @@ async function clusterMemories(
       prompt: user,
     })
   )
-  return res ? res.object.clusters.map(c => c.sourceMemoryIds) : []
+  return res ? res.object.clusters.map(c => c.sourceMemoryIds) : null
 }
 
 /** Phase 2 — LLM: synthesize ONE coarse "subsystem card" for ONE cluster,
@@ -221,17 +224,25 @@ async function coverageVerdicts(
  * no writes. Buckets by category; per bucket the LLM clusters + synthesizes; the
  * fail-closed coverage gate decides which sources are safe to fold. A proposal
  * is emitted only when ≥ MIN_CLUSTER_SIZE sources pass the gate. Best-effort:
- * every LLM step degrades to "no fold" (empty), never throws on model failure.
+ * every LLM step degrades to "no fold", never throws on model failure.
+ *
+ * Returns `{ proposals, degraded }`. `degraded` is true when an LLM step that
+ * was expected to produce output errored (a foldable bucket's clustering call,
+ * or a candidate cluster's synthesis call) — distinct from "the model ran and
+ * found nothing to fold". The caller (LUM-555) must NOT let prune silently
+ * archive the overflow when `degraded` is true: an empty `proposals` then means
+ * "fold couldn't run", not "nothing to fold". A coverage-gate drop is NOT
+ * degraded — that's the fail-closed gate doing its job.
  *
  * `opts.maxProposals` bounds the work to roughly the K biggest clusters (most
- * count-reduction first), so one cron run stays within the serverless time
- * budget — the LLM synthesis/coverage of all clusters of a big project runs for
- * minutes. Omit it (the offline backfill) to fold every viable cluster.
+ * count-reduction first), so one run stays within the serverless time budget —
+ * the LLM synthesis/coverage of all clusters of a big project runs for minutes.
+ * Omit it (the offline backfill) to fold every viable cluster.
  */
 export async function computeProjectFoldProposals(
   projectId: string,
   opts: { maxProposals?: number } = {}
-): Promise<FoldProposal[]> {
+): Promise<{ proposals: FoldProposal[]; degraded: boolean }> {
   const memories = await memoryRepository.findActiveProjectMemories(projectId)
 
   // Phase 1 — cluster every category in parallel (each is one small LLM call).
@@ -243,12 +254,22 @@ export async function computeProjectFoldProposals(
   })).filter(b => b.items.length >= MIN_CLUSTER_SIZE)
 
   const clustered = await Promise.all(
-    buckets.map(async b => ({
-      category: b.category,
-      itemById: new Map(b.items.map(i => [i.id, i])),
-      groups: await clusterMemories(b.category, b.items),
-    }))
+    buckets.map(async b => {
+      const groups = await clusterMemories(b.category, b.items)
+      return {
+        category: b.category,
+        itemById: new Map(b.items.map(i => [i.id, i])),
+        // null = the clustering LLM step errored for a bucket that HAD enough
+        // cards to fold → the pipeline is degraded, not legitimately empty.
+        groups: groups ?? [],
+        clusterFailed: groups === null,
+      }
+    })
   )
+
+  // A foldable bucket we couldn't even cluster → degraded (gateway outage hits
+  // this first call). Synthesis failures below OR into the same signal.
+  let degraded = clustered.some(c => c.clusterFailed)
 
   // Flatten to one work unit per viable cluster.
   const units: Array<{ category: MemoryCategory; clusterSources: FoldItem[] }> =
@@ -277,19 +298,24 @@ export async function computeProjectFoldProposals(
       : units
 
   // Phases 2–3 — synthesize + coverage-gate each cluster, concurrency-capped.
-  // One unit failing/dropping never affects another (each returns null).
+  // One unit failing/dropping never affects another. `synthFailed` marks a unit
+  // whose synthesis LLM step errored (≠ a coverage-gate drop, which is the gate
+  // working) so it folds into `degraded`.
   const results = await mapWithConcurrency(
     candidates,
     FOLD_CONCURRENCY,
-    async ({ category, clusterSources }): Promise<FoldProposal | null> => {
+    async ({
+      category,
+      clusterSources,
+    }): Promise<{ proposal: FoldProposal | null; synthFailed: boolean }> => {
       const synthesized = await synthesizeCoarse(category, clusterSources)
-      if (!synthesized) return null
+      if (!synthesized) return { proposal: null, synthFailed: true }
       // Re-validate the shape (defense in depth; the schema already enforced it).
       let coarseContent: MemoryContent
       try {
         coarseContent = parseMemoryContent(category, synthesized)
       } catch {
-        return null
+        return { proposal: null, synthFailed: false }
       }
       const coarseText = memoryContentToText(category, coarseContent)
 
@@ -299,17 +325,25 @@ export async function computeProjectFoldProposals(
         clusterSources,
         verdicts
       )
-      if (sourceIds.length < MIN_CLUSTER_SIZE) return null
+      if (sourceIds.length < MIN_CLUSTER_SIZE)
+        return { proposal: null, synthFailed: false }
 
       const excludedIds = clusterSources
         .map(s => s.id)
         .filter(id => !sourceIds.includes(id))
-      return { category, coarseContent, sourceIds, excludedIds }
+      return {
+        proposal: { category, coarseContent, sourceIds, excludedIds },
+        synthFailed: false,
+      }
     }
   )
 
-  const proposals = results.filter((p): p is FoldProposal => p !== null)
-  return opts.maxProposals !== undefined
-    ? proposals.slice(0, opts.maxProposals)
-    : proposals
+  if (results.some(r => r.synthFailed)) degraded = true
+
+  const all = results
+    .map(r => r.proposal)
+    .filter((p): p is FoldProposal => p !== null)
+  const proposals =
+    opts.maxProposals !== undefined ? all.slice(0, opts.maxProposals) : all
+  return { proposals, degraded }
 }
