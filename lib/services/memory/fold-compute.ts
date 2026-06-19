@@ -5,8 +5,9 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { parseMemoryContent, type MemoryContent } from '@/lib/memory/schemas'
 import {
+  coarseCardSchemaFor,
   coverageOutputSchema,
-  foldClustersOutputSchema,
+  foldClusterGroupsSchema,
   type CoverageVerdict,
   type FoldProposal,
 } from '@/lib/memory/fold-schemas'
@@ -32,7 +33,52 @@ interface FoldItem {
   text: string
 }
 
+/** The exact structured fields the coarse card must use per category — so the
+ *  model fills the per-category content shape instead of a free `{id,text}` blob
+ *  (which the shape guard would reject, folding nothing — LUM-553 dogfood). A
+ *  coarse card legitimately holds multi-point detail; enumerate `(1)… (2)…`
+ *  WITHIN a field rather than reaching for an unstructured field. */
+const FIELD_GUIDE: Record<MemoryCategory, string> = {
+  TRAP:
+    'Use ONLY: summary (the subsystem/theme name, e.g. "Prisma migrations"), ' +
+    'trigger (when these gotchas bite — consolidate every member), outcome ' +
+    '(what breaks), workaround (the consolidated fixes; enumerate "(1)… (2)…"). ' +
+    "Preserve every member trap's specific trigger and fix.",
+  DECISION:
+    'Use ONLY: summary (the area), what (the consolidated decisions; enumerate), ' +
+    'why (the reasons), alternatives (rejected options), implications (consequences).',
+  CONVENTION:
+    'Use ONLY: summary (the area), rule (the consolidated rules; enumerate ' +
+    '"(1)… (2)…"), scope (where they apply).',
+  PROCEDURAL:
+    'Use ONLY: summary (the workflow area), workflow (the consolidated procedure), ' +
+    'trigger (when to run it), steps (array of concrete steps across the members).',
+}
+
 const norm = (s: string): string => s.toLowerCase().replace(/\s+/g, ' ').trim()
+
+/** Flash models intermittently return JSON that fails strict schema validation
+ *  ("No object generated: response did not match schema"). Retry a few times —
+ *  the next sample usually conforms — before giving up (best-effort → fallback). */
+async function generateWithRetry<T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T | null> {
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (attempt === MAX_ATTEMPTS) {
+        logger.warn(
+          `[memory.fold] ${label} failed after ${MAX_ATTEMPTS} attempts:`,
+          error instanceof Error ? error.message : error
+        )
+      }
+    }
+  }
+  return null
+}
 
 /**
  * The fail-closed coverage gate (pure). A source is covered ONLY if the judge
@@ -60,40 +106,60 @@ export function selectCoveredSources(
   return covered
 }
 
-/** LLM: cluster related-but-not-duplicate cards of one category into subsystem
- *  groups and synthesize a coarse card per group. Returns [] on any error. */
-async function clusterAndSynthesize(
+/** Phase 1 — LLM: group one category's cards into subsystem clusters (ids only,
+ *  no synthesis). Returns the id groups, or [] on any error. Tiny output, so a
+ *  large category can't truncate the grouping. */
+async function clusterMemories(
   category: MemoryCategory,
   items: FoldItem[]
-): Promise<Array<{ sourceMemoryIds: string[]; coarseContent: unknown }>> {
+): Promise<string[][]> {
   const system =
     `You consolidate a software team's ${category} memory cards. Group cards that ` +
     `concern the SAME subsystem/theme but are NOT duplicates (e.g. several Prisma/` +
-    `migration gotchas, several jest/test gotchas) into clusters of 3 or more. For ` +
-    `each cluster, synthesize ONE coarse "subsystem card" whose content preserves ` +
-    `EVERY member card's key invariant/gotcha — losing a detail is failure. Output ` +
-    `the coarse card as a ${category} content object (same fields as the inputs). ` +
-    `Do not cluster unrelated themes together. Leave a card unclustered if it has ` +
-    `no 2+ same-subsystem siblings.`
+    `migration gotchas, several jest/test gotchas) into clusters of 3 or more. ` +
+    `Return ONLY the id groupings — do not write any card content. Do not cluster ` +
+    `unrelated themes together. Leave a card unclustered if it has no 2+ ` +
+    `same-subsystem siblings.`
   const user = JSON.stringify({
     category,
     cards: items.map(i => ({ id: i.id, text: i.text })),
   })
-  try {
-    const { object } = await generateObject({
+  const res = await generateWithRetry(`clustering category=${category}`, () =>
+    generateObject({
       model: gateway(MODEL_ID),
-      schema: foldClustersOutputSchema,
+      schema: foldClusterGroupsSchema,
       system,
       prompt: user,
     })
-    return object.clusters
-  } catch (error) {
-    logger.warn(
-      `[memory.fold] cluster/synthesize failed category=${category}:`,
-      error instanceof Error ? error.message : error
-    )
-    return []
-  }
+  )
+  return res ? res.object.clusters.map(c => c.sourceMemoryIds) : []
+}
+
+/** Phase 2 — LLM: synthesize ONE coarse "subsystem card" for ONE cluster,
+ *  preserving every member's invariant/gotcha in the category's structured
+ *  fields. Returns null on any error (so one bad cluster drops only itself). */
+async function synthesizeCoarse(
+  category: MemoryCategory,
+  members: FoldItem[]
+): Promise<MemoryContent | null> {
+  const system =
+    `You consolidate a software team's ${category} memory cards into ONE coarse ` +
+    `"subsystem card" whose content preserves EVERY member card's key invariant/` +
+    `gotcha — losing a detail is failure. ${FIELD_GUIDE[category]} Do NOT add an id ` +
+    `or a free "text"/"content" field — populate ONLY the named fields above.`
+  const user = JSON.stringify({
+    category,
+    cards: members.map(m => m.text),
+  })
+  const res = await generateWithRetry(`synthesis category=${category}`, () =>
+    generateObject({
+      model: gateway(MODEL_ID),
+      schema: coarseCardSchemaFor(category),
+      system,
+      prompt: user,
+    })
+  )
+  return res ? (res.object as MemoryContent) : null
 }
 
 /** LLM: per source, is its actionable detail present in the coarse card? Must
@@ -112,21 +178,15 @@ async function coverageVerdicts(
     coarseCard: coarseText,
     sources: sources.map(s => ({ sourceMemoryId: s.id, text: s.text })),
   })
-  try {
-    const { object } = await generateObject({
+  const res = await generateWithRetry('coverage judge', () =>
+    generateObject({
       model: gateway(MODEL_ID),
       schema: coverageOutputSchema,
       system,
       prompt: user,
     })
-    return object.verdicts
-  } catch (error) {
-    logger.warn(
-      `[memory.fold] coverage judge failed:`,
-      error instanceof Error ? error.message : error
-    )
-    return []
-  }
+  )
+  return res ? res.object.verdicts : []
 }
 
 /**
@@ -148,23 +208,26 @@ export async function computeProjectFoldProposals(
       .map(m => ({ id: m.id, text: memoryContentToText(category, m.content) }))
     if (items.length < MIN_CLUSTER_SIZE) continue
 
-    const clusters = await clusterAndSynthesize(category, items)
+    const groups = await clusterMemories(category, items)
     const itemById = new Map(items.map(i => [i.id, i]))
 
-    for (const cluster of clusters) {
-      if (cluster.sourceMemoryIds.length < MIN_CLUSTER_SIZE) continue
+    for (const group of groups) {
+      // Resolve to real bucket members (drop any id the LLM hallucinated).
+      const clusterSources = group
+        .map(id => itemById.get(id))
+        .filter((i): i is FoldItem => i !== undefined)
+      if (clusterSources.length < MIN_CLUSTER_SIZE) continue
 
-      // Validate the coarse content shape (fail-closed: invalid → skip cluster).
+      // Phase 2 — synthesize this cluster's coarse card; skip on failure.
+      const synthesized = await synthesizeCoarse(category, clusterSources)
+      if (!synthesized) continue
+      // Re-validate the shape (defense in depth; the schema already enforced it).
       let coarseContent: MemoryContent
       try {
-        coarseContent = parseMemoryContent(category, cluster.coarseContent)
+        coarseContent = parseMemoryContent(category, synthesized)
       } catch {
         continue
       }
-
-      const clusterSources = cluster.sourceMemoryIds
-        .map(id => itemById.get(id))
-        .filter((i): i is FoldItem => i !== undefined)
       const coarseText = memoryContentToText(category, coarseContent)
 
       const verdicts = await coverageVerdicts(coarseText, clusterSources)
@@ -175,8 +238,6 @@ export async function computeProjectFoldProposals(
       )
       if (sourceIds.length < MIN_CLUSTER_SIZE) continue
 
-      // Exclude from the resolved cluster members (drop any id the LLM
-      // hallucinated that wasn't in the bucket), not the raw model output.
       const excludedIds = clusterSources
         .map(s => s.id)
         .filter(id => !sourceIds.includes(id))
