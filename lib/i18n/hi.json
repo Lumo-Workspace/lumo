@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "कोई मिलता-जुलता कार्य नहीं",
   "task.dependencies.loading": "निर्भरताएँ लोड हो रही हैं…",
   "task.dependencies.empty": "अभी तक कोई निर्भरता नहीं",
-  "task.dependencies.actionFailed": "निर्भरताएँ अपडेट नहीं हो सकीं"
+  "task.dependencies.actionFailed": "निर्भरताएँ अपडेट नहीं हो सकीं",
+  "memory.retire.heading": "{count, plural, one {# मेमोरी हटाने के लिए प्रस्तावित} other {# मेमोरी हटाने के लिए प्रस्तावित}}",
+  "memory.retire.description": "हटाने पर मेमोरी ऑडिट के लिए सुरक्षित रहती है और इसे वापस लाया जा सकता है। रखें इसे सक्रिय छोड़ देता है।",
+  "memory.retire.reason.lowJudgedUsed": "शायद ही उपयोग की गई",
+  "memory.retire.reason.contradiction": "मौजूदा स्थिति का खंडन करती है",
+  "memory.retire.confirm": "हटाएँ",
+  "memory.retire.dismiss": "रखें",
+  "memory.retire.confirmed": "मेमोरी हटाई गई",
+  "memory.retire.error": "मेमोरी हटाई नहीं जा सकी। कृपया पुनः प्रयास करें।"
 }

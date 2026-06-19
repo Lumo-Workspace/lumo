@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "Tidak ada tugas yang cocok",
   "task.dependencies.loading": "Memuat dependensi…",
   "task.dependencies.empty": "Belum ada dependensi",
-  "task.dependencies.actionFailed": "Dependensi tidak dapat diperbarui"
+  "task.dependencies.actionFailed": "Dependensi tidak dapat diperbarui",
+  "memory.retire.heading": "{count, plural, other {# memori diusulkan untuk dipensiunkan}}",
+  "memory.retire.description": "Memensiunkan menyimpan memori untuk audit dan dapat dibatalkan. Simpan membiarkannya tetap aktif.",
+  "memory.retire.reason.lowJudgedUsed": "jarang digunakan",
+  "memory.retire.reason.contradiction": "bertentangan dengan kondisi saat ini",
+  "memory.retire.confirm": "Pensiunkan",
+  "memory.retire.dismiss": "Simpan",
+  "memory.retire.confirmed": "Memori dipensiunkan",
+  "memory.retire.error": "Tidak dapat memensiunkan memori. Silakan coba lagi."
 }

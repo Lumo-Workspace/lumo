@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "Задачи не найдены",
   "task.dependencies.loading": "Загрузка зависимостей…",
   "task.dependencies.empty": "Зависимостей пока нет",
-  "task.dependencies.actionFailed": "Не удалось обновить зависимости"
+  "task.dependencies.actionFailed": "Не удалось обновить зависимости",
+  "memory.retire.heading": "{count, plural, one {# запись памяти предложена к архивированию} few {# записи памяти предложены к архивированию} many {# записей памяти предложены к архивированию} other {# записей памяти предложены к архивированию}}",
+  "memory.retire.description": "Архивирование сохраняет память для аудита и обратимо. «Оставить» оставляет её активной.",
+  "memory.retire.reason.lowJudgedUsed": "редко используется",
+  "memory.retire.reason.contradiction": "противоречит текущему состоянию",
+  "memory.retire.confirm": "Архивировать",
+  "memory.retire.dismiss": "Оставить",
+  "memory.retire.confirmed": "Память архивирована",
+  "memory.retire.error": "Не удалось архивировать память. Попробуйте ещё раз."
 }

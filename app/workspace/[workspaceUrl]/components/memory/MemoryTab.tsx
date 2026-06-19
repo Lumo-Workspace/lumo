@@ -8,8 +8,10 @@ import type { MemoryRow } from '@/lib/api-client'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
 import { useFragmentTrust } from '../../hooks/useFragmentTrust'
+import { useRetireCandidates } from '../../hooks/useRetireCandidates'
 import { Button } from '@/components/ui/button'
 import { MemoryListItem } from './MemoryListItem'
+import { RetireReviewPanel } from './RetireReviewPanel'
 import { MemoryEditDialog, type MemorySubmitPayload } from './MemoryEditDialog'
 
 interface MemoryTabProps {
@@ -61,6 +63,18 @@ export function MemoryTab({
   const trust = useFragmentTrust(
     visibleMemories.map(m => m.id),
     enabled
+  )
+
+  // Retire review (LUM-540 P4a) is a PROJECT-scope concern — the judged-used
+  // track record accrues across tasks against the canonical PROJECT memory.
+  const isProject = scope === 'project'
+  const { candidates, confirmRetire, confirming } = useRetireCandidates(
+    parentId,
+    enabled && isProject
+  )
+  const memoriesById = useMemo(
+    () => new Map(visibleMemories.map(m => [m.id, m])),
+    [visibleMemories]
   )
 
   const handleSubmit = async (payload: MemorySubmitPayload) => {
@@ -141,6 +155,14 @@ export function MemoryTab({
         </div>
       ) : (
         <div className='space-y-2'>
+          {isProject && (
+            <RetireReviewPanel
+              candidates={candidates}
+              memoriesById={memoriesById}
+              onConfirm={confirmRetire}
+              confirming={confirming}
+            />
+          )}
           {visibleMemories.map(m => (
             <MemoryListItem
               key={m.id}

@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "Không có công việc phù hợp",
   "task.dependencies.loading": "Đang tải phụ thuộc…",
   "task.dependencies.empty": "Chưa có phụ thuộc nào",
-  "task.dependencies.actionFailed": "Không thể cập nhật phụ thuộc"
+  "task.dependencies.actionFailed": "Không thể cập nhật phụ thuộc",
+  "memory.retire.heading": "{count, plural, other {# bộ nhớ được đề xuất loại bỏ}}",
+  "memory.retire.description": "Loại bỏ vẫn giữ bộ nhớ để kiểm toán và có thể hoàn tác. Giữ lại để nó tiếp tục hoạt động.",
+  "memory.retire.reason.lowJudgedUsed": "hiếm khi được dùng",
+  "memory.retire.reason.contradiction": "mâu thuẫn với trạng thái hiện tại",
+  "memory.retire.confirm": "Loại bỏ",
+  "memory.retire.dismiss": "Giữ lại",
+  "memory.retire.confirmed": "Đã loại bỏ bộ nhớ",
+  "memory.retire.error": "Không thể loại bỏ bộ nhớ. Vui lòng thử lại."
 }

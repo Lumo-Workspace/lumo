@@ -32,6 +32,7 @@ import {
   type NearDupPair,
   type VecItem,
 } from './near-dup-cluster'
+import { errorEntryCount, formatEntropyLedgerLine } from './retire-metric'
 import { EMBEDDING_SCORE_FLOOR } from '@/lib/services/memory/embedding-neighbor-retriever'
 
 const FLOORS = Array.from(
@@ -219,6 +220,21 @@ async function main(): Promise<void> {
       `  shipped floor ${EMBEDDING_SCORE_FLOOR}: caught=${ndShipped.caught}/${ndShipped.total} (recall=${ndShipped.recall.toFixed(3)}) missed=${ndShipped.missed}\n` +
       `  vs old 0.78 knee:    caught=${ndOldKnee.caught}/${ndOldKnee.total} (recall=${ndOldKnee.recall.toFixed(3)}) missed=${ndOldKnee.missed}\n` +
       `  residual near-dup clusters in corpus (existing set, cos≥0.85): ${residualClusters.length}`
+  )
+
+  // LUM-540 (P4a) — the retire half of the entropy ledger. The offline fixture
+  // carries no judged-used / curation-judge signal, so the error-entry count is
+  // 0 here; the live count comes from the DB-backed retire sweep
+  // (selectRetireCandidates over a project's ACTIVE memories). Reported on one
+  // line with the near-dup count so a single run shows both halves of the
+  // milestone bar "近重复簇数 + 错误条目数下降且不反弹".
+  log(
+    '\n— ENTROPY LEDGER (dedup + retire) —\n' +
+      formatEntropyLedgerLine({
+        nearDupClusters: residualClusters.length,
+        errorEntries: errorEntryCount([]),
+      }) +
+      '\n  (offline: retire/error entries need live usage/judge data; run the DB-backed retire sweep for the live count)'
   )
 
   const xl = crossLingualReport(PROD_MODEL)

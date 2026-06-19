@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "無符合任務",
   "task.dependencies.loading": "正在載入依賴…",
   "task.dependencies.empty": "尚無依賴",
-  "task.dependencies.actionFailed": "無法更新依賴"
+  "task.dependencies.actionFailed": "無法更新依賴",
+  "memory.retire.heading": "{count, plural, other {建議退役 # 條記憶}}",
+  "memory.retire.description": "退役會保留記憶以供稽核，且可復原。保留則繼續生效。",
+  "memory.retire.reason.lowJudgedUsed": "很少被使用",
+  "memory.retire.reason.contradiction": "與目前狀態矛盾",
+  "memory.retire.confirm": "退役",
+  "memory.retire.dismiss": "保留",
+  "memory.retire.confirmed": "記憶已退役",
+  "memory.retire.error": "無法退役此記憶，請重試。"
 }

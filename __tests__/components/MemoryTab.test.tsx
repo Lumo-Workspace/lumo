@@ -48,6 +48,14 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFragmentTrust', () => ({
   useFragmentTrust: () => ({}),
 }))
 
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useRetireCandidates', () => ({
+  useRetireCandidates: () => ({
+    candidates: [],
+    confirmRetire: jest.fn(),
+    confirming: false,
+  }),
+}))
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { MemoryTab } from '@/app/workspace/[workspaceUrl]/components/memory/MemoryTab'

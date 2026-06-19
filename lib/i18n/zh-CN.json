@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "无匹配任务",
   "task.dependencies.loading": "正在加载依赖…",
   "task.dependencies.empty": "暂无依赖",
-  "task.dependencies.actionFailed": "无法更新依赖"
+  "task.dependencies.actionFailed": "无法更新依赖",
+  "memory.retire.heading": "{count, plural, other {建议退役 # 条记忆}}",
+  "memory.retire.description": "退役会保留记忆以供审计，且可恢复。保留则继续生效。",
+  "memory.retire.reason.lowJudgedUsed": "很少被使用",
+  "memory.retire.reason.contradiction": "与当前状态矛盾",
+  "memory.retire.confirm": "退役",
+  "memory.retire.dismiss": "保留",
+  "memory.retire.confirmed": "记忆已退役",
+  "memory.retire.error": "无法退役该记忆，请重试。"
 }

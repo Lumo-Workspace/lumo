@@ -1716,5 +1716,13 @@
   "task.dependencies.noResults": "Keine passenden Aufgaben",
   "task.dependencies.loading": "Abhängigkeiten werden geladen…",
   "task.dependencies.empty": "Noch keine Abhängigkeiten",
-  "task.dependencies.actionFailed": "Abhängigkeiten konnten nicht aktualisiert werden"
+  "task.dependencies.actionFailed": "Abhängigkeiten konnten nicht aktualisiert werden",
+  "memory.retire.heading": "{count, plural, one {# Erinnerung zur Stilllegung vorgeschlagen} other {# Erinnerungen zur Stilllegung vorgeschlagen}}",
+  "memory.retire.description": "Beim Stilllegen bleibt die Erinnerung zur Prüfung erhalten und ist umkehrbar. „Behalten“ lässt sie aktiv.",
+  "memory.retire.reason.lowJudgedUsed": "selten genutzt",
+  "memory.retire.reason.contradiction": "widerspricht dem aktuellen Stand",
+  "memory.retire.confirm": "Stilllegen",
+  "memory.retire.dismiss": "Behalten",
+  "memory.retire.confirmed": "Erinnerung stillgelegt",
+  "memory.retire.error": "Erinnerung konnte nicht stillgelegt werden. Bitte erneut versuchen."
 }
