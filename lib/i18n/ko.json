@@ -1739,5 +1739,9 @@
   "memory.merge.error": "메모리를 병합할 수 없습니다. 다시 시도해 주세요.",
   "task.dependencies.searchHint": "이름 또는 작업 ID로 검색",
   "task.dependencies.searching": "검색 중…",
-  "task.dependencies.added": "추가됨"
+  "task.dependencies.added": "추가됨",
+  "task.dependencies.field.label": "의존성",
+  "task.dependencies.field.blocks": "{count}개 차단",
+  "task.dependencies.field.suggested": "{count}개 제안됨",
+  "task.dependencies.field.manage": "의존성 관리"
 }

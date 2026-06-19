@@ -1739,5 +1739,9 @@
   "memory.merge.error": "Impossible de fusionner les mémoires. Veuillez réessayer.",
   "task.dependencies.searchHint": "Rechercher par nom ou ID de tâche",
   "task.dependencies.searching": "Recherche…",
-  "task.dependencies.added": "Ajouté"
+  "task.dependencies.added": "Ajouté",
+  "task.dependencies.field.label": "Dép.",
+  "task.dependencies.field.blocks": "bloque {count}",
+  "task.dependencies.field.suggested": "{count} suggérée(s)",
+  "task.dependencies.field.manage": "Gérer les dépendances"
 }

@@ -1739,5 +1739,9 @@
   "memory.merge.error": "मेमोरी मर्ज नहीं हो सकीं। कृपया पुनः प्रयास करें।",
   "task.dependencies.searchHint": "नाम या टास्क ID से खोजें",
   "task.dependencies.searching": "खोज रहे हैं…",
-  "task.dependencies.added": "जोड़ा गया"
+  "task.dependencies.added": "जोड़ा गया",
+  "task.dependencies.field.label": "निर्भरताएँ",
+  "task.dependencies.field.blocks": "{count} को रोकता है",
+  "task.dependencies.field.suggested": "{count} सुझाई गई",
+  "task.dependencies.field.manage": "निर्भरताएँ प्रबंधित करें"
 }

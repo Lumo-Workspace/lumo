@@ -1739,5 +1739,9 @@
   "memory.merge.error": "Die Erinnerungen konnten nicht zusammengeführt werden. Bitte versuche es erneut.",
   "task.dependencies.searchHint": "Nach Name oder Aufgaben-ID suchen",
   "task.dependencies.searching": "Wird gesucht…",
-  "task.dependencies.added": "Hinzugefügt"
+  "task.dependencies.added": "Hinzugefügt",
+  "task.dependencies.field.label": "Abh.",
+  "task.dependencies.field.blocks": "blockiert {count}",
+  "task.dependencies.field.suggested": "{count} vorgeschlagen",
+  "task.dependencies.field.manage": "Abhängigkeiten verwalten"
 }

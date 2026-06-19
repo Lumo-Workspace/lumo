@@ -1739,5 +1739,9 @@
   "memory.merge.error": "Could not merge the memories. Please try again.",
   "task.dependencies.searchHint": "Search by name or task ID",
   "task.dependencies.searching": "Searching…",
-  "task.dependencies.added": "Added"
+  "task.dependencies.added": "Added",
+  "task.dependencies.field.label": "Deps",
+  "task.dependencies.field.blocks": "blocks {count}",
+  "task.dependencies.field.suggested": "{count} suggested",
+  "task.dependencies.field.manage": "Manage dependencies"
 }

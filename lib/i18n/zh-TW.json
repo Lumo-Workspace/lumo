@@ -1739,5 +1739,9 @@
   "memory.merge.error": "無法合併這些記憶，請重試。",
   "task.dependencies.searchHint": "輸入任務名稱或 LUM 編號搜尋",
   "task.dependencies.searching": "搜尋中…",
-  "task.dependencies.added": "已新增"
+  "task.dependencies.added": "已新增",
+  "task.dependencies.field.label": "依賴",
+  "task.dependencies.field.blocks": "阻塞 {count}",
+  "task.dependencies.field.suggested": "{count} 個待確認",
+  "task.dependencies.field.manage": "管理依賴"
 }
