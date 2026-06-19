@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "退役",
   "memory.retire.dismiss": "保留",
   "memory.retire.confirmed": "記憶已退役",
-  "memory.retire.error": "無法退役此記憶，請重試。"
+  "memory.retire.error": "無法退役此記憶，請重試。",
+  "memory.merge.heading": "{count, plural, one {# 個待合併的近重複叢集} other {# 個待合併的近重複叢集}}",
+  "memory.merge.description": "合併會保留最常用的條目並封存其近重複項。封存可復原。選擇保留則全部維持啟用。",
+  "memory.merge.keepBadge": "保留",
+  "memory.merge.mergeBadge": "合併",
+  "memory.merge.confirm": "合併",
+  "memory.merge.dismiss": "保留",
+  "memory.merge.confirmed": "已合併記憶",
+  "memory.merge.error": "無法合併這些記憶，請重試。"
 }

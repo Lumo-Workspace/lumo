@@ -23,60 +23,12 @@
  */
 import { cosineSimilarity } from './ar-metrics'
 
-export interface VecItem {
-  id: string
-  vector: number[]
-}
-
-/**
- * Group items into near-duplicate clusters: connected components where an edge
- * joins two items with cosine similarity >= `floor`. Only clusters of size >= 2
- * are returned (a singleton is not a duplicate of anything). Each cluster's ids
- * are sorted, and the clusters are sorted by their first id, so the output is
- * deterministic. Union-find with path compression — O(n^2) edge scan, fine for
- * eval-corpus sizes.
- */
-export function nearDupClusters(items: VecItem[], floor: number): string[][] {
-  const parent = new Map<string, string>()
-  for (const it of items) parent.set(it.id, it.id)
-  const find = (x: string): string => {
-    let root = x
-    while (parent.get(root) !== root) root = parent.get(root)!
-    // Path compression.
-    let cur = x
-    while (parent.get(cur) !== root) {
-      const next = parent.get(cur)!
-      parent.set(cur, root)
-      cur = next
-    }
-    return root
-  }
-  const union = (a: string, b: string): void => {
-    const ra = find(a)
-    const rb = find(b)
-    if (ra !== rb) parent.set(ra, rb)
-  }
-
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      if (cosineSimilarity(items[i]!.vector, items[j]!.vector) >= floor) {
-        union(items[i]!.id, items[j]!.id)
-      }
-    }
-  }
-
-  const groups = new Map<string, string[]>()
-  for (const it of items) {
-    const root = find(it.id)
-    const g = groups.get(root) ?? []
-    g.push(it.id)
-    groups.set(root, g)
-  }
-  return [...groups.values()]
-    .filter(g => g.length >= 2)
-    .map(g => [...g].sort())
-    .sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0))
-}
+// LUM-541: `nearDupClusters` / `VecItem` now live in `lib/services/memory/near-dup.ts`
+// so the production batch-consolidation sweep and this eval metric share one
+// clustering implementation. Re-exported here to keep the LUM-538 regression
+// test (and every other importer of this path) unchanged.
+export { nearDupClusters } from '@/lib/services/memory/near-dup'
+export type { VecItem } from '@/lib/services/memory/near-dup'
 
 export interface NearDupPair {
   id: string

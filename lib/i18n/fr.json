@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Retirer",
   "memory.retire.dismiss": "Conserver",
   "memory.retire.confirmed": "Mémoire retirée",
-  "memory.retire.error": "Impossible de retirer la mémoire. Veuillez réessayer."
+  "memory.retire.error": "Impossible de retirer la mémoire. Veuillez réessayer.",
+  "memory.merge.heading": "{count, plural, one {# grappe de quasi-doublons à fusionner} other {# grappes de quasi-doublons à fusionner}}",
+  "memory.merge.description": "La fusion conserve l’entrée la plus utilisée et archive ses quasi-doublons. L’archivage est réversible. « Conserver » les laisse toutes actives.",
+  "memory.merge.keepBadge": "conserver",
+  "memory.merge.mergeBadge": "fusionner",
+  "memory.merge.confirm": "Fusionner",
+  "memory.merge.dismiss": "Conserver",
+  "memory.merge.confirmed": "Mémoires fusionnées",
+  "memory.merge.error": "Impossible de fusionner les mémoires. Veuillez réessayer."
 }

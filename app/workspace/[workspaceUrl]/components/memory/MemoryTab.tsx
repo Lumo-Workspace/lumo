@@ -9,9 +9,11 @@ import { parseMemoryContent } from '@/lib/memory/schemas'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
 import { useFragmentTrust } from '../../hooks/useFragmentTrust'
 import { useRetireCandidates } from '../../hooks/useRetireCandidates'
+import { useMergeCandidates } from '../../hooks/useMergeCandidates'
 import { Button } from '@/components/ui/button'
 import { MemoryListItem } from './MemoryListItem'
 import { RetireReviewPanel } from './RetireReviewPanel'
+import { MergeReviewPanel } from './MergeReviewPanel'
 import { MemoryEditDialog, type MemorySubmitPayload } from './MemoryEditDialog'
 
 interface MemoryTabProps {
@@ -72,6 +74,11 @@ export function MemoryTab({
     parentId,
     enabled && isProject
   )
+  const {
+    candidates: mergeCandidates,
+    confirmMerge,
+    confirming: merging,
+  } = useMergeCandidates(parentId, enabled && isProject)
   const memoriesById = useMemo(
     () => new Map(visibleMemories.map(m => [m.id, m])),
     [visibleMemories]
@@ -155,6 +162,14 @@ export function MemoryTab({
         </div>
       ) : (
         <div className='space-y-2'>
+          {isProject && (
+            <MergeReviewPanel
+              candidates={mergeCandidates}
+              memoriesById={memoriesById}
+              onConfirm={confirmMerge}
+              confirming={merging}
+            />
+          )}
           {isProject && (
             <RetireReviewPanel
               candidates={candidates}

@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Pensiunkan",
   "memory.retire.dismiss": "Simpan",
   "memory.retire.confirmed": "Memori dipensiunkan",
-  "memory.retire.error": "Tidak dapat memensiunkan memori. Silakan coba lagi."
+  "memory.retire.error": "Tidak dapat memensiunkan memori. Silakan coba lagi.",
+  "memory.merge.heading": "{count, plural, one {# klaster nyaris-duplikat untuk digabungkan} other {# klaster nyaris-duplikat untuk digabungkan}}",
+  "memory.merge.description": "Menggabungkan akan mempertahankan entri yang paling sering dipakai dan mengarsipkan nyaris-duplikatnya. Pengarsipan dapat dibatalkan. ‘Pertahankan’ membiarkan semuanya tetap aktif.",
+  "memory.merge.keepBadge": "pertahankan",
+  "memory.merge.mergeBadge": "gabung",
+  "memory.merge.confirm": "Gabungkan",
+  "memory.merge.dismiss": "Pertahankan",
+  "memory.merge.confirmed": "Memori digabungkan",
+  "memory.merge.error": "Tidak dapat menggabungkan memori. Silakan coba lagi."
 }

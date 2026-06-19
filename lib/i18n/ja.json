@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "廃止",
   "memory.retire.dismiss": "保持",
   "memory.retire.confirmed": "メモリを廃止しました",
-  "memory.retire.error": "メモリを廃止できませんでした。もう一度お試しください。"
+  "memory.retire.error": "メモリを廃止できませんでした。もう一度お試しください。",
+  "memory.merge.heading": "{count, plural, one {マージ対象の類似クラスタ #件} other {マージ対象の類似クラスタ #件}}",
+  "memory.merge.description": "マージすると最もよく使われるエントリを残し、その類似項目をアーカイブします。アーカイブは元に戻せます。保持を選ぶとすべて有効なままになります。",
+  "memory.merge.keepBadge": "残す",
+  "memory.merge.mergeBadge": "マージ",
+  "memory.merge.confirm": "マージ",
+  "memory.merge.dismiss": "保持",
+  "memory.merge.confirmed": "メモリをマージしました",
+  "memory.merge.error": "メモリをマージできませんでした。もう一度お試しください。"
 }
