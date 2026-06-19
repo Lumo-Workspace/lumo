@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "依赖",
   "task.dependencies.field.blocks": "阻塞 {count}",
   "task.dependencies.field.suggested": "{count} 个待确认",
-  "task.dependencies.field.manage": "管理依赖"
+  "task.dependencies.field.manage": "管理依赖",
+  "task.dependencies.field.blocked": "被阻塞"
 }

@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "Dép.",
   "task.dependencies.field.blocks": "bloque {count}",
   "task.dependencies.field.suggested": "{count} suggérée(s)",
-  "task.dependencies.field.manage": "Gérer les dépendances"
+  "task.dependencies.field.manage": "Gérer les dépendances",
+  "task.dependencies.field.blocked": "Bloqué"
 }

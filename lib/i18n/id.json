@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "memblokir {count}",
   "task.dependencies.field.suggested": "{count} disarankan",
-  "task.dependencies.field.manage": "Kelola dependensi"
+  "task.dependencies.field.manage": "Kelola dependensi",
+  "task.dependencies.field.blocked": "Diblokir"
 }

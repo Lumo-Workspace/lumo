@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "Завис.",
   "task.dependencies.field.blocks": "блокирует {count}",
   "task.dependencies.field.suggested": "{count} предложено",
-  "task.dependencies.field.manage": "Управление зависимостями"
+  "task.dependencies.field.manage": "Управление зависимостями",
+  "task.dependencies.field.blocked": "Заблокировано"
 }

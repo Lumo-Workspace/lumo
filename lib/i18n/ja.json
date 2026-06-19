@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "依存",
   "task.dependencies.field.blocks": "{count} 件をブロック",
   "task.dependencies.field.suggested": "{count} 件の候補",
-  "task.dependencies.field.manage": "依存関係を管理"
+  "task.dependencies.field.manage": "依存関係を管理",
+  "task.dependencies.field.blocked": "ブロック中"
 }

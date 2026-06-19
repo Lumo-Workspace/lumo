@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "निर्भरताएँ",
   "task.dependencies.field.blocks": "{count} को रोकता है",
   "task.dependencies.field.suggested": "{count} सुझाई गई",
-  "task.dependencies.field.manage": "निर्भरताएँ प्रबंधित करें"
+  "task.dependencies.field.manage": "निर्भरताएँ प्रबंधित करें",
+  "task.dependencies.field.blocked": "अवरुद्ध"
 }

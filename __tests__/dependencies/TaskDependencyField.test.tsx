@@ -119,3 +119,46 @@ it('TaskDependencyField renders a DONE blocker as satisfied and excludes it from
     screen.getByText('LUM-9').closest('[data-blocker-state]')
   ).toHaveAttribute('data-blocker-state', 'satisfied')
 })
+
+it('renders the empty state when there are no edges', () => {
+  const { container } = renderField([])
+  // react-intl mock returns the key id when no defaultMessage is supplied.
+  expect(
+    screen.getByText('task.dependencies.addDependency')
+  ).toBeInTheDocument()
+  expect(container.querySelector('a')).toBeNull()
+})
+
+it('shows no dangling separator when only suggested candidates exist', () => {
+  const { container } = renderField([
+    edge({
+      status: 'SUGGESTED',
+      other: { identifier: 'LUM-6', title: 'maybe', status: 'TODO' },
+    }),
+  ])
+  expect(screen.getByText('1 suggested')).toBeInTheDocument()
+  expect(container.textContent?.trim().startsWith('·')).toBe(false)
+})
+
+it('shows no stray manage icon when only blockers exist', () => {
+  const { container } = renderField([blocker('LUM-9', 'IN_PROGRESS')])
+  expect(screen.getByText('LUM-9')).toBeInTheDocument()
+  // The GitFork lucide icon renders an <svg class="lucide lucide-git-fork">.
+  expect(container.querySelector('.lucide-git-fork')).toBeNull()
+})
+
+it('does not show the empty state when only RELATES edges exist', () => {
+  const { container } = renderField([
+    edge({
+      kind: 'RELATES',
+      status: 'CONFIRMED',
+      other: { identifier: 'LUM-7', title: 'related', status: 'TODO' },
+    }),
+  ])
+  // Empty-state add affordance must be absent…
+  expect(
+    screen.queryByText('task.dependencies.addDependency')
+  ).not.toBeInTheDocument()
+  // …and the manage affordance (GitFork fallback) is present.
+  expect(container.querySelector('.lucide-git-fork')).not.toBeNull()
+})

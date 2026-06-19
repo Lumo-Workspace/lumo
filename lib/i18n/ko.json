@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "의존성",
   "task.dependencies.field.blocks": "{count}개 차단",
   "task.dependencies.field.suggested": "{count}개 제안됨",
-  "task.dependencies.field.manage": "의존성 관리"
+  "task.dependencies.field.manage": "의존성 관리",
+  "task.dependencies.field.blocked": "차단됨"
 }

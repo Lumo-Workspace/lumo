@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "Deps",
   "task.dependencies.field.blocks": "menyekat {count}",
   "task.dependencies.field.suggested": "{count} dicadangkan",
-  "task.dependencies.field.manage": "Urus kebergantungan"
+  "task.dependencies.field.manage": "Urus kebergantungan",
+  "task.dependencies.field.blocked": "Disekat"
 }

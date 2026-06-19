@@ -1743,5 +1743,6 @@
   "task.dependencies.field.label": "Phụ thuộc",
   "task.dependencies.field.blocks": "chặn {count}",
   "task.dependencies.field.suggested": "{count} đề xuất",
-  "task.dependencies.field.manage": "Quản lý phụ thuộc"
+  "task.dependencies.field.manage": "Quản lý phụ thuộc",
+  "task.dependencies.field.blocked": "Bị chặn"
 }
