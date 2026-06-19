@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to work with Lumo (project management for dev teams) from the terminal: load task context, bind Claude Code sessions, and create/update/list/show/comment on tasks, projects, milestones, sprints, documents, artifacts, Figma links, dependencies, and team memory — plus acceptance criteria, machine verification (verify / task status), lineage audit, worktree scaffolding, and CLI setup/auth/update. Activate when the user mentions a Lumo task identifier (LUM-N) or the lumo CLI, in any language; asks to load task background or bind/check a session; manages any of the resources above in Lumo; is starting, resuming, or about to claim completion of a task; or asks what to work on next. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "milestone", "sprint", "docs", "memory", "deps", "lineage", "worktree", "design link", "what should I work on", "resume task".'
+description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -17,6 +17,8 @@ which lumo && lumo whoami
 
 ## How this skill is organized
 
+**Starting, resuming, or finishing work on a task? Read [Core workflow](#core-workflow) at the bottom first** — it's the happy path (attach → context → criteria → work → verify) and the recurring traps. The catalog is a lookup table, not the starting point.
+
 The command catalog below is a **map**: it lists every command grouped by domain with a one-line summary. **Detailed flags, examples, output formats, and "when to suggest" guidance live in the `references/` files** — when a user request lands in a domain, **Read the matching reference file before composing the command**. Don't run a command from memory if its flags/edge-cases matter; open the reference first.
 
 | Domain                                                                                  | Read this reference                                            |
@@ -24,12 +26,14 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `setup`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)           |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)       | [references/task-context.md](references/task-context.md)       |
 | `task create/update/list/show/comment`, `next`                                          | [references/tasks.md](references/tasks.md)                     |
+| `task deps add/list/confirm/dismiss/rm` (dependency edges)                              | [references/task-deps.md](references/task-deps.md)             |
 | `task artifact*`, `task figma*`                                                         | [references/artifacts-figma.md](references/artifacts-figma.md) |
 | `task criteria set/list`, drafting the acceptance contract                              | [references/criteria.md](references/criteria.md)               |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
 | `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
-| `doc*`                                                                                  | [references/docs.md](references/docs.md)                       |
+| `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
+| `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)  | [references/doc-editing.md](references/doc-editing.md)         |
 | `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
 | `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
 | `session attach/status`, git-suggest on start, Layer-2 review                           | [references/sessions.md](references/sessions.md)               |
@@ -52,7 +56,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
 - `lumo task comments list <id>` — comment thread, capped to the output budget (`--full` prints every comment; read-only; ≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata (v1)
-- `lumo task lineage <id>` — show the causal trail: fragments that fed the task + each one's outcome (each fragment line shows its disclosure tag: `· INDEX pulled` / `· INDEX not-pulled` / `· FULL`) + the run's token/loop cost (read-only audit view); totals include a single-task disclosure-funnel summary (`- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`) and a per-task **"Top operations by token cost"** Top-5 — the most expensive tools by attributed token cost, with a pointer to the full breakdown via `lumo cost --task <id>`; `lumo task lineage <id> --signal` also appends workspace-level usage signal-health (used distribution, per-session variance, used-vs-base merge rate via iteration-taint fold — tasks with a send-back/reopen/PR-close count as the negative class even if later merged; shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet; also prints a raw count of mid-flight `--new-scope` spinoffs (recorded, not yet judged — LUM-511 Phase 3)) and a workspace-wide disclosure funnel in the same shape as the single-task line
+- `lumo task lineage <id>` — read-only causal-trail audit: fragments that fed the task + each one's disclosure tag/outcome, the run's token/loop cost, a disclosure-funnel summary, and a Top-5 "operations by token cost"; `--signal` appends workspace-level usage signal-health (see [task-context.md](references/task-context.md))
 
 **Tasks** — see [tasks.md](references/tasks.md)
 
@@ -63,30 +67,30 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body>` — leave a comment
 
-**Task dependencies**
+**Task dependencies** — see [task-deps.md](references/task-deps.md)
 
-- `lumo task deps list <id>` — list dependency edges in both directions, grouped CONFIRMED / SUGGESTED (pending confirmation) / DISMISSED; each row shows a short edge id `[xxxxxxxx]`, the other task, and detected evidence (`shared_files(N shared files: …)` / `task_mention(…)`); SUGGESTED rows include a copy-pasteable confirm hint
-- `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (created CONFIRMED, source MANUAL; if a SUGGESTED/DISMISSED edge already exists in the same direction, it is confirmed in place rather than creating a new row)
-- `lumo task deps confirm <id> <edge> [--reverse]` — confirm a detected candidate; `<edge>` is a short edge-id prefix (≥6 chars) or the other task's identifier (case-insensitive); `--reverse` flips the direction when the detector guessed it backwards
+- `lumo task deps list <id>` — list dependency edges both directions, grouped CONFIRMED / SUGGESTED / DISMISSED (each row: short edge id + other task + detected evidence)
+- `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (CONFIRMED)
+- `lumo task deps confirm <id> <edge> [--reverse]` — confirm a detected candidate (`--reverse` flips direction)
 - `lumo task deps dismiss <id> <edge>` — dismiss a candidate (never re-suggested)
 - `lumo task deps rm <id> <edge> --yes` — delete an edge (refuses without `--yes`)
-- On an ambiguous/unknown `<edge>` selector the CLI prints all candidates with short ids and exits 1 — retry with one of them
+- `<edge>` = short edge-id prefix (≥6 chars) or the other task's identifier; ambiguous/unknown selectors list candidates and exit 1. See [tasks.md](references/tasks.md)
 
 **Acceptance criteria (contract)** — see [criteria.md](references/criteria.md)
 
-- `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract: default = agent draft (AGENT_DRAFT, editable until DONE — full-group replace while never-left-TODO; identity-preserving diff with CRITERION_CHANGED drift trail once work has started; 409 only when task is DONE); `--human` = a HUMAN_EDIT revision transcribed from the conversation (desired final list; items with `id` keep/update, missing ones are deleted; allowed in every non-DONE stage); `--cause` (with `--human`) annotates why the contract drifted: `NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER`
+- `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract (full-group replace). Default = agent draft (AGENT_DRAFT, editable until DONE); `--human` = a HUMAN_EDIT revision transcribed from the conversation; `--cause` annotates why the contract drifted. See [criteria.md](references/criteria.md)
 - `lumo task criteria list <task>` — print the contract (id, MACHINE/HUMAN, provenance source@round, checkpointer)
 
 **Verification (machine acceptance loop)** — see [verify.md](references/verify.md)
 
-- `lumo verify [task] [--timeout <seconds>]` — run every MACHINE criterion's checkpointer locally, report one structured PASS/FAIL verdict per criterion to the server, print next actions. Defaults to the session-bound task. Round cap 3: an all-pass round moves the task to IN_REVIEW (agent stops there); a round-3 fail escalates to a human (stop retrying). **Run this before claiming a task is done.**
-- `lumo task status [task] [--json]` — read-only acceptance self-check (no LLM, milliseconds): the contract with each criterion's latest verdict (REVIEW_ADDED provenance visible), verification history, current round, last round's failure reasons, a per-criterion **send-back lifecycle** line when applicable (`↳ send-back (rN) resolved in rM · PR #K` / `… open` — LUM-511 Phase 5), `nextActions` = the unmet criteria (the declarative "what's next" — no separate plan), and any OPEN (undispositioned) boundary crossings (count + per crossing category/severity/detail + a read-only attribution line `↳ by model=…·agent=…·session=…` naming who/what crossed, `unknown` when unresolved — LUM-469; `--json` adds an `openCrossings` field, each entry carrying an `attribution` object) — read-only awareness, disposition stays web + human-only (LUM-448). The crossings check fails closed (LUM-480): if the read errors, the block prints `⚠ Boundary-crossing check failed` instead of staying silent, and `--json` sets `openCrossings: null` (distinct from `[]` = a successful read with zero open — treat `null` as "could not confirm", not "safe"). Defaults to the session-bound task; `--json` emits a versioned payload (`version` field). **Run it first when resuming a task in a new session or after a verification round was rejected.**
-- `lumo verdict [task] --pass | --fail` — acceptance verdicts (LUM-422). `--pass` opens the browser to the human verdict bar focused on Pass (a deep link — **records nothing**; a passing data row is only ever a human's own click). `--fail --reason <enum> [--note <text>] [--criterion <id>…]` records an **AGENT send-back** (verifierType=AGENT, verdict hard-coded FAIL) and bounces the task to IN_PROGRESS. Defaults to the session-bound task. **An unresolved send-back (machine/AGENT/human FAIL) blocks the agent/CLI DONE transition with 409** — clear it (re-verify) before `task update --status done`.
-- `lumo crossing explain <id> --note "<text>"` — append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). The **inverse** of dispositioning: this is the agent/CLI path (bearer-only; a clerk/human caller is refused), but it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (disposition stays web + human-only, LUM-448). The note is shown to the human reviewer at disposition time and kept for later review, explicitly labeled _agent self-report · unverified_. Scope: `<id>` must be a crossing on the **session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task targets and unbound/mismatched sessions are rejected). Earlier explanations are immutable — a correction is a new note. **When to suggest:** after `lumo task status` (or the next pre-tool-use hook's one-time reminder) surfaces an OPEN crossing you believe is a false positive or want to leave a rationale for — record it here; it's a review aid, not a way to self-clear the gate.
+- `lumo verify [task] [--timeout <seconds>]` — run every MACHINE criterion's checkpointer locally and report a structured PASS/FAIL verdict per criterion. Round cap 3: all-pass → task to IN_REVIEW (agent stops); round-3 fail → escalate to human. **Run this before claiming a task is done.**
+- `lumo task status [task] [--json]` — read-only acceptance self-check (no LLM): the contract with each criterion's latest verdict, verification history/round, last failure reasons, `nextActions` (the unmet criteria), and any OPEN boundary crossings (fails closed — `null`/`⚠` means "could not confirm", not safe). **Run it first when resuming a task or after a round was rejected.**
+- `lumo verdict [task] --pass | --fail` — acceptance verdicts. `--pass` deep-links to the human verdict bar (records nothing). `--fail --reason <enum> …` records an AGENT send-back → IN_PROGRESS. **An unresolved send-back blocks the DONE transition with 409.**
+- `lumo crossing explain <id> --note "<text>"` — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done** (disposition stays web + human-only). A review aid, not a self-clear.
 
 **Cost (per-operation token read-out)** — see [task-context.md](references/task-context.md)
 
-- `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation (per-tool) token cost read-out. Attributes each model step's token delta to the tool(s) it ran (per-step where POST_TOOL_BATCH data exists, per-turn fallback otherwise); each ranking row breaks the cost into output / input / cache_create / cache_read columns plus total, with a per-step coverage line and a "heuristic" note (parallel tools split a step's tokens evenly; output and cache_read attribute cleanly per step while input and cache_create are bursty, so per-tool figures for those two are coarse). Scope is mutually exclusive: `--task` (one task) / `--session` (one Claude Code session) / `--since` (workspace window); default = workspace last-30-days. `--by` only changes which grouping is the headline (the others are still printed when non-trivial). For the per-task Top-5 inline, see `lumo task lineage`.
+- `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost read-out, attributing each model step's token delta to the tool(s) it ran. Scope is mutually exclusive (default = workspace last-30-days). For the per-task Top-5 inline, see `lumo task lineage`.
 
 **Artifacts & Figma** — see [artifacts-figma.md](references/artifacts-figma.md)
 
@@ -102,18 +106,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo milestone summary [--retry]` — AI retro
 - `lumo milestone reorder/move` — manual ordering
 
-**Documents** — see [docs.md](references/docs.md)
+**Documents** — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** (raw/section/patch/append/diff/rebuild) → [doc-editing.md](references/doc-editing.md)
 
-- `lumo doc create/update/show/list/delete` — document CRUD; `doc show` prints the body revision, `doc update` takes `--if-revision <n>` (mismatch → 409 conflict, re-read and retry — no silent overwrite); a body update that drops tables/rows/headings vs the stored body is rejected 422 by the built-in structure guard unless `--allow-shrink` is passed (intentional deletions only — on 422 first suspect a stale edit base)
-- `lumo doc show <doc> --raw` — print the byte-identical markdown source of the last markdown upload (the only legal edit base; errors when no source is stored — never falls back to the lossy HTML→md render)
-- `lumo doc show <doc> --section "<heading>"` — print just one heading-addressed section of the markdown source (byte-faithful slice, subsections included; revision on stderr; prefix `#…` pins depth)
-- `lumo doc patch <doc> --section "<heading>" --content/--file/stdin [--if-revision N] [--allow-shrink]` — replace ONLY that section (heading line included); every byte outside it is untouched; concurrent edits 409 instead of clobbering; the structure guard 422s a replacement that drops the section's tables/rows/headings unless `--allow-shrink` (appends are never guarded)
-- `lumo doc append <doc> [--section "<heading>"] --content/--file/stdin [--if-revision N]` — append at section end (or doc end without `--section`); pure insertion, no existing byte modified — the safest write for running logs/ledgers
-- `lumo doc diff <doc> --file <local.md>` — compare the server-side markdown source against a local file (exit 0 identical, 1 with unified diff)
-- `lumo doc rebuild-source <doc> [--allow-shrink] [--force] [--if-revision N]` — regenerate `sourceMarkdown` from the stored HTML body with a lossless serializer (tables/rows/headings round-trip), re-enabling raw/diff/section/append on a source-less doc; structure-guarded (422 on any shrink, LUM-410 口径), backfills the source only; 409 if a source already exists unless `--force`. Recovery path when raw/section/patch errors "no stored source" (LUM-446)
-- `lumo doc move` — reparent under a parent / to root
-- `lumo doc bind/unbind <doc> <task>` — task linkage
-- `lumo doc share/unshare/share-list` — member sharing
+- `lumo doc create/update/show/list/delete` — document CRUD; `doc update` takes `--if-revision <n>` (mismatch → 409, re-read and retry) and is structure-guarded (drops to tables/rows/headings → 422 unless `--allow-shrink`)
+- `lumo doc show <doc> --raw` / `--section "<heading>"` — print the byte-identical markdown source (the only legal edit base; never the lossy HTML→md render), whole or one heading-addressed slice
+- `lumo doc patch <doc> --section "<heading>" …` — replace ONLY that section; everything else untouched; concurrent edits 409; structure-guarded
+- `lumo doc append <doc> [--section "<heading>"] …` — pure insertion at section/doc end — the safest write for logs/ledgers
+- `lumo doc diff <doc> --file <local.md>` — compare server markdown source vs a local file (guards stale uploads)
+- `lumo doc rebuild-source <doc>` — regenerate `sourceMarkdown` from the HTML body (recovery when raw/section/patch errors "no stored source")
+- `lumo doc move/bind/unbind/share/unshare/share-list` — reparent · task linkage · member sharing
 - `lumo doc import-gdoc` / `lumo doc sync` — Google Doc import & re-sync
 
 **Sprints** — see [sprints.md](references/sprints.md)
@@ -128,18 +129,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task memory add/list` · `lumo project memory add/list` — record/curate Memory (TASK vs PROJECT)
 - `lumo memory show <id>` — show one memory's full card (category + content) by id (progressive disclosure from a one-line index entry)
 - `lumo memory promote <id>` / `lumo memory rm <id> --yes` — TASK→PROJECT / delete
-- `lumo memory sync [--project <ref>] [--dir <path>] [--dry-run] [--clean]` — downsync team memory into the local Claude Code memory store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns, never your own memory; `--dry-run` previews, `--clean` fully reverts (runs alongside session-start injection)
-- `lumo memory push [--project <ref>] [--dir <path>] [--dry-run]` — upsync locally-authored memories (`<memory-dir>/outbox/*.json`, each `{category, content}`) to the team via the existing create-project-memory pipeline (canonicalize/dedup/reconcile-on-write); pushed files leave the outbox on success
-- `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding itself runs automatically via a daily cron; there is no manual apply, no `unfold`). Prints each proposed coarse "subsystem card" + how many fine cards it would fold / leave ACTIVE. Defaults to the session-bound project. **When to suggest:** when a project's PROJECT memory is "又多又细" (many fine-grained but non-duplicate cards) and you want to see how folding would collapse it before the next daily pass.
+- `lumo memory sync [--dry-run] [--clean]` — downsync team memory into the local Claude Code store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns
+- `lumo memory push [--dry-run]` — upsync locally-authored memories from `<memory-dir>/outbox/*.json` to the team
+- `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding runs via a daily cron; no manual apply, no `unfold`). See [memory.md](references/memory.md)
 
 **Sessions** — see [sessions.md](references/sessions.md)
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
 - `lumo session status` — show current binding
-- End-of-session housekeeping is fully automatic — the old end-of-session command was removed in LUM-544. When a task reaches DONE the server runs three evidence-gated passes, all best-effort and silent:
-  - **Layer-1 memory curation** — an LLM judge reviews the memories the task's sessions recorded and soft-invalidates only the clearly-wrong / self-contradictory ones (invalidate-not-delete; uncertain memories are left untouched). Promotion to project scope stays with the Layer-2 flow.
-  - **Fragment-usage audit** (LUM-314) — an LLM judge votes which injected context fragments were actually used: confidently-used edges → `used=true`, confidently-unused → `used=false`, genuinely-uncertain stay NULL.
-  - **Blocked-tag automation** (LUM-544 §3) — if a session crosses the same-tool failure threshold (≥3) the bound task is auto-tagged `blocked` (idempotent, attributed to the triggering session + model); the next observable progress on that task auto-removes the tag. Human-applied `blocked` tags are never auto-removed.
+- End-of-session housekeeping is fully automatic (no command — removed in LUM-544). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
 **Worktrees (local dev tooling)** — see [worktree.md](references/worktree.md)
@@ -165,15 +163,22 @@ Measured from real agent sessions (LUM-392) — don't guess these:
 
 ## Core workflow
 
-Typical flow when a user says "help me with LUM-42":
+**Starting fresh** — user says "help me with LUM-42":
 
-1. `lumo session attach LUM-42` — bind this session
-2. `lumo task context LUM-42` — load background
-3. Review unresolved items, PR-review todos, and the task description
-4. **If the task has no acceptance criteria** (context shows the draft reminder instead of a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md) for the drafting guide
-5. Begin working on the task
-6. **Before claiming the work is done: run `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (round cap 3). On all-pass the task moves to IN_REVIEW and you stop; never set DONE yourself after a verify loop — that adjudication is human-only. See [verify.md](references/verify.md)
+1. `lumo session attach LUM-42` — bind this session (the binding is a lifetime lock; one session = one task)
+2. `lumo task context LUM-42` — load background; review unresolved items, PR-review todos, the description
+3. **If the task has no acceptance criteria** (context shows the draft reminder, not a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md)
+4. Do the work
+5. **Before claiming done: `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (round cap 3). All-pass → task moves to IN_REVIEW and you stop. See [verify.md](references/verify.md)
 
-**Status-first recovery:** when you pick a task back up — a new session resuming earlier work, or a task that came back after a rejected verification round / review findings — run `lumo task status` **before** re-reading code or planning. It tells you where the loop stands (current round, what passed, what's unmet and why, any REVIEW_ADDED criteria appended during review) so you don't redo finished work or miss the reason it bounced. See [verify.md](references/verify.md)
+**Resuming / after a send-back** — `lumo task status` **before** re-reading code or planning. It tells you where the loop stands (round, what passed, what's unmet and why, any REVIEW_ADDED criteria from review) so you don't redo finished work or miss why it bounced. A send-back means **fix in place / amend the contract — do not spin off a new task.** See [verify.md](references/verify.md)
 
-**Git-suggest at start:** when the session is unbound, session-start may infer the task from the git branch / recent commits (any team prefix, e.g. `SPEC-12`, not just `LUM-N`) and print a suggestion — `Detected LUM-N (from branch name). Run lumo session attach LUM-N to bind.` (or `from recent commits`) — **without** binding. Confirm it's the right task, then run `lumo session attach <LUM-N>` yourself (binding only happens on an explicit attach). See [sessions.md](references/sessions.md) for the full session-start behavior.
+**Git-suggest at start:** when unbound, session-start may infer the task from the git branch / recent commits (any team prefix, e.g. `SPEC-12`) and print `Detected LUM-N … Run lumo session attach LUM-N to bind.` — **without** binding. Confirm it's right, then attach yourself. See [sessions.md](references/sessions.md)
+
+### Golden rules (most-violated — LUM-392)
+
+- **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
+- **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.
+- **Never set DONE yourself after a verify loop** — that adjudication is human-only. An unresolved send-back blocks the DONE transition with 409.
+- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
+- **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

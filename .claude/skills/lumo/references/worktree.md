@@ -24,42 +24,20 @@ lumo worktree add LUM-267 --no-fetch           # branch off existing origin/main
 lumo worktree add LUM-267 --verify             # run npx jest baseline after setup
 ```
 
-Flags: `--base <ref>` (branch off a ref other than origin/main; skips the
-fetch), `--no-fetch` (skip `git fetch origin main`), `--verify` (run `npx jest`
-in the new worktree). Errors if the target dir already exists; reuses the branch
-if it already exists (adds the worktree without `-b`).
+| Flag           | Notes                                                           |
+| -------------- | --------------------------------------------------------------- |
+| `--base <ref>` | Branch off a ref other than origin/main (skips the fetch).      |
+| `--no-fetch`   | Skip `git fetch origin main` (branch off existing origin/main). |
+| `--verify`     | Run `npx jest` baseline in the new worktree after setup.        |
 
-**The prisma gotcha it warns about:** the generated client lives in the shared
-(symlinked) `node_modules`, so a `prisma generate` in one worktree clobbers the
-client every parallel worktree depends on. Verify with jest (SWC mocks Prisma);
-do `generate + tsc` atomically once at the end.
+Errors if the target dir already exists; reuses the branch if it already exists (adds the worktree without `-b`).
 
-**The jest gotcha it warns about:** always run jest from the worktree root (`cd`
-in first) — `cli/` has no jest config, and running from the main checkout hits
-the `cli/package.json` haste collision and silently runs the wrong tests.
+### Gotchas (two it warns about, two it can't fix)
 
-**The husky hooks it copies in:** husky owns git hooks via
-`core.hooksPath = .husky/_`, a relative path git resolves against each
-worktree's own root. That `_` shim dir is **untracked** (husky regenerates it on
-the main checkout's `npm install`/`prepare`), so a fresh worktree would lack it
-and git would **silently skip every hook** — pre-commit (lint-staged) and
-commit-msg (LUM-405 drift-check) included. Since this repo has no GitHub CI,
-husky is the only deterministic quality gate, so `add` copies `.husky/_` into the
-new worktree (copy, not symlink — the shim is tiny and the hooks it invokes
-resolve relative to the worktree). If the main checkout itself has no `.husky/_`
-(husky never installed there), `add` prints a warning telling you to run
-`npm install` in the main checkout to regenerate it, rather than skipping
-silently.
-
-**Never run `npm install` / `npm ci` inside a worktree.** The worktree shares
-the main checkout's `node_modules` via a symlink; npm does not respect the link
-— it deletes it and reifies a full standalone `node_modules` (thousands of
-packages, ~1 min, and the shared prisma-client is gone). Run installs only in
-the main checkout, then re-create the symlink if npm replaced it. (Older npm
-could instead plant a self-referential `node_modules/node_modules` in the shared
-tree, which hard-panics Turbopack's `next build`; the `prebuild`/`predev`/
-`preanalyze` guard — `scripts/fix-nodemodules-selflink.ts` — removes that link
-automatically, but the rule above avoids the whole mess.)
+- **`prisma generate` clobbers all worktrees.** The generated client lives in the shared (symlinked) `node_modules`, so a `generate` in one worktree overwrites the client every parallel worktree depends on. Verify with jest (SWC mocks Prisma); do `generate + tsc` atomically once at the end.
+- **Run jest from the worktree root** (`cd` in first). `cli/` has no jest config; running from the main checkout hits the `cli/package.json` haste collision and silently runs the wrong tests.
+- **Husky hooks are copied in for you.** Husky owns hooks via `core.hooksPath = .husky/_`, resolved relative to each worktree's root. That `_` shim is **untracked** (regenerated on the main checkout's `npm install`/`prepare`), so a fresh worktree would lack it and git would **silently skip every hook** — pre-commit (lint-staged) and commit-msg (LUM-405 drift-check). With no GitHub CI, husky is the only deterministic quality gate, so `add` copies `.husky/_` in (copy, not symlink). If the main checkout has no `.husky/_`, `add` warns you to `npm install` there rather than skipping silently.
+- **Never `npm install` / `npm ci` inside a worktree.** npm doesn't respect the `node_modules` symlink — it deletes it and reifies a full standalone tree (~1 min, shared prisma-client gone). Install only in the main checkout, then re-create the symlink if npm replaced it. (Older npm could plant a self-referential `node_modules/node_modules` that hard-panics Turbopack's `next build`; the `prebuild`/`predev`/`preanalyze` guard `scripts/fix-nodemodules-selflink.ts` removes it, but this rule avoids the mess.)
 
 ## `lumo worktree rm <LUM-N>`
 
@@ -83,3 +61,10 @@ check when jest/tsc misbehaves). Read-only; runnable from anywhere in the repo.
 ```bash
 lumo worktree list
 ```
+
+## When to suggest worktrees
+
+- The user wants to work on a task **in isolation** from the current workspace — a parallel branch they can build/test without disturbing uncommitted work in the main checkout.
+- Starting a second task while one is in flight, or running independent tasks concurrently (one worktree per task — never two tasks in one worktree).
+- Before executing an implementation plan that needs a clean, dedicated branch off `origin/main`.
+- A `MISSING` node_modules link in `lumo worktree list` is the first thing to check when jest/tsc misbehaves in a worktree.
