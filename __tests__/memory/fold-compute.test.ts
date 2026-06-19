@@ -4,6 +4,7 @@
  * LUM-553 — the fail-closed coverage gate. Pure: no LLM, no DB.
  */
 import { selectCoveredSources } from '@/lib/services/memory/fold-compute'
+import { coarseCardSchemaFor } from '@/lib/memory/fold-schemas'
 
 describe('selectCoveredSources', () => {
   it('fold coverage gate is fail-closed and supersede set equals covered set', () => {
@@ -42,5 +43,27 @@ describe('selectCoveredSources', () => {
     // Only the source whose verdict is covered=true AND whose quote is actually
     // present in the coarse card survives. Everything uncertain is dropped.
     expect(covered).toEqual(['covered-real'])
+  })
+})
+
+describe('coarseCardSchemaFor enforces the per-category coarse-card shape', () => {
+  it('accepts a structured TRAP coarse card and rejects a free {id,text} blob', () => {
+    const schema = coarseCardSchemaFor('TRAP')
+
+    // Structured per-category content → valid (the model is forced into this).
+    expect(
+      schema.safeParse({
+        summary: 'Prisma migrations',
+        trigger: 'applying migrations across environments',
+        outcome: 'schema drift / 500s',
+        workaround: '(1) migrate deploy on prod (2) regenerate client',
+      }).success
+    ).toBe(true)
+
+    // The LUM-553 dogfood failure shape: a free {id,text} blob → rejected, so it
+    // can never reach parseMemoryContent and silently fold nothing.
+    expect(
+      schema.safeParse({ id: 'coarse-prisma', text: '(1)… (2)… (3)…' }).success
+    ).toBe(false)
   })
 })
