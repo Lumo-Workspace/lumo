@@ -175,9 +175,11 @@ export async function computeProjectFoldProposals(
       )
       if (sourceIds.length < MIN_CLUSTER_SIZE) continue
 
-      const excludedIds = cluster.sourceMemoryIds.filter(
-        id => !sourceIds.includes(id)
-      )
+      // Exclude from the resolved cluster members (drop any id the LLM
+      // hallucinated that wasn't in the bucket), not the raw model output.
+      const excludedIds = clusterSources
+        .map(s => s.id)
+        .filter(id => !sourceIds.includes(id))
       proposals.push({ category, coarseContent, sourceIds, excludedIds })
     }
   }
