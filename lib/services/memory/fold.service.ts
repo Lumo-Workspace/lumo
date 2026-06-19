@@ -7,9 +7,15 @@ import { computeProjectFoldProposals } from '@/lib/services/memory/fold-compute'
 import type { FoldProposal } from '@/lib/memory/fold-schemas'
 import { logger } from '@/lib/logger'
 
-/** Only fold projects with at least this many ACTIVE PROJECT memories — the
- *  "又多又细" condition; small corpora aren't worth an LLM pass. */
-export const FOLD_TRIGGER_FLOOR = 40
+/** Target resident ACTIVE PROJECT memory budget — the MEMORY.md-style cap. The
+ *  fold pass runs only when a project is OVER this, and folds the corpus down
+ *  toward it (best-effort; fold-only can't always reach it — singletons that
+ *  don't cluster stay). */
+export const MEMORY_CAP = 60
+/** Max clusters folded per cron run — bounds one serverless invocation's LLM
+ *  time (a full backlog can exceed the function timeout). The backlog converges
+ *  over runs; the one-time offline backfill is unbounded. */
+export const FOLD_MAX_CLUSTERS_PER_RUN = 6
 /** Minimum gap between fold attempts on one project (6 days). The daily cron ×
  *  this interval → each project folds ~weekly and idle projects rarely burn LLM. */
 export const FOLD_COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000
@@ -18,7 +24,7 @@ const FOLD_LEASE_TTL_MS = 10 * 60 * 1000
 
 export interface TriggerResult {
   folded: number
-  skipped?: 'below-floor' | 'cooldown' | 'no-project' | 'locked'
+  skipped?: 'within-cap' | 'cooldown' | 'no-project' | 'locked'
   error?: boolean
 }
 
@@ -52,11 +58,13 @@ async function applyFold(
 
 export const foldService = {
   /**
-   * Autonomous fold entry for one project (called by the daily cron). Throttled:
-   * active-count floor → per-project cooldown → the shared Layer-2 project lease.
-   * On pass: stamp the attempt, compute proposals, apply each. Best-effort — any
-   * error is swallowed (a cron over many projects must not abort on one), and the
-   * lease is always released.
+   * Autonomous fold entry for one project (called by the daily cron). Runs only
+   * when the project is OVER the MEMORY_CAP, then folds toward it. Throttled:
+   * over-cap → per-project cooldown → the shared Layer-2 project lease. Folds the
+   * biggest clusters first (most reduction), at most FOLD_MAX_CLUSTERS_PER_RUN
+   * per run, stopping once the projected count is back within cap. Best-effort —
+   * any error is swallowed (a cron over many projects must not abort on one), and
+   * the lease is always released.
    */
   async triggerForProject(
     projectId: string,
@@ -64,8 +72,8 @@ export const foldService = {
   ): Promise<TriggerResult> {
     try {
       const active = await memoryRepository.findActiveProjectMemories(projectId)
-      if (active.length < FOLD_TRIGGER_FLOOR) {
-        return { folded: 0, skipped: 'below-floor' }
+      if (active.length <= MEMORY_CAP) {
+        return { folded: 0, skipped: 'within-cap' }
       }
 
       const state = await projectRepository.findFoldState(projectId)
@@ -90,9 +98,16 @@ export const foldService = {
 
       try {
         await projectRepository.stampFoldAttempt(projectId, now)
-        const proposals = await computeProjectFoldProposals(projectId)
+        // Bound the compute to ~K clusters (serverless time budget), biggest
+        // first (each fold of N sources reduces the count by N-1).
+        const proposals = await computeProjectFoldProposals(projectId, {
+          maxProposals: FOLD_MAX_CLUSTERS_PER_RUN,
+        })
+        proposals.sort((a, b) => b.sourceIds.length - a.sourceIds.length)
+        let remaining = active.length
         let folded = 0
         for (const proposal of proposals) {
+          if (remaining <= MEMORY_CAP) break // back within budget — stop early
           try {
             await applyFold(
               projectId,
@@ -101,6 +116,7 @@ export const foldService = {
               sourceSessionId
             )
             folded++
+            remaining -= proposal.sourceIds.length - 1
           } catch (error) {
             // One proposal aborting (e.g. a racing supersede) must not stop the rest.
             logger.warn(

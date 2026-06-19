@@ -3,7 +3,10 @@
  *
  * LUM-553 — the fail-closed coverage gate. Pure: no LLM, no DB.
  */
-import { selectCoveredSources } from '@/lib/services/memory/fold-compute'
+import {
+  mapWithConcurrency,
+  selectCoveredSources,
+} from '@/lib/services/memory/fold-compute'
 import { coarseCardSchemaFor } from '@/lib/memory/fold-schemas'
 
 describe('selectCoveredSources', () => {
@@ -65,5 +68,23 @@ describe('coarseCardSchemaFor enforces the per-category coarse-card shape', () =
     expect(
       schema.safeParse({ id: 'coarse-prisma', text: '(1)… (2)… (3)…' }).success
     ).toBe(false)
+  })
+})
+
+describe('mapWithConcurrency', () => {
+  it('preserves order, processes all items, and never exceeds the cap', async () => {
+    let active = 0
+    let peak = 0
+    const out = await mapWithConcurrency([1, 2, 3, 4, 5, 6, 7], 3, async n => {
+      active++
+      peak = Math.max(peak, active)
+      await new Promise(r => setTimeout(r, 5))
+      active--
+      return n * 2
+    })
+
+    expect(out).toEqual([2, 4, 6, 8, 10, 12, 14]) // order preserved, all run
+    expect(peak).toBeLessThanOrEqual(3) // cap respected
+    expect(peak).toBeGreaterThan(1) // actually concurrent (not serialized)
   })
 })

@@ -4,6 +4,8 @@ import { projectRepository } from '@/lib/repositories'
 import { computeProjectFoldProposals } from '@/lib/services/memory/fold-compute'
 
 export const runtime = 'nodejs'
+// The dry-run preview runs the full LLM fold pipeline; give it the platform max.
+export const maxDuration = 300
 
 type Params = { params: Promise<{ id: string }> }
 

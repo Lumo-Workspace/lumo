@@ -20,6 +20,12 @@ const MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const MIN_CLUSTER_SIZE = 3
 /** Coverage quote must be at least this long to count (guards empty/degenerate). */
 const MIN_QUOTE_LEN = 8
+/** Max concurrent per-cluster LLM pipelines. Clusters are independent, so they
+ *  run in parallel — sequential processing of ~26 clusters (synthesize +
+ *  coverage each) ran for minutes and blew the serverless function timeout
+ *  (LUM-553 prod dogfood: a 266-card project took >300s). Capped to stay within
+ *  gateway rate limits. */
+const FOLD_CONCURRENCY = 6
 
 const CATEGORIES: MemoryCategory[] = [
   'TRAP',
@@ -78,6 +84,27 @@ async function generateWithRetry<T>(
     }
   }
   return null
+}
+
+/** Map `items` through `fn` with at most `limit` running concurrently, preserving
+ *  input order in the result. A fixed worker pool pulls from a shared cursor. */
+export async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = cursor++
+      if (i >= items.length) return
+      results[i] = await fn(items[i]!, i)
+    }
+  }
+  const poolSize = Math.max(1, Math.min(limit, items.length))
+  await Promise.all(Array.from({ length: poolSize }, () => worker()))
+  return results
 }
 
 /**
@@ -195,38 +222,74 @@ async function coverageVerdicts(
  * fail-closed coverage gate decides which sources are safe to fold. A proposal
  * is emitted only when ≥ MIN_CLUSTER_SIZE sources pass the gate. Best-effort:
  * every LLM step degrades to "no fold" (empty), never throws on model failure.
+ *
+ * `opts.maxProposals` bounds the work to roughly the K biggest clusters (most
+ * count-reduction first), so one cron run stays within the serverless time
+ * budget — the LLM synthesis/coverage of all clusters of a big project runs for
+ * minutes. Omit it (the offline backfill) to fold every viable cluster.
  */
 export async function computeProjectFoldProposals(
-  projectId: string
+  projectId: string,
+  opts: { maxProposals?: number } = {}
 ): Promise<FoldProposal[]> {
   const memories = await memoryRepository.findActiveProjectMemories(projectId)
-  const proposals: FoldProposal[] = []
 
-  for (const category of CATEGORIES) {
-    const items: FoldItem[] = memories
+  // Phase 1 — cluster every category in parallel (each is one small LLM call).
+  const buckets = CATEGORIES.map(category => ({
+    category,
+    items: memories
       .filter(m => m.category === category)
-      .map(m => ({ id: m.id, text: memoryContentToText(category, m.content) }))
-    if (items.length < MIN_CLUSTER_SIZE) continue
+      .map(m => ({ id: m.id, text: memoryContentToText(category, m.content) })),
+  })).filter(b => b.items.length >= MIN_CLUSTER_SIZE)
 
-    const groups = await clusterMemories(category, items)
-    const itemById = new Map(items.map(i => [i.id, i]))
+  const clustered = await Promise.all(
+    buckets.map(async b => ({
+      category: b.category,
+      itemById: new Map(b.items.map(i => [i.id, i])),
+      groups: await clusterMemories(b.category, b.items),
+    }))
+  )
 
-    for (const group of groups) {
+  // Flatten to one work unit per viable cluster.
+  const units: Array<{ category: MemoryCategory; clusterSources: FoldItem[] }> =
+    []
+  for (const c of clustered) {
+    for (const group of c.groups) {
       // Resolve to real bucket members (drop any id the LLM hallucinated).
       const clusterSources = group
-        .map(id => itemById.get(id))
+        .map(id => c.itemById.get(id))
         .filter((i): i is FoldItem => i !== undefined)
       if (clusterSources.length < MIN_CLUSTER_SIZE) continue
+      units.push({ category: c.category, clusterSources })
+    }
+  }
 
-      // Phase 2 — synthesize this cluster's coarse card; skip on failure.
+  // Biggest clusters first — each fold of N sources cuts the count by N-1, so
+  // the largest clusters reduce the index fastest toward the cap.
+  units.sort((a, b) => b.clusterSources.length - a.clusterSources.length)
+
+  // When bounded (cron), only synthesize a candidate window of the biggest
+  // clusters — 2× the target leaves headroom for coverage-gate drops — so the
+  // expensive phase stays within the serverless budget. Unbounded for backfill.
+  const candidates =
+    opts.maxProposals !== undefined
+      ? units.slice(0, opts.maxProposals * 2)
+      : units
+
+  // Phases 2–3 — synthesize + coverage-gate each cluster, concurrency-capped.
+  // One unit failing/dropping never affects another (each returns null).
+  const results = await mapWithConcurrency(
+    candidates,
+    FOLD_CONCURRENCY,
+    async ({ category, clusterSources }): Promise<FoldProposal | null> => {
       const synthesized = await synthesizeCoarse(category, clusterSources)
-      if (!synthesized) continue
+      if (!synthesized) return null
       // Re-validate the shape (defense in depth; the schema already enforced it).
       let coarseContent: MemoryContent
       try {
         coarseContent = parseMemoryContent(category, synthesized)
       } catch {
-        continue
+        return null
       }
       const coarseText = memoryContentToText(category, coarseContent)
 
@@ -236,14 +299,17 @@ export async function computeProjectFoldProposals(
         clusterSources,
         verdicts
       )
-      if (sourceIds.length < MIN_CLUSTER_SIZE) continue
+      if (sourceIds.length < MIN_CLUSTER_SIZE) return null
 
       const excludedIds = clusterSources
         .map(s => s.id)
         .filter(id => !sourceIds.includes(id))
-      proposals.push({ category, coarseContent, sourceIds, excludedIds })
+      return { category, coarseContent, sourceIds, excludedIds }
     }
-  }
+  )
 
-  return proposals
+  const proposals = results.filter((p): p is FoldProposal => p !== null)
+  return opts.maxProposals !== undefined
+    ? proposals.slice(0, opts.maxProposals)
+    : proposals
 }

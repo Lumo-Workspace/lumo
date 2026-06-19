@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-553 — triggerForProject throttle: active-count floor + per-project cooldown
- * + lease, and best-effort error swallowing.
+ * LUM-553 — triggerForProject throttle: over-cap (MEMORY_CAP) + per-project
+ * cooldown + lease, and best-effort error swallowing.
  */
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
@@ -21,10 +21,7 @@ jest.mock('@/lib/services/memory/fold-compute', () => ({
 }))
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: jest.fn() }))
 
-import {
-  foldService,
-  FOLD_TRIGGER_FLOOR,
-} from '@/lib/services/memory/fold.service'
+import { foldService, MEMORY_CAP } from '@/lib/services/memory/fold.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { computeProjectFoldProposals } from '@/lib/services/memory/fold-compute'
@@ -36,9 +33,9 @@ const mFoldState = projectRepository.findFoldState as jest.Mock
 const mStamp = projectRepository.stampFoldAttempt as jest.Mock
 const mCompute = computeProjectFoldProposals as jest.Mock
 
-const aboveFloor = () =>
+const overCap = () =>
   mActive.mockResolvedValue(
-    Array.from({ length: FOLD_TRIGGER_FLOOR }, (_, i) => ({ id: `m${i}` }))
+    Array.from({ length: MEMORY_CAP + 5 }, (_, i) => ({ id: `m${i}` }))
   )
 
 beforeEach(() => {
@@ -52,8 +49,8 @@ beforeEach(() => {
 })
 
 describe('foldService.triggerForProject is throttled by active-count floor and cooldown and swallows errors', () => {
-  it('skips below the active-count floor without computing or stamping', async () => {
-    mActive.mockResolvedValue([{ id: 'm1' }]) // < FOLD_TRIGGER_FLOOR
+  it('skips when already within the cap without computing or stamping', async () => {
+    mActive.mockResolvedValue([{ id: 'm1' }]) // <= MEMORY_CAP
     await foldService.triggerForProject('proj-1')
     expect(mCompute).not.toHaveBeenCalled()
     expect(mStamp).not.toHaveBeenCalled()
@@ -61,7 +58,7 @@ describe('foldService.triggerForProject is throttled by active-count floor and c
   })
 
   it('skips inside the cooldown window without computing', async () => {
-    aboveFloor()
+    overCap()
     mFoldState.mockResolvedValue({
       workspaceId: 'ws-1',
       lastMemoryFoldAttemptAt: new Date(), // just now → inside cooldown
@@ -71,16 +68,20 @@ describe('foldService.triggerForProject is throttled by active-count floor and c
     expect(mClaim).not.toHaveBeenCalled()
   })
 
-  it('stamps and computes when above floor and past cooldown', async () => {
-    aboveFloor()
+  it('stamps and computes (bounded) when over cap and past cooldown', async () => {
+    overCap()
     await foldService.triggerForProject('proj-1')
     expect(mStamp).toHaveBeenCalledWith('proj-1', expect.any(Date))
-    expect(mCompute).toHaveBeenCalledWith('proj-1')
+    // bounded compute: a per-run cluster cap is passed
+    expect(mCompute).toHaveBeenCalledWith(
+      'proj-1',
+      expect.objectContaining({ maxProposals: expect.any(Number) })
+    )
     expect(mRelease).toHaveBeenCalledWith('proj-1')
   })
 
   it('swallows errors (best-effort) and still releases the lease', async () => {
-    aboveFloor()
+    overCap()
     mCompute.mockRejectedValue(new Error('llm down'))
     await expect(foldService.triggerForProject('proj-1')).resolves.toBeDefined()
     expect(mRelease).toHaveBeenCalledWith('proj-1')
