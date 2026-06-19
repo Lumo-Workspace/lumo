@@ -28,10 +28,14 @@ export const MIN_CLUSTER_SIZE = 3
 export const MAX_CLUSTER_SIZE = 12
 /** Cosine floor for "same subsystem, not a duplicate" — the coherence an LLM
  *  cluster's members must share to fold together. Below NEAR_DUP_MERGE_FLOOR
- *  (0.85, near-DUPLICATE territory) because fold targets related-not-identical
- *  cards; this is the empirical knob — raise it if fold still over-merges, lower
- *  it if coherent clusters stop folding. */
-export const FOLD_COHERENCE_FLOOR = 0.6
+ *  (0.85, near-DUPLICATE) since fold targets related-not-identical cards.
+ *  Calibrated on prod (scripts/fold-floor-probe.ts sweeps nearDupClusters per
+ *  category): the live 42-card TRAP set merges into ONE 22-card grab-bag at 0.60
+ *  (LUM-556 initial — boundary + jest + eval traps all fused), first separates
+ *  into 3 coherent subsystem clusters [7,6,3] at 0.64, and collapses to almost
+ *  no folds by 0.70. 0.64 is that separation knee — coherent subsystems still
+ *  fold, the cross-concern grab-bag does not. Re-probe if the corpus shifts. */
+export const FOLD_COHERENCE_FLOOR = 0.64
 /** Coverage quote must be at least this long to count (guards empty/degenerate). */
 const MIN_QUOTE_LEN = 8
 /** Max concurrent per-cluster LLM pipelines. Clusters are independent, so they
