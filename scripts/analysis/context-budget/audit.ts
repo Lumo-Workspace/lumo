@@ -185,7 +185,7 @@ export interface FileAudit {
 export interface AuditConfig {
   /**
    * Per-file token budget. Calibrated from the real corpus (measure-first): the
-   * densest file today is references/docs.md at ~8450 tokens; 9000 leaves
+   * densest file today is references/docs.md at ~5500 tokens; 9000 leaves
    * headroom for normal growth while catching a file that has bloated past the
    * richest current domain. A tripwire for future drift, expressed in tokens —
    * the token-side mirror of the CLAUDE.md ~9500-CHAR soft budget (LUM-406).

@@ -26,7 +26,7 @@ lumo setup --project --force             # same via global install: overwrite sk
 lumo setup --project --agent codex       # bake agent=codex into the hook commands
 ```
 
-Use when:
+#### When to suggest
 
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
 - A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
@@ -45,7 +45,7 @@ Walks the user through creating an API key in the web app and pasting it back. O
 lumo auth login
 ```
 
-Use when:
+#### When to suggest
 
 - `lumo whoami` reports "Not logged in"
 - A bearer call returns 401 (`API key invalid or revoked`) and the user wants to re-auth
@@ -75,7 +75,7 @@ lumo whoami
 #   API: https://www.uselumo.ai
 ```
 
-Use when:
+#### When to suggest
 
 - The user asks "who am I", "which workspace am I in", "what account is this"
 - You need to disambiguate whether `lumo task list` would hit the user's expected workspace
@@ -93,7 +93,7 @@ lumo update
 
 The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
 
-Use when:
+#### When to suggest
 
 - The user asks "how do I update", "upgrade lumo", "is there a new version"
 - A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
