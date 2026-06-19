@@ -262,11 +262,17 @@ export function memoryHeadline(m: RenderableMemory): string {
   return JSON.stringify(m.content)
 }
 
+/** Clip a headline to a one-line hook: `max` chars + ellipsis when longer. A
+ *  resident index line is a relevance hook, not the full content — the body is
+ *  fetched on demand (`lumo memory show` / the linked `team/*.md`). Without this
+ *  a folded subsystem card's headline (hundreds of chars) bloats every line. */
+export function truncateHeadline(head: string, max = 100): string {
+  return head.length > max ? head.slice(0, max) + '…' : head
+}
+
 /** One-line manifest for an overflowed memory: scope tag + truncated headline + fetch hint. */
 export function memoryManifestLine(m: RenderableMemory): string {
-  const head = memoryHeadline(m)
-  const truncated = head.length > 100 ? head.slice(0, 100) + '…' : head
-  return `- ${tag(m)} ${truncated} → lumo memory show ${m.id}`
+  return `- ${tag(m)} ${truncateHeadline(memoryHeadline(m))} → lumo memory show ${m.id}`
 }
 
 /**

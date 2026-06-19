@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import {
   renderMemoryItem,
   memoryHeadline,
+  truncateHeadline,
   type RenderableMemory,
 } from '@/lib/memory/render'
 import type { MemorySyncEntry } from '@/lib/services/memory/sync-bundle'
@@ -64,6 +65,9 @@ export function toSyncEntry(
     contentHash,
     relPath: `team/${m.id}.md`,
     frontmatter,
-    indexLine: `- [${description}](team/${m.id}.md) — ${m.category}`,
+    // Index line is the resident hook in MEMORY.md — clip the headline so a
+    // folded subsystem card (hundreds of chars) stays one scannable line; the
+    // full content lives in the linked team/*.md (LUM-556 follow-up).
+    indexLine: `- [${truncateHeadline(description)}](team/${m.id}.md) — ${m.category}`,
   }
 }
