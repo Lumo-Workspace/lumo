@@ -87,10 +87,6 @@ export function TaskDependencyField({
 
   // Has anything rendered to the LEFT of the manage button (chips or +N)?
   const hasPrecedingChips = shown.length > 0 || overflow > 0
-  // The GitFork fallback shows only when there's no count text and no chips —
-  // i.e. the related-only case (Fix B falls through to here).
-  const showGitFork =
-    shown.length === 0 && blocksCount === 0 && suggestedCount === 0
 
   return (
     <>
@@ -155,7 +151,7 @@ export function TaskDependencyField({
               type='button'
               aria-label={manageLabel}
               onClick={() => setOpen(true)}
-              className='flex items-center gap-1 text-muted-foreground hover:text-foreground'
+              className='flex shrink-0 items-center gap-1 rounded-sm px-1 text-muted-foreground hover:bg-muted hover:text-foreground'
             >
               {pieces.map((piece, i) => {
                 const showSep = hasPrecedingChips || i > 0
@@ -166,7 +162,7 @@ export function TaskDependencyField({
                   </span>
                 )
               })}
-              {showGitFork && <GitFork className='h-3 w-3' />}
+              <Plus className='h-3 w-3' />
             </button>
           </>
         )}
