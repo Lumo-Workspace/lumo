@@ -1,6 +1,8 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { resolveBoundProjectId } from '../lib/resolve-project'
+import { autoDownsyncOnAttach } from '../lib/memory-auto'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -141,5 +143,41 @@ export async function sessionAttach(
   if (body.memorySection !== '') {
     console.log('')
     console.log(sanitizeField(body.memorySection))
+  }
+
+  // LUM-551: attach-triggered best-effort downsync. Resolve the bound task's
+  // project and refresh team memory (throttle-gated inside autoDownsyncOnAttach).
+  // Wrapped + swallowed: a sync failure must never change the attach outcome.
+  try {
+    const base = trimTrailingSlash(apiUrl)
+    const proj = await resolveBoundProjectId(
+      apiUrl,
+      creds.token,
+      body.taskIdentifier
+    )
+    if (proj.ok) {
+      const sync = await autoDownsyncOnAttach({
+        cwd: process.cwd(),
+        base,
+        token: creds.token,
+        projectId: proj.id,
+        now: new Date(),
+      })
+      const touched =
+        (sync.added ?? 0) + (sync.updated ?? 0) + (sync.removed ?? 0)
+      if (!sync.skipped && !sync.error && touched > 0) {
+        console.log('')
+        console.log(
+          sanitizeField(
+            `memory sync → +${sync.added} ~${sync.updated} -${sync.removed}` +
+              (sync.anchorCandidates
+                ? ` · ${sync.anchorCandidates} stale-anchor candidate(s)`
+                : '')
+          )
+        )
+      }
+    }
+  } catch {
+    // best-effort — the bind already succeeded; never surface a sync error here
   }
 }
