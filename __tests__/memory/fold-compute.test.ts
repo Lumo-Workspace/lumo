@@ -3,11 +3,62 @@
  *
  * LUM-553 — the fail-closed coverage gate. Pure: no LLM, no DB.
  */
+jest.mock('ai', () => ({ generateObject: jest.fn() }))
+jest.mock('@ai-sdk/gateway', () => ({ gateway: jest.fn(() => 'model') }))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: { findActiveProjectMemories: jest.fn() },
+}))
+
 import {
   mapWithConcurrency,
   selectCoveredSources,
+  computeProjectFoldProposals,
 } from '@/lib/services/memory/fold-compute'
 import { coarseCardSchemaFor } from '@/lib/memory/fold-schemas'
+import { generateObject } from 'ai'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
+
+const mGen = generateObject as jest.Mock
+const mActive = memoryRepository.findActiveProjectMemories as jest.Mock
+
+const trapCards = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    id: `t${i}`,
+    category: 'TRAP',
+    content: {
+      trigger: `trigger ${i}`,
+      outcome: `outcome ${i}`,
+      workaround: `fix ${i}`,
+    },
+  }))
+
+describe('computeProjectFoldProposals surfaces a degraded LLM pipeline (LUM-555)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mActive.mockResolvedValue(trapCards(4)) // one foldable TRAP bucket
+  })
+
+  it('reports degraded true on clustering error and false when genuinely empty', async () => {
+    // A clustering LLM call that errors (retries exhausted) → the pipeline is
+    // degraded: we cannot tell whether there was anything to fold.
+    mGen.mockRejectedValue(new Error('gateway down'))
+    const errored = await computeProjectFoldProposals('proj-1', {
+      maxProposals: 6,
+    })
+    expect(errored.proposals).toEqual([])
+    expect(errored.degraded).toBe(true)
+
+    // A clustering call that SUCCEEDS but legitimately finds no clusters → not
+    // degraded: there is genuinely nothing to fold, prune may proceed.
+    mGen.mockReset()
+    mGen.mockResolvedValue({ object: { clusters: [] } })
+    const empty = await computeProjectFoldProposals('proj-1', {
+      maxProposals: 6,
+    })
+    expect(empty.proposals).toEqual([])
+    expect(empty.degraded).toBe(false)
+  })
+})
 
 describe('selectCoveredSources', () => {
   it('fold coverage gate is fail-closed and supersede set equals covered set', () => {

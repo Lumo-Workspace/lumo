@@ -14,6 +14,7 @@ import {
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrospective.service'
+import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -478,14 +479,16 @@ export async function updateTaskWithSideEffects(
           projectId,
           sourceSessionId,
         })
-        // LUM-553: Layer-2 may have grown the project's PROJECT memory past the
-        // budget. Fold + (if needed) archive never-used cards back down to the
-        // cap. Runs AFTER promotion (sequential, shares the consolidation lease);
-        // self-gates on the high-water mark; best-effort. Dynamic import keeps
-        // the fold service's gateway graph out of this module's static graph.
-        const { foldService } =
-          await import('@/lib/services/memory/fold.service')
-        await foldService.triggerForProject(projectId, sourceSessionId ?? null)
+        // LUM-555: Layer-2 may have grown the project's PROJECT memory past the
+        // budget. DISPATCH the fold pass to its dedicated foreground worker
+        // (/api/internal/fold, 300s budget) rather than running the heavy LLM
+        // fold inline in this ~15s task-route function — where it silently
+        // failed in prod and prune masked the failure as a clean convergence
+        // (the LUM-553 incident: 266→58, 0 folded, whole overflow pruned). One
+        // project per dispatch → no DB scan, no fan-out. dispatchProjectFold has
+        // no gateway imports, so it needs no dynamic import; it runs after
+        // promotion and swallows its own failures (best-effort).
+        await dispatchProjectFold(projectId, sourceSessionId ?? null)
       })()
     )
 

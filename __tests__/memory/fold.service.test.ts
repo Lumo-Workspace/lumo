@@ -12,6 +12,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     releaseLayer2Lease: jest.fn(),
     setEmbedding: jest.fn(),
     archiveMemoriesInWorkspace: jest.fn(),
+    foldInto: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
@@ -59,7 +60,7 @@ beforeEach(() => {
     workspaceId: 'ws-1',
     lastMemoryFoldAttemptAt: null,
   })
-  mCompute.mockResolvedValue([])
+  mCompute.mockResolvedValue({ proposals: [], degraded: false })
   mTrust.mockResolvedValue({}) // all cards never judged-used
   ;(memoryRepository.archiveMemoriesInWorkspace as jest.Mock).mockResolvedValue(
     {
@@ -105,6 +106,62 @@ describe('foldService.triggerForProject is throttled by active-count floor and c
     mCompute.mockRejectedValue(new Error('llm down'))
     await expect(foldService.triggerForProject('proj-1')).resolves.toBeDefined()
     expect(mRelease).toHaveBeenCalledWith('proj-1')
+  })
+})
+
+describe('triggerForProject guardrail: prune must not silently cover for a failed fold (LUM-555)', () => {
+  const mFoldInto = memoryRepository.foldInto as jest.Mock
+  const mArchive = memoryRepository.archiveMemoriesInWorkspace as jest.Mock
+
+  it('skips prune when fold produced nothing despite proposals', async () => {
+    // Compute surfaced foldable proposals, but every applyFold throws → folded
+    // stays 0. Prune must NOT archive the overflow that should have been folded.
+    overHighWater()
+    mCompute.mockResolvedValue({
+      proposals: [
+        {
+          category: 'TRAP',
+          coarseContent: {},
+          sourceIds: ['a', 'b', 'c'],
+          excludedIds: [],
+        },
+      ],
+      degraded: false,
+    })
+    mFoldInto.mockRejectedValue(new Error('supersede race'))
+
+    const res = await foldService.triggerForProject('proj-1')
+
+    expect(res.folded).toBe(0)
+    expect(res.foldFailed).toBe(true)
+    expect(res.pruned).toBe(0)
+    expect(mArchive).not.toHaveBeenCalled()
+  })
+
+  it('skips prune when the fold pipeline degraded', async () => {
+    // No proposals because clustering errored (degraded). Empty proposals here
+    // means "fold couldn't run", not "nothing to fold" — prune must not proceed.
+    overHighWater()
+    mCompute.mockResolvedValue({ proposals: [], degraded: true })
+
+    const res = await foldService.triggerForProject('proj-1')
+
+    expect(res.folded).toBe(0)
+    expect(res.foldFailed).toBe(true)
+    expect(mArchive).not.toHaveBeenCalled()
+  })
+
+  it('still prunes when fold genuinely has nothing to do', async () => {
+    // Healthy pipeline, no foldable clusters (all singletons) → prune is the
+    // correct budget enforcer and must still run.
+    overHighWater()
+    mCompute.mockResolvedValue({ proposals: [], degraded: false })
+    mArchive.mockResolvedValue({ count: 25 })
+
+    const res = await foldService.triggerForProject('proj-1')
+
+    expect(res.foldFailed).toBeFalsy()
+    expect(mArchive).toHaveBeenCalled()
   })
 })
 
