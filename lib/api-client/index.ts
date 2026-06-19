@@ -29,6 +29,7 @@ export type {
   RetireCandidate,
   RetireReason,
   MergeProposal,
+  FoldProposal,
 } from './memories'
 export { lineageClient } from './lineage'
 export { mentionSearchClient } from './mention-search'

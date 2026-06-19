@@ -51,6 +51,16 @@ export interface MergeProposal {
   supersededIds: string[]
 }
 
+/** A topic-fold proposal from the LUM-553 autonomous fold pass: a coarse
+ *  summary card that would replace a set of source memories. Mirrors the
+ *  service's FoldProposal wire shape without importing server code. */
+export interface FoldProposal {
+  category: 'TRAP' | 'DECISION' | 'CONVENTION' | 'PROCEDURAL'
+  coarseContent: unknown
+  sourceIds: string[]
+  excludedIds: string[]
+}
+
 export const memoriesClient = {
   listForProject(projectId: string): Promise<{ memories: MemoryRow[] }> {
     return apiFetch(`/api/projects/${projectId}/memories`)
@@ -140,5 +150,14 @@ export const memoriesClient = {
       method: 'POST',
       body,
     })
+  },
+
+  /** Read-only dry-run preview of the autonomous topic-fold pass (LUM-553):
+   *  the coarse-card proposals + the source ids each would fold / leave behind.
+   *  Bearer-allowed — an agent/CLI is meant to run this (`lumo memory fold
+   *  --dry-run`). Writes nothing; folding only runs server-side in the daily
+   *  cron. */
+  foldCandidates(projectId: string): Promise<{ proposals: FoldProposal[] }> {
+    return apiFetch(`/api/projects/${projectId}/memories/fold-candidates`)
   },
 }
