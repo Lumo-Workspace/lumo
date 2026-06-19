@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Изменить направление",
   "task.dependencies.dismiss": "Отклонить",
   "task.dependencies.remove": "Удалить зависимость",
-  "task.dependencies.kindBlocks": "Блокирует",
   "task.dependencies.kindRelates": "Связано",
   "task.dependencies.searchPlaceholder": "Поиск задач…",
   "task.dependencies.noResults": "Задачи не найдены",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Объединить",
   "memory.merge.dismiss": "Оставить",
   "memory.merge.confirmed": "Воспоминания объединены",
-  "memory.merge.error": "Не удалось объединить воспоминания. Попробуйте ещё раз."
+  "memory.merge.error": "Не удалось объединить воспоминания. Попробуйте ещё раз.",
+  "task.dependencies.searchHint": "Поиск по имени или ID задачи",
+  "task.dependencies.searching": "Поиск…",
+  "task.dependencies.added": "Добавлено"
 }

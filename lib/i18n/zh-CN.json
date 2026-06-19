@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "反转方向",
   "task.dependencies.dismiss": "忽略",
   "task.dependencies.remove": "移除依赖",
-  "task.dependencies.kindBlocks": "阻塞",
   "task.dependencies.kindRelates": "相关",
   "task.dependencies.searchPlaceholder": "搜索任务…",
   "task.dependencies.noResults": "无匹配任务",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "合并",
   "memory.merge.dismiss": "保留",
   "memory.merge.confirmed": "已合并记忆",
-  "memory.merge.error": "无法合并这些记忆，请重试。"
+  "memory.merge.error": "无法合并这些记忆，请重试。",
+  "task.dependencies.searchHint": "输入任务名或 LUM 编号搜索",
+  "task.dependencies.searching": "搜索中…",
+  "task.dependencies.added": "已添加"
 }

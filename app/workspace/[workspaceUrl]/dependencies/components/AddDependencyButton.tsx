@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Plus } from 'lucide-react'
 import {
@@ -13,14 +13,16 @@ import {
   CommandInput,
   CommandList,
   CommandItem,
-  CommandEmpty,
 } from '@/components/ui/command'
 import { mentionSearchClient } from '@/lib/api-client/mention-search'
 import type { MentionSearchItem } from '@/types/mention'
+import { relationToEdge, type Relation } from '../relation'
 
 interface AddDependencyButtonProps {
   /** Excludes the current task from results. */
   currentIdentifier: string
+  /** "<relation>:<identifier>" keys of CONFIRMED edges — greys the exact pair that would 409. */
+  existingRelations: Set<string>
   onAdd: (data: {
     blockedBy: string
     direction: 'BLOCKED_BY' | 'BLOCKS'
@@ -29,35 +31,69 @@ interface AddDependencyButtonProps {
   busy?: boolean
 }
 
+const RELATIONS: Relation[] = ['BLOCKED_BY', 'BLOCKS', 'RELATES']
+const RELATION_LABEL: Record<Relation, string> = {
+  BLOCKED_BY: 'task.dependencies.blockedBy',
+  BLOCKS: 'task.dependencies.blocks',
+  RELATES: 'task.dependencies.kindRelates',
+}
+
 export function AddDependencyButton({
   currentIdentifier,
+  existingRelations,
   onAdd,
   busy,
 }: AddDependencyButtonProps) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<MentionSearchItem[]>([])
-  const [direction, setDirection] = useState<'BLOCKED_BY' | 'BLOCKS'>(
-    'BLOCKED_BY'
-  )
-  const [kind, setKind] = useState<'BLOCKS' | 'RELATES'>('BLOCKS')
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [relation, setRelation] = useState<Relation>('BLOCKED_BY')
+  const seq = useRef(0)
 
-  async function onSearch(q: string) {
-    if (!q.trim()) return setItems([])
-    const all = await mentionSearchClient.search(q, 8)
-    setItems(
-      all.filter(i => i.kind === 'task' && i.label !== currentIdentifier)
-    )
-  }
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setItems([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    const mySeq = ++seq.current
+    const handle = setTimeout(async () => {
+      try {
+        const all = await mentionSearchClient.search(q, 8)
+        if (mySeq !== seq.current) return
+        setItems(
+          all.filter(i => i.kind === 'task' && i.label !== currentIdentifier)
+        )
+      } finally {
+        if (mySeq === seq.current) setLoading(false)
+      }
+    }, 200)
+    return () => clearTimeout(handle)
+  }, [query, currentIdentifier])
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
     if (!next) {
+      seq.current++
       setItems([])
-      setDirection('BLOCKED_BY')
-      setKind('BLOCKS')
+      setQuery('')
+      setLoading(false)
+      setRelation('BLOCKED_BY')
     }
   }
+
+  const trimmed = query.trim()
+  const hintId = !trimmed
+    ? 'task.dependencies.searchHint'
+    : loading
+      ? 'task.dependencies.searching'
+      : items.length === 0
+        ? 'task.dependencies.noResults'
+        : null
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -72,36 +108,17 @@ export function AddDependencyButton({
         </button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-80 p-2'>
-        <div className='flex gap-1 mb-2 text-xs'>
-          {(['BLOCKED_BY', 'BLOCKS'] as const).map(d => (
+        <div role='radiogroup' className='flex gap-1 mb-2 text-xs'>
+          {RELATIONS.map(r => (
             <button
-              key={d}
+              key={r}
               type='button'
-              onClick={() => setDirection(d)}
-              className={`px-2 py-0.5 rounded-md border ${direction === d ? 'border-foreground' : 'border-border text-muted-foreground'}`}
+              role='radio'
+              aria-checked={relation === r}
+              onClick={() => setRelation(r)}
+              className={`px-2 py-0.5 rounded-md border ${relation === r ? 'border-foreground' : 'border-border text-muted-foreground'}`}
             >
-              {intl.formatMessage({
-                id:
-                  d === 'BLOCKED_BY'
-                    ? 'task.dependencies.blockedBy'
-                    : 'task.dependencies.blocks',
-              })}
-            </button>
-          ))}
-          <span className='flex-1' />
-          {(['BLOCKS', 'RELATES'] as const).map(k => (
-            <button
-              key={k}
-              type='button'
-              onClick={() => setKind(k)}
-              className={`px-2 py-0.5 rounded-md border ${kind === k ? 'border-foreground' : 'border-border text-muted-foreground'}`}
-            >
-              {intl.formatMessage({
-                id:
-                  k === 'BLOCKS'
-                    ? 'task.dependencies.kindBlocks'
-                    : 'task.dependencies.kindRelates',
-              })}
+              {intl.formatMessage({ id: RELATION_LABEL[r] })}
             </button>
           ))}
         </div>
@@ -110,27 +127,47 @@ export function AddDependencyButton({
             placeholder={intl.formatMessage({
               id: 'task.dependencies.searchPlaceholder',
             })}
-            onValueChange={onSearch}
+            value={query}
+            onValueChange={setQuery}
           />
           <CommandList>
-            <CommandEmpty>
-              {intl.formatMessage({ id: 'task.dependencies.noResults' })}
-            </CommandEmpty>
-            {items.map(item => (
-              <CommandItem
-                key={item.id}
-                value={item.label}
-                onSelect={() => {
-                  onAdd({ blockedBy: item.label, direction, kind })
-                  setOpen(false)
-                }}
-              >
-                <span className='font-mono text-xs mr-2 text-muted-foreground'>
-                  {item.label}
-                </span>
-                <span className='truncate'>{item.sublabel}</span>
-              </CommandItem>
-            ))}
+            {hintId && (
+              <p className='py-3 px-2 text-xs text-muted-foreground'>
+                {intl.formatMessage({ id: hintId })}
+              </p>
+            )}
+            {trimmed &&
+              !loading &&
+              items.map(item => {
+                const already = existingRelations.has(
+                  `${relation}:${item.label}`
+                )
+                return (
+                  <CommandItem
+                    key={item.id}
+                    value={item.label}
+                    disabled={already}
+                    onSelect={() => {
+                      if (already) return
+                      onAdd({
+                        blockedBy: item.label,
+                        ...relationToEdge(relation),
+                      })
+                      setOpen(false)
+                    }}
+                  >
+                    <span className='font-mono text-xs mr-2 text-muted-foreground'>
+                      {item.label}
+                    </span>
+                    <span className='truncate'>{item.sublabel}</span>
+                    {already && (
+                      <span className='ml-auto text-xs text-muted-foreground'>
+                        {intl.formatMessage({ id: 'task.dependencies.added' })}
+                      </span>
+                    )}
+                  </CommandItem>
+                )
+              })}
           </CommandList>
         </Command>
       </PopoverContent>

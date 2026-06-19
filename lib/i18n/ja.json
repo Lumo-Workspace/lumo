@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "方向を反転",
   "task.dependencies.dismiss": "無視",
   "task.dependencies.remove": "依存関係を削除",
-  "task.dependencies.kindBlocks": "ブロック",
   "task.dependencies.kindRelates": "関連",
   "task.dependencies.searchPlaceholder": "タスクを検索…",
   "task.dependencies.noResults": "一致するタスクなし",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "マージ",
   "memory.merge.dismiss": "保持",
   "memory.merge.confirmed": "メモリをマージしました",
-  "memory.merge.error": "メモリをマージできませんでした。もう一度お試しください。"
+  "memory.merge.error": "メモリをマージできませんでした。もう一度お試しください。",
+  "task.dependencies.searchHint": "タスク名または LUM ID で検索",
+  "task.dependencies.searching": "検索中…",
+  "task.dependencies.added": "追加済み"
 }

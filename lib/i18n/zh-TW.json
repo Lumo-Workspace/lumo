@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "反轉方向",
   "task.dependencies.dismiss": "忽略",
   "task.dependencies.remove": "移除依賴",
-  "task.dependencies.kindBlocks": "封鎖",
   "task.dependencies.kindRelates": "相關",
   "task.dependencies.searchPlaceholder": "搜尋任務…",
   "task.dependencies.noResults": "無符合任務",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "合併",
   "memory.merge.dismiss": "保留",
   "memory.merge.confirmed": "已合併記憶",
-  "memory.merge.error": "無法合併這些記憶，請重試。"
+  "memory.merge.error": "無法合併這些記憶，請重試。",
+  "task.dependencies.searchHint": "輸入任務名稱或 LUM 編號搜尋",
+  "task.dependencies.searching": "搜尋中…",
+  "task.dependencies.added": "已新增"
 }

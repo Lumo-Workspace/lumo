@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "दिशा उलटें",
   "task.dependencies.dismiss": "अनदेखा करें",
   "task.dependencies.remove": "निर्भरता हटाएँ",
-  "task.dependencies.kindBlocks": "अवरुद्ध करता है",
   "task.dependencies.kindRelates": "संबंधित",
   "task.dependencies.searchPlaceholder": "कार्य खोजें…",
   "task.dependencies.noResults": "कोई मिलता-जुलता कार्य नहीं",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "मर्ज करें",
   "memory.merge.dismiss": "रखें",
   "memory.merge.confirmed": "मेमोरी मर्ज की गईं",
-  "memory.merge.error": "मेमोरी मर्ज नहीं हो सकीं। कृपया पुनः प्रयास करें।"
+  "memory.merge.error": "मेमोरी मर्ज नहीं हो सकीं। कृपया पुनः प्रयास करें।",
+  "task.dependencies.searchHint": "नाम या टास्क ID से खोजें",
+  "task.dependencies.searching": "खोज रहे हैं…",
+  "task.dependencies.added": "जोड़ा गया"
 }
