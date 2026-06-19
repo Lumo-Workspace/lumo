@@ -3,6 +3,7 @@
 import { useIntl } from 'react-intl'
 import { Check, X, ArrowLeftRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { StatusBadge } from '../../components/StatusBadge'
 import type { DependencyEdge } from '../types'
 
 interface DependencyRowProps {
@@ -44,8 +45,8 @@ export function DependencyRow({
       <span className='min-w-0 flex-1 truncate'>{edge.other.title}</span>
       {variant === 'confirmed' && (
         <>
-          <span className='text-xs text-muted-foreground shrink-0 whitespace-nowrap'>
-            {edge.other.status}
+          <span className='shrink-0 whitespace-nowrap'>
+            <StatusBadge status={edge.other.status} size={14} />
           </span>
           <button
             type='button'
