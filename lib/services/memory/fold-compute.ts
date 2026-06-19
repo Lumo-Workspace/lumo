@@ -11,6 +11,7 @@ import {
   type CoverageVerdict,
   type FoldProposal,
 } from '@/lib/memory/fold-schemas'
+import { nearDupClusters, type VecItem } from '@/lib/services/memory/near-dup'
 import { logger } from '@/lib/logger'
 
 const MODEL_ID = 'deepseek/deepseek-v4-flash'
@@ -18,6 +19,19 @@ const MODEL_ID = 'deepseek/deepseek-v4-flash'
 /** A cluster must have at least this many covered cards to be worth folding
  *  (≤2 overlaps the P5 near-dup merge territory; folding is for "many fine"). */
 export const MIN_CLUSTER_SIZE = 3
+/** Upper bound on a fold cluster's source count. The clustering LLM (a cheap
+ *  flash model) intermittently lumps a whole category into one cluster — prod
+ *  dogfood folded 24 unrelated CONVENTIONs into a single 3.5K-char mega-card
+ *  (LUM-556). A coarse "subsystem card" should hold a handful of related
+ *  lessons, not a category dump; an oversized LLM cluster is split (when its
+ *  members are embedded) or dropped (when they're not) — never folded whole. */
+export const MAX_CLUSTER_SIZE = 12
+/** Cosine floor for "same subsystem, not a duplicate" — the coherence an LLM
+ *  cluster's members must share to fold together. Below NEAR_DUP_MERGE_FLOOR
+ *  (0.85, near-DUPLICATE territory) because fold targets related-not-identical
+ *  cards; this is the empirical knob — raise it if fold still over-merges, lower
+ *  it if coherent clusters stop folding. */
+export const FOLD_COHERENCE_FLOOR = 0.6
 /** Coverage quote must be at least this long to count (guards empty/degenerate). */
 const MIN_QUOTE_LEN = 8
 /** Max concurrent per-cluster LLM pipelines. Clusters are independent, so they
@@ -220,6 +234,51 @@ async function coverageVerdicts(
 }
 
 /**
+ * Discipline ONE LLM-proposed cluster into coherent, size-bounded sub-clusters
+ * (pure). The flash clustering model occasionally lumps unrelated themes (or a
+ * whole category) into one group; this is the guard that keeps a coarse card a
+ * real "subsystem card" rather than a category dump (LUM-556).
+ *
+ * - **All members embedded** → split into coherence-connected components (cosine
+ *   ≥ `floor`, via the shared {@link nearDupClusters}); each component is then
+ *   hard-capped to `maxSize` (a larger coherent component is chunked — its
+ *   members are transitively similar, so any chunk stays on-theme). Components/
+ *   chunks below `minSize` are dropped, undoing the LLM's merge of stray cards.
+ * - **Any member lacking an embedding** (cold/backfilling corpus) → coherence is
+ *   unverifiable, so **fail closed**: keep a within-bounds cluster as-is (small
+ *   clusters were never the over-merge risk) but DROP an oversized one — never
+ *   synthesize a mega-card we couldn't validate.
+ */
+export function refineClusterByCoherence(
+  memberIds: string[],
+  vectorById: Map<string, number[]>,
+  opts: { floor: number; minSize: number; maxSize: number }
+): string[][] {
+  const { floor, minSize, maxSize } = opts
+
+  const vecItems: VecItem[] = []
+  for (const id of memberIds) {
+    const vector = vectorById.get(id)
+    if (vector) vecItems.push({ id, vector })
+  }
+
+  // Fail-closed when we can't check every member's coherence (missing embeddings).
+  if (vecItems.length < memberIds.length) {
+    if (memberIds.length > maxSize) return []
+    return memberIds.length >= minSize ? [memberIds] : []
+  }
+
+  const refined: string[][] = []
+  for (const component of nearDupClusters(vecItems, floor)) {
+    for (let i = 0; i < component.length; i += maxSize) {
+      const chunk = component.slice(i, i + maxSize)
+      if (chunk.length >= minSize) refined.push(chunk)
+    }
+  }
+  return refined
+}
+
+/**
  * Compute fold proposals for a project's ACTIVE PROJECT memories. Reads only —
  * no writes. Buckets by category; per bucket the LLM clusters + synthesizes; the
  * fail-closed coverage gate decides which sources are safe to fold. A proposal
@@ -243,7 +302,13 @@ export async function computeProjectFoldProposals(
   projectId: string,
   opts: { maxProposals?: number } = {}
 ): Promise<{ proposals: FoldProposal[]; degraded: boolean }> {
-  const memories = await memoryRepository.findActiveProjectMemories(projectId)
+  const [memories, vectorRows] = await Promise.all([
+    memoryRepository.findActiveProjectMemories(projectId),
+    memoryRepository.findActiveProjectMemoryVectors(projectId),
+  ])
+  // Embeddings for the coherence guard — a member missing here (cold/backfilling
+  // corpus) makes its cluster unverifiable and is handled fail-closed below.
+  const vectorById = new Map(vectorRows.map(r => [r.id, r.vector]))
 
   // Phase 1 — cluster every category in parallel (each is one small LLM call).
   const buckets = CATEGORIES.map(category => ({
@@ -276,17 +341,28 @@ export async function computeProjectFoldProposals(
     []
   for (const c of clustered) {
     for (const group of c.groups) {
-      // Resolve to real bucket members (drop any id the LLM hallucinated).
-      const clusterSources = group
-        .map(id => c.itemById.get(id))
-        .filter((i): i is FoldItem => i !== undefined)
-      if (clusterSources.length < MIN_CLUSTER_SIZE) continue
-      units.push({ category: c.category, clusterSources })
+      // Discipline the LLM's cluster: split an incoherent/oversized group into
+      // coherent, ≤MAX_CLUSTER_SIZE sub-clusters before it can become a coarse
+      // card (LUM-556). Each refined sub-cluster is one work unit.
+      const refined = refineClusterByCoherence(group, vectorById, {
+        floor: FOLD_COHERENCE_FLOOR,
+        minSize: MIN_CLUSTER_SIZE,
+        maxSize: MAX_CLUSTER_SIZE,
+      })
+      for (const subGroup of refined) {
+        // Resolve to real bucket members (drop any id the LLM hallucinated).
+        const clusterSources = subGroup
+          .map(id => c.itemById.get(id))
+          .filter((i): i is FoldItem => i !== undefined)
+        if (clusterSources.length < MIN_CLUSTER_SIZE) continue
+        units.push({ category: c.category, clusterSources })
+      }
     }
   }
 
   // Biggest clusters first — each fold of N sources cuts the count by N-1, so
-  // the largest clusters reduce the index fastest toward the cap.
+  // the largest clusters reduce the index fastest toward the cap. (Now bounded
+  // by MAX_CLUSTER_SIZE, so this can no longer surface an over-merged mega-card.)
   units.sort((a, b) => b.clusterSources.length - a.clusterSources.length)
 
   // When bounded (cron), only synthesize a candidate window of the biggest
