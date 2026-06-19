@@ -97,13 +97,18 @@ during the transition both paths are active and overlap is expected, not a bug.
 - **Only touches what it owns**: a file is owned only if its frontmatter carries
   `metadata.lumo.source: team`. Your own hand-written memory files and any
   `MEMORY.md` lines outside the managed block are **never** read or written.
-- **Selection**: judge-used 履历 (LUM-539) ranks first, with relevance/cold-start
-  grace as backfill, capped to the resident-index budget — so the local index
-  stays compact.
-- **Routing (per recipient)**: the bundle is scoped to the calling dev — memories
-  are filtered by relevance to that dev's active (assigned, not-DONE) tasks in the
-  project, so different devs get differentiated sets rather than the whole corpus.
-  A dev with no active tasks falls back to the full budget-capped set.
+- **Mirrors the whole project (LUM-552)**: the bundle is the project's **full
+  ACTIVE memory set** — every dev in the project gets the same corpus, regardless
+  of how many active tasks they hold. There is **no** task-level routing/relevance
+  filter and **no** token-budget cap on the corpus at sync time: sync only writes
+  local files (no tokens, no conversation), so "which memory is relevant" is left
+  to Claude Code's native recall, not decided at sync. judge-used 履历 (LUM-539)
+  still orders the resident index (so the most-proven memories list first) but
+  never drops anything. Relevance/budget gating remains only on the **injection**
+  path (`lumo task context` / session-start), which does spend tokens.
+- **Project-level routing only**: you still don't sync a project you're not a
+  member of — that's the API route's workspace authorization. Within a project,
+  everyone gets the full set.
 - **Reconcile / drift**: re-running is idempotent. A team file you edited locally
   is detected (its on-disk hash diverged from the recorded `contentHash`) and
   **skipped, never overwritten** — your edit is preserved and flagged as an
