@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Singkir",
   "memory.retire.dismiss": "Simpan",
   "memory.retire.confirmed": "Memori disingkirkan",
-  "memory.retire.error": "Tidak dapat menyingkirkan memori. Sila cuba lagi."
+  "memory.retire.error": "Tidak dapat menyingkirkan memori. Sila cuba lagi.",
+  "memory.merge.heading": "{count, plural, one {# kelompok hampir-pendua untuk digabungkan} other {# kelompok hampir-pendua untuk digabungkan}}",
+  "memory.merge.description": "Penggabungan mengekalkan entri yang paling kerap digunakan dan mengarkibkan hampir-penduanya. Pengarkiban boleh diterbalikkan. ‘Kekalkan’ membiarkan semuanya aktif.",
+  "memory.merge.keepBadge": "kekalkan",
+  "memory.merge.mergeBadge": "gabung",
+  "memory.merge.confirm": "Gabungkan",
+  "memory.merge.dismiss": "Kekalkan",
+  "memory.merge.confirmed": "Memori digabungkan",
+  "memory.merge.error": "Tidak dapat menggabungkan memori. Sila cuba lagi."
 }

@@ -56,6 +56,14 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useRetireCandidates', () => ({
   }),
 }))
 
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMergeCandidates', () => ({
+  useMergeCandidates: () => ({
+    candidates: [],
+    confirmMerge: jest.fn(),
+    confirming: false,
+  }),
+}))
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { MemoryTab } from '@/app/workspace/[workspaceUrl]/components/memory/MemoryTab'

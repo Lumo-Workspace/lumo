@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "हटाएँ",
   "memory.retire.dismiss": "रखें",
   "memory.retire.confirmed": "मेमोरी हटाई गई",
-  "memory.retire.error": "मेमोरी हटाई नहीं जा सकी। कृपया पुनः प्रयास करें।"
+  "memory.retire.error": "मेमोरी हटाई नहीं जा सकी। कृपया पुनः प्रयास करें।",
+  "memory.merge.heading": "{count, plural, one {मर्ज करने के लिए # लगभग-डुप्लिकेट क्लस्टर} other {मर्ज करने के लिए # लगभग-डुप्लिकेट क्लस्टर}}",
+  "memory.merge.description": "मर्ज करने पर सबसे अधिक उपयोग की गई प्रविष्टि रहती है और उसके लगभग-डुप्लिकेट संग्रहित हो जाते हैं। संग्रहण प्रतिवर्ती है। ‘रखें’ चुनने पर सभी सक्रिय रहती हैं।",
+  "memory.merge.keepBadge": "रखें",
+  "memory.merge.mergeBadge": "मर्ज",
+  "memory.merge.confirm": "मर्ज करें",
+  "memory.merge.dismiss": "रखें",
+  "memory.merge.confirmed": "मेमोरी मर्ज की गईं",
+  "memory.merge.error": "मेमोरी मर्ज नहीं हो सकीं। कृपया पुनः प्रयास करें।"
 }

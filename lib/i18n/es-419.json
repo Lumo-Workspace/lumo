@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Retirar",
   "memory.retire.dismiss": "Conservar",
   "memory.retire.confirmed": "Memoria retirada",
-  "memory.retire.error": "No se pudo retirar la memoria. Inténtalo de nuevo."
+  "memory.retire.error": "No se pudo retirar la memoria. Inténtalo de nuevo.",
+  "memory.merge.heading": "{count, plural, one {# grupo de casi duplicados para fusionar} other {# grupos de casi duplicados para fusionar}}",
+  "memory.merge.description": "Al fusionar se conserva la entrada más usada y se archivan sus casi duplicados. El archivado es reversible. «Conservar» las deja todas activas.",
+  "memory.merge.keepBadge": "conservar",
+  "memory.merge.mergeBadge": "fusionar",
+  "memory.merge.confirm": "Fusionar",
+  "memory.merge.dismiss": "Conservar",
+  "memory.merge.confirmed": "Memorias fusionadas",
+  "memory.merge.error": "No se pudieron fusionar las memorias. Vuelve a intentarlo."
 }

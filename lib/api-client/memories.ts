@@ -33,6 +33,14 @@ export interface RetireCandidate {
   reasons: RetireReason[]
 }
 
+/** A near-dup merge proposal from the LUM-541 batch consolidation sweep: the
+ *  row kept ACTIVE plus the near-dup siblings merged away on confirm. Mirrors
+ *  the service's MergeProposal wire shape without importing server code. */
+export interface MergeProposal {
+  canonicalId: string
+  supersededIds: string[]
+}
+
 export const memoriesClient = {
   listForProject(projectId: string): Promise<{ memories: MemoryRow[] }> {
     return apiFetch(`/api/projects/${projectId}/memories`)
@@ -100,5 +108,27 @@ export const memoriesClient = {
    *  the server (a bearer/CLI caller is refused 403). */
   confirmRetire(memoryId: string): Promise<{ retired: number }> {
     return apiFetch(`/api/memories/${memoryId}/retire`, { method: 'POST' })
+  },
+
+  /** Derived near-dup merge proposals for a project's ACTIVE PROJECT memories
+   *  (LUM-541 P5) — each cluster's canonical-keep + supersede-set, plus the live
+   *  cluster count. Read-only; nothing is persisted. */
+  mergeCandidates(
+    projectId: string
+  ): Promise<{ candidates: MergeProposal[]; clusterCount: number }> {
+    return apiFetch(`/api/projects/${projectId}/memories/merge-candidates`)
+  },
+
+  /** Human-confirmed near-dup merge: archives the superseded duplicates through
+   *  the existing status machine (ACTIVE→ARCHIVED, reversible) — never a hard
+   *  delete. Human-only on the server (a bearer/CLI caller is refused 403). */
+  confirmMerge(
+    projectId: string,
+    body: { canonicalId: string; supersededIds: string[] }
+  ): Promise<{ merged: number }> {
+    return apiFetch(`/api/projects/${projectId}/memories/merge`, {
+      method: 'POST',
+      body,
+    })
   },
 }

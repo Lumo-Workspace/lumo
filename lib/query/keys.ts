@@ -102,6 +102,9 @@ export const queryKeys = {
   retireCandidates: (projectId: string) =>
     ['retireCandidates', projectId] as const,
 
+  mergeCandidates: (projectId: string) =>
+    ['mergeCandidates', projectId] as const,
+
   tags: () => ['tags'] as const,
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,

@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Loại bỏ",
   "memory.retire.dismiss": "Giữ lại",
   "memory.retire.confirmed": "Đã loại bỏ bộ nhớ",
-  "memory.retire.error": "Không thể loại bỏ bộ nhớ. Vui lòng thử lại."
+  "memory.retire.error": "Không thể loại bỏ bộ nhớ. Vui lòng thử lại.",
+  "memory.merge.heading": "{count, plural, one {# cụm gần-trùng-lặp cần hợp nhất} other {# cụm gần-trùng-lặp cần hợp nhất}}",
+  "memory.merge.description": "Hợp nhất sẽ giữ lại mục được dùng nhiều nhất và lưu trữ các bản gần-trùng-lặp của nó. Việc lưu trữ có thể hoàn tác. ‘Giữ’ để tất cả vẫn hoạt động.",
+  "memory.merge.keepBadge": "giữ",
+  "memory.merge.mergeBadge": "hợp nhất",
+  "memory.merge.confirm": "Hợp nhất",
+  "memory.merge.dismiss": "Giữ",
+  "memory.merge.confirmed": "Đã hợp nhất ký ức",
+  "memory.merge.error": "Không thể hợp nhất các ký ức. Vui lòng thử lại."
 }

@@ -123,6 +123,21 @@ export const memoryRepository = {
   },
 
   /**
+   * LUM-541 (P5) — workspace-scoped archive for the human-confirmed batch
+   * near-dup merge. Same reversible ACTIVE→ARCHIVED flip as `archiveMemories`,
+   * but additionally bounded to one workspace so a confirm body can never
+   * archive a row outside the caller's workspace (the merge route's defence in
+   * depth on top of the clerk gate). Never a hard delete.
+   */
+  async archiveMemoriesInWorkspace(ids: string[], workspaceId: string) {
+    if (ids.length === 0) return { count: 0 }
+    return prisma.memory.updateMany({
+      where: { id: { in: ids }, workspaceId, status: 'ACTIVE' },
+      data: { status: 'ARCHIVED' },
+    })
+  },
+
+  /**
    * Most recent TASK-scope memories for a project, newest first, capped at
    * `limit`. Layer 2 consolidation reads these to look for recurring lessons
    * across tasks. The `taskId` is included so the prompt can group rows by
@@ -525,6 +540,40 @@ export const memoryRepository = {
       neighbors,
       scopeHasEmbeddings: Boolean(existsRow?.exists),
     }
+  },
+
+  /**
+   * LUM-541 (P5) — read every ACTIVE PROJECT-scope memory's embedding for the
+   * batch near-dup clustering sweep. Unlike `findNeighborEmbeddings` (k nearest
+   * to one query vector) this returns the WHOLE embedded corpus so the sweep can
+   * compute connected near-dup components over it. The `vector(1024)` column is
+   * `Unsupported` in Prisma, so it is read as its pgvector text literal
+   * (`[0.1,0.2,…]`) and parsed back to numbers here. Rows without an embedding
+   * are skipped. `projectId` is bound as a parameter, never interpolated.
+   */
+  async findActiveProjectMemoryVectors(
+    projectId: string
+  ): Promise<Array<{ id: string; vector: number[] }>> {
+    type Row = { id: string; vector: string | null }
+    const rows = await prisma.$queryRaw<Row[]>(
+      Prisma.sql`
+        SELECT id, "embedding"::text AS vector
+        FROM "memories"
+        WHERE "projectId" = ${projectId}
+          AND "scope" = 'PROJECT'
+          AND "status" = 'ACTIVE'
+          AND "embedding" IS NOT NULL
+      `
+    )
+    return rows
+      .filter((r): r is { id: string; vector: string } => r.vector !== null)
+      .map(r => ({
+        id: r.id,
+        vector: r.vector
+          .slice(1, -1) // strip the surrounding [ ]
+          .split(',')
+          .map(Number),
+      }))
   },
 
   /**

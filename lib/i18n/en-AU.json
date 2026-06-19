@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Retire",
   "memory.retire.dismiss": "Keep",
   "memory.retire.confirmed": "Memory retired",
-  "memory.retire.error": "Could not retire the memory. Please try again."
+  "memory.retire.error": "Could not retire the memory. Please try again.",
+  "memory.merge.heading": "{count, plural, one {# near-duplicate cluster to merge} other {# near-duplicate clusters to merge}}",
+  "memory.merge.description": "Merging keeps the most-used entry and archives its near-duplicates. Archiving is reversible. Keep leaves them all active.",
+  "memory.merge.keepBadge": "keep",
+  "memory.merge.mergeBadge": "merge",
+  "memory.merge.confirm": "Merge",
+  "memory.merge.dismiss": "Keep",
+  "memory.merge.confirmed": "Memories merged",
+  "memory.merge.error": "Could not merge the memories. Please try again."
 }

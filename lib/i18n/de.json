@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "Stilllegen",
   "memory.retire.dismiss": "Behalten",
   "memory.retire.confirmed": "Erinnerung stillgelegt",
-  "memory.retire.error": "Erinnerung konnte nicht stillgelegt werden. Bitte erneut versuchen."
+  "memory.retire.error": "Erinnerung konnte nicht stillgelegt werden. Bitte erneut versuchen.",
+  "memory.merge.heading": "{count, plural, one {# Beinahe-Duplikat-Cluster zum Zusammenführen} other {# Beinahe-Duplikat-Cluster zum Zusammenführen}}",
+  "memory.merge.description": "Beim Zusammenführen bleibt der meistgenutzte Eintrag erhalten und seine Beinahe-Duplikate werden archiviert. Das Archivieren ist umkehrbar. „Behalten“ lässt alle aktiv.",
+  "memory.merge.keepBadge": "behalten",
+  "memory.merge.mergeBadge": "zusammenführen",
+  "memory.merge.confirm": "Zusammenführen",
+  "memory.merge.dismiss": "Behalten",
+  "memory.merge.confirmed": "Erinnerungen zusammengeführt",
+  "memory.merge.error": "Die Erinnerungen konnten nicht zusammengeführt werden. Bitte versuche es erneut."
 }

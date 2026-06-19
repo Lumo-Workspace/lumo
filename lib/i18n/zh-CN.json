@@ -1724,5 +1724,13 @@
   "memory.retire.confirm": "退役",
   "memory.retire.dismiss": "保留",
   "memory.retire.confirmed": "记忆已退役",
-  "memory.retire.error": "无法退役该记忆，请重试。"
+  "memory.retire.error": "无法退役该记忆，请重试。",
+  "memory.merge.heading": "{count, plural, one {# 个待合并的近重复簇} other {# 个待合并的近重复簇}}",
+  "memory.merge.description": "合并会保留最常用的条目并归档其近重复项。归档可撤销。选择保留则全部维持启用。",
+  "memory.merge.keepBadge": "保留",
+  "memory.merge.mergeBadge": "合并",
+  "memory.merge.confirm": "合并",
+  "memory.merge.dismiss": "保留",
+  "memory.merge.confirmed": "已合并记忆",
+  "memory.merge.error": "无法合并这些记忆，请重试。"
 }
