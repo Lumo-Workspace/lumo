@@ -11,6 +11,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     listForProject: jest.fn(),
     archiveMemories: jest.fn(),
+    listStaleAnchorReportsForProject: jest.fn(),
   },
 }))
 jest.mock('@/lib/services/lineage.service', () => ({
@@ -23,10 +24,14 @@ import { lineageService } from '@/lib/services/lineage.service'
 
 const listForProject = memoryRepository.listForProject as jest.Mock
 const archive = memoryRepository.archiveMemories as jest.Mock
+const listStaleReports =
+  memoryRepository.listStaleAnchorReportsForProject as jest.Mock
 const fragmentTrust = lineageService.fragmentTrustForMemories as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
+  // No stale-anchor reports by default — these tests exercise the other signals.
+  listStaleReports.mockResolvedValue([])
 })
 
 test('assembles project candidates from live judged-used trust without writing', async () => {

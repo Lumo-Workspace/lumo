@@ -254,6 +254,47 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * Upsert the current code-anchor staleness report for a memory (LUM-547 P4b).
+   * One report per memory (unique memoryId) — re-reporting overwrites the
+   * evidence rather than stacking rows (idempotent). Writes only this satellite
+   * table; NEVER touches Memory.status — retirement stays human-confirmed.
+   */
+  async upsertStaleAnchorReport(input: {
+    memoryId: string
+    projectId: string
+    workspaceId: string
+    deadAnchors: Prisma.InputJsonValue
+    reportedBySession?: string | null
+  }) {
+    return prisma.memoryStaleAnchorReport.upsert({
+      where: { memoryId: input.memoryId },
+      create: {
+        memoryId: input.memoryId,
+        projectId: input.projectId,
+        workspaceId: input.workspaceId,
+        deadAnchors: input.deadAnchors,
+        reportedBySession: input.reportedBySession ?? null,
+      },
+      update: {
+        deadAnchors: input.deadAnchors,
+        reportedBySession: input.reportedBySession ?? null,
+      },
+    })
+  },
+
+  /**
+   * The current stale-anchor reports for a project (LUM-547), folded into the
+   * P4a retire pool by `computeProjectRetireCandidates`. Reports for non-ACTIVE
+   * memories simply never match the pool's ACTIVE list, so orphans are inert.
+   */
+  async listStaleAnchorReportsForProject(projectId: string) {
+    return prisma.memoryStaleAnchorReport.findMany({
+      where: { projectId },
+      select: { memoryId: true, deadAnchors: true },
+    })
+  },
+
   /** All memories for a task, newest first. Management UI. */
   async listForTask(taskId: string) {
     return prisma.memory.findMany({

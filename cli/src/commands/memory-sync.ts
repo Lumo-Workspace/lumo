@@ -6,12 +6,15 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { resolveMemoryDir } from '../lib/claude-memory-dir'
 import { applySync, type SyncBundle } from '../lib/apply-sync'
+import { shouldRunAnchorCheck, runAnchorCheck } from '../lib/anchor-staleness'
 
 interface SyncOptions {
   project?: string
   dir?: string
   dryRun?: boolean
   clean?: boolean
+  /** commander `--no-anchor-check` sets this to false; default runs the check. */
+  anchorCheck?: boolean
 }
 
 /**
@@ -105,5 +108,36 @@ export async function memorySync(options: SyncOptions): Promise<number | void> {
         `  drift-skipped: ${summary.skippedDrift.join(', ')} — local edits preserved (upsync candidates)`
       )
     )
+  }
+
+  // Code-anchor staleness (LUM-547): now that the team memory is local, check
+  // each memory's code anchors against this repo and report stale candidates to
+  // the server (feeds the P4a retire pool; never archives — human confirms).
+  // Best-effort: a detection/report failure never fails the sync.
+  if (shouldRunAnchorCheck(options)) {
+    try {
+      const { candidates, report } = await runAnchorCheck({
+        cwd: process.cwd(),
+        base,
+        token: creds.token,
+        projectId,
+        entries: bundle.entries,
+      })
+      if (candidates.length > 0 && report.ok) {
+        console.log(
+          sanitizeField(
+            `anchor check → ${candidates.length} stale-anchor candidate(s) reported for human review`
+          )
+        )
+      } else if (candidates.length > 0 && !report.ok) {
+        console.log(
+          sanitizeField(
+            `anchor check → found ${candidates.length} stale candidate(s) but reporting failed (HTTP ${report.status ?? '?'})`
+          )
+        )
+      }
+    } catch {
+      // detection is advisory — swallow and leave the sync result intact.
+    }
   }
 }

@@ -903,6 +903,10 @@ memoryCmd
     '--clean',
     'Remove every file + index block sync owns (full rollback)'
   )
+  .option(
+    '--no-anchor-check',
+    'Skip code-anchor staleness detection (the post-sync check that flags memories referencing deleted files/symbols)'
+  )
   .action(
     wrap((opts: unknown) =>
       memorySync(
@@ -911,6 +915,7 @@ memoryCmd
           dir?: string
           dryRun?: boolean
           clean?: boolean
+          anchorCheck?: boolean
         }
       )
     )

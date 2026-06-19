@@ -12,18 +12,29 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     archiveMemories: jest.fn(),
     invalidate: jest.fn(),
     delete: jest.fn(),
+    listForProject: jest.fn(),
+    listStaleAnchorReportsForProject: jest.fn(),
+  },
+}))
+jest.mock('@/lib/services/lineage.service', () => ({
+  lineageService: {
+    fragmentTrustForMemories: jest.fn().mockResolvedValue({}),
   },
 }))
 
 import {
   selectRetireCandidates,
   retireConfirmed,
+  computeProjectRetireCandidates,
 } from '@/lib/services/memory/retire.service'
 import type { TrustVerdict } from '@/lib/services/lineage-signal'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 
 const archive = memoryRepository.archiveMemories as jest.Mock
 const hardDelete = memoryRepository.delete as jest.Mock
+const listForProject = memoryRepository.listForProject as jest.Mock
+const listStaleReports =
+  memoryRepository.listStaleAnchorReportsForProject as jest.Mock
 
 /** A qualified verdict (cleared the cold-start grace, audited in N tasks). */
 function verdict(judgedUsedTasks: number, auditedTasks: number): TrustVerdict {
@@ -119,5 +130,76 @@ describe('retireConfirmed (shared action path)', () => {
     await retireConfirmed('wrong')
     expect(archive).toHaveBeenCalledWith(['wrong'])
     expect(hardDelete).not.toHaveBeenCalled()
+  })
+})
+
+describe('stale-anchor signal (LUM-547)', () => {
+  test('a memory with a stale-anchor report is a candidate carrying its evidence', () => {
+    const candidates = selectRetireCandidates({
+      memories: [{ id: 'stale' }, { id: 'fine' }],
+      trustByMemoryId: new Map(),
+      contradictionMemoryIds: new Set(),
+      staleAnchorsByMemoryId: new Map([
+        ['stale', [{ kind: 'file', value: 'lib/gone.ts' }]],
+      ]),
+    })
+    expect(candidates).toEqual([
+      {
+        memoryId: 'stale',
+        reasons: ['stale-anchor'],
+        staleAnchors: [{ kind: 'file', value: 'lib/gone.ts' }],
+      },
+    ])
+  })
+
+  test('an empty evidence list does not make a candidate', () => {
+    const candidates = selectRetireCandidates({
+      memories: [{ id: 'm' }],
+      trustByMemoryId: new Map(),
+      contradictionMemoryIds: new Set(),
+      staleAnchorsByMemoryId: new Map([['m', []]]),
+    })
+    expect(candidates).toEqual([])
+  })
+
+  test('a memory flagged by usage AND stale-anchor carries both reasons + evidence', () => {
+    const candidates = selectRetireCandidates({
+      memories: [{ id: 'both' }],
+      trustByMemoryId: new Map([['both', verdict(0, 5)]]),
+      contradictionMemoryIds: new Set(),
+      staleAnchorsByMemoryId: new Map([
+        ['both', [{ kind: 'symbol', value: 'goneFn' }]],
+      ]),
+    })
+    expect(candidates[0]!.reasons).toEqual(['low-judged-used', 'stale-anchor'])
+    expect(candidates[0]!.staleAnchors).toEqual([
+      { kind: 'symbol', value: 'goneFn' },
+    ])
+  })
+
+  test('stale-anchor candidate retires through the same human-confirmed archive path', async () => {
+    await retireConfirmed('stale')
+    expect(archive).toHaveBeenCalledWith(['stale'])
+    expect(hardDelete).not.toHaveBeenCalled()
+  })
+
+  test('computeProjectRetireCandidates folds persisted stale-anchor reports into the pool', async () => {
+    listForProject.mockResolvedValue([{ id: 'stale' }, { id: 'clean' }])
+    listStaleReports.mockResolvedValue([
+      {
+        memoryId: 'stale',
+        deadAnchors: [{ kind: 'file', value: 'lib/gone.ts' }],
+      },
+    ])
+
+    const candidates = await computeProjectRetireCandidates('proj1')
+
+    expect(candidates).toEqual([
+      {
+        memoryId: 'stale',
+        reasons: ['stale-anchor'],
+        staleAnchors: [{ kind: 'file', value: 'lib/gone.ts' }],
+      },
+    ])
   })
 })

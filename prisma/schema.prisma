@@ -1807,6 +1807,31 @@ model Memory {
   @@map("memories")
 }
 
+/// LUM-547 (P4b) code-anchor staleness report. Written by `lumo memory sync`
+/// when EVERY code anchor a memory names (file path / symbol / flag) is gone
+/// from the dev's git-tracked repo; read back by the P4a retire pool with its
+/// dead-anchor evidence. Detection is client-side (the server has no checkout),
+/// so the finding is persisted here rather than recomputed. One current report
+/// per memory — upsert by memoryId (idempotent; latest evidence wins). FK-less
+/// on purpose (mirrors LineageEdge/MemoryProvenance): a hard-deleted memory must
+/// not erase/500 the writer, and an orphan report never surfaces (only ACTIVE
+/// memories are ranked into the pool). The report NEVER mutates memory status —
+/// retirement stays human-confirmed.
+model MemoryStaleAnchorReport {
+  id                String   @id @default(cuid())
+  memoryId          String   @unique
+  projectId         String
+  workspaceId       String
+  /// [{ kind: "file" | "symbol" | "flag", value: string }] — the dead anchors.
+  deadAnchors       Json
+  reportedBySession String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("memory_stale_anchor_reports")
+}
+
 /// Provenance edges for Layer-2 memory consolidation (LUM-280). When
 /// consolidation promotes recurring TASK lessons into a new PROJECT memory,
 /// it records which source TASK memories fed the promotion. `resolveCanonicalFragment`
