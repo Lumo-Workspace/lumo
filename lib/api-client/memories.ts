@@ -24,13 +24,23 @@ interface CreateBody {
   content: unknown
 }
 
-/** Why a memory is proposed for retirement (LUM-540 P4a). Mirrors the wire
- *  shape of the service's RetireReason without importing server code. */
-export type RetireReason = 'low-judged-used' | 'contradiction'
+/** Why a memory is proposed for retirement (LUM-540 P4a; 'stale-anchor' added in
+ *  LUM-547 P4b). Mirrors the wire shape of the service's RetireReason without
+ *  importing server code. */
+export type RetireReason = 'low-judged-used' | 'contradiction' | 'stale-anchor'
+
+/** A dead code anchor the memory references (file path / symbol / flag) — shown
+ *  to the human reviewer as evidence when the reason is 'stale-anchor'. */
+export interface StaleAnchorEvidence {
+  kind: string
+  value: string
+}
 
 export interface RetireCandidate {
   memoryId: string
   reasons: RetireReason[]
+  /** Present only when `reasons` includes 'stale-anchor' (LUM-547). */
+  staleAnchors?: StaleAnchorEvidence[]
 }
 
 /** A near-dup merge proposal from the LUM-541 batch consolidation sweep: the

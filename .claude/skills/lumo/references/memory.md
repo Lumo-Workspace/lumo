@@ -35,6 +35,7 @@ lumo memory sync                   # write team/<id>.md + a managed MEMORY.md bl
 lumo memory sync --dry-run         # preview the reconcile plan, write nothing
 lumo memory sync --project <ref>   # target a specific project (default: bound session)
 lumo memory sync --clean           # remove everything sync owns (full rollback)
+lumo memory sync --no-anchor-check # skip the post-sync code-anchor staleness check
 
 # Upsync locally-authored memories to the team (reverse direction)
 lumo memory push                   # promote <memory-dir>/outbox/*.json to the team
@@ -109,6 +110,15 @@ during the transition both paths are active and overlap is expected, not a bug.
   upsync candidate (the reverse direction is a later phase).
 - **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
   writing; `--clean` removes every owned file + the managed block (full rollback).
+- **Code-anchor staleness check (LUM-547 P4b)**: after downsync, each synced memory's
+  code anchors (file paths, and backtick-wrapped symbols/flags) are checked against
+  this repo — resolved against **git-tracked** files (`git ls-files`) + exact
+  word-boundary grep, never the dirty working tree. A memory whose **every** anchor
+  is gone is reported to the server as a `stale-anchor` retire candidate (with the
+  dead anchors as evidence), feeding the P4a human-review retire pool. High-precision
+  by design: any surviving anchor spares the memory, and reporting never archives
+  anything — a human confirms retirement on the web. Skipped on `--dry-run` / `--clean`,
+  or with `--no-anchor-check`; a detection failure never fails the sync.
 - **Project**: resolved from the bound session unless `--project <ref>` is given.
 
 **When to suggest**: when a dev wants the team's accumulated memory available to

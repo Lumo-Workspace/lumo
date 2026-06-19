@@ -28,6 +28,19 @@ const REASON_LABELS: Record<
     id: 'memory.retire.reason.contradiction',
     defaultMessage: 'contradicts current state',
   },
+  'stale-anchor': {
+    id: 'memory.retire.reason.staleAnchor',
+    defaultMessage: 'references deleted code',
+  },
+}
+
+const ANCHOR_KIND_LABELS: Record<
+  string,
+  { id: string; defaultMessage: string }
+> = {
+  file: { id: 'memory.retire.anchor.file', defaultMessage: 'file' },
+  symbol: { id: 'memory.retire.anchor.symbol', defaultMessage: 'symbol' },
+  flag: { id: 'memory.retire.anchor.flag', defaultMessage: 'flag' },
 }
 
 /**
@@ -122,6 +135,23 @@ export function RetireReviewPanel({
                     )
                   })}
                 </div>
+                {c.staleAnchors && c.staleAnchors.length > 0 && (
+                  <p className='mt-0.5 truncate font-mono text-[10px] text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'memory.retire.anchor.deadLabel',
+                      defaultMessage: 'gone:',
+                    })}{' '}
+                    {c.staleAnchors
+                      .map(a => {
+                        const kind = ANCHOR_KIND_LABELS[a.kind]
+                        const kindLabel = kind
+                          ? intl.formatMessage(kind)
+                          : a.kind
+                        return `${a.value} (${kindLabel})`
+                      })
+                      .join(', ')}
+                  </p>
+                )}
               </div>
               <div className='flex shrink-0 gap-1'>
                 <Button

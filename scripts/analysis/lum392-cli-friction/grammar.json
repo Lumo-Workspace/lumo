@@ -1195,6 +1195,14 @@
           "enumCaseInsensitive": false,
           "description": "Print the reconcile plan without writing files"
         },
+        "--no-anchor-check": {
+          "long": "--no-anchor-check",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Skip code-anchor staleness detection (the post-sync check that flags memories referencing deleted files/symbols)"
+        },
         "--project": {
           "long": "--project",
           "short": null,

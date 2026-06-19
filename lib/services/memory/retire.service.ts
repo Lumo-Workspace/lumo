@@ -13,19 +13,33 @@ import { lineageService } from '@/lib/services/lineage.service'
  *    (`isRetireCandidate`). Reuses the existing signal; never reads merge rate.
  *  - `contradiction` — the curation-judge flagged it clearly-wrong (the same
  *    judge LUM-544 uses at DONE-time), surfaced here as a retire candidate.
+ *  - `stale-anchor` (LUM-547, P4b) — `lumo memory sync` found that every code
+ *    anchor the memory names (file path / symbol / flag) is gone from the repo.
+ *    Unlike the other two, this signal is computed CLIENT-side (the server has
+ *    no repo) and PERSISTED (`MemoryStaleAnchorReport`), so it is read back here
+ *    with its dead-anchor evidence rather than recomputed.
  *
- * Candidacy is DERIVED, not persisted: no new status column, no parallel retire
- * table. Selection is pure (zero writes). Retirement happens only on explicit
- * human/web confirmation, and routes through the EXISTING status machine
- * (`archiveMemories`: ACTIVE→ARCHIVED, guarded + reversible) — 失效非删, never a
- * hard delete. Both signals funnel through the one `retireConfirmed` action.
+ * Candidacy is DERIVED for the usage/contradiction signals (no status column);
+ * the stale-anchor signal needs a tiny persisted report because detection is
+ * async + off-box. Selection is still pure (zero writes). Retirement happens only
+ * on explicit human/web confirmation, and routes through the EXISTING status
+ * machine (`archiveMemories`: ACTIVE→ARCHIVED, guarded + reversible) — 失效非删,
+ * never a hard delete. All signals funnel through the one `retireConfirmed` action.
  */
 
-export type RetireReason = 'low-judged-used' | 'contradiction'
+export type RetireReason = 'low-judged-used' | 'contradiction' | 'stale-anchor'
+
+/** A dead code anchor (file path / symbol / flag) — evidence for the reviewer. */
+export interface StaleAnchorEvidence {
+  kind: string
+  value: string
+}
 
 export interface RetireCandidate {
   memoryId: string
   reasons: RetireReason[]
+  /** Present only when `reasons` includes `stale-anchor` — the dead anchors. */
+  staleAnchors?: StaleAnchorEvidence[]
 }
 
 export interface SelectRetireInput {
@@ -40,6 +54,12 @@ export interface SelectRetireInput {
   trustByMemoryId: Map<string, TrustVerdict>
   /** Memory ids the curation-judge confidently flagged clearly-wrong. */
   contradictionMemoryIds: Set<string>
+  /**
+   * Per-memory dead-anchor evidence from a persisted stale-anchor report
+   * (LUM-547). A memory is proposed via this signal only when its evidence list
+   * is non-empty. Optional — absent for callers that don't carry the signal.
+   */
+  staleAnchorsByMemoryId?: Map<string, StaleAnchorEvidence[]>
 }
 
 /**
@@ -58,7 +78,13 @@ export function selectRetireCandidates(
     const v = input.trustByMemoryId.get(m.id)
     if (v && isRetireCandidate(v)) reasons.push('low-judged-used')
     if (input.contradictionMemoryIds.has(m.id)) reasons.push('contradiction')
-    if (reasons.length > 0) candidates.push({ memoryId: m.id, reasons })
+    const stale = input.staleAnchorsByMemoryId?.get(m.id)
+    if (stale && stale.length > 0) reasons.push('stale-anchor')
+    if (reasons.length > 0) {
+      const candidate: RetireCandidate = { memoryId: m.id, reasons }
+      if (stale && stale.length > 0) candidate.staleAnchors = stale
+      candidates.push(candidate)
+    }
   }
   return candidates
 }
@@ -99,12 +125,38 @@ export async function computeProjectRetireCandidates(
 ): Promise<RetireCandidate[]> {
   const memories = await memoryRepository.listForProject(projectId)
   if (memories.length === 0) return []
-  const trustRecord = await lineageService.fragmentTrustForMemories(
-    memories.map(m => m.id)
+  const [trustRecord, staleReports] = await Promise.all([
+    lineageService.fragmentTrustForMemories(memories.map(m => m.id)),
+    memoryRepository.listStaleAnchorReportsForProject(projectId),
+  ])
+  const staleAnchorsByMemoryId = new Map<string, StaleAnchorEvidence[]>(
+    staleReports.map(r => [r.memoryId, normalizeAnchors(r.deadAnchors)])
   )
   return selectRetireCandidates({
     memories,
     trustByMemoryId: new Map(Object.entries(trustRecord)),
     contradictionMemoryIds: opts.contradictionMemoryIds ?? new Set(),
+    staleAnchorsByMemoryId,
   })
+}
+
+/** Coerce a persisted `deadAnchors` JSON value into typed evidence, dropping
+ * any malformed entries (the column is Json — never trust its shape blindly). */
+function normalizeAnchors(raw: unknown): StaleAnchorEvidence[] {
+  if (!Array.isArray(raw)) return []
+  const out: StaleAnchorEvidence[] = []
+  for (const item of raw) {
+    if (
+      item &&
+      typeof item === 'object' &&
+      typeof (item as { kind?: unknown }).kind === 'string' &&
+      typeof (item as { value?: unknown }).value === 'string'
+    ) {
+      out.push({
+        kind: (item as { kind: string }).kind,
+        value: (item as { value: string }).value,
+      })
+    }
+  }
+  return out
 }

@@ -152,3 +152,13 @@ export {
   type TruncateUnitsParams,
   type CapTextOptions,
 } from './output-budget'
+
+// ── Memory code-anchor staleness detection (LUM-547) ─────────────────────────
+export {
+  extractAnchors,
+  classifyMemoryStaleness,
+  type AnchorKind,
+  type CodeAnchor,
+  type AnchorProbe,
+  type StaleVerdict,
+} from './code-anchor'
