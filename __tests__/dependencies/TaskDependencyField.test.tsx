@@ -140,15 +140,33 @@ it('shows no dangling separator when only suggested candidates exist', () => {
   expect(container.textContent?.trim().startsWith('·')).toBe(false)
 })
 
-it('shows no stray manage icon when only blockers exist', () => {
+it('offers the manage control (no stray GitFork) when only blockers exist', () => {
   const { container } = renderField([blocker('LUM-9', 'IN_PROGRESS')])
   expect(screen.getByText('LUM-9')).toBeInTheDocument()
-  // The GitFork lucide icon renders an <svg class="lucide lucide-git-fork">.
+  // No GitFork in the field row (it lives only in the dialog title).
   expect(container.querySelector('.lucide-git-fork')).toBeNull()
+  // A manage control is always present to open the dialog.
+  expect(
+    screen.getByRole('button', { name: 'task.dependencies.field.manage' })
+  ).toBeInTheDocument()
+})
+
+it('always offers a manage control when only satisfied blockers exist (no dead state)', () => {
+  // The state that previously had no opener: blockers all DONE, no blocks/suggested/overflow.
+  renderField([blocker('LUM-1', 'DONE'), blocker('LUM-2', 'DONE')])
+  // Chips are navigation links, not the dialog opener.
+  expect(screen.getByText('LUM-1').closest('a')).toHaveAttribute(
+    'href',
+    '/workspace/acme/my-tasks/LUM-1'
+  )
+  // …so an explicit manage control must exist to open the management dialog.
+  expect(
+    screen.getByRole('button', { name: 'task.dependencies.field.manage' })
+  ).toBeInTheDocument()
 })
 
 it('does not show the empty state when only RELATES edges exist', () => {
-  const { container } = renderField([
+  renderField([
     edge({
       kind: 'RELATES',
       status: 'CONFIRMED',
@@ -159,6 +177,8 @@ it('does not show the empty state when only RELATES edges exist', () => {
   expect(
     screen.queryByText('task.dependencies.addDependency')
   ).not.toBeInTheDocument()
-  // …and the manage affordance (GitFork fallback) is present.
-  expect(container.querySelector('.lucide-git-fork')).not.toBeNull()
+  // …and the manage control is present to open the dialog.
+  expect(
+    screen.getByRole('button', { name: 'task.dependencies.field.manage' })
+  ).toBeInTheDocument()
 })
