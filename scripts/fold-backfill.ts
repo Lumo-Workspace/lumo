@@ -34,6 +34,9 @@ async function main() {
   const { prisma } = await import('@/lib/db/prisma')
   const { computeProjectFoldProposals } =
     await import('@/lib/services/memory/fold-compute')
+  const { MEMORY_CAP } = await import('@/lib/services/memory/fold.service')
+  const { computeProjectRetireCandidates } =
+    await import('@/lib/services/memory/retire.service')
   const { memoryRepository } =
     await import('@/lib/repositories/memory.repository')
   const { embedTexts } = await import('@/lib/ai/embedding')
@@ -76,6 +79,20 @@ async function main() {
     )
   }
 
+  // Prune plan: after folding, if still over cap, archive never-used cards.
+  const projectedAfterFold = before - wouldFold + proposals.length
+  const neverUsed = (await computeProjectRetireCandidates(projectId))
+    .filter(c => c.reasons.includes('low-judged-used'))
+    .map(c => c.memoryId)
+  const wouldPrune = Math.min(
+    Math.max(0, projectedAfterFold - MEMORY_CAP),
+    neverUsed.length
+  )
+  console.error(
+    `[backfill] then archive ${wouldPrune} never-used cards (of ${neverUsed.length} available) → ` +
+      `projected ACTIVE ≈ ${projectedAfterFold - wouldPrune} (cap ${MEMORY_CAP})`
+  )
+
   if (!apply) {
     console.error('[backfill] DRY-RUN — nothing written. Re-run with --apply.')
     await prisma.$disconnect()
@@ -109,11 +126,33 @@ async function main() {
     }
   }
 
-  const after = await prisma.memory.count({
+  const afterFold = await prisma.memory.count({
+    where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
+  })
+
+  // Re-compute never-used on the POST-fold set (folded sources are now gone),
+  // then archive (reversibly) just enough to reach the cap.
+  let pruned = 0
+  if (afterFold > MEMORY_CAP) {
+    const ids = (await computeProjectRetireCandidates(projectId))
+      .filter(c => c.reasons.includes('low-judged-used'))
+      .map(c => c.memoryId)
+      .slice(0, afterFold - MEMORY_CAP)
+    if (ids.length) {
+      pruned = (
+        await memoryRepository.archiveMemoriesInWorkspace(
+          ids,
+          project.workspaceId
+        )
+      ).count
+    }
+  }
+
+  const final = await prisma.memory.count({
     where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
   })
   console.error(
-    `[backfill] APPLIED ${folded} folds — ACTIVE ${before} → ${after}`
+    `[backfill] APPLIED ${folded} folds + ${pruned} archives — ACTIVE ${before} → ${final} (cap ${MEMORY_CAP})`
   )
   await prisma.$disconnect()
 }
