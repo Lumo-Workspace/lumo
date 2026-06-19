@@ -37,11 +37,11 @@ export function DependencyRow({
   const intl = useIntl()
   const evidence = evidenceText(edge)
   return (
-    <div className='group flex items-center gap-2 py-1.5 text-sm border-b border-border/50 last:border-b-0'>
-      <span className='font-mono text-xs text-muted-foreground'>
+    <div className='group flex min-w-0 items-center gap-2 py-1.5 text-sm border-b border-border/50 last:border-b-0'>
+      <span className='font-mono text-xs text-muted-foreground shrink-0'>
         {edge.other.identifier}
       </span>
-      <span className='flex-1 truncate'>{edge.other.title}</span>
+      <span className='min-w-0 flex-1 truncate'>{edge.other.title}</span>
       {variant === 'confirmed' && (
         <>
           <span className='text-xs text-muted-foreground'>

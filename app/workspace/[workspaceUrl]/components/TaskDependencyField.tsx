@@ -173,7 +173,7 @@ export function TaskDependencyField({
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className='max-w-lg'>
+        <DialogContent className='max-w-xl'>
           <DialogHeader>
             <DialogTitle className='flex items-center gap-1.5'>
               <GitFork className='h-4 w-4' />

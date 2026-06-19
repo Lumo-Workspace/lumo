@@ -74,7 +74,7 @@ export function DependenciesSection({
     null
 
   return (
-    <section className={embedded ? '' : 'mt-6'}>
+    <section className={embedded ? 'min-w-0' : 'mt-6'}>
       <div
         className={`flex items-center mb-1 ${
           embedded ? 'justify-end' : 'justify-between'
