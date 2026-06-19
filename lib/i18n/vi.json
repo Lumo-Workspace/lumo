@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Đảo ngược hướng",
   "task.dependencies.dismiss": "Bỏ qua",
   "task.dependencies.remove": "Xóa phụ thuộc",
-  "task.dependencies.kindBlocks": "Chặn",
   "task.dependencies.kindRelates": "Liên quan",
   "task.dependencies.searchPlaceholder": "Tìm kiếm công việc…",
   "task.dependencies.noResults": "Không có công việc phù hợp",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Hợp nhất",
   "memory.merge.dismiss": "Giữ",
   "memory.merge.confirmed": "Đã hợp nhất ký ức",
-  "memory.merge.error": "Không thể hợp nhất các ký ức. Vui lòng thử lại."
+  "memory.merge.error": "Không thể hợp nhất các ký ức. Vui lòng thử lại.",
+  "task.dependencies.searchHint": "Tìm theo tên hoặc mã công việc",
+  "task.dependencies.searching": "Đang tìm…",
+  "task.dependencies.added": "Đã thêm"
 }

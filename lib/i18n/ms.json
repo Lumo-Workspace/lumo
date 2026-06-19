@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Terbalikkan arah",
   "task.dependencies.dismiss": "Abaikan",
   "task.dependencies.remove": "Buang kebergantungan",
-  "task.dependencies.kindBlocks": "Menyekat",
   "task.dependencies.kindRelates": "Berkaitan",
   "task.dependencies.searchPlaceholder": "Cari tugasan…",
   "task.dependencies.noResults": "Tiada tugasan yang sepadan",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Gabungkan",
   "memory.merge.dismiss": "Kekalkan",
   "memory.merge.confirmed": "Memori digabungkan",
-  "memory.merge.error": "Tidak dapat menggabungkan memori. Sila cuba lagi."
+  "memory.merge.error": "Tidak dapat menggabungkan memori. Sila cuba lagi.",
+  "task.dependencies.searchHint": "Cari mengikut nama atau ID tugas",
+  "task.dependencies.searching": "Mencari…",
+  "task.dependencies.added": "Ditambah"
 }

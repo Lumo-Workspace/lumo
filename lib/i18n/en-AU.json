@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Reverse direction",
   "task.dependencies.dismiss": "Dismiss",
   "task.dependencies.remove": "Remove dependency",
-  "task.dependencies.kindBlocks": "Blocks",
   "task.dependencies.kindRelates": "Relates",
   "task.dependencies.searchPlaceholder": "Search tasks…",
   "task.dependencies.noResults": "No matching tasks",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Merge",
   "memory.merge.dismiss": "Keep",
   "memory.merge.confirmed": "Memories merged",
-  "memory.merge.error": "Could not merge the memories. Please try again."
+  "memory.merge.error": "Could not merge the memories. Please try again.",
+  "task.dependencies.searchHint": "Search by name or task ID",
+  "task.dependencies.searching": "Searching…",
+  "task.dependencies.added": "Added"
 }

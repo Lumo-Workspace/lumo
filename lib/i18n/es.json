@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Invertir dirección",
   "task.dependencies.dismiss": "Descartar",
   "task.dependencies.remove": "Eliminar dependencia",
-  "task.dependencies.kindBlocks": "Bloquea",
   "task.dependencies.kindRelates": "Se relaciona",
   "task.dependencies.searchPlaceholder": "Buscar tareas…",
   "task.dependencies.noResults": "No hay tareas coincidentes",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Fusionar",
   "memory.merge.dismiss": "Conservar",
   "memory.merge.confirmed": "Memorias fusionadas",
-  "memory.merge.error": "No se pudieron fusionar las memorias. Inténtalo de nuevo."
+  "memory.merge.error": "No se pudieron fusionar las memorias. Inténtalo de nuevo.",
+  "task.dependencies.searchHint": "Buscar por nombre o ID de tarea",
+  "task.dependencies.searching": "Buscando…",
+  "task.dependencies.added": "Añadido"
 }

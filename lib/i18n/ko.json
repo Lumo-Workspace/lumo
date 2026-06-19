@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "방향 반전",
   "task.dependencies.dismiss": "무시",
   "task.dependencies.remove": "종속성 제거",
-  "task.dependencies.kindBlocks": "차단",
   "task.dependencies.kindRelates": "관련",
   "task.dependencies.searchPlaceholder": "작업 검색…",
   "task.dependencies.noResults": "일치하는 작업 없음",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "병합",
   "memory.merge.dismiss": "유지",
   "memory.merge.confirmed": "메모리를 병합했습니다",
-  "memory.merge.error": "메모리를 병합할 수 없습니다. 다시 시도해 주세요."
+  "memory.merge.error": "메모리를 병합할 수 없습니다. 다시 시도해 주세요.",
+  "task.dependencies.searchHint": "이름 또는 작업 ID로 검색",
+  "task.dependencies.searching": "검색 중…",
+  "task.dependencies.added": "추가됨"
 }

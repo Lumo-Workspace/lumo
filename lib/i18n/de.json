@@ -1710,7 +1710,6 @@
   "task.dependencies.reverse": "Richtung umkehren",
   "task.dependencies.dismiss": "Verwerfen",
   "task.dependencies.remove": "Abhängigkeit entfernen",
-  "task.dependencies.kindBlocks": "Blockiert",
   "task.dependencies.kindRelates": "Verwandt",
   "task.dependencies.searchPlaceholder": "Aufgaben suchen…",
   "task.dependencies.noResults": "Keine passenden Aufgaben",
@@ -1737,5 +1736,8 @@
   "memory.merge.confirm": "Zusammenführen",
   "memory.merge.dismiss": "Behalten",
   "memory.merge.confirmed": "Erinnerungen zusammengeführt",
-  "memory.merge.error": "Die Erinnerungen konnten nicht zusammengeführt werden. Bitte versuche es erneut."
+  "memory.merge.error": "Die Erinnerungen konnten nicht zusammengeführt werden. Bitte versuche es erneut.",
+  "task.dependencies.searchHint": "Nach Name oder Aufgaben-ID suchen",
+  "task.dependencies.searching": "Wird gesucht…",
+  "task.dependencies.added": "Hinzugefügt"
 }
