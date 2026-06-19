@@ -130,6 +130,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo memory promote <id>` / `lumo memory rm <id> --yes` — TASK→PROJECT / delete
 - `lumo memory sync [--project <ref>] [--dir <path>] [--dry-run] [--clean]` — downsync team memory into the local Claude Code memory store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns, never your own memory; `--dry-run` previews, `--clean` fully reverts (runs alongside session-start injection)
 - `lumo memory push [--project <ref>] [--dir <path>] [--dry-run]` — upsync locally-authored memories (`<memory-dir>/outbox/*.json`, each `{category, content}`) to the team via the existing create-project-memory pipeline (canonicalize/dedup/reconcile-on-write); pushed files leave the outbox on success
+- `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding itself runs automatically via a daily cron; there is no manual apply, no `unfold`). Prints each proposed coarse "subsystem card" + how many fine cards it would fold / leave ACTIVE. Defaults to the session-bound project. **When to suggest:** when a project's PROJECT memory is "又多又细" (many fine-grained but non-duplicate cards) and you want to see how folding would collapse it before the next daily pass.
 
 **Sessions** — see [sessions.md](references/sessions.md)
 

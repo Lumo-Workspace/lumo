@@ -157,6 +157,22 @@ export const projectRepository = {
     })
   },
 
+  /** LUM-553 — workspace + fold-cooldown state for the autonomous fold pass. */
+  async findFoldState(id: string) {
+    return prisma.project.findUnique({
+      where: { id },
+      select: { workspaceId: true, lastMemoryFoldAttemptAt: true },
+    })
+  },
+
+  /** LUM-553 — stamp the fold attempt time (cooldown anchor). */
+  async stampFoldAttempt(id: string, at: Date) {
+    await prisma.project.update({
+      where: { id },
+      data: { lastMemoryFoldAttemptAt: at },
+    })
+  },
+
   /** Find project by ID with default owner and workspace slug. */
   async findByIdWithDefaults(id: string) {
     return prisma.project.findUnique({

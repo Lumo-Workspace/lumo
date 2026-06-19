@@ -471,6 +471,9 @@ model Project {
   // claim it skip the round. Prevents duplicate PROJECT-scope promotions when
   // multiple task completions fire consolidation at once. See layer2.service.
   memoryConsolidationLockedUntil DateTime?
+  /// LUM-553 — last time the autonomous topic-fold pass attempted this project.
+  /// Per-project cooldown so the daily cron doesn't re-run the LLM every day.
+  lastMemoryFoldAttemptAt DateTime?
 
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
