@@ -15,10 +15,6 @@
     {
       "path": "/api/cron/prune-document-revisions",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/fold-memory",
-      "schedule": "0 4 * * *"
     }
   ]
 }

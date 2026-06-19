@@ -478,6 +478,14 @@ export async function updateTaskWithSideEffects(
           projectId,
           sourceSessionId,
         })
+        // LUM-553: Layer-2 may have grown the project's PROJECT memory past the
+        // budget. Fold + (if needed) archive never-used cards back down to the
+        // cap. Runs AFTER promotion (sequential, shares the consolidation lease);
+        // self-gates on the high-water mark; best-effort. Dynamic import keeps
+        // the fold service's gateway graph out of this module's static graph.
+        const { foldService } =
+          await import('@/lib/services/memory/fold.service')
+        await foldService.triggerForProject(projectId, sourceSessionId ?? null)
       })()
     )
 
