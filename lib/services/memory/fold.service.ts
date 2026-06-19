@@ -4,7 +4,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { computeProjectFoldProposals } from '@/lib/services/memory/fold-compute'
-import { computeProjectRetireCandidates } from '@/lib/services/memory/retire.service'
+import { lineageService } from '@/lib/services/lineage.service'
 import type { FoldProposal } from '@/lib/memory/fold-schemas'
 import { logger } from '@/lib/logger'
 
@@ -38,28 +38,60 @@ export interface TriggerResult {
   error?: boolean
 }
 
+/** Days a card is shielded from pruning after creation — too new to have had a
+ *  fair chance to be used (it may simply not have come up yet). */
+const PRUNE_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+
 /**
- * Archive (reversibly) up to `n` never-used cards to bring a project down to the
- * cap when folding alone can't (singletons that don't cluster). Reuses the P4
- * retire signal — only cards that passed the cold-start grace AND were never
- * judged-used by any task — and archives them through the existing status
- * machine (ACTIVE→ARCHIVED, restorable; never a hard delete). Returns how many
- * were archived (0 if there aren't enough never-used cards — best-effort).
+ * Pure: pick up to `n` cards to archive to bring a project down to the cap, when
+ * folding alone can't (singletons that don't cluster). Ranks by the judged-used
+ * track record: only cards NEVER judged-used by any task are eligible (a card
+ * that has ever helped is never pruned), oldest first (longest dead weight), and
+ * cards inside the grace window are protected (too new to judge — this also
+ * shields the just-created coarse cards). "Never judged-used" here includes
+ * not-yet-audited (count 0), so this is the aggressive budget enforcer that can
+ * actually reach the cap — but only ever ARCHIVES (reversible), never deletes.
  */
-async function pruneNeverUsedToCap(
+export function selectPruneTargets(
+  active: Array<{ id: string; createdAt: Date }>,
+  judgedUsedById: (id: string) => number,
+  n: number,
+  now: number
+): string[] {
+  if (n <= 0) return []
+  return active
+    .filter(m => judgedUsedById(m.id) === 0)
+    .filter(m => now - m.createdAt.getTime() > PRUNE_GRACE_MS)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, n)
+    .map(m => m.id)
+}
+
+/**
+ * Archive (reversibly) the `n` least-valuable cards to reach the cap. Reads the
+ * post-fold ACTIVE set + judged-used track record, selects via
+ * `selectPruneTargets`, and archives through the existing status machine
+ * (ACTIVE→ARCHIVED, restorable; never a hard delete). Returns how many archived.
+ */
+async function pruneToCap(
   projectId: string,
   workspaceId: string,
   n: number
 ): Promise<number> {
   if (n <= 0) return 0
-  const candidates = await computeProjectRetireCandidates(projectId)
-  const neverUsed = candidates
-    .filter(c => c.reasons.includes('low-judged-used'))
-    .map(c => c.memoryId)
-    .slice(0, n)
-  if (neverUsed.length === 0) return 0
+  const active = await memoryRepository.findActiveProjectMemories(projectId)
+  const trust = await lineageService.fragmentTrustForMemories(
+    active.map(m => m.id)
+  )
+  const ids = selectPruneTargets(
+    active,
+    id => trust[id]?.judgedUsedTasks ?? 0,
+    n,
+    Date.now()
+  )
+  if (ids.length === 0) return 0
   const res = await memoryRepository.archiveMemoriesInWorkspace(
-    neverUsed,
+    ids,
     workspaceId
   )
   return res.count
@@ -168,11 +200,11 @@ export const foldService = {
           }
         }
 
-        // 2. Folding alone can't touch singletons — archive never-used cards
-        // (reversible) the rest of the way to the cap.
+        // 2. Folding alone can't touch singletons — archive (reversibly) the
+        // oldest never-judged-used cards the rest of the way to the cap.
         const pruned =
           remaining > MEMORY_CAP
-            ? await pruneNeverUsedToCap(
+            ? await pruneToCap(
                 projectId,
                 state.workspaceId,
                 remaining - MEMORY_CAP

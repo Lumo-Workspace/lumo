@@ -34,13 +34,26 @@ async function main() {
   const { prisma } = await import('@/lib/db/prisma')
   const { computeProjectFoldProposals } =
     await import('@/lib/services/memory/fold-compute')
-  const { MEMORY_CAP } = await import('@/lib/services/memory/fold.service')
-  const { computeProjectRetireCandidates } =
-    await import('@/lib/services/memory/retire.service')
+  const { MEMORY_CAP, selectPruneTargets } =
+    await import('@/lib/services/memory/fold.service')
+  const { lineageService } = await import('@/lib/services/lineage.service')
   const { memoryRepository } =
     await import('@/lib/repositories/memory.repository')
   const { embedTexts } = await import('@/lib/ai/embedding')
   const { memoryContentToText } = await import('@/lib/memory/content-text')
+
+  const pruneTargets = async (n: number): Promise<string[]> => {
+    const act = await memoryRepository.findActiveProjectMemories(projectId!)
+    const trust = await lineageService.fragmentTrustForMemories(
+      act.map(m => m.id)
+    )
+    return selectPruneTargets(
+      act,
+      id => trust[id]?.judgedUsedTasks ?? 0,
+      n,
+      Date.now()
+    )
+  }
 
   let projectId = explicitId
   if (!projectId) {
@@ -79,17 +92,15 @@ async function main() {
     )
   }
 
-  // Prune plan: after folding, if still over cap, archive never-used cards.
+  // Prune plan (estimate on the pre-fold set; folds will remove some of these):
   const projectedAfterFold = before - wouldFold + proposals.length
-  const neverUsed = (await computeProjectRetireCandidates(projectId))
-    .filter(c => c.reasons.includes('low-judged-used'))
-    .map(c => c.memoryId)
+  const eligible = (await pruneTargets(before)).length
   const wouldPrune = Math.min(
     Math.max(0, projectedAfterFold - MEMORY_CAP),
-    neverUsed.length
+    eligible
   )
   console.error(
-    `[backfill] then archive ${wouldPrune} never-used cards (of ${neverUsed.length} available) → ` +
+    `[backfill] then archive ~${wouldPrune} never-judged-used cards (≈${eligible} eligible) → ` +
       `projected ACTIVE ≈ ${projectedAfterFold - wouldPrune} (cap ${MEMORY_CAP})`
   )
 
@@ -130,14 +141,11 @@ async function main() {
     where: { projectId, scope: 'PROJECT', status: 'ACTIVE' },
   })
 
-  // Re-compute never-used on the POST-fold set (folded sources are now gone),
-  // then archive (reversibly) just enough to reach the cap.
+  // Re-rank on the POST-fold set (folded sources are now gone), then archive
+  // (reversibly) just enough of the oldest never-judged-used cards to reach cap.
   let pruned = 0
   if (afterFold > MEMORY_CAP) {
-    const ids = (await computeProjectRetireCandidates(projectId))
-      .filter(c => c.reasons.includes('low-judged-used'))
-      .map(c => c.memoryId)
-      .slice(0, afterFold - MEMORY_CAP)
+    const ids = await pruneTargets(afterFold - MEMORY_CAP)
     if (ids.length) {
       pruned = (
         await memoryRepository.archiveMemoriesInWorkspace(
