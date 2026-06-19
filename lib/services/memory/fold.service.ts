@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { embedTexts } from '@/lib/ai/embedding'
@@ -30,7 +31,7 @@ async function applyFold(
 ): Promise<void> {
   const { coarseId } = await memoryRepository.foldInto({
     sourceIds: proposal.sourceIds,
-    coarseContent: proposal.coarseContent as Record<string, unknown>,
+    coarseContent: proposal.coarseContent as Prisma.InputJsonValue,
     category: proposal.category,
     projectId,
     workspaceId,
