@@ -42,6 +42,7 @@ import { memoryRm } from './commands/memory-rm'
 import { memoryShow } from './commands/memory-show'
 import { memorySync } from './commands/memory-sync'
 import { memoryPush } from './commands/memory-push'
+import { memoryFold } from './commands/memory-fold'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskCriteriaSet } from './commands/task-criteria-set'
 import { taskCriteriaList } from './commands/task-criteria-list'
@@ -938,6 +939,21 @@ memoryCmd
   .action(
     wrap((opts: unknown) =>
       memoryPush(opts as { project?: string; dir?: string; dryRun?: boolean })
+    )
+  )
+
+memoryCmd
+  .command('fold [project-ref]')
+  .description(
+    'Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run.'
+  )
+  .option(
+    '--dry-run',
+    'preview proposed subsystem cards + which fine cards they fold; writes nothing'
+  )
+  .action(
+    wrap((ref: unknown, opts: unknown) =>
+      memoryFold(ref as string | undefined, opts as { dryRun?: boolean })
     )
   )
 

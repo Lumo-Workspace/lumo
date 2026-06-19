@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.39.0",
+  "cliVersion": "1.40.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1091,6 +1091,27 @@
       "flags": {},
       "hasSubcommands": true,
       "description": "Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)"
+    },
+    "memory fold": {
+      "arguments": [
+        {
+          "name": "project-ref",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--dry-run": {
+          "long": "--dry-run",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "preview proposed subsystem cards + which fine cards they fold; writes nothing"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
     },
     "memory promote": {
       "arguments": [
