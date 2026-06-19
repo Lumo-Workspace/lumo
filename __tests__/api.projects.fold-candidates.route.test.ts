@@ -39,7 +39,7 @@ beforeEach(() => {
   ])
 })
 
-describe('GET /api/projects/[id]/memories/fold-candidates is read-only bearer-allowed and workspace-scoped', () => {
+describe('fold-candidates GET is read-only bearer-allowed and workspace-scoped', () => {
   it('returns proposals for a bearer caller', async () => {
     const res = await GET(req(), params)
     expect(res.status).toBe(200)
