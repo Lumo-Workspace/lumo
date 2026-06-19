@@ -40,6 +40,9 @@ lumo memory sync --no-anchor-check # skip the post-sync code-anchor staleness ch
 # Upsync locally-authored memories to the team (reverse direction)
 lumo memory push                   # promote <memory-dir>/outbox/*.json to the team
 lumo memory push --dry-run         # list what would be pushed without sending
+
+# Topic folding — autonomous (daily cron); the CLI is the read-only preview only
+lumo memory fold --dry-run         # preview the next auto-fold pass; writes nothing
 ```
 
 When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
@@ -153,6 +156,32 @@ successful push removes the file from the outbox.
 **When to suggest**: when a dev has captured a reusable lesson locally and wants it
 shared with the team — drop a `{category, content}` JSON in the memory `outbox/`
 and run `lumo memory push` (or just use `lumo project memory add` for a one-off).
+
+### `lumo memory fold [project-ref] --dry-run` (topic folding — read-only preview)
+
+Topic folding is the **third** memory-consolidation operation (orthogonal to P5
+near-dup merge and P4 retire): it clusters a project's ACTIVE PROJECT memories by
+**subsystem/theme** (related-but-not-duplicate fine cards — e.g. several Prisma
+gotchas, several jest gotchas), synthesizes **one coarse "subsystem card"** per
+cluster that preserves every source card's invariant/gotcha, and supersedes the
+covered sources into it (失效非删, reversible). Folding **runs autonomously** on a
+daily cron with **no human review** — a fail-closed machine coverage gate decides
+which sources are safe to fold (a source is only superseded if a judge confirms,
+with a verbatim quote, that its actionable detail is present in the coarse card).
+There is **no manual apply and no `unfold`** — to correct a coarse card, edit it in
+the web Memory tab; superseded sources are preserved.
+
+The CLI exposes only a **read-only `--dry-run` preview** (bare `lumo memory fold`
+without `--dry-run` just prints that folding is automatic). It prints each proposed
+coarse card + how many fine cards it would fold / leave ACTIVE. Defaults to the
+session-bound project; pass `[project-ref]` for another.
+
+- `--dry-run` is required for the preview (writes nothing; the actual folding only
+  ever runs server-side in the daily cron).
+
+**When to suggest**: when a project's PROJECT memory is "又多又细" (many fine-grained
+but non-duplicate cards bloating the resident MEMORY.md index) and you want to see
+how the next auto-fold pass would collapse it.
 
 ### Reconcile-on-write & deduplication
 
