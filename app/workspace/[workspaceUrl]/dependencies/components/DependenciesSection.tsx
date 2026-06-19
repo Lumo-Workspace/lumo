@@ -52,6 +52,9 @@ export function DependenciesSection({
     taskId: taskIdentifier,
   })
   const grouped = groupDependencies(edges)
+  const existingIdentifiers = new Set(
+    edges.filter(e => e.status === 'CONFIRMED').map(e => e.other.identifier)
+  )
   const liveBlockers = computeLiveBlockers(edges)
   const busy = add.isPending || patch.isPending || remove.isPending
   const isEmpty = edges.filter(e => e.status !== 'DISMISSED').length === 0
@@ -70,6 +73,7 @@ export function DependenciesSection({
         </h3>
         <AddDependencyButton
           currentIdentifier={taskIdentifier}
+          existingIdentifiers={existingIdentifiers}
           busy={busy}
           onAdd={data => add.mutate(data)}
         />
