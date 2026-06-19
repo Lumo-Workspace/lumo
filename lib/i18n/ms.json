@@ -1739,5 +1739,10 @@
   "memory.merge.error": "Tidak dapat menggabungkan memori. Sila cuba lagi.",
   "task.dependencies.searchHint": "Cari mengikut nama atau ID tugas",
   "task.dependencies.searching": "Mencari…",
-  "task.dependencies.added": "Ditambah"
+  "task.dependencies.added": "Ditambah",
+  "task.dependencies.field.label": "Deps",
+  "task.dependencies.field.blocks": "menyekat {count}",
+  "task.dependencies.field.suggested": "{count} dicadangkan",
+  "task.dependencies.field.manage": "Urus kebergantungan",
+  "task.dependencies.field.blocked": "Disekat"
 }

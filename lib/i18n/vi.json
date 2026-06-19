@@ -1739,5 +1739,10 @@
   "memory.merge.error": "Không thể hợp nhất các ký ức. Vui lòng thử lại.",
   "task.dependencies.searchHint": "Tìm theo tên hoặc mã công việc",
   "task.dependencies.searching": "Đang tìm…",
-  "task.dependencies.added": "Đã thêm"
+  "task.dependencies.added": "Đã thêm",
+  "task.dependencies.field.label": "Phụ thuộc",
+  "task.dependencies.field.blocks": "chặn {count}",
+  "task.dependencies.field.suggested": "{count} đề xuất",
+  "task.dependencies.field.manage": "Quản lý phụ thuộc",
+  "task.dependencies.field.blocked": "Bị chặn"
 }

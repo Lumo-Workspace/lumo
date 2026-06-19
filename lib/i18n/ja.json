@@ -1739,5 +1739,10 @@
   "memory.merge.error": "メモリをマージできませんでした。もう一度お試しください。",
   "task.dependencies.searchHint": "タスク名または LUM ID で検索",
   "task.dependencies.searching": "検索中…",
-  "task.dependencies.added": "追加済み"
+  "task.dependencies.added": "追加済み",
+  "task.dependencies.field.label": "依存",
+  "task.dependencies.field.blocks": "{count} 件をブロック",
+  "task.dependencies.field.suggested": "{count} 件の候補",
+  "task.dependencies.field.manage": "依存関係を管理",
+  "task.dependencies.field.blocked": "ブロック中"
 }

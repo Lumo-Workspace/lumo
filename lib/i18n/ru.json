@@ -1739,5 +1739,10 @@
   "memory.merge.error": "Не удалось объединить воспоминания. Попробуйте ещё раз.",
   "task.dependencies.searchHint": "Поиск по имени или ID задачи",
   "task.dependencies.searching": "Поиск…",
-  "task.dependencies.added": "Добавлено"
+  "task.dependencies.added": "Добавлено",
+  "task.dependencies.field.label": "Завис.",
+  "task.dependencies.field.blocks": "блокирует {count}",
+  "task.dependencies.field.suggested": "{count} предложено",
+  "task.dependencies.field.manage": "Управление зависимостями",
+  "task.dependencies.field.blocked": "Заблокировано"
 }

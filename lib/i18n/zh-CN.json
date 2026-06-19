@@ -1739,5 +1739,10 @@
   "memory.merge.error": "无法合并这些记忆，请重试。",
   "task.dependencies.searchHint": "输入任务名或 LUM 编号搜索",
   "task.dependencies.searching": "搜索中…",
-  "task.dependencies.added": "已添加"
+  "task.dependencies.added": "已添加",
+  "task.dependencies.field.label": "依赖",
+  "task.dependencies.field.blocks": "阻塞 {count}",
+  "task.dependencies.field.suggested": "{count} 个待确认",
+  "task.dependencies.field.manage": "管理依赖",
+  "task.dependencies.field.blocked": "被阻塞"
 }

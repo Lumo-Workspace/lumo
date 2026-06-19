@@ -17,6 +17,7 @@ import {
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import { TaskMilestoneField } from './milestones/TaskMilestoneField'
+import { TaskDependencyField } from './TaskDependencyField'
 import React from 'react'
 
 interface TaskDetailSidebarProps {
@@ -24,6 +25,7 @@ interface TaskDetailSidebarProps {
   members: WorkspaceMemberInfo[]
   agentActors: { actorId: string; name: string; avatarColor: string }[]
   projects: ApiProject[]
+  workspaceUrl: string
   onPatch: (patch: Record<string, unknown>) => void
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
@@ -38,6 +40,7 @@ export function TaskDetailSidebar({
   members,
   agentActors: _agentActors,
   projects,
+  workspaceUrl,
   onPatch,
   allTags,
   onTagsChange,
@@ -98,6 +101,17 @@ export function TaskDetailSidebar({
                   value={task.priority}
                   onChange={v => onPatch({ priority: v })}
                   triggerClassName={FIELD_TRIGGER_CLS}
+                />
+              ),
+            },
+            {
+              label: intl.formatMessage({
+                id: 'task.dependencies.field.label',
+              }),
+              node: (
+                <TaskDependencyField
+                  taskIdentifier={`${task.teamIdentifier}-${task.number}`}
+                  workspaceUrl={workspaceUrl}
                 />
               ),
             },

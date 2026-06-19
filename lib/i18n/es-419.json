@@ -1739,5 +1739,10 @@
   "memory.merge.error": "No se pudieron fusionar las memorias. Vuelve a intentarlo.",
   "task.dependencies.searchHint": "Buscar por nombre o ID de tarea",
   "task.dependencies.searching": "Buscando…",
-  "task.dependencies.added": "Agregado"
+  "task.dependencies.added": "Agregado",
+  "task.dependencies.field.label": "Deps",
+  "task.dependencies.field.blocks": "bloquea {count}",
+  "task.dependencies.field.suggested": "{count} sugerida(s)",
+  "task.dependencies.field.manage": "Gestionar dependencias",
+  "task.dependencies.field.blocked": "Bloqueada"
 }

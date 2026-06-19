@@ -43,7 +43,6 @@ import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { ReviewVerdictBar } from '../TaskDetailTimeline/ReviewVerdictBar'
 import type { HumanVerdictResult } from '../TaskDetailTimeline/VerdictDecision'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
-import { DependenciesSection } from '../../dependencies/components/DependenciesSection'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -341,11 +340,6 @@ export function TaskDetailPage({
 
             {/* Spec — hidden: agent features disabled for now */}
 
-            {/* Dependencies */}
-            <DependenciesSection
-              taskIdentifier={`${task.teamIdentifier}-${task.number}`}
-            />
-
             {/* Sub-tasks */}
             {(initialTask.children?.length ?? 0) > 0 && (
               <div className='mt-8'>
@@ -425,6 +419,7 @@ export function TaskDetailPage({
             members={members}
             agentActors={agentActors}
             projects={projects}
+            workspaceUrl={workspaceUrl}
             onPatch={handlePatch}
             allTags={allTags}
             onTagsChange={tags => {
