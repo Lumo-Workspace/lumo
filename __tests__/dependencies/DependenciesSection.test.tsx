@@ -113,3 +113,17 @@ it('shows the empty state when there are no edges', () => {
   // formatMessage({ id: 'task.dependencies.empty' }) with no values → returns the key id
   expect(screen.getByText('task.dependencies.empty')).toBeInTheDocument()
 })
+
+it('embedded variant hides its own h3 title (dialog supplies it)', () => {
+  ;(useDependencies as jest.Mock).mockReturnValue({
+    edges: [],
+    loading: false,
+    error: null,
+    add: { mutate: jest.fn(), isPending: false },
+    patch: { mutate: jest.fn(), isPending: false },
+    remove: { mutate: jest.fn(), isPending: false },
+  })
+  render(<DependenciesSection taskIdentifier='LUM-42' embedded />)
+  expect(screen.queryByText('task.dependencies.title')).not.toBeInTheDocument()
+  expect(screen.getByText('Add dependency')).toBeInTheDocument()
+})

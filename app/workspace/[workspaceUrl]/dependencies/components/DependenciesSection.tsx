@@ -11,6 +11,8 @@ import type { DependencyEdge } from '../types'
 interface DependenciesSectionProps {
   /** LUM-N identifier — the API route's resolveTask accepts it directly. */
   taskIdentifier: string
+  /** Rendered inside a dialog: drop the main-column margin + own title. */
+  embedded?: boolean
 }
 
 function Group({
@@ -46,6 +48,7 @@ function Group({
 
 export function DependenciesSection({
   taskIdentifier,
+  embedded = false,
 }: DependenciesSectionProps) {
   const intl = useIntl()
   const { edges, loading, add, patch, remove } = useDependencies({
@@ -71,12 +74,18 @@ export function DependenciesSection({
     null
 
   return (
-    <section className='mt-6'>
-      <div className='flex items-center justify-between mb-1'>
-        <h3 className='text-sm font-medium flex items-center gap-1.5'>
-          <GitFork className='h-4 w-4' />
-          {intl.formatMessage({ id: 'task.dependencies.title' })}
-        </h3>
+    <section className={embedded ? '' : 'mt-6'}>
+      <div
+        className={`flex items-center mb-1 ${
+          embedded ? 'justify-end' : 'justify-between'
+        }`}
+      >
+        {!embedded && (
+          <h3 className='text-sm font-medium flex items-center gap-1.5'>
+            <GitFork className='h-4 w-4' />
+            {intl.formatMessage({ id: 'task.dependencies.title' })}
+          </h3>
+        )}
         <AddDependencyButton
           currentIdentifier={taskIdentifier}
           existingRelations={existingRelations}
