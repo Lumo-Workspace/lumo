@@ -24,6 +24,13 @@ import type {
 import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
+import { EvidenceRef, deriveRepoWebUrl } from './evidence-ref'
+import {
+  ClaimVsVerification,
+  CostSection,
+  StruggleTrailSection,
+  TrendSection,
+} from './HonestReportSections'
 import { InfoTooltip } from './InfoTooltip'
 import { ActionTooltip } from './ActionTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
@@ -69,15 +76,6 @@ function toSetItems(
     // edit — the server full-replaces by id, so dropping it here would wipe it.
     ...(c.judgeSteps ? { judgeSteps: c.judgeSteps } : {}),
   }))
-}
-
-// Machine evidence is encoded as `cmd:<command>#exit=<n>` — pull out the exit
-// code so the disclosure can show a plain "exit code 0" instead of the raw
-// pointer (the command itself is the criterion's checkpointer, shown above it).
-function parseExitCode(evidence: string | null | undefined): number | null {
-  if (!evidence) return null
-  const m = evidence.match(/#exit=(-?\d+)\s*$/)
-  return m ? Number(m[1]) : null
 }
 
 // ── Verification record (round history) ──────────────────────────────────────
@@ -580,6 +578,7 @@ function CriterionRow({
   onSaveStatement,
   onDelete,
   mutating = false,
+  repoWebUrl = null,
 }: {
   c: TaskStatusCriterionView
   interactive: boolean
@@ -589,6 +588,8 @@ function CriterionRow({
   onSaveStatement?: (id: string, statement: string) => void | Promise<unknown>
   onDelete?: (id: string) => void
   mutating?: boolean
+  /** Repo web base for drilling a `commit:` evidence pointer into a URL (LUM-563). */
+  repoWebUrl?: string | null
 }) {
   const intl = useIntl()
   const [showCheck, setShowCheck] = useState(false)
@@ -599,7 +600,10 @@ function CriterionRow({
   const [saveError, setSaveError] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
-  const exitCode = parseExitCode(v?.evidencePointer)
+  // LUM-563/566: a criterion requiring proof but carrying no evidence pointer is
+  // explicitly "pending" rather than silently bare. MACHINE pending is stated in
+  // its disclosure; HUMAN rows have no disclosure, so flag it inline.
+  const evidencePending = c.evidenceRequired && !v?.evidencePointer
   // Only MACHINE criteria carry a runnable check / evidence to disclose.
   const hasCheck = c.verifierType === 'MACHINE' && (!!c.checkpointer || !!v)
   // A machine-passed criterion gets the de-emphasized override affordance; an
@@ -837,6 +841,17 @@ function CriterionRow({
             </div>
           ) : null}
         </div>
+        {/* LUM-566: a HUMAN criterion needing proof but carrying none has no
+            disclosure to tuck the state into — flag "evidence pending" inline so
+            the required-evidence promise isn't silently unmet. */}
+        {evidencePending && !hasCheck ? (
+          <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
+            {intl.formatMessage({
+              id: 'acceptance.check.pending',
+              defaultMessage: 'Evidence pending — no reference recorded yet',
+            })}
+          </div>
+        ) : null}
         {/* LUM-457 — visible re-run hint for a stale / mismatched pass. */}
         {stalePass ? (
           <div className='mt-1 text-[11px] text-warning break-words'>
@@ -983,19 +998,25 @@ function CriterionRow({
                 {c.checkpointer}
               </div>
             ) : null}
-            {exitCode !== null ? (
-              <div className={exitCode === 0 ? 'text-success' : 'text-danger'}>
-                {exitCode === 0 ? '✓' : '✗'}{' '}
-                {intl.formatMessage(
-                  {
-                    id: 'acceptance.check.exitCode',
-                    defaultMessage: 'exit code {code}',
-                  },
-                  { code: exitCode }
-                )}
+            {/* LUM-563: drill the verdict's evidence into a navigable reference
+                — a commit URL, a path:line locator, or the re-runnable command +
+                exit — instead of the inert raw pointer. */}
+            {v?.evidencePointer ? (
+              <div className='break-all font-sans'>
+                <EvidenceRef
+                  pointer={v.evidencePointer}
+                  repoWebUrl={repoWebUrl}
+                  idSuffix={c.id}
+                />
               </div>
-            ) : v?.evidencePointer ? (
-              <div className='break-all'>{v.evidencePointer}</div>
+            ) : c.evidenceRequired ? (
+              <div className='font-sans text-muted-foreground/60'>
+                {intl.formatMessage({
+                  id: 'acceptance.check.pending',
+                  defaultMessage:
+                    'Evidence pending — no reference recorded yet',
+                })}
+              </div>
             ) : isPass(v?.verdict) ? (
               // A pass carrying no machine evidence is a human override, not a
               // machine run — say so instead of the ambiguous "not yet run"
@@ -1225,6 +1246,11 @@ export function AcceptanceTab({
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
 
+  // LUM-563: derive the repo web base from the task's synced PRs so a `commit:`
+  // evidence pointer drills to a navigable URL; null → the renderer's git-show
+  // fallback. Same-task, same-source as the struggle trail's PR list.
+  const repoWebUrl = deriveRepoWebUrl(data.struggleTrail?.pullRequests)
+
   const machineCriteria = data.criteria.filter(
     c => c.verifierType === 'MACHINE'
   )
@@ -1266,6 +1292,11 @@ export function AcceptanceTab({
           {...(mentionSources ? { mentionSources } : {})}
         />
       )}
+
+      {/* LUM-564 声称 vs 核验: the agent's claim paired with the measured
+          verdict — surfaced ahead of the contract, mirroring `lumo task status`
+          (claim vs verification leads, before the criteria rows). */}
+      <ClaimVsVerification data={data} />
 
       <div>
         <div className='mb-2 flex items-center gap-2'>
@@ -1352,6 +1383,7 @@ export function AcceptanceTab({
                       submitting={submitting}
                       onVerdict={submitVerdict}
                       editable={false}
+                      repoWebUrl={repoWebUrl}
                     />
                   ))}
                 </div>
@@ -1396,6 +1428,7 @@ export function AcceptanceTab({
                     onSaveStatement={editStatement}
                     onDelete={deleteCriterion}
                     mutating={mutating}
+                    repoWebUrl={repoWebUrl}
                   />
                 ))}
               </div>
@@ -1419,6 +1452,14 @@ export function AcceptanceTab({
       />
 
       <VerificationHistory data={data} />
+
+      {/* LUM-560/561/562 honest-report sections — the costs, the struggle the
+          all-pass count would wipe, and the movement across attempts. Mirror the
+          Cost / Struggle / Trend blocks `lumo task status` prints, same-source so
+          the two surfaces cannot drift. */}
+      <CostSection data={data} />
+      <StruggleTrailSection data={data} />
+      <TrendSection data={data} />
 
       {/* C — Removed criteria section */}
       {data.removedCriteria.length > 0 ? (
