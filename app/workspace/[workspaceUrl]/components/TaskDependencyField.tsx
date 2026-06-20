@@ -11,6 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useDependencies } from '../hooks/useDependencies'
 import {
   groupDependencies,
@@ -121,21 +126,26 @@ export function TaskDependencyField({
             {shown.map(e => {
               const satisfied = e.other.status === 'DONE'
               return (
-                <Link
-                  key={e.id}
-                  href={`/workspace/${workspaceUrl}/my-tasks/${e.other.identifier}`}
-                  title={`${e.other.identifier} · ${e.other.title}`}
-                  data-blocker-state={satisfied ? 'satisfied' : 'live'}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-mono rounded-sm px-1',
-                    satisfied
-                      ? 'text-success hover:bg-success/10'
-                      : 'text-destructive hover:bg-destructive/10'
-                  )}
-                >
-                  {satisfied && <Check className='h-3 w-3' />}
-                  {e.other.identifier}
-                </Link>
+                <Tooltip key={e.id}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/workspace/${workspaceUrl}/my-tasks/${e.other.identifier}`}
+                      data-blocker-state={satisfied ? 'satisfied' : 'live'}
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-mono rounded-sm px-1',
+                        satisfied
+                          ? 'text-success hover:bg-success/10'
+                          : 'text-destructive hover:bg-destructive/10'
+                      )}
+                    >
+                      {satisfied && <Check className='h-3 w-3' />}
+                      {e.other.identifier}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {e.other.identifier} · {e.other.title}
+                  </TooltipContent>
+                </Tooltip>
               )
             })}
             {overflow > 0 && (
