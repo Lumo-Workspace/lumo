@@ -849,7 +849,7 @@
   "task.context.tab": "Context",
   "task.agentRun": "Agent Run",
   "task.delivery": "Delivery",
-  "task.dossier": "Dossier",
+  "task.dossier": "Record",
   "dossier.evidence.title": "Evidence & causality",
   "dossier.evidence.tip": "The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.",
   "dossier.section.runs": "Agent runs",

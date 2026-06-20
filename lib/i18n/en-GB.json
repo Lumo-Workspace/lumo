@@ -1797,7 +1797,7 @@
   "acceptance.trend.rework": "Rework: ",
   "acceptance.trend.reworkClean": "none accrued (0) — clean across every attempt",
   "acceptance.trend.reworkAccrued": "{total} accrued (↑ from 0)",
-  "task.dossier": "Dossier",
+  "task.dossier": "Record",
   "dossier.evidence.title": "Evidence & causality",
   "dossier.evidence.tip": "The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.",
   "dossier.section.runs": "Agent runs",

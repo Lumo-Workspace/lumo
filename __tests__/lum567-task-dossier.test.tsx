@@ -22,7 +22,11 @@ describe('taskTabs exposes a single dossier tab and drops delivery memory lineag
     expect(tabFromSlug('memory')).toBeNull()
     expect(tabFromSlug('lineage')).toBeNull()
     expect(tabFromSlug('acceptance')).toBeNull()
-    expect(TAB_SLUGS.dossier).toBe('dossier')
+    // The dossier tab's URL segment is `record` (its English label); the
+    // internal TabValue key stays `dossier`.
+    expect(TAB_SLUGS.dossier).toBe('record')
+    expect(tabFromSlug('record')).toBe('dossier')
+    // The old `dossier` slug still resolves (back-compat alias).
     expect(tabFromSlug('dossier')).toBe('dossier')
     expect(Object.keys(TAB_SLUGS).sort()).toEqual([
       'activity',
@@ -41,7 +45,8 @@ describe('legacy slugs resolve to the dossier tab with a target section', () => 
       section: 'lineage',
     })
     expect(resolveTab('memory')).toEqual({ tab: 'dossier', section: 'memory' })
-    // The dossier slug itself carries no target section.
+    // The dossier's own slug (and its back-compat alias) carry no target section.
+    expect(resolveTab('record')).toEqual({ tab: 'dossier', section: null })
     expect(resolveTab('dossier')).toEqual({ tab: 'dossier', section: null })
     // Unknown slug → null so the caller normalizes the URL.
     expect(resolveTab('nope')).toBeNull()
