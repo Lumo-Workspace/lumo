@@ -92,6 +92,20 @@ export interface TaskStatusResponse {
     machineVerified: number
     humanOverridden: number
   }
+  /** LUM-561: rework / send-back / leftover-follow-up traces, preserved even on
+   *  a clean all-pass task so the report never wipes the struggle. Optional so a
+   *  new CLI tolerates an older server that doesn't yet emit it. */
+  struggleTrail?: {
+    reworkRounds: Array<{ round: number; failed: number }>
+    sendBacks: Array<{
+      criterionId: string
+      statement: string
+      status: 'open' | 'resolved'
+      failedAtRound: number
+      resolvedAtRound: number | null
+    }>
+    followUps: Array<{ criterionId: string; statement: string; round: number }>
+  }
   verificationHistory: Array<{
     round: number
     recordedAt: string
@@ -261,6 +275,8 @@ export function formatTaskStatus(
     }
   }
 
+  pushStruggleTrail(lines, data)
+
   lines.push('')
   if (data.nextActions.length === 0) {
     lines.push(
@@ -298,6 +314,68 @@ export function formatTaskStatus(
 
   pushOpenCrossings(lines, extras)
   return lines.join('\n') + '\n'
+}
+
+/**
+ * Append the honest "Struggle / rework / outstanding" section (LUM-561) — the
+ * anti-mum-and-deaf block (kills a silent "Nothing outstanding"). It is ALWAYS
+ * rendered when the contract exists, even on a clean 0-unmet task: a passing
+ * task that bounced, was sent back, or left a follow-up behind still shows its
+ * scars. When the trail is genuinely empty the block states the *basis* for
+ * that ("none — N rounds run, 0 FAIL …"), or, when nothing has been verified,
+ * that absence cannot be confirmed — never a bare clean slate. Skipped only
+ * when the server didn't emit the field (older server).
+ */
+function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
+  const trail = data.struggleTrail
+  if (!trail) return // older server: can't fabricate, so don't claim "none".
+
+  lines.push('')
+  lines.push('Struggle / rework / outstanding:')
+
+  const empty =
+    trail.reworkRounds.length === 0 &&
+    trail.sendBacks.length === 0 &&
+    trail.followUps.length === 0
+
+  if (empty) {
+    if (data.currentRound === 0) {
+      // Honest fail-open: nothing was verified, so we cannot claim there were
+      // no difficulties — say so rather than render an implicitly-clean slate.
+      lines.push(
+        '  No verification has run yet — cannot confirm there were no difficulties. Run `lumo verify`.'
+      )
+    } else {
+      const rounds = `${data.currentRound} verification round${data.currentRound === 1 ? '' : 's'}`
+      lines.push(
+        `  None recorded — ${rounds} run, 0 FAIL, no send-backs, no leftover follow-ups.`
+      )
+    }
+    return
+  }
+
+  if (trail.reworkRounds.length > 0) {
+    const parts = trail.reworkRounds.map(
+      r => `round ${r.round} (${r.failed} FAIL)`
+    )
+    lines.push(`  Rework rounds: ${parts.join(', ')}`)
+  }
+  if (trail.sendBacks.length > 0) {
+    lines.push('  Send-backs:')
+    for (const s of trail.sendBacks) {
+      const lifecycle =
+        s.status === 'resolved'
+          ? `resolved (sent back r${s.failedAtRound}${s.resolvedAtRound != null ? ` → r${s.resolvedAtRound}` : ''})`
+          : `open (sent back r${s.failedAtRound})`
+      lines.push(`    • ${sanitizeField(s.statement)} — ${lifecycle}`)
+    }
+  }
+  if (trail.followUps.length > 0) {
+    lines.push('  Follow-ups left behind:')
+    for (const f of trail.followUps) {
+      lines.push(`    • ${sanitizeField(f.statement)} — flagged r${f.round}`)
+    }
+  }
 }
 
 /**
