@@ -274,8 +274,15 @@ export const lineageService = {
     // are bounded and stop accruing once the task's work stops.
     const turnRows = await hookEventRepository.findTurnUsageByTask(resolved.id)
     const costBySession = new Map<string, LineageCost>()
+    // LUM-559: earliest task-tagged turn per session — dates the edgeless
+    // cost-only group a session gets when it accrued cost but recorded no edge.
+    // Rows arrive createdAt-asc, so the first sighting of a session is earliest.
+    const firstSeenBySession = new Map<string, Date>()
     for (const row of turnRows) {
       if (!row.sessionId) continue
+      if (!firstSeenBySession.has(row.sessionId) && row.createdAt) {
+        firstSeenBySession.set(row.sessionId, row.createdAt)
+      }
       const acc = costBySession.get(row.sessionId) ?? {
         input: 0,
         output: 0,
@@ -389,6 +396,30 @@ export const lineageService = {
         disclosure: e.disclosure,
         pulled: e.pulledAt !== null,
       })
+    }
+
+    // 3b. LUM-559: surface cost-bearing sessions that recorded NO edge. Such a
+    //     session did work (per-turn cost tagged to this task) but — because it
+    //     bound after session-start, or its session-start produced no fragments
+    //     — has no edge above, so it never became a group. Keyed only off edges,
+    //     its cost was silently dropped: the task read as empty / its tokens
+    //     undercounted (the LUM-559 "DONE task, no cost edge" gap). Emit one
+    //     edgeless group per such session so cost coverage is honest. Sessions
+    //     that ALSO have an edge are already grouped — skip them (no double
+    //     count). costBySession preserves turn (createdAt-asc) insertion order.
+    for (const [sessionId, cost] of costBySession) {
+      if (groups.has(sessionId)) continue
+      const includedAt = firstSeenBySession.get(sessionId) ?? new Date(0)
+      const g: LineageGroup = {
+        kind: 'session',
+        sessionId,
+        label: `Session ${sessionId.slice(0, 8)}`,
+        includedAt: includedAt.toISOString(),
+        cost,
+        fragments: [],
+      }
+      groups.set(sessionId, g)
+      order.push(sessionId)
     }
 
     const groupList = order.map(k => groups.get(k)!)

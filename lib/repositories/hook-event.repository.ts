@@ -310,7 +310,9 @@ export const hookEventRepository = {
         OR: [{ taskId }, { taskId: null, session: { taskId } }],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, usageByModel: true },
+      // createdAt: LUM-559 dates the edgeless cost-only group a session gets
+      // when it had per-turn cost but recorded no lineage edge.
+      select: { sessionId: true, usageByModel: true, createdAt: true },
     })
   },
 

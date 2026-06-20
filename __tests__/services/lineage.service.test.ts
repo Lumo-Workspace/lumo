@@ -423,6 +423,83 @@ describe('lineageService.getLineageForIdentifier — session cost (LUM-301)', ()
     expect(dto?.totals.tokens.total).toBe(0)
   })
 
+  // LUM-559: a session that did work (per-turn cost tagged to this task) but
+  // recorded NO lineage edge — it bound after session-start, or its
+  // session-start produced no fragments — used to be dropped entirely: its
+  // cost lived in costBySession but, keyed only off edges, never surfaced.
+  // A DONE task whose only session bound late then read as empty / undercounted.
+  it('surfaces a cost-bearing session with no edges in groups and totals', async () => {
+    mockListByTaskWithCost.mockResolvedValue([]) // no edges at all
+    mockFindTurnUsageByTask.mockResolvedValue([
+      {
+        sessionId: 's-9',
+        createdAt: new Date('2026-06-01T00:00:00Z'),
+        usageByModel: {
+          'claude-x': { input: 20, output: 4, cacheRead: 1, cacheCreation: 0 },
+        },
+      },
+    ])
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-1',
+      'm-1',
+      'LUM-263'
+    )
+
+    // The session surfaces as its own edgeless group …
+    expect(dto?.groups).toHaveLength(1)
+    expect(dto?.groups[0]).toMatchObject({
+      kind: 'session',
+      sessionId: 's-9',
+      fragments: [],
+    })
+    expect(dto?.groups[0]?.cost).toMatchObject({
+      input: 20,
+      output: 4,
+      cacheRead: 1,
+      cacheCreation: 0,
+      total: 25,
+      loopCount: 1,
+    })
+    // … and its tokens are counted in totals (no longer dropped).
+    expect(dto?.totals.tokens).toEqual({
+      input: 20,
+      output: 4,
+      cacheRead: 1,
+      cacheCreation: 0,
+      total: 25,
+    })
+    expect(dto?.totals.runCount).toBe(1)
+    expect(dto?.totals.loopCount).toBe(1)
+    expect(dto?.totals.edgeCount).toBe(0)
+    expect(dto?.totals.fragmentCount).toBe(0)
+  })
+
+  // A session that has BOTH an edge and cost must not be double-counted: it is
+  // already grouped off its edge, so the cost-only pass must skip it.
+  it('does not double-count a session that has both an edge and cost', async () => {
+    mockListByTaskWithCost.mockResolvedValue([sessionEdge()]) // edge for s-1
+    mockFindTurnUsageByTask.mockResolvedValue([
+      {
+        sessionId: 's-1',
+        createdAt: new Date('2026-06-01T00:00:00Z'),
+        usageByModel: {
+          m: { input: 9, output: 0, cacheRead: 0, cacheCreation: 0 },
+        },
+      },
+    ])
+
+    const dto = await lineageService.getLineageForIdentifier(
+      'ws-1',
+      'm-1',
+      'LUM-263'
+    )
+
+    expect(dto?.groups).toHaveLength(1)
+    expect(dto?.totals.tokens.input).toBe(9)
+    expect(dto?.totals.runCount).toBe(1)
+  })
+
   it('maps the top-5 operations from byTool into totals.topOperations (LUM-523)', async () => {
     mockListByTaskWithCost.mockResolvedValue([sessionEdge()])
     mockGetOperationCost.mockResolvedValue({
