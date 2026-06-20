@@ -51,6 +51,12 @@ const listRuns = verificationRunRepository.listByTask as jest.Mock
 const listChangeEvents = activityRepository.listByTaskAndType as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
 
+const listLifecyclePrs = (
+  require('@/lib/repositories/pull-request.repository') as {
+    pullRequestRepository: { listForLifecycle: jest.Mock }
+  }
+).pullRequestRepository.listForLifecycle
+
 const HEADER = {
   id: 't-1',
   number: 437,
@@ -104,6 +110,7 @@ beforeEach(() => {
   listAll.mockResolvedValue([])
   listRuns.mockResolvedValue([])
   listChangeEvents.mockResolvedValue([])
+  listLifecyclePrs.mockResolvedValue([])
 })
 
 // The describe name carries both `read model LUM-437` (so the acceptance
@@ -460,6 +467,93 @@ describe('struggle trail read model LUM-561', () => {
       reworkRounds: [],
       sendBacks: [],
       followUps: [],
+      pullRequests: [],
+      reopens: [],
     })
+  })
+})
+
+// LUM-561 follow-up: the verify loop is NOT where this team's rework lives — it
+// lives in PR cycles and status reopens (measured on LUM-557: ~10 PRs, 1 verify
+// round, 1 send-back). The trail must surface both or it under-reports an
+// order of magnitude.
+describe('struggle trail pr-cycle and reopen signals LUM-561', () => {
+  it('surfaces every PR opened against the task, oldest-first', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+    ])
+    listLifecyclePrs.mockResolvedValue([
+      {
+        number: 654,
+        url: 'https://github.com/x/lumo/pull/654',
+        createdAt: new Date('2026-06-01T00:00:00Z'),
+      },
+      {
+        number: 657,
+        url: 'https://github.com/x/lumo/pull/657',
+        createdAt: new Date('2026-06-02T00:00:00Z'),
+      },
+      {
+        number: 660,
+        url: 'https://github.com/x/lumo/pull/660',
+        createdAt: new Date('2026-06-03T00:00:00Z'),
+      },
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.pullRequests).toEqual([
+      { number: 654, url: 'https://github.com/x/lumo/pull/654' },
+      { number: 657, url: 'https://github.com/x/lumo/pull/657' },
+      { number: 660, url: 'https://github.com/x/lumo/pull/660' },
+    ])
+  })
+
+  it('counts a backward IN_REVIEW/DONE transition as a reopen and ignores forward ones', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([])
+    // listChangeEvents backs BOTH activity reads (CRITERION_CHANGED and
+    // STATUS_CHANGED) — route by the type arg so only the status read sees
+    // these rows.
+    listChangeEvents.mockImplementation((_taskId: string, type: string) =>
+      Promise.resolve(
+        type === 'STATUS_CHANGED'
+          ? [
+              // forward: not a reopen
+              {
+                payload: { from: 'TODO', to: 'IN_PROGRESS' },
+                createdAt: new Date('2026-06-01T00:00:00Z'),
+              },
+              // backward after review: a reopen
+              {
+                payload: { from: 'IN_REVIEW', to: 'IN_PROGRESS' },
+                createdAt: new Date('2026-06-02T00:00:00Z'),
+              },
+              // backward after done: a reopen
+              {
+                payload: { from: 'DONE', to: 'IN_PROGRESS' },
+                createdAt: new Date('2026-06-03T00:00:00Z'),
+              },
+            ]
+          : []
+      )
+    )
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.reopens).toEqual([
+      { from: 'IN_REVIEW', to: 'IN_PROGRESS', at: '2026-06-02T00:00:00.000Z' },
+      { from: 'DONE', to: 'IN_PROGRESS', at: '2026-06-03T00:00:00.000Z' },
+    ])
   })
 })

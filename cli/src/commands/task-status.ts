@@ -105,6 +105,8 @@ export interface TaskStatusResponse {
       resolvedAtRound: number | null
     }>
     followUps: Array<{ criterionId: string; statement: string; round: number }>
+    pullRequests: Array<{ number: number; url: string }>
+    reopens: Array<{ from: string; to: string; at: string }>
   }
   verificationHistory: Array<{
     round: number
@@ -333,10 +335,17 @@ function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
   lines.push('')
   lines.push('Struggle / rework / outstanding:')
 
+  // A single PR is the happy path; >1 PR is the iteration signal. Reopens (a
+  // bounce after IN_REVIEW/DONE) always count. These two catch the rework that
+  // lives in PR cycles / status flips rather than in FAIL verdicts (LUM-561
+  // follow-up — without them a 10-PR task like LUM-557 reads as one hiccup).
+  const prIterated = trail.pullRequests.length > 1
   const empty =
     trail.reworkRounds.length === 0 &&
     trail.sendBacks.length === 0 &&
-    trail.followUps.length === 0
+    trail.followUps.length === 0 &&
+    trail.reopens.length === 0 &&
+    !prIterated
 
   if (empty) {
     if (data.currentRound === 0) {
@@ -348,7 +357,7 @@ function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
     } else {
       const rounds = `${data.currentRound} verification round${data.currentRound === 1 ? '' : 's'}`
       lines.push(
-        `  None recorded — ${rounds} run, 0 FAIL, no send-backs, no leftover follow-ups.`
+        `  None recorded — ${rounds} run, 0 FAIL, no send-backs, no reopens, no leftover follow-ups.`
       )
     }
     return
@@ -374,6 +383,26 @@ function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
     lines.push('  Follow-ups left behind:')
     for (const f of trail.followUps) {
       lines.push(`    • ${sanitizeField(f.statement)} — flagged r${f.round}`)
+    }
+  }
+  // PR iteration — the dominant rework signal when the verify loop only ran
+  // once but the work churned across many PRs (LUM-557). Only when >1 PR.
+  if (prIterated) {
+    const PR_CAP = 12
+    const nums = trail.pullRequests.map(p => `#${p.number}`)
+    const shown = nums.slice(0, PR_CAP).join(', ')
+    const overflow =
+      nums.length > PR_CAP ? `, +${nums.length - PR_CAP} more` : ''
+    lines.push(
+      `  PR iterations: ${trail.pullRequests.length} PRs (${shown}${overflow})`
+    )
+  }
+  if (trail.reopens.length > 0) {
+    lines.push(
+      `  Reopened ${trail.reopens.length}× (bounced back after review/done):`
+    )
+    for (const r of trail.reopens) {
+      lines.push(`    • ${r.from} → ${r.to}`)
     }
   }
 }

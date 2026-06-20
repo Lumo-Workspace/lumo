@@ -44,7 +44,13 @@ function baseResponse(
       },
     ],
     machineVerification: { total: 1, machineVerified: 1, humanOverridden: 0 },
-    struggleTrail: { reworkRounds: [], sendBacks: [], followUps: [] },
+    struggleTrail: {
+      reworkRounds: [],
+      sendBacks: [],
+      followUps: [],
+      pullRequests: [],
+      reopens: [],
+    },
     verificationHistory: [
       { round: 1, recordedAt: '2026-06-02T10:00:00Z', passed: 1, failed: 0 },
     ],
@@ -131,6 +137,8 @@ describe('task status struggle/rework/outstanding section', () => {
           followUps: [
             { criterionId: 'c-z', statement: 'leftover refactor', round: 2 },
           ],
+          pullRequests: [],
+          reopens: [],
         },
       })
     )
@@ -143,5 +151,59 @@ describe('task status struggle/rework/outstanding section', () => {
     expect(out).toMatch(/open/)
     // the leftover follow-up
     expect(out).toMatch(/leftover refactor/)
+  })
+
+  it('LUM-561 pr-cycle and reopen signals surface the rework that lives outside the verify loop', () => {
+    // Mirrors LUM-557: a single clean verify round, but the work churned across
+    // many PRs and got bounced after review — the section must NOT read empty.
+    const out = formatTaskStatus(
+      baseResponse({
+        struggleTrail: {
+          reworkRounds: [],
+          sendBacks: [],
+          followUps: [],
+          pullRequests: [
+            { number: 654, url: 'u654' },
+            { number: 657, url: 'u657' },
+            { number: 660, url: 'u660' },
+          ],
+          reopens: [
+            {
+              from: 'IN_REVIEW',
+              to: 'IN_PROGRESS',
+              at: '2026-06-02T00:00:00Z',
+            },
+            { from: 'DONE', to: 'IN_PROGRESS', at: '2026-06-03T00:00:00Z' },
+          ],
+        },
+      })
+    )
+    expect(out).toMatch(/Struggle \/ rework \/ outstanding/i)
+    // must not collapse to the clean-slate basis
+    expect(out).not.toMatch(/None recorded/i)
+    // PR iteration count + numbers
+    expect(out).toMatch(/3 PRs/)
+    expect(out).toMatch(/#654/)
+    expect(out).toMatch(/#660/)
+    // reopens
+    expect(out).toMatch(/Reopened 2/i)
+    expect(out).toMatch(/IN_REVIEW → IN_PROGRESS/)
+  })
+
+  it('LUM-561 a single PR is the happy path and does not by itself mark the trail non-empty', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        struggleTrail: {
+          reworkRounds: [],
+          sendBacks: [],
+          followUps: [],
+          pullRequests: [{ number: 654, url: 'u654' }],
+          reopens: [],
+        },
+      })
+    )
+    // one PR + clean verify round → still "None recorded" with its basis
+    expect(out).toMatch(/None recorded/i)
+    expect(out).not.toMatch(/PR iterations/i)
   })
 })
