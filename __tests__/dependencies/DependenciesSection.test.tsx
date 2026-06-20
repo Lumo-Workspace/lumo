@@ -71,12 +71,36 @@ it('does not remove a confirmed dependency until the confirmation is accepted', 
     remove: { mutate: removeMutate, isPending: false },
   })
   render(<DependenciesSection taskIdentifier='LUM-42' />)
-  // The remove (X) control is now an AlertDialog trigger — clicking it opens a
-  // confirmation rather than deleting immediately.
+  // First click on the X arms an inline confirm — it does NOT delete yet.
   fireEvent.click(
     screen.getByRole('button', { name: 'task.dependencies.remove' })
   )
   expect(removeMutate).not.toHaveBeenCalled()
+  // The inline "Remove" confirm now shows; clicking it performs the deletion.
+  fireEvent.click(screen.getByRole('button', { name: 'common.remove' }))
+  expect(removeMutate).toHaveBeenCalledTimes(1)
+})
+
+it('cancelling the inline remove confirm keeps the dependency', () => {
+  const removeMutate = jest.fn()
+  ;(useDependencies as jest.Mock).mockReturnValue({
+    edges: [edge({})],
+    loading: false,
+    error: null,
+    add: { mutate: jest.fn(), isPending: false },
+    patch: { mutate: jest.fn(), isPending: false },
+    remove: { mutate: removeMutate, isPending: false },
+  })
+  render(<DependenciesSection taskIdentifier='LUM-42' />)
+  fireEvent.click(
+    screen.getByRole('button', { name: 'task.dependencies.remove' })
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }))
+  // Back to the armed-off state: the X is shown again and nothing was removed.
+  expect(removeMutate).not.toHaveBeenCalled()
+  expect(
+    screen.getByRole('button', { name: 'task.dependencies.remove' })
+  ).toBeInTheDocument()
 })
 
 it('shows the live-blocker banner when a confirmed BLOCKS blocker is not done', () => {
