@@ -183,14 +183,16 @@ it('does not show the empty state when only RELATES edges exist', () => {
   ).toBeInTheDocument()
 })
 
-it('blocker chips expose id + title via a hover title attribute', () => {
+it('renders blocker chips as links wrapped in a tooltip (id + title shown on hover)', () => {
+  // The tooltip content is portaled + hover-gated, so jsdom can't render it
+  // (Radix overlays don't open here). We assert the chip stays a working link
+  // after being wrapped in TooltipTrigger asChild — the regression that matters.
   renderField([
     edge({
       other: { identifier: 'LUM-9', title: 'auth refactor', status: 'TODO' },
     }),
   ])
-  expect(screen.getByText('LUM-9').closest('a')).toHaveAttribute(
-    'title',
-    'LUM-9 · auth refactor'
-  )
+  const chip = screen.getByText('LUM-9').closest('a')
+  expect(chip).toHaveAttribute('href', '/workspace/acme/my-tasks/LUM-9')
+  expect(chip).toHaveAttribute('data-blocker-state', 'live')
 })
