@@ -12,6 +12,7 @@ import {
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import {
   deriveSendBackResolution,
   type SendBackResolution,
@@ -221,6 +222,30 @@ export interface StruggleTrail {
   reopens: Array<{ from: string; to: string; at: string }>
 }
 
+/**
+ * The honest cost read-out (LUM-560) — 规律 1: put the costs a human should
+ * weigh on the same report as the acceptance verdict, instead of scattering
+ * them across the web delivery card and `task lineage`. Every number is read
+ * from {@link retrospectiveRepository.loadActuals} — the SAME server-side source
+ * the web delivery card (progress / retrospective services) consumes — so the
+ * two reports cannot drift (same-source guarantee, mirroring LUM-470's machine-
+ * verification rollup). No independent re-summation lives here.
+ */
+export interface TaskCost {
+  /** Total tokens (input + output + cache read + cache creation) across every
+   *  session linked to the task. `null` = NOT measured (no session usage was
+   *  ever recorded — e.g. no session bound), kept deliberately distinct from a
+   *  measured 0 (LUM-559's 花了0 vs 没测到). */
+  tokenCost: number | null
+  /** Agent active (non-idle) seconds — Σ per-turn `STOP − prompt`, excluding the
+   *  gaps between turns (LUM-487). A measured 0 is legitimate. */
+  activeTimeSec: number
+  /** Verification rounds that recorded ≥1 FAIL — how many times the work had to
+   *  be reworked through the machine loop. Derived from the same run log as the
+   *  struggle trail; 0 = no machine rework (a clean or never-verified task). */
+  reworkRounds: number
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -236,6 +261,10 @@ export interface TaskAcceptanceStatus {
   /** Rework / send-back / leftover-follow-up traces (LUM-561) — preserved even
    *  on a clean all-pass task so the report never wipes the struggle. */
   struggleTrail: StruggleTrail
+  /** Honest cost read-out (LUM-560) — token / active time / rework rounds, read
+   *  from the same loadActuals source as the web delivery card so the two never
+   *  drift. tokenCost null = not measured (≠ a measured 0). */
+  cost: TaskCost
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -542,6 +571,7 @@ export const taskVerificationService = {
       changeEvents,
       lifecyclePrs,
       statusEvents,
+      actuals,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -550,6 +580,11 @@ export const taskVerificationService = {
       activityRepository.listByTaskAndType(taskId, 'CRITERION_CHANGED'),
       pullRequestRepository.listForLifecycle(taskId),
       activityRepository.listByTaskAndType(taskId, 'STATUS_CHANGED'),
+      // LUM-560: the SAME actuals the web delivery card reads (progress /
+      // retrospective services both call loadActuals) — so the cost section of
+      // task status cannot drift from the web card. Returns null only when the
+      // task row is gone (handled below as not-measured).
+      retrospectiveRepository.loadActuals(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -731,6 +766,17 @@ export const taskVerificationService = {
       reopens,
     }
 
+    // LUM-560 cost read-out: token + active time straight from the web card's
+    // actuals source (no re-summation here — same-source guarantee), rework
+    // rounds reused from the run-log-derived reworkRounds above. `actuals` is
+    // null only when the task row is gone; both that and a usage-less task read
+    // as tokenCost null = not measured (≠ a measured 0).
+    const cost: TaskCost = {
+      tokenCost: actuals?.tokenCost ?? null,
+      activeTimeSec: actuals?.totalDurationSec ?? 0,
+      reworkRounds: reworkRounds.length,
+    }
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -831,6 +877,7 @@ export const taskVerificationService = {
       }),
       machineVerification,
       struggleTrail,
+      cost,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

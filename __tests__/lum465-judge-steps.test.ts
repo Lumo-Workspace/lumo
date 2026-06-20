@@ -56,6 +56,11 @@ jest.mock('@/lib/services/task.service', () => ({
   },
 }))
 const TX = { __tx: true }
+jest.mock('@/lib/repositories/retrospective.repository', () => ({
+  retrospectiveRepository: {
+    loadActuals: jest.fn(() => Promise.resolve(null)),
+  },
+}))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(TX)) },
 }))

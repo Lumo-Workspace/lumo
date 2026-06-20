@@ -40,6 +40,11 @@ jest.mock('@/lib/services/task.service', () => ({
     updateTaskWithSideEffects: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/retrospective.repository', () => ({
+  retrospectiveRepository: {
+    loadActuals: jest.fn(() => Promise.resolve(null)),
+  },
+}))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
 const listActive = acceptanceCriterionRepository.listByTask as jest.Mock

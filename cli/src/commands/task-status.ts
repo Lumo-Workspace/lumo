@@ -92,6 +92,15 @@ export interface TaskStatusResponse {
     machineVerified: number
     humanOverridden: number
   }
+  /** LUM-560: honest cost read-out — token / active time (non-idle, LUM-487) /
+   *  rework rounds, read from the same server-side loadActuals source as the web
+   *  delivery card so the two never drift. tokenCost null = NOT measured (≠ a
+   *  measured 0). Optional so a new CLI tolerates an older server. */
+  cost?: {
+    tokenCost: number | null
+    activeTimeSec: number
+    reworkRounds: number
+  }
   /** LUM-561: rework / send-back / leftover-follow-up traces, preserved even on
    *  a clean all-pass task so the report never wipes the struggle. Optional so a
    *  new CLI tolerates an older server that doesn't yet emit it. */
@@ -277,6 +286,8 @@ export function formatTaskStatus(
     }
   }
 
+  pushCost(lines, data)
+
   pushStruggleTrail(lines, data)
 
   lines.push('')
@@ -316,6 +327,60 @@ export function formatTaskStatus(
 
   pushOpenCrossings(lines, extras)
   return lines.join('\n') + '\n'
+}
+
+/** Compact a token count for the terminal — 1_200_000 → "1.2M", 850_000 →
+ *  "850K", 0 → "0". Uses the SAME Intl compact formatter the web card's
+ *  fmtCompact uses (notation:'compact', maximumFractionDigits:1) so the same
+ *  number reads identically in both surfaces — no presentation drift (LUM-560). */
+const TOKEN_FMT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+function fmtTokens(n: number): string {
+  return TOKEN_FMT.format(n)
+}
+
+/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s". 0 → "0s". */
+function fmtDuration(totalSec: number): string {
+  const sec = Math.max(0, Math.round(totalSec))
+  if (sec === 0) return '0s'
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  const parts: string[] = []
+  if (h > 0) parts.push(`${h}h`)
+  if (m > 0) parts.push(`${m}m`)
+  // Show seconds only when the duration is under an hour (keeps long runs tidy).
+  if (s > 0 && h === 0) parts.push(`${s}s`)
+  return parts.join(' ')
+}
+
+/**
+ * Append the honest "Cost" section (LUM-560) — 规律 1: surface the costs a human
+ * should weigh (token spend, active time, machine rework) on the same report as
+ * the acceptance verdict, instead of leaving them scattered across the web
+ * delivery card and `task lineage`. Every number is the server's, read from the
+ * same loadActuals source as the web card (no drift). Token cost is fail-closed:
+ * a null reads as an explicit "not recorded" line, never a silent or fake 0, so
+ * 没测到 (no session usage) stays distinct from a measured 花了0. Skipped only
+ * when the server didn't emit the field (older server) — never fabricated.
+ */
+function pushCost(lines: string[], data: TaskStatusResponse): void {
+  const cost = data.cost
+  if (!cost) return // older server: can't fabricate cost, so don't claim any.
+
+  lines.push('')
+  lines.push('Cost:')
+  lines.push(
+    cost.tokenCost == null
+      ? '  Tokens: not recorded (no session usage captured)'
+      : `  Tokens: ${fmtTokens(cost.tokenCost)}`
+  )
+  lines.push(`  Active time: ${fmtDuration(cost.activeTimeSec)} (non-idle)`)
+  lines.push(
+    `  Rework rounds: ${cost.reworkRounds}${cost.reworkRounds === 0 ? ' (no machine rework)' : ''}`
+  )
 }
 
 /**
