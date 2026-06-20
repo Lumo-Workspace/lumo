@@ -209,6 +209,16 @@ export interface StruggleTrail {
   /** Criteria whose latest verdict is PASS_WITH_FOLLOWUP — passed but left
    *  follow-up work behind. */
   followUps: Array<{ criterionId: string; statement: string; round: number }>
+  /** PRs opened against the task, oldest-first. A single PR is the happy path;
+   *  >1 PR is the dominant rework signal for PR-cycle-driven tasks — the verify
+   *  loop runs once while the real iteration happens across follow-up PRs
+   *  (LUM-561 follow-up: measured on LUM-557, ~10 PRs vs 1 verify round). */
+  pullRequests: Array<{ number: number; url: string }>
+  /** Status reopens — a transition from IN_REVIEW/DONE back to IN_PROGRESS/TODO
+   *  (from the STATUS_CHANGED activity log). The task reached review/done and
+   *  got bounced; this rework leaves no FAIL verdict, so it would otherwise be
+   *  invisible to the trail. */
+  reopens: Array<{ from: string; to: string; at: string }>
 }
 
 export interface TaskAcceptanceStatus {
@@ -524,15 +534,23 @@ export const taskVerificationService = {
    * pass — there is no separately maintained plan state to drift.
    */
   async statusForTask(taskId: string): Promise<TaskAcceptanceStatus> {
-    const [header, criteria, runs, allCriteria, changeEvents, lifecyclePrs] =
-      await Promise.all([
-        taskRepository.findHeaderById(taskId),
-        acceptanceCriterionRepository.listByTask(taskId),
-        verificationRunRepository.listByTask(taskId),
-        acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId),
-        activityRepository.listByTaskAndType(taskId, 'CRITERION_CHANGED'),
-        pullRequestRepository.listForLifecycle(taskId),
-      ])
+    const [
+      header,
+      criteria,
+      runs,
+      allCriteria,
+      changeEvents,
+      lifecyclePrs,
+      statusEvents,
+    ] = await Promise.all([
+      taskRepository.findHeaderById(taskId),
+      acceptanceCriterionRepository.listByTask(taskId),
+      verificationRunRepository.listByTask(taskId),
+      acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId),
+      activityRepository.listByTaskAndType(taskId, 'CRITERION_CHANGED'),
+      pullRequestRepository.listForLifecycle(taskId),
+      activityRepository.listByTaskAndType(taskId, 'STATUS_CHANGED'),
+    ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
     }
@@ -682,10 +700,35 @@ export const taskVerificationService = {
         statement: c.statement,
         round: latestByCriterion.get(c.id)!.round,
       }))
+    // PR iteration: the verify loop often runs once while the real rework
+    // happens across follow-up PRs (LUM-557: ~10 PRs, 1 verify round) — so the
+    // PR list is a first-class struggle signal, not just send-back attribution.
+    const pullRequests = lifecyclePrs.map(p => ({
+      number: p.number,
+      url: p.url,
+    }))
+    // Reopens: a backward transition from IN_REVIEW/DONE to IN_PROGRESS/TODO —
+    // the task was bounced after reaching review/done, leaving no FAIL verdict.
+    const REOPEN_FROM = new Set(['IN_REVIEW', 'DONE'])
+    const REOPEN_TO = new Set(['IN_PROGRESS', 'TODO'])
+    const reopens = statusEvents
+      .map(ev => {
+        const p = ev.payload
+        if (!p || typeof p !== 'object') return null
+        const rec = p as Record<string, unknown>
+        const from = readJsonString(rec.from)
+        const to = readJsonString(rec.to)
+        if (!from || !to) return null
+        return { from, to, at: ev.createdAt.toISOString() }
+      })
+      .filter((r): r is { from: string; to: string; at: string } => r !== null)
+      .filter(r => REOPEN_FROM.has(r.from) && REOPEN_TO.has(r.to))
     const struggleTrail: StruggleTrail = {
       reworkRounds,
       sendBacks,
       followUps,
+      pullRequests,
+      reopens,
     }
 
     // Map a raw verification run to the latest-verdict read shape (shared by
