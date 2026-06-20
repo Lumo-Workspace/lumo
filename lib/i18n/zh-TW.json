@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{count} 個工作階段共 {total}",
   "acceptance.trend.rework": "返工：",
   "acceptance.trend.reworkClean": "未累積（0）——每次嘗試都乾淨",
-  "acceptance.trend.reworkAccrued": "累積 {total}（↑ 從 0 起）"
+  "acceptance.trend.reworkAccrued": "累積 {total}（↑ 從 0 起）",
+  "task.dossier": "任務檔案",
+  "dossier.evidence.title": "證據與因果",
+  "dossier.evidence.tip": "決策背後的支撐證據——Agent 執行、Lineage 因果與注入的團隊記憶。預設折疊;決策與核驗在前。",
+  "dossier.section.runs": "Agent 執行",
+  "dossier.section.runsSummary": "{count, plural, other {# 個會話}}",
+  "dossier.section.lineage": "Lineage 因果",
+  "dossier.section.memory": "注入的團隊記憶"
 }

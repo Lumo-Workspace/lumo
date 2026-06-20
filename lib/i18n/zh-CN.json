@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{count} 个会话共 {total}",
   "acceptance.trend.rework": "返工：",
   "acceptance.trend.reworkClean": "未累积（0）——每次尝试都干净",
-  "acceptance.trend.reworkAccrued": "累积 {total}（↑ 从 0 起）"
+  "acceptance.trend.reworkAccrued": "累积 {total}（↑ 从 0 起）",
+  "task.dossier": "任务档案",
+  "dossier.evidence.title": "证据与因果",
+  "dossier.evidence.tip": "决策背后的支撑证据——Agent 运行、Lineage 因果与注入的团队记忆。默认折叠;决策与核验在前。",
+  "dossier.section.runs": "Agent 运行",
+  "dossier.section.runsSummary": "{count, plural, other {# 个会话}}",
+  "dossier.section.lineage": "Lineage 因果",
+  "dossier.section.memory": "注入的团队记忆"
 }

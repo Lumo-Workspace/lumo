@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} total over {count} sessions",
   "acceptance.trend.rework": "Rework: ",
   "acceptance.trend.reworkClean": "none accrued (0) — clean across every attempt",
-  "acceptance.trend.reworkAccrued": "{total} accrued (↑ from 0)"
+  "acceptance.trend.reworkAccrued": "{total} accrued (↑ from 0)",
+  "task.dossier": "Dossier",
+  "dossier.evidence.title": "Evidence & causality",
+  "dossier.evidence.tip": "The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.",
+  "dossier.section.runs": "Agent runs",
+  "dossier.section.runsSummary": "{count, plural, one {# session} other {# sessions}}",
+  "dossier.section.lineage": "Lineage causality",
+  "dossier.section.memory": "Injected team memory"
 }

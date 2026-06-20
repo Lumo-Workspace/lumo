@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{count} सत्रों में कुल {total}",
   "acceptance.trend.rework": "पुनःकार्य: ",
   "acceptance.trend.reworkClean": "कोई संचय नहीं (0) — हर प्रयास में साफ",
-  "acceptance.trend.reworkAccrued": "{total} संचित (↑ 0 से)"
+  "acceptance.trend.reworkAccrued": "{total} संचित (↑ 0 से)",
+  "task.dossier": "डोज़ियर",
+  "dossier.evidence.title": "साक्ष्य और कारणता",
+  "dossier.evidence.tip": "निर्णय के पीछे के साक्ष्य — एजेंट रन, lineage कारणता और इंजेक्ट की गई टीम मेमोरी। डिफ़ॉल्ट रूप से संकुचित; निर्णय और उसका सत्यापन सबसे आगे रहते हैं।",
+  "dossier.section.runs": "एजेंट रन",
+  "dossier.section.runsSummary": "{count, plural, one {# सत्र} other {# सत्र}}",
+  "dossier.section.lineage": "Lineage कारणता",
+  "dossier.section.memory": "इंजेक्ट की गई टीम मेमोरी"
 }

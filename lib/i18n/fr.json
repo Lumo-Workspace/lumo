@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} au total sur {count} sessions",
   "acceptance.trend.rework": "Reprise : ",
   "acceptance.trend.reworkClean": "aucun cumulé (0) — propre à chaque tentative",
-  "acceptance.trend.reworkAccrued": "{total} cumulé (↑ depuis 0)"
+  "acceptance.trend.reworkAccrued": "{total} cumulé (↑ depuis 0)",
+  "task.dossier": "Dossier",
+  "dossier.evidence.title": "Preuves et causalité",
+  "dossier.evidence.tip": "Les preuves derrière la décision — exécutions de l'agent, causalité de lineage et mémoire d'équipe injectée. Replié par défaut ; la décision et sa vérification priment.",
+  "dossier.section.runs": "Exécutions de l'agent",
+  "dossier.section.runsSummary": "{count, plural, one {# session} other {# sessions}}",
+  "dossier.section.lineage": "Causalité de lineage",
+  "dossier.section.memory": "Mémoire d'équipe injectée"
 }

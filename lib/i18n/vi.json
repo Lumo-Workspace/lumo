@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} tổng cộng qua {count} phiên",
   "acceptance.trend.rework": "Làm lại: ",
   "acceptance.trend.reworkClean": "không tích lũy (0) — sạch qua mọi lần thử",
-  "acceptance.trend.reworkAccrued": "{total} tích lũy (↑ từ 0)"
+  "acceptance.trend.reworkAccrued": "{total} tích lũy (↑ từ 0)",
+  "task.dossier": "Hồ sơ",
+  "dossier.evidence.title": "Bằng chứng & nhân quả",
+  "dossier.evidence.tip": "Bằng chứng phía sau quyết định — các phiên chạy agent, nhân quả lineage và bộ nhớ nhóm được tiêm vào. Mặc định thu gọn; quyết định và việc xác minh được ưu tiên.",
+  "dossier.section.runs": "Phiên chạy agent",
+  "dossier.section.runsSummary": "{count, plural, other {# phiên}}",
+  "dossier.section.lineage": "Nhân quả lineage",
+  "dossier.section.memory": "Bộ nhớ nhóm được tiêm vào"
 }
