@@ -1,23 +1,24 @@
-export type TabValue =
-  | 'comments'
-  | 'activity'
-  | 'context'
-  | 'agent'
-  | 'memory'
-  | 'lineage'
+export type TabValue = 'comments' | 'activity' | 'context' | 'dossier'
+
+/**
+ * The four named, deep-linkable regions live *inside* the dossier (LUM-567).
+ * ④ "evidence & causality" splits into three independently-expandable
+ * sub-sections; the legacy Delivery / Lineage / Memory top-level tab slugs now
+ * resolve to one of these instead of being their own tab, preserving the
+ * LUM-458 deep-link contract (a shared URL jumps to — and expands — its region).
+ */
+export type DossierSection = 'runs' | 'lineage' | 'memory'
 
 /**
  * URL path segment for each tab. Comments is the default tab and carries no
  * segment (the bare task URL, e.g. /my-tasks/LUM-1), so its slug is the empty
- * string. The rest append a segment (e.g. /my-tasks/LUM-1/delivery).
+ * string. The rest append a segment (e.g. /my-tasks/LUM-1/dossier).
  */
 export const TAB_SLUGS: Record<TabValue, string> = {
   comments: '',
   activity: 'activity',
   context: 'context',
-  agent: 'delivery',
-  memory: 'memory',
-  lineage: 'lineage',
+  dossier: 'dossier',
 }
 
 const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(
@@ -25,6 +26,17 @@ const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(
     .filter(([, slug]) => slug !== '')
     .map(([tab, slug]) => [slug, tab])
 )
+
+/**
+ * Legacy top-level slugs (the Delivery / Lineage / Memory tabs that LUM-567
+ * folded into the dossier). They no longer name a tab — each deep-links into a
+ * dossier ④ sub-section, so an old shared URL still lands on the right content.
+ */
+const LEGACY_SECTION_SLUG: Record<string, DossierSection> = {
+  delivery: 'runs',
+  lineage: 'lineage',
+  memory: 'memory',
+}
 
 /**
  * Resolve a URL path segment to a tab.
@@ -36,4 +48,25 @@ const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(
 export function tabFromSlug(slug: string | undefined): TabValue | null {
   if (!slug) return 'comments'
   return SLUG_TO_TAB[slug] ?? null
+}
+
+export interface ResolvedTab {
+  tab: TabValue
+  /** A dossier ④ sub-section to expand + scroll to (legacy deep link), else null. */
+  section: DossierSection | null
+}
+
+/**
+ * Resolve a URL path segment to a tab *and* an optional dossier section.
+ * Superset of {@link tabFromSlug}: it additionally maps the legacy
+ * Delivery / Lineage / Memory slugs onto the dossier tab with the section to
+ * expand. Returns null for an unknown slug so the caller normalizes the URL.
+ */
+export function resolveTab(slug: string | undefined): ResolvedTab | null {
+  if (!slug) return { tab: 'comments', section: null }
+  const direct = SLUG_TO_TAB[slug]
+  if (direct) return { tab: direct, section: null }
+  const section = LEGACY_SECTION_SLUG[slug]
+  if (section) return { tab: 'dossier', section }
+  return null
 }

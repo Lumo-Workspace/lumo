@@ -2,20 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, usePathname, useRouter } from 'next/navigation'
-import { TAB_SLUGS, tabFromSlug, type TabValue } from './taskTabs'
+import { TAB_SLUGS, resolveTab, type TabValue } from './taskTabs'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { useMemories } from '../../hooks/useMemories'
 import { useTaskLineage } from '../../hooks/useTaskLineage'
-import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
-import { LineageTab } from './LineageTab'
-import { DeliveryTab, type DeliverySubTab } from './DeliveryTab'
-import { resolveDefaultDeliverySubTab } from './delivery-subtab'
+import { TaskDossier } from './TaskDossier'
 import { type HumanVerdictResult } from './VerdictDecision'
-import { MemoryTab } from '../memory/MemoryTab'
 import type { TaskDetail } from '../../types'
 import type { MentionSources } from '@/types/mention'
 
@@ -77,11 +73,16 @@ export function TimelineTabs({
   const pathname = usePathname()
   const params = useParams()
 
-  // The active tab lives in the URL path segment (e.g. /LUM-1/acceptance) so it
+  // The active tab lives in the URL path segment (e.g. /LUM-1/dossier) so it
   // survives reload, is shareable, and the browser back/forward buttons walk
   // between tabs. `[[...tab]]` delivers the segment as an optional string[].
   const urlSlug = (params.tab as string[] | undefined)?.[0]
-  const urlTab = tabFromSlug(urlSlug)
+  // resolveTab is a superset of tabFromSlug: it also maps the legacy
+  // Delivery / Lineage / Memory slugs onto the dossier tab + the ④ sub-section
+  // to expand (LUM-458 deep links survive the tab merge, LUM-567).
+  const resolved = resolveTab(urlSlug)
+  const urlTab = resolved?.tab ?? null
+  const dossierTargetSection = resolved?.section ?? null
   const basePath = urlSlug
     ? pathname.slice(0, pathname.length - urlSlug.length - 1)
     : pathname
@@ -96,105 +97,46 @@ export function TimelineTabs({
     enabled: activeTab === 'activity',
   })
 
-  // Presence probes for the Agent Run / Memory / Lineage tabs. These three are
-  // empty for most tasks, so rather than always offering a tab that only
-  // reveals an empty state, we hide the tab entirely until it has content.
-  //
-  // The probes run regardless of which tab is active (enabled: true). They
-  // share React Query cache keys with the tab panels below, so this adds no
-  // extra network request when the tab is later opened — it just warms the
-  // cache so the panel paints instantly. Presence is derived from the *same*
-  // data each panel uses to decide its own empty state, so the tab bar can
-  // never drift out of sync with the panel (show a tab that then says "empty",
-  // or hide one that has content).
+  // Presence probes for the Memory / Lineage evidence sub-sections inside the
+  // dossier. These are empty for most tasks, so an empty sub-section is not
+  // drawn (the runs sub-section gates itself on its own run count). The probes
+  // run regardless of the active tab (enabled: true): they share React Query
+  // cache keys with the sub-sections, so opening the dossier paints instantly —
+  // and presence is derived from the *same* data each sub-section uses, so the
+  // dossier can never offer a sub-section that then renders empty.
   const taskMemories = useMemories({
     scope: 'task',
     parentId: taskId,
     enabled: true,
   })
   const lineage = useTaskLineage({ identifier: taskIdentifier, enabled: true })
-  const status = useTaskStatus({ identifier: taskIdentifier, enabled: true })
 
-  // Until a probe resolves, fall back to the SSR-seeded presence so the tab
-  // bar paints correctly on first render (no pop-in); once a probe lands it
-  // becomes the source of truth and reconciles any drift. useTaskLineage
-  // signals "not yet resolved" via data===null; useMemories has no null
-  // sentinel, so its initial load is read from `loading`.
+  // Until a probe resolves, fall back to the SSR-seeded presence so the dossier
+  // paints correctly on first render (no pop-in); once a probe lands it becomes
+  // the source of truth. useTaskLineage signals "not yet resolved" via
+  // data===null; useMemories has no null sentinel, so its initial load is read
+  // from `loading`.
   const hasMemories = taskMemories.loading
     ? (initialTimelinePresence?.hasMemories ?? false)
     : taskMemories.memories.length > 0
   const hasLineage = lineage.data
     ? lineage.data.groups.length > 0
     : (initialTimelinePresence?.hasLineage ?? false)
-  // The read-only Acceptance tab (LUM-423) shows only once a contract exists —
-  // same probe-with-SSR-fallback pattern as the three above.
-  const hasCriteria = status.data
-    ? status.data.criteria.length > 0
-    : (initialTimelinePresence?.hasCriteria ?? false)
-  // An OPEN boundary crossing nudges the delivery tab to default to Acceptance
-  // even with no criteria (LUM-520) — SSR-seed only (no client probe): this only
-  // governs the initial landing, which an explicit sub-segment click overrides.
-  const hasOpenCrossings = initialTimelinePresence?.hasOpenCrossings ?? false
-
-  // The Delivery tab folds Agent Runs + Acceptance into one tab with a sub-
-  // segment. `null` here means "use the status-derived default"; an explicit
-  // user click on the sub-segment overrides it. Computed each render (no
-  // effect) so it stays in sync with the live status without an extra pass.
-  const [deliverySubTab, setDeliverySubTab] = useState<DeliverySubTab | null>(
-    null
-  )
-  const defaultSubTab = resolveDefaultDeliverySubTab({
-    status: status.data?.task.status,
-    hasCriteria,
-    hasOpenCrossings,
-  })
-  const resolvedSubTab = deliverySubTab ?? defaultSubTab
 
   // Reconcile the rendered tab with the URL: handles reload, back/forward, and
-  // the case where the URL targets an unknown or currently-hidden tab — fall
-  // back to Comments and strip the dead segment from the URL (replace, so the
-  // bad URL doesn't pollute history).
+  // the case where the URL targets an unknown slug — fall back to Comments and
+  // strip the dead segment from the URL (replace, so the bad URL doesn't pollute
+  // history). All four tabs are always visible now (no presence-gated tab), so
+  // no probe gate is needed — only the legacy slugs resolve into the dossier.
   useEffect(() => {
     if (!urlSlug) return
-    // Wait until the probe backing this tab has resolved before treating it as
-    // hidden — otherwise a deep link to a probe-backed tab (memory/lineage)
-    // gets normalized away on the transient unresolved value before the probe
-    // lands, flashing to Comments and writing a stale URL. The "resolved"
-    // signals mirror the visibility derivation below: useTaskLineage exposes
-    // data !== null once loaded; useMemories signals it via loading === false.
-    // The Delivery tab (slug 'delivery' → urlTab 'agent') is always visible, so
-    // it needs no probe gate.
-    const probeResolved =
-      urlTab === 'memory'
-        ? !taskMemories.loading
-        : urlTab === 'lineage'
-          ? lineage.data !== null
-          : true
-    if (!probeResolved) return
-    const visible =
-      urlTab === 'agent'
-        ? true
-        : urlTab === 'memory'
-          ? hasMemories
-          : urlTab === 'lineage'
-            ? hasLineage
-            : urlTab !== null
-    if (urlTab && visible) {
+    if (urlTab) {
       setActiveTab(urlTab)
     } else {
       setActiveTab('comments')
       router.replace(basePath, { scroll: false })
     }
-  }, [
-    urlTab,
-    urlSlug,
-    basePath,
-    router,
-    hasMemories,
-    hasLineage,
-    taskMemories.loading,
-    lineage.data,
-  ])
+  }, [urlTab, urlSlug, basePath, router])
 
   // Switch tab: instant client switch (optimistic) + URL update so back/forward
   // and deep links work. Comments is the default tab → bare URL, no segment.
@@ -205,8 +147,8 @@ export function TimelineTabs({
     router.push(target, { scroll: false })
   }
 
-  // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
-  // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
+  // WorkspaceMember.id → display name, so the Memory sub-section can show
+  // "Added by X" for manually-created memories (createdByMemberId is an id).
   const memoryMemberNames = useMemo(
     () => new Map(commentsProps.members.map(m => [m.id, m.name])),
     [commentsProps.members]
@@ -250,36 +192,14 @@ export function TimelineTabs({
           })}
         </button>
         <button
-          className={tabClass(activeTab === 'agent')}
-          onClick={() => selectTab('agent')}
+          className={tabClass(activeTab === 'dossier')}
+          onClick={() => selectTab('dossier')}
         >
           {intl.formatMessage({
-            id: 'task.delivery',
-            defaultMessage: 'Delivery',
+            id: 'task.dossier',
+            defaultMessage: 'Dossier',
           })}
         </button>
-        {hasMemories && (
-          <button
-            className={tabClass(activeTab === 'memory')}
-            onClick={() => selectTab('memory')}
-          >
-            {intl.formatMessage({
-              id: 'memory.tab.title',
-              defaultMessage: 'Memory',
-            })}
-          </button>
-        )}
-        {hasLineage && (
-          <button
-            className={tabClass(activeTab === 'lineage')}
-            onClick={() => selectTab('lineage')}
-          >
-            {intl.formatMessage({
-              id: 'task.lineage',
-              defaultMessage: 'Lineage',
-            })}
-          </button>
-        )}
       </div>
 
       {activeTab === 'activity' && (
@@ -306,8 +226,8 @@ export function TimelineTabs({
           enabled={activeTab === 'context'}
         />
       )}
-      {activeTab === 'agent' && (
-        <DeliveryTab
+      {activeTab === 'dossier' && (
+        <TaskDossier
           taskId={taskId}
           taskIdentifier={taskIdentifier}
           taskStatus={taskStatus}
@@ -315,25 +235,13 @@ export function TimelineTabs({
           workspaceUrl={workspaceUrl}
           members={commentsProps.members}
           agentActors={commentsProps.agentActors}
-          enabled={activeTab === 'agent'}
-          subTab={resolvedSubTab}
-          onSubTabChange={setDeliverySubTab}
+          enabled={activeTab === 'dossier'}
           onVerdictRecorded={onVerdictRecorded}
-          {...(mentionSources ? { mentionSources } : {})}
-        />
-      )}
-      {activeTab === 'memory' && (
-        <MemoryTab
-          scope='task'
-          parentId={taskId}
-          enabled={activeTab === 'memory'}
           memberNames={memoryMemberNames}
-        />
-      )}
-      {activeTab === 'lineage' && (
-        <LineageTab
-          taskIdentifier={taskIdentifier}
-          enabled={activeTab === 'lineage'}
+          hasLineage={hasLineage}
+          hasMemories={hasMemories}
+          targetSection={dossierTargetSection}
+          {...(mentionSources ? { mentionSources } : {})}
         />
       )}
     </div>

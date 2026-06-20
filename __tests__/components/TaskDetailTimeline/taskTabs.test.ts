@@ -1,6 +1,7 @@
 import {
   TAB_SLUGS,
   tabFromSlug,
+  resolveTab,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/taskTabs'
 
 describe('taskTabs slug mapping', () => {
@@ -35,18 +36,67 @@ describe('taskTabs slug mapping', () => {
     expect(tabFromSlug('comments')).toBeNull()
   })
 
-  it('uses the "delivery" slug for the agent (Delivery) tab', () => {
-    expect(TAB_SLUGS.agent).toBe('delivery')
-    expect(tabFromSlug('delivery')).toBe('agent')
+  it('uses the "dossier" slug for the dossier tab', () => {
+    expect(TAB_SLUGS.dossier).toBe('dossier')
+    expect(tabFromSlug('dossier')).toBe('dossier')
   })
 
-  it('no longer recognizes the old "agent" slug', () => {
+  it('no longer recognizes the old "delivery"/"agent" slug as its own tab', () => {
+    expect(tabFromSlug('delivery')).toBeNull()
     expect(tabFromSlug('agent')).toBeNull()
   })
 
-  it('no longer recognizes the "acceptance" tab/slug', () => {
-    // @ts-expect-error 'acceptance' is removed from TabValue
-    expect(TAB_SLUGS.acceptance).toBeUndefined()
+  it('no longer recognizes the "memory"/"lineage"/"acceptance" tab slugs', () => {
+    expect(tabFromSlug('memory')).toBeNull()
+    expect(tabFromSlug('lineage')).toBeNull()
     expect(tabFromSlug('acceptance')).toBeNull()
+  })
+})
+
+describe('taskTabs single dossier tab replaces the merged trio', () => {
+  it('has exactly one tab in place of Delivery/Memory/Lineage and it is the dossier', () => {
+    // The merged trio is gone as top-level tabs…
+    expect(tabFromSlug('delivery')).toBeNull()
+    expect(tabFromSlug('memory')).toBeNull()
+    expect(tabFromSlug('lineage')).toBeNull()
+    // …replaced by a single dossier tab.
+    expect(TAB_SLUGS.dossier).toBe('dossier')
+    expect(tabFromSlug('dossier')).toBe('dossier')
+    // The surviving top-level tabs are exactly comments/activity/context/dossier.
+    expect(Object.keys(TAB_SLUGS).sort()).toEqual([
+      'activity',
+      'comments',
+      'context',
+      'dossier',
+    ])
+  })
+})
+
+describe('taskTabs resolveTab legacy slug mapping', () => {
+  it('maps delivery → dossier runs section', () => {
+    expect(resolveTab('delivery')).toEqual({ tab: 'dossier', section: 'runs' })
+  })
+
+  it('maps lineage → dossier lineage section', () => {
+    expect(resolveTab('lineage')).toEqual({
+      tab: 'dossier',
+      section: 'lineage',
+    })
+  })
+
+  it('maps memory → dossier memory section', () => {
+    expect(resolveTab('memory')).toEqual({ tab: 'dossier', section: 'memory' })
+  })
+
+  it('resolves the dossier slug itself with no target section', () => {
+    expect(resolveTab('dossier')).toEqual({ tab: 'dossier', section: null })
+  })
+
+  it('resolves a missing segment to Comments with no section', () => {
+    expect(resolveTab(undefined)).toEqual({ tab: 'comments', section: null })
+  })
+
+  it('returns null for an unknown slug so the caller normalizes the URL', () => {
+    expect(resolveTab('does-not-exist')).toBeNull()
   })
 })

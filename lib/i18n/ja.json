@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{count} セッションで合計 {total}",
   "acceptance.trend.rework": "再作業：",
   "acceptance.trend.reworkClean": "累積なし（0）——すべての試行でクリーン",
-  "acceptance.trend.reworkAccrued": "{total} 累積（↑ 0 から）"
+  "acceptance.trend.reworkAccrued": "{total} 累積（↑ 0 から）",
+  "task.dossier": "ドシエ",
+  "dossier.evidence.title": "証拠と因果",
+  "dossier.evidence.tip": "判断の裏付けとなる証拠——エージェント実行、lineage の因果、注入されたチームメモリ。既定では折りたたみ。判断とその検証が先に立ちます。",
+  "dossier.section.runs": "エージェント実行",
+  "dossier.section.runsSummary": "{count, plural, one {# セッション} other {# セッション}}",
+  "dossier.section.lineage": "Lineage 因果",
+  "dossier.section.memory": "注入されたチームメモリ"
 }

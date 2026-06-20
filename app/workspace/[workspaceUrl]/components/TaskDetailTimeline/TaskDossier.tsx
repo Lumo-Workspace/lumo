@@ -1,0 +1,260 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useIntl } from 'react-intl'
+import { ChevronRight } from 'lucide-react'
+import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
+import type { MentionSources } from '@/types/mention'
+import type { DossierSection } from './taskTabs'
+import { useAgentRuns } from '../../hooks/useAgentRuns'
+import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
+import { AcceptanceTab } from './AcceptanceTab'
+import { AgentRunsSection } from './AgentRunsSection'
+import { LineageTab } from './LineageTab'
+import { MemoryTab } from '../memory/MemoryTab'
+import { InfoTooltip } from './InfoTooltip'
+import type { HumanVerdictResult } from './VerdictDecision'
+
+interface TaskDossierProps {
+  taskId: string
+  taskIdentifier: string
+  taskStatus: TaskDetail['status']
+  agentStatus?: string | null | undefined
+  workspaceUrl: string
+  members: WorkspaceMemberInfo[]
+  agentActors: { actorId: string; name: string }[]
+  enabled: boolean
+  onVerdictRecorded: (result: HumanVerdictResult) => void
+  mentionSources?: MentionSources | undefined
+  /** WorkspaceMember.id → name, for the ④ memory sub-section's "Added by X". */
+  memberNames: Map<string, string>
+  /** Presence of the ④ Lineage / Memory sub-sections — an empty sub-section is
+   *  not drawn (the runs sub-section gates itself on runs presence). */
+  hasLineage: boolean
+  hasMemories: boolean
+  /** A legacy deep link (delivery/lineage/memory) targets a ④ sub-section to
+   *  expand + scroll to; null when landing on the dossier directly. */
+  targetSection: DossierSection | null
+}
+
+/** One collapsible ④ sub-section. Expansion is parent-controlled so a deep link
+ *  can open it; the anchor id lets the deep link scroll it into view. */
+function EvidenceSubSection({
+  section,
+  title,
+  summary,
+  expanded,
+  onToggle,
+  children,
+}: {
+  section: DossierSection
+  title: string
+  summary?: string
+  expanded: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      id={`dossier-${section}`}
+      className='overflow-hidden rounded-lg border border-border'
+    >
+      <button
+        type='button'
+        aria-expanded={expanded}
+        onClick={onToggle}
+        className='flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors'
+      >
+        <ChevronRight
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+          aria-hidden
+        />
+        <span className='text-xs font-medium text-foreground'>{title}</span>
+        {summary ? (
+          <span className='ml-auto text-[11px] text-muted-foreground/80'>
+            {summary}
+          </span>
+        ) : null}
+      </button>
+      {expanded ? (
+        <div className='border-t border-border px-3 py-3'>{children}</div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The decision-first task dossier (LUM-567): one surface that replaces the
+ * former Delivery / Memory / Lineage tabs. Reads top-down as decision → why:
+ *
+ *  ① decision head  ② claim vs verification  ③ cost & risk   — all default-open
+ *  ④ evidence & causality (Agent runs / Lineage / Memory)     — default-collapsed
+ *
+ * ①②③ reuse {@link AcceptanceTab} unchanged — it is already ordered
+ * decision-first (verdict header → claim → criteria → cost / struggle / trend),
+ * and keeping it whole preserves the LUM-566 honest-report behaviour and tests.
+ * The genuine new surface is ④: the three evidence sub-sections, collapsed by
+ * default, each deep-linkable so an old Delivery / Lineage / Memory URL still
+ * jumps to and expands its region (LUM-458). Run sessions are fetched once here
+ * (single source) and shared with the decision head's count and the ④ runs list.
+ */
+export function TaskDossier({
+  taskId,
+  taskIdentifier,
+  taskStatus,
+  agentStatus,
+  workspaceUrl,
+  members,
+  agentActors,
+  enabled,
+  onVerdictRecorded,
+  mentionSources,
+  memberNames,
+  hasLineage,
+  hasMemories,
+  targetSection,
+}: TaskDossierProps) {
+  const intl = useIntl()
+  const { data: runsData } = useAgentRuns({ taskId, enabled })
+  const runs = runsData?.runs ?? []
+  // Same two-layer rule as the run card: prefer the LLM-synthesized summary,
+  // else fall back to the raw digest joined into one line, else nothing.
+  const latestRunSummary =
+    runs[0]?.runSummary ??
+    (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
+
+  const hasRuns = runs.length > 0
+
+  // Which ④ sub-sections are expanded. Collapsed by default; a deep link opens
+  // its target. State, not derived, so a user's manual toggle sticks.
+  const [expanded, setExpanded] = useState<Set<DossierSection>>(() =>
+    targetSection ? new Set([targetSection]) : new Set()
+  )
+
+  // Deep link → expand the target sub-section and scroll it into view. Guarded
+  // for jsdom (no layout) and re-run when the targeted section changes.
+  useEffect(() => {
+    if (!targetSection) return
+    setExpanded(prev => {
+      if (prev.has(targetSection)) return prev
+      const next = new Set(prev)
+      next.add(targetSection)
+      return next
+    })
+    const el =
+      typeof document !== 'undefined'
+        ? document.getElementById(`dossier-${targetSection}`)
+        : null
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [targetSection])
+
+  const toggle = (section: DossierSection) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(section)) next.delete(section)
+      else next.add(section)
+      return next
+    })
+
+  const showEvidence = hasRuns || hasLineage || hasMemories
+
+  return (
+    <div className='space-y-6'>
+      {/* ①②③ — the decision-first acceptance surface, reused whole. */}
+      <AcceptanceTab
+        taskIdentifier={taskIdentifier}
+        enabled={enabled}
+        workspaceUrl={workspaceUrl}
+        members={members}
+        agentActors={agentActors}
+        onVerdictRecorded={onVerdictRecorded}
+        latestRunSummary={latestRunSummary}
+        {...(mentionSources ? { mentionSources } : {})}
+      />
+
+      {/* ④ evidence & causality — default-collapsed supporting evidence. */}
+      {showEvidence ? (
+        <div>
+          <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'dossier.evidence.title',
+              defaultMessage: 'Evidence & causality',
+            })}
+            <InfoTooltip
+              label={intl.formatMessage({
+                id: 'dossier.evidence.tip',
+                defaultMessage:
+                  'The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.',
+              })}
+            />
+          </div>
+          <div className='space-y-2'>
+            {hasRuns ? (
+              <EvidenceSubSection
+                section='runs'
+                title={intl.formatMessage({
+                  id: 'dossier.section.runs',
+                  defaultMessage: 'Agent runs',
+                })}
+                summary={intl.formatMessage(
+                  {
+                    id: 'dossier.section.runsSummary',
+                    defaultMessage:
+                      '{count, plural, one {# session} other {# sessions}}',
+                  },
+                  { count: runs.length }
+                )}
+                expanded={expanded.has('runs')}
+                onToggle={() => toggle('runs')}
+              >
+                <AgentRunsSection
+                  taskId={taskId}
+                  taskStatus={taskStatus}
+                  agentStatus={agentStatus}
+                  runs={runs}
+                />
+              </EvidenceSubSection>
+            ) : null}
+
+            {hasLineage ? (
+              <EvidenceSubSection
+                section='lineage'
+                title={intl.formatMessage({
+                  id: 'dossier.section.lineage',
+                  defaultMessage: 'Lineage causality',
+                })}
+                expanded={expanded.has('lineage')}
+                onToggle={() => toggle('lineage')}
+              >
+                <LineageTab
+                  taskIdentifier={taskIdentifier}
+                  enabled={enabled && expanded.has('lineage')}
+                  showCost={false}
+                />
+              </EvidenceSubSection>
+            ) : null}
+
+            {hasMemories ? (
+              <EvidenceSubSection
+                section='memory'
+                title={intl.formatMessage({
+                  id: 'dossier.section.memory',
+                  defaultMessage: 'Injected team memory',
+                })}
+                expanded={expanded.has('memory')}
+                onToggle={() => toggle('memory')}
+              >
+                <MemoryTab
+                  scope='task'
+                  parentId={taskId}
+                  enabled={enabled && expanded.has('memory')}
+                  memberNames={memberNames}
+                />
+              </EvidenceSubSection>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}

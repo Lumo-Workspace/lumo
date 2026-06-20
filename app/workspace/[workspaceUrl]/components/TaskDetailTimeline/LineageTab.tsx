@@ -16,6 +16,13 @@ import { TopOperations } from './TopOperations'
 interface LineageTabProps {
   taskIdentifier: string
   enabled: boolean
+  /**
+   * Whether to render the session-level cost block (LUM-567). Inside the task
+   * dossier the cost total is owned by the ③ "cost & risk" region (field-unique
+   * home), so the ④ Lineage sub-section passes `showCost={false}` to avoid a
+   * second copy of the same number. Defaults to true for the standalone use.
+   */
+  showCost?: boolean
 }
 
 // Fixed display order for outcome rollups, mirroring the CLI's OUTCOME_ORDER
@@ -79,7 +86,11 @@ function usedLabel(
   })
 }
 
-export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
+export function LineageTab({
+  taskIdentifier,
+  enabled,
+  showCost = true,
+}: LineageTabProps) {
   const intl = useIntl()
   const { data, loading, error } = useTaskLineage({
     identifier: taskIdentifier,
@@ -166,45 +177,52 @@ export function LineageTab({ taskIdentifier, enabled }: LineageTabProps) {
       {/* Cost block — reuses the shared breakdown. Lineage is session-level &
           flat, so pass a single unnamed model group + loopCount=null so the
           component renders identically to before (2xl total, "loops n/a").
-          Empty state kept inline to preserve the lineage-specific i18n key. */}
-      <div className='border-b border-border'>
-        {tokens.total > 0 ? (
-          <TokenCostBreakdown
-            variant='full'
-            loopCount={null}
-            models={[
-              {
-                model: '',
-                input: tokens.input,
-                output: tokens.output,
-                cacheRead: tokens.cacheRead,
-                cacheCreation: tokens.cacheCreation,
-                total: tokens.total,
-              },
-            ]}
-            chips={[
-              { id: 'lineage.chip.sessionLevel', defaultMessage: '会话级' },
-              { id: 'lineage.chip.live', defaultMessage: '实时' },
-              { id: 'lineage.chip.notPerFragment', defaultMessage: '非每片段' },
-            ]}
-          />
-        ) : (
-          <div className='px-3 py-3'>
-            <div className='mb-1 text-caption font-medium text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'lineage.cost.label',
-                defaultMessage: 'Cost',
-              })}
+          Empty state kept inline to preserve the lineage-specific i18n key.
+          Suppressed inside the dossier (showCost=false): cost's unique home is
+          the ③ region, so the ④ Lineage sub-section must not re-print it. */}
+      {showCost ? (
+        <div className='border-b border-border'>
+          {tokens.total > 0 ? (
+            <TokenCostBreakdown
+              variant='full'
+              loopCount={null}
+              models={[
+                {
+                  model: '',
+                  input: tokens.input,
+                  output: tokens.output,
+                  cacheRead: tokens.cacheRead,
+                  cacheCreation: tokens.cacheCreation,
+                  total: tokens.total,
+                },
+              ]}
+              chips={[
+                { id: 'lineage.chip.sessionLevel', defaultMessage: '会话级' },
+                { id: 'lineage.chip.live', defaultMessage: '实时' },
+                {
+                  id: 'lineage.chip.notPerFragment',
+                  defaultMessage: '非每片段',
+                },
+              ]}
+            />
+          ) : (
+            <div className='px-3 py-3'>
+              <div className='mb-1 text-caption font-medium text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'lineage.cost.label',
+                  defaultMessage: 'Cost',
+                })}
+              </div>
+              <div className='mt-1 text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'lineage.cost.none',
+                  defaultMessage: '此条线索暂无采集到的成本',
+                })}
+              </div>
             </div>
-            <div className='mt-1 text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'lineage.cost.none',
-                defaultMessage: '此条线索暂无采集到的成本',
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : null}
 
       {/* Fragments list */}
       <div>

@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{count}개 세션에서 총 {total}",
   "acceptance.trend.rework": "재작업: ",
   "acceptance.trend.reworkClean": "누적 없음 (0) — 모든 시도에서 깨끗함",
-  "acceptance.trend.reworkAccrued": "{total} 누적 (↑ 0에서)"
+  "acceptance.trend.reworkAccrued": "{total} 누적 (↑ 0에서)",
+  "task.dossier": "기록부",
+  "dossier.evidence.title": "증거와 인과",
+  "dossier.evidence.tip": "결정을 뒷받침하는 증거 — 에이전트 실행, lineage 인과, 주입된 팀 메모리. 기본적으로 접혀 있으며, 결정과 검증이 우선합니다.",
+  "dossier.section.runs": "에이전트 실행",
+  "dossier.section.runsSummary": "{count, plural, one {# 세션} other {# 세션}}",
+  "dossier.section.lineage": "Lineage 인과",
+  "dossier.section.memory": "주입된 팀 메모리"
 }

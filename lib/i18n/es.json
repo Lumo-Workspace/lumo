@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} en total a lo largo de {count} sesiones",
   "acceptance.trend.rework": "Retrabajo: ",
   "acceptance.trend.reworkClean": "ninguno acumulado (0) — limpio en cada intento",
-  "acceptance.trend.reworkAccrued": "{total} acumulado (↑ desde 0)"
+  "acceptance.trend.reworkAccrued": "{total} acumulado (↑ desde 0)",
+  "task.dossier": "Expediente",
+  "dossier.evidence.title": "Evidencia y causalidad",
+  "dossier.evidence.tip": "La evidencia que respalda la decisión: ejecuciones del agente, causalidad de lineage y memoria de equipo inyectada. Contraído por defecto; la decisión y su verificación van primero.",
+  "dossier.section.runs": "Ejecuciones del agente",
+  "dossier.section.runsSummary": "{count, plural, one {# sesión} other {# sesiones}}",
+  "dossier.section.lineage": "Causalidad de lineage",
+  "dossier.section.memory": "Memoria de equipo inyectada"
 }

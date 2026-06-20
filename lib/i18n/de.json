@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} insgesamt über {count} Sitzungen",
   "acceptance.trend.rework": "Nacharbeit: ",
   "acceptance.trend.reworkClean": "nichts angefallen (0) — sauber bei jedem Versuch",
-  "acceptance.trend.reworkAccrued": "{total} angefallen (↑ von 0)"
+  "acceptance.trend.reworkAccrued": "{total} angefallen (↑ von 0)",
+  "task.dossier": "Dossier",
+  "dossier.evidence.title": "Belege & Kausalität",
+  "dossier.evidence.tip": "Die Belege hinter der Entscheidung – Agent-Läufe, Lineage-Kausalität und eingespeister Team-Speicher. Standardmäßig eingeklappt; Entscheidung und Verifizierung stehen voran.",
+  "dossier.section.runs": "Agent-Läufe",
+  "dossier.section.runsSummary": "{count, plural, one {# Sitzung} other {# Sitzungen}}",
+  "dossier.section.lineage": "Lineage-Kausalität",
+  "dossier.section.memory": "Eingespeister Team-Speicher"
 }

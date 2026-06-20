@@ -48,18 +48,13 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-// The three presence-probe hooks drive tab visibility. Mock them directly.
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
-  useAgentRuns: jest.fn(),
-}))
+// The two presence-probe hooks drive whether the dossier offers its Memory /
+// Lineage evidence sub-sections. Mock them directly.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMemories', () => ({
   useMemories: jest.fn(),
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskLineage', () => ({
   useTaskLineage: jest.fn(),
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
-  useTaskStatus: jest.fn(),
 }))
 
 // useTimeline is only exercised by the Activity panel; stub it out.
@@ -73,8 +68,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTimeline', () => ({
   }),
 }))
 
-// Stub the tab panels so this test stays focused on the tab bar and doesn't
-// pull in each panel's data deps.
+// Stub the tab panels so this test stays focused on the tab bar and the dossier
+// wiring, not each panel's data deps. The dossier stub echoes the deep-link
+// target section so the legacy-slug → section mapping can be asserted here.
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailComments',
   () => ({ TaskDetailComments: () => <div data-testid='panel-comments' /> })
@@ -87,57 +83,22 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/ContextTab',
   () => ({ ContextTab: () => <div data-testid='panel-context' /> })
 )
-// The Delivery tab folds runs + acceptance behind a sub-segment; stub it to an
-// empty div. Since LUM-529 moved the floating verdict bar out of TimelineTabs,
-// no `verdict-status` node should come from this component at all — the stub
-// keeps that absence assertion unambiguous (no panel can smuggle one in).
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/DeliveryTab',
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TaskDossier',
   () => ({
-    DeliveryTab: ({ subTab }: { subTab: string }) => (
-      <div data-testid='panel-delivery' data-subtab={subTab} />
+    TaskDossier: ({ targetSection }: { targetSection: string | null }) => (
+      <div data-testid='panel-dossier' data-target={targetSection ?? ''} />
     ),
-  })
-)
-jest.mock('@/app/workspace/[workspaceUrl]/components/memory/MemoryTab', () => ({
-  MemoryTab: () => <div data-testid='panel-memory' />,
-}))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/LineageTab',
-  () => ({ LineageTab: () => <div data-testid='panel-lineage' /> })
-)
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab',
-  () => ({ AcceptanceTab: () => <div data-testid='panel-acceptance' /> })
-)
-
-// LUM-529 removed the floating VerdictDecision from TimelineTabs. These verdict
-// deps are still stubbed defensively so any child that transitively reaches for
-// them stays hermetic and the suite never hits the network.
-jest.mock('@/lib/api-client', () => ({
-  tasksClient: { submitHumanVerdict: jest.fn() },
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
-  useBoundaryCrossings: jest.fn(() => ({ crossings: [] })),
-}))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor',
-  () => ({
-    CommentEditor: () => <div data-testid='mock-comment-editor' />,
   })
 )
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TimelineTabs } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/TimelineTabs'
-import { useAgentRuns } from '@/app/workspace/[workspaceUrl]/hooks/useAgentRuns'
 import { useMemories } from '@/app/workspace/[workspaceUrl]/hooks/useMemories'
 import { useTaskLineage } from '@/app/workspace/[workspaceUrl]/hooks/useTaskLineage'
-import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 
-const mockAgentRuns = useAgentRuns as jest.Mock
 const mockMemories = useMemories as jest.Mock
 const mockLineage = useTaskLineage as jest.Mock
-const mockStatus = useTaskStatus as jest.Mock
 
 const baseProps: any = {
   taskId: 'task-1',
@@ -154,23 +115,12 @@ const baseProps: any = {
 }
 
 function setPresence({
-  agent,
-  memory,
-  lineage,
-  criteria = false,
-  taskStatus = 'IN_PROGRESS',
+  memory = false,
+  lineage = false,
 }: {
-  agent: boolean
-  memory: boolean
-  lineage: boolean
-  criteria?: boolean
-  taskStatus?: string
-}) {
-  mockAgentRuns.mockReturnValue({
-    data: { runs: agent ? [{ sessionId: 's', runNumber: 1 }] : [] },
-    loading: false,
-    error: null,
-  })
+  memory?: boolean
+  lineage?: boolean
+} = {}) {
   mockMemories.mockReturnValue({
     memories: memory ? [{ id: 'm1' }] : [],
     loading: false,
@@ -186,60 +136,6 @@ function setPresence({
     loading: false,
     error: null,
   })
-  const criteriaList = criteria
-    ? [
-        {
-          id: 'crit-1',
-          statement: 's',
-          verifierType: 'MACHINE',
-          checkpointer: 'cmd:test',
-          evidenceRequired: false,
-          judgeSteps: null,
-          source: 'AGENT_DRAFT',
-          addedAtRound: 0,
-          latestVerdict: {
-            round: 1,
-            verdict: 'PASS',
-            verifierType: 'MACHINE',
-            evidencePointer: null,
-            rejectionReason: null,
-            rejectionReasonEnum: null,
-            recordedAt: 'now',
-          },
-          machinePassed: true,
-          verdictStale: false,
-          checkMismatch: false,
-          changeState: null,
-          changedAtRound: null,
-          lastEdit: null,
-        },
-      ]
-    : []
-  mockStatus.mockReturnValue({
-    data: {
-      task: {
-        id: 't-1',
-        identifier: 'LUM-1',
-        title: 'Test task',
-        status: taskStatus,
-      },
-      currentRound: 1,
-      maxRounds: 5,
-      escalated: false,
-      machineVerification: {
-        total: criteriaList.length,
-        machineVerified: criteriaList.length,
-        humanOverridden: 0,
-      },
-      removedCriteria: [],
-      verificationHistory: [],
-      lastRoundFailures: [],
-      nextActions: [],
-      criteria: criteriaList,
-    },
-    loading: false,
-    error: null,
-  })
 }
 
 beforeEach(() => {
@@ -248,222 +144,38 @@ beforeEach(() => {
   mockNav.tab = undefined
 })
 
-describe('TimelineTabs tab visibility', () => {
-  it('hides Memory / Lineage when both are empty but keeps the always-on tabs', () => {
-    setPresence({ agent: false, memory: false, lineage: false })
+describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
+  it('offers exactly the four fixed tabs, dossier replacing delivery/memory/lineage', () => {
+    setPresence()
     render(<TimelineTabs {...baseProps} />)
 
-    // The always-present tabs anchor the bar — Delivery is now always on.
     expect(screen.getByRole('button', { name: 'Comments' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dossier' })).toBeInTheDocument()
 
-    // The two empty rare tabs are hidden.
+    // The merged trio no longer exist as top-level tabs.
+    expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
-  })
-
-  it('shows Memory and Lineage when each has content', () => {
-    setPresence({ agent: true, memory: true, lineage: true })
-    render(<TimelineTabs {...baseProps} />)
-
-    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Lineage' })).toBeInTheDocument()
-  })
-
-  it('shows only the rare tabs that have content', () => {
-    setPresence({ agent: false, memory: true, lineage: false })
-    render(<TimelineTabs {...baseProps} />)
-
-    expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
-  })
-
-  it('lets a visible tab open its panel', () => {
-    setPresence({ agent: false, memory: false, lineage: true })
-    render(<TimelineTabs {...baseProps} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Lineage' }))
-    expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
-  })
-
-  it('always shows the Delivery tab even with no agent runs', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: false,
-      taskStatus: 'TODO',
-    })
-    render(<TimelineTabs {...baseProps} taskStatus='TODO' />)
-    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
-  })
-
-  it('does not render a top-level Acceptance tab', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-      taskStatus: 'IN_REVIEW',
-    })
-    render(<TimelineTabs {...baseProps} />)
-    // Acceptance is now a sub-segment inside Delivery, never a top-level tab.
     expect(screen.queryByRole('button', { name: 'Acceptance' })).toBeNull()
-    expect(screen.queryByRole('button', { name: '验收' })).toBeNull()
   })
 
-  it('opens the Delivery panel when the Delivery tab is clicked', () => {
-    setPresence({ agent: true, memory: false, lineage: false })
+  it('opens the dossier panel when the Dossier tab is clicked', () => {
+    setPresence()
     render(<TimelineTabs {...baseProps} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delivery' }))
-    expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
-  })
-})
-
-// Probes return their "not yet resolved" shape: useAgentRuns/useTaskLineage
-// expose `data: null` until the first fetch lands; useMemories signals it via
-// `loading: true`.
-function setProbesUnresolved() {
-  mockAgentRuns.mockReturnValue({ data: null, loading: true, error: null })
-  mockMemories.mockReturnValue({
-    memories: [],
-    loading: true,
-    error: null,
-    create: jest.fn(),
-    edit: jest.fn(),
-    promote: jest.fn(),
-    remove: jest.fn(),
-    mutating: false,
-  })
-  mockLineage.mockReturnValue({ data: null, loading: true, error: null })
-  mockStatus.mockReturnValue({ data: null, loading: true, error: null })
-}
-
-describe('TimelineTabs SSR presence fallback (LUM-321)', () => {
-  it('shows Memory and Lineage from SSR presence before the probes resolve', () => {
-    setProbesUnresolved()
-    render(
-      <TimelineTabs
-        {...baseProps}
-        initialTimelinePresence={{
-          hasMemories: true,
-          hasLineage: true,
-        }}
-      />
-    )
-
-    // Delivery is always on regardless of probe state.
-    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Lineage' })).toBeInTheDocument()
-  })
-
-  it('hides Memory and Lineage when SSR presence is false and the probes have not resolved', () => {
-    setProbesUnresolved()
-    render(
-      <TimelineTabs
-        {...baseProps}
-        initialTimelinePresence={{
-          hasMemories: false,
-          hasLineage: false,
-        }}
-      />
-    )
-
-    // Delivery stays on even when SSR presence is empty.
-    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
-  })
-
-  it('lets a resolved probe override an over-eager SSR presence for the rare tabs', () => {
-    // SSR said "has content" but the probe lands empty — reconcile to the
-    // probe (the source of truth) and hide the tab.
-    setPresence({ agent: false, memory: false, lineage: false })
-    render(
-      <TimelineTabs
-        {...baseProps}
-        initialTimelinePresence={{
-          hasMemories: true,
-          hasLineage: true,
-        }}
-      />
-    )
-
-    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Lineage' })).toBeNull()
-  })
-})
-
-describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
-  it('renders the Delivery panel named by the delivery URL path segment', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-    })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
-    mockNav.tab = ['delivery']
-    render(<TimelineTabs {...baseProps} />)
-    expect(screen.getByTestId('panel-delivery')).toBeInTheDocument()
-  })
-
-  it('falls back to Comments and normalizes the URL when the segment targets a hidden tab', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: false,
-    })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/memory'
-    mockNav.tab = ['memory']
-    render(<TimelineTabs {...baseProps} />)
-    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
-    expect(mockNav.replace).toHaveBeenCalledWith(
-      '/workspace/acme/my-tasks/LUM-1',
-      { scroll: false }
-    )
-    expect(mockNav.replace).toHaveBeenCalledTimes(1)
-  })
-
-  it('normalizes the dropped acceptance slug to Comments', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-    })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
-    mockNav.tab = ['acceptance']
-    render(<TimelineTabs {...baseProps} />)
-    // tabFromSlug('acceptance') is now null → the effect normalizes to Comments.
-    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
-    expect(mockNav.replace).toHaveBeenCalledWith(
-      '/workspace/acme/my-tasks/LUM-1',
-      { scroll: false }
-    )
-  })
-
-  it('pushes the tab path and switches panel on click', () => {
-    setPresence({ agent: false, memory: false, lineage: true })
-    render(<TimelineTabs {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Lineage' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dossier' }))
+    expect(screen.getByTestId('panel-dossier')).toBeInTheDocument()
     expect(mockNav.push).toHaveBeenCalledWith(
-      '/workspace/acme/my-tasks/LUM-1/lineage',
+      '/workspace/acme/my-tasks/LUM-1/dossier',
       { scroll: false }
     )
-    expect(screen.getByTestId('panel-lineage')).toBeInTheDocument()
   })
 
   it('pushes the bare task URL (no segment) when selecting Comments', () => {
-    setPresence({ agent: false, memory: false, lineage: false })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/activity'
-    mockNav.tab = ['activity']
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
+    mockNav.tab = ['dossier']
     render(<TimelineTabs {...baseProps} />)
     fireEvent.click(screen.getByRole('button', { name: 'Comments' }))
     expect(mockNav.push).toHaveBeenCalledWith(
@@ -473,35 +185,57 @@ describe('TimelineTabs URL-driven tab (deep link / back-forward)', () => {
   })
 })
 
-describe('TimelineTabs no longer renders the floating verdict bar (LUM-529)', () => {
-  // The floating verdict bar moved to the top of the task detail (rendered by
-  // ReviewVerdictBar in TaskDetailPage, above the description). TimelineTabs
-  // must NOT render it — even during IN_REVIEW with criteria — so a reviewer
-  // never sees a second copy. DeliveryTab and AcceptanceTab are mocked to empty
-  // divs here, so a `verdict-status` node could only come from TimelineTabs
-  // itself; its absence proves the bar is gone from this layer.
-  it('does not render the floating verdict during IN_REVIEW with criteria', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-      taskStatus: 'IN_REVIEW',
-    })
-    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(screen.queryByTestId('verdict-status')).toBeNull()
+describe('TimelineTabs legacy deep links resolve into the dossier (LUM-458/567)', () => {
+  it.each([
+    ['delivery', 'runs'],
+    ['lineage', 'lineage'],
+    ['memory', 'memory'],
+  ])('renders the dossier targeting %s → %s section', (slug, section) => {
+    setPresence({ memory: true, lineage: true })
+    mockNav.pathname = `/workspace/acme/my-tasks/LUM-1/${slug}`
+    mockNav.tab = [slug]
+    render(<TimelineTabs {...baseProps} />)
+    const panel = screen.getByTestId('panel-dossier')
+    expect(panel).toBeInTheDocument()
+    expect(panel).toHaveAttribute('data-target', section)
+    // A legacy deep link must not rewrite the URL — it is a valid destination.
+    expect(mockNav.replace).not.toHaveBeenCalled()
   })
 
-  it('does not render the floating verdict on the delivery tab either', () => {
-    setPresence({
-      agent: false,
-      memory: false,
-      lineage: false,
-      criteria: true,
-      taskStatus: 'IN_REVIEW',
-    })
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/delivery'
-    mockNav.tab = ['delivery']
+  it('renders the dossier with no target section on the bare dossier slug', () => {
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
+    mockNav.tab = ['dossier']
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.getByTestId('panel-dossier')).toHaveAttribute(
+      'data-target',
+      ''
+    )
+  })
+
+  it('falls back to Comments and normalizes the URL on an unknown slug', () => {
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/acceptance'
+    mockNav.tab = ['acceptance']
+    render(<TimelineTabs {...baseProps} />)
+    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
+    expect(mockNav.replace).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1',
+      { scroll: false }
+    )
+    expect(mockNav.replace).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('TimelineTabs no longer renders the floating verdict bar (LUM-529)', () => {
+  // The floating verdict bar moved to the top of the task detail (rendered by
+  // ReviewVerdictBar in TaskDetailPage). TimelineTabs must NOT render it; the
+  // dossier panel is mocked here, so a `verdict-status` node could only come
+  // from TimelineTabs itself — its absence proves the bar is gone from this layer.
+  it('does not render the floating verdict on the dossier tab', () => {
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
+    mockNav.tab = ['dossier']
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
     expect(screen.queryByTestId('verdict-status')).toBeNull()
   })

@@ -1,0 +1,41 @@
+'use client'
+
+import type { TaskDetail, AgentRunSession } from '../../types'
+import { DeliveryPanel } from '../DeliveryPanel'
+import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
+
+interface AgentRunsSectionProps {
+  taskId: string
+  taskStatus: TaskDetail['status']
+  agentStatus?: string | null | undefined
+  /** Run sessions, fetched once at the dossier level (single source) and passed
+   *  in — so the decision head's count and this list cannot drift. */
+  runs: AgentRunSession[]
+}
+
+/**
+ * The ④ "Agent 运行" sub-section of the task dossier (LUM-567) — the per-session
+ * delivery evidence: the forecast / progress / retrospective card plus the run
+ * list. Lifted out of the old Delivery tab's "runs" sub-view, with one
+ * deliberate change: the token-total footer is dropped (`footer` omitted). Cost
+ * is owned by the ③ "cost & risk" region (field-unique home in the data
+ * ownership matrix), so the runs evidence carries only per-session detail, never
+ * a second copy of the cost total.
+ */
+export function AgentRunsSection({
+  taskId,
+  taskStatus,
+  agentStatus,
+  runs,
+}: AgentRunsSectionProps) {
+  return (
+    <div className='space-y-4'>
+      <DeliveryPanel
+        taskId={taskId}
+        status={taskStatus}
+        agentStatus={agentStatus}
+      />
+      {runs.length > 0 && <AgentRunList runs={runs} />}
+    </div>
+  )
+}

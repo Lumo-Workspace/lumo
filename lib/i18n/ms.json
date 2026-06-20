@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} jumlah merentas {count} sesi",
   "acceptance.trend.rework": "Kerja semula: ",
   "acceptance.trend.reworkClean": "tiada terkumpul (0) — bersih dalam setiap percubaan",
-  "acceptance.trend.reworkAccrued": "{total} terkumpul (↑ dari 0)"
+  "acceptance.trend.reworkAccrued": "{total} terkumpul (↑ dari 0)",
+  "task.dossier": "Dosier",
+  "dossier.evidence.title": "Bukti & sebab-akibat",
+  "dossier.evidence.tip": "Bukti di sebalik keputusan — larian ejen, kausaliti lineage dan memori pasukan yang disuntik. Dikuncupkan secara lalai; keputusan dan pengesahannya didahulukan.",
+  "dossier.section.runs": "Larian ejen",
+  "dossier.section.runsSummary": "{count, plural, one {# sesi} other {# sesi}}",
+  "dossier.section.lineage": "Kausaliti lineage",
+  "dossier.section.memory": "Memori pasukan yang disuntik"
 }

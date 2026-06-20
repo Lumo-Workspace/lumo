@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} всего за {count} сессий",
   "acceptance.trend.rework": "Доработка: ",
   "acceptance.trend.reworkClean": "ничего не накоплено (0) — чисто в каждой попытке",
-  "acceptance.trend.reworkAccrued": "{total} накоплено (↑ от 0)"
+  "acceptance.trend.reworkAccrued": "{total} накоплено (↑ от 0)",
+  "task.dossier": "Досье",
+  "dossier.evidence.title": "Доказательства и причинность",
+  "dossier.evidence.tip": "Доказательства, стоящие за решением, — запуски агента, причинность lineage и внедрённая командная память. По умолчанию свёрнуто; решение и его проверка идут первыми.",
+  "dossier.section.runs": "Запуски агента",
+  "dossier.section.runsSummary": "{count, plural, one {# сессия} few {# сессии} many {# сессий} other {# сессии}}",
+  "dossier.section.lineage": "Причинность lineage",
+  "dossier.section.memory": "Внедрённая командная память"
 }

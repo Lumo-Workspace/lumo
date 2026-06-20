@@ -1796,5 +1796,12 @@
   "acceptance.trend.costTotal": "{total} total selama {count} sesi",
   "acceptance.trend.rework": "Pengerjaan ulang: ",
   "acceptance.trend.reworkClean": "tidak ada yang terakumulasi (0) — bersih di setiap percobaan",
-  "acceptance.trend.reworkAccrued": "{total} terakumulasi (↑ dari 0)"
+  "acceptance.trend.reworkAccrued": "{total} terakumulasi (↑ dari 0)",
+  "task.dossier": "Dosier",
+  "dossier.evidence.title": "Bukti & kausalitas",
+  "dossier.evidence.tip": "Bukti di balik keputusan — eksekusi agen, kausalitas lineage, dan memori tim yang disuntikkan. Diciutkan secara default; keputusan dan verifikasinya didahulukan.",
+  "dossier.section.runs": "Eksekusi agen",
+  "dossier.section.runsSummary": "{count, plural, one {# sesi} other {# sesi}}",
+  "dossier.section.lineage": "Kausalitas lineage",
+  "dossier.section.memory": "Memori tim yang disuntikkan"
 }
