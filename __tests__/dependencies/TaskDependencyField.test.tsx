@@ -182,3 +182,15 @@ it('does not show the empty state when only RELATES edges exist', () => {
     screen.getByRole('button', { name: 'task.dependencies.field.manage' })
   ).toBeInTheDocument()
 })
+
+it('blocker chips expose id + title via a hover title attribute', () => {
+  renderField([
+    edge({
+      other: { identifier: 'LUM-9', title: 'auth refactor', status: 'TODO' },
+    }),
+  ])
+  expect(screen.getByText('LUM-9').closest('a')).toHaveAttribute(
+    'title',
+    'LUM-9 · auth refactor'
+  )
+})

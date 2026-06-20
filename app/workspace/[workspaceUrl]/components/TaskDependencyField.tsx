@@ -124,6 +124,7 @@ export function TaskDependencyField({
                 <Link
                   key={e.id}
                   href={`/workspace/${workspaceUrl}/my-tasks/${e.other.identifier}`}
+                  title={`${e.other.identifier} · ${e.other.title}`}
                   data-blocker-state={satisfied ? 'satisfied' : 'live'}
                   className={cn(
                     'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-mono rounded-sm px-1',
