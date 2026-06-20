@@ -13,6 +13,8 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import { selectClaim, type TaskClaim } from '@/lib/services/task-claim'
 import {
   deriveSendBackResolution,
   type SendBackResolution,
@@ -304,6 +306,11 @@ export interface TaskAcceptanceStatus {
   /** Movement of pass rate / cost / rework across the task's attempts (LUM-562)
    *  — the trend the single-point snapshot would otherwise hide. */
   trend: TrendModel
+  /** The agent's CLAIM — what it SAYS it did (LUM-564), surfaced beside the
+   *  measured verification verdict so the report shows 声称 vs 核验 as two
+   *  columns. Same-source with the web card's latestRunSummary; an unverified
+   *  self-report (estimate-tier), never a measurement. */
+  claim: TaskClaim
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -612,6 +619,7 @@ export const taskVerificationService = {
       statusEvents,
       actuals,
       perSessionCost,
+      latestRunClaim,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -628,6 +636,10 @@ export const taskVerificationService = {
       // LUM-562: per-session spend for the cost trajectory — same session-usage
       // source `loadActuals` totals, so Σ reconciles with the Cost-section total.
       retrospectiveRepository.loadPerSessionCost(taskId),
+      // LUM-564: the latest session's run-claim material (LLM run summary +
+      // STOP turn digest) — the SAME session the web card surfaces as runs[0],
+      // so the claim column is same-source with web's latestRunSummary.
+      sessionRepository.loadLatestRunClaim(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -847,6 +859,19 @@ export const taskVerificationService = {
       },
     }
 
+    // LUM-564 claim: the agent's self-report from the latest session, selected
+    // by the same two-layer rule the web card uses for latestRunSummary (LLM
+    // run summary, else the STOP turn digest) — same-source, no drift. Built
+    // here so the read model carries it beside the measured verdict.
+    const claim = selectClaim(
+      latestRunClaim
+        ? {
+            runSummary: latestRunClaim.runSummary,
+            turnSummaries: latestRunClaim.events.map(e => e.turnSummary ?? ''),
+          }
+        : null
+    )
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -949,6 +974,7 @@ export const taskVerificationService = {
       struggleTrail,
       cost,
       trend,
+      claim,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

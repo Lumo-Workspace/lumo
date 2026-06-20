@@ -422,9 +422,12 @@ describe('taskStatus — machine-verified vs human-override (LUM-470)', () => {
 
   it('task status shows the machine-verification aggregate of verified vs override', async () => {
     const out = formatTaskStatus(SIGNED_PAYLOAD)
+    // LUM-564: the rollup now lives on the verification side of the
+    // "Claim vs verification" pairing rather than as a standalone line.
     expect(out).toContain(
-      'Machine verification: 1 machine-verified / 1 human override (of 2 MACHINE criteria)'
+      '1 machine-verified / 1 human override (of 2 MACHINE criteria)'
     )
+    expect(out).toContain('Claim vs verification:')
 
     // --json carries the aggregate so a consumer never reads the rollup as all-human.
     statusFetch(SIGNED_PAYLOAD)
