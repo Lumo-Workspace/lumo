@@ -184,6 +184,33 @@ export interface MachineVerificationSummary {
   humanOverridden: number
 }
 
+/**
+ * The honest "struggle trail" (LUM-561): the rework / send-back / leftover
+ * signals a clean all-pass report would otherwise wipe. Derived from the
+ * append-only run log so the renderer can force a "難点/返工/遺留" section that
+ * survives a 0-unmet task — preserving the traces of where the work was hard
+ * instead of collapsing them to a single PASS count. All three arrays empty is
+ * a legitimate (honest) state — the renderer must still state the basis for
+ * "nothing outstanding" rather than silently dropping the section.
+ */
+export interface StruggleTrail {
+  /** Verification rounds that recorded ≥1 FAIL — the agent had to rework. */
+  reworkRounds: Array<{ round: number; failed: number }>
+  /** Criteria sent back at least once (a HUMAN/AGENT FAIL, not a MACHINE
+   *  verify-loop FAIL), across the live AND removed contract — so a struggle
+   *  on a since-deleted criterion is preserved, not wiped. */
+  sendBacks: Array<{
+    criterionId: string
+    statement: string
+    status: 'open' | 'resolved'
+    failedAtRound: number
+    resolvedAtRound: number | null
+  }>
+  /** Criteria whose latest verdict is PASS_WITH_FOLLOWUP — passed but left
+   *  follow-up work behind. */
+  followUps: Array<{ criterionId: string; statement: string; round: number }>
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -196,6 +223,9 @@ export interface TaskAcceptanceStatus {
   /** Honest machine-verification rollup — genuine checkpointer passes vs human
    *  overrides over the active MACHINE criteria (LUM-456). */
   machineVerification: MachineVerificationSummary
+  /** Rework / send-back / leftover-follow-up traces (LUM-561) — preserved even
+   *  on a clean all-pass task so the report never wipes the struggle. */
+  struggleTrail: StruggleTrail
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -619,6 +649,45 @@ export const taskVerificationService = {
       humanOverridden,
     }
 
+    // LUM-561 struggle trail: rework / send-back / leftover signals the
+    // all-pass report would otherwise erase. Derived from the same run log —
+    // no new state, no derived columns (milestone rule 8).
+    const statementByIdAll = new Map(allCriteria.map(c => [c.id, c.statement]))
+    const reworkRounds = verificationHistory
+      .filter(h => h.failed > 0)
+      .map(h => ({ round: h.round, failed: h.failed }))
+    // Send-backs across the live AND removed contract, so a struggle on a
+    // since-deleted criterion is preserved rather than wiped with it.
+    const sendBacks = allCriteria
+      .map(c => {
+        const sb = deriveSendBackResolution(c.id, runs, lifecyclePrs)
+        if (!sb) return null
+        return {
+          criterionId: c.id,
+          statement: statementByIdAll.get(c.id) ?? '',
+          status: sb.status,
+          failedAtRound: sb.failedAtRound,
+          resolvedAtRound: sb.resolvedAtRound ?? null,
+        }
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+    // Leftover follow-ups: criteria whose latest verdict still carries a
+    // follow-up flag (passed, but with work left behind).
+    const followUps = criteria
+      .filter(
+        c => latestByCriterion.get(c.id)?.verdict === 'PASS_WITH_FOLLOWUP'
+      )
+      .map(c => ({
+        criterionId: c.id,
+        statement: c.statement,
+        round: latestByCriterion.get(c.id)!.round,
+      }))
+    const struggleTrail: StruggleTrail = {
+      reworkRounds,
+      sendBacks,
+      followUps,
+    }
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -718,6 +787,7 @@ export const taskVerificationService = {
         }
       }),
       machineVerification,
+      struggleTrail,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

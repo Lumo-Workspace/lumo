@@ -284,3 +284,182 @@ describe('machine-verification rollup honesty (LUM-456)', () => {
     expect(s.criteria[0]!.machinePassed).toBe(true)
   })
 })
+
+// LUM-561: the report must preserve struggle traces (rework / send-backs /
+// leftover follow-ups) instead of wiping them the moment everything passes.
+// statusForTask derives these from the append-only run log so the renderer can
+// force an honest "難点/返工/遺留" section even on a clean all-pass task.
+describe('struggle trail read model LUM-561', () => {
+  it('derives rework rounds from rounds that had a FAIL', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'first attempt failed',
+        rejectionReasonEnum: 'OTHER',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+      run({
+        id: 'r2',
+        round: 2,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-03T10:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.reworkRounds).toEqual([{ round: 1, failed: 1 }])
+  })
+
+  it('derives a resolved send-back from a HUMAN/AGENT FAIL later passed', async () => {
+    const c = criterion({ id: 'c-1', statement: 'the bounced requirement' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verifierType: 'AGENT',
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'sent back',
+        rejectionReasonEnum: 'OTHER',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+      run({
+        id: 'r2',
+        round: 2,
+        verifierType: 'MACHINE',
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-03T10:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.sendBacks).toEqual([
+      {
+        criterionId: 'c-1',
+        statement: 'the bounced requirement',
+        status: 'resolved',
+        failedAtRound: 1,
+        resolvedAtRound: 2,
+      },
+    ])
+  })
+
+  it('does not count a MACHINE verify-loop FAIL as a send-back, but it is still a rework round', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verifierType: 'MACHINE',
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'machine check failed',
+        rejectionReasonEnum: 'OTHER',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.sendBacks).toEqual([])
+    expect(s.struggleTrail.reworkRounds).toEqual([{ round: 1, failed: 1 }])
+  })
+
+  it('surfaces a send-back recorded against a now-removed criterion', async () => {
+    const active = criterion({ id: 'c-live', statement: 'still here' })
+    const removed = criterion({
+      id: 'c-gone',
+      statement: 'the wiped struggle',
+      deletedAt: new Date('2026-06-04T00:00:00Z'),
+    })
+    listActive.mockResolvedValue([active])
+    listAll.mockResolvedValue([active, removed])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r-active',
+        criterionId: 'c-live',
+        round: 1,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+      // The removed criterion was sent back and never resolved.
+      run({
+        id: 'r-gone',
+        criterionId: 'c-gone',
+        round: 1,
+        verifierType: 'HUMAN',
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'dropped after a bounce',
+        rejectionReasonEnum: 'OTHER',
+        createdAt: new Date('2026-06-02T11:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.sendBacks).toEqual([
+      {
+        criterionId: 'c-gone',
+        statement: 'the wiped struggle',
+        status: 'open',
+        failedAtRound: 1,
+        resolvedAtRound: null,
+      },
+    ])
+  })
+
+  it('derives a follow-up from a latest PASS_WITH_FOLLOWUP verdict', async () => {
+    const c = criterion({ id: 'c-1', statement: 'passed with leftover work' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verdict: 'PASS_WITH_FOLLOWUP',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail.followUps).toEqual([
+      { criterionId: 'c-1', statement: 'passed with leftover work', round: 1 },
+    ])
+  })
+
+  it('returns an all-empty trail when every round passed cleanly', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.struggleTrail).toEqual({
+      reworkRounds: [],
+      sendBacks: [],
+      followUps: [],
+    })
+  })
+})
