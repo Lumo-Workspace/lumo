@@ -125,6 +125,24 @@ export interface TaskStatusResponse {
     pullRequests: Array<{ number: number; url: string }>
     reopens: Array<{ from: string; to: string; at: string }>
   }
+  /** LUM-562: movement of pass rate / cost / rework across the task's attempts
+   *  — the trend the single-point History/Cost snapshot hides. Optional so a new
+   *  CLI tolerates an older server that doesn't yet emit it. */
+  trend?: {
+    passRate: Array<{ round: number; passed: number; failed: number }>
+    cost: Array<{
+      sessionId: string
+      total: number
+      loopCount: number
+      at: string
+    }>
+    rework: {
+      reworkRounds: number
+      reopens: number
+      extraPrCycles: number
+      total: number
+    }
+  }
   verificationHistory: Array<{
     round: number
     recordedAt: string
@@ -308,6 +326,7 @@ export function formatTaskStatus(
   pushCost(lines, data)
 
   pushStruggleTrail(lines, data)
+  pushTrend(lines, data)
 
   lines.push('')
   if (data.nextActions.length === 0) {
@@ -488,6 +507,117 @@ function pushStruggleTrail(lines: string[], data: TaskStatusResponse): void {
     for (const r of trail.reopens) {
       lines.push(`    • ${r.from} → ${r.to}`)
     }
+  }
+}
+
+/** Direction glyph for a delta — ↑ up, ↓ down, → flat. */
+function arrow(delta: number): string {
+  return delta > 0 ? '↑' : delta < 0 ? '↓' : '→'
+}
+
+/** Pass rate of one round as an integer percent (0 verdicts → 0%). */
+function passPct(p: { passed: number; failed: number }): number {
+  const total = p.passed + p.failed
+  return total === 0 ? 0 : Math.round((p.passed / total) * 100)
+}
+
+/**
+ * Append the "Trend" section (LUM-562, 規律7 趨勢非快照) — the *movement* of the
+ * task's key quantities across its attempts, not a single-point snapshot. Where
+ * History lists each round's PASS/FAIL, Cost shows the running total, and
+ * Struggle lists the scars, this shows direction: pass rate climbing, cost per
+ * session rising/falling, rework accruing. The honesty rule (mirrors the
+ * struggle trail): a single data point is NOT a trajectory — with one round and
+ * one session the section says so outright rather than drawing a fake arrow off
+ * a single value, closing the named "1-round pass = single point" gap. The
+ * per-session cost reuses the same source as the Cost section, so the
+ * trajectory's points sum to the Cost total (no in-report drift). Skipped only
+ * when the server didn't emit the field (older server) — never fabricated.
+ */
+function pushTrend(lines: string[], data: TaskStatusResponse): void {
+  const trend = data.trend
+  if (!trend) return // older server: no trend data — don't invent one.
+
+  const rounds = trend.passRate
+  const cost = trend.cost
+  const rw = trend.rework
+
+  lines.push('')
+
+  // Nothing to trend at all — no verification, no measured cost.
+  if (rounds.length === 0 && cost.length === 0) {
+    lines.push('Trend:')
+    lines.push(
+      '  No verification rounds or measured cost yet — nothing to trend. Run `lumo verify`.'
+    )
+    return
+  }
+
+  // A trajectory needs ≥2 points in at least one dimension. With a single
+  // round AND a single session, every quantity is one data point — say so
+  // plainly instead of implying a flat/healthy trend (the named gap).
+  const hasTrajectory = rounds.length >= 2 || cost.length >= 2
+  if (!hasTrajectory) {
+    lines.push('Trend:')
+    lines.push(
+      '  Single attempt so far — no trajectory yet (a trend needs ≥2 rounds or sessions).'
+    )
+    const bits: string[] = []
+    if (rounds.length === 1)
+      bits.push(`pass rate r${rounds[0]!.round} ${passPct(rounds[0]!)}%`)
+    if (cost.length === 1) bits.push(`cost ${fmtTokens(cost[0]!.total)} tokens`)
+    bits.push(rw.total === 0 ? 'rework none' : `rework ${rw.total}`)
+    lines.push(`  ${bits.join(' · ')}`)
+    return
+  }
+
+  const sessionWord = cost.length === 1 ? 'session' : 'sessions'
+  lines.push(`Trend (${rounds.length} rounds · ${cost.length} ${sessionWord}):`)
+
+  // Pass rate across rounds — the climb (or fall) of the verify loop.
+  if (rounds.length >= 2) {
+    const seq = rounds.map(r => `r${r.round} ${passPct(r)}%`).join(' → ')
+    const delta = passPct(rounds[rounds.length - 1]!) - passPct(rounds[0]!)
+    const sign = delta > 0 ? `+${delta}` : `${delta}`
+    lines.push(`  Pass rate: ${seq}  (${arrow(delta)} ${sign}pts)`)
+  } else if (rounds.length === 1) {
+    lines.push(
+      `  Pass rate: r${rounds[0]!.round} ${passPct(rounds[0]!)}% (1 round — single point)`
+    )
+  }
+
+  // Cost per session across the task's sessions — the spend trajectory.
+  if (cost.length >= 2) {
+    const first = cost[0]!.total
+    const last = cost[cost.length - 1]!.total
+    const total = cost.reduce((a, c) => a + c.total, 0)
+    lines.push(
+      `  Cost/session: ${fmtTokens(first)} → ${fmtTokens(last)} tokens  (${arrow(last - first)}), ${fmtTokens(total)} total over ${cost.length} sessions`
+    )
+  } else if (cost.length === 1) {
+    lines.push(
+      `  Cost: ${fmtTokens(cost[0]!.total)} tokens (1 session — single point)`
+    )
+  }
+
+  // Rework accrual — monotonic from a clean baseline of 0.
+  if (rw.total === 0) {
+    lines.push('  Rework: none accrued (0) — clean across every attempt')
+  } else {
+    const parts: string[] = []
+    if (rw.reworkRounds > 0)
+      parts.push(
+        `${rw.reworkRounds} FAIL round${rw.reworkRounds === 1 ? '' : 's'}`
+      )
+    if (rw.reopens > 0)
+      parts.push(`${rw.reopens} reopen${rw.reopens === 1 ? '' : 's'}`)
+    if (rw.extraPrCycles > 0)
+      parts.push(
+        `+${rw.extraPrCycles} PR cycle${rw.extraPrCycles === 1 ? '' : 's'}`
+      )
+    lines.push(
+      `  Rework: ${rw.total} accrued — ${parts.join(', ')}  (↑ from 0)`
+    )
   }
 }
 

@@ -51,6 +51,7 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: {
     loadActuals: jest.fn(() => Promise.resolve(null)),
+    loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
 jest.mock('@/lib/db/prisma', () => ({

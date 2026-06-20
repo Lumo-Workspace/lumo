@@ -35,6 +35,18 @@ export interface RetrospectiveActuals {
   totalDurationSec: number
 }
 
+/** One session's token spend for the cost trajectory (LUM-562). Summed from the
+ *  SAME cumulative `Session.*` columns `loadActuals` totals, over the SAME
+ *  task-linked session set — so Σ over a task's sessions equals that task's
+ *  `loadActuals.tokenCost` (the Cost-section total), and the report's cost total
+ *  and its trajectory cannot drift. */
+export interface PerSessionCost {
+  sessionId: string
+  tokenCost: number
+  loopCount: number
+  startedAt: Date
+}
+
 export const retrospectiveRepository = {
   /** 读快照（已转 domain 形状）。无则 null。 */
   async findSnapshot(taskId: string): Promise<SnapshotRow | null> {
@@ -141,6 +153,42 @@ export const retrospectiveRepository = {
       interactionRounds,
       totalDurationSec,
     }
+  },
+
+  /**
+   * Per-session token spend for the task's cost trajectory (LUM-562, 規律7),
+   * oldest-first by session start. Sums the SAME cumulative `Session.*` columns
+   * `loadActuals` totals, over the SAME task-linked session set, so the
+   * trajectory reconciles exactly with the Cost-section total (Σ here ==
+   * `loadActuals.tokenCost`). Only usage-bearing sessions are returned (the
+   * token columns are written atomically — all four set or all null, per the
+   * Session schema — so a non-usage session contributes 0 and is omitted; this
+   * keeps the trajectory free of 0-token points without breaking the Σ identity).
+   */
+  async loadPerSessionCost(taskId: string): Promise<PerSessionCost[]> {
+    const sessions = await prisma.session.findMany({
+      where: { taskId, outputTokens: { not: null } },
+      orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        startedAt: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
+        loopCount: true,
+      },
+    })
+    return sessions.map(s => ({
+      sessionId: s.id,
+      tokenCost:
+        (s.inputTokens ?? 0) +
+        (s.outputTokens ?? 0) +
+        (s.cacheReadTokens ?? 0) +
+        (s.cacheCreationTokens ?? 0),
+      loopCount: s.loopCount ?? 0,
+      startedAt: s.startedAt,
+    }))
   },
 
   /** 参考库规模 = 项目内 DONE 且有 session 的任务数（= forecast 候选 universe）。 */
