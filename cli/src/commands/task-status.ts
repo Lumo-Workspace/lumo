@@ -143,6 +143,16 @@ export interface TaskStatusResponse {
       total: number
     }
   }
+  /** LUM-564: the agent's CLAIM — what it SAYS it did — surfaced beside the
+   *  measured verification conclusion so the report shows 声称 vs 核验 as two
+   *  columns, not just the verification one. Same-source with the web card's
+   *  latestRunSummary (latest session's LLM run summary, else its STOP turn
+   *  digest). An unverified self-report (estimate-tier), never a measurement.
+   *  Optional so a new CLI tolerates an older server that doesn't emit it. */
+  claim?: {
+    text: string | null
+    source: 'RUN_SUMMARY' | 'DIGEST' | null
+  }
   verificationHistory: Array<{
     round: number
     recordedAt: string
@@ -206,19 +216,17 @@ export function formatTaskStatus(
     return lines.join('\n') + '\n'
   }
 
+  // LUM-564 声称 vs 核验: the agent's CLAIM (what it says it did) paired with
+  // the measured verification conclusion (what was actually confirmed) — the
+  // two columns regular 規律2 wants, instead of only the verification one. The
+  // machine-verification rollup (LUM-470) lives on the verification side here
+  // rather than as a standalone line, so the contrast is in one place.
+  pushClaimVsVerification(lines, data)
+
   lines.push('')
   lines.push(
     `Criteria (${data.criteria.length} total, ${data.nextActions.length} unmet):`
   )
-  // LUM-470: honest machine-verification rollup over the active MACHINE criteria
-  // (same read model as web, LUM-456) — so the terminal rollup never reads as
-  // all-human when a checkpointer actually verified the work.
-  const mv = data.machineVerification
-  if (mv.total > 0) {
-    lines.push(
-      `Machine verification: ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
-    )
-  }
   for (const c of data.criteria) {
     const glyph =
       c.latestVerdict == null
@@ -392,6 +400,68 @@ function fmtDuration(totalSec: number): string {
   // Show seconds only when the duration is under an hour (keeps long runs tidy).
   if (s > 0 && h === 0) parts.push(`${s}s`)
   return parts.join(' ')
+}
+
+/**
+ * Append the "Claim vs verification" pairing (LUM-564) — 規律2 声称vs核验. The
+ * verification conclusion (machine-verified vs human-override, LUM-470) was the
+ * whole-system template, but the agent's run summary — its CLAIM of what it did
+ * — lived on a different surface, so the "two-column" contrast was really one
+ * column. This puts them side by side: the unverified self-report (estimate-
+ * tier — 估, not 测) against the measured verdict (测), so a reader can weigh
+ * 声称 against 核验 at a glance.
+ *
+ * Fail-closed on every axis: a missing claim renders an explicit "not generated
+ * yet" line (never a fabricated claim); a not-yet-verified task renders the
+ * verification side as explicitly unconfirmed (never an implied pass). The
+ * claim text is same-source with the web card (latest session's LLM run
+ * summary, else its STOP turn digest) so the two surfaces cannot drift.
+ */
+function pushClaimVsVerification(
+  lines: string[],
+  data: TaskStatusResponse
+): void {
+  lines.push('')
+  lines.push('Claim vs verification:')
+
+  // ── Claim (声称): the agent's self-report — estimate-tier, never measured.
+  lines.push('  ▸ Claim — what the agent says it did')
+  lines.push('    (agent self-report · estimated, not verification):')
+  const claim = data.claim
+  if (claim && claim.text) {
+    for (const cl of sanitizeField(claim.text).split('\n')) {
+      lines.push(`      ${cl}`)
+    }
+    lines.push(
+      claim.source === 'RUN_SUMMARY'
+        ? '      ↳ source: LLM run summary'
+        : '      ↳ source: raw turn digest — no LLM summary yet'
+    )
+  } else {
+    // Fail-closed: no run summary → say so, never invent a claim. Run summaries
+    // are synthesized when the bound task reaches DONE (LUM-481).
+    lines.push(
+      '      not generated yet — the agent run summary is synthesized when the task reaches DONE'
+    )
+  }
+
+  // ── Verification (核验): the measured verdict — machine-verified vs override.
+  lines.push('  ▸ Verification — what was actually confirmed (measured):')
+  const mv = data.machineVerification
+  if (data.currentRound === 0) {
+    // Nothing verified yet — the claim stands unconfirmed. Don't imply a pass.
+    lines.push('      no verification has run yet — the claim is unconfirmed')
+  } else {
+    if (mv.total > 0) {
+      lines.push(
+        `      ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
+      )
+    }
+    const met = data.criteria.length - data.nextActions.length
+    lines.push(
+      `      ${met} of ${data.criteria.length} criteria met by their latest verdict`
+    )
+  }
 }
 
 /**

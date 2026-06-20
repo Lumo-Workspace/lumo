@@ -705,6 +705,33 @@ export const sessionRepository = {
   },
 
   /**
+   * The latest session's run-claim material for a task (LUM-564) — newest by
+   * lastActivityAt, the SAME session the web delivery card surfaces as
+   * `runs[0]` (sessions list ordered lastActivityAt desc). Returns its LLM
+   * `runSummary` plus the raw STOP/STOP_FAILURE turn digest (oldest-first, last
+   * MAX lines applied by the caller) so the read model can mirror the web's
+   * two-layer claim rule (runSummary, else digest) without drift. Null when the
+   * task has no session at all.
+   */
+  async loadLatestRunClaim(taskId: string) {
+    return prisma.session.findFirst({
+      where: { taskId },
+      orderBy: { lastActivityAt: 'desc' },
+      select: {
+        runSummary: true,
+        events: {
+          where: {
+            type: { in: ['STOP', 'STOP_FAILURE'] },
+            turnSummary: { not: null },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { turnSummary: true },
+        },
+      },
+    })
+  },
+
+  /**
    * Persist a generated run summary on a session (LUM-481). `at` doubles as the
    * idempotency watermark so a re-DONE can skip already-summarized sessions.
    */

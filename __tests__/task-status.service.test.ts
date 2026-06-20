@@ -54,6 +54,12 @@ jest.mock('@/lib/repositories/retrospective.repository', () => ({
     loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    // LUM-564: latest session's run-claim material; null = no session (no claim).
+    loadLatestRunClaim: jest.fn(() => Promise.resolve(null)),
+  },
+}))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})) },
 }))
