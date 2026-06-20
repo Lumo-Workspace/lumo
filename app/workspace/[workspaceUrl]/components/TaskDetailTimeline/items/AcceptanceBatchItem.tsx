@@ -14,6 +14,7 @@ import type {
   VerificationBatchUnit,
 } from '../acceptance-aggregation'
 import { CommentAvatar } from '../../CommentAvatar'
+import { EvidenceRef } from '../evidence-ref'
 import { resolveActor, formatTimeAgo } from './CompactActivityItem'
 
 interface AcceptanceBatchItemProps {
@@ -122,7 +123,15 @@ function VerificationBatchBody({ unit }: { unit: VerificationBatchUnit }) {
               <span>{statement}</span>
               {evidence ? (
                 <span className='ml-1 text-foreground/50 break-all'>
-                  · {evidence}
+                  ·{' '}
+                  {/* LUM-563: drill the evidence pointer into a navigable ref
+                      rather than printing the inert raw token. No repo URL on the
+                      timeline → commit pointers use the git-show fallback. */}
+                  <EvidenceRef
+                    pointer={evidence}
+                    repoWebUrl={null}
+                    idSuffix={item.id}
+                  />
                 </span>
               ) : null}
             </div>

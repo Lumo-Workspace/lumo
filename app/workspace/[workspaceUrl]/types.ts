@@ -790,6 +790,57 @@ export interface VerificationHistoryRoundView {
   }>
 }
 
+/** Rework / send-back / leftover traces (LUM-561) — the honest "struggle trail"
+ *  a clean all-pass report would otherwise wipe. Client mirror of the server
+ *  `StruggleTrail`; all arrays empty is a legitimate (honest) state. */
+export interface StruggleTrailView {
+  reworkRounds: Array<{ round: number; failed: number }>
+  sendBacks: Array<{
+    criterionId: string
+    statement: string
+    status: 'open' | 'resolved'
+    failedAtRound: number
+    resolvedAtRound: number | null
+  }>
+  followUps: Array<{ criterionId: string; statement: string; round: number }>
+  pullRequests: Array<{ number: number; url: string }>
+  reopens: Array<{ from: string; to: string; at: string }>
+}
+
+/** Honest cost read-out (LUM-560). Client mirror of the server `TaskCost`.
+ *  `tokenCost` null = NOT measured (no session usage recorded) — deliberately
+ *  distinct from a measured 0 (花了0 vs 没测到). */
+export interface TaskCostView {
+  tokenCost: number | null
+  activeTimeSec: number
+  reworkRounds: number
+}
+
+/** Movement of pass rate / cost / rework across the task's attempts (LUM-562).
+ *  Client mirror of the server `TrendModel`. */
+export interface TrendModelView {
+  passRate: Array<{ round: number; passed: number; failed: number }>
+  cost: Array<{
+    sessionId: string
+    total: number
+    loopCount: number
+    at: string
+  }>
+  rework: {
+    reworkRounds: number
+    reopens: number
+    extraPrCycles: number
+    total: number
+  }
+}
+
+/** The agent's CLAIM — what it SAYS it did (LUM-564), an unverified self-report
+ *  (estimate-tier). Client mirror of the server `TaskClaim`. */
+export interface TaskClaimView {
+  text: string | null
+  source: 'RUN_SUMMARY' | 'DIGEST' | null
+}
+
 export interface TaskAcceptanceStatusView {
   version: number
   task: { id: string; identifier: string; title: string; status: string }
@@ -800,6 +851,19 @@ export interface TaskAcceptanceStatusView {
   /** Honest machine-verification rollup — genuine checkpointer passes vs human
    *  overrides over the active MACHINE criteria (LUM-456). */
   machineVerification: MachineVerificationSummaryView
+  /** Rework / send-back / leftover-follow-up traces (LUM-561), preserved even on
+   *  a clean all-pass task. Optional so an older server (pre-561) is tolerated —
+   *  the section is then skipped, never fabricated (mirrors the CLI's optionality). */
+  struggleTrail?: StruggleTrailView
+  /** Honest cost read-out (LUM-560) — token / active time / rework rounds, same
+   *  source as the delivery card. Optional so an older server is tolerated. */
+  cost?: TaskCostView
+  /** Movement of pass rate / cost / rework across attempts (LUM-562). Optional so
+   *  an older server is tolerated. */
+  trend?: TrendModelView
+  /** The agent's CLAIM — what it SAYS it did (LUM-564), surfaced beside the
+   *  measured verdict (声称 vs 核验). Optional so an older server is tolerated. */
+  claim?: TaskClaimView
   /** Criteria removed from the contract after work started (LUM-437). */
   removedCriteria: RemovedCriterionView[]
   verificationHistory: VerificationHistoryRoundView[]

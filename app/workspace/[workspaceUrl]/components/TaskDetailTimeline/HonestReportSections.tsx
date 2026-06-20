@@ -1,0 +1,659 @@
+'use client'
+
+import { useIntl } from 'react-intl'
+import type { TaskAcceptanceStatusView } from '../../types'
+import { InfoTooltip } from './InfoTooltip'
+
+/**
+ * The honest-report sections (LUM-566) — the web render of what LUM-559~564 put
+ * into `lumo task status`: the claim-vs-verification pairing (564), the cost
+ * read-out (560), the struggle / rework trail (561), and the trend (562). All
+ * read the same GET /api/tasks/[id]/status read model the CLI prints, so the two
+ * surfaces are same-source and cannot drift. Every section is fail-closed: a
+ * not-measured value states its absence rather than implying a clean zero, and
+ * the struggle trail renders even on a 0-unmet task so a clean report never wipes
+ * the scars. Hierarchy is carried by type weight + spacing, reusing the existing
+ * muted/foreground/feedback tokens — no new accent color budget.
+ */
+
+// Mirror the CLI's compact token formatter (notation:'compact',
+// maximumFractionDigits:1) so the same number reads identically in both surfaces.
+const TOKEN_FMT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+function fmtTokens(n: number): string {
+  return TOKEN_FMT.format(n)
+}
+
+/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
+function fmtDuration(totalSec: number): string {
+  const sec = Math.max(0, Math.round(totalSec))
+  if (sec === 0) return '0s'
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  const parts: string[] = []
+  if (h > 0) parts.push(`${h}h`)
+  if (m > 0) parts.push(`${m}m`)
+  if (s > 0 && h === 0) parts.push(`${s}s`)
+  return parts.join(' ')
+}
+
+function SectionTitle({
+  children,
+  tip,
+}: {
+  children: React.ReactNode
+  tip?: string
+}) {
+  return (
+    <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+      {children}
+      {tip ? <InfoTooltip label={tip} /> : null}
+    </div>
+  )
+}
+
+/** A neutral provenance chip — carries 规律5's attribution (estimated /
+ *  measured / AI-drafted) by a small uppercase label, not a color. */
+function ProvenanceChip({
+  children,
+  testId,
+  tip,
+}: {
+  children: React.ReactNode
+  testId?: string
+  tip?: string
+}) {
+  return (
+    <span
+      {...(testId ? { 'data-testid': testId } : {})}
+      className='inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground'
+    >
+      {children}
+      {tip ? <InfoTooltip label={tip} /> : null}
+    </span>
+  )
+}
+
+// ── LUM-564 · Claim vs verification ───────────────────────────────────────────
+
+export function ClaimVsVerification({
+  data,
+}: {
+  data: TaskAcceptanceStatusView
+}) {
+  const intl = useIntl()
+  const claim = data.claim
+  // The server always sends the rollup; default defensively so a degraded /
+  // partial payload renders the pairing rather than crashing the whole tab.
+  const mv = data.machineVerification ?? {
+    total: 0,
+    machineVerified: 0,
+    humanOverridden: 0,
+  }
+  const met = data.criteria.length - data.nextActions.length
+
+  return (
+    <div>
+      <SectionTitle
+        tip={intl.formatMessage({
+          id: 'acceptance.claim.tip',
+          defaultMessage:
+            'The agent’s self-report (what it says it did) sits next to the measured verdict (what was actually confirmed). A claim is an estimate, never a measurement.',
+        })}
+      >
+        {intl.formatMessage({
+          id: 'acceptance.claim.title',
+          defaultMessage: 'Claim vs verification',
+        })}
+      </SectionTitle>
+      <div className='grid gap-3 sm:grid-cols-2'>
+        {/* Claim (声称) — the agent self-report, estimate-tier. */}
+        <div className='rounded-lg border border-border px-3 py-2.5'>
+          <div className='mb-1 flex items-center gap-1.5'>
+            <span className='text-[11px] font-medium text-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.claim.claimLabel',
+                defaultMessage: 'Claim — what the agent says it did',
+              })}
+            </span>
+            <ProvenanceChip
+              testId='claim-provenance'
+              tip={intl.formatMessage({
+                id: 'acceptance.claim.estimatedTip',
+                defaultMessage:
+                  'An unverified agent self-report — an estimate, not a verification result.',
+              })}
+            >
+              {intl.formatMessage({
+                id: 'acceptance.claim.estimated',
+                defaultMessage: 'AI-drafted · estimated',
+              })}
+            </ProvenanceChip>
+          </div>
+          {claim?.text ? (
+            <>
+              <p className='whitespace-pre-line text-[12px] leading-snug text-foreground'>
+                {claim.text}
+              </p>
+              <p className='mt-1 text-[10px] text-muted-foreground/70'>
+                {claim.source === 'RUN_SUMMARY'
+                  ? intl.formatMessage({
+                      id: 'acceptance.claim.sourceSummary',
+                      defaultMessage: 'source: LLM run summary',
+                    })
+                  : intl.formatMessage({
+                      id: 'acceptance.claim.sourceDigest',
+                      defaultMessage:
+                        'source: raw turn digest — no LLM summary yet',
+                    })}
+              </p>
+            </>
+          ) : (
+            <p className='text-[12px] italic leading-snug text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.claim.notGenerated',
+                defaultMessage:
+                  'Not generated yet — the run summary is synthesized when the task reaches DONE.',
+              })}
+            </p>
+          )}
+        </div>
+
+        {/* Verification (核验) — the measured verdict. */}
+        <div className='rounded-lg border border-border px-3 py-2.5'>
+          <div className='mb-1 flex items-center gap-1.5'>
+            <span className='text-[11px] font-medium text-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.claim.verifyLabel',
+                defaultMessage: 'Verification — what was confirmed',
+              })}
+            </span>
+            <ProvenanceChip>
+              {intl.formatMessage({
+                id: 'acceptance.claim.measured',
+                defaultMessage: 'measured',
+              })}
+            </ProvenanceChip>
+          </div>
+          {data.currentRound === 0 ? (
+            <p className='text-[12px] italic leading-snug text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.claim.unconfirmed',
+                defaultMessage:
+                  'No verification has run yet — the claim is unconfirmed.',
+              })}
+            </p>
+          ) : (
+            <div className='space-y-0.5 text-[12px] leading-snug text-foreground'>
+              {mv.total > 0 ? (
+                <p>
+                  {intl.formatMessage(
+                    {
+                      id: 'acceptance.claim.rollup',
+                      defaultMessage:
+                        '{verified} machine-verified · {overridden} human override (of {total} MACHINE criteria)',
+                    },
+                    {
+                      verified: mv.machineVerified,
+                      overridden: mv.humanOverridden,
+                      total: mv.total,
+                    }
+                  )}
+                </p>
+              ) : null}
+              <p className='text-muted-foreground'>
+                {intl.formatMessage(
+                  {
+                    id: 'acceptance.claim.met',
+                    defaultMessage:
+                      '{met} of {total} criteria met by their latest verdict',
+                  },
+                  { met, total: data.criteria.length }
+                )}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── LUM-560 · Cost ────────────────────────────────────────────────────────────
+
+export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
+  const intl = useIntl()
+  const cost = data.cost
+  if (!cost) return null // older server: no cost data — never fabricate one.
+
+  return (
+    <div>
+      <SectionTitle
+        tip={intl.formatMessage({
+          id: 'acceptance.cost.tip',
+          defaultMessage:
+            'Token spend, active (non-idle) time and machine rework rounds for this task — the same source as the delivery card, so the two never drift.',
+        })}
+      >
+        {intl.formatMessage({
+          id: 'acceptance.cost.title',
+          defaultMessage: 'Cost',
+        })}
+      </SectionTitle>
+      <dl className='grid grid-cols-3 gap-3 rounded-lg border border-border px-3 py-2.5 text-[12px]'>
+        <div>
+          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+            {intl.formatMessage({
+              id: 'acceptance.cost.tokens',
+              defaultMessage: 'Tokens',
+            })}
+          </dt>
+          <dd
+            data-testid='cost-tokens'
+            className={
+              cost.tokenCost == null
+                ? 'text-[11px] italic text-muted-foreground'
+                : 'font-medium text-foreground'
+            }
+          >
+            {cost.tokenCost == null
+              ? intl.formatMessage({
+                  id: 'acceptance.cost.notRecorded',
+                  defaultMessage: 'Not recorded (no session usage captured)',
+                })
+              : fmtTokens(cost.tokenCost)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+            {intl.formatMessage({
+              id: 'acceptance.cost.activeTime',
+              defaultMessage: 'Active time',
+            })}
+          </dt>
+          <dd className='font-medium text-foreground'>
+            {fmtDuration(cost.activeTimeSec)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+            {intl.formatMessage({
+              id: 'acceptance.cost.rework',
+              defaultMessage: 'Rework rounds',
+            })}
+          </dt>
+          <dd className='font-medium text-foreground'>{cost.reworkRounds}</dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+// ── LUM-561 · Struggle / rework / outstanding ─────────────────────────────────
+
+export function StruggleTrailSection({
+  data,
+}: {
+  data: TaskAcceptanceStatusView
+}) {
+  const intl = useIntl()
+  const trail = data.struggleTrail
+  if (!trail) return null // older server: can't fabricate, so don't claim "none".
+
+  const prIterated = trail.pullRequests.length > 1
+  const empty =
+    trail.reworkRounds.length === 0 &&
+    trail.sendBacks.length === 0 &&
+    trail.followUps.length === 0 &&
+    trail.reopens.length === 0 &&
+    !prIterated
+
+  return (
+    <div>
+      <SectionTitle
+        tip={intl.formatMessage({
+          id: 'acceptance.struggle.tip',
+          defaultMessage:
+            'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
+        })}
+      >
+        {intl.formatMessage({
+          id: 'acceptance.struggle.title',
+          defaultMessage: 'Struggle / rework / outstanding',
+        })}
+      </SectionTitle>
+
+      {empty ? (
+        <p className='rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>
+          {data.currentRound === 0
+            ? intl.formatMessage({
+                id: 'acceptance.struggle.unverified',
+                defaultMessage:
+                  'No verification has run yet — cannot confirm there were no difficulties. Run lumo verify.',
+              })
+            : intl.formatMessage(
+                {
+                  id: 'acceptance.struggle.noneRecorded',
+                  defaultMessage:
+                    'None recorded — {rounds, plural, one {# verification round} other {# verification rounds}} run, 0 FAIL, no send-backs, no reopens, no leftover follow-ups.',
+                },
+                { rounds: data.currentRound }
+              )}
+        </p>
+      ) : (
+        <div className='space-y-2 rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug'>
+          {trail.reworkRounds.length > 0 ? (
+            <p className='text-foreground'>
+              <span className='font-medium'>
+                {intl.formatMessage({
+                  id: 'acceptance.struggle.reworkRounds',
+                  defaultMessage: 'Rework rounds: ',
+                })}
+              </span>
+              {trail.reworkRounds
+                .map(r =>
+                  intl.formatMessage(
+                    {
+                      id: 'acceptance.struggle.reworkRound',
+                      defaultMessage: 'round {round} ({failed} FAIL)',
+                    },
+                    { round: r.round, failed: r.failed }
+                  )
+                )
+                .join(', ')}
+            </p>
+          ) : null}
+
+          {trail.sendBacks.length > 0 ? (
+            <div>
+              <p className='font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.struggle.sendBacks',
+                  defaultMessage: 'Send-backs',
+                })}
+              </p>
+              <ul className='mt-0.5 space-y-0.5'>
+                {trail.sendBacks.map(s => (
+                  <li key={s.criterionId} className='text-muted-foreground'>
+                    <span className='text-foreground'>{s.statement}</span>
+                    {' — '}
+                    {s.status === 'resolved'
+                      ? intl.formatMessage(
+                          {
+                            id: 'acceptance.struggle.sendBackResolved',
+                            defaultMessage:
+                              'resolved (sent back r{failed}{arrow})',
+                          },
+                          {
+                            failed: s.failedAtRound,
+                            arrow:
+                              s.resolvedAtRound != null
+                                ? ` → r${s.resolvedAtRound}`
+                                : '',
+                          }
+                        )
+                      : intl.formatMessage(
+                          {
+                            id: 'acceptance.struggle.sendBackOpen',
+                            defaultMessage: 'open (sent back r{failed})',
+                          },
+                          { failed: s.failedAtRound }
+                        )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {trail.followUps.length > 0 ? (
+            <div>
+              <p className='font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.struggle.followUps',
+                  defaultMessage: 'Follow-ups left behind',
+                })}
+              </p>
+              <ul className='mt-0.5 space-y-0.5'>
+                {trail.followUps.map(f => (
+                  <li key={f.criterionId} className='text-muted-foreground'>
+                    <span className='text-foreground'>{f.statement}</span>
+                    {intl.formatMessage(
+                      {
+                        id: 'acceptance.struggle.followUpAt',
+                        defaultMessage: ' — flagged r{round}',
+                      },
+                      { round: f.round }
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {prIterated ? (
+            <p className='text-muted-foreground'>
+              <span className='font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.struggle.prIterations',
+                  defaultMessage: 'PR iterations: ',
+                })}
+              </span>
+              {intl.formatMessage(
+                {
+                  id: 'acceptance.struggle.prCount',
+                  defaultMessage: '{count} PRs ({nums})',
+                },
+                {
+                  count: trail.pullRequests.length,
+                  nums: trail.pullRequests
+                    .slice(0, 12)
+                    .map(p => `#${p.number}`)
+                    .join(', '),
+                }
+              )}
+            </p>
+          ) : null}
+
+          {trail.reopens.length > 0 ? (
+            <div>
+              <p className='font-medium text-foreground'>
+                {intl.formatMessage(
+                  {
+                    id: 'acceptance.struggle.reopened',
+                    defaultMessage:
+                      'Reopened {count}× (bounced back after review/done)',
+                  },
+                  { count: trail.reopens.length }
+                )}
+              </p>
+              <ul className='mt-0.5 space-y-0.5'>
+                {trail.reopens.map((r, i) => (
+                  <li key={i} className='text-muted-foreground'>
+                    {r.from} → {r.to}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── LUM-562 · Trend ───────────────────────────────────────────────────────────
+
+function arrow(delta: number): string {
+  return delta > 0 ? '↑' : delta < 0 ? '↓' : '→'
+}
+function passPct(p: { passed: number; failed: number }): number {
+  const total = p.passed + p.failed
+  return total === 0 ? 0 : Math.round((p.passed / total) * 100)
+}
+
+export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
+  const intl = useIntl()
+  const trend = data.trend
+  if (!trend) return null // older server: no trend data — don't invent one.
+
+  const rounds = trend.passRate
+  const cost = trend.cost
+  const rw = trend.rework
+  const title = intl.formatMessage({
+    id: 'acceptance.trend.title',
+    defaultMessage: 'Trend',
+  })
+  const tip = intl.formatMessage({
+    id: 'acceptance.trend.tip',
+    defaultMessage:
+      'Movement across attempts — pass rate, cost per session and rework accrual — not a single-point snapshot. A single attempt says so rather than drawing a fake trend.',
+  })
+
+  // Nothing to trend, or a single point — say so plainly (no fake arrow).
+  if (rounds.length === 0 && cost.length === 0) {
+    return (
+      <div>
+        <SectionTitle tip={tip}>{title}</SectionTitle>
+        <p className='rounded-lg border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'acceptance.trend.nothing',
+            defaultMessage:
+              'No verification rounds or measured cost yet — nothing to trend.',
+          })}
+        </p>
+      </div>
+    )
+  }
+
+  const hasTrajectory = rounds.length >= 2 || cost.length >= 2
+  if (!hasTrajectory) {
+    const bits: string[] = []
+    if (rounds[0])
+      bits.push(
+        intl.formatMessage(
+          {
+            id: 'acceptance.trend.bitPass',
+            defaultMessage: 'pass rate r{round} {pct}%',
+          },
+          { round: rounds[0].round, pct: passPct(rounds[0]) }
+        )
+      )
+    if (cost[0])
+      bits.push(
+        intl.formatMessage(
+          {
+            id: 'acceptance.trend.bitCost',
+            defaultMessage: 'cost {tokens} tokens',
+          },
+          { tokens: fmtTokens(cost[0].total) }
+        )
+      )
+    bits.push(
+      rw.total === 0
+        ? intl.formatMessage({
+            id: 'acceptance.trend.bitReworkNone',
+            defaultMessage: 'rework none',
+          })
+        : intl.formatMessage(
+            {
+              id: 'acceptance.trend.bitRework',
+              defaultMessage: 'rework {total}',
+            },
+            { total: rw.total }
+          )
+    )
+    return (
+      <div>
+        <SectionTitle tip={tip}>{title}</SectionTitle>
+        <div className='space-y-0.5 rounded-lg border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
+          <p>
+            {intl.formatMessage({
+              id: 'acceptance.trend.singlePoint',
+              defaultMessage:
+                'Single attempt so far — no trajectory yet (a trend needs ≥2 rounds or sessions).',
+            })}
+          </p>
+          <p className='text-foreground'>{bits.join(' · ')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const passDelta =
+    rounds.length >= 2
+      ? passPct(rounds[rounds.length - 1]!) - passPct(rounds[0]!)
+      : 0
+  const costFirst = cost[0]?.total ?? 0
+  const costLast = cost[cost.length - 1]?.total ?? 0
+  const costTotal = cost.reduce((a, c) => a + c.total, 0)
+
+  return (
+    <div>
+      <SectionTitle tip={tip}>{title}</SectionTitle>
+      <div className='space-y-1 rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug'>
+        {rounds.length >= 2 ? (
+          <p>
+            <span className='font-medium text-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.trend.passRate',
+                defaultMessage: 'Pass rate: ',
+              })}
+            </span>
+            <span className='text-muted-foreground'>
+              {rounds.map(r => `r${r.round} ${passPct(r)}%`).join(' → ')} (
+              {arrow(passDelta)} {passDelta > 0 ? `+${passDelta}` : passDelta}
+              pts)
+            </span>
+          </p>
+        ) : null}
+        {cost.length >= 2 ? (
+          <p>
+            <span className='font-medium text-foreground'>
+              {intl.formatMessage({
+                id: 'acceptance.trend.costPerSession',
+                defaultMessage: 'Cost/session: ',
+              })}
+            </span>
+            <span className='text-muted-foreground'>
+              {fmtTokens(costFirst)} → {fmtTokens(costLast)} (
+              {arrow(costLast - costFirst)}),{' '}
+              {intl.formatMessage(
+                {
+                  id: 'acceptance.trend.costTotal',
+                  defaultMessage: '{total} total over {count} sessions',
+                },
+                { total: fmtTokens(costTotal), count: cost.length }
+              )}
+            </span>
+          </p>
+        ) : null}
+        <p>
+          <span className='font-medium text-foreground'>
+            {intl.formatMessage({
+              id: 'acceptance.trend.rework',
+              defaultMessage: 'Rework: ',
+            })}
+          </span>
+          <span className='text-muted-foreground'>
+            {rw.total === 0
+              ? intl.formatMessage({
+                  id: 'acceptance.trend.reworkClean',
+                  defaultMessage:
+                    'none accrued (0) — clean across every attempt',
+                })
+              : intl.formatMessage(
+                  {
+                    id: 'acceptance.trend.reworkAccrued',
+                    defaultMessage: '{total} accrued (↑ from 0)',
+                  },
+                  { total: rw.total }
+                )}
+          </span>
+        </p>
+      </div>
+    </div>
+  )
+}
