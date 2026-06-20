@@ -18,6 +18,11 @@ const insensitive = (q: string) => ({
  */
 export const mentionSearchRepository = {
   searchTasks(workspaceId: string, q: string, take: number) {
+    // A full `TEAM-N` identifier (e.g. `LUM-538`) can't be found by a substring
+    // match — `team.identifier` holds only the prefix (`LUM`). Parse it so an
+    // exact-identifier query surfaces that one task regardless of status or
+    // recency (otherwise older/DONE tasks get crowded out of the take-N window).
+    const [, idTeam, idNum] = /^([A-Za-z][A-Za-z0-9]*)-(\d+)$/.exec(q) ?? []
     return prisma.task.findMany({
       where: {
         project: { workspaceId },
@@ -26,6 +31,19 @@ export const mentionSearchRepository = {
               OR: [
                 { title: insensitive(q) },
                 { team: { identifier: insensitive(q) } },
+                ...(idTeam && idNum
+                  ? [
+                      {
+                        team: {
+                          identifier: {
+                            equals: idTeam,
+                            mode: 'insensitive' as const,
+                          },
+                        },
+                        number: Number(idNum),
+                      },
+                    ]
+                  : []),
               ],
             }
           : {}),
