@@ -36,9 +36,14 @@ describe('taskTabs slug mapping', () => {
     expect(tabFromSlug('comments')).toBeNull()
   })
 
-  it('uses the "dossier" slug for the dossier tab', () => {
-    expect(TAB_SLUGS.dossier).toBe('dossier')
+  it('uses the "record" slug for the dossier tab', () => {
+    expect(TAB_SLUGS.dossier).toBe('record')
+    expect(tabFromSlug('record')).toBe('dossier')
+  })
+
+  it('keeps the old "dossier" slug working as a back-compat alias', () => {
     expect(tabFromSlug('dossier')).toBe('dossier')
+    expect(resolveTab('dossier')).toEqual({ tab: 'dossier', section: null })
   })
 
   it('no longer recognizes the old "delivery"/"agent" slug as its own tab', () => {
@@ -59,9 +64,9 @@ describe('taskTabs single dossier tab replaces the merged trio', () => {
     expect(tabFromSlug('delivery')).toBeNull()
     expect(tabFromSlug('memory')).toBeNull()
     expect(tabFromSlug('lineage')).toBeNull()
-    // …replaced by a single dossier tab.
-    expect(TAB_SLUGS.dossier).toBe('dossier')
-    expect(tabFromSlug('dossier')).toBe('dossier')
+    // …replaced by a single dossier tab whose URL segment is `record`.
+    expect(TAB_SLUGS.dossier).toBe('record')
+    expect(tabFromSlug('record')).toBe('dossier')
     // The surviving top-level tabs are exactly comments/activity/context/dossier.
     expect(Object.keys(TAB_SLUGS).sort()).toEqual([
       'activity',

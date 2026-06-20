@@ -73,7 +73,7 @@ export function TimelineTabs({
   const pathname = usePathname()
   const params = useParams()
 
-  // The active tab lives in the URL path segment (e.g. /LUM-1/dossier) so it
+  // The active tab lives in the URL path segment (e.g. /LUM-1/record) so it
   // survives reload, is shareable, and the browser back/forward buttons walk
   // between tabs. `[[...tab]]` delivers the segment as an optional string[].
   const urlSlug = (params.tab as string[] | undefined)?.[0]
@@ -197,7 +197,7 @@ export function TimelineTabs({
         >
           {intl.formatMessage({
             id: 'task.dossier',
-            defaultMessage: 'Dossier',
+            defaultMessage: 'Record',
           })}
         </button>
       </div>

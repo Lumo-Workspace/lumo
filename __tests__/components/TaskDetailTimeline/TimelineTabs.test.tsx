@@ -152,7 +152,7 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
     expect(screen.getByRole('button', { name: 'Comments' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dossier' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
 
     // The merged trio no longer exist as top-level tabs.
     expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull()
@@ -164,18 +164,18 @@ describe('TimelineTabs tab bar (LUM-567 dossier merge)', () => {
   it('opens the dossier panel when the Dossier tab is clicked', () => {
     setPresence()
     render(<TimelineTabs {...baseProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Dossier' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
     expect(screen.getByTestId('panel-dossier')).toBeInTheDocument()
     expect(mockNav.push).toHaveBeenCalledWith(
-      '/workspace/acme/my-tasks/LUM-1/dossier',
+      '/workspace/acme/my-tasks/LUM-1/record',
       { scroll: false }
     )
   })
 
   it('pushes the bare task URL (no segment) when selecting Comments', () => {
     setPresence()
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
-    mockNav.tab = ['dossier']
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/record'
+    mockNav.tab = ['record']
     render(<TimelineTabs {...baseProps} />)
     fireEvent.click(screen.getByRole('button', { name: 'Comments' }))
     expect(mockNav.push).toHaveBeenCalledWith(
@@ -202,15 +202,28 @@ describe('TimelineTabs legacy deep links resolve into the dossier (LUM-458/567)'
     expect(mockNav.replace).not.toHaveBeenCalled()
   })
 
-  it('renders the dossier with no target section on the bare dossier slug', () => {
+  it('renders the dossier with no target section on the bare record slug', () => {
     setPresence()
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
-    mockNav.tab = ['dossier']
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/record'
+    mockNav.tab = ['record']
     render(<TimelineTabs {...baseProps} />)
     expect(screen.getByTestId('panel-dossier')).toHaveAttribute(
       'data-target',
       ''
     )
+  })
+
+  it('keeps the old "dossier" slug working as a back-compat deep link', () => {
+    setPresence()
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
+    mockNav.tab = ['dossier']
+    render(<TimelineTabs {...baseProps} />)
+    // Resolves to the dossier panel, no URL rewrite (still a valid destination).
+    expect(screen.getByTestId('panel-dossier')).toHaveAttribute(
+      'data-target',
+      ''
+    )
+    expect(mockNav.replace).not.toHaveBeenCalled()
   })
 
   it('falls back to Comments and normalizes the URL on an unknown slug', () => {
@@ -234,8 +247,8 @@ describe('TimelineTabs no longer renders the floating verdict bar (LUM-529)', ()
   // from TimelineTabs itself — its absence proves the bar is gone from this layer.
   it('does not render the floating verdict on the dossier tab', () => {
     setPresence()
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
-    mockNav.tab = ['dossier']
+    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/record'
+    mockNav.tab = ['record']
     render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
     expect(screen.queryByTestId('verdict-status')).toBeNull()
   })
