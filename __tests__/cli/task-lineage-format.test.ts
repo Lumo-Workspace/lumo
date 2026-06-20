@@ -77,7 +77,10 @@ describe('formatLineageMarkdown', () => {
     expect(out).toContain('2 MERGED') // group summary + totals
   })
 
-  it('renders a cold-start note when there are no edges', () => {
+  // LUM-559: an empty report means NO session was ever bound to the task, so
+  // its cost could not be measured. The copy must say "not measured", never
+  // imply "zero cost" — fail-closed honesty (distinguish 花了0 from 没测到).
+  it('renders a not measured empty state when no session was ever bound', () => {
     const empty: LineageResponse = {
       ...base,
       totals: {
@@ -100,8 +103,60 @@ describe('formatLineageMarkdown', () => {
     }
     const out = formatLineageMarkdown(empty)
     expect(out).toContain('# Lineage: LUM-1')
-    expect(out).toContain('No lineage edges recorded yet')
+    expect(out).toContain('not measured')
+    expect(out).toContain('no session was ever bound')
+    // It must NOT claim zero cost, and must not print the totals banner.
+    expect(out).not.toContain('No lineage edges recorded yet')
     expect(out).not.toContain('## Totals')
+  })
+
+  // LUM-559: a session with cost but no edges surfaces as an edgeless group.
+  // Its cost is shown; the empty fragment list carries an explicit note so the
+  // reader knows the trail is "not captured", not "the session used nothing".
+  it('renders an edgeless cost group with a fragments not captured note', () => {
+    const costOnly: LineageResponse = {
+      task: { identifier: 'LUM-3', title: 'Late bind', status: 'DONE' },
+      totals: {
+        runCount: 1,
+        fragmentCount: 0,
+        edgeCount: 0,
+        tokens: {
+          input: 20,
+          output: 4,
+          cacheRead: 1,
+          cacheCreation: 0,
+          total: 25,
+        },
+        loopCount: 1,
+        outcomes: { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 },
+        funnel: { impressions: 0, index: 0, pulled: 0, used: 0 },
+        topOperations: [],
+      },
+      groups: [
+        {
+          kind: 'session',
+          sessionId: 'sess-abcdef12',
+          label: 'Session sess-abc',
+          includedAt: '2026-06-02T00:00:00.000Z',
+          cost: {
+            input: 20,
+            output: 4,
+            cacheRead: 1,
+            cacheCreation: 0,
+            total: 25,
+            loopCount: 1,
+          },
+          fragments: [],
+        },
+      ],
+    }
+    const out = formatLineageMarkdown(costOnly)
+    expect(out).toContain('## Totals')
+    expect(out).toContain('Session sess-abc')
+    expect(out).toContain('25') // the cost is shown
+    expect(out).toContain('not captured') // honest note for the empty trail
+    // The usage legend is for real fragment lists; suppress it on an empty one.
+    expect(out).not.toContain('✓ used · · abstained')
   })
 
   it('renders a session group with no captured cost and no outcome summary suffix', () => {

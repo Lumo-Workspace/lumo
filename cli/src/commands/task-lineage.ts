@@ -203,11 +203,15 @@ export function formatLineageMarkdown(data: LineageResponse): string {
   lines.push('')
 
   if (data.groups.length === 0) {
+    // LUM-559: an empty report is fail-closed — it means no session ever bound
+    // to this task, so neither its cost nor its causal trail could be measured.
+    // Say "not measured" explicitly; never let the blank read as "zero cost".
     lines.push(
-      '_No lineage edges recorded yet. Lineage is captured when a ' +
-        "bound session consumes this task's context; once that happens " +
-        '(and a PR merges / the task closes), the causal trail and its cost ' +
-        'will appear here._'
+      '_Cost not measured — no session was ever bound to this task, so its ' +
+        'cost and causal trail could not be recorded. This is "not measured", ' +
+        'not "zero cost". Cost and lineage are captured once a session binds ' +
+        '(`lumo session attach <id>`) and consumes the context; bind before ' +
+        'working so future runs are recorded._'
     )
     lines.push('')
     return lines.join('\n')
@@ -259,6 +263,18 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push(
       `**Fragments** (${g.fragments.length}${summary ? `: ${summary}` : ''}):`
     )
+    // LUM-559: an edgeless cost group is a session that spent tokens but
+    // recorded no fragments (it bound after session-start). Its empty trail is
+    // "not captured", NOT "the session used nothing" — say so, and skip the
+    // per-fragment usage legend that has nothing to annotate.
+    if (g.fragments.length === 0) {
+      lines.push(
+        '_Causal fragments not captured — this session bound after start, so ' +
+          'its cost is recorded but its fragment trail is not._'
+      )
+      lines.push('')
+      continue
+    }
     lines.push('_✓ used · · abstained · ✗ unused (manual)_')
     for (const f of g.fragments) {
       const tag =
