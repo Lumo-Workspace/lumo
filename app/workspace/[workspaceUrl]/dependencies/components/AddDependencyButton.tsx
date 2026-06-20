@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/command'
 import { mentionSearchClient } from '@/lib/api-client/mention-search'
 import type { MentionSearchItem } from '@/types/mention'
+import { StatusIcon } from '../../components/StatusIcon'
 import { relationToEdge, type Relation } from '../relation'
 
 interface AddDependencyButtonProps {
@@ -63,7 +64,7 @@ export function AddDependencyButton({
     const mySeq = ++seq.current
     const handle = setTimeout(async () => {
       try {
-        const all = await mentionSearchClient.search(q, 8)
+        const all = await mentionSearchClient.search(q, 10)
         if (mySeq !== seq.current) return
         setItems(
           all.filter(i => i.kind === 'task' && i.label !== currentIdentifier)
@@ -156,6 +157,11 @@ export function AddDependencyButton({
                       setOpen(false)
                     }}
                   >
+                    {item.status && (
+                      <span className='mr-1.5 shrink-0'>
+                        <StatusIcon status={item.status} size={12} />
+                      </span>
+                    )}
                     <span className='font-mono text-xs mr-2 text-muted-foreground'>
                       {item.label}
                     </span>

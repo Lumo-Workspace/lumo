@@ -32,6 +32,30 @@ describe('mentionSearchRepository.searchTasks', () => {
     expect(arg.where.project).toMatchObject({ workspaceId: 'ws-abc' })
   })
 
+  it('matches a full TEAM-N identifier exactly (so any task, incl. DONE, is findable)', async () => {
+    await mentionSearchRepository.searchTasks('ws1', 'LUM-538', 10)
+    const arg = (prisma.task.findMany as jest.Mock).mock.calls[0][0]
+    // The OR includes an exact identifier+number branch beyond the substring matches.
+    expect(arg.where.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          team: { identifier: { equals: 'LUM', mode: 'insensitive' } },
+          number: 538,
+        }),
+      ])
+    )
+  })
+
+  it('does not add the identifier branch for a plain word query', async () => {
+    await mentionSearchRepository.searchTasks('ws1', 'login', 5)
+    const arg = (prisma.task.findMany as jest.Mock).mock.calls[0][0]
+    // Only the two substring branches; no exact identifier+number element.
+    expect(arg.where.OR).toHaveLength(2)
+    expect(
+      arg.where.OR.some((c: Record<string, unknown>) => 'number' in c)
+    ).toBe(false)
+  })
+
   it('returns results from prisma', async () => {
     const row = {
       id: 't1',
