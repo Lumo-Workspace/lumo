@@ -213,17 +213,16 @@ describe('TimelineTabs legacy deep links resolve into the dossier (LUM-458/567)'
     )
   })
 
-  it('keeps the old "dossier" slug working as a back-compat deep link', () => {
+  it('normalizes the never-shipped "dossier" slug to Comments', () => {
     setPresence()
     mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/dossier'
     mockNav.tab = ['dossier']
     render(<TimelineTabs {...baseProps} />)
-    // Resolves to the dossier panel, no URL rewrite (still a valid destination).
-    expect(screen.getByTestId('panel-dossier')).toHaveAttribute(
-      'data-target',
-      ''
+    expect(screen.getByTestId('panel-comments')).toBeInTheDocument()
+    expect(mockNav.replace).toHaveBeenCalledWith(
+      '/workspace/acme/my-tasks/LUM-1',
+      { scroll: false }
     )
-    expect(mockNav.replace).not.toHaveBeenCalled()
   })
 
   it('falls back to Comments and normalizes the URL on an unknown slug', () => {

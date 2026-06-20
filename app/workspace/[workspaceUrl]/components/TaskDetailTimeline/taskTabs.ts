@@ -17,7 +17,7 @@ export type DossierSection = 'runs' | 'lineage' | 'memory'
  * The dossier tab's segment is `record` — matching its English label — while the
  * internal `TabValue` key stays `dossier` (the 任务档案 concept). Slug ≠ key is
  * the existing convention here (the old Delivery tab keyed `agent` → slug
- * `delivery`).
+ * `delivery`). There is no `dossier` slug — it was never shipped to users.
  */
 export const TAB_SLUGS: Record<TabValue, string> = {
   comments: '',
@@ -33,16 +33,6 @@ const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(
 )
 
 /**
- * Back-compat tab-slug aliases that resolve to a tab with no section. The
- * dossier's segment was renamed `dossier` → `record` (matching its label) right
- * after LUM-567 merged; keep the short-lived `dossier` slug working so any link
- * minted in that window still lands on the dossier.
- */
-const LEGACY_TAB_SLUG: Record<string, TabValue> = {
-  dossier: 'dossier',
-}
-
-/**
  * Legacy top-level slugs (the Delivery / Lineage / Memory tabs that LUM-567
  * folded into the dossier). They no longer name a tab — each deep-links into a
  * dossier ④ sub-section, so an old shared URL still lands on the right content.
@@ -56,13 +46,13 @@ const LEGACY_SECTION_SLUG: Record<string, DossierSection> = {
 /**
  * Resolve a URL path segment to a tab.
  * - no segment → the default Comments tab
- * - a known non-default slug (or a back-compat tab alias) → that tab
+ * - a known non-default slug → that tab
  * - anything else (unknown slug, or the literal "comments" whose canonical URL
  *   is the bare address) → null, so the caller can fall back + normalize.
  */
 export function tabFromSlug(slug: string | undefined): TabValue | null {
   if (!slug) return 'comments'
-  return SLUG_TO_TAB[slug] ?? LEGACY_TAB_SLUG[slug] ?? null
+  return SLUG_TO_TAB[slug] ?? null
 }
 
 export interface ResolvedTab {
@@ -79,7 +69,7 @@ export interface ResolvedTab {
  */
 export function resolveTab(slug: string | undefined): ResolvedTab | null {
   if (!slug) return { tab: 'comments', section: null }
-  const direct = SLUG_TO_TAB[slug] ?? LEGACY_TAB_SLUG[slug]
+  const direct = SLUG_TO_TAB[slug]
   if (direct) return { tab: direct, section: null }
   const section = LEGACY_SECTION_SLUG[slug]
   if (section) return { tab: 'dossier', section }

@@ -41,9 +41,9 @@ describe('taskTabs slug mapping', () => {
     expect(tabFromSlug('record')).toBe('dossier')
   })
 
-  it('keeps the old "dossier" slug working as a back-compat alias', () => {
-    expect(tabFromSlug('dossier')).toBe('dossier')
-    expect(resolveTab('dossier')).toEqual({ tab: 'dossier', section: null })
+  it('does not recognize the never-shipped "dossier" slug', () => {
+    expect(tabFromSlug('dossier')).toBeNull()
+    expect(resolveTab('dossier')).toBeNull()
   })
 
   it('no longer recognizes the old "delivery"/"agent" slug as its own tab', () => {
@@ -93,8 +93,8 @@ describe('taskTabs resolveTab legacy slug mapping', () => {
     expect(resolveTab('memory')).toEqual({ tab: 'dossier', section: 'memory' })
   })
 
-  it('resolves the dossier slug itself with no target section', () => {
-    expect(resolveTab('dossier')).toEqual({ tab: 'dossier', section: null })
+  it('resolves the record slug itself with no target section', () => {
+    expect(resolveTab('record')).toEqual({ tab: 'dossier', section: null })
   })
 
   it('resolves a missing segment to Comments with no section', () => {
