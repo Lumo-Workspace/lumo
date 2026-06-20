@@ -8,6 +8,10 @@ import {
   type OpenCrossingsResult,
   type CrossingAttribution,
 } from '../lib/open-crossings'
+import {
+  formatEvidenceDrilldown,
+  resolveRepoWebUrl,
+} from '../lib/evidence-display'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -23,6 +27,10 @@ export interface TaskStatusOptions {
 export interface TaskStatusExtras {
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
+  /** The repo's https web base (e.g. https://github.com/owner/repo), resolved
+   *  from the local git remote, used to turn a `commit:` evidence pointer into a
+   *  navigable URL (LUM-563). Null/absent → the `git show <hash>` fallback. */
+  repoWebUrl?: string | null
 }
 
 /** One-line a possibly-multiline crossing detail and cap it so the safety block
@@ -226,9 +234,6 @@ export function formatTaskStatus(
         : ''
       lines.push(`      ✗ FAIL@r${v.round}${why}`)
     } else {
-      const evidencePart = v.evidencePointer
-        ? ` · ${sanitizeField(v.evidencePointer)}`
-        : ''
       // LUM-470: tag a passing MACHINE criterion by the read model's
       // machinePassed flag, not the latest verdict — a criterion a checkpointer
       // verified reads as machine-verified even after a human signs off, and a
@@ -239,7 +244,7 @@ export function formatTaskStatus(
             ? ' · machine-verified'
             : ' · human override (no machine pass)'
           : ''
-      lines.push(`      ✓ ${v.verdict}@r${v.round}${evidencePart}${machineTag}`)
+      lines.push(`      ✓ ${v.verdict}@r${v.round}${machineTag}`)
       // LUM-457: a pass that vouches for a pre-edit version of the criterion —
       // render-only downgrade, the criterion still counts met.
       if (c.verdictStale || c.checkMismatch) {
@@ -247,6 +252,20 @@ export function formatTaskStatus(
           '      ⚠ pre-edit version — criterion changed since this check; re-run `lumo verify` to re-confirm'
         )
       }
+    }
+    // LUM-563: drill the verdict's evidence into a navigable / re-runnable
+    // reference instead of the inert raw pointer that used to ride the verdict
+    // line — a commit URL (or `git show` fallback), a clickable path:line, or
+    // the actual command + exit. Rendered for PASS and FAIL alike so a failure
+    // is just as reproducible. When a criterion requires evidence but none is
+    // recorded yet, say so explicitly (fail-closed) rather than leaving the
+    // bare `[evidence]` tag pointing at nothing.
+    if (v?.evidencePointer) {
+      lines.push(
+        `        ↳ evidence: ${sanitizeField(formatEvidenceDrilldown(v.evidencePointer, extras.repoWebUrl ?? null))}`
+      )
+    } else if (c.evidenceRequired) {
+      lines.push('        ↳ evidence: pending — no reference recorded yet')
     }
     // LUM-511 Phase 5: send-back lifecycle (was this criterion's send-back
     // resolved, and by which PR).
@@ -612,6 +631,10 @@ export async function taskStatus(
         creds.workspaceSlug ?? 'lumo',
         data.task.identifier
       ),
+      // LUM-563: resolve the local repo's web base so a `commit:` evidence
+      // pointer drills to a navigable URL; null (not a git repo / no origin)
+      // falls back to a `git show` hint in the renderer.
+      repoWebUrl: resolveRepoWebUrl(),
     })
   )
 }
