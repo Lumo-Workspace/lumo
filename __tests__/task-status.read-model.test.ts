@@ -3,6 +3,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: {
@@ -45,6 +46,9 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: {
     loadActuals: jest.fn(() => Promise.resolve(null)),
+    // LUM-562: statusForTask reads the per-session cost trajectory from the same
+    // repo as loadActuals.
+    loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
@@ -55,6 +59,9 @@ const listAll =
 const listRuns = verificationRunRepository.listByTask as jest.Mock
 const listChangeEvents = activityRepository.listByTaskAndType as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
+const loadActuals = retrospectiveRepository.loadActuals as jest.Mock
+const loadPerSessionCost =
+  retrospectiveRepository.loadPerSessionCost as jest.Mock
 
 const listLifecyclePrs = (
   require('@/lib/repositories/pull-request.repository') as {
@@ -116,6 +123,8 @@ beforeEach(() => {
   listRuns.mockResolvedValue([])
   listChangeEvents.mockResolvedValue([])
   listLifecyclePrs.mockResolvedValue([])
+  loadActuals.mockResolvedValue(null)
+  loadPerSessionCost.mockResolvedValue([])
 })
 
 // The describe name carries both `read model LUM-437` (so the acceptance
@@ -559,6 +568,166 @@ describe('struggle trail pr-cycle and reopen signals LUM-561', () => {
     expect(s.struggleTrail.reopens).toEqual([
       { from: 'IN_REVIEW', to: 'IN_PROGRESS', at: '2026-06-02T00:00:00.000Z' },
       { from: 'DONE', to: 'IN_PROGRESS', at: '2026-06-03T00:00:00.000Z' },
+    ])
+  })
+})
+
+// LUM-562 規律7: the report must carry the *movement* of the key quantities
+// across attempts — pass rate per round, per-session spend, accrued rework —
+// not just the latest snapshot value.
+describe('trend read model LUM-562', () => {
+  it('trend read model LUM-562 derives pass-rate cost and rework trajectories', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    // Round 1 mixed (1 PASS / 1 FAIL), round 2 all-passed — a climbing pass rate.
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1a',
+        round: 1,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+      run({
+        id: 'r1b',
+        round: 1,
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'x',
+        rejectionReasonEnum: 'OTHER',
+        createdAt: new Date('2026-06-02T10:00:01Z'),
+      }),
+      run({
+        id: 'r2',
+        round: 2,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-03T10:00:00Z'),
+      }),
+    ])
+    // Two sessions, spend falling session 1 -> session 2 (time-ordered).
+    loadPerSessionCost.mockResolvedValue([
+      {
+        sessionId: 's-1',
+        tokenCost: 4200,
+        loopCount: 3,
+        startedAt: new Date('2026-06-02T09:00:00Z'),
+      },
+      {
+        sessionId: 's-2',
+        tokenCost: 1100,
+        loopCount: 1,
+        startedAt: new Date('2026-06-03T09:00:00Z'),
+      },
+    ])
+    // Reopen + 2 PRs feed the rework accrual.
+    listChangeEvents.mockImplementation((_t: string, type: string) =>
+      Promise.resolve(
+        type === 'STATUS_CHANGED'
+          ? [
+              {
+                payload: { from: 'IN_REVIEW', to: 'IN_PROGRESS' },
+                createdAt: new Date('2026-06-02T20:00:00Z'),
+              },
+            ]
+          : []
+      )
+    )
+    listLifecyclePrs.mockResolvedValue([
+      {
+        number: 1,
+        url: 'https://x/1',
+        createdAt: new Date('2026-06-01T00:00:00Z'),
+      },
+      {
+        number: 2,
+        url: 'https://x/2',
+        createdAt: new Date('2026-06-02T00:00:00Z'),
+      },
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.trend.passRate).toEqual([
+      { round: 1, passed: 1, failed: 1 },
+      { round: 2, passed: 1, failed: 0 },
+    ])
+    expect(s.trend.cost).toEqual([
+      {
+        sessionId: 's-1',
+        total: 4200,
+        loopCount: 3,
+        at: '2026-06-02T09:00:00.000Z',
+      },
+      {
+        sessionId: 's-2',
+        total: 1100,
+        loopCount: 1,
+        at: '2026-06-03T09:00:00.000Z',
+      },
+    ])
+    expect(s.trend.rework).toEqual({
+      reworkRounds: 1,
+      reopens: 1,
+      extraPrCycles: 1,
+      total: 3,
+    })
+  })
+
+  it('trend per-session cost reconciles with the LUM-560 cost total', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r1',
+        round: 1,
+        verdict: 'PASS',
+        createdAt: new Date('2026-06-02T10:00:00Z'),
+      }),
+    ])
+    // The Cost section total (loadActuals) and the per-session trajectory come
+    // from the SAME session-usage source: Σ trajectory == cost.tokenCost.
+    loadActuals.mockResolvedValue({
+      projectId: 'p-1',
+      tokenCost: 29,
+      iterations: 2,
+      interactionRounds: 0,
+      totalDurationSec: 120,
+    })
+    loadPerSessionCost.mockResolvedValue([
+      {
+        sessionId: 's-A',
+        tokenCost: 22,
+        loopCount: 2,
+        startedAt: new Date('2026-06-02T09:00:00Z'),
+      },
+      {
+        sessionId: 's-B',
+        tokenCost: 7,
+        loopCount: 1,
+        startedAt: new Date('2026-06-02T10:00:00Z'),
+      },
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    const trajectoryTotal = s.trend.cost.reduce((a, p) => a + p.total, 0)
+    expect(trajectoryTotal).toBe(s.cost.tokenCost)
+    expect(s.cost.tokenCost).toBe(29)
+    // Time-ordered per-session points, reconciling with the total.
+    expect(s.trend.cost).toEqual([
+      {
+        sessionId: 's-A',
+        total: 22,
+        loopCount: 2,
+        at: '2026-06-02T09:00:00.000Z',
+      },
+      {
+        sessionId: 's-B',
+        total: 7,
+        loopCount: 1,
+        at: '2026-06-02T10:00:00.000Z',
+      },
     ])
   })
 })

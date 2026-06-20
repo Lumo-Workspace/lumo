@@ -5,6 +5,7 @@ jest.mock('@/lib/db/prisma', () => ({
     task: { findUnique: jest.fn(), count: jest.fn() },
     notification: { count: jest.fn() },
     hookEvent: { findMany: jest.fn() },
+    session: { findMany: jest.fn() },
   },
 }))
 
@@ -17,11 +18,18 @@ const taskFind = prisma.task.findUnique as jest.Mock
 const taskCount = prisma.task.count as jest.Mock
 const notifCount = prisma.notification.count as jest.Mock
 const hookFind = prisma.hookEvent.findMany as jest.Mock
+const sessionFind = prisma.session.findMany as jest.Mock
 
 beforeEach(() => {
-  ;[snapFind, snapCreate, taskFind, taskCount, notifCount, hookFind].forEach(
-    m => m.mockReset()
-  )
+  ;[
+    snapFind,
+    snapCreate,
+    taskFind,
+    taskCount,
+    notifCount,
+    hookFind,
+    sessionFind,
+  ].forEach(m => m.mockReset())
   // Default: no turn events → active time 0. Duration-specific tests override.
   hookFind.mockResolvedValue([])
 })
@@ -193,5 +201,92 @@ describe('loadActuals — totalDurationSec (turn-active time)', () => {
     hookFind.mockResolvedValue([])
     const actuals = await retrospectiveRepository.loadActuals('t1')
     expect(actuals?.totalDurationSec).toBe(0)
+  })
+})
+
+// LUM-562: per-session spend for the cost trajectory — same Session.* columns
+// loadActuals totals, so Σ here reconciles with loadActuals.tokenCost.
+describe('loadPerSessionCost — per-session cost trajectory (LUM-562)', () => {
+  it('sums each session usage-bearing session, oldest-first, reconciling with the loadActuals total', async () => {
+    const sessions = [
+      {
+        id: 's-1',
+        startedAt: new Date('2026-06-02T09:00:00Z'),
+        inputTokens: 10,
+        outputTokens: 5,
+        cacheReadTokens: 2,
+        cacheCreationTokens: 1,
+        loopCount: 3,
+      },
+      {
+        id: 's-2',
+        startedAt: new Date('2026-06-03T09:00:00Z'),
+        inputTokens: 7,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        loopCount: 1,
+      },
+    ]
+    sessionFind.mockResolvedValue(sessions)
+
+    const perSession = await retrospectiveRepository.loadPerSessionCost('t1')
+
+    // Only usage-bearing sessions, ordered by startedAt; columns summed.
+    expect(perSession).toEqual([
+      {
+        sessionId: 's-1',
+        tokenCost: 18,
+        loopCount: 3,
+        startedAt: sessions[0]!.startedAt,
+      },
+      {
+        sessionId: 's-2',
+        tokenCost: 7,
+        loopCount: 1,
+        startedAt: sessions[1]!.startedAt,
+      },
+    ])
+    // Same source as loadActuals: the trajectory sums to the same task total.
+    taskFind.mockResolvedValue({ projectId: 'p', sessions })
+    hookFind.mockResolvedValue([])
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    const trajectoryTotal = perSession.reduce((a, p) => a + p.tokenCost, 0)
+    expect(trajectoryTotal).toBe(actuals?.tokenCost)
+  })
+
+  it('queries only usage-bearing sessions of the task, ordered by startedAt', async () => {
+    sessionFind.mockResolvedValue([])
+    const out = await retrospectiveRepository.loadPerSessionCost('t1')
+    expect(out).toEqual([])
+    expect(sessionFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { taskId: 't1', outputTokens: { not: null } },
+        orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+      })
+    )
+  })
+
+  it('coerces null token columns to 0 in the per-session sum', async () => {
+    sessionFind.mockResolvedValue([
+      {
+        id: 's-1',
+        startedAt: new Date('2026-06-02T09:00:00Z'),
+        inputTokens: 4,
+        outputTokens: 3,
+        cacheReadTokens: null,
+        cacheCreationTokens: null,
+        loopCount: null,
+      },
+    ])
+    const out = await retrospectiveRepository.loadPerSessionCost('t1')
+    expect(out).toEqual([
+      {
+        sessionId: 's-1',
+        tokenCost: 7,
+        loopCount: 0,
+        startedAt: new Date('2026-06-02T09:00:00Z'),
+      },
+    ])
   })
 })

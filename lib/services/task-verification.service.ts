@@ -246,6 +246,42 @@ export interface TaskCost {
   reworkRounds: number
 }
 
+/**
+ * The honest "trend" (LUM-562, 規律7 趨勢非快照): the *movement* of the task's
+ * key quantities across its attempts, not a single-point snapshot. History
+ * rounds, per-session cost, and the rework signals are all time series the
+ * snapshot report flattens — a 1-round pass reads as a single point and the
+ * climb/spend/rework across reopen & session is invisible. This rolls them up
+ * so the report can show direction (pass rate climbing, cost per session
+ * rising/falling, rework accruing) rather than only the latest value. Derived
+ * from the same append-only logs (pass rate, rework) + the same session-usage
+ * source as the LUM-560 Cost block (cost) — no new state, and the cost
+ * trajectory reconciles with the Cost-section total.
+ */
+export interface TrendModel {
+  /** Pass rate per verification round, oldest-first. A single entry is honestly
+   *  a single point, not a trajectory. */
+  passRate: Array<{ round: number; passed: number; failed: number }>
+  /** Per-session token spend, oldest-first by session start — the cost
+   *  trajectory across the task's sessions. Σ of `total` equals the Cost
+   *  block's `tokenCost` (same source). Empty when no usage was measured. */
+  cost: Array<{
+    sessionId: string
+    total: number
+    loopCount: number
+    at: string
+  }>
+  /** Cumulative rework, decomposed by signal. Monotonic — it only grows from a
+   *  clean baseline of 0, so the "trend" is the accrual itself. */
+  rework: {
+    reworkRounds: number
+    reopens: number
+    /** PR cycles beyond the first (>1 PR is the churn signal, LUM-557). */
+    extraPrCycles: number
+    total: number
+  }
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -265,6 +301,9 @@ export interface TaskAcceptanceStatus {
    *  from the same loadActuals source as the web delivery card so the two never
    *  drift. tokenCost null = not measured (≠ a measured 0). */
   cost: TaskCost
+  /** Movement of pass rate / cost / rework across the task's attempts (LUM-562)
+   *  — the trend the single-point snapshot would otherwise hide. */
+  trend: TrendModel
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -572,6 +611,7 @@ export const taskVerificationService = {
       lifecyclePrs,
       statusEvents,
       actuals,
+      perSessionCost,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -585,6 +625,9 @@ export const taskVerificationService = {
       // task status cannot drift from the web card. Returns null only when the
       // task row is gone (handled below as not-measured).
       retrospectiveRepository.loadActuals(taskId),
+      // LUM-562: per-session spend for the cost trajectory — same session-usage
+      // source `loadActuals` totals, so Σ reconciles with the Cost-section total.
+      retrospectiveRepository.loadPerSessionCost(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -777,6 +820,33 @@ export const taskVerificationService = {
       reworkRounds: reworkRounds.length,
     }
 
+    // LUM-562 trend: roll the three time series the snapshot flattens —
+    // pass rate per round, per-session spend, accrued rework — into movement.
+    // Pass rate reuses the verification history; cost reuses the per-session
+    // spend (same session-usage source as the Cost block, so Σ reconciles with
+    // cost.tokenCost); rework decomposes the struggle signals into a monotonic
+    // accrual. No new state.
+    const extraPrCycles = Math.max(0, pullRequests.length - 1)
+    const trend: TrendModel = {
+      passRate: verificationHistory.map(h => ({
+        round: h.round,
+        passed: h.passed,
+        failed: h.failed,
+      })),
+      cost: perSessionCost.map(s => ({
+        sessionId: s.sessionId,
+        total: s.tokenCost,
+        loopCount: s.loopCount,
+        at: s.startedAt.toISOString(),
+      })),
+      rework: {
+        reworkRounds: reworkRounds.length,
+        reopens: reopens.length,
+        extraPrCycles,
+        total: reworkRounds.length + reopens.length + extraPrCycles,
+      },
+    }
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -878,6 +948,7 @@ export const taskVerificationService = {
       machineVerification,
       struggleTrail,
       cost,
+      trend,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

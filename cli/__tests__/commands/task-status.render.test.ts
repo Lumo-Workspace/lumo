@@ -207,3 +207,94 @@ describe('task status struggle/rework/outstanding section', () => {
     expect(out).not.toMatch(/PR iterations/i)
   })
 })
+
+// LUM-562 規律7: the Trend section turns the snapshot quantities into movement.
+describe('task status Trend section (LUM-562)', () => {
+  it('task status renders a Trend section with pass-rate cost and rework movement', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        currentRound: 2,
+        trend: {
+          passRate: [
+            { round: 1, passed: 3, failed: 2 },
+            { round: 2, passed: 5, failed: 0 },
+          ],
+          cost: [
+            {
+              sessionId: 's-1',
+              total: 4200,
+              loopCount: 3,
+              at: '2026-06-02T09:00:00Z',
+            },
+            {
+              sessionId: 's-2',
+              total: 1100,
+              loopCount: 1,
+              at: '2026-06-03T09:00:00Z',
+            },
+          ],
+          rework: { reworkRounds: 1, reopens: 1, extraPrCycles: 1, total: 3 },
+        },
+      })
+    )
+    expect(out).toMatch(/Trend \(2 rounds · 2 sessions\)/)
+    // pass-rate trajectory with direction
+    expect(out).toMatch(/Pass rate: r1 60% → r2 100%/)
+    expect(out).toMatch(/↑ \+40pts/)
+    // cost trajectory with direction + total
+    expect(out).toMatch(/Cost\/session: 4\.2K → 1\.1K tokens/)
+    expect(out).toMatch(/↓/)
+    expect(out).toMatch(/5\.3K total/)
+    // rework accrual decomposed
+    expect(out).toMatch(/Rework: 3 accrued/)
+    expect(out).toMatch(/1 FAIL round/)
+    expect(out).toMatch(/1 reopen/)
+    expect(out).toMatch(/\+1 PR cycle/)
+  })
+
+  it('task status Trend states no trajectory yet on a single data point', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        currentRound: 1,
+        trend: {
+          passRate: [{ round: 1, passed: 1, failed: 0 }],
+          cost: [
+            {
+              sessionId: 's-1',
+              total: 1100,
+              loopCount: 1,
+              at: '2026-06-02T09:00:00Z',
+            },
+          ],
+          rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
+        },
+      })
+    )
+    expect(out).toMatch(/Trend:/)
+    expect(out).toMatch(/no trajectory yet/i)
+    expect(out).toMatch(/needs ≥2 rounds or sessions/i)
+    // never draws a fake direction arrow off a single value
+    expect(out).not.toMatch(/pts\)/)
+    expect(out).not.toMatch(/→ .*tokens/)
+  })
+
+  it('LUM-562 says nothing-to-trend when no rounds and no cost yet', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        currentRound: 0,
+        trend: {
+          passRate: [],
+          cost: [],
+          rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
+        },
+      })
+    )
+    expect(out).toMatch(/nothing to trend/i)
+  })
+
+  it('LUM-562 skips the Trend section entirely for an older server (no trend field)', () => {
+    // baseResponse() omits the optional trend field — pushTrend must no-op.
+    const out = formatTaskStatus(baseResponse())
+    expect(out).not.toMatch(/Trend/)
+  })
+})

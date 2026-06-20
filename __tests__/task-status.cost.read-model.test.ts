@@ -34,7 +34,10 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findHeaderById: jest.fn() },
 }))
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
-  retrospectiveRepository: { loadActuals: jest.fn() },
+  retrospectiveRepository: {
+    loadActuals: jest.fn(),
+    loadPerSessionCost: jest.fn(() => Promise.resolve([])),
+  },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { findVerificationMaxRounds: jest.fn() },
