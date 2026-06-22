@@ -304,9 +304,16 @@ function Features() {
               <div className={styles.cellKicker}>03 · GUARDRAILS</div>
               <h3 className={styles.cellTitle}>Boundary guardrails</h3>
               <p className={styles.cellBody}>
-                Lumo classifies every out-of-scope action by type and severity —
-                and stops the irreversible ones before they merge. Modeled on
-                the collateral-damage
+                Left unguarded, agents take harmful out-of-scope actions in most
+                red-team trials; pairing rules with an explicit rationale cuts
+                that to roughly a third —{' '}
+                <span className={styles.stat}>65%</span> →{' '}
+                <span className={styles.stat}>19%</span>.<Cite n={6} /> Lumo
+                classifies every crossing across{' '}
+                <span className={styles.stat}>9</span> categories by type and
+                severity, gates CI on catching every one, and stops the
+                irreversible ones before they merge — modeled on the
+                collateral-damage
                 <Cite n={3} /> and minefield
                 <Cite n={4} /> checks from agent-safety benchmarks.
               </p>
@@ -552,6 +559,10 @@ const REFERENCES = [
     text: 'LLM-judge reliability under cross-run agreement (pass^k discipline).',
     arxiv: '2603.02473',
   },
+  {
+    n: 6,
+    text: 'Anthropic — Model Spec Midtraining: pairing rules with an explicit rationale reduces agentic misalignment (2026).',
+  },
 ]
 
 function References() {
@@ -564,15 +575,20 @@ function References() {
             <li key={n} className={styles.referenceItem}>
               <span className={styles.referenceNum}>{n}</span>
               <span>
-                {text}{' '}
-                <a
-                  href={`https://arxiv.org/abs/${arxiv}`}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className={styles.referenceLink}
-                >
-                  arXiv:{arxiv}
-                </a>
+                {text}
+                {arxiv && (
+                  <>
+                    {' '}
+                    <a
+                      href={`https://arxiv.org/abs/${arxiv}`}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className={styles.referenceLink}
+                    >
+                      arXiv:{arxiv}
+                    </a>
+                  </>
+                )}
               </span>
             </li>
           ))}
