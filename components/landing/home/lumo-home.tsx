@@ -196,6 +196,57 @@ function Logos() {
   )
 }
 
+// Prominent "evidence" numbers, Augment-style. Every figure is an effect
+// measured in PUBLISHED RESEARCH on a technique Lumo is built on — the band
+// header and each stat's source line keep that explicit, so the big numbers are
+// never mistaken for Lumo's own benchmark results.
+const STAT_BAND = [
+  {
+    value: '−31.8%',
+    label: 'agent cost',
+    source: 'experience reuse · EET, SWE-bench Verified',
+  },
+  {
+    value: '−39%',
+    label: 'context filler',
+    source: 'structured trimming, +2.8% quality · SkillReducer',
+  },
+  {
+    value: '3×',
+    label: 'fewer harmful actions',
+    source: 'rules + rationale, 65%→19% · Anthropic Model Spec',
+  },
+]
+
+function StatBand() {
+  return (
+    <section className={styles.statBand}>
+      <div className={styles.statBandInner}>
+        <div className={styles.statBandHead}>
+          <div className={styles.eyebrow}>The research behind Lumo</div>
+          <p className={styles.statBandNote}>
+            Effects measured in published studies of the techniques Lumo is
+            built on — not Lumo&apos;s own benchmark results.{' '}
+            <a href='#references' className={styles.statBandLink}>
+              See references
+            </a>
+            .
+          </p>
+        </div>
+        <div className={styles.statRow}>
+          {STAT_BAND.map(({ value, label, source }) => (
+            <div key={label} className={styles.statItem}>
+              <div className={styles.statBig}>{value}</div>
+              <div className={styles.statItemLabel}>{label}</div>
+              <div className={styles.statSource}>{source}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 const CONTEXT_SOURCES = [
   { Icon: SlackIcon, name: 'Slack thread', meta: '#checkout-team' },
   { Icon: SpecIcon, name: 'Spec', meta: 'checkout-revamp' },
@@ -658,6 +709,7 @@ export function LumoHome({ className }: LumoHomeProps) {
       <div id='top' />
       <Hero />
       <Logos />
+      <StatBand />
       <Features />
       <HowItWorks />
       <Faq />
