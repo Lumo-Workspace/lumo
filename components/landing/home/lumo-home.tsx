@@ -196,28 +196,37 @@ function Logos() {
   )
 }
 
-// Prominent "evidence" numbers, Augment-style. Every figure is an effect
-// measured in PUBLISHED RESEARCH on a technique Lumo is built on — the band
-// header and each stat's source line keep that explicit, so the big numbers are
-// never mistaken for Lumo's own benchmark results.
+// Prominent "evidence" numbers, Augment-style. The first figure is Lumo's own
+// (a count of the research it draws on); the three percentages are EXTERNAL
+// research effects on the techniques Lumo is built on — attributed in each
+// `source` line and in the band note, never claimed as Lumo's own results.
+// The 71% (65%→19%) is a *prevention* effect from the literature — kept as the
+// research case for guardrails, NOT a claim that Lumo reduces harm (Lumo only
+// detects; detection coverage lives on the Guardrails card).
 const STAT_BAND = [
+  {
+    value: '50+',
+    label: 'research papers & reports behind Lumo',
+    source:
+      'the studies Lumo’s design draws on, tracked in our research-intake ledger.',
+  },
+  {
+    value: '40%',
+    label: 'work time lost to task-switching',
+    source:
+      'research finding — task-switching can cost up to 40% of productive time (APA, Meyer 2001). Lumo keeps every run’s context in one place.',
+  },
   {
     value: '31.8%',
     label: 'lower agent cost',
     source:
-      'when agents reuse what past runs already worked out (EET, on SWE-bench).',
-  },
-  {
-    value: '39%',
-    label: 'less context waste',
-    source:
-      'from trimming low-signal context, with task quality holding up (SkillReducer).',
+      'research finding — when agents reuse what past runs already worked out (EET, on SWE-bench).',
   },
   {
     value: '71%',
-    label: 'fewer harmful actions',
+    label: 'fewer misaligned agent actions',
     source:
-      "when an agent's rules carry a reason, not just a hard no — down from 65% to 19% (Anthropic Model Spec).",
+      'research finding — when an agent’s rules carry a reason, 65% down to 19% (Anthropic Model Spec).',
   },
 ]
 
@@ -228,8 +237,8 @@ function StatBand() {
         <div className={styles.statBandHead}>
           <div className={styles.eyebrow}>The research behind Lumo</div>
           <p className={styles.statBandNote}>
-            These come from published research on the techniques Lumo is built
-            on — not our own benchmarks.{' '}
+            The percentages below are effects measured in published research on
+            the techniques Lumo is built on — not Lumo&apos;s own benchmarks.{' '}
             <a href='#references' className={styles.statBandLink}>
               See the studies
             </a>
