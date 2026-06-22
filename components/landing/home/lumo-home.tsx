@@ -202,19 +202,22 @@ function Logos() {
 // never mistaken for Lumo's own benchmark results.
 const STAT_BAND = [
   {
-    value: '−31.8%',
-    label: 'agent cost',
-    source: 'experience reuse · EET, SWE-bench Verified',
+    value: '31.8%',
+    label: 'lower agent cost',
+    source:
+      'when agents reuse what past runs already worked out (EET, on SWE-bench).',
   },
   {
-    value: '−39%',
-    label: 'context filler',
-    source: 'structured trimming, +2.8% quality · SkillReducer',
+    value: '39%',
+    label: 'less context waste',
+    source:
+      'from trimming low-signal context, with task quality holding up (SkillReducer).',
   },
   {
-    value: '3×',
+    value: '71%',
     label: 'fewer harmful actions',
-    source: 'rules + rationale, 65%→19% · Anthropic Model Spec',
+    source:
+      "when an agent's rules carry a reason, not just a hard no — down from 65% to 19% (Anthropic Model Spec).",
   },
 ]
 
@@ -225,10 +228,10 @@ function StatBand() {
         <div className={styles.statBandHead}>
           <div className={styles.eyebrow}>The research behind Lumo</div>
           <p className={styles.statBandNote}>
-            Effects measured in published studies of the techniques Lumo is
-            built on — not Lumo&apos;s own benchmark results.{' '}
+            These come from published research on the techniques Lumo is built
+            on — not our own benchmarks.{' '}
             <a href='#references' className={styles.statBandLink}>
-              See references
+              See the studies
             </a>
             .
           </p>
