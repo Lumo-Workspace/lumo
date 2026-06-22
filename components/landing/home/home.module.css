@@ -468,11 +468,11 @@
   margin-top: 12px;
 }
 .statSource {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--text-mono);
-  margin-top: 8px;
+  color: var(--text-mut);
+  margin-top: 10px;
+  max-width: 30ch;
 }
 
 /* ============ SECTION HEADERS ============ */
