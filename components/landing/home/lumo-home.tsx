@@ -1,0 +1,559 @@
+import Link from 'next/link'
+
+import { Faq } from './faq'
+import { HowItWorks } from './how-it-works'
+import {
+  ClaudeIcon,
+  DocumentIcon,
+  DriveIcon,
+  FigmaIcon,
+  GitHubIcon,
+  GlobeIcon,
+  LumoMark,
+  NotionIcon,
+  PullRequestIcon,
+  SlackIcon,
+  SpecIcon,
+} from './icons'
+import styles from './home.module.css'
+
+function Navbar() {
+  return (
+    <nav className={styles.nav}>
+      <div className={styles.navInner}>
+        <a href='#top' className={styles.brand}>
+          <LumoMark size={24} style={{ display: 'block', flex: 'none' }} />
+          <span className={styles.brandName}>Lumo</span>
+        </a>
+        <div className={styles.navLinks}>
+          <a
+            href='#features'
+            className={`${styles.navLink} ${styles.navLinkHideSm}`}
+          >
+            Features
+          </a>
+          <a
+            href='#how'
+            className={`${styles.navLink} ${styles.navLinkHideSm}`}
+          >
+            How it works
+          </a>
+          <a
+            href='#faq'
+            className={`${styles.navLink} ${styles.navLinkHideSm}`}
+          >
+            FAQ
+          </a>
+          <Link href='/signin' className={styles.navLink}>
+            Sign in
+          </Link>
+          <Link href='/signup' className={styles.btnPrimary}>
+            Start free
+          </Link>
+        </div>
+      </div>
+    </nav>
+  )
+}
+
+function Hero() {
+  return (
+    <section className={styles.hero}>
+      <div className={styles.heroGrid}>
+        <div className={styles.heroCopy}>
+          <div className={styles.eyebrow}>
+            Project management for AI-native teams
+          </div>
+          <h1 className={styles.heroTitle}>
+            Keep your agents on budget, on time, and on{' '}spec.
+          </h1>
+          <p className={styles.heroLede}>
+            Lumo is the project tracker for teams that ship with AI. Meter every
+            token and hour your agents burn — and verify they built the right
+            thing before it reaches your users.
+          </p>
+          <div className={styles.heroActions}>
+            <Link
+              href='/signup'
+              className={`${styles.btnPrimary} ${styles.btnPrimaryLg}`}
+            >
+              Start for free
+            </Link>
+            <a href='#how' className={styles.btnOutline}>
+              Book a demo
+            </a>
+          </div>
+          <div className={styles.heroNote}>
+            No credit card · Free for teams up to 5
+          </div>
+        </div>
+
+        <div className={styles.heroMockup}>
+          <div className={styles.mockCard}>
+            <div className={styles.mockBar}>
+              <span className={styles.dot} style={{ background: '#e6c2b2' }} />
+              <span className={styles.dot} style={{ background: '#eae0cf' }} />
+              <span className={styles.dot} style={{ background: '#eae0cf' }} />
+              <LumoMark
+                size={13}
+                style={{ display: 'block', flex: 'none', marginLeft: 10 }}
+              />
+              <span className={styles.mockPath}>lumo / checkout-revamp</span>
+            </div>
+            <div className={styles.mockBody}>
+              <div className={styles.mockHead}>
+                <span className={styles.mockTitle}>
+                  Implement Stripe checkout flow
+                </span>
+                <span className={styles.badgeVerified}>VERIFIED</span>
+              </div>
+              <div className={styles.mockSub}>
+                Agent · claude-sonnet · run #4821
+              </div>
+
+              <div className={styles.metricGrid}>
+                <div className={styles.metric}>
+                  <div className={styles.metricLabel}>TOKENS</div>
+                  <div className={styles.metricValue}>
+                    847K<span> / 1M</span>
+                  </div>
+                  <div className={styles.bar}>
+                    <div className={styles.barFill} style={{ width: '84%' }} />
+                  </div>
+                </div>
+                <div className={styles.metric}>
+                  <div className={styles.metricLabel}>TIME · COST</div>
+                  <div className={styles.metricValue}>2h 14m</div>
+                  <div className={styles.metricSub}>$3.41 spent</div>
+                </div>
+              </div>
+
+              <div className={styles.acLabel}>ACCEPTANCE CRITERIA · 8/8</div>
+              <div className={styles.acList}>
+                {[
+                  'Card payment succeeds end-to-end',
+                  'Declined cards show a clear error',
+                  'Receipts emailed within 30s',
+                ].map(c => (
+                  <div key={c} className={styles.acItem}>
+                    <span className={styles.acCheck}>✓</span>
+                    {c}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const LOGOS = [
+  { name: 'GitHub', Icon: GitHubIcon },
+  { name: 'Claude', Icon: ClaudeIcon },
+  { name: 'Slack', Icon: SlackIcon },
+  { name: 'Notion', Icon: NotionIcon },
+  { name: 'Figma', Icon: FigmaIcon },
+  { name: 'Drive', Icon: DriveIcon },
+]
+
+function Logos() {
+  return (
+    <section className={styles.logos}>
+      <div className={styles.logosKicker}>
+        PLUGS INTO THE STACK YOUR AGENTS ALREADY USE
+      </div>
+      <div className={styles.logosRow}>
+        {LOGOS.map(({ name, Icon }) => (
+          <div key={name} className={styles.logo}>
+            <Icon style={{ flex: 'none' }} />
+            <span className={styles.logoName}>{name}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+const CONTEXT_SOURCES = [
+  { Icon: SlackIcon, name: 'Slack thread', meta: '#checkout-team' },
+  { Icon: SpecIcon, name: 'Spec', meta: 'checkout-revamp' },
+  { Icon: DocumentIcon, name: 'Document', meta: 'QA-notes.md' },
+  { Icon: GlobeIcon, name: 'Web link', meta: 'stripe.com/docs' },
+  { Icon: FigmaIcon, name: 'Figma file', meta: 'Checkout v3' },
+  { Icon: PullRequestIcon, name: 'Pull request', meta: '#482' },
+]
+
+function Features() {
+  return (
+    <section id='features' className={styles.sectionAlt}>
+      <div className={styles.sectionInner}>
+        <div className={styles.sectionHeadLeft}>
+          <div className={styles.eyebrow}>Everything in one place</div>
+          <h2 className={styles.h2}>
+            Run AI work like a team, not a black box.
+          </h2>
+        </div>
+
+        <div className={styles.bento}>
+          {/* 01 · Token & cost metering */}
+          <div className={`${styles.cell} ${styles.span4} ${styles.cellSplit}`}>
+            <div>
+              <div className={styles.cellKicker}>01 · METERING</div>
+              <h3 className={styles.cellTitle}>Token &amp; cost metering</h3>
+              <p className={styles.cellBody}>
+                Every agent run is metered to the token — broken out by model
+                and token type. See live spend per task, per agent, and per
+                sprint.
+              </p>
+            </div>
+            <div className={styles.panel}>
+              <div className={styles.panelHead}>
+                <span className={styles.panelLabel}>
+                  build-agent · run #4821
+                </span>
+                <span className={styles.meterAmount}>$3.41</span>
+              </div>
+              <div className={styles.meterRow}>
+                <div className={styles.meterRowHead}>
+                  <span className={styles.meterName}>claude-sonnet-4.5</span>
+                  <span className={styles.meterTok}>1.7M tok</span>
+                </div>
+                <div className={styles.stack}>
+                  <div style={{ width: '24%', background: '#be5a38' }} />
+                  <div style={{ width: '14%', background: '#d8b79f' }} />
+                  <div style={{ width: '62%', background: '#e8d9c7' }} />
+                </div>
+              </div>
+              <div className={styles.meterRowWide}>
+                <div className={styles.meterRowHead}>
+                  <span className={styles.meterName}>claude-haiku-4</span>
+                  <span className={styles.meterTok}>0.98M tok</span>
+                </div>
+                <div className={styles.stack}>
+                  <div style={{ width: '52%', background: '#be5a38' }} />
+                  <div style={{ width: '30%', background: '#d8b79f' }} />
+                  <div style={{ width: '18%', background: '#e8d9c7' }} />
+                </div>
+              </div>
+              <div className={styles.legend}>
+                <span className={styles.legendItem}>
+                  <span
+                    className={styles.swatch}
+                    style={{ background: '#be5a38' }}
+                  />
+                  Input
+                </span>
+                <span className={styles.legendItem}>
+                  <span
+                    className={styles.swatch}
+                    style={{ background: '#d8b79f' }}
+                  />
+                  Output
+                </span>
+                <span className={styles.legendItem}>
+                  <span
+                    className={styles.swatch}
+                    style={{ background: '#e8d9c7' }}
+                  />
+                  Cache read
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 02 · Time on task */}
+          <div className={`${styles.cell} ${styles.span2} ${styles.cellCol}`}>
+            <div>
+              <div className={styles.cellKicker}>02 · RUNTIME</div>
+              <h3 className={styles.cellTitle}>Time on task</h3>
+              <p className={styles.cellBody}>
+                Know which work is fast, which is stuck, and which to re-route.
+              </p>
+            </div>
+            <div className={styles.cellStat}>
+              <span className={styles.cellStatNum}>2h 14m</span>
+              <span className={styles.cellStatSub}>avg · 12 runs</span>
+            </div>
+          </div>
+
+          {/* 03 · Boundary guardrails */}
+          <div className={`${styles.cell} ${styles.span6} ${styles.cellSplit}`}>
+            <div>
+              <div className={styles.cellKicker}>03 · GUARDRAILS</div>
+              <h3 className={styles.cellTitle}>Boundary guardrails</h3>
+              <p className={styles.cellBody}>
+                Lumo classifies every out-of-scope action by type and severity —
+                and stops the irreversible ones before they merge.
+              </p>
+            </div>
+            <div className={styles.crossList}>
+              <div className={styles.crossRow}>
+                <span className={`${styles.sev} ${styles.sevHigh}`}>HIGH</span>
+                <div className={styles.crossText}>
+                  <div className={styles.crossWhat}>
+                    Rewrote a unit test so a broken feature passes
+                  </div>
+                  <div className={styles.crossMeta}>
+                    Test tampering · reverted &amp; sent back
+                  </div>
+                </div>
+              </div>
+              <div className={styles.crossRow}>
+                <span className={`${styles.sev} ${styles.sevHigh}`}>HIGH</span>
+                <div className={styles.crossText}>
+                  <div className={styles.crossWhat}>
+                    Pasted a live AWS key into config.ts
+                  </div>
+                  <div className={styles.crossMeta}>
+                    Hardcoded secret · blocked
+                  </div>
+                </div>
+              </div>
+              <div className={styles.crossRow}>
+                <span className={`${styles.sev} ${styles.sevMed}`}>MED</span>
+                <div className={styles.crossText}>
+                  <div className={styles.crossWhat}>
+                    Tried to force-push straight to main
+                  </div>
+                  <div className={styles.crossMeta}>
+                    Protected-branch push · held for review
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 04 · Verifiable acceptance */}
+          <div className={`${styles.cell} ${styles.span6} ${styles.cellSplit}`}>
+            <div>
+              <div className={styles.cellKicker}>04 · VERIFICATION</div>
+              <h3 className={styles.cellTitle}>Verifiable acceptance</h3>
+              <p className={styles.cellBody}>
+                Write crisp acceptance criteria once. Agents can only mark a
+                task done when every criterion provably passes.
+              </p>
+            </div>
+            <div className={styles.panel}>
+              <div className={styles.acPanelHead}>
+                <span className={styles.panelLabel}>ACCEPTANCE CRITERIA</span>
+                <span className={styles.acCount}>7/8</span>
+              </div>
+              <div className={styles.acList}>
+                <div className={styles.acItemSm}>
+                  <span className={styles.acCheckSm}>✓</span>Card payment
+                  succeeds end-to-end
+                </div>
+                <div className={styles.acItemSm}>
+                  <span className={styles.acCheckSm}>✓</span>Declined cards show
+                  a clear error
+                </div>
+                <div className={`${styles.acItemSm} ${styles.acItemSmOpen}`}>
+                  <span className={styles.acOpen} />
+                  Receipts emailed within 30s
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 05 · Context engineering */}
+          <div className={`${styles.cell} ${styles.span6} ${styles.cellSplit}`}>
+            <div>
+              <div className={styles.cellKicker}>05 · CONTEXT</div>
+              <h3 className={styles.cellTitle}>Context engineering</h3>
+              <p className={styles.cellBody}>
+                Lumo pulls each run&apos;s context from the sources that matter
+                — Slack, specs, docs, web links, Figma, pull requests — and
+                trims the rest to keep agents sharp and cheap.
+              </p>
+            </div>
+            <div className={styles.panel}>
+              <div className={`${styles.panelHead} ${styles.panelHeadCenter}`}>
+                <span className={styles.panelLabel}>CONTEXT · run #4821</span>
+                <span className={styles.acCount}>6 sources</span>
+              </div>
+              <div className={styles.srcGrid}>
+                {CONTEXT_SOURCES.map(({ Icon, name, meta }) => (
+                  <div key={name} className={styles.src}>
+                    <Icon style={{ flex: 'none' }} />
+                    <span className={styles.srcName}>{name}</span>
+                    <span className={styles.srcMeta}>{meta}</span>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.srcFooter}>
+                Assembled &amp; trimmed to <strong>71K tokens</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* 06 · Lineage & memory */}
+          <div className={`${styles.cell} ${styles.span3}`}>
+            <div className={styles.cellKicker}>06 · LINEAGE</div>
+            <h3 className={styles.cellTitle}>Lineage &amp; memory</h3>
+            <p className={styles.cellBody} style={{ marginBottom: 22 }}>
+              Every decision, source, and prior run is linked. Agents reuse what
+              worked, and you can trace exactly why.
+            </p>
+            <div className={styles.lineage}>
+              <div className={styles.lineageRail} />
+              <div className={styles.lineageT1} />
+              <div className={styles.lineageT2} />
+              <div className={styles.lineageNodes}>
+                <span className={`${styles.node} ${styles.nodeOn}`} />
+                <span className={`${styles.node} ${styles.nodeOff}`} />
+                <span className={`${styles.node} ${styles.nodeOff}`} />
+                <span className={`${styles.node} ${styles.nodeOn}`} />
+              </div>
+              <span
+                className={styles.lineageLabel}
+                style={{ left: '13%', top: 0 }}
+              >
+                source.md
+              </span>
+              <span
+                className={styles.lineageLabel}
+                style={{ left: '48%', top: 68 }}
+              >
+                run #4810
+              </span>
+            </div>
+          </div>
+
+          {/* 07 · Sprints & milestones */}
+          <div className={`${styles.cell} ${styles.span3}`}>
+            <div className={styles.cellKicker}>07 · PLANNING</div>
+            <h3 className={styles.cellTitle}>Sprints &amp; milestones</h3>
+            <p className={styles.cellBody} style={{ marginBottom: 22 }}>
+              Roll work into sprints with burn-up, risk, and AI-written
+              summaries — the planning layer your humans already know.
+            </p>
+            <div className={styles.kanban}>
+              <div className={styles.kcol}>
+                <div className={styles.kcolLabel}>TODO</div>
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#ece6d9' }}
+                />
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#ece6d9' }}
+                />
+              </div>
+              <div className={styles.kcol}>
+                <div className={styles.kcolLabel}>DOING</div>
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#e8d5c7' }}
+                />
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#ece6d9' }}
+                />
+              </div>
+              <div className={styles.kcol}>
+                <div className={`${styles.kcolLabel} ${styles.kcolLabelDone}`}>
+                  DONE
+                </div>
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#cfe4d4' }}
+                />
+                <div
+                  className={styles.kcard}
+                  style={{ background: '#cfe4d4' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FinalCta() {
+  return (
+    <section className={styles.sectionPlain}>
+      <div className={styles.ctaInner}>
+        <h2 className={styles.ctaTitle}>Put your agents on the record.</h2>
+        <p className={styles.ctaLede}>
+          Start tracking tokens, time, and verified work in minutes. Free for
+          your first five seats.
+        </p>
+        <Link
+          href='/signup'
+          className={`${styles.btnPrimary} ${styles.ctaBtn}`}
+        >
+          Start for free
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+const FOOTER_COLS = [
+  {
+    label: 'PRODUCT',
+    links: ['Features', 'Pricing', 'Changelog', 'Integrations'],
+  },
+  { label: 'COMPANY', links: ['About', 'Blog', 'Careers'] },
+  { label: 'RESOURCES', links: ['Docs', 'API', 'Security'] },
+]
+
+function Footer() {
+  return (
+    <footer className={styles.footer}>
+      <div className={styles.footerInner}>
+        <div className={styles.footerGrid}>
+          <div>
+            <div className={styles.footerBrand}>
+              <LumoMark size={24} style={{ display: 'block', flex: 'none' }} />
+              <span className={styles.brandName}>Lumo</span>
+            </div>
+            <p className={styles.footerTag}>
+              Project management for teams shipping with AI.
+            </p>
+          </div>
+          {FOOTER_COLS.map(col => (
+            <div key={col.label}>
+              <div className={styles.footerColLabel}>{col.label}</div>
+              <div className={styles.footerLinks}>
+                {col.links.map(link => (
+                  <a key={link} href='#' className={styles.footerLink}>
+                    {link}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className={styles.footerBar}>
+          <span className={styles.footerCopy}>© 2026 Lumo, Inc.</span>
+          <span className={styles.footerMade}>Made for AI-native teams</span>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+interface LumoHomeProps {
+  className?: string
+}
+
+export function LumoHome({ className }: LumoHomeProps) {
+  return (
+    <main className={className ? `${styles.root} ${className}` : styles.root}>
+      <Navbar />
+      <div id='top' />
+      <Hero />
+      <Logos />
+      <Features />
+      <HowItWorks />
+      <Faq />
+      <FinalCta />
+      <Footer />
+    </main>
+  )
+}
