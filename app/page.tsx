@@ -1,30 +1,30 @@
-// landing.css is now @imported by app/globals.css so Tailwind v4 picks up
-// its @theme registrations (bg-brand etc.). Runtime tokens are still scoped
-// to the `.landing` class on <main> below.
-import CTA from '@/components/landing/sections/cta/default'
-import FAQ from '@/components/landing/sections/faq/default'
-import Footer from '@/components/landing/sections/footer/default'
-import Hero from '@/components/landing/sections/hero/default'
-import Items from '@/components/landing/sections/items/default'
-import Logos from '@/components/landing/sections/logos/default'
-import Navbar from '@/components/landing/sections/navbar/default'
-import Pricing from '@/components/landing/sections/pricing/default'
-import Stats from '@/components/landing/sections/stats/default'
-import { LayoutLines } from '@/components/landing/ui/layout-lines'
+import { Hanken_Grotesk, JetBrains_Mono, Newsreader } from 'next/font/google'
+
+import { LumoHome } from '@/components/landing/home/lumo-home'
+
+// Marketing-only typefaces for the homepage brand fork. Loaded as variable
+// fonts (no fixed `weight`) so the design's intermediate weights — e.g.
+// Newsreader 440 for display headings — resolve correctly via CSS.
+const hanken = Hanken_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-hanken',
+  display: 'swap',
+})
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+  display: 'swap',
+})
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
 
 export default function HomePage() {
   return (
-    <main className='dark landing bg-background text-foreground min-h-screen w-full'>
-      <LayoutLines />
-      <Navbar />
-      <Hero />
-      <Logos />
-      <Items />
-      <Stats />
-      <Pricing />
-      <FAQ />
-      <CTA />
-      <Footer />
-    </main>
+    <LumoHome
+      className={`${hanken.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+    />
   )
 }
