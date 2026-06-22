@@ -17,6 +17,19 @@ import {
 } from './icons'
 import styles from './home.module.css'
 
+/**
+ * Superscript citation linking to the References band. The numbers on this page
+ * are effects measured in *published research* on the techniques Lumo is built
+ * on — never Lumo's own results — so every figure carries one of these.
+ */
+function Cite({ n }: { n: number }) {
+  return (
+    <a href='#references' className={styles.cite} aria-label={`Reference ${n}`}>
+      {n}
+    </a>
+  )
+}
+
 function Navbar() {
   return (
     <nav className={styles.nav}>
@@ -71,6 +84,13 @@ function Hero() {
             Lumo is the project tracker for teams that ship with AI. Meter every
             token and hour your agents burn — and verify they built the right
             thing before it reaches your users.
+          </p>
+          <p className={styles.heroProof}>
+            Built on techniques published research shows work — reusing past-run
+            experience cut agent cost a mean{' '}
+            <span className={styles.stat}>31.8%</span>, with ≤0.2% quality loss,
+            in controlled trials.
+            <Cite n={1} />
           </p>
           <div className={styles.heroActions}>
             <Link
@@ -285,7 +305,10 @@ function Features() {
               <h3 className={styles.cellTitle}>Boundary guardrails</h3>
               <p className={styles.cellBody}>
                 Lumo classifies every out-of-scope action by type and severity —
-                and stops the irreversible ones before they merge.
+                and stops the irreversible ones before they merge. Modeled on
+                the collateral-damage
+                <Cite n={3} /> and minefield
+                <Cite n={4} /> checks from agent-safety benchmarks.
               </p>
             </div>
             <div className={styles.crossList}>
@@ -332,7 +355,10 @@ function Features() {
               <h3 className={styles.cellTitle}>Verifiable acceptance</h3>
               <p className={styles.cellBody}>
                 Write crisp acceptance criteria once. Agents can only mark a
-                task done when every criterion provably passes.
+                task done when every criterion provably passes — and
+                non-deterministic checks report cross-run agreement, not one
+                lucky pass.
+                <Cite n={5} />
               </p>
             </div>
             <div className={styles.panel}>
@@ -363,9 +389,11 @@ function Features() {
               <div className={styles.cellKicker}>05 · CONTEXT</div>
               <h3 className={styles.cellTitle}>Context engineering</h3>
               <p className={styles.cellBody}>
-                Lumo pulls each run&apos;s context from the sources that matter
-                — Slack, specs, docs, web links, Figma, pull requests — and
-                trims the rest to keep agents sharp and cheap.
+                In published trials, structured context-trimming cut filler ~
+                <span className={styles.stat}>39%</span> while <em>raising</em>{' '}
+                task quality <span className={styles.stat}>+2.8%</span>.
+                <Cite n={2} /> Lumo assembles each run from the sources that
+                matter — Slack, specs, docs, Figma, PRs — and trims the rest.
               </p>
             </div>
             <div className={styles.panel}>
@@ -393,8 +421,10 @@ function Features() {
             <div className={styles.cellKicker}>06 · LINEAGE</div>
             <h3 className={styles.cellTitle}>Lineage &amp; memory</h3>
             <p className={styles.cellBody} style={{ marginBottom: 22 }}>
-              Every decision, source, and prior run is linked. Agents reuse what
-              worked, and you can trace exactly why.
+              Reusing prior-run experience cut agent cost a mean{' '}
+              <span className={styles.stat}>31.8%</span> in published trials.
+              <Cite n={1} /> Lumo links every decision, source, and run so
+              agents reuse what worked — and you can trace why.
             </p>
             <div className={styles.lineage}>
               <div className={styles.lineageRail} />
@@ -493,6 +523,69 @@ function FinalCta() {
   )
 }
 
+// Sources for the quantified claims above. These are effects measured in
+// published research on the techniques Lumo builds on — cited so every figure
+// on the page is traceable, and clearly *not* presented as Lumo's own results.
+const REFERENCES = [
+  {
+    n: 1,
+    text: 'Guo et al., experience-injection + early-stopping on SWE-bench Verified (ACL 2026 Findings).',
+    arxiv: '2601.05777',
+  },
+  {
+    n: 2,
+    text: 'SkillReducer — taxonomy-driven context compression across 55k skills.',
+    arxiv: '2603.29919',
+  },
+  {
+    n: 3,
+    text: 'AppWorld — collateral-damage checks for agent actions.',
+    arxiv: '2407.18901',
+  },
+  {
+    n: 4,
+    text: 'ToolSandbox — stateful “minefield” evaluation of tool use.',
+    arxiv: '2408.04682',
+  },
+  {
+    n: 5,
+    text: 'LLM-judge reliability under cross-run agreement (pass^k discipline).',
+    arxiv: '2603.02473',
+  },
+]
+
+function References() {
+  return (
+    <section id='references' className={styles.references}>
+      <div className={styles.referencesInner}>
+        <div className={styles.referencesLabel}>REFERENCES</div>
+        <ol className={styles.referencesList}>
+          {REFERENCES.map(({ n, text, arxiv }) => (
+            <li key={n} className={styles.referenceItem}>
+              <span className={styles.referenceNum}>{n}</span>
+              <span>
+                {text}{' '}
+                <a
+                  href={`https://arxiv.org/abs/${arxiv}`}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className={styles.referenceLink}
+                >
+                  arXiv:{arxiv}
+                </a>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className={styles.referencesNote}>
+          Figures above are effects measured in published research on the
+          techniques Lumo is built on — not Lumo&apos;s own benchmark results.
+        </p>
+      </div>
+    </section>
+  )
+}
+
 const FOOTER_COLS = [
   {
     label: 'PRODUCT',
@@ -553,6 +646,7 @@ export function LumoHome({ className }: LumoHomeProps) {
       <HowItWorks />
       <Faq />
       <FinalCta />
+      <References />
       <Footer />
     </main>
   )
