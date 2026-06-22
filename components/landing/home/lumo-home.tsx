@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { Faq } from './faq'
 import { HowItWorks } from './how-it-works'
+import { LumoTerminal } from './lumo-terminal'
 import {
   ClaudeIcon,
   DocumentIcon,
@@ -724,6 +725,7 @@ export function LumoHome({ className }: LumoHomeProps) {
       <StatBand />
       <Features />
       <HowItWorks />
+      <LumoTerminal />
       <Faq />
       <FinalCta />
       <References />

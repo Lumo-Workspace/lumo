@@ -475,6 +475,129 @@
   max-width: 30ch;
 }
 
+/* ============ CLI TERMINAL DEMO ============ */
+.termSection {
+  border-top: 1px solid var(--line);
+}
+.termInner {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 84px 40px;
+}
+.termHead {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 40px;
+}
+.termLede {
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 16px 0 0;
+}
+.termCard {
+  background: #fbf9f4;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  box-shadow: 0 28px 56px -32px rgba(60, 40, 20, 0.3);
+  overflow: hidden;
+}
+.termBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-3);
+  background: #f4f0e8;
+}
+.termBarLabel {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-mono);
+}
+.termBody {
+  padding: 22px 24px 26px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.85;
+  /* Stable height so the card doesn't jump as lines stream in. */
+  min-height: 420px;
+}
+.termLine {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.termPrompt {
+  color: var(--accent);
+  font-weight: 600;
+  flex: none;
+}
+.termWho {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  transform: translateY(-1px);
+  background: #efe7da;
+  color: var(--text-2);
+}
+.termWhoAgent {
+  background: #f3e2d8;
+  color: var(--accent);
+}
+.termUser .termText {
+  color: var(--ink);
+  font-weight: 600;
+}
+.termAgent .termText {
+  color: var(--text-2);
+}
+.termText {
+  white-space: pre-wrap;
+}
+.termCmdLine .termText {
+  color: var(--ink);
+}
+.termOut .termText {
+  color: var(--text-3);
+}
+.termComment .termText {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.termOk .termText {
+  color: var(--good);
+}
+.termCursor {
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 1px;
+  transform: translateY(2px);
+  background: var(--accent);
+  animation: termBlink 1s step-end infinite;
+}
+@keyframes termBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .termCursor {
+    animation: none;
+  }
+}
+
 /* ============ SECTION HEADERS ============ */
 .sectionAlt {
   border-top: 1px solid var(--line);
@@ -1283,9 +1406,15 @@
   .sectionInner,
   .faqWrap,
   .ctaInner,
-  .footerInner {
+  .footerInner,
+  .termInner {
     padding-left: 22px;
     padding-right: 22px;
+  }
+  .termBody {
+    font-size: 12px;
+    padding: 18px 16px 20px;
+    min-height: 360px;
   }
   .navLinks {
     gap: 16px;
