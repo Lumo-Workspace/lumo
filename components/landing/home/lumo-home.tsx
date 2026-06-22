@@ -196,30 +196,28 @@ function Logos() {
   )
 }
 
-// Prominent "evidence" numbers, Augment-style — mapped to Lumo's three real
-// benefits. Each stat's `source` line states whether the figure is an EXTERNAL
-// research effect (attributed, not Lumo's own result) or Lumo's OWN detection
-// coverage, so the big numbers are never mistaken for in-house benchmarks.
-// Deliberately NOT here: the 65%→19% Model Spec figure — that is a *prevention*
-// effect, and Lumo only detects, so claiming it would overstate what Lumo does.
+// Prominent "evidence" numbers, Augment-style. Every figure is an effect
+// measured in PUBLISHED RESEARCH on a technique Lumo is built on — the band
+// header and each stat's source line keep that explicit, so the big numbers are
+// never mistaken for Lumo's own benchmark results.
 const STAT_BAND = [
-  {
-    value: '40%',
-    label: 'work time lost to task-switching',
-    source:
-      'research finding — task-switching can cost up to 40% of productive time (APA, Meyer 2001). Lumo keeps every run’s context in one place.',
-  },
   {
     value: '31.8%',
     label: 'lower agent cost',
     source:
-      'research finding — when agents reuse what past runs already worked out (EET, on SWE-bench).',
+      'when agents reuse what past runs already worked out (EET, on SWE-bench).',
   },
   {
-    value: '9',
-    label: 'out-of-scope categories caught',
+    value: '39%',
+    label: 'less context waste',
     source:
-      'Lumo’s own detector — every labeled crossing caught in our eval, then flagged for human review (detection-only).',
+      'from trimming low-signal context, with task quality holding up (SkillReducer).',
+  },
+  {
+    value: '71%',
+    label: 'fewer harmful actions',
+    source:
+      "when an agent's rules carry a reason, not just a hard no — down from 65% to 19% (Anthropic Model Spec).",
   },
 ]
 
@@ -228,13 +226,10 @@ function StatBand() {
     <section className={styles.statBand}>
       <div className={styles.statBandInner}>
         <div className={styles.statBandHead}>
-          <div className={styles.eyebrow}>
-            Grounded in 50+ research papers &amp; reports
-          </div>
+          <div className={styles.eyebrow}>The research behind Lumo</div>
           <p className={styles.statBandNote}>
-            The research figures below are effects measured in published studies
-            of the techniques Lumo is built on — not Lumo&apos;s own benchmarks;
-            the detection coverage is ours.{' '}
+            These come from published research on the techniques Lumo is built
+            on — not our own benchmarks.{' '}
             <a href='#references' className={styles.statBandLink}>
               See the studies
             </a>
