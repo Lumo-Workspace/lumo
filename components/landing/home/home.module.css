@@ -409,6 +409,72 @@
   font-weight: 500;
 }
 
+/* ============ STAT BAND (evidence) ============ */
+.statBand {
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  scroll-margin-top: 86px;
+}
+.statBandInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 64px 40px;
+}
+.statBandHead {
+  max-width: 620px;
+  margin-bottom: 44px;
+}
+.statBandNote {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+  margin: 14px 0 0;
+}
+.statBandLink {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-4);
+}
+.statBandLink:hover {
+  border-bottom-color: var(--accent);
+}
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.statItem {
+  padding: 4px 24px 4px 0;
+  border-left: 2px solid var(--line);
+  padding-left: 28px;
+}
+.statItem:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+.statBig {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.statItemLabel {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 12px;
+}
+.statSource {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-mono);
+  margin-top: 8px;
+}
+
 /* ============ SECTION HEADERS ============ */
 .sectionAlt {
   border-top: 1px solid var(--line);
@@ -1185,6 +1251,23 @@
   }
   .referencesList {
     grid-template-columns: 1fr;
+  }
+  .statRow {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .statItem {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 22px;
+  }
+  .statItem:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+  .statBig {
+    font-size: 52px;
   }
   .footerGrid {
     grid-template-columns: 1fr 1fr;
