@@ -404,7 +404,7 @@ function Features() {
               <div className={styles.srcGrid}>
                 {CONTEXT_SOURCES.map(({ Icon, name, meta }) => (
                   <div key={name} className={styles.src}>
-                    <Icon style={{ flex: 'none' }} />
+                    <Icon size={13} style={{ flex: 'none' }} />
                     <span className={styles.srcName}>{name}</span>
                     <span className={styles.srcMeta}>{meta}</span>
                   </div>
