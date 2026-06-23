@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { ChevronRight } from 'lucide-react'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
 
@@ -94,130 +96,147 @@ export function ClaimVsVerification({
     humanOverridden: 0,
   }
   const met = data.criteria.length - data.nextActions.length
+  // LUM-572: a self-collapsing section so the claim pairing folds away like the
+  // other Record-tab sections. Default open — it's decision-relevant.
+  const [open, setOpen] = useState(true)
 
   return (
     <div>
-      <SectionTitle
-        tip={intl.formatMessage({
-          id: 'acceptance.claim.tip',
-          defaultMessage:
-            'The agent’s self-report (what it says it did) sits next to the measured verdict (what was actually confirmed). A claim is an estimate, never a measurement.',
-        })}
-      >
-        {intl.formatMessage({
-          id: 'acceptance.claim.title',
-          defaultMessage: 'Claim vs verification',
-        })}
-      </SectionTitle>
-      <div className='grid gap-2.5 sm:grid-cols-2'>
-        {/* Claim (声称) — the agent self-report, estimate-tier. */}
-        <div className='rounded-lg border border-border px-3 py-2'>
-          <div className='mb-0.5 flex items-center gap-1.5'>
-            <span className='text-[11px] font-medium text-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.claim.claimLabel',
-                defaultMessage: 'Claim — what the agent says it did',
-              })}
-            </span>
-            <ProvenanceChip
-              testId='claim-provenance'
-              tip={intl.formatMessage({
-                id: 'acceptance.claim.estimatedTip',
-                defaultMessage:
-                  'An unverified agent self-report — an estimate, not a verification result.',
-              })}
-            >
-              {intl.formatMessage({
-                id: 'acceptance.claim.estimated',
-                defaultMessage: 'AI-drafted · estimated',
-              })}
-            </ProvenanceChip>
+      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+        <button
+          type='button'
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          className='flex items-center gap-1.5 hover:text-foreground'
+        >
+          <ChevronRight
+            className={`size-3.5 transition-transform ${open ? 'rotate-90' : ''}`}
+            aria-hidden
+          />
+          {intl.formatMessage({
+            id: 'acceptance.claim.title',
+            defaultMessage: 'Claim vs verification',
+          })}
+        </button>
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'acceptance.claim.tip',
+            defaultMessage:
+              'The agent’s self-report (what it says it did) sits next to the measured verdict (what was actually confirmed). A claim is an estimate, never a measurement.',
+          })}
+        />
+      </div>
+      {open ? (
+        <div className='grid gap-2.5 sm:grid-cols-2'>
+          {/* Claim (声称) — the agent self-report, estimate-tier. */}
+          <div className='rounded-lg border border-border px-3 py-2'>
+            <div className='mb-0.5 flex items-center gap-1.5'>
+              <span className='text-[11px] font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.claimLabel',
+                  defaultMessage: 'Claim — what the agent says it did',
+                })}
+              </span>
+              <ProvenanceChip
+                testId='claim-provenance'
+                tip={intl.formatMessage({
+                  id: 'acceptance.claim.estimatedTip',
+                  defaultMessage:
+                    'An unverified agent self-report — an estimate, not a verification result.',
+                })}
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.claim.estimated',
+                  defaultMessage: 'AI-drafted · estimated',
+                })}
+              </ProvenanceChip>
+            </div>
+            {claim?.text ? (
+              <>
+                <p className='whitespace-pre-line text-[12px] leading-snug text-foreground'>
+                  {claim.text}
+                </p>
+                <p className='mt-1 text-[10px] text-muted-foreground/70'>
+                  {claim.source === 'RUN_SUMMARY'
+                    ? intl.formatMessage({
+                        id: 'acceptance.claim.sourceSummary',
+                        defaultMessage: 'source: LLM run summary',
+                      })
+                    : intl.formatMessage({
+                        id: 'acceptance.claim.sourceDigest',
+                        defaultMessage:
+                          'source: raw turn digest — no LLM summary yet',
+                      })}
+                </p>
+              </>
+            ) : (
+              <p className='text-[12px] italic leading-snug text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.notGenerated',
+                  defaultMessage:
+                    'Not generated yet — the run summary is synthesized when the task reaches DONE.',
+                })}
+              </p>
+            )}
           </div>
-          {claim?.text ? (
-            <>
-              <p className='whitespace-pre-line text-[12px] leading-snug text-foreground'>
-                {claim.text}
-              </p>
-              <p className='mt-1 text-[10px] text-muted-foreground/70'>
-                {claim.source === 'RUN_SUMMARY'
-                  ? intl.formatMessage({
-                      id: 'acceptance.claim.sourceSummary',
-                      defaultMessage: 'source: LLM run summary',
-                    })
-                  : intl.formatMessage({
-                      id: 'acceptance.claim.sourceDigest',
-                      defaultMessage:
-                        'source: raw turn digest — no LLM summary yet',
-                    })}
-              </p>
-            </>
-          ) : (
-            <p className='text-[12px] italic leading-snug text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.claim.notGenerated',
-                defaultMessage:
-                  'Not generated yet — the run summary is synthesized when the task reaches DONE.',
-              })}
-            </p>
-          )}
-        </div>
 
-        {/* Verification (核验) — the measured verdict. */}
-        <div className='rounded-lg border border-border px-3 py-2'>
-          <div className='mb-0.5 flex items-center gap-1.5'>
-            <span className='text-[11px] font-medium text-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.claim.verifyLabel',
-                defaultMessage: 'Verification — what was confirmed',
-              })}
-            </span>
-            <ProvenanceChip>
-              {intl.formatMessage({
-                id: 'acceptance.claim.measured',
-                defaultMessage: 'measured',
-              })}
-            </ProvenanceChip>
-          </div>
-          {data.currentRound === 0 ? (
-            <p className='text-[12px] italic leading-snug text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.claim.unconfirmed',
-                defaultMessage:
-                  'No verification has run yet — the claim is unconfirmed.',
-              })}
-            </p>
-          ) : (
-            <div className='space-y-0.5 text-[12px] leading-snug text-foreground'>
-              {mv.total > 0 ? (
-                <p>
+          {/* Verification (核验) — the measured verdict. */}
+          <div className='rounded-lg border border-border px-3 py-2'>
+            <div className='mb-0.5 flex items-center gap-1.5'>
+              <span className='text-[11px] font-medium text-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.verifyLabel',
+                  defaultMessage: 'Verification — what was confirmed',
+                })}
+              </span>
+              <ProvenanceChip>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.measured',
+                  defaultMessage: 'measured',
+                })}
+              </ProvenanceChip>
+            </div>
+            {data.currentRound === 0 ? (
+              <p className='text-[12px] italic leading-snug text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.unconfirmed',
+                  defaultMessage:
+                    'No verification has run yet — the claim is unconfirmed.',
+                })}
+              </p>
+            ) : (
+              <div className='space-y-0.5 text-[12px] leading-snug text-foreground'>
+                {mv.total > 0 ? (
+                  <p>
+                    {intl.formatMessage(
+                      {
+                        id: 'acceptance.claim.rollup',
+                        defaultMessage:
+                          '{verified} machine-verified · {overridden} human override (of {total} MACHINE criteria)',
+                      },
+                      {
+                        verified: mv.machineVerified,
+                        overridden: mv.humanOverridden,
+                        total: mv.total,
+                      }
+                    )}
+                  </p>
+                ) : null}
+                <p className='text-muted-foreground'>
                   {intl.formatMessage(
                     {
-                      id: 'acceptance.claim.rollup',
+                      id: 'acceptance.claim.met',
                       defaultMessage:
-                        '{verified} machine-verified · {overridden} human override (of {total} MACHINE criteria)',
+                        '{met} of {total} criteria met by their latest verdict',
                     },
-                    {
-                      verified: mv.machineVerified,
-                      overridden: mv.humanOverridden,
-                      total: mv.total,
-                    }
+                    { met, total: data.criteria.length }
                   )}
                 </p>
-              ) : null}
-              <p className='text-muted-foreground'>
-                {intl.formatMessage(
-                  {
-                    id: 'acceptance.claim.met',
-                    defaultMessage:
-                      '{met} of {total} criteria met by their latest verdict',
-                  },
-                  { met, total: data.criteria.length }
-                )}
-              </p>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }
