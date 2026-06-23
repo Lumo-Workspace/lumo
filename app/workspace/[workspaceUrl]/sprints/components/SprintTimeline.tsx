@@ -20,8 +20,11 @@ function pctOf(t: number, d: Domain): number {
 }
 
 /** First-of-month ticks spanning the domain, for the month axis + gridlines. */
-function monthTicks(d: Domain): Array<{ pos: number; label: string }> {
-  const fmt = new Intl.DateTimeFormat(undefined, { month: 'short' })
+function monthTicks(
+  d: Domain,
+  locale: string
+): Array<{ pos: number; label: string }> {
+  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' })
   const out: Array<{ pos: number; label: string }> = []
   const start = new Date(d.min)
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
@@ -87,7 +90,8 @@ function TimelineRow({
             {sprint.name}
           </div>
           <div className='truncate font-mono text-[10.5px] text-muted-foreground'>
-            {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
+            {formatDate(sprint.startDate, intl.locale)} –{' '}
+            {formatDate(sprint.endDate, intl.locale)}
           </div>
         </div>
       </div>
@@ -176,7 +180,7 @@ export function SprintTimeline({
     min: Math.min(...starts, now) - 3 * DAY,
     max: Math.max(...ends, now) + 3 * DAY,
   }
-  const months = monthTicks(domain)
+  const months = monthTicks(domain, intl.locale)
   const todayPos = pctOf(now, domain)
 
   function bucketOf(s: Sprint): 'completed' | 'active' | 'planned' {

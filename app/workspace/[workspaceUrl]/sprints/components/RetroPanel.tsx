@@ -101,7 +101,7 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
         <p className='text-xs text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.retro.generatedAt' },
-            { date: generatedAt.toLocaleString() }
+            { date: generatedAt.toLocaleString(intl.locale) }
           )}
         </p>
       </header>

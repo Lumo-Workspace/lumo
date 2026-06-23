@@ -24,8 +24,10 @@ export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString(undefined, {
+export function formatDate(date: Date | string, locale?: string): string {
+  // `locale` should be the active react-intl locale (intl.locale) so dates
+  // follow the app's chosen language, not the browser default.
+  return new Date(date).toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -66,7 +68,7 @@ export function DatePickerField({
           )}
         >
           {variant === 'outline' && <CalendarDays className='mr-2 size-4' />}
-          {formatDate(value)}
+          {formatDate(value, intl.locale)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-[320px] p-0' align='start'>

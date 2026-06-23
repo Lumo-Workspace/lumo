@@ -37,10 +37,19 @@ export function buildBurnupChartData(burnup: SprintBurnupResponse): {
   }
 }
 
-/** 'YYYY-MM-DD' → 'M/D' without timezone-sensitive Date parsing. */
-function formatDay(date: string): string {
-  const [, m, d] = date.split('-')
-  return m && d ? `${Number(m)}/${Number(d)}` : date
+/**
+ * 'YYYY-MM-DD' → a short, locale-ordered day label (e.g. `6/14` in en, `14/6`
+ * in many others). The parts are parsed by hand and fed to a local-time Date
+ * (no `new Date('YYYY-MM-DD')` UTC parse) so the rendered day can't slip across
+ * a timezone boundary; `locale` is the active react-intl locale.
+ */
+function formatDay(date: string, locale?: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  if (!y || !m || !d) return date
+  return new Date(y, m - 1, d).toLocaleDateString(locale, {
+    month: 'numeric',
+    day: 'numeric',
+  })
 }
 
 function Card({
@@ -123,7 +132,7 @@ export function SprintProgressChart({ sprintId }: { sprintId: string }) {
             axisLine={false}
             tickMargin={8}
             minTickGap={24}
-            tickFormatter={formatDay}
+            tickFormatter={value => formatDay(String(value), intl.locale)}
           />
           <YAxis
             width={28}
@@ -137,7 +146,7 @@ export function SprintProgressChart({ sprintId }: { sprintId: string }) {
             cursor={false}
             content={
               <ChartTooltipContent
-                labelFormatter={value => formatDay(String(value))}
+                labelFormatter={value => formatDay(String(value), intl.locale)}
               />
             }
           />
