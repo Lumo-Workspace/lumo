@@ -37,7 +37,12 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: { findStatus: jest.fn(), findHeaderById: jest.fn() },
+  taskRepository: {
+    findStatus: jest.fn(),
+    findHeaderById: jest.fn(),
+    // LUM-573: null snapshot → live latest-session claim fallback.
+    loadClaimSnapshot: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { findVerificationMaxRounds: jest.fn() },

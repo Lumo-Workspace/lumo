@@ -34,7 +34,13 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: { findHeaderById: jest.fn(), findStatus: jest.fn() },
+  taskRepository: {
+    findHeaderById: jest.fn(),
+    findStatus: jest.fn(),
+    // LUM-573: null snapshot → the read path falls back to the live
+    // latest-session claim, so existing claim expectations are unaffected.
+    loadClaimSnapshot: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: { findActorByMemberId: jest.fn() },

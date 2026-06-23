@@ -145,10 +145,13 @@ export interface TaskStatusResponse {
   }
   /** LUM-564: the agent's CLAIM — what it SAYS it did — surfaced beside the
    *  measured verification conclusion so the report shows 声称 vs 核验 as two
-   *  columns, not just the verification one. Same-source with the web card's
-   *  latestRunSummary (latest session's LLM run summary, else its STOP turn
-   *  digest). An unverified self-report (estimate-tier), never a measurement.
-   *  Optional so a new CLI tolerates an older server that doesn't emit it. */
+   *  columns, not just the verification one. LUM-573: sourced from the frozen
+   *  task-level claim snapshot (the AUTHORITATIVE merged-lineage session, not
+   *  the trailing latest session), falling back to the live latest-session
+   *  summary before a snapshot is frozen; same-source with the web card through
+   *  the server's TaskAcceptanceStatus.claim. An unverified self-report
+   *  (estimate-tier), never a measurement. Optional so a new CLI tolerates an
+   *  older server that doesn't emit it. */
   claim?: {
     text: string | null
     source: 'RUN_SUMMARY' | 'DIGEST' | null

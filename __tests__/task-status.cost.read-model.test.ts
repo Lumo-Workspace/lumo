@@ -31,7 +31,11 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { listByTaskAndType: jest.fn() },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: { findHeaderById: jest.fn() },
+  taskRepository: {
+    findHeaderById: jest.fn(),
+    // LUM-573: null snapshot → live latest-session claim fallback.
+    loadClaimSnapshot: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: {

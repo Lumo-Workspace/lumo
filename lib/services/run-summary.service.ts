@@ -1,6 +1,7 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { callRunSummaryLLM } from '@/lib/llm/run-summary-client'
+import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.service'
 import { logger } from '@/lib/logger'
 
 /**
@@ -35,52 +36,72 @@ export interface RunSummaryResult {
 
 export const runSummaryService = {
   async generateForTask(taskId: string): Promise<RunSummaryResult> {
-    let generated = 0
-    let failed = 0
-    let skippedEmpty = 0
-    try {
-      const sessions =
-        await sessionRepository.listForTaskMissingRunSummary(taskId)
-      if (sessions.length === 0) {
-        return { generated, failed, skippedEmpty, degraded: false }
-      }
-
-      const task = await taskRepository.getTitleAndStatus(taskId)
-      const taskTitle = task?.title ?? ''
-
-      for (const s of sessions) {
-        const turnSummaries = s.events
-          .map(e => e.turnSummary)
-          .filter((t): t is string => !!t && t.trim().length > 0)
-
-        // No usable turn notes → leave runSummary null; nothing to summarize.
-        if (turnSummaries.length === 0) {
-          skippedEmpty++
-          continue
-        }
-
-        try {
-          const summary = await callRunSummaryLLM({ taskTitle, turnSummaries })
-          await sessionRepository.setRunSummary(s.id, summary, new Date())
-          generated++
-        } catch (err) {
-          failed++
-          logger.warn(
-            `[run-summary] failed to generate summary for session ${s.id}`,
-            err
-          )
-        }
-      }
-
-      return { generated, failed, skippedEmpty, degraded: failed > 0 }
-    } catch (err) {
-      logger.warn(
-        `[run-summary] failed to generate run summaries for task ${taskId}`,
-        err
-      )
-      // An outer failure (e.g. the session repo threw) is a degraded pass —
-      // whatever we managed before the throw, plus an observable failure flag.
-      return { generated, failed, skippedEmpty, degraded: true }
-    }
+    const result = await generateSessionSummaries(taskId)
+    // LUM-573: once per-session summaries are committed, freeze the task-level
+    // claim snapshot from the AUTHORITATIVE (merged-lineage) session so the
+    // claim column stops echoing a trailing exploration session. Runs on every
+    // pass — including when no session needed a summary (early-return above) —
+    // so already-summarized tasks still get a snapshot. Best-effort &
+    // idempotent: synthesizeForTask swallows its own errors and overwrites.
+    await taskClaimSnapshotService.synthesizeForTask(taskId)
+    return result
   },
+}
+
+/**
+ * The LUM-481/576 per-session run-summary pass. Extracted so the task-level
+ * claim-snapshot synthesis (LUM-573) always runs afterward regardless of which
+ * return path this took. Never throws — every failure is logged and folded into
+ * the observable `degraded` flag.
+ */
+async function generateSessionSummaries(
+  taskId: string
+): Promise<RunSummaryResult> {
+  let generated = 0
+  let failed = 0
+  let skippedEmpty = 0
+  try {
+    const sessions =
+      await sessionRepository.listForTaskMissingRunSummary(taskId)
+    if (sessions.length === 0) {
+      return { generated, failed, skippedEmpty, degraded: false }
+    }
+
+    const task = await taskRepository.getTitleAndStatus(taskId)
+    const taskTitle = task?.title ?? ''
+
+    for (const s of sessions) {
+      const turnSummaries = s.events
+        .map(e => e.turnSummary)
+        .filter((t): t is string => !!t && t.trim().length > 0)
+
+      // No usable turn notes → leave runSummary null; nothing to summarize.
+      if (turnSummaries.length === 0) {
+        skippedEmpty++
+        continue
+      }
+
+      try {
+        const summary = await callRunSummaryLLM({ taskTitle, turnSummaries })
+        await sessionRepository.setRunSummary(s.id, summary, new Date())
+        generated++
+      } catch (err) {
+        failed++
+        logger.warn(
+          `[run-summary] failed to generate summary for session ${s.id}`,
+          err
+        )
+      }
+    }
+
+    return { generated, failed, skippedEmpty, degraded: failed > 0 }
+  } catch (err) {
+    logger.warn(
+      `[run-summary] failed to generate run summaries for task ${taskId}`,
+      err
+    )
+    // An outer failure (e.g. the session repo threw) is a degraded pass —
+    // whatever we managed before the throw, plus an observable failure flag.
+    return { generated, failed, skippedEmpty, degraded: true }
+  }
 }

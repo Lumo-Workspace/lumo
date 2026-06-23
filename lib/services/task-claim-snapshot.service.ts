@@ -1,0 +1,135 @@
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { selectClaim } from '@/lib/services/task-claim'
+import { logger } from '@/lib/logger'
+
+/**
+ * LUM-573 — task-level claim snapshot.
+ *
+ * The pre-fix claim column read the LATEST session by lastActivityAt
+ * (loadLatestRunClaim). When the latest session was an exploration / wrap-up /
+ * follow-up run, its runSummary said "only explored, no code changes" while the
+ * task was DONE with all criteria PASS — a systematic under-report (claim
+ * contradicts verification, the LUM-572 audit's 13→19 矛盾面).
+ *
+ * The fix (纯 B, no real-time aggregation): the AUTHORITATIVE session is the one
+ * carrying a MERGED lineage edge (the DB fact of delivery — it injected context
+ * for the work that merged), not the most recent. At DONE/idle the LUM-576
+ * retriable worker (and the backfill) synthesize a task-level claim snapshot
+ * from that session and FREEZE it to the Task; the read path degrades to a
+ * field read of that snapshot.
+ *
+ * The synthesizer never rewrites the summary text — it only changes WHICH
+ * session's summary is shown — so a legitimately negative delivery-session
+ * summary stays negative (reverse gate: claim-vs-verification gaps survive),
+ * and a task with no material freezes a fail-closed null snapshot.
+ */
+
+type ClaimMaterial = { runSummary: string | null; turnSummaries: string[] }
+
+function toMaterial(row: {
+  runSummary: string | null
+  events: { turnSummary: string | null }[]
+}): ClaimMaterial {
+  return {
+    runSummary: row.runSummary,
+    turnSummaries: row.events.map(e => e.turnSummary ?? ''),
+  }
+}
+
+function hasMaterial(m: ClaimMaterial): boolean {
+  return (
+    (m.runSummary?.trim().length ?? 0) > 0 ||
+    m.turnSummaries.some(t => t.trim().length > 0)
+  )
+}
+
+export const taskClaimSnapshotService = {
+  /**
+   * Resolve the authoritative claim material for a task: a session carrying a
+   * MERGED lineage edge (preferring the most-recent one that actually has claim
+   * material over a more-recent but material-less merged session), falling back
+   * to the latest session only when the task has no MERGED-stamped session
+   * (pre-merge, or the outcome stamp/cron sweep hasn't run). Returns the chosen
+   * session id (provenance) and its material, or `{ sessionId: null, material:
+   * null }` when the task has no session at all.
+   */
+  async resolveClaimMaterial(
+    taskId: string
+  ): Promise<{ sessionId: string | null; material: ClaimMaterial | null }> {
+    const mergedSessionIds =
+      await lineageEdgeRepository.findMergedSessionIds(taskId)
+
+    if (mergedSessionIds.length > 0) {
+      // Newest-first; pick the most-recent merged session WITH material, else
+      // the most-recent merged session (so the snapshot still records which
+      // delivery session was chosen even when none carries a summary yet).
+      const rows =
+        await sessionRepository.loadRunClaimForSessions(mergedSessionIds)
+      if (rows.length > 0) {
+        const withMaterial = rows.find(r => hasMaterial(toMaterial(r)))
+        const chosen = withMaterial ?? rows[0]!
+        return { sessionId: chosen.id, material: toMaterial(chosen) }
+      }
+      // The MERGED edge's session row is gone (onDelete: SetNull races) — fall
+      // through to the latest-session fallback rather than returning empty.
+    }
+
+    const latest = await sessionRepository.loadLatestRunClaim(taskId)
+    if (!latest) return { sessionId: null, material: null }
+    return { sessionId: latest.id, material: toMaterial(latest) }
+  },
+
+  /**
+   * Synthesize and FREEZE the task-level claim snapshot. Best-effort: never
+   * throws (it runs inside the run-summary worker's already-swallowed flow and
+   * the backfill loop), and is idempotent — a re-run (re-DONE, backfill, cron)
+   * resolves the same authoritative claim and overwrites the field.
+   */
+  async synthesizeForTask(taskId: string): Promise<void> {
+    try {
+      const { sessionId, material } = await this.resolveClaimMaterial(taskId)
+      const claim = selectClaim(material)
+      await taskRepository.setClaimSnapshot(taskId, {
+        text: claim.text,
+        source: claim.source,
+        sessionId,
+        at: new Date(),
+      })
+    } catch (err) {
+      logger.warn(
+        `[claim-snapshot] failed to synthesize snapshot for task ${taskId}`,
+        err
+      )
+    }
+  },
+
+  /**
+   * LUM-573 one-time backfill: (re)synthesize the claim snapshot for every
+   * completed task. Unlike the run-summary backfill this is NOT gated on a
+   * missing session summary — the tasks the structural 573 bug surfaces are
+   * exactly those the LUM-576 backfill already summarized, so their snapshots
+   * must be computed from scratch. Idempotent and re-runnable.
+   */
+  async backfillAll(
+    opts: { dryRun?: boolean } = {}
+  ): Promise<{ candidateTasks: number; synthesized: number }> {
+    const taskIds = await sessionRepository.listCompletedTaskIds()
+    if (opts.dryRun) {
+      logger.info(
+        `[claim-snapshot backfill] dry-run — ${taskIds.length} completed task(s)`
+      )
+      return { candidateTasks: taskIds.length, synthesized: 0 }
+    }
+    let synthesized = 0
+    for (const taskId of taskIds) {
+      await this.synthesizeForTask(taskId)
+      synthesized++
+    }
+    logger.info(
+      `[claim-snapshot backfill] done — ${taskIds.length} task(s), ${synthesized} synthesized`
+    )
+    return { candidateTasks: taskIds.length, synthesized }
+  },
+}
