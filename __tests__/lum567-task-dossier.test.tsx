@@ -83,14 +83,17 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
 }))
 
 // ①②③ surface — mocked to a single marker carrying ONE cost-home node, so the
-// "cost total rendered once" assertion has a unique anchor that the ④ sub-section
-// mocks (below) do not reproduce.
+// "cost total rendered once" assertion has a unique anchor that the evidence
+// sub-section mocks (below) do not reproduce. LUM-572: the evidence sub-sections
+// now fold in via the `evidenceSlot` prop (the dossier passes them down rather
+// than rendering a separate ④ region), so the mock renders that slot.
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab',
   () => ({
-    AcceptanceTab: () => (
+    AcceptanceTab: (props: { evidenceSlot?: import('react').ReactNode }) => (
       <div data-testid='acceptance-surface'>
         <span data-testid='cost-home'>cost</span>
+        {props.evidenceSlot}
       </div>
     ),
   })

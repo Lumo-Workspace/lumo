@@ -85,18 +85,17 @@ function EvidenceSubSection({
 
 /**
  * The decision-first task dossier (LUM-567): one surface that replaces the
- * former Delivery / Memory / Lineage tabs. Reads top-down as decision → why:
+ * former Delivery / Memory / Lineage tabs. Reads top-down as decision → why.
  *
- *  ① decision head  ② claim vs verification  ③ cost & risk   — all default-open
- *  ④ evidence & causality (Agent runs / Lineage / Memory)     — default-collapsed
- *
- * ①②③ reuse {@link AcceptanceTab} unchanged — it is already ordered
- * decision-first (verdict header → claim → criteria → cost / struggle / trend),
- * and keeping it whole preserves the LUM-566 honest-report behaviour and tests.
- * The genuine new surface is ④: the three evidence sub-sections, collapsed by
- * default, each deep-linkable so an old Delivery / Lineage / Memory URL still
- * jumps to and expands its region (LUM-458). Run sessions are fetched once here
- * (single source) and shared with the decision head's count and the ④ runs list.
+ * The whole surface is {@link AcceptanceTab}: the decision head, claim, criteria
+ * and boundary panel lead, and everything after-the-fact folds into one
+ * collapsed "Run report" group — the honest-report metrics (cost / struggle /
+ * trend / history / removed) plus, via the `evidenceSlot` prop, the three
+ * evidence & causality sub-sections built here (LUM-572). The sub-sections stay
+ * deep-linkable: an old Delivery / Lineage / Memory URL opens the Run report
+ * group (`reportInitiallyOpen`) and expands its target region (LUM-458). Run
+ * sessions are fetched once here (single source) and shared with the decision
+ * head's count and the runs sub-section.
  */
 export function TaskDossier({
   taskId,
@@ -158,103 +157,105 @@ export function TaskDossier({
 
   const showEvidence = hasRuns || hasLineage || hasMemories
 
-  return (
-    <div className='space-y-6'>
-      {/* ①②③ — the decision-first acceptance surface, reused whole. */}
-      <AcceptanceTab
-        taskIdentifier={taskIdentifier}
-        enabled={enabled}
-        workspaceUrl={workspaceUrl}
-        members={members}
-        agentActors={agentActors}
-        onVerdictRecorded={onVerdictRecorded}
-        latestRunSummary={latestRunSummary}
-        {...(mentionSources ? { mentionSources } : {})}
-      />
-
-      {/* ④ evidence & causality — default-collapsed supporting evidence. */}
-      {showEvidence ? (
-        <div>
-          <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'dossier.evidence.title',
-              defaultMessage: 'Evidence & causality',
+  // LUM-572: the evidence & causality sub-sections fold into AcceptanceTab's
+  // Run report group (passed as evidenceSlot), so the whole after-the-fact
+  // record — metrics + evidence — sits under one collapsible bucket. A legacy
+  // deep link to an evidence sub-section opens that group on mount.
+  const evidence = showEvidence ? (
+    <div>
+      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+        {intl.formatMessage({
+          id: 'dossier.evidence.title',
+          defaultMessage: 'Evidence & causality',
+        })}
+        <InfoTooltip
+          label={intl.formatMessage({
+            id: 'dossier.evidence.tip',
+            defaultMessage:
+              'The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.',
+          })}
+        />
+      </div>
+      <div className='space-y-2'>
+        {hasRuns ? (
+          <EvidenceSubSection
+            section='runs'
+            title={intl.formatMessage({
+              id: 'dossier.section.runs',
+              defaultMessage: 'Agent runs',
             })}
-            <InfoTooltip
-              label={intl.formatMessage({
-                id: 'dossier.evidence.tip',
+            summary={intl.formatMessage(
+              {
+                id: 'dossier.section.runsSummary',
                 defaultMessage:
-                  'The supporting evidence behind the decision — agent runs, lineage causality and injected team memory. Collapsed by default; the decision and its verification lead.',
-              })}
+                  '{count, plural, one {# session} other {# sessions}}',
+              },
+              { count: runs.length }
+            )}
+            expanded={expanded.has('runs')}
+            onToggle={() => toggle('runs')}
+          >
+            <AgentRunsSection
+              taskId={taskId}
+              taskStatus={taskStatus}
+              agentStatus={agentStatus}
+              runs={runs}
             />
-          </div>
-          <div className='space-y-2'>
-            {hasRuns ? (
-              <EvidenceSubSection
-                section='runs'
-                title={intl.formatMessage({
-                  id: 'dossier.section.runs',
-                  defaultMessage: 'Agent runs',
-                })}
-                summary={intl.formatMessage(
-                  {
-                    id: 'dossier.section.runsSummary',
-                    defaultMessage:
-                      '{count, plural, one {# session} other {# sessions}}',
-                  },
-                  { count: runs.length }
-                )}
-                expanded={expanded.has('runs')}
-                onToggle={() => toggle('runs')}
-              >
-                <AgentRunsSection
-                  taskId={taskId}
-                  taskStatus={taskStatus}
-                  agentStatus={agentStatus}
-                  runs={runs}
-                />
-              </EvidenceSubSection>
-            ) : null}
+          </EvidenceSubSection>
+        ) : null}
 
-            {hasLineage ? (
-              <EvidenceSubSection
-                section='lineage'
-                title={intl.formatMessage({
-                  id: 'dossier.section.lineage',
-                  defaultMessage: 'Lineage causality',
-                })}
-                expanded={expanded.has('lineage')}
-                onToggle={() => toggle('lineage')}
-              >
-                <LineageTab
-                  taskIdentifier={taskIdentifier}
-                  enabled={enabled && expanded.has('lineage')}
-                  showCost={false}
-                />
-              </EvidenceSubSection>
-            ) : null}
+        {hasLineage ? (
+          <EvidenceSubSection
+            section='lineage'
+            title={intl.formatMessage({
+              id: 'dossier.section.lineage',
+              defaultMessage: 'Lineage causality',
+            })}
+            expanded={expanded.has('lineage')}
+            onToggle={() => toggle('lineage')}
+          >
+            <LineageTab
+              taskIdentifier={taskIdentifier}
+              enabled={enabled && expanded.has('lineage')}
+              showCost={false}
+            />
+          </EvidenceSubSection>
+        ) : null}
 
-            {hasMemories ? (
-              <EvidenceSubSection
-                section='memory'
-                title={intl.formatMessage({
-                  id: 'dossier.section.memory',
-                  defaultMessage: 'Injected team memory',
-                })}
-                expanded={expanded.has('memory')}
-                onToggle={() => toggle('memory')}
-              >
-                <MemoryTab
-                  scope='task'
-                  parentId={taskId}
-                  enabled={enabled && expanded.has('memory')}
-                  memberNames={memberNames}
-                />
-              </EvidenceSubSection>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+        {hasMemories ? (
+          <EvidenceSubSection
+            section='memory'
+            title={intl.formatMessage({
+              id: 'dossier.section.memory',
+              defaultMessage: 'Injected team memory',
+            })}
+            expanded={expanded.has('memory')}
+            onToggle={() => toggle('memory')}
+          >
+            <MemoryTab
+              scope='task'
+              parentId={taskId}
+              enabled={enabled && expanded.has('memory')}
+              memberNames={memberNames}
+            />
+          </EvidenceSubSection>
+        ) : null}
+      </div>
     </div>
+  ) : null
+
+  return (
+    <AcceptanceTab
+      taskIdentifier={taskIdentifier}
+      enabled={enabled}
+      workspaceUrl={workspaceUrl}
+      members={members}
+      agentActors={agentActors}
+      onVerdictRecorded={onVerdictRecorded}
+      latestRunSummary={latestRunSummary}
+      {...(mentionSources ? { mentionSources } : {})}
+      evidenceSlot={evidence}
+      reportInitiallyOpen={targetSection != null}
+    />
   )
 }
