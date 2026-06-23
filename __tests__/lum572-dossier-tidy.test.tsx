@@ -229,6 +229,26 @@ describe('boundary crossing row noise', () => {
     expect(screen.getByTestId('crossing-reversible-c1')).toBeInTheDocument()
     expect(screen.getByTestId('crossing-recurrence-c1')).toBeInTheDocument()
   })
+
+  it('boundary panel drops the warning chrome once every crossing is dispositioned', () => {
+    setStatus(statusView())
+
+    // A dispositioned-only panel (0 open) reads as a neutral disclosure row —
+    // no warning fill — so it stops shouting once everything is handled.
+    setCrossings([dispositioned])
+    const resolved = renderTab()
+    const resolvedRoot = resolved.container.querySelector(
+      '#boundary-crossings'
+    )!
+    expect(resolvedRoot.className).not.toMatch(/warning-subtle/)
+    resolved.unmount()
+
+    // An un-dispositioned (open) crossing brings the warning chrome back.
+    setCrossings([{ ...dispositioned, id: 'c9', disposition: null }])
+    const open = renderTab()
+    const openRoot = open.container.querySelector('#boundary-crossings')!
+    expect(openRoot.className).toMatch(/warning-subtle/)
+  })
 })
 
 describe('human judgment zone', () => {

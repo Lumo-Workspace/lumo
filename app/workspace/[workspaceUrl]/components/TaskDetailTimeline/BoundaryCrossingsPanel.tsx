@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
   ShieldAlert,
-  ShieldCheck,
   Lock,
   Unlock,
   FlagOff,
@@ -181,22 +180,29 @@ export function BoundaryCrossingsPanel({
     // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
     <div
       id='boundary-crossings'
-      className='rounded-lg border border-warning-border bg-warning-subtle/40 p-3.5'
+      className={`rounded-lg border p-3.5 ${
+        openCount > 0
+          ? 'border-warning-border bg-warning-subtle/40'
+          : 'border-border'
+      }`}
     >
-      {/* Always-visible summary/toggle header */}
+      {/* LUM-572: a neutral disclosure row matching the dossier's other folded
+          sections (chevron-left, xs muted). Only un-dispositioned crossings
+          (openCount > 0) escalate it — warning fill above, the danger badge and
+          warning-tinted category tags here; once everything is handled it reads
+          as plain "N dispositioned · 0 open" and stops shouting. */}
       <button
         type='button'
         data-testid='boundary-summary-toggle'
         aria-expanded={expanded}
         onClick={() => setExpanded(e => !e)}
-        className='mb-2 flex w-full items-center gap-2 text-left'
+        className='mb-2 flex w-full items-center gap-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground'
       >
-        {openCount === 0 ? (
-          <ShieldCheck className='size-4 shrink-0 text-success' aria-hidden />
-        ) : (
-          <ShieldAlert className='size-4 shrink-0 text-warning' aria-hidden />
-        )}
-        <span className='text-sm font-medium text-foreground'>
+        <ChevronRight
+          className={`size-3.5 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          aria-hidden
+        />
+        <span className={openCount > 0 ? 'text-foreground' : undefined}>
           {intl.formatMessage({
             id: 'boundary.panel.title',
             defaultMessage: 'Boundary crossings',
@@ -216,33 +222,30 @@ export function BoundaryCrossingsPanel({
         {categoryCounts.map(([cat, n]) => (
           <span
             key={cat}
-            className='rounded-md bg-warning-subtle px-1.5 py-0.5 text-[11px] font-medium text-warning'
+            className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+              openCount > 0
+                ? 'bg-warning-subtle text-warning'
+                : 'border border-border text-muted-foreground/80'
+            }`}
           >
             {boundaryCategoryLabel(cat, intl)} ×{n}
           </span>
         ))}
-        {openCount === 0 && (
-          <span className='text-[11px] text-muted-foreground/80'>
-            {intl.formatMessage(
-              {
-                id: 'boundary.panel.allCleared',
-                defaultMessage:
-                  '{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open',
-              },
-              { count: crossings.length }
-            )}
-          </span>
-        )}
-        <span className='ml-auto text-[11px] text-muted-foreground/80'>
-          {intl.formatMessage({
-            id: 'boundary.panel.confirmedStay',
-            defaultMessage: 'Confirmed crossings stay on record.',
-          })}
+        <span className='ml-auto text-[11px] text-muted-foreground/70'>
+          {openCount === 0
+            ? intl.formatMessage(
+                {
+                  id: 'boundary.panel.allCleared',
+                  defaultMessage:
+                    '{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open',
+                },
+                { count: crossings.length }
+              )
+            : intl.formatMessage({
+                id: 'boundary.panel.confirmedStay',
+                defaultMessage: 'Confirmed crossings stay on record.',
+              })}
         </span>
-        <ChevronRight
-          className={`size-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
-          aria-hidden
-        />
       </button>
 
       {expanded && (
