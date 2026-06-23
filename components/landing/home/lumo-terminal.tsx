@@ -77,7 +77,7 @@ export function LumoTerminal() {
   const [qTyped, setQTyped] = useState(0)
   const [revealed, setRevealed] = useState(0)
   const [reduced, setReduced] = useState(false)
-  const [started, setStarted] = useState(false)
+  const [inView, setInView] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -88,28 +88,32 @@ export function LumoTerminal() {
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  // Run the animation exactly once, when the terminal scrolls into view — no
-  // loop, so the eye can settle on the final transcript instead of chasing a
-  // repeating render.
+  // Track whether the terminal is on screen. Kept connected (not disconnected
+  // after first hit) so it re-fires every time the user scrolls back to it.
   useEffect(() => {
-    if (reduced || started) return
+    if (reduced) return
     const el = cardRef.current
     if (!el) return
     const io = new IntersectionObserver(
-      entries => {
-        if (entries.some(e => e.isIntersecting)) {
-          setStarted(true)
-          io.disconnect()
-        }
-      },
+      entries => setInView(entries.some(e => e.isIntersecting)),
       { threshold: 0.4 }
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [reduced, started])
+  }, [reduced])
 
+  // Replay from the top each time it (re-)enters view — one play per scroll-in,
+  // never an infinite loop while it sits on screen.
   useEffect(() => {
-    if (reduced || !started) return
+    if (inView) {
+      setQTyped(0)
+      setRevealed(0)
+    }
+  }, [inView])
+
+  // Drive the typewriter while in view; hold on the final frame when it ends.
+  useEffect(() => {
+    if (reduced || !inView) return
     if (qTyped < QUERY.length) {
       const t = setTimeout(() => setQTyped(qTyped + 1), TYPE_MS)
       return () => clearTimeout(t)
@@ -122,7 +126,7 @@ export function LumoTerminal() {
       return () => clearTimeout(t)
     }
     // Reached the end — hold on the final frame (no loop).
-  }, [qTyped, revealed, reduced, started])
+  }, [qTyped, revealed, reduced, inView])
 
   const query = reduced ? QUERY : QUERY.slice(0, qTyped)
   const typingQuery = !reduced && qTyped < QUERY.length
