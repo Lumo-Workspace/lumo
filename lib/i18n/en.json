@@ -743,6 +743,7 @@
   "acceptance.removed.atRound": "Removed at round {round}",
   "acceptance.removed.lastVerdict": "last verdict: {v}",
   "acceptance.removed.runsPreserved": "{n} verification run(s) preserved",
+  "acceptance.runReport.title": "Run report",
   "acceptance.result.pass": "Passed",
   "acceptance.result.fail": "Failed",
   "acceptance.result.awaitingHuman": "Awaiting human verdict",

@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "Phiên chạy agent",
   "dossier.section.runsSummary": "{count, plural, other {# phiên}}",
   "dossier.section.lineage": "Nhân quả lineage",
-  "dossier.section.memory": "Bộ nhớ nhóm được tiêm vào"
+  "dossier.section.memory": "Bộ nhớ nhóm được tiêm vào",
+  "acceptance.runReport.title": "Báo cáo chạy"
 }

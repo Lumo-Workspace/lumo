@@ -70,7 +70,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 
@@ -172,13 +172,17 @@ function renderTab() {
     error: null,
     refresh: jest.fn(),
   })
-  return render(
+  const result = render(
     <AcceptanceTab
       taskIdentifier='LUM-522'
       enabled
       onVerdictRecorded={jest.fn()}
     />
   )
+  // LUM-572: the verification record now lives inside the collapsed "Run report"
+  // group — expand it so the round history is in the DOM to assert against.
+  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  return result
 }
 
 beforeEach(() => jest.clearAllMocks())

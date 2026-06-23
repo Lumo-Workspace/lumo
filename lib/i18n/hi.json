@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "एजेंट रन",
   "dossier.section.runsSummary": "{count, plural, one {# सत्र} other {# सत्र}}",
   "dossier.section.lineage": "Lineage कारणता",
-  "dossier.section.memory": "इंजेक्ट की गई टीम मेमोरी"
+  "dossier.section.memory": "इंजेक्ट की गई टीम मेमोरी",
+  "acceptance.runReport.title": "रन रिपोर्ट"
 }

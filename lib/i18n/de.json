@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "Agent-Läufe",
   "dossier.section.runsSummary": "{count, plural, one {# Sitzung} other {# Sitzungen}}",
   "dossier.section.lineage": "Lineage-Kausalität",
-  "dossier.section.memory": "Eingespeister Team-Speicher"
+  "dossier.section.memory": "Eingespeister Team-Speicher",
+  "acceptance.runReport.title": "Ausführungsbericht"
 }

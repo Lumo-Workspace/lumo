@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "Agent 运行",
   "dossier.section.runsSummary": "{count, plural, other {# 个会话}}",
   "dossier.section.lineage": "Lineage 因果",
-  "dossier.section.memory": "注入的团队记忆"
+  "dossier.section.memory": "注入的团队记忆",
+  "acceptance.runReport.title": "运行报告"
 }

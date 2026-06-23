@@ -1125,6 +1125,10 @@ export function AcceptanceTab({
   })
   const [submitting, setSubmitting] = useState(false)
   const [removedOpen, setRemovedOpen] = useState(false)
+  // LUM-572: the trailing report sections (history / cost / struggle / trend /
+  // removed) fold into one collapsed "Run report" group so the surface reads
+  // decision → criteria → boundary, with the after-the-fact report tucked away.
+  const [runReportOpen, setRunReportOpen] = useState(false)
   // Machine zone fold (LUM-451). null = follow the smart default (collapsed when
   // every machine criterion passes); an explicit boolean is the user's toggle.
   const [machineOpen, setMachineOpen] = useState<boolean | null>(null)
@@ -1404,15 +1408,15 @@ export function AcceptanceTab({
                     'Human criteria need a person to judge and sign off — they are not machine-checkable.',
                 })}
               />
-              <span className='ml-auto inline-flex items-center gap-1 text-muted-foreground/70'>
+              <span
+                className='ml-auto text-muted-foreground/70'
+                title={intl.formatMessage({
+                  id: 'acceptance.zone.humanQuotaTip',
+                  defaultMessage:
+                    'A task can have at most 7 human criteria, to keep human review focused.',
+                })}
+              >
                 {humanCriteria.length}
-                <InfoTooltip
-                  label={intl.formatMessage({
-                    id: 'acceptance.zone.humanQuotaTip',
-                    defaultMessage:
-                      'A task can have at most 7 human criteria, to keep human review focused.',
-                  })}
-                />
               </span>
             </div>
             {humanCriteria.length > 0 ? (
@@ -1451,100 +1455,125 @@ export function AcceptanceTab({
         }}
       />
 
-      <VerificationHistory data={data} />
+      {/* LUM-572 · Run report — the after-the-fact record, folded into one
+          collapsed group so the surface above reads decision → criteria →
+          boundary, with history / cost / struggle / trend / removed tucked away. */}
+      <div>
+        <button
+          type='button'
+          onClick={() => setRunReportOpen(o => !o)}
+          aria-expanded={runReportOpen}
+          className='flex w-full items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
+        >
+          <ChevronRight
+            className={`size-3.5 transition-transform ${runReportOpen ? 'rotate-90' : ''}`}
+            aria-hidden
+          />
+          {intl.formatMessage({
+            id: 'acceptance.runReport.title',
+            defaultMessage: 'Run report',
+          })}
+        </button>
+        {runReportOpen ? (
+          <div className='mt-3 space-y-4'>
+            <VerificationHistory data={data} />
 
-      {/* LUM-560/561/562 honest-report sections — the costs, the struggle the
+            {/* LUM-560/561/562 honest-report sections — the costs, the struggle the
           all-pass count would wipe, and the movement across attempts. Mirror the
           Cost / Struggle / Trend blocks `lumo task status` prints, same-source so
           the two surfaces cannot drift. */}
-      <CostSection data={data} />
-      <StruggleTrailSection data={data} />
-      <TrendSection data={data} />
+            <CostSection data={data} />
+            <StruggleTrailSection data={data} />
+            <TrendSection data={data} />
 
-      {/* C — Removed criteria section */}
-      {data.removedCriteria.length > 0 ? (
-        <div>
-          <button
-            type='button'
-            onClick={() => setRemovedOpen(o => !o)}
-            aria-expanded={removedOpen}
-            className='mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
-          >
-            <Archive className='size-3.5' aria-hidden />
-            {intl.formatMessage({
-              id: 'acceptance.removed.title',
-              defaultMessage: 'Removed · kept for audit',
-            })}
-            <span className='text-muted-foreground/70'>
-              ({data.removedCriteria.length})
-            </span>
-            <ChevronRight
-              className={`size-3.5 transition-transform ${removedOpen ? 'rotate-90' : ''}`}
-              aria-hidden
-            />
-          </button>
-          {removedOpen ? (
-            <div className='overflow-hidden rounded-lg border border-border bg-muted/30'>
-              {data.removedCriteria.map((rc: RemovedCriterionView) => (
-                <div
-                  key={rc.id}
-                  className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'
+            {/* C — Removed criteria section */}
+            {data.removedCriteria.length > 0 ? (
+              <div>
+                <button
+                  type='button'
+                  onClick={() => setRemovedOpen(o => !o)}
+                  aria-expanded={removedOpen}
+                  className='mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
                 >
-                  <Trash2
-                    className='mt-0.5 size-3.5 text-muted-foreground shrink-0'
+                  <Archive className='size-3.5' aria-hidden />
+                  {intl.formatMessage({
+                    id: 'acceptance.removed.title',
+                    defaultMessage: 'Removed · kept for audit',
+                  })}
+                  <span className='text-muted-foreground/70'>
+                    ({data.removedCriteria.length})
+                  </span>
+                  <ChevronRight
+                    className={`size-3.5 transition-transform ${removedOpen ? 'rotate-90' : ''}`}
                     aria-hidden
                   />
-                  <div className='min-w-0 flex-1'>
-                    <div className='text-[13px] leading-snug text-muted-foreground line-through'>
-                      {rc.statement}
-                    </div>
-                    <div className='mt-1.5 flex flex-wrap gap-1.5 text-[11px]'>
-                      {rc.removedAtRound != null ? (
-                        <span className='rounded-sm border border-border px-1.5 py-0.5 font-medium text-muted-foreground'>
-                          {intl.formatMessage(
-                            {
-                              id: 'acceptance.removed.atRound',
-                              defaultMessage: 'Removed at round {round}',
-                            },
-                            { round: rc.removedAtRound }
-                          )}
-                        </span>
-                      ) : null}
-                      {rc.lastVerdict ? (
-                        <span
-                          className={`rounded-sm px-1.5 py-0.5 font-medium ${rc.lastVerdict.verdict === 'FAIL' ? 'bg-danger-subtle border border-danger-border text-foreground' : 'border border-border text-muted-foreground'}`}
-                        >
-                          {intl.formatMessage(
-                            {
-                              id: 'acceptance.removed.lastVerdict',
-                              defaultMessage: 'last verdict: {v}',
-                            },
-                            { v: rc.lastVerdict.verdict }
-                          )}
-                        </span>
-                      ) : null}
-                      <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
-                        {rc.verifierType}
-                      </span>
-                    </div>
-                    {rc.runCount > 0 ? (
-                      <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
-                        {intl.formatMessage(
-                          {
-                            id: 'acceptance.removed.runsPreserved',
-                            defaultMessage: '{n} verification run(s) preserved',
-                          },
-                          { n: rc.runCount }
-                        )}
+                </button>
+                {removedOpen ? (
+                  <div className='overflow-hidden rounded-lg border border-border bg-muted/30'>
+                    {data.removedCriteria.map((rc: RemovedCriterionView) => (
+                      <div
+                        key={rc.id}
+                        className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'
+                      >
+                        <Trash2
+                          className='mt-0.5 size-3.5 text-muted-foreground shrink-0'
+                          aria-hidden
+                        />
+                        <div className='min-w-0 flex-1'>
+                          <div className='text-[13px] leading-snug text-muted-foreground line-through'>
+                            {rc.statement}
+                          </div>
+                          <div className='mt-1.5 flex flex-wrap gap-1.5 text-[11px]'>
+                            {rc.removedAtRound != null ? (
+                              <span className='rounded-sm border border-border px-1.5 py-0.5 font-medium text-muted-foreground'>
+                                {intl.formatMessage(
+                                  {
+                                    id: 'acceptance.removed.atRound',
+                                    defaultMessage: 'Removed at round {round}',
+                                  },
+                                  { round: rc.removedAtRound }
+                                )}
+                              </span>
+                            ) : null}
+                            {rc.lastVerdict ? (
+                              <span
+                                className={`rounded-sm px-1.5 py-0.5 font-medium ${rc.lastVerdict.verdict === 'FAIL' ? 'bg-danger-subtle border border-danger-border text-foreground' : 'border border-border text-muted-foreground'}`}
+                              >
+                                {intl.formatMessage(
+                                  {
+                                    id: 'acceptance.removed.lastVerdict',
+                                    defaultMessage: 'last verdict: {v}',
+                                  },
+                                  { v: rc.lastVerdict.verdict }
+                                )}
+                              </span>
+                            ) : null}
+                            <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
+                              {rc.verifierType}
+                            </span>
+                          </div>
+                          {rc.runCount > 0 ? (
+                            <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
+                              {intl.formatMessage(
+                                {
+                                  id: 'acceptance.removed.runsPreserved',
+                                  defaultMessage:
+                                    '{n} verification run(s) preserved',
+                                },
+                                { n: rc.runCount }
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    ) : null}
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
