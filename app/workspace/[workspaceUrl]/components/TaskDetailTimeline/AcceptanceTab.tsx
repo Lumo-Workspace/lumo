@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import {
   ClipboardCheck,
@@ -51,6 +51,13 @@ interface AcceptanceTabProps {
   mentionSources?: MentionSources
   /** LUM-481 — latest run summary, surfaced on the header verdict card. */
   latestRunSummary?: string | null
+  /** LUM-572 — the dossier's evidence & causality sub-sections (agent runs,
+   *  lineage, memory). Rendered at the tail of the Run report group so the whole
+   *  after-the-fact record lives under one collapsible bucket. */
+  evidenceSlot?: ReactNode
+  /** Open the Run report group on mount — e.g. a legacy deep link targets an
+   *  evidence sub-section nested inside it. */
+  reportInitiallyOpen?: boolean
 }
 
 /** Records a human verdict for a specific criterion (criterionIds identifies
@@ -1117,6 +1124,8 @@ export function AcceptanceTab({
   onVerdictRecorded,
   mentionSources,
   latestRunSummary,
+  evidenceSlot,
+  reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh } = useTaskStatus({
@@ -1128,7 +1137,7 @@ export function AcceptanceTab({
   // LUM-572: the trailing report sections (history / cost / struggle / trend /
   // removed) fold into one collapsed "Run report" group so the surface reads
   // decision → criteria → boundary, with the after-the-fact report tucked away.
-  const [runReportOpen, setRunReportOpen] = useState(false)
+  const [runReportOpen, setRunReportOpen] = useState(reportInitiallyOpen)
   // Machine zone fold (LUM-451). null = follow the smart default (collapsed when
   // every machine criterion passes); an explicit boolean is the user's toggle.
   const [machineOpen, setMachineOpen] = useState<boolean | null>(null)
@@ -1596,6 +1605,11 @@ export function AcceptanceTab({
                 ) : null}
               </div>
             ) : null}
+
+            {/* LUM-572: the evidence & causality sub-sections (agent runs,
+                lineage, injected memory) fold in at the tail, so the whole
+                after-the-fact record sits under one Run report group. */}
+            {evidenceSlot}
           </div>
         ) : null}
       </div>
