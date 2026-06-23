@@ -230,3 +230,80 @@ describe('boundary crossing row noise', () => {
     expect(screen.getByTestId('crossing-recurrence-c1')).toBeInTheDocument()
   })
 })
+
+describe('human judgment zone', () => {
+  function humanCriterion(
+    over: Record<string, unknown> = {}
+  ): Record<string, unknown> {
+    return {
+      id: 'h1',
+      statement: 'reads naturally',
+      verifierType: 'HUMAN',
+      checkpointer: null,
+      evidenceRequired: false,
+      judgeSteps: null,
+      source: 'AGENT_DRAFT',
+      addedAtRound: 0,
+      latestVerdict: null,
+      machinePassed: false,
+      verdictStale: false,
+      checkMismatch: false,
+      changeState: null,
+      changedAtRound: null,
+      lastEdit: null,
+      ...over,
+    }
+  }
+
+  const passedVerdict = {
+    round: 1,
+    verdict: 'PASS',
+    verifierType: 'HUMAN',
+    evidencePointer: null,
+    rejectionReason: null,
+    rejectionReasonEnum: null,
+    recordedAt: '2026-06-10T10:00:00.000Z',
+  }
+
+  it('human judgment zone smart-collapses when all human criteria are resolved', () => {
+    // Every human criterion has a PASS → the zone defaults collapsed, mirroring
+    // the machine zone's "all verified → folded" smart default.
+    setStatus(
+      statusView({
+        criteria: [
+          humanCriterion({ id: 'h1', latestVerdict: passedVerdict }),
+        ] as never,
+        nextActions: [],
+      })
+    )
+    const { unmount } = renderTab()
+    const toggle = screen.getByRole('button', {
+      name: /Needs human judgment/i,
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('reads naturally')).toBeNull()
+    // The header toggle flips it open.
+    fireEvent.click(toggle)
+    expect(screen.getByText('reads naturally')).toBeInTheDocument()
+    unmount()
+
+    // An unresolved human criterion (no PASS) keeps the zone open by default.
+    setStatus(
+      statusView({
+        criteria: [
+          humanCriterion({
+            id: 'h2',
+            statement: 'still pending judgment',
+            latestVerdict: null,
+          }),
+        ] as never,
+      })
+    )
+    renderTab()
+    const toggle2 = screen.getByRole('button', {
+      name: /Needs human judgment/i,
+    })
+    expect(toggle2).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('still pending judgment')).toBeInTheDocument()
+  })
+})

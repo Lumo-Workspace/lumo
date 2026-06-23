@@ -1132,6 +1132,10 @@ export function AcceptanceTab({
   // Machine zone fold (LUM-451). null = follow the smart default (collapsed when
   // every machine criterion passes); an explicit boolean is the user's toggle.
   const [machineOpen, setMachineOpen] = useState<boolean | null>(null)
+  // LUM-572: the human zone folds on the same smart-default contract as the
+  // machine zone — null = follow the default (collapsed once every human
+  // criterion has a PASS); an explicit boolean is the user's manual toggle.
+  const [humanOpen, setHumanOpen] = useState<boolean | null>(null)
   const [mutating, setMutating] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
@@ -1274,6 +1278,12 @@ export function AcceptanceTab({
   const allMachineVerified =
     machineCriteria.length > 0 && machineVerified === machineCriteria.length
   const machineZoneOpen = machineOpen ?? !allMachineVerified
+  // LUM-572: mirror the smart default for the human zone — collapse once every
+  // human criterion carries a PASS; any unresolved one keeps it open by default.
+  const allHumanResolved =
+    humanCriteria.length > 0 &&
+    humanCriteria.every(c => isPass(c.latestVerdict?.verdict))
+  const humanZoneOpen = humanOpen ?? !allHumanResolved
 
   return (
     <div className='space-y-5 py-1'>
@@ -1397,10 +1407,21 @@ export function AcceptanceTab({
 
           <div>
             <div className='mb-1.5 flex items-center gap-2 text-[11px] font-medium text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.zone.human',
-                defaultMessage: 'Needs human judgment',
-              })}
+              <button
+                type='button'
+                onClick={() => setHumanOpen(!humanZoneOpen)}
+                aria-expanded={humanZoneOpen}
+                className='flex items-center gap-1.5 hover:text-foreground'
+              >
+                <ChevronRight
+                  className={`size-3 transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+                  aria-hidden
+                />
+                {intl.formatMessage({
+                  id: 'acceptance.zone.human',
+                  defaultMessage: 'Needs human judgment',
+                })}
+              </button>
               <InfoTooltip
                 label={intl.formatMessage({
                   id: 'acceptance.zone.humanTip',
@@ -1419,26 +1440,30 @@ export function AcceptanceTab({
                 {humanCriteria.length}
               </span>
             </div>
-            {humanCriteria.length > 0 ? (
-              <div className='overflow-hidden rounded-lg border border-border'>
-                {humanCriteria.map(c => (
-                  <CriterionRow
-                    key={c.id}
-                    c={c}
-                    interactive={interactive}
-                    submitting={submitting}
-                    onVerdict={submitVerdict}
-                    editable={canEdit}
-                    onSaveStatement={editStatement}
-                    onDelete={deleteCriterion}
-                    mutating={mutating}
-                    repoWebUrl={repoWebUrl}
-                  />
-                ))}
-              </div>
-            ) : null}
-            {canEdit ? (
-              <AddCriterionRow onAdd={addCriterion} mutating={mutating} />
+            {humanZoneOpen ? (
+              <>
+                {humanCriteria.length > 0 ? (
+                  <div className='overflow-hidden rounded-lg border border-border'>
+                    {humanCriteria.map(c => (
+                      <CriterionRow
+                        key={c.id}
+                        c={c}
+                        interactive={interactive}
+                        submitting={submitting}
+                        onVerdict={submitVerdict}
+                        editable={canEdit}
+                        onSaveStatement={editStatement}
+                        onDelete={deleteCriterion}
+                        mutating={mutating}
+                        repoWebUrl={repoWebUrl}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {canEdit ? (
+                  <AddCriterionRow onAdd={addCriterion} mutating={mutating} />
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>
