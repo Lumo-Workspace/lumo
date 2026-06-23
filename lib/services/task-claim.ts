@@ -5,9 +5,12 @@
  * module so it stays unit-testable without dragging in the verification
  * service's heavy import chain (github/octokit ESM, LUM jest trap).
  *
- * Sourced from the latest session — the LLM-synthesized run summary (LUM-481),
- * else the raw per-turn STOP digest — the SAME two-layer rule the web delivery
- * card uses for `latestRunSummary` (DeliveryTab), so the CLI claim and the web
+ * Sourced (LUM-573) from the AUTHORITATIVE session for the task — the session
+ * carrying a MERGED lineage edge (the delivery run), frozen at DONE/idle into a
+ * task-level snapshot — else, before a snapshot exists, the latest session's
+ * material. Within a session the text follows the SAME two-layer rule the web
+ * delivery card uses for `latestRunSummary` (the LLM-synthesized run summary
+ * (LUM-481), else the raw per-turn STOP digest), so the CLI claim and the web
  * claim are same-source and cannot drift. A claim is an unverified self-report
  * (estimate-tier provenance), never a measurement.
  */
@@ -47,4 +50,36 @@ export function selectClaim(
     .join(' · ')
   if (digest) return { text: digest, source: 'DIGEST' }
   return { text: null, source: null }
+}
+
+/**
+ * The frozen task-level claim snapshot (LUM-573), as stored on the Task. A
+ * `synthesized` snapshot is authoritative — its `text` may legitimately be null
+ * (the delivery session had no material), which is a fail-closed answer, NOT a
+ * cue to fall back to the live latest-session claim.
+ */
+export interface ClaimSnapshot {
+  text: string | null
+  source: TaskClaim['source']
+  /** True once the snapshot has been synthesized & frozen (DONE/idle). */
+  synthesized: boolean
+}
+
+/**
+ * Resolve the claim the acceptance read model exposes (LUM-573), degrading to a
+ * field read: when the task's snapshot has been synthesized, return it verbatim
+ * (the authoritative, merged-session claim) — no cross-session live query, and
+ * a null snapshot text stays null (fail-closed). Only when no snapshot exists
+ * yet (e.g. an in-progress task) does it fall back to the live latest-session
+ * material via {@link selectClaim}. Pure — same input, same output — so the CLI
+ * and web claim stay same-source through `TaskAcceptanceStatus.claim`.
+ */
+export function resolveClaimForReadModel(
+  snapshot: ClaimSnapshot | null,
+  liveMaterial: { runSummary: string | null; turnSummaries: string[] } | null
+): TaskClaim {
+  if (snapshot?.synthesized) {
+    return { text: snapshot.text, source: snapshot.source }
+  }
+  return selectClaim(liveMaterial)
 }

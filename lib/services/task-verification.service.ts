@@ -14,7 +14,10 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { selectClaim, type TaskClaim } from '@/lib/services/task-claim'
+import {
+  resolveClaimForReadModel,
+  type TaskClaim,
+} from '@/lib/services/task-claim'
 import {
   deriveSendBackResolution,
   type SendBackResolution,
@@ -620,6 +623,7 @@ export const taskVerificationService = {
       actuals,
       perSessionCost,
       latestRunClaim,
+      claimSnapshot,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -637,9 +641,12 @@ export const taskVerificationService = {
       // source `loadActuals` totals, so Σ reconciles with the Cost-section total.
       retrospectiveRepository.loadPerSessionCost(taskId),
       // LUM-564: the latest session's run-claim material (LLM run summary +
-      // STOP turn digest) — the SAME session the web card surfaces as runs[0],
-      // so the claim column is same-source with web's latestRunSummary.
+      // STOP turn digest) — the live fallback used until the LUM-573 snapshot is
+      // frozen (e.g. an in-progress task).
       sessionRepository.loadLatestRunClaim(taskId),
+      // LUM-573: the frozen task-level claim snapshot (authoritative, merged
+      // session). When present, the claim degrades to a field read of this.
+      taskRepository.loadClaimSnapshot(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -859,11 +866,22 @@ export const taskVerificationService = {
       },
     }
 
-    // LUM-564 claim: the agent's self-report from the latest session, selected
-    // by the same two-layer rule the web card uses for latestRunSummary (LLM
-    // run summary, else the STOP turn digest) — same-source, no drift. Built
-    // here so the read model carries it beside the measured verdict.
-    const claim = selectClaim(
+    // LUM-573 claim: degrade to a field read of the frozen task-level snapshot
+    // (the authoritative, merged-lineage session — no longer the trailing
+    // exploration session the old latest-session rule echoed). Before a snapshot
+    // is frozen (e.g. an in-progress task) it falls back to the live
+    // latest-session material under the same two-layer rule (LUM-564), so web
+    // (HonestReportSections) and CLI (task-status) stay same-source through
+    // TaskAcceptanceStatus.claim. A synthesized null snapshot stays null
+    // (fail-closed), never resurrecting the buggy latest-session claim.
+    const claim = resolveClaimForReadModel(
+      claimSnapshot && claimSnapshot.claimSnapshotAt != null
+        ? {
+            text: claimSnapshot.claimSnapshot,
+            source: claimSnapshot.claimSnapshotSource as TaskClaim['source'],
+            synthesized: true,
+          }
+        : null,
       latestRunClaim
         ? {
             runSummary: latestRunClaim.runSummary,

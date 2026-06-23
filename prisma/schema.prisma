@@ -542,6 +542,22 @@ model Task {
   updatedAt         DateTime     @updatedAt
   dueDate           DateTime?
 
+  // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
+  // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
+  // one carrying a MERGED lineage edge (DB fact of delivery), else the latest
+  // session as fallback — via the same two-layer selectClaim rule. The
+  // acceptance read path degrades to a field read of these columns (no
+  // cross-session live query). `claimSnapshotAt` non-null is the "synthesized"
+  // watermark: a null `claimSnapshot` text under a set `claimSnapshotAt` is an
+  // authoritative fail-closed answer (no material), not "never synthesized".
+  // `claimSnapshotSource` mirrors TaskClaim.source ('RUN_SUMMARY' | 'DIGEST').
+  // `claimSnapshotSessionId` is an audit pointer (which session was chosen); no
+  // FK, since the source session may be pruned independently.
+  claimSnapshot          String?
+  claimSnapshotSource    String?
+  claimSnapshotSessionId String?
+  claimSnapshotAt        DateTime?
+
   project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team       Team               @relation(fields: [teamId], references: [id])
   sprint     Sprint?            @relation(fields: [sprintId], references: [id], onDelete: SetNull)

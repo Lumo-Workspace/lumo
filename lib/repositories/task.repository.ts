@@ -298,6 +298,50 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * LUM-573: freeze the synthesized task-level claim snapshot. `at` (non-null)
+   * is the "snapshot synthesized" watermark the read path uses to decide a
+   * field read vs the live latest-session fallback — so a null `text` (the
+   * delivery session had no material) is still an authoritative, fail-closed
+   * answer once `claimSnapshotAt` is set, not a cue to fall back.
+   */
+  async setClaimSnapshot(
+    taskId: string,
+    snapshot: {
+      text: string | null
+      source: 'RUN_SUMMARY' | 'DIGEST' | null
+      sessionId: string | null
+      at: Date
+    }
+  ) {
+    return prisma.task.update({
+      where: { id: taskId },
+      data: {
+        claimSnapshot: snapshot.text,
+        claimSnapshotSource: snapshot.source,
+        claimSnapshotSessionId: snapshot.sessionId,
+        claimSnapshotAt: snapshot.at,
+      },
+      select: { id: true },
+    })
+  },
+
+  /**
+   * LUM-573: the frozen claim snapshot for the read model. `synthesizedAt` is
+   * null when no snapshot has been frozen yet (the read path then falls back to
+   * the live latest-session claim). Returns null only when the task is gone.
+   */
+  async loadClaimSnapshot(taskId: string) {
+    return prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        claimSnapshot: true,
+        claimSnapshotSource: true,
+        claimSnapshotAt: true,
+      },
+    })
+  },
+
   /** Find a task by ID with update-related relations (project + team). */
   async findForUpdate(id: string) {
     return prisma.task.findUnique({

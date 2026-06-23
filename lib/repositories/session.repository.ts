@@ -745,6 +745,9 @@ export const sessionRepository = {
       where: { taskId },
       orderBy: { lastActivityAt: 'desc' },
       select: {
+        // LUM-573: id so the snapshot synthesizer can record which session it
+        // selected (provenance) on the fallback (no-MERGED) path.
+        id: true,
         runSummary: true,
         events: {
           where: {
@@ -756,6 +759,51 @@ export const sessionRepository = {
         },
       },
     })
+  },
+
+  /**
+   * LUM-573: run-claim material for SPECIFIC sessions (the authoritative-session
+   * resolver picks the ids from MERGED lineage edges; this loads each one's LLM
+   * runSummary + STOP turn digest), newest-by-activity first. Mirrors
+   * loadLatestRunClaim's per-session select so the same two-layer claim rule
+   * applies, but here the RESOLVER — not lastActivityAt across all sessions —
+   * decides which session's claim becomes the task's.
+   */
+  async loadRunClaimForSessions(sessionIds: string[]) {
+    if (sessionIds.length === 0) return []
+    return prisma.session.findMany({
+      where: { id: { in: sessionIds } },
+      orderBy: { lastActivityAt: 'desc' },
+      select: {
+        id: true,
+        lastActivityAt: true,
+        runSummary: true,
+        events: {
+          where: {
+            type: { in: ['STOP', 'STOP_FAILURE'] },
+            turnSummary: { not: null },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { turnSummary: true },
+        },
+      },
+    })
+  },
+
+  /**
+   * LUM-573: distinct ids of all completed (DONE/IN_REVIEW) tasks — the work
+   * list for the claim-snapshot backfill. Unlike
+   * `listCompletedTaskIdsMissingRunSummary`, this is NOT gated on a session
+   * missing its runSummary: the snapshot must be (re)synthesized for tasks whose
+   * sessions were ALREADY summarized by the LUM-576 backfill, since those are
+   * exactly the tasks the structural 573 bug now surfaces.
+   */
+  async listCompletedTaskIds(): Promise<string[]> {
+    const rows = await prisma.task.findMany({
+      where: { status: { in: ['DONE', 'IN_REVIEW'] } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
   },
 
   /**

@@ -441,6 +441,28 @@ export const lineageEdgeRepository = {
   },
 
   /**
+   * LUM-573: distinct session ids that produced a MERGED-stamped lineage edge
+   * for a task — the DB fact of delivery (a session that injected context for
+   * the work that merged), as opposed to a trailing exploration/wrap-up session
+   * that injected nothing and so carries no edge. Used to anchor the task's
+   * claim to the delivery session instead of the latest-by-activity one. Empty
+   * when no session edge is MERGED yet (pre-merge, or the outcome stamp / cron
+   * sweep hasn't run); the caller falls back to the latest session.
+   */
+  async findMergedSessionIds(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<string[]> {
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.findMany({
+      where: { taskId, outcome: 'MERGED', sessionId: { not: null } },
+      select: { sessionId: true },
+      distinct: ['sessionId'],
+    })
+    return rows.map(r => r.sessionId).filter((s): s is string => s !== null)
+  },
+
+  /**
    * Of the given sessions, which already carry a usage vote (any usedAt-stamped
    * edge)? The automatic audit skips these — a human vote (or a prior auto pass)
    * is authoritative. This is the LUM-314 idempotency guard.
