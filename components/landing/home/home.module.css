@@ -511,10 +511,18 @@
   background: #f4f0e8;
 }
 .termBarLabel {
-  margin-left: 8px;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text-mono);
+}
+.termBarMark {
+  display: block;
+  flex: none;
+  color: var(--ink);
 }
 .termBody {
   padding: 22px 24px 26px;
@@ -524,55 +532,78 @@
   /* Stable height so the card doesn't jump as lines stream in. */
   min-height: 420px;
 }
-.termLine {
+/* You point the agent at a task */
+.termInputRow {
   display: flex;
   align-items: baseline;
   gap: 9px;
+  margin: 0 0 6px;
   white-space: pre-wrap;
   word-break: break-word;
 }
-.termPrompt {
+.termCaret {
   color: var(--accent);
   font-weight: 600;
   flex: none;
 }
-.termWho {
-  flex: none;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 5px;
-  transform: translateY(-1px);
-  background: #efe7da;
-  color: var(--text-2);
-}
-.termWhoAgent {
-  background: #f3e2d8;
-  color: var(--accent);
-}
-.termUser .termText {
+.termQuery {
   color: var(--ink);
   font-weight: 600;
-}
-.termAgent .termText {
-  color: var(--text-2);
-}
-.termText {
   white-space: pre-wrap;
 }
-.termCmdLine .termText {
+
+/* Agent narration */
+.termSay {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  color: var(--text-2);
+  line-height: 1.7;
+  margin: 14px 0 4px;
+}
+.termDot {
+  flex: none;
+  color: var(--accent);
+  font-size: 11px;
+  transform: translateY(-1px);
+}
+
+/* A lumo CLI tool call + its result block */
+.termTool {
+  margin: 4px 0 10px;
+}
+.termBash {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
   color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
-.termOut .termText {
+.termBashKw {
+  color: var(--text-mut);
+}
+.termOutBlock {
+  display: flex;
+  gap: 8px;
+  margin: 3px 0 0 6px;
+}
+.termConnector {
+  flex: none;
+  color: var(--text-mono);
+}
+.termOutLines {
+  min-width: 0;
   color: var(--text-3);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
-.termComment .termText {
-  color: var(--text-faint);
-  font-style: italic;
-}
-.termOk .termText {
+.termOkLine {
   color: var(--good);
+}
+.termMore {
+  color: var(--text-mono);
+  font-style: italic;
 }
 .termCursor {
   display: inline-block;
