@@ -115,6 +115,31 @@ describe('resolveClaimMaterial — lineage-MERGED session selection (C1)', () =>
     const res3 = await taskClaimSnapshotService.resolveClaimMaterial('task-3')
     expect(res3.sessionId).toBe('b')
     expect(res3.material?.runSummary).toBe('did the work')
+
+    // Regression guard (LUM-49 class): a merged session exists but is EMPTY
+    // (no runSummary, no turn digest) while the latest session HAS a faithful
+    // summary. lineage MERGED is an imperfect delivery signal — an empty merged
+    // session must NOT blank a good latest claim to null. Fall back to latest.
+    jest.clearAllMocks()
+    findMergedSessionIds.mockResolvedValue(['empty-merged'])
+    loadRunClaimForSessions.mockResolvedValue([
+      {
+        id: 'empty-merged',
+        lastActivityAt: new Date('2026-06-22T10:00:00Z'),
+        runSummary: null,
+        events: [],
+      },
+    ])
+    loadLatestRunClaim.mockResolvedValue({
+      id: 'latest-good',
+      runSummary: 'renamed the Slack Context tab to Context across all locales',
+      events: [],
+    })
+    const res4 = await taskClaimSnapshotService.resolveClaimMaterial('task-4')
+    expect(res4.sessionId).toBe('latest-good')
+    expect(res4.material?.runSummary).toBe(
+      'renamed the Slack Context tab to Context across all locales'
+    )
   })
 })
 
