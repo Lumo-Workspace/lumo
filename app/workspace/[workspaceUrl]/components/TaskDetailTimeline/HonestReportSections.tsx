@@ -109,10 +109,10 @@ export function ClaimVsVerification({
           defaultMessage: 'Claim vs verification',
         })}
       </SectionTitle>
-      <div className='grid gap-3 sm:grid-cols-2'>
+      <div className='grid gap-2.5 sm:grid-cols-2'>
         {/* Claim (声称) — the agent self-report, estimate-tier. */}
-        <div className='rounded-lg border border-border px-3 py-2.5'>
-          <div className='mb-1 flex items-center gap-1.5'>
+        <div className='rounded-lg border border-border px-3 py-2'>
+          <div className='mb-0.5 flex items-center gap-1.5'>
             <span className='text-[11px] font-medium text-foreground'>
               {intl.formatMessage({
                 id: 'acceptance.claim.claimLabel',
@@ -163,8 +163,8 @@ export function ClaimVsVerification({
         </div>
 
         {/* Verification (核验) — the measured verdict. */}
-        <div className='rounded-lg border border-border px-3 py-2.5'>
-          <div className='mb-1 flex items-center gap-1.5'>
+        <div className='rounded-lg border border-border px-3 py-2'>
+          <div className='mb-0.5 flex items-center gap-1.5'>
             <span className='text-[11px] font-medium text-foreground'>
               {intl.formatMessage({
                 id: 'acceptance.claim.verifyLabel',
