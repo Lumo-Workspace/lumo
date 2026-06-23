@@ -99,7 +99,8 @@ function UpcomingCard({
             <h3 className='truncate text-base font-semibold'>{sprint.name}</h3>
           </Link>
           <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
-            {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
+            {formatDate(sprint.startDate, intl.locale)} –{' '}
+            {formatDate(sprint.endDate, intl.locale)}
           </p>
         </div>
         <div className='flex shrink-0 items-center gap-1'>
@@ -158,7 +159,8 @@ function CompletedRow({
         {sprint.name}
       </Link>
       <span className='font-mono text-[13px] text-muted-foreground'>
-        {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
+        {formatDate(sprint.startDate, intl.locale)} –{' '}
+        {formatDate(sprint.endDate, intl.locale)}
       </span>
       <div className='flex items-center gap-2.5'>
         <div className='h-1.5 flex-1 overflow-hidden rounded-full bg-muted'>

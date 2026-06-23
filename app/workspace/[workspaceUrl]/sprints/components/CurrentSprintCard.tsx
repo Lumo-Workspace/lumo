@@ -140,7 +140,8 @@ export function CurrentSprintCard({
             )}
           </div>
           <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
-            {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)} ·{' '}
+            {formatDate(sprint.startDate, intl.locale)} –{' '}
+            {formatDate(sprint.endDate, intl.locale)} ·{' '}
             {intl.formatMessage(
               { id: 'sprints.landing.daysLeft' },
               { count: daysLeft }
