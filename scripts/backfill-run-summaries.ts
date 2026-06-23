@@ -12,35 +12,45 @@
  * Cost: one LLM call per qualified-missing session. Sequential, not parallel,
  * to avoid hammering the gateway.
  *
- * Dry-run (count candidates, no writes / no LLM):
- *   DOTENV_CONFIG_PATH="$(pwd)/.env.production" npx tsx -r dotenv/config \
- *     scripts/backfill-run-summaries.ts --dry-run
+ * Env: reads prod via `.env.production`, the gateway key (AI_GATEWAY_API_KEY,
+ * only in `.env.local`) via `.env.local`. Loaded here in that order — dotenv
+ * does NOT override already-set vars, so DATABASE_URL stays prod (from
+ * .env.production) while AI_GATEWAY_API_KEY is filled from .env.local. Same
+ * pattern as scripts/fold-backfill.ts.
  *
- * Apply (against prod — needs the gateway key from .env.local too):
- *   DOTENV_CONFIG_PATH="$(pwd)/.env.production" npx tsx -r dotenv/config \
- *     scripts/backfill-run-summaries.ts
+ *   npx tsx scripts/backfill-run-summaries.ts --dry-run   # count, no writes/LLM
+ *   npx tsx scripts/backfill-run-summaries.ts             # apply against prod
  */
-import { prisma } from '@/lib/db/prisma'
-import { runSummaryBackfillService } from '@/lib/services/run-summary-backfill'
+import { config } from 'dotenv'
+config({ path: '.env.production' })
+config({ path: '.env.local' })
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run')
   console.log(`[backfill] run-summaries ${dryRun ? '(dry-run)' : '(apply)'}`)
 
-  const result = await runSummaryBackfillService.backfillCompletedTasks({
-    dryRun,
-  })
+  // Dynamic imports AFTER dotenv load so the Prisma client + gateway init see
+  // the prod DATABASE_URL and the gateway key (same ordering as fold-backfill).
+  const { prisma } = await import('@/lib/db/prisma')
+  const { runSummaryBackfillService } =
+    await import('@/lib/services/run-summary-backfill')
 
-  console.log(
-    `[backfill] candidateTasks=${result.candidateTasks} ` +
-      `generated=${result.generated} failed=${result.failed} ` +
-      `degradedTasks=${result.degradedTasks}`
-  )
+  try {
+    const result = await runSummaryBackfillService.backfillCompletedTasks({
+      dryRun,
+    })
+
+    console.log(
+      `[backfill] candidateTasks=${result.candidateTasks} ` +
+        `generated=${result.generated} failed=${result.failed} ` +
+        `degradedTasks=${result.degradedTasks}`
+    )
+  } finally {
+    await prisma.$disconnect()
+  }
 }
 
-main()
-  .catch(err => {
-    console.error('[backfill] fatal:', err)
-    process.exit(1)
-  })
-  .finally(() => prisma.$disconnect())
+main().catch(err => {
+  console.error('[backfill] fatal:', err)
+  process.exit(1)
+})
