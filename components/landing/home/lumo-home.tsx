@@ -16,6 +16,7 @@ import {
   SlackIcon,
   SpecIcon,
 } from './icons'
+import { WindowShell } from './window-shell'
 import styles from './home.module.css'
 
 /**
@@ -110,60 +111,60 @@ function Hero() {
         </div>
 
         <div className={styles.heroMockup}>
-          <div className={styles.mockCard}>
-            <div className={styles.mockBar}>
-              <span className={styles.dot} style={{ background: '#e6c2b2' }} />
-              <span className={styles.dot} style={{ background: '#eae0cf' }} />
-              <span className={styles.dot} style={{ background: '#eae0cf' }} />
-              <LumoMark
-                size={13}
-                style={{ display: 'block', flex: 'none', marginLeft: 10 }}
-              />
-              <span className={styles.mockPath}>lumo / checkout-revamp</span>
+          <WindowShell
+            variant='mock'
+            bodyClassName={styles.mockBody}
+            label={
+              <>
+                <LumoMark
+                  size={13}
+                  style={{ display: 'block', flex: 'none', marginLeft: 10 }}
+                />
+                <span className={styles.mockPath}>lumo / checkout-revamp</span>
+              </>
+            }
+          >
+            <div className={styles.mockHead}>
+              <span className={styles.mockTitle}>
+                Implement Stripe checkout flow
+              </span>
+              <span className={styles.badgeVerified}>VERIFIED</span>
             </div>
-            <div className={styles.mockBody}>
-              <div className={styles.mockHead}>
-                <span className={styles.mockTitle}>
-                  Implement Stripe checkout flow
-                </span>
-                <span className={styles.badgeVerified}>VERIFIED</span>
-              </div>
-              <div className={styles.mockSub}>
-                Agent · claude-sonnet · run #4821
-              </div>
+            <div className={styles.mockSub}>
+              Agent · claude-sonnet · run #4821
+            </div>
 
-              <div className={styles.metricGrid}>
-                <div className={styles.metric}>
-                  <div className={styles.metricLabel}>TOKENS</div>
-                  <div className={styles.metricValue}>
-                    847K<span> / 1M</span>
-                  </div>
-                  <div className={styles.bar}>
-                    <div className={styles.barFill} style={{ width: '84%' }} />
-                  </div>
+            <div className={styles.metricGrid}>
+              <div className={styles.metric}>
+                <div className={styles.metricLabel}>TOKENS</div>
+                <div className={styles.metricValue}>
+                  847K<span> / 1M</span>
                 </div>
-                <div className={styles.metric}>
-                  <div className={styles.metricLabel}>TIME · COST</div>
-                  <div className={styles.metricValue}>2h 14m</div>
-                  <div className={styles.metricSub}>$3.41 spent</div>
+                <div className={styles.bar}>
+                  <div className={styles.barFill} style={{ width: '84%' }} />
                 </div>
               </div>
-
-              <div className={styles.acLabel}>ACCEPTANCE CRITERIA · 8/8</div>
-              <div className={styles.acList}>
-                {[
-                  'Card payment succeeds end-to-end',
-                  'Declined cards show a clear error',
-                  'Receipts emailed within 30s',
-                ].map(c => (
-                  <div key={c} className={styles.acItem}>
-                    <span className={styles.acCheck}>✓</span>
-                    {c}
-                  </div>
-                ))}
+              <div className={styles.metric}>
+                <div className={styles.metricLabel}>TIME · COST</div>
+                <div className={styles.metricValue}>2h 14m</div>
+                <div className={styles.metricSub}>$3.41 spent</div>
               </div>
             </div>
-          </div>
+
+            <div className={styles.acLabel}>ACCEPTANCE CRITERIA · 8/8</div>
+            <div className={styles.acList}>
+              {[
+                'Card payment succeeds end-to-end',
+                'Declined cards show a clear error',
+                'Receipts emailed within 30s',
+              ].map(c => (
+                <div key={c} className={styles.acItem}>
+                  <span className={styles.acCheck}>✓</span>
+                  {c}
+                </div>
+              ))}
+            </div>
+          </WindowShell>
         </div>
       </div>
     </section>

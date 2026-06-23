@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { LumoMark } from './icons'
+import { WindowShell } from './window-shell'
 import styles from './home.module.css'
 
 // What working with Lumo actually looks like inside a coding agent: you point it
@@ -148,89 +149,85 @@ export function LumoTerminal() {
         </div>
 
         <div className={styles.termScreen}>
-          <div className={styles.termCard} ref={cardRef}>
-            <div className={styles.termBar}>
-              <span className={styles.dot} />
-              <span className={styles.dot} />
-              <span className={styles.dot} />
+          <WindowShell
+            variant='terminal'
+            cardRef={cardRef}
+            bodyClassName={styles.termBody}
+            bodyAriaLabel='A coding agent driving Lumo'
+            label={
               <span className={styles.termBarLabel}>
                 <LumoMark size={13} className={styles.termBarMark} />
                 coding agent · ~/Projects/Lumo
               </span>
+            }
+          >
+            {/* You point the agent at a Lumo task */}
+            <div className={styles.termInputRow}>
+              <span className={styles.termCaret}>❯</span>
+              <span className={styles.termQuery}>{query || ' '}</span>
+              {typingQuery && (
+                <span className={styles.termCursor} aria-hidden='true' />
+              )}
             </div>
 
-            <div
-              className={styles.termBody}
-              aria-label='A coding agent driving Lumo'
-            >
-              {/* You point the agent at a Lumo task */}
-              <div className={styles.termInputRow}>
-                <span className={styles.termCaret}>❯</span>
-                <span className={styles.termQuery}>{query || ' '}</span>
-                {typingQuery && (
-                  <span className={styles.termCursor} aria-hidden='true' />
-                )}
-              </div>
-
-              {/* The agent narrates and runs the lumo CLI as tool calls. All
+            {/* The agent narrates and runs the lumo CLI as tool calls. All
                 steps render up front (reserving full height); unrevealed ones
                 are just faded out, so the card never grows as lines stream in. */}
-              {STEPS.map((step, i) => {
-                const hidden = !reduced && i >= revealed
-                if (step.kind === 'say') {
-                  return (
-                    <div
-                      key={i}
-                      className={`${styles.termSay} ${hidden ? styles.termHidden : ''}`}
-                    >
-                      <span className={styles.termDot} aria-hidden='true'>
-                        ⏺
-                      </span>
-                      <span>{step.text}</span>
-                    </div>
-                  )
-                }
+            {STEPS.map((step, i) => {
+              const hidden = !reduced && i >= revealed
+              if (step.kind === 'say') {
                 return (
                   <div
                     key={i}
-                    className={`${styles.termTool} ${hidden ? styles.termHidden : ''}`}
+                    className={`${styles.termSay} ${hidden ? styles.termHidden : ''}`}
                   >
-                    <div className={styles.termBash}>
-                      <span className={styles.termDot} aria-hidden='true'>
-                        ⏺
-                      </span>
-                      <span>
-                        <span className={styles.termBashKw}>
-                          {step.name ?? 'Bash'}
-                        </span>
-                        ({step.cmd})
-                      </span>
-                    </div>
-                    <div className={styles.termOutBlock}>
-                      <span className={styles.termConnector} aria-hidden='true'>
-                        ⎿
-                      </span>
-                      <div className={styles.termOutLines}>
-                        {step.out.map((l, j) => (
-                          <div
-                            key={j}
-                            className={
-                              isOkLine(l) ? styles.termOkLine : undefined
-                            }
-                          >
-                            {l}
-                          </div>
-                        ))}
-                        {step.more && (
-                          <div className={styles.termMore}>… {step.more}</div>
-                        )}
-                      </div>
-                    </div>
+                    <span className={styles.termDot} aria-hidden='true'>
+                      ⏺
+                    </span>
+                    <span>{step.text}</span>
                   </div>
                 )
-              })}
-            </div>
-          </div>
+              }
+              return (
+                <div
+                  key={i}
+                  className={`${styles.termTool} ${hidden ? styles.termHidden : ''}`}
+                >
+                  <div className={styles.termBash}>
+                    <span className={styles.termDot} aria-hidden='true'>
+                      ⏺
+                    </span>
+                    <span>
+                      <span className={styles.termBashKw}>
+                        {step.name ?? 'Bash'}
+                      </span>
+                      ({step.cmd})
+                    </span>
+                  </div>
+                  <div className={styles.termOutBlock}>
+                    <span className={styles.termConnector} aria-hidden='true'>
+                      ⎿
+                    </span>
+                    <div className={styles.termOutLines}>
+                      {step.out.map((l, j) => (
+                        <div
+                          key={j}
+                          className={
+                            isOkLine(l) ? styles.termOkLine : undefined
+                          }
+                        >
+                          {l}
+                        </div>
+                      ))}
+                      {step.more && (
+                        <div className={styles.termMore}>… {step.more}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </WindowShell>
         </div>
       </div>
     </section>

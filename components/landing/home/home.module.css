@@ -233,25 +233,69 @@
   animation: lumoUp 0.8s ease 0.1s both;
 }
 
-/* Mockup card shell */
-.mockCard {
-  background: var(--card);
+/* ============ WINDOW SHELL ============
+   Shared window chrome (card frame + title bar + traffic lights) for the hero
+   mock card (variant `shellMock`) and the demo terminal (variant
+   `shellTerminal`). Body padding/typography stays caller-owned (.mockBody /
+   .termBody). Rendered by components/landing/home/window-shell.tsx. */
+.shell {
+  position: relative;
   border: 1px solid var(--line-2);
-  border-radius: 16px;
-  box-shadow: 0 30px 60px -28px rgba(60, 40, 20, 0.28);
   overflow: hidden;
 }
-.mockBar {
+.shellMock {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: 0 30px 60px -28px rgba(60, 40, 20, 0.28);
+}
+.shellTerminal {
+  background: #fbf9f4;
+  border-radius: 14px;
+  box-shadow: 0 30px 60px -26px rgba(20, 25, 35, 0.55);
+}
+.shellBar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 13px 16px;
   border-bottom: 1px solid var(--line-3);
+}
+.shellMock .shellBar {
+  padding: 13px 16px;
+}
+.shellTerminal .shellBar {
+  padding: 12px 16px;
+  background: #f4f0e8;
 }
 .dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+/* Hero card: static cream traffic lights. */
+.shellMock .dot:nth-child(1) {
+  background: #e6c2b2;
+}
+.shellMock .dot:nth-child(2),
+.shellMock .dot:nth-child(3) {
+  background: #eae0cf;
+}
+/* Terminal: a touch bigger, and grey while the window is "inactive" — they take
+   on red/yellow/green only when the terminal is hovered (mouse inside the
+   window), like a real macOS window. */
+.shellTerminal .dot {
+  width: 12px;
+  height: 12px;
+  background: #c2b9a8;
+  transition: background 0.18s ease;
+}
+.shellTerminal:hover .dot:nth-child(1) {
+  background: #ff5f57;
+}
+.shellTerminal:hover .dot:nth-child(2) {
+  background: #febc2e;
+}
+.shellTerminal:hover .dot:nth-child(3) {
+  background: #28c840;
 }
 .mockPath {
   margin-left: 7px;
@@ -530,40 +574,9 @@
       #717d88 100%
     );
 }
-.termCard {
-  position: relative;
-  background: #fbf9f4;
-  border: 1px solid var(--line-2);
-  border-radius: 14px;
-  box-shadow: 0 30px 60px -26px rgba(20, 25, 35, 0.55);
-  overflow: hidden;
-}
-.termBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line-3);
-  background: #f4f0e8;
-}
-/* Traffic-light buttons: a touch bigger, and grey while the window is
-   "inactive" — they take on red/yellow/green only when the terminal is
-   hovered (mouse inside the window), like a real macOS window. */
-.termBar .dot {
-  width: 12px;
-  height: 12px;
-  background: #c2b9a8;
-  transition: background 0.18s ease;
-}
-.termCard:hover .termBar .dot:nth-child(1) {
-  background: #ff5f57;
-}
-.termCard:hover .termBar .dot:nth-child(2) {
-  background: #febc2e;
-}
-.termCard:hover .termBar .dot:nth-child(3) {
-  background: #28c840;
-}
+/* The terminal's card frame, title bar and traffic lights now come from the
+   shared `.shell.shellTerminal` chrome (see the WINDOW SHELL block above). The
+   `.termScreen` wallpaper below stays terminal-only. */
 .termBarLabel {
   margin-left: 6px;
   display: inline-flex;
