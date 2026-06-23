@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import { useWorkspaceTeams } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTeams'
 import { TeamSelector } from './TeamSelector'
-import { SprintCards } from './SprintCards'
+import { SprintsBoard } from './SprintsBoard'
 
 export function SprintsLandingClient() {
   const intl = useIntl()
@@ -21,17 +21,21 @@ export function SprintsLandingClient() {
   }, [teams, selectedTeamId])
 
   return (
-    <div className='flex flex-col h-full overflow-hidden'>
-      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.sprints' })} />
-      <div className='flex flex-col gap-4 p-6 overflow-y-auto flex-1'>
-        {!isLoading && teams.length > 0 && (
-          <TeamSelector
-            teams={teams}
-            value={selectedTeamId}
-            onChange={setSelectedTeamId}
-          />
-        )}
-        {selectedTeamId ? <SprintCards teamId={selectedTeamId} /> : null}
+    <div className='flex h-full flex-col overflow-hidden'>
+      <PageBreadcrumb
+        title={intl.formatMessage({ id: 'sidebar.sprints' })}
+        actions={
+          !isLoading && teams.length > 1 ? (
+            <TeamSelector
+              teams={teams}
+              value={selectedTeamId}
+              onChange={setSelectedTeamId}
+            />
+          ) : null
+        }
+      />
+      <div className='flex-1 overflow-y-auto px-4 py-6 md:px-8'>
+        {selectedTeamId ? <SprintsBoard teamId={selectedTeamId} /> : null}
       </div>
     </div>
   )
