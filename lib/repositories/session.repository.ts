@@ -705,6 +705,33 @@ export const sessionRepository = {
   },
 
   /**
+   * LUM-576 backfill: distinct ids of completed (DONE/IN_REVIEW) tasks that
+   * still have at least one qualified session missing its runSummary — a
+   * session with `runSummary: null` AND ≥1 STOP/STOP_FAILURE event carrying a
+   * turnSummary (i.e. generation has material). These are the tasks whose
+   * run-summaries were dropped when generation ran fire-and-forget in the
+   * cramped task-route waitUntil. The orchestrator re-runs `generateForTask`
+   * for each; idempotent — once summarized, the session no longer matches.
+   */
+  async listCompletedTaskIdsMissingRunSummary(): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: {
+        runSummary: null,
+        task: { status: { in: ['DONE', 'IN_REVIEW'] } },
+        events: {
+          some: {
+            type: { in: ['STOP', 'STOP_FAILURE'] },
+            turnSummary: { not: null },
+          },
+        },
+      },
+      select: { taskId: true },
+      distinct: ['taskId'],
+    })
+    return rows.map(r => r.taskId).filter((id): id is string => id !== null)
+  },
+
+  /**
    * The latest session's run-claim material for a task (LUM-564) — newest by
    * lastActivityAt, the SAME session the web delivery card surfaces as
    * `runs[0]` (sessions list ordered lastActivityAt desc). Returns its LLM

@@ -37,7 +37,7 @@ describe('run summary generation on DONE', () => {
     ])
     mockLLM.mockResolvedValue('Generated summary.')
 
-    await runSummaryService.generateForTask('task-1')
+    const result = await runSummaryService.generateForTask('task-1')
 
     expect(mockLLM).toHaveBeenCalledWith({
       taskTitle: 'Add OAuth login',
@@ -49,15 +49,27 @@ describe('run summary generation on DONE', () => {
       'Generated summary.',
       expect.any(Date)
     )
+    expect(result).toEqual({
+      generated: 1,
+      failed: 0,
+      skippedEmpty: 0,
+      degraded: false,
+    })
   })
 
-  it('skips sessions with no turn summaries', async () => {
+  it('skips sessions with no turn summaries and is not degraded (legit-empty)', async () => {
     mockList.mockResolvedValue([{ id: 'sess-1', events: [] }])
 
-    await runSummaryService.generateForTask('task-1')
+    const result = await runSummaryService.generateForTask('task-1')
 
     expect(mockLLM).not.toHaveBeenCalled()
     expect(mockSet).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      generated: 0,
+      failed: 0,
+      skippedEmpty: 1,
+      degraded: false,
+    })
   })
 
   it('swallows a per-session LLM error without throwing', async () => {
@@ -71,7 +83,7 @@ describe('run summary generation on DONE', () => {
 
     await expect(
       runSummaryService.generateForTask('task-1')
-    ).resolves.toBeUndefined()
+    ).resolves.not.toThrow()
 
     expect(mockSet).toHaveBeenCalledTimes(1)
     expect(mockSet).toHaveBeenCalledWith(
@@ -79,5 +91,52 @@ describe('run summary generation on DONE', () => {
       'Second summary.',
       expect.any(Date)
     )
+  })
+
+  it('reports a degraded result when a qualified session errors (observable, not swallowed)', async () => {
+    mockList.mockResolvedValue([
+      { id: 'sess-1', events: [{ turnSummary: 'a' }] },
+      { id: 'sess-2', events: [{ turnSummary: 'b' }] },
+    ])
+    mockLLM
+      .mockRejectedValueOnce(new Error('llm down'))
+      .mockResolvedValueOnce('Second summary.')
+
+    const result = await runSummaryService.generateForTask('task-1')
+
+    expect(result).toEqual({
+      generated: 1,
+      failed: 1,
+      skippedEmpty: 0,
+      degraded: true,
+    })
+  })
+
+  it('a degraded LLM failure is distinct from a legitimately-empty session', async () => {
+    // One empty session (skipped, not a failure) + one with material that
+    // errors — the empty one must not mask or trip the degraded flag.
+    mockList.mockResolvedValue([
+      { id: 'sess-1', events: [] },
+      { id: 'sess-2', events: [{ turnSummary: 'b' }] },
+    ])
+    mockLLM.mockRejectedValue(new Error('llm down'))
+
+    const result = await runSummaryService.generateForTask('task-1')
+
+    expect(result).toEqual({
+      generated: 0,
+      failed: 1,
+      skippedEmpty: 1,
+      degraded: true,
+    })
+  })
+
+  it('reports degraded when the session repo itself throws (outer failure)', async () => {
+    mockList.mockRejectedValue(new Error('db down'))
+
+    const result = await runSummaryService.generateForTask('task-1')
+
+    expect(result.degraded).toBe(true)
+    expect(mockLLM).not.toHaveBeenCalled()
   })
 })
