@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "에이전트 실행",
   "dossier.section.runsSummary": "{count, plural, one {# 세션} other {# 세션}}",
   "dossier.section.lineage": "Lineage 인과",
-  "dossier.section.memory": "주입된 팀 메모리"
+  "dossier.section.memory": "주입된 팀 메모리",
+  "acceptance.runReport.title": "실행 보고서"
 }

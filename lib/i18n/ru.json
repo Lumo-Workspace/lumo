@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "Запуски агента",
   "dossier.section.runsSummary": "{count, plural, one {# сессия} few {# сессии} many {# сессий} other {# сессии}}",
   "dossier.section.lineage": "Причинность lineage",
-  "dossier.section.memory": "Внедрённая командная память"
+  "dossier.section.memory": "Внедрённая командная память",
+  "acceptance.runReport.title": "Отчёт о выполнении"
 }

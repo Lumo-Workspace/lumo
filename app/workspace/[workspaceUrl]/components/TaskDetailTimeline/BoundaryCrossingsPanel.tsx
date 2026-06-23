@@ -423,50 +423,6 @@ function CrossingRow({
             })}
           />
         ) : null}
-        <Badge tone={c.reversible ? 'muted' : 'danger'}>
-          {c.reversible ? (
-            <Unlock className='size-3' aria-hidden />
-          ) : (
-            <Lock className='size-3' aria-hidden />
-          )}
-          {boundaryReversibilityLabel(c.reversible, intl)}
-        </Badge>
-        {/* Recurrence (LUM-477): the same action/file tripped the detector more
-        than once while open. Surfaced so the reviewer dispositions it ONCE yet
-        still sees it repeated; titled with the last-seen time. */}
-        {(c.occurrenceCount ?? 1) > 1 && (
-          <span
-            data-testid={`crossing-recurrence-${c.id}`}
-            title={
-              c.lastSeenAt
-                ? intl.formatMessage(
-                    {
-                      id: 'boundary.panel.lastSeen',
-                      defaultMessage: 'Last seen {at}',
-                    },
-                    { at: new Date(c.lastSeenAt).toLocaleString(intl.locale) }
-                  )
-                : undefined
-            }
-            className='inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
-          >
-            <Repeat className='size-3' aria-hidden />
-            {intl.formatMessage(
-              {
-                id: 'boundary.panel.recurrence',
-                defaultMessage: 'seen ×{count}',
-              },
-              { count: c.occurrenceCount }
-            )}
-            <InfoTooltip
-              label={intl.formatMessage({
-                id: 'boundary.tip.recurrence',
-                defaultMessage:
-                  'This same crossing was detected multiple times; the count is how many times.',
-              })}
-            />
-          </span>
-        )}
         <span className='ml-auto text-[11px] text-muted-foreground/80'>
           {open
             ? new Date(c.detectedAt).toLocaleString(intl.locale)
@@ -503,6 +459,58 @@ function CrossingRow({
           >
             {c.detail}
           </code>
+
+          {/* LUM-572: reversibility + recurrence live in the expanded detail now,
+          off the collapsed row which keeps only severity + disposition. */}
+          <div className='mt-2 flex flex-wrap items-center gap-2'>
+            <span data-testid={`crossing-reversible-${c.id}`}>
+              <Badge tone={c.reversible ? 'muted' : 'danger'}>
+                {c.reversible ? (
+                  <Unlock className='size-3' aria-hidden />
+                ) : (
+                  <Lock className='size-3' aria-hidden />
+                )}
+                {boundaryReversibilityLabel(c.reversible, intl)}
+              </Badge>
+            </span>
+            {(c.occurrenceCount ?? 1) > 1 && (
+              <span
+                data-testid={`crossing-recurrence-${c.id}`}
+                title={
+                  c.lastSeenAt
+                    ? intl.formatMessage(
+                        {
+                          id: 'boundary.panel.lastSeen',
+                          defaultMessage: 'Last seen {at}',
+                        },
+                        {
+                          at: new Date(c.lastSeenAt).toLocaleString(
+                            intl.locale
+                          ),
+                        }
+                      )
+                    : undefined
+                }
+                className='inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
+              >
+                <Repeat className='size-3' aria-hidden />
+                {intl.formatMessage(
+                  {
+                    id: 'boundary.panel.recurrence',
+                    defaultMessage: 'seen ×{count}',
+                  },
+                  { count: c.occurrenceCount }
+                )}
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'boundary.tip.recurrence',
+                    defaultMessage:
+                      'This same crossing was detected multiple times; the count is how many times.',
+                  })}
+                />
+              </span>
+            )}
+          </div>
 
           <AttributionLine
             attribution={c.attribution ?? UNKNOWN_ATTRIBUTION}

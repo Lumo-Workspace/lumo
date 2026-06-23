@@ -390,6 +390,8 @@ it('renders the verification record and expands a round to per-criterion verdict
   )
   render_()
   expandMachine()
+  // LUM-572: the verification record lives inside the collapsed Run report group.
+  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
 
   expect(screen.getByText('Verification record')).toBeInTheDocument()
   expect(screen.getByText('round 1 · machine check')).toBeInTheDocument()
@@ -676,6 +678,9 @@ describe('change-state markers and removed criteria (LUM-437)', () => {
       })
     )
     render_()
+    // LUM-572: the removed-criteria audit now sits inside the collapsed Run
+    // report group — expand it before asserting the header is visible.
+    fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
 
     // C — section header with count is visible.
     expect(screen.getByText('Removed · kept for audit')).toBeInTheDocument()

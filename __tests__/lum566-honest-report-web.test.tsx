@@ -154,13 +154,18 @@ function set(data: TaskAcceptanceStatusView) {
 }
 
 function render_() {
-  return render(
+  const result = render(
     <AcceptanceTab
       taskIdentifier='LUM-1'
       enabled={true}
       onVerdictRecorded={jest.fn()}
     />
   )
+  // LUM-572: cost / struggle / trend / history now live inside the collapsed
+  // "Run report" group — expand it so these same-source sections render. The
+  // claim-vs-verification pairing stays above the group, unaffected.
+  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  return result
 }
 
 function expandMachine() {

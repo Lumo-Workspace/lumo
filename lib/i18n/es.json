@@ -1803,5 +1803,6 @@
   "dossier.section.runs": "Ejecuciones del agente",
   "dossier.section.runsSummary": "{count, plural, one {# sesión} other {# sesiones}}",
   "dossier.section.lineage": "Causalidad de lineage",
-  "dossier.section.memory": "Memoria de equipo inyectada"
+  "dossier.section.memory": "Memoria de equipo inyectada",
+  "acceptance.runReport.title": "Informe de ejecución"
 }
