@@ -113,7 +113,7 @@ export function LumoTerminal() {
 
   // Drive the typewriter while in view; hold on the final frame when it ends.
   useEffect(() => {
-    if (reduced || !inView) return
+    if (reduced || !inView) return undefined
     if (qTyped < QUERY.length) {
       const t = setTimeout(() => setQTyped(qTyped + 1), TYPE_MS)
       return () => clearTimeout(t)
@@ -126,6 +126,7 @@ export function LumoTerminal() {
       return () => clearTimeout(t)
     }
     // Reached the end — hold on the final frame (no loop).
+    return undefined
   }, [qTyped, revealed, reduced, inView])
 
   const query = reduced ? QUERY : QUERY.slice(0, qTyped)
