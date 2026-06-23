@@ -149,9 +149,9 @@ export function LumoTerminal() {
         <div className={styles.termScreen}>
           <div className={styles.termCard} ref={cardRef}>
             <div className={styles.termBar}>
-              <span className={styles.dot} style={{ background: '#ff5f57' }} />
-              <span className={styles.dot} style={{ background: '#febc2e' }} />
-              <span className={styles.dot} style={{ background: '#28c840' }} />
+              <span className={styles.dot} />
+              <span className={styles.dot} />
+              <span className={styles.dot} />
               <span className={styles.termBarLabel}>
                 <LumoMark size={13} className={styles.termBarMark} />
                 coding agent · ~/Projects/Lumo

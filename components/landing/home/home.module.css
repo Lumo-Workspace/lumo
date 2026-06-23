@@ -546,6 +546,24 @@
   border-bottom: 1px solid var(--line-3);
   background: #f4f0e8;
 }
+/* Traffic-light buttons: a touch bigger, and grey while the window is
+   "inactive" — they take on red/yellow/green only when the terminal is
+   hovered (mouse inside the window), like a real macOS window. */
+.termBar .dot {
+  width: 12px;
+  height: 12px;
+  background: #c2b9a8;
+  transition: background 0.18s ease;
+}
+.termCard:hover .termBar .dot:nth-child(1) {
+  background: #ff5f57;
+}
+.termCard:hover .termBar .dot:nth-child(2) {
+  background: #febc2e;
+}
+.termCard:hover .termBar .dot:nth-child(3) {
+  background: #28c840;
+}
 .termBarLabel {
   margin-left: 6px;
   display: inline-flex;
