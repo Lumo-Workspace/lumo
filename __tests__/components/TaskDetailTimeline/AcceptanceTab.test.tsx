@@ -485,7 +485,10 @@ describe('header verdict surface + section order (LUM-467)', () => {
     expect(screen.queryByText(/whole contract|整份合约/i)).toBeNull()
   })
 
-  it('orders the criteria contract before the boundary crossings panel', () => {
+  // LUM-572: boundary crossings now LEAD the Record tab — a policy concern that
+  // blocks Done, surfaced above the acceptance contract (supersedes LUM-467's
+  // contract-before-boundary order).
+  it('leads with the boundary crossings panel, above the criteria contract', () => {
     set(reviewView())
     const { container } = render(
       <AcceptanceTab
@@ -498,7 +501,7 @@ describe('header verdict surface + section order (LUM-467)', () => {
     const panel = container.querySelector('#boundary-crossings')
     expect(panel).not.toBeNull()
     expect(
-      contract.compareDocumentPosition(panel!) &
+      panel!.compareDocumentPosition(contract) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })

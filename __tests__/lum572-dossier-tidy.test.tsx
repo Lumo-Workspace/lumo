@@ -327,3 +327,63 @@ describe('human judgment zone', () => {
     expect(screen.getByText('still pending judgment')).toBeInTheDocument()
   })
 })
+
+describe('record tab order and collapsibles', () => {
+  const crossing = {
+    id: 'c1',
+    category: 'EDITED_TEST',
+    severity: 'LOW',
+    disposition: 'FALSE_POSITIVE',
+    reversible: true,
+    occurrenceCount: 1,
+    detail: 'edited a test',
+    detectedAt: '2026-06-20T01:00:00.000Z',
+    dispositionedAt: '2026-06-20T02:00:00.000Z',
+    dispositionedById: null,
+    dispositionNote: null,
+    lastSeenAt: null,
+    attribution: null,
+    explanations: [],
+    remediationTask: null,
+    lastDispositionChange: null,
+  }
+
+  it('boundary crossings leads the record tab, above claim and acceptance criteria', () => {
+    setStatus(statusView())
+    setCrossings([crossing])
+    const { container } = renderTab()
+    const boundary = container.querySelector('#boundary-crossings')!
+    const claim = screen.getByText('Claim vs verification')
+    const criteria = screen.getByText('Acceptance criteria')
+    // Boundary comes BEFORE both claim and the contract in DOM order.
+    expect(
+      boundary.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      boundary.compareDocumentPosition(criteria) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it('claim vs verification is a collapsible section', () => {
+    setStatus(statusView())
+    renderTab()
+    expect(
+      screen.getByText('Claim — what the agent says it did')
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: /Claim vs verification/i })
+    )
+    expect(screen.queryByText('Claim — what the agent says it did')).toBeNull()
+  })
+
+  it('acceptance criteria is a collapsible section', () => {
+    setStatus(statusView())
+    renderTab()
+    expect(screen.getByText('Machine-verified')).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Acceptance criteria$/i })
+    )
+    expect(screen.queryByText('Machine-verified')).toBeNull()
+  })
+})
