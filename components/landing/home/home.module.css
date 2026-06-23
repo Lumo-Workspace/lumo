@@ -495,11 +495,47 @@
   color: var(--text-2);
   margin: 16px 0 0;
 }
+/* Desktop "screen": the terminal window floats on a wallpaper that evokes the
+   palette of Monet's Impression, Sunrise — hazy dawn sky, a small orange sun
+   and its shimmer on grey-blue water. Painted in CSS (no image asset). */
+.termScreen {
+  position: relative;
+  border-radius: 18px;
+  padding: 44px;
+  overflow: hidden;
+  border: 1px solid rgba(40, 30, 20, 0.12);
+  box-shadow: 0 30px 70px -42px rgba(60, 40, 20, 0.45);
+  background:
+    radial-gradient(
+      120px 120px at 60% 43%,
+      rgba(233, 128, 64, 0.95),
+      rgba(233, 128, 64, 0) 62%
+    ),
+    radial-gradient(
+      300px 220px at 60% 43%,
+      rgba(234, 156, 96, 0.4),
+      rgba(234, 156, 96, 0) 70%
+    ),
+    radial-gradient(
+      46px 150px at 60% 80%,
+      rgba(226, 128, 64, 0.5),
+      rgba(226, 128, 64, 0) 72%
+    ),
+    linear-gradient(
+      180deg,
+      #6e7e8f 0%,
+      #8f8d96 26%,
+      #c3aa90 49%,
+      #9aa0a5 55%,
+      #717d88 100%
+    );
+}
 .termCard {
+  position: relative;
   background: #fbf9f4;
   border: 1px solid var(--line-2);
   border-radius: 14px;
-  box-shadow: 0 28px 56px -32px rgba(60, 40, 20, 0.3);
+  box-shadow: 0 30px 60px -26px rgba(20, 25, 35, 0.55);
   overflow: hidden;
 }
 .termBar {
@@ -1448,6 +1484,10 @@
   .termInner {
     padding-left: 22px;
     padding-right: 22px;
+  }
+  .termScreen {
+    padding: 18px;
+    border-radius: 14px;
   }
   .termBody {
     font-size: 12px;
