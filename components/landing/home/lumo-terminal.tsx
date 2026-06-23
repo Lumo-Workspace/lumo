@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { LumoMark } from './icons'
 import styles from './home.module.css'
@@ -70,7 +70,6 @@ const STEPS: Step[] = [
 const TYPE_MS = 34 // per character while typing the prompt
 const THINK_MS = 520 // pause before the agent starts
 const STEP_MS = 620 // delay between revealed steps
-const LOOP_HOLD_MS = 3600 // pause on the final frame before looping
 
 const isOkLine = (l: string) => l.includes('✓') || l.includes('PASS')
 
@@ -78,6 +77,8 @@ export function LumoTerminal() {
   const [qTyped, setQTyped] = useState(0)
   const [revealed, setRevealed] = useState(0)
   const [reduced, setReduced] = useState(false)
+  const [started, setStarted] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -87,8 +88,28 @@ export function LumoTerminal() {
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
+  // Run the animation exactly once, when the terminal scrolls into view — no
+  // loop, so the eye can settle on the final transcript instead of chasing a
+  // repeating render.
   useEffect(() => {
-    if (reduced) return
+    if (reduced || started) return
+    const el = cardRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          setStarted(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.4 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [reduced, started])
+
+  useEffect(() => {
+    if (reduced || !started) return
     if (qTyped < QUERY.length) {
       const t = setTimeout(() => setQTyped(qTyped + 1), TYPE_MS)
       return () => clearTimeout(t)
@@ -100,12 +121,8 @@ export function LumoTerminal() {
       )
       return () => clearTimeout(t)
     }
-    const t = setTimeout(() => {
-      setQTyped(0)
-      setRevealed(0)
-    }, LOOP_HOLD_MS)
-    return () => clearTimeout(t)
-  }, [qTyped, revealed, reduced])
+    // Reached the end — hold on the final frame (no loop).
+  }, [qTyped, revealed, reduced, started])
 
   const query = reduced ? QUERY : QUERY.slice(0, qTyped)
   const typingQuery = !reduced && qTyped < QUERY.length
@@ -125,7 +142,7 @@ export function LumoTerminal() {
           </p>
         </div>
 
-        <div className={styles.termCard}>
+        <div className={styles.termCard} ref={cardRef}>
           <div className={styles.termBar}>
             <span className={styles.dot} style={{ background: '#ff5f57' }} />
             <span className={styles.dot} style={{ background: '#febc2e' }} />
