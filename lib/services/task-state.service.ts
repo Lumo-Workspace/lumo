@@ -15,6 +15,7 @@ import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrospective.service'
 import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
+import { dispatchRunSummaries } from '@/lib/services/run-summary-dispatch'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -406,22 +407,6 @@ export function dispatchDoneMemoryCuration(taskId: string): void {
 }
 
 /**
- * Fire the LUM-481 per-session run-summary generation for a just-completed
- * task. Dynamic import keeps the run-summary client's @ai-sdk/gateway graph out
- * of this module's static graph (jest trap) — same reason as the layer2 /
- * done-audit dynamic imports. Best-effort; the service swallows its own errors.
- */
-export function dispatchRunSummaries(taskId: string): void {
-  waitUntil(
-    (async () => {
-      const { runSummaryService } =
-        await import('@/lib/services/run-summary.service')
-      await runSummaryService.generateForTask(taskId)
-    })()
-  )
-}
-
-/**
  * `updateTask` + fan-out to activity events, real-time push, and
  * notifications. The dispatch call is fire-and-forget — failures there
  * don't roll back the update.
@@ -510,8 +495,13 @@ export async function updateTaskWithSideEffects(
     // never hard-deleted). Promotion stays with the Layer-2 trigger above.
     dispatchDoneMemoryCuration(taskId)
 
-    // LUM-481: generate per-session run summaries for the delivery tab.
-    dispatchRunSummaries(taskId)
+    // LUM-481/576: generate per-session run summaries for the delivery tab.
+    // Re-homed off this ~15s task route to a dedicated foreground worker
+    // (/api/internal/run-summary, 300s) — the sequential per-session LLM calls
+    // silently ran out of time here (same shape as the LUM-555 fold incident).
+    // dispatchRunSummaries only fires the worker (a separate invocation with its
+    // own budget) and swallows its own failures, so the await is best-effort.
+    waitUntil(dispatchRunSummaries(taskId))
 
     // Auto-add to the team's ACTIVE sprint when the task finished with no
     // sprint binding and the team opted into `sprintAutoAddCompleted`. The
