@@ -109,7 +109,6 @@ export function LumoTerminal() {
 
   const query = reduced ? QUERY : QUERY.slice(0, qTyped)
   const typingQuery = !reduced && qTyped < QUERY.length
-  const shown = reduced ? STEPS : STEPS.slice(0, revealed)
 
   return (
     <section className={styles.termSection}>
@@ -150,11 +149,17 @@ export function LumoTerminal() {
               )}
             </div>
 
-            {/* The agent narrates and runs the lumo CLI as tool calls */}
-            {shown.map((step, i) => {
+            {/* The agent narrates and runs the lumo CLI as tool calls. All
+                steps render up front (reserving full height); unrevealed ones
+                are just faded out, so the card never grows as lines stream in. */}
+            {STEPS.map((step, i) => {
+              const hidden = !reduced && i >= revealed
               if (step.kind === 'say') {
                 return (
-                  <div key={i} className={styles.termSay}>
+                  <div
+                    key={i}
+                    className={`${styles.termSay} ${hidden ? styles.termHidden : ''}`}
+                  >
                     <span className={styles.termDot} aria-hidden='true'>
                       ⏺
                     </span>
@@ -163,7 +168,10 @@ export function LumoTerminal() {
                 )
               }
               return (
-                <div key={i} className={styles.termTool}>
+                <div
+                  key={i}
+                  className={`${styles.termTool} ${hidden ? styles.termHidden : ''}`}
+                >
                   <div className={styles.termBash}>
                     <span className={styles.termDot} aria-hidden='true'>
                       ⏺

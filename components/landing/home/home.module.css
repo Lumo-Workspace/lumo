@@ -560,6 +560,12 @@
   color: var(--text-2);
   line-height: 1.7;
   margin: 14px 0 4px;
+  transition: opacity 0.25s ease;
+}
+/* All steps render up front so the card height is fixed; not-yet-revealed
+   steps are faded out (they still occupy their space — no layout shift). */
+.termHidden {
+  opacity: 0;
 }
 .termDot {
   flex: none;
@@ -571,6 +577,7 @@
 /* A lumo CLI tool call + its result block */
 .termTool {
   margin: 4px 0 10px;
+  transition: opacity 0.25s ease;
 }
 .termBash {
   display: flex;
