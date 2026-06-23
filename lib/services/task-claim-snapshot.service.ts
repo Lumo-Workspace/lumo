@@ -62,18 +62,18 @@ export const taskClaimSnapshotService = {
       await lineageEdgeRepository.findMergedSessionIds(taskId)
 
     if (mergedSessionIds.length > 0) {
-      // Newest-first; pick the most-recent merged session WITH material, else
-      // the most-recent merged session (so the snapshot still records which
-      // delivery session was chosen even when none carries a summary yet).
+      // Newest-first; take the most-recent merged session that actually HAS
+      // claim material. Material-gate is load-bearing: lineage MERGED is an
+      // imperfect delivery signal (a do-nothing run can carry a MERGED edge,
+      // and the cron may not have summarized the real one yet). An EMPTY merged
+      // session must NOT win over a latest session that has a faithful summary —
+      // doing so blanks a good claim to null (the LUM-49-class regression). So
+      // we only override the latest session when the merged session has
+      // something to say; otherwise we fall through to the latest session.
       const rows =
         await sessionRepository.loadRunClaimForSessions(mergedSessionIds)
-      if (rows.length > 0) {
-        const withMaterial = rows.find(r => hasMaterial(toMaterial(r)))
-        const chosen = withMaterial ?? rows[0]!
-        return { sessionId: chosen.id, material: toMaterial(chosen) }
-      }
-      // The MERGED edge's session row is gone (onDelete: SetNull races) — fall
-      // through to the latest-session fallback rather than returning empty.
+      const chosen = rows.find(r => hasMaterial(toMaterial(r)))
+      if (chosen) return { sessionId: chosen.id, material: toMaterial(chosen) }
     }
 
     const latest = await sessionRepository.loadLatestRunClaim(taskId)
