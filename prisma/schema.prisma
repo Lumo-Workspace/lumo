@@ -153,6 +153,7 @@ enum TaskActivityType {
   SPRINT_CHANGED
   CRITERION_CHANGED
   VERIFICATION_RUN_RECORDED
+  VERIFICATION_RUN_WITHDRAWN
   VERIFICATION_ESCALATED
   BOUNDARY_CROSSING_DETECTED
   BOUNDARY_CROSSING_ACKNOWLEDGED
@@ -589,8 +590,9 @@ model Task {
   forecastSnapshot    TaskForecastSnapshot?
   claimFaithfulness   ClaimFaithfulnessVerdict?
   acceptanceCriteria  AcceptanceCriterion[]
-  verificationRuns    VerificationRun[]
-  blockedByEdges      TaskDependency[]          @relation("TaskBlockedBy")
+  verificationRuns              VerificationRun[]
+  verificationRunWithdrawals    VerificationRunWithdrawal[]
+  blockedByEdges                TaskDependency[]          @relation("TaskBlockedBy")
   blockingEdges       TaskDependency[]          @relation("TaskBlocking")
   autoBlocks          AutoBlock[]
 
@@ -2366,6 +2368,10 @@ model VerificationRun {
   evidencePointer     String?
   rejectionReason     String?
   rejectionReasonEnum VerificationRejectionReason?
+  /// Shared id stamped on every run written by ONE human-verdict action
+  /// (one transaction → one id). Null on machine runs. Lets an action be
+  /// withdrawn as a unit (LUM-586).
+  verdictActionId     String?
   createdAt           DateTime                     @default(now())
 
   task      Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -2374,6 +2380,23 @@ model VerificationRun {
   @@index([taskId, round])
   @@index([criterionId])
   @@map("verification_runs")
+}
+
+/// Append-only tombstone for a withdrawn human-verdict action (LUM-586). The
+/// run rows survive; this marks the action withdrawn so the latest-verdict
+/// derivation falls through to the prior row. One action withdrawn at most once.
+model VerificationRunWithdrawal {
+  id              String   @id @default(cuid())
+  taskId          String
+  verdictActionId String
+  withdrawnById   String?
+  note            String?
+  createdAt       DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, verdictActionId])
+  @@index([taskId])
 }
 
 // ─── TaskDependency (LUM-172 检测优于声明) ──────────────────────────────────
