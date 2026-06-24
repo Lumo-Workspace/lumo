@@ -57,7 +57,7 @@ function EvidenceSubSection({
   return (
     <div
       id={`dossier-${section}`}
-      className='overflow-hidden rounded-lg border border-border'
+      className='overflow-hidden rounded-md border border-border'
     >
       <button
         type='button'
@@ -69,7 +69,7 @@ function EvidenceSubSection({
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
           aria-hidden
         />
-        <span className='text-xs font-medium text-foreground'>{title}</span>
+        <span className='text-body-strong text-foreground'>{title}</span>
         {summary ? (
           <span className='ml-auto text-[11px] text-muted-foreground/80'>
             {summary}
@@ -163,7 +163,7 @@ export function TaskDossier({
   // deep link to an evidence sub-section opens that group on mount.
   const evidence = showEvidence ? (
     <div>
-      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+      <div className='mb-2 flex items-center gap-1 text-body-strong text-foreground'>
         {intl.formatMessage({
           id: 'dossier.evidence.title',
           defaultMessage: 'Evidence & causality',

@@ -49,12 +49,12 @@ import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBo
 const mockHook = useBoundaryCrossings as jest.Mock
 const refresh = jest.fn()
 
-// A single dispositioned crossing makes all four sites render exactly once: its
-// per-crossing header carries the category / severity / disposition /
-// recurrence badges (always rendered regardless of the row's collapsed state),
-// and occurrenceCount > 1 surfaces the "seen ×N" badge. With no open crossing
-// the panel is collapsed by default, so the test expands it via the summary
-// toggle to mount the row.
+// A single dispositioned crossing mounts the row's header once: it carries the
+// category / severity / disposition badges (rendered regardless of the row's
+// collapsed state). LUM-572 moved reversibility + recurrence off the collapsed
+// header into the expanded detail, so the recurrence "seen ×N" test expands the
+// row (occurrenceCount > 1 surfaces the badge). With no open crossing the panel
+// is collapsed by default, so the test expands it via the summary toggle first.
 const CROSSING = {
   id: 'bc-1',
   category: 'TEST_TAMPERING',
@@ -120,6 +120,9 @@ describe('Boundary crossing tooltips', () => {
     ).toBeInTheDocument()
   })
   it('recurrence "seen ×N" has a tooltip', () => {
+    // LUM-572 moved reversibility + recurrence off the collapsed row into the
+    // expanded detail; expand the row (dispositioned rows start collapsed).
+    fireEvent.click(screen.getByTestId('crossing-toggle-bc-1'))
     expect(
       screen.getByLabelText(
         'This same crossing was detected multiple times; the count is how many times.'

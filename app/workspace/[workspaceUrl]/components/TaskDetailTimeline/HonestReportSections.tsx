@@ -50,7 +50,7 @@ function SectionTitle({
   tip?: string
 }) {
   return (
-    <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+    <div className='mb-2 flex items-center gap-1 text-body-strong text-foreground'>
       {children}
       {tip ? <InfoTooltip label={tip} /> : null}
     </div>
@@ -101,8 +101,8 @@ export function ClaimVsVerification({
   const [open, setOpen] = useState(true)
 
   return (
-    <div>
-      <div className='mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground'>
+    <div className='overflow-hidden rounded-lg border border-border'>
+      <div className='flex items-center gap-1.5 px-4 py-3 text-title text-foreground'>
         <button
           type='button'
           onClick={() => setOpen(o => !o)}
@@ -110,7 +110,7 @@ export function ClaimVsVerification({
           className='flex items-center gap-1.5 hover:text-foreground'
         >
           <ChevronRight
-            className={`size-3.5 transition-transform ${open ? 'rotate-90' : ''}`}
+            className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
             aria-hidden
           />
           {intl.formatMessage({
@@ -127,9 +127,9 @@ export function ClaimVsVerification({
         />
       </div>
       {open ? (
-        <div className='grid gap-2.5 sm:grid-cols-2'>
+        <div className='grid gap-3 border-t border-border px-4 py-4 sm:grid-cols-2'>
           {/* Claim (声称) — the agent self-report, estimate-tier. */}
-          <div className='rounded-lg border border-border px-3 py-2'>
+          <div className='rounded-md border border-border px-3.5 py-3'>
             <div className='mb-0.5 flex items-center gap-1.5'>
               <span className='text-[11px] font-medium text-foreground'>
                 {intl.formatMessage({
@@ -181,7 +181,7 @@ export function ClaimVsVerification({
           </div>
 
           {/* Verification (核验) — the measured verdict. */}
-          <div className='rounded-lg border border-border px-3 py-2'>
+          <div className='rounded-md border border-border px-3.5 py-3'>
             <div className='mb-0.5 flex items-center gap-1.5'>
               <span className='text-[11px] font-medium text-foreground'>
                 {intl.formatMessage({
@@ -262,9 +262,9 @@ export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
           defaultMessage: 'Cost',
         })}
       </SectionTitle>
-      <dl className='grid grid-cols-3 gap-3 rounded-lg border border-border px-3 py-2.5 text-[12px]'>
-        <div>
-          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+      <dl className='grid grid-cols-3 divide-x divide-border overflow-hidden rounded-md border border-border'>
+        <div className='px-4 py-3'>
+          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({
               id: 'acceptance.cost.tokens',
               defaultMessage: 'Tokens',
@@ -274,8 +274,8 @@ export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
             data-testid='cost-tokens'
             className={
               cost.tokenCost == null
-                ? 'text-[11px] italic text-muted-foreground'
-                : 'font-medium text-foreground'
+                ? 'mt-1 text-[11px] italic leading-snug text-muted-foreground'
+                : 'mt-1 text-heading text-foreground'
             }
           >
             {cost.tokenCost == null
@@ -286,25 +286,27 @@ export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
               : fmtTokens(cost.tokenCost)}
           </dd>
         </div>
-        <div>
-          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+        <div className='px-4 py-3'>
+          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({
               id: 'acceptance.cost.activeTime',
               defaultMessage: 'Active time',
             })}
           </dt>
-          <dd className='font-medium text-foreground'>
+          <dd className='mt-1 text-heading text-foreground'>
             {fmtDuration(cost.activeTimeSec)}
           </dd>
         </div>
-        <div>
-          <dt className='text-[10px] uppercase tracking-wide text-muted-foreground/70'>
+        <div className='px-4 py-3'>
+          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
             {intl.formatMessage({
               id: 'acceptance.cost.rework',
               defaultMessage: 'Rework rounds',
             })}
           </dt>
-          <dd className='font-medium text-foreground'>{cost.reworkRounds}</dd>
+          <dd className='mt-1 text-heading text-foreground'>
+            {cost.reworkRounds}
+          </dd>
         </div>
       </dl>
     </div>
@@ -346,7 +348,7 @@ export function StruggleTrailSection({
       </SectionTitle>
 
       {empty ? (
-        <p className='rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>
+        <p className='rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>
           {data.currentRound === 0
             ? intl.formatMessage({
                 id: 'acceptance.struggle.unverified',
@@ -363,7 +365,7 @@ export function StruggleTrailSection({
               )}
         </p>
       ) : (
-        <div className='space-y-2 rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug'>
+        <div className='space-y-2 rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug'>
           {trail.reworkRounds.length > 0 ? (
             <p className='text-foreground'>
               <span className='font-medium'>
@@ -536,7 +538,7 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
     return (
       <div>
         <SectionTitle tip={tip}>{title}</SectionTitle>
-        <p className='rounded-lg border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
+        <p className='rounded-md border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
           {intl.formatMessage({
             id: 'acceptance.trend.nothing',
             defaultMessage:
@@ -587,7 +589,7 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
     return (
       <div>
         <SectionTitle tip={tip}>{title}</SectionTitle>
-        <div className='space-y-0.5 rounded-lg border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
+        <div className='space-y-0.5 rounded-md border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
           <p>
             {intl.formatMessage({
               id: 'acceptance.trend.singlePoint',
@@ -612,7 +614,7 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
   return (
     <div>
       <SectionTitle tip={tip}>{title}</SectionTitle>
-      <div className='space-y-1 rounded-lg border border-border px-3 py-2.5 text-[12px] leading-snug'>
+      <div className='space-y-1 rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug'>
         {rounds.length >= 2 ? (
           <p>
             <span className='font-medium text-foreground'>
