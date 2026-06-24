@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { runInTransaction } from '@/lib/db/transaction'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
@@ -5,6 +6,7 @@ import {
   isPassVerdict,
   type CreateVerificationRunInput,
 } from '@/lib/repositories/verification-run.repository'
+import { verificationRunWithdrawalRepository } from '@/lib/repositories/verification-run-withdrawal.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -171,6 +173,10 @@ export const taskHumanVerdictService = {
     const priorLatest =
       await verificationRunRepository.latestRunsByCriterion(taskId)
 
+    // One opaque id shared by every run written in this single verdict action
+    // (LUM-586). Lets the action be withdrawn as a unit by a withdrawal tombstone.
+    const verdictActionId = randomUUID()
+
     await runInTransaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
         taskId,
@@ -181,6 +187,7 @@ export const taskHumanVerdictService = {
         evidencePointer: null,
         rejectionReason: isFail ? failSummary : null,
         rejectionReasonEnum: null,
+        verdictActionId,
       }))
       await verificationRunRepository.createMany(rows, tx)
 
@@ -257,6 +264,87 @@ export const taskHumanVerdictService = {
       taskStatus,
       criterionIds: criteria.map(c => c.id),
       commentId,
+    }
+  },
+
+  /**
+   * Withdraw the latest non-withdrawn human verdict for a task (LUM-586).
+   *
+   * Writes an append-only VerificationRunWithdrawal tombstone inside a
+   * transaction, then mirrors a VERIFICATION_RUN_WITHDRAWN activity so the
+   * task timeline records the undo. Finally recomputes the task status from the
+   * post-withdrawal latest per-criterion verdicts with the UNDO TARGET RULE —
+   * undo can NEVER land the task in DONE:
+   *   - any FAIL in the post-withdrawal snapshot → IN_PROGRESS
+   *   - otherwise → IN_REVIEW
+   *
+   * 409 when no live human verdict exists to undo.
+   */
+  async withdrawLatestHumanVerdict(
+    taskId: string,
+    attribution: HumanVerdictAttribution
+  ): Promise<void> {
+    const verdictActionId =
+      await verificationRunRepository.latestHumanVerdictAction(taskId)
+    if (verdictActionId === null) {
+      throw Object.assign(
+        new Error('No live human verdict to undo for this task'),
+        { status: 409 }
+      )
+    }
+
+    const callerActor = await memberRepository.findActorByMemberId(
+      attribution.actorMemberId
+    )
+    const actorId = callerActor?.id ?? null
+
+    await runInTransaction(async tx => {
+      await verificationRunWithdrawalRepository.create(
+        {
+          taskId,
+          verdictActionId,
+          withdrawnById: actorId,
+        },
+        tx
+      )
+
+      await activityRepository.create(
+        {
+          taskId,
+          actorId,
+          type: 'VERIFICATION_RUN_WITHDRAWN',
+          payload: { verdictActionId },
+        },
+        tx
+      )
+    })
+
+    // Recompute status from the post-withdrawal snapshot of latest per-criterion
+    // verdicts. UNDO TARGET RULE: never DONE — removing a decision cannot
+    // complete a task. anyFail → IN_PROGRESS, otherwise → IN_REVIEW.
+    const postLatest =
+      await verificationRunRepository.latestRunsByCriterion(taskId)
+    const anyFail = [...postLatest.values()].some(r => r.verdict === 'FAIL')
+    const targetStatus = anyFail ? 'IN_PROGRESS' : 'IN_REVIEW'
+
+    const detail = await taskService.getTaskDetail(taskId)
+    if (!detail) {
+      throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+    const currentStatus = (detail as { status?: string }).status ?? ''
+
+    // Undo is an administrative correction: apply the transition even when the
+    // normal forward state machine would block it (e.g. DONE → IN_REVIEW is not
+    // a normal forward path but is the correct undo of a PASS verdict).
+    if (currentStatus !== targetStatus) {
+      await taskService.updateTaskWithSideEffects(
+        taskId,
+        { status: targetStatus },
+        detail,
+        actorId,
+        attribution.actorClerkId,
+        null
+      )
     }
   },
 }

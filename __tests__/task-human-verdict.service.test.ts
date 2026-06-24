@@ -3,6 +3,7 @@ import { taskVerificationService } from '@/lib/services/task-verification.servic
 import { humanVerdictBodySchema } from '@/lib/validation/acceptance'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { verificationRunWithdrawalRepository } from '@/lib/repositories/verification-run-withdrawal.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -33,6 +34,12 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
     listByTask: jest.fn(),
     latestRunsByCriterion: jest.fn(),
     machinePassedCriteria: jest.fn(),
+    latestHumanVerdictAction: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/verification-run-withdrawal.repository', () => ({
+  verificationRunWithdrawalRepository: {
+    create: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
@@ -90,6 +97,9 @@ const listRuns = verificationRunRepository.listByTask as jest.Mock
 const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const machinePassedCriteria =
   verificationRunRepository.machinePassedCriteria as jest.Mock
+const latestHumanVerdictAction =
+  verificationRunRepository.latestHumanVerdictAction as jest.Mock
+const createWithdrawal = verificationRunWithdrawalRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const listIncludingDeleted =
   acceptanceCriterionRepository.listByTaskIncludingDeleted as jest.Mock
@@ -169,6 +179,12 @@ beforeEach(() => {
   summarize.mockImplementation((n: string | null | undefined) =>
     n ? 'the send-back summary' : null
   )
+  // LUM-586: withdrawal mocks — defaults represent "a live human verdict exists"
+  latestHumanVerdictAction.mockResolvedValue('action-id-1')
+  createWithdrawal.mockResolvedValue({
+    id: 'w-1',
+    verdictActionId: 'action-id-1',
+  })
 })
 
 describe('contract guard', () => {
@@ -708,5 +724,190 @@ describe('machine-verification override honesty', () => {
       c => c[0].type === 'VERIFICATION_RUN_RECORDED'
     )
     for (const m of mirrors) expect(m[0].payload.override).toBe(false)
+  })
+})
+
+// LUM-586: verdictActionId stamping — every run written by one recordHumanVerdict
+// call must share one non-null verdictActionId, and that id must be consistent
+// across the whole fan-out.
+describe('verdictActionId stamping (LUM-586)', () => {
+  it('stamps a non-null verdictActionId shared across all runs of one verdict action', async () => {
+    await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    const rows: Array<{ verdictActionId?: string | null }> =
+      createMany.mock.calls[0]![0]
+    // Every row must have a non-null verdictActionId.
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.verdictActionId).toBeTruthy()
+    }
+    // All rows share the same id.
+    const ids = new Set(rows.map(r => r.verdictActionId))
+    expect(ids.size).toBe(1)
+  })
+
+  it('each separate recordHumanVerdict call gets its own distinct verdictActionId', async () => {
+    await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'FAIL' },
+      ATTR
+    )
+    const ids1: string[] = createMany.mock.calls[0]![0].map(
+      (r: { verdictActionId: string }) => r.verdictActionId
+    )
+    const ids2: string[] = createMany.mock.calls[1]![0].map(
+      (r: { verdictActionId: string }) => r.verdictActionId
+    )
+    expect(ids1[0]).not.toBe(ids2[0])
+  })
+})
+
+// LUM-586: withdrawLatestHumanVerdict — removes the latest human verdict and
+// recomputes task status with the UNDO TARGET RULE: never DONE.
+describe('withdrawLatestHumanVerdict (LUM-586)', () => {
+  it('LUM-586 undo a passed task returns it to in review with a withdrawal', async () => {
+    // Task was DONE (human PASS verdict); all criteria still have machine passes
+    // so after withdrawal no FAILs remain → should go to IN_REVIEW, never DONE.
+    getDetail.mockResolvedValue({ ...DETAIL, status: 'DONE' })
+    latestHumanVerdictAction.mockResolvedValue('action-id-pass')
+    // After withdrawal, the latest per-criterion map shows machine passes (no FAILs).
+    latestRuns.mockResolvedValue(
+      new Map([
+        [
+          'c-1',
+          {
+            criterionId: 'c-1',
+            round: 2,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+        [
+          'c-2',
+          {
+            criterionId: 'c-2',
+            round: 2,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+        [
+          'c-h',
+          {
+            criterionId: 'c-h',
+            round: 2,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+      ])
+    )
+
+    await taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+
+    // Must write a withdrawal tombstone.
+    expect(createWithdrawal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 't-1',
+        verdictActionId: 'action-id-pass',
+      }),
+      TX
+    )
+    // Must write a VERIFICATION_RUN_WITHDRAWN mirror activity.
+    const withdrawn = createActivity.mock.calls.find(
+      c => c[0].type === 'VERIFICATION_RUN_WITHDRAWN'
+    )
+    expect(withdrawn).toBeDefined()
+    expect(withdrawn![0].payload).toMatchObject({
+      verdictActionId: 'action-id-pass',
+    })
+    // UNDO TARGET RULE: result must be IN_REVIEW, never DONE.
+    expect(updateWithSideEffects).toHaveBeenCalledWith(
+      't-1',
+      { status: 'IN_REVIEW' },
+      expect.anything(),
+      'actor-1',
+      'clerk-1',
+      null
+    )
+  })
+
+  it('409 when there is no human verdict to undo', async () => {
+    latestHumanVerdictAction.mockResolvedValue(null)
+
+    await expect(
+      taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+    ).rejects.toMatchObject({ status: 409 })
+
+    // Must not write anything.
+    expect(createWithdrawal).not.toHaveBeenCalled()
+    expect(createActivity).not.toHaveBeenCalled()
+  })
+
+  it('undoing a FAIL where a machine criterion still fails keeps the task IN_PROGRESS', async () => {
+    // Task is IN_REVIEW; the human had added a FAIL on top of a machine FAIL.
+    // After withdrawing the human verdict, the machine FAIL remains → IN_PROGRESS.
+    getDetail.mockResolvedValue({ ...DETAIL, status: 'IN_REVIEW' })
+    latestHumanVerdictAction.mockResolvedValue('action-id-fail')
+    // Post-withdrawal latest runs: one criterion still has a machine FAIL.
+    latestRuns.mockResolvedValue(
+      new Map([
+        [
+          'c-1',
+          {
+            criterionId: 'c-1',
+            round: 2,
+            verdict: 'FAIL',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+        [
+          'c-2',
+          {
+            criterionId: 'c-2',
+            round: 2,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+        [
+          'c-h',
+          {
+            criterionId: 'c-h',
+            round: 2,
+            verdict: 'PASS',
+            verifierType: 'MACHINE',
+            verdictActionId: null,
+          },
+        ],
+      ])
+    )
+
+    await taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+
+    expect(createWithdrawal).toHaveBeenCalled()
+    // anyFail → IN_PROGRESS (the machine FAIL on c-1 drives this).
+    // The task was IN_REVIEW, so the transition IN_REVIEW → IN_PROGRESS fires.
+    expect(updateWithSideEffects).toHaveBeenCalledWith(
+      't-1',
+      { status: 'IN_PROGRESS' },
+      expect.anything(),
+      'actor-1',
+      'clerk-1',
+      null
+    )
   })
 })
