@@ -15,10 +15,36 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REASONING_MODEL,
+  GENERATION_MODEL,
   CONTENT_MODEL,
   FAST_MODEL,
   TRANSLATION_MODEL,
 } from '@/lib/ai/models'
+
+// 桶2 GENERATION call sites (LUM-588) — repointed from REASONING_MODEL (Sonnet)
+// to GENERATION_MODEL (deepseek-v4-pro). Paths relative to repo root.
+const GENERATION_CALL_SITES = [
+  'app/api/tasks/[id]/decompose/route.ts',
+  'app/api/tasks/suggest-priority/route.ts',
+  'lib/llm/run-summary-client.ts',
+  'lib/llm/sprint-summary-client.ts',
+  'lib/llm/milestone-summary-client.ts',
+  'lib/services/description.service.ts',
+  'lib/services/duplicate-check.service.ts',
+  'lib/services/quick-dispatch.service.ts',
+  'lib/summaries/report.ts',
+]
+
+// 桶1 VERIFIER + low-adversarial — MUST stay on REASONING_MODEL (Sonnet); the
+// cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
+const VERIFIER_CALL_SITES = [
+  'lib/llm/claim-faithfulness-judge-client.ts',
+  'lib/llm/contract-weakening-judge-client.ts',
+  'lib/llm/silent-fix-judge-client.ts',
+  'lib/llm/spinoff-judge-client.ts',
+  'lib/llm/test-tampering-judge-client.ts',
+  'lib/llm/action-confirm-client.ts',
+]
 // EMBEDDING_MODEL stays in ./embedding (coupled to EMBEDDING_DIM / pgvector);
 // the registry is kept gateway-free, so it is not re-exported there.
 import { EMBEDDING_MODEL } from '@/lib/ai/embedding'
@@ -86,4 +112,43 @@ test('pinned tiers keep their ids; translation moved to the deepseek fast tier',
   // LUM-587: translation dropped the Haiku pin for the deepseek fast tier.
   expect(TRANSLATION_MODEL).toBe('deepseek/deepseek-v4-flash')
   expect(EMBEDDING_MODEL).toBe('alibaba/qwen3-embedding-0.6b')
+})
+
+test('generation tier repointed to deepseek-v4-pro', () => {
+  // The 桶2 generation tier rides the gateway → provider-prefixed deepseek id.
+  expect(GENERATION_MODEL).toBe('deepseek/deepseek-v4-pro')
+
+  for (const rel of GENERATION_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    // Repointed to the generation constant…
+    expect({ rel, usesGeneration: /\bGENERATION_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesGeneration: true,
+    })
+    // …and no longer references the reasoning (Sonnet) constant.
+    expect({ rel, usesReasoning: /\bREASONING_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesReasoning: false,
+    })
+  }
+})
+
+test('verifier tier stays on the sonnet reasoning model', () => {
+  // The reasoning constant must remain Sonnet — the verifier tier is never
+  // cheapened without passing the lineage A/B gate (桶1 hard rule).
+  expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
+
+  for (const rel of VERIFIER_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    // Still on the reasoning (Sonnet) constant…
+    expect({ rel, usesReasoning: /\bREASONING_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesReasoning: true,
+    })
+    // …and the cheap generation model never leaked in.
+    expect({ rel, usesGeneration: /\bGENERATION_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesGeneration: false,
+    })
+  }
 })

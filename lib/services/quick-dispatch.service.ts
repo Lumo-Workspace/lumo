@@ -1,4 +1,4 @@
-import { REASONING_MODEL } from '@/lib/ai/models'
+import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -257,7 +257,7 @@ export const quickDispatchService = {
       })
 
       const { object } = await generateObject({
-        model: gateway(REASONING_MODEL),
+        model: gateway(GENERATION_MODEL),
         schema: QuickDispatchV2ResponseSchema,
         system: QUICK_DISPATCH_V2_SYSTEM_PROMPT,
         prompt,

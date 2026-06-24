@@ -17,13 +17,24 @@
  */
 
 /**
- * High-value reasoning / judging / summarisation tier — judges (claim
- * faithfulness, contract weakening, silent fix, spinoff, test tampering,
- * action confirm), run/sprint/milestone summaries, description & dispatch &
- * duplicate-check services, task suggest-priority / decompose routes.
- * Gateway format.
+ * 桶1 VERIFIER tier — high-value adversarial judging where a wrong call is
+ * invisible and expensive: claim-faithfulness, contract-weakening, silent-fix,
+ * spinoff, test-tampering judges + action-confirm. Pinned to Sonnet; NEVER
+ * swap this tier to a cheaper model without passing the lineage A/B gate
+ * (LUM-588). Gateway format.
  */
 export const REASONING_MODEL = 'anthropic/claude-sonnet-4.6'
+
+/**
+ * 桶2 GENERATION tier — lower-stakes structured generation where the quality
+ * floor is the lowest: run/sprint/milestone summaries, summaries/report,
+ * description & quick-dispatch & duplicate-check services, task
+ * suggest-priority / decompose routes. Migrated off Sonnet to DeepSeek V4-Pro
+ * (LUM-588) — catalog-confirmed 2026-06-24. Kept distinct from REASONING_MODEL
+ * so the verifier tier (桶1) can never be cheapened by editing one shared
+ * constant. Gateway format.
+ */
+export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
  * Session-summary structured content generation. Driven via the **native
