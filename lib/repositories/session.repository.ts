@@ -682,26 +682,33 @@ export const sessionRepository = {
   },
 
   /**
-   * Sessions on a task that have no run summary yet (LUM-481), newest-first.
-   * Each row carries its STOP-row `turnSummary`s (oldest-first) so the
-   * generation service can synthesize a one-paragraph run summary from them.
+   * Ids of sessions on a task that have no run summary yet (LUM-481),
+   * newest-first. LUM-579: returns ids only — the generation service loads each
+   * session's full event stream (`listEventsForSession`) and compacts it, rather
+   * than reading the sparse STOP-row `turnSummary`s (which systematically
+   * under-reported delivery work).
    */
-  async listForTaskMissingRunSummary(taskId: string) {
-    return prisma.session.findMany({
+  async listForTaskMissingRunSummary(taskId: string): Promise<string[]> {
+    const rows = await prisma.session.findMany({
       where: { taskId, runSummary: null },
       orderBy: { lastActivityAt: 'desc' },
-      select: {
-        id: true,
-        events: {
-          where: {
-            type: { in: ['STOP', 'STOP_FAILURE'] },
-            turnSummary: { not: null },
-          },
-          orderBy: { createdAt: 'asc' },
-          select: { turnSummary: true },
-        },
-      },
+      select: { id: true },
     })
+    return rows.map(r => r.id)
+  },
+
+  /**
+   * LUM-579: ALL session ids on a task, newest-first, regardless of whether a
+   * run summary already exists — the force-regeneration path overwrites stale
+   * summaries (e.g. the early-biased ones the old sparse-input generation wrote).
+   */
+  async listSessionIdsForTask(taskId: string): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: { taskId },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
   },
 
   /**
