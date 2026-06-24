@@ -51,9 +51,11 @@ export function resolveDelivery(
   for (const line of numstat.split('\n')) {
     const m = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
     if (!m) continue
-    if (m[1] !== '-') additions += Number(m[1])
-    if (m[2] !== '-') deletions += Number(m[2])
-    if (!changedFiles.includes(m[3])) changedFiles.push(m[3])
+    const [, add, del, file] = m
+    if (!file) continue
+    if (add && add !== '-') additions += Number(add)
+    if (del && del !== '-') deletions += Number(del)
+    if (!changedFiles.includes(file)) changedFiles.push(file)
   }
 
   const diff = run('git', ['show', '--no-color', '--format=', ...shas])

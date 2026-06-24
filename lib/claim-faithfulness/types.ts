@@ -15,6 +15,10 @@ export interface TaskDelivery {
   deletions: number
 }
 
+// Injectable command runner (git/gh) — lets diff-oracle be unit-tested without
+// shelling out.
+export type CommandRunner = (file: string, args: string[]) => string
+
 export interface ClaimJudgeInput {
   claim: string
   diff: string

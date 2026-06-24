@@ -44,6 +44,7 @@ async function main(): Promise<number> {
   const misses: Array<EvalRow & { reasoning: string }> = []
   for (const g of GOLD_SET) {
     const [team, num] = g.identifier.split('-')
+    if (!team || !num) continue
     const t = await prisma.task.findFirst({
       where: { team: { identifier: team }, number: Number(num) },
       select: TASK_INPUT_SELECT,

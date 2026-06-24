@@ -65,7 +65,9 @@ async function main(argv: string[]): Promise<number> {
   }
   if (args.task) {
     const [team, num] = args.task.split('-')
-    Object.assign(where, { team: { identifier: team }, number: Number(num) })
+    if (team && num) {
+      Object.assign(where, { team: { identifier: team }, number: Number(num) })
+    }
   }
   if (args.since) {
     Object.assign(where, { claimSnapshotAt: { gte: new Date(args.since) } })

@@ -30,6 +30,7 @@ async function main(argv: string[]): Promise<number> {
   for (const a of ANCHORS) {
     if (inputs.some(i => i.identifier === a)) continue
     const [team, num] = a.split('-')
+    if (!team || !num) continue
     const r = await prisma.task.findFirst({
       where: { team: { identifier: team }, number: Number(num) },
       select: SELECT,

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 export interface TaskClaimInputs {
@@ -30,7 +31,7 @@ export const TASK_INPUT_SELECT = {
   claimSnapshot: true,
   claimSnapshotAt: true,
   acceptanceCriteria: { select: { statement: true } },
-} as const
+} satisfies Prisma.TaskSelect
 
 export async function loadTaskInputs(
   taskId: string
