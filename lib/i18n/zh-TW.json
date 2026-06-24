@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "完成度",
   "sprints.table.retro": "回顧",
   "sprints.timeline.count": "{count} 個衝刺",
-  "sprints.timeline.today": "今天"
+  "sprints.timeline.today": "今天",
+  "acceptance.claim.generating": "產生中 —— 正式的執行摘要仍在合成中。",
+  "acceptance.claim.faithfulness.label": "忠實度",
+  "acceptance.claim.faithfulness.tip": "獨立核查聲稱是否與實際交付（diff/PR）相符:忠實=相符;誇大=聲稱做的比實際多;少報=聲稱做的比實際少;無法判定=無法得出結論。",
+  "acceptance.claim.faithfulness.faithful": "忠實",
+  "acceptance.claim.faithfulness.overstated": "誇大",
+  "acceptance.claim.faithfulness.underreport": "少報",
+  "acceptance.claim.faithfulness.unjudgeable": "無法判定",
+  "acceptance.claim.faithfulness.pending": "判定中…",
+  "acceptance.claim.faithfulness.stale": "已過期",
+  "acceptance.claim.faithfulness.evidence": "證據:"
 }

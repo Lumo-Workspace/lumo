@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "완료율",
   "sprints.table.retro": "회고",
   "sprints.timeline.count": "스프린트 {count}개",
-  "sprints.timeline.today": "오늘"
+  "sprints.timeline.today": "오늘",
+  "acceptance.claim.generating": "생성 중 — 공식 실행 요약을 아직 합성하는 중입니다.",
+  "acceptance.claim.faithfulness.label": "충실도",
+  "acceptance.claim.faithfulness.tip": "주장이 실제 산출물(diff/PR)과 일치하는지 독립적으로 검증합니다. 충실=일치, 과장=한 일보다 많이 주장, 축소=한 일보다 적게 주장, 판단 불가=결정할 수 없음.",
+  "acceptance.claim.faithfulness.faithful": "충실",
+  "acceptance.claim.faithfulness.overstated": "과장",
+  "acceptance.claim.faithfulness.underreport": "축소",
+  "acceptance.claim.faithfulness.unjudgeable": "판단 불가",
+  "acceptance.claim.faithfulness.pending": "판정 중…",
+  "acceptance.claim.faithfulness.stale": "오래됨",
+  "acceptance.claim.faithfulness.evidence": "근거:"
 }

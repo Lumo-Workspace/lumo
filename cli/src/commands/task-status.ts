@@ -156,6 +156,27 @@ export interface TaskStatusResponse {
     text: string | null
     source: 'RUN_SUMMARY' | 'DIGEST' | null
   }
+  /** LUM-583: whether the CLAIM faithfully reflects the delivery — the third
+   *  state over 声称/核验, read from the persisted LUM-582 verdict (no LLM at
+   *  read time). PENDING = not yet judged (≠ UNJUDGEABLE); STALE = judged
+   *  against an older claim snapshot, the verdict still surfaced. Optional so a
+   *  new CLI tolerates an older server that doesn't emit it. */
+  faithfulness?: {
+    state:
+      | 'FAITHFUL'
+      | 'UNDERREPORT'
+      | 'OVERSTATED'
+      | 'UNJUDGEABLE'
+      | 'PENDING'
+      | 'STALE'
+    verdict: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE' | null
+    evidence: string[]
+    reasoning: string | null
+    diffShas: string[]
+    prNumbers: number[]
+    judgedAt: string | null
+    judgedClaimAt: string | null
+  }
   verificationHistory: Array<{
     round: number
     recordedAt: string
@@ -431,14 +452,16 @@ function pushClaimVsVerification(
   lines.push('  ▸ Claim — what the agent says it did')
   lines.push('    (agent self-report · estimated, not verification):')
   const claim = data.claim
-  if (claim && claim.text) {
+  if (claim && claim.source === 'RUN_SUMMARY' && claim.text) {
     for (const cl of sanitizeField(claim.text).split('\n')) {
       lines.push(`      ${cl}`)
     }
+    lines.push('      ↳ source: LLM run summary')
+  } else if (claim && claim.source === 'DIGEST') {
+    // LUM-583 ③ / LUM-574: a raw turn digest is not a claim — withhold it and
+    // say the formal summary is still generating, same-source with the web card.
     lines.push(
-      claim.source === 'RUN_SUMMARY'
-        ? '      ↳ source: LLM run summary'
-        : '      ↳ source: raw turn digest — no LLM summary yet'
+      '      generating — the formal run summary is still being synthesized'
     )
   } else {
     // Fail-closed: no run summary → say so, never invent a claim. Run summaries
@@ -447,6 +470,12 @@ function pushClaimVsVerification(
       '      not generated yet — the agent run summary is synthesized when the task reaches DONE'
     )
   }
+
+  // ── Faithfulness (LUM-583): the third state — is the claim itself true? Read
+  // from the persisted LUM-582 verdict; PENDING (not yet judged) is distinct
+  // from UNJUDGEABLE (a real verdict), STALE keeps the verdict but flags a
+  // pending re-check. Skipped only when the server didn't emit it (older server).
+  pushFaithfulness(lines, data.faithfulness)
 
   // ── Verification (核验): the measured verdict — machine-verified vs override.
   lines.push('  ▸ Verification — what was actually confirmed (measured):')
@@ -465,6 +494,61 @@ function pushClaimVsVerification(
       `      ${met} of ${data.criteria.length} criteria met by their latest verdict`
     )
   }
+}
+
+/**
+ * Append the "Faithfulness" conclusion (LUM-583) — the third state over the
+ * 声称/核验 columns: whether the agent's CLAIM is itself TRUE, judged
+ * independently against the delivery (LUM-582). Same read model the web honest
+ * report renders, so the two surfaces cannot drift. Fail-closed: PENDING (not
+ * yet judged) reads distinctly from UNJUDGEABLE (a real verdict), and STALE
+ * keeps the prior verdict while flagging a pending re-check. Skipped only when
+ * the server didn't emit the field (older server) — never fabricated.
+ */
+function pushFaithfulness(
+  lines: string[],
+  f: TaskStatusResponse['faithfulness']
+): void {
+  if (!f) return // older server: field absent → don't fabricate a conclusion.
+  const verdictPhrase = (
+    v: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE'
+  ): string => {
+    switch (v) {
+      case 'FAITHFUL':
+        return 'faithful — the claim matches the delivery'
+      case 'OVERSTATED':
+        return 'overstated — the claim says more than the diff/PR shows'
+      case 'UNDERREPORT':
+        return 'under-reported — the claim says less than the diff/PR shows'
+      default:
+        return "unjudgeable — couldn't decide from the diff/PR"
+    }
+  }
+  let body: string
+  if (f.state === 'PENDING') {
+    body =
+      'not yet judged — the faithfulness check runs in a batch after delivery'
+  } else if (f.state === 'STALE') {
+    body = `${f.verdict ? verdictPhrase(f.verdict) : 'judged'} (stale — re-checked on the next batch)`
+  } else {
+    body = verdictPhrase(f.state)
+  }
+  const ev: string[] = []
+  if (f.prNumbers.length > 0) {
+    ev.push(`PR ${f.prNumbers.map(n => `#${n}`).join(', ')}`)
+  }
+  if (f.diffShas.length > 0) {
+    ev.push(
+      f.diffShas
+        .slice(0, 3)
+        .map(s => sanitizeField(s).slice(0, 7))
+        .join(' ')
+    )
+  }
+  lines.push('  ▸ Faithfulness — does the claim match the delivery (LUM-583):')
+  lines.push(
+    `      ${body}${ev.length > 0 ? ` · evidence: ${ev.join(' · ')}` : ''}`
+  )
 }
 
 /**

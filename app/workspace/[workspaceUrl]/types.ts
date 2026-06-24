@@ -841,6 +841,27 @@ export interface TaskClaimView {
   source: 'RUN_SUMMARY' | 'DIGEST' | null
 }
 
+/** Whether the CLAIM faithfully reflects the delivery (LUM-583) — the third
+ *  state read from the persisted LUM-582 verdict. Client mirror of the server
+ *  `ClaimFaithfulness`. PENDING = not yet judged (≠ UNJUDGEABLE); STALE = judged
+ *  against an older claim snapshot, the verdict still surfaced. */
+export interface TaskClaimFaithfulnessView {
+  state:
+    | 'FAITHFUL'
+    | 'UNDERREPORT'
+    | 'OVERSTATED'
+    | 'UNJUDGEABLE'
+    | 'PENDING'
+    | 'STALE'
+  verdict: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE' | null
+  evidence: string[]
+  reasoning: string | null
+  diffShas: string[]
+  prNumbers: number[]
+  judgedAt: string | null
+  judgedClaimAt: string | null
+}
+
 export interface TaskAcceptanceStatusView {
   version: number
   task: { id: string; identifier: string; title: string; status: string }
@@ -864,6 +885,10 @@ export interface TaskAcceptanceStatusView {
   /** The agent's CLAIM — what it SAYS it did (LUM-564), surfaced beside the
    *  measured verdict (声称 vs 核验). Optional so an older server is tolerated. */
   claim?: TaskClaimView
+  /** Whether the claim faithfully reflects the delivery (LUM-583) — the third
+   *  state over the two columns. Optional so an older server (pre-583) is
+   *  tolerated; the chip is then simply not rendered, never fabricated. */
+  faithfulness?: TaskClaimFaithfulnessView
   /** Criteria removed from the contract after work started (LUM-437). */
   removedCriteria: RemovedCriterionView[]
   verificationHistory: VerificationHistoryRoundView[]

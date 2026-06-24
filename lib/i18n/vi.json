@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Mức hoàn thành",
   "sprints.table.retro": "Retro",
   "sprints.timeline.count": "{count} sprint",
-  "sprints.timeline.today": "Hôm nay"
+  "sprints.timeline.today": "Hôm nay",
+  "acceptance.claim.generating": "Đang tạo — bản tóm tắt phiên chạy chính thức vẫn đang được tổng hợp.",
+  "acceptance.claim.faithfulness.label": "Độ trung thực",
+  "acceptance.claim.faithfulness.tip": "Kiểm tra độc lập xem tuyên bố có khớp với những gì thực sự đã bàn giao (diff/PR) hay không: trung thực = khớp; phóng đại = tuyên bố nhiều hơn thực tế; báo thiếu = tuyên bố ít hơn thực tế; không thể đánh giá = không thể quyết định.",
+  "acceptance.claim.faithfulness.faithful": "Trung thực",
+  "acceptance.claim.faithfulness.overstated": "Phóng đại",
+  "acceptance.claim.faithfulness.underreport": "Báo thiếu",
+  "acceptance.claim.faithfulness.unjudgeable": "Không thể đánh giá",
+  "acceptance.claim.faithfulness.pending": "Đang đánh giá…",
+  "acceptance.claim.faithfulness.stale": "đã cũ",
+  "acceptance.claim.faithfulness.evidence": "bằng chứng:"
 }

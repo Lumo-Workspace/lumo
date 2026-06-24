@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Penyiapan",
   "sprints.table.retro": "Retro",
   "sprints.timeline.count": "{count} sprint",
-  "sprints.timeline.today": "Hari ini"
+  "sprints.timeline.today": "Hari ini",
+  "acceptance.claim.generating": "Menjana — ringkasan larian rasmi masih disintesis.",
+  "acceptance.claim.faithfulness.label": "Kejujuran",
+  "acceptance.claim.faithfulness.tip": "Pemeriksaan bebas sama ada dakwaan sepadan dengan apa yang sebenarnya disampaikan (diff/PR): jujur = sepadan; dilebih-lebihkan = mendakwa lebih daripada yang dilakukan; dikurangkan = mendakwa kurang daripada yang dilakukan; tidak dapat dinilai = tidak dapat diputuskan.",
+  "acceptance.claim.faithfulness.faithful": "Jujur",
+  "acceptance.claim.faithfulness.overstated": "Dilebih-lebihkan",
+  "acceptance.claim.faithfulness.underreport": "Dikurangkan",
+  "acceptance.claim.faithfulness.unjudgeable": "Tidak dapat dinilai",
+  "acceptance.claim.faithfulness.pending": "Menilai…",
+  "acceptance.claim.faithfulness.stale": "lapuk",
+  "acceptance.claim.faithfulness.evidence": "bukti:"
 }

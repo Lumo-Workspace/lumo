@@ -177,8 +177,13 @@ describe('formatTaskStatus — Claim vs verification pairing (LUM-564)', () => {
     expect(withClaim).toContain('agent self-report')
     expect(withClaim).toContain('estimated, not verification')
     expect(withClaim).toContain('what was actually confirmed (measured)')
-    // A digest-sourced claim says so (no LLM summary yet).
-    expect(withClaim).toContain('raw turn digest — no LLM summary yet')
+    // LUM-583 ③ / LUM-574: a digest-sourced claim is NOT a formal run summary —
+    // the raw digest is withheld and the line says it's still generating, rather
+    // than dumping the digest as if it were the agent's report.
+    expect(withClaim).toContain(
+      'generating — the formal run summary is still being synthesized'
+    )
+    expect(withClaim).not.toContain('did some work')
 
     // Fail-closed: no claim → an explicit not-generated line, never a fabricated
     // claim. (claim field omitted entirely — older server / in-flight task.)
@@ -201,5 +206,79 @@ describe('formatTaskStatus — Claim vs verification pairing (LUM-564)', () => {
     expect(unverified).toContain('I finished everything')
     expect(unverified).toMatch(/no verification has run yet/i)
     expect(unverified).toMatch(/the claim is unconfirmed/i)
+  })
+
+  // LUM-583: the faithfulness third state — does the claim itself match the
+  // delivery — surfaced same-source with the web honest report.
+  it('renders the faithfulness conclusion with its verdict and evidence pointer', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        criteria: [passingMachineCriterion('c-1')],
+        claim: { text: 'I refactored everything', source: 'RUN_SUMMARY' },
+        faithfulness: {
+          state: 'OVERSTATED',
+          verdict: 'OVERSTATED',
+          evidence: ['claim exceeds the diff'],
+          reasoning: 'overclaim',
+          diffShas: ['a1b2c3d4e5'],
+          prNumbers: [710],
+          judgedAt: '2026-06-20T12:00:00.000Z',
+          judgedClaimAt: '2026-06-20T10:00:00.000Z',
+        },
+      })
+    )
+    expect(out).toMatch(/Faithfulness — does the claim match the delivery/)
+    expect(out).toContain('overstated')
+    expect(out).toContain('evidence: PR #710 · a1b2c3d')
+  })
+
+  it('reads PENDING distinctly from a UNJUDGEABLE verdict, and flags STALE', () => {
+    const pending = formatTaskStatus(
+      baseResponse({
+        criteria: [passingMachineCriterion('c-1')],
+        faithfulness: {
+          state: 'PENDING',
+          verdict: null,
+          evidence: [],
+          reasoning: null,
+          diffShas: [],
+          prNumbers: [],
+          judgedAt: null,
+          judgedClaimAt: null,
+        },
+      })
+    )
+    expect(pending).toMatch(/not yet judged/i)
+    expect(pending).not.toMatch(/unjudgeable/i)
+
+    const stale = formatTaskStatus(
+      baseResponse({
+        criteria: [passingMachineCriterion('c-1')],
+        faithfulness: {
+          state: 'STALE',
+          verdict: 'FAITHFUL',
+          evidence: [],
+          reasoning: null,
+          diffShas: [],
+          prNumbers: [],
+          judgedAt: '2026-06-20T12:00:00.000Z',
+          judgedClaimAt: '2026-06-20T10:00:00.000Z',
+        },
+      })
+    )
+    expect(stale).toMatch(/faithful/i)
+    expect(stale).toMatch(/stale — re-checked on the next batch/i)
+  })
+
+  // Older server that doesn't emit faithfulness → the section is simply absent,
+  // never fabricated.
+  it('omits the faithfulness line when the server did not emit the field', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        criteria: [passingMachineCriterion('c-1')],
+        claim: { text: 'work', source: 'RUN_SUMMARY' },
+      })
+    )
+    expect(out).not.toMatch(/Faithfulness — does the claim match/)
   })
 })

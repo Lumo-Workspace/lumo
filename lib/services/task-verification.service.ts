@@ -14,6 +14,11 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { claimFaithfulnessVerdictRepository } from '@/lib/repositories/claim-faithfulness-verdict.repository'
+import {
+  deriveFaithfulness,
+  type ClaimFaithfulness,
+} from '@/lib/claim-faithfulness/faithfulness'
 import {
   resolveClaimForReadModel,
   type TaskClaim,
@@ -314,6 +319,11 @@ export interface TaskAcceptanceStatus {
    *  columns. Same-source with the web card's latestRunSummary; an unverified
    *  self-report (estimate-tier), never a measurement. */
   claim: TaskClaim
+  /** Whether the agent's CLAIM faithfully reflects the delivery (LUM-583) — the
+   *  third state over the 声称/核验 columns, read from the persisted LUM-582
+   *  ClaimFaithfulnessVerdict (no LLM at read time). PENDING when not yet
+   *  judged (≠ UNJUDGEABLE); STALE when judged against an older claim snapshot. */
+  faithfulness: ClaimFaithfulness
   /** Criteria removed (tombstoned) from the contract after work started, with
    *  their preserved last verdict + run count (LUM-437). Empty when none. */
   removedCriteria: RemovedCriterion[]
@@ -624,6 +634,7 @@ export const taskVerificationService = {
       perSessionCost,
       latestRunClaim,
       claimSnapshot,
+      faithfulnessVerdict,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -647,6 +658,10 @@ export const taskVerificationService = {
       // LUM-573: the frozen task-level claim snapshot (authoritative, merged
       // session). When present, the claim degrades to a field read of this.
       taskRepository.loadClaimSnapshot(taskId),
+      // LUM-583: the persisted claim-faithfulness verdict (LUM-582). Read-only
+      // — a field read, never an LLM call; null when this task hasn't been
+      // judged yet (→ PENDING, distinct from a UNJUDGEABLE verdict).
+      claimFaithfulnessVerdictRepository.findByTaskId(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -890,6 +905,15 @@ export const taskVerificationService = {
         : null
     )
 
+    // LUM-583 faithfulness: degrade to a field read of the persisted LUM-582
+    // verdict, judged against the same claim snapshot the claim above resolves
+    // from. No verdict row → PENDING; a verdict judged before the current
+    // snapshot → STALE (re-judged by the next batch). No LLM at read time.
+    const faithfulness = deriveFaithfulness(
+      faithfulnessVerdict,
+      claimSnapshot?.claimSnapshotAt ?? null
+    )
+
     // Map a raw verification run to the latest-verdict read shape (shared by
     // active criteria and removed criteria).
     const toLatestVerdict = (
@@ -993,6 +1017,7 @@ export const taskVerificationService = {
       cost,
       trend,
       claim,
+      faithfulness,
       removedCriteria,
       verificationHistory,
       lastRoundFailures,

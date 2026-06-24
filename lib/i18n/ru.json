@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Завершённость",
   "sprints.table.retro": "Ретро",
   "sprints.timeline.count": "Спринтов: {count}",
-  "sprints.timeline.today": "Сегодня"
+  "sprints.timeline.today": "Сегодня",
+  "acceptance.claim.generating": "Создаётся — официальная сводка прогона ещё синтезируется.",
+  "acceptance.claim.faithfulness.label": "Достоверность",
+  "acceptance.claim.faithfulness.tip": "Независимая проверка того, соответствует ли заявление фактически выполненной работе (diff/PR): достоверно = совпадает; завышено = заявлено больше, чем сделано; занижено = заявлено меньше, чем сделано; невозможно оценить = решение не принято.",
+  "acceptance.claim.faithfulness.faithful": "Достоверно",
+  "acceptance.claim.faithfulness.overstated": "Завышено",
+  "acceptance.claim.faithfulness.underreport": "Занижено",
+  "acceptance.claim.faithfulness.unjudgeable": "Невозможно оценить",
+  "acceptance.claim.faithfulness.pending": "Оценивается…",
+  "acceptance.claim.faithfulness.stale": "устарело",
+  "acceptance.claim.faithfulness.evidence": "доказательство:"
 }
