@@ -1,4 +1,4 @@
-import { REASONING_MODEL } from '@/lib/ai/models'
+import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
@@ -152,7 +152,7 @@ async function generateWithProject(
   })
 
   const { object } = await generateObject({
-    model: gateway(REASONING_MODEL),
+    model: gateway(GENERATION_MODEL),
     schema: descriptionResponseSchema,
     prompt,
   })
@@ -186,7 +186,7 @@ async function generateWithoutProject(
   })
 
   const { object } = await generateObject({
-    model: gateway(REASONING_MODEL),
+    model: gateway(GENERATION_MODEL),
     schema: descriptionWithProjectSchema,
     prompt,
   })
