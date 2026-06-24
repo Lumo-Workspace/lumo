@@ -1,3 +1,4 @@
+import { REASONING_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -55,7 +56,7 @@ export async function judgeSpinoff(
   input: SpinoffJudgeInput
 ): Promise<SpinoffVerdict> {
   const { object } = await generateObject({
-    model: gateway('anthropic/claude-sonnet-4.5'),
+    model: gateway(REASONING_MODEL),
     schema: Schema,
     system: SYSTEM_PROMPT,
     prompt: buildPrompt(input),

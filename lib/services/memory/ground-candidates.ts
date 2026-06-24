@@ -1,3 +1,4 @@
+import { FAST_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -29,7 +30,7 @@ import { logger } from '@/lib/logger'
  * Only an explicit, well-formed UNSUPPORTED verdict discards a candidate.
  */
 
-const MODEL_ID = 'deepseek/deepseek-v4-flash'
+const MODEL_ID = FAST_MODEL
 
 /**
  * Loose schema handed to `generateObject` — raw objects, validated per-element
