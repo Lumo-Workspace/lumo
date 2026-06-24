@@ -424,10 +424,11 @@ describe('Judge steps & history tooltips', () => {
   })
 
   it('verification history title has a tooltip explaining round markers', () => {
-    // The history section renders its title (and tooltip) whenever there is at
-    // least one round — no expansion needed; the title is a plain div, not a
-    // toggle button, so the tooltip sits beside it.
+    // LUM-572 folded the history section into the collapsed "Run report" group,
+    // so expand that group first; the title (a plain div) and its tooltip then
+    // render whenever there is at least one round.
     renderWithData({ verificationHistory: [verificationRound()] })
+    fireEvent.click(screen.getByText('Run report'))
     expect(
       screen.getByLabelText(
         'Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.'
