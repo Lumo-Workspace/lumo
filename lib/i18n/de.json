@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Fertigstellung",
   "sprints.table.retro": "Retro",
   "sprints.timeline.count": "{count} Sprints",
-  "sprints.timeline.today": "Heute"
+  "sprints.timeline.today": "Heute",
+  "acceptance.claim.generating": "Wird erstellt – die formale Laufzusammenfassung wird noch synthetisiert.",
+  "acceptance.claim.faithfulness.label": "Wahrhaftigkeit",
+  "acceptance.claim.faithfulness.tip": "Eine unabhängige Prüfung, ob die Behauptung dem tatsächlich Gelieferten (Diff/PR) entspricht: wahrhaftig = stimmt überein; übertrieben = behauptet mehr als getan wurde; untertrieben = behauptet weniger als getan wurde; nicht beurteilbar = konnte nicht entschieden werden.",
+  "acceptance.claim.faithfulness.faithful": "Wahrhaftig",
+  "acceptance.claim.faithfulness.overstated": "Übertrieben",
+  "acceptance.claim.faithfulness.underreport": "Untertrieben",
+  "acceptance.claim.faithfulness.unjudgeable": "Nicht beurteilbar",
+  "acceptance.claim.faithfulness.pending": "Wird geprüft…",
+  "acceptance.claim.faithfulness.stale": "veraltet",
+  "acceptance.claim.faithfulness.evidence": "Nachweis:"
 }

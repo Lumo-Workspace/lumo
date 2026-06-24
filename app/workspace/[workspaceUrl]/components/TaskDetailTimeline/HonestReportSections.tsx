@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useIntl } from 'react-intl'
+import { useIntl, type IntlShape } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
@@ -79,6 +79,213 @@ function ProvenanceChip({
   )
 }
 
+// ── LUM-583 · Claim faithfulness (the third state) ────────────────────────────
+
+type FaithfulnessState = NonNullable<
+  TaskAcceptanceStatusView['faithfulness']
+>['state']
+type FaithfulnessVerdict = NonNullable<
+  TaskAcceptanceStatusView['faithfulness']
+>['verdict']
+
+/** Tone classes per faithfulness state — neutral for the non-verdict states
+ *  (pending / stale / unjudgeable), a feedback tone only where the verdict
+ *  carries real good/bad signal. Static strings (no twMerge), so the custom
+ *  font-size tiers can't collide with the color utility. */
+const FAITHFULNESS_TONE: Record<string, string> = {
+  success: 'border-success-border text-success',
+  danger: 'border-danger-border text-danger',
+  warning: 'border-warning-border text-warning',
+  muted: 'border-border text-muted-foreground',
+}
+
+/** A small verdict chip stating whether the claim faithfully reflects the
+ *  delivery (LUM-583) — the conclusion the two columns alone never gave. */
+function FaithfulnessChip({
+  glyph,
+  tone,
+  label,
+  tip,
+}: {
+  glyph: string
+  tone: keyof typeof FAITHFULNESS_TONE | string
+  label: string
+  tip?: string
+}) {
+  return (
+    <span
+      data-testid='faithfulness-chip'
+      className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${FAITHFULNESS_TONE[tone] ?? FAITHFULNESS_TONE.muted}`}
+    >
+      <span aria-hidden>{glyph}</span>
+      {label}
+      {tip ? <InfoTooltip label={tip} /> : null}
+    </span>
+  )
+}
+
+function verdictLabel(intl: IntlShape, v: FaithfulnessVerdict): string {
+  switch (v) {
+    case 'FAITHFUL':
+      return intl.formatMessage({
+        id: 'acceptance.claim.faithfulness.faithful',
+        defaultMessage: 'Faithful',
+      })
+    case 'OVERSTATED':
+      return intl.formatMessage({
+        id: 'acceptance.claim.faithfulness.overstated',
+        defaultMessage: 'Overstated',
+      })
+    case 'UNDERREPORT':
+      return intl.formatMessage({
+        id: 'acceptance.claim.faithfulness.underreport',
+        defaultMessage: 'Under-reported',
+      })
+    default:
+      return intl.formatMessage({
+        id: 'acceptance.claim.faithfulness.unjudgeable',
+        defaultMessage: 'Unjudgeable',
+      })
+  }
+}
+
+/** Map a faithfulness state to its glyph / tone / label. The four judged
+ *  verdicts carry good/bad tone; PENDING and STALE stay neutral. STALE keeps the
+ *  underlying verdict visible (so the conclusion isn't lost) with a re-judge
+ *  marker. ↑ = claimed more than delivered, ↓ = claimed less. */
+function presentFaithfulness(
+  intl: IntlShape,
+  state: FaithfulnessState,
+  verdict: FaithfulnessVerdict
+): { glyph: string; tone: string; label: string; tip: string } {
+  const tip = intl.formatMessage({
+    id: 'acceptance.claim.faithfulness.tip',
+    defaultMessage:
+      'An independent check of whether the claim matches what was actually delivered (diff/PR): faithful = matches; overstated = claims more than was done; under-reported = claims less than was done; unjudgeable = could not decide.',
+  })
+  switch (state) {
+    case 'FAITHFUL':
+      return {
+        glyph: '✓',
+        tone: 'success',
+        label: verdictLabel(intl, 'FAITHFUL'),
+        tip,
+      }
+    case 'OVERSTATED':
+      return {
+        glyph: '↑',
+        tone: 'danger',
+        label: verdictLabel(intl, 'OVERSTATED'),
+        tip,
+      }
+    case 'UNDERREPORT':
+      return {
+        glyph: '↓',
+        tone: 'warning',
+        label: verdictLabel(intl, 'UNDERREPORT'),
+        tip,
+      }
+    case 'UNJUDGEABLE':
+      return {
+        glyph: '?',
+        tone: 'muted',
+        label: verdictLabel(intl, 'UNJUDGEABLE'),
+        tip,
+      }
+    case 'PENDING':
+      return {
+        glyph: '…',
+        tone: 'muted',
+        label: intl.formatMessage({
+          id: 'acceptance.claim.faithfulness.pending',
+          defaultMessage: 'Judging…',
+        }),
+        tip,
+      }
+    case 'STALE': {
+      const stale = intl.formatMessage({
+        id: 'acceptance.claim.faithfulness.stale',
+        defaultMessage: 'stale',
+      })
+      const base = verdict ? verdictLabel(intl, verdict) : ''
+      return {
+        glyph: '⟳',
+        tone: 'muted',
+        label: base ? `${base} · ${stale}` : stale,
+        tip,
+      }
+    }
+    default:
+      return { glyph: '?', tone: 'muted', label: verdictLabel(intl, null), tip }
+  }
+}
+
+/** Build the evidence pointer line (LUM-583) — the diff/PR the judge measured
+ *  the claim against. Null when the verdict cited nothing (e.g. pending). */
+function buildEvidencePointer(
+  intl: IntlShape,
+  f: NonNullable<TaskAcceptanceStatusView['faithfulness']>
+): string | null {
+  const parts: string[] = []
+  if (f.prNumbers.length > 0) {
+    parts.push(`PR ${f.prNumbers.map(n => `#${n}`).join(', ')}`)
+  }
+  if (f.diffShas.length > 0) {
+    parts.push(
+      f.diffShas
+        .slice(0, 3)
+        .map(s => s.slice(0, 7))
+        .join(' ')
+    )
+  }
+  if (parts.length === 0) return null
+  const prefix = intl.formatMessage({
+    id: 'acceptance.claim.faithfulness.evidence',
+    defaultMessage: 'evidence:',
+  })
+  return `${prefix} ${parts.join(' · ')}`
+}
+
+/** The faithfulness conclusion under the claim (LUM-583): a chip stating whether
+ *  the claim is true, plus a pointer to the diff/PR it was judged against. */
+function FaithfulnessRow({
+  f,
+}: {
+  f: NonNullable<TaskAcceptanceStatusView['faithfulness']>
+}) {
+  const intl = useIntl()
+  const present = presentFaithfulness(intl, f.state, f.verdict)
+  const evidence = buildEvidencePointer(intl, f)
+  return (
+    <div
+      data-testid='faithfulness-row'
+      data-faithfulness-state={f.state}
+      className='mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2'
+    >
+      <span className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+        {intl.formatMessage({
+          id: 'acceptance.claim.faithfulness.label',
+          defaultMessage: 'Faithfulness',
+        })}
+      </span>
+      <FaithfulnessChip
+        glyph={present.glyph}
+        tone={present.tone}
+        label={present.label}
+        tip={present.tip}
+      />
+      {evidence ? (
+        <span
+          data-testid='faithfulness-evidence'
+          className='text-[10px] text-muted-foreground/70'
+        >
+          {evidence}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 // ── LUM-564 · Claim vs verification ───────────────────────────────────────────
 
 export function ClaimVsVerification({
@@ -151,24 +358,29 @@ export function ClaimVsVerification({
                 })}
               </ProvenanceChip>
             </div>
-            {claim?.text ? (
+            {claim?.source === 'RUN_SUMMARY' && claim.text ? (
               <>
                 <p className='whitespace-pre-line text-[12px] leading-snug text-foreground'>
                   {claim.text}
                 </p>
                 <p className='mt-1 text-[10px] text-muted-foreground/70'>
-                  {claim.source === 'RUN_SUMMARY'
-                    ? intl.formatMessage({
-                        id: 'acceptance.claim.sourceSummary',
-                        defaultMessage: 'source: LLM run summary',
-                      })
-                    : intl.formatMessage({
-                        id: 'acceptance.claim.sourceDigest',
-                        defaultMessage:
-                          'source: raw turn digest — no LLM summary yet',
-                      })}
+                  {intl.formatMessage({
+                    id: 'acceptance.claim.sourceSummary',
+                    defaultMessage: 'source: LLM run summary',
+                  })}
                 </p>
               </>
+            ) : claim?.source === 'DIGEST' ? (
+              // LUM-583 ③ / LUM-574 pending: a raw turn digest is not a claim —
+              // withhold it and say the formal run summary is still generating,
+              // rather than dumping the digest as if it were the agent's report.
+              <p className='text-[12px] italic leading-snug text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'acceptance.claim.generating',
+                  defaultMessage:
+                    'Generating — the formal run summary is still being synthesized.',
+                })}
+              </p>
             ) : (
               <p className='text-[12px] italic leading-snug text-muted-foreground'>
                 {intl.formatMessage({
@@ -178,6 +390,9 @@ export function ClaimVsVerification({
                 })}
               </p>
             )}
+            {data.faithfulness ? (
+              <FaithfulnessRow f={data.faithfulness} />
+            ) : null}
           </div>
 
           {/* Verification (核验) — the measured verdict. */}

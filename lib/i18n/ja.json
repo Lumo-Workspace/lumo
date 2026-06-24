@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "完了率",
   "sprints.table.retro": "レトロ",
   "sprints.timeline.count": "スプリント {count} 件",
-  "sprints.timeline.today": "今日"
+  "sprints.timeline.today": "今日",
+  "acceptance.claim.generating": "生成中 — 正式な実行サマリーをまだ合成しています。",
+  "acceptance.claim.faithfulness.label": "忠実性",
+  "acceptance.claim.faithfulness.tip": "主張が実際の成果物（差分/PR）と一致しているかを独立に検証します。忠実=一致、過大=実施内容より多く主張、過小=実施内容より少なく主張、判定不能=判断できませんでした。",
+  "acceptance.claim.faithfulness.faithful": "忠実",
+  "acceptance.claim.faithfulness.overstated": "過大",
+  "acceptance.claim.faithfulness.underreport": "過小",
+  "acceptance.claim.faithfulness.unjudgeable": "判定不能",
+  "acceptance.claim.faithfulness.pending": "判定中…",
+  "acceptance.claim.faithfulness.stale": "古い",
+  "acceptance.claim.faithfulness.evidence": "根拠:"
 }

@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Completion",
   "sprints.table.retro": "Retro",
   "sprints.timeline.count": "{count} sprints",
-  "sprints.timeline.today": "Today"
+  "sprints.timeline.today": "Today",
+  "acceptance.claim.generating": "Generating — the formal run summary is still being synthesised.",
+  "acceptance.claim.faithfulness.label": "Faithfulness",
+  "acceptance.claim.faithfulness.tip": "An independent check of whether the claim matches what was actually delivered (diff/PR): faithful = matches; overstated = claims more than was done; under-reported = claims less than was done; unjudgeable = could not decide.",
+  "acceptance.claim.faithfulness.faithful": "Faithful",
+  "acceptance.claim.faithfulness.overstated": "Overstated",
+  "acceptance.claim.faithfulness.underreport": "Under-reported",
+  "acceptance.claim.faithfulness.unjudgeable": "Unjudgeable",
+  "acceptance.claim.faithfulness.pending": "Judging…",
+  "acceptance.claim.faithfulness.stale": "stale",
+  "acceptance.claim.faithfulness.evidence": "evidence:"
 }

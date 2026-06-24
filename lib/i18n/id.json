@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Penyelesaian",
   "sprints.table.retro": "Retro",
   "sprints.timeline.count": "{count} sprint",
-  "sprints.timeline.today": "Hari ini"
+  "sprints.timeline.today": "Hari ini",
+  "acceptance.claim.generating": "Membuat — ringkasan eksekusi resmi masih disintesis.",
+  "acceptance.claim.faithfulness.label": "Kejujuran",
+  "acceptance.claim.faithfulness.tip": "Pemeriksaan independen apakah klaim sesuai dengan yang benar-benar dikerjakan (diff/PR): jujur = sesuai; dilebih-lebihkan = mengklaim lebih dari yang dikerjakan; dikurangi = mengklaim kurang dari yang dikerjakan; tidak dapat dinilai = tidak dapat diputuskan.",
+  "acceptance.claim.faithfulness.faithful": "Jujur",
+  "acceptance.claim.faithfulness.overstated": "Dilebih-lebihkan",
+  "acceptance.claim.faithfulness.underreport": "Dikurangi",
+  "acceptance.claim.faithfulness.unjudgeable": "Tidak dapat dinilai",
+  "acceptance.claim.faithfulness.pending": "Menilai…",
+  "acceptance.claim.faithfulness.stale": "usang",
+  "acceptance.claim.faithfulness.evidence": "bukti:"
 }

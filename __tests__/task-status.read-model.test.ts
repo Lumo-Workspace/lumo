@@ -31,6 +31,19 @@ jest.mock('@/lib/repositories/task.repository', () => ({
     loadClaimSnapshot: jest.fn(() => Promise.resolve(null)),
   },
 }))
+// LUM-564: statusForTask reads the latest session's run-claim material as the
+// pre-snapshot live fallback — mock it so the read model resolves without a DB.
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    loadLatestRunClaim: jest.fn(() => Promise.resolve(null)),
+  },
+}))
+// LUM-583: statusForTask reads the persisted claim-faithfulness verdict.
+jest.mock('@/lib/repositories/claim-faithfulness-verdict.repository', () => ({
+  claimFaithfulnessVerdictRepository: {
+    findByTaskId: jest.fn(() => Promise.resolve(null)),
+  },
+}))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { findVerificationMaxRounds: jest.fn() },
 }))

@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "पूर्णता",
   "sprints.table.retro": "रेट्रो",
   "sprints.timeline.count": "{count} स्प्रिंट",
-  "sprints.timeline.today": "आज"
+  "sprints.timeline.today": "आज",
+  "acceptance.claim.generating": "तैयार हो रहा है — औपचारिक रन सारांश अभी संश्लेषित किया जा रहा है।",
+  "acceptance.claim.faithfulness.label": "सत्यनिष्ठा",
+  "acceptance.claim.faithfulness.tip": "यह एक स्वतंत्र जाँच है कि दावा वास्तव में दी गई डिलीवरी (diff/PR) से मेल खाता है या नहीं: सत्य = मेल खाता है; बढ़ा-चढ़ाकर = किए गए काम से अधिक का दावा; कम बताया = किए गए काम से कम का दावा; अनिर्णेय = निर्णय नहीं किया जा सका।",
+  "acceptance.claim.faithfulness.faithful": "सत्य",
+  "acceptance.claim.faithfulness.overstated": "बढ़ा-चढ़ाकर",
+  "acceptance.claim.faithfulness.underreport": "कम बताया",
+  "acceptance.claim.faithfulness.unjudgeable": "अनिर्णेय",
+  "acceptance.claim.faithfulness.pending": "जाँच जारी…",
+  "acceptance.claim.faithfulness.stale": "पुराना",
+  "acceptance.claim.faithfulness.evidence": "साक्ष्य:"
 }

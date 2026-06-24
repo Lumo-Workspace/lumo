@@ -1834,5 +1834,15 @@
   "sprints.table.completion": "Achèvement",
   "sprints.table.retro": "Rétro",
   "sprints.timeline.count": "{count} sprints",
-  "sprints.timeline.today": "Aujourd'hui"
+  "sprints.timeline.today": "Aujourd'hui",
+  "acceptance.claim.generating": "Génération en cours — le résumé formel de l'exécution est encore en cours de synthèse.",
+  "acceptance.claim.faithfulness.label": "Fidélité",
+  "acceptance.claim.faithfulness.tip": "Une vérification indépendante visant à déterminer si l'affirmation correspond à ce qui a réellement été livré (diff/PR) : fidèle = correspond ; surestimée = affirme plus que ce qui a été fait ; sous-estimée = affirme moins que ce qui a été fait ; non évaluable = impossible de trancher.",
+  "acceptance.claim.faithfulness.faithful": "Fidèle",
+  "acceptance.claim.faithfulness.overstated": "Surestimée",
+  "acceptance.claim.faithfulness.underreport": "Sous-estimée",
+  "acceptance.claim.faithfulness.unjudgeable": "Non évaluable",
+  "acceptance.claim.faithfulness.pending": "Évaluation…",
+  "acceptance.claim.faithfulness.stale": "obsolète",
+  "acceptance.claim.faithfulness.evidence": "preuve :"
 }

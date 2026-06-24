@@ -66,6 +66,12 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     loadLatestRunClaim: jest.fn(() => Promise.resolve(null)),
   },
 }))
+// LUM-583: statusForTask reads the persisted claim-faithfulness verdict.
+jest.mock('@/lib/repositories/claim-faithfulness-verdict.repository', () => ({
+  claimFaithfulnessVerdictRepository: {
+    findByTaskId: jest.fn(() => Promise.resolve(null)),
+  },
+}))
 jest.mock('@/lib/db/prisma', () => ({
   prisma: { $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({})) },
 }))
