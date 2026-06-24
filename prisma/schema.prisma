@@ -473,7 +473,7 @@ model Project {
   memoryConsolidationLockedUntil DateTime?
   /// LUM-553 — last time the autonomous topic-fold pass attempted this project.
   /// Per-project cooldown so the daily cron doesn't re-run the LLM every day.
-  lastMemoryFoldAttemptAt DateTime?
+  lastMemoryFoldAttemptAt        DateTime?
 
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -558,40 +558,41 @@ model Task {
   claimSnapshotSessionId String?
   claimSnapshotAt        DateTime?
 
-  project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team       Team               @relation(fields: [teamId], references: [id])
-  sprint     Sprint?            @relation(fields: [sprintId], references: [id], onDelete: SetNull)
-  milestone  Milestone?         @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  parent     Task?              @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  children   Task[]             @relation("TaskChildren")
-  assignee   Actor?             @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team      Team       @relation(fields: [teamId], references: [id])
+  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parent    Task?      @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children  Task[]     @relation("TaskChildren")
+  assignee  Actor?     @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
 
-  viewTaskOrders     ViewTaskOrder[]
-  comments           Comment[]
-  pullRequests       PullRequest[]
-  branches           TaskBranch[]
-  sessions           Session[]
+  viewTaskOrders      ViewTaskOrder[]
+  comments            Comment[]
+  pullRequests        PullRequest[]
+  branches            TaskBranch[]
+  sessions            Session[]
   activities          TaskActivity[]
-  boundaryCrossings   BoundaryCrossing[] @relation("CrossingTask")
-  remediatesCrossings BoundaryCrossing[] @relation("CrossingRemediation")
+  boundaryCrossings   BoundaryCrossing[]        @relation("CrossingTask")
+  remediatesCrossings BoundaryCrossing[]        @relation("CrossingRemediation")
   documentMentions    DocumentMention[]
-  priorityOverrides  PriorityOverride[]
-  taskTags           TaskTag[]
-  sentryIssueLinks   SentryIssueLink[]
-  memories           Memory[]
-  slackContexts      TaskSlackContext[]
-  webLinks           TaskWebLink[]
-  figmaLinks         TaskFigmaLink[]
-  artifacts          TaskArtifact[]
-  complexity         TaskComplexity?
-  lineageEdges       LineageEdge[]
-  droppedFragments   DroppedFragment[]
-  forecastSnapshot   TaskForecastSnapshot?
-  acceptanceCriteria AcceptanceCriterion[]
-  verificationRuns   VerificationRun[]
-  blockedByEdges     TaskDependency[]      @relation("TaskBlockedBy")
-  blockingEdges      TaskDependency[]      @relation("TaskBlocking")
-  autoBlocks         AutoBlock[]
+  priorityOverrides   PriorityOverride[]
+  taskTags            TaskTag[]
+  sentryIssueLinks    SentryIssueLink[]
+  memories            Memory[]
+  slackContexts       TaskSlackContext[]
+  webLinks            TaskWebLink[]
+  figmaLinks          TaskFigmaLink[]
+  artifacts           TaskArtifact[]
+  complexity          TaskComplexity?
+  lineageEdges        LineageEdge[]
+  droppedFragments    DroppedFragment[]
+  forecastSnapshot    TaskForecastSnapshot?
+  claimFaithfulness   ClaimFaithfulnessVerdict?
+  acceptanceCriteria  AcceptanceCriterion[]
+  verificationRuns    VerificationRun[]
+  blockedByEdges      TaskDependency[]          @relation("TaskBlockedBy")
+  blockingEdges       TaskDependency[]          @relation("TaskBlocking")
+  autoBlocks          AutoBlock[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -856,8 +857,8 @@ model BoundaryCrossing {
   // and the DONE gate (which key only on `disposition`).
   agentNotifiedAt   DateTime?
 
-  task            Task  @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
-  remediationTask Task? @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
+  task            Task                          @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
+  remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
   // LUM-542: append-only agent self-explanations ("申辩"). A purely additive
   // annotation layer — never read by the DONE gate, never a disposition.
   explanations    BoundaryCrossingExplanation[]
@@ -1149,16 +1150,16 @@ model WaitlistEntry {
 // ─── Documents ──────────────────────────────────────────────────────────────
 
 model Document {
-  id      String  @id @default(cuid())
-  title   String  @default("")
-  content String? @db.Text
+  id              String  @id @default(cuid())
+  title           String  @default("")
+  content         String? @db.Text
   // Byte-identical markdown source of the last markdown upload (LUM-408).
   // Double-written whenever content arrives as markdown (CLI/API/gdoc);
   // nulled when content is replaced through the HTML-direct path (web
   // editor, revision restore) so it can never go stale. Null for legacy
   // docs and HTML-only edits — `doc show --raw` errors instead of falling
   // back to the lossy HTML→markdown reverse render.
-  sourceMarkdown String? @db.Text
+  sourceMarkdown  String? @db.Text
   // Optimistic-concurrency counter for the document BODY (LUM-409).
   // Incremented on every content-changing write, whichever path it takes
   // (markdown upload, section patch/append, HTML-direct web edit, revision
@@ -1166,8 +1167,8 @@ model Document {
   // Writes carrying `ifRevision` are applied as a conditional update on this
   // column and rejected with 409 on mismatch — the failure mode moves from
   // silent last-write-wins to a visible conflict.
-  contentRevision Int @default(0)
-  emoji   String?
+  contentRevision Int     @default(0)
+  emoji           String?
 
   summary            String?   @db.Text
   summaryGeneratedAt DateTime?
@@ -1270,26 +1271,26 @@ model DocumentEditor {
 }
 
 model DocumentRevision {
-  id          String          @id @default(cuid())
-  documentId  String
-  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  content     String?         @db.Text
+  id             String          @id @default(cuid())
+  documentId     String
+  document       Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content        String?         @db.Text
   // Byte-identical markdown source captured with this snapshot (LUM-445), null
   // for an HTML-authored body. A restore re-establishes Document.sourceMarkdown
   // from this column instead of nulling it, so restoring a markdown-authored
   // revision keeps the markdown write path (raw/append/section/diff) alive.
-  sourceMarkdown String?      @db.Text
-  title       String          @default("")
-  emoji       String?
-  label       String? // manual-snapshot name; null = automatic snapshot
-  isManual    Boolean         @default(false)
-  authorId    String
-  author      WorkspaceMember @relation(fields: [authorId], references: [id])
-  workspaceId String
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
-  wordCount   Int?
-  createdAt   DateTime        @default(now()) // window-open time
-  updatedAt   DateTime        @updatedAt // refreshed on in-window merge
+  sourceMarkdown String?         @db.Text
+  title          String          @default("")
+  emoji          String?
+  label          String? // manual-snapshot name; null = automatic snapshot
+  isManual       Boolean         @default(false)
+  authorId       String
+  author         WorkspaceMember @relation(fields: [authorId], references: [id])
+  workspaceId    String
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  wordCount      Int?
+  createdAt      DateTime        @default(now()) // window-open time
+  updatedAt      DateTime        @updatedAt // refreshed on in-window merge
 
   @@index([documentId, createdAt])
 }
@@ -1709,12 +1710,12 @@ model Session {
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
-  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member       WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-  task         Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  worktree     Worktree?       @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
-  events       HookEvent[]
-  memories     Memory[]
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member           WorkspaceMember   @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  task             Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  worktree         Worktree?         @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
+  events           HookEvent[]
+  memories         Memory[]
   lineageEdges     LineageEdge[]
   droppedFragments DroppedFragment[]
 
@@ -2167,20 +2168,20 @@ enum LineageDisclosure {
 }
 
 model LineageEdge {
-  id           String              @id @default(cuid())
-  workspaceId  String
-  taskId       String
+  id              String              @id @default(cuid())
+  workspaceId     String
+  taskId          String
   // Polymorphic reference to the source fragment. No FK relation: fragmentId
   // points at a different table per fragmentType, and source rows can be
   // consolidated / edited / deleted independently (deletion propagation is
   // tracked as known debt for the milestone). Stable-ID work lives in LUM-274/280.
-  fragmentType LineageFragmentType
-  fragmentId   String
-  sessionId    String?
-  includedAt   DateTime            @default(now())
+  fragmentType    LineageFragmentType
+  fragmentId      String
+  sessionId       String?
+  includedAt      DateTime            @default(now())
   // Starts UNKNOWN at birth; stamped MERGED/REJECTED/REWORKED when the edge
   // closes (PR merged / task done) — see DoD ③ in the milestone goal.
-  outcome      LineageOutcome      @default(UNKNOWN)
+  outcome         LineageOutcome      @default(UNKNOWN)
   // LUM-397 outcome strength (ProdCodeBench: merged ≠ ground truth). Only
   // meaningful alongside MERGED: true = the task had an all-PASS verification
   // round (MERGED_VERIFIED), false = task closed without one (weak MERGED),
@@ -2191,12 +2192,12 @@ model LineageEdge {
   // LUM-300 usage vote: null = not voted, true = agent reported using this
   // fragment, false = injected but unused. usedAt also marks "has this session
   // voted?" (avoids a separate Session watermark column).
-  used         Boolean?
-  usedAt       DateTime?
+  used            Boolean?
+  usedAt          DateTime?
   // 渐进式披露漏斗：FULL = Tier1 全文注入；INDEX = Tier2 仅索引行。
-  disclosure   LineageDisclosure   @default(FULL)
+  disclosure      LineageDisclosure   @default(FULL)
   // agent 经 `lumo … show <id>` 主动拉取该 fragment 正文的时刻（漏斗中间环）。
-  pulledAt     DateTime?
+  pulledAt        DateTime?
   // LUM-522 token-level funnel: per-fragment injection cost. indexTokens =
   // the INDEX/manifest line actually injected; fullTokens = the FULL rendered
   // body this INDEX impression avoided. Savings = Σ(fullTokens − indexTokens)
@@ -2209,7 +2210,7 @@ model LineageEdge {
   // Null when the fragment was not gate-scored (small-corpus bypass,
   // fallback-all, or a non-MEMORY fragment).
   relevanceScore  Float?
-  updatedAt    DateTime            @updatedAt
+  updatedAt       DateTime            @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -2428,4 +2429,27 @@ model TaskDependency {
   @@index([workspaceId, status])
   @@index([blockingTaskId])
   @@map("task_dependencies")
+}
+
+// LUM-582: claim faithfulness verdict — an independent "测" for the "估" claim.
+// Produced offline by scripts/audit-claim-faithfulness.ts (git diff vs claim,
+// LLM judge); the read path consumes the persisted verdict (no LLM at read).
+// `judgedClaimAt` records the claimSnapshot watermark judged, for staleness.
+model ClaimFaithfulnessVerdict {
+  id              String    @id @default(cuid())
+  taskId          String    @unique
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  verdict         String // FAITHFUL | UNDERREPORT | OVERSTATED | UNJUDGEABLE
+  evidence        Json?
+  reasoning       String?
+  diffShas        String[]
+  prNumbers       Int[]
+  diffScope       Int       @default(0)
+  prefilterSignal String?
+  judgeModel      String
+  judgedClaimAt   DateTime?
+  judgedAt        DateTime  @default(now())
+
+  @@index([verdict])
+  @@map("claim_faithfulness_verdicts")
 }
