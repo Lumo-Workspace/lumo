@@ -20,45 +20,33 @@ beforeEach(() => {
 })
 
 describe('sessionRepository.listForTaskMissingRunSummary', () => {
-  it('queries sessions missing a run summary and returns the rows', async () => {
-    const rows = [
-      { id: 'sess_2', events: [{ turnSummary: 'did B' }] },
-      { id: 'sess_1', events: [{ turnSummary: 'did A' }] },
-    ]
-    findMany.mockResolvedValue(rows)
+  it('queries sessions missing a run summary newest-first and returns their ids', async () => {
+    findMany.mockResolvedValue([{ id: 'sess_2' }, { id: 'sess_1' }])
 
     const result =
       await sessionRepository.listForTaskMissingRunSummary('task_1')
 
-    expect(result).toBe(rows)
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { taskId: 'task_1', runSummary: null },
-      })
-    )
+    expect(result).toEqual(['sess_2', 'sess_1'])
+    expect(findMany).toHaveBeenCalledWith({
+      where: { taskId: 'task_1', runSummary: null },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { id: true },
+    })
   })
+})
 
-  it('selects STOP-row turn summaries newest-first', async () => {
-    findMany.mockResolvedValue([])
+describe('sessionRepository.listSessionIdsForTask', () => {
+  it('returns ALL session ids on a task newest-first (force-regen, ignores runSummary)', async () => {
+    findMany.mockResolvedValue([{ id: 'sess_2' }, { id: 'sess_1' }])
 
-    await sessionRepository.listForTaskMissingRunSummary('task_1')
+    const result = await sessionRepository.listSessionIdsForTask('task_1')
 
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: { lastActivityAt: 'desc' },
-        select: {
-          id: true,
-          events: {
-            where: {
-              type: { in: ['STOP', 'STOP_FAILURE'] },
-              turnSummary: { not: null },
-            },
-            orderBy: { createdAt: 'asc' },
-            select: { turnSummary: true },
-          },
-        },
-      })
-    )
+    expect(result).toEqual(['sess_2', 'sess_1'])
+    expect(findMany).toHaveBeenCalledWith({
+      where: { taskId: 'task_1' },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { id: true },
+    })
   })
 })
 
