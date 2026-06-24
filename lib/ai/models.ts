@@ -52,12 +52,22 @@ export const CONTENT_MODEL = 'claude-opus-4-8'
 export const TRANSLATION_MODEL = 'deepseek/deepseek-v4-flash'
 
 /**
- * High-frequency, cost-sensitive tier — memory extract/fold/ground/curate/
- * dedup/canonicalize, session classifier, turn-digest, content summary,
- * lineage usage-judge. Routed to DeepSeek via the gateway (LUM-320) to cut
- * cost vs the prior Haiku tier. Gateway format.
+ * High-frequency, cost-sensitive tier — memory layer1-extract / ground /
+ * canonicalize, session classifier, turn-digest, content summary, lineage
+ * usage-judge. Routed to DeepSeek via the gateway (LUM-320) to cut cost vs the
+ * prior Haiku tier. Gateway format.
  */
 export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
+
+/**
+ * 桶4 MEMORY_JUDGE tier — memory reconciliation judgments (curation-judge,
+ * fold-compute, layer2-extract, manual-dedup) where a sharper model improves
+ * merge/keep decisions. Split off FAST_MODEL onto DeepSeek V4-Pro (LUM-591),
+ * catalog-confirmed 2026-06-24. NOTE: the decision-table "强制 eval" gate was
+ * explicitly WAIVED by the user (no judge A/B harness exists yet) — this swap
+ * ships on a structured-output probe only, not an accuracy eval. Gateway format.
+ */
+export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
  * The embedding model id lives in `./embedding` (`EMBEDDING_MODEL`), coupled to
