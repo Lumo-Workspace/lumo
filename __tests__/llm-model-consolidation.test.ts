@@ -81,8 +81,9 @@ test('session summary content model id stays bare for native anthropic sdk', () 
   expect(service).toMatch(/CONTENT_MODEL/)
 })
 
-test('unchanged model tiers keep their pinned ids', () => {
+test('pinned tiers keep their ids; translation moved to the deepseek fast tier', () => {
   expect(FAST_MODEL).toBe('deepseek/deepseek-v4-flash')
-  expect(TRANSLATION_MODEL).toBe('anthropic/claude-haiku-4-5')
+  // LUM-587: translation dropped the Haiku pin for the deepseek fast tier.
+  expect(TRANSLATION_MODEL).toBe('deepseek/deepseek-v4-flash')
   expect(EMBEDDING_MODEL).toBe('alibaba/qwen3-embedding-0.6b')
 })

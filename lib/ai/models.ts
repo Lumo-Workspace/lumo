@@ -9,9 +9,11 @@
  *    `@anthropic-ai/sdk`'s `client.messages.create({ model })`. Prefixing this
  *    with `anthropic/` would 400 the native API.
  *
- * Upgrade note (LUM-587): Sonnet 4.5→4.6 and Opus 4.7→4.8 were bumped without
- * an online Gateway probe — if judge/summary calls start 400-ing after deploy,
- * a model-id alias is the first suspect.
+ * Upgrade note (LUM-587): Sonnet 4.5→4.6 and Opus 4.7→4.8. The gateway catalog
+ * was probed on 2026-06-24 — `anthropic/claude-sonnet-4.6` and the native
+ * `claude-opus-4-8` both resolve, so the dot/dash split above is intentional.
+ * Do NOT "normalise" the gateway dot to a dash: `anthropic/claude-sonnet-4-6`
+ * is NOT in the catalog and would 400.
  */
 
 /**
@@ -31,8 +33,12 @@ export const REASONING_MODEL = 'anthropic/claude-sonnet-4.6'
  */
 export const CONTENT_MODEL = 'claude-opus-4-8'
 
-/** Lightweight translation (i18n Slack-context tooling). Gateway format. */
-export const TRANSLATION_MODEL = 'anthropic/claude-haiku-4-5'
+/**
+ * Lightweight translation (i18n Slack-context tooling). Routed to DeepSeek via
+ * the gateway (LUM-587) — same FAST tier as memory/classifier work; the prior
+ * Haiku pin bought no quality here and cost more. Gateway format.
+ */
+export const TRANSLATION_MODEL = 'deepseek/deepseek-v4-flash'
 
 /**
  * High-frequency, cost-sensitive tier — memory extract/fold/ground/curate/

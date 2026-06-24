@@ -1,6 +1,7 @@
 /**
  * One-shot script: read slackContext.* keys from en.json,
- * translate any keys missing in the other locales via Haiku, and write
+ * translate any keys missing in the other locales via the central
+ * TRANSLATION_MODEL (deepseek fast tier), and write
  * back. Idempotent — keys that already exist are left as-is, even if
  * different from a fresh translation, so manual touch-ups stick.
  *
@@ -13,10 +14,11 @@ import path from 'node:path'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
+import { TRANSLATION_MODEL } from '../lib/ai/models'
 
 const I18N_DIR = path.resolve(__dirname, '../lib/i18n')
 const SOURCE_LOCALE = 'en'
-const MODEL_ID = 'anthropic/claude-haiku-4-5'
+const MODEL_ID = TRANSLATION_MODEL
 
 const LOCALES: Record<string, string> = {
   de: 'German',
