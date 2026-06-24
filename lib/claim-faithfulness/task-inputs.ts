@@ -8,7 +8,7 @@ export interface TaskClaimInputs {
 }
 
 interface TaskRow {
-  team: string
+  team: { identifier: string }
   number: number
   claimSnapshot: string | null
   claimSnapshotAt: Date | null
@@ -17,25 +17,27 @@ interface TaskRow {
 
 export function mapTaskRowToInputs(row: TaskRow): TaskClaimInputs {
   return {
-    identifier: `${row.team}-${row.number}`,
+    identifier: `${row.team.identifier}-${row.number}`,
     claim: row.claimSnapshot,
     claimSnapshotAt: row.claimSnapshotAt,
     criteria: row.acceptanceCriteria.map(c => c.statement),
   }
 }
 
+export const TASK_INPUT_SELECT = {
+  team: { select: { identifier: true } },
+  number: true,
+  claimSnapshot: true,
+  claimSnapshotAt: true,
+  acceptanceCriteria: { select: { statement: true } },
+} as const
+
 export async function loadTaskInputs(
   taskId: string
 ): Promise<TaskClaimInputs | null> {
   const row = await prisma.task.findUnique({
     where: { id: taskId },
-    select: {
-      team: true,
-      number: true,
-      claimSnapshot: true,
-      claimSnapshotAt: true,
-      acceptanceCriteria: { select: { statement: true } },
-    },
+    select: TASK_INPUT_SELECT,
   })
   return row ? mapTaskRowToInputs(row) : null
 }
