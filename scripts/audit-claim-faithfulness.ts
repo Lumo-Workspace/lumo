@@ -12,6 +12,7 @@ import { classifyClaimFaithfulness } from '@/lib/claim-faithfulness/classify'
 import {
   buildVerdictRow,
   claimFaithfulnessVerdictRepository,
+  isFreshVerdict,
 } from '@/lib/repositories/claim-faithfulness-verdict.repository'
 
 const MODEL = 'anthropic/claude-sonnet-4.5'
@@ -25,6 +26,7 @@ export function parseAuditArgs(argv: string[]) {
   const limit = get('--limit')
   return {
     dryRun: argv.includes('--dry-run'),
+    resume: argv.includes('--resume'),
     task: get('--task'),
     since: get('--since'),
     limit: limit ? Number(limit) : null,
@@ -89,7 +91,23 @@ async function main(argv: string[]): Promise<number> {
     reasoning: string
   }[] = []
 
+  // --resume: skip tasks that already carry a non-stale verdict, so an
+  // interrupted full run can be re-launched without re-spending the judge on
+  // work already persisted (and converges even under repeated interruption).
+  const watermarks = args.resume
+    ? await claimFaithfulnessVerdictRepository.listWatermarks()
+    : new Map<string, Date | null>()
+  let skipped = 0
+
   for (const t of tasks) {
+    if (
+      args.resume &&
+      watermarks.has(t.id) &&
+      isFreshVerdict(watermarks.get(t.id) ?? null, t.claimSnapshotAt)
+    ) {
+      skipped++
+      continue
+    }
     const inputs = mapTaskRowToInputs(t)
     const delivery = resolveDelivery(inputs.identifier)
     const result = await classifyClaimFaithfulness(
@@ -120,7 +138,11 @@ async function main(argv: string[]): Promise<number> {
 
   const summary = summarizeVerdicts(report)
   process.stdout.write(
-    JSON.stringify({ dryRun: args.dryRun, summary, report }, null, 2) + '\n'
+    JSON.stringify(
+      { dryRun: args.dryRun, resumeSkipped: skipped, summary, report },
+      null,
+      2
+    ) + '\n'
   )
   await prisma.$disconnect()
   return 0
