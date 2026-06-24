@@ -5,6 +5,7 @@ import {
 } from '@/lib/repositories/milestone-summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { callMilestoneSummaryLLM } from '@/lib/llm/milestone-summary-client'
+import { taskVerificationService } from '@/lib/services/task-verification.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -26,11 +27,19 @@ export const milestoneSummaryService = {
       const { stats, tasks } =
         await milestoneSummaryRepository.computeStatsData(milestoneId)
 
+      // LUM-506: roll the negative-class struggle signals up across the
+      // milestone's tasks so the retro reports rework / send-backs / reopens /
+      // human overrides instead of an all-green title list.
+      const struggle = await taskVerificationService.aggregateStruggleForTasks(
+        tasks.map(t => t.id)
+      )
+
       const { tldr, report } = await callMilestoneSummaryLLM({
         subject: milestone.name,
         window: { start: milestone.startDate, target: milestone.targetDate },
         stats,
         tasks,
+        struggle,
       })
 
       const savedSummary = await milestoneSummaryRepository.save(milestoneId, {
