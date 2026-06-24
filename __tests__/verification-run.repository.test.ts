@@ -6,6 +6,9 @@ const mockCreate = jest.fn()
 const mockCreateMany = jest.fn()
 const mockFindMany = jest.fn()
 const mockAggregate = jest.fn()
+// verificationRunWithdrawal.findMany is called by latestRunsByCriterion +
+// latestHumanVerdictAction to fetch withdrawn action ids (LUM-586).
+const mockWithdrawalFindMany = jest.fn().mockResolvedValue([])
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -14,6 +17,9 @@ jest.mock('@/lib/db/prisma', () => ({
       createMany: (...args: any[]) => mockCreateMany(...args),
       findMany: (...args: any[]) => mockFindMany(...args),
       aggregate: (...args: any[]) => mockAggregate(...args),
+    },
+    verificationRunWithdrawal: {
+      findMany: (...args: any[]) => mockWithdrawalFindMany(...args),
     },
   },
 }))
@@ -47,6 +53,7 @@ describe('verificationRunRepository', () => {
           evidencePointer: null,
           rejectionReason: '2 jest suites failing',
           rejectionReasonEnum: 'CRITERION_UNMET',
+          verdictActionId: null,
         },
         select: expect.objectContaining({ id: true, verdict: true }),
       })
