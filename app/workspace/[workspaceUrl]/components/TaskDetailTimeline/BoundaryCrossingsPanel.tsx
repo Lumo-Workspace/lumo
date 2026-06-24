@@ -180,7 +180,7 @@ export function BoundaryCrossingsPanel({
     // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
     <div
       id='boundary-crossings'
-      className={`rounded-lg border p-3.5 ${
+      className={`rounded-lg border p-4 ${
         openCount > 0
           ? 'border-warning-border bg-warning-subtle/40'
           : 'border-border'
@@ -196,10 +196,10 @@ export function BoundaryCrossingsPanel({
         data-testid='boundary-summary-toggle'
         aria-expanded={expanded}
         onClick={() => setExpanded(e => !e)}
-        className='mb-2 flex w-full items-center gap-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground'
+        className='mb-2 flex w-full items-center gap-2 text-left text-title text-foreground'
       >
         <ChevronRight
-          className={`size-3.5 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
           aria-hidden
         />
         <span className={openCount > 0 ? 'text-foreground' : undefined}>
@@ -209,7 +209,7 @@ export function BoundaryCrossingsPanel({
           })}
         </span>
         {openCount > 0 && (
-          <span className='rounded-md bg-danger-subtle px-2 py-0.5 text-[11px] font-medium text-danger'>
+          <span className='rounded-sm bg-danger-subtle px-2 py-0.5 text-[11px] font-medium text-danger'>
             {intl.formatMessage(
               {
                 id: 'boundary.panel.openCount',
@@ -222,7 +222,7 @@ export function BoundaryCrossingsPanel({
         {categoryCounts.map(([cat, n]) => (
           <span
             key={cat}
-            className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+            className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${
               openCount > 0
                 ? 'bg-warning-subtle text-warning'
                 : 'border border-border text-muted-foreground/80'
@@ -494,7 +494,7 @@ function CrossingRow({
                       )
                     : undefined
                 }
-                className='inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
+                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
               >
                 <Repeat className='size-3' aria-hidden />
                 {intl.formatMessage(
@@ -741,7 +741,7 @@ function CrossingRow({
                   <span className='text-[13px] font-medium text-foreground'>
                     {rt.identifier}
                   </span>
-                  <span className='rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
+                  <span className='rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'>
                     {rt.status}
                   </span>
                 </div>
@@ -1091,7 +1091,7 @@ function Badge({
         : 'bg-muted text-muted-foreground'
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${cls}`}
+      className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-medium ${cls}`}
     >
       {children}
     </span>
