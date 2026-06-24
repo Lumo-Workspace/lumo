@@ -1,3 +1,4 @@
+import { REASONING_MODEL } from '@/lib/ai/models'
 import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     })
 
     const { object } = await generateObject({
-      model: gateway('anthropic/claude-sonnet-4.5'),
+      model: gateway(REASONING_MODEL),
       schema: PrioritySuggestionSchema,
       system: PRIORITY_SYSTEM_PROMPT,
       prompt,

@@ -1,3 +1,4 @@
+import { REASONING_MODEL } from '@/lib/ai/models'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
@@ -243,7 +244,7 @@ export async function generateProjectReport(
   const prompt = buildProjectPrompt(stats, ctx)
 
   const { object } = await generateObject({
-    model: gateway('anthropic/claude-sonnet-4.5'),
+    model: gateway(REASONING_MODEL),
     schema: SummaryReportSchema,
     system: systemPrompt,
     prompt,
@@ -270,7 +271,7 @@ export async function generateWorkspaceReport(
   const prompt = buildWorkspacePrompt(stats, ctx)
 
   const { object } = await generateObject({
-    model: gateway('anthropic/claude-sonnet-4.5'),
+    model: gateway(REASONING_MODEL),
     schema: SummaryReportSchema,
     system: systemPrompt,
     prompt,
