@@ -1,3 +1,4 @@
+import { FAST_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
 import { parseMemoryContent } from '@/lib/memory/schemas'
@@ -12,7 +13,7 @@ import type { MemoryCategory } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 
 /** deepseek-v4-flash via the gateway — same model as the auto reconcile path. */
-const MODEL_ID = 'deepseek/deepseek-v4-flash'
+const MODEL_ID = FAST_MODEL
 
 /**
  * Op vocabulary for the manual single-candidate dedup. Defined LOCALLY (not
@@ -22,8 +23,16 @@ const MODEL_ID = 'deepseek/deepseek-v4-flash'
  */
 const manualDedupOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ADD') }),
-  z.object({ type: z.literal('UPDATE'), id: z.string().min(1), content: z.unknown() }),
-  z.object({ type: z.literal('SUPERSEDE'), id: z.string().min(1), content: z.unknown() }),
+  z.object({
+    type: z.literal('UPDATE'),
+    id: z.string().min(1),
+    content: z.unknown(),
+  }),
+  z.object({
+    type: z.literal('SUPERSEDE'),
+    id: z.string().min(1),
+    content: z.unknown(),
+  }),
   z.object({ type: z.literal('NOOP') }),
 ])
 

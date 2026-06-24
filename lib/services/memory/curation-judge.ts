@@ -1,8 +1,9 @@
+import { FAST_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 
-const MODEL_ID = 'deepseek/deepseek-v4-flash'
+const MODEL_ID = FAST_MODEL
 
 export interface CurationCandidate {
   /** Memory row id. */

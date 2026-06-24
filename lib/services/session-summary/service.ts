@@ -1,3 +1,4 @@
+import { FAST_MODEL, CONTENT_MODEL } from '@/lib/ai/models'
 import Anthropic from '@anthropic-ai/sdk'
 import type { Prisma } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -13,8 +14,7 @@ import type { SessionSummaryPayload, SessionType } from './types'
 // Classifier routed through the gateway to deepseek-v4-flash (LUM-320) to cut
 // cost. Content generation stays on Opus — it's the quality-critical structured
 // summary and was never part of the Haiku→DeepSeek cost migration.
-const CLASSIFY_MODEL = 'deepseek/deepseek-v4-flash'
-const CONTENT_MODEL = 'claude-opus-4-7'
+const CLASSIFY_MODEL = FAST_MODEL
 
 // Classifier confidence below this threshold collapses to the mixed template,
 // regardless of the picked type — we'd rather be honest about uncertainty
