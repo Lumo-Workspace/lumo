@@ -1,4 +1,3 @@
-import { FAST_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -69,7 +68,7 @@ export type Layer2Output = z.infer<typeof layer2OutputSchema>
 
 // ── Pass 1: candidate extraction ───────────────────────────────────────────
 
-const MODEL_ID = FAST_MODEL
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
 export const layer2CandidateSchema = z.object({
   category: memoryCategorySchema,

@@ -1,4 +1,3 @@
-import { REASONING_MODEL } from '@/lib/ai/models'
 import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -44,7 +43,7 @@ Rules:
 
   try {
     const { object } = await generateObject({
-      model: gateway(REASONING_MODEL),
+      model: gateway('anthropic/claude-sonnet-4.5'),
       schema: subtasksSchema,
       prompt,
     })

@@ -1,4 +1,3 @@
-import { REASONING_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -161,7 +160,7 @@ export async function callSprintSummaryLLM(
   const prompt = buildSprintPrompt(input)
 
   const { object } = await generateObject({
-    model: gateway(REASONING_MODEL),
+    model: gateway('anthropic/claude-sonnet-4.5'),
     schema: SprintSummarySchema,
     system: SPRINT_RETRO_SYSTEM_PROMPT,
     prompt,

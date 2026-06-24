@@ -1,11 +1,10 @@
-import { FAST_MODEL } from '@/lib/ai/models'
 import { generateObject, NoObjectGeneratedError } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import type { SessionMetadata } from './compact-events'
 import { SESSION_TYPES, type ClassifierOutput } from './types'
 
-const CLASSIFY_MODEL = FAST_MODEL
+const CLASSIFY_MODEL = 'deepseek/deepseek-v4-flash'
 const CLASSIFY_MAX_TOKENS = 256
 
 const classifierSchema = z.object({

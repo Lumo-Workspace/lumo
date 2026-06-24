@@ -1,4 +1,3 @@
-import { REASONING_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
@@ -52,7 +51,7 @@ Only include tasks with score >= 0.4. Focus on semantic meaning, not just keywor
 A score of 1.0 means exact duplicate, 0.8+ means very similar, 0.5-0.8 means related.`
 
   const { object } = await generateObject({
-    model: gateway(REASONING_MODEL),
+    model: gateway('anthropic/claude-sonnet-4.5'),
     schema: matchSchema,
     prompt,
   })

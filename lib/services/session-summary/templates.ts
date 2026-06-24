@@ -1,4 +1,3 @@
-import { CONTENT_MODEL } from '@/lib/ai/models'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   DEBUG_TOOL,
@@ -17,6 +16,7 @@ import {
   type SessionSummaryPayload,
 } from './types'
 
+const CONTENT_MODEL = 'claude-opus-4-7'
 const CONTENT_MAX_TOKENS = 2048
 
 export type TemplateKind =

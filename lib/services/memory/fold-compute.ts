@@ -1,4 +1,3 @@
-import { FAST_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import type { MemoryCategory } from '@prisma/client'
@@ -15,7 +14,7 @@ import {
 import { nearDupClusters, type VecItem } from '@/lib/services/memory/near-dup'
 import { logger } from '@/lib/logger'
 
-const MODEL_ID = FAST_MODEL
+const MODEL_ID = 'deepseek/deepseek-v4-flash'
 
 /** A cluster must have at least this many covered cards to be worth folding
  *  (≤2 overlaps the P5 near-dup merge territory; folding is for "many fine"). */
