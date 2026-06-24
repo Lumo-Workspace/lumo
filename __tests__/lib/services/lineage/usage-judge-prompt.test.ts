@@ -51,7 +51,7 @@ describe('buildUsageJudgePrompt', () => {
     expect(system).toMatch(/LOW/)
   })
 
-  it('schema grades a used ref (defaulting to HIGH) and rejects unknown fragmentType', () => {
+  it('schema grades a used ref (defaulting to LOW) and rejects unknown fragmentType', () => {
     const ok = usageJudgeSchema.safeParse({
       used: [
         {
@@ -62,8 +62,9 @@ describe('buildUsageJudgePrompt', () => {
       ],
     })
     expect(ok.success).toBe(true)
-    // value defaults to HIGH when the (weak-schema) model omits it.
-    expect(ok.success && ok.data.used[0]?.value).toBe('HIGH')
+    // LUM-589: value defaults to LOW when the (weak-schema) model omits the
+    // grade — a missing grade must not silently earn HIGH marginal-value credit.
+    expect(ok.success && ok.data.used[0]?.value).toBe('LOW')
     const graded = usageJudgeSchema.safeParse({
       used: [
         {
@@ -135,6 +136,24 @@ describe('applyMarginalValueGate (marginal-value credit)', () => {
       frags,
       null
     )
+    expect(credited).toHaveLength(0)
+  })
+
+  it('LUM-589: a used fragment whose grade the model omitted earns no credit', () => {
+    // Real schema parse applies the default-LOW; real gate filters it out.
+    // No mock — this is the end-to-end of the default-LOW fix (a weak-schema
+    // model omitting the grade must not inflate the trust flywheel).
+    const frags: JudgeFragment[] = [
+      {
+        fragmentType: 'MEMORY',
+        fragmentId: 'x',
+        content: 'something novel, not in CLAUDE.md',
+      },
+    ]
+    const parsed = usageJudgeSchema.parse({
+      used: [{ fragmentType: 'MEMORY', fragmentId: 'x', evidence: 'e' }],
+    })
+    const credited = applyMarginalValueGate(parsed.used, frags, null)
     expect(credited).toHaveLength(0)
   })
 

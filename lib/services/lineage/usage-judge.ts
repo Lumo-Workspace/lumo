@@ -43,10 +43,12 @@ const usedEntrySchema = z.object({
   fragmentType: z.enum(FRAGMENT_TYPES),
   fragmentId: z.string(),
   evidence: z.string(),
-  /** Default HIGH: a weak-schema model (deepseek) that omits the grade should
-   * not silently lose credit — the deterministic constitution gate still catches
-   * redundancy regardless of the LLM's self-grade. */
-  value: z.enum(VALUE_GRADES).default('HIGH'),
+  /** Default LOW (LUM-589): a weak-schema model (deepseek) that omits the grade
+   * earns NO marginal-value credit. The constitution gate only catches CLAUDE.md
+   * redundancy — not the "common sense / already-internalized" class of LOW — so
+   * a missing grade must fail closed (LOW → dropped by applyMarginalValueGate)
+   * rather than silently inflate the trust flywheel with unearned HIGH credit. */
+  value: z.enum(VALUE_GRADES).default('LOW'),
 })
 
 const unusedEntrySchema = z.object({
