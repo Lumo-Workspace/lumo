@@ -5,6 +5,11 @@
  * module so it stays unit-testable without dragging in the verification
  * service's heavy import chain (github/octokit ESM, LUM jest trap).
  *
+ * LUM-574: the DIGEST fallback drops any turn note that is the summarizer's
+ * meta-reasoning (`filterMetaReasoning`), so a leaked "我们被要求…" preamble is
+ * never surfaced as the claim; a digest left empty after filtering degrades to
+ * the same null/pending claim as "no turn notes yet".
+ *
  * Sourced (LUM-573) from the AUTHORITATIVE session for the task — the session
  * carrying a MERGED lineage edge (the delivery run), frozen at DONE/idle into a
  * task-level snapshot — else, before a snapshot exists, the latest session's
@@ -14,6 +19,8 @@
  * claim are same-source and cannot drift. A claim is an unverified self-report
  * (estimate-tier provenance), never a measurement.
  */
+import { filterMetaReasoning } from '@/lib/services/meta-reasoning'
+
 export interface TaskClaim {
   /** The agent's self-reported account, or null when nothing was generated. */
   text: string | null
@@ -43,9 +50,7 @@ export function selectClaim(
   if (!material) return { text: null, source: null }
   const summary = material.runSummary?.trim()
   if (summary) return { text: summary, source: 'RUN_SUMMARY' }
-  const digest = material.turnSummaries
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
+  const digest = filterMetaReasoning(material.turnSummaries)
     .slice(-CLAIM_DIGEST_MAX_LINES)
     .join(' · ')
   if (digest) return { text: digest, source: 'DIGEST' }

@@ -7,6 +7,7 @@ import {
   compactEvents,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
+import { cleanTurnSummary } from '@/lib/services/meta-reasoning'
 
 interface TriggerInput {
   /** The just-inserted STOP / STOP_FAILURE event id — destination for
@@ -19,7 +20,6 @@ interface TriggerInput {
 
 const MODEL_ID = 'deepseek/deepseek-v4-flash'
 const MAX_OUTPUT_TOKENS = 80
-const MAX_SUMMARY_CHARS = 140
 
 const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 Claude Code 回合内的工具调用序列（已压缩），请用一句中文（不超过 60 个字）总结这一回合 Agent 实际做了什么——基于事件本身，不要套话。
 
@@ -72,7 +72,9 @@ export const turnSummaryService = {
         maxOutputTokens: MAX_OUTPUT_TOKENS,
       })
 
-      const cleaned = cleanSummary(text)
+      // LUM-574: cleanTurnSummary also REJECTS meta-reasoning (returns null),
+      // so the model's "我们被要求…" deliberation is never stored as a summary.
+      const cleaned = cleanTurnSummary(text)
       if (!cleaned) return
 
       await hookEventRepository.setTurnSummary(input.stopEventId, cleaned)
@@ -83,14 +85,4 @@ export const turnSummaryService = {
       )
     }
   },
-}
-
-function cleanSummary(raw: string): string | null {
-  const single = raw
-    .replace(/\s+/g, ' ')
-    .replace(/^["'`「」"']+|["'`「」"']+$/g, '')
-    .trim()
-  if (single.length === 0) return null
-  if (single.length <= MAX_SUMMARY_CHARS) return single
-  return single.slice(0, MAX_SUMMARY_CHARS - 1) + '…'
 }
