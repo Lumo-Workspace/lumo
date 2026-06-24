@@ -51,4 +51,24 @@ export const claimFaithfulnessVerdictRepository = {
   findByTaskId(taskId: string) {
     return prisma.claimFaithfulnessVerdict.findUnique({ where: { taskId } })
   },
+  // taskId → judgedClaimAt watermark, for --resume skip decisions.
+  async listWatermarks(): Promise<Map<string, Date | null>> {
+    const rows = await prisma.claimFaithfulnessVerdict.findMany({
+      select: { taskId: true, judgedClaimAt: true },
+    })
+    return new Map(rows.map(r => [r.taskId, r.judgedClaimAt]))
+  },
+}
+
+// A persisted verdict is "fresh" (safe to skip on --resume) when it was judged
+// against a claim at least as new as the task's current claimSnapshot. A null
+// claimSnapshotAt means there is nothing newer to judge → fresh. A verdict with
+// a null watermark predates staleness tracking → treat as stale (re-judge).
+export function isFreshVerdict(
+  judgedClaimAt: Date | null,
+  claimSnapshotAt: Date | null
+): boolean {
+  if (claimSnapshotAt === null) return true
+  if (judgedClaimAt === null) return false
+  return judgedClaimAt.getTime() >= claimSnapshotAt.getTime()
 }
