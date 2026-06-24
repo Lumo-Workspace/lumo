@@ -31,6 +31,10 @@ import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners
 import { taskService } from '@/lib/services/task.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import {
+  aggregateRetroStruggle,
+  type RetroStruggleAggregate,
+} from '@/lib/services/retro-struggle'
 import type { MachineVerdictInput } from '@/lib/validation/acceptance'
 
 /**
@@ -1036,5 +1040,38 @@ export const taskVerificationService = {
         }
       }),
     }
+  },
+
+  /**
+   * Roll the per-task struggle trail / machine-verification rollup up across a
+   * set of tasks (LUM-506) — the cross-task input a milestone/sprint retro
+   * needs to stop reporting an all-green title list. Reads each task's struggle
+   * signals through {@link statusForTask} (the SAME LUM-561/456 source `lumo
+   * task status` reads) and hands them to the pure {@link aggregateRetroStruggle},
+   * so the retro's negative-class section cannot drift from task status. A task
+   * that 404s (e.g. deleted mid-window) is dropped rather than failing the whole
+   * retro.
+   */
+  async aggregateStruggleForTasks(
+    taskIds: string[]
+  ): Promise<RetroStruggleAggregate> {
+    const statuses = await Promise.all(
+      taskIds.map(async id => {
+        try {
+          return await this.statusForTask(id)
+        } catch {
+          return null
+        }
+      })
+    )
+    return aggregateRetroStruggle(
+      statuses
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .map(s => ({
+          task: { identifier: s.task.identifier, title: s.task.title },
+          struggleTrail: s.struggleTrail,
+          machineVerification: s.machineVerification,
+        }))
+    )
   },
 }

@@ -7,6 +7,7 @@ const mockLLM = jest.fn()
 const mockFindPendingMilestoneJob = jest.fn()
 const mockMarkCompleted = jest.fn()
 const mockMarkFailed = jest.fn()
+const mockAggregateStruggle = jest.fn()
 
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: {
@@ -33,9 +34,32 @@ jest.mock('@/lib/llm/milestone-summary-client', () => ({
   callMilestoneSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
+jest.mock('@/lib/services/task-verification.service', () => ({
+  taskVerificationService: {
+    aggregateStruggleForTasks: (...a: any[]) => mockAggregateStruggle(...a),
+  },
+}))
+
+const STRUGGLE = {
+  tasksConsidered: 3,
+  tasksWithStruggle: 1,
+  reworkRounds: 2,
+  failedVerdicts: 4,
+  openSendBacks: 1,
+  resolvedSendBacks: 0,
+  reopens: 1,
+  followUps: 0,
+  extraPrCycles: 2,
+  machineVerified: 3,
+  humanOverridden: 1,
+  machineTotal: 4,
+  hardTasks: [],
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockFindPendingMilestoneJob.mockResolvedValue(null)
+  mockAggregateStruggle.mockResolvedValue(STRUGGLE)
 })
 
 const COMPLETED_MILESTONE = {
@@ -77,6 +101,9 @@ describe('milestoneSummaryService.generate', () => {
 
     expect(mockFindMilestone).toHaveBeenCalledWith('ms-1')
     expect(mockComputeStatsData).toHaveBeenCalledWith('ms-1')
+    expect(mockAggregateStruggle).toHaveBeenCalledWith(
+      STATS_DATA.tasks.map(t => t.id)
+    )
     expect(mockLLM).toHaveBeenCalledWith({
       subject: 'v1.0',
       window: {
@@ -85,6 +112,7 @@ describe('milestoneSummaryService.generate', () => {
       },
       stats: STATS_DATA.stats,
       tasks: STATS_DATA.tasks,
+      struggle: STRUGGLE,
     })
     expect(mockSave).toHaveBeenCalledWith('ms-1', {
       stats: STATS_DATA.stats,

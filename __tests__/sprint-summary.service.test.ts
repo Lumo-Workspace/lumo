@@ -7,6 +7,7 @@ const mockLLM = jest.fn()
 const mockFindPendingSprintJob = jest.fn()
 const mockMarkCompleted = jest.fn()
 const mockMarkFailed = jest.fn()
+const mockAggregateStruggle = jest.fn()
 
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: {
@@ -33,9 +34,32 @@ jest.mock('@/lib/llm/sprint-summary-client', () => ({
   callSprintSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
+jest.mock('@/lib/services/task-verification.service', () => ({
+  taskVerificationService: {
+    aggregateStruggleForTasks: (...a: any[]) => mockAggregateStruggle(...a),
+  },
+}))
+
+const STRUGGLE = {
+  tasksConsidered: 3,
+  tasksWithStruggle: 1,
+  reworkRounds: 2,
+  failedVerdicts: 4,
+  openSendBacks: 1,
+  resolvedSendBacks: 0,
+  reopens: 1,
+  followUps: 0,
+  extraPrCycles: 2,
+  machineVerified: 3,
+  humanOverridden: 1,
+  machineTotal: 4,
+  hardTasks: [],
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockFindPendingSprintJob.mockResolvedValue(null)
+  mockAggregateStruggle.mockResolvedValue(STRUGGLE)
 })
 
 const CLOSED_SPRINT = {
@@ -77,11 +101,15 @@ describe('sprintSummaryService.generate', () => {
 
     expect(mockFindSprint).toHaveBeenCalledWith('sprint-1')
     expect(mockComputeStatsData).toHaveBeenCalledWith('sprint-1')
+    expect(mockAggregateStruggle).toHaveBeenCalledWith(
+      STATS_DATA.tasks.map(t => t.id)
+    )
     expect(mockLLM).toHaveBeenCalledWith({
       subject: 'Sprint 3',
       window: { start: CLOSED_SPRINT.startDate, end: CLOSED_SPRINT.endDate },
       stats: STATS_DATA.stats,
       tasks: STATS_DATA.tasks,
+      struggle: STRUGGLE,
     })
     expect(mockSave).toHaveBeenCalledWith('sprint-1', {
       stats: STATS_DATA.stats,
