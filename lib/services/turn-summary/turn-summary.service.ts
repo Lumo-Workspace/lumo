@@ -1,3 +1,4 @@
+import { FAST_MODEL } from '@/lib/ai/models'
 import { generateText } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -18,7 +19,7 @@ interface TriggerInput {
   sessionId: string
 }
 
-const MODEL_ID = 'deepseek/deepseek-v4-flash'
+const MODEL_ID = FAST_MODEL
 const MAX_OUTPUT_TOKENS = 80
 
 const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 Claude Code 回合内的工具调用序列（已压缩），请用一句中文（不超过 60 个字）总结这一回合 Agent 实际做了什么——基于事件本身，不要套话。

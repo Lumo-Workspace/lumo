@@ -1,3 +1,4 @@
+import { FAST_MODEL } from '@/lib/ai/models'
 import { logger } from '@/lib/logger'
 import {
   parseMemoryContent,
@@ -12,7 +13,7 @@ import type { MemoryContent } from '@/lib/memory/schemas'
 import type { z } from 'zod'
 
 /** deepseek-v4-flash via the gateway — same model as the auto reconcile path. */
-const MODEL_ID = 'deepseek/deepseek-v4-flash'
+const MODEL_ID = FAST_MODEL
 
 const schemaByCategory: Record<MemoryCategory, z.ZodTypeAny> = {
   TRAP: trapContentSchema,
@@ -30,9 +31,7 @@ const schemaByCategory: Record<MemoryCategory, z.ZodTypeAny> = {
  * NOT included — the store is EN/ZH only.
  */
 export function containsCjk(text: string): boolean {
-  return /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/.test(
-    text
-  )
+  return /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/.test(text)
 }
 
 /**
