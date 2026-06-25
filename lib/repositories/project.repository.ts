@@ -250,6 +250,23 @@ export const projectRepository = {
   },
 
   /**
+   * LUM-590: find the default linked repository for a project (isDefault: true,
+   * or the earliest-created one as fallback). Returns only `fullName` — the
+   * only field the code-rule pipeline needs.
+   * Returns null when no repositories are linked.
+   */
+  async findDefaultRepository(
+    projectId: string
+  ): Promise<{ fullName: string } | null> {
+    const row = await prisma.projectRepository.findFirst({
+      where: { projectId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      select: { fullName: true },
+    })
+    return row ?? null
+  },
+
+  /**
    * Replace the `order` field on a sequence of projects to match the given array
    * (1-based). Runs in a transaction. The `workspaceId` scope is enforced in
    * each update's `where` so a cross-workspace id causes the transaction to

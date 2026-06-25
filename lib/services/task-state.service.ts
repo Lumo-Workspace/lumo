@@ -16,6 +16,7 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrospective.service'
 import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
 import { dispatchRunSummaries } from '@/lib/services/run-summary-dispatch'
+import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -524,6 +525,16 @@ export async function updateTaskWithSideEffects(
         })().catch(() => {})
       )
     }
+  }
+
+  // LUM-590: on IN_REVIEW, dispatch the code-rule pipeline to the foreground
+  // worker (/api/internal/policy-check, 300s). Runs the deterministic diff-regex
+  // pass + the semantic LLM judge against the PR diff and persists findings as
+  // advisory boundary crossings. Must NOT run inline in this ~15s waitUntil
+  // budget (same pattern as run-summary LUM-576 and fold LUM-555).
+  // dispatchPolicyCheck has no LLM imports — static import is safe here.
+  if (result.changedFields.includes('status') && input.status === 'IN_REVIEW') {
+    void dispatchPolicyCheck(taskId)
   }
 
   return result
