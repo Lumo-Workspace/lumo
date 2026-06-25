@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "Nicht beurteilbar",
   "acceptance.claim.faithfulness.pending": "Wird geprüft…",
   "acceptance.claim.faithfulness.stale": "veraltet",
-  "acceptance.claim.faithfulness.evidence": "Nachweis:"
+  "acceptance.claim.faithfulness.evidence": "Nachweis:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Projektregel-Verstoß",
+  "boundary.category.POLICY_WEAKENING": "Richtlinienabschwächung",
+  "boundary.advisoryBadge": "Hinweis"
 }

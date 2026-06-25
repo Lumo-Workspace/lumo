@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "판단 불가",
   "acceptance.claim.faithfulness.pending": "판정 중…",
   "acceptance.claim.faithfulness.stale": "오래됨",
-  "acceptance.claim.faithfulness.evidence": "근거:"
+  "acceptance.claim.faithfulness.evidence": "근거:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "프로젝트 규칙 위반",
+  "boundary.category.POLICY_WEAKENING": "정책 약화",
+  "boundary.advisoryBadge": "권고"
 }

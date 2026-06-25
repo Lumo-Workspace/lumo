@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "Tidak dapat dinilai",
   "acceptance.claim.faithfulness.pending": "Menilai…",
   "acceptance.claim.faithfulness.stale": "usang",
-  "acceptance.claim.faithfulness.evidence": "bukti:"
+  "acceptance.claim.faithfulness.evidence": "bukti:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran aturan proyek",
+  "boundary.category.POLICY_WEAKENING": "Pelemahan kebijakan",
+  "boundary.advisoryBadge": "Saran"
 }

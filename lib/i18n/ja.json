@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "判定不能",
   "acceptance.claim.faithfulness.pending": "判定中…",
   "acceptance.claim.faithfulness.stale": "古い",
-  "acceptance.claim.faithfulness.evidence": "根拠:"
+  "acceptance.claim.faithfulness.evidence": "根拠:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "プロジェクトルール違反",
+  "boundary.category.POLICY_WEAKENING": "ポリシーの弱体化",
+  "boundary.advisoryBadge": "アドバイザリー"
 }

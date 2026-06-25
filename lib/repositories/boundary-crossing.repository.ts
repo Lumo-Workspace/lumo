@@ -91,6 +91,10 @@ const VIEW_SELECT = {
   // LUM-511: the originating session for a hook-less (CLI-sourced) crossing —
   // the attribution read model falls back to it when hookEventId is null.
   sessionId: true,
+  // LUM-590: advisory crossings surface in the panel but never block DONE.
+  advisory: true,
+  // LUM-590: which compiled PolicyRule fired (text ref / id).
+  policyRuleRef: true,
   remediationTask: {
     select: {
       number: true,
