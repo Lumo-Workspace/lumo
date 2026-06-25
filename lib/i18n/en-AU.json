@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Advisory",
   "boundary.field.rule": "Rule",
   "boundary.field.triggeredBy": "Triggered by",
-  "boundary.field.whatHappened": "What happened"
+  "boundary.field.whatHappened": "What happened",
+  "boundary.explain.button": "Explain",
+  "boundary.explain.label": "Explanation",
+  "boundary.explain.loading": "Generating…"
 }

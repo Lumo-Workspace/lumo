@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Hinweis",
   "boundary.field.rule": "Regel",
   "boundary.field.triggeredBy": "Ausgelöst durch",
-  "boundary.field.whatHappened": "Was passiert ist"
+  "boundary.field.whatHappened": "Was passiert ist",
+  "boundary.explain.button": "Erklären",
+  "boundary.explain.label": "Erklärung",
+  "boundary.explain.loading": "Wird generiert…"
 }

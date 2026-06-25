@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "提示",
   "boundary.field.rule": "規則",
   "boundary.field.triggeredBy": "觸發來源",
-  "boundary.field.whatHappened": "發生了什麼"
+  "boundary.field.whatHappened": "發生了什麼",
+  "boundary.explain.button": "解釋",
+  "boundary.explain.label": "解釋",
+  "boundary.explain.loading": "生成中…"
 }

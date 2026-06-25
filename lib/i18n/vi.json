@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Khuyến cáo",
   "boundary.field.rule": "Quy tắc",
   "boundary.field.triggeredBy": "Kích hoạt bởi",
-  "boundary.field.whatHappened": "Điều đã xảy ra"
+  "boundary.field.whatHappened": "Điều đã xảy ra",
+  "boundary.explain.button": "Giải thích",
+  "boundary.explain.label": "Giải thích",
+  "boundary.explain.loading": "Đang tạo…"
 }

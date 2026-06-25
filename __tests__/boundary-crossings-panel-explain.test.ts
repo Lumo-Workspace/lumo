@@ -2,21 +2,13 @@
  * @jest-environment node
  *
  * LUM-590 — panel pure helper tests.
- * Tests the `systemExplainState` helper (present-vs-absent branch) without
- * requiring jsdom/React. The helper is inlined here since the Panel file
- * imports react-intl which is ESM-only and explodes in a node jest env.
+ * Imports the REAL exported helper from boundary-explain.ts (not a local
+ * re-implementation). The helper lives in a no-ESM-import file so it runs
+ * cleanly in the node environment. The panel re-exports it as `systemExplainState`
+ * so consumers only need one import path.
  */
 
-// Re-implement the pure helper locally to match the exported shape.
-// This is the exact same logic as the exported helper in BoundaryCrossingsPanel.
-function systemExplainState(c: {
-  systemExplanation: string | null | undefined
-}): { kind: 'button' } | { kind: 'text'; text: string } {
-  if (c.systemExplanation) {
-    return { kind: 'text', text: c.systemExplanation }
-  }
-  return { kind: 'button' }
-}
+import { systemExplainState } from '../app/workspace/[workspaceUrl]/components/TaskDetailTimeline/boundary-explain'
 
 describe('systemExplainState (LUM-590)', () => {
   it('returns { kind: "button" } when systemExplanation is null', () => {
@@ -46,6 +38,14 @@ describe('systemExplainState (LUM-590)', () => {
     ).toEqual({
       kind: 'text',
       text: 'This looks like a false positive.',
+    })
+  })
+
+  it('returns the exact text without modification', () => {
+    const text = 'Multi-line\nexplanation with "quotes" & <angle brackets>.'
+    expect(systemExplainState({ systemExplanation: text })).toEqual({
+      kind: 'text',
+      text,
     })
   })
 })

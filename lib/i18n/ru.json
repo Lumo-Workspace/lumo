@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Предупреждение",
   "boundary.field.rule": "Правило",
   "boundary.field.triggeredBy": "Вызвано",
-  "boundary.field.whatHappened": "Что произошло"
+  "boundary.field.whatHappened": "Что произошло",
+  "boundary.explain.button": "Объяснить",
+  "boundary.explain.label": "Объяснение",
+  "boundary.explain.loading": "Генерация…"
 }

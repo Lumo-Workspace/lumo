@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Nasihat",
   "boundary.field.rule": "Peraturan",
   "boundary.field.triggeredBy": "Dicetuskan oleh",
-  "boundary.field.whatHappened": "Apa yang berlaku"
+  "boundary.field.whatHappened": "Apa yang berlaku",
+  "boundary.explain.button": "Terangkan",
+  "boundary.explain.label": "Penjelasan",
+  "boundary.explain.loading": "Sedang dijana…"
 }
