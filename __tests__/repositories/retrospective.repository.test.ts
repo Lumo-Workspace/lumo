@@ -186,14 +186,22 @@ describe('loadActuals — totalDurationSec (turn-active time)', () => {
     expect(actuals?.totalDurationSec).toBe(50)
   })
 
-  it('queries only the turn-boundary event types', async () => {
+  it('queries the full active-time event stream (including human-wait markers)', async () => {
     await retrospectiveRepository.loadActuals('t1')
-    expect(hookFind).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
-        }),
-      })
+    // The type filter must include human-wait markers (PERMISSION_REQUEST,
+    // NOTIFICATION, ELICITATION) so the active-time algorithm can exclude
+    // mid-turn human-wait intervals — not just the turn-boundary types.
+    const call = hookFind.mock.calls[0]?.[0]
+    const types: string[] = call?.where?.type?.in ?? []
+    expect(types).toEqual(
+      expect.arrayContaining([
+        'USER_PROMPT_SUBMIT',
+        'STOP',
+        'STOP_FAILURE',
+        'PERMISSION_REQUEST',
+        'NOTIFICATION',
+        'ELICITATION',
+      ])
     )
   })
 

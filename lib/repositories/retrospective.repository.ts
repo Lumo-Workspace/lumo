@@ -121,12 +121,31 @@ export const retrospectiveRepository = {
         )
       : null
 
-    // Active time from the turn-boundary hook events (prompt / STOP) of every
-    // session linked to the task — span-based timing counts idle, this doesn't.
+    // Active time from the full hook-event stream for every session linked to
+    // the task — wider type list lets active-time exclude mid-turn human-wait
+    // intervals (PERMISSION_REQUEST / NOTIFICATION / ELICITATION) in addition
+    // to the inter-turn idle that was already excluded.
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
         OR: [{ taskId }, { taskId: null, session: { taskId } }],
-        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+        type: {
+          in: [
+            'USER_PROMPT_SUBMIT',
+            'STOP',
+            'STOP_FAILURE',
+            'PRE_TOOL_USE',
+            'POST_TOOL_USE',
+            'POST_TOOL_USE_FAILURE',
+            'POST_TOOL_BATCH',
+            'SUBAGENT_START',
+            'SUBAGENT_STOP',
+            'PERMISSION_REQUEST',
+            'PERMISSION_DENIED',
+            'NOTIFICATION',
+            'ELICITATION',
+            'ELICITATION_RESULT',
+          ],
+        },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { sessionId: true, type: true, createdAt: true },
