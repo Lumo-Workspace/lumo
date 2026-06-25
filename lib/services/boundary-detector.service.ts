@@ -24,6 +24,10 @@ import {
   type ActionConfirmJudge,
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
+import { matchCmdSubstr } from '@/lib/services/policy/predicate-eval'
+import type { PolicyRule } from '@/lib/services/policy/types'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
 // `@/lib/llm/action-confirm-client`) are loaded LAZILY inside their cached
 // wrappers — they pull in the heavy `ai` / `@ai-sdk/gateway` SDK, and a static
@@ -80,6 +84,12 @@ export interface DetectedCrossing {
    *  human-dispositioned LOW crossing: the LLM is not trusted to auto-clear the
    *  gate (the narrow, deterministic-only softening). */
   autoResolve?: boolean
+  /** LUM-590: advisory crossings come from project-specific predicates — surfaced
+   *  in the panel but never block the DONE gate. A mapped built-in produces a
+   *  blocking crossing; a project-specific predicate produces advisory in v1. */
+  advisory?: boolean
+  /** LUM-590: stable id of the compiled PolicyRule that fired this crossing. */
+  policyRuleRef?: string
 }
 
 const DETAIL_MAX = 200
@@ -1229,6 +1239,72 @@ export async function recordSilentFixIfDetected(
   })
 }
 
+// --- LUM-590: project action-rule predicates ----------------------------------
+
+/**
+ * Resolve the project context needed to load the compiled policy for a task.
+ * Returns { projectId, workspaceId, fullName } or null when either the task is
+ * absent or the project has no default linked repository.
+ * LUM-483 compliant: delegates to repositories, no prisma.* here.
+ */
+async function resolveProjectContextForTask(
+  taskId: string
+): Promise<{
+  projectId: string
+  workspaceId: string
+  fullName: string
+} | null> {
+  const task = await taskRepository.findWithProjectWorkspaceId(taskId)
+  if (!task) return null
+  const defaultRepo = await projectRepository.findDefaultRepository(
+    task.projectId
+  )
+  if (!defaultRepo) return null
+  return {
+    projectId: task.projectId,
+    workspaceId: task.project.workspaceId,
+    fullName: defaultRepo.fullName,
+  }
+}
+
+/**
+ * Pure helper (LUM-590): test a set of compiled PolicyRules against a hook
+ * event's command and return any crossings. Only deterministic action rules
+ * with a cmd-substr predicate are handled here — path-glob action predicates
+ * are handled by the code pipeline. No I/O — safe to unit-test exhaustively.
+ *
+ * v1 semantics: a project-specific predicate (blocking === false) produces an
+ * ADVISORY crossing; a mapped built-in (blocking === true) would produce a
+ * standard crossing, but in practice blocking rules always go through the
+ * existing built-in matchers above.
+ */
+export function detectProjectActionCrossings(
+  input: { toolName: string | null; payload: unknown },
+  rules: PolicyRule[]
+): DetectedCrossing[] {
+  const command = readCommand(input.payload)
+  if (!command) return []
+  const out: DetectedCrossing[] = []
+  for (const r of rules) {
+    if (r.kind !== 'action' || r.tier !== 'deterministic' || !r.predicate)
+      continue
+    const p = r.predicate
+    // path-glob action predicates are handled by the code pipeline — skip here.
+    const hit =
+      p.type === 'cmd-substr' ? matchCmdSubstr(p.value, command) : false
+    if (!hit) continue
+    out.push({
+      category: 'PROJECT_RULE_VIOLATION',
+      detail: clip(`Action rule violated: "${r.text}"`),
+      severity: r.severity,
+      target: `actionrule:${r.id}`,
+      advisory: !r.blocking,
+      policyRuleRef: r.id,
+    })
+  }
+  return out
+}
+
 export const boundaryDetectorService = {
   /**
    * Detect forbidden actions on an ingested hook event and, for each match,
@@ -1247,6 +1323,33 @@ export const boundaryDetectorService = {
       const confirmed = await confirmActionCandidates(input, crossings)
       const tampering = await detectTestTamperingForTask(input)
       if (tampering) confirmed.push(tampering)
+
+      // LUM-590: load the project policy best-effort and append any project
+      // action-rule crossings. Wrapped in try/catch per the exit-0 invariant —
+      // the detector must never throw even if the compiler is unavailable.
+      let projectRules: PolicyRule[] = []
+      try {
+        const ctx = await resolveProjectContextForTask(input.taskId)
+        if (ctx) {
+          const { policyCompilerService } =
+            await import('@/lib/services/policy/policy-compiler.service')
+          const compiled = await policyCompilerService.ensureCompiled({
+            projectId: ctx.projectId,
+            workspaceId: ctx.workspaceId,
+            fullName: ctx.fullName,
+            taskId: input.taskId,
+          })
+          projectRules = compiled?.rules ?? []
+        }
+      } catch {
+        // observer: never throw, project path is best-effort
+      }
+      const projectCrossings = detectProjectActionCrossings(
+        { toolName: input.toolName, payload: input.payload },
+        projectRules
+      )
+      confirmed.push(...projectCrossings)
+
       for (const c of confirmed) {
         // LUM-477: coalesce a recurrence of an OPEN crossing with the same
         // (taskId, category, target) — bump its count/lastSeenAt instead of
@@ -1275,6 +1378,10 @@ export const boundaryDetectorService = {
           target: c.target,
           reversible: isReversible(c.category),
           severity: c.severity,
+          ...(c.advisory != null ? { advisory: c.advisory } : {}),
+          ...(c.policyRuleRef != null
+            ? { policyRuleRef: c.policyRuleRef }
+            : {}),
           ...(c.autoResolve
             ? {
                 disposition: 'AUTO_LEGIT',
