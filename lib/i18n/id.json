@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "Saran",
   "boundary.field.rule": "Aturan",
   "boundary.field.triggeredBy": "Dipicu oleh",
-  "boundary.field.whatHappened": "Yang terjadi"
+  "boundary.field.whatHappened": "Yang terjadi",
+  "boundary.explain.button": "Jelaskan",
+  "boundary.explain.label": "Penjelasan",
+  "boundary.explain.loading": "Sedang dibuat…"
 }

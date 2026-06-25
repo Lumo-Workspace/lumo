@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "권고",
   "boundary.field.rule": "규칙",
   "boundary.field.triggeredBy": "트리거",
-  "boundary.field.whatHappened": "무슨 일이 있었나"
+  "boundary.field.whatHappened": "무슨 일이 있었나",
+  "boundary.explain.button": "설명",
+  "boundary.explain.label": "설명",
+  "boundary.explain.loading": "생성 중…"
 }

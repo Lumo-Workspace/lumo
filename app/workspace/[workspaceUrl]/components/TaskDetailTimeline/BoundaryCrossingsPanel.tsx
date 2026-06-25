@@ -38,6 +38,8 @@ import {
   boundaryReversibilityLabel,
   boundarySeverityLabel,
 } from './boundary-format'
+import { systemExplainState } from './boundary-explain'
+export { systemExplainState } from './boundary-explain'
 
 /**
  * Returns 'advisory' when the crossing is advisory (non-blocking), null when
@@ -296,6 +298,7 @@ export function BoundaryCrossingsPanel({
                 key={c.id}
                 crossing={c}
                 intl={intl}
+                taskIdentifier={taskIdentifier}
                 workspaceUrl={workspaceUrl}
                 pending={pending === c.id}
                 note={notes[c.id] ?? ''}
@@ -307,6 +310,7 @@ export function BoundaryCrossingsPanel({
                 onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
                 onDisposition={verdict => disposition(c.id, verdict)}
                 onSpawnRemediation={() => spawnRemediation(c.id)}
+                onExplainDone={afterChange}
               />
             ))}
           </div>
@@ -339,6 +343,7 @@ export function BoundaryCrossingsPanel({
 function CrossingRow({
   crossing: c,
   intl,
+  taskIdentifier,
   workspaceUrl,
   pending,
   note,
@@ -348,9 +353,11 @@ function CrossingRow({
   onNote,
   onDisposition,
   onSpawnRemediation,
+  onExplainDone,
 }: {
   crossing: BoundaryCrossingView
   intl: ReturnType<typeof useIntl>
+  taskIdentifier: string
   workspaceUrl: string
   pending: boolean
   note: string
@@ -360,8 +367,28 @@ function CrossingRow({
   onNote: (v: string) => void
   onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
   onSpawnRemediation: () => void
+  onExplainDone: () => void
 }) {
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [explainLoading, setExplainLoading] = useState(false)
+
+  const requestExplanation = () => {
+    setExplainLoading(true)
+    void tasksClient
+      .explainBoundaryCrossing<{ explanation: string }>(taskIdentifier, c.id)
+      .then(() => {
+        onExplainDone()
+      })
+      .catch(() => {
+        toast.error(
+          intl.formatMessage({
+            id: 'boundary.toast.error',
+            defaultMessage: 'Action failed — please try again',
+          })
+        )
+      })
+      .finally(() => setExplainLoading(false))
+  }
   const open = c.disposition == null
   // Already-dispositioned crossings collapse by default — handled, kept for the
   // record but out of the way; open ones start expanded since they still need a
@@ -645,6 +672,53 @@ function CrossingRow({
               </p>
             </div>
           )}
+
+          {/* LUM-590: system-generated plain-language explanation. When absent,
+          show an "Explain" button (human-triggered LLM call). When present,
+          render as a plain text node — NEVER dangerouslySetInnerHTML since the
+          text derives from untrusted command content (same policy as the detail
+          code block above). Advisory only — never clears a crossing or the DONE
+          gate. */}
+          {(() => {
+            const explainState = systemExplainState(c)
+            if (explainState.kind === 'text') {
+              return (
+                <div
+                  data-testid={`crossing-system-explanation-${c.id}`}
+                  className='mt-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5'
+                >
+                  <p className='mb-1 text-[11px] font-medium text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'boundary.explain.label',
+                      defaultMessage: 'Explanation',
+                    })}
+                  </p>
+                  <p className='whitespace-pre-wrap break-words text-[11px] text-foreground'>
+                    {explainState.text}
+                  </p>
+                </div>
+              )
+            }
+            return (
+              <button
+                type='button'
+                data-testid={`crossing-explain-btn-${c.id}`}
+                disabled={explainLoading || pending}
+                onClick={requestExplanation}
+                className='mt-1.5 inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50'
+              >
+                {explainLoading
+                  ? intl.formatMessage({
+                      id: 'boundary.explain.loading',
+                      defaultMessage: 'Generating…',
+                    })
+                  : intl.formatMessage({
+                      id: 'boundary.explain.button',
+                      defaultMessage: 'Explain',
+                    })}
+              </button>
+            )
+          })()}
 
           {c.editChange && (
             <EditChangeBlock change={c.editChange} intl={intl} />

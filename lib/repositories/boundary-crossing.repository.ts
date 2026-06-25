@@ -62,6 +62,17 @@ const EXPLANATION_SELECT = {
   createdAt: true,
 } as const
 
+/** Minimal projection for the system-explanation generate path (LUM-590). */
+const EXPLAIN_SELECT = {
+  id: true,
+  taskId: true,
+  category: true,
+  severity: true,
+  detail: true,
+  policyRuleText: true,
+  systemExplanation: true,
+} as const
+
 /** Lightweight projection for the gate / write paths. */
 const SELECT = {
   id: true,
@@ -99,6 +110,8 @@ const VIEW_SELECT = {
   policyRuleRef: true,
   // LUM-590: frozen verbatim text of the policy rule at detection time.
   policyRuleText: true,
+  // LUM-590: cached system-generated explanation (null = not yet generated).
+  systemExplanation: true,
   remediationTask: {
     select: {
       number: true,
@@ -360,5 +373,33 @@ export const boundaryCrossingRepository = {
       data: { agentNotifiedAt: now },
     })
     return count
+  },
+
+  // ─── LUM-590: lazy system-generated explanation ──────────────────────────────
+
+  /**
+   * Load the fields the LLM explanation generator needs: category, severity,
+   * detail, policyRuleText, and the cached systemExplanation (null = not yet
+   * generated). Returns null when the crossing is not found.
+   */
+  async findForExplanation(id: string) {
+    return prisma.boundaryCrossing.findUnique({
+      where: { id },
+      select: EXPLAIN_SELECT,
+    })
+  },
+
+  /**
+   * Persist the LLM-generated system explanation on the crossing (LUM-590).
+   * Called exactly once per crossing — subsequent reads hit the cache in the
+   * service and never reach this updater again. Write-once by convention (the
+   * service's cache-hit path short-circuits before calling this).
+   */
+  async setSystemExplanation(id: string, text: string) {
+    return prisma.boundaryCrossing.update({
+      where: { id },
+      data: { systemExplanation: text },
+      select: { id: true, systemExplanation: true },
+    })
   },
 }

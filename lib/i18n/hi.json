@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "सलाह",
   "boundary.field.rule": "नियम",
   "boundary.field.triggeredBy": "ट्रिगर किया गया",
-  "boundary.field.whatHappened": "क्या हुआ"
+  "boundary.field.whatHappened": "क्या हुआ",
+  "boundary.explain.button": "समझाएं",
+  "boundary.explain.label": "व्याख्या",
+  "boundary.explain.loading": "उत्पन्न हो रहा है…"
 }

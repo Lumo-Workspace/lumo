@@ -86,6 +86,10 @@ export interface BoundaryCrossingView {
   /** LUM-590: turn-level intent the agent stated for the turn containing this
    *  crossing; null when not derivable. */
   agentContext: string | null
+  /** LUM-590: cached SYSTEM-generated plain-language explanation for this
+   *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
+   *  ONLY — never changes disposition or the DONE gate. */
+  systemExplanation: string | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

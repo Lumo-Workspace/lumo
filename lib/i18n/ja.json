@@ -1856,5 +1856,8 @@
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.field.rule": "ルール",
   "boundary.field.triggeredBy": "トリガー",
-  "boundary.field.whatHappened": "何が起きたか"
+  "boundary.field.whatHappened": "何が起きたか",
+  "boundary.explain.button": "説明",
+  "boundary.explain.label": "説明",
+  "boundary.explain.loading": "生成中…"
 }

@@ -202,6 +202,19 @@ export const tasksClient = {
   },
 
   /**
+   * Generate (and cache) a plain-language SYSTEM explanation for a boundary
+   * crossing (LUM-590). Clerk-session only — the server refuses bearer (agent)
+   * identities. Returns { explanation: string }. Advisory only: never changes
+   * disposition or the DONE gate.
+   */
+  explainBoundaryCrossing<T>(taskId: string, crossingId: string) {
+    return apiFetch<T>(API.tasks.boundarySystemExplain(taskId, crossingId), {
+      method: 'POST',
+      body: {},
+    })
+  },
+
+  /**
    * Spawn a remediation follow-up task from a crossing (LUM-435): pre-links the
    * crossing and adds a dependency edge to the original task. Ordinary
    * authenticated write (not the disposition redline).

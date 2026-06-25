@@ -879,6 +879,10 @@ model BoundaryCrossing {
   advisory          Boolean  @default(false)    // LUM-590: semantic finding — surfaced, never blocks DONE
   policyRuleRef     String?                     // LUM-590: which compiled PolicyRule fired (text/id)
   policyRuleText    String?                     // LUM-590: frozen verbatim text of the rule at detection time
+  // LUM-590: lazy-cached SYSTEM-generated plain-language explanation. Generated
+  // the first time a human clicks "Explain" in the panel; null = not yet generated.
+  // Advisory only — never touches disposition or the DONE gate.
+  systemExplanation String?
 
   task            Task                          @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
