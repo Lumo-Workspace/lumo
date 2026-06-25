@@ -1,6 +1,6 @@
 # Acceptance criteria (contract)
 
-The acceptance contract is a small set of structured criteria the task's work is verified against (Acceptance v1, LUM-341/342). The agent drafts it; the server validates and stores it; verification rounds (`lumo verify`, Slice 1 task #3) judge against it. Criteria are injected at session start and in `lumo task context` as the `## Acceptance criteria (contract)` section.
+The acceptance contract is a small set of structured criteria the task's work is verified against. The agent drafts it; the server validates and stores it; verification rounds (`lumo verify`) judge against it. Criteria are injected at session start and in `lumo task context` as the `## Acceptance criteria (contract)` section.
 
 ## When to draft — the golden rule
 
@@ -45,7 +45,7 @@ The 3–7 range is calibrated for typical multi-file tasks. Criterion count must
 - **Outcome-level definition of done, not micro-steps** — a verifiable result (`"lumo task criteria set rejects a second agent draft with 409"`), not a task step ("add a check in the service").
 - **Repo-wide baselines don't take slots** — tests pass / `tsc --noEmit` clean / i18n locale parity / lint are already required by the repo's PR checklist; never spend one of your 3–7 criteria on them.
 - `evidenceRequired: true` — marks criteria whose verdict must point at proof (a MACHINE PASS always requires evidence regardless of this flag).
-- **Edited a MACHINE checkpointer mid-task? Re-run `lumo verify`.** A prior PASS was recorded against the old command — swapping the checkpointer (or rewording the criterion) makes that pass stale: `lumo task status` / the acceptance tab flag it `⚠ pre-edit version` (LUM-457). The stale pass still counts as met (render-only, doesn't block DONE), but re-verify so the green reflects the current check.
+- **Edited a MACHINE checkpointer mid-task? Re-run `lumo verify`.** A prior PASS was recorded against the old command — swapping the checkpointer (or rewording the criterion) makes that pass stale: `lumo task status` / the acceptance tab flag it `⚠ pre-edit version`. The stale pass still counts as met (render-only, doesn't block DONE), but re-verify so the green reflects the current check.
 
 **MACHINE vs HUMAN:**
 
@@ -55,10 +55,10 @@ The 3–7 range is calibrated for typical multi-file tasks. Criterion count must
 
 **Two checkpointer traps:**
 
-- `npx tsx scripts/jest-t.ts '<exact test name>' [test file path]` — jest-by-name checkpointers must go through this zero-match guard. A bare `npx jest -t '<name>'` exits 0 even when the pattern matches **no** test — rename or delete the test and the checkpointer silently fake-PASSes (same trap class as the BSD-grep `-P` incident, LUM-401). `jest-t.ts` fails unless ≥1 matching test ran and passed; the optional path scopes the run to one file (much faster than name-filtering the whole suite).
-- `instance-independent, never self-comparing` — a checkpointer is stored once and re-run for the life of the task, so it must not depend on a baseline that shifts under it. The trap is a `vs origin/main` self-comparison ("current file is strictly smaller than origin/main"): passes pre-merge, but the moment the change merges every branch cut from main has `current == base` and the check fails forever (LUM-433 c1, fixed in #528). Anchor to a **fixed, absolute target** — a literal budget (`byteCount ≤ 9500`), a committed fixture, or a stable named test through the zero-match guard. A jest-by-name checkpointer likewise rots when its test is renamed/deleted — often by _another_ task's work, so the stored PASS goes stale invisibly. Keep test names stable; `npx tsx scripts/checkpointer-drift.ts <LUM-N> | --mine` statically sweeps stored contracts for these zero-match checkpointers (detection-only).
+- `npx tsx scripts/jest-t.ts '<exact test name>' [test file path]` — jest-by-name checkpointers must go through this zero-match guard. A bare `npx jest -t '<name>'` exits 0 even when the pattern matches **no** test — rename or delete the test and the checkpointer silently fake-PASSes. `jest-t.ts` fails unless ≥1 matching test ran and passed; the optional path scopes the run to one file (much faster than name-filtering the whole suite).
+- `instance-independent, never self-comparing` — a checkpointer is stored once and re-run for the life of the task, so it must not depend on a baseline that shifts under it. The trap is a `vs origin/main` self-comparison ("current file is strictly smaller than origin/main"): passes pre-merge, but the moment the change merges every branch cut from main has `current == base` and the check fails forever. Anchor to a **fixed, absolute target** — a literal budget (`byteCount ≤ 9500`), a committed fixture, or a stable named test through the zero-match guard. A jest-by-name checkpointer likewise rots when its test is renamed/deleted — often by _another_ task's work, so the stored PASS goes stale invisibly. Keep test names stable; `npx tsx scripts/checkpointer-drift.ts <LUM-N> | --mine` statically sweeps stored contracts for these zero-match checkpointers (detection-only).
 
-### judgeSteps — agent-drafted judging steps for HUMAN criteria (LUM-465)
+### judgeSteps — agent-drafted judging steps for HUMAN criteria
 
 A HUMAN criterion is judged by a person, not a checkpointer — so don't hand them a bare assertion ("the copy reads naturally") and make them reverse-engineer what to do. Attach **`judgeSteps`**: short, human-readable instructions the adjudication card renders verbatim (light markdown, URLs made clickable). Structured labour is yours; the human just follows the steps.
 
@@ -68,7 +68,7 @@ A HUMAN criterion is judged by a person, not a checkpointer — so don't hand th
 2. `What to do` — the concrete action ("open the acceptance tab", "read the `judgeSteps` block aloud", "resize to mobile width").
 3. `✓ pass / ✗ send-back` — the decision rule, both directions, so the verdict isn't a coin-flip ("pass if every URL opens; send back if any step is vague").
 
-**One criterion = one judgment point.** If a HUMAN criterion bundles two checks, split it — each half gets its own steps. The canonical miss is LUM-397's "additive schema **and** self-credit not implemented": two assertions; the first is even machine-able (below), the second is a separate human read.
+**One criterion = one judgment point.** If a HUMAN criterion bundles two checks, split it — each half gets its own steps. The canonical miss is an "additive schema **and** self-credit not implemented" criterion: two assertions; the first is even machine-able (below), the second is a separate human read.
 
 **Machine-able → make it MACHINE, don't burn human attention.** Before writing `judgeSteps`, ask whether a checkpointer could decide it. "The migration is purely additive" → `grep` the `migration.sql` for `DROP`/destructive DDL → MACHINE. "No file under `prisma/migrations/` was deleted" → a `git diff` probe → MACHINE. Reserve HUMAN + `judgeSteps` for genuine taste/feel/fidelity judgments a check can't make.
 
@@ -90,7 +90,7 @@ Most criteria assert that **something that should happen, happened** ("the endpo
 - `How to phrase it` — state the invariant as _still holding after the change_, not as a step you took. The **c-CRAB boundary** is the hard rule: encode **"the problem does not (re)occur"**, never **"a specific fix exists"**. Write "`prisma/migrations/` has no deleted files vs origin/main" (the bad state is absent) — not "the migration-delete guard function is present" (a named fix). The first survives a refactor of _how_ the invariant is enforced; the second re-fails the moment someone renames the guard, and passes even if the protection was gutted some other way.
 - `Pairing with a checkpointer` — an invariant almost always has a runnable check (its advantage), so prefer MACHINE. The existing `checkpointer` syntax carries it as-is: a `git diff` path/filter probe, a full-suite `jest` run, a structure-verify script, a parity check.
 
-Two real-repo invariant examples — `prisma/migrations/` files never deleted (the CLAUDE.md red line), and a live-doc's table structure not flattened (the LUM-349 incident: an HTML→md round-trip silently collapsed tables to plain text):
+Two real-repo invariant examples — `prisma/migrations/` files never deleted (the CLAUDE.md red line), and a live-doc's table structure not flattened (an HTML→md round-trip that silently collapsed tables to plain text):
 
 ```json
 [
@@ -107,7 +107,7 @@ Two real-repo invariant examples — `prisma/migrations/` files never deleted (t
 ]
 ```
 
-A third lives in a current contract you can copy: **LUM-415**'s "SKILL.md frontmatter description stays ≤ 1000 chars" — the standing context-budget invariant (the description is resident in every session), checkpointed by the `description cap` case in `scripts/analysis/lum392-cli-friction/__tests__/doc-examples.test.ts`.
+A third example invariant is "SKILL.md frontmatter description stays ≤ 1000 chars" — the standing context-budget invariant (the description is resident in every session), checkpointed by the `description cap` case in `scripts/analysis/lum392-cli-friction/__tests__/doc-examples.test.ts`.
 
 One invariant criterion is usually enough — it's the guardrail, not the whole contract. Pair it with the positive criteria that say what the change should achieve; together they assert _did the right thing_ **and** _touched nothing it shouldn't_.
 
@@ -178,7 +178,7 @@ Optionally annotate **why** the contract drifted with `--cause <NEW_INFO|SCOPE_C
 - `GRANULARITY` — wrong granularity.
 - `OTHER` — anything else.
 
-The tag lands in the drift record (TaskActivity payload), feeding the Slice-3 drift-cause distribution. Every criteria add/update/delete is mirrored as a structured `CRITERION_CHANGED` activity automatically; `--cause` just enriches it.
+The tag lands in the drift record (TaskActivity payload). Every criteria add/update/delete is mirrored as a structured `CRITERION_CHANGED` activity automatically; `--cause` just enriches it.
 
 ### `lumo task criteria list <task>`
 

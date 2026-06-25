@@ -2,7 +2,7 @@
 
 Commands for **reading a faithful edit base and writing back surgically** — the safe way to edit live docs (registers, ledgers, reports) without flattening tables or clobbering concurrent edits. For document CRUD, sharing, and import, see [docs.md](docs.md) (it also documents the shared **content channels** — `--content` / `--file` / stdin — and the **compact-tables authoring convention**, which apply equally to `doc patch` / `doc append`).
 
-**The red line (LUM-349):** never treat rendered `doc show` output as a re-uploadable source — HTML→markdown is lossy and flattens tables. The only legal edit base is `doc show --raw` / `--section`, which print the byte-identical stored `sourceMarkdown`.
+**The red line:** never treat rendered `doc show` output as a re-uploadable source — HTML→markdown is lossy and flattens tables. The only legal edit base is `doc show --raw` / `--section`, which print the byte-identical stored `sourceMarkdown`.
 
 ## `lumo doc show <doc> [--raw | --section <heading>]` — print one document's detail
 
@@ -14,19 +14,19 @@ lumo doc show cmd_xxx --raw > base.md            # byte-identical edit base (rev
 lumo doc show cmd_xxx --section "D 状态表" > sec.md  # one section only (revision on stderr)
 ```
 
-**`--raw` (LUM-408)** prints the byte-identical markdown source of the last markdown upload — no header, no trailing newline added. The server stores the raw markdown (`sourceMarkdown`) alongside the rendered HTML on every markdown write (`doc create/update --content/--file/stdin`, gdoc import/sync), so `--raw` output IS a legal edit base: `doc show --raw > base.md`, edit, `doc update --file base.md` round-trips losslessly.
+**`--raw`** prints the byte-identical markdown source of the last markdown upload — no header, no trailing newline added. The server stores the raw markdown (`sourceMarkdown`) alongside the rendered HTML on every markdown write (`doc create/update --content/--file/stdin`, gdoc import/sync), so `--raw` output IS a legal edit base: `doc show --raw > base.md`, edit, `doc update --file base.md` round-trips losslessly.
 
 - A web-editor (HTML-direct) edit or revision restore **invalidates** the stored source — the doc's markdown source is gone until the next markdown upload.
-- When no source is stored (legacy doc or after an HTML edit), `--raw` **fails with exit 1 and a rebuild hint** — it never silently falls back to the lossy HTML→markdown reverse render (that fallback flattened tables: LUM-349). Rebuild flow (LUM-446): run **`lumo doc rebuild-source <doc>`** — it regenerates the source from the stored HTML with a lossless serializer (tables round-trip) and a structure guard, so `--raw` works from then on.
+- When no source is stored (legacy doc or after an HTML edit), `--raw` **fails with exit 1 and a rebuild hint** — it never silently falls back to the lossy HTML→markdown reverse render. Rebuild flow: run **`lumo doc rebuild-source <doc>`** — it regenerates the source from the stored HTML with a lossless serializer (tables round-trip) and a structure guard, so `--raw` works from then on.
 - Raw output is verbatim (unsanitized) by design — redirect it to a file rather than reading it in a terminal when the doc's provenance is uncertain.
 
 Note: the markdown rendered by **default-mode** `doc show` is still best-effort (tables flatten). Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT a no-op — use `--raw` as the edit base instead.
 
-Output budget (LUM-428): **default-mode** `doc show` caps the rendered body to the output-token budget (25,000 tokens) and, when truncated, ends in a pointer to `--section "<heading>"` / `--raw`. `--raw` and `--section` are **never** capped — they are byte-faithful edit bases.
+Output budget: **default-mode** `doc show` caps the rendered body to the output-token budget (25,000 tokens) and, when truncated, ends in a pointer to `--section "<heading>"` / `--raw`. `--raw` and `--section` are **never** capped — they are byte-faithful edit bases.
 
-**`--section <heading>` (LUM-409)** prints just one heading-addressed section of the markdown source — a byte-faithful slice from the heading line through (not including) the next same-or-higher-level heading, subsections included. No header on stdout (the slice is a legal `doc patch` base); the current revision is printed to **stderr** as `Revision: N`. Mutually exclusive with `--raw`.
+**`--section <heading>`** prints just one heading-addressed section of the markdown source — a byte-faithful slice from the heading line through (not including) the next same-or-higher-level heading, subsections included. No header on stdout (the slice is a legal `doc patch` base); the current revision is printed to **stderr** as `Revision: N`. Mutually exclusive with `--raw`.
 
-- Section addressing: pass the heading text (`--section "D 状态表"`), matched in three tiers — exact, then case-insensitive, then (LUM-447) full-width↔half-width punctuation + whitespace normalization, so a half-width query (`问题(P4)`) lands on a full-width stored heading (`问题（P4）`) and vice-versa. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`). Normalization never relaxes the ambiguity guard — multiple matches still give the candidate list + exit 1.
+- Section addressing: pass the heading text (`--section "D 状态表"`), matched in three tiers — exact, then case-insensitive, then full-width↔half-width punctuation + whitespace normalization, so a half-width query (`问题(P4)`) lands on a full-width stored heading (`问题（P4）`) and vice-versa. Prefix with `#…` to pin the level when the same text exists at several depths (`--section "## Status"`). Normalization never relaxes the ambiguity guard — multiple matches still give the candidate list + exit 1.
 - Missing heading → exit 1 listing the available headings; ambiguous heading → exit 1 with a depth-disambiguation hint.
 - Requires a stored markdown source — same no-fallback rule and rebuild flow as `--raw`.
 - Heading detection is markdown-aware: `#` lines inside fenced code blocks or blockquotes are never section boundaries.
@@ -55,7 +55,7 @@ Replaces the **whole addressed section** (heading line included, subsections inc
 
 Concurrency: the splice always commits **conditionally** on the revision the server read the source at — even without `--if-revision`, a concurrent body edit between read and write returns 409 instead of clobbering. On 409 the CLI prints the server reason plus a re-read-and-retry hint and exits 1.
 
-Structure guard (LUM-410), **scoped to the addressed section**: a replacement whose render has fewer `table`/`tr`/heading elements than the old section's render is rejected with 422 naming each shrunk category (old→new counts); structure elsewhere in the document never factors in. Dropping the heading line itself trips the guard too. Pass `--allow-shrink` when the deletion is intentional. `doc append` is pure insertion and is never guarded.
+Structure guard, **scoped to the addressed section**: a replacement whose render has fewer `table`/`tr`/heading elements than the old section's render is rejected with 422 naming each shrunk category (old→new counts); structure elsewhere in the document never factors in. Dropping the heading line itself trips the guard too. Pass `--allow-shrink` when the deletion is intentional. `doc append` is pure insertion and is never guarded.
 
 Requires a stored markdown source (same rule as `--raw`); errors with the rebuild hint otherwise.
 
@@ -84,7 +84,7 @@ Inserts the new content at the **end of the addressed section** (just before the
 | `--file <path>`       | string | Content from file (project-local sandbox).                                   |
 | `--if-revision <n>`   | int    | Only apply if the body is still at revision `n`; 409 + retry hint otherwise. |
 
-Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). **End-of-document append (no `--section`) does NOT require a stored markdown source** (LUM-444): when the source is missing (web HTML edit / revision restore / legacy doc) it renders the new block to HTML and concatenates it onto the stored HTML body — so one web operation can no longer lock the whole doc against the agent write path. The source stays null (the doc is still HTML-only afterward; `--raw`/`--section`/`doc patch` keep erroring with the rebuild hint). **Section-addressed append (`--section`) still requires a stored source** — it needs the markdown to locate the heading boundary.
+Same concurrency contract as `doc patch` (always a conditional commit; 409 on conflict). **End-of-document append (no `--section`) does NOT require a stored markdown source**: when the source is missing (web HTML edit / revision restore / legacy doc) it renders the new block to HTML and concatenates it onto the stored HTML body — so one web operation can no longer lock the whole doc against the agent write path. The source stays null (the doc is still HTML-only afterward; `--raw`/`--section`/`doc patch` keep erroring with the rebuild hint). **Section-addressed append (`--section`) still requires a stored source** — it needs the markdown to locate the heading boundary.
 
 ```bash
 lumo doc append cmd_xxx --section "F 待办队列" --content "- [ ] 评估 XYZ 论文"
@@ -119,7 +119,7 @@ lumo doc diff cmd_xxx --file docs/live-docs/research-intake-ledger.md
 
 ## `lumo doc rebuild-source <doc>` — regenerate the markdown source from the HTML body
 
-The **recovery path for a source-less doc** (LUM-446). When a doc has no stored `sourceMarkdown` — a web HTML-direct edit or revision restore nulled it, or the doc predates source storage — every markdown write path (`--raw`, `--section`, `doc patch`, `doc append --section`, `doc diff`) is locked. This regenerates a valid source by serializing the **stored HTML structure model** back to markdown with a **lossless serializer that round-trips tables/rows/headings** (the default `doc show` render flattens tables — LUM-349 — so it was never a safe rebuild base). Only the `sourceMarkdown` column is backfilled; the rendered body is untouched, so the doc reads identically and you just regain the edit base.
+The **recovery path for a source-less doc**. When a doc has no stored `sourceMarkdown` — a web HTML-direct edit or revision restore nulled it, or the doc predates source storage — every markdown write path (`--raw`, `--section`, `doc patch`, `doc append --section`, `doc diff`) is locked. This regenerates a valid source by serializing the **stored HTML structure model** back to markdown with a **lossless serializer that round-trips tables/rows/headings** (the default `doc show` render flattens tables, so it was never a safe rebuild base). Only the `sourceMarkdown` column is backfilled; the rendered body is untouched, so the doc reads identically and you just regain the edit base.
 
 | Flag                | Type    | Notes                                                                                                                    |
 | ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -127,7 +127,7 @@ The **recovery path for a source-less doc** (LUM-446). When a doc has no stored 
 | `--force`           | boolean | Re-derive even when a source already exists (default: 409 — protects a byte-faithful human source from a downgrade).     |
 | `--if-revision <n>` | int     | Only apply if the body is still at this revision (from `doc show`).                                                      |
 
-The rebuild is **structure-guarded** (the same LUM-410 口径 as `doc update`/`doc patch`): if the serializer would drop any table/row/heading, it is rejected with **422** rather than silently committing a flattened source — `--allow-shrink` is the explicit escape hatch. A doc that already has a source is refused **409** unless `--force`.
+The rebuild is **structure-guarded** (the same guard as `doc update`/`doc patch`): if the serializer would drop any table/row/heading, it is rejected with **422** rather than silently committing a flattened source — `--allow-shrink` is the explicit escape hatch. A doc that already has a source is refused **409** unless `--force`.
 
 ```bash
 lumo doc rebuild-source cmd_xxx          # restore a source-less doc; --raw works after

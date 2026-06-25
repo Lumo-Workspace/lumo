@@ -13,7 +13,7 @@ lumo task context LUM-42
 The command prints a markdown document to stdout with these sections, in order:
 
 1. **Task header** — identifier, title, status, description.
-2. **`## Acceptance criteria (contract)`** (LUM-342) — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** (see [criteria.md](criteria.md)).
+2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** (see [criteria.md](criteria.md)).
 3. **Memory section** — cross-session learnings; trusted background context that persists, so you avoid re-learning decisions/constraints.
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below).
 5. **`## PR review todos`** — mirrored PR review comments as a checkbox todo list. Each line-level comment shows `` `file:line` `` + reviewer's ask + GitHub comment link; each `changes_requested` review summary shows "🛑 Changes requested (whole PR)". Present only when the task's PR(s) have review comments. Each unchecked box is a TODO: resolve it, then reply on the PR (a Lumo comment mirrors back to GitHub).
@@ -33,7 +33,7 @@ The command prints a markdown document to stdout with these sections, in order:
 
 ## Context Retrieval (full text on demand)
 
-LUM-122 split context injection into tiers: `lumo task context <LUM-N>` emits a **cheap inline card** per source instead of dumping full bodies. Slack/docs/artifacts/comments get an **LLM summary**; web/Figma/PR get **metadata only**. Each card ends with the **retrieval command** for the heavy content.
+Context injection is split into tiers: `lumo task context <LUM-N>` emits a **cheap inline card** per source instead of dumping full bodies. Slack/docs/artifacts/comments get an **LLM summary**; web/Figma/PR get **metadata only**. Each card ends with the **retrieval command** for the heavy content.
 
 Run the matching command below when the card isn't enough. Pass the same `LUM-N` plus the id the card shows for that source:
 
@@ -47,7 +47,7 @@ Run the matching command below when the card isn't enough. Pass the same `LUM-N`
 
 All five are **read-only** (no live Slack/GitHub/Figma calls except the web body fetch). Web/Figma/PR are v1 metadata-degraded: they print a `note:` saying live content needs an external integration.
 
-**Output budget (LUM-428):** the whole `task context` handoff is capped to the output-token budget (25,000 tokens). On overflow, output is truncated and ends in a pointer to the precise sub-commands (`lumo task status` / `task comments list --full` / `task lineage` / `doc show`) to pull any dropped section just-in-time.
+**Output budget:** the whole `task context` handoff is capped to the output-token budget (25,000 tokens). On overflow, output is truncated and ends in a pointer to the precise sub-commands (`lumo task status` / `task comments list --full` / `task lineage` / `doc show`) to pull any dropped section just-in-time.
 
 ### `lumo task slack show <identifier> <contextId>` — full Slack thread snapshot
 
@@ -77,7 +77,7 @@ lumo task figma context LUM-42 cfl_abc123
 
 Prints the thread: each comment as `author · createdAt` then its plain-text body (bodies stored as HTML, stripped to text). Replies indent two spaces under their parent. Author falls back to `unknown`. No comments prints `(no comments)`.
 
-- `lumo task comments list LUM-42` — capped to the output budget (LUM-428: 25,000 tokens; every printed line spends from your context). On overflow, truncates and ends in a fetch-more pointer: `… +N more comments not shown (output capped at 25,000 tokens) — read the whole thread with: lumo task comments list <id> --full`.
+- `lumo task comments list LUM-42` — capped to the output budget (25,000 tokens; every printed line spends from your context). On overflow, truncates and ends in a fetch-more pointer: `… +N more comments not shown (output capped at 25,000 tokens) — read the whole thread with: lumo task comments list <id> --full`.
 - `lumo task comments list LUM-42 --full` — every comment, uncapped. Use only when you actually need the whole thread.
 
 ```bash
@@ -104,13 +104,13 @@ lumo task lineage LUM-42            # per-session causal trail + cost
 lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
 ```
 
-- `lumo task lineage <id> --signal` — appends the workspace-level usage signal-health block. Used-vs-base merge rate uses iteration-taint fold (send-back / reopen / PR-close = negative class even if later merged); shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet. The block ends with a workspace-wide disclosure funnel (same format as the totals funnel below, aggregated over **all** workspace edges, not just this task) including the same `· ~T tokens saved` suffix when token data exists (LUM-522).
+- `lumo task lineage <id> --signal` — appends the workspace-level usage signal-health block. Used-vs-base merge rate uses iteration-taint fold (send-back / reopen / PR-close = negative class even if later merged); shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet. The block ends with a workspace-wide disclosure funnel (same format as the totals funnel below, aggregated over **all** workspace edges, not just this task) including the same `· ~T tokens saved` suffix when token data exists.
 
 Output sections:
 
-- **Totals banner** — distinct sessions, fragment count, edge count, total tokens (input/output/cache split), loops, and outcome distribution. After the outcome summary, one funnel line: `- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`. Impressions = edge count; INDEX% and used% are over impressions; pull% is over INDEX only (FULL fragments have no pull opportunity). Divide-by-zero guarded (zero impressions or zero INDEX renders `0%`). With per-fragment token weights collected (LUM-522), appends `· ~T tokens saved` = Σ(fullTokens − indexTokens) over un-pulled INDEX edges (the token cost index-only injection avoided); omitted cleanly when no edge carries token data (older edges predate the columns).
+- **Totals banner** — distinct sessions, fragment count, edge count, total tokens (input/output/cache split), loops, and outcome distribution. After the outcome summary, one funnel line: `- Disclosure funnel: N impressions · M INDEX (X%) · K pulled (Y% of INDEX) · J used (Z%)`. Impressions = edge count; INDEX% and used% are over impressions; pull% is over INDEX only (FULL fragments have no pull opportunity). Divide-by-zero guarded (zero impressions or zero INDEX renders `0%`). With per-fragment token weights collected, appends `· ~T tokens saved` = Σ(fullTokens − indexTokens) over un-pulled INDEX edges (the token cost index-only injection avoided); omitted cleanly when no edge carries token data (older edges predate the columns).
 - **One block per session** — the group's cost shown **once** (token/loop), the date it consumed context, then each fragment as `[OUTCOME] TYPE — <source label>` plus a disclosure suffix: `· INDEX pulled` (INDEX, `pulledAt` set) / `· INDEX not-pulled` (INDEX, never pulled) / `· FULL` (injected in full at session-start). Per-group outcome summary follows.
-- **Top operations by token cost (LUM-523)** — the totals also append a per-task Top-5 of the most expensive tools by attributed token cost (`<tool> — N tokens`), ending with `(full breakdown: lumo cost --task <id>)`. Omitted when no per-operation cost has been attributed yet.
+- **Top operations by token cost** — the totals also append a per-task Top-5 of the most expensive tools by attributed token cost (`<tool> — N tokens`), ending with `(full breakdown: lumo cost --task <id>)`. Omitted when no per-operation cost has been attributed yet.
 
 Cost is attributed once per session (a session that injected many fragments is not double-counted). Fragment ids are canonical — MEMORY fragments survive consolidation drift. **Cold start:** a task with no edges prints a friendly note (lineage is captured when a session-bound run consumes the task's context), not an error.
 

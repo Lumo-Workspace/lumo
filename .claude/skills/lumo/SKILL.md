@@ -137,7 +137,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
 - `lumo session status` — show current binding
-- End-of-session housekeeping is fully automatic (no command — removed in LUM-544). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
+- End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
 **Worktrees (local dev tooling)** — see [worktree.md](references/worktree.md)
@@ -148,10 +148,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ## Commands & flags that do NOT exist (common mistakes)
 
-Measured from real agent sessions (LUM-392) — don't guess these:
+Don't guess these:
 
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
-- No `lumo session detach` — the session↔task binding is a lifetime lock (LUM-459); to work on a different task, start a new Claude Code session
+- No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`
@@ -175,7 +175,7 @@ Measured from real agent sessions (LUM-392) — don't guess these:
 
 **Git-suggest at start:** when unbound, session-start may infer the task from the git branch / recent commits (any team prefix, e.g. `SPEC-12`) and print `Detected LUM-N … Run lumo session attach LUM-N to bind.` — **without** binding. Confirm it's right, then attach yourself. See [sessions.md](references/sessions.md)
 
-### Golden rules (most-violated — LUM-392)
+### Golden rules (most-violated)
 
 - **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
 - **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.

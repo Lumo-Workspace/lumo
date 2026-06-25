@@ -4,12 +4,12 @@
 
 ### Suggest-on-start from local git (no auto-bind)
 
-When a session starts **without** a bound task, the `session-start` hook infers a task from local git and **suggests** it — it never binds for you (LUM-302).
+When a session starts **without** a bound task, the `session-start` hook infers a task from local git and **suggests** it — it never binds for you.
 
 Detection order and rules:
 
 - `current branch name` first (e.g. `lumo/LUM-145-...`), then the `most recent commit subjects` (e.g. `... [LUM-145]`), extracting the first task identifier.
-- `prefix-agnostic` (LUM-419) — any team prefix matches (`SPEC-12` as much as `LUM-145`), using the same pattern the server uses to link PR branches to tasks.
+- `prefix-agnostic` — any team prefix matches (`SPEC-12` as much as `LUM-145`), using the same pattern the server uses to link PR branches to tasks.
 - `well-known acronym-number tokens` (`UTF-8`, `SHA-256`, `ISO-8601`, …) are skipped, never suggested.
 
 On a hit it prints one suggestion line and stops — the session stays **unbound**, no context injected yet:
@@ -28,7 +28,7 @@ You see a suggestion line. Confirm the inferred task is the one the user wants, 
 
 ### Layer 2 project-memory review at session start
 
-When the session is bound, session-start may inject a **"🆕 Review needed: project memories auto-consolidated by the previous session"** section alongside the memory / PR-review blocks (LUM-165). It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
+When the session is bound, session-start may inject a **"🆕 Review needed: project memories auto-consolidated by the previous session"** section alongside the memory / PR-review blocks. It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
 
 - **Why async / next-session:** Layer 2 promotions land after the task hits DONE, so they surface at the _next_ session-start, when they've definitely landed.
 - **Show-once:** the section appears only at the session immediately following the one that produced the memories. It does **not** re-nag later, so act now or it scrolls off.
@@ -91,11 +91,11 @@ What it does:
 - Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
-- Prints the task's **acceptance contract** (`## Acceptance criteria (contract)`, LUM-342) right after the bind confirmation — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory).
+- Prints the task's **acceptance contract** (`## Acceptance criteria (contract)`) right after the bind confirmation — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory).
 
 After attaching, always run `lumo task context <identifier>` to load the task background.
 
-#### Auto-downsync on attach (LUM-551)
+#### Auto-downsync on attach
 
 A successful `session attach` also runs a **best-effort team-memory downsync** for the bound task's project — the same work as `lumo memory sync` (including the P4b code-anchor staleness check), landing the team's memory in your local Claude Code memory store without a separate command.
 
@@ -105,7 +105,7 @@ A successful `session attach` also runs a **best-effort team-memory downsync** f
 - Manual `lumo memory sync` stays unthrottled.
 - `LUMO_DISABLE_MEMORY_AUTO=1` turns off the auto-downsync (and the hook auto-upsync — see [memory.md](memory.md)) entirely; `--no-anchor-check` on `lumo memory sync` is unchanged.
 
-#### Lifetime lock (LUM-459)
+#### Lifetime lock
 
 `Session.taskId` is **write-once**. Re-attaching to the **same** task is always a no-op re-bind (idempotent, re-emits context). Attaching to a **different** task is refused with HTTP 409 — the server returns `{ error, currentTaskIdentifier, currentTaskTitle }` and the CLI prints:
 
@@ -135,13 +135,13 @@ Prints which task the current Claude Code session is bound to, or "(no task)" if
 
 The user asks "which task am I on", "what's this session bound to", or you need to decide whether to suggest `session attach` for a mentioned task ID.
 
-### Automatic end-of-session housekeeping (no command — LUM-544)
+### Automatic end-of-session housekeeping (no command)
 
-The old end-of-session command was **removed in LUM-544**. The three passes it ran interactively now happen **automatically server-side** — all evidence-gated, best-effort, and silent. There is nothing for the agent to run or confirm. Two fire when the bound task reaches **DONE** (`lumo task update <id> --status done`, which threads `CLAUDE_CODE_SESSION_ID` so attribution lands); one runs continuously off the failure/progress hooks.
+The old end-of-session command was **removed**. The three passes it ran interactively now happen **automatically server-side** — all evidence-gated, best-effort, and silent. There is nothing for the agent to run or confirm. Two fire when the bound task reaches **DONE** (`lumo task update <id> --status done`, which threads `CLAUDE_CODE_SESSION_ID` so attribution lands); one runs continuously off the failure/progress hooks.
 
 **1. Layer-1 memory curation (on DONE).** An LLM judge reviews the Layer-1 memories each of the task's sessions recorded, against that session's event log, and **soft-invalidates only the clearly-wrong / self-contradictory ones**: the row flips to `INVALIDATED` and is excluded from injection but **kept for audit — never hard-deleted**. **Uncertain memories are left untouched** (the judge defaults to keeping). Promotion to project scope is **not** done here — that stays with the Layer-2 flow (surfaced at the next session-start, see above).
 
-**2. Fragment-usage audit (LUM-314, on DONE).** An LLM judge sees the fragments this session consumed (its lineage edges) plus the session's event log and votes which were **actually used**:
+**2. Fragment-usage audit (on DONE).** An LLM judge sees the fragments this session consumed (its lineage edges) plus the session's event log and votes which were **actually used**:
 
 - confidently-used edges → `used=true`
 - confidently-unused → `used=false`
@@ -149,7 +149,7 @@ The old end-of-session command was **removed in LUM-544**. The three passes it r
 
 Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative); `task context` then prefers each fragment's usage-based merge rate, falling back to the presence rate when usage samples are thin.
 
-**3. Blocked-tag automation (LUM-544 §3, server-side).** When a session crosses the same-tool failure threshold (**≥ 3** same-type failures, aggregated from `POST_TOOL_USE_FAILURE` grouped by tool name + `STOP_FAILURE` turn-level failures), the server **auto-applies the shared `blocked` tag** to the bound task. This **inverts the old LUM-153 manual `y` gate** — no prompt, no human in the loop — and is safe via three safeguards:
+**3. Blocked-tag automation (server-side).** When a session crosses the same-tool failure threshold (**≥ 3** same-type failures, aggregated from `POST_TOOL_USE_FAILURE` grouped by tool name + `STOP_FAILURE` turn-level failures), the server **auto-applies the shared `blocked` tag** to the bound task. This inverts the old manual gate — no prompt, no human in the loop — and is safe via three safeguards:
 
 - **idempotent:** at most one active auto-block per task, so re-crossing is a no-op.
 - **auto-untag on progress:** the next observable progress (a successful tool call or a non-failure turn end) removes the tag.

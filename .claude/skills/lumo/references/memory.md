@@ -88,10 +88,9 @@ detail on demand instead of carrying every memory's content in context.
 ### `lumo memory sync` (downsync to local Claude Code memory)
 
 Writes the team's project memory into the dev's local Claude Code memory store so
-Claude Code's **native recall** surfaces it — the direction LUM-535/536 chose over
-per-session `<untrusted-team-memory>` injection. This is P3 (the sync build); it
-runs **alongside** the existing injection (retiring injection is LUM-540), so
-during the transition both paths are active and overlap is expected, not a bug.
+Claude Code's **native recall** surfaces it — the direction chosen over
+per-session `<untrusted-team-memory>` injection. This runs **alongside** the
+existing injection, so during the transition both paths are active and overlap is expected, not a bug.
 
 - **Where it writes**: `~/.claude/projects/<encoded-cwd>/memory/` — team files as
   `team/<memoryId>.md` (YAML frontmatter + a `metadata.lumo` ownership marker),
@@ -100,12 +99,12 @@ during the transition both paths are active and overlap is expected, not a bug.
 - **Only touches what it owns**: a file is owned only if its frontmatter carries
   `metadata.lumo.source: team`. Your own hand-written memory files and any
   `MEMORY.md` lines outside the managed block are **never** read or written.
-- **Mirrors the whole project (LUM-552)**: the bundle is the project's **full
+- **Mirrors the whole project**: the bundle is the project's **full
   ACTIVE memory set** — every dev in the project gets the same corpus, regardless
   of how many active tasks they hold. There is **no** task-level routing/relevance
   filter and **no** token-budget cap on the corpus at sync time: sync only writes
   local files (no tokens, no conversation), so "which memory is relevant" is left
-  to Claude Code's native recall, not decided at sync. judge-used 履历 (LUM-539)
+  to Claude Code's native recall, not decided at sync. Judge-used 履历
   still orders the resident index (so the most-proven memories list first) but
   never drops anything. Relevance/budget gating remains only on the **injection**
   path (`lumo task context` / session-start), which does spend tokens.
@@ -118,7 +117,7 @@ during the transition both paths are active and overlap is expected, not a bug.
   upsync candidate (the reverse direction is a later phase).
 - **Reversible**: `--dry-run` prints the add/update/remove/drift-skip plan without
   writing; `--clean` removes every owned file + the managed block (full rollback).
-- **Code-anchor staleness check (LUM-547 P4b)**: after downsync, each synced memory's
+- **Code-anchor staleness check**: after downsync, each synced memory's
   code anchors (file paths, and backtick-wrapped symbols/flags) are checked against
   this repo — resolved against **git-tracked** files (`git ls-files`) + exact
   word-boundary grep, never the dirty working tree. A memory whose **every** anchor
@@ -142,7 +141,7 @@ store. Each candidate is a JSON file in `<memory-dir>/outbox/` shaped
 `{ "category": "convention", "content": { ... } }` (the same per-category content
 shape as `lumo project memory add`). `push` POSTs each to the **existing**
 create-project-memory endpoint, so it runs through the same canonicalize → dedup →
-**reconcile-on-write** pipeline (LUM-538) — no parallel upsync path — and a
+**reconcile-on-write** pipeline — no parallel upsync path — and a
 successful push removes the file from the outbox.
 
 - **Scope**: structured local memories (the lossless path). A team file you edited
@@ -157,7 +156,7 @@ successful push removes the file from the outbox.
 shared with the team — drop a `{category, content}` JSON in the memory `outbox/`
 and run `lumo memory push` (or just use `lumo project memory add` for a one-off).
 
-### Automatic sync/push triggers (LUM-551)
+### Automatic sync/push triggers
 
 Both directions also fire automatically, best-effort — a failure never blocks the
 session or command:
@@ -168,7 +167,7 @@ session or command:
   a non-empty `<memory-dir>/outbox/*.json` is drained via the same
   create-project-memory pipeline as `lumo memory push`. An **empty outbox does zero
   network** (the fast path checked first), so the high-frequency `stop` hook stays
-  cheap. This fills the gap left by the deleted `lumo session wrap` (LUM-544).
+  cheap.
 - **Env vars**: `LUMO_SYNC_THROTTLE_HOURS` (downsync throttle window, default 12),
   `LUMO_DISABLE_MEMORY_AUTO=1` (disable **both** auto-paths). The `--no-anchor-check`
   flag on `lumo memory sync` is unchanged.
