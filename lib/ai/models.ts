@@ -67,6 +67,20 @@ export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
 export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
+ * 桶5 POLICY_COMPILER tier — compiling a project's CLAUDE.md/AGENTS.md into
+ * classified PolicyRule records (LUM-590). Pinned to Opus 4.8: this single
+ * run-at-rest, hash-cached call drives the whole per-project detector — the
+ * quality of its action/code + deterministic/semantic classification and its
+ * predicate/built-in mapping decides what the deterministic-block tier can
+ * catch at all. Run-at-rest + cached, so the dearer model's cost is bounded
+ * (once per project per CLAUDE.md change), and accuracy dominates. Kept its own
+ * constant so it never shares — and so can never be cheapened by — the verifier
+ * (桶1) tier. Gateway format; catalog-probed 2026-06-25 (`anthropic/claude-opus-4.8`
+ * resolves — like Sonnet, keep the version dot, do NOT dash-normalise).
+ */
+export const POLICY_COMPILER_MODEL = 'anthropic/claude-opus-4.8'
+
+/**
  * The embedding model id lives in `./embedding` (`EMBEDDING_MODEL`), coupled to
  * `EMBEDDING_DIM` and the pgvector column width. It is deliberately NOT
  * re-exported here: that module statically imports `@ai-sdk/gateway`, whereas
