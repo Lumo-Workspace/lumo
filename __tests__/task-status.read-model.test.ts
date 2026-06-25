@@ -17,9 +17,22 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  // Keep the real pure exports (isPassVerdict) — only the DB-backed repo is faked.
+  // Keep the real pure exports (isPassVerdict, isRunWithdrawn) — only the
+  // DB-backed repo is faked.
   ...jest.requireActual('@/lib/repositories/verification-run.repository'),
-  verificationRunRepository: { listByTask: jest.fn() },
+  verificationRunRepository: {
+    listByTask: jest.fn(),
+    // LUM-586: the undo target lookup the read model now performs.
+    latestHumanVerdictAction: jest.fn(() => Promise.resolve(null)),
+  },
+}))
+// LUM-586: the read model now reads withdrawal tombstones — fake them so the
+// view resolves without a DB. Defaults = nothing withdrawn.
+jest.mock('@/lib/repositories/verification-run-withdrawal.repository', () => ({
+  verificationRunWithdrawalRepository: {
+    actionIdsByTask: jest.fn(() => Promise.resolve(new Set())),
+    latestByTask: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { listByTaskAndType: jest.fn() },
@@ -79,6 +92,16 @@ const findHeader = taskRepository.findHeaderById as jest.Mock
 const loadActuals = retrospectiveRepository.loadActuals as jest.Mock
 const loadPerSessionCost =
   retrospectiveRepository.loadPerSessionCost as jest.Mock
+const latestHumanVerdictAction =
+  verificationRunRepository.latestHumanVerdictAction as jest.Mock
+const withdrawalRepo = (
+  require('@/lib/repositories/verification-run-withdrawal.repository') as {
+    verificationRunWithdrawalRepository: {
+      actionIdsByTask: jest.Mock
+      latestByTask: jest.Mock
+    }
+  }
+).verificationRunWithdrawalRepository
 
 const listLifecyclePrs = (
   require('@/lib/repositories/pull-request.repository') as {
@@ -142,6 +165,9 @@ beforeEach(() => {
   listLifecyclePrs.mockResolvedValue([])
   loadActuals.mockResolvedValue(null)
   loadPerSessionCost.mockResolvedValue([])
+  latestHumanVerdictAction.mockResolvedValue(null)
+  withdrawalRepo.actionIdsByTask.mockResolvedValue(new Set())
+  withdrawalRepo.latestByTask.mockResolvedValue(null)
 })
 
 // The describe name carries both `read model LUM-437` (so the acceptance
@@ -746,5 +772,78 @@ describe('trend read model LUM-562', () => {
         at: '2026-06-02T10:00:00.000Z',
       },
     ])
+  })
+})
+
+// LUM-586: undo of a human verdict is reflected in the read model — a standing
+// human verdict surfaces undoableHumanVerdict; once withdrawn it clears and the
+// latest verdict falls back to the underlying machine PASS.
+describe('acceptance status read model undo (LUM-586)', () => {
+  const machineRun = run({
+    id: 'r-m',
+    criterionId: 'c-1',
+    verifierType: 'MACHINE',
+    verdict: 'PASS',
+    createdAt: new Date('2026-06-02T10:00:00Z'),
+  })
+  const humanRun = run({
+    id: 'r-h',
+    criterionId: 'c-1',
+    verifierType: 'HUMAN',
+    verdict: 'PASS',
+    verdictActionId: 'a1',
+    evidencePointer: null,
+    createdAt: new Date('2026-06-02T11:00:00Z'),
+  })
+
+  it('surfaces undoableHumanVerdict while a human verdict stands', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([machineRun, humanRun])
+    latestHumanVerdictAction.mockResolvedValue({
+      verdictActionId: 'a1',
+      verdict: 'PASS',
+      criterionIds: ['c-1'],
+      recordedAt: new Date('2026-06-02T11:00:00Z'),
+    })
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.undoableHumanVerdict).toMatchObject({
+      verdictActionId: 'a1',
+      verdict: 'PASS',
+    })
+    // The human PASS is the criterion's latest verdict.
+    expect(s.criteria[0]!.latestVerdict?.verifierType).toBe('HUMAN')
+    expect(s.lastVerdictWithdrawal).toBeNull()
+  })
+
+  it('LUM-586 withdrawn verdict clears undoable and falls back to machine', async () => {
+    const c = criterion({ id: 'c-1' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([machineRun, humanRun])
+    // The human action 'a1' is withdrawn → no live human verdict to undo.
+    latestHumanVerdictAction.mockResolvedValue(null)
+    withdrawalRepo.actionIdsByTask.mockResolvedValue(new Set(['a1']))
+    withdrawalRepo.latestByTask.mockResolvedValue({
+      verdictActionId: 'a1',
+      withdrawnById: 'm-1',
+      createdAt: new Date('2026-06-02T12:00:00Z'),
+    })
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    // Undo target is gone; the latest verdict falls back to the machine PASS.
+    expect(s.undoableHumanVerdict).toBeNull()
+    expect(s.criteria[0]!.latestVerdict?.verifierType).toBe('MACHINE')
+    // The correction line still surfaces the withdrawn verdict (read off the
+    // surviving run rows — not hidden, not hardcoded).
+    expect(s.lastVerdictWithdrawal).toMatchObject({ verdict: 'PASS' })
+    // The withdrawn human run stays visible in history, badged withdrawn.
+    const round1 = s.verificationHistory.find(h => h.round === 1)!
+    const hRun = round1.verdicts.find(v => v.verifierType === 'HUMAN')!
+    expect(hRun.withdrawn).toBe(true)
   })
 })
