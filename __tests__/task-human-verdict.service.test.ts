@@ -40,6 +40,10 @@ jest.mock('@/lib/repositories/verification-run.repository', () => ({
 jest.mock('@/lib/repositories/verification-run-withdrawal.repository', () => ({
   verificationRunWithdrawalRepository: {
     create: jest.fn(),
+    // LUM-586: statusForTask (exercised by the read-model assertions in this
+    // suite) reads withdrawal tombstones — default to nothing withdrawn.
+    actionIdsByTask: jest.fn(() => Promise.resolve(new Set())),
+    latestByTask: jest.fn(() => Promise.resolve(null)),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
