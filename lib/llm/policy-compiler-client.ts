@@ -10,7 +10,7 @@
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
-import { REASONING_MODEL } from '@/lib/ai/models'
+import { POLICY_COMPILER_MODEL } from '@/lib/ai/models'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ export async function classifyRules(input: {
   builtinCategories: string[]
 }): Promise<{ rules: z.infer<typeof RuleSchema>[] }> {
   const { object } = await generateObject({
-    model: gateway(REASONING_MODEL),
+    model: gateway(POLICY_COMPILER_MODEL),
     schema: z.object({ rules: z.array(RuleSchema) }),
     system: COMPILER_SYSTEM_PROMPT,
     prompt: `Built-in categories: ${input.builtinCategories.join(', ')}\n\nRules file:\n${input.sourceText}`,

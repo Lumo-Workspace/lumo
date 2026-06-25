@@ -20,6 +20,7 @@ import {
   CONTENT_MODEL,
   FAST_MODEL,
   TRANSLATION_MODEL,
+  POLICY_COMPILER_MODEL,
 } from '@/lib/ai/models'
 
 // 桶4 MEMORY_JUDGE call sites (LUM-591) — split off FAST_MODEL onto the dearer
@@ -190,6 +191,21 @@ test('generation tier repointed to deepseek-v4-pro', () => {
       usesReasoning: false,
     })
   }
+})
+
+test('policy-compiler tier pinned to opus, sourced from the registry', () => {
+  // 桶5 POLICY_COMPILER (LUM-590) — the per-project rule compiler rides Opus 4.8
+  // via the gateway → provider-prefixed, version dot (not dash).
+  expect(POLICY_COMPILER_MODEL).toBe('anthropic/claude-opus-4.8')
+
+  const src = readFileSync(
+    join(LIB_DIR, 'llm/policy-compiler-client.ts'),
+    'utf8'
+  )
+  // Uses the dedicated constant…
+  expect(/\bPOLICY_COMPILER_MODEL\b/.test(src)).toBe(true)
+  // …and no longer shares the verifier (Sonnet) constant.
+  expect(/\bREASONING_MODEL\b/.test(src)).toBe(false)
 })
 
 test('verifier tier stays on the sonnet reasoning model', () => {
