@@ -153,6 +153,15 @@ export const tasksClient = {
   },
 
   /**
+   * Undo (withdraw) the most recent human verdict on a task (LUM-586). Only
+   * reachable from a Clerk browser session — the server refuses bearer
+   * (agent/CLI) identities with 403 (same red line as submitHumanVerdict).
+   */
+  undoHumanVerdict<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.humanVerdict(taskId), { method: 'DELETE' })
+  },
+
+  /**
    * Apply a human contract revision from the web tab (HUMAN_EDIT). `criteria` is
    * the desired final list — items with `id` keep/update, omitted existing ones
    * are deleted (soft-deleted if they carry runs). Clerk-session only; the server
