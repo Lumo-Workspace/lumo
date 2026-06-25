@@ -190,6 +190,10 @@ enum BoundaryCrossingCategory {
   // is rework of the parent; SILENT_FIX = a post-IN_REVIEW fix with no send-back.
   SPINOFF_LAUNDERED
   SILENT_FIX
+  // LUM-590: a managed project's own CLAUDE.md/AGENTS.md rule was violated
+  PROJECT_RULE_VIOLATION
+  // LUM-590: a committed CLAUDE.md edit removed/downgraded a deterministic Forbidden rule
+  POLICY_WEAKENING
 }
 
 enum BoundaryCrossingDisposition {
@@ -489,12 +493,26 @@ model Project {
   priorityOverrides     PriorityOverride[]
   summaries             ProjectSummary[]
   memories              Memory[]
+  projectPolicies       ProjectPolicy[]
 
   @@index([workspaceId])
   @@index([teamId])
   @@index([createdByMemberId])
   @@index([workspaceId, order])
   @@map("projects")
+}
+
+model ProjectPolicy {
+  id         String   @id @default(cuid())
+  projectId  String
+  sourceHash String   // sha256 of concatenated CLAUDE.md + AGENTS.md source
+  rules      Json     // PolicyRule[] (see lib/services/policy/types.ts)
+  compiledAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, compiledAt]) // latest + previous lookup
+  @@map("project_policies")
 }
 
 model ProjectRepository {
@@ -856,6 +874,8 @@ model BoundaryCrossing {
   // later hook never re-nags. Null = not yet reminded; orthogonal to disposition
   // and the DONE gate (which key only on `disposition`).
   agentNotifiedAt   DateTime?
+  advisory          Boolean  @default(false)    // LUM-590: semantic finding — surfaced, never blocks DONE
+  policyRuleRef     String?                     // LUM-590: which compiled PolicyRule fired (text/id)
 
   task            Task                          @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)

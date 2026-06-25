@@ -39,6 +39,15 @@ import {
   boundarySeverityLabel,
 } from './boundary-format'
 
+/**
+ * Returns 'advisory' when the crossing is advisory (non-blocking), null when
+ * it is a blocking crossing. Pure — no intl dependency so it is unit-testable
+ * without a provider (LUM-590).
+ */
+export function advisoryLabelFor(v: BoundaryCrossingView): string | null {
+  return v.advisory ? 'advisory' : null
+}
+
 interface BoundaryCrossingsPanelProps {
   taskIdentifier: string
   enabled: boolean
@@ -399,6 +408,16 @@ function CrossingRow({
               'How serious this crossing is. HIGH crossings block marking the task Done until resolved.',
           })}
         />
+        {/* LUM-590: advisory crossings never block DONE — distinguish them from
+        blocking ones via typography (muted badge), not a new color. */}
+        {advisoryLabelFor(c) && (
+          <Badge tone='muted'>
+            {intl.formatMessage({
+              id: 'boundary.advisoryBadge',
+              defaultMessage: 'Advisory',
+            })}
+          </Badge>
+        )}
         {c.disposition === 'CONFIRMED' && (
           <Badge tone='warning'>
             {boundaryDispositionLabel('CONFIRMED', intl)}

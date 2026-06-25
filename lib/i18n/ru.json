@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "Невозможно оценить",
   "acceptance.claim.faithfulness.pending": "Оценивается…",
   "acceptance.claim.faithfulness.stale": "устарело",
-  "acceptance.claim.faithfulness.evidence": "доказательство:"
+  "acceptance.claim.faithfulness.evidence": "доказательство:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Нарушение правила проекта",
+  "boundary.category.POLICY_WEAKENING": "Ослабление политики",
+  "boundary.advisoryBadge": "Предупреждение"
 }

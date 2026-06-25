@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "Không thể đánh giá",
   "acceptance.claim.faithfulness.pending": "Đang đánh giá…",
   "acceptance.claim.faithfulness.stale": "đã cũ",
-  "acceptance.claim.faithfulness.evidence": "bằng chứng:"
+  "acceptance.claim.faithfulness.evidence": "bằng chứng:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Vi phạm quy tắc dự án",
+  "boundary.category.POLICY_WEAKENING": "Làm yếu chính sách",
+  "boundary.advisoryBadge": "Khuyến cáo"
 }

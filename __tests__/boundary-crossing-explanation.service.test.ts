@@ -127,12 +127,13 @@ describe('LUM-542 explanation — orthogonal to disposition and DONE gate', () =
     expect(Object.keys(createArg.data)).not.toContain('dispositionedAt')
 
     // The DONE gate blocks on findUndispositionedByTask — assert its predicate
-    // is disposition:null ONLY, so an explained (still-open) crossing keeps
+    // keys on disposition:null AND advisory:false (advisory crossings are excluded
+    // from the gate), so an explained (still-open) non-advisory crossing keeps
     // surfacing to the gate regardless of how many explanations it carries.
     bc.findMany.mockResolvedValue([])
     await boundaryCrossingRepository.findUndispositionedByTask('t-1')
     const where = bc.findMany.mock.calls[0][0].where
-    expect(where).toEqual({ taskId: 't-1', disposition: null })
+    expect(where).toEqual({ taskId: 't-1', disposition: null, advisory: false })
     expect(Object.keys(where)).not.toContain('agentNotifiedAt')
   })
 })

@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "No evaluable",
   "acceptance.claim.faithfulness.pending": "Evaluando…",
   "acceptance.claim.faithfulness.stale": "obsoleta",
-  "acceptance.claim.faithfulness.evidence": "evidencia:"
+  "acceptance.claim.faithfulness.evidence": "evidencia:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Infracción de regla de proyecto",
+  "boundary.category.POLICY_WEAKENING": "Debilitamiento de política",
+  "boundary.advisoryBadge": "Aviso"
 }

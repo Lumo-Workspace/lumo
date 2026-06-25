@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "अनिर्णेय",
   "acceptance.claim.faithfulness.pending": "जाँच जारी…",
   "acceptance.claim.faithfulness.stale": "पुराना",
-  "acceptance.claim.faithfulness.evidence": "साक्ष्य:"
+  "acceptance.claim.faithfulness.evidence": "साक्ष्य:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "परियोजना नियम उल्लंघन",
+  "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
+  "boundary.advisoryBadge": "सलाह"
 }

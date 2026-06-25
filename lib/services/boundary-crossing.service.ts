@@ -179,6 +179,12 @@ export interface BoundaryCrossingView {
    *  Orthogonal to disposition — a reviewer aid + retrospective record, never a
    *  verdict. Empty when the agent recorded none. */
   explanations: ExplanationView[]
+  /** LUM-590: advisory crossings surface in the panel but never block DONE;
+   *  a human disposition is encouraged but never required (true = advisory). */
+  advisory: boolean
+  /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
+   *  crossing was not from a project-rule detector. */
+  policyRuleRef: string | null
 }
 
 /**
@@ -703,6 +709,9 @@ export const boundaryCrossingService = {
         ),
         attribution,
         explanations: explanationsByCrossing.get(c.id) ?? [],
+        // LUM-590: advisory and policyRuleRef straight from the row.
+        advisory: c.advisory,
+        policyRuleRef: c.policyRuleRef ?? null,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already

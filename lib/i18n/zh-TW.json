@@ -1844,5 +1844,8 @@
   "acceptance.claim.faithfulness.unjudgeable": "無法判定",
   "acceptance.claim.faithfulness.pending": "判定中…",
   "acceptance.claim.faithfulness.stale": "已過期",
-  "acceptance.claim.faithfulness.evidence": "證據:"
+  "acceptance.claim.faithfulness.evidence": "證據:",
+  "boundary.category.PROJECT_RULE_VIOLATION": "專案規則違反",
+  "boundary.category.POLICY_WEAKENING": "規則弱化",
+  "boundary.advisoryBadge": "提示"
 }
