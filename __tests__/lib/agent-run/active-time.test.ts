@@ -2,6 +2,7 @@ import {
   activeDurationMs,
   activeDurationMsBySession,
   sumActiveDurationSec,
+  IDLE_THRESHOLD_MS,
 } from '@/lib/agent-run/active-time'
 
 const T0 = Date.parse('2026-06-13T01:00:00.000Z')
@@ -93,6 +94,110 @@ describe('activeDurationMs', () => {
         { type: 'STOP', createdAt: new Date(T0 + 7_000) },
       ])
     ).toBe(7_000)
+  })
+
+  // --- New wait-exclusion tests ---
+
+  it('excludes PERMISSION_REQUEST gap (human-wait marker → long human pause)', () => {
+    // Turn: prompt at 0, two tool calls at 2s/4s, then PERMISSION_REQUEST at 5s,
+    // human responds 7 hours later (POST_TOOL_USE at 7h), then STOP at 7h+1s.
+    // Active spans: [0→2s=2s] + [2s→4s=2s] + [4s→5s=1s] (PERMISSION_REQUEST gap excluded)
+    //              + [7h→7h+1s=1s] = 6_000 ms
+    const turnMs = activeDurationMs([
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 2_000),
+      ev('POST_TOOL_USE', 4_000),
+      ev('PERMISSION_REQUEST', 5_000),
+      ev('POST_TOOL_USE', 7 * HOUR), // human approved; tool ran
+      ev('STOP', 7 * HOUR + 1_000),
+    ])
+    // The 7h gap after PERMISSION_REQUEST is excluded; only the 4 short spans count.
+    expect(turnMs).toBe(6_000)
+  })
+
+  it('excludes NOTIFICATION gap (human-wait marker)', () => {
+    // Turn: prompt(0)→PRE_TOOL_USE(2s)→NOTIFICATION(2.5s)→POST_TOOL_USE(2h)→STOP(2h+3s)
+    // Gap accounting (consecutive pairs):
+    //   0→2s     = 2000 ms  (no marker, below threshold) → counted
+    //   2s→2.5s  =  500 ms  (no marker, below threshold) → counted
+    //   NOTIFICATION→2h: marker, excluded
+    //   2h→2h+3s = 3000 ms  (no marker) → counted
+    // Total = 5_500 ms
+    const turnMs = activeDurationMs([
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 2_000),
+      ev('NOTIFICATION', 2_500),
+      ev('POST_TOOL_USE', 2 * HOUR),
+      ev('STOP', 2 * HOUR + 3_000),
+    ])
+    expect(turnMs).toBe(5_500)
+  })
+
+  it('excludes ELICITATION gap (human-wait marker)', () => {
+    // Turn: prompt(0)→PRE_TOOL_USE(1s)→POST_TOOL_USE(3s)→ELICITATION(3.5s)→ELICITATION_RESULT(6h)→STOP(6h+2s)
+    // Gap accounting:
+    //   0→1s     = 1000 ms → counted
+    //   1s→3s    = 2000 ms → counted
+    //   3s→3.5s  =  500 ms → counted
+    //   ELICITATION→6h: marker, excluded
+    //   6h→6h+2s = 2000 ms → counted
+    // Total = 5_500 ms
+    const turnMs = activeDurationMs([
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 1_000),
+      ev('POST_TOOL_USE', 3_000),
+      ev('ELICITATION', 3_500),
+      ev('ELICITATION_RESULT', 6 * HOUR),
+      ev('STOP', 6 * HOUR + 2_000),
+    ])
+    expect(turnMs).toBe(5_500)
+  })
+
+  it('fully counts a dense turn with no human-wait markers', () => {
+    // Turn: prompt at 0, 5 tool pairs each 3s apart, STOP at 30s.
+    // All gaps are short (<5min) and no markers — every ms counted.
+    const events = [
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 3_000),
+      ev('POST_TOOL_USE', 6_000),
+      ev('PRE_TOOL_USE', 9_000),
+      ev('POST_TOOL_USE', 12_000),
+      ev('PRE_TOOL_USE', 15_000),
+      ev('POST_TOOL_USE', 18_000),
+      ev('STOP', 21_000),
+    ]
+    expect(activeDurationMs(events)).toBe(21_000)
+  })
+
+  it('excludes a gap >IDLE_THRESHOLD_MS even with no human-wait marker (backstop)', () => {
+    // Turn: prompt, tool at 1s, then a 6-minute stall (no marker), tool at 6min+1s, STOP.
+    // Active: [0→1s=1s] + [1s→2s=1s] (6min gap excluded by backstop) + [6min+1s→6min+2s=1s] = 3_000 ms
+    const SIX_MIN = 6 * MIN
+    const turnMs = activeDurationMs([
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 1_000),
+      ev('POST_TOOL_USE', 2_000),
+      // 6-minute gap with no marker — exceeds IDLE_THRESHOLD_MS
+      ev('PRE_TOOL_USE', 2_000 + SIX_MIN),
+      ev('POST_TOOL_USE', 2_000 + SIX_MIN + 1_000),
+      ev('STOP', 2_000 + SIX_MIN + 2_000),
+    ])
+    expect(turnMs).toBe(4_000)
+    // Verify the backstop constant is what we expect
+    expect(IDLE_THRESHOLD_MS).toBe(5 * MIN)
+  })
+
+  it('keeps a 4-min gap (below threshold, no marker) counted as active', () => {
+    // Slightly below IDLE_THRESHOLD_MS — should be counted, not excluded.
+    const FOUR_MIN = 4 * MIN
+    const turnMs = activeDurationMs([
+      ev('USER_PROMPT_SUBMIT', 0),
+      ev('PRE_TOOL_USE', 1_000),
+      ev('POST_TOOL_USE', 1_000 + FOUR_MIN),
+      ev('STOP', 1_000 + FOUR_MIN + 1_000),
+    ])
+    // All gaps counted: 1s + 4min + 1s
+    expect(turnMs).toBe(1_000 + FOUR_MIN + 1_000)
   })
 })
 

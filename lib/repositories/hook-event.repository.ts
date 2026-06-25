@@ -146,17 +146,36 @@ export const hookEventRepository = {
   },
 
   /**
-   * Turn-boundary events (prompt / STOP) for the given sessions, oldest-first —
-   * the raw signal `lib/agent-run/active-time` reduces to agent ACTIVE time
-   * (Σ per-session STOP − prompt, excluding inter-turn idle). Skipped when no
-   * session id.
+   * Full event stream for the given sessions used by `lib/agent-run/active-time`
+   * to derive agent ACTIVE time (excludes inter-turn idle AND mid-turn human-wait
+   * intervals marked by PERMISSION_REQUEST / NOTIFICATION / ELICITATION).
+   * The wider type list lets the algorithm see human-wait markers within each
+   * turn; events that are not anchored to a turn are silently ignored.
+   * Skipped when no session id.
    */
   async findTurnBoundaryEventsForSessions(sessionIds: string[]) {
     if (sessionIds.length === 0) return []
     return prisma.hookEvent.findMany({
       where: {
         sessionId: { in: sessionIds },
-        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+        type: {
+          in: [
+            'USER_PROMPT_SUBMIT',
+            'STOP',
+            'STOP_FAILURE',
+            'PRE_TOOL_USE',
+            'POST_TOOL_USE',
+            'POST_TOOL_USE_FAILURE',
+            'POST_TOOL_BATCH',
+            'SUBAGENT_START',
+            'SUBAGENT_STOP',
+            'PERMISSION_REQUEST',
+            'PERMISSION_DENIED',
+            'NOTIFICATION',
+            'ELICITATION',
+            'ELICITATION_RESULT',
+          ],
+        },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { sessionId: true, type: true, createdAt: true },
