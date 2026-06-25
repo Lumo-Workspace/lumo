@@ -17,7 +17,13 @@ describe('allowedTaskTransitions', () => {
       'IN_REVIEW',
       'DONE',
     ])
-    expect(allowedTaskTransitions('DONE')).toEqual(['TODO', 'IN_PROGRESS'])
+    // LUM-586: DONE → IN_REVIEW is now legal so that undoing an acceptance
+    // verdict can send a DONE task back to IN_REVIEW via the state machine.
+    expect(allowedTaskTransitions('DONE')).toEqual([
+      'TODO',
+      'IN_PROGRESS',
+      'IN_REVIEW',
+    ])
   })
 
   it('agrees with isValidTaskTransition for every pair', () => {
@@ -31,21 +37,25 @@ describe('allowedTaskTransitions', () => {
       }
     }
   })
+
+  // LUM-586: new first-class transition
+  it('DONE → IN_REVIEW is valid (undo of acceptance verdict path)', () => {
+    expect(isValidTaskTransition('DONE', 'IN_REVIEW')).toBe(true)
+  })
 })
 
 describe('invalidTransitionMessage', () => {
   it('names the allowed targets so the caller can self-correct', () => {
-    const msg = invalidTransitionMessage('DONE', 'IN_REVIEW')
-    expect(msg).toContain('Invalid status transition: DONE → IN_REVIEW')
-    expect(msg).toContain('Allowed from DONE: TODO, IN_PROGRESS')
+    // Use a status that still has invalid targets — IN_REVIEW can only go to
+    // TODO, IN_PROGRESS, DONE; so IN_REVIEW → IN_REVIEW is invalid.
+    const msg = invalidTransitionMessage('IN_REVIEW', 'IN_REVIEW')
+    expect(msg).toContain('Invalid status transition: IN_REVIEW → IN_REVIEW')
+    expect(msg).toContain('Allowed from IN_REVIEW:')
   })
 
-  it('points DONE dead ends at task comments', () => {
-    expect(invalidTransitionMessage('DONE', 'IN_REVIEW')).toContain(
-      'add a task comment instead'
-    )
-    expect(invalidTransitionMessage('TODO', 'TODO')).not.toContain(
-      'task comment'
-    )
+  it('formats the message with from → to and the allowed list', () => {
+    const msg = invalidTransitionMessage('DONE', 'DONE')
+    expect(msg).toContain('Invalid status transition: DONE → DONE')
+    expect(msg).toContain('Allowed from DONE: TODO, IN_PROGRESS, IN_REVIEW')
   })
 })

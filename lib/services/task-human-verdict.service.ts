@@ -213,6 +213,9 @@ export const taskHumanVerdictService = {
               // checkpointer has passed — a deliberate human override, not a
               // machine result. Audit breadcrumb; zero schema (JSON payload).
               override: overriddenIds.has(c.id),
+              // LUM-586: groups all mirror activities for this verdict action so
+              // the timeline can surface and undo them as a unit.
+              verdictActionId,
             },
           },
           tx
@@ -278,15 +281,20 @@ export const taskHumanVerdictService = {
    *   - any FAIL in the post-withdrawal snapshot → IN_PROGRESS
    *   - otherwise → IN_REVIEW
    *
-   * 409 when no live human verdict exists to undo.
+   * 409 when no live human verdict exists to undo, or when a concurrent second
+   * undo of the same action races (unique constraint on the withdrawal row).
    */
   async withdrawLatestHumanVerdict(
     taskId: string,
     attribution: HumanVerdictAttribution
-  ): Promise<void> {
-    const verdictActionId =
+  ): Promise<{
+    taskStatus: string
+    withdrawnVerdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    verdictActionId: string
+  }> {
+    const action =
       await verificationRunRepository.latestHumanVerdictAction(taskId)
-    if (verdictActionId === null) {
+    if (action === null) {
       throw Object.assign(
         new Error('No live human verdict to undo for this task'),
         { status: 409 }
@@ -298,26 +306,41 @@ export const taskHumanVerdictService = {
     )
     const actorId = callerActor?.id ?? null
 
-    await runInTransaction(async tx => {
-      await verificationRunWithdrawalRepository.create(
-        {
-          taskId,
-          verdictActionId,
-          withdrawnById: actorId,
-        },
-        tx
-      )
+    try {
+      await runInTransaction(async tx => {
+        await verificationRunWithdrawalRepository.create(
+          {
+            taskId,
+            verdictActionId: action.verdictActionId,
+            withdrawnById: actorId,
+          },
+          tx
+        )
 
-      await activityRepository.create(
-        {
-          taskId,
-          actorId,
-          type: 'VERIFICATION_RUN_WITHDRAWN',
-          payload: { verdictActionId },
-        },
-        tx
-      )
-    })
+        await activityRepository.create(
+          {
+            taskId,
+            actorId,
+            type: 'VERIFICATION_RUN_WITHDRAWN',
+            payload: { verdictActionId: action.verdictActionId },
+          },
+          tx
+        )
+      })
+    } catch (err: unknown) {
+      // I2: concurrent double-undo hits the @@unique([taskId, verdictActionId])
+      // constraint — surface it as a clean 409 instead of a raw P2002.
+      const isPrismaUniqueViolation =
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'P2002'
+      if (isPrismaUniqueViolation) {
+        throw Object.assign(new Error('This verdict was already undone'), {
+          status: 409,
+        })
+      }
+      throw err
+    }
 
     // Recompute status from the post-withdrawal snapshot of latest per-criterion
     // verdicts. UNDO TARGET RULE: never DONE — removing a decision cannot
@@ -333,10 +356,16 @@ export const taskHumanVerdictService = {
     }
     const currentStatus = (detail as { status?: string }).status ?? ''
 
-    // Undo is an administrative correction: apply the transition even when the
-    // normal forward state machine would block it (e.g. DONE → IN_REVIEW is not
-    // a normal forward path but is the correct undo of a PASS verdict).
-    if (currentStatus !== targetStatus) {
+    // I1: use the normal state-machine guard — DONE → IN_REVIEW is now a legal
+    // transition (added to the matrix in LUM-586), so no guard bypass needed.
+    let taskStatus = currentStatus || targetStatus
+    if (
+      currentStatus !== targetStatus &&
+      isValidTaskTransition(
+        currentStatus as Parameters<typeof isValidTaskTransition>[0],
+        targetStatus
+      )
+    ) {
       await taskService.updateTaskWithSideEffects(
         taskId,
         { status: targetStatus },
@@ -345,6 +374,16 @@ export const taskHumanVerdictService = {
         attribution.actorClerkId,
         null
       )
+      taskStatus = targetStatus
+    }
+
+    return {
+      taskStatus,
+      withdrawnVerdict: action.verdict as
+        | 'PASS'
+        | 'FAIL'
+        | 'PASS_WITH_FOLLOWUP',
+      verdictActionId: action.verdictActionId,
     }
   },
 }

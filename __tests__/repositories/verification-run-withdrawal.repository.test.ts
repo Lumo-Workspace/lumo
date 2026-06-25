@@ -161,6 +161,8 @@ describe('deriveLatestRunsByCriterion', () => {
 })
 
 // ── deriveLatestHumanVerdictAction ───────────────────────────────────────────
+// C1: the pure helper now returns a full action descriptor (not just a string),
+// so the service layer can populate withdrawnVerdict + verdictActionId.
 
 describe('deriveLatestHumanVerdictAction', () => {
   it('returns null when there are no human runs', () => {
@@ -172,12 +174,15 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'MACHINE',
         verdictActionId: null,
+        createdAt: new Date(),
       },
     ] as any[]
     expect(deriveLatestHumanVerdictAction(rows, new Set())).toBeNull()
   })
 
-  it('returns the verdictActionId of the latest non-withdrawn human run', () => {
+  it('returns the full action descriptor of the latest non-withdrawn human run', () => {
+    const t1 = new Date('2026-06-01T10:00:00Z')
+    const t2 = new Date('2026-06-01T11:00:00Z')
     const rows = [
       {
         id: 'r-1',
@@ -186,6 +191,7 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'HUMAN',
         verdictActionId: 'act-1',
+        createdAt: t1,
       },
       {
         id: 'r-2',
@@ -194,13 +200,48 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'HUMAN',
         verdictActionId: 'act-2',
+        createdAt: t2,
       },
     ] as any[]
-    // rows are oldest-first; last non-withdrawn human action id is act-2
-    expect(deriveLatestHumanVerdictAction(rows, new Set())).toBe('act-2')
+    // rows are oldest-first; last non-withdrawn human action is act-2
+    const result = deriveLatestHumanVerdictAction(rows, new Set())
+    expect(result).not.toBeNull()
+    expect(result!.verdictActionId).toBe('act-2')
+    expect(result!.verdict).toBe('PASS')
+    expect(result!.criterionIds).toEqual(['c-2'])
+    expect(result!.recordedAt).toEqual(t2)
   })
 
-  it('skips withdrawn human runs', () => {
+  it('collects all criterionIds belonging to the latest action', () => {
+    const t = new Date('2026-06-01T10:00:00Z')
+    const rows = [
+      {
+        id: 'r-1',
+        criterionId: 'c-1',
+        round: 1,
+        verdict: 'FAIL',
+        verifierType: 'HUMAN',
+        verdictActionId: 'act-1',
+        createdAt: t,
+      },
+      {
+        id: 'r-2',
+        criterionId: 'c-2',
+        round: 1,
+        verdict: 'FAIL',
+        verifierType: 'HUMAN',
+        verdictActionId: 'act-1',
+        createdAt: t,
+      },
+    ] as any[]
+    const result = deriveLatestHumanVerdictAction(rows, new Set())
+    expect(result!.verdictActionId).toBe('act-1')
+    expect(result!.criterionIds.sort()).toEqual(['c-1', 'c-2'])
+  })
+
+  it('skips withdrawn human runs and falls back to the prior action', () => {
+    const t1 = new Date('2026-06-01T10:00:00Z')
+    const t2 = new Date('2026-06-01T11:00:00Z')
     const rows = [
       {
         id: 'r-1',
@@ -209,6 +250,7 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'HUMAN',
         verdictActionId: 'act-1',
+        createdAt: t1,
       },
       {
         id: 'r-2',
@@ -217,12 +259,13 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'HUMAN',
         verdictActionId: 'act-2',
+        createdAt: t2,
       },
     ] as any[]
     // act-2 is withdrawn; falls back to act-1
-    expect(deriveLatestHumanVerdictAction(rows, new Set(['act-2']))).toBe(
-      'act-1'
-    )
+    const result = deriveLatestHumanVerdictAction(rows, new Set(['act-2']))
+    expect(result!.verdictActionId).toBe('act-1')
+    expect(result!.criterionIds).toEqual(['c-1'])
   })
 
   it('returns null when all human runs are withdrawn', () => {
@@ -234,6 +277,7 @@ describe('deriveLatestHumanVerdictAction', () => {
         verdict: 'PASS',
         verifierType: 'HUMAN',
         verdictActionId: 'act-1',
+        createdAt: new Date(),
       },
     ] as any[]
     expect(deriveLatestHumanVerdictAction(rows, new Set(['act-1']))).toBeNull()

@@ -180,7 +180,13 @@ beforeEach(() => {
     n ? 'the send-back summary' : null
   )
   // LUM-586: withdrawal mocks — defaults represent "a live human verdict exists"
-  latestHumanVerdictAction.mockResolvedValue('action-id-1')
+  // latestHumanVerdictAction now returns the full action descriptor (C1 fix).
+  latestHumanVerdictAction.mockResolvedValue({
+    verdictActionId: 'action-id-1',
+    verdict: 'PASS',
+    criterionIds: ['c-1', 'c-2', 'c-h'],
+    recordedAt: new Date('2026-06-01T10:00:00Z'),
+  })
   createWithdrawal.mockResolvedValue({
     id: 'w-1',
     verdictActionId: 'action-id-1',
@@ -777,7 +783,12 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
     // Task was DONE (human PASS verdict); all criteria still have machine passes
     // so after withdrawal no FAILs remain → should go to IN_REVIEW, never DONE.
     getDetail.mockResolvedValue({ ...DETAIL, status: 'DONE' })
-    latestHumanVerdictAction.mockResolvedValue('action-id-pass')
+    latestHumanVerdictAction.mockResolvedValue({
+      verdictActionId: 'action-id-pass',
+      verdict: 'PASS',
+      criterionIds: ['c-1', 'c-2', 'c-h'],
+      recordedAt: new Date('2026-06-01T10:00:00Z'),
+    })
     // After withdrawal, the latest per-criterion map shows machine passes (no FAILs).
     latestRuns.mockResolvedValue(
       new Map([
@@ -814,7 +825,10 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
       ])
     )
 
-    await taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+    const result = await taskHumanVerdictService.withdrawLatestHumanVerdict(
+      't-1',
+      ATTR
+    )
 
     // Must write a withdrawal tombstone.
     expect(createWithdrawal).toHaveBeenCalledWith(
@@ -832,7 +846,8 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
     expect(withdrawn![0].payload).toMatchObject({
       verdictActionId: 'action-id-pass',
     })
-    // UNDO TARGET RULE: result must be IN_REVIEW, never DONE.
+    // UNDO TARGET RULE: result must be IN_REVIEW, never DONE (I1: via
+    // isValidTaskTransition guard — DONE → IN_REVIEW is now legal).
     expect(updateWithSideEffects).toHaveBeenCalledWith(
       't-1',
       { status: 'IN_REVIEW' },
@@ -841,6 +856,12 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
       'clerk-1',
       null
     )
+    // C1: returned object carries withdrawnVerdict + verdictActionId.
+    expect(result).toMatchObject({
+      taskStatus: 'IN_REVIEW',
+      withdrawnVerdict: 'PASS',
+      verdictActionId: 'action-id-pass',
+    })
   })
 
   it('409 when there is no human verdict to undo', async () => {
@@ -855,11 +876,31 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
     expect(createActivity).not.toHaveBeenCalled()
   })
 
+  it('409 on concurrent double-undo (P2002 unique violation → clean 409)', async () => {
+    // Simulate the Prisma unique-constraint error a concurrent second undo raises.
+    const p2002 = Object.assign(new Error('Unique constraint failed'), {
+      code: 'P2002',
+    })
+    createWithdrawal.mockRejectedValue(p2002)
+
+    await expect(
+      taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'This verdict was already undone',
+    })
+  })
+
   it('undoing a FAIL where a machine criterion still fails keeps the task IN_PROGRESS', async () => {
     // Task is IN_REVIEW; the human had added a FAIL on top of a machine FAIL.
     // After withdrawing the human verdict, the machine FAIL remains → IN_PROGRESS.
     getDetail.mockResolvedValue({ ...DETAIL, status: 'IN_REVIEW' })
-    latestHumanVerdictAction.mockResolvedValue('action-id-fail')
+    latestHumanVerdictAction.mockResolvedValue({
+      verdictActionId: 'action-id-fail',
+      verdict: 'FAIL',
+      criterionIds: ['c-1', 'c-2', 'c-h'],
+      recordedAt: new Date('2026-06-01T10:00:00Z'),
+    })
     // Post-withdrawal latest runs: one criterion still has a machine FAIL.
     latestRuns.mockResolvedValue(
       new Map([
@@ -896,7 +937,10 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
       ])
     )
 
-    await taskHumanVerdictService.withdrawLatestHumanVerdict('t-1', ATTR)
+    const result = await taskHumanVerdictService.withdrawLatestHumanVerdict(
+      't-1',
+      ATTR
+    )
 
     expect(createWithdrawal).toHaveBeenCalled()
     // anyFail → IN_PROGRESS (the machine FAIL on c-1 drives this).
@@ -909,5 +953,37 @@ describe('withdrawLatestHumanVerdict (LUM-586)', () => {
       'clerk-1',
       null
     )
+    expect(result).toMatchObject({
+      taskStatus: 'IN_PROGRESS',
+      withdrawnVerdict: 'FAIL',
+      verdictActionId: 'action-id-fail',
+    })
+  })
+})
+
+// LUM-586 C2: verdictActionId in the recordHumanVerdict activity payload.
+describe('verdictActionId in VERIFICATION_RUN_RECORDED activity (LUM-586 C2)', () => {
+  it('stamps verdictActionId on every VERIFICATION_RUN_RECORDED activity mirror', async () => {
+    await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS' },
+      ATTR
+    )
+    const mirrors = createActivity.mock.calls.filter(
+      c => c[0].type === 'VERIFICATION_RUN_RECORDED'
+    )
+    expect(mirrors.length).toBeGreaterThan(0)
+    for (const m of mirrors) {
+      expect(m[0].payload.verdictActionId).toBeTruthy()
+    }
+    // All mirrors in one call share the same verdictActionId.
+    const actionIds = new Set(
+      mirrors.map(
+        (m: unknown[]) =>
+          (m[0] as { payload: { verdictActionId: string } }).payload
+            .verdictActionId
+      )
+    )
+    expect(actionIds.size).toBe(1)
   })
 })

@@ -102,25 +102,59 @@ export function deriveLatestRunsByCriterion(
   return byCriterion
 }
 
+/** Shape returned by {@link deriveLatestHumanVerdictAction} when a live action exists. */
+export interface LatestHumanVerdictAction {
+  verdictActionId: string
+  verdict: VerificationVerdict
+  criterionIds: string[]
+  recordedAt: Date
+}
+
 /**
- * From an oldest-first list of run rows, returns the verdictActionId of the
- * most-recent non-withdrawn HUMAN run, or null if none exists. Used by the
- * service layer to determine whether the current human verdict can be undone
- * and which action id to withdraw.
+ * From an oldest-first list of run rows, returns the full action descriptor of
+ * the most-recent non-withdrawn HUMAN verdict action, or null when no live
+ * human verdict exists. Used by the service layer to determine the action id
+ * that a withdrawal request should target and to populate the withdrawal return
+ * value (LUM-586).
  */
 export function deriveLatestHumanVerdictAction(
   rows: Array<VerificationRunRow>,
   withdrawnActionIds: Set<string>
-): string | null {
-  let latest: string | null = null
+): LatestHumanVerdictAction | null {
+  // Walk oldest-first; a non-withdrawn HUMAN row with a verdictActionId wins
+  // over the previous action (rows are already oldest-first so the last match
+  // is the most-recent action).
+  let latestActionId: string | null = null
+  let latestVerdict: VerificationVerdict | null = null
+  let latestDate: Date | null = null
+  const criterionsByAction = new Map<string, Set<string>>()
+
   for (const row of rows) {
     if (row.verifierType !== 'HUMAN') continue
     if (isRunWithdrawn(row, withdrawnActionIds)) continue
-    if (row.verdictActionId !== null) {
-      latest = row.verdictActionId
+    if (row.verdictActionId === null) continue
+    latestActionId = row.verdictActionId
+    latestVerdict = row.verdict
+    latestDate = row.createdAt
+    if (!criterionsByAction.has(row.verdictActionId)) {
+      criterionsByAction.set(row.verdictActionId, new Set())
     }
+    criterionsByAction.get(row.verdictActionId)!.add(row.criterionId)
   }
-  return latest
+
+  if (
+    latestActionId === null ||
+    latestVerdict === null ||
+    latestDate === null
+  ) {
+    return null
+  }
+  return {
+    verdictActionId: latestActionId,
+    verdict: latestVerdict,
+    criterionIds: Array.from(criterionsByAction.get(latestActionId) ?? []),
+    recordedAt: latestDate,
+  }
 }
 
 /**
@@ -288,14 +322,15 @@ export const verificationRunRepository = {
   },
 
   /**
-   * verdictActionId of the latest non-withdrawn HUMAN verdict for a task, or
-   * null when no live human verdict exists. The service layer uses this to
-   * determine the action id that a withdrawal request should target (LUM-586).
+   * Full action descriptor of the latest non-withdrawn HUMAN verdict for a
+   * task, or null when no live human verdict exists. The service layer uses
+   * this to determine the action id that a withdrawal request should target
+   * and to populate the withdrawal return value (LUM-586).
    */
   async latestHumanVerdictAction(
     taskId: string,
     tx?: Prisma.TransactionClient
-  ): Promise<string | null> {
+  ): Promise<LatestHumanVerdictAction | null> {
     const client = tx ?? prisma
     const [rows, withdrawnActionIds] = await Promise.all([
       client.verificationRun.findMany({
