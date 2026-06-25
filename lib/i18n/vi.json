@@ -1853,5 +1853,8 @@
   "task.verdict.historyWithdrawn": "đã rút lại",
   "boundary.category.PROJECT_RULE_VIOLATION": "Vi phạm quy tắc dự án",
   "boundary.category.POLICY_WEAKENING": "Làm yếu chính sách",
-  "boundary.advisoryBadge": "Khuyến cáo"
+  "boundary.advisoryBadge": "Khuyến cáo",
+  "boundary.field.rule": "Quy tắc",
+  "boundary.field.triggeredBy": "Kích hoạt bởi",
+  "boundary.field.whatHappened": "Điều đã xảy ra"
 }

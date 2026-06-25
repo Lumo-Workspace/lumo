@@ -878,6 +878,7 @@ model BoundaryCrossing {
   agentNotifiedAt   DateTime?
   advisory          Boolean  @default(false)    // LUM-590: semantic finding — surfaced, never blocks DONE
   policyRuleRef     String?                     // LUM-590: which compiled PolicyRule fired (text/id)
+  policyRuleText    String?                     // LUM-590: frozen verbatim text of the rule at detection time
 
   task            Task                          @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)

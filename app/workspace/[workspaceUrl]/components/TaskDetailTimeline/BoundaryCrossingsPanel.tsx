@@ -48,6 +48,24 @@ export function advisoryLabelFor(v: BoundaryCrossingView): string | null {
   return v.advisory ? 'advisory' : null
 }
 
+/**
+ * Returns the three-field structured display for a project-rule crossing, or
+ * null for crossings without a policyRuleText (non-project-rule categories).
+ * Pure — no intl dependency, jsdom-testable (LUM-590).
+ */
+export function crossingFieldsFor(c: {
+  policyRuleText: string | null
+  detail: string
+  agentContext: string | null
+}): { rule: string; triggeredBy: string; whatHappened: string | null } | null {
+  if (!c.policyRuleText) return null
+  return {
+    rule: c.policyRuleText,
+    triggeredBy: c.detail,
+    whatHappened: c.agentContext ?? null,
+  }
+}
+
 interface BoundaryCrossingsPanelProps {
   taskIdentifier: string
   enabled: boolean
@@ -473,14 +491,66 @@ function CrossingRow({
 
       {!collapsed && (
         <>
-          <code
-            data-testid={`crossing-cmd-${c.id}`}
-            onClick={() => setCmdOpen(o => !o)}
-            className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
-            title={cmdOpen ? undefined : c.detail}
-          >
-            {c.detail}
-          </code>
+          {(() => {
+            const fields = crossingFieldsFor(c)
+            if (fields) {
+              return (
+                <div className='mt-1.5 space-y-1 text-[11px]'>
+                  <div className='flex gap-1.5'>
+                    <span className='shrink-0 text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'boundary.field.rule',
+                        defaultMessage: 'Rule',
+                      })}
+                      :
+                    </span>
+                    <span className='text-foreground'>{fields.rule}</span>
+                  </div>
+                  <div className='flex gap-1.5'>
+                    <span className='shrink-0 text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'boundary.field.triggeredBy',
+                        defaultMessage: 'Triggered by',
+                      })}
+                      :
+                    </span>
+                    <code
+                      data-testid={`crossing-cmd-${c.id}`}
+                      onClick={() => setCmdOpen(o => !o)}
+                      className={`cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+                      title={cmdOpen ? undefined : fields.triggeredBy}
+                    >
+                      {fields.triggeredBy}
+                    </code>
+                  </div>
+                  {fields.whatHappened && (
+                    <div className='flex gap-1.5'>
+                      <span className='shrink-0 text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'boundary.field.whatHappened',
+                          defaultMessage: 'What happened',
+                        })}
+                        :
+                      </span>
+                      <span className='text-foreground italic'>
+                        {fields.whatHappened}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            return (
+              <code
+                data-testid={`crossing-cmd-${c.id}`}
+                onClick={() => setCmdOpen(o => !o)}
+                className={`mt-1.5 block cursor-pointer rounded-md bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground ${cmdOpen ? 'whitespace-pre-wrap break-all' : 'truncate whitespace-nowrap'}`}
+                title={cmdOpen ? undefined : c.detail}
+              >
+                {c.detail}
+              </code>
+            )
+          })()}
 
           {/* LUM-572: reversibility + recurrence live in the expanded detail now,
           off the collapsed row which keeps only severity + disposition. */}

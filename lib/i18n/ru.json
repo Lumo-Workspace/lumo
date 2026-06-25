@@ -1853,5 +1853,8 @@
   "task.verdict.historyWithdrawn": "отозван",
   "boundary.category.PROJECT_RULE_VIOLATION": "Нарушение правила проекта",
   "boundary.category.POLICY_WEAKENING": "Ослабление политики",
-  "boundary.advisoryBadge": "Предупреждение"
+  "boundary.advisoryBadge": "Предупреждение",
+  "boundary.field.rule": "Правило",
+  "boundary.field.triggeredBy": "Вызвано",
+  "boundary.field.whatHappened": "Что произошло"
 }
