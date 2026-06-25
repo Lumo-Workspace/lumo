@@ -5,6 +5,7 @@ import type {
   VerificationVerdict,
   VerificationRejectionReason,
 } from '@prisma/client'
+import { verificationRunWithdrawalRepository } from '@/lib/repositories/verification-run-withdrawal.repository'
 
 /**
  * One verdict event to append. The log is append-only: a re-verification is a
@@ -22,6 +23,8 @@ export interface CreateVerificationRunInput {
   evidencePointer?: string | null
   rejectionReason?: string | null
   rejectionReasonEnum?: VerificationRejectionReason | null
+  /** Shared id stamped on every run written by ONE human-verdict action (LUM-586). Null on machine runs. */
+  verdictActionId?: string | null
 }
 
 const runSelect = {
@@ -34,6 +37,7 @@ const runSelect = {
   evidencePointer: true,
   rejectionReason: true,
   rejectionReasonEnum: true,
+  verdictActionId: true,
   createdAt: true,
 } satisfies Prisma.VerificationRunSelect
 
@@ -52,6 +56,104 @@ function toCreateData(i: CreateVerificationRunInput) {
     evidencePointer: i.evidencePointer ?? null,
     rejectionReason: i.rejectionReason ?? null,
     rejectionReasonEnum: i.rejectionReasonEnum ?? null,
+    verdictActionId: i.verdictActionId ?? null,
+  }
+}
+
+// ── Withdrawal-aware pure helpers (LUM-586) ──────────────────────────────────
+
+/**
+ * Returns true when a run row's verdictActionId is present in the given set
+ * of withdrawn action ids. Machine runs (verdictActionId === null) are never
+ * withdrawn.
+ */
+export function isRunWithdrawn(
+  run: { verdictActionId: string | null },
+  withdrawnActionIds: Set<string>
+): boolean {
+  return (
+    run.verdictActionId !== null && withdrawnActionIds.has(run.verdictActionId)
+  )
+}
+
+/**
+ * Derives the latest non-withdrawn run per criterion from an oldest-first
+ * ordered list of run rows and a set of withdrawn verdictActionIds. A
+ * withdrawn human-verdict run is skipped, and the derivation falls back to
+ * the prior row for that criterion. Criteria whose every run is withdrawn are
+ * absent from the returned Map.
+ *
+ * This is the single definition shared between the withdrawal-aware DB method
+ * ({@link verificationRunRepository.latestRunsByCriterion}) and every test
+ * that pins the semantics — no DB required.
+ */
+export function deriveLatestRunsByCriterion(
+  rows: Array<VerificationRunRow>,
+  withdrawnActionIds: Set<string>
+): Map<string, VerificationRunRow> {
+  // Walk oldest-first; a non-withdrawn row overwrites the previous winner for
+  // that criterion; a withdrawn row is simply skipped.
+  const byCriterion = new Map<string, VerificationRunRow>()
+  for (const row of rows) {
+    if (!isRunWithdrawn(row, withdrawnActionIds)) {
+      byCriterion.set(row.criterionId, row)
+    }
+  }
+  return byCriterion
+}
+
+/** Shape returned by {@link deriveLatestHumanVerdictAction} when a live action exists. */
+export interface LatestHumanVerdictAction {
+  verdictActionId: string
+  verdict: VerificationVerdict
+  criterionIds: string[]
+  recordedAt: Date
+}
+
+/**
+ * From an oldest-first list of run rows, returns the full action descriptor of
+ * the most-recent non-withdrawn HUMAN verdict action, or null when no live
+ * human verdict exists. Used by the service layer to determine the action id
+ * that a withdrawal request should target and to populate the withdrawal return
+ * value (LUM-586).
+ */
+export function deriveLatestHumanVerdictAction(
+  rows: Array<VerificationRunRow>,
+  withdrawnActionIds: Set<string>
+): LatestHumanVerdictAction | null {
+  // Walk oldest-first; a non-withdrawn HUMAN row with a verdictActionId wins
+  // over the previous action (rows are already oldest-first so the last match
+  // is the most-recent action).
+  let latestActionId: string | null = null
+  let latestVerdict: VerificationVerdict | null = null
+  let latestDate: Date | null = null
+  const criterionsByAction = new Map<string, Set<string>>()
+
+  for (const row of rows) {
+    if (row.verifierType !== 'HUMAN') continue
+    if (isRunWithdrawn(row, withdrawnActionIds)) continue
+    if (row.verdictActionId === null) continue
+    latestActionId = row.verdictActionId
+    latestVerdict = row.verdict
+    latestDate = row.createdAt
+    if (!criterionsByAction.has(row.verdictActionId)) {
+      criterionsByAction.set(row.verdictActionId, new Set())
+    }
+    criterionsByAction.get(row.verdictActionId)!.add(row.criterionId)
+  }
+
+  if (
+    latestActionId === null ||
+    latestVerdict === null ||
+    latestDate === null
+  ) {
+    return null
+  }
+  return {
+    verdictActionId: latestActionId,
+    verdict: latestVerdict,
+    criterionIds: Array.from(criterionsByAction.get(latestActionId) ?? []),
+    recordedAt: latestDate,
   }
 }
 
@@ -196,25 +298,49 @@ export const verificationRunRepository = {
   },
 
   /**
-   * Latest verdict per criterion — the derived verification state of a task's
-   * contract. "Latest" = highest round, then latest createdAt within the round
-   * (an append-only log can hold a re-run of the same round). Criteria with no
-   * runs yet are simply absent; the caller joins against the criterion list.
+   * Latest non-withdrawn verdict per criterion — the derived verification
+   * state of a task's contract. "Latest" = highest round, then latest
+   * createdAt within the round. A human-verdict run whose verdictActionId is
+   * present in the withdrawal tombstones is skipped, falling through to the
+   * prior row for that criterion (LUM-586). Criteria with no un-withdrawn runs
+   * are absent; the caller joins against the criterion list.
    */
   async latestRunsByCriterion(
     taskId: string,
     tx?: Prisma.TransactionClient
   ): Promise<Map<string, VerificationRunRow>> {
     const client = tx ?? prisma
-    const rows = await client.verificationRun.findMany({
-      where: { taskId },
-      orderBy: [{ round: 'asc' }, { createdAt: 'asc' }],
-      select: runSelect,
-    })
-    // Ascending order → the last write per criterion wins.
-    const byCriterion = new Map<string, VerificationRunRow>()
-    for (const row of rows) byCriterion.set(row.criterionId, row)
-    return byCriterion
+    const [rows, withdrawnActionIds] = await Promise.all([
+      client.verificationRun.findMany({
+        where: { taskId },
+        orderBy: [{ round: 'asc' }, { createdAt: 'asc' }],
+        select: runSelect,
+      }),
+      verificationRunWithdrawalRepository.actionIdsByTask(taskId, tx),
+    ])
+    return deriveLatestRunsByCriterion(rows, withdrawnActionIds)
+  },
+
+  /**
+   * Full action descriptor of the latest non-withdrawn HUMAN verdict for a
+   * task, or null when no live human verdict exists. The service layer uses
+   * this to determine the action id that a withdrawal request should target
+   * and to populate the withdrawal return value (LUM-586).
+   */
+  async latestHumanVerdictAction(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<LatestHumanVerdictAction | null> {
+    const client = tx ?? prisma
+    const [rows, withdrawnActionIds] = await Promise.all([
+      client.verificationRun.findMany({
+        where: { taskId, verifierType: 'HUMAN' },
+        orderBy: [{ round: 'asc' }, { createdAt: 'asc' }],
+        select: runSelect,
+      }),
+      verificationRunWithdrawalRepository.actionIdsByTask(taskId, tx),
+    ])
+    return deriveLatestHumanVerdictAction(rows, withdrawnActionIds)
   },
 
   /**

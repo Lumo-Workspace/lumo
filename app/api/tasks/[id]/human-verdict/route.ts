@@ -64,3 +64,51 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: message }, { status })
   }
 }
+
+/**
+ * DELETE /api/tasks/[id]/human-verdict — undo (withdraw) the most recent
+ * human verdict on the task (LUM-586).
+ *
+ * RED LINE: same human-only guard as POST. Bearer-token identities (agent/CLI)
+ * are refused with 403 before any task resolution or service call. Only a
+ * Clerk browser session may undo a human verdict — the rule is symmetric with
+ * the rule that prevents an agent from ever recording one.
+ */
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
+
+  if (identity.source !== 'clerk') {
+    return NextResponse.json(
+      {
+        error:
+          'Human verdicts can only be undone from a human-authenticated browser session — the agent/CLI path is closed by design',
+      },
+      { status: 403 }
+    )
+  }
+
+  const { id: rawId } = await params
+  const task = await resolveTaskParam(rawId, identity.workspaceId)
+  if (!task)
+    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
+  try {
+    const outcome = await taskHumanVerdictService.withdrawLatestHumanVerdict(
+      task.id,
+      {
+        actorMemberId: identity.memberId,
+        actorClerkId: identity.clerkId,
+      }
+    )
+    return NextResponse.json(outcome)
+  } catch (error) {
+    const maybeStatus = (error as { status?: unknown } | null)?.status
+    const status = typeof maybeStatus === 'number' ? maybeStatus : 500
+    const message =
+      status === 500 || !(error instanceof Error)
+        ? 'Internal Server Error'
+        : error.message
+    return NextResponse.json({ error: message }, { status })
+  }
+}

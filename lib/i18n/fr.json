@@ -1845,6 +1845,12 @@
   "acceptance.claim.faithfulness.pending": "Évaluation…",
   "acceptance.claim.faithfulness.stale": "obsolète",
   "acceptance.claim.faithfulness.evidence": "preuve :",
+  "task.verdict.undo": "Annuler le verdict",
+  "task.verdict.undoPrompt": "Mauvais bouton ? → Annuler le verdict",
+  "task.verdict.undoConfirmBody": "Revient à En révision pour une nouvelle décision. Votre verdict {verdict} reste dans l'historique, marqué comme retiré.",
+  "task.verdict.undoConfirm": "Confirmer l'annulation",
+  "task.verdict.withdrawnBy": "Verdict retiré par {by} — {verdict} → aucune décision",
+  "task.verdict.historyWithdrawn": "retiré",
   "boundary.category.PROJECT_RULE_VIOLATION": "Violation de règle de projet",
   "boundary.category.POLICY_WEAKENING": "Affaiblissement de politique",
   "boundary.advisoryBadge": "Avis"

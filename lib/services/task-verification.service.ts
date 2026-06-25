@@ -6,9 +6,11 @@ import {
   verificationRunRepository,
   isPassVerdict,
   deriveMachinePassedCriteria,
+  isRunWithdrawn,
   type CreateVerificationRunInput,
   type VerificationRunRow,
 } from '@/lib/repositories/verification-run.repository'
+import { verificationRunWithdrawalRepository } from '@/lib/repositories/verification-run-withdrawal.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -178,6 +180,10 @@ export interface VerificationHistoryRound {
     evidencePointer: string | null
     rejectionReason: string | null
     rejectionReasonEnum: string | null
+    /** True when the run's verdictActionId has been withdrawn (LUM-586).
+     *  The run stays visible in history — only the latest-verdict derivation
+     *  skips it — so the UI can render a "withdrawn" badge. */
+    withdrawn: boolean
   }>
 }
 
@@ -350,6 +356,24 @@ export interface TaskAcceptanceStatus {
     addedAtRound: number
     rejectionReason: string | null
   }>
+  /** The latest live (non-withdrawn) human verdict action — the one the undo
+   *  button targets (LUM-586). Null when no live human verdict exists (nothing
+   *  to undo). actorName is null when the member row cannot be resolved cheaply
+   *  from the builder's existing data loads. */
+  undoableHumanVerdict: {
+    verdictActionId: string
+    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    actorName: string | null
+    at: string
+  } | null
+  /** The most-recent withdrawal, so the UI can show "last undo: PASS verdict
+   *  withdrawn at …" (LUM-586). Null when no withdrawal has ever occurred for
+   *  this task. The `verdict` is the verdict that was withdrawn. */
+  lastVerdictWithdrawal: {
+    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    actorName: string | null
+    at: string
+  } | null
 }
 
 /** A folded CRITERION_CHANGED UPDATED event — the latest reword of one
@@ -639,6 +663,9 @@ export const taskVerificationService = {
       latestRunClaim,
       claimSnapshot,
       faithfulnessVerdict,
+      withdrawnActionIds,
+      latestWithdrawal,
+      latestHumanVerdictAction,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -666,6 +693,13 @@ export const taskVerificationService = {
       // — a field read, never an LLM call; null when this task hasn't been
       // judged yet (→ PENDING, distinct from a UNJUDGEABLE verdict).
       claimFaithfulnessVerdictRepository.findByTaskId(taskId),
+      // LUM-586: withdrawn action ids — used to skip withdrawn human runs when
+      // deriving latestByCriterion so the undo is reflected in the read model.
+      verificationRunWithdrawalRepository.actionIdsByTask(taskId),
+      // LUM-586: most-recent withdrawal row — used to populate lastVerdictWithdrawal.
+      verificationRunWithdrawalRepository.latestByTask(taskId),
+      // LUM-586: latest live (non-withdrawn) human verdict action — the undo target.
+      verificationRunRepository.latestHumanVerdictAction(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -720,9 +754,16 @@ export const taskVerificationService = {
     const runsByRound = new Map<number, VerificationRunRow[]>()
     let currentRound = 0
     for (const run of runs) {
-      latestByCriterion.set(run.criterionId, run)
-      if (run.verifierType === 'MACHINE')
-        latestMachineByCriterion.set(run.criterionId, run)
+      // LUM-586: a withdrawn human run no longer counts as the criterion's
+      // latest verdict — skipping it lets the prior surviving row (the machine
+      // PASS, or nothing) win, so an undo is reflected in the read model. The
+      // run still flows into runsByRound below, so it stays visible in the
+      // verification history (badged "withdrawn"), never erased.
+      if (!isRunWithdrawn(run, withdrawnActionIds)) {
+        latestByCriterion.set(run.criterionId, run)
+        if (run.verifierType === 'MACHINE')
+          latestMachineByCriterion.set(run.criterionId, run)
+      }
       const bucket = runsByRound.get(run.round)
       if (bucket) bucket.push(run)
       else runsByRound.set(run.round, [run])
@@ -745,6 +786,7 @@ export const taskVerificationService = {
           evidencePointer: r.evidencePointer,
           rejectionReason: r.rejectionReason,
           rejectionReasonEnum: r.rejectionReasonEnum,
+          withdrawn: isRunWithdrawn(r, withdrawnActionIds),
         })),
       }))
 
@@ -947,6 +989,33 @@ export const taskVerificationService = {
         lastVerdict: toLatestVerdict(latestByCriterion.get(t.id)),
       }))
 
+    // LUM-586: the undo affordance + correction-line data. `undoableHumanVerdict`
+    // is the latest live human verdict (the undo target); `lastVerdictWithdrawal`
+    // is the most-recent withdrawal, with the withdrawn verdict read off the
+    // surviving (append-only) run rows for that action — no extra query, no
+    // hardcoded value. actorName is left null (tolerated): the UI falls back to a
+    // generic "a reviewer" rather than fabricating a name.
+    const undoableHumanVerdict = latestHumanVerdictAction
+      ? {
+          verdictActionId: latestHumanVerdictAction.verdictActionId,
+          verdict: latestHumanVerdictAction.verdict,
+          actorName: null,
+          at: latestHumanVerdictAction.recordedAt.toISOString(),
+        }
+      : null
+    const withdrawnVerdictValue = latestWithdrawal
+      ? (runs.find(r => r.verdictActionId === latestWithdrawal.verdictActionId)
+          ?.verdict ?? null)
+      : null
+    const lastVerdictWithdrawal =
+      latestWithdrawal && withdrawnVerdictValue
+        ? {
+            verdict: withdrawnVerdictValue,
+            actorName: null,
+            at: latestWithdrawal.createdAt.toISOString(),
+          }
+        : null
+
     return {
       version: TASK_STATUS_SCHEMA_VERSION,
       task: {
@@ -958,6 +1027,8 @@ export const taskVerificationService = {
       currentRound,
       maxRounds,
       escalated: currentRound >= maxRounds && lastRoundFailures.length > 0,
+      undoableHumanVerdict,
+      lastVerdictWithdrawal,
       criteria: criteria.map(c => {
         const edit = editByCriterion.get(c.id)
         // An edit recorded after work started (round > 0) marks the criterion

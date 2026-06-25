@@ -45,20 +45,18 @@ describe('isValidTaskTransition', () => {
     ['IN_REVIEW', 'DONE'],
     ['DONE', 'TODO'],
     ['DONE', 'IN_PROGRESS'],
+    // LUM-586: undo of acceptance verdict — the legitimate DONE → IN_REVIEW path.
+    ['DONE', 'IN_REVIEW'],
   ]
 
   it.each(allowed)('%s → %s is valid', (from, to) => {
     expect(isValidTaskTransition(from, to)).toBe(true)
   })
 
-  const blocked: [TaskStatusValue, TaskStatusValue][] = [['DONE', 'IN_REVIEW']]
-
-  it.each(blocked)('%s → %s is blocked', (from, to) => {
-    expect(isValidTaskTransition(from, to)).toBe(false)
-  })
-
   it('same status returns false (not in transition list)', () => {
     expect(isValidTaskTransition('TODO', 'TODO')).toBe(false)
+    // LUM-586: verify DONE self-transition is also blocked.
+    expect(isValidTaskTransition('DONE', 'DONE')).toBe(false)
   })
 })
 
@@ -162,13 +160,28 @@ describe('transitionTaskStatus', () => {
   })
 
   it('throws InvalidTaskTransitionError on invalid transition', async () => {
+    // After LUM-586 all cross-status pairs are valid and same-status hits the
+    // no-op early-return. To exercise the real throw branch at line 98–100 in
+    // state-machine.ts we supply a currentStatus value that isn't in the
+    // TRANSITIONS map — isValidTaskTransition returns false for any unknown
+    // `from`, which triggers the throw exactly as production would for a
+    // genuinely invalid pair.  The cast to TaskStatusValue is only needed here
+    // in the test; production callers always pass validated enum values.
     await expect(
-      transitionTaskStatus('task-1', 'proj-1', 'IN_REVIEW', {
-        currentStatus: 'DONE',
+      transitionTaskStatus('task-x', 'proj-x', 'DONE', {
+        currentStatus: 'NONEXISTENT' as any as TaskStatusValue,
       })
     ).rejects.toThrow(InvalidTaskTransitionError)
 
+    // The throw must happen before any DB write.
     expect(mockUpdate).not.toHaveBeenCalled()
+
+    // Verify the error carries the right shape.
+    const err = new InvalidTaskTransitionError('task-x', 'IN_REVIEW', 'DONE')
+    expect(err.taskId).toBe('task-x')
+    expect(err.from).toBe('IN_REVIEW')
+    expect(err.to).toBe('DONE')
+    expect(err.name).toBe('InvalidTaskTransitionError')
   })
 
   it('throws when task not found', async () => {

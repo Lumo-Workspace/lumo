@@ -724,7 +724,7 @@ function CrossingRow({
                   <Unlock className='size-3.5' aria-hidden />
                   {intl.formatMessage({
                     id: 'boundary.panel.reopen',
-                    defaultMessage: 'Reopen (re-block Done)',
+                    defaultMessage: 'Undo disposition (re-block Done)',
                   })}
                 </button>
               </div>

@@ -1845,6 +1845,12 @@
   "acceptance.claim.faithfulness.pending": "जाँच जारी…",
   "acceptance.claim.faithfulness.stale": "पुराना",
   "acceptance.claim.faithfulness.evidence": "साक्ष्य:",
+  "task.verdict.undo": "निर्णय पूर्ववत करें",
+  "task.verdict.undoPrompt": "गलत बटन दबाया? → निर्णय पूर्ववत करें",
+  "task.verdict.undoConfirmBody": "पुनः समीक्षा के लिए वापस आता है। आपका {verdict} निर्णय रिकॉर्ड में रहेगा, वापस लिया हुआ के रूप में चिह्नित।",
+  "task.verdict.undoConfirm": "पूर्ववत करें की पुष्टि करें",
+  "task.verdict.withdrawnBy": "{by} द्वारा निर्णय वापस लिया गया — {verdict} → कोई निर्णय नहीं",
+  "task.verdict.historyWithdrawn": "वापस लिया गया",
   "boundary.category.PROJECT_RULE_VIOLATION": "परियोजना नियम उल्लंघन",
   "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
   "boundary.advisoryBadge": "सलाह"

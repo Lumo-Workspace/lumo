@@ -1845,6 +1845,12 @@
   "acceptance.claim.faithfulness.pending": "Evaluando…",
   "acceptance.claim.faithfulness.stale": "obsoleta",
   "acceptance.claim.faithfulness.evidence": "evidencia:",
+  "task.verdict.undo": "Deshacer veredicto",
+  "task.verdict.undoPrompt": "¿Pulsaste el botón equivocado? → Deshacer veredicto",
+  "task.verdict.undoConfirmBody": "Vuelve a En revisión para una nueva decisión. Tu veredicto {verdict} permanece en el registro, marcado como retirado.",
+  "task.verdict.undoConfirm": "Confirmar deshacer",
+  "task.verdict.withdrawnBy": "Veredicto retirado por {by} — {verdict} → sin decisión",
+  "task.verdict.historyWithdrawn": "retirado",
   "boundary.category.PROJECT_RULE_VIOLATION": "Infracción de regla de proyecto",
   "boundary.category.POLICY_WEAKENING": "Debilitamiento de política",
   "boundary.advisoryBadge": "Aviso"

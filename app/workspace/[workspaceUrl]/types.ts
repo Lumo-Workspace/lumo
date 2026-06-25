@@ -787,6 +787,10 @@ export interface VerificationHistoryRoundView {
     evidencePointer: string | null
     rejectionReason: string | null
     rejectionReasonEnum: string | null
+    /** The run's verdict action was withdrawn (LUM-586). The run stays in
+     *  history; the UI badges it "withdrawn" rather than hiding it. Optional so
+     *  an older server (pre-586) is tolerated — absent means not withdrawn. */
+    withdrawn?: boolean
   }>
 }
 
@@ -868,6 +872,23 @@ export interface TaskAcceptanceStatusView {
   currentRound: number
   maxRounds: number
   escalated: boolean
+  /** The latest live (non-withdrawn) human verdict — the action the Undo button
+   *  targets (LUM-586). Null when there is no standing human verdict to undo.
+   *  Optional so an older server (pre-586) is tolerated, never fabricated. */
+  undoableHumanVerdict?: {
+    verdictActionId: string
+    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    actorName: string | null
+    at: string
+  } | null
+  /** The most-recent verdict withdrawal, feeding the "verdict withdrawn by …"
+   *  correction line which must persist after undo, when undoableHumanVerdict is
+   *  null (LUM-586). Optional / tolerated-absent on an older server. */
+  lastVerdictWithdrawal?: {
+    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    actorName: string | null
+    at: string
+  } | null
   criteria: TaskStatusCriterionView[]
   /** Honest machine-verification rollup — genuine checkpointer passes vs human
    *  overrides over the active MACHINE criteria (LUM-456). */

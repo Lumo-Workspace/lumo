@@ -275,7 +275,9 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
                       <span className='translate-y-0.5'>
                         <VerdictGlyph verdict={v.verdict} />
                       </span>
-                      <span className='min-w-0 flex-1'>
+                      <span
+                        className={`min-w-0 flex-1 ${v.withdrawn ? 'line-through opacity-60' : ''}`}
+                      >
                         {statementById.get(v.criterionId) ?? v.criterionId}
                         {v.verdict === 'FAIL' && v.rejectionReason ? (
                           <span className='text-danger'>
@@ -284,6 +286,14 @@ function VerificationHistory({ data }: { data: TaskAcceptanceStatusView }) {
                           </span>
                         ) : null}
                       </span>
+                      {/* LUM-586: badge withdrawn human verdicts */}
+                      {v.withdrawn ? (
+                        <span className='shrink-0 rounded-sm border border-border px-1 py-0.5 text-[10px] text-muted-foreground/70'>
+                          {intl.formatMessage({
+                            id: 'task.verdict.historyWithdrawn',
+                          })}
+                        </span>
+                      ) : null}
                     </div>
                   ))}
                 </div>

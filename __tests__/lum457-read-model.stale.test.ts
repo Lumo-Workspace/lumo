@@ -18,7 +18,18 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   // Keep the real pure exports (deriveMachinePassedCriteria, isPassVerdict).
   ...jest.requireActual('@/lib/repositories/verification-run.repository'),
-  verificationRunRepository: { listByTask: jest.fn() },
+  verificationRunRepository: {
+    listByTask: jest.fn(),
+    latestHumanVerdictAction: jest.fn(() => Promise.resolve(null)),
+  },
+}))
+// LUM-586: the read model reads withdrawal tombstones — fake them so the view
+// resolves without a DB. Defaults = nothing withdrawn.
+jest.mock('@/lib/repositories/verification-run-withdrawal.repository', () => ({
+  verificationRunWithdrawalRepository: {
+    actionIdsByTask: jest.fn(() => Promise.resolve(new Set())),
+    latestByTask: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { listByTaskAndType: jest.fn() },

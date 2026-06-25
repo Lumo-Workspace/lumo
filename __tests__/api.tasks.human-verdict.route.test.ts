@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { POST } from '@/app/api/tasks/[id]/human-verdict/route'
+import { POST, DELETE } from '@/app/api/tasks/[id]/human-verdict/route'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskHumanVerdictService } from '@/lib/services/task-human-verdict.service'
@@ -15,13 +15,18 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 jest.mock('@/lib/services/task-human-verdict.service', () => ({
-  taskHumanVerdictService: { recordHumanVerdict: jest.fn() },
+  taskHumanVerdictService: {
+    recordHumanVerdict: jest.fn(),
+    withdrawLatestHumanVerdict: jest.fn(),
+  },
 }))
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockFindByIdentifier =
   taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockRecord = taskHumanVerdictService.recordHumanVerdict as jest.Mock
+const mockWithdraw =
+  taskHumanVerdictService.withdrawLatestHumanVerdict as jest.Mock
 
 const CLERK_IDENTITY = {
   clerkId: 'clerk-1',
@@ -53,6 +58,11 @@ beforeEach(() => {
     verdict: 'PASS',
     taskStatus: 'DONE',
     criterionIds: ['c-1'],
+  })
+  mockWithdraw.mockResolvedValue({
+    taskStatus: 'IN_REVIEW',
+    withdrawnVerdict: 'PASS',
+    verdictActionId: 'action-uuid-1',
   })
 })
 
@@ -177,5 +187,38 @@ describe('POST /api/tasks/[id]/human-verdict', () => {
     const res = await POST(req({ verdict: 'PASS' }), params)
     expect(res.status).toBe(401)
     expect(mockRecord).not.toHaveBeenCalled()
+  })
+})
+
+describe('DELETE /api/tasks/[id]/human-verdict', () => {
+  it('LUM-586 undo route refuses a bearer identity with 403', async () => {
+    mockIdentity.mockResolvedValue(BEARER_IDENTITY)
+    const res = await DELETE(req(), params)
+    expect(res.status).toBe(403)
+    expect(mockWithdraw).not.toHaveBeenCalled()
+  })
+
+  it('returns the undo outcome for a Clerk session', async () => {
+    const res = await DELETE(req(), params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({
+      taskStatus: 'IN_REVIEW',
+      withdrawnVerdict: 'PASS',
+      verdictActionId: 'action-uuid-1',
+    })
+    expect(mockWithdraw).toHaveBeenCalledWith('t-1', {
+      actorMemberId: 'member-1',
+      actorClerkId: 'clerk-1',
+    })
+  })
+
+  it('maps a service 409 (nothing to undo) through to a 409 response', async () => {
+    mockWithdraw.mockRejectedValue(
+      Object.assign(new Error('No human verdict to undo'), { status: 409 })
+    )
+    const res = await DELETE(req(), params)
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe('No human verdict to undo')
   })
 })

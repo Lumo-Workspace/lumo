@@ -13,7 +13,9 @@ const TRANSITIONS: Record<TaskStatusValue, TaskStatusValue[]> = {
   TODO: ['IN_PROGRESS', 'IN_REVIEW', 'DONE'],
   IN_PROGRESS: ['TODO', 'IN_REVIEW', 'DONE'],
   IN_REVIEW: ['TODO', 'IN_PROGRESS', 'DONE'],
-  DONE: ['TODO', 'IN_PROGRESS'],
+  // IN_REVIEW is included so that undoing an acceptance verdict (LUM-586) can
+  // send a DONE task back to IN_REVIEW via the normal state-machine guard.
+  DONE: ['TODO', 'IN_PROGRESS', 'IN_REVIEW'],
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -34,19 +36,14 @@ export function allowedTaskTransitions(
 
 /**
  * Human/agent-readable rejection for an invalid transition: names the allowed
- * targets, and for DONE points at comments (the common dead end is trying to
- * move a DONE task back to IN_REVIEW to append follow-up context).
+ * targets so the caller can self-correct.
  */
 export function invalidTransitionMessage(
   from: TaskStatusValue,
   to: TaskStatusValue
 ): string {
   const allowed = allowedTaskTransitions(from).join(', ') || 'none'
-  const doneHint =
-    from === 'DONE'
-      ? ' To attach follow-up context to a DONE task, add a task comment instead.'
-      : ''
-  return `Invalid status transition: ${from} → ${to}. Allowed from ${from}: ${allowed}.${doneHint}`
+  return `Invalid status transition: ${from} → ${to}. Allowed from ${from}: ${allowed}.`
 }
 
 export class InvalidTaskTransitionError extends Error {

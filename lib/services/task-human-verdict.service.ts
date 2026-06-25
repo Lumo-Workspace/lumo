@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { runInTransaction } from '@/lib/db/transaction'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import {
@@ -5,6 +6,7 @@ import {
   isPassVerdict,
   type CreateVerificationRunInput,
 } from '@/lib/repositories/verification-run.repository'
+import { verificationRunWithdrawalRepository } from '@/lib/repositories/verification-run-withdrawal.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -171,6 +173,10 @@ export const taskHumanVerdictService = {
     const priorLatest =
       await verificationRunRepository.latestRunsByCriterion(taskId)
 
+    // One opaque id shared by every run written in this single verdict action
+    // (LUM-586). Lets the action be withdrawn as a unit by a withdrawal tombstone.
+    const verdictActionId = randomUUID()
+
     await runInTransaction(async tx => {
       const rows: CreateVerificationRunInput[] = criteria.map(c => ({
         taskId,
@@ -181,6 +187,7 @@ export const taskHumanVerdictService = {
         evidencePointer: null,
         rejectionReason: isFail ? failSummary : null,
         rejectionReasonEnum: null,
+        verdictActionId,
       }))
       await verificationRunRepository.createMany(rows, tx)
 
@@ -206,6 +213,9 @@ export const taskHumanVerdictService = {
               // checkpointer has passed — a deliberate human override, not a
               // machine result. Audit breadcrumb; zero schema (JSON payload).
               override: overriddenIds.has(c.id),
+              // LUM-586: groups all mirror activities for this verdict action so
+              // the timeline can surface and undo them as a unit.
+              verdictActionId,
             },
           },
           tx
@@ -257,6 +267,123 @@ export const taskHumanVerdictService = {
       taskStatus,
       criterionIds: criteria.map(c => c.id),
       commentId,
+    }
+  },
+
+  /**
+   * Withdraw the latest non-withdrawn human verdict for a task (LUM-586).
+   *
+   * Writes an append-only VerificationRunWithdrawal tombstone inside a
+   * transaction, then mirrors a VERIFICATION_RUN_WITHDRAWN activity so the
+   * task timeline records the undo. Finally recomputes the task status from the
+   * post-withdrawal latest per-criterion verdicts with the UNDO TARGET RULE —
+   * undo can NEVER land the task in DONE:
+   *   - any FAIL in the post-withdrawal snapshot → IN_PROGRESS
+   *   - otherwise → IN_REVIEW
+   *
+   * 409 when no live human verdict exists to undo, or when a concurrent second
+   * undo of the same action races (unique constraint on the withdrawal row).
+   */
+  async withdrawLatestHumanVerdict(
+    taskId: string,
+    attribution: HumanVerdictAttribution
+  ): Promise<{
+    taskStatus: string
+    withdrawnVerdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+    verdictActionId: string
+  }> {
+    const action =
+      await verificationRunRepository.latestHumanVerdictAction(taskId)
+    if (action === null) {
+      throw Object.assign(
+        new Error('No live human verdict to undo for this task'),
+        { status: 409 }
+      )
+    }
+
+    const callerActor = await memberRepository.findActorByMemberId(
+      attribution.actorMemberId
+    )
+    const actorId = callerActor?.id ?? null
+
+    try {
+      await runInTransaction(async tx => {
+        await verificationRunWithdrawalRepository.create(
+          {
+            taskId,
+            verdictActionId: action.verdictActionId,
+            withdrawnById: actorId,
+          },
+          tx
+        )
+
+        await activityRepository.create(
+          {
+            taskId,
+            actorId,
+            type: 'VERIFICATION_RUN_WITHDRAWN',
+            payload: { verdictActionId: action.verdictActionId },
+          },
+          tx
+        )
+      })
+    } catch (err: unknown) {
+      // I2: concurrent double-undo hits the @@unique([taskId, verdictActionId])
+      // constraint — surface it as a clean 409 instead of a raw P2002.
+      const isPrismaUniqueViolation =
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'P2002'
+      if (isPrismaUniqueViolation) {
+        throw Object.assign(new Error('This verdict was already undone'), {
+          status: 409,
+        })
+      }
+      throw err
+    }
+
+    // Recompute status from the post-withdrawal snapshot of latest per-criterion
+    // verdicts. UNDO TARGET RULE: never DONE — removing a decision cannot
+    // complete a task. anyFail → IN_PROGRESS, otherwise → IN_REVIEW.
+    const postLatest =
+      await verificationRunRepository.latestRunsByCriterion(taskId)
+    const anyFail = [...postLatest.values()].some(r => r.verdict === 'FAIL')
+    const targetStatus = anyFail ? 'IN_PROGRESS' : 'IN_REVIEW'
+
+    const detail = await taskService.getTaskDetail(taskId)
+    if (!detail) {
+      throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+    const currentStatus = (detail as { status?: string }).status ?? ''
+
+    // I1: use the normal state-machine guard — DONE → IN_REVIEW is now a legal
+    // transition (added to the matrix in LUM-586), so no guard bypass needed.
+    let taskStatus = currentStatus || targetStatus
+    if (
+      currentStatus !== targetStatus &&
+      isValidTaskTransition(
+        currentStatus as Parameters<typeof isValidTaskTransition>[0],
+        targetStatus
+      )
+    ) {
+      await taskService.updateTaskWithSideEffects(
+        taskId,
+        { status: targetStatus },
+        detail,
+        actorId,
+        attribution.actorClerkId,
+        null
+      )
+      taskStatus = targetStatus
+    }
+
+    return {
+      taskStatus,
+      withdrawnVerdict: action.verdict as
+        | 'PASS'
+        | 'FAIL'
+        | 'PASS_WITH_FOLLOWUP',
+      verdictActionId: action.verdictActionId,
     }
   },
 }

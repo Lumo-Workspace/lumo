@@ -1845,6 +1845,12 @@
   "acceptance.claim.faithfulness.pending": "Judging…",
   "acceptance.claim.faithfulness.stale": "stale",
   "acceptance.claim.faithfulness.evidence": "evidence:",
+  "task.verdict.undo": "Undo verdict",
+  "task.verdict.undoPrompt": "Clicked the wrong button? → Undo verdict",
+  "task.verdict.undoConfirmBody": "Returns to In review for re-adjudication. Your {verdict} verdict stays on record, marked withdrawn.",
+  "task.verdict.undoConfirm": "Confirm undo",
+  "task.verdict.withdrawnBy": "Verdict withdrawn by {by} — {verdict} → no decision",
+  "task.verdict.historyWithdrawn": "withdrawn",
   "boundary.category.PROJECT_RULE_VIOLATION": "Project rule violation",
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
   "boundary.advisoryBadge": "Advisory"
