@@ -16,10 +16,32 @@ import { join } from 'node:path'
 import {
   REASONING_MODEL,
   GENERATION_MODEL,
+  MEMORY_JUDGE_MODEL,
   CONTENT_MODEL,
   FAST_MODEL,
   TRANSLATION_MODEL,
 } from '@/lib/ai/models'
+
+// 桶4 MEMORY_JUDGE call sites (LUM-591) — split off FAST_MODEL onto the dearer
+// MEMORY_JUDGE_MODEL (deepseek-v4-pro) for the reconciliation judges.
+const MEMORY_JUDGE_CALL_SITES = [
+  'lib/services/memory/curation-judge.ts',
+  'lib/services/memory/fold-compute.ts',
+  'lib/services/memory/layer2-extract.ts',
+  'lib/services/memory/manual-dedup.ts',
+]
+
+// FAST tier — high-frequency, cost-sensitive; MUST stay on FAST_MODEL (flash).
+// The bucket-4 split must not drag these onto the dearer judge model.
+const FAST_TIER_CALL_SITES = [
+  'lib/services/content-summary.service.ts',
+  'lib/services/lineage/usage-judge.ts',
+  'lib/services/memory/canonicalize-language.ts',
+  'lib/services/memory/ground-candidates.ts',
+  'lib/services/memory/layer1-extract.ts',
+  'lib/services/session-summary/classifier.ts',
+  'lib/services/turn-summary/turn-summary.service.ts',
+]
 
 // 桶2 GENERATION call sites (LUM-588) — repointed from REASONING_MODEL (Sonnet)
 // to GENERATION_MODEL (deepseek-v4-pro). Paths relative to repo root.
@@ -117,6 +139,38 @@ test('pinned tiers keep their ids; translation moved to the deepseek fast tier',
   // LUM-587: translation dropped the Haiku pin for the deepseek fast tier.
   expect(TRANSLATION_MODEL).toBe('deepseek/deepseek-v4-flash')
   expect(EMBEDDING_MODEL).toBe('alibaba/qwen3-embedding-0.6b')
+})
+
+test('memory judge tier repointed to deepseek-v4-pro', () => {
+  expect(MEMORY_JUDGE_MODEL).toBe('deepseek/deepseek-v4-pro')
+
+  for (const rel of MEMORY_JUDGE_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    expect({ rel, usesJudge: /\bMEMORY_JUDGE_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesJudge: true,
+    })
+    expect({ rel, usesFast: /\bFAST_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesFast: false,
+    })
+  }
+})
+
+test('fast tier stays on deepseek-v4-flash', () => {
+  // The bucket-4 split must not drag the high-frequency FAST tier onto the
+  // dearer judge model (LUM-591 invariant).
+  for (const rel of FAST_TIER_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    expect({ rel, usesFast: /\bFAST_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesFast: true,
+    })
+    expect({ rel, usesJudge: /\bMEMORY_JUDGE_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesJudge: false,
+    })
+  }
 })
 
 test('generation tier repointed to deepseek-v4-pro', () => {
