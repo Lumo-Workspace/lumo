@@ -1247,9 +1247,7 @@ export async function recordSilentFixIfDetected(
  * absent or the project has no default linked repository.
  * LUM-483 compliant: delegates to repositories, no prisma.* here.
  */
-async function resolveProjectContextForTask(
-  taskId: string
-): Promise<{
+async function resolveProjectContextForTask(taskId: string): Promise<{
   projectId: string
   workspaceId: string
   fullName: string
@@ -1295,7 +1293,7 @@ export function detectProjectActionCrossings(
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
-      detail: clip(`Action rule violated: "${r.text}"`),
+      detail: clip(`Action rule violated: "${r.text}" — ${command}`),
       severity: r.severity,
       target: `actionrule:${r.id}`,
       advisory: !r.blocking,

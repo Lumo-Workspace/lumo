@@ -28,6 +28,7 @@ test('project cmd-substr action rule produces an advisory crossing in v1', () =>
       policyRuleRef: 'a1',
     }),
   ])
+  expect(out[0]?.detail).toContain('node scripts/flush-prod.js')
 })
 
 test('a clean command produces no project crossing', () => {
