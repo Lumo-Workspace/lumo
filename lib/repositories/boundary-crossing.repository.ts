@@ -20,9 +20,14 @@ export interface CreateBoundaryCrossingInput {
    *  crossing is deduped on alongside (taskId, category). */
   target?: string | null
   /** Taxonomy-driven reversibility (LUM-435) — only npm installs are reversible. */
-  reversible: boolean
+  reversible?: boolean
   /** Taxonomy-driven severity tier (LUM-442). */
   severity: BoundaryCrossingSeverity
+  /** LUM-590: semantic / per-project advisory finding — surfaced in panel but
+   *  never blocks the DONE gate. Defaults to false (non-advisory = blocking). */
+  advisory?: boolean
+  /** LUM-590: which compiled PolicyRule fired (text ref / id). */
+  policyRuleRef?: string | null
   /** LUM-478: a SYSTEM disposition stamped at creation time (AUTO_LEGIT only) —
    *  a deterministic high-confidence legit TEST_TAMPERING edit is recorded for
    *  audit but resolved out of the open queue with NO human actor. Omitted for an
@@ -86,6 +91,10 @@ const VIEW_SELECT = {
   // LUM-511: the originating session for a hook-less (CLI-sourced) crossing —
   // the attribution read model falls back to it when hookEventId is null.
   sessionId: true,
+  // LUM-590: advisory crossings surface in the panel but never block DONE.
+  advisory: true,
+  // LUM-590: which compiled PolicyRule fired (text ref / id).
+  policyRuleRef: true,
   remediationTask: {
     select: {
       number: true,
@@ -116,8 +125,11 @@ export const boundaryCrossingRepository = {
         category: input.category,
         detail: input.detail,
         target: input.target ?? null,
-        reversible: input.reversible,
+        reversible: input.reversible ?? false,
         severity: input.severity,
+        // LUM-590: advisory crossings surface in the panel but never block DONE.
+        advisory: input.advisory ?? false,
+        policyRuleRef: input.policyRuleRef ?? null,
         // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
         // timestamp/note but NO dispositionedById — the null actor is the
         // audit-trail marker that this was a detector decision, not a human one.
@@ -182,7 +194,7 @@ export const boundaryCrossingRepository = {
    */
   async findUndispositionedByTask(taskId: string) {
     return prisma.boundaryCrossing.findMany({
-      where: { taskId, disposition: null },
+      where: { taskId, disposition: null, advisory: false }, // LUM-590: advisory never blocks
       select: SELECT,
       orderBy: { detectedAt: 'asc' },
     })
@@ -190,13 +202,16 @@ export const boundaryCrossingRepository = {
 
   /**
    * Cheap existence check: does the task have ≥1 OPEN (undispositioned)
-   * crossing? Mirrors `findUndispositionedByTask`'s predicate but selects only a
-   * single id — used by the SSR timeline-presence probe to decide whether the
-   * delivery tab should default to the Acceptance sub-segment (LUM-520).
+   * non-advisory crossing? Mirrors `findUndispositionedByTask`'s predicate
+   * (taskId + disposition: null + advisory: false) but selects only a single id
+   * — used by the SSR timeline-presence probe to decide whether the delivery tab
+   * should default to the Acceptance sub-segment (LUM-520). Advisory crossings
+   * are intentionally excluded: they do not block DONE and should not force the
+   * UI into the Acceptance sub-segment.
    */
   async hasOpenForTask(taskId: string): Promise<boolean> {
     const row = await prisma.boundaryCrossing.findFirst({
-      where: { taskId, disposition: null },
+      where: { taskId, disposition: null, advisory: false },
       select: { id: true },
     })
     return row !== null

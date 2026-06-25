@@ -74,6 +74,12 @@ export interface BoundaryCrossingView {
   /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first; each
    *  note is sanitized server-side. Empty when the agent recorded none. */
   explanations: ExplanationView[]
+  /** LUM-590: advisory crossings surface in the panel but never block DONE
+   *  (true = advisory / non-blocking). */
+  advisory: boolean
+  /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
+   *  crossing was not from a project-rule detector. */
+  policyRuleRef: string | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

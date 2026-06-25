@@ -15,10 +15,58 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REASONING_MODEL,
+  GENERATION_MODEL,
+  MEMORY_JUDGE_MODEL,
   CONTENT_MODEL,
   FAST_MODEL,
   TRANSLATION_MODEL,
 } from '@/lib/ai/models'
+
+// 桶4 MEMORY_JUDGE call sites (LUM-591) — split off FAST_MODEL onto the dearer
+// MEMORY_JUDGE_MODEL (deepseek-v4-pro) for the reconciliation judges.
+const MEMORY_JUDGE_CALL_SITES = [
+  'lib/services/memory/curation-judge.ts',
+  'lib/services/memory/fold-compute.ts',
+  'lib/services/memory/layer2-extract.ts',
+  'lib/services/memory/manual-dedup.ts',
+]
+
+// FAST tier — high-frequency, cost-sensitive; MUST stay on FAST_MODEL (flash).
+// The bucket-4 split must not drag these onto the dearer judge model.
+const FAST_TIER_CALL_SITES = [
+  'lib/services/content-summary.service.ts',
+  'lib/services/lineage/usage-judge.ts',
+  'lib/services/memory/canonicalize-language.ts',
+  'lib/services/memory/ground-candidates.ts',
+  'lib/services/memory/layer1-extract.ts',
+  'lib/services/session-summary/classifier.ts',
+  'lib/services/turn-summary/turn-summary.service.ts',
+]
+
+// 桶2 GENERATION call sites (LUM-588) — repointed from REASONING_MODEL (Sonnet)
+// to GENERATION_MODEL (deepseek-v4-pro). Paths relative to repo root.
+const GENERATION_CALL_SITES = [
+  'app/api/tasks/[id]/decompose/route.ts',
+  'app/api/tasks/suggest-priority/route.ts',
+  'lib/llm/run-summary-client.ts',
+  'lib/llm/sprint-summary-client.ts',
+  'lib/llm/milestone-summary-client.ts',
+  'lib/services/description.service.ts',
+  'lib/services/duplicate-check.service.ts',
+  'lib/services/quick-dispatch.service.ts',
+  'lib/summaries/report.ts',
+]
+
+// 桶1 VERIFIER + low-adversarial — MUST stay on REASONING_MODEL (Sonnet); the
+// cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
+const VERIFIER_CALL_SITES = [
+  'lib/llm/claim-faithfulness-judge-client.ts',
+  'lib/llm/contract-weakening-judge-client.ts',
+  'lib/llm/silent-fix-judge-client.ts',
+  'lib/llm/spinoff-judge-client.ts',
+  'lib/llm/test-tampering-judge-client.ts',
+  'lib/llm/action-confirm-client.ts',
+]
 // EMBEDDING_MODEL stays in ./embedding (coupled to EMBEDDING_DIM / pgvector);
 // the registry is kept gateway-free, so it is not re-exported there.
 import { EMBEDDING_MODEL } from '@/lib/ai/embedding'
@@ -47,8 +95,9 @@ function walkTsFiles(dir: string): string[] {
 test('models module exposes upgraded reasoning and content model ids', () => {
   // Sonnet routed through the gateway → provider-prefixed.
   expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
-  // Opus driven via the native Anthropic SDK → bare id.
-  expect(CONTENT_MODEL).toBe('claude-opus-4-8')
+  // 桶3 (LUM-592): content generation dropped Opus + the native SDK; now Sonnet
+  // via the gateway → provider-prefixed.
+  expect(CONTENT_MODEL).toBe('anthropic/claude-sonnet-4.6')
 })
 
 test('lib runtime has no inline gateway claude model literals', () => {
@@ -61,11 +110,11 @@ test('lib runtime has no inline gateway claude model literals', () => {
   expect(offenders.map(f => f.replace(REPO_ROOT + '/', ''))).toEqual([])
 })
 
-test('session summary content model id stays bare for native anthropic sdk', () => {
-  // The native SDK rejects provider-prefixed ids — the constant must be bare.
-  expect(CONTENT_MODEL.startsWith('anthropic/')).toBe(false)
+test('session summary content routes through the gateway, native anthropic sdk removed', () => {
+  // 桶3 (LUM-592): content generation moved to the gateway → provider-prefixed,
+  // and the native @anthropic-ai/sdk exception is gone.
+  expect(CONTENT_MODEL.startsWith('anthropic/')).toBe(true)
 
-  // Both session-summary files must import the central constant, not redefine it.
   const templates = readFileSync(
     join(LIB_DIR, 'services/session-summary/templates.ts'),
     'utf8'
@@ -74,15 +123,91 @@ test('session summary content model id stays bare for native anthropic sdk', () 
     join(LIB_DIR, 'services/session-summary/service.ts'),
     'utf8'
   )
+  // Native SDK fully removed from the content-generation path.
+  expect(templates).not.toMatch(/@anthropic-ai\/sdk/)
+  expect(service).not.toMatch(/@anthropic-ai\/sdk/)
+  // Still sources the id from the central registry, routed through the gateway.
   const localContentModelDef = /const\s+CONTENT_MODEL\s*=/
   expect(localContentModelDef.test(templates)).toBe(false)
   expect(localContentModelDef.test(service)).toBe(false)
-  expect(templates).toMatch(/CONTENT_MODEL/)
+  expect(templates).toMatch(/gateway\(CONTENT_MODEL\)/)
   expect(service).toMatch(/CONTENT_MODEL/)
 })
 
-test('unchanged model tiers keep their pinned ids', () => {
+test('pinned tiers keep their ids; translation moved to the deepseek fast tier', () => {
   expect(FAST_MODEL).toBe('deepseek/deepseek-v4-flash')
-  expect(TRANSLATION_MODEL).toBe('anthropic/claude-haiku-4-5')
+  // LUM-587: translation dropped the Haiku pin for the deepseek fast tier.
+  expect(TRANSLATION_MODEL).toBe('deepseek/deepseek-v4-flash')
   expect(EMBEDDING_MODEL).toBe('alibaba/qwen3-embedding-0.6b')
+})
+
+test('memory judge tier repointed to deepseek-v4-pro', () => {
+  expect(MEMORY_JUDGE_MODEL).toBe('deepseek/deepseek-v4-pro')
+
+  for (const rel of MEMORY_JUDGE_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    expect({ rel, usesJudge: /\bMEMORY_JUDGE_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesJudge: true,
+    })
+    expect({ rel, usesFast: /\bFAST_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesFast: false,
+    })
+  }
+})
+
+test('fast tier stays on deepseek-v4-flash', () => {
+  // The bucket-4 split must not drag the high-frequency FAST tier onto the
+  // dearer judge model (LUM-591 invariant).
+  for (const rel of FAST_TIER_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    expect({ rel, usesFast: /\bFAST_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesFast: true,
+    })
+    expect({ rel, usesJudge: /\bMEMORY_JUDGE_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesJudge: false,
+    })
+  }
+})
+
+test('generation tier repointed to deepseek-v4-pro', () => {
+  // The 桶2 generation tier rides the gateway → provider-prefixed deepseek id.
+  expect(GENERATION_MODEL).toBe('deepseek/deepseek-v4-pro')
+
+  for (const rel of GENERATION_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    // Repointed to the generation constant…
+    expect({ rel, usesGeneration: /\bGENERATION_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesGeneration: true,
+    })
+    // …and no longer references the reasoning (Sonnet) constant.
+    expect({ rel, usesReasoning: /\bREASONING_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesReasoning: false,
+    })
+  }
+})
+
+test('verifier tier stays on the sonnet reasoning model', () => {
+  // The reasoning constant must remain Sonnet — the verifier tier is never
+  // cheapened without passing the lineage A/B gate (桶1 hard rule).
+  expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
+
+  for (const rel of VERIFIER_CALL_SITES) {
+    const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    // Still on the reasoning (Sonnet) constant…
+    expect({ rel, usesReasoning: /\bREASONING_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesReasoning: true,
+    })
+    // …and the cheap generation model never leaked in.
+    expect({ rel, usesGeneration: /\bGENERATION_MODEL\b/.test(src) }).toEqual({
+      rel,
+      usesGeneration: false,
+    })
+  }
 })

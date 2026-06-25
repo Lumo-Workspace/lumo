@@ -76,6 +76,16 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.silentFix',
         defaultMessage: 'silently fixed submitted work (no send-back)',
       })
+    case 'PROJECT_RULE_VIOLATION':
+      return intl.formatMessage({
+        id: 'boundary.category.PROJECT_RULE_VIOLATION',
+        defaultMessage: 'violated a project rule from CLAUDE.md',
+      })
+    case 'POLICY_WEAKENING':
+      return intl.formatMessage({
+        id: 'boundary.category.POLICY_WEAKENING',
+        defaultMessage: 'weakened a blocking policy rule',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

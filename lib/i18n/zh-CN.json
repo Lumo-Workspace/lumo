@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "任务将回到「待审核」状态重新裁定。您的 {verdict} 裁定仍保留在记录中，标记为已撤销。",
   "task.verdict.undoConfirm": "确认撤销",
   "task.verdict.withdrawnBy": "{by} 撤销了裁定 — {verdict} → 无裁定",
-  "task.verdict.historyWithdrawn": "已撤销"
+  "task.verdict.historyWithdrawn": "已撤销",
+  "boundary.category.PROJECT_RULE_VIOLATION": "项目规则违反",
+  "boundary.category.POLICY_WEAKENING": "规则弱化",
+  "boundary.advisoryBadge": "提示"
 }

@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "Задача вернётся на повторное рассмотрение. Ваш вердикт {verdict} останется в истории, помечённый как отозванный.",
   "task.verdict.undoConfirm": "Подтвердить отмену",
   "task.verdict.withdrawnBy": "Вердикт отозван пользователем {by} — {verdict} → решение не принято",
-  "task.verdict.historyWithdrawn": "отозван"
+  "task.verdict.historyWithdrawn": "отозван",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Нарушение правила проекта",
+  "boundary.category.POLICY_WEAKENING": "Ослабление политики",
+  "boundary.advisoryBadge": "Предупреждение"
 }

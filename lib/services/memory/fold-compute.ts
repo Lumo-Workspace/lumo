@@ -1,4 +1,4 @@
-import { FAST_MODEL } from '@/lib/ai/models'
+import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import type { MemoryCategory } from '@prisma/client'
@@ -15,13 +15,13 @@ import {
 import { nearDupClusters, type VecItem } from '@/lib/services/memory/near-dup'
 import { logger } from '@/lib/logger'
 
-const MODEL_ID = FAST_MODEL
+const MODEL_ID = MEMORY_JUDGE_MODEL
 
 /** A cluster must have at least this many covered cards to be worth folding
  *  (≤2 overlaps the P5 near-dup merge territory; folding is for "many fine"). */
 export const MIN_CLUSTER_SIZE = 3
-/** Upper bound on a fold cluster's source count. The clustering LLM (a cheap
- *  flash model) intermittently lumps a whole category into one cluster — prod
+/** Upper bound on a fold cluster's source count. The clustering LLM (a mid-tier
+ *  deepseek model) intermittently lumps a whole category into one cluster — prod
  *  dogfood folded 24 unrelated CONVENTIONs into a single 3.5K-char mega-card
  *  (LUM-556). A coarse "subsystem card" should hold a handful of related
  *  lessons, not a category dump; an oversized LLM cluster is split (when its
@@ -240,7 +240,7 @@ async function coverageVerdicts(
 
 /**
  * Discipline ONE LLM-proposed cluster into coherent, size-bounded sub-clusters
- * (pure). The flash clustering model occasionally lumps unrelated themes (or a
+ * (pure). The clustering model occasionally lumps unrelated themes (or a
  * whole category) into one group; this is the guard that keeps a coarse card a
  * real "subsystem card" rather than a category dump (LUM-556).
  *

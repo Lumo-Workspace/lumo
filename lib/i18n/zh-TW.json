@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "任務將回到「待審核」狀態重新裁定。您的 {verdict} 裁定仍保留在記錄中，標記為已撤銷。",
   "task.verdict.undoConfirm": "確認撤銷",
   "task.verdict.withdrawnBy": "{by} 撤銷了裁定 — {verdict} → 無裁定",
-  "task.verdict.historyWithdrawn": "已撤銷"
+  "task.verdict.historyWithdrawn": "已撤銷",
+  "boundary.category.PROJECT_RULE_VIOLATION": "專案規則違反",
+  "boundary.category.POLICY_WEAKENING": "規則弱化",
+  "boundary.advisoryBadge": "提示"
 }

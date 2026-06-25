@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "Quay về Đang xem xét để phán quyết lại. Phán quyết {verdict} của bạn vẫn còn trong hồ sơ, được đánh dấu là đã rút lại.",
   "task.verdict.undoConfirm": "Xác nhận hoàn tác",
   "task.verdict.withdrawnBy": "Phán quyết được rút lại bởi {by} — {verdict} → không có quyết định",
-  "task.verdict.historyWithdrawn": "đã rút lại"
+  "task.verdict.historyWithdrawn": "đã rút lại",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Vi phạm quy tắc dự án",
+  "boundary.category.POLICY_WEAKENING": "Làm yếu chính sách",
+  "boundary.advisoryBadge": "Khuyến cáo"
 }

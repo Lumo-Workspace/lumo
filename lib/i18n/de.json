@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "Kehrt zur Überprüfung zurück. Ihr {verdict}-Urteil bleibt im Protokoll, markiert als zurückgezogen.",
   "task.verdict.undoConfirm": "Rückgängig bestätigen",
   "task.verdict.withdrawnBy": "Urteil zurückgezogen von {by} — {verdict} → keine Entscheidung",
-  "task.verdict.historyWithdrawn": "zurückgezogen"
+  "task.verdict.historyWithdrawn": "zurückgezogen",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Projektregel-Verstoß",
+  "boundary.category.POLICY_WEAKENING": "Richtlinienabschwächung",
+  "boundary.advisoryBadge": "Hinweis"
 }

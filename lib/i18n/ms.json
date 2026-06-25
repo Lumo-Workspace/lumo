@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "Kembali ke Dalam semakan untuk keputusan semula. Keputusan {verdict} anda kekal dalam rekod, ditanda sebagai ditarik balik.",
   "task.verdict.undoConfirm": "Sahkan buat asal",
   "task.verdict.withdrawnBy": "Keputusan ditarik balik oleh {by} — {verdict} → tiada keputusan",
-  "task.verdict.historyWithdrawn": "ditarik balik"
+  "task.verdict.historyWithdrawn": "ditarik balik",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran peraturan projek",
+  "boundary.category.POLICY_WEAKENING": "Pelemahan dasar",
+  "boundary.advisoryBadge": "Nasihat"
 }

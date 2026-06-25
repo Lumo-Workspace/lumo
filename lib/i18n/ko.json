@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "재검토를 위해 검토 중으로 돌아갑니다. {verdict} 판정은 취소됨으로 표시되어 기록에 남습니다.",
   "task.verdict.undoConfirm": "취소 확인",
   "task.verdict.withdrawnBy": "{by}에 의해 판정이 취소되었습니다 — {verdict} → 결정 없음",
-  "task.verdict.historyWithdrawn": "취소됨"
+  "task.verdict.historyWithdrawn": "취소됨",
+  "boundary.category.PROJECT_RULE_VIOLATION": "프로젝트 규칙 위반",
+  "boundary.category.POLICY_WEAKENING": "정책 약화",
+  "boundary.advisoryBadge": "권고"
 }

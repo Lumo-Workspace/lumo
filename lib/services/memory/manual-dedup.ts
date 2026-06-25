@@ -1,4 +1,4 @@
-import { FAST_MODEL } from '@/lib/ai/models'
+import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
 import { parseMemoryContent } from '@/lib/memory/schemas'
@@ -12,8 +12,8 @@ import type { NeighborScope, ScoredNeighbor } from './neighbor-retriever'
 import type { MemoryCategory } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 
-/** deepseek-v4-flash via the gateway — same model as the auto reconcile path. */
-const MODEL_ID = FAST_MODEL
+/** deepseek-v4-pro via the gateway (LUM-591) — same model as the auto reconcile path. */
+const MODEL_ID = MEMORY_JUDGE_MODEL
 
 /**
  * Op vocabulary for the manual single-candidate dedup. Defined LOCALLY (not

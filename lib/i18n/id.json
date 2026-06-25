@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "Kembali ke Dalam tinjauan untuk keputusan ulang. Keputusan {verdict} Anda tetap tercatat, ditandai sebagai dibatalkan.",
   "task.verdict.undoConfirm": "Konfirmasi pembatalan",
   "task.verdict.withdrawnBy": "Keputusan dibatalkan oleh {by} — {verdict} → tidak ada keputusan",
-  "task.verdict.historyWithdrawn": "dibatalkan"
+  "task.verdict.historyWithdrawn": "dibatalkan",
+  "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran aturan proyek",
+  "boundary.category.POLICY_WEAKENING": "Pelemahan kebijakan",
+  "boundary.advisoryBadge": "Saran"
 }

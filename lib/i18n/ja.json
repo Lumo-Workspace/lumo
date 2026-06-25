@@ -1850,5 +1850,8 @@
   "task.verdict.undoConfirmBody": "再審査のためにレビュー中に戻ります。{verdict} の判定は記録に残り、取り消し済みとして表示されます。",
   "task.verdict.undoConfirm": "取り消しを確定",
   "task.verdict.withdrawnBy": "{by} により判定が取り消されました — {verdict} → 未決定",
-  "task.verdict.historyWithdrawn": "取り消し済み"
+  "task.verdict.historyWithdrawn": "取り消し済み",
+  "boundary.category.PROJECT_RULE_VIOLATION": "プロジェクトルール違反",
+  "boundary.category.POLICY_WEAKENING": "ポリシーの弱体化",
+  "boundary.advisoryBadge": "アドバイザリー"
 }

@@ -2,45 +2,69 @@
  * Central LLM model registry. Every chat/completion call site imports its id
  * from here — never inline a model-id string at the call site (LUM-587).
  *
- * Two distinct id spaces live here; do NOT mix them:
- *  - **Gateway format** (provider-prefixed, e.g. `anthropic/claude-sonnet-4.6`)
- *    — passed to `@ai-sdk/gateway`'s `gateway('<id>')`.
- *  - **Native Anthropic SDK format** (bare, e.g. `claude-opus-4-8`) — passed to
- *    `@anthropic-ai/sdk`'s `client.messages.create({ model })`. Prefixing this
- *    with `anthropic/` would 400 the native API.
+ * All ids are **gateway format** (provider-prefixed, e.g.
+ * `anthropic/claude-sonnet-4.6`) — passed to `@ai-sdk/gateway`'s
+ * `gateway('<id>')`. The native-`@anthropic-ai/sdk` bare-id exception for
+ * session-summary was removed in 桶3/LUM-592; every call site now routes the
+ * gateway, so there is a single id space.
  *
- * Upgrade note (LUM-587): Sonnet 4.5→4.6 and Opus 4.7→4.8 were bumped without
- * an online Gateway probe — if judge/summary calls start 400-ing after deploy,
- * a model-id alias is the first suspect.
+ * Catalog probed 2026-06-24: `anthropic/claude-sonnet-4.6` resolves. Do NOT
+ * "normalise" the gateway dot to a dash — `anthropic/claude-sonnet-4-6` is NOT
+ * in the catalog and would 400.
  */
 
 /**
- * High-value reasoning / judging / summarisation tier — judges (claim
- * faithfulness, contract weakening, silent fix, spinoff, test tampering,
- * action confirm), run/sprint/milestone summaries, description & dispatch &
- * duplicate-check services, task suggest-priority / decompose routes.
- * Gateway format.
+ * 桶1 VERIFIER tier — high-value adversarial judging where a wrong call is
+ * invisible and expensive: claim-faithfulness, contract-weakening, silent-fix,
+ * spinoff, test-tampering judges + action-confirm. Pinned to Sonnet; NEVER
+ * swap this tier to a cheaper model without passing the lineage A/B gate
+ * (LUM-588). Gateway format.
  */
 export const REASONING_MODEL = 'anthropic/claude-sonnet-4.6'
 
 /**
- * Session-summary structured content generation. Driven via the **native
- * Anthropic SDK** (`client.messages.create`), so this MUST stay bare — no
- * `anthropic/` prefix. Doubles as the `contentModel` value stamped on the
- * session record.
+ * 桶2 GENERATION tier — lower-stakes structured generation where the quality
+ * floor is the lowest: run/sprint/milestone summaries, summaries/report,
+ * description & quick-dispatch & duplicate-check services, task
+ * suggest-priority / decompose routes. Migrated off Sonnet to DeepSeek V4-Pro
+ * (LUM-588) — catalog-confirmed 2026-06-24. Kept distinct from REASONING_MODEL
+ * so the verifier tier (桶1) can never be cheapened by editing one shared
+ * constant. Gateway format.
  */
-export const CONTENT_MODEL = 'claude-opus-4-8'
-
-/** Lightweight translation (i18n Slack-context tooling). Gateway format. */
-export const TRANSLATION_MODEL = 'anthropic/claude-haiku-4-5'
+export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
- * High-frequency, cost-sensitive tier — memory extract/fold/ground/curate/
- * dedup/canonicalize, session classifier, turn-digest, content summary,
- * lineage usage-judge. Routed to DeepSeek via the gateway (LUM-320) to cut
- * cost vs the prior Haiku tier. Gateway format.
+ * 桶3 CONTENT tier — session-summary structured content generation (6 forced-
+ * schema templates). Dropped Opus + the native Anthropic SDK for Sonnet 4.6 via
+ * the gateway (LUM-592). Doubles as the `contentModel` value stamped on the
+ * session record. Gateway format.
+ */
+export const CONTENT_MODEL = 'anthropic/claude-sonnet-4.6'
+
+/**
+ * Lightweight translation (i18n Slack-context tooling). Routed to DeepSeek via
+ * the gateway (LUM-587) — same FAST tier as memory/classifier work; the prior
+ * Haiku pin bought no quality here and cost more. Gateway format.
+ */
+export const TRANSLATION_MODEL = 'deepseek/deepseek-v4-flash'
+
+/**
+ * High-frequency, cost-sensitive tier — memory layer1-extract / ground /
+ * canonicalize, session classifier, turn-digest, content summary, lineage
+ * usage-judge. Routed to DeepSeek via the gateway (LUM-320) to cut cost vs the
+ * prior Haiku tier. Gateway format.
  */
 export const FAST_MODEL = 'deepseek/deepseek-v4-flash'
+
+/**
+ * 桶4 MEMORY_JUDGE tier — memory reconciliation judgments (curation-judge,
+ * fold-compute, layer2-extract, manual-dedup) where a sharper model improves
+ * merge/keep decisions. Split off FAST_MODEL onto DeepSeek V4-Pro (LUM-591),
+ * catalog-confirmed 2026-06-24. NOTE: the decision-table "强制 eval" gate was
+ * explicitly WAIVED by the user (no judge A/B harness exists yet) — this swap
+ * ships on a structured-output probe only, not an accuracy eval. Gateway format.
+ */
+export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
  * The embedding model id lives in `./embedding` (`EMBEDDING_MODEL`), coupled to
