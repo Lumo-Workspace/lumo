@@ -171,7 +171,8 @@ describe('activeDurationMs', () => {
 
   it('excludes a gap >IDLE_THRESHOLD_MS even with no human-wait marker (backstop)', () => {
     // Turn: prompt, tool at 1s, then a 6-minute stall (no marker), tool at 6min+1s, STOP.
-    // Active: [0→1s=1s] + [1s→2s=1s] (6min gap excluded by backstop) + [6min+1s→6min+2s=1s] = 3_000 ms
+    // Gaps counted: 0→1s(1s) + 1s→2s(1s) + [2s→6m+2s excluded by backstop]
+    //              + 6m+2s→6m+3s(1s) + 6m+3s→6m+4s(1s) = 4 counted 1s gaps = 4_000 ms
     const SIX_MIN = 6 * MIN
     const turnMs = activeDurationMs([
       ev('USER_PROMPT_SUBMIT', 0),

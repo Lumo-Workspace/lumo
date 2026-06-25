@@ -11,12 +11,8 @@
  */
 
 import { activeDurationMs } from '@/lib/agent-run/active-time'
-
-export type HookEventType =
-  | 'PRE_TOOL_USE'
-  | 'POST_TOOL_USE'
-  | 'STOP'
-  | 'USER_PROMPT_SUBMIT'
+import type { HookEventType } from '@prisma/client'
+export type { HookEventType }
 
 export interface RawEvent {
   id: string
