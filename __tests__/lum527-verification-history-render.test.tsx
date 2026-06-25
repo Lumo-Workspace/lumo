@@ -205,3 +205,92 @@ describe('LUM-527 verification record — round split', () => {
     expect(screen.queryByText('round 1')).not.toBeInTheDocument()
   })
 })
+
+// MINOR 2b — LUM-586: withdrawn badge in the verification history
+describe('LUM-586 verification history — withdrawn badge', () => {
+  function renderTabWithWithdrawn() {
+    // One criterion: c1 in round 1 with withdrawn: true; c2 normal (no withdrawn)
+    mockUseTaskStatus.mockReturnValue({
+      data: {
+        version: 1,
+        task: {
+          id: 't1',
+          identifier: 'LUM-586',
+          title: 'x',
+          status: 'IN_REVIEW',
+        },
+        currentRound: 1,
+        maxRounds: 3,
+        escalated: false,
+        criteria: [criterion('c1', 'MACHINE'), criterion('c2', 'MACHINE')],
+        machineVerification: {
+          total: 2,
+          machineVerified: 2,
+          humanOverridden: 0,
+        },
+        removedCriteria: [],
+        verificationHistory: [
+          {
+            round: 1,
+            recordedAt: '2026-06-25T10:00:00.000Z',
+            passed: 2,
+            failed: 0,
+            verdicts: [
+              { ...verdict('c1', 'MACHINE', 'PASS'), withdrawn: true },
+              { ...verdict('c2', 'MACHINE', 'PASS') },
+            ],
+          },
+        ],
+        lastRoundFailures: [],
+        nextActions: [],
+      },
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    })
+    const result = render(
+      <AcceptanceTab
+        taskIdentifier='LUM-586'
+        enabled
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    // Expand the run report so the verdict rows are in the DOM
+    fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+    // Expand round 1 so the verdict detail rows appear
+    fireEvent.click(screen.getByRole('button', { name: /round 1/i }))
+    return result
+  }
+
+  it('renders the withdrawn badge for a withdrawn verdict', () => {
+    renderTabWithWithdrawn()
+    // The withdrawn badge renders the i18n key
+    expect(
+      screen.getByText('task.verdict.historyWithdrawn')
+    ).toBeInTheDocument()
+  })
+
+  it('does NOT render the withdrawn badge for a non-withdrawn verdict', () => {
+    renderTabWithWithdrawn()
+    // Only ONE badge exists (the withdrawn c1 one, not c2 which is normal)
+    const badges = screen.getAllByText('task.verdict.historyWithdrawn')
+    expect(badges).toHaveLength(1)
+  })
+
+  it('applies line-through styling to the withdrawn verdict row text', () => {
+    renderTabWithWithdrawn()
+    // The criterion statement may appear in multiple places (e.g. claim panel);
+    // find specifically the verdict-row span with line-through class.
+    const c1Candidates = screen.getAllByText('c1 statement')
+    const c1Withdrawn = c1Candidates.find(el =>
+      el.classList.contains('line-through')
+    )
+    expect(c1Withdrawn).toBeDefined()
+    // c2 should NOT have any line-through instance
+    const c2Candidates = screen.getAllByText('c2 statement')
+    const c2Withdrawn = c2Candidates.find(el =>
+      el.classList.contains('line-through')
+    )
+    expect(c2Withdrawn).toBeUndefined()
+  })
+})

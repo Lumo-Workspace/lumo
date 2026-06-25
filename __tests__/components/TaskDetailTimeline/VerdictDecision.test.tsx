@@ -623,4 +623,48 @@ describe('VerdictDecision undo affordance', () => {
     )
     expect(screen.queryByTestId('verdict-withdrawn')).toBeNull()
   })
+
+  // MINOR 1: floating + DONE + undoableHumanVerdict → undo bar renders but Pass/Fail do not
+  it('floating variant + DONE + undoableHumanVerdict renders undo bar but not Pass/Fail buttons', () => {
+    render(
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={dataWithUndo('DONE')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    // The bar should be present because hasUndoContent is true
+    expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
+    // Undo opener present
+    expect(screen.getByTestId('verdict-undo')).toBeInTheDocument()
+    // But DONE task should NOT have Pass / Fail action buttons
+    expect(screen.queryByTestId('verdict-pass')).toBeNull()
+    expect(screen.queryByTestId('verdict-fail')).toBeNull()
+  })
+
+  // MINOR 2a: undo endpoint rejection surfaces verdict-undo-error and does not call onVerdictRecorded
+  it('surfaces verdict-undo-error when undoHumanVerdict rejects', async () => {
+    undo.mockRejectedValueOnce(new Error('network error'))
+    const onRecorded = jest.fn()
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={dataWithUndo('DONE')}
+        onVerdictRecorded={onRecorded}
+      />
+    )
+    // Open the confirm
+    fireEvent.click(screen.getByTestId('verdict-undo'))
+    expect(screen.getByTestId('verdict-undo-confirm')).toBeInTheDocument()
+    // Click confirm — will reject
+    fireEvent.click(screen.getByTestId('verdict-undo-confirm'))
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-undo-error')).toBeInTheDocument()
+    )
+    expect(onRecorded).not.toHaveBeenCalled()
+    // Confirm button must be re-enabled (undoing=false from finally)
+    expect(screen.getByTestId('verdict-undo-confirm')).not.toBeDisabled()
+  })
 })

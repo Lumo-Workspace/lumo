@@ -209,6 +209,8 @@ export function VerdictDecision({
   // LUM-586: undo verdict — open the one-step inline confirm.
   const [undoOpen, setUndoOpen] = useState(false)
   const [undoing, setUndoing] = useState(false)
+  const [undoFailed, setUndoFailed] = useState(false)
+  const [undoErrorMessage, setUndoErrorMessage] = useState<string | null>(null)
   const passButtonRef = useRef<HTMLButtonElement>(null)
   const editorClearRef = useRef<(() => void) | null>(null)
 
@@ -307,11 +309,20 @@ export function VerdictDecision({
   // to onVerdictRecorded so the parent can refresh.
   const confirmUndo = async () => {
     setUndoing(true)
+    setUndoFailed(false)
+    setUndoErrorMessage(null)
     try {
       const result =
         await tasksClient.undoHumanVerdict<HumanVerdictResult>(taskIdentifier)
       setUndoOpen(false)
       onVerdictRecorded(result)
+    } catch (err) {
+      setUndoFailed(true)
+      setUndoErrorMessage(
+        err instanceof ApiClientError && err.status >= 400 && err.status < 500
+          ? err.message
+          : null
+      )
     } finally {
       setUndoing(false)
     }
@@ -502,6 +513,15 @@ export function VerdictDecision({
               {intl.formatMessage({ id: 'common.cancel' })}
             </Button>
           </div>
+          {undoFailed && (
+            <p
+              data-testid='verdict-undo-error'
+              className='mt-2 text-caption text-danger'
+            >
+              {undoErrorMessage ||
+                intl.formatMessage({ id: 'task.verdict.error' })}
+            </p>
+          )}
         </div>
       )}
     </div>
