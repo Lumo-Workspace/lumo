@@ -20,9 +20,14 @@ export interface CreateBoundaryCrossingInput {
    *  crossing is deduped on alongside (taskId, category). */
   target?: string | null
   /** Taxonomy-driven reversibility (LUM-435) — only npm installs are reversible. */
-  reversible: boolean
+  reversible?: boolean
   /** Taxonomy-driven severity tier (LUM-442). */
   severity: BoundaryCrossingSeverity
+  /** LUM-590: semantic / per-project advisory finding — surfaced in panel but
+   *  never blocks the DONE gate. Defaults to false (non-advisory = blocking). */
+  advisory?: boolean
+  /** LUM-590: which compiled PolicyRule fired (text ref / id). */
+  policyRuleRef?: string | null
   /** LUM-478: a SYSTEM disposition stamped at creation time (AUTO_LEGIT only) —
    *  a deterministic high-confidence legit TEST_TAMPERING edit is recorded for
    *  audit but resolved out of the open queue with NO human actor. Omitted for an
@@ -116,8 +121,11 @@ export const boundaryCrossingRepository = {
         category: input.category,
         detail: input.detail,
         target: input.target ?? null,
-        reversible: input.reversible,
+        reversible: input.reversible ?? false,
         severity: input.severity,
+        // LUM-590: advisory crossings surface in the panel but never block DONE.
+        advisory: input.advisory ?? false,
+        policyRuleRef: input.policyRuleRef ?? null,
         // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
         // timestamp/note but NO dispositionedById — the null actor is the
         // audit-trail marker that this was a detector decision, not a human one.
@@ -182,7 +190,7 @@ export const boundaryCrossingRepository = {
    */
   async findUndispositionedByTask(taskId: string) {
     return prisma.boundaryCrossing.findMany({
-      where: { taskId, disposition: null },
+      where: { taskId, disposition: null, advisory: false }, // LUM-590: advisory never blocks
       select: SELECT,
       orderBy: { detectedAt: 'asc' },
     })
