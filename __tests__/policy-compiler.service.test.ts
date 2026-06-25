@@ -218,3 +218,74 @@ test('removing a Forbidden rule emits POLICY_WEAKENING with no agent disposition
     })
   )
 })
+
+test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENING with same policyRuleRef', async () => {
+  // The rule text is IDENTICAL in both prev and next — same id (sha256 of text).
+  // Only the LLM reclassification changes tier from deterministic to semantic,
+  // and blocking from true to false. This verifies the downgrade path is caught.
+  const createSpy = jest
+    .spyOn(boundaryCrossingRepository, 'create')
+    .mockResolvedValue(undefined as never)
+
+  const ruleText = 'Never delete files in prisma/migrations/'
+  // Compute the same id the service would compute: sha256(text).slice(0,16)
+  const { createHash } = await import('crypto')
+  const expectedRuleId = createHash('sha256')
+    .update(ruleText)
+    .digest('hex')
+    .slice(0, 16)
+
+  jest.spyOn(projectPolicyRepository, 'latestForProject').mockResolvedValue({
+    sourceHash: 'old-hash',
+    rules: [
+      {
+        id: expectedRuleId,
+        text: ruleText,
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'MIGRATION_FILE_DELETED',
+        severity: 'HIGH',
+        blocking: true,
+      },
+    ],
+  })
+
+  // Source still contains the same rule text — so the new compilation will
+  // produce the same id. But classifyRules now returns tier:'semantic'.
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    `## Forbidden\n- ${ruleText}`
+  )
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      {
+        text: ruleText,
+        kind: 'action',
+        tier: 'semantic', // downgraded — same text, weaker classification
+        assertion: 'do not delete migration files',
+        severity: 'HIGH',
+        blocking: false,
+      },
+    ],
+  })
+
+  await policyCompilerService.ensureCompiled({
+    projectId: 'p4',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+    taskId: 't2',
+  })
+
+  // Must fire exactly once for the downgraded rule.
+  expect(createSpy).toHaveBeenCalledTimes(1)
+  expect(createSpy).toHaveBeenCalledWith(
+    expect.objectContaining({
+      category: 'POLICY_WEAKENING',
+      taskId: 't2',
+      advisory: false,
+      policyRuleRef: expectedRuleId,
+    })
+  )
+  // The detail must mention "downgraded", not "removed" — non-vacuous check.
+  const callArg = createSpy.mock.calls[0]?.[0] as { detail: string }
+  expect(callArg.detail).toMatch(/downgraded/)
+})

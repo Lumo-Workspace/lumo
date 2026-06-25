@@ -47,24 +47,34 @@ async function readSource(
 
 /**
  * Emit POLICY_WEAKENING crossings for every deterministic+blocking rule that
- * was present in prevRules but is absent from nextRules (keyed on stable id).
+ * was present in prevRules but is either absent from nextRules (removed) or
+ * is present with a weaker classification (downgraded — same id, but no longer
+ * deterministic+blocking). Keyed on stable rule id (sha256 of text).
  */
 async function emitWeakening(
   prevRules: PolicyRule[],
   nextRules: PolicyRule[],
   taskId: string
 ): Promise<void> {
-  const nextIds = new Set(nextRules.map(r => r.id))
-  const removed = prevRules.filter(
-    r => r.tier === 'deterministic' && r.blocking && !nextIds.has(r.id)
-  )
-  for (const r of removed) {
+  const nextById = new Map(nextRules.map(r => [r.id, r]))
+  const weakened = prevRules.filter(r => {
+    if (!(r.tier === 'deterministic' && r.blocking)) return false
+    const next = nextById.get(r.id)
+    if (next == null) return true // removed
+    return !(next.tier === 'deterministic' && next.blocking) // downgraded
+  })
+  for (const r of weakened) {
+    const next = nextById.get(r.id)
+    const detail =
+      next == null
+        ? `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
+        : `A deterministic Forbidden rule was downgraded (${r.tier} -> ${next.tier}): "${r.text}"`
     await boundaryCrossingRepository.create({
       taskId,
       category: 'POLICY_WEAKENING',
       severity: 'HIGH',
       advisory: false,
-      detail: `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`,
+      detail,
       target: `weakening:${r.id}`,
       policyRuleRef: r.id,
     })
