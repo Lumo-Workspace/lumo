@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "Невозможно оценить",
   "acceptance.claim.faithfulness.pending": "Оценивается…",
   "acceptance.claim.faithfulness.stale": "устарело",
-  "acceptance.claim.faithfulness.evidence": "доказательство:"
+  "acceptance.claim.faithfulness.evidence": "доказательство:",
+  "task.verdict.undo": "Отменить вердикт",
+  "task.verdict.undoPrompt": "Нажали не ту кнопку? → Отменить вердикт",
+  "task.verdict.undoConfirmBody": "Задача вернётся на повторное рассмотрение. Ваш вердикт {verdict} останется в истории, помечённый как отозванный.",
+  "task.verdict.undoConfirm": "Подтвердить отмену",
+  "task.verdict.withdrawnBy": "Вердикт отозван пользователем {by} — {verdict} → решение не принято",
+  "task.verdict.historyWithdrawn": "отозван"
 }

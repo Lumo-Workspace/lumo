@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "Tidak dapat dinilai",
   "acceptance.claim.faithfulness.pending": "Menilai…",
   "acceptance.claim.faithfulness.stale": "lapuk",
-  "acceptance.claim.faithfulness.evidence": "bukti:"
+  "acceptance.claim.faithfulness.evidence": "bukti:",
+  "task.verdict.undo": "Buat asal keputusan",
+  "task.verdict.undoPrompt": "Tersilap klik? → Buat asal keputusan",
+  "task.verdict.undoConfirmBody": "Kembali ke Dalam semakan untuk keputusan semula. Keputusan {verdict} anda kekal dalam rekod, ditanda sebagai ditarik balik.",
+  "task.verdict.undoConfirm": "Sahkan buat asal",
+  "task.verdict.withdrawnBy": "Keputusan ditarik balik oleh {by} — {verdict} → tiada keputusan",
+  "task.verdict.historyWithdrawn": "ditarik balik"
 }

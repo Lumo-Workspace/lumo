@@ -19,7 +19,7 @@ jest.mock('react-intl', () => ({
 }))
 
 jest.mock('@/lib/api-client', () => ({
-  tasksClient: { submitHumanVerdict: jest.fn() },
+  tasksClient: { submitHumanVerdict: jest.fn(), undoHumanVerdict: jest.fn() },
 }))
 
 // LUM-454: the decision surface loads the task's boundary crossings so it can
@@ -57,6 +57,7 @@ jest.mock(
 )
 
 const submit = tasksClient.submitHumanVerdict as jest.Mock
+const undo = tasksClient.undoHumanVerdict as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
 
 // The action buttons are wrapped in Radix-backed ActionTooltips (LUM-492);
@@ -128,6 +129,37 @@ function baseData(
     lastRoundFailures: [],
     nextActions: [],
     criteria,
+    undoableHumanVerdict: null,
+    lastVerdictWithdrawal: null,
+  } as unknown as TaskAcceptanceStatusView
+}
+
+function dataWithUndo(
+  status: string,
+  criteria: TaskStatusCriterionView[] = [crit('PASS')]
+): TaskAcceptanceStatusView {
+  return {
+    ...baseData(status, criteria),
+    undoableHumanVerdict: {
+      verdictActionId: 'va-1',
+      verdict: 'PASS',
+      actorName: 'Alice',
+      at: '2026-06-25T10:00:00.000Z',
+    },
+  } as unknown as TaskAcceptanceStatusView
+}
+
+function dataWithWithdrawal(
+  status: string,
+  criteria: TaskStatusCriterionView[] = [crit('PASS')]
+): TaskAcceptanceStatusView {
+  return {
+    ...baseData(status, criteria),
+    lastVerdictWithdrawal: {
+      verdict: 'PASS',
+      actorName: 'Bob',
+      at: '2026-06-25T11:00:00.000Z',
+    },
   } as unknown as TaskAcceptanceStatusView
 }
 
@@ -137,6 +169,10 @@ beforeEach(() => {
   mockCrossings.mockReturnValue({ crossings: [] })
   submit.mockResolvedValue({
     taskStatus: 'DONE',
+    verdict: 'PASS',
+  })
+  undo.mockResolvedValue({
+    taskStatus: 'IN_REVIEW',
     verdict: 'PASS',
   })
 })
@@ -498,5 +534,93 @@ describe('VerdictDecision run summary', () => {
     // The floating bar renders (IN_REVIEW), but never the run-summary block.
     expect(screen.getByTestId('task-verdict-bar')).toBeInTheDocument()
     expect(screen.queryByTestId('verdict-run-summary')).toBeNull()
+  })
+})
+
+// LUM-586: undo verdict affordance
+describe('VerdictDecision undo affordance', () => {
+  it('shows the undo opener when undoableHumanVerdict is set (header variant, DONE)', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={dataWithUndo('DONE')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-undo')).toBeInTheDocument()
+  })
+
+  it('shows the undo opener in floating variant when undoableHumanVerdict is set', () => {
+    render(
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={dataWithUndo('IN_REVIEW')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    // floating variant renders when IN_REVIEW
+    expect(screen.getByTestId('verdict-undo')).toBeInTheDocument()
+  })
+
+  it('does NOT show the undo opener when undoableHumanVerdict is null', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.queryByTestId('verdict-undo')).toBeNull()
+  })
+
+  it('LUM-586 undo affordance calls the undo endpoint', async () => {
+    const onRecorded = jest.fn()
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={dataWithUndo('DONE')}
+        onVerdictRecorded={onRecorded}
+      />
+    )
+    // Click the opener
+    fireEvent.click(screen.getByTestId('verdict-undo'))
+    // Confirm dialog appears
+    expect(screen.getByTestId('verdict-undo-confirm')).toBeInTheDocument()
+    // Click the destructive confirm
+    fireEvent.click(screen.getByTestId('verdict-undo-confirm'))
+    await waitFor(() => expect(undo).toHaveBeenCalledWith('LUM-7'))
+    expect(onRecorded).toHaveBeenCalled()
+  })
+
+  it('renders the correction line when lastVerdictWithdrawal is set', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={dataWithWithdrawal('IN_REVIEW')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.getByTestId('verdict-withdrawn')).toBeInTheDocument()
+    // The correction line renders with the withdrawal message key
+    expect(screen.getByTestId('verdict-withdrawn')).toHaveTextContent(
+      'task.verdict.withdrawnBy'
+    )
+  })
+
+  it('does NOT show the correction line when lastVerdictWithdrawal is null', () => {
+    render(
+      <VerdictDecision
+        variant='header'
+        taskIdentifier='LUM-7'
+        data={baseData('DONE')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    expect(screen.queryByTestId('verdict-withdrawn')).toBeNull()
   })
 })

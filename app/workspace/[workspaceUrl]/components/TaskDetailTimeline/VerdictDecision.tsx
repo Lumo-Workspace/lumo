@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
+  Undo2,
+  UserCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { tasksClient } from '@/lib/api-client'
@@ -204,6 +206,9 @@ export function VerdictDecision({
   // boundary crossings, render a compact structured notice from the loaded
   // crossing data instead of the raw (repeated) server string.
   const [blockedByCrossings, setBlockedByCrossings] = useState(false)
+  // LUM-586: undo verdict — open the one-step inline confirm.
+  const [undoOpen, setUndoOpen] = useState(false)
+  const [undoing, setUndoing] = useState(false)
   const passButtonRef = useRef<HTMLButtonElement>(null)
   const editorClearRef = useRef<(() => void) | null>(null)
 
@@ -239,8 +244,12 @@ export function VerdictDecision({
   }, [deepLinkVerdict, isReview])
 
   // The floating variant is review-only chrome: nothing to show off IN_REVIEW.
+  // Exception: if an undo affordance or withdrawal line is available, keep it
+  // visible so the reviewer can undo a verdict on a DONE task (LUM-586).
   // The header variant always renders — it IS the always-on status banner.
-  if (variant === 'floating' && !isReview) return null
+  const hasUndoContent =
+    data.undoableHumanVerdict != null || data.lastVerdictWithdrawal != null
+  if (variant === 'floating' && !isReview && !hasUndoContent) return null
 
   const submit = async (verdict: HumanVerdict) => {
     setSubmitting(true)
@@ -292,6 +301,20 @@ export function VerdictDecision({
     setFailed(false)
     setErrorMessage(null)
     setBlockedByCrossings(false)
+  }
+
+  // LUM-586: confirm undo — DELETE the verdict action, then bubble the result
+  // to onVerdictRecorded so the parent can refresh.
+  const confirmUndo = async () => {
+    setUndoing(true)
+    try {
+      const result =
+        await tasksClient.undoHumanVerdict<HumanVerdictResult>(taskIdentifier)
+      setUndoOpen(false)
+      onVerdictRecorded(result)
+    } finally {
+      setUndoing(false)
+    }
   }
 
   const Icon = KIND_ICON[status.kind]
@@ -432,6 +455,77 @@ export function VerdictDecision({
     </>
   )
 
+  // LUM-586: "Undo verdict" — a quiet secondary affordance rendered when a
+  // standing human verdict is present (data.undoableHumanVerdict != null).
+  // Gate is on the field, NOT on isReview — a just-accepted task is DONE, not
+  // IN_REVIEW, and must still show Undo.
+  const undoAffordance = data.undoableHumanVerdict ? (
+    <div className='mt-3 border-t border-border pt-3'>
+      {!undoOpen ? (
+        <button
+          type='button'
+          data-testid='verdict-undo'
+          onClick={() => setUndoOpen(true)}
+          className='inline-flex items-center gap-1.5 text-caption text-muted-foreground hover:text-foreground hover:underline'
+        >
+          <Undo2 className='size-3.5' aria-hidden />
+          {intl.formatMessage({ id: 'task.verdict.undoPrompt' })}
+        </button>
+      ) : (
+        <div className='rounded-md border border-border bg-muted/30 px-3 py-2.5'>
+          <div className='mb-2 flex items-center gap-1.5 text-caption font-medium text-foreground'>
+            <UserCheck className='size-3.5' aria-hidden />
+            {intl.formatMessage({ id: 'task.verdict.undo' })}
+          </div>
+          <p className='mb-2 text-caption text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'task.verdict.undoConfirmBody' },
+              { verdict: data.undoableHumanVerdict.verdict }
+            )}
+          </p>
+          <div className='flex items-center gap-2'>
+            <Button
+              size='sm'
+              variant='outline'
+              data-testid='verdict-undo-confirm'
+              disabled={undoing}
+              onClick={() => void confirmUndo()}
+            >
+              {intl.formatMessage({ id: 'task.verdict.undoConfirm' })}
+            </Button>
+            <Button
+              size='sm'
+              variant='ghost'
+              disabled={undoing}
+              onClick={() => setUndoOpen(false)}
+            >
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null
+
+  // LUM-586: correction line — rendered when a verdict was previously withdrawn.
+  const withdrawalLine = data.lastVerdictWithdrawal ? (
+    <div
+      data-testid='verdict-withdrawn'
+      className='mt-2 flex items-center gap-1.5 text-caption text-muted-foreground'
+    >
+      <Undo2 className='size-3.5 shrink-0' aria-hidden />
+      {intl.formatMessage(
+        { id: 'task.verdict.withdrawnBy' },
+        {
+          by:
+            data.lastVerdictWithdrawal.actorName ??
+            intl.formatMessage({ id: 'boundary.panel.someone' }),
+          verdict: data.lastVerdictWithdrawal.verdict,
+        }
+      )}
+    </div>
+  ) : null
+
   // metCount + optional human-override + gate line (shared by both variants).
   const metLine = (
     <>
@@ -510,12 +604,16 @@ export function VerdictDecision({
             {panelAndNotice}
           </div>
         )}
+        {undoAffordance}
+        {withdrawalLine}
       </div>
     )
   }
 
   // floating (review-only): compact bar with a one-line status on the left and
   // the action buttons inline on the right; panel + notice below as before.
+  // Action buttons only while the task is IN_REVIEW — undo/withdrawal content
+  // can still be shown on a DONE task (LUM-586).
   return (
     <div
       data-testid='task-verdict-bar'
@@ -529,9 +627,11 @@ export function VerdictDecision({
           title={title}
           metLine={metLine}
         />
-        {actionButtons}
+        {isReview && actionButtons}
       </div>
       {panelAndNotice}
+      {undoAffordance}
+      {withdrawalLine}
     </div>
   )
 }

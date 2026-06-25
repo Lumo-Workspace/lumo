@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "판단 불가",
   "acceptance.claim.faithfulness.pending": "판정 중…",
   "acceptance.claim.faithfulness.stale": "오래됨",
-  "acceptance.claim.faithfulness.evidence": "근거:"
+  "acceptance.claim.faithfulness.evidence": "근거:",
+  "task.verdict.undo": "판정 취소",
+  "task.verdict.undoPrompt": "잘못 클릭하셨나요? → 판정 취소",
+  "task.verdict.undoConfirmBody": "재검토를 위해 검토 중으로 돌아갑니다. {verdict} 판정은 취소됨으로 표시되어 기록에 남습니다.",
+  "task.verdict.undoConfirm": "취소 확인",
+  "task.verdict.withdrawnBy": "{by}에 의해 판정이 취소되었습니다 — {verdict} → 결정 없음",
+  "task.verdict.historyWithdrawn": "취소됨"
 }

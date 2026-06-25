@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "Nicht beurteilbar",
   "acceptance.claim.faithfulness.pending": "Wird geprüft…",
   "acceptance.claim.faithfulness.stale": "veraltet",
-  "acceptance.claim.faithfulness.evidence": "Nachweis:"
+  "acceptance.claim.faithfulness.evidence": "Nachweis:",
+  "task.verdict.undo": "Entscheidung rückgängig machen",
+  "task.verdict.undoPrompt": "Falschen Knopf gedrückt? → Entscheidung rückgängig machen",
+  "task.verdict.undoConfirmBody": "Kehrt zur Überprüfung zurück. Ihr {verdict}-Urteil bleibt im Protokoll, markiert als zurückgezogen.",
+  "task.verdict.undoConfirm": "Rückgängig bestätigen",
+  "task.verdict.withdrawnBy": "Urteil zurückgezogen von {by} — {verdict} → keine Entscheidung",
+  "task.verdict.historyWithdrawn": "zurückgezogen"
 }

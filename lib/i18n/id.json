@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "Tidak dapat dinilai",
   "acceptance.claim.faithfulness.pending": "Menilai…",
   "acceptance.claim.faithfulness.stale": "usang",
-  "acceptance.claim.faithfulness.evidence": "bukti:"
+  "acceptance.claim.faithfulness.evidence": "bukti:",
+  "task.verdict.undo": "Batalkan keputusan",
+  "task.verdict.undoPrompt": "Klik tombol yang salah? → Batalkan keputusan",
+  "task.verdict.undoConfirmBody": "Kembali ke Dalam tinjauan untuk keputusan ulang. Keputusan {verdict} Anda tetap tercatat, ditandai sebagai dibatalkan.",
+  "task.verdict.undoConfirm": "Konfirmasi pembatalan",
+  "task.verdict.withdrawnBy": "Keputusan dibatalkan oleh {by} — {verdict} → tidak ada keputusan",
+  "task.verdict.historyWithdrawn": "dibatalkan"
 }

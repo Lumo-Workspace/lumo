@@ -1844,5 +1844,11 @@
   "acceptance.claim.faithfulness.unjudgeable": "无法判定",
   "acceptance.claim.faithfulness.pending": "判定中…",
   "acceptance.claim.faithfulness.stale": "已过期",
-  "acceptance.claim.faithfulness.evidence": "证据:"
+  "acceptance.claim.faithfulness.evidence": "证据:",
+  "task.verdict.undo": "撤销裁定",
+  "task.verdict.undoPrompt": "点错了？→ 撤销裁定",
+  "task.verdict.undoConfirmBody": "任务将回到「待审核」状态重新裁定。您的 {verdict} 裁定仍保留在记录中，标记为已撤销。",
+  "task.verdict.undoConfirm": "确认撤销",
+  "task.verdict.withdrawnBy": "{by} 撤销了裁定 — {verdict} → 无裁定",
+  "task.verdict.historyWithdrawn": "已撤销"
 }
