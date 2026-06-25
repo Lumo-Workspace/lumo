@@ -99,18 +99,18 @@ The `Tags:` line is omitted when the resulting tag set is empty.
 
 The server's transition matrix (`lib/task/state-machine.ts`):
 
-| From        | Allowed targets                                     |
-| ----------- | --------------------------------------------------- |
-| TODO        | IN_PROGRESS, IN_REVIEW, DONE                        |
-| IN_PROGRESS | TODO, IN_REVIEW, DONE                               |
-| IN_REVIEW   | TODO, IN_PROGRESS, DONE                             |
-| DONE        | TODO, IN_PROGRESS (reopen only — **not** IN_REVIEW) |
+| From        | Allowed targets                                                     |
+| ----------- | ------------------------------------------------------------------- |
+| TODO        | IN_PROGRESS, IN_REVIEW, DONE                                        |
+| IN_PROGRESS | TODO, IN_REVIEW, DONE                                               |
+| IN_REVIEW   | TODO, IN_PROGRESS, DONE                                             |
+| DONE        | TODO, IN_PROGRESS, IN_REVIEW (DONE → IN_REVIEW legal since LUM-586) |
 
 Practical rules:
 
 - **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual (measured in LUM-392: 70 such chains wasted ~75 calls).
 - **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
-- **DONE → IN_REVIEW is rejected (409).** To attach follow-up context to a DONE task, use `lumo task comment` instead of reopening.
+- **DONE → IN_REVIEW is legal (since LUM-586).** A DONE task can be reopened to IN_REVIEW — that is how undoing a human acceptance verdict sends the task back for re-adjudication. The verdict undo itself is human-only (web UI / `DELETE …/human-verdict`; bearer/agent → 403) and is recorded as an append-only withdrawal, never erasing the prior verdict; the bare status move is just a status change. To attach context without reopening, `lumo task comment` still works.
 
 ### When to suggest `task update`
 
