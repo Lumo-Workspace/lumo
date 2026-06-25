@@ -14,6 +14,17 @@ import { projectPolicyRepository } from '@/lib/repositories/project-policy.repos
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import type { CompiledPolicy, PolicyRule } from './types'
 
+// ── In-memory source cache ────────────────────────────────────────────────────
+// Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
+// TTL = 60 s; the downstream sha256 hash check catches stale-but-different source.
+const SOURCE_CACHE_TTL_MS = 60_000
+const _sourceCache = new Map<string, { source: string | null; at: number }>()
+
+/** Exported only for test teardown — do not call in production code. */
+export function __resetSourceCache(): void {
+  _sourceCache.clear()
+}
+
 // The 8 action built-ins that may produce blocking crossings (LUM-590).
 const BUILTIN_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',
@@ -33,16 +44,25 @@ function ruleId(text: string): string {
 
 /** Fetch and concatenate CLAUDE.md + AGENTS.md from the project repo. */
 async function readSource(
+  projectId: string,
   workspaceId: string,
   fullName: string
 ): Promise<string | null> {
+  const cached = _sourceCache.get(projectId)
+  if (cached && Date.now() - cached.at < SOURCE_CACHE_TTL_MS) {
+    return cached.source
+  }
   const { readRepoFile } = await import('@/lib/integrations/github/contents')
   const [claude, agents] = await Promise.all([
     readRepoFile({ workspaceId, fullName, path: 'CLAUDE.md' }),
     readRepoFile({ workspaceId, fullName, path: 'AGENTS.md' }),
   ])
-  if (claude == null && agents == null) return null
-  return [claude ?? '', agents ?? ''].join('\n\n')
+  const source =
+    claude == null && agents == null
+      ? null
+      : [claude ?? '', agents ?? ''].join('\n\n')
+  _sourceCache.set(projectId, { source, at: Date.now() })
+  return source
 }
 
 /**
@@ -96,7 +116,11 @@ export const policyCompilerService = {
     taskId?: string
   }): Promise<CompiledPolicy | null> {
     // 1. Read the source files — bail early if absent.
-    const source = await readSource(input.workspaceId, input.fullName)
+    const source = await readSource(
+      input.projectId,
+      input.workspaceId,
+      input.fullName
+    )
     if (source == null) return null
 
     const sourceHash = createHash('sha256').update(source).digest('hex')

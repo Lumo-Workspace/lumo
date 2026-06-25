@@ -43,6 +43,7 @@ export function matchDiffRegex(
   re: string,
   addedLines: string[]
 ): { matched: boolean; line?: string } {
+  if (re.length > 200) return { matched: false }
   let rx: RegExp
   try {
     rx = new RegExp(re)

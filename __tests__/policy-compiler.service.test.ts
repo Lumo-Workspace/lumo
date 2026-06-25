@@ -16,7 +16,10 @@
  *   boundaryCrossingRepository is imported by the service at module level and we
  *   only need to spy on `.create`.
  */
-import { policyCompilerService } from '@/lib/services/policy/policy-compiler.service'
+import {
+  policyCompilerService,
+  __resetSourceCache,
+} from '@/lib/services/policy/policy-compiler.service'
 import * as contents from '@/lib/integrations/github/contents'
 import * as client from '@/lib/llm/policy-compiler-client'
 import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
@@ -72,6 +75,7 @@ const FORBIDDEN_MD =
 
 beforeEach(() => {
   policyStore.clear()
+  __resetSourceCache()
   jest.clearAllMocks()
   // Re-install stateful implementations after clearAllMocks resets them.
   ;(projectPolicyRepository.latestForProject as jest.Mock).mockImplementation(

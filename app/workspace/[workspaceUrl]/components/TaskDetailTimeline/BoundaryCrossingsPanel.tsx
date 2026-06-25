@@ -412,7 +412,10 @@ function CrossingRow({
         blocking ones via typography (muted badge), not a new color. */}
         {advisoryLabelFor(c) && (
           <Badge tone='muted'>
-            {intl.formatMessage({ id: 'boundary.advisoryBadge' })}
+            {intl.formatMessage({
+              id: 'boundary.advisoryBadge',
+              defaultMessage: 'Advisory',
+            })}
           </Badge>
         )}
         {c.disposition === 'CONFIRMED' && (

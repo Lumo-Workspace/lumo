@@ -43,3 +43,9 @@ test('diff-regex returns matched:false for invalid regex', () => {
   expect(result.matched).toBe(false)
   expect(result.line).toBeUndefined()
 })
+
+test('diff-regex returns matched:false for regex exceeding 200 chars (ReDoS guard)', () => {
+  const longRe = 'a'.repeat(201)
+  const result = matchDiffRegex(longRe, ['aaaaaaaaaa'])
+  expect(result.matched).toBe(false)
+})
