@@ -1853,5 +1853,8 @@
   "task.verdict.historyWithdrawn": "withdrawn",
   "boundary.category.PROJECT_RULE_VIOLATION": "Project rule violation",
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
-  "boundary.advisoryBadge": "Advisory"
+  "boundary.advisoryBadge": "Advisory",
+  "boundary.field.rule": "Rule",
+  "boundary.field.triggeredBy": "Triggered by",
+  "boundary.field.whatHappened": "What happened"
 }

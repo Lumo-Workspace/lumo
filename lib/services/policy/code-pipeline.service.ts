@@ -70,7 +70,8 @@ export const codePipelineService = {
           advisory: false,
           policyRuleRef: r.id,
           target: `coderule:${r.id}`,
-          detail: `Code rule violated (added line): "${r.text}" — ${hit.line?.trim() ?? ''}`,
+          policyRuleText: r.text,
+          detail: hit.line?.trim() ?? '',
         })
         deterministic++
       }
@@ -106,7 +107,8 @@ export const codePipelineService = {
             advisory: true,
             policyRuleRef: r.id,
             target: `coderule:${r.id}`,
-            detail: `Possible code-rule violation: "${r.text}" — ${v.detail}`,
+            policyRuleText: r.text,
+            detail: v.detail,
           })
           advisory++
         }

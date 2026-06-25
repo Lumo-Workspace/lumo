@@ -1853,5 +1853,8 @@
   "task.verdict.historyWithdrawn": "वापस लिया गया",
   "boundary.category.PROJECT_RULE_VIOLATION": "परियोजना नियम उल्लंघन",
   "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
-  "boundary.advisoryBadge": "सलाह"
+  "boundary.advisoryBadge": "सलाह",
+  "boundary.field.rule": "नियम",
+  "boundary.field.triggeredBy": "ट्रिगर किया गया",
+  "boundary.field.whatHappened": "क्या हुआ"
 }

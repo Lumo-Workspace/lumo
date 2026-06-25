@@ -1853,5 +1853,8 @@
   "task.verdict.historyWithdrawn": "취소됨",
   "boundary.category.PROJECT_RULE_VIOLATION": "프로젝트 규칙 위반",
   "boundary.category.POLICY_WEAKENING": "정책 약화",
-  "boundary.advisoryBadge": "권고"
+  "boundary.advisoryBadge": "권고",
+  "boundary.field.rule": "규칙",
+  "boundary.field.triggeredBy": "트리거",
+  "boundary.field.whatHappened": "무슨 일이 있었나"
 }

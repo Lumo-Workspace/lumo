@@ -90,6 +90,8 @@ export interface DetectedCrossing {
   advisory?: boolean
   /** LUM-590: stable id of the compiled PolicyRule that fired this crossing. */
   policyRuleRef?: string
+  /** LUM-590: frozen verbatim text of the policy rule at detection time. */
+  policyRuleText?: string
 }
 
 const DETAIL_MAX = 200
@@ -1293,11 +1295,12 @@ export function detectProjectActionCrossings(
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
-      detail: clip(`Action rule violated: "${r.text}" — ${command}`),
+      detail: clip(command),
       severity: r.severity,
       target: `actionrule:${r.id}`,
       advisory: !r.blocking,
       policyRuleRef: r.id,
+      policyRuleText: r.text,
     })
   }
   return out
@@ -1379,6 +1382,9 @@ export const boundaryDetectorService = {
           ...(c.advisory != null ? { advisory: c.advisory } : {}),
           ...(c.policyRuleRef != null
             ? { policyRuleRef: c.policyRuleRef }
+            : {}),
+          ...(c.policyRuleText != null
+            ? { policyRuleText: c.policyRuleText }
             : {}),
           ...(c.autoResolve
             ? {

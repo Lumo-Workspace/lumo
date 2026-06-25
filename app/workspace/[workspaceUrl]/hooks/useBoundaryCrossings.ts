@@ -80,6 +80,12 @@ export interface BoundaryCrossingView {
   /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
    *  crossing was not from a project-rule detector. */
   policyRuleRef: string | null
+  /** LUM-590: frozen verbatim text of the policy rule at detection time; null
+   *  for non-project-rule crossings. */
+  policyRuleText: string | null
+  /** LUM-590: turn-level intent the agent stated for the turn containing this
+   *  crossing; null when not derivable. */
+  agentContext: string | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

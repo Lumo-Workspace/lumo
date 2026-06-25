@@ -185,6 +185,12 @@ export interface BoundaryCrossingView {
   /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
    *  crossing was not from a project-rule detector. */
   policyRuleRef: string | null
+  /** LUM-590: frozen verbatim text of the policy rule at detection time; null
+   *  for non-project-rule crossings. */
+  policyRuleText: string | null
+  /** LUM-590: turn-level intent the agent stated for the turn containing this
+   *  crossing; null when not derivable (no turn stops loaded for this session). */
+  agentContext: string | null
 }
 
 /**
@@ -573,19 +579,6 @@ export const boundaryCrossingService = {
         ? ((await pullRequestRepository.findByTaskId(taskId))?.url ?? null)
         : null
 
-    // Turn-intent (LUM-455): the summary of the turn each edit belongs to, the
-    // closest proxy for a per-edit reason. Fetch every summarized STOP for the
-    // sessions these edits came from, once; resolve per event in memory.
-    const sessionIds = [
-      ...new Set(
-        events.map(e => e.sessionId).filter((id): id is string => !!id)
-      ),
-    ]
-    const turnStops =
-      sessionIds.length > 0
-        ? await hookEventRepository.findTurnSummariesForSessions(sessionIds)
-        : []
-
     // Attribution (LUM-469): for EVERY crossing (not just display-safe), resolve
     // who/which-agent/which-model from its linked hook event + the turn's
     // usageByModel. Read-only/additive — two id-scoped reads, both skipped when
@@ -609,6 +602,24 @@ export const boundaryCrossingService = {
     const usageStops =
       attribSessionIds.length > 0
         ? await hookEventRepository.findTurnUsageForSessions(attribSessionIds)
+        : []
+
+    // Turn-intent (LUM-455 / LUM-590): the summary of the turn each edit or
+    // project-rule crossing belongs to — the closest proxy for a per-event reason.
+    // LUM-590: expand session coverage to include attrib event sessions (not just
+    // display-safe edit sessions) so agentContext resolves for PROJECT_RULE_VIOLATION
+    // crossings that have a hook event but are not in the EDIT_CONTENT_SAFE set.
+    const sessionIds = [
+      ...new Set([
+        ...events.map(e => e.sessionId).filter((id): id is string => !!id),
+        ...attribEvents
+          .map(e => e.sessionId)
+          .filter((id): id is string => !!id),
+      ]),
+    ]
+    const turnStops =
+      sessionIds.length > 0
+        ? await hookEventRepository.findTurnSummariesForSessions(sessionIds)
         : []
 
     // LUM-511: crossings recorded from a CLI path (spinoff laundering) carry no
@@ -712,6 +723,20 @@ export const boundaryCrossingService = {
         // LUM-590: advisory and policyRuleRef straight from the row.
         advisory: c.advisory,
         policyRuleRef: c.policyRuleRef ?? null,
+        // LUM-590: frozen rule text and turn-level agent intent for the three-field
+        // display. policyRuleText is the verbatim rule text stored at detection time.
+        // agentContext reuses the attrib event (covers all hook-sourced crossings,
+        // not just display-safe ones) — best-effort; null when unresolvable.
+        policyRuleText: c.policyRuleText ?? null,
+        agentContext: attribEvent
+          ? turnContextForEvent(
+              // turnContextForEvent only reads sessionId + createdAt; attribEvent
+              // carries both. toolName is not used by the function — cast to satisfy
+              // the type without fabricating a value.
+              { ...attribEvent, toolName: null },
+              turnStops
+            )
+          : null,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already

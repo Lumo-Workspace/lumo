@@ -28,6 +28,8 @@ export interface CreateBoundaryCrossingInput {
   advisory?: boolean
   /** LUM-590: which compiled PolicyRule fired (text ref / id). */
   policyRuleRef?: string | null
+  /** LUM-590: frozen verbatim text of the policy rule at detection time. */
+  policyRuleText?: string | null
   /** LUM-478: a SYSTEM disposition stamped at creation time (AUTO_LEGIT only) —
    *  a deterministic high-confidence legit TEST_TAMPERING edit is recorded for
    *  audit but resolved out of the open queue with NO human actor. Omitted for an
@@ -95,6 +97,8 @@ const VIEW_SELECT = {
   advisory: true,
   // LUM-590: which compiled PolicyRule fired (text ref / id).
   policyRuleRef: true,
+  // LUM-590: frozen verbatim text of the policy rule at detection time.
+  policyRuleText: true,
   remediationTask: {
     select: {
       number: true,
@@ -130,6 +134,7 @@ export const boundaryCrossingRepository = {
         // LUM-590: advisory crossings surface in the panel but never block DONE.
         advisory: input.advisory ?? false,
         policyRuleRef: input.policyRuleRef ?? null,
+        policyRuleText: input.policyRuleText ?? null,
         // LUM-478: a system auto-resolution (AUTO_LEGIT) is stamped here with its
         // timestamp/note but NO dispositionedById — the null actor is the
         // audit-trail marker that this was a detector decision, not a human one.
