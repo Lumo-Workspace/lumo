@@ -727,9 +727,7 @@ export const boundaryCrossingService = {
         // display. policyRuleText is the verbatim rule text stored at detection time.
         // agentContext reuses the attrib event (covers all hook-sourced crossings,
         // not just display-safe ones) — best-effort; null when unresolvable.
-        policyRuleText:
-          ((c as Record<string, unknown>).policyRuleText as string | null) ??
-          null,
+        policyRuleText: c.policyRuleText ?? null,
         agentContext: attribEvent
           ? turnContextForEvent(
               // turnContextForEvent only reads sessionId + createdAt; attribEvent
