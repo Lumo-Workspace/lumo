@@ -191,6 +191,10 @@ export interface BoundaryCrossingView {
   /** LUM-590: turn-level intent the agent stated for the turn containing this
    *  crossing; null when not derivable (no turn stops loaded for this session). */
   agentContext: string | null
+  /** LUM-590: cached SYSTEM-generated plain-language explanation for this
+   *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
+   *  ONLY — never changes disposition or the DONE gate. */
+  systemExplanation: string | null
 }
 
 /**
@@ -737,6 +741,8 @@ export const boundaryCrossingService = {
               turnStops
             )
           : null,
+        // LUM-590: cached system-generated explanation; null = not yet generated.
+        systemExplanation: c.systemExplanation ?? null,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
@@ -904,6 +910,95 @@ export const boundaryCrossingService = {
    * Discovery only: it points the agent at `lumo crossing explain` and is
    * explicit that an explanation is an append-only note, never a disposition.
    */
+
+  /**
+   * Generate (or return cached) a SYSTEM plain-language explanation for a
+   * boundary crossing (LUM-590). Human-only: called from the web panel "Explain"
+   * button; the route guard refuses bearer/agent identities. ADVISORY ONLY —
+   * this has zero effect on disposition or the DONE gate.
+   *
+   * Cache semantics: if `systemExplanation` is already set on the crossing,
+   * return it immediately (CACHE HIT — no LLM call). Otherwise: load fields via
+   * `findForExplanation`, derive `agentContext` the same way `listAll` does
+   * (reuse `turnContextForEvent`), dynamic-import the LLM client, call it,
+   * persist the result via `setSystemExplanation`, and return it. On LLM
+   * failure, throw a clean error (the route maps to 502) — never persist a bad
+   * value.
+   */
+  async explainCrossing(
+    taskId: string,
+    crossingId: string
+  ): Promise<{ explanation: string }> {
+    const row = await boundaryCrossingRepository.findForExplanation(crossingId)
+    if (!row || row.taskId !== taskId) {
+      throw Object.assign(
+        new Error('Boundary-crossing not found on this task'),
+        { status: 404 }
+      )
+    }
+
+    // CACHE HIT — return stored explanation without calling the LLM.
+    if (row.systemExplanation) {
+      return { explanation: row.systemExplanation }
+    }
+
+    // Derive agentContext: load the attrib event + turn stops, mirror listAll.
+    // Best-effort — null is acceptable if the session/event can't be resolved.
+    // Re-use findById (SELECT) which includes hookEventId not in EXPLAIN_SELECT.
+    let agentContext: string | null = null
+    try {
+      const crossing = await boundaryCrossingRepository.findById(crossingId)
+      const hookEventId =
+        (crossing as { hookEventId?: string | null } | null)?.hookEventId ??
+        null
+      if (hookEventId) {
+        const attribEvents =
+          await hookEventRepository.findManyByIdsForAttribution([hookEventId])
+        const attribEvent = attribEvents[0] ?? null
+        if (attribEvent?.sessionId) {
+          const turnStops =
+            await hookEventRepository.findTurnSummariesForSessions([
+              attribEvent.sessionId,
+            ])
+          agentContext = turnContextForEvent(
+            { ...attribEvent, toolName: null },
+            turnStops
+          )
+        }
+      }
+    } catch {
+      // agentContext degrades to null — do not block explanation generation.
+    }
+
+    // Dynamic import — keeps the LLM client off the detect/hot path.
+    const { explainCrossing: callLLM } =
+      await import('@/lib/llm/crossing-explain-client')
+
+    let result: { explanation: string }
+    try {
+      result = await callLLM({
+        rule: row.policyRuleText ?? null,
+        evidence: row.detail,
+        category: row.category,
+        severity: row.severity,
+        agentContext,
+      })
+    } catch (cause) {
+      throw Object.assign(
+        new Error('Failed to generate explanation: LLM call failed'),
+        { status: 502, cause }
+      )
+    }
+
+    // Persist for future cache hits.
+    await boundaryCrossingRepository.setSystemExplanation(
+      crossingId,
+      result.explanation
+    )
+
+    return result
+  },
+
   async buildAgentReminder(taskId: string): Promise<string | null> {
     const open =
       await boundaryCrossingRepository.findUnnotifiedOpenByTask(taskId)
