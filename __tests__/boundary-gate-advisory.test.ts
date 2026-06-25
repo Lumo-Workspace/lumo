@@ -13,12 +13,14 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 
 const mockCreate = jest.fn()
 const mockFindMany = jest.fn()
+const mockFindFirst = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     boundaryCrossing: {
       create: (...args: any[]) => mockCreate(...args),
       findMany: (...args: any[]) => mockFindMany(...args),
+      findFirst: (...args: any[]) => mockFindFirst(...args),
     },
   },
 }))
@@ -108,6 +110,25 @@ test('advisory crossing does not block DONE while non-advisory does', async () =
   expect(
     await boundaryCrossingRepository.findUndispositionedByTask(taskId)
   ).toHaveLength(1)
+})
+
+test('hasOpenForTask excludes advisory crossings mirroring gate predicate', async () => {
+  const taskId = seedTask()
+
+  // Only an advisory crossing exists — hasOpenForTask must return false.
+  mockFindFirst.mockResolvedValueOnce(null)
+  expect(await boundaryCrossingRepository.hasOpenForTask(taskId)).toBe(false)
+
+  // Verify advisory: false is included in the where-clause.
+  expect(mockFindFirst).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({ advisory: false }),
+    })
+  )
+
+  // A non-advisory crossing exists — hasOpenForTask must return true.
+  mockFindFirst.mockResolvedValueOnce({ id: 'bc-x' })
+  expect(await boundaryCrossingRepository.hasOpenForTask(taskId)).toBe(true)
 })
 
 test('a HIGH advisory crossing still does not force the gate', async () => {
