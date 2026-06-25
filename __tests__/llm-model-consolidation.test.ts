@@ -73,8 +73,9 @@ function walkTsFiles(dir: string): string[] {
 test('models module exposes upgraded reasoning and content model ids', () => {
   // Sonnet routed through the gateway → provider-prefixed.
   expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
-  // Opus driven via the native Anthropic SDK → bare id.
-  expect(CONTENT_MODEL).toBe('claude-opus-4-8')
+  // 桶3 (LUM-592): content generation dropped Opus + the native SDK; now Sonnet
+  // via the gateway → provider-prefixed.
+  expect(CONTENT_MODEL).toBe('anthropic/claude-sonnet-4.6')
 })
 
 test('lib runtime has no inline gateway claude model literals', () => {
@@ -87,11 +88,11 @@ test('lib runtime has no inline gateway claude model literals', () => {
   expect(offenders.map(f => f.replace(REPO_ROOT + '/', ''))).toEqual([])
 })
 
-test('session summary content model id stays bare for native anthropic sdk', () => {
-  // The native SDK rejects provider-prefixed ids — the constant must be bare.
-  expect(CONTENT_MODEL.startsWith('anthropic/')).toBe(false)
+test('session summary content routes through the gateway, native anthropic sdk removed', () => {
+  // 桶3 (LUM-592): content generation moved to the gateway → provider-prefixed,
+  // and the native @anthropic-ai/sdk exception is gone.
+  expect(CONTENT_MODEL.startsWith('anthropic/')).toBe(true)
 
-  // Both session-summary files must import the central constant, not redefine it.
   const templates = readFileSync(
     join(LIB_DIR, 'services/session-summary/templates.ts'),
     'utf8'
@@ -100,10 +101,14 @@ test('session summary content model id stays bare for native anthropic sdk', () 
     join(LIB_DIR, 'services/session-summary/service.ts'),
     'utf8'
   )
+  // Native SDK fully removed from the content-generation path.
+  expect(templates).not.toMatch(/@anthropic-ai\/sdk/)
+  expect(service).not.toMatch(/@anthropic-ai\/sdk/)
+  // Still sources the id from the central registry, routed through the gateway.
   const localContentModelDef = /const\s+CONTENT_MODEL\s*=/
   expect(localContentModelDef.test(templates)).toBe(false)
   expect(localContentModelDef.test(service)).toBe(false)
-  expect(templates).toMatch(/CONTENT_MODEL/)
+  expect(templates).toMatch(/gateway\(CONTENT_MODEL\)/)
   expect(service).toMatch(/CONTENT_MODEL/)
 })
 

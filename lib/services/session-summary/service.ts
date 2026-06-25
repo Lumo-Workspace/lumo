@@ -1,5 +1,5 @@
 import { FAST_MODEL, CONTENT_MODEL } from '@/lib/ai/models'
-import Anthropic from '@anthropic-ai/sdk'
+import { APICallError } from 'ai'
 import type { Prisma } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import {
@@ -12,8 +12,8 @@ import { generateStructuredSummary, type TemplateKind } from './templates'
 import type { SessionSummaryPayload, SessionType } from './types'
 
 // Classifier routed through the gateway to deepseek-v4-flash (LUM-320) to cut
-// cost. Content generation stays on Opus — it's the quality-critical structured
-// summary and was never part of the Haiku→DeepSeek cost migration.
+// cost. Content generation moved off Opus + the native Anthropic SDK to Sonnet
+// 4.6 via the gateway (桶3/LUM-592).
 const CLASSIFY_MODEL = FAST_MODEL
 
 // Classifier confidence below this threshold collapses to the mixed template,
@@ -41,13 +41,6 @@ export const sessionSummaryService = {
     sessionId,
     workspaceMemberId,
   }: GenerateSummaryInput): Promise<GenerateSummaryResult> {
-    const anthropicKey = process.env.ANTHROPIC_API_KEY
-    if (!anthropicKey) {
-      throw Object.assign(new Error('ANTHROPIC_API_KEY not configured'), {
-        status: 500,
-      })
-    }
-
     const session = await sessionRepository.findByIdForMember(
       sessionId,
       workspaceMemberId
@@ -66,7 +59,6 @@ export const sessionSummaryService = {
       )
     }
 
-    const client = new Anthropic({ apiKey: anthropicKey })
     const metadata = extractSessionMetadata(events)
 
     let classification
@@ -88,7 +80,7 @@ export const sessionSummaryService = {
 
     let summary: SessionSummaryPayload
     try {
-      summary = await generateStructuredSummary(client, {
+      summary = await generateStructuredSummary({
         kind,
         compactLog: compact.text,
         truncatedToolCount: compact.truncatedCount,
@@ -126,16 +118,15 @@ export const sessionSummaryService = {
 }
 
 function toApiError(err: unknown, stage: string): Error {
-  if (err instanceof Anthropic.RateLimitError) {
+  if (APICallError.isInstance(err)) {
+    const isRateLimit = err.statusCode === 429
     return Object.assign(
-      new Error(`Claude API rate limit during ${stage} — try again shortly`),
-      { status: 429 }
-    )
-  }
-  if (err instanceof Anthropic.APIError) {
-    return Object.assign(
-      new Error(`Claude API error during ${stage}: ${err.message}`),
-      { status: 502 }
+      new Error(
+        isRateLimit
+          ? `Gateway rate limit during ${stage} — try again shortly`
+          : `Gateway error during ${stage}: ${err.message}`
+      ),
+      { status: isRateLimit ? 429 : 502 }
     )
   }
   return err instanceof Error ? err : new Error(String(err))
