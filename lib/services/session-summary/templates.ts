@@ -1,5 +1,6 @@
 import { CONTENT_MODEL } from '@/lib/ai/models'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateObject, jsonSchema } from 'ai'
+import { gateway } from '@ai-sdk/gateway'
 import {
   DEBUG_TOOL,
   EXPLORATION_TOOL,
@@ -48,40 +49,29 @@ const TOOLS = {
 } as const
 
 /**
- * Generate a structured summary via forced tool_use. The Anthropic SDK
- * returns tool-use input as already-parsed JSON, so there's no string parsing
- * step — the only remaining failure mode is the model returning a text block
- * instead of a tool-use block, which we treat as an upstream error.
+ * Generate a structured summary via the gateway with a forced object schema
+ * (LUM-592). `generateObject` reuses each kind's JSON Schema — the very same
+ * shapes that were Anthropic tool `input_schema`s — and returns an
+ * already-parsed object; `finalize` then coerces it into the strongly-typed
+ * payload. A model that fails to emit a schema-valid object throws
+ * `AI_NoObjectGeneratedError`, surfaced to the caller as an upstream error.
  */
 export async function generateStructuredSummary(
-  client: Anthropic,
   args: GenerateArgs
 ): Promise<SessionSummaryPayload> {
   const tool = TOOLS[args.kind]
   const system = SYSTEM_PROMPTS[args.kind]
   const userPrompt = buildUserPrompt(args)
 
-  const message = await client.messages.create({
-    model: CONTENT_MODEL,
-    max_tokens: CONTENT_MAX_TOKENS,
+  const { object } = await generateObject({
+    model: gateway(CONTENT_MODEL),
+    schema: jsonSchema(tool.input_schema),
     system,
-    tools: [tool],
-    tool_choice: { type: 'tool', name: tool.name },
-    messages: [{ role: 'user', content: userPrompt }],
+    prompt: userPrompt,
+    maxOutputTokens: CONTENT_MAX_TOKENS,
   })
 
-  const toolUse = message.content.find(
-    (b): b is Anthropic.ToolUseBlock =>
-      b.type === 'tool_use' && b.name === tool.name
-  )
-  if (!toolUse) {
-    throw Object.assign(
-      new Error('Content model did not emit the expected tool_use block'),
-      { status: 502 }
-    )
-  }
-
-  return finalize(args.kind, toolUse.input)
+  return finalize(args.kind, object)
 }
 
 function finalize(kind: TemplateKind, input: unknown): SessionSummaryPayload {
