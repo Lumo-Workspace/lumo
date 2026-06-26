@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import {
   Home,
   File,
@@ -19,12 +18,11 @@ import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
-import { CACHE_KEY } from '../constants'
-import { workspacesClient } from '@/lib/api-client'
+import { useWorkspace } from '../hooks/useWorkspace'
 import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
 import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
-import { clearCache, readCache, writeCache } from '../cache'
+import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
   Sidebar,
@@ -84,36 +82,11 @@ export function AppSidebar({
   const sprintsEnabled = teams.some(t => t.sprintsEnabled)
   const { projects, setProjects } = useProjects()
 
-  const [workspaceName, setWorkspaceName] = useState<string>('')
-  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    // Hydrate from localStorage on client only (avoids SSR mismatch)
-    const cached = readCache<{ name?: string; logoUrl?: string | null }>(
-      CACHE_KEY.workspace
-    )
-    if (cached?.name) setWorkspaceName(cached.name)
-    if (cached?.logoUrl !== undefined)
-      setWorkspaceLogoUrl(cached.logoUrl ?? null)
-  }, [])
-
-  useEffect(() => {
-    const loadWorkspace = async () => {
-      try {
-        const data = await workspacesClient.getMe<{
-          workspace?: { name?: string; logoUrl?: string | null }
-        }>()
-        const name = data?.workspace?.name
-        const logoUrl = data?.workspace?.logoUrl
-        if (name) setWorkspaceName(name)
-        setWorkspaceLogoUrl(logoUrl ?? null)
-        writeCache(CACHE_KEY.workspace, { name, logoUrl })
-      } catch {
-        // ignore
-      }
-    }
-    loadWorkspace()
-  }, [])
+  // Shared, RQ-cached workspace metadata (one fetch across pages; localStorage
+  // warm-start keeps the header from flickering on reload). See useWorkspace.
+  const { workspace } = useWorkspace()
+  const workspaceName = workspace?.name ?? ''
+  const workspaceLogoUrl = workspace?.logoUrl ?? null
 
   const initials = user?.initials ?? '?'
   const displayName = user?.displayName ?? ''

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
-import { workspacesClient } from '@/lib/api-client/workspaces'
+import { useWorkspace } from '../../hooks/useWorkspace'
 import {
   ApiProject,
   ApiTask,
@@ -88,47 +88,22 @@ export function ProjectDetailPage({
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
 
-  // Workspace risk defaults for project-level overrides
-  const [workspaceRiskDefaults, setWorkspaceRiskDefaults] = useState<{
-    riskOverdueRatio: number
-    riskStalledDays: number
-    riskStalledMinCount: number
-    riskAgentFailRatio: number
-    riskStalePrDays: number
-    riskThroughputDrop: number
-  } | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    workspacesClient
-      .getMe<{
-        workspace: {
-          riskOverdueRatio?: number
-          riskStalledDays?: number
-          riskStalledMinCount?: number
-          riskAgentFailRatio?: number
-          riskStalePrDays?: number
-          riskThroughputDrop?: number
-        }
-      }>()
-      .then(data => {
-        if (cancelled) return
-        const w = data.workspace
-        setWorkspaceRiskDefaults({
-          riskOverdueRatio: w.riskOverdueRatio ?? 0.3,
-          riskStalledDays: w.riskStalledDays ?? 7,
-          riskStalledMinCount: w.riskStalledMinCount ?? 3,
-          riskAgentFailRatio: w.riskAgentFailRatio ?? 0.3,
-          riskStalePrDays: w.riskStalePrDays ?? 3,
-          riskThroughputDrop: w.riskThroughputDrop ?? 0.5,
-        })
-      })
-      .catch(() => {
-        // ignore — card will simply not mount
-      })
-    return () => {
-      cancelled = true
+  // Workspace risk defaults for project-level overrides — sourced from the
+  // shared, RQ-cached workspace metadata. Stays null until the real fetch
+  // resolves (the localStorage placeholder carries no risk fields), so the
+  // risk card mounts only once true defaults are known — same as before.
+  const { workspace: ws, isPlaceholder: wsIsPlaceholder } = useWorkspace()
+  const workspaceRiskDefaults = useMemo(() => {
+    if (!ws || wsIsPlaceholder) return null
+    return {
+      riskOverdueRatio: ws.riskOverdueRatio ?? 0.3,
+      riskStalledDays: ws.riskStalledDays ?? 7,
+      riskStalledMinCount: ws.riskStalledMinCount ?? 3,
+      riskAgentFailRatio: ws.riskAgentFailRatio ?? 0.3,
+      riskStalePrDays: ws.riskStalePrDays ?? 3,
+      riskThroughputDrop: ws.riskThroughputDrop ?? 0.5,
     }
-  }, [])
+  }, [ws, wsIsPlaceholder])
 
   const {
     options: displayOptions,
