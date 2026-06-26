@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Ce qui s'est passé",
   "boundary.explain.button": "Expliquer",
   "boundary.explain.label": "Explication",
-  "boundary.explain.loading": "Génération en cours…"
+  "boundary.explain.loading": "Génération en cours…",
+  "acceptance.claim.realityCheck": "Vérification de la réalité",
+  "acceptance.claim.selfReport": "auto-déclaration de l’agent",
+  "acceptance.claim.synthesized": "synthétisé",
+  "acceptance.claim.selfReportTip": "L’auto-déclaration obligatoire de l’agent, jointe lors de la demande de revue — une estimation, vérifiée par rapport au diff.",
+  "acceptance.claim.synthesizedTip": "Aucune auto-déclaration de l’agent — une paraphrase résumée de la session, affichée comme solution de repli.",
+  "acceptance.claim.checkPending": "Auto-déclaration enregistrée — pas encore vérifiée par rapport au diff.",
+  "acceptance.claim.showSelfReport": "auto-déclaration"
 }

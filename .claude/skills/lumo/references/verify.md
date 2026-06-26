@@ -13,10 +13,21 @@ touching its status — run `lumo verify`.** The loop replaces "I read the code
 and it looks done" with executed evidence.
 
 ```bash
-lumo verify                 # session-bound task
-lumo verify LUM-42          # explicit task (overrides the session binding)
-lumo verify --timeout 900   # per-checkpointer timeout in seconds (default 600)
+lumo verify --note "implemented X in foo.ts because Y; tests + tsc pass"   # session-bound task
+lumo verify LUM-42 --note "…"            # explicit task (overrides the session binding)
+lumo verify --note "…" --timeout 900     # per-checkpointer timeout in seconds (default 600)
 ```
+
+**`--note` is required (LUM-597)** whenever a round will actually be posted (the
+task has MACHINE criteria). It is your one-line self-report — what you did and
+why it is ready ("我改了 X,因为 Y 可验收"). When the round all-passes and the
+task flips to IN_REVIEW, the note is frozen as the task's **claim** (provenance
+`AGENT` — the汇报者's own voice, not a summarizer paraphrase) and is checked
+against the diff for faithfulness. Capturing the claim is deterministic ("不填不
+让 post"); whether it is _truthful_ is the faithfulness audit's job — so don't
+under- or over-state it. A missing/blank note is refused **before** the round is
+posted, so no round is burned; just re-run with one. (An old CLI that omits it
+still verifies — the claim degrades to the synthesized run-summary fallback.)
 
 ## What one round does
 
@@ -28,11 +39,11 @@ lumo verify --timeout 900   # per-checkpointer timeout in seconds (default 600)
    TaskActivity event.
 4. Prints the round outcome:
 
-| Round outcome             | Effect                                                                                                                      | What to do                                                                                    |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **All PASS**              | Task transitions to **IN_REVIEW** (existing state machine + TASK_IN_REVIEW notification)                                    | **Stop here.** Human adjudication + any HUMAN criteria take over; **never set DONE yourself** |
-| **Any FAIL**              | Task status untouched; unmet criteria printed as next actions (statement, checkpointer, failure tail)                       | Fix and re-run                                                                                |
-| **Round 3 still failing** | Loop escalates: a human is notified (AGENT_VERIFY, requires action); further `lumo verify` rounds are rejected with **409** | **Stop retrying**; fix only what the human directs                                            |
+| Round outcome             | Effect                                                                                                                                                            | What to do                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **All PASS**              | Task transitions to **IN_REVIEW** (existing state machine + TASK_IN_REVIEW notification); the `--note` self-report is frozen as the task's claim (source `AGENT`) | **Stop here.** Human adjudication + any HUMAN criteria take over; **never set DONE yourself** |
+| **Any FAIL**              | Task status untouched; unmet criteria printed as next actions (statement, checkpointer, failure tail)                                                             | Fix and re-run                                                                                |
+| **Round 3 still failing** | Loop escalates: a human is notified (AGENT_VERIFY, requires action); further `lumo verify` rounds are rejected with **409**                                       | **Stop retrying**; fix only what the human directs                                            |
 
 Exit code 0 = all passed (or nothing to run); 1 = failures, escalation, or
 errors.
@@ -110,10 +121,10 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 
 - **Header** — task identifier/title/status + `verification round N/3` (round 0 = never verified) + an escalation warning when the machine loop is exhausted.
 - **Claim vs verification** — 规律 2 声称vs核验: the headline contrast, printed right after the header (whenever the contract exists), so the report shows **both** columns instead of only the verification one. Two sides:
-  - **Claim** — what the agent _says_ it did: the authoritative session's run summary, **same-source** with the web delivery card's `latestRunSummary`. Explicitly tagged an **unverified self-report** (`agent self-report · estimated, not verification`) — estimate-tier provenance (估, not 测). Only a formal `LLM run summary` is shown (with a `↳ source: LLM run summary` line). **Fail-closed**: when only a raw STOP turn digest exists (no formal summary yet) it prints `generating — the formal run summary is still being synthesized` and **withholds the raw digest** rather than passing the digest off as the claim; with no material at all it prints `not generated yet — …`, never a fabricated claim.
+  - **Claim** — what the agent _says_ it did: an **unverified self-report** (`agent self-report · estimated, not verification`), estimate-tier provenance (估, not 测). Sourced by layering (LUM-597, preference `AGENT > RUN_SUMMARY > DIGEST > null`): if you supplied a `lumo verify --note`, that **own self-report** is the claim (`↳ source: agent self-report (verify --note)`) — the汇报者's voice, what faithfulness judges. Absent a self-report (old CLI / non-verify path) it degrades to the summarizer paraphrase, labelled honestly (`↳ source: synthesized run summary (no self-report)`). **Fail-closed**: when only a raw STOP turn digest exists it prints `generating — the formal run summary is still being synthesized` and **withholds the raw digest**; with no material at all it prints `not generated yet — …`, never a fabricated claim.
   - **Verification** — what was actually _confirmed_ (measured): the machine-verification rollup `N machine-verified / M human override (of T MACHINE criteria)` over the active MACHINE criteria (relocated here from its old standalone line under `Criteria`), plus `X of Y criteria met by their latest verdict`. **Fail-closed**: before any round runs it prints `no verification has run yet — the claim is unconfirmed` rather than implying a pass.
   - **Faithfulness** — the third state over the two columns: whether the CLAIM itself is _true_, read from the persisted faithfulness verdict (no LLM at read time), printed as `▸ Faithfulness — does the claim match the delivery`. One of `faithful` / `overstated` (claim says more than the diff/PR shows) / `under-reported` (claim says less) / `unjudgeable`, with an `· evidence: PR #N · <sha>` pointer when the judge cited one. **Fail-closed**: `not yet judged` (no verdict — distinct from a real `unjudgeable` verdict) and `… (stale — re-checked on the next batch)` (judged against an older claim snapshot, the verdict still shown) are surfaced explicitly. Omitted only against an older server that doesn't emit it.
-  - Carried in `--json` as `claim { text, source }` (`source: 'RUN_SUMMARY' | 'DIGEST' | null`; `text: null` = none generated) and `faithfulness { state, verdict, evidence, diffShas, prNumbers, judgedAt, judgedClaimAt }` (`state` adds `PENDING`/`STALE` over the four verdicts). Omitted only against an older server that doesn't emit the field. The machine-verification rollup is still carried top-level as `machineVerification`.
+  - Carried in `--json` as `claim { text, source }` (`source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null`; `AGENT` = the verify self-report, `RUN_SUMMARY`/`DIGEST` = the synthesized fallback; `text: null` = none generated) and `faithfulness { state, verdict, evidence, diffShas, prNumbers, judgedAt, judgedClaimAt }` (`state` adds `PENDING`/`STALE` over the four verdicts). Omitted only against an older server that doesn't emit the field. The machine-verification rollup is still carried top-level as `machineVerification`.
 - **Criteria** — every criterion as `<glyph> <id>  [TYPE]  SOURCE@rN statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its checkpointer and latest verdict line (failure tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
   - A passing **MACHINE** criterion's verdict line carries a machine-state tag derived from the read model's `machinePassed` flag, NOT the latest verdict: `· machine-verified` when a checkpointer actually passed it (even after a human later signs the task off), or `· human override (no machine pass)` when it passes only on a human sign-off with no machine run underneath. This keeps the terminal honest with web — a machine-verified criterion that a human co-signed no longer reads as a plain human pass.
   - A verdict's **evidence is drillable**, rendered as an indented `↳ evidence:` line under the verdict (PASS _and_ FAIL) instead of the inert raw pointer that used to ride the verdict line — so a conclusion points at real proof you can act on, not just the `check:` command: a `cmd:` pointer prints the actual command + exit code (`ran \`…\` → exit N · re-run to reproduce`), a `file:`pointer prints a terminal-clickable`path:line`, and a `commit:` pointer prints a navigable web URL (`<repo>/commit/<hash>`, resolved from the local git `origin`remote) or a`git show <hash>`fallback when no remote resolves. A criterion that **requires evidence but has none recorded yet** (e.g. a HUMAN evidence criterion before sign-off) renders an explicit`↳ evidence: pending — no reference recorded yet`(fail-closed) instead of a bare, dead`[evidence]` tag.

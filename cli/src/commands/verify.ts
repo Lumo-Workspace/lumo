@@ -8,6 +8,10 @@ import type { CriterionRow } from './task-criteria-list'
 export interface VerifyOptions {
   /** Per-checkpointer timeout in seconds (default 600). */
   timeout?: string
+  /** LUM-597: required self-report ("我改了 X,因为 Y 可验收") attached to the
+   *  verify request; frozen as the AGENT claim when the round passes into
+   *  IN_REVIEW. Required whenever a round will be posted. */
+  note?: string
 }
 
 /** Shape sent to POST /api/tasks/[id]/verify — mirrors machineVerdictInputSchema. */
@@ -212,6 +216,22 @@ export async function verify(
     return
   }
 
+  // ── Require the self-report (LUM-597) ────────────────────────────────────
+  // Requesting acceptance is a structured action; `--note` is the agent's
+  // mandatory self-report. It is captured deterministically here (the agent
+  // can't be made to phrase it well, but it can be made to provide one); its
+  // truthfulness is the faithfulness audit's job downstream. No note → no round
+  // is posted (no round burned), so re-running with one is free.
+  const note = options.note?.trim()
+  if (!note) {
+    console.error(
+      'Error: --note is required — state what you did and why it is ready, e.g.\n' +
+        `  lumo verify ${taskId} --note "implemented X in foo.ts because Y; tests + tsc pass"\n` +
+        'This self-report is recorded as your claim and checked against the diff for faithfulness.'
+    )
+    return 1
+  }
+
   // ── Execute every checkpointer locally ───────────────────────────────────
   process.stdout.write(
     `Verifying ${taskId} — ${machine.length} MACHINE criteria\n`
@@ -245,7 +265,7 @@ export async function verify(
       {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results }),
+        body: JSON.stringify({ results, note }),
       }
     )
   } catch (err) {

@@ -24,11 +24,18 @@ import { filterMetaReasoning } from '@/lib/services/meta-reasoning'
 export interface TaskClaim {
   /** The agent's self-reported account, or null when nothing was generated. */
   text: string | null
-  /** Provenance of `text`: 'RUN_SUMMARY' = the LLM one-paragraph summary;
-   *  'DIGEST' = the raw STOP turn digest (no LLM summary yet); null = neither
-   *  (no session / no turn notes). Either populated source is an unverified
-   *  agent self-report — estimate-tier, distinct from the measured verdict. */
-  source: 'RUN_SUMMARY' | 'DIGEST' | null
+  /** Provenance of `text` (LUM-597 取数分层, preference AGENT > RUN_SUMMARY >
+   *  DIGEST > null):
+   *  - 'AGENT'       = the agent's OWN required self-report, attached to the
+   *    verify action and frozen when the task flips to IN_REVIEW. This is the
+   *    authoritative claim — what faithfulness judges (the汇报者's own words).
+   *  - 'RUN_SUMMARY' = a summarizer LLM's one-paragraph paraphrase of the
+   *    session event stream (SYNTHESIZED fallback when no self-report exists).
+   *  - 'DIGEST'      = the raw STOP turn digest (no LLM summary yet).
+   *  - null          = nothing (no session / no turn notes / no self-report).
+   *  Every populated source is an unverified self-report — estimate-tier,
+   *  distinct from the measured verdict; only AGENT is the汇报者's own voice. */
+  source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
 }
 
 /** Cap on the turn-summary digest fallback — the most recent N STOP lines,

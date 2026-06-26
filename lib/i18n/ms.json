@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Apa yang berlaku",
   "boundary.explain.button": "Terangkan",
   "boundary.explain.label": "Penjelasan",
-  "boundary.explain.loading": "Sedang dijana…"
+  "boundary.explain.loading": "Sedang dijana…",
+  "acceptance.claim.realityCheck": "Semakan realiti",
+  "acceptance.claim.selfReport": "laporan kendiri ejen",
+  "acceptance.claim.synthesized": "disintesis",
+  "acceptance.claim.selfReportTip": "Laporan kendiri wajib daripada ejen sendiri, dilampirkan semasa meminta semakan — satu anggaran, disemak terhadap diff.",
+  "acceptance.claim.synthesizedTip": "Tiada laporan kendiri ejen — parafrasa ringkasan sesi, dipaparkan sebagai sandaran.",
+  "acceptance.claim.checkPending": "Laporan kendiri direkod — belum disemak terhadap diff.",
+  "acceptance.claim.showSelfReport": "laporan kendiri"
 }

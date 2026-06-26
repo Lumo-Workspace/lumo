@@ -56,6 +56,8 @@ const goodBody = {
       evidencePointer: 'cmd:npx jest#exit=0',
     },
   ],
+  // LUM-597: the agent's required self-report rides alongside the round.
+  note: 'implemented X in foo.ts because Y; tests + tsc pass',
 }
 
 beforeEach(() => {
@@ -80,11 +82,18 @@ describe('POST /api/tasks/[id]/verify', () => {
       params
     )
     expect(res.status).toBe(200)
-    expect(mockRecord).toHaveBeenCalledWith('t-1', 'w-1', goodBody.results, {
-      actorMemberId: 'member-1',
-      actorClerkId: 'clerk-1',
-      sourceSessionId: 'sess-1',
-    })
+    expect(mockRecord).toHaveBeenCalledWith(
+      't-1',
+      'w-1',
+      goodBody.results,
+      {
+        actorMemberId: 'member-1',
+        actorClerkId: 'clerk-1',
+        sourceSessionId: 'sess-1',
+      },
+      // LUM-597: the self-report is threaded through to the service.
+      goodBody.note
+    )
   })
 
   it('RED LINE: a body smuggling verifierType is rejected at the schema (400), service never called', async () => {

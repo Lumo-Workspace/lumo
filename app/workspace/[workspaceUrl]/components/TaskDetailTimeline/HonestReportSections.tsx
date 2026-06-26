@@ -286,6 +286,113 @@ function FaithfulnessRow({
   )
 }
 
+// ── LUM-597 · Claim reality-check (the collapsed claim line) ───────────────────
+
+/**
+ * LUM-597 — the claim collapsed to a single "reality check" line. Decision-first:
+ * the reviewer decides on the verification block; the claim's only job is to flag
+ * when it disagrees with reality. So the headline IS the faithfulness conclusion
+ * (loud only on a mismatch, quiet when faithful), a provenance chip tells the
+ * agent's own self-report (AGENT) apart from a summarizer paraphrase
+ * (SYNTHESIZED), and the self-report text folds away. Renders nothing at all when
+ * there is no claim — no empty box.
+ */
+function ClaimRealityCheck({
+  claim,
+  faithfulness,
+}: {
+  claim: TaskAcceptanceStatusView['claim']
+  faithfulness: TaskAcceptanceStatusView['faithfulness']
+}) {
+  const intl = useIntl()
+  const hasText = !!(
+    claim?.text &&
+    (claim.source === 'AGENT' || claim.source === 'RUN_SUMMARY')
+  )
+  const isDigest = claim?.source === 'DIGEST'
+  // 无声称 → 整行消失 (never an empty box).
+  if (!hasText && !isDigest) return null
+  const isAgent = claim?.source === 'AGENT'
+
+  return (
+    <div
+      data-testid='claim-reality-check'
+      className='rounded-md border border-border/70 px-3.5 py-2.5'
+    >
+      <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
+        <span className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'acceptance.claim.realityCheck',
+            defaultMessage: 'Reality check',
+          })}
+        </span>
+        <ProvenanceChip
+          testId='claim-provenance'
+          tip={intl.formatMessage(
+            isAgent
+              ? {
+                  id: 'acceptance.claim.selfReportTip',
+                  defaultMessage:
+                    'The agent’s own required self-report, attached when it requested review — an estimate, checked against the diff.',
+                }
+              : {
+                  id: 'acceptance.claim.synthesizedTip',
+                  defaultMessage:
+                    'No agent self-report — a summarizer paraphrase of the session, shown as a fallback.',
+                }
+          )}
+        >
+          {isAgent
+            ? intl.formatMessage({
+                id: 'acceptance.claim.selfReport',
+                defaultMessage: 'agent self-report',
+              })
+            : intl.formatMessage({
+                id: 'acceptance.claim.synthesized',
+                defaultMessage: 'synthesized',
+              })}
+        </ProvenanceChip>
+      </div>
+
+      {/* Headline conclusion: faithfulness — loud only on a mismatch. */}
+      {faithfulness ? (
+        <FaithfulnessRow f={faithfulness} />
+      ) : hasText ? (
+        <p className='mt-2 text-[11px] text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'acceptance.claim.checkPending',
+            defaultMessage:
+              'self-report recorded — not yet checked against the diff.',
+          })}
+        </p>
+      ) : null}
+
+      {/* The self-report itself folds away — there if you want it, quiet if not. */}
+      {hasText ? (
+        <details className='mt-1.5'>
+          <summary className='cursor-pointer text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 hover:text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'acceptance.claim.showSelfReport',
+              defaultMessage: 'self-report',
+            })}
+          </summary>
+          <p className='mt-1 whitespace-pre-line text-[12px] leading-snug text-foreground'>
+            {claim!.text}
+          </p>
+        </details>
+      ) : (
+        <p className='mt-2 text-[12px] italic leading-snug text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'acceptance.claim.generating',
+            defaultMessage:
+              'Generating — the formal run summary is still being synthesized.',
+          })}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── LUM-564 · Claim vs verification ───────────────────────────────────────────
 
 export function ClaimVsVerification({
@@ -334,69 +441,14 @@ export function ClaimVsVerification({
         />
       </div>
       {open ? (
-        <div className='grid gap-3 border-t border-border px-4 py-4 sm:grid-cols-2'>
-          {/* Claim (声称) — the agent self-report, estimate-tier. */}
-          <div className='rounded-md border border-border px-3.5 py-3'>
-            <div className='mb-0.5 flex items-center gap-1.5'>
-              <span className='text-[11px] font-medium text-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.claim.claimLabel',
-                  defaultMessage: 'Claim — what the agent says it did',
-                })}
-              </span>
-              <ProvenanceChip
-                testId='claim-provenance'
-                tip={intl.formatMessage({
-                  id: 'acceptance.claim.estimatedTip',
-                  defaultMessage:
-                    'An unverified agent self-report — an estimate, not a verification result.',
-                })}
-              >
-                {intl.formatMessage({
-                  id: 'acceptance.claim.estimated',
-                  defaultMessage: 'AI-drafted · estimated',
-                })}
-              </ProvenanceChip>
-            </div>
-            {claim?.source === 'RUN_SUMMARY' && claim.text ? (
-              <>
-                <p className='whitespace-pre-line text-[12px] leading-snug text-foreground'>
-                  {claim.text}
-                </p>
-                <p className='mt-1 text-[10px] text-muted-foreground/70'>
-                  {intl.formatMessage({
-                    id: 'acceptance.claim.sourceSummary',
-                    defaultMessage: 'source: LLM run summary',
-                  })}
-                </p>
-              </>
-            ) : claim?.source === 'DIGEST' ? (
-              // LUM-583 ③ / LUM-574 pending: a raw turn digest is not a claim —
-              // withhold it and say the formal run summary is still generating,
-              // rather than dumping the digest as if it were the agent's report.
-              <p className='text-[12px] italic leading-snug text-muted-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.claim.generating',
-                  defaultMessage:
-                    'Generating — the formal run summary is still being synthesized.',
-                })}
-              </p>
-            ) : (
-              <p className='text-[12px] italic leading-snug text-muted-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.claim.notGenerated',
-                  defaultMessage:
-                    'Not generated yet — the run summary is synthesized when the task reaches DONE.',
-                })}
-              </p>
-            )}
-            {data.faithfulness ? (
-              <FaithfulnessRow f={data.faithfulness} />
-            ) : null}
-          </div>
-
-          {/* Verification (核验) — the measured verdict. */}
-          <div className='rounded-md border border-border px-3.5 py-3'>
+        <div className='space-y-3 border-t border-border px-4 py-4'>
+          {/* Verification (核验) — the decision surface. LUM-597 decision-first:
+              the measured verdict the reviewer actually acts on is the framed
+              main block, not a co-equal column beside the claim. */}
+          <div
+            data-testid='verification-main'
+            className='rounded-md border border-border bg-muted/30 px-3.5 py-3'
+          >
             <div className='mb-0.5 flex items-center gap-1.5'>
               <span className='text-[11px] font-medium text-foreground'>
                 {intl.formatMessage({
@@ -450,6 +502,9 @@ export function ClaimVsVerification({
               </div>
             )}
           </div>
+
+          {/* Claim (声称) — one "reality check" line; disappears when none. */}
+          <ClaimRealityCheck claim={claim} faithfulness={data.faithfulness} />
         </div>
       ) : null}
     </div>

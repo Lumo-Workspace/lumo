@@ -63,6 +63,9 @@ const PASS_OUTCOME = {
   nextActions: [],
 }
 
+// LUM-597: a round may only be posted with the agent's required self-report.
+const NOTE = 'implemented X in foo.ts because Y; tests + tsc pass'
+
 let writeSpy: jest.SpyInstance
 let errSpy: jest.SpyInstance
 const OLD_SESSION = process.env.CLAUDE_CODE_SESSION_ID
@@ -163,7 +166,7 @@ describe('verify — task resolution', () => {
           return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
         return jsonResponse(200, PASS_OUTCOME)
       })
-    expect(await verify(undefined)).toBeUndefined()
+    expect(await verify(undefined, { note: NOTE })).toBeUndefined()
     expect(
       fetchSpy.mock.calls.some(c =>
         String(c[0]).includes('/api/tasks/LUM-9/criteria')
@@ -223,12 +226,14 @@ describe('verify — the loop', () => {
     const fetchSpy = routedFetch(PASS_OUTCOME)
     mockSpawn.mockReturnValue(spawnResult({ status: 0 }))
 
-    expect(await verify('LUM-9')).toBeUndefined()
+    expect(await verify('LUM-9', { note: NOTE })).toBeUndefined()
 
     expect(mockSpawn).toHaveBeenCalledTimes(1)
     expect(mockSpawn.mock.calls[0]![0]).toBe('npx jest x.test.ts')
 
-    const post = fetchSpy.mock.calls.find(c => String(c[0]).endsWith('/verify'))!
+    const post = fetchSpy.mock.calls.find(c =>
+      String(c[0]).endsWith('/verify')
+    )!
     const init = post[1] as RequestInit
     expect((init.headers as Record<string, string>)['X-Lumo-Session-Id']).toBe(
       'sess-1'
@@ -241,6 +246,8 @@ describe('verify — the loop', () => {
         evidencePointer: 'cmd:npx jest x.test.ts#exit=0',
       },
     ])
+    // LUM-597: the self-report is sent with the round.
+    expect(body.note).toBe(NOTE)
     expect(stdout()).toContain('IN_REVIEW')
     expect(stdout()).toContain('Round 1/3')
   })
@@ -261,7 +268,7 @@ describe('verify — the loop', () => {
     })
     mockSpawn.mockReturnValue(spawnResult({ status: 1, stderr: 'failures' }))
 
-    expect(await verify('LUM-9')).toBe(1)
+    expect(await verify('LUM-9', { note: NOTE })).toBe(1)
     const out = stdout()
     expect(out).toContain('Next actions')
     expect(out).toContain('route rejects bad input')
@@ -280,7 +287,7 @@ describe('verify — the loop', () => {
     })
     mockSpawn.mockReturnValue(spawnResult({ status: 1 }))
 
-    expect(await verify('LUM-9')).toBe(1)
+    expect(await verify('LUM-9', { note: NOTE })).toBe(1)
     expect(stdout()).toContain('STOP retrying')
   })
 
@@ -291,9 +298,40 @@ describe('verify — the loop', () => {
         return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
       return jsonResponse(409, { error: 'capped \x1b[31m— escalated' })
     })
-    expect(await verify('LUM-9')).toBe(1)
+    expect(await verify('LUM-9', { note: NOTE })).toBe(1)
     expect(stderr()).toContain('HTTP 409')
     expect(stderr()).toContain('capped')
     expect(stderr()).not.toContain('\x1b')
+  })
+
+  it('LUM-597: requires --note before posting a round (no note → exit 1, no spawn, no POST)', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(async url => {
+        const u = String(url)
+        if (u.endsWith('/criteria'))
+          return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
+        throw new Error(`unexpected fetch ${u}`)
+      })
+    // No note supplied — the self-report is mandatory.
+    expect(await verify('LUM-9')).toBe(1)
+    expect(stderr()).toContain('--note is required')
+    // No checkpointer ran and no round was posted (no round burned).
+    expect(mockSpawn).not.toHaveBeenCalled()
+    expect(
+      fetchSpy.mock.calls.some(c => String(c[0]).endsWith('/verify'))
+    ).toBe(false)
+  })
+
+  it('LUM-597: rejects a blank/whitespace note', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      const u = String(url)
+      if (u.endsWith('/criteria'))
+        return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
+      throw new Error(`unexpected fetch ${u}`)
+    })
+    expect(await verify('LUM-9', { note: '   ' })).toBe(1)
+    expect(stderr()).toContain('--note is required')
+    expect(mockSpawn).not.toHaveBeenCalled()
   })
 })

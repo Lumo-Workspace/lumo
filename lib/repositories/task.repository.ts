@@ -309,7 +309,9 @@ export const taskRepository = {
     taskId: string,
     snapshot: {
       text: string | null
-      source: 'RUN_SUMMARY' | 'DIGEST' | null
+      // LUM-597: 'AGENT' joins the source space — the agent's own verify
+      // self-report, the authoritative claim over a summarizer paraphrase.
+      source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
       sessionId: string | null
       at: Date
     }

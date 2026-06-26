@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "發生了什麼",
   "boundary.explain.button": "解釋",
   "boundary.explain.label": "解釋",
-  "boundary.explain.loading": "生成中…"
+  "boundary.explain.loading": "生成中…",
+  "acceptance.claim.realityCheck": "現實核對",
+  "acceptance.claim.selfReport": "agent 自述",
+  "acceptance.claim.synthesized": "系統複述",
+  "acceptance.claim.selfReportTip": "agent 自己在請求驗收時必須附上的自述——屬估計,會與 diff 對照核查。",
+  "acceptance.claim.synthesizedTip": "無 agent 自述——總結器對 session 的複述,作為兜底顯示。",
+  "acceptance.claim.checkPending": "已記錄自述——尚未與 diff 對照核查。",
+  "acceptance.claim.showSelfReport": "自述"
 }

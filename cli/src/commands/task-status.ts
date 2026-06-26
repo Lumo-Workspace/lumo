@@ -154,7 +154,9 @@ export interface TaskStatusResponse {
    *  older server that doesn't emit it. */
   claim?: {
     text: string | null
-    source: 'RUN_SUMMARY' | 'DIGEST' | null
+    // LUM-597: 'AGENT' = the agent's own verify self-report (authoritative);
+    // RUN_SUMMARY/DIGEST = a summarizer paraphrase fallback (SYNTHESIZED).
+    source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
   }
   /** LUM-583: whether the CLAIM faithfully reflects the delivery — the third
    *  state over 声称/核验, read from the persisted LUM-582 verdict (no LLM at
@@ -452,11 +454,18 @@ function pushClaimVsVerification(
   lines.push('  ▸ Claim — what the agent says it did')
   lines.push('    (agent self-report · estimated, not verification):')
   const claim = data.claim
-  if (claim && claim.source === 'RUN_SUMMARY' && claim.text) {
+  if (claim && claim.source === 'AGENT' && claim.text) {
+    // LUM-597: the agent's OWN self-report (attached to verify) — the
+    // authoritative claim faithfulness judges, not a summarizer paraphrase.
     for (const cl of sanitizeField(claim.text).split('\n')) {
       lines.push(`      ${cl}`)
     }
-    lines.push('      ↳ source: LLM run summary')
+    lines.push('      ↳ source: agent self-report (verify --note)')
+  } else if (claim && claim.source === 'RUN_SUMMARY' && claim.text) {
+    for (const cl of sanitizeField(claim.text).split('\n')) {
+      lines.push(`      ${cl}`)
+    }
+    lines.push('      ↳ source: synthesized run summary (no self-report)')
   } else if (claim && claim.source === 'DIGEST') {
     // LUM-583 ③ / LUM-574: a raw turn digest is not a claim — withhold it and
     // say the formal summary is still generating, same-source with the web card.

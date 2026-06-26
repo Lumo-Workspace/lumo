@@ -368,13 +368,16 @@ describe('record tab order and collapsibles', () => {
   it('claim vs verification is a collapsible section', () => {
     setStatus(statusView())
     renderTab()
+    // LUM-597: the verification block is the always-present body of the section
+    // (the claim collapsed to a reality-check line, gone here since the fixture
+    // has no claim) — use it as the open/closed marker.
     expect(
-      screen.getByText('Claim — what the agent says it did')
+      screen.getByText('Verification — what was confirmed')
     ).toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: /Claim vs verification/i })
     )
-    expect(screen.queryByText('Claim — what the agent says it did')).toBeNull()
+    expect(screen.queryByText('Verification — what was confirmed')).toBeNull()
   })
 
   it('acceptance criteria is a collapsible section', () => {

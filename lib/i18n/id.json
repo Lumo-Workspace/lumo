@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Yang terjadi",
   "boundary.explain.button": "Jelaskan",
   "boundary.explain.label": "Penjelasan",
-  "boundary.explain.loading": "Sedang dibuat…"
+  "boundary.explain.loading": "Sedang dibuat…",
+  "acceptance.claim.realityCheck": "Pemeriksaan realitas",
+  "acceptance.claim.selfReport": "laporan mandiri agen",
+  "acceptance.claim.synthesized": "disintesis",
+  "acceptance.claim.selfReportTip": "Laporan mandiri wajib dari agen sendiri, dilampirkan saat meminta tinjauan — sebuah perkiraan, diperiksa terhadap diff.",
+  "acceptance.claim.synthesizedTip": "Tidak ada laporan mandiri agen — parafrasa ringkasan sesi, ditampilkan sebagai cadangan.",
+  "acceptance.claim.checkPending": "Laporan mandiri tercatat — belum diperiksa terhadap diff.",
+  "acceptance.claim.showSelfReport": "laporan mandiri"
 }

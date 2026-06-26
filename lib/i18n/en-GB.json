@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "What happened",
   "boundary.explain.button": "Explain",
   "boundary.explain.label": "Explanation",
-  "boundary.explain.loading": "Generating…"
+  "boundary.explain.loading": "Generating…",
+  "acceptance.claim.realityCheck": "Reality check",
+  "acceptance.claim.selfReport": "agent self-report",
+  "acceptance.claim.synthesized": "synthesised",
+  "acceptance.claim.selfReportTip": "The agent’s own required self-report, attached when it requested review — an estimate, checked against the diff.",
+  "acceptance.claim.synthesizedTip": "No agent self-report — a summariser paraphrase of the session, shown as a fallback.",
+  "acceptance.claim.checkPending": "self-report recorded — not yet checked against the diff.",
+  "acceptance.claim.showSelfReport": "self-report"
 }

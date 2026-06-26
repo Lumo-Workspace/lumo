@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Điều đã xảy ra",
   "boundary.explain.button": "Giải thích",
   "boundary.explain.label": "Giải thích",
-  "boundary.explain.loading": "Đang tạo…"
+  "boundary.explain.loading": "Đang tạo…",
+  "acceptance.claim.realityCheck": "Đối chiếu thực tế",
+  "acceptance.claim.selfReport": "tự thuật của agent",
+  "acceptance.claim.synthesized": "tổng hợp",
+  "acceptance.claim.selfReportTip": "Bản tự thuật bắt buộc của chính agent, đính kèm khi yêu cầu review — chỉ là ước lượng, được đối chiếu với diff.",
+  "acceptance.claim.synthesizedTip": "Không có tự thuật của agent — bản diễn giải tóm tắt phiên, hiển thị như phương án dự phòng.",
+  "acceptance.claim.checkPending": "Đã ghi nhận tự thuật — chưa đối chiếu với diff.",
+  "acceptance.claim.showSelfReport": "tự thuật"
 }

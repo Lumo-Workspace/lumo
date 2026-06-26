@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Qué pasó",
   "boundary.explain.button": "Explicar",
   "boundary.explain.label": "Explicación",
-  "boundary.explain.loading": "Generando…"
+  "boundary.explain.loading": "Generando…",
+  "acceptance.claim.realityCheck": "Verificación de la realidad",
+  "acceptance.claim.selfReport": "autoinforme del agente",
+  "acceptance.claim.synthesized": "sintetizado",
+  "acceptance.claim.selfReportTip": "El autoinforme obligatorio del propio agente, adjuntado al solicitar la revisión: una estimación que se contrasta con el diff.",
+  "acceptance.claim.synthesizedTip": "Sin autoinforme del agente: una paráfrasis resumida de la sesión, mostrada como alternativa.",
+  "acceptance.claim.checkPending": "Autoinforme registrado: aún no se ha contrastado con el diff.",
+  "acceptance.claim.showSelfReport": "autoinforme"
 }
