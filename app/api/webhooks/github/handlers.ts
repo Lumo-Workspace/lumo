@@ -29,6 +29,7 @@ type GitHubPR = {
   base: { ref: string }
   merged_at: string | null
   closed_at: string | null
+  merge_commit_sha: string | null
 }
 
 type PullRequestPayload = {
@@ -115,6 +116,9 @@ export async function handlePullRequest(
     headBranch: pr.head.ref,
     baseBranch: pr.base.ref,
     isDraft: pr.draft,
+    // LUM-598 groundwork: persist the merge commit SHA so future automated
+    // revert detection can map a later "Revert <sha>" back to this delivery.
+    mergeCommitSha: state === 'merged' ? (pr.merge_commit_sha ?? null) : null,
     mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
   })

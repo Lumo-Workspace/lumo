@@ -31,6 +31,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task criteria set/list`, drafting the acceptance contract                              | [references/criteria.md](references/criteria.md)               |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
+| `outcome show/record` — post-hoc outcome well (falsifier oracle, rejection-only)        | [references/outcome.md](references/outcome.md)                 |
 | `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
 | `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)  | [references/doc-editing.md](references/doc-editing.md)         |
@@ -91,6 +92,11 @@ The command catalog below is a **map**: it lists every command grouped by domain
 **Cost (per-operation token read-out)** — see [task-context.md](references/task-context.md)
 
 - `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost read-out, attributing each model step's token delta to the tool(s) it ran. Scope is mutually exclusive (default = workspace last-30-days). For the per-task Top-5 inline, see `lumo task lineage`.
+
+**Outcome well (post-hoc oracle)** — see [outcome.md](references/outcome.md)
+
+- `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
+- `lumo outcome record <task> --note "<what reality did>" [--kind <kind>]` — record a human-observed post-hoc **rejection** of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; **there is no "mark satisfied" counterpart** — the well only asserts rejection. `--note` is required (the observed referent).
 
 **Artifacts & Figma** — see [artifacts-figma.md](references/artifacts-figma.md)
 

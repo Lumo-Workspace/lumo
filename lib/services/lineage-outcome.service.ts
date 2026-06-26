@@ -1,6 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { outcomeWellService } from '@/lib/services/outcome-well.service'
 
 /**
  * Stamps closing outcomes onto a task's lineage edges (DoD ③ "会闭合"). Each
@@ -56,9 +57,20 @@ export const lineageOutcomeService = {
    * sends it DONE → TODO). The merged work had to be redone, so its
    * previously-MERGED edges move laterally to REWORKED — the only path that
    * writes this verdict.
+   *
+   * LUM-598: a reopen-after-delivery is also a *post-hoc rejection* — reality
+   * made the user redo the delivery. Fold it into the outcome well as a
+   * first-class REOPENED signal so the falsifier oracle reads REJECTED. The
+   * well write is best-effort (it never blocks or fails this stamp): a missed
+   * signal is self-healing the same way the lineage stamp is.
    */
   async stampForTaskReopened(taskId: string) {
-    return lineageEdgeRepository.stampOutcomeByTask(taskId, 'REWORKED')
+    const stamped = await lineageEdgeRepository.stampOutcomeByTask(
+      taskId,
+      'REWORKED'
+    )
+    await outcomeWellService.recordReopen(taskId).catch(() => {})
+    return stamped
   },
 
   /**

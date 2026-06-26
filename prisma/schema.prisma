@@ -277,6 +277,7 @@ model Workspace {
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
   droppedFragments        DroppedFragment[]
+  outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
@@ -506,8 +507,8 @@ model Project {
 model ProjectPolicy {
   id         String   @id @default(cuid())
   projectId  String
-  sourceHash String   // sha256 of concatenated CLAUDE.md + AGENTS.md source
-  rules      Json     // PolicyRule[] (see lib/services/policy/types.ts)
+  sourceHash String // sha256 of concatenated CLAUDE.md + AGENTS.md source
+  rules      Json // PolicyRule[] (see lib/services/policy/types.ts)
   compiledAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -585,34 +586,35 @@ model Task {
   children  Task[]     @relation("TaskChildren")
   assignee  Actor?     @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
 
-  viewTaskOrders      ViewTaskOrder[]
-  comments            Comment[]
-  pullRequests        PullRequest[]
-  branches            TaskBranch[]
-  sessions            Session[]
-  activities          TaskActivity[]
-  boundaryCrossings   BoundaryCrossing[]        @relation("CrossingTask")
-  remediatesCrossings BoundaryCrossing[]        @relation("CrossingRemediation")
-  documentMentions    DocumentMention[]
-  priorityOverrides   PriorityOverride[]
-  taskTags            TaskTag[]
-  sentryIssueLinks    SentryIssueLink[]
-  memories            Memory[]
-  slackContexts       TaskSlackContext[]
-  webLinks            TaskWebLink[]
-  figmaLinks          TaskFigmaLink[]
-  artifacts           TaskArtifact[]
-  complexity          TaskComplexity?
-  lineageEdges        LineageEdge[]
-  droppedFragments    DroppedFragment[]
-  forecastSnapshot    TaskForecastSnapshot?
-  claimFaithfulness   ClaimFaithfulnessVerdict?
-  acceptanceCriteria  AcceptanceCriterion[]
-  verificationRuns              VerificationRun[]
-  verificationRunWithdrawals    VerificationRunWithdrawal[]
-  blockedByEdges                TaskDependency[]          @relation("TaskBlockedBy")
-  blockingEdges       TaskDependency[]          @relation("TaskBlocking")
-  autoBlocks          AutoBlock[]
+  viewTaskOrders             ViewTaskOrder[]
+  comments                   Comment[]
+  pullRequests               PullRequest[]
+  branches                   TaskBranch[]
+  sessions                   Session[]
+  activities                 TaskActivity[]
+  boundaryCrossings          BoundaryCrossing[]          @relation("CrossingTask")
+  remediatesCrossings        BoundaryCrossing[]          @relation("CrossingRemediation")
+  documentMentions           DocumentMention[]
+  priorityOverrides          PriorityOverride[]
+  taskTags                   TaskTag[]
+  sentryIssueLinks           SentryIssueLink[]
+  memories                   Memory[]
+  slackContexts              TaskSlackContext[]
+  webLinks                   TaskWebLink[]
+  figmaLinks                 TaskFigmaLink[]
+  artifacts                  TaskArtifact[]
+  complexity                 TaskComplexity?
+  lineageEdges               LineageEdge[]
+  droppedFragments           DroppedFragment[]
+  outcomeSignals             OutcomeSignal[]
+  forecastSnapshot           TaskForecastSnapshot?
+  claimFaithfulness          ClaimFaithfulnessVerdict?
+  acceptanceCriteria         AcceptanceCriterion[]
+  verificationRuns           VerificationRun[]
+  verificationRunWithdrawals VerificationRunWithdrawal[]
+  blockedByEdges             TaskDependency[]            @relation("TaskBlockedBy")
+  blockingEdges              TaskDependency[]            @relation("TaskBlocking")
+  autoBlocks                 AutoBlock[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -876,9 +878,9 @@ model BoundaryCrossing {
   // later hook never re-nags. Null = not yet reminded; orthogonal to disposition
   // and the DONE gate (which key only on `disposition`).
   agentNotifiedAt   DateTime?
-  advisory          Boolean  @default(false)    // LUM-590: semantic finding — surfaced, never blocks DONE
-  policyRuleRef     String?                     // LUM-590: which compiled PolicyRule fired (text/id)
-  policyRuleText    String?                     // LUM-590: frozen verbatim text of the rule at detection time
+  advisory          Boolean                      @default(false) // LUM-590: semantic finding — surfaced, never blocks DONE
+  policyRuleRef     String? // LUM-590: which compiled PolicyRule fired (text/id)
+  policyRuleText    String? // LUM-590: frozen verbatim text of the rule at detection time
   // LUM-590: lazy-cached SYSTEM-generated plain-language explanation. Generated
   // the first time a human clicks "Explain" in the panel; null = not yet generated.
   // Advisory only — never touches disposition or the DONE gate.
@@ -1043,24 +1045,29 @@ model SlackChannel {
 }
 
 model PullRequest {
-  id            String    @id @default(cuid())
-  workspaceId   String
-  taskId        String?
-  integrationId String? // null for agent-created PRs (GitHub App, not OAuth)
-  repo          String // "owner/repo"
-  number        Int
-  title         String
-  url           String
-  state         String // "open" | "closed" | "merged"
-  authorLogin   String
-  headBranch    String
-  baseBranch    String
-  isDraft       Boolean   @default(false)
-  ciStatus      String? // null | "pending" | "success" | "failure"
-  mergedAt      DateTime?
-  closedAt      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  workspaceId    String
+  taskId         String?
+  integrationId  String? // null for agent-created PRs (GitHub App, not OAuth)
+  repo           String // "owner/repo"
+  number         Int
+  title          String
+  url            String
+  state          String // "open" | "closed" | "merged"
+  authorLogin    String
+  headBranch     String
+  baseBranch     String
+  isDraft        Boolean   @default(false)
+  ciStatus       String? // null | "pending" | "success" | "failure"
+  // LUM-598: merge commit SHA GitHub reports when the PR merges. Groundwork for
+  // the post-hoc outcome well — future automated revert detection maps a later
+  // "Revert <sha>" back to the delivery via this column. Additive + nullable:
+  // historical and still-open PRs leave it null.
+  mergeCommitSha String?
+  mergedAt       DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   task             Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -2277,6 +2284,60 @@ model DroppedFragment {
   @@index([sessionId])
   @@index([workspaceId])
   @@map("dropped_fragments")
+}
+
+/// LUM-598 事后结果井 (post-hoc outcome well). The single external oracle for
+/// correctness + fidelity: the real-world fate of a delivery AFTER it ships —
+/// facts the agent cannot construct, occurring post-delivery (a revert, a
+/// reopen, a rollback, CI turning red, a downstream redirect of the design).
+///
+/// INVARIANT — falsifier, not verifier. Every row is a *rejection* signal:
+/// reality revoked, redid, or bypassed the delivery. The well NEVER records a
+/// "satisfied" signal. "N sprints, nobody touched it" is the ABSENCE of a
+/// rejection (satisfied / tolerated / unnoticed are externally indistinguish-
+/// able from outside) and reads INCONCLUSIVE — never PASS. The derived verdict
+/// is therefore only REJECTED (≥1 signal) | INCONCLUSIVE (none); there is no
+/// SATISFIED branch anywhere. Insert-only: signals are never updated or deleted.
+model OutcomeSignal {
+  id                 String              @id @default(cuid())
+  workspaceId        String
+  taskId             String
+  kind               OutcomeSignalKind
+  source             OutcomeSignalSource
+  // occurredAt = when the real-world event happened (revert/reopen time), when
+  // known; detectedAt = when the well recorded it. Both are post-delivery.
+  occurredAt         DateTime?
+  detectedAt         DateTime            @default(now())
+  // Referent evidence the agent cannot fabricate: commit/PR/session pointers, a
+  // revertsSha, or a human note for the MANUAL path. Free-form JSON, read-only.
+  evidence           Json?
+  // Audit pointers (no FK on session — it may be pruned independently).
+  sessionId          String?
+  recordedByMemberId String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([workspaceId])
+  @@map("outcome_signals")
+}
+
+enum OutcomeSignalKind {
+  REVERTED // delivery commit/PR reverted by a later change
+  REOPENED // task reopened after MERGED (folds the existing REWORKED fact)
+  ROLLED_BACK // deployment rolled back
+  CI_REGRESSION // CI turned red after the delivery landed
+  DOWNSTREAM_REDIRECT // a later change reversed this delivery's design choice
+  BYPASSED // delivery bypassed / redone elsewhere
+  MANUAL // human-recorded rejection (specifics in evidence)
+}
+
+enum OutcomeSignalSource {
+  GIT // derived from commit/revert history
+  CI // derived from CI status observed after delivery
+  LINEAGE // derived from a lineage outcome transition (reopen → REWORKED)
+  MANUAL // human-recorded via CLI
 }
 
 /// 交付时固化的 forecast 快照（LUM-319）。只存预测区间；actual 渲染时实算。
