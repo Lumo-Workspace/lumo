@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { cost } from './commands/cost'
+import { criteriaAudit } from './commands/criteria-audit'
 import { verify } from './commands/verify'
 import {
   verdict,
@@ -397,6 +398,17 @@ program
       )
     )
   )
+
+const criteria = program
+  .command('criteria')
+  .description('Workspace-level acceptance-criteria analytics')
+
+criteria
+  .command('audit')
+  .description(
+    'Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)'
+  )
+  .action(wrap(() => criteriaAudit()))
 
 const session = program
   .command('session')

@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.47.0",
+  "cliVersion": "1.48.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -65,6 +65,18 @@
       },
       "hasSubcommands": false,
       "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
+    },
+    "criteria": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Workspace-level acceptance-criteria analytics"
+    },
+    "criteria audit": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)"
     },
     "crossing": {
       "arguments": [],
