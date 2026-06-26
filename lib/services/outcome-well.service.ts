@@ -18,9 +18,15 @@ import type { InsertOutcomeSignalInput } from '@/lib/repositories/outcome-signal
  * replace. So the verdict type below has exactly two members, by construction.
  */
 
-/** The complete verdict space. There is deliberately no 'SATISFIED'/'PASS'. */
-export const OUTCOME_VERDICTS = ['REJECTED', 'INCONCLUSIVE'] as const
-export type OutcomeVerdict = (typeof OUTCOME_VERDICTS)[number]
+/**
+ * The complete verdict space. There is deliberately no 'SATISFIED'/'PASS'.
+ * Defined in ./outcome/verdict so DB-free modules (the LUM-601 git-referent
+ * detector) can share it; re-exported here to keep this module's public API.
+ */
+export { OUTCOME_VERDICTS } from '@/lib/services/outcome/verdict'
+export type { OutcomeVerdict } from '@/lib/services/outcome/verdict'
+import { OUTCOME_VERDICTS } from '@/lib/services/outcome/verdict'
+import type { OutcomeVerdict } from '@/lib/services/outcome/verdict'
 
 /**
  * Kinds a human may record manually. Excludes REOPENED, which is owned by the
