@@ -321,6 +321,13 @@ export const machineRoundBodySchema = z
       .array(machineVerdictInputSchema)
       .min(1)
       .max(CRITERIA_SET_HARD_MAX),
+    // LUM-597: the agent's required self-report ("我改了 X,因为 Y 可验收"),
+    // persisted as the AGENT claim when the round flips the task to IN_REVIEW.
+    // OPTIONAL at the schema layer (the NEW CLI enforces it client-side): an
+    // old CLI that omits it still verifies — its claim degrades to the
+    // SYNTHESIZED paraphrase, never a 4xx. It is a self-report, NOT a verdict —
+    // `.strict()` still rejects any smuggled verifierType/verdict field.
+    note: z.string().trim().min(1).max(4_000).nullish(),
   })
   .strict()
 

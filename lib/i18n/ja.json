@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "何が起きたか",
   "boundary.explain.button": "説明",
   "boundary.explain.label": "説明",
-  "boundary.explain.loading": "生成中…"
+  "boundary.explain.loading": "生成中…",
+  "acceptance.claim.realityCheck": "実態チェック",
+  "acceptance.claim.selfReport": "エージェントの自己申告",
+  "acceptance.claim.synthesized": "合成",
+  "acceptance.claim.selfReportTip": "エージェント自身による必須の自己申告。レビュー依頼時に添付され、diff と照合されます（あくまで推定）。",
+  "acceptance.claim.synthesizedTip": "エージェントの自己申告なし。セッションを要約した言い換えをフォールバックとして表示しています。",
+  "acceptance.claim.checkPending": "自己申告を記録しました。まだ diff と照合していません。",
+  "acceptance.claim.showSelfReport": "自己申告"
 }

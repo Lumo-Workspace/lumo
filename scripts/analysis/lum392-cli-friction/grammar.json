@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.41.0",
+  "cliVersion": "1.47.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3280,6 +3280,14 @@
         }
       ],
       "flags": {
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Required self-report — what you did and why it is ready (LUM-597). Recorded as your claim (source AGENT) when the round passes into IN_REVIEW, and checked against the diff for faithfulness."
+        },
         "--timeout": {
           "long": "--timeout",
           "short": null,

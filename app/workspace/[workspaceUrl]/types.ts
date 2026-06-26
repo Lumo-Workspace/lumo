@@ -842,7 +842,9 @@ export interface TrendModelView {
  *  (estimate-tier). Client mirror of the server `TaskClaim`. */
 export interface TaskClaimView {
   text: string | null
-  source: 'RUN_SUMMARY' | 'DIGEST' | null
+  // LUM-597: 'AGENT' = the agent's own verify self-report (authoritative claim);
+  // RUN_SUMMARY/DIGEST = a summarizer paraphrase fallback (SYNTHESIZED).
+  source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
 }
 
 /** Whether the CLAIM faithfully reflects the delivery (LUM-583) — the third

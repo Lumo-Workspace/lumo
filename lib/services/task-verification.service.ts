@@ -31,6 +31,7 @@ import {
 } from '@/lib/services/send-back-lifecycle'
 import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 import { taskService } from '@/lib/services/task.service'
+import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import {
@@ -434,7 +435,12 @@ export const taskVerificationService = {
     taskId: string,
     workspaceId: string,
     results: MachineVerdictInput[],
-    attribution: VerificationAttribution
+    attribution: VerificationAttribution,
+    // LUM-597: the agent's required self-report. Frozen as the AGENT claim when
+    // an all-pass round lands the task in IN_REVIEW (the moment the汇报者
+    // requests acceptance) — null for an old CLI / non-verify path, which
+    // degrades to the SYNTHESIZED paraphrase at DONE.
+    note?: string | null
   ): Promise<MachineRoundOutcome> {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     const machine = criteria.filter(c => c.verifierType === 'MACHINE')
@@ -584,6 +590,18 @@ export const taskVerificationService = {
         } else {
           taskStatus = status || taskStatus
         }
+      }
+      // LUM-597: freeze the agent's self-report as the AGENT claim at the
+      // moment the task is in review (just transitioned or re-verified while
+      // IN_REVIEW). Skipped when the task is DONE (claim locked) or the round
+      // came from an old CLI with no note (degrades to SYNTHESIZED). Best-effort
+      // inside the service — a snapshot write failure never fails the round.
+      if (note && taskStatus === 'IN_REVIEW') {
+        await taskClaimSnapshotService.recordAgentSelfClaim(
+          taskId,
+          note,
+          attribution.sourceSessionId
+        )
       }
       return {
         round,

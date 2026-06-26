@@ -137,7 +137,10 @@ describe('formatTaskStatus — Claim vs verification pairing (LUM-564)', () => {
     expect(out).toContain('Claim vs verification:')
     // Claim side: the agent's self-report text.
     expect(out).toContain('Added the claim column to task status')
-    expect(out).toContain('↳ source: LLM run summary')
+    // LUM-597: a RUN_SUMMARY claim is a summarizer paraphrase fallback (no
+    // agent self-report), labelled SYNTHESIZED rather than the authoritative
+    // "agent self-report" source.
+    expect(out).toContain('↳ source: synthesized run summary (no self-report)')
     // Verification side: the measured machine-verification conclusion.
     expect(out).toContain(
       '2 machine-verified / 0 human override (of 2 MACHINE criteria)'

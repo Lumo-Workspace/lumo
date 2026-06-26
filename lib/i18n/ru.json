@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Что произошло",
   "boundary.explain.button": "Объяснить",
   "boundary.explain.label": "Объяснение",
-  "boundary.explain.loading": "Генерация…"
+  "boundary.explain.loading": "Генерация…",
+  "acceptance.claim.realityCheck": "Проверка реальности",
+  "acceptance.claim.selfReport": "самоотчёт агента",
+  "acceptance.claim.synthesized": "синтезировано",
+  "acceptance.claim.selfReportTip": "Обязательный самоотчёт самого агента, прилагаемый при запросе ревью — оценка, сверяемая с диффом.",
+  "acceptance.claim.synthesizedTip": "Самоотчёта агента нет — обобщённый пересказ сессии, показан как запасной вариант.",
+  "acceptance.claim.checkPending": "Самоотчёт записан — ещё не сверен с диффом.",
+  "acceptance.claim.showSelfReport": "самоотчёт"
 }

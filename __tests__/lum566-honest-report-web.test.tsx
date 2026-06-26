@@ -389,17 +389,23 @@ describe('claim vs verification', () => {
     expect(
       screen.getByText('Implemented the four sections and wired them in.')
     ).toBeInTheDocument()
-    expect(screen.getByTestId('claim-provenance')).toHaveTextContent(/estimat/i)
+    // LUM-597: a RUN_SUMMARY claim is a summarizer paraphrase fallback, so the
+    // provenance reads SYNTHESIZED (the authoritative source is the agent's own
+    // self-report, source AGENT).
+    expect(screen.getByTestId('claim-provenance')).toHaveTextContent(/synthes/i)
     // the measured rollup phrase — distinct from the machine-zone header.
     expect(
       screen.getByText(/2 machine-verified · 0 human override/)
     ).toBeInTheDocument()
   })
 
-  it('says not generated yet when there is no claim', () => {
+  it('collapses the claim line entirely when there is no claim (no empty box)', () => {
     set(statusView({ claim: { text: null, source: null } }))
     render_()
-    expect(screen.getByText(/not generated yet/i)).toBeInTheDocument()
+    // LUM-597 decision-first: with no claim the reality-check row disappears,
+    // but the verification block — the decision surface — is always present.
+    expect(screen.queryByTestId('claim-reality-check')).toBeNull()
+    expect(screen.getByTestId('verification-main')).toBeInTheDocument()
   })
 
   it('marks the verification side unconfirmed before any round has run', () => {

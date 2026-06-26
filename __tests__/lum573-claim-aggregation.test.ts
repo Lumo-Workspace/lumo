@@ -31,7 +31,13 @@ jest.mock('@/lib/repositories/session.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: { setClaimSnapshot: jest.fn() },
+  // LUM-597: synthesizeForTask now reads the current snapshot first (to avoid
+  // clobbering a frozen AGENT self-claim) — default to no prior snapshot so the
+  // existing freeze behaviour is unchanged.
+  taskRepository: {
+    setClaimSnapshot: jest.fn(),
+    loadClaimSnapshot: jest.fn(() => Promise.resolve(null)),
+  },
 }))
 
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'

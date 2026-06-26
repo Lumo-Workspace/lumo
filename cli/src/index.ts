@@ -257,9 +257,16 @@ program
     '--timeout <seconds>',
     'Per-checkpointer timeout in seconds (default 600)'
   )
+  .option(
+    '--note <text>',
+    'Required self-report — what you did and why it is ready (LUM-597). Recorded as your claim (source AGENT) when the round passes into IN_REVIEW, and checked against the diff for faithfulness.'
+  )
   .action(
     wrap((task: unknown, options: unknown) =>
-      verify(task as string | undefined, options as { timeout?: string })
+      verify(
+        task as string | undefined,
+        options as { timeout?: string; note?: string }
+      )
     )
   )
 

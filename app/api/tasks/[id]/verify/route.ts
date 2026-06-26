@@ -53,7 +53,10 @@ export async function POST(request: NextRequest, { params }: Params) {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
         sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
-      }
+      },
+      // LUM-597: the agent's required self-report rides alongside the round and
+      // is frozen as the AGENT claim on the IN_REVIEW transition.
+      parsed.data.note ?? null
     )
     return NextResponse.json({ ...outcome, bindingAdvisory: advisory })
   } catch (error) {

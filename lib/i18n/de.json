@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "Was passiert ist",
   "boundary.explain.button": "Erklären",
   "boundary.explain.label": "Erklärung",
-  "boundary.explain.loading": "Wird generiert…"
+  "boundary.explain.loading": "Wird generiert…",
+  "acceptance.claim.realityCheck": "Realitätscheck",
+  "acceptance.claim.selfReport": "Selbstauskunft des Agenten",
+  "acceptance.claim.synthesized": "synthetisiert",
+  "acceptance.claim.selfReportTip": "Die verpflichtende Selbstauskunft des Agenten, beigefügt bei der Review-Anfrage – eine Schätzung, die gegen den Diff geprüft wird.",
+  "acceptance.claim.synthesizedTip": "Keine Selbstauskunft des Agenten – eine zusammenfassende Umschreibung der Sitzung, als Rückfalloption angezeigt.",
+  "acceptance.claim.checkPending": "Selbstauskunft erfasst – noch nicht gegen den Diff geprüft.",
+  "acceptance.claim.showSelfReport": "Selbstauskunft"
 }

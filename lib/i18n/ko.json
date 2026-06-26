@@ -1859,5 +1859,12 @@
   "boundary.field.whatHappened": "무슨 일이 있었나",
   "boundary.explain.button": "설명",
   "boundary.explain.label": "설명",
-  "boundary.explain.loading": "생성 중…"
+  "boundary.explain.loading": "생성 중…",
+  "acceptance.claim.realityCheck": "현실 점검",
+  "acceptance.claim.selfReport": "에이전트 자가 보고",
+  "acceptance.claim.synthesized": "합성됨",
+  "acceptance.claim.selfReportTip": "에이전트가 검토를 요청할 때 첨부하는 필수 자가 보고 — 추정치이며 diff와 대조해 확인합니다.",
+  "acceptance.claim.synthesizedTip": "에이전트 자가 보고 없음 — 세션을 요약·환언한 것으로, 대체 표시입니다.",
+  "acceptance.claim.checkPending": "자가 보고 기록됨 — 아직 diff와 대조하지 않았습니다.",
+  "acceptance.claim.showSelfReport": "자가 보고"
 }
