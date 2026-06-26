@@ -38,8 +38,28 @@ lumo outcome record LUM-42 --note "downstream rewrote the API shape this task in
 - `--kind` (case-insensitive, default `manual`): `reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual`. `reopened` is **not** a manual kind — it is owned by the automatic lineage fold.
 - `--occurred-at <iso>` — when the event actually happened (defaults to now).
 
+## `lumo outcome rate [--min N] [--json]`
+
+The workspace-level **trust × post-hoc-fate** join (LUM-603). For every delivery that has a frozen forecast snapshot, it buckets the delivery by its **delivery-time forecast-confidence** (high / medium / low — the only trust axis frozen at delivery, recomputed from the snapshot's `cohortSize` / `tokenCostBasis`) and reports each bracket's post-hoc **REJECTED** rate from the well. The question it answers once data is sufficient: _do high-trust deliveries get rejected by reality less often than low-trust ones?_
+
+```bash
+lumo outcome rate
+lumo outcome rate --min 20 --json
+```
+
+This is the falsifier discipline applied at the **query layer** — it refuses to manufacture a finding off a thin sample:
+
+- A bracket with fewer than `--min` (default 10) deliveries reads **`insufficient`** with the rate withheld — the raw `rejected/delivered` counts are still shown, but never divided into a believable proportion.
+- The per-bracket rate is an explicit **lower bound** on true failure: the well only records rejections, so a zero-signal delivery is `INCONCLUSIVE` (counted in the denominator), never "satisfied".
+- The headline **high-vs-low** comparison asserts a direction **only** when both brackets are measured _and_ their 95% confidence intervals are disjoint; otherwise it stays **`inconclusive`**.
+
+**Expect `inconclusive` today.** The well is freshly wired and under-sampled — that is the designed state, not a bug. The same command produces real strata once enough post-hoc signals accumulate (the deferred outcome the skeleton exists to read).
+
+> Scope note (debt-a): the trust axis is **task-level** forecast confidence only. Fragment-level trust is not frozen at delivery and drifts, so it is deliberately **not** joined here — doing so would read a post-hoc value against a past delivery. Freezing fragment trust is a separate follow-up.
+
 ## When to suggest
 
 - A teammate says a shipped task **was reverted / rolled back / broke prod / got redone / was bypassed** — record it with `lumo outcome record` so the well carries reality's verdict.
 - Auditing whether a "done" task actually held up — `lumo outcome show <task>` reads the well.
+- Asking whether **higher-confidence deliveries actually fail less** (does delivery-time trust predict post-hoc fate?) — `lumo outcome rate`. Expect `inconclusive` until the well fills; it will never print a correlation the sample can't support.
 - **Never** use it to mark something good: the well has no positive verdict by design. To assert a delivery met its contract, that is the acceptance loop (`lumo verify` / `lumo task status`), not the well.
