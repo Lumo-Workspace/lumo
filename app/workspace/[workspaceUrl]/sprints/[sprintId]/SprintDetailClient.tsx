@@ -57,7 +57,7 @@ export function SprintDetailClient({
   const { sprint, progress, risk, topBlockers, isLoading, error, refetch } =
     useSprintByNumber(workspaceUrl, sprintNumber)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
-  const { members, fetchMembers } = useMembers()
+  const { members } = useMembers()
   const { projects, fetchProjects } = useProjects()
   // Mirror the fetched sprint tasks into a local state tuple so
   // TaskWorkspaceView (which drives inline edits + DnD) owns the source of
@@ -83,9 +83,8 @@ export function SprintDetailClient({
     })
   }
   useEffect(() => {
-    void fetchMembers()
     void fetchProjects()
-  }, [fetchMembers, fetchProjects])
+  }, [fetchProjects])
 
   const sprintsHref = `/workspace/${workspaceUrl}/sprints`
   const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })

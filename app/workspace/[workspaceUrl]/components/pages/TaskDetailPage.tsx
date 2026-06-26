@@ -19,12 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { TaskDetail, WorkspaceMemberInfo, Page } from '../../types'
-import { CACHE_KEY } from '../../constants'
-import { writeCache } from '../../cache'
+import { TaskDetail, Page } from '../../types'
 import { pageToPath } from '../../utils'
 import { slugify } from '@/lib/utils/slugify'
-import { tasksClient, workspacesClient } from '@/lib/api-client'
+import { tasksClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
@@ -35,6 +33,7 @@ import { useTaskComments } from '../../hooks/useTaskComments'
 import { useTaskMutation } from '../../hooks/useTaskMutation'
 import { useTaskDescription } from '../../hooks/useTaskDescription'
 import { useTaskDetailState } from '../../hooks/useTaskDetailState'
+import { useMembers } from '../../hooks/useMembers'
 import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
 import { useProjects } from '../../hooks/useProjects'
@@ -89,11 +88,13 @@ export function TaskDetailPage({
     taskFullUrl,
     deleteOpen,
     setDeleteOpen,
-    members,
-    setMembers,
-    agentActors,
-    setAgentActors,
   } = state
+
+  // Members + agents come from the shared workspace-global useMembers cache
+  // (fetched once on workspace mount, staleTime 5min) — no per-page fetch or
+  // localStorage copy. Reading the shared cache keeps the assignee picker
+  // populated instantly without a refetch/flicker on navigation.
+  const { members, agentActors } = useMembers()
 
   // Read projects from the shared Provider instead of a local cached copy.
   // `ProjectsProvider` is the sole owner of the projects list + cache; a
@@ -188,7 +189,13 @@ export function TaskDetailPage({
     tc.scrollToComment(commentId)
   }, [tc.comments, tc.scrollToComment])
 
-  // ── Parallel fetch on mount ────────────────────────────────────────────────
+  // ── Fetch the full task on mount ───────────────────────────────────────────
+  //
+  // Members are NOT fetched here — they come from the shared workspace-global
+  // `useMembers` cache (above). This page used to fire its own `listMembers()`
+  // alongside the task fetch and mirror it into localStorage, bypassing the
+  // React Query cache; that duplicate request (and its divergent localStorage
+  // copy) is what caused the assignee-dropdown flicker on navigation.
   //
   // Projects are intentionally NOT fetched here — `ProjectsProvider` is the
   // sole owner of the projects list + cache. A stale `projectsClient.list()`
@@ -200,34 +207,13 @@ export function TaskDetailPage({
   // duplicated that initial load (a redundant refetch of the same data); the
   // query is the sole owner of the comment fetch.
   useEffect(() => {
-    Promise.all([
-      tasksClient
-        .getById<{ task: TaskDetail | null }>(initialTask.id)
-        .catch(() => ({ task: null })),
-      workspacesClient
-        .listMembers<{
-          members: WorkspaceMemberInfo[]
-          agentActors?: { actorId: string; name: string; avatarColor: string }[]
-        }>()
-        .catch(() => ({
-          members: [] as WorkspaceMemberInfo[],
-          agentActors: undefined,
-        })),
-    ])
-      .then(([taskData, membersData]) => {
+    tasksClient
+      .getById<{ task: TaskDetail | null }>(initialTask.id)
+      .then(taskData => {
         if (taskData.task) {
           const t = taskData.task as TaskDetail
           setTask(prev => ({ ...prev, ...t }))
           desc.setDescriptionFromFetch(t.description ?? null)
-        }
-        const freshMembers: WorkspaceMemberInfo[] = membersData.members ?? []
-        if (freshMembers.length > 0) {
-          setMembers(freshMembers)
-          writeCache(CACHE_KEY.members, freshMembers)
-        }
-        if (membersData.agentActors) {
-          setAgentActors(membersData.agentActors)
-          writeCache(CACHE_KEY.agentActors, membersData.agentActors)
         }
       })
       .catch(() => {})

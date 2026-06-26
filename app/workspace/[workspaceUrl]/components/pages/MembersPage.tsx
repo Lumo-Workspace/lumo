@@ -57,7 +57,7 @@ function formatDate(iso: string, locale: string = 'en') {
 export function MembersPage() {
   const intl = useIntl()
   const { user } = useCurrentUser()
-  const { members, setMembers, fetchMembers } = useMembers()
+  const { members, setMembers, invalidateMembers } = useMembers()
 
   const {
     invites,
@@ -93,10 +93,12 @@ export function MembersPage() {
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
+  // Members come from the shared useMembers cache (fetched once on workspace
+  // mount, staleTime 5min); mutations below invalidate it. Only invites need
+  // an explicit fetch here.
   useEffect(() => {
-    fetchMembers()
     fetchInvites()
-  }, [fetchMembers, fetchInvites])
+  }, [fetchInvites])
 
   // ─── Role update ────────────────────────────────────────────────────────────
   const handleRoleChange = async (
@@ -113,6 +115,9 @@ export function MembersPage() {
     setUpdatingRoleId(memberId)
     try {
       await workspacesClient.updateMember(memberId, { role: newRole })
+      // Reconcile the shared members cache so every other page reflects the
+      // new role instead of waiting out staleTime.
+      void invalidateMembers()
       toast.success(intl.formatMessage({ id: 'members.roleUpdated' }))
     } catch (err) {
       // Rollback
@@ -172,7 +177,9 @@ export function MembersPage() {
             <span className='text-sm font-medium text-foreground'>
               {intl.formatMessage({ id: 'members.active' })}
             </span>
-            <span className='text-xs text-muted-foreground'>{members.length}</span>
+            <span className='text-xs text-muted-foreground'>
+              {members.length}
+            </span>
           </div>
 
           <div className='rounded-lg border border-border overflow-hidden'>
@@ -294,7 +301,9 @@ export function MembersPage() {
               <span className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'members.invited' })}
               </span>
-              <span className='text-xs text-muted-foreground'>{invites.length}</span>
+              <span className='text-xs text-muted-foreground'>
+                {invites.length}
+              </span>
             </div>
 
             <div className='rounded-lg border border-border overflow-hidden'>
@@ -468,7 +477,9 @@ export function MembersPage() {
             </Button>
             <Button
               onClick={handleSendInvites}
-              disabled={sending || emailInputs.every(f => f.value.trim() === '')}
+              disabled={
+                sending || emailInputs.every(f => f.value.trim() === '')
+              }
             >
               {sending
                 ? intl.formatMessage({ id: 'common.sending' })

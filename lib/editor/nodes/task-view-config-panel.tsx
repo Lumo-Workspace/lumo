@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,11 +17,20 @@ import {
   FilterCheckboxGroup,
   type FilterOption,
 } from './task-view-filter-group'
-import type { TaskViewConfig, TaskViewGroupBy, TaskViewMode } from './task-view-config'
+import type {
+  TaskViewConfig,
+  TaskViewGroupBy,
+  TaskViewMode,
+} from './task-view-config'
 
 const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
-const GROUP_BY_ORDER: TaskViewGroupBy[] = ['none', 'status', 'project', 'milestone']
+const GROUP_BY_ORDER: TaskViewGroupBy[] = [
+  'none',
+  'status',
+  'project',
+  'milestone',
+]
 const VIEW_ORDER: TaskViewMode[] = ['list', 'kanban']
 
 interface TaskViewConfigPanelProps {
@@ -30,16 +38,15 @@ interface TaskViewConfigPanelProps {
   onChange: (next: TaskViewConfig) => void // eslint-disable-line no-unused-vars
 }
 
-export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelProps) {
+export function TaskViewConfigPanel({
+  config,
+  onChange,
+}: TaskViewConfigPanelProps) {
   const intl = useIntl()
   const { projects } = useProjects()
   const { tags } = useTags()
   const { milestones } = useWorkspaceMilestones()
-  const { members, fetchMembers } = useMembers()
-
-  useEffect(() => {
-    void fetchMembers()
-  }, [fetchMembers])
+  const { members } = useMembers()
 
   const f = config.filters
   const setFilter = (key: keyof TaskViewConfig['filters'], next: string[]) =>
@@ -48,11 +55,26 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
       filters: { ...config.filters, [key]: next.length ? next : undefined },
     })
 
-  const statusOptions: FilterOption[] = STATUS_ORDER.map(s => ({ value: s, label: API_STATUS_LABEL[s] ?? s }))
-  const priorityOptions: FilterOption[] = PRIORITY_ORDER.map(p => ({ value: p, label: PRIORITY_CONFIG[p].label }))
-  const projectOptions: FilterOption[] = projects.map(p => ({ value: p.id, label: p.name }))
-  const milestoneOptions: FilterOption[] = milestones.map(m => ({ value: m.id, label: m.name }))
-  const tagOptions: FilterOption[] = tags.map(t => ({ value: t.id, label: t.name }))
+  const statusOptions: FilterOption[] = STATUS_ORDER.map(s => ({
+    value: s,
+    label: API_STATUS_LABEL[s] ?? s,
+  }))
+  const priorityOptions: FilterOption[] = PRIORITY_ORDER.map(p => ({
+    value: p,
+    label: PRIORITY_CONFIG[p].label,
+  }))
+  const projectOptions: FilterOption[] = projects.map(p => ({
+    value: p.id,
+    label: p.name,
+  }))
+  const milestoneOptions: FilterOption[] = milestones.map(m => ({
+    value: m.id,
+    label: m.name,
+  }))
+  const tagOptions: FilterOption[] = tags.map(t => ({
+    value: t.id,
+    label: t.name,
+  }))
   const memberOptions: FilterOption[] = members
     .filter(m => m.actorId)
     .map(m => ({ value: m.actorId as string, label: m.name }))
@@ -80,10 +102,16 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
           contentEditable={false}
           onMouseDown={e => e.preventDefault()}
           className='h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground'
-          aria-label={intl.formatMessage({ id: 'editor.taskView.configure', defaultMessage: 'Configure task view' })}
+          aria-label={intl.formatMessage({
+            id: 'editor.taskView.configure',
+            defaultMessage: 'Configure task view',
+          })}
         >
           <SlidersHorizontal size={13} />
-          {intl.formatMessage({ id: 'editor.taskView.configure', defaultMessage: 'Configure task view' })}
+          {intl.formatMessage({
+            id: 'editor.taskView.configure',
+            defaultMessage: 'Configure task view',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -94,7 +122,10 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
       >
         <div className='space-y-1'>
           <p className='px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-            {intl.formatMessage({ id: 'editor.taskView.viewLabel', defaultMessage: 'View' })}
+            {intl.formatMessage({
+              id: 'editor.taskView.viewLabel',
+              defaultMessage: 'View',
+            })}
           </p>
           <div className='flex flex-wrap gap-1'>
             {VIEW_ORDER.map(v => (
@@ -117,7 +148,10 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
 
         <div className='space-y-1'>
           <p className='px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-            {intl.formatMessage({ id: 'editor.taskView.groupByLabel', defaultMessage: 'Group by' })}
+            {intl.formatMessage({
+              id: 'editor.taskView.groupByLabel',
+              defaultMessage: 'Group by',
+            })}
           </p>
           <div className='flex flex-wrap gap-1'>
             {GROUP_BY_ORDER.map(g => (
@@ -136,37 +170,55 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
         </div>
 
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.project', defaultMessage: 'Projects' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.project',
+            defaultMessage: 'Projects',
+          })}
           options={projectOptions}
           selected={f.projectIds ?? []}
           onChange={n => setFilter('projectIds', n)}
         />
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.milestone', defaultMessage: 'Milestones' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.milestone',
+            defaultMessage: 'Milestones',
+          })}
           options={milestoneOptions}
           selected={f.milestoneIds ?? []}
           onChange={n => setFilter('milestoneIds', n)}
         />
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.status', defaultMessage: 'Status' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.status',
+            defaultMessage: 'Status',
+          })}
           options={statusOptions}
           selected={f.statuses ?? []}
           onChange={n => setFilter('statuses', n)}
         />
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.priority', defaultMessage: 'Priority' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.priority',
+            defaultMessage: 'Priority',
+          })}
           options={priorityOptions}
           selected={f.priorities ?? []}
           onChange={n => setFilter('priorities', n)}
         />
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.tag', defaultMessage: 'Tags' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.tag',
+            defaultMessage: 'Tags',
+          })}
           options={tagOptions}
           selected={f.tagIds ?? []}
           onChange={n => setFilter('tagIds', n)}
         />
         <FilterCheckboxGroup
-          title={intl.formatMessage({ id: 'editor.taskView.filter.assignee', defaultMessage: 'Assignee' })}
+          title={intl.formatMessage({
+            id: 'editor.taskView.filter.assignee',
+            defaultMessage: 'Assignee',
+          })}
           options={memberOptions}
           selected={f.assigneeActorIds ?? []}
           onChange={n => setFilter('assigneeActorIds', n)}

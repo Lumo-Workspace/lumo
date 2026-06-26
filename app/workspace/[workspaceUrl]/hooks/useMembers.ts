@@ -18,6 +18,10 @@ interface MembersData {
   agentActors: AgentActor[]
 }
 
+// Members rarely change within a session; a generous staleTime lets every
+// page read the shared cache without refetching on navigation.
+const MEMBERS_STALE_TIME = 5 * 60 * 1000 // 5 minutes
+
 export function useMembers() {
   const queryClient = useQueryClient()
 
@@ -33,8 +37,12 @@ export function useMembers() {
         agentActors: data.agentActors ?? [],
       }
     },
-    // Caller-driven (legacy fetchMembers semantics).
-    enabled: false,
+    // Shared workspace-global cache: the first consumer to mount fetches once,
+    // every other consumer (and remounts within staleTime) reads that cache.
+    // React Query dedupes concurrent requests under the same key, so pages no
+    // longer each fire their own listMembers() — eliminating the dropdown
+    // flicker and duplicate concurrent requests of the old caller-driven design.
+    staleTime: MEMBERS_STALE_TIME,
   })
 
   // Pin `query` so `fetchMembers` is referentially stable across renders.
@@ -44,6 +52,12 @@ export function useMembers() {
   const fetchMembers = useCallback(async () => {
     await queryRef.current.refetch()
   }, [])
+
+  // Invalidate after a membership mutation (invite accepted / role change /
+  // removal) so every page reconciles instead of waiting out staleTime.
+  const invalidateMembers = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.members() })
+  }, [queryClient])
 
   const setMembers = useCallback(
     (updater: Updater<WorkspaceMemberInfo[], WorkspaceMemberInfo[]>) => {
@@ -70,6 +84,7 @@ export function useMembers() {
     members: query.data?.members ?? [],
     setMembers,
     fetchMembers,
+    invalidateMembers,
     agentActors: query.data?.agentActors ?? [],
   }
 }

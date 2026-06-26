@@ -49,12 +49,9 @@ export function MilestoneDetailPage({
   const segment = params.milestoneId
   const isCuid = MILESTONE_CUID_RE.test(segment ?? '')
   const { projects } = useProjects()
-  // Members power @-mentioning people in the milestone description. useMembers'
-  // query is disabled by default, so fetch on mount (mirrors SprintDetailClient).
-  const { members, fetchMembers } = useMembers()
-  useEffect(() => {
-    void fetchMembers()
-  }, [fetchMembers])
+  // Members power @-mentioning people in the milestone description. useMembers
+  // is a shared workspace-global query (fetched once, cached), so just read it.
+  const { members } = useMembers()
   const project = useMemo(
     () => findProjectForMilestoneSegment(projects, params.projectSlug),
     [projects, params.projectSlug]

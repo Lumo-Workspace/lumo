@@ -35,7 +35,6 @@ interface UseWorkspaceTaskHandlersOptions {
   // Members
   members: Member[]
   currentMemberId: string | undefined
-  fetchMembers: () => void
 
   // Projects
   projects: ApiProject[]
@@ -53,7 +52,6 @@ export function useWorkspaceTaskHandlers({
   setProjectTasks,
   members,
   currentMemberId,
-  fetchMembers,
   projects,
   setProjects,
   selectedProject,
@@ -65,13 +63,11 @@ export function useWorkspaceTaskHandlers({
   // description cache: taskId → description html (populated after first fetch)
   const descriptionCache = useRef<Map<string, string | null>>(new Map())
 
-  const handleOpenTask = useCallback(
-    (task: ApiTask | MyTask) => {
-      fetchMembers()
-      return task // caller sets selectedTask
-    },
-    [fetchMembers]
-  )
+  const handleOpenTask = useCallback((task: ApiTask | MyTask) => {
+    // Members come from the shared useMembers cache (fetched once on workspace
+    // mount); no per-open refetch needed.
+    return task // caller sets selectedTask
+  }, [])
 
   const patchListItem = useCallback(
     (taskId: string, patch: Record<string, unknown>): void => {
@@ -338,11 +334,10 @@ export function useWorkspaceTaskHandlers({
   // ─── Modal openers ─────────────────────────────────────────────────────
   const openNewTaskModal = useCallback(
     (assigneeId?: string, status?: ApiStatus) => {
-      fetchMembers()
       fetchProjects()
       return { assigneeId, status } // caller manages modal state
     },
-    [fetchMembers, fetchProjects]
+    [fetchProjects]
   )
 
   // ─── Delete project helper (cleans up task lists + per-task cache) ──────

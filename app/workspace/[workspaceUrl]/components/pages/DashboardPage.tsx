@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
 import { useWorkspaceRealtimeStats } from '../../hooks/useRealtimeStats'
@@ -53,10 +52,7 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
   } = useReportRefresh({ type: 'workspace' }, refetchReport)
 
   const { history, loadHistory, historyLoading } = useWorkspaceSummary()
-  const { members, agentActors, fetchMembers } = useMembers()
-  useEffect(() => {
-    fetchMembers()
-  }, [fetchMembers])
+  const { members, agentActors } = useMembers()
 
   const loading = statsLoading && reportLoading
   const error = statsError

@@ -7,9 +7,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
-import type { TaskDetail, WorkspaceMemberInfo } from '../types'
-import { CACHE_KEY } from '../constants'
-import { readCache } from '../cache'
+import type { TaskDetail } from '../types'
 import { queryKeys } from '@/lib/query/keys'
 import { slugify } from '@/lib/utils/slugify'
 
@@ -93,25 +91,11 @@ export function useTaskDetailState({
   // ── Delete dialog ──────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  // ── Members + agents (hydrate from cache) ───────────────────
-  // Projects are intentionally NOT held here — consumers should read from
-  // `ProjectsProvider` via `useProjects()`. Keeping a local copy here used to
-  // duplicate the projects cache/state and bypass the Provider (e.g. a stale
-  // `projectsClient.list()` on mount could write a deleted project back into
-  // the cache).
-  const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
-  const [agentActors, setAgentActors] = useState<
-    { actorId: string; name: string; avatarColor: string }[]
-  >([])
-
-  useEffect(() => {
-    const cachedMembers = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
-    if (cachedMembers) setMembers(cachedMembers)
-    const cachedAgents = readCache<
-      { actorId: string; name: string; avatarColor: string }[]
-    >(CACHE_KEY.agentActors)
-    if (cachedAgents) setAgentActors(cachedAgents)
-  }, [])
+  // Members + agents are NOT held here — consumers read them from the shared
+  // workspace-global `useMembers()` cache. Likewise projects come from
+  // `ProjectsProvider` via `useProjects()`. Keeping local copies here used to
+  // duplicate the shared cache and bypass it (a stale list resolving after a
+  // concurrent mutation could write deleted data back).
 
   return {
     from,
@@ -123,9 +107,5 @@ export function useTaskDetailState({
     taskFullUrl,
     deleteOpen,
     setDeleteOpen,
-    members,
-    setMembers,
-    agentActors,
-    setAgentActors,
   }
 }

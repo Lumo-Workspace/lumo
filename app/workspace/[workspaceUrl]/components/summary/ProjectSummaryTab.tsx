@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
 import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
@@ -56,10 +55,7 @@ export function ProjectSummaryTab({
   } = useReportRefresh({ type: 'project', projectId }, refetchReport)
 
   const { history, loadHistory, historyLoading } = useProjectSummary(projectId)
-  const { members, agentActors, fetchMembers } = useMembers()
-  useEffect(() => {
-    fetchMembers()
-  }, [fetchMembers])
+  const { members, agentActors } = useMembers()
 
   const loading = statsLoading && reportLoading
   const error = statsError

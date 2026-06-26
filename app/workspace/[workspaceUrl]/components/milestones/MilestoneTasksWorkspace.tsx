@@ -8,7 +8,12 @@ import { useMilestoneTasks } from '../../hooks/useMilestoneTasks'
 import { useMembers } from '../../hooks/useMembers'
 import { useProjects } from '../../hooks/useProjects'
 import { TaskWorkspaceView } from '../task-list/TaskWorkspaceView'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 
 interface MilestoneTasksWorkspaceProps {
   milestoneId: string
@@ -34,7 +39,7 @@ export function MilestoneTasksWorkspace({
 }: MilestoneTasksWorkspaceProps) {
   const intl = useIntl()
   const { tasks, isLoading, error, refetch } = useMilestoneTasks(milestoneId)
-  const { members, fetchMembers } = useMembers()
+  const { members } = useMembers()
   const { projects, fetchProjects } = useProjects()
 
   // Mirror fetched tasks into local state so the workspace owns the source of
@@ -45,9 +50,8 @@ export function MilestoneTasksWorkspace({
   }, [tasks])
 
   useEffect(() => {
-    void fetchMembers()
     void fetchProjects()
-  }, [fetchMembers, fetchProjects])
+  }, [fetchProjects])
 
   return (
     <TaskWorkspaceView
