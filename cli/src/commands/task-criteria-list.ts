@@ -1,6 +1,8 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { effectiveReferentKind } from '../../../shared/src/referent-kind'
+import type { DeclarableReferentKind } from '../../../shared/src/referent-kind'
 
 export interface CriterionRow {
   id: string
@@ -31,8 +33,14 @@ export function formatCriteriaRows(criteria: CriterionRow[]): string {
   for (const c of criteria) {
     const provenance = `${c.source}@r${c.addedAtRound}`
     const evidence = c.evidenceRequired ? '  [evidence]' : ''
+    const eff = effectiveReferentKind({
+      declared: c.referentKind ?? null,
+      verifierType: c.verifierType,
+      checkpointer: c.checkpointer,
+    })
+    const kindTag = ` ⟨${eff}⟩`
     lines.push(
-      `${c.id}  [${c.verifierType}]  ${provenance}${evidence}  ${sanitizeField(c.statement)}`
+      `${c.id}  [${c.verifierType}]  ${provenance}${evidence}${kindTag}  ${sanitizeField(c.statement)}`
     )
     if (c.checkpointer) {
       lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)

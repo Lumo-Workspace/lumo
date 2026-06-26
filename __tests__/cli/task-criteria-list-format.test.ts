@@ -37,9 +37,9 @@ describe('formatCriteriaRows', () => {
     ])
     expect(out).toBe(
       [
-        'c1  [MACHINE]  AGENT_DRAFT@r0  tests pass',
+        'c1  [MACHINE]  AGENT_DRAFT@r0 ⟨UNCLASSIFIED⟩  tests pass',
         '  ↳ check: npx jest',
-        'c2  [HUMAN]  REVIEW_ADDED@r2  [evidence]  copy reviewed',
+        'c2  [HUMAN]  REVIEW_ADDED@r2  [evidence] ⟨UNCLASSIFIED⟩  copy reviewed',
         '',
       ].join('\n')
     )
