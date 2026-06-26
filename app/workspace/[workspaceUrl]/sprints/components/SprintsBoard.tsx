@@ -312,7 +312,7 @@ export function SprintsBoard({ teamId }: { teamId: string }) {
   ]
 
   return (
-    <div className='mx-auto w-full max-w-[1140px]'>
+    <div className='mx-auto w-full max-w-[1680px]'>
       {/* Header: subtitle + actions */}
       <div className='flex flex-wrap items-start justify-between gap-3'>
         <p className='text-sm text-muted-foreground'>
