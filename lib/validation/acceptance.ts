@@ -8,7 +8,11 @@ import {
   isValidEvidencePointer,
   EVIDENCE_POINTER_FORMAT_HINT,
 } from '../../shared/src/acceptance-evidence'
-import { REFERENT_KIND_DECLARABLE } from '../../shared/src/referent-kind'
+import {
+  REFERENT_KIND_DECLARABLE,
+  effectiveReferentKind,
+  type DeclarableReferentKind,
+} from '../../shared/src/referent-kind'
 
 /**
  * 3–7 criteria is a SOFT range: outside it we warn, never reject. Hardening
@@ -59,6 +63,46 @@ export function humanJudgeStepsWarning(
   ).length
   if (missing === 0) return null
   return `${missing} human-judgment ${missing === 1 ? 'criterion lacks' : 'criteria lack'} judging guidance — add judgeSteps (where to look → what to do → ✓pass/✗send-back) so the human adjudicator has steps, not just an assertion`
+}
+
+/**
+ * Soft warning (LUM-605) for criteria declared EXTERNAL_FACT whose checkpointer
+ * does not actually invoke external tooling — `effectiveReferentKind` downgrades
+ * them to UNVERIFIED_ASSERTION. Like the other warnings here it is a pure helper
+ * that NEVER rejects: the criterion stores fine (an agent may legitimately mean
+ * to point at external behavior), and the verdict path (recordMachineRound) is
+ * the hard gate that refuses to accept a PASS on them. This just nudges the
+ * drafter to re-ground or honestly re-declare at draft time. HUMAN criteria are
+ * never mechanically downgraded (no checkpointer to check), so they are exempt.
+ */
+export function referentGroundingWarning(
+  criteria: ReadonlyArray<{
+    statement: string
+    verifierType: 'MACHINE' | 'HUMAN'
+    checkpointer?: string | null
+    referentKind?: string | null
+  }>
+): string | null {
+  const ungrounded = criteria.filter(
+    c =>
+      effectiveReferentKind({
+        declared: (c.referentKind ?? null) as DeclarableReferentKind | null,
+        verifierType: c.verifierType,
+        checkpointer: c.checkpointer,
+      }) === 'UNVERIFIED_ASSERTION'
+  )
+  if (ungrounded.length === 0) return null
+  const names = ungrounded
+    .map(
+      c =>
+        `"${c.statement.length > 80 ? `${c.statement.slice(0, 80)}…` : c.statement}"`
+    )
+    .join(', ')
+  return `${ungrounded.length} ${
+    ungrounded.length === 1 ? 'criterion is' : 'criteria are'
+  } declared EXTERNAL_FACT but the checkpointer does not invoke external tooling (git/gh/curl/psql/…) — stored as-is, but \`lumo verify\` will not accept a PASS on ${
+    ungrounded.length === 1 ? 'it' : 'them'
+  } until re-grounded against a real external fact or honestly re-declared as AGENT_CONSTRUCTED_STATE: ${names}`
 }
 
 /**

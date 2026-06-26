@@ -60,6 +60,45 @@ describe('classifyCheckpointerGrounding', () => {
       classifyCheckpointerGrounding('git diff origin/main | grep DROP')
     ).toBe('EXTERNAL')
   })
+
+  // LUM-605 — close the C hole: EXTERNAL requires a CONSUMED, non-no-op external
+  // command (output piped/substituted into an assertion, or its exit IS the
+  // verdict). A no-op or output-discarded external word must NOT ground EXTERNAL.
+  it('no-op decoy `git --version && cat frozen.txt | grep x` → ASSERTION_ONLY (git output never consumed)', () => {
+    expect(
+      classifyCheckpointerGrounding(
+        "bash -c 'git --version && cat frozen.txt | grep x'"
+      )
+    ).toBe('ASSERTION_ONLY')
+  })
+  it('unconsumed-external decoy `git log --oneline -1 && grep x frozen.txt` → ASSERTION_ONLY (git gates but output discarded, frozen file is the real check)', () => {
+    expect(
+      classifyCheckpointerGrounding('git log --oneline -1 && grep x frozen.txt')
+    ).toBe('ASSERTION_ONLY')
+  })
+  it('a no-op external whose exit is the verdict still does not ground (`grep x frozen.txt && git --version`)', () => {
+    expect(
+      classifyCheckpointerGrounding('grep x frozen.txt && git --version')
+    ).toBe('ASSERTION_ONLY')
+  })
+  it('terminal external whose exit IS the verdict still grounds EXTERNAL (`grep x f && git diff --quiet origin/main`)', () => {
+    expect(
+      classifyCheckpointerGrounding('grep x f && git diff --quiet origin/main')
+    ).toBe('EXTERNAL')
+  })
+  it('bare terminal external (gh pr list) grounds EXTERNAL (exit code is the verdict)', () => {
+    expect(classifyCheckpointerGrounding('gh pr list')).toBe('EXTERNAL')
+  })
+  it('prisma migrate status grounds EXTERNAL (external phrase)', () => {
+    expect(classifyCheckpointerGrounding('prisma migrate status')).toBe(
+      'EXTERNAL'
+    )
+  })
+  it('external piped into a consumer in a non-terminal segment still grounds (`git diff | grep DROP && echo ok`)', () => {
+    expect(
+      classifyCheckpointerGrounding('git diff | grep DROP && echo ok')
+    ).toBe('EXTERNAL')
+  })
 })
 
 describe('effectiveReferentKind', () => {
@@ -87,6 +126,15 @@ describe('effectiveReferentKind', () => {
         declared: 'EXTERNAL_FACT',
         verifierType: 'MACHINE',
         checkpointer: 'test 1 = 1',
+      })
+    ).toBe('UNVERIFIED_ASSERTION')
+  })
+  it('downgrades the LUM-605 no-op decoy declared EXTERNAL_FACT to UNVERIFIED_ASSERTION', () => {
+    expect(
+      effectiveReferentKind({
+        declared: 'EXTERNAL_FACT',
+        verifierType: 'MACHINE',
+        checkpointer: "bash -c 'git --version && cat frozen.txt | grep x'",
       })
     ).toBe('UNVERIFIED_ASSERTION')
   })

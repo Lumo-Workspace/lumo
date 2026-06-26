@@ -11,6 +11,7 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   criteriaCountWarning,
   humanJudgeStepsWarning,
+  referentGroundingWarning,
   type CriteriaSetItem,
   type CriteriaCauseTag,
 } from '@/lib/validation/acceptance'
@@ -367,6 +368,8 @@ export const taskCriteriaService = {
       warning: criteria.length === 0 ? null : criteriaCountWarning(criteria),
       judgeStepsWarning:
         criteria.length === 0 ? null : humanJudgeStepsWarning(criteria),
+      referentWarning:
+        criteria.length === 0 ? null : referentGroundingWarning(criteria),
     }
   },
 
@@ -523,6 +526,7 @@ export const taskCriteriaService = {
       criteria,
       warning: criteriaCountWarning(criteria),
       judgeStepsWarning: humanJudgeStepsWarning(criteria),
+      referentWarning: referentGroundingWarning(criteria),
     }
   },
 
@@ -580,6 +584,7 @@ export const taskCriteriaService = {
       criteria,
       warning: criteriaCountWarning(criteria),
       judgeStepsWarning: humanJudgeStepsWarning(criteria),
+      referentWarning: referentGroundingWarning(criteria),
     }
   },
 }

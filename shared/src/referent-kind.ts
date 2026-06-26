@@ -62,6 +62,21 @@ function wordMatches(word: string, tools: string[]): boolean {
 }
 
 /**
+ * No-op external invocations (LUM-605): forms whose exit code and output are
+ * constant w.r.t. external state (`git --version`, `gh --help`, …). An external
+ * tool invoked this way establishes no external fact, so it must never ground
+ * EXTERNAL — this is half of the C-hole fix (the other half is the consumption
+ * requirement below). Kept deliberately small/conservative: a smaller set means
+ * fewer real external checks get mistaken for no-ops (we'd rather under-flag a
+ * decoy than false-downgrade a genuine check, which enforcement now penalizes).
+ */
+const NOOP_FLAG_TOKENS = new Set(['--version', '--help'])
+/** No-op SUBCOMMAND forms — only when they are the first word after the tool
+ *  (`git version`, `gh help`). Not matched as a bare flag-anywhere, so we don't
+ *  trip on an unrelated positional like a psql `-h <host>` (host, not help). */
+const NOOP_SUBCOMMANDS = new Set(['version', 'help'])
+
+/**
  * Given a raw command word (possibly `npx jest`, `npm run build`, etc.),
  * normalize to the effective tool name. Returns null for pure wrapper tokens
  * (npx, sudo, command) that should cause us to advance to the next word.
@@ -166,6 +181,145 @@ function collectCommandWords(script: string): string[] {
   return result
 }
 
+function isExternalTool(word: string): boolean {
+  return wordMatches(word, EXTERNAL_TOOLS)
+}
+
+/**
+ * Parse one shell command segment (already split off sequencing/pipe operators)
+ * into its effective tool + whether it is a no-op invocation. Mirrors the
+ * wrapper-skipping of {@link collectCommandWords} (npx / sudo / command / npm
+ * run), then reads the post-tool tokens to flag no-op forms (LUM-605).
+ */
+function parseInvocation(
+  segment: string
+): { tool: string; isNoop: boolean } | null {
+  const cleaned = segment
+    .replace(/['"]/g, ' ')
+    .replace(/\[|\]/g, ' ')
+    .replace(/\$\{?[^}]*}?/g, ' ')
+    .trim()
+  if (!cleaned) return null
+  const tokens = cleaned.split(/\s+/).filter(Boolean)
+  let i = 0
+  while (i < tokens.length) {
+    const lower = tokens[i]!.toLowerCase()
+    if (lower === 'npx' || lower === 'sudo' || lower === 'command') {
+      i++
+      continue
+    }
+    if (lower === 'npm' && tokens[i + 1]?.toLowerCase() === 'run') {
+      i += 2
+      continue
+    }
+    break
+  }
+  if (i >= tokens.length) return null
+  const tool = normalizeCommandWord(tokens[i]!.toLowerCase())
+  const rest = tokens.slice(i + 1).map(t => t.toLowerCase())
+  const isNoop =
+    rest.some(t => NOOP_FLAG_TOKENS.has(t)) ||
+    (rest.length > 0 && NOOP_SUBCOMMANDS.has(rest[0]!))
+  return { tool, isNoop }
+}
+
+/**
+ * Does this script contain a CONSUMED, non-no-op external command (LUM-605)?
+ * "Consumed" — the discriminator that closes the C hole — means the external
+ * command's output or exit actually reaches the check's verdict:
+ *   - captured in a `$(...)` / backtick substitution (output → data → assertion);
+ *   - piped into a downstream stage (`ext | …`);
+ *   - the terminal command of the whole script (its exit status IS the verdict).
+ * A non-terminal external word whose output is discarded (the decoy
+ * `git --version && cat frozen.txt | grep`), or any no-op invocation, does NOT
+ * ground EXTERNAL.
+ */
+function groundsExternal(script: string): boolean {
+  const noComments = script.replace(/(^|\s)#[^\n]*/gm, ' ')
+  return scanScript(noComments)
+}
+
+/** Pull out substitutions / `bash -c` payloads (recursing into them) then walk
+ *  statements → `&&`/`||` segments → pipeline stages to test each consumed slot. */
+function scanScript(text: string): boolean {
+  let remaining = text
+  let foundInNested = false
+  remaining = remaining.replace(/\$\(([^)]*)\)/g, (_m, inner) => {
+    if (scanConsumed(inner)) foundInNested = true
+    return ' '
+  })
+  remaining = remaining.replace(/`([^`]*)`/g, (_m, inner) => {
+    if (scanConsumed(inner)) foundInNested = true
+    return ' '
+  })
+  remaining = remaining.replace(
+    /\b(?:bash|sh)\b[^'"]*-c\s+'([^']*)'/g,
+    (_m, payload) => {
+      if (scanScript(payload)) foundInNested = true
+      return ' '
+    }
+  )
+  remaining = remaining.replace(
+    /\b(?:bash|sh)\b[^'"]*-c\s+"([^"]*)"/g,
+    (_m, payload) => {
+      if (scanScript(payload)) foundInNested = true
+      return ' '
+    }
+  )
+  if (foundInNested) return true
+
+  const statements = remaining
+    .split(/;|\n/)
+    .map(s => s.trim())
+    .filter(Boolean)
+  for (let si = 0; si < statements.length; si++) {
+    const terminalStatement = si === statements.length - 1
+    const segments = statements[si]!.split(/&&|\|\|/)
+      .map(s => s.trim())
+      .filter(Boolean)
+    for (let gi = 0; gi < segments.length; gi++) {
+      const terminalSegment = gi === segments.length - 1
+      const stages = segments[gi]!.split(/\|/)
+        .map(s => s.trim())
+        .filter(Boolean)
+      for (let pi = 0; pi < stages.length; pi++) {
+        const finalStage = pi === stages.length - 1
+        const inv = parseInvocation(stages[pi]!)
+        if (!inv || !isExternalTool(inv.tool) || inv.isNoop) continue
+        const pipedIntoConsumer = !finalStage
+        const exitIsVerdict = finalStage && terminalSegment && terminalStatement
+        if (pipedIntoConsumer || exitIsVerdict) return true
+      }
+    }
+  }
+  return false
+}
+
+/** Substitution context: the captured output is data fed to the surrounding
+ *  assertion, so a non-no-op external command word in ANY position is consumed. */
+function scanConsumed(inner: string): boolean {
+  let remaining = inner
+  let found = false
+  remaining = remaining.replace(/\$\(([^)]*)\)/g, (_m, x) => {
+    if (scanConsumed(x)) found = true
+    return ' '
+  })
+  remaining = remaining.replace(/`([^`]*)`/g, (_m, x) => {
+    if (scanConsumed(x)) found = true
+    return ' '
+  })
+  if (found) return true
+  const segments = remaining
+    .split(/&&|\|\||;|\||\n/)
+    .map(s => s.trim())
+    .filter(Boolean)
+  for (const seg of segments) {
+    const inv = parseInvocation(seg)
+    if (inv && isExternalTool(inv.tool) && !inv.isNoop) return true
+  }
+  return false
+}
+
 export function classifyCheckpointerGrounding(
   checkpointer: string | null | undefined
 ): CheckpointerGrounding {
@@ -174,12 +328,14 @@ export function classifyCheckpointerGrounding(
   // Fast path for known two-word external phrases (e.g. prisma migrate status)
   if (EXTERNAL_PHRASES.some(p => lower.includes(p))) return 'EXTERNAL'
 
-  const words = collectCommandWords(checkpointer.toLowerCase())
+  const words = collectCommandWords(lower)
 
   if (words.length === 0) return 'NONE'
 
-  // Strongest signal wins: EXTERNAL > AGENT_HARNESS > ASSERTION_ONLY
-  if (words.some(w => wordMatches(w, EXTERNAL_TOOLS))) return 'EXTERNAL'
+  // Strongest signal wins: EXTERNAL > AGENT_HARNESS > ASSERTION_ONLY. EXTERNAL
+  // is gated on a CONSUMED, non-no-op external command (LUM-605) — a no-op or
+  // output-discarded external word falls through to harness/assertion.
+  if (groundsExternal(lower)) return 'EXTERNAL'
   if (words.some(w => wordMatches(w, HARNESS_TOOLS))) return 'AGENT_HARNESS'
   return 'ASSERTION_ONLY'
 }
