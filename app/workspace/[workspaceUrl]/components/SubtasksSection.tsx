@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { slugify } from '@/lib/utils/slugify'
 import { apiFetch } from '@/lib/api-client'
+import { useSubtaskMutations } from '../hooks/useSubtaskMutations'
 import type { TaskDetail, ApiPriority } from '../types'
 
 interface DraftSubtask {
@@ -50,6 +51,13 @@ export function SubtasksSection({
 
   const children = task.children ?? []
 
+  // Subtask edit/delete patch the parent task's detail cache optimistically
+  // (rolling back on failure); onSubtasksCreated reconciles after a success.
+  const { editSubtask, deleteSubtask } = useSubtaskMutations({
+    parentTaskId: task.id,
+    onReconcile: onSubtasksCreated,
+  })
+
   function handleChildClick(childNumber: number) {
     const identifier = `${task.teamIdentifier}-${childNumber}`
     const projectSlug = slugify(task.project.name)
@@ -67,21 +75,18 @@ export function SubtasksSection({
     const trimmed = editingTitle.trim()
     if (!trimmed) return
     setEditingId(null)
+    setError(null)
     try {
-      await apiFetch(`/api/tasks/${childId}`, {
-        method: 'PATCH',
-        body: { title: trimmed },
-      })
-      onSubtasksCreated()
+      await editSubtask(childId, trimmed)
     } catch {
       setError('Failed to update subtask')
     }
   }
 
   async function handleDeleteChild(childId: string) {
+    setError(null)
     try {
-      await apiFetch(`/api/tasks/${childId}`, { method: 'DELETE' })
-      onSubtasksCreated()
+      await deleteSubtask(childId)
     } catch {
       setError('Failed to delete subtask')
     }
@@ -198,8 +203,7 @@ export function SubtasksSection({
                       }}
                       className={cn(
                         'truncate cursor-pointer',
-                        isDone &&
-                          'line-through text-muted-foreground'
+                        isDone && 'line-through text-muted-foreground'
                       )}
                     >
                       {task.teamIdentifier}-{child.number} · {child.title}
