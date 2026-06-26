@@ -169,7 +169,7 @@ lumo criteria audit
    - `EXTERNAL_FACT` — declared as externally observable (git SHA, CI status, DB row) and the checkpointer invokes real external tooling
    - `AGENT_CONSTRUCTED_STATE` — passes by checking output the agent itself produced
    - `PENDING_OUTCOME` — deferred to post-hoc falsifier
-   - `UNVERIFIED_ASSERTION` — declared `EXTERNAL_FACT` but the checkpointer does **not** actually invoke external tooling (git/CI/HTTP); downgraded by the audit
+   - `UNVERIFIED_ASSERTION` — declared `EXTERNAL_FACT` but the checkpointer does **not** actually invoke external tooling (git/CI/HTTP); auto-downgraded. As of LUM-605 this is an **enforced gate, not just a label**: `lumo task criteria set` warns on it, and `lumo verify` blocks a PASS on it with **422 (no round burned)** until it's re-grounded or honestly re-declared `AGENT_CONSTRUCTED_STATE` (see references/criteria.md "referentKind")
    - `UNCLASSIFIED` — legacy rows predating the `referentKind` field (null in DB)
 
 2. **Self-confirming-green headline ratio** — `(AGENT_CONSTRUCTED_STATE + UNVERIFIED_ASSERTION) / classified`. Criteria in these two buckets pass by confirming only the agent's own work, not an independent external state.

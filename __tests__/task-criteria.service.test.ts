@@ -139,6 +139,7 @@ describe('taskCriteriaService.listForTask', () => {
       criteria: [],
       warning: null,
       judgeStepsWarning: null,
+      referentWarning: null,
     })
   })
 })

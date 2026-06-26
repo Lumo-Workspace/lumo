@@ -66,6 +66,9 @@ interface CriteriaResponse {
   warning: string | null
   /** Soft warning when a HUMAN criterion has no judgeSteps (LUM-465). */
   judgeStepsWarning?: string | null
+  /** Soft warning (LUM-605) for EXTERNAL_FACT criteria whose checkpointer does
+   *  not invoke external tooling — stored, but verify won't accept a PASS. */
+  referentWarning?: string | null
 }
 
 /** Client-side shape gate: fail fast on obviously malformed JSON before the
@@ -260,6 +263,11 @@ export async function taskCriteriaSet(
   }
   if (data.judgeStepsWarning) {
     process.stdout.write(`⚠ ${sanitizeField(data.judgeStepsWarning)}\n`)
+  }
+  // LUM-605: EXTERNAL_FACT criteria whose checkpointer doesn't ground external
+  // — stored, but the verify loop will refuse a PASS on them until re-grounded.
+  if (data.referentWarning) {
+    process.stdout.write(`⚠ ${sanitizeField(data.referentWarning)}\n`)
   }
 
   const readbackIssues = verifyReadback(
