@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "Bản tự thuật bắt buộc của chính agent, đính kèm khi yêu cầu review — chỉ là ước lượng, được đối chiếu với diff.",
   "acceptance.claim.synthesizedTip": "Không có tự thuật của agent — bản diễn giải tóm tắt phiên, hiển thị như phương án dự phòng.",
   "acceptance.claim.checkPending": "Đã ghi nhận tự thuật — chưa đối chiếu với diff.",
-  "acceptance.claim.showSelfReport": "tự thuật"
+  "acceptance.claim.showSelfReport": "tự thuật",
+  "acceptance.referentKind.EXTERNAL_FACT": "Sự thật bên ngoài",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Do tác nhân tạo",
+  "acceptance.referentKind.PENDING_OUTCOME": "Kết quả chờ xử lý",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Chưa xác minh"
 }

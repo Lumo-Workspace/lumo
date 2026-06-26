@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "에이전트가 검토를 요청할 때 첨부하는 필수 자가 보고 — 추정치이며 diff와 대조해 확인합니다.",
   "acceptance.claim.synthesizedTip": "에이전트 자가 보고 없음 — 세션을 요약·환언한 것으로, 대체 표시입니다.",
   "acceptance.claim.checkPending": "자가 보고 기록됨 — 아직 diff와 대조하지 않았습니다.",
-  "acceptance.claim.showSelfReport": "자가 보고"
+  "acceptance.claim.showSelfReport": "자가 보고",
+  "acceptance.referentKind.EXTERNAL_FACT": "외부 사실",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "에이전트 구성",
+  "acceptance.referentKind.PENDING_OUTCOME": "결과 대기 중",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "미검증"
 }

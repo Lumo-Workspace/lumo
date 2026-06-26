@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "Обязательный самоотчёт самого агента, прилагаемый при запросе ревью — оценка, сверяемая с диффом.",
   "acceptance.claim.synthesizedTip": "Самоотчёта агента нет — обобщённый пересказ сессии, показан как запасной вариант.",
   "acceptance.claim.checkPending": "Самоотчёт записан — ещё не сверен с диффом.",
-  "acceptance.claim.showSelfReport": "самоотчёт"
+  "acceptance.claim.showSelfReport": "самоотчёт",
+  "acceptance.referentKind.EXTERNAL_FACT": "Внешний факт",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Построено агентом",
+  "acceptance.referentKind.PENDING_OUTCOME": "Ожидаемый результат",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Непроверено"
 }

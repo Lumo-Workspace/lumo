@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "Laporan mandiri wajib dari agen sendiri, dilampirkan saat meminta tinjauan — sebuah perkiraan, diperiksa terhadap diff.",
   "acceptance.claim.synthesizedTip": "Tidak ada laporan mandiri agen — parafrasa ringkasan sesi, ditampilkan sebagai cadangan.",
   "acceptance.claim.checkPending": "Laporan mandiri tercatat — belum diperiksa terhadap diff.",
-  "acceptance.claim.showSelfReport": "laporan mandiri"
+  "acceptance.claim.showSelfReport": "laporan mandiri",
+  "acceptance.referentKind.EXTERNAL_FACT": "Fakta eksternal",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Dibangun agen",
+  "acceptance.referentKind.PENDING_OUTCOME": "Hasil tertunda",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Belum diverifikasi"
 }

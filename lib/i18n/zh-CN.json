@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "agent 自己在请求验收时必须附上的自述——属估计,会与 diff 对照核查。",
   "acceptance.claim.synthesizedTip": "无 agent 自述——总结器对 session 的复述,作为兜底显示。",
   "acceptance.claim.checkPending": "已记录自述——尚未与 diff 对照核查。",
-  "acceptance.claim.showSelfReport": "自述"
+  "acceptance.claim.showSelfReport": "自述",
+  "acceptance.referentKind.EXTERNAL_FACT": "外部事实",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "代理构建",
+  "acceptance.referentKind.PENDING_OUTCOME": "待定结果",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未经验证"
 }

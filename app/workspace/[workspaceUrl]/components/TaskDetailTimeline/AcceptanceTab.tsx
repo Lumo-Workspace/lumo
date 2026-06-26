@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { effectiveReferentKind } from '@/shared/src/referent-kind'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import type {
   TaskAcceptanceStatusView,
@@ -82,6 +83,9 @@ function toSetItems(
     // Preserve agent-drafted judging guidance (LUM-465) across a statement-only
     // edit — the server full-replaces by id, so dropping it here would wipe it.
     ...(c.judgeSteps ? { judgeSteps: c.judgeSteps } : {}),
+    // LUM-602: preserve the declared referent kind so a statement-only edit
+    // does not wipe it — the server full-replaces by id.
+    ...(c.referentKind ? { referentKind: c.referentKind } : {}),
   }))
 }
 
@@ -657,6 +661,15 @@ function CriterionRow({
   const [saveError, setSaveError] = useState(false)
   const v = c.latestVerdict
   const badge = resultBadge(c, intl)
+  // LUM-602: compute effective referent kind only when declared (null → no badge).
+  const effKind =
+    c.referentKind != null
+      ? effectiveReferentKind({
+          declared: c.referentKind,
+          verifierType: c.verifierType,
+          checkpointer: c.checkpointer,
+        })
+      : null
   // LUM-563/566: a criterion requiring proof but carrying no evidence pointer is
   // explicitly "pending" rather than silently bare. MACHINE pending is stated in
   // its disclosure; HUMAN rows have no disclosure, so flag it inline.
@@ -767,6 +780,53 @@ function CriterionRow({
           <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
             {c.verifierType}
           </span>
+          {/* LUM-602: referent kind badge — only when declared (null → no badge,
+              matching CLI no-noise behavior for legacy rows). UNVERIFIED_ASSERTION
+              is a warning: EXTERNAL_FACT claimed but checkpointer doesn't earn it. */}
+          {effKind != null ? (
+            effKind === 'UNVERIFIED_ASSERTION' ? (
+              <span
+                data-testid='referent-kind-badge'
+                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle border border-warning-border px-1.5 py-0.5 font-medium text-foreground'
+              >
+                <AlertTriangle className='size-3' aria-hidden />
+                {intl.formatMessage({
+                  id: 'acceptance.referentKind.UNVERIFIED_ASSERTION',
+                  defaultMessage: 'Unverified',
+                })}
+              </span>
+            ) : effKind === 'EXTERNAL_FACT' ? (
+              <span
+                data-testid='referent-kind-badge'
+                className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.referentKind.EXTERNAL_FACT',
+                  defaultMessage: 'External fact',
+                })}
+              </span>
+            ) : effKind === 'AGENT_CONSTRUCTED_STATE' ? (
+              <span
+                data-testid='referent-kind-badge'
+                className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.referentKind.AGENT_CONSTRUCTED_STATE',
+                  defaultMessage: 'Agent-constructed',
+                })}
+              </span>
+            ) : effKind === 'PENDING_OUTCOME' ? (
+              <span
+                data-testid='referent-kind-badge'
+                className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.referentKind.PENDING_OUTCOME',
+                  defaultMessage: 'Pending outcome',
+                })}
+              </span>
+            ) : null
+          ) : null}
           {/* Provenance only when notable — AGENT_DRAFT is the silent default. */}
           {c.source !== 'AGENT_DRAFT' ? (
             <span

@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "エージェント自身による必須の自己申告。レビュー依頼時に添付され、diff と照合されます（あくまで推定）。",
   "acceptance.claim.synthesizedTip": "エージェントの自己申告なし。セッションを要約した言い換えをフォールバックとして表示しています。",
   "acceptance.claim.checkPending": "自己申告を記録しました。まだ diff と照合していません。",
-  "acceptance.claim.showSelfReport": "自己申告"
+  "acceptance.claim.showSelfReport": "自己申告",
+  "acceptance.referentKind.EXTERNAL_FACT": "外部事実",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "エージェント構築",
+  "acceptance.referentKind.PENDING_OUTCOME": "結果待ち",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未検証"
 }

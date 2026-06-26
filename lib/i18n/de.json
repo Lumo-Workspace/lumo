@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "Die verpflichtende Selbstauskunft des Agenten, beigefügt bei der Review-Anfrage – eine Schätzung, die gegen den Diff geprüft wird.",
   "acceptance.claim.synthesizedTip": "Keine Selbstauskunft des Agenten – eine zusammenfassende Umschreibung der Sitzung, als Rückfalloption angezeigt.",
   "acceptance.claim.checkPending": "Selbstauskunft erfasst – noch nicht gegen den Diff geprüft.",
-  "acceptance.claim.showSelfReport": "Selbstauskunft"
+  "acceptance.claim.showSelfReport": "Selbstauskunft",
+  "acceptance.referentKind.EXTERNAL_FACT": "Externer Fakt",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Agentenkonstruiert",
+  "acceptance.referentKind.PENDING_OUTCOME": "Ausstehendes Ergebnis",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Ungeprüft"
 }

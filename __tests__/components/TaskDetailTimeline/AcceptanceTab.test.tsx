@@ -705,3 +705,71 @@ describe('change-state markers and removed criteria (LUM-437)', () => {
     ).toBeInTheDocument()
   })
 })
+
+// LUM-602: effective referentKind badge
+describe('referentKind badge (LUM-602)', () => {
+  // A MACHINE criterion with EXTERNAL_FACT declared but a jest (AGENT_HARNESS)
+  // checkpointer → effectiveReferentKind returns UNVERIFIED_ASSERTION (the check
+  // doesn't earn external-fact status). Badge should show "Unverified".
+  it('shows UNVERIFIED_ASSERTION badge for EXTERNAL_FACT + non-external checkpointer', () => {
+    set(
+      statusView({
+        criteria: [
+          machinePass({
+            id: 'ef1',
+            statement: 'external fact criterion',
+            referentKind: 'EXTERNAL_FACT',
+            checkpointer: 'npx jest x',
+          }),
+        ],
+      })
+    )
+    render_()
+    // The machine zone is open by default because not all machine criteria pass
+    // (ef1 has machinePassed: true, so they are all passing → zone collapses).
+    // We must expand it to see the row.
+    expandMachine()
+    expect(screen.getByTestId('referent-kind-badge')).toBeInTheDocument()
+    expect(screen.getByText('Unverified')).toBeInTheDocument()
+  })
+
+  // A MACHINE criterion with EXTERNAL_FACT declared and a real external
+  // checkpointer (e.g. git) → effectiveReferentKind returns EXTERNAL_FACT.
+  // Badge should show "External fact".
+  it('shows EXTERNAL_FACT badge for EXTERNAL_FACT + external checkpointer', () => {
+    set(
+      statusView({
+        criteria: [
+          machinePass({
+            id: 'ef2',
+            statement: 'git-verified fact',
+            referentKind: 'EXTERNAL_FACT',
+            checkpointer: 'git log --oneline -1',
+          }),
+        ],
+      })
+    )
+    render_()
+    expandMachine()
+    expect(screen.getByTestId('referent-kind-badge')).toBeInTheDocument()
+    expect(screen.getByText('External fact')).toBeInTheDocument()
+  })
+
+  // A criterion with no referentKind (null/undefined, legacy row) → no badge at all.
+  it('renders no referentKind badge when referentKind is null', () => {
+    set(
+      statusView({
+        criteria: [
+          machinePass({
+            id: 'nk1',
+            statement: 'legacy criterion no referentKind',
+            // referentKind is not set (undefined) — matches null/legacy behavior
+          }),
+        ],
+      })
+    )
+    render_()
+    expandMachine()
+    expect(screen.queryByTestId('referent-kind-badge')).toBeNull()
+  })
+})

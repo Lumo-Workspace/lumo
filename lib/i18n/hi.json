@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "एजेंट की स्वयं की अनिवार्य स्व-रिपोर्ट, समीक्षा का अनुरोध करते समय संलग्न — एक अनुमान, जिसे diff के विरुद्ध जाँचा जाता है।",
   "acceptance.claim.synthesizedTip": "एजेंट की कोई स्व-रिपोर्ट नहीं — सत्र का सारांश-रूपांतर, विकल्प के रूप में दिखाया गया।",
   "acceptance.claim.checkPending": "स्व-रिपोर्ट दर्ज — अभी diff के विरुद्ध जाँची नहीं गई।",
-  "acceptance.claim.showSelfReport": "स्व-रिपोर्ट"
+  "acceptance.claim.showSelfReport": "स्व-रिपोर्ट",
+  "acceptance.referentKind.EXTERNAL_FACT": "बाहरी तथ्य",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "एजेंट-निर्मित",
+  "acceptance.referentKind.PENDING_OUTCOME": "लंबित परिणाम",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "असत्यापित"
 }
