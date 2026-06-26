@@ -1,5 +1,9 @@
 import { makeBudgetSection } from '@/lib/context/budget'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import {
+  effectiveReferentKind,
+  type DeclarableReferentKind,
+} from '../../../shared/src/referent-kind'
 
 export interface CriterionCard {
   id: string
@@ -9,6 +13,8 @@ export interface CriterionCard {
   evidenceRequired: boolean
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
+  /** LUM-602: declared referent kind from the DB row; null on legacy rows. */
+  referentKind?: DeclarableReferentKind | null
 }
 
 const CRITERIA_HEADING = '## Acceptance criteria (contract)'
@@ -22,7 +28,8 @@ const MANIFEST_STATEMENT_MAX = 80
  */
 function provenanceTag(c: CriterionCard): string {
   if (c.source === 'HUMAN_EDIT') return ' ·（HUMAN_EDIT）'
-  if (c.source === 'REVIEW_ADDED') return ` ·（REVIEW_ADDED · r${c.addedAtRound}）`
+  if (c.source === 'REVIEW_ADDED')
+    return ` ·（REVIEW_ADDED · r${c.addedAtRound}）`
   return ''
 }
 
@@ -32,11 +39,20 @@ function provenanceTag(c: CriterionCard): string {
  * and the contract deliberately skips the untrusted wrappers — so the LUM-346
  * control-char strip happens HERE, at the render source, covering every
  * consumer (session-start hook envelope, attach echo, task context).
+ *
+ * LUM-602: when referentKind is set (non-null), appends `· ⟨<effectiveKind>⟩`
+ * to the first line so reviewers can spot UNVERIFIED_ASSERTION at a glance.
+ * Legacy rows (referentKind null/undefined) produce no tag — no noise on old
+ * tasks.
  */
 export function criterionCard(c: CriterionCard): string {
   const evidence = c.evidenceRequired ? ' · evidence required' : ''
+  const kindTag =
+    c.referentKind != null
+      ? ` · ⟨${effectiveReferentKind({ declared: c.referentKind, verifierType: c.verifierType, checkpointer: c.checkpointer })}⟩`
+      : ''
   const lines: string[] = [
-    `- [${c.verifierType}] ${sanitizeField(c.statement)}${provenanceTag(c)}${evidence}`,
+    `- [${c.verifierType}] ${sanitizeField(c.statement)}${provenanceTag(c)}${evidence}${kindTag}`,
   ]
   if (c.checkpointer) lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)
   return lines.join('\n')

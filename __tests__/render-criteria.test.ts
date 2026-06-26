@@ -110,3 +110,76 @@ describe('renderCriteriaDraftNudge', () => {
     expect(nudge).toContain('lumo task criteria set')
   })
 })
+
+describe('LUM-602 effectiveReferentKind tag in criterionCard', () => {
+  it('appends UNVERIFIED_ASSERTION tag when EXTERNAL_FACT + npx jest (non-external checkpointer)', () => {
+    const out = criterionCard(
+      card({
+        verifierType: 'MACHINE',
+        checkpointer: 'npx jest',
+        referentKind: 'EXTERNAL_FACT',
+      })
+    )
+    // The first line should carry the kind tag
+    const firstLine = out.split('\n')[0]!
+    expect(firstLine).toContain('· ⟨UNVERIFIED_ASSERTION⟩')
+    // The checkpointer line should still be rendered
+    expect(out).toContain('↳ check: npx jest')
+  })
+
+  it('appends EXTERNAL_FACT tag when EXTERNAL_FACT + gh (external checkpointer)', () => {
+    const out = criterionCard(
+      card({
+        verifierType: 'MACHINE',
+        checkpointer: 'gh pr list',
+        referentKind: 'EXTERNAL_FACT',
+      })
+    )
+    const firstLine = out.split('\n')[0]!
+    expect(firstLine).toContain('· ⟨EXTERNAL_FACT⟩')
+    expect(firstLine).not.toContain('UNVERIFIED_ASSERTION')
+  })
+
+  it('appends AGENT_CONSTRUCTED_STATE tag when declared as such', () => {
+    const out = criterionCard(
+      card({
+        verifierType: 'MACHINE',
+        checkpointer: 'npx jest',
+        referentKind: 'AGENT_CONSTRUCTED_STATE',
+      })
+    )
+    const firstLine = out.split('\n')[0]!
+    expect(firstLine).toContain('· ⟨AGENT_CONSTRUCTED_STATE⟩')
+  })
+
+  it('produces NO ⟨…⟩ tag when referentKind is absent (legacy null card)', () => {
+    // Default card() has no referentKind field — legacy row must stay quiet
+    const out = criterionCard(card())
+    expect(out).not.toContain('⟨')
+    expect(out).not.toContain('⟩')
+  })
+
+  it('produces NO ⟨…⟩ tag when referentKind is explicitly null', () => {
+    const out = criterionCard(card({ referentKind: null }))
+    expect(out).not.toContain('⟨')
+    expect(out).not.toContain('⟩')
+  })
+
+  it('kind tag appears after provenance and evidence tags on the same first line', () => {
+    const out = criterionCard(
+      card({
+        source: 'HUMAN_EDIT',
+        evidenceRequired: true,
+        referentKind: 'EXTERNAL_FACT',
+        checkpointer: 'npx jest',
+      })
+    )
+    const firstLine = out.split('\n')[0]!
+    const humanEditIdx = firstLine.indexOf('HUMAN_EDIT')
+    const evidenceIdx = firstLine.indexOf('evidence required')
+    const kindIdx = firstLine.indexOf('⟨UNVERIFIED_ASSERTION⟩')
+    expect(humanEditIdx).toBeGreaterThan(0)
+    expect(evidenceIdx).toBeGreaterThan(humanEditIdx)
+    expect(kindIdx).toBeGreaterThan(evidenceIdx)
+  })
+})
