@@ -15,7 +15,7 @@ import {
   WorkspaceMemberInfo,
   ApiProject,
 } from '../types'
-import { DescriptionEditor } from './DescriptionEditor'
+import { DescriptionEditor } from './DescriptionEditorLazy'
 import { useMentionSources } from '../hooks/useMentionSources'
 import { AiDescriptionPrompt } from './AiDescriptionPrompt'
 import { TypographyH3 } from '@/components/ui/typography'

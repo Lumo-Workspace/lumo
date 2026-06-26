@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
 import type { WorkspaceMemberInfo } from '../../types'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { TypographyH3 } from '@/components/ui/typography'
 import { useMentionSources } from '../../hooks/useMentionSources'
 

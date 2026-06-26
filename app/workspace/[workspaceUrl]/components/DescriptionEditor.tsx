@@ -50,7 +50,7 @@ import { toast } from 'sonner'
 
 export type { TocItem }
 
-interface DescriptionEditorProps {
+export interface DescriptionEditorProps {
   value: string | null
   onCommit: (html: string | null) => void
   onChange?: (html: string | null) => void

@@ -24,7 +24,7 @@ import {
   DueDatePicker,
   FIELD_TRIGGER_CLS,
 } from '../fields'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import { usePrioritySuggestion } from '../../hooks/usePrioritySuggestion'
