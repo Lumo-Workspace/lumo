@@ -38,6 +38,28 @@ describe('classifyCheckpointerGrounding', () => {
       'EXTERNAL'
     )
   })
+
+  // NEW guardrails — command-position classifier fixes (LUM-602)
+  it('npx jest ... | grep git → AGENT_HARNESS (git is an arg to grep, not a command)', () => {
+    expect(classifyCheckpointerGrounding('npx jest 2>&1 | grep git')).toBe(
+      'AGENT_HARNESS'
+    )
+  })
+  it('test "$X" = "git is great" → ASSERTION_ONLY (git inside a string arg)', () => {
+    expect(classifyCheckpointerGrounding('test "$X" = "git is great"')).toBe(
+      'ASSERTION_ONLY'
+    )
+  })
+  it('test 1 = 1 # use git later → ASSERTION_ONLY (git only in a comment)', () => {
+    expect(classifyCheckpointerGrounding('test 1 = 1 # use git later')).toBe(
+      'ASSERTION_ONLY'
+    )
+  })
+  it('git diff origin/main | grep DROP → EXTERNAL (git is command-position)', () => {
+    expect(
+      classifyCheckpointerGrounding('git diff origin/main | grep DROP')
+    ).toBe('EXTERNAL')
+  })
 })
 
 describe('effectiveReferentKind', () => {
