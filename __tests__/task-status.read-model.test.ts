@@ -847,3 +847,38 @@ describe('acceptance status read model undo (LUM-586)', () => {
     expect(hRun.withdrawn).toBe(true)
   })
 })
+
+// LUM-602: referentKind must survive the read-model mapping — not dropped.
+// The component test previously masked this by injecting referentKind via
+// fixture spread rather than going through statusForTask.
+describe('referentKind round-trip through read model (LUM-602)', () => {
+  it('projects referentKind from the repository row onto TaskStatusCriterionView', async () => {
+    const c = criterion({ referentKind: 'EXTERNAL_FACT' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.criteria[0]!.referentKind).toBe('EXTERNAL_FACT')
+  })
+
+  it('projects AGENT_CONSTRUCTED_STATE referentKind correctly', async () => {
+    const c = criterion({ referentKind: 'AGENT_CONSTRUCTED_STATE' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.criteria[0]!.referentKind).toBe('AGENT_CONSTRUCTED_STATE')
+  })
+
+  it('maps a null referentKind (legacy row) to null in the view', async () => {
+    const c = criterion({ referentKind: null })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.criteria[0]!.referentKind).toBeNull()
+  })
+})

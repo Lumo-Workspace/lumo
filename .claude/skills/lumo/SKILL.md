@@ -93,6 +93,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo cost [--task <id>|--session <id>|--since <date>] [--by tool|model|member|session] [--json]` — per-operation token cost read-out, attributing each model step's token delta to the tool(s) it ran. Scope is mutually exclusive (default = workspace last-30-days). For the per-task Top-5 inline, see `lumo task lineage`.
 
+**Criteria audit** — workspace-level referent-kind analytics
+
+- `lumo criteria audit` — workspace-level read-out: count of acceptance criteria by effective referent kind (EXTERNAL_FACT / AGENT_CONSTRUCTED_STATE / PENDING_OUTCOME / UNVERIFIED_ASSERTION / UNCLASSIFIED) + the self-confirming-green ratio
+
 **Outcome well (post-hoc oracle)** — see [outcome.md](references/outcome.md)
 
 - `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
@@ -151,6 +155,25 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo worktree add <LUM-N> [slug]` — scaffold `.worktrees/<LUM-N>` + node_modules symlink off origin/main; run from the main checkout
 - `lumo worktree rm <LUM-N> --yes` — remove a worktree (keeps the branch unless `--delete-branch`)
 - `lumo worktree list` — list `.worktrees/` worktrees (task id, branch, dirty, node_modules link)
+
+## Criteria audit
+
+```bash
+lumo criteria audit
+```
+
+`lumo criteria audit` — workspace-level acceptance-criteria analytics. Calls `GET /api/criteria/audit` and prints two things:
+
+1. **Declared-kind distribution** — count of criteria by effective referent kind:
+   - `EXTERNAL_FACT` — declared as externally observable (git SHA, CI status, DB row) and the checkpointer invokes real external tooling
+   - `AGENT_CONSTRUCTED_STATE` — passes by checking output the agent itself produced
+   - `PENDING_OUTCOME` — deferred to post-hoc falsifier
+   - `UNVERIFIED_ASSERTION` — declared `EXTERNAL_FACT` but the checkpointer does **not** actually invoke external tooling (git/CI/HTTP); downgraded by the audit
+   - `UNCLASSIFIED` — legacy rows predating the `referentKind` field (null in DB)
+
+2. **Self-confirming-green headline ratio** — `(AGENT_CONSTRUCTED_STATE + UNVERIFIED_ASSERTION) / classified`. Criteria in these two buckets pass by confirming only the agent's own work, not an independent external state.
+
+**When to suggest**: when the user wants to audit how much of the workspace's "green" criteria are self-confirming vs externally anchored; when diagnosing whether acceptance criteria have real external hooks or are circular.
 
 ## Commands & flags that do NOT exist (common mistakes)
 

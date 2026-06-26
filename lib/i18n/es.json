@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "El autoinforme obligatorio del propio agente, adjuntado al solicitar la revisión: una estimación que se contrasta con el diff.",
   "acceptance.claim.synthesizedTip": "Sin autoinforme del agente: una paráfrasis resumida de la sesión, mostrada como alternativa.",
   "acceptance.claim.checkPending": "Autoinforme registrado: aún no se ha contrastado con el diff.",
-  "acceptance.claim.showSelfReport": "autoinforme"
+  "acceptance.claim.showSelfReport": "autoinforme",
+  "acceptance.referentKind.EXTERNAL_FACT": "Hecho externo",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Construido por agente",
+  "acceptance.referentKind.PENDING_OUTCOME": "Resultado pendiente",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "No verificado"
 }

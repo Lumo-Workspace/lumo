@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "L’auto-déclaration obligatoire de l’agent, jointe lors de la demande de revue — une estimation, vérifiée par rapport au diff.",
   "acceptance.claim.synthesizedTip": "Aucune auto-déclaration de l’agent — une paraphrase résumée de la session, affichée comme solution de repli.",
   "acceptance.claim.checkPending": "Auto-déclaration enregistrée — pas encore vérifiée par rapport au diff.",
-  "acceptance.claim.showSelfReport": "auto-déclaration"
+  "acceptance.claim.showSelfReport": "auto-déclaration",
+  "acceptance.referentKind.EXTERNAL_FACT": "Fait externe",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Construit par l'agent",
+  "acceptance.referentKind.PENDING_OUTCOME": "Résultat en attente",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Non vérifié"
 }

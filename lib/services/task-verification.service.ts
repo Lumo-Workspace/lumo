@@ -118,6 +118,13 @@ export interface TaskStatusCriterion {
   /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465);
    *  null = none drafted (legacy / MACHINE) → the card shows a fallback hint. */
   judgeSteps: string | null
+  /** LUM-602: the declarable referent kind for this criterion — what it anchors.
+   *  null for legacy rows predating the field. */
+  referentKind:
+    | 'EXTERNAL_FACT'
+    | 'AGENT_CONSTRUCTED_STATE'
+    | 'PENDING_OUTCOME'
+    | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
   latestVerdict: CriterionLatestVerdict | null
@@ -1087,6 +1094,7 @@ export const taskVerificationService = {
           checkpointer: c.checkpointer,
           evidenceRequired: c.evidenceRequired,
           judgeSteps: c.judgeSteps,
+          referentKind: c.referentKind ?? null,
           source: c.source,
           addedAtRound: c.addedAtRound,
           latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),

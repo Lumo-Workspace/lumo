@@ -704,6 +704,7 @@ export interface CriteriaSetItemInput {
   checkpointer?: string | null
   evidenceRequired?: boolean
   judgeSteps?: string | null
+  referentKind?: 'EXTERNAL_FACT' | 'AGENT_CONSTRUCTED_STATE' | 'PENDING_OUTCOME'
 }
 
 export interface CriterionLatestVerdictView {
@@ -728,6 +729,13 @@ export interface TaskStatusCriterionView {
   source: CriterionSource
   addedAtRound: number
   latestVerdict: CriterionLatestVerdictView | null
+  /** LUM-602: the declarable referent kind for this criterion — what it anchors.
+   *  null for legacy rows predating the field. */
+  referentKind?:
+    | 'EXTERNAL_FACT'
+    | 'AGENT_CONSTRUCTED_STATE'
+    | 'PENDING_OUTCOME'
+    | null
   /** Whether a checkpointer currently vouches for this criterion — true only for
    *  a MACHINE criterion whose latest MACHINE verdict is a PASS (LUM-456). A
    *  passing MACHINE criterion with this false is carried by a human override;

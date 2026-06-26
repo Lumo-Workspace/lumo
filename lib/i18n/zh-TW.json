@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "agent 自己在請求驗收時必須附上的自述——屬估計,會與 diff 對照核查。",
   "acceptance.claim.synthesizedTip": "無 agent 自述——總結器對 session 的複述,作為兜底顯示。",
   "acceptance.claim.checkPending": "已記錄自述——尚未與 diff 對照核查。",
-  "acceptance.claim.showSelfReport": "自述"
+  "acceptance.claim.showSelfReport": "自述",
+  "acceptance.referentKind.EXTERNAL_FACT": "外部事實",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "代理建構",
+  "acceptance.referentKind.PENDING_OUTCOME": "待定結果",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未經驗證"
 }

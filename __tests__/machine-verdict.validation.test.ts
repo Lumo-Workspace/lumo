@@ -120,7 +120,7 @@ describe('machineRoundBodySchema', () => {
 
 describe('criteriaSetBodySchema causeTag', () => {
   const items = [
-    { statement: 's', verifierType: 'HUMAN' },
+    { statement: 's', verifierType: 'HUMAN', referentKind: 'PENDING_OUTCOME' },
   ]
 
   it('accepts a causeTag on HUMAN_EDIT', () => {

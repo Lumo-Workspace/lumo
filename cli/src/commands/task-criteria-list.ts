@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { effectiveReferentKind } from '../../../shared/src/referent-kind'
 
 export interface CriterionRow {
   id: string
@@ -12,6 +13,12 @@ export interface CriterionRow {
   judgeSteps?: string | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
+  /** Declarable referent kind (LUM-602). */
+  referentKind?:
+    | 'EXTERNAL_FACT'
+    | 'AGENT_CONSTRUCTED_STATE'
+    | 'PENDING_OUTCOME'
+    | null
 }
 
 /**
@@ -25,8 +32,14 @@ export function formatCriteriaRows(criteria: CriterionRow[]): string {
   for (const c of criteria) {
     const provenance = `${c.source}@r${c.addedAtRound}`
     const evidence = c.evidenceRequired ? '  [evidence]' : ''
+    const eff = effectiveReferentKind({
+      declared: c.referentKind ?? null,
+      verifierType: c.verifierType,
+      checkpointer: c.checkpointer,
+    })
+    const kindTag = ` ⟨${eff}⟩`
     lines.push(
-      `${c.id}  [${c.verifierType}]  ${provenance}${evidence}  ${sanitizeField(c.statement)}`
+      `${c.id}  [${c.verifierType}]  ${provenance}${evidence}${kindTag}  ${sanitizeField(c.statement)}`
     )
     if (c.checkpointer) {
       lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)

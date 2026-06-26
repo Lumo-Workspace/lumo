@@ -50,7 +50,12 @@ const params = { params: Promise.resolve({ id: 'LUM-42' }) }
 const draftBody = {
   source: 'AGENT_DRAFT',
   criteria: [
-    { statement: 's1', verifierType: 'MACHINE', checkpointer: 'npx jest' },
+    {
+      statement: 's1',
+      verifierType: 'MACHINE',
+      checkpointer: 'npx jest',
+      referentKind: 'EXTERNAL_FACT',
+    },
   ],
 }
 
@@ -117,7 +122,14 @@ describe('PUT /api/tasks/[id]/criteria', () => {
     mockRevise.mockResolvedValue({ criteria: [], warning: null })
     const body = {
       source: 'HUMAN_EDIT',
-      criteria: [{ id: 'c-1', statement: 's', verifierType: 'HUMAN' }],
+      criteria: [
+        {
+          id: 'c-1',
+          statement: 's',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+      ],
     }
 
     const res = await PUT(req(body, { 'X-Lumo-Session-Id': 'sess-1' }), params)
@@ -140,7 +152,14 @@ describe('PUT /api/tasks/[id]/criteria', () => {
     mockRevise.mockResolvedValue({ criteria: [], warning: null })
     const body = {
       source: 'HUMAN_EDIT',
-      criteria: [{ id: 'c-1', statement: 's', verifierType: 'HUMAN' }],
+      criteria: [
+        {
+          id: 'c-1',
+          statement: 's',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+      ],
       causeTag: 'DRAFT_BLIND_SPOT',
     }
 

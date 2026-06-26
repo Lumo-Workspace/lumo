@@ -5,6 +5,47 @@ import { checkArtifactFilePath } from '../lib/path-guard'
 import { sanitizeField } from '../lib/sanitize'
 import { formatCriteriaRows, type CriterionRow } from './task-criteria-list'
 
+type SubmittedItem = {
+  statement: string
+  checkpointer?: string | null
+  referentKind?: string | null
+}
+
+/**
+ * Landing-integrity read-back (LUM-602): a 200 OK proves absence of error,
+ * not presence of correct content. Compare what the server stored (echoed in
+ * the PUT response) field-by-field against what we submitted; any divergence
+ * means the value was corrupted in transport/landing.
+ */
+export function verifyReadback(
+  submitted: SubmittedItem[],
+  stored: CriterionRow[]
+): string[] {
+  const issues: string[] = []
+  const storedByStatement = new Map(stored.map(c => [c.statement, c]))
+  for (const s of submitted) {
+    const got = storedByStatement.get(s.statement)
+    if (!got) {
+      issues.push(
+        `criterion not found after write: "${s.statement.slice(0, 60)}"`
+      )
+      continue
+    }
+    const wantCk = s.checkpointer ?? null
+    if ((got.checkpointer ?? null) !== wantCk) {
+      issues.push(
+        `checkpointer corrupted in landing for "${s.statement.slice(0, 40)}": sent ${JSON.stringify(wantCk)}, stored ${JSON.stringify(got.checkpointer ?? null)}`
+      )
+    }
+    if (s.referentKind != null && got.referentKind !== s.referentKind) {
+      issues.push(
+        `referentKind corrupted in landing for "${s.statement.slice(0, 40)}": sent ${s.referentKind}, stored ${got.referentKind}`
+      )
+    }
+  }
+  return issues
+}
+
 export interface CriteriaSetOptions {
   file?: string
   human?: boolean
@@ -43,7 +84,7 @@ function parseCriteriaJson(
     return {
       ok: false,
       error:
-        'expected a non-empty JSON array of criteria, e.g. [{"statement":"…","verifierType":"MACHINE","checkpointer":"npx jest …"}]',
+        'expected a non-empty JSON array of criteria, e.g. [{"statement":"…","verifierType":"MACHINE","checkpointer":"npx jest …","referentKind":"AGENT_CONSTRUCTED_STATE"}]',
     }
   }
   return { ok: true, items: parsed }
@@ -219,5 +260,19 @@ export async function taskCriteriaSet(
   }
   if (data.judgeStepsWarning) {
     process.stdout.write(`⚠ ${sanitizeField(data.judgeStepsWarning)}\n`)
+  }
+
+  const readbackIssues = verifyReadback(
+    criteriaItems as SubmittedItem[],
+    data.criteria
+  )
+  if (readbackIssues.length > 0) {
+    for (const issue of readbackIssues) {
+      console.error(`⚠ landing-integrity: ${sanitizeField(issue)}`)
+    }
+    console.error(
+      'Error: stored contract does not match what was submitted — do not trust the success receipt. Re-run and verify.'
+    )
+    return 1
   }
 }

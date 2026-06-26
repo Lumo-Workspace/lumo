@@ -45,6 +45,7 @@ describe('acceptanceCriterionInputSchema', () => {
       ...base,
       verifierType: 'MACHINE',
       checkpointer: 'npx jest',
+      referentKind: 'AGENT_CONSTRUCTED_STATE',
     })
     expect(parsed.success).toBe(true)
   })
@@ -53,6 +54,7 @@ describe('acceptanceCriterionInputSchema', () => {
     const parsed = acceptanceCriterionInputSchema.safeParse({
       ...base,
       verifierType: 'MACHINE',
+      referentKind: 'AGENT_CONSTRUCTED_STATE',
     })
     expect(parsed.success).toBe(false)
     if (!parsed.success) {
@@ -64,6 +66,7 @@ describe('acceptanceCriterionInputSchema', () => {
     const parsed = acceptanceCriterionInputSchema.safeParse({
       ...base,
       verifierType: 'HUMAN',
+      referentKind: 'PENDING_OUTCOME',
     })
     expect(parsed.success).toBe(true)
   })
@@ -73,6 +76,7 @@ describe('acceptanceCriterionInputSchema', () => {
       ...base,
       verifierType: 'HUMAN',
       addedAtRound: -1,
+      referentKind: 'PENDING_OUTCOME',
     })
     expect(parsed.success).toBe(false)
   })

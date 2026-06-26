@@ -32,6 +32,7 @@ function criterionSnapshot(c: {
   checkpointer?: string | null
   evidenceRequired?: boolean
   judgeSteps?: string | null
+  referentKind?: string | null
 }) {
   return {
     statement: c.statement,
@@ -39,6 +40,7 @@ function criterionSnapshot(c: {
     checkpointer: c.checkpointer ?? null,
     evidenceRequired: c.evidenceRequired ?? false,
     judgeSteps: c.judgeSteps ?? null,
+    referentKind: c.referentKind ?? null,
   }
 }
 
@@ -138,7 +140,8 @@ async function applyContractDiff(
       current.verifierType === desired.verifierType &&
       current.checkpointer === desired.checkpointer &&
       current.evidenceRequired === desired.evidenceRequired &&
-      (current.judgeSteps ?? null) === desired.judgeSteps
+      (current.judgeSteps ?? null) === desired.judgeSteps &&
+      (current.referentKind ?? null) === (desired.referentKind ?? null)
     return unchanged ? [] : [{ id: i.id, desired }]
   })
   const runsByCriterion =
@@ -190,6 +193,7 @@ async function applyContractDiff(
           checkpointer: c.checkpointer ?? null,
           evidenceRequired: c.evidenceRequired ?? false,
           judgeSteps: c.judgeSteps ?? null,
+          referentKind: c.referentKind,
           source: createSource,
           addedAtRound: cfg.round,
         },
@@ -303,6 +307,7 @@ function desiredShape(item: CriteriaSetItem) {
     checkpointer: item.checkpointer ?? null,
     evidenceRequired: item.evidenceRequired ?? false,
     judgeSteps: item.judgeSteps ?? null,
+    referentKind: item.referentKind,
   }
 }
 
@@ -450,6 +455,7 @@ export const taskCriteriaService = {
                 checkpointer: i.checkpointer ?? null,
                 evidenceRequired: i.evidenceRequired ?? false,
                 judgeSteps: i.judgeSteps ?? null,
+                referentKind: i.referentKind,
                 source: 'AGENT_DRAFT',
               },
               tx
@@ -493,6 +499,7 @@ export const taskCriteriaService = {
               checkpointer: i.checkpointer ?? null,
               evidenceRequired: i.evidenceRequired ?? false,
               judgeSteps: i.judgeSteps ?? null,
+              referentKind: i.referentKind,
               source: 'AGENT_DRAFT',
             },
             tx

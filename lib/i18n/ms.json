@@ -1866,5 +1866,9 @@
   "acceptance.claim.selfReportTip": "Laporan kendiri wajib daripada ejen sendiri, dilampirkan semasa meminta semakan — satu anggaran, disemak terhadap diff.",
   "acceptance.claim.synthesizedTip": "Tiada laporan kendiri ejen — parafrasa ringkasan sesi, dipaparkan sebagai sandaran.",
   "acceptance.claim.checkPending": "Laporan kendiri direkod — belum disemak terhadap diff.",
-  "acceptance.claim.showSelfReport": "laporan kendiri"
+  "acceptance.claim.showSelfReport": "laporan kendiri",
+  "acceptance.referentKind.EXTERNAL_FACT": "Fakta luaran",
+  "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Dibina oleh ejen",
+  "acceptance.referentKind.PENDING_OUTCOME": "Hasil belum selesai",
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Tidak disahkan"
 }
