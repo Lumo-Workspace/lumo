@@ -8,10 +8,12 @@ const machineItem = {
   statement: 'all new endpoints have route tests',
   verifierType: 'MACHINE',
   checkpointer: 'npx jest __tests__/api.tasks.criteria.route.test.ts',
+  referentKind: 'AGENT_CONSTRUCTED_STATE',
 }
 const humanItem = {
   statement: 'the criteria section reads as part of the task statement',
   verifierType: 'HUMAN',
+  referentKind: 'PENDING_OUTCOME',
 }
 
 describe('criteriaSetItemSchema', () => {
@@ -24,6 +26,7 @@ describe('criteriaSetItemSchema', () => {
     const result = criteriaSetItemSchema.safeParse({
       statement: 's',
       verifierType: 'MACHINE',
+      referentKind: 'AGENT_CONSTRUCTED_STATE',
     })
     expect(result.success).toBe(false)
     if (!result.success) {
@@ -97,14 +100,27 @@ describe('criteriaSetBodySchema AGENT_DRAFT ids (LUM-437)', () => {
   it('AGENT_DRAFT items may carry an id', () => {
     const r = criteriaSetBodySchema.safeParse({
       source: 'AGENT_DRAFT',
-      criteria: [{ id: 'abc', statement: 'x', verifierType: 'HUMAN' }],
+      criteria: [
+        {
+          id: 'abc',
+          statement: 'x',
+          verifierType: 'HUMAN',
+          referentKind: 'PENDING_OUTCOME',
+        },
+      ],
     })
     expect(r.success).toBe(true)
   })
   it('AGENT_DRAFT still rejects causeTag', () => {
     const r = criteriaSetBodySchema.safeParse({
       source: 'AGENT_DRAFT',
-      criteria: [{ statement: 'x', verifierType: 'HUMAN' }],
+      criteria: [
+        {
+          statement: 'x',
+          verifierType: 'HUMAN',
+          referentKind: 'PENDING_OUTCOME',
+        },
+      ],
       causeTag: 'NEW_INFO',
     })
     expect(r.success).toBe(false)

@@ -8,6 +8,7 @@ import {
   isValidEvidencePointer,
   EVIDENCE_POINTER_FORMAT_HINT,
 } from '../../shared/src/acceptance-evidence'
+import { REFERENT_KIND_DECLARABLE } from '../../shared/src/referent-kind'
 
 /**
  * 3–7 criteria is a SOFT range: outside it we warn, never reject. Hardening
@@ -101,9 +102,22 @@ export const acceptanceCriterionInputSchema = z
     judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
     source: z.nativeEnum(AcceptanceCriterionSource),
     addedAtRound: z.number().int().min(0).optional(),
+    referentKind: z.enum(REFERENT_KIND_DECLARABLE),
   })
   .strict()
-  .superRefine(machineRequiresCheckpointer)
+  .superRefine((c, ctx) => {
+    machineRequiresCheckpointer(c, ctx)
+    // PENDING_OUTCOME = truth lands post-delivery; it must not assert a check
+    // can verify it now. A MACHINE checkpointer contradicts the kind.
+    if (c.referentKind === 'PENDING_OUTCOME' && c.verifierType === 'MACHINE') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['referentKind'],
+        message:
+          'PENDING_OUTCOME criteria have no check today (truth is post-delivery) — draft as HUMAN / leave inconclusive, or pick EXTERNAL_FACT/AGENT_CONSTRUCTED_STATE if it is checkable now',
+      })
+    }
+  })
 
 export type AcceptanceCriterionInput = z.infer<
   typeof acceptanceCriterionInputSchema
@@ -131,9 +145,22 @@ export const criteriaSetItemSchema = z
     // Agent-drafted human-judging guidance (LUM-465). Part of the contract:
     // edits drift like any other field, a missing one on a HUMAN criterion warns.
     judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
+    referentKind: z.enum(REFERENT_KIND_DECLARABLE),
   })
   .strict()
-  .superRefine(machineRequiresCheckpointer)
+  .superRefine((c, ctx) => {
+    machineRequiresCheckpointer(c, ctx)
+    // PENDING_OUTCOME = truth lands post-delivery; it must not assert a check
+    // can verify it now. A MACHINE checkpointer contradicts the kind.
+    if (c.referentKind === 'PENDING_OUTCOME' && c.verifierType === 'MACHINE') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['referentKind'],
+        message:
+          'PENDING_OUTCOME criteria have no check today (truth is post-delivery) — draft as HUMAN / leave inconclusive, or pick EXTERNAL_FACT/AGENT_CONSTRUCTED_STATE if it is checkable now',
+      })
+    }
+  })
 
 export type CriteriaSetItem = z.infer<typeof criteriaSetItemSchema>
 
