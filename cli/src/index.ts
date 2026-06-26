@@ -26,7 +26,9 @@ import {
 import {
   outcomeRecord,
   outcomeShow,
+  outcomeRate,
   type OutcomeRecordOptions,
+  type OutcomeRateOptions,
 } from './commands/outcome'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
@@ -360,6 +362,18 @@ outcome
       outcomeRecord(task as string, options as OutcomeRecordOptions)
     )
   )
+
+outcome
+  .command('rate')
+  .description(
+    'Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read "insufficient" and the high-vs-low comparison stays "inconclusive" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied).'
+  )
+  .option(
+    '--min <N>',
+    'Per-bracket sample floor below which a rate is withheld (default 10)'
+  )
+  .option('--json', 'Emit the report as JSON')
+  .action(wrap(options => outcomeRate(options as OutcomeRateOptions)))
 
 program
   .command('next')

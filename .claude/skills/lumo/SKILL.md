@@ -31,7 +31,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task criteria set/list`, drafting the acceptance contract                              | [references/criteria.md](references/criteria.md)               |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
-| `outcome show/record` — post-hoc outcome well (falsifier oracle, rejection-only)        | [references/outcome.md](references/outcome.md)                 |
+| `outcome show/record/rate` — post-hoc outcome well (falsifier oracle, rejection-only)   | [references/outcome.md](references/outcome.md)                 |
 | `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
 | `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)  | [references/doc-editing.md](references/doc-editing.md)         |
@@ -101,6 +101,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
 - `lumo outcome record <task> --note "<what reality did>" [--kind <kind>]` — record a human-observed post-hoc **rejection** of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; **there is no "mark satisfied" counterpart** — the well only asserts rejection. `--note` is required (the observed referent).
+- `lumo outcome rate [--min N] [--json]` — workspace **trust × post-hoc-fate** join (LUM-603): per delivery-time forecast-confidence bracket (high/medium/low), the post-hoc REJECTED rate from the well. Honest by construction — thin brackets read `insufficient` (no fabricated rate), the high-vs-low comparison stays `inconclusive` until CIs separate, and the rate is a **lower bound** (no signal = INCONCLUSIVE, never satisfied). Under-sampled today by design — the skeleton produces real strata once the well fills.
 
 **Artifacts & Figma** — see [artifacts-figma.md](references/artifacts-figma.md)
 
