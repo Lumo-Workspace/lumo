@@ -1633,6 +1633,68 @@
       "hasSubcommands": false,
       "description": "Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`."
     },
+    "outcome": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Read / record the post-hoc outcome well (LUM-598)"
+    },
+    "outcome record": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--kind": {
+          "long": "--kind",
+          "short": null,
+          "value": "required",
+          "enum": [
+            "reverted",
+            "rolled_back",
+            "ci_regression",
+            "downstream_redirect",
+            "bypassed",
+            "manual"
+          ],
+          "enumCaseInsensitive": true,
+          "description": "reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual (case-insensitive; default: manual)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "What reality did (the observed referent), e.g. \"reverted in #812 after a prod incident\""
+        },
+        "--occurred-at": {
+          "long": "--occurred-at",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "When the event happened (ISO 8601; defaults to now)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no \"mark satisfied\" counterpart — the well only asserts rejection."
+    },
+    "outcome show": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
+    },
     "project": {
       "arguments": [],
       "flags": {},

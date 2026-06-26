@@ -30,6 +30,8 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'doc update',
   'hook',
   'next',
+  'outcome record',
+  'outcome show',
   'project list',
   'project memory add',
   'project memory list',

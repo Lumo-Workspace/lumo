@@ -22,6 +22,11 @@ import {
   crossingExplain,
   type CrossingExplainOptions,
 } from './commands/crossing-explain'
+import {
+  outcomeRecord,
+  outcomeShow,
+  type OutcomeRecordOptions,
+} from './commands/outcome'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -318,6 +323,40 @@ crossing
   .action(
     wrap((id: unknown, options: unknown) =>
       crossingExplain(id as string, options as CrossingExplainOptions)
+    )
+  )
+
+const outcome = program
+  .command('outcome')
+  .description('Read / record the post-hoc outcome well (LUM-598)')
+
+outcome
+  .command('show <task>')
+  .description(
+    'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
+  )
+  .action(wrap((task: unknown) => outcomeShow(task as string)))
+
+outcome
+  .command('record <task>')
+  .description(
+    'Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no "mark satisfied" counterpart — the well only asserts rejection.'
+  )
+  .requiredOption(
+    '--note <text>',
+    'What reality did (the observed referent), e.g. "reverted in #812 after a prod incident"'
+  )
+  .option(
+    '--kind <kind>',
+    'reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual (case-insensitive; default: manual)'
+  )
+  .option(
+    '--occurred-at <iso>',
+    'When the event happened (ISO 8601; defaults to now)'
+  )
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      outcomeRecord(task as string, options as OutcomeRecordOptions)
     )
   )
 

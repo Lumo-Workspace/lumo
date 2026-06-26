@@ -24,6 +24,7 @@ export interface UpsertPullRequestData {
   headBranch: string
   baseBranch: string
   isDraft: boolean
+  mergeCommitSha?: string | null
   mergedAt: Date | null
   closedAt: Date | null
 }
@@ -169,6 +170,7 @@ export const githubRepository = {
         headBranch: data.headBranch,
         baseBranch: data.baseBranch,
         isDraft: data.isDraft,
+        mergeCommitSha: data.mergeCommitSha ?? null,
         mergedAt: data.mergedAt,
         closedAt: data.closedAt,
       },
@@ -178,6 +180,9 @@ export const githubRepository = {
         isDraft: data.isDraft,
         mergedAt: data.mergedAt,
         closedAt: data.closedAt,
+        // Only set on merge; never clobber a recorded SHA back to null on a
+        // later non-merge event for the same PR.
+        ...(data.mergeCommitSha ? { mergeCommitSha: data.mergeCommitSha } : {}),
         ...(data.taskId ? { taskId: data.taskId } : {}),
       },
     })
