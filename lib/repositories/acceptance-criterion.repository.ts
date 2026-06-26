@@ -3,6 +3,7 @@ import type {
   Prisma,
   AcceptanceVerifierType,
   AcceptanceCriterionSource,
+  ReferentKind,
 } from '@prisma/client'
 
 /**
@@ -22,6 +23,8 @@ export interface CreateAcceptanceCriterionInput {
   source: AcceptanceCriterionSource
   /** Omitted → column default 0 (initial draft). */
   addedAtRound?: number
+  /** What this criterion anchors (LUM-602). Omitted → null (legacy/unclassified). */
+  referentKind?: ReferentKind | null
 }
 
 /** Patch for a HUMAN_EDIT revision. The 3–7 soft cap and the agent-lock rule
@@ -34,6 +37,7 @@ export interface UpdateAcceptanceCriterionInput {
   evidenceRequired?: boolean
   judgeSteps?: string | null
   source?: AcceptanceCriterionSource
+  referentKind?: ReferentKind | null
 }
 
 const criterionSelect = {
@@ -46,6 +50,7 @@ const criterionSelect = {
   judgeSteps: true,
   source: true,
   addedAtRound: true,
+  referentKind: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
@@ -91,6 +96,7 @@ export const acceptanceCriterionRepository = {
           ? { evidenceRequired: i.evidenceRequired }
           : {}),
         source: i.source,
+        referentKind: i.referentKind ?? null,
         ...(i.addedAtRound !== undefined
           ? { addedAtRound: i.addedAtRound }
           : {}),
@@ -115,6 +121,7 @@ export const acceptanceCriterionRepository = {
           ? { evidenceRequired: input.evidenceRequired }
           : {}),
         source: input.source,
+        referentKind: input.referentKind ?? null,
         ...(input.addedAtRound !== undefined
           ? { addedAtRound: input.addedAtRound }
           : {}),
@@ -211,6 +218,29 @@ export const acceptanceCriterionRepository = {
     return client.acceptanceCriterion.delete({
       where: { id },
       select: { id: true },
+    })
+  },
+
+  /**
+   * Active criteria across a workspace with just the fields that classify
+   * referent kind (LUM-602). The service folds these into the effective-kind
+   * tally — Prisma groupBy can't carry the derived value, so we return raw
+   * classifying fields per row.
+   */
+  async listClassifyingFieldsForWorkspace(
+    workspaceId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<
+    Array<{
+      referentKind: ReferentKind | null
+      verifierType: AcceptanceVerifierType
+      checkpointer: string | null
+    }>
+  > {
+    const client = tx ?? prisma
+    return client.acceptanceCriterion.findMany({
+      where: { deletedAt: null, task: { project: { workspaceId } } },
+      select: { referentKind: true, verifierType: true, checkpointer: true },
     })
   },
 }

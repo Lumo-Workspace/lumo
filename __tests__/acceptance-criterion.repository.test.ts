@@ -84,6 +84,7 @@ describe('acceptanceCriterionRepository', () => {
             checkpointer: 'npx jest',
             judgeSteps: null,
             source: 'AGENT_DRAFT',
+            referentKind: null,
           },
           {
             taskId: 't-1',
@@ -94,6 +95,7 @@ describe('acceptanceCriterionRepository', () => {
             evidenceRequired: true,
             source: 'REVIEW_ADDED',
             addedAtRound: 2,
+            referentKind: null,
           },
         ],
       })
@@ -121,8 +123,13 @@ describe('acceptanceCriterionRepository', () => {
           judgeSteps: null,
           source: 'REVIEW_ADDED',
           addedAtRound: 1,
+          referentKind: null,
         },
-        select: expect.objectContaining({ id: true, source: true }),
+        select: expect.objectContaining({
+          id: true,
+          source: true,
+          referentKind: true,
+        }),
       })
     })
   })
