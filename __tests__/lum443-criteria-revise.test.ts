@@ -91,8 +91,17 @@ describe('reviseAsHuman REVIEW_ADDED derivation', () => {
     await taskCriteriaService.reviseAsHuman(
       't1',
       [
-        { id: 'c-old', statement: 'old', verifierType: 'HUMAN' },
-        { statement: 'fresh gap', verifierType: 'HUMAN' },
+        {
+          id: 'c-old',
+          statement: 'old',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+        {
+          statement: 'fresh gap',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
       ],
       { actorMemberId: 'm1', sourceSessionId: null },
       'IN_REVIEW'
@@ -108,8 +117,17 @@ describe('reviseAsHuman REVIEW_ADDED derivation', () => {
     await taskCriteriaService.reviseAsHuman(
       't1',
       [
-        { id: 'c-old', statement: 'old', verifierType: 'HUMAN' },
-        { statement: 'fresh gap', verifierType: 'HUMAN' },
+        {
+          id: 'c-old',
+          statement: 'old',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+        {
+          statement: 'fresh gap',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
       ],
       { actorMemberId: 'm1', sourceSessionId: null },
       'IN_PROGRESS'
@@ -123,7 +141,14 @@ describe('reviseAsHuman REVIEW_ADDED derivation', () => {
     repo.listByTask.mockResolvedValue([existingHuman()] as any)
     await taskCriteriaService.reviseAsHuman(
       't1',
-      [{ id: 'c-old', statement: 'reworded', verifierType: 'HUMAN' }],
+      [
+        {
+          id: 'c-old',
+          statement: 'reworded',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+      ],
       { actorMemberId: 'm1', sourceSessionId: null },
       'IN_REVIEW'
     )
@@ -141,7 +166,14 @@ describe('revision audit comment via web', () => {
     repo.listByTask.mockResolvedValue([existingHuman()] as any)
     await taskCriteriaService.reviseAsHuman(
       't1',
-      [{ id: 'c-old', statement: 'reworded by human', verifierType: 'HUMAN' }],
+      [
+        {
+          id: 'c-old',
+          statement: 'reworded by human',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        },
+      ],
       { actorMemberId: 'm1', sourceSessionId: null, origin: 'web' },
       'IN_REVIEW'
     )

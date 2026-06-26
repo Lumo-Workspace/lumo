@@ -162,6 +162,7 @@ describe('LUM-465 judgeSteps', () => {
           statement: 'the card renders steps',
           verifierType: 'HUMAN',
           judgeSteps: JUDGE,
+          referentKind: 'EXTERNAL_FACT',
         } as never,
       ],
       ATTRIBUTION,
@@ -200,7 +201,13 @@ describe('LUM-465 judgeSteps', () => {
       .mockResolvedValueOnce([criterion({ judgeSteps: null })])
     const result = await taskCriteriaService.submitDraft(
       't-1',
-      [{ statement: 'the card renders steps', verifierType: 'HUMAN' } as never],
+      [
+        {
+          statement: 'the card renders steps',
+          verifierType: 'HUMAN',
+          referentKind: 'EXTERNAL_FACT',
+        } as never,
+      ],
       ATTRIBUTION,
       'TODO',
       null
@@ -224,6 +231,7 @@ describe('LUM-465 judgeSteps', () => {
           statement: 'the card renders steps',
           verifierType: 'HUMAN',
           judgeSteps: 'new guidance',
+          referentKind: 'EXTERNAL_FACT',
         } as never,
       ],
       ATTRIBUTION,
