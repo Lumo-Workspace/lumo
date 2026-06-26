@@ -105,7 +105,7 @@ export default function DashboardApp() {
     fetchProjectTasks,
   } = useProjectTasks()
 
-  const { members, fetchMembers, agentActors } = useMembers()
+  const { members, agentActors } = useMembers()
   const {
     notifications,
     unreadCount,
@@ -153,7 +153,6 @@ export default function DashboardApp() {
     setProjectTasks,
     members,
     currentMemberId,
-    fetchMembers,
     projects,
     setProjects,
     selectedProject,
@@ -276,18 +275,12 @@ export default function DashboardApp() {
     localStorage.setItem('lumo:context', context)
   }, [user?.id, workspaceUrl])
 
-  // ─── Members: workspace-global, fetch once on mount ────────────────────────
-  // Members are shared workspace data (cached under a single react-query key)
-  // consumed by nearly every page: the my-tasks list assignee column, project
-  // task tables, task detail panels, modals. The useMembers query is
-  // caller-driven (enabled: false), so a page that forgets to fetch renders an
-  // empty members list — which makes AssigneeSelect show "No assignee" for every
-  // row and an empty assignee picker. Fetching once on workspace mount populates
-  // the shared cache regardless of which page the user lands on first (my-tasks
-  // is the default route), instead of relying on each page to remember.
-  useEffect(() => {
-    fetchMembers()
-  }, [fetchMembers])
+  // ─── Members ────────────────────────────────────────────────────────────────
+  // Members are shared workspace data consumed by nearly every page (my-tasks
+  // assignee column, project task tables, task detail panels, modals). The
+  // useMembers query is now a shared workspace-global cache (enabled, staleTime
+  // 5min): mounting useMembers above auto-fetches once and every other consumer
+  // reads that cache, so no page needs to fetch members itself.
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
@@ -304,13 +297,11 @@ export default function DashboardApp() {
       // the home page (which re-fetches on every navigation).
       docTree.refresh()
     }
-    if (currentPage === 'document-editor') fetchMembers()
   }, [
     currentPage,
     fetchMyTasks,
     fetchProjects,
     fetchDocuments,
-    fetchMembers,
     docTree.refresh,
   ])
 
