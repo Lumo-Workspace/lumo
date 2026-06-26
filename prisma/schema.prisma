@@ -2383,6 +2383,16 @@ enum AcceptanceCriterionSource {
   REVIEW_ADDED
 }
 
+/// What a criterion anchors — the only dimension that determines independence
+/// (LUM-602). Agent-declared, one of these three; UNVERIFIED_ASSERTION is a
+/// falsifier-derived effective kind (shared/src/referent-kind.ts), never stored.
+/// Mirrors REFERENT_KIND_DECLARABLE in shared/src/referent-kind.ts — keep in sync.
+enum ReferentKind {
+  EXTERNAL_FACT
+  AGENT_CONSTRUCTED_STATE
+  PENDING_OUTCOME
+}
+
 enum VerificationVerdict {
   PASS
   FAIL
@@ -2421,6 +2431,10 @@ model AcceptanceCriterion {
   judgeSteps       String?
   // Verification round at which the criterion was added; initial draft = 0.
   addedAtRound     Int                       @default(0)
+  // What this criterion anchors (LUM-602). Nullable: rows predating the field
+  // are UNCLASSIFIED (an honest "predates the discipline" bucket, never
+  // backfilled). Required for NEW writes at the validation layer (forced fill).
+  referentKind     ReferentKind?
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
   // Soft-delete tombstone (LUM-437). A criterion with VerificationRun rows is
