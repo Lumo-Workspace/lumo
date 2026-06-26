@@ -10,32 +10,33 @@ jest.mock('react-intl', () => ({
 // useMentionSources is exercised separately; here we only assert what the tab
 // forwards into it (the real @people fix is passing members, not []).
 const mockUseMentionSources = jest.fn((_members: unknown) => [])
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMentionSources', () => ({
+  useMentionSources: (members: unknown) => mockUseMentionSources(members),
+}))
+
+// DescriptionEditor pulls Tiptap — stub the lazy wrapper the tab imports
+// to buttons that fire onCommit.
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/hooks/useMentionSources',
+  '@/app/workspace/[workspaceUrl]/components/DescriptionEditorLazy',
   () => ({
-    useMentionSources: (members: unknown) => mockUseMentionSources(members),
+    DescriptionEditor: ({
+      value,
+      onCommit,
+    }: {
+      value: string | null
+      onCommit: (html: string) => void
+    }) => (
+      <>
+        <button data-testid='desc' onClick={() => onCommit('<p>new body</p>')}>
+          {value ?? 'empty'}
+        </button>
+        <button data-testid='desc-empty' onClick={() => onCommit('')}>
+          empty commit
+        </button>
+      </>
+    ),
   })
 )
-
-// DescriptionEditor pulls Tiptap — stub it to buttons that fire onCommit.
-jest.mock('@/app/workspace/[workspaceUrl]/components/DescriptionEditor', () => ({
-  DescriptionEditor: ({
-    value,
-    onCommit,
-  }: {
-    value: string | null
-    onCommit: (html: string) => void
-  }) => (
-    <>
-      <button data-testid='desc' onClick={() => onCommit('<p>new body</p>')}>
-        {value ?? 'empty'}
-      </button>
-      <button data-testid='desc-empty' onClick={() => onCommit('')}>
-        empty commit
-      </button>
-    </>
-  ),
-}))
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MilestoneOverviewTab } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneOverviewTab'

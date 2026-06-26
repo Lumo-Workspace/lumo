@@ -8,7 +8,7 @@ import {
   tocLevelTier,
   type TocLevelTier,
 } from '@/lib/editor/toc-display'
-import type { TocItem } from '../DescriptionEditor'
+import type { TocItem } from '../DescriptionEditorLazy'
 
 interface DocumentTocProps {
   items: TocItem[]

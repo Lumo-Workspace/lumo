@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { isMac } from '@/lib/utils/keyboard'
 import type { MentionSources } from '@/types/mention'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
 
 interface Props {
   onCommit: (html: string | null) => void

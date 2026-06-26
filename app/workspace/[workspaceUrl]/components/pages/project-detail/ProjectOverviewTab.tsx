@@ -18,7 +18,7 @@ import { useGithubRepos } from '../../../hooks/useGithubRepos'
 import { ApiProject, ApiRepository, WorkspaceMemberInfo } from '../../../types'
 import { OwnerSelect, FIELD_TRIGGER_CLS } from '../../fields'
 import { ProjectRiskOverrideCard } from '../../summary/ProjectRiskOverrideCard'
-import { DescriptionEditor } from '../../DescriptionEditor'
+import { DescriptionEditor } from '../../DescriptionEditorLazy'
 import { TypographyH3 } from '@/components/ui/typography'
 import { IDEA_BADGE_CLS } from '../../../constants'
 import {

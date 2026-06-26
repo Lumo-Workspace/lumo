@@ -26,7 +26,7 @@ import { tasksClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { useMentionSources } from '../../hooks/useMentionSources'
 // AgentPanel hidden — agent features disabled for now
 import { useTaskComments } from '../../hooks/useTaskComments'

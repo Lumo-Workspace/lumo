@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { isMac } from '@/lib/utils/keyboard'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
 import type { MentionSources } from '@/types/mention'
 
 interface Props {
