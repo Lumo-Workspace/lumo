@@ -12,6 +12,12 @@ export interface CriterionRow {
   judgeSteps?: string | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
+  /** Declarable referent kind (LUM-602). */
+  referentKind?:
+    | 'EXTERNAL_FACT'
+    | 'AGENT_CONSTRUCTED_STATE'
+    | 'PENDING_OUTCOME'
+    | null
 }
 
 /**
