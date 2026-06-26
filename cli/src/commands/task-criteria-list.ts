@@ -2,7 +2,6 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { effectiveReferentKind } from '../../../shared/src/referent-kind'
-import type { DeclarableReferentKind } from '../../../shared/src/referent-kind'
 
 export interface CriterionRow {
   id: string

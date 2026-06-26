@@ -158,6 +158,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ## Criteria audit
 
+```bash
+lumo criteria audit
+```
+
 `lumo criteria audit` — workspace-level acceptance-criteria analytics. Calls `GET /api/criteria/audit` and prints two things:
 
 1. **Declared-kind distribution** — count of criteria by effective referent kind:
