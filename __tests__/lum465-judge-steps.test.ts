@@ -125,6 +125,7 @@ function criterion(over: Record<string, unknown> = {}) {
     verifierType: 'HUMAN' as const,
     checkpointer: null,
     evidenceRequired: false,
+    referentKind: 'EXTERNAL_FACT' as const,
     source: 'AGENT_DRAFT' as const,
     addedAtRound: 0,
     judgeSteps: null as string | null,

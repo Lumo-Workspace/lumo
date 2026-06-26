@@ -65,6 +65,7 @@ function existingHuman(id = 'c-old') {
     verifierType: 'HUMAN',
     checkpointer: null,
     evidenceRequired: false,
+    referentKind: 'EXTERNAL_FACT',
     source: 'HUMAN_EDIT',
     addedAtRound: 0,
   }
