@@ -5,11 +5,12 @@ import { outcomeRejectionService } from '@/lib/services/outcome-rejection.servic
 export const runtime = 'nodejs'
 
 /**
- * GET /api/outcome/rate — the workspace trust × post-hoc-fate read (LUM-603):
- * per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from
- * the outcome well, with honest small-N suppression and an inconclusive
- * high-vs-low comparison until the well accumulates enough signal. `?min=N`
- * overrides the per-bracket sample floor.
+ * GET /api/outcome/rate — the workspace trust × post-hoc-fate read (LUM-603 /
+ * LUM-606): per delivery-time verification-friction bucket (no-verification /
+ * single-round / multi-round-or-sendback, frozen at delivery), the post-hoc
+ * REJECTED rate from the outcome well, with honest small-N suppression and an
+ * inconclusive single-round-vs-multi comparison until the well accumulates
+ * enough signal. `?min=N` overrides the per-bucket sample floor.
  */
 export async function GET(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)

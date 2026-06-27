@@ -8,17 +8,20 @@ import { prisma } from '@/lib/db/prisma'
  * rejection signals (OutcomeSignal — the falsifier well, LUM-598). Read-only:
  * one SELECT, no business logic (that lives in the service + pure core).
  *
- * Trust axis = the snapshot's frozen confidence inputs only (cohortSize /
- * tokenCostBasis). Fragment-level trust is deliberately NOT read here: it is not
- * frozen and drifts, so joining its current value to a past delivery would be
- * the drifted-state error the task's 铁律 forbids (debt-a, deferred).
+ * Trust axis = the snapshot's frozen verification-friction scalars only
+ * (verificationRounds / sendBackCount, LUM-606). Fragment-level trust is
+ * deliberately NOT read here: it is not frozen and drifts, so joining its
+ * current value to a past delivery would be the drifted-state error the task's
+ * 铁律 forbids (debt-a, resolved by the frozen friction axis).
  */
 
-/** One delivery: its frozen confidence inputs + how many times reality rejected it. */
+/** One delivery: its frozen friction scalars + how many times reality rejected it. */
 export interface DeliveryRejectionRow {
   taskId: string
-  cohortSize: number
-  tokenCostBasis: number
+  /** Frozen verification-friction (LUM-606); null = no verification record by
+   *  capture (the no-verification bucket). */
+  verificationRounds: number | null
+  sendBackCount: number | null
   /** Count of OutcomeSignal rows for the task. >0 ⇒ REJECTED, 0 ⇒ INCONCLUSIVE. */
   signalCount: number
 }
@@ -36,15 +39,15 @@ export const outcomeRejectionRepository = {
       where: { task: { project: { workspaceId } } },
       select: {
         taskId: true,
-        cohortSize: true,
-        tokenCostBasis: true,
+        verificationRounds: true,
+        sendBackCount: true,
         task: { select: { _count: { select: { outcomeSignals: true } } } },
       },
     })
     return rows.map(r => ({
       taskId: r.taskId,
-      cohortSize: r.cohortSize,
-      tokenCostBasis: r.tokenCostBasis,
+      verificationRounds: r.verificationRounds,
+      sendBackCount: r.sendBackCount,
       signalCount: r.task._count.outcomeSignals,
     }))
   },

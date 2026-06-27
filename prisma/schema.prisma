@@ -2350,6 +2350,11 @@ model TaskForecastSnapshot {
   tokenCost         Json?
   cohortSize        Int // 相似 cohort 大小（喂 iterations/interaction）
   tokenCostBasis    Int // 项目级样本数（喂 token）
+  // LUM-606 verification-friction axis — frozen at delivery, cut at capturedAt.
+  // Two SEPARATE raw scalars (never a merged friction score); null = no
+  // verification record by capture (the no-verification bucket, distinct from 0).
+  verificationRounds Int?
+  sendBackCount      Int?
   capturedAt        DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
