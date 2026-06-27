@@ -194,15 +194,22 @@ export async function outcomeShow(
   return
 }
 
-// ─── `lumo outcome rate` — trust × post-hoc-fate join (LUM-603) ──────────────
+// ─── `lumo outcome rate` — trust × post-hoc-fate join (LUM-603 / LUM-606) ─────
 
 export interface OutcomeRateOptions {
   min?: string
   json?: boolean
 }
 
+/** Value-neutral verification-friction buckets (LUM-606) — pure descriptions of
+ *  the verification record, no good/bad ordering welded into the names. */
+type FrictionBucketDto =
+  | 'no-verification'
+  | 'single-round'
+  | 'multi-round-or-sendback'
+
 interface BracketRejectionDto {
-  bracket: 'high' | 'medium' | 'low'
+  bracket: FrictionBucketDto
   delivered: number
   rejected: number
   status: 'measured' | 'insufficient'
@@ -216,16 +223,22 @@ interface OutcomeRejectionReportDto {
   brackets: BracketRejectionDto[]
   comparison: {
     status: 'measured' | 'inconclusive'
-    direction: 'high-rejected-more' | 'low-rejected-more' | null
+    direction:
+      | 'multi-round-or-sendback-rejected-more'
+      | 'single-round-rejected-more'
+      | null
     reason: string
   }
 }
+
+/** Width of the widest bucket label, for aligned columns. */
+const BUCKET_LABEL_WIDTH = 'multi-round-or-sendback'.length
 
 /** Render the report client-side (same pattern as `lumo cost` / `outcome show`). */
 function formatRate(report: OutcomeRejectionReportDto): string {
   const lines: string[] = []
   lines.push(
-    'Trust × post-hoc fate — delivery-time forecast confidence vs the outcome well'
+    'Trust × post-hoc fate — delivery-time verification friction vs the outcome well'
   )
   lines.push(
     '  (rejection rate is a LOWER BOUND: the well only records rejections; ' +
@@ -244,11 +257,11 @@ function formatRate(report: OutcomeRejectionReportDto): string {
       const lo = ((b.interval?.lower ?? 0) * 100).toFixed(1)
       const hi = ((b.interval?.upper ?? 0) * 100).toFixed(1)
       lines.push(
-        `  ${b.bracket.padEnd(6)} ≥${pct}% rejected (${b.rejected}/${b.delivered}, 95% CI ${lo}–${hi}%)`
+        `  ${b.bracket.padEnd(BUCKET_LABEL_WIDTH)} ≥${pct}% rejected (${b.rejected}/${b.delivered}, 95% CI ${lo}–${hi}%)`
       )
     } else {
       lines.push(
-        `  ${b.bracket.padEnd(6)} insufficient (${b.rejected}/${b.delivered} deliveries < ${report.minSamples} — rate withheld)`
+        `  ${b.bracket.padEnd(BUCKET_LABEL_WIDTH)} insufficient (${b.rejected}/${b.delivered} deliveries < ${report.minSamples} — rate withheld)`
       )
     }
   }
@@ -262,10 +275,12 @@ function formatRate(report: OutcomeRejectionReportDto): string {
 
 /**
  * `lumo outcome rate [--min N] [--json]` — read the workspace trust × post-hoc-
- * fate join: per delivery-time forecast-confidence bracket, the post-hoc
- * REJECTED rate from the outcome well. Honest by construction — thin brackets
- * read `insufficient` (no fabricated rate) and the high-vs-low comparison stays
- * `inconclusive` until the well has enough signal to tell the brackets apart.
+ * fate join: per delivery-time verification-friction bucket (LUM-606:
+ * no-verification / single-round / multi-round-or-sendback, frozen at delivery),
+ * the post-hoc REJECTED rate from the outcome well. Honest by construction — thin
+ * buckets read `insufficient` (no fabricated rate) and the single-round
+ * vs multi-round-or-sendback comparison stays `inconclusive` until the well has
+ * enough signal to tell the buckets apart.
  */
 export async function outcomeRate(
   options: OutcomeRateOptions = {}
