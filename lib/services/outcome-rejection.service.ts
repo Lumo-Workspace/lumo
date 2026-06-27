@@ -6,12 +6,13 @@ import {
 } from '@/lib/outcome/rejection-rate'
 
 /**
- * LUM-603 — orchestrates the trust × post-hoc-fate read.
+ * LUM-603 / LUM-606 — orchestrates the trust × post-hoc-fate read.
  *
  * Loads the joined deliveries (frozen forecast snapshot × outcome-signal count)
  * and hands them to the pure {@link computeOutcomeRejectionRate} core. The trust
- * bracket is derived ONLY from the frozen snapshot inputs (cohortSize /
- * tokenCostBasis) — this service reads no live/current or fragment trust value.
+ * bracket is derived ONLY from the frozen verification-friction scalars
+ * (verificationRounds / sendBackCount, LUM-606) — this service reads no
+ * live/current or fragment trust value.
  *
  * Today the well is freshly wired and under-sampled, so the report is honestly
  * `inconclusive` with thin per-bracket Ns; the same code produces real strata
@@ -25,8 +26,9 @@ export const outcomeRejectionService = {
     const rows =
       await outcomeRejectionRepository.listDeliveriesWithRejection(workspaceId)
     const deliveries: DeliveryOutcome[] = rows.map(r => ({
-      // Frozen-at-delivery confidence inputs — the replayable trust axis.
-      confidenceSamples: [r.cohortSize, r.tokenCostBasis],
+      // Frozen-at-delivery friction scalars — the replayable trust axis.
+      verificationRounds: r.verificationRounds,
+      sendBackCount: r.sendBackCount,
       // Falsifier verdict reduced to a boolean: any signal ⇒ REJECTED.
       rejected: r.signalCount > 0,
     }))

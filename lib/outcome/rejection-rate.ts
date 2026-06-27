@@ -1,13 +1,15 @@
 /**
- * LUM-603 — the trust × post-hoc-fate join, at the query layer.
+ * LUM-603 / LUM-606 — the trust × post-hoc-fate join, at the query layer.
  *
- * The question: do high-"trust" deliveries get REJECTED by reality less often
- * than low-"trust" ones? "Trust" here is the delivery-time forecast-confidence
- * bracket — the only trust axis FROZEN at delivery (TaskForecastSnapshot's
- * cohortSize / tokenCostBasis, LUM-319), recomputed via {@link deriveConfidence}
- * so the bracket is fully replayable and never reads a drifted current value.
- * (Fragment-level trust is NOT frozen and drifts; joining it would use the
- * wrong, post-hoc value — that is debt-a, deliberately deferred, not done here.)
+ * The question: do deliveries with one kind of verification record get REJECTED
+ * by reality at a different rate than another? The trust axis is the
+ * VERIFICATION-FRICTION axis (LUM-606): two raw counts (`verificationRounds`,
+ * `sendBackCount`) FROZEN at delivery on TaskForecastSnapshot from the
+ * append-only VerificationRun log, cut at `capturedAt`, then bucketed by the
+ * value-neutral {@link deriveFrictionBucket}. This replaces the saturating
+ * sample-size axis (`deriveConfidence`, which landed 214/214 deliveries in one
+ * bracket so high-vs-low could never compare). Friction is replayable and
+ * delivery-time-frozen, so the bracket never reads a drifted current value.
  *
  * This is a PURE core (mirrors lib/boundary-crossing/false-positive-rate.ts): it
  * owns no I/O and takes the already-joined deliveries as input, so it unit-tests
@@ -24,21 +26,28 @@
  *     (genuinely-good / merely-tolerated / never-noticed are indistinguishable),
  *     never "satisfied". So `rejected / delivered` undercounts true failures and
  *     is labelled as a floor, not the answer.
- *  3. The high-vs-low comparison asserts a direction ONLY when both brackets are
+ *  3. The comparison asserts a direction ONLY when both compared brackets are
  *     measured AND their 95% confidence intervals are disjoint. Overlapping
  *     intervals → `inconclusive`, no direction. The query never claims a
- *     correlation the sample cannot support.
+ *     correlation the sample cannot support. The bucket NAMES are pure
+ *     descriptions of the verification record (no good/bad welded) — whether
+ *     friction reads as fragility or scrutiny is decided here, not presupposed.
  */
 
-import { deriveConfidence } from '@/lib/forecast/confidence'
-import type { ForecastConfidence } from '@/lib/forecast/types'
+import {
+  deriveFrictionBucket,
+  FRICTION_BUCKETS,
+  type FrictionBucket,
+} from '@/lib/outcome/friction'
 
 /** One delivery joined to its post-hoc fate — the only input this module needs. */
 export interface DeliveryOutcome {
-  /** Forecast-confidence sample sizes FROZEN at delivery in TaskForecastSnapshot
-   *  (cohortSize, tokenCostBasis). The bracket is recomputed from these via
-   *  deriveConfidence — never read from a live/current or fragment trust value. */
-  confidenceSamples: number[]
+  /** Verification-friction raw counts FROZEN at delivery on TaskForecastSnapshot,
+   *  cut at capturedAt (LUM-606). The bucket is recomputed from these two via
+   *  deriveFrictionBucket — never read from a live/current value. `null` = no
+   *  verification record by capture (the no-verification bucket). */
+  verificationRounds: number | null
+  sendBackCount: number | null
   /** Whether the post-hoc well holds >=1 rejection signal for this delivery
    *  (REJECTED) vs none (INCONCLUSIVE). Derived from signal COUNT upstream,
    *  never from any agent-supplied verdict. */
@@ -46,7 +55,7 @@ export interface DeliveryOutcome {
 }
 
 /**
- * Minimum deliveries a confidence bracket needs before its rejection rate is
+ * Minimum deliveries a friction bracket needs before its rejection rate is
  * reported. Below this the rate is suppressed as `insufficient` (the raw counts
  * still shown) rather than divided into a believable proportion. Mirrors the
  * boundary-crossing FP-rate floor (LUM-449): the 95% CI on a proportion from
@@ -54,12 +63,8 @@ export interface DeliveryOutcome {
  */
 export const DEFAULT_MIN_SAMPLES = 10
 
-/** High → low, the order brackets render in (most-trusted delivery first). */
-export const TRUST_BRACKETS: readonly ForecastConfidence[] = [
-  'high',
-  'medium',
-  'low',
-] as const
+/** The friction buckets, in render order (the order encodes NO good/bad rank). */
+export const TRUST_BRACKETS: readonly FrictionBucket[] = FRICTION_BUCKETS
 
 /** A 95% Wilson score interval on a proportion, both ends clamped to [0,1]. */
 export interface ConfidenceInterval {
@@ -67,10 +72,10 @@ export interface ConfidenceInterval {
   upper: number
 }
 
-/** One confidence bracket's post-hoc rejection picture. */
+/** One friction bucket's post-hoc rejection picture. */
 export interface BracketRejection {
-  bracket: ForecastConfidence
-  /** Deliveries snapshotted in this bracket — the rate denominator. Includes
+  bracket: FrictionBucket
+  /** Deliveries snapshotted in this bucket — the rate denominator. Includes
    *  zero-signal (INCONCLUSIVE) deliveries: absence of rejection is not absence
    *  from the sample. */
   delivered: number
@@ -87,12 +92,18 @@ export interface BracketRejection {
 }
 
 export type ComparisonStatus = 'measured' | 'inconclusive'
-export type ComparisonDirection = 'high-rejected-more' | 'low-rejected-more'
+/** Which of the two measured friction buckets reality rejected more often. The
+ *  names describe the buckets factually (round count); no good/bad is implied —
+ *  the correlation, not the label, says whether friction is fragility or care. */
+export type ComparisonDirection =
+  | 'multi-round-or-sendback-rejected-more'
+  | 'single-round-rejected-more'
 
-/** The headline high-vs-low read — the only place a directional claim is made. */
+/** The single-round vs multi-round-or-sendback read — the only directional claim.
+ *  `no-verification` is never a comparison arm (silence is not a friction level). */
 export interface OutcomeRejectionComparison {
   status: ComparisonStatus
-  /** Set ONLY when `status === 'measured'` (both brackets measured, CIs
+  /** Set ONLY when `status === 'measured'` (both compared brackets measured, CIs
    *  disjoint); `null` whenever the sample cannot support a direction. */
   direction: ComparisonDirection | null
   /** Plain-language why — names the bracket(s) too thin, or the CI overlap. */
@@ -102,7 +113,7 @@ export interface OutcomeRejectionComparison {
 export interface OutcomeRejectionReport {
   minSamples: number
   totalDeliveries: number
-  /** Per bracket, ordered high → medium → low. */
+  /** Per bucket, ordered no-verification → single-round → multi-round-or-sendback. */
   brackets: BracketRejection[]
   comparison: OutcomeRejectionComparison
 }
@@ -129,10 +140,10 @@ function disjoint(a: ConfidenceInterval, b: ConfidenceInterval): boolean {
 }
 
 /**
- * Compute the per-bracket post-hoc rejection rate and the high-vs-low read.
- * Pure: no I/O, no mutation of the input. A bracket below `minSamples` is
+ * Compute the per-bucket post-hoc rejection rate and the friction comparison.
+ * Pure: no I/O, no mutation of the input. A bucket below `minSamples` is
  * `insufficient` with a null rate; the comparison stays `inconclusive` unless
- * both brackets are measured and their CIs are disjoint.
+ * both compared buckets are measured and their CIs are disjoint.
  */
 export function computeOutcomeRejectionRate(
   deliveries: DeliveryOutcome[],
@@ -141,11 +152,11 @@ export function computeOutcomeRejectionRate(
   const minSamples = options.minSamples ?? DEFAULT_MIN_SAMPLES
 
   const tallies = new Map<
-    ForecastConfidence,
+    FrictionBucket,
     { delivered: number; rejected: number }
   >()
   for (const d of deliveries) {
-    const b = deriveConfidence(d.confidenceSamples)
+    const b = deriveFrictionBucket(d.verificationRounds, d.sendBackCount)
     const t = tallies.get(b) ?? { delivered: 0, rejected: 0 }
     t.delivered++
     if (d.rejected) t.rejected++
@@ -171,18 +182,18 @@ export function computeOutcomeRejectionRate(
     minSamples,
     totalDeliveries: deliveries.length,
     brackets,
-    comparison: compareHighVsLow(brackets),
+    comparison: compareFrictionBuckets(brackets),
   }
 }
 
-/** The falsifier-disciplined high-vs-low read. */
-function compareHighVsLow(
+/** The falsifier-disciplined single-round vs multi-round-or-sendback read. */
+function compareFrictionBuckets(
   brackets: BracketRejection[]
 ): OutcomeRejectionComparison {
-  const high = brackets.find(b => b.bracket === 'high')!
-  const low = brackets.find(b => b.bracket === 'low')!
+  const single = brackets.find(b => b.bracket === 'single-round')!
+  const multi = brackets.find(b => b.bracket === 'multi-round-or-sendback')!
 
-  const thin = [high, low].filter(b => b.status !== 'measured')
+  const thin = [single, multi].filter(b => b.status !== 'measured')
   if (thin.length > 0) {
     return {
       status: 'inconclusive',
@@ -197,9 +208,9 @@ function compareHighVsLow(
   }
 
   if (
-    !high.interval ||
-    !low.interval ||
-    !disjoint(high.interval, low.interval)
+    !single.interval ||
+    !multi.interval ||
+    !disjoint(single.interval, multi.interval)
   ) {
     return {
       status: 'inconclusive',
@@ -210,18 +221,21 @@ function compareHighVsLow(
   }
 
   const direction: ComparisonDirection =
-    (high.rejectionRate ?? 0) > (low.rejectionRate ?? 0)
-      ? 'high-rejected-more'
-      : 'low-rejected-more'
+    (multi.rejectionRate ?? 0) > (single.rejectionRate ?? 0)
+      ? 'multi-round-or-sendback-rejected-more'
+      : 'single-round-rejected-more'
   return {
     status: 'measured',
     direction,
     reason:
-      direction === 'low-rejected-more'
-        ? 'low-trust deliveries were rejected more often (intervals disjoint)'
-        : 'high-trust deliveries were rejected more often (intervals disjoint)',
+      direction === 'multi-round-or-sendback-rejected-more'
+        ? 'multi-round/send-back deliveries were rejected more often (intervals disjoint)'
+        : 'single-round deliveries were rejected more often (intervals disjoint)',
   }
 }
+
+/** Width of the widest bucket label, for aligned stdout columns. */
+const LABEL_WIDTH = Math.max(...FRICTION_BUCKETS.map(b => b.length))
 
 /** Render a report for stdout (the CLI prints this). */
 export function formatOutcomeRejectionReport(
@@ -229,7 +243,7 @@ export function formatOutcomeRejectionReport(
 ): string {
   const lines: string[] = []
   lines.push(
-    `Trust × post-hoc fate — delivery-time forecast confidence vs the outcome well`
+    `Trust × post-hoc fate — delivery-time verification friction vs the outcome well`
   )
   lines.push(
     `  (rejection rate is a LOWER BOUND: the well only records rejections; ` +
@@ -248,12 +262,12 @@ export function formatOutcomeRejectionReport(
       const lo = ((b.interval?.lower ?? 0) * 100).toFixed(1)
       const hi = ((b.interval?.upper ?? 0) * 100).toFixed(1)
       lines.push(
-        `  ${b.bracket.padEnd(6)} ≥${pct}% rejected ` +
+        `  ${b.bracket.padEnd(LABEL_WIDTH)} ≥${pct}% rejected ` +
           `(${b.rejected}/${b.delivered}, 95% CI ${lo}–${hi}%)`
       )
     } else {
       lines.push(
-        `  ${b.bracket.padEnd(6)} insufficient ` +
+        `  ${b.bracket.padEnd(LABEL_WIDTH)} insufficient ` +
           `(${b.rejected}/${b.delivered} deliveries < ${report.minSamples} — rate withheld)`
       )
     }
