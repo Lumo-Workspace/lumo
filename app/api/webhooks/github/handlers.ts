@@ -14,6 +14,7 @@ import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
+import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,6 +142,9 @@ export async function handlePullRequest(
   // redelivery or the getTaskDetail poller double-firing is harmless.
   if (state !== 'open') {
     stampLineageInBackground(s => s.stampForPrState(task.id, state))
+    // Auto-judge claim faithfulness the moment a delivery merges (LUM-612).
+    // No-op for 'closed'; the hourly cron is the reconciliation backstop.
+    enqueueFaithfulnessJudgeOnMerge(state, task.id)
   }
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
