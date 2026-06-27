@@ -610,6 +610,7 @@ model Task {
   forecastSnapshot           TaskForecastSnapshot?
   claimFaithfulness          ClaimFaithfulnessVerdict?
   acceptanceCriteria         AcceptanceCriterion[]
+  criteriaSnapshots          TaskCriteriaSnapshot[]
   verificationRuns           VerificationRun[]
   verificationRunWithdrawals VerificationRunWithdrawal[]
   blockedByEdges             TaskDependency[]            @relation("TaskBlockedBy")
@@ -2360,6 +2361,34 @@ model TaskForecastSnapshot {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@map("task_forecast_snapshots")
+}
+
+/// LUM-609 (fidelity premise A): append-only delivery-time freeze of the
+/// acceptance contract. One row per delivery (IN_REVIEW entry) — deliberately
+/// NOT @unique on taskId: a reopen→re-deliver appends another immutable row.
+/// Never updated or deleted (the repository exposes no update/delete path), so a
+/// fidelity comparison can replay the contract AS IT STOOD AT DELIVERY
+/// (selectActiveAsOf: latest frozenAt ≤ T) rather than the since-edited `latest`
+/// — the self-confirming trap this premise removes. The CRITERION_CHANGED
+/// TaskActivity trail remains the immutable mutable-criteria audit backstop.
+model TaskCriteriaSnapshot {
+  id        String   @id @default(cuid())
+  taskId    String
+  // Full active criteria set frozen at delivery — replay-sufficient (per
+  // criterion: id, statement, verifierType, checkpointer, referentKind,
+  // evidenceRequired). JSON, never mutated.
+  criteria  Json
+  // Why the freeze fired (e.g. IN_REVIEW_ENTRY).
+  trigger   String
+  // The session that delivered, when known.
+  sessionId String?
+  frozenAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([taskId, frozenAt])
+  @@map("task_criteria_snapshots")
 }
 
 // ─── Acceptance v1: criteria contract + verification event log (LUM-341) ────
