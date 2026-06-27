@@ -25,8 +25,10 @@ const defaultFetchDiff: FetchDiff = async o => {
 
 /**
  * PURE — server-side analogue of `git show --numstat`. Parses a unified diff:
- * file paths come from `diff --git a/<p> b/<p>` headers (the `b/` side); `+`/`-`
- * body lines are counted, excluding the `+++`/`---` file headers themselves.
+ * file paths come from `diff --git a/<p> b/<p>` headers (the `b/` side);
+ * additions/deletions are counted only INSIDE hunks (after an `@@` line), so a
+ * file header (`+++ b/x`, `--- a/x`) is never miscounted, and an added body
+ * line whose own content begins with `++`/`--` is counted correctly.
  */
 export function numstatFromDiff(diff: string): {
   changedFiles: string[]
@@ -36,13 +38,19 @@ export function numstatFromDiff(diff: string): {
   const changedFiles: string[] = []
   let additions = 0
   let deletions = 0
+  let inHunk = false
   for (const line of diff.split('\n')) {
     if (line.startsWith('diff --git ')) {
+      inHunk = false
       const m = line.match(/ b\/(.+)$/)
       if (m?.[1] && !changedFiles.includes(m[1])) changedFiles.push(m[1])
       continue
     }
-    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (line.startsWith('@@')) {
+      inHunk = true
+      continue
+    }
+    if (!inHunk) continue // file headers (index/---/+++) sit before the first @@
     if (line.startsWith('+')) additions++
     else if (line.startsWith('-')) deletions++
   }

@@ -87,8 +87,14 @@ export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
     const watermarks = await deps.listWatermarks()
     const candidates = await deps.listCandidates()
     const due = candidates
+      // A candidate with no verdict row yet is always due (parity with the
+      // webhook path + the operational script), even when claimSnapshotAt is
+      // null — otherwise isFreshVerdict(null, null) would wrongly skip it and
+      // leave it PENDING forever. Skip only when a *fresh* row already exists.
       .filter(
-        c => !isFreshVerdict(watermarks.get(c.id) ?? null, c.claimSnapshotAt)
+        c =>
+          !watermarks.has(c.id) ||
+          !isFreshVerdict(watermarks.get(c.id) ?? null, c.claimSnapshotAt)
       )
       .slice(0, batch)
 

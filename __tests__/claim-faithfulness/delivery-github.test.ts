@@ -37,6 +37,21 @@ describe('numstatFromDiff', () => {
     expect(r.additions).toBe(1)
     expect(r.deletions).toBe(1)
   })
+
+  it('counts body lines whose own content begins with ++ or -- (only the @@ hunk body is counted)', () => {
+    const diff = [
+      'diff --git a/lib/c.ts b/lib/c.ts',
+      '--- a/lib/c.ts',
+      '+++ b/lib/c.ts',
+      '@@ -1,2 +1,2 @@',
+      '+++added', // added line whose content is "++added"
+      '--removed', // deleted line whose content is "--removed"
+    ].join('\n')
+    const r = numstatFromDiff(diff)
+    expect(r.changedFiles).toEqual(['lib/c.ts'])
+    expect(r.additions).toBe(1)
+    expect(r.deletions).toBe(1)
+  })
 })
 
 describe('resolveDeliveryViaGithub', () => {

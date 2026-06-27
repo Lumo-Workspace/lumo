@@ -111,6 +111,22 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
     expect(deps.loadTaskInputs).toHaveBeenCalledTimes(2)
   })
 
+  it('judges a candidate that has no verdict row even when claimSnapshotAt is null', async () => {
+    // Parity with the webhook path: a row-less candidate must be due so it is
+    // never left PENDING forever. isFreshVerdict(null, null) is true, so the
+    // skip must be gated on watermarks.has(), not on freshness alone.
+    const deps = baseDeps({
+      listCandidates: jest.fn(async () => [
+        { id: 'noClaim', claimSnapshotAt: null },
+      ]),
+      listWatermarks: jest.fn(async () => new Map<string, Date | null>()),
+    })
+    const svc = createClaimFaithfulnessService(deps)
+    const r = await svc.sweepUnjudged(5)
+    expect(r.processed).toBe(1)
+    expect(deps.loadTaskInputs).toHaveBeenCalledWith('noClaim')
+  })
+
   it('continues the sweep when one task throws', async () => {
     const deps = baseDeps({
       listCandidates: jest.fn(async () => [
