@@ -19,8 +19,8 @@ import type {
 } from '@/lib/claim-faithfulness/types'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { REASONING_MODEL } from '@/lib/ai/models'
 
-const JUDGE_MODEL = 'anthropic/claude-sonnet-4.5'
 const JUDGE_TIMEOUT = 90_000
 
 export interface ClaimFaithfulnessDeps {
@@ -115,14 +115,14 @@ export const claimFaithfulnessService = createClaimFaithfulnessService({
   resolveDelivery: resolveDeliveryViaGithub,
   classify: classifyClaimFaithfulness,
   upsertVerdict: row => claimFaithfulnessVerdictRepository.upsert(row),
-  findWatermark: taskId =>
-    claimFaithfulnessVerdictRepository
-      .findByTaskId(taskId)
-      .then(r =>
-        r ? { judgedClaimAt: r.judgedClaimAt, verdict: r.verdict } : null
-      ),
+  findWatermark: async taskId => {
+    const r = await claimFaithfulnessVerdictRepository.findByTaskId(taskId)
+    return r ? { judgedClaimAt: r.judgedClaimAt, verdict: r.verdict } : null
+  },
   listCandidates: () => taskRepository.listFaithfulnessCandidates(),
   listWatermarks: () => claimFaithfulnessVerdictRepository.listWatermarks(),
-  judgeModel: JUDGE_MODEL,
+  // judgeModel is the provenance label stored on the verdict row; it must match
+  // the model the judge client actually runs (REASONING_MODEL) — LUM-587.
+  judgeModel: REASONING_MODEL,
   timeoutMs: JUDGE_TIMEOUT,
 })
