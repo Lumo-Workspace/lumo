@@ -32,6 +32,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
 | `outcome show/record/rate` — post-hoc outcome well (falsifier oracle, rejection-only)   | [references/outcome.md](references/outcome.md)                 |
+| `fidelity show` — per-delivery grounding + independence change-pattern read-out         | [references/fidelity.md](references/fidelity.md)               |
 | `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
 | `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)  | [references/doc-editing.md](references/doc-editing.md)         |
@@ -102,6 +103,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
 - `lumo outcome record <task> --note "<what reality did>" [--kind <kind>]` — record a human-observed post-hoc **rejection** of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; **there is no "mark satisfied" counterpart** — the well only asserts rejection. `--note` is required (the observed referent).
 - `lumo outcome rate [--min N] [--json]` — workspace **trust × post-hoc-fate** join (LUM-603, LUM-606): per delivery-time **verification-friction** bucket (`no-verification` / `single-round` / `multi-round-or-sendback` — two raw counts frozen at delivery, replacing the saturating forecast-confidence axis), the post-hoc REJECTED rate from the well. Honest by construction — thin buckets read `insufficient` (no fabricated rate), the single-round-vs-multi comparison stays `inconclusive` until CIs separate, and the rate is a **lower bound** (no signal = INCONCLUSIVE, never satisfied). Bucket names are value-neutral — direction is decided by the correlation, never welded into the label. Under-sampled today by design — the skeleton produces real strata once the well fills.
+
+**Fidelity read-out (mechanical change-pattern)** — see [fidelity.md](references/fidelity.md)
+
+- `lumo fidelity show <task> [--json]` — per delivery snapshot (LUM-609), a **composition table, not a single score**: (1) the **grounding** of the frozen contract — grounded (`EXTERNAL_FACT`, a machine-checkable upper bound) / self-confirming (`AGENT_CONSTRUCTED_STATE` + `UNVERIFIED_ASSERTION`) / inconclusive (`PENDING_OUTCOME` + `UNCLASSIFIED`, surfaced not swallowed) + the full effective-kind tally; (2) the **independence** signal — criteria `ADDED`/`UPDATED` at round>0 (after work started) that the delivery rode on = backward-inference suspects. Purely mechanical (timing + op + grounding) — **no direction verdict**. A no-snapshot task is reported explicitly (not a pass). Zero new storage — reads the snapshot + `CRITERION_CHANGED` trail.
+
+```bash
+lumo fidelity show LUM-42
+lumo fidelity show LUM-42 --json
+```
 
 **Artifacts & Figma** — see [artifacts-figma.md](references/artifacts-figma.md)
 

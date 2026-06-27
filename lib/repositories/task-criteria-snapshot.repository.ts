@@ -45,6 +45,26 @@ export const taskCriteriaSnapshotRepository = {
   },
 
   /**
+   * Every delivery snapshot for a task, oldest first. Read-only feed for the
+   * LUM-610 fidelity change-pattern read-out, which folds each frozen contract
+   * into a grounding + independence composition. `criteria` comes back as the
+   * stored JSON; the caller casts it to {@link SnapshotCriterion}[].
+   */
+  async listByTask(taskId: string) {
+    return prisma.taskCriteriaSnapshot.findMany({
+      where: { taskId },
+      orderBy: { frozenAt: 'asc' },
+      select: {
+        id: true,
+        frozenAt: true,
+        trigger: true,
+        sessionId: true,
+        criteria: true,
+      },
+    })
+  },
+
+  /**
    * The snapshot ACTIVE at time `at` = the latest freeze with `frozenAt <= at`.
    * Returns null if the task had no frozen contract by then.
    *
