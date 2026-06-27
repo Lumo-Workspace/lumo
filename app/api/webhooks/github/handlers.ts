@@ -14,6 +14,7 @@ import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
+import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -224,6 +225,8 @@ export async function handlePullRequest(
 
 // ── Push handler ─────────────────────────────────────────────────────────────
 
+type PushCommitPayload = { id: string; message: string }
+
 type PushPayload = {
   ref: string // "refs/heads/lumo/ENG-123-fix-bug"
   deleted: boolean
@@ -232,18 +235,49 @@ type PushPayload = {
     message: string
     author: { name: string }
   } | null
-  repository: { full_name: string }
+  commits?: PushCommitPayload[]
+  repository: { full_name: string; default_branch: string }
+}
+
+/** Distinct commits in this push (head + listed), each with its FULL message —
+ *  the `This reverts commit <sha>` trailer lives below the subject line. */
+function pushCommits(payload: PushPayload): { sha: string; message: string }[] {
+  const bySha = new Map<string, { sha: string; message: string }>()
+  for (const c of [...(payload.commits ?? []), payload.head_commit]) {
+    if (c?.id && !bySha.has(c.id))
+      bySha.set(c.id, { sha: c.id, message: c.message })
+  }
+  return [...bySha.values()]
 }
 
 export async function handlePush(
   payload: Record<string, unknown>,
   workspaceId: string
 ): Promise<void> {
-  const { ref, deleted, head_commit, repository } =
-    payload as unknown as PushPayload
+  const push = payload as unknown as PushPayload
+  const { ref, deleted, head_commit, repository } = push
 
   // Only track branch pushes (not tags), and ignore branch deletions
   if (!ref.startsWith('refs/heads/') || deleted || !head_commit) return
+
+  // LUM-607 — feed the post-hoc outcome well at delivery time: a revert that
+  // lands on the default branch records a REVERTED signal for the delivery it
+  // undid (sha-membership topology, no git checkout). Detached + fail-soft: a
+  // detection error must never break webhook ingestion. Independent of the
+  // task-branch lookup below — reverts land on `main`, which maps to no task.
+  waitUntil(
+    gitOutcomeRecorder
+      .recordRevertsFromPush({
+        workspaceId,
+        ref,
+        defaultBranch: repository.default_branch,
+        commits: pushCommits(push),
+      })
+      .then(() => undefined)
+      .catch(err => {
+        console.error('[webhook] revert outcome detection failed:', err)
+      })
+  )
 
   const branchName = ref.slice('refs/heads/'.length)
   const task = await findTaskForBranch(branchName, workspaceId)
