@@ -3,6 +3,7 @@ import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
 import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
+import { claimFaithfulnessService } from '@/lib/services/claim-faithfulness.service'
 
 /**
  * GET /api/cron/backfill-lineage-outcomes
@@ -27,6 +28,10 @@ import { dependencyDetectionService } from '@/lib/services/dependency-detection.
  *  the dormant backlog over a few hours, not all at once. */
 const USAGE_AUDIT_BATCH = 25
 
+/** Per-run cap on claim-faithfulness judging (LUM-612) — LLM-bound, so bound
+ *  the burst; first post-deploy sweeps drain the backlog over a few hours. */
+const FAITHFULNESS_BATCH = 20
+
 /** Fluid-compute default (300s) is not enough for a backlogged usage-audit
  *  batch; 800s is the Pro-plan ceiling. */
 export const maxDuration = 800
@@ -45,12 +50,19 @@ export async function GET(req: NextRequest) {
       console.error('[cron] dependency sweep failed:', err)
       return { suggested: 0 }
     })
+  const faithfulness = await claimFaithfulnessService
+    .sweepUnjudged(FAITHFULNESS_BATCH)
+    .catch(err => {
+      console.error('[cron] faithfulness sweep failed:', err)
+      return { processed: 0 }
+    })
   const usage =
     await fragmentUsageAuditService.auditDoneTaskSessions(USAGE_AUDIT_BATCH)
   return NextResponse.json({
     outcomes,
     compaction,
     dependencySweep,
+    faithfulness,
     usage: { processed: usage.processed },
   })
 }
