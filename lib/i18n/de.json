@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Prüfausgabe ausblenden",
   "acceptance.check.label": "Nachweis",
   "acceptance.check.none": "Maschinenprüfung noch nicht ausgeführt",
+  "acceptance.check.machineVerifiedAtRound": "maschinell verifiziert · Runde {round}",
   "acceptance.check.exitCode": "Exit-Code {code}",
   "acceptance.verdict.pass": "Freigeben",
   "acceptance.verdict.sendBack": "Zurückweisen",

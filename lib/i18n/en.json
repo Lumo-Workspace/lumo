@@ -758,6 +758,7 @@
   "acceptance.hideCheck": "Hide check output",
   "acceptance.check.none": "Machine check not yet run",
   "acceptance.check.overrideNoRun": "No machine check ran — passed by human override",
+  "acceptance.check.machineVerifiedAtRound": "machine-verified · round {round}",
   "acceptance.check.exitCode": "exit code {code}",
   "acceptance.tab.humanOverrideBadgeTip": "A person marked this criterion passed without a machine check confirming it.",
   "acceptance.check.label": "Evidence",

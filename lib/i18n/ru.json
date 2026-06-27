@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Скрыть вывод проверки",
   "acceptance.check.label": "Доказательства",
   "acceptance.check.none": "Машинная проверка ещё не выполнялась",
+  "acceptance.check.machineVerifiedAtRound": "проверено машиной · раунд {round}",
   "acceptance.check.exitCode": "код выхода {code}",
   "acceptance.verdict.pass": "Принять",
   "acceptance.verdict.sendBack": "Вернуть",

@@ -347,6 +347,76 @@ describe('machine-verification rollup honesty (LUM-456)', () => {
     expect(s.machineVerification.humanOverridden).toBe(0)
     expect(s.criteria[0]!.machinePassed).toBe(true)
   })
+
+  // LUM-611: a human PASS sign-off pushes latestVerdict to HUMAN (no evidence
+  // pointer), but the machine round below it still holds the cmd: evidence. The
+  // read model must expose that machine round (machineVerdict) so the web tab
+  // can show "machine-verified @rN" + its evidence instead of "No machine check
+  // ran" / "evidence pending".
+  it('machineVerdict carries the machine round evidence and round after a human override LUM611', async () => {
+    const c = criterion({
+      id: 'c-1',
+      statement: 'machine passed at round 1 then human signed off at round 1',
+    })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r-m',
+        criterionId: 'c-1',
+        round: 1,
+        verifierType: 'MACHINE',
+        verdict: 'PASS',
+        evidencePointer: 'cmd:npx jest target.test.ts#exit=0',
+      }),
+      run({
+        id: 'r-h',
+        criterionId: 'c-1',
+        round: 1,
+        verifierType: 'HUMAN',
+        verdict: 'PASS',
+        evidencePointer: null,
+        createdAt: new Date('2026-06-02T12:00:00Z'),
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    const got = s.criteria[0]!
+    // Latest verdict is the human override — no evidence pointer on it…
+    expect(got.latestVerdict?.verifierType).toBe('HUMAN')
+    expect(got.latestVerdict?.evidencePointer).toBeNull()
+    // …but the machine round below it is preserved with its round + cmd evidence.
+    expect(got.machineVerdict?.verifierType).toBe('MACHINE')
+    expect(got.machineVerdict?.round).toBe(1)
+    expect(got.machineVerdict?.evidencePointer).toBe(
+      'cmd:npx jest target.test.ts#exit=0'
+    )
+    expect(got.machinePassed).toBe(true)
+  })
+
+  // A genuine human override (no MACHINE run at all) has no machine verdict to
+  // expose — machineVerdict stays null, so the tab keeps its override copy.
+  it('machineVerdict is null for a pure human override with no machine run LUM611', async () => {
+    const c = criterion({ id: 'c-1', statement: 'only ever human-passed' })
+    listActive.mockResolvedValue([c])
+    listAll.mockResolvedValue([c])
+    listRuns.mockResolvedValue([
+      run({
+        id: 'r-h',
+        criterionId: 'c-1',
+        round: 1,
+        verifierType: 'HUMAN',
+        verdict: 'PASS',
+        evidencePointer: null,
+      }),
+    ])
+
+    const s = await taskVerificationService.statusForTask('t-1')
+
+    expect(s.criteria[0]!.machineVerdict ?? null).toBeNull()
+    expect(s.criteria[0]!.machinePassed).toBe(false)
+  })
 })
 
 // LUM-561: the report must preserve struggle traces (rework / send-backs /

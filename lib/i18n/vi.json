@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Ẩn kết quả check",
   "acceptance.check.label": "bằng chứng",
   "acceptance.check.none": "Kiểm tra máy chưa chạy",
+  "acceptance.check.machineVerifiedAtRound": "đã xác minh bằng máy · vòng {round}",
   "acceptance.check.exitCode": "mã thoát {code}",
   "acceptance.verdict.pass": "Đạt",
   "acceptance.verdict.sendBack": "Trả lại",
