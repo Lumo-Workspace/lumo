@@ -130,6 +130,14 @@ export interface TaskStatusCriterion {
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
   latestVerdict: CriterionLatestVerdict | null
+  /** The latest MACHINE-authored verdict for this criterion, independent of
+   *  whether a later HUMAN verdict overrode `latestVerdict` (LUM-611). Carries
+   *  the round and `cmd:` evidence pointer of the checkpointer run, so the
+   *  acceptance surfaces can show "machine-verified @rN" + its evidence even
+   *  after a human PASS sign-off pushed the latest verdict to HUMAN. null when
+   *  no MACHINE run exists. Additive to the v1 read model (derived from the same
+   *  log as machinePassed, no schema change). */
+  machineVerdict?: CriterionLatestVerdict | null
   /** Whether a checkpointer currently vouches for this criterion — true only
    *  for a MACHINE criterion whose latest MACHINE-authored verdict is a PASS
    *  (LUM-456). A passing MACHINE criterion with this false is being carried by
@@ -1141,6 +1149,9 @@ export const taskVerificationService = {
           source: c.source,
           addedAtRound: c.addedAtRound,
           latestVerdict: toLatestVerdict(latestByCriterion.get(c.id)),
+          // LUM-611: the machine round below the latest verdict — surfaced so a
+          // human override never hides the checkpointer evidence that ran.
+          machineVerdict: toLatestVerdict(machineLatest),
           machinePassed: machinePassedSet.has(c.id),
           verdictStale,
           checkMismatch,

@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Masquer la sortie du check",
   "acceptance.check.label": "Preuve",
   "acceptance.check.none": "Vérification machine pas encore exécutée",
+  "acceptance.check.machineVerifiedAtRound": "vérifié par machine · tour {round}",
   "acceptance.check.exitCode": "code de sortie {code}",
   "acceptance.verdict.pass": "Valider",
   "acceptance.verdict.sendBack": "Renvoyer",

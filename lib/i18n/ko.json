@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "check 출력 숨기기",
   "acceptance.check.label": "증거",
   "acceptance.check.none": "머신 검사 미실행",
+  "acceptance.check.machineVerifiedAtRound": "머신 검증됨 · {round} 라운드",
   "acceptance.check.exitCode": "종료 코드 {code}",
   "acceptance.verdict.pass": "통과",
   "acceptance.verdict.sendBack": "반려",

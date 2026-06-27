@@ -1576,6 +1576,7 @@
   "acceptance.hideCheck": "收起 check 产出",
   "acceptance.check.label": "证据",
   "acceptance.check.none": "机器检查尚未运行",
+  "acceptance.check.machineVerifiedAtRound": "机器已校验 · 第 {round} 轮",
   "acceptance.check.exitCode": "退出码 {code}",
   "acceptance.verdict.pass": "通过",
   "acceptance.verdict.sendBack": "打回",

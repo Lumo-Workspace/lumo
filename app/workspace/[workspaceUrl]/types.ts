@@ -729,6 +729,11 @@ export interface TaskStatusCriterionView {
   source: CriterionSource
   addedAtRound: number
   latestVerdict: CriterionLatestVerdictView | null
+  /** Latest MACHINE-authored verdict, independent of a later HUMAN override of
+   *  latestVerdict (LUM-611) — carries the checkpointer round + `cmd:` evidence
+   *  so the tab shows "machine-verified @rN" even after a human PASS sign-off.
+   *  null/absent when no MACHINE run exists. */
+  machineVerdict?: CriterionLatestVerdictView | null
   /** LUM-602: the declarable referent kind for this criterion — what it anchors.
    *  null for legacy rows predating the field. */
   referentKind?:

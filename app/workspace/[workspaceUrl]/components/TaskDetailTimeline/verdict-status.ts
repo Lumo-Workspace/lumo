@@ -1,10 +1,25 @@
 import type {
+  CriterionLatestVerdictView,
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
 } from '../../types'
 
 export function isPass(verdict: string | undefined): boolean {
   return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
+}
+
+// LUM-611: the machine round that vouches for this criterion, for surfacing its
+// evidence in the acceptance tab. A human PASS that overrode `latestVerdict`
+// does NOT erase the checkpointer run below it — when a checkpointer currently
+// vouches (machinePassed), its verdict (round + `cmd:` evidence) is what the tab
+// should disclose, even though `latestVerdict` is now HUMAN with no pointer.
+// Returns null for a genuine human override (machinePassed === false) and for
+// HUMAN criteria — there is no machine evidence to show in those cases, so the
+// tab correctly falls back to its override / pending copy.
+export function machineEvidenceVerdict(
+  c: Pick<TaskStatusCriterionView, 'machinePassed' | 'machineVerdict'>
+): CriterionLatestVerdictView | null {
+  return c.machinePassed ? (c.machineVerdict ?? null) : null
 }
 
 // A human override (LUM-456) = a MACHINE criterion that is currently passing
