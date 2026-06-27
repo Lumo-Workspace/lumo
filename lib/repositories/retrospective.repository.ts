@@ -2,6 +2,23 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
+import {
+  computeFriction,
+  type VerificationRunRow,
+} from '@/lib/outcome/friction'
+
+/**
+ * Wiring seam for the LUM-606 friction freeze: capture-time friction ALWAYS uses
+ * the snapshot's `capturedAt` (the delivery transition) as the cut, never
+ * wall-clock now (spec rules ①/⑦). Kept as a thin, pure export so the
+ * capture-anchoring invariant is unit-testable without a database.
+ */
+export function frictionForCapture(
+  runs: VerificationRunRow[],
+  capturedAt: Date
+): { verificationRounds: number | null; sendBackCount: number | null } {
+  return computeFriction(runs, capturedAt)
+}
 
 /** Converts a nullable Interval to a Prisma-compatible nullable JSON value. */
 function toJsonValue(
@@ -69,6 +86,22 @@ export const retrospectiveRepository = {
     taskId: string,
     p: SnapshotPayload
   ): Promise<void> {
+    // Anchor the cut at the delivery transition: this same `capturedAt` is both
+    // the row's capturedAt and the friction cut, so friction freezes from the
+    // append-only VerificationRun log exactly at delivery (LUM-606 rule ⑦).
+    const capturedAt = new Date()
+    const runs = await prisma.verificationRun.findMany({
+      where: { taskId },
+      select: { round: true, verdict: true, createdAt: true },
+    })
+    const friction = frictionForCapture(
+      runs.map(r => ({
+        round: r.round,
+        verdict: r.verdict,
+        createdAt: r.createdAt,
+      })),
+      capturedAt
+    )
     try {
       await prisma.taskForecastSnapshot.create({
         data: {
@@ -78,6 +111,9 @@ export const retrospectiveRepository = {
           tokenCost: toJsonValue(p.tokenCost),
           cohortSize: p.cohortSize,
           tokenCostBasis: p.tokenCostBasis,
+          capturedAt,
+          verificationRounds: friction.verificationRounds,
+          sendBackCount: friction.sendBackCount,
         },
       })
     } catch (e) {

@@ -4,6 +4,7 @@ import {
   FRICTION_BUCKETS,
   type VerificationRunRow,
 } from '@/lib/outcome/friction'
+import { frictionForCapture } from '@/lib/repositories/retrospective.repository'
 
 /**
  * LUM-606 — verification-friction trust axis. These tests pin the three hard
@@ -80,5 +81,21 @@ describe('friction axis', () => {
     const b = computeFriction([...rows].reverse(), CAP)
     expect(a).toEqual(b)
     expect(a).toEqual({ verificationRounds: 2, sendBackCount: 1 })
+  })
+})
+
+describe('friction axis capture', () => {
+  it('capture anchored at delivery transition: friction is cut at the snapshot capturedAt', () => {
+    const capturedAt = at('2026-06-20T12:00:00Z')
+    const runs: VerificationRunRow[] = [
+      run(1, 'FAIL', '2026-06-20T10:00:00Z'),
+      run(2, 'PASS', '2026-06-21T09:00:00Z'), // after capture — must be excluded
+    ]
+    // frictionForCapture passes capturedAt (the delivery transition) as the cut,
+    // never wall-clock "now" — so a post-delivery re-verify cannot inflate friction.
+    expect(frictionForCapture(runs, capturedAt)).toEqual({
+      verificationRounds: 1,
+      sendBackCount: 1,
+    })
   })
 })

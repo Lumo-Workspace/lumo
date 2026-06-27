@@ -6,6 +6,7 @@ jest.mock('@/lib/db/prisma', () => ({
     notification: { count: jest.fn() },
     hookEvent: { findMany: jest.fn() },
     session: { findMany: jest.fn() },
+    verificationRun: { findMany: jest.fn() },
   },
 }))
 
@@ -19,6 +20,7 @@ const taskCount = prisma.task.count as jest.Mock
 const notifCount = prisma.notification.count as jest.Mock
 const hookFind = prisma.hookEvent.findMany as jest.Mock
 const sessionFind = prisma.session.findMany as jest.Mock
+const verifFind = prisma.verificationRun.findMany as jest.Mock
 
 beforeEach(() => {
   ;[
@@ -29,9 +31,12 @@ beforeEach(() => {
     notifCount,
     hookFind,
     sessionFind,
+    verifFind,
   ].forEach(m => m.mockReset())
   // Default: no turn events → active time 0. Duration-specific tests override.
   hookFind.mockResolvedValue([])
+  // Default: no verification runs → friction frozen as null (no-verification).
+  verifFind.mockResolvedValue([])
 })
 
 it('loadActuals sums session usage and counts sessions', async () => {
@@ -146,6 +151,44 @@ it('createSnapshotIfAbsent rethrows non-P2002 errors', async () => {
       tokenCostBasis: 0,
     })
   ).rejects.toThrow('boom')
+})
+
+it('createSnapshotIfAbsent freezes friction from the verification runs (LUM-606)', async () => {
+  snapCreate.mockResolvedValue({})
+  verifFind.mockResolvedValue([
+    { round: 1, verdict: 'FAIL', createdAt: new Date('2026-01-01T00:00:00Z') },
+    { round: 2, verdict: 'PASS', createdAt: new Date('2026-01-02T00:00:00Z') },
+  ])
+  await retrospectiveRepository.createSnapshotIfAbsent('t1', {
+    iterations: null,
+    interactionRounds: null,
+    tokenCost: null,
+    cohortSize: 0,
+    tokenCostBasis: 0,
+  })
+  expect(verifFind).toHaveBeenCalledWith(
+    expect.objectContaining({ where: { taskId: 't1' } })
+  )
+  const data = snapCreate.mock.calls[0]?.[0]?.data
+  expect(data.verificationRounds).toBe(2)
+  expect(data.sendBackCount).toBe(1)
+  // capturedAt is set explicitly (the cut anchor), not left to the DB default.
+  expect(data.capturedAt).toBeInstanceOf(Date)
+})
+
+it('createSnapshotIfAbsent freezes null friction when there are no runs (no-verification)', async () => {
+  snapCreate.mockResolvedValue({})
+  verifFind.mockResolvedValue([])
+  await retrospectiveRepository.createSnapshotIfAbsent('t1', {
+    iterations: null,
+    interactionRounds: null,
+    tokenCost: null,
+    cohortSize: 0,
+    tokenCostBasis: 0,
+  })
+  const data = snapCreate.mock.calls[0]?.[0]?.data
+  expect(data.verificationRounds).toBeNull()
+  expect(data.sendBackCount).toBeNull()
 })
 
 it('countReferenceLibrary counts DONE tasks with sessions', async () => {
