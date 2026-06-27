@@ -15,6 +15,14 @@ type FetchDiff = (o: {
   prNumber: number
 }) => Promise<string>
 
+// Default fetcher — dynamically imported so ts-jest never loads the ESM-only
+// `@octokit/auth-app` transitive dep. Typed as FetchDiff so the `??` fallback
+// in resolveDeliveryViaGithub stays a non-undefined callable.
+const defaultFetchDiff: FetchDiff = async o => {
+  const { fetchPrDiff } = await import('@/lib/integrations/github/contents')
+  return fetchPrDiff(o)
+}
+
 /**
  * PURE — server-side analogue of `git show --numstat`. Parses a unified diff:
  * file paths come from `diff --git a/<p> b/<p>` headers (the `b/` side); `+`/`-`
@@ -53,11 +61,7 @@ export async function resolveDeliveryViaGithub(
 ): Promise<TaskDelivery | null> {
   const { identifier, mergedPRs } = args
   if (mergedPRs.length === 0) return null
-  const fetchDiff =
-    deps.fetchDiff ??
-    (await import('@/lib/integrations/github/contents').then(
-      m => m.fetchPrDiff
-    ))
+  const fetchDiff = deps.fetchDiff ?? defaultFetchDiff
 
   const diffs: string[] = []
   for (const pr of mergedPRs) {
