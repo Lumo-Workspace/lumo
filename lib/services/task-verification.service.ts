@@ -32,6 +32,7 @@ import {
 import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 import { taskService } from '@/lib/services/task.service'
 import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.service'
+import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import {
@@ -627,6 +628,15 @@ export const taskVerificationService = {
             attribution.actorClerkId,
             attribution.sourceSessionId
           )
+          // LUM-609: freeze the acceptance contract at this delivery. Only on a
+          // FRESH IN_REVIEW transition (this branch) — re-verification while
+          // already IN_REVIEW (the branch above) does NOT re-freeze, so each
+          // snapshot marks one delivery; a reopen→re-deliver appends another.
+          // Append-only & best-effort (swallows internally): the freeze never
+          // fails the round.
+          await taskCriteriaSnapshotService.recordDeliverySnapshot(taskId, {
+            sessionId: attribution.sourceSessionId,
+          })
         } else {
           taskStatus = status || taskStatus
         }
