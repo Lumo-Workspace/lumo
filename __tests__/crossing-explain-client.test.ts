@@ -17,8 +17,9 @@ jest.mock('@ai-sdk/gateway', () => ({
   gateway: (id: string) => mockGateway(id),
 }))
 // Models module is a pure string constants file — no gateway import.
+// crossing-explain rides 桶2 GENERATION (deepseek-v4-pro) per the LUM-588 repoint.
 jest.mock('@/lib/ai/models', () => ({
-  REASONING_MODEL: 'anthropic/claude-sonnet-4.6',
+  GENERATION_MODEL: 'deepseek/deepseek-v4-pro',
 }))
 
 describe('explainCrossing (LUM-590)', () => {
@@ -53,7 +54,7 @@ describe('explainCrossing (LUM-590)', () => {
       string,
       unknown
     >
-    expect(callArgs.model).toBe('gateway:anthropic/claude-sonnet-4.6')
+    expect(callArgs.model).toBe('gateway:deepseek/deepseek-v4-pro')
   })
 
   it('builds prompt correctly without optional fields', async () => {

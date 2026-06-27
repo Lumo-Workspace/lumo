@@ -16,11 +16,14 @@
 /**
  * 桶1 VERIFIER tier — high-value adversarial judging where a wrong call is
  * invisible and expensive: claim-faithfulness, contract-weakening, silent-fix,
- * spinoff, test-tampering judges + action-confirm. Pinned to Sonnet; NEVER
- * swap this tier to a cheaper model without passing the lineage A/B gate
- * (LUM-588). Gateway format.
+ * spinoff, test-tampering judges + action-confirm. Swapped from Sonnet 4.6 to
+ * GPT-5.5 — the LUM-588 lineage A/B gate ("NEVER swap without passing the gate")
+ * was explicitly WAIVED by the user for this change; no judge A/B harness exists
+ * yet, so this ships on a catalog-resolve probe only (gateway returned a clean
+ * completion 2026-06-27), NOT an accuracy eval. Gateway format; keep the version
+ * dot (`openai/gpt-5.5`), do NOT dash-normalise.
  */
-export const REASONING_MODEL = 'anthropic/claude-sonnet-4.6'
+export const REASONING_MODEL = 'openai/gpt-5.5'
 
 /**
  * 桶2 GENERATION tier — lower-stakes structured generation where the quality
