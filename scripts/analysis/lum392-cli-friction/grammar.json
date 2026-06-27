@@ -717,6 +717,33 @@
       "hasSubcommands": false,
       "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
+    "fidelity": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Mechanical fidelity read-outs (LUM-610)"
+    },
+    "fidelity show": {
+      "arguments": [
+        {
+          "name": "task",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the report as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed."
+    },
     "hook": {
       "arguments": [],
       "flags": {},
@@ -1650,6 +1677,29 @@
       "flags": {},
       "hasSubcommands": true,
       "description": "Read / record the post-hoc outcome well (LUM-598)"
+    },
+    "outcome rate": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the report as JSON"
+        },
+        "--min": {
+          "long": "--min",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Per-bracket sample floor below which a rate is withheld (default 10)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read \"insufficient\" and the high-vs-low comparison stays \"inconclusive\" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied)."
     },
     "outcome record": {
       "arguments": [

@@ -13,6 +13,7 @@ import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { cost } from './commands/cost'
 import { criteriaAudit } from './commands/criteria-audit'
+import { fidelityShow, type FidelityShowOptions } from './commands/fidelity'
 import { verify } from './commands/verify'
 import {
   verdict,
@@ -423,6 +424,22 @@ criteria
     'Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)'
   )
   .action(wrap(() => criteriaAudit()))
+
+const fidelity = program
+  .command('fidelity')
+  .description('Mechanical fidelity read-outs (LUM-610)')
+
+fidelity
+  .command('show <task>')
+  .description(
+    'Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed.'
+  )
+  .option('--json', 'Emit the report as JSON')
+  .action(
+    wrap((task: unknown, options: unknown) =>
+      fidelityShow(task as string, options as FidelityShowOptions)
+    )
+  )
 
 const session = program
   .command('session')
