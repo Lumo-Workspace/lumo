@@ -58,8 +58,8 @@ const GENERATION_CALL_SITES = [
   'lib/summaries/report.ts',
 ]
 
-// 桶1 VERIFIER + low-adversarial — MUST stay on REASONING_MODEL (Sonnet); the
-// cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
+// 桶1 VERIFIER + low-adversarial — MUST stay on REASONING_MODEL (now GPT-5.5);
+// the cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
 const VERIFIER_CALL_SITES = [
   'lib/llm/claim-faithfulness-judge-client.ts',
   'lib/llm/contract-weakening-judge-client.ts',
@@ -94,8 +94,9 @@ function walkTsFiles(dir: string): string[] {
 }
 
 test('models module exposes upgraded reasoning and content model ids', () => {
-  // Sonnet routed through the gateway → provider-prefixed.
-  expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
+  // 桶1 VERIFIER swapped Sonnet 4.6 → GPT-5.5 (LUM-588 A/B gate explicitly
+  // WAIVED by the user; catalog-resolve probe only). Gateway format, version dot.
+  expect(REASONING_MODEL).toBe('openai/gpt-5.5')
   // 桶3 (LUM-592): content generation dropped Opus + the native SDK; now Sonnet
   // via the gateway → provider-prefixed.
   expect(CONTENT_MODEL).toBe('anthropic/claude-sonnet-4.6')
@@ -208,10 +209,12 @@ test('policy-compiler tier pinned to opus, sourced from the registry', () => {
   expect(/\bREASONING_MODEL\b/.test(src)).toBe(false)
 })
 
-test('verifier tier stays on the sonnet reasoning model', () => {
-  // The reasoning constant must remain Sonnet — the verifier tier is never
-  // cheapened without passing the lineage A/B gate (桶1 hard rule).
-  expect(REASONING_MODEL).toBe('anthropic/claude-sonnet-4.6')
+test('verifier tier rides the reasoning constant (now GPT-5.5)', () => {
+  // 桶1 VERIFIER swapped Sonnet 4.6 → GPT-5.5. The LUM-588 "never swap without
+  // the lineage A/B gate" rule was explicitly WAIVED by the user for this change.
+  // The call sites must still source the shared REASONING_MODEL constant so the
+  // tier stays single-pointed and the cheap generation model never leaks in.
+  expect(REASONING_MODEL).toBe('openai/gpt-5.5')
 
   for (const rel of VERIFIER_CALL_SITES) {
     const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
