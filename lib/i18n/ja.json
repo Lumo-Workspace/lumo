@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "check の出力を隠す",
   "acceptance.check.label": "証拠",
   "acceptance.check.none": "機械チェックは未実行",
+  "acceptance.check.machineVerifiedAtRound": "マシン検証済み · ラウンド {round}",
   "acceptance.check.exitCode": "終了コード {code}",
   "acceptance.verdict.pass": "合格",
   "acceptance.verdict.sendBack": "差し戻し",

@@ -13,6 +13,26 @@ export const pullRequestRepository = {
     return prisma.pullRequest.update({ where: { id }, data })
   },
 
+  /**
+   * Find the delivery (a merged PR on a DONE task, in this workspace) whose
+   * merge commit is `sha`. Drives the LUM-607 webhook revert feed: a later
+   * commit's `This reverts commit <sha>` trailer maps back to the delivery
+   * here, with no git checkout. Mirrors the backfill script's delivery filter
+   * (state merged · mergeCommitSha set · task DONE).
+   */
+  async findMergedDeliveryByMergeCommitSha(workspaceId: string, sha: string) {
+    return prisma.pullRequest.findFirst({
+      where: {
+        workspaceId,
+        state: 'merged',
+        mergeCommitSha: sha,
+        taskId: { not: null },
+        task: { status: 'DONE' },
+      },
+      select: { taskId: true, workspaceId: true },
+    })
+  },
+
   /** Find the most recent open PR for a task. */
   async findActivePr(taskId: string) {
     return prisma.pullRequest.findFirst({

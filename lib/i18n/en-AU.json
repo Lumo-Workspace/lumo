@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Hide check output",
   "acceptance.check.label": "Evidence",
   "acceptance.check.none": "Machine check not yet run",
+  "acceptance.check.machineVerifiedAtRound": "machine-verified · round {round}",
   "acceptance.check.exitCode": "exit code {code}",
   "acceptance.verdict.pass": "Pass",
   "acceptance.verdict.sendBack": "Send back",

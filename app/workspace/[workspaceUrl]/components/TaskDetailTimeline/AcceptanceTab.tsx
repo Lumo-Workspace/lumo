@@ -35,7 +35,12 @@ import {
 import { InfoTooltip } from './InfoTooltip'
 import { ActionTooltip } from './ActionTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
-import { isPass, isHumanOverride, machineRollup } from './verdict-status'
+import {
+  isPass,
+  isHumanOverride,
+  machineEvidenceVerdict,
+  machineRollup,
+} from './verdict-status'
 import { roundHeadline } from './verification-history'
 
 interface AcceptanceTabProps {
@@ -660,6 +665,14 @@ function CriterionRow({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saveError, setSaveError] = useState(false)
   const v = c.latestVerdict
+  // LUM-611: a checkpointer run still vouches for this criterion even when a
+  // later human PASS overrode the latest verdict — that machine round (round +
+  // `cmd:` evidence) is what we disclose, not the evidence-less HUMAN verdict.
+  const machineEv = machineEvidenceVerdict(c)
+  // The evidence pointer to surface: the machine round's when one vouches,
+  // otherwise whatever the latest verdict carries.
+  const evidencePointer =
+    machineEv?.evidencePointer ?? v?.evidencePointer ?? null
   const badge = resultBadge(c, intl)
   // LUM-602: compute effective referent kind only when declared (null → no badge).
   const effKind =
@@ -672,13 +685,17 @@ function CriterionRow({
       : null
   // LUM-563/566: a criterion requiring proof but carrying no evidence pointer is
   // explicitly "pending" rather than silently bare. MACHINE pending is stated in
-  // its disclosure; HUMAN rows have no disclosure, so flag it inline.
-  const evidencePending = c.evidenceRequired && !v?.evidencePointer
+  // its disclosure; HUMAN rows have no disclosure, so flag it inline. LUM-611: a
+  // machine round's evidence counts even after a human override, so consult the
+  // resolved pointer, not just the latest verdict's.
+  const evidencePending = c.evidenceRequired && !evidencePointer
   // Only MACHINE criteria carry a runnable check / evidence to disclose.
   const hasCheck = c.verifierType === 'MACHINE' && (!!c.checkpointer || !!v)
-  // A machine-passed criterion gets the de-emphasized override affordance; an
-  // unjudged or HUMAN row gets the prominent pass / send-back controls.
-  const machinePassed = c.verifierType === 'MACHINE' && isPass(v?.verdict)
+  // A checkpointer-verified criterion gets the de-emphasized override affordance;
+  // an unjudged, overridden, or HUMAN row gets the prominent controls. LUM-611:
+  // use the read model's machinePassed (a checkpointer actually vouches), not a
+  // local re-derivation that would also flag a human override as machine-passed.
+  const machinePassed = c.machinePassed
   const hasEditDisclosure = c.changeState === 'edited' && !!c.lastEdit
   // LUM-457: a PASS that vouches for a pre-edit version — the criterion changed
   // after this verdict, or its machine evidence ran a different command than the
@@ -1115,13 +1132,32 @@ function CriterionRow({
                 {c.checkpointer}
               </div>
             ) : null}
+            {/* LUM-611: when a checkpointer round vouches for this criterion,
+                disclose that it is machine-verified and at which round — even if
+                a later human PASS overrode the latest verdict. A human sign-off
+                does not erase the machine evidence below it. */}
+            {machineEv ? (
+              <div
+                data-testid='machine-verified-marker'
+                className='font-sans text-success'
+              >
+                {intl.formatMessage(
+                  {
+                    id: 'acceptance.check.machineVerifiedAtRound',
+                    defaultMessage: 'machine-verified · round {round}',
+                  },
+                  { round: machineEv.round }
+                )}
+              </div>
+            ) : null}
             {/* LUM-563: drill the verdict's evidence into a navigable reference
                 — a commit URL, a path:line locator, or the re-runnable command +
-                exit — instead of the inert raw pointer. */}
-            {v?.evidencePointer ? (
+                exit — instead of the inert raw pointer. LUM-611: prefer the
+                machine round's pointer so a human override never hides it. */}
+            {evidencePointer ? (
               <div className='break-all font-sans'>
                 <EvidenceRef
-                  pointer={v.evidencePointer}
+                  pointer={evidencePointer}
                   repoWebUrl={repoWebUrl}
                   idSuffix={c.id}
                 />
@@ -1238,7 +1274,7 @@ export function AcceptanceTab({
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
-  const { data, loading, error, refresh } = useTaskStatus({
+  const { data, loading, error, refresh, optimisticallyPass } = useTaskStatus({
     identifier: taskIdentifier,
     enabled,
   })
@@ -1264,19 +1300,31 @@ export function AcceptanceTab({
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
   // server still enforces the red line (bearer identities 403 before parse);
   // this is just the UI gate. Verdicts are only actionable while IN_REVIEW.
+  // LUM-613: a PASS flips the targeted row to a human PASS in the status cache
+  // immediately (optimisticallyPass), so the reviewer gets instant feedback
+  // instead of waiting on the POST plus a full refetch. We roll the cache back
+  // if the request fails, and always refetch on settle so the server's
+  // task-level effects (status → DONE, the new round, cost) win.
   const submitVerdict = useCallback<SubmitVerdict>(
-    (verdict, criterionIds, note) => {
+    async (verdict, criterionIds, note) => {
+      const rollback =
+        verdict === 'PASS' ? optimisticallyPass?.(criterionIds) : undefined
       setSubmitting(true)
-      void tasksClient
-        .submitHumanVerdict(taskIdentifier, {
+      try {
+        await tasksClient.submitHumanVerdict(taskIdentifier, {
           verdict,
           ...(criterionIds ? { criterionIds } : {}),
           ...(note ? { note } : {}),
         })
-        .then(() => refresh?.())
-        .finally(() => setSubmitting(false))
+      } catch (err) {
+        rollback?.()
+        throw err
+      } finally {
+        setSubmitting(false)
+        void refresh?.()
+      }
     },
-    [taskIdentifier, refresh]
+    [taskIdentifier, refresh, optimisticallyPass]
   )
 
   const reviseContract = useCallback(

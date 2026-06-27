@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "check आउटपुट छिपाएँ",
   "acceptance.check.label": "प्रमाण",
   "acceptance.check.none": "मशीन जाँच अभी तक नहीं चली",
+  "acceptance.check.machineVerifiedAtRound": "मशीन-सत्यापित · राउंड {round}",
   "acceptance.check.exitCode": "एग्ज़िट कोड {code}",
   "acceptance.verdict.pass": "पास",
   "acceptance.verdict.sendBack": "वापस भेजें",

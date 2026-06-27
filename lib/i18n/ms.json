@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Sembunyikan output check",
   "acceptance.check.label": "bukti",
   "acceptance.check.none": "Pemeriksaan mesin belum dijalankan",
+  "acceptance.check.machineVerifiedAtRound": "disahkan mesin · pusingan {round}",
   "acceptance.check.exitCode": "kod keluar {code}",
   "acceptance.verdict.pass": "Lulus",
   "acceptance.verdict.sendBack": "Hantar semula",

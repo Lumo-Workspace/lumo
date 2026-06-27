@@ -1,8 +1,12 @@
-import { deriveVerdictStatus } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/verdict-status'
+import {
+  deriveVerdictStatus,
+  machineEvidenceVerdict,
+} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/verdict-status'
 import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
   CriterionSource,
+  CriterionLatestVerdictView,
   AcceptanceVerdict,
 } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -116,5 +120,55 @@ describe('deriveVerdictStatus', () => {
       })
     )
     expect(withHuman.kind).toBe('done')
+  })
+})
+
+describe('machineEvidenceVerdict LUM-611', () => {
+  const machineRound: CriterionLatestVerdictView = {
+    round: 2,
+    verdict: 'PASS',
+    verifierType: 'MACHINE',
+    evidencePointer: 'cmd:npx jest target.test.ts#exit=0',
+    rejectionReason: null,
+    rejectionReasonEnum: null,
+    recordedAt: 'now',
+  }
+
+  it('machineEvidenceVerdict returns the machine round for a machine pass and null for a human override LUM611', () => {
+    // A checkpointer-verified criterion whose latest verdict is a human PASS
+    // sign-off (no evidence) — the machine round below it is the evidence.
+    const overridden: TaskStatusCriterionView = {
+      ...crit('PASS', 'MACHINE'),
+      machinePassed: true,
+      machineVerdict: machineRound,
+      latestVerdict: {
+        round: 3,
+        verdict: 'PASS',
+        verifierType: 'HUMAN',
+        evidencePointer: null,
+        rejectionReason: null,
+        rejectionReasonEnum: null,
+        recordedAt: 'now',
+      },
+    }
+    expect(machineEvidenceVerdict(overridden)).toEqual(machineRound)
+
+    // A genuine human override (no checkpointer ever vouched) → no machine
+    // evidence to surface.
+    const genuineOverride: TaskStatusCriterionView = {
+      ...crit('PASS', 'MACHINE'),
+      machinePassed: false,
+      machineVerdict: null,
+    }
+    expect(machineEvidenceVerdict(genuineOverride)).toBeNull()
+  })
+
+  it('returns null when machinePassed is true but no machineVerdict is present LUM611', () => {
+    const c: TaskStatusCriterionView = {
+      ...crit('PASS', 'MACHINE'),
+      machinePassed: true,
+      machineVerdict: null,
+    }
+    expect(machineEvidenceVerdict(c)).toBeNull()
   })
 })

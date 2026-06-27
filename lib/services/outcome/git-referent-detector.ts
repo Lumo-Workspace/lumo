@@ -72,6 +72,20 @@ const TRAILER_RE = /This reverts commit ([0-9a-f]{40})/g
 const RS = '\x1e' // record separator between commits
 const FS = '\x1f' // field separator between %H and %b
 
+/**
+ * Extract every reverted-commit object id from git's own
+ * `This reverts commit <40hex>` trailer(s) in a commit message. Pure and
+ * checkout-free — the webhook forward feed reads these straight from a push
+ * payload's commit message, where no `git` is available. The SIGNAL is still
+ * the sha (a structural backreference), never the word "revert": a message that
+ * merely says "Revert …" with no trailer yields nothing.
+ */
+export function parseRevertTrailers(message: string): string[] {
+  const out: string[] = []
+  for (const m of message.matchAll(TRAILER_RE)) out.push(m[1]!)
+  return out
+}
+
 /** First whitespace-delimited token of `git patch-id` output, or null. */
 function parsePatchId(out: string): string | null {
   const tok = out.trim().split(/\s+/)[0]

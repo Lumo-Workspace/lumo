@@ -1515,6 +1515,7 @@
   "acceptance.hideCheck": "Ocultar salida del check",
   "acceptance.check.label": "Evidencia",
   "acceptance.check.none": "Comprobación automática aún sin ejecutar",
+  "acceptance.check.machineVerifiedAtRound": "verificado por máquina · ronda {round}",
   "acceptance.check.exitCode": "código de salida {code}",
   "acceptance.verdict.pass": "Aprobar",
   "acceptance.verdict.sendBack": "Devolver",
