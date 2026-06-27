@@ -1274,7 +1274,7 @@ export function AcceptanceTab({
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
-  const { data, loading, error, refresh } = useTaskStatus({
+  const { data, loading, error, refresh, optimisticallyPass } = useTaskStatus({
     identifier: taskIdentifier,
     enabled,
   })
@@ -1300,19 +1300,31 @@ export function AcceptanceTab({
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
   // server still enforces the red line (bearer identities 403 before parse);
   // this is just the UI gate. Verdicts are only actionable while IN_REVIEW.
+  // LUM-613: a PASS flips the targeted row to a human PASS in the status cache
+  // immediately (optimisticallyPass), so the reviewer gets instant feedback
+  // instead of waiting on the POST plus a full refetch. We roll the cache back
+  // if the request fails, and always refetch on settle so the server's
+  // task-level effects (status → DONE, the new round, cost) win.
   const submitVerdict = useCallback<SubmitVerdict>(
-    (verdict, criterionIds, note) => {
+    async (verdict, criterionIds, note) => {
+      const rollback =
+        verdict === 'PASS' ? optimisticallyPass?.(criterionIds) : undefined
       setSubmitting(true)
-      void tasksClient
-        .submitHumanVerdict(taskIdentifier, {
+      try {
+        await tasksClient.submitHumanVerdict(taskIdentifier, {
           verdict,
           ...(criterionIds ? { criterionIds } : {}),
           ...(note ? { note } : {}),
         })
-        .then(() => refresh?.())
-        .finally(() => setSubmitting(false))
+      } catch (err) {
+        rollback?.()
+        throw err
+      } finally {
+        setSubmitting(false)
+        void refresh?.()
+      }
     },
-    [taskIdentifier, refresh]
+    [taskIdentifier, refresh, optimisticallyPass]
   )
 
   const reviseContract = useCallback(
