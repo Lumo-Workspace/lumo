@@ -182,4 +182,23 @@ export const pullRequestRepository = {
       orderBy: { updatedAt: 'desc' },
     })
   },
+
+  /**
+   * Merged PRs for a task, oldest-first, with the fields the claim-faithfulness
+   * GitHub-API delivery resolver needs (workspaceId + repo + number to fetch the
+   * diff, mergeCommitSha for the delivery shas, title for commitSubjects).
+   */
+  async listMergedByTask(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId, state: 'merged' },
+      select: {
+        workspaceId: true,
+        repo: true,
+        number: true,
+        mergeCommitSha: true,
+        title: true,
+      },
+      orderBy: { mergedAt: 'asc' },
+    })
+  },
 }

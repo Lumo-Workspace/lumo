@@ -275,6 +275,19 @@ export const taskRepository = {
   },
 
   /**
+   * Tasks eligible for claim-faithfulness judging — DONE or IN_REVIEW, newest
+   * claim first. id + claimSnapshotAt is enough for the sweep to decide
+   * freshness (judgeTask reloads the full inputs).
+   */
+  async listFaithfulnessCandidates() {
+    return prisma.task.findMany({
+      where: { status: { in: ['DONE', 'IN_REVIEW'] } },
+      select: { id: true, claimSnapshotAt: true },
+      orderBy: { claimSnapshotAt: 'desc' },
+    })
+  },
+
+  /**
    * Lightweight status read for the lineage birth-time backfill (LUM-296).
    * Selects only `status` to avoid hydrating the full detail graph on the hot
    * session-start path. Returns null when the task doesn't exist.
