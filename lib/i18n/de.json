@@ -1882,5 +1882,11 @@
   "gates.status.not_configured": "nicht konfiguriert",
   "gates.provenance.independent_harness": "unabhängiges Harness",
   "gates.provenance.agent_self_reported": "agentseitig gemeldet",
-  "gates.summary": "{total} Gates · {passed} bestanden · {failed} fehlgeschlagen · {notRun} nicht ausgeführt · {notConfigured} nicht konfiguriert"
+  "gates.summary": "{total} Gates · {passed} bestanden · {failed} fehlgeschlagen · {notRun} nicht ausgeführt · {notConfigured} nicht konfiguriert",
+  "gates.desc.parse": "Code parst — die Syntax ist gültig",
+  "gates.desc.typecheck": "Typen sind in sich konsistent (tsc)",
+  "gates.desc.build": "Das Projekt baut — ein Artefakt entsteht",
+  "gates.desc.test": "Die Testsuite läuft fehlerfrei (nicht ob die Assertions stimmen)",
+  "gates.desc.diff-scope": "Änderungen bleiben im deklarierten Dateibereich",
+  "gates.desc.git-hygiene": "Keine Secrets, Merge-Marker oder Force-Push in der Historie"
 }

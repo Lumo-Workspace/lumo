@@ -1882,5 +1882,11 @@
   "gates.status.not_configured": "未設定",
   "gates.provenance.independent_harness": "独立ハーネス",
   "gates.provenance.agent_self_reported": "エージェント自己申告",
-  "gates.summary": "ゲート {total} 件 · {passed} 成功 · {failed} 失敗 · {notRun} 未実行 · {notConfigured} 未設定"
+  "gates.summary": "ゲート {total} 件 · {passed} 成功 · {failed} 失敗 · {notRun} 未実行 · {notConfigured} 未設定",
+  "gates.desc.parse": "コードが解析できる——構文が正しい",
+  "gates.desc.typecheck": "型が整合している(tsc)",
+  "gates.desc.build": "プロジェクトがビルドでき、成果物が生成される",
+  "gates.desc.test": "テストスイートがエラーなく実行される(アサーションの正しさは検証しない)",
+  "gates.desc.diff-scope": "変更が宣言されたファイル範囲内に収まっている",
+  "gates.desc.git-hygiene": "履歴に secret・マージマーカー・force-push がない"
 }

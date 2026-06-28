@@ -1882,5 +1882,11 @@
   "gates.status.not_configured": "не настроено",
   "gates.provenance.independent_harness": "независимая обвязка",
   "gates.provenance.agent_self_reported": "со слов агента",
-  "gates.summary": "{total} проверок · {passed} пройдено · {failed} не пройдено · {notRun} не выполнялось · {notConfigured} не настроено"
+  "gates.summary": "{total} проверок · {passed} пройдено · {failed} не пройдено · {notRun} не выполнялось · {notConfigured} не настроено",
+  "gates.desc.parse": "Код парсится — синтаксис корректен",
+  "gates.desc.typecheck": "Типы согласованы (tsc)",
+  "gates.desc.build": "Проект собирается — создаётся артефакт",
+  "gates.desc.test": "Набор тестов выполняется без ошибок (не значит, что утверждения верны)",
+  "gates.desc.diff-scope": "Изменения остаются в заявленной области файлов",
+  "gates.desc.git-hygiene": "В истории нет секретов, merge-маркеров и force-push"
 }

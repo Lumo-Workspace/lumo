@@ -1882,5 +1882,11 @@
   "gates.status.not_configured": "未配置",
   "gates.provenance.independent_harness": "独立框架",
   "gates.provenance.agent_self_reported": "agent 自述",
-  "gates.summary": "{total} 项门闸 · {passed} 通过 · {failed} 未通过 · {notRun} 未运行 · {notConfigured} 未配置"
+  "gates.summary": "{total} 项门闸 · {passed} 通过 · {failed} 未通过 · {notRun} 未运行 · {notConfigured} 未配置",
+  "gates.desc.parse": "代码能被解析——语法成立",
+  "gates.desc.typecheck": "类型自洽(tsc)",
+  "gates.desc.build": "项目能构建——产出产物",
+  "gates.desc.test": "测试套件能无错跑通(不验断言对错)",
+  "gates.desc.diff-scope": "改动锁在声明的文件范围内",
+  "gates.desc.git-hygiene": "历史里无 secret、merge marker 或 force-push"
 }
