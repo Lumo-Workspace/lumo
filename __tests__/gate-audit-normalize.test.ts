@@ -66,6 +66,27 @@ describe('normalizeHookEvents', () => {
     expect(normalizeHookEvents(rows)).toEqual([])
   })
 
+  it('does not lift a gate signal from a command that only mentions a gate in quoted text (LUM-614 prod bug)', () => {
+    // The real prod command: a `lumo task create` whose description discusses
+    // the gates. It must NOT become a passed typecheck event, and the real tsc
+    // run must remain the typecheck signal.
+    const rows: GateHookEventRow[] = [
+      bash('POST_TOOL_USE', 'npx tsc --noEmit', '2026-06-27T10:00:00.000Z'),
+      bash(
+        'POST_TOOL_USE',
+        'lumo task create "机械门闸:执行类 gate(parse/typecheck/build/test)独立版" --new-scope',
+        '2026-06-27T10:10:00.000Z'
+      ),
+    ]
+    const events = normalizeHookEvents(rows)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      key: 'typecheck',
+      command: 'npx tsc --noEmit',
+      outcome: 'success',
+    })
+  })
+
   it('buildDeliveryGateAudit wires normalize → derive with execution gates configured', () => {
     const rows: GateHookEventRow[] = [
       bash('POST_TOOL_USE', 'tsc --noEmit', '2026-06-27T10:00:00.000Z'),

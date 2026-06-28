@@ -131,14 +131,54 @@ describe('DeliveryGatesPanel', () => {
     }
   })
 
-  it('renders grounding pointer only on passed/failed rows', () => {
-    const { container } = render(<DeliveryGatesPanel audit={AUDIT} />)
-    expect(row(container, 'typecheck').textContent).toContain(
-      'cmd:tsc --noEmit#exit=0'
-    )
-    expect(row(container, 'test').textContent).toContain('cmd:npm test#exit=1')
-    // not_run / not_configured rows show no grounding pointer
-    expect(row(container, 'build').textContent).not.toContain('#exit=')
-    expect(row(container, 'git-hygiene').textContent).not.toContain('#exit=')
+  it('renders a compact grounding (command + exit) and truncates long commands', () => {
+    const longCmd = `lumo task create "${'x'.repeat(300)}"`
+    const audit: DeliveryGateAudit = {
+      gates: [
+        {
+          key: 'typecheck',
+          status: 'passed',
+          provenance: 'agent_self_reported',
+          grounding: {
+            pointer: 'cmd:tsc --noEmit#exit=0',
+            hookEvent: 'POST_TOOL_USE',
+            at: 'T',
+          },
+        },
+        {
+          key: 'test',
+          status: 'failed',
+          provenance: 'agent_self_reported',
+          grounding: {
+            pointer: `cmd:${longCmd}#exit=1`,
+            hookEvent: 'POST_TOOL_USE_FAILURE',
+            at: 'T',
+          },
+        },
+        {
+          key: 'build',
+          status: 'not_run',
+          provenance: 'agent_self_reported',
+          grounding: null,
+        },
+      ],
+    }
+    const { container } = render(<DeliveryGatesPanel audit={audit} />)
+
+    // Compact form: command + exit, not the raw cmd:…#exit= grammar.
+    const tc = row(container, 'typecheck').textContent ?? ''
+    expect(tc).toContain('tsc --noEmit')
+    expect(tc).toContain('exit 0')
+    expect(tc).not.toContain('cmd:')
+    expect(tc).not.toContain('#exit=')
+
+    // A pathologically long command is truncated, never dumped in full.
+    const t = row(container, 'test').textContent ?? ''
+    expect(t).not.toContain(longCmd)
+    expect(t).toContain('…')
+    expect(t).toContain('exit 1')
+
+    // not_run rows show no grounding at all.
+    expect(row(container, 'build').textContent).not.toContain('exit ')
   })
 })
