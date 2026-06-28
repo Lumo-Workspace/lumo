@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react'
-import { DeliveryGatesPanel } from '@/app/workspace/[workspaceUrl]/components/DeliveryGatesPanel'
+import {
+  DeliveryGatesPanel,
+  gateDescLabel,
+} from '@/app/workspace/[workspaceUrl]/components/DeliveryGatesPanel'
 import type { DeliveryGateAudit } from '@/lib/services/gate-audit'
+import { ALL_GATE_KEYS } from '../shared/src/gate-map'
 
 const messages: Record<string, string> = {
   'gates.title': 'Mechanical gates',
@@ -180,5 +184,16 @@ describe('DeliveryGatesPanel', () => {
 
     // not_run rows show no grounding at all.
     expect(row(container, 'build').textContent).not.toContain('exit ')
+  })
+})
+
+describe('gateDescLabel', () => {
+  // intl that echoes the message id, so we can assert wiring without rendering.
+  const echoIntl = { formatMessage: ({ id }: { id: string }) => id } as never
+
+  it('gives every gate key a distinct gates.desc.* hint', () => {
+    const ids = ALL_GATE_KEYS.map(k => gateDescLabel(k, echoIntl))
+    expect(ids.every(id => id.startsWith('gates.desc.'))).toBe(true)
+    expect(new Set(ids).size).toBe(ALL_GATE_KEYS.length)
   })
 })

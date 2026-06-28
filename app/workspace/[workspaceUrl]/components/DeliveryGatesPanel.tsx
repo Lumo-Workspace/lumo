@@ -6,8 +6,13 @@ import type {
   GateRecord,
   GateStatus,
 } from '@/lib/services/gate-audit'
-import type { GateProvenance } from '../../../../shared/src/gate-map'
+import type { GateKey, GateProvenance } from '../../../../shared/src/gate-map'
 import { parseEvidencePointer } from '../../../../shared/src/acceptance-evidence'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 /** Max command chars shown inline — the full command lives in the pointer. */
 const GROUNDING_CMD_MAX = 56
@@ -29,6 +34,45 @@ function groundingDisplay(pointer: string): string {
 }
 
 type Intl = ReturnType<typeof useIntl>
+
+/**
+ * One-line "what this gate checks" hint per gate, surfaced as a hover tooltip on
+ * the gate name so the terse keys (`diff-scope`, `git-hygiene`…) are legible
+ * without prior knowledge. Maps to the engineer-gate taxonomy.
+ */
+const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
+  parse: {
+    id: 'gates.desc.parse',
+    default: 'Code parses — the syntax is valid',
+  },
+  typecheck: {
+    id: 'gates.desc.typecheck',
+    default: 'Types are self-consistent (tsc)',
+  },
+  build: {
+    id: 'gates.desc.build',
+    default: 'The project builds — an artifact is produced',
+  },
+  test: {
+    id: 'gates.desc.test',
+    default:
+      'The test suite runs without errors (not whether assertions are right)',
+  },
+  'diff-scope': {
+    id: 'gates.desc.diff-scope',
+    default: 'Changes stay within the declared file scope',
+  },
+  'git-hygiene': {
+    id: 'gates.desc.git-hygiene',
+    default: 'No secrets, merge markers, or force-push in the history',
+  },
+}
+
+/** The hover-hint description for a gate. */
+export function gateDescLabel(key: GateKey, intl: Intl): string {
+  const d = GATE_DESC[key]
+  return intl.formatMessage({ id: d.id, defaultMessage: d.default })
+}
 
 /**
  * Status label — explicit switch with literal message ids (greppable, matches
@@ -102,7 +146,14 @@ function GateRow({ gate, intl }: { gate: GateRecord; intl: Intl }) {
       data-provenance={gate.provenance}
       className='flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1.5'
     >
-      <span className='w-28 shrink-0 font-mono text-caption'>{gate.key}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className='w-28 shrink-0 cursor-help font-mono text-caption underline decoration-dotted underline-offset-2'>
+            {gate.key}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{gateDescLabel(gate.key, intl)}</TooltipContent>
+      </Tooltip>
       <span className={`text-caption ${STATUS_TONE[gate.status]}`}>
         {gateStatusLabel(gate.status, intl)}
       </span>
