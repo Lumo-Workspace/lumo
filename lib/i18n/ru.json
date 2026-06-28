@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Внешний факт",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Построено агентом",
   "acceptance.referentKind.PENDING_OUTCOME": "Ожидаемый результат",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Непроверено"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Непроверено",
+  "gates.title": "Механические проверки",
+  "gates.auditTag": "аудит",
+  "gates.guardrail.verdict": "Подтверждает, что проверки выполнялись, а не что работа верна",
+  "gates.guardrail.adjudication": "Решение принимается на вкладке приёмки",
+  "gates.status.passed": "пройдено",
+  "gates.status.failed": "не пройдено",
+  "gates.status.not_run": "не выполнялось",
+  "gates.status.not_configured": "не настроено",
+  "gates.provenance.independent_harness": "независимая обвязка",
+  "gates.provenance.agent_self_reported": "со слов агента",
+  "gates.summary": "{total} проверок · {passed} пройдено · {failed} не пройдено · {notRun} не выполнялось · {notConfigured} не настроено"
 }

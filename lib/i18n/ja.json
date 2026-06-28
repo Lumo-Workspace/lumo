@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "外部事実",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "エージェント構築",
   "acceptance.referentKind.PENDING_OUTCOME": "結果待ち",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未検証"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未検証",
+  "gates.title": "機械的ゲート",
+  "gates.auditTag": "監査",
+  "gates.guardrail.verdict": "チェックが実行されたことのみを検証し、作業の正しさは検証しません",
+  "gates.guardrail.adjudication": "判定は受け入れタブにあります",
+  "gates.status.passed": "成功",
+  "gates.status.failed": "失敗",
+  "gates.status.not_run": "未実行",
+  "gates.status.not_configured": "未設定",
+  "gates.provenance.independent_harness": "独立ハーネス",
+  "gates.provenance.agent_self_reported": "エージェント自己申告",
+  "gates.summary": "ゲート {total} 件 · {passed} 成功 · {failed} 失敗 · {notRun} 未実行 · {notConfigured} 未設定"
 }

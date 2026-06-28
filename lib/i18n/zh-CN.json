@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "外部事实",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "代理构建",
   "acceptance.referentKind.PENDING_OUTCOME": "待定结果",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未经验证"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未经验证",
+  "gates.title": "机械门闸",
+  "gates.auditTag": "审计",
+  "gates.guardrail.verdict": "只验证检查已运行，不验证工作是否正确",
+  "gates.guardrail.adjudication": "裁定在验收标签页",
+  "gates.status.passed": "通过",
+  "gates.status.failed": "未通过",
+  "gates.status.not_run": "未运行",
+  "gates.status.not_configured": "未配置",
+  "gates.provenance.independent_harness": "独立框架",
+  "gates.provenance.agent_self_reported": "agent 自述",
+  "gates.summary": "{total} 项门闸 · {passed} 通过 · {failed} 未通过 · {notRun} 未运行 · {notConfigured} 未配置"
 }

@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Fakta luaran",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Dibina oleh ejen",
   "acceptance.referentKind.PENDING_OUTCOME": "Hasil belum selesai",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Tidak disahkan"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Tidak disahkan",
+  "gates.title": "Get mekanikal",
+  "gates.auditTag": "audit",
+  "gates.guardrail.verdict": "Mengesahkan bahawa pemeriksaan telah dijalankan, bukan bahawa kerja itu betul",
+  "gates.guardrail.adjudication": "Penghakiman berada di tab penerimaan",
+  "gates.status.passed": "lulus",
+  "gates.status.failed": "gagal",
+  "gates.status.not_run": "tidak dijalankan",
+  "gates.status.not_configured": "tidak dikonfigurasikan",
+  "gates.provenance.independent_harness": "harness bebas",
+  "gates.provenance.agent_self_reported": "dilaporkan sendiri oleh ejen",
+  "gates.summary": "{total} get · {passed} lulus · {failed} gagal · {notRun} tidak dijalankan · {notConfigured} tidak dikonfigurasikan"
 }

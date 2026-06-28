@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Hecho externo",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Construido por agente",
   "acceptance.referentKind.PENDING_OUTCOME": "Resultado pendiente",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "No verificado"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "No verificado",
+  "gates.title": "Comprobaciones mecánicas",
+  "gates.auditTag": "auditoría",
+  "gates.guardrail.verdict": "Verifica que las comprobaciones se ejecutaron, no que el trabajo sea correcto",
+  "gates.guardrail.adjudication": "La adjudicación está en la pestaña de aceptación",
+  "gates.status.passed": "superada",
+  "gates.status.failed": "fallida",
+  "gates.status.not_run": "no ejecutada",
+  "gates.status.not_configured": "no configurada",
+  "gates.provenance.independent_harness": "arnés independiente",
+  "gates.provenance.agent_self_reported": "autoinformada por el agente",
+  "gates.summary": "{total} comprobaciones · {passed} superadas · {failed} fallidas · {notRun} no ejecutadas · {notConfigured} no configuradas"
 }

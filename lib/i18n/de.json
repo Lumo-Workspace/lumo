@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Externer Fakt",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Agentenkonstruiert",
   "acceptance.referentKind.PENDING_OUTCOME": "Ausstehendes Ergebnis",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Ungeprüft"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Ungeprüft",
+  "gates.title": "Mechanische Gates",
+  "gates.auditTag": "Audit",
+  "gates.guardrail.verdict": "Prüft, dass Checks liefen, nicht dass die Arbeit korrekt ist",
+  "gates.guardrail.adjudication": "Die Beurteilung erfolgt im Abnahme-Tab",
+  "gates.status.passed": "bestanden",
+  "gates.status.failed": "fehlgeschlagen",
+  "gates.status.not_run": "nicht ausgeführt",
+  "gates.status.not_configured": "nicht konfiguriert",
+  "gates.provenance.independent_harness": "unabhängiges Harness",
+  "gates.provenance.agent_self_reported": "agentseitig gemeldet",
+  "gates.summary": "{total} Gates · {passed} bestanden · {failed} fehlgeschlagen · {notRun} nicht ausgeführt · {notConfigured} nicht konfiguriert"
 }

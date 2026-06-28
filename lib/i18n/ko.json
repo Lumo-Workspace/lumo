@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "외부 사실",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "에이전트 구성",
   "acceptance.referentKind.PENDING_OUTCOME": "결과 대기 중",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "미검증"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "미검증",
+  "gates.title": "기계적 게이트",
+  "gates.auditTag": "감사",
+  "gates.guardrail.verdict": "검사가 실행되었는지만 확인하며, 작업이 올바른지는 확인하지 않습니다",
+  "gates.guardrail.adjudication": "판정은 수락 탭에 있습니다",
+  "gates.status.passed": "통과",
+  "gates.status.failed": "실패",
+  "gates.status.not_run": "실행 안 됨",
+  "gates.status.not_configured": "구성 안 됨",
+  "gates.provenance.independent_harness": "독립 하니스",
+  "gates.provenance.agent_self_reported": "에이전트 자체 보고",
+  "gates.summary": "게이트 {total}개 · {passed}개 통과 · {failed}개 실패 · {notRun}개 미실행 · {notConfigured}개 미구성"
 }
