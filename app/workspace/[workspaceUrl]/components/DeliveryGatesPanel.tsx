@@ -7,6 +7,26 @@ import type {
   GateStatus,
 } from '@/lib/services/gate-audit'
 import type { GateProvenance } from '../../../../shared/src/gate-map'
+import { parseEvidencePointer } from '../../../../shared/src/acceptance-evidence'
+
+/** Max command chars shown inline — the full command lives in the pointer. */
+const GROUNDING_CMD_MAX = 56
+
+/**
+ * Compact, display-safe rendering of a `cmd:<command>#exit=<code>` grounding
+ * pointer: `<command> · exit <code>`, with the command truncated so a long
+ * agent command (e.g. a multi-line `lumo task create`) can never blow out the
+ * row. Falls back to the raw pointer for any non-cmd shape.
+ */
+function groundingDisplay(pointer: string): string {
+  const parsed = parseEvidencePointer(pointer)
+  if (!parsed || parsed.kind !== 'cmd') return pointer
+  const cmd =
+    parsed.command.length > GROUNDING_CMD_MAX
+      ? `${parsed.command.slice(0, GROUNDING_CMD_MAX - 1)}…`
+      : parsed.command
+  return `${cmd} · exit ${parsed.exitCode}`
+}
 
 type Intl = ReturnType<typeof useIntl>
 
@@ -90,8 +110,11 @@ function GateRow({ gate, intl }: { gate: GateRecord; intl: Intl }) {
         {gateProvenanceLabel(gate.provenance, intl)}
       </span>
       {gate.grounding && (
-        <span className='font-mono text-caption text-muted-foreground'>
-          {gate.grounding.pointer}
+        <span
+          title={gate.grounding.pointer}
+          className='truncate font-mono text-caption text-muted-foreground'
+        >
+          {groundingDisplay(gate.grounding.pointer)}
         </span>
       )}
     </li>

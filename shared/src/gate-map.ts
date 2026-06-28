@@ -91,13 +91,30 @@ export function gateDefinition(key: GateKey): GateDefinition {
 }
 
 /**
+ * Strip double- and single-quoted substrings from a command line, leaving only
+ * the unquoted invocation tokens. This is what stops a gate keyword that merely
+ * appears inside an *argument* — e.g. a `lumo task create "…parse/typecheck/
+ * build/test…"` description, or `echo "…run the test…"` — from being mistaken
+ * for an invocation of that gate (the LUM-614 prod false-positive, where a
+ * task-create description was classified as a passed typecheck and overwrote
+ * the real `tsc` signal). A real gate run names its tool unquoted, so it
+ * survives the strip.
+ */
+function unquotedInvocation(command: string): string {
+  return command.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, ' ')
+}
+
+/**
  * Classify an executed shell command as an execution gate, or null when it
- * matches none. Detection gates are never returned here — they're not derived
- * from commands. First match wins in declaration order.
+ * matches none. Matching runs against the unquoted invocation only, so a gate
+ * keyword buried in quoted argument text never produces a false signal.
+ * Detection gates are never returned here — they're not derived from commands.
+ * First match wins in declaration order.
  */
 export function classifyCommand(command: string): GateKey | null {
+  const invocation = unquotedInvocation(command)
   for (const def of GATE_DEFINITIONS) {
-    if (def.commandPatterns.some(p => p.test(command))) return def.key
+    if (def.commandPatterns.some(p => p.test(invocation))) return def.key
   }
   return null
 }
