@@ -2,6 +2,7 @@
 
 import type { TaskDetail, AgentRunSession } from '../../types'
 import { DeliveryPanel } from '../DeliveryPanel'
+import { DeliveryGatesSection } from '../DeliveryGatesSection'
 import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
 
 interface AgentRunsSectionProps {
@@ -34,6 +35,9 @@ export function AgentRunsSection({
         taskId={taskId}
         status={taskStatus}
         agentStatus={agentStatus}
+        footer={
+          runs.length > 0 ? <DeliveryGatesSection taskId={taskId} /> : undefined
+        }
       />
       {runs.length > 0 && <AgentRunList runs={runs} />}
     </div>

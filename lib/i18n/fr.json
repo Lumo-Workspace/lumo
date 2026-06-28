@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Fait externe",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Construit par l'agent",
   "acceptance.referentKind.PENDING_OUTCOME": "Résultat en attente",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Non vérifié"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Non vérifié",
+  "gates.title": "Gates mécaniques",
+  "gates.auditTag": "audit",
+  "gates.guardrail.verdict": "Vérifie que les contrôles ont été exécutés, pas que le travail est correct",
+  "gates.guardrail.adjudication": "Le jugement se trouve dans l'onglet d'acceptation",
+  "gates.status.passed": "réussi",
+  "gates.status.failed": "échoué",
+  "gates.status.not_run": "non exécuté",
+  "gates.status.not_configured": "non configuré",
+  "gates.provenance.independent_harness": "harnais indépendant",
+  "gates.provenance.agent_self_reported": "auto-déclaré par l'agent",
+  "gates.summary": "{total} gates · {passed} réussis · {failed} échoués · {notRun} non exécutés · {notConfigured} non configurés"
 }

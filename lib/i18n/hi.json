@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "बाहरी तथ्य",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "एजेंट-निर्मित",
   "acceptance.referentKind.PENDING_OUTCOME": "लंबित परिणाम",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "असत्यापित"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "असत्यापित",
+  "gates.title": "यांत्रिक गेट",
+  "gates.auditTag": "ऑडिट",
+  "gates.guardrail.verdict": "केवल यह सत्यापित करता है कि जाँच चलीं, यह नहीं कि काम सही है",
+  "gates.guardrail.adjudication": "निर्णय स्वीकृति टैब में होता है",
+  "gates.status.passed": "पास",
+  "gates.status.failed": "विफल",
+  "gates.status.not_run": "नहीं चला",
+  "gates.status.not_configured": "कॉन्फ़िगर नहीं",
+  "gates.provenance.independent_harness": "स्वतंत्र हार्नेस",
+  "gates.provenance.agent_self_reported": "एजेंट स्व-रिपोर्ट",
+  "gates.summary": "{total} गेट · {passed} पास · {failed} विफल · {notRun} नहीं चले · {notConfigured} कॉन्फ़िगर नहीं"
 }

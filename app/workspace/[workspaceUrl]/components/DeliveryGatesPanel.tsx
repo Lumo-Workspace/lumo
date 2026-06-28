@@ -1,0 +1,164 @@
+'use client'
+
+import { useIntl } from 'react-intl'
+import type {
+  DeliveryGateAudit,
+  GateRecord,
+  GateStatus,
+} from '@/lib/services/gate-audit'
+import type { GateProvenance } from '../../../../shared/src/gate-map'
+
+type Intl = ReturnType<typeof useIntl>
+
+/**
+ * Status label — explicit switch with literal message ids (greppable, matches
+ * boundary-format.ts). The four states stay lexically distinct so a not_run /
+ * not_configured gate never reads as a pass.
+ */
+export function gateStatusLabel(status: GateStatus, intl: Intl): string {
+  switch (status) {
+    case 'passed':
+      return intl.formatMessage({
+        id: 'gates.status.passed',
+        defaultMessage: 'passed',
+      })
+    case 'failed':
+      return intl.formatMessage({
+        id: 'gates.status.failed',
+        defaultMessage: 'failed',
+      })
+    case 'not_run':
+      return intl.formatMessage({
+        id: 'gates.status.not_run',
+        defaultMessage: 'not run',
+      })
+    case 'not_configured':
+      return intl.formatMessage({
+        id: 'gates.status.not_configured',
+        defaultMessage: 'not configured',
+      })
+  }
+}
+
+export function gateProvenanceLabel(
+  provenance: GateProvenance,
+  intl: Intl
+): string {
+  return provenance === 'independent_harness'
+    ? intl.formatMessage({
+        id: 'gates.provenance.independent_harness',
+        defaultMessage: 'independent harness',
+      })
+    : intl.formatMessage({
+        id: 'gates.provenance.agent_self_reported',
+        defaultMessage: 'agent self-reported',
+      })
+}
+
+/** Tailwind text color per status — failed is the only loud one (decision-relevant). */
+const STATUS_TONE: Record<GateStatus, string> = {
+  passed: 'text-success',
+  failed: 'text-destructive',
+  not_run: 'text-muted-foreground',
+  not_configured: 'text-muted-foreground',
+}
+
+function summarize(gates: GateRecord[]) {
+  const count = (s: GateStatus) => gates.filter(g => g.status === s).length
+  return {
+    total: gates.length,
+    passed: count('passed'),
+    failed: count('failed'),
+    notRun: count('not_run'),
+    notConfigured: count('not_configured'),
+  }
+}
+
+function GateRow({ gate, intl }: { gate: GateRecord; intl: Intl }) {
+  return (
+    <li
+      data-gate-key={gate.key}
+      data-status={gate.status}
+      data-provenance={gate.provenance}
+      className='flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1.5'
+    >
+      <span className='w-28 shrink-0 font-mono text-caption'>{gate.key}</span>
+      <span className={`text-caption ${STATUS_TONE[gate.status]}`}>
+        {gateStatusLabel(gate.status, intl)}
+      </span>
+      <span className='rounded-sm bg-muted px-1.5 text-caption text-muted-foreground'>
+        {gateProvenanceLabel(gate.provenance, intl)}
+      </span>
+      {gate.grounding && (
+        <span className='font-mono text-caption text-muted-foreground'>
+          {gate.grounding.pointer}
+        </span>
+      )}
+    </li>
+  )
+}
+
+/**
+ * Audit-only mechanical-gates panel for the delivery card (LUM-614). Renders
+ * the per-delivery gate read-model as a read-out for human judgment — it never
+ * renders a verdict. The two guardrail lines pin the gate/verdict boundary;
+ * provenance is shown per row so a self-reported gate is never mistaken for an
+ * independent pass; not_run / not_configured read as "no signal", never green.
+ */
+export function DeliveryGatesPanel({ audit }: { audit: DeliveryGateAudit }) {
+  const intl = useIntl()
+  const s = summarize(audit.gates)
+
+  return (
+    <div
+      data-testid='gate-audit-panel'
+      className='mt-4 border-t border-border pt-3'
+    >
+      <p className='mb-1 flex items-center gap-2 text-caption text-muted-foreground'>
+        <span>
+          {intl.formatMessage({
+            id: 'gates.title',
+            defaultMessage: 'Mechanical gates',
+          })}
+        </span>
+        <span className='rounded-sm bg-muted px-1.5'>
+          {intl.formatMessage({
+            id: 'gates.auditTag',
+            defaultMessage: 'audit',
+          })}
+        </span>
+      </p>
+
+      <p className='text-caption text-muted-foreground'>
+        {intl.formatMessage({
+          id: 'gates.guardrail.verdict',
+          defaultMessage:
+            'Verifies that checks ran, not that the work is correct',
+        })}
+      </p>
+      <p className='mb-2 text-caption text-muted-foreground'>
+        {intl.formatMessage({
+          id: 'gates.guardrail.adjudication',
+          defaultMessage: 'Adjudication lives in the acceptance tab',
+        })}
+      </p>
+
+      <p className='mb-1 text-caption text-muted-foreground'>
+        {intl.formatMessage(
+          {
+            id: 'gates.summary',
+            defaultMessage:
+              '{total} gates · {passed} passed · {failed} failed · {notRun} not run · {notConfigured} not configured',
+          },
+          s
+        )}
+      </p>
+
+      <ul>
+        {audit.gates.map(gate => (
+          <GateRow key={gate.key} gate={gate} intl={intl} />
+        ))}
+      </ul>
+    </div>
+  )
+}

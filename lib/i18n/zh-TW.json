@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "外部事實",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "代理建構",
   "acceptance.referentKind.PENDING_OUTCOME": "待定結果",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未經驗證"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "未經驗證",
+  "gates.title": "機械門閘",
+  "gates.auditTag": "稽核",
+  "gates.guardrail.verdict": "僅驗證檢查已執行，不驗證工作是否正確",
+  "gates.guardrail.adjudication": "裁定在驗收分頁",
+  "gates.status.passed": "通過",
+  "gates.status.failed": "未通過",
+  "gates.status.not_run": "未執行",
+  "gates.status.not_configured": "未設定",
+  "gates.provenance.independent_harness": "獨立框架",
+  "gates.provenance.agent_self_reported": "agent 自述",
+  "gates.summary": "{total} 項門閘 · {passed} 通過 · {failed} 未通過 · {notRun} 未執行 · {notConfigured} 未設定"
 }

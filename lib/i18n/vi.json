@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Sự thật bên ngoài",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Do tác nhân tạo",
   "acceptance.referentKind.PENDING_OUTCOME": "Kết quả chờ xử lý",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Chưa xác minh"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Chưa xác minh",
+  "gates.title": "Cổng kiểm tra cơ học",
+  "gates.auditTag": "kiểm toán",
+  "gates.guardrail.verdict": "Chỉ xác minh rằng kiểm tra đã chạy, không phải công việc đúng",
+  "gates.guardrail.adjudication": "Phán quyết nằm ở tab nghiệm thu",
+  "gates.status.passed": "đạt",
+  "gates.status.failed": "không đạt",
+  "gates.status.not_run": "chưa chạy",
+  "gates.status.not_configured": "chưa cấu hình",
+  "gates.provenance.independent_harness": "khung độc lập",
+  "gates.provenance.agent_self_reported": "agent tự báo cáo",
+  "gates.summary": "{total} cổng · {passed} đạt · {failed} không đạt · {notRun} chưa chạy · {notConfigured} chưa cấu hình"
 }

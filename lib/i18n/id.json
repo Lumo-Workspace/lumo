@@ -1871,5 +1871,16 @@
   "acceptance.referentKind.EXTERNAL_FACT": "Fakta eksternal",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Dibangun agen",
   "acceptance.referentKind.PENDING_OUTCOME": "Hasil tertunda",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Belum diverifikasi"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Belum diverifikasi",
+  "gates.title": "Gerbang mekanis",
+  "gates.auditTag": "audit",
+  "gates.guardrail.verdict": "Memverifikasi bahwa pemeriksaan dijalankan, bukan bahwa pekerjaan benar",
+  "gates.guardrail.adjudication": "Penilaian ada di tab penerimaan",
+  "gates.status.passed": "lulus",
+  "gates.status.failed": "gagal",
+  "gates.status.not_run": "tidak dijalankan",
+  "gates.status.not_configured": "tidak dikonfigurasi",
+  "gates.provenance.independent_harness": "harness independen",
+  "gates.provenance.agent_self_reported": "dilaporkan sendiri oleh agen",
+  "gates.summary": "{total} gerbang · {passed} lulus · {failed} gagal · {notRun} tidak dijalankan · {notConfigured} tidak dikonfigurasi"
 }

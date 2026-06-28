@@ -276,6 +276,10 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.progress(taskId))
   },
 
+  gates<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.gates(taskId))
+  },
+
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {
     const params = new URLSearchParams()
     if (cursor) params.set('cursor', cursor)
