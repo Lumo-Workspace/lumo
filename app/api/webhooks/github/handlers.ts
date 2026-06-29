@@ -1,9 +1,12 @@
 import { waitUntil } from '@vercel/functions'
 import { getActorClerkId, getHumanActorId } from '@/lib/actor'
+// Import branch helpers from the sub-module, NOT the '@/lib/integrations/github'
+// barrel — the barrel re-exports auth.ts (octokit), which we don't need here and
+// which is hostile to load in non-server contexts (LUM-616).
 import {
   parseBranchIdentifier,
   splitIdentifier,
-} from '@/lib/integrations/github'
+} from '@/lib/integrations/github/branch'
 import {
   sendChannelNotification,
   sendDMNotification,
@@ -16,6 +19,7 @@ import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
+import { ciSignalService } from '@/lib/services/ci-signal.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,10 +47,18 @@ type PullRequestPayload = {
 type CheckSuitePayload = {
   action: string
   check_suite: {
+    head_sha: string
     head_branch: string
     conclusion: string | null
     pull_requests: Array<{ number: number }>
   }
+  repository: { full_name: string }
+}
+
+type StatusPayload = {
+  sha: string
+  state: string
+  branches?: Array<{ name: string }>
   repository: { full_name: string }
 }
 
@@ -72,6 +84,31 @@ async function findTaskForBranch(
     parts.number,
     workspaceId
   )
+}
+
+/**
+ * Resolve the Lumo task a commit belongs to (LUM-616): first by any PR number
+ * the CI signal references (the PR↔task link), then by parsing the head branch.
+ * Returns null when nothing maps — e.g. CI on a non-task branch like `main`.
+ */
+async function resolveTaskIdForCommit(args: {
+  workspaceId: string
+  repo: string
+  prNumbers: number[]
+  headBranch?: string | undefined
+}): Promise<string | null> {
+  for (const number of args.prNumbers) {
+    const pr = await pullRequestRepository.findByRepoAndNumber(
+      args.repo,
+      number
+    )
+    if (pr?.taskId) return pr.taskId
+  }
+  if (args.headBranch) {
+    const task = await findTaskForBranch(args.headBranch, args.workspaceId)
+    if (task) return task.id
+  }
+  return null
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -303,7 +340,7 @@ export async function handlePush(
 
 export async function handleCheckSuite(
   payload: Record<string, unknown>,
-  _workspaceId: string
+  workspaceId: string
 ): Promise<void> {
   const {
     action,
@@ -321,12 +358,59 @@ export async function handleCheckSuite(
         : 'failure'
 
   const prNumbers = suite.pull_requests.map(pr => pr.number)
-  if (prNumbers.length === 0) return
+  if (prNumbers.length > 0) {
+    await githubService.updatePullRequestCiStatus(
+      repository.full_name,
+      prNumbers,
+      ciStatus
+    )
+  }
 
-  await githubService.updatePullRequestCiStatus(
-    repository.full_name,
-    prNumbers,
-    ciStatus
+  // LUM-616: derive independent per-gate signals from this commit's CI. Detached
+  // + fail-soft — reconcile owns its errors and must never break ingestion.
+  if (suite.head_sha) {
+    const taskId = await resolveTaskIdForCommit({
+      workspaceId,
+      repo: repository.full_name,
+      prNumbers,
+      headBranch: suite.head_branch,
+    })
+    waitUntil(
+      ciSignalService.reconcileCommit({
+        workspaceId,
+        repo: repository.full_name,
+        headSha: suite.head_sha,
+        taskId,
+      })
+    )
+  }
+}
+
+/**
+ * Commit-status event (LUM-616) — the other CI surface, used by providers that
+ * report via the Status API (Travis, Jenkins, classic CircleCI) rather than the
+ * Checks API. Same reconcile path as check_suite, keyed on the commit SHA.
+ */
+export async function handleStatus(
+  payload: Record<string, unknown>,
+  workspaceId: string
+): Promise<void> {
+  const { sha, branches, repository } = payload as unknown as StatusPayload
+  if (!sha) return
+
+  const taskId = await resolveTaskIdForCommit({
+    workspaceId,
+    repo: repository.full_name,
+    prNumbers: [],
+    headBranch: branches?.[0]?.name,
+  })
+  waitUntil(
+    ciSignalService.reconcileCommit({
+      workspaceId,
+      repo: repository.full_name,
+      headSha: sha,
+      taskId,
+    })
   )
 }
 

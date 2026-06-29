@@ -8,13 +8,16 @@
  * the delivery-card panel that renders it (app). It deliberately carries NO
  * status — status is derived per delivery from HookEvent rows, never stored.
  *
- * The class → provenance split is the load-bearing distinction (the fidelity
- * independence axis): a detection gate is something Lumo derives itself from
- * the tool-intent stream it already ingests (independent of the agent), while
- * an execution gate only ever rides on the agent's OWN tool runs today — the
- * agent chose to run it and could skip it, so its green is self-reported, not
- * an independent fact. Provenance is a pure function of class so a new gate
- * can never silently land in the wrong trust bucket.
+ * The class → provenance split seeds the fidelity independence axis: a detection
+ * gate is something Lumo derives itself from the tool-intent stream it already
+ * ingests (independent of the agent). An execution gate's signal can come from
+ * EITHER source: the agent's own tool runs (self-reported — it chose to run the
+ * check and could skip it) OR, as of LUM-616, an independent CI run read back
+ * from GitHub (check-runs / commit-statuses), which the agent cannot skip or
+ * fake. So execution-gate provenance is no longer a pure function of class — it
+ * is carried per produced signal (see NormalizedGateEvent.provenance in the
+ * gate-audit read-model); `provenanceForClass` is only the not-run/not-configured
+ * default. Detection-gate provenance is still class-fixed.
  */
 
 export type GateKey =
@@ -115,6 +118,38 @@ export function classifyCommand(command: string): GateKey | null {
   const invocation = unquotedInvocation(command)
   for (const def of GATE_DEFINITIONS) {
     if (def.commandPatterns.some(p => p.test(invocation))) return def.key
+  }
+  return null
+}
+
+/**
+ * Patterns that classify a CI check-run / commit-status NAME (not a shell
+ * command) as an execution gate. LUM-616: the independent harness reads CI
+ * signals straight from GitHub (check-runs + commit-statuses) across ANY
+ * provider, and the only semantics GitHub exposes is each check's name plus its
+ * pass/fail — so mapping a named check to a gate is unavoidably name-based.
+ * Platform-agnostic on purpose (GitHub Actions, Vercel, CircleCI, Travis, …).
+ * First match wins; order = most specific (typecheck/test) before the build
+ * catch-all so a "build and test" job lands on the narrower gate.
+ */
+const CHECK_NAME_PATTERNS: readonly (readonly [GateKey, readonly RegExp[]])[] =
+  [
+    ['typecheck', [/\btypecheck\b/i, /\btsc\b/i, /type[\s-]?check/i]],
+    ['test', [/\btests?\b/i, /\bjest\b/i, /\bvitest\b/i, /\bspec\b/i]],
+    ['build', [/\bbuild\b/i, /\bvercel\b/i, /\bdeploy/i]],
+  ]
+
+/**
+ * Classify a CI check / commit-status name as an execution gate, or null when
+ * it matches none — an unrecognized check is dropped, never coerced into a
+ * fabricated gate. A name carrying "comment" (e.g. "Vercel Preview Comments")
+ * is a bot annotation, not a CI check, and is rejected before pattern matching.
+ */
+export function classifyGateName(name: string): GateKey | null {
+  const n = name.trim()
+  if (!n || /comment/i.test(n)) return null
+  for (const [key, patterns] of CHECK_NAME_PATTERNS) {
+    if (patterns.some(p => p.test(n))) return key
   }
   return null
 }

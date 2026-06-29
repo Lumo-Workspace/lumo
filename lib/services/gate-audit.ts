@@ -1,9 +1,9 @@
 /**
- * Gate-audit read-model (LUM-614). Derives a delivery's mechanical-gate audit
- * from normalized hook-event signals — a pure projection, no I/O, no storage.
- * The status of a gate is NEVER persisted; it is recomputed per delivery from
- * the HookEvent stream (same zero-schema derived-state route as the acceptance
- * verification state).
+ * Gate-audit read-model (LUM-614 / LUM-616). Derives a delivery's mechanical-gate
+ * audit from two normalized signal sources — agent-self-reported runs lifted from
+ * HookEvent rows, and independent CI signals lifted from GateSignal rows — as a
+ * pure projection, no I/O. A gate's status is recomputed per delivery; only the
+ * raw GateSignal rows are stored (the audit verdict itself never is).
  *
  * Audit-only: this read-model reports whether a check *ran and passed*
  * mechanically. It is NOT a verdict on whether the work is correct — that
@@ -30,13 +30,20 @@ export interface GateGrounding {
   /**
    * cmd:<command>#exit=<code> evidence pointer (shared acceptance-evidence
    * grammar) — a uniform, parseable, re-runnable handle on what produced the
-   * signal. Present only on passed/failed records.
+   * signal. Present only on passed/failed records. For an independent CI signal
+   * the "command" slot carries the CI check name.
    */
   pointer: string
-  /** Raw HookEventType string the signal was lifted from. */
+  /**
+   * The origin the signal was lifted from: a raw HookEventType for an
+   * agent-self-reported run (POST_TOOL_USE / POST_TOOL_USE_FAILURE), or the CI
+   * source for an independent signal (github_check / github_status).
+   */
   hookEvent: string
   /** ISO timestamp of the producing event. */
   at: string
+  /** LUM-616: link to the producing CI run, present only on CI-sourced signals. */
+  detailsUrl?: string
 }
 
 export interface GateRecord {
@@ -63,43 +70,81 @@ export interface NormalizedGateEvent {
   exitCode: number
   hookEvent: string
   at: string
+  /**
+   * LUM-616: how the signal was produced. Optional for backward compatibility —
+   * a missing value is treated as the gate's class-default provenance. The
+   * hook-event normalizer stamps `agent_self_reported`; the CI normalizer stamps
+   * `independent_harness`.
+   */
+  provenance?: GateProvenance
+  /** LUM-616: link to the producing CI run (CI-sourced events only). */
+  detailsUrl?: string
 }
 
-function latestEventByKey(
+/**
+ * Pick one event per gate with a trust-aware precedence: an independent CI
+ * signal always wins over an agent-self-reported one for the same gate — even
+ * if the self-report is newer — because the whole point is that the agent's word
+ * must not override an independent fact. Within a single provenance bucket the
+ * latest event (by timestamp) wins. A missing provenance counts as
+ * self-reported (the legacy bucket).
+ */
+function chosenEventByKey(
   events: readonly NormalizedGateEvent[]
 ): Map<GateKey, NormalizedGateEvent> {
-  const latest = new Map<GateKey, NormalizedGateEvent>()
+  const independent = new Map<GateKey, NormalizedGateEvent>()
+  const selfReported = new Map<GateKey, NormalizedGateEvent>()
   for (const ev of events) {
-    const prev = latest.get(ev.key)
-    if (!prev || ev.at > prev.at) latest.set(ev.key, ev)
+    const bucket =
+      ev.provenance === 'independent_harness' ? independent : selfReported
+    const prev = bucket.get(ev.key)
+    if (!prev || ev.at > prev.at) bucket.set(ev.key, ev)
   }
-  return latest
+  const chosen = new Map<GateKey, NormalizedGateEvent>()
+  for (const key of new Set([...independent.keys(), ...selfReported.keys()])) {
+    const ev = independent.get(key) ?? selfReported.get(key)
+    if (ev) chosen.set(key, ev)
+  }
+  return chosen
 }
 
 function recordFor(
   key: GateKey,
   configured: ReadonlySet<GateKey>,
-  latest: Map<GateKey, NormalizedGateEvent>
+  chosen: Map<GateKey, NormalizedGateEvent>
 ): GateRecord {
-  const provenance = provenanceForClass(gateDefinition(key).class)
+  const classProvenance = provenanceForClass(gateDefinition(key).class)
 
   if (!configured.has(key)) {
-    return { key, status: 'not_configured', provenance, grounding: null }
+    return {
+      key,
+      status: 'not_configured',
+      provenance: classProvenance,
+      grounding: null,
+    }
   }
 
-  const ev = latest.get(key)
+  const ev = chosen.get(key)
   if (!ev) {
-    return { key, status: 'not_run', provenance, grounding: null }
+    return {
+      key,
+      status: 'not_run',
+      provenance: classProvenance,
+      grounding: null,
+    }
   }
 
   return {
     key,
     status: ev.outcome === 'success' ? 'passed' : 'failed',
-    provenance,
+    // The chosen event's own provenance — so an execution gate carried by an
+    // independent CI signal reports independent_harness, not its class default.
+    provenance: ev.provenance ?? classProvenance,
     grounding: {
       pointer: buildCmdEvidencePointer(ev.command, ev.exitCode),
       hookEvent: ev.hookEvent,
       at: ev.at,
+      ...(ev.detailsUrl ? { detailsUrl: ev.detailsUrl } : {}),
     },
   }
 }
@@ -120,8 +165,8 @@ export function deriveGateAudit(input: {
 }): DeliveryGateAudit {
   const universe = input.universe ?? ALL_GATE_KEYS
   const configured = new Set(input.configured)
-  const latest = latestEventByKey(input.events)
-  return { gates: universe.map(key => recordFor(key, configured, latest)) }
+  const chosen = chosenEventByKey(input.events)
+  return { gates: universe.map(key => recordFor(key, configured, chosen)) }
 }
 
 // ─── Normalization: HookEvent rows → NormalizedGateEvent ─────────────────────
@@ -189,23 +234,80 @@ export function normalizeHookEvents(
       exitCode: isSuccess ? 0 : failureExitCode(row.payload),
       hookEvent: row.type,
       at: row.createdAt.toISOString(),
+      provenance: 'agent_self_reported',
+    })
+  }
+  return out
+}
+
+// ─── Normalization: GateSignal rows → NormalizedGateEvent (LUM-616) ───────────
+
+const EXECUTION_GATE_KEY_SET: ReadonlySet<string> = new Set(EXECUTION_GATE_KEYS)
+
+/** True iff `key` names a known execution gate (parse/typecheck/build/test). */
+function isExecutionGateKey(key: string): key is GateKey {
+  return EXECUTION_GATE_KEY_SET.has(key)
+}
+
+/**
+ * A GateSignal row narrowed to the fields the CI normalizer reads. Decoupled
+ * from Prisma (mirrors GateHookEventRow) so the read-model stays pure.
+ */
+export interface GateSignalRow {
+  gateKey: string
+  outcome: string
+  checkName: string
+  detailsUrl: string | null
+  source: string
+  createdAt: Date
+}
+
+/**
+ * Lift independent execution-gate signals out of GateSignal rows (the CI signal
+ * Lumo derived from GitHub check-runs / commit-statuses — LUM-616). Rows whose
+ * gateKey is not a known execution gate are dropped (never coerced). Pass/fail
+ * comes from the recorded outcome; the check name fills the grounding pointer's
+ * command slot and the CI link rides along as detailsUrl.
+ */
+export function normalizeGateSignals(
+  rows: readonly GateSignalRow[]
+): NormalizedGateEvent[] {
+  const out: NormalizedGateEvent[] = []
+  for (const row of rows) {
+    if (!isExecutionGateKey(row.gateKey)) continue
+    const outcome = row.outcome === 'success' ? 'success' : 'failure'
+    out.push({
+      key: row.gateKey,
+      outcome,
+      command: row.checkName,
+      exitCode: outcome === 'success' ? 0 : 1,
+      hookEvent: row.source,
+      at: row.createdAt.toISOString(),
+      provenance: 'independent_harness',
+      ...(row.detailsUrl ? { detailsUrl: row.detailsUrl } : {}),
     })
   }
   return out
 }
 
 /**
- * Build a delivery's gate audit straight from its HookEvent rows. v1 wires the
- * execution gates only (read from the agent's own tool runs, self-reported);
- * detection gates (diff-scope / git-hygiene) have no independent server-side
- * derivation yet, so they stay not_configured until that follow-up lands —
+ * Build a delivery's gate audit from its two execution-gate signal sources:
+ *   - agent-self-reported runs lifted from HookEvent rows (LUM-614), and
+ *   - independent CI signals lifted from GateSignal rows (LUM-616).
+ * An independent signal wins over a self-reported one for the same gate (see
+ * chosenEventByKey). Detection gates (diff-scope / git-hygiene) still have no
+ * independent derivation wired (LUM-615), so they stay not_configured —
  * honestly absent, never a fabricated pass.
  */
 export function buildDeliveryGateAudit(
-  rows: readonly GateHookEventRow[]
+  rows: readonly GateHookEventRow[],
+  gateSignals: readonly GateSignalRow[] = []
 ): DeliveryGateAudit {
   return deriveGateAudit({
     configured: EXECUTION_GATE_KEYS,
-    events: normalizeHookEvents(rows),
+    events: [
+      ...normalizeHookEvents(rows),
+      ...normalizeGateSignals(gateSignals),
+    ],
   })
 }
