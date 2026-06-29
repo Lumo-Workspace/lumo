@@ -7,7 +7,12 @@ const GH_HEADERS = {
 
 /**
  * Creates a webhook on a GitHub repo listening for pull_request,
- * pull_request_review, and check_suite events.
+ * pull_request_review, check_suite, push, and status events.
+ *
+ * `status` is the second CI surface (LUM-616): providers that report via the
+ * Commit Status API (Travis, Jenkins, classic CircleCI) emit `status`, while
+ * Checks-API providers (GitHub Actions, Vercel) emit `check_suite`. Both feed
+ * the independent gate-signal reconcile.
  *
  * @returns The GitHub webhook ID (needed to delete later).
  * @throws  If the API call fails.
@@ -25,7 +30,13 @@ export async function createRepoWebhook(
     body: JSON.stringify({
       name: 'web',
       active: true,
-      events: ['pull_request', 'pull_request_review', 'check_suite', 'push'],
+      events: [
+        'pull_request',
+        'pull_request_review',
+        'check_suite',
+        'push',
+        'status',
+      ],
       config: {
         url: webhookUrl,
         content_type: 'json',

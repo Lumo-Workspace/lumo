@@ -279,6 +279,7 @@ model Workspace {
   droppedFragments        DroppedFragment[]
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
+  gateSignals             GateSignal[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -616,6 +617,7 @@ model Task {
   blockedByEdges             TaskDependency[]            @relation("TaskBlockedBy")
   blockingEdges              TaskDependency[]            @relation("TaskBlocking")
   autoBlocks                 AutoBlock[]
+  gateSignals                GateSignal[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1678,6 +1680,33 @@ model HookEvent {
   // before the time-range scan.
   @@index([workspaceId, filePath, createdAt])
   @@map("hook_events")
+}
+
+/// LUM-616 — independent execution-gate signal. Unlike the agent-self-reported
+/// gate signal (derived on the fly from HookEvent Bash rows), this row records a
+/// pass/fail produced by CI on GitHub's runners (check-runs / commit-statuses),
+/// so it cannot be skipped or faked by the agent. The gate-audit read-model
+/// merges these with the HookEvent-derived signals; an independent signal wins
+/// over a self-reported one for the same gate. Append-only — re-runs add rows,
+/// the read-model picks the latest per gate.
+model GateSignal {
+  id          String   @id @default(cuid())
+  workspaceId String
+  taskId      String
+  gateKey     String // execution GateKey: parse | typecheck | build | test
+  outcome     String // 'success' | 'failure'
+  provenance  String // 'independent_harness'
+  source      String // 'github_check' | 'github_status'
+  checkName   String // raw CI check-run name / status context (audit trail)
+  detailsUrl  String? // link to the producing CI run
+  headSha     String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("gate_signals")
 }
 
 model Session {
