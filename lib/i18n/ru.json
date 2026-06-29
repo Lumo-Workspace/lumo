@@ -1883,7 +1883,6 @@
   "gates.provenance.independent_harness": "независимая обвязка",
   "gates.provenance.agent_self_reported": "со слов агента",
   "gates.summary": "{total} проверок · {passed} пройдено · {failed} не пройдено · {notRun} не выполнялось · {notConfigured} не настроено",
-  "gates.desc.parse": "Код парсится — синтаксис корректен",
   "gates.desc.typecheck": "Типы согласованы (tsc)",
   "gates.desc.build": "Проект собирается — создаётся артефакт",
   "gates.desc.test": "Набор тестов выполняется без ошибок (не значит, что утверждения верны)",

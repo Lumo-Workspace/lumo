@@ -21,8 +21,8 @@
  */
 
 export type GateKey =
-  // Execution-class — pass/fail comes from running a command the agent ran.
-  | 'parse'
+  // Execution-class — pass/fail comes from a build/test/typecheck run (agent's
+  // own tool run, or an independent CI run read back from GitHub — LUM-616).
   | 'typecheck'
   | 'build'
   | 'test'
@@ -54,7 +54,10 @@ export function provenanceForClass(cls: GateClass): GateProvenance {
 type RawDefinition = Pick<GateDefinition, 'key' | 'class' | 'commandPatterns'>
 
 const RAW_DEFINITIONS: readonly RawDefinition[] = [
-  { key: 'parse', class: 'execution', commandPatterns: [/node\s+--check/] },
+  // 'parse' (node --check) was dropped (LUM-616 follow-up): it's a strict subset
+  // of typecheck/build (which both parse before they can run), so a separate
+  // parse gate carried no independent information and was never sourced — it sat
+  // perpetually not_run. Removed rather than fabricated-green.
   {
     key: 'typecheck',
     class: 'execution',

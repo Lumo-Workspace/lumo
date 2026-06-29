@@ -244,7 +244,7 @@ export function normalizeHookEvents(
 
 const EXECUTION_GATE_KEY_SET: ReadonlySet<string> = new Set(EXECUTION_GATE_KEYS)
 
-/** True iff `key` names a known execution gate (parse/typecheck/build/test). */
+/** True iff `key` names a known execution gate (typecheck/build/test). */
 function isExecutionGateKey(key: string): key is GateKey {
   return EXECUTION_GATE_KEY_SET.has(key)
 }

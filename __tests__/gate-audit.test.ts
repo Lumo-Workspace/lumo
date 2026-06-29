@@ -37,7 +37,7 @@ const EVENTS: NormalizedGateEvent[] = [
   },
 ]
 
-// typecheck/test/build/diff-scope are wired; parse & git-hygiene are not.
+// typecheck/test/build/diff-scope are wired; git-hygiene is not.
 const CONFIGURED: GateKey[] = ['typecheck', 'test', 'build', 'diff-scope']
 
 describe('gate-audit', () => {
@@ -57,13 +57,11 @@ describe('gate-audit', () => {
     expect(g['build']!.status).toBe('not_run')
 
     // no definition wired for this delivery → not_configured (NOT passed)
-    expect(g['parse']!.status).toBe('not_configured')
     expect(g['git-hygiene']!.status).toBe('not_configured')
 
     // The silent-absence red line: a gate that did not run, or is not
     // configured, is NEVER derived as passed.
     expect(g['build']!.status).not.toBe('passed')
-    expect(g['parse']!.status).not.toBe('passed')
     expect(g['git-hygiene']!.status).not.toBe('passed')
 
     // provenance rides the class regardless of status
@@ -98,7 +96,6 @@ describe('gate-audit', () => {
 
     // not_run / not_configured carry NO grounding
     expect(g['build']!.grounding).toBeNull()
-    expect(g['parse']!.grounding).toBeNull()
     expect(g['git-hygiene']!.grounding).toBeNull()
   })
 

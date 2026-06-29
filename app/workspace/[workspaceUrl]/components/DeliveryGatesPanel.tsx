@@ -41,10 +41,6 @@ type Intl = ReturnType<typeof useIntl>
  * without prior knowledge. Maps to the engineer-gate taxonomy.
  */
 const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
-  parse: {
-    id: 'gates.desc.parse',
-    default: 'Code parses — the syntax is valid',
-  },
   typecheck: {
     id: 'gates.desc.typecheck',
     default: 'Types are self-consistent (tsc)',
