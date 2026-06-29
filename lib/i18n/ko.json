@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "타입이 일관됨 (tsc)",
   "gates.desc.build": "프로젝트가 빌드되어 산출물이 생성됨",
   "gates.desc.test": "테스트 스위트가 오류 없이 실행됨 (어서션의 정확성은 검증 안 함)",
-  "gates.desc.diff-scope": "변경이 선언된 파일 범위 내에 머무름",
-  "gates.desc.git-hygiene": "이력에 시크릿·머지 마커·force-push 없음"
+  "gates.desc.diff-scope": "변경이 선언된 파일 범위 내에 머무름"
 }

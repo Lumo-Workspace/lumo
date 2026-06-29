@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "类型自洽(tsc)",
   "gates.desc.build": "项目能构建——产出产物",
   "gates.desc.test": "测试套件能无错跑通(不验断言对错)",
-  "gates.desc.diff-scope": "改动锁在声明的文件范围内",
-  "gates.desc.git-hygiene": "历史里无 secret、merge marker 或 force-push"
+  "gates.desc.diff-scope": "改动锁在声明的文件范围内"
 }

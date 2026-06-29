@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "型別自洽(tsc)",
   "gates.desc.build": "專案能建置——產出產物",
   "gates.desc.test": "測試套件能無錯跑通(不驗斷言對錯)",
-  "gates.desc.diff-scope": "變更鎖在宣告的檔案範圍內",
-  "gates.desc.git-hygiene": "歷史裡無 secret、merge marker 或 force-push"
+  "gates.desc.diff-scope": "變更鎖在宣告的檔案範圍內"
 }

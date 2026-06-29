@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "Types are self-consistent (tsc)",
   "gates.desc.build": "The project builds — an artifact is produced",
   "gates.desc.test": "The test suite runs without errors (not whether assertions are right)",
-  "gates.desc.diff-scope": "Changes stay within the declared file scope",
-  "gates.desc.git-hygiene": "No secrets, merge markers, or force-push in the history"
+  "gates.desc.diff-scope": "Changes stay within the declared file scope"
 }

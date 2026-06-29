@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "Les types sont cohérents (tsc)",
   "gates.desc.build": "Le projet se compile — un artefact est produit",
   "gates.desc.test": "La suite de tests s'exécute sans erreur (pas si les assertions sont justes)",
-  "gates.desc.diff-scope": "Les changements restent dans le périmètre de fichiers déclaré",
-  "gates.desc.git-hygiene": "Aucun secret, marqueur de fusion ou force-push dans l'historique"
+  "gates.desc.diff-scope": "Les changements restent dans le périmètre de fichiers déclaré"
 }

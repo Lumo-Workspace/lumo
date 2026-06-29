@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "Jenis konsisten (tsc)",
   "gates.desc.build": "Projek terbina — artifak dihasilkan",
   "gates.desc.test": "Suite ujian berjalan tanpa ralat (bukan sama ada penegasan betul)",
-  "gates.desc.diff-scope": "Perubahan kekal dalam skop fail yang diisytiharkan",
-  "gates.desc.git-hygiene": "Tiada rahsia, penanda merge, atau force-push dalam sejarah"
+  "gates.desc.diff-scope": "Perubahan kekal dalam skop fail yang diisytiharkan"
 }

@@ -10,7 +10,7 @@ describe('gate-map', () => {
   it('classifies provenance by class', () => {
     // Detection-class gates are derived server-side by Lumo from the payload
     // stream it already ingests — genuinely independent of the agent.
-    for (const key of ['diff-scope', 'git-hygiene'] as GateKey[]) {
+    for (const key of ['diff-scope'] as GateKey[]) {
       const def = gateDefinition(key)
       expect(def.class).toBe('detection')
       expect(def.provenance).toBe('independent_harness')

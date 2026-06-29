@@ -28,7 +28,6 @@ export type GateKey =
   | 'test'
   // Detection-class — Lumo derives the signal server-side from tool intent.
   | 'diff-scope'
-  | 'git-hygiene'
 
 export type GateClass = 'detection' | 'execution'
 
@@ -73,8 +72,12 @@ const RAW_DEFINITIONS: readonly RawDefinition[] = [
     class: 'execution',
     commandPatterns: [/\bjest\b/, /\bvitest\b/, /\bnpm\s+(run\s+)?test\b/],
   },
+  // 'git-hygiene' was dropped (LUM-616 follow-up): its core (committed secrets)
+  // is already the HARDCODED_SECRET boundary crossing — detected server-side,
+  // surfaced in the crossings panel, AND blocks DONE (stronger than an audit-only
+  // gate). A git-hygiene gate would just be a weaker, redundant re-projection.
+  // diff-scope stays: no crossing category covers out-of-declared-scope edits.
   { key: 'diff-scope', class: 'detection', commandPatterns: [] },
-  { key: 'git-hygiene', class: 'detection', commandPatterns: [] },
 ]
 
 const DEFINITIONS: Record<GateKey, GateDefinition> = RAW_DEFINITIONS.reduce(
