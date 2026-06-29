@@ -18,7 +18,7 @@ describe('gate-map', () => {
 
     // Execution-class gates ride on the agent's own tool runs — the agent chose
     // to run them and could skip them, so they are self-reported, not independent.
-    for (const key of ['parse', 'typecheck', 'build', 'test'] as GateKey[]) {
+    for (const key of ['typecheck', 'build', 'test'] as GateKey[]) {
       const def = gateDefinition(key)
       expect(def.class).toBe('execution')
       expect(def.provenance).toBe('agent_self_reported')
@@ -44,7 +44,8 @@ describe('classifyCommand', () => {
     expect(classifyCommand('npx jest foo.test.ts')).toBe('test')
     expect(classifyCommand('npm test')).toBe('test')
     expect(classifyCommand('cd /x && npm run build')).toBe('build')
-    expect(classifyCommand('node --check foo.js')).toBe('parse')
+    // 'parse' gate was removed (LUM-616 follow-up) — node --check no longer maps.
+    expect(classifyCommand('node --check foo.js')).toBeNull()
   })
 
   it('does NOT classify gate keywords that only appear inside quoted text', () => {

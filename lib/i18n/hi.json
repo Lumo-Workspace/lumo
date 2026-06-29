@@ -1883,7 +1883,6 @@
   "gates.provenance.independent_harness": "स्वतंत्र हार्नेस",
   "gates.provenance.agent_self_reported": "एजेंट स्व-रिपोर्ट",
   "gates.summary": "{total} गेट · {passed} पास · {failed} विफल · {notRun} नहीं चले · {notConfigured} कॉन्फ़िगर नहीं",
-  "gates.desc.parse": "कोड पार्स होता है — सिंटैक्स मान्य है",
   "gates.desc.typecheck": "टाइप आपस में संगत हैं (tsc)",
   "gates.desc.build": "प्रोजेक्ट बिल्ड होता है — आर्टिफैक्ट बनता है",
   "gates.desc.test": "टेस्ट सूट बिना त्रुटि के चलता है (यह नहीं कि एसर्शन सही हैं)",

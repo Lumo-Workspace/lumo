@@ -1883,7 +1883,6 @@
   "gates.provenance.independent_harness": "harness independen",
   "gates.provenance.agent_self_reported": "dilaporkan sendiri oleh agen",
   "gates.summary": "{total} gerbang · {passed} lulus · {failed} gagal · {notRun} tidak dijalankan · {notConfigured} tidak dikonfigurasi",
-  "gates.desc.parse": "Kode terurai — sintaksnya valid",
   "gates.desc.typecheck": "Tipe konsisten (tsc)",
   "gates.desc.build": "Proyek terbangun — artefak dihasilkan",
   "gates.desc.test": "Rangkaian uji berjalan tanpa error (bukan apakah asersinya benar)",

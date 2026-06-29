@@ -1883,7 +1883,6 @@
   "gates.provenance.independent_harness": "harnais indépendant",
   "gates.provenance.agent_self_reported": "auto-déclaré par l'agent",
   "gates.summary": "{total} gates · {passed} réussis · {failed} échoués · {notRun} non exécutés · {notConfigured} non configurés",
-  "gates.desc.parse": "Le code s'analyse — la syntaxe est valide",
   "gates.desc.typecheck": "Les types sont cohérents (tsc)",
   "gates.desc.build": "Le projet se compile — un artefact est produit",
   "gates.desc.test": "La suite de tests s'exécute sans erreur (pas si les assertions sont justes)",
