@@ -295,7 +295,7 @@ export function normalizeGateSignals(
  *   - agent-self-reported runs lifted from HookEvent rows (LUM-614), and
  *   - independent CI signals lifted from GateSignal rows (LUM-616).
  * An independent signal wins over a self-reported one for the same gate (see
- * chosenEventByKey). Detection gates (diff-scope / git-hygiene) still have no
+ * chosenEventByKey). The detection gate (diff-scope) still has no
  * independent derivation wired (LUM-615), so they stay not_configured —
  * honestly absent, never a fabricated pass.
  */

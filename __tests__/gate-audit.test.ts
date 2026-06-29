@@ -27,18 +27,11 @@ const EVENTS: NormalizedGateEvent[] = [
     hookEvent: 'POST_TOOL_USE_FAILURE',
     at: '2026-06-27T10:05:00.000Z',
   },
-  {
-    key: 'diff-scope',
-    outcome: 'success',
-    command: 'lumo:diff-scope',
-    exitCode: 0,
-    hookEvent: 'PRE_TOOL_USE',
-    at: '2026-06-27T10:01:00.000Z',
-  },
 ]
 
-// typecheck/test/build/diff-scope are wired; git-hygiene is not.
-const CONFIGURED: GateKey[] = ['typecheck', 'test', 'build', 'diff-scope']
+// Only execution gates are wired today; the detection gate diff-scope has no
+// independent derivation yet (LUM-615), so it stays not_configured — matching prod.
+const CONFIGURED: GateKey[] = ['typecheck', 'test', 'build']
 
 describe('gate-audit', () => {
   it('derive four states', () => {
@@ -51,20 +44,19 @@ describe('gate-audit', () => {
     // matched success → passed; matched failure variant → failed
     expect(g['typecheck']!.status).toBe('passed')
     expect(g['test']!.status).toBe('failed')
-    expect(g['diff-scope']!.status).toBe('passed')
 
     // configured but no matching event → not_run (NOT passed)
     expect(g['build']!.status).toBe('not_run')
 
-    // no definition wired for this delivery → not_configured (NOT passed)
-    expect(g['git-hygiene']!.status).toBe('not_configured')
+    // detection gate not wired for this delivery → not_configured (NOT passed)
+    expect(g['diff-scope']!.status).toBe('not_configured')
 
     // The silent-absence red line: a gate that did not run, or is not
     // configured, is NEVER derived as passed.
     expect(g['build']!.status).not.toBe('passed')
-    expect(g['git-hygiene']!.status).not.toBe('passed')
+    expect(g['diff-scope']!.status).not.toBe('passed')
 
-    // provenance rides the class regardless of status
+    // provenance rides the class regardless of status (detection = independent)
     expect(g['typecheck']!.provenance).toBe('agent_self_reported')
     expect(g['diff-scope']!.provenance).toBe('independent_harness')
   })
@@ -77,7 +69,7 @@ describe('gate-audit', () => {
     const g = byKey(gates)
 
     // passed / failed carry a parseable cmd:<command>#exit=<code> pointer
-    for (const key of ['typecheck', 'test', 'diff-scope']) {
+    for (const key of ['typecheck', 'test']) {
       const grounding = g[key]!.grounding
       expect(grounding).not.toBeNull()
       const parsed = parseEvidencePointer(grounding!.pointer)
@@ -96,7 +88,7 @@ describe('gate-audit', () => {
 
     // not_run / not_configured carry NO grounding
     expect(g['build']!.grounding).toBeNull()
-    expect(g['git-hygiene']!.grounding).toBeNull()
+    expect(g['diff-scope']!.grounding).toBeNull()
   })
 
   it('latest event per gate wins', () => {

@@ -68,16 +68,6 @@ const AUDIT: DeliveryGateAudit = {
     },
     {
       key: 'diff-scope',
-      status: 'passed',
-      provenance: 'independent_harness',
-      grounding: {
-        pointer: 'cmd:lumo:diff-scope#exit=0',
-        hookEvent: 'PRE_TOOL_USE',
-        at: '2026-06-27T10:01:00.000Z',
-      },
-    },
-    {
-      key: 'git-hygiene',
       status: 'not_configured',
       provenance: 'independent_harness',
       grounding: null,
@@ -110,17 +100,17 @@ describe('DeliveryGatesPanel', () => {
     expect(buildRow.textContent).toContain('not run')
     expect(buildRow.textContent).not.toContain('passed')
 
-    const gitRow = row(container, 'git-hygiene')
-    expect(gitRow.dataset.status).toBe('not_configured')
-    expect(gitRow.textContent).toContain('not configured')
-    expect(gitRow.textContent).not.toContain('passed')
+    const detectionRow = row(container, 'diff-scope')
+    expect(detectionRow.dataset.status).toBe('not_configured')
+    expect(detectionRow.textContent).toContain('not configured')
+    expect(detectionRow.textContent).not.toContain('passed')
 
     // The three non-failed states are visually/semantically distinct.
     expect(row(container, 'typecheck').dataset.status).toBe('passed')
     const distinctStatuses = new Set([
       row(container, 'typecheck').dataset.status,
       row(container, 'build').dataset.status,
-      row(container, 'git-hygiene').dataset.status,
+      row(container, 'diff-scope').dataset.status,
     ])
     expect(distinctStatuses.size).toBe(3)
 
@@ -130,7 +120,7 @@ describe('DeliveryGatesPanel', () => {
       expect(row(container, key).textContent).toContain('agent self-reported')
     }
     // Detection-class rows are labelled independent.
-    for (const key of ['diff-scope', 'git-hygiene']) {
+    for (const key of ['diff-scope']) {
       expect(row(container, key).textContent).toContain('independent harness')
     }
   })

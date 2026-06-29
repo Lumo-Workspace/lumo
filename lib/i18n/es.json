@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "Los tipos son consistentes (tsc)",
   "gates.desc.build": "El proyecto compila — se produce un artefacto",
   "gates.desc.test": "La suite de pruebas se ejecuta sin errores (no si las aserciones son correctas)",
-  "gates.desc.diff-scope": "Los cambios permanecen dentro del alcance de archivos declarado",
-  "gates.desc.git-hygiene": "Sin secretos, marcadores de merge ni force-push en el historial"
+  "gates.desc.diff-scope": "Los cambios permanecen dentro del alcance de archivos declarado"
 }

@@ -1886,6 +1886,5 @@
   "gates.desc.typecheck": "Typen sind in sich konsistent (tsc)",
   "gates.desc.build": "Das Projekt baut — ein Artefakt entsteht",
   "gates.desc.test": "Die Testsuite läuft fehlerfrei (nicht ob die Assertions stimmen)",
-  "gates.desc.diff-scope": "Änderungen bleiben im deklarierten Dateibereich",
-  "gates.desc.git-hygiene": "Keine Secrets, Merge-Marker oder Force-Push in der Historie"
+  "gates.desc.diff-scope": "Änderungen bleiben im deklarierten Dateibereich"
 }

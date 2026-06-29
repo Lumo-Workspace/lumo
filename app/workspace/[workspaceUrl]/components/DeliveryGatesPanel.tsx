@@ -37,7 +37,7 @@ type Intl = ReturnType<typeof useIntl>
 
 /**
  * One-line "what this gate checks" hint per gate, surfaced as a hover tooltip on
- * the gate name so the terse keys (`diff-scope`, `git-hygiene`…) are legible
+ * the gate name so the terse keys (`diff-scope`…) are legible
  * without prior knowledge. Maps to the engineer-gate taxonomy.
  */
 const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
@@ -57,10 +57,6 @@ const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
   'diff-scope': {
     id: 'gates.desc.diff-scope',
     default: 'Changes stay within the declared file scope',
-  },
-  'git-hygiene': {
-    id: 'gates.desc.git-hygiene',
-    default: 'No secrets, merge markers, or force-push in the history',
   },
 }
 
