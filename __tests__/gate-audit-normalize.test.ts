@@ -96,7 +96,6 @@ describe('normalizeHookEvents', () => {
     // execution gate with a real event → passed; other execution gates → not_run
     expect(byKey['typecheck']!.status).toBe('passed')
     expect(byKey['test']!.status).toBe('not_run')
-    // detection gate has no independent derivation wired yet → not_configured
-    expect(byKey['diff-scope']!.status).toBe('not_configured')
+    expect(byKey['build']!.status).toBe('not_run')
   })
 })

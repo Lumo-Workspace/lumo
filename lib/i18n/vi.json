@@ -1885,6 +1885,5 @@
   "gates.summary": "{total} cổng · {passed} đạt · {failed} không đạt · {notRun} chưa chạy · {notConfigured} chưa cấu hình",
   "gates.desc.typecheck": "Kiểu nhất quán (tsc)",
   "gates.desc.build": "Dự án build được — tạo ra artefact",
-  "gates.desc.test": "Bộ kiểm thử chạy không lỗi (không xác minh khẳng định đúng hay sai)",
-  "gates.desc.diff-scope": "Thay đổi nằm trong phạm vi tệp đã khai báo"
+  "gates.desc.test": "Bộ kiểm thử chạy không lỗi (không xác minh khẳng định đúng hay sai)"
 }

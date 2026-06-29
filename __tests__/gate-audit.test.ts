@@ -29,8 +29,7 @@ const EVENTS: NormalizedGateEvent[] = [
   },
 ]
 
-// Only execution gates are wired today; the detection gate diff-scope has no
-// independent derivation yet (LUM-615), so it stays not_configured — matching prod.
+// All gates are execution-class today (detection gates removed — LUM-616 f/u).
 const CONFIGURED: GateKey[] = ['typecheck', 'test', 'build']
 
 describe('gate-audit', () => {
@@ -48,17 +47,24 @@ describe('gate-audit', () => {
     // configured but no matching event → not_run (NOT passed)
     expect(g['build']!.status).toBe('not_run')
 
-    // detection gate not wired for this delivery → not_configured (NOT passed)
-    expect(g['diff-scope']!.status).toBe('not_configured')
+    // not_configured: a gate in the universe but absent from the configured set
+    // (with no detection gates left, exercise the state directly via `universe`).
+    const absent = byKey(
+      deriveGateAudit({
+        universe: ['typecheck', 'build'],
+        configured: ['typecheck'],
+        events: [],
+      }).gates
+    )
+    expect(absent['build']!.status).toBe('not_configured')
 
     // The silent-absence red line: a gate that did not run, or is not
     // configured, is NEVER derived as passed.
     expect(g['build']!.status).not.toBe('passed')
-    expect(g['diff-scope']!.status).not.toBe('passed')
+    expect(absent['build']!.status).not.toBe('passed')
 
-    // provenance rides the class regardless of status (detection = independent)
+    // execution gate with no independent signal → class-default self-reported
     expect(g['typecheck']!.provenance).toBe('agent_self_reported')
-    expect(g['diff-scope']!.provenance).toBe('independent_harness')
   })
 
   it('grounding bound to status', () => {
@@ -86,9 +92,8 @@ describe('gate-audit', () => {
       exitCode: 1,
     })
 
-    // not_run / not_configured carry NO grounding
+    // not_run carries NO grounding
     expect(g['build']!.grounding).toBeNull()
-    expect(g['diff-scope']!.grounding).toBeNull()
   })
 
   it('latest event per gate wins', () => {

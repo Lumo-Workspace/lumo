@@ -38,7 +38,6 @@ describe('gateAuditService.getForTask', () => {
     expect(byKey['typecheck']!.status).toBe('passed')
     expect(byKey['test']!.status).toBe('failed')
     expect(byKey['build']!.status).toBe('not_run')
-    expect(byKey['diff-scope']!.status).toBe('not_configured')
   })
 
   it('surfaces an independent CI GateSignal as the gate verdict', async () => {
