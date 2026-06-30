@@ -82,23 +82,59 @@ describe('buildPerPrGateAudit', () => {
   })
 
   it('puts unresolved signals in the unlinked bucket', () => {
+    // With MULTIPLE PRs an unresolved signal is genuinely ambiguous — there's no
+    // single candidate to attribute it to, so it stays unlinked rather than guessed.
     const result = buildPerPrGateAudit({
       // A CI signal whose stored prNumber matches no known PR.
       gateSignals: [ci('build', 'success', '2026-06-28T10:00:00.000Z', 999)],
       // A self-reported run whose session branch matches no PR headBranch.
       hookRows: [bash('npm test', '2026-06-28T11:00:00.000Z', 'sOrphan')],
-      pullRequests: [PR_753],
+      pullRequests: [PR_753, PR_754],
       sessionBranchById: { sOrphan: 'lumo/some-other-branch' },
     })
 
-    // Nothing leaks onto PR 753 — its gates are all signal-free.
-    const pr753 = result.prs.find(p => p.pr.number === 753)!
-    expect(gateOf(pr753.audit, 'build').status).toBe('not_run')
-    expect(gateOf(pr753.audit, 'test').status).toBe('not_run')
+    // Nothing leaks onto either PR — their gates are all signal-free.
+    for (const n of [753, 754]) {
+      const pr = result.prs.find(p => p.pr.number === n)!
+      expect(gateOf(pr.audit, 'build').status).toBe('not_run')
+      expect(gateOf(pr.audit, 'test').status).toBe('not_run')
+    }
     // Both orphan signals land in the explicit unlinked bucket.
     expect(result.unlinked).not.toBeNull()
     expect(gateOf(result.unlinked!, 'build').status).toBe('passed')
     expect(gateOf(result.unlinked!, 'test').status).toBe('passed')
+  })
+
+  it('attributes an unresolved signal to the sole pr when the task has one', () => {
+    // A self-reported run with no resolvable branch — but the task has exactly
+    // one PR, so it is the only candidate. Attribute to it (not a guess between
+    // many), so a single-PR delivery never reads as a phantom unlinked bucket.
+    const result = buildPerPrGateAudit({
+      gateSignals: [],
+      hookRows: [bash('npm test', '2026-06-28T11:00:00.000Z', 'sNoBranch')],
+      pullRequests: [PR_753],
+      sessionBranchById: {}, // branch unknown → unresolved
+    })
+
+    const pr753 = result.prs.find(p => p.pr.number === 753)!
+    expect(gateOf(pr753.audit, 'test').status).toBe('passed')
+    expect(result.unlinked).toBeNull()
+  })
+
+  it('keeps a signal naming an unknown pr unlinked even with a sole pr', () => {
+    // The signal explicitly names PR 999 (not on the task) — it has a PR identity
+    // we just cannot place, so it must NOT be reassigned to the sole PR 753.
+    const result = buildPerPrGateAudit({
+      gateSignals: [ci('build', 'success', '2026-06-28T10:00:00.000Z', 999)],
+      hookRows: [],
+      pullRequests: [PR_753],
+      sessionBranchById: {},
+    })
+
+    const pr753 = result.prs.find(p => p.pr.number === 753)!
+    expect(gateOf(pr753.audit, 'build').status).toBe('not_run')
+    expect(result.unlinked).not.toBeNull()
+    expect(gateOf(result.unlinked!, 'build').status).toBe('passed')
   })
 
   it('preserves four state and independent preference within a pull request', () => {
