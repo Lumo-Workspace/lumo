@@ -23,11 +23,10 @@
 export type GateKey =
   // Execution-class — pass/fail comes from a build/test/typecheck run (agent's
   // own tool run, or an independent CI run read back from GitHub — LUM-616).
-  | 'typecheck'
-  | 'build'
-  | 'test'
-  // Detection-class — Lumo derives the signal server-side from tool intent.
-  | 'diff-scope'
+  // No detection-class gate keys today (diff-scope/git-hygiene removed — see
+  // RAW_DEFINITIONS); detection now lives in boundary crossings. The 'detection'
+  // GateClass scaffolding is kept so a detection gate can be re-added cleanly.
+  'typecheck' | 'build' | 'test'
 
 export type GateClass = 'detection' | 'execution'
 
@@ -72,12 +71,14 @@ const RAW_DEFINITIONS: readonly RawDefinition[] = [
     class: 'execution',
     commandPatterns: [/\bjest\b/, /\bvitest\b/, /\bnpm\s+(run\s+)?test\b/],
   },
-  // 'git-hygiene' was dropped (LUM-616 follow-up): its core (committed secrets)
-  // is already the HARDCODED_SECRET boundary crossing — detected server-side,
-  // surfaced in the crossings panel, AND blocks DONE (stronger than an audit-only
-  // gate). A git-hygiene gate would just be a weaker, redundant re-projection.
-  // diff-scope stays: no crossing category covers out-of-declared-scope edits.
-  { key: 'diff-scope', class: 'detection', commandPatterns: [] },
+  // Detection-class gates were all removed (LUM-616 follow-up): detection belongs
+  // in boundary crossings, not audit-only gates.
+  //  - 'git-hygiene' (committed secrets) ≡ the HARDCODED_SECRET crossing, which
+  //    is detected server-side, surfaced, AND blocks DONE — strictly stronger.
+  //  - 'diff-scope' (out-of-declared-scope edits) has no source of truth yet
+  //    (Lumo has no "declared scope"); the right home is a future
+  //    OUT_OF_SCOPE_EDIT crossing, not a perpetually not_configured gate.
+  // The 'detection' GateClass stays as scaffolding for a clean future re-add.
 ]
 
 const DEFINITIONS: Record<GateKey, GateDefinition> = RAW_DEFINITIONS.reduce(

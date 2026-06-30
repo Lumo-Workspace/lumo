@@ -1885,6 +1885,5 @@
   "gates.summary": "{total} gerbang · {passed} lulus · {failed} gagal · {notRun} tidak dijalankan · {notConfigured} tidak dikonfigurasi",
   "gates.desc.typecheck": "Tipe konsisten (tsc)",
   "gates.desc.build": "Proyek terbangun — artefak dihasilkan",
-  "gates.desc.test": "Rangkaian uji berjalan tanpa error (bukan apakah asersinya benar)",
-  "gates.desc.diff-scope": "Perubahan tetap dalam cakupan berkas yang dideklarasikan"
+  "gates.desc.test": "Rangkaian uji berjalan tanpa error (bukan apakah asersinya benar)"
 }

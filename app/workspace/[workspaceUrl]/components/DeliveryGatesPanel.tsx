@@ -37,7 +37,7 @@ type Intl = ReturnType<typeof useIntl>
 
 /**
  * One-line "what this gate checks" hint per gate, surfaced as a hover tooltip on
- * the gate name so the terse keys (`diff-scope`…) are legible
+ * the gate name so the terse keys (`typecheck`, `build`, `test`) are legible
  * without prior knowledge. Maps to the engineer-gate taxonomy.
  */
 const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
@@ -53,10 +53,6 @@ const GATE_DESC: Record<GateKey, { id: string; default: string }> = {
     id: 'gates.desc.test',
     default:
       'The test suite runs without errors (not whether assertions are right)',
-  },
-  'diff-scope': {
-    id: 'gates.desc.diff-scope',
-    default: 'Changes stay within the declared file scope',
   },
 }
 

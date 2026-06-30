@@ -1885,6 +1885,5 @@
   "gates.summary": "{total} Gates · {passed} bestanden · {failed} fehlgeschlagen · {notRun} nicht ausgeführt · {notConfigured} nicht konfiguriert",
   "gates.desc.typecheck": "Typen sind in sich konsistent (tsc)",
   "gates.desc.build": "Das Projekt baut — ein Artefakt entsteht",
-  "gates.desc.test": "Die Testsuite läuft fehlerfrei (nicht ob die Assertions stimmen)",
-  "gates.desc.diff-scope": "Änderungen bleiben im deklarierten Dateibereich"
+  "gates.desc.test": "Die Testsuite läuft fehlerfrei (nicht ob die Assertions stimmen)"
 }

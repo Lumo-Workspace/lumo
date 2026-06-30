@@ -40,14 +40,16 @@ jest.mock('react-intl', () => ({
 
 const AUDIT: DeliveryGateAudit = {
   gates: [
+    // passed via an INDEPENDENT CI signal (LUM-616) — reads "independent harness".
     {
       key: 'typecheck',
       status: 'passed',
-      provenance: 'agent_self_reported',
+      provenance: 'independent_harness',
       grounding: {
-        pointer: 'cmd:tsc --noEmit#exit=0',
-        hookEvent: 'POST_TOOL_USE',
-        at: '2026-06-27T10:00:00.000Z',
+        pointer: 'cmd:typecheck#exit=0',
+        hookEvent: 'github_check',
+        at: '2026-06-29T10:00:00.000Z',
+        detailsUrl: 'https://ci.example/run/1',
       },
     },
     {
@@ -64,12 +66,6 @@ const AUDIT: DeliveryGateAudit = {
       key: 'build',
       status: 'not_run',
       provenance: 'agent_self_reported',
-      grounding: null,
-    },
-    {
-      key: 'diff-scope',
-      status: 'not_configured',
-      provenance: 'independent_harness',
       grounding: null,
     },
   ],
@@ -93,35 +89,29 @@ describe('DeliveryGatesPanel', () => {
       screen.getByText('Adjudication lives in the acceptance tab')
     ).toBeInTheDocument()
 
-    // not_run and not_configured carry their own honest status and are NEVER
-    // shown with the passed affordance — distinct data-status + distinct label.
+    // not_run carries its own honest status and is NEVER shown with the passed
+    // affordance — distinct data-status + distinct label.
     const buildRow = row(container, 'build')
     expect(buildRow.dataset.status).toBe('not_run')
     expect(buildRow.textContent).toContain('not run')
     expect(buildRow.textContent).not.toContain('passed')
 
-    const detectionRow = row(container, 'diff-scope')
-    expect(detectionRow.dataset.status).toBe('not_configured')
-    expect(detectionRow.textContent).toContain('not configured')
-    expect(detectionRow.textContent).not.toContain('passed')
-
-    // The three non-failed states are visually/semantically distinct.
-    expect(row(container, 'typecheck').dataset.status).toBe('passed')
+    // passed / failed / not_run are visually/semantically distinct.
     const distinctStatuses = new Set([
-      row(container, 'typecheck').dataset.status,
-      row(container, 'build').dataset.status,
-      row(container, 'diff-scope').dataset.status,
+      row(container, 'typecheck').dataset.status, // passed
+      row(container, 'test').dataset.status, // failed
+      row(container, 'build').dataset.status, // not_run
     ])
     expect(distinctStatuses.size).toBe(3)
 
-    // Every execution-class row is labelled agent-self-reported, so a
-    // self-reported gate is never mistaken for an independent pass.
-    for (const key of ['typecheck', 'test', 'build']) {
+    // Provenance label follows the SIGNAL SOURCE, not the class (LUM-616): a row
+    // carried by an independent CI signal reads "independent harness"; a row from
+    // the agent's own run reads "agent self-reported".
+    expect(row(container, 'typecheck').textContent).toContain(
+      'independent harness'
+    )
+    for (const key of ['test', 'build']) {
       expect(row(container, key).textContent).toContain('agent self-reported')
-    }
-    // Detection-class rows are labelled independent.
-    for (const key of ['diff-scope']) {
-      expect(row(container, key).textContent).toContain('independent harness')
     }
   })
 
