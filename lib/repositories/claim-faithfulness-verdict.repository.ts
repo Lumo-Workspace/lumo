@@ -51,12 +51,21 @@ export const claimFaithfulnessVerdictRepository = {
   findByTaskId(taskId: string) {
     return prisma.claimFaithfulnessVerdict.findUnique({ where: { taskId } })
   },
-  // taskId → judgedClaimAt watermark, for --resume skip decisions.
-  async listWatermarks(): Promise<Map<string, Date | null>> {
+  // taskId → freshness watermark, for sweep / --resume skip decisions. Carries
+  // both axes: `judgedClaimAt` (claim staleness) and `prNumbers` (the delivery
+  // the verdict was judged against, for LUM-618 delivery-growth staleness).
+  async listWatermarks(): Promise<
+    Map<string, { judgedClaimAt: Date | null; prNumbers: number[] }>
+  > {
     const rows = await prisma.claimFaithfulnessVerdict.findMany({
-      select: { taskId: true, judgedClaimAt: true },
+      select: { taskId: true, judgedClaimAt: true, prNumbers: true },
     })
-    return new Map(rows.map(r => [r.taskId, r.judgedClaimAt]))
+    return new Map(
+      rows.map(r => [
+        r.taskId,
+        { judgedClaimAt: r.judgedClaimAt, prNumbers: r.prNumbers },
+      ])
+    )
   },
 }
 

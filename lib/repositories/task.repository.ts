@@ -276,15 +276,28 @@ export const taskRepository = {
 
   /**
    * Tasks eligible for claim-faithfulness judging — DONE or IN_REVIEW, newest
-   * claim first. id + claimSnapshotAt is enough for the sweep to decide
-   * freshness (judgeTask reloads the full inputs).
+   * claim first. Carries claimSnapshotAt (claim-staleness axis) plus the current
+   * merged-PR set (LUM-618 delivery-growth axis) so the sweep can decide both
+   * freshness axes without reloading each task (judgeTask reloads full inputs).
    */
   async listFaithfulnessCandidates() {
-    return prisma.task.findMany({
+    const rows = await prisma.task.findMany({
       where: { status: { in: ['DONE', 'IN_REVIEW'] } },
-      select: { id: true, claimSnapshotAt: true },
+      select: {
+        id: true,
+        claimSnapshotAt: true,
+        pullRequests: {
+          where: { state: 'merged' },
+          select: { number: true },
+        },
+      },
       orderBy: { claimSnapshotAt: 'desc' },
     })
+    return rows.map(r => ({
+      id: r.id,
+      claimSnapshotAt: r.claimSnapshotAt,
+      mergedPrNumbers: r.pullRequests.map(p => p.number),
+    }))
   },
 
   /**
