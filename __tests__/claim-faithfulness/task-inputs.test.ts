@@ -8,6 +8,7 @@ describe('mapTaskRowToInputs', () => {
       number: 540,
       claimSnapshot: 'did not include code changes',
       claimSnapshotAt: new Date('2026-01-01'),
+      claimSnapshotSessionId: 'sess-1',
       acceptanceCriteria: [
         { statement: 'memory retire loop ships' },
         { statement: 'human review surface renders' },
@@ -15,6 +16,7 @@ describe('mapTaskRowToInputs', () => {
     })
     expect(out.identifier).toBe('LUM-540')
     expect(out.claim).toBe('did not include code changes')
+    expect(out.claimSnapshotSessionId).toBe('sess-1')
     expect(out.criteria).toEqual([
       'memory retire loop ships',
       'human review surface renders',
@@ -27,9 +29,11 @@ describe('mapTaskRowToInputs', () => {
       number: 1,
       claimSnapshot: null,
       claimSnapshotAt: null,
+      claimSnapshotSessionId: null,
       acceptanceCriteria: [],
     })
     expect(out.claim).toBeNull()
+    expect(out.claimSnapshotSessionId).toBeNull()
     expect(out.criteria).toEqual([])
   })
 })
