@@ -5,6 +5,10 @@ export interface TaskClaimInputs {
   identifier: string
   claim: string | null
   claimSnapshotAt: Date | null
+  // LUM-618: the session that produced the frozen claim, used to pair the claim
+  // with the delivery it actually describes (see delivery-pairing.ts). Null for
+  // legacy / synthesized snapshots that carry no session pointer.
+  claimSnapshotSessionId: string | null
   criteria: string[]
 }
 
@@ -13,6 +17,7 @@ interface TaskRow {
   number: number
   claimSnapshot: string | null
   claimSnapshotAt: Date | null
+  claimSnapshotSessionId: string | null
   acceptanceCriteria: { statement: string }[]
 }
 
@@ -21,6 +26,7 @@ export function mapTaskRowToInputs(row: TaskRow): TaskClaimInputs {
     identifier: `${row.team.identifier}-${row.number}`,
     claim: row.claimSnapshot,
     claimSnapshotAt: row.claimSnapshotAt,
+    claimSnapshotSessionId: row.claimSnapshotSessionId,
     criteria: row.acceptanceCriteria.map(c => c.statement),
   }
 }
@@ -30,6 +36,7 @@ export const TASK_INPUT_SELECT = {
   number: true,
   claimSnapshot: true,
   claimSnapshotAt: true,
+  claimSnapshotSessionId: true,
   acceptanceCriteria: { select: { statement: true } },
 } satisfies Prisma.TaskSelect
 

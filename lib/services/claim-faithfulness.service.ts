@@ -7,6 +7,7 @@ import {
   resolveDeliveryViaGithub,
   type MergedPrRef,
 } from '@/lib/claim-faithfulness/delivery-github'
+import { isClaimDeliveryMismatch } from '@/lib/claim-faithfulness/delivery-pairing'
 import { classifyClaimFaithfulness } from '@/lib/claim-faithfulness/classify'
 import {
   buildVerdictRow,
@@ -18,6 +19,7 @@ import type {
   TaskDelivery,
 } from '@/lib/claim-faithfulness/types'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { REASONING_MODEL } from '@/lib/ai/models'
 
@@ -38,6 +40,9 @@ export interface ClaimFaithfulnessDeps {
     },
     deps: { timeoutMs?: number }
   ) => Promise<ClaimFaithfulnessResult>
+  // LUM-618: distinct sessions that produced a MERGED lineage edge for the task
+  // (the DB fact of delivery), used to pair the claim with its delivery.
+  listMergedSessionIds: (taskId: string) => Promise<string[]>
   upsertVerdict: (row: ReturnType<typeof buildVerdictRow>) => Promise<void>
   findWatermark: (
     taskId: string
@@ -48,10 +53,51 @@ export interface ClaimFaithfulnessDeps {
   timeoutMs: number
 }
 
+/**
+ * LUM-618 verdict for a claim that describes a delivery not yet merged (its
+ * session is not among the task's merged-delivery sessions). UNJUDGEABLE — not a
+ * faithfulness call against a mismatched delivery — with a `diffScope` of 0.
+ */
+const DELIVERY_MISMATCH_RESULT: ClaimFaithfulnessResult = {
+  verdict: 'UNJUDGEABLE',
+  evidence: [],
+  reasoning:
+    'claim describes a delivery not yet merged (the claiming session is not among the task’s merged deliveries); judging deferred until it merges',
+  prefilterSignal: null,
+  diffScope: 0,
+}
+
 export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
   async function judgeTask(taskId: string): Promise<string | null> {
     const inputs = await deps.loadTaskInputs(taskId)
     if (!inputs) return null
+
+    // LUM-618: the claim snapshot is overwritten by the LATEST `verify --note`,
+    // but the delivery resolver builds the diff from the task's MERGED PRs. When
+    // the latest claim came from a session whose follow-up PR is still open
+    // while an OLDER PR from a different session has merged, comparing that claim
+    // against the merged diff falsely reads OVERSTATED. Gate it BEFORE the
+    // freshness short-circuit so an already-recorded (mismatched) verdict is
+    // healed too: record UNJUDGEABLE with a NULL watermark — never a fresh
+    // blocking verdict — so the sweep keeps re-evaluating until the claiming
+    // session itself merges (its lineage edge stamps MERGED → the gate clears →
+    // the next pass re-judges against the full delivery).
+    const mergedSessionIds = await deps.listMergedSessionIds(taskId)
+    if (
+      isClaimDeliveryMismatch(inputs.claimSnapshotSessionId, mergedSessionIds)
+    ) {
+      await deps.upsertVerdict(
+        buildVerdictRow(
+          taskId,
+          inputs.identifier,
+          null,
+          DELIVERY_MISMATCH_RESULT,
+          null,
+          deps.judgeModel
+        )
+      )
+      return DELIVERY_MISMATCH_RESULT.verdict
+    }
 
     const existing = await deps.findWatermark(taskId)
     if (
@@ -118,6 +164,8 @@ export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
 export const claimFaithfulnessService = createClaimFaithfulnessService({
   loadTaskInputs,
   listMergedPRs: taskId => pullRequestRepository.listMergedByTask(taskId),
+  listMergedSessionIds: taskId =>
+    lineageEdgeRepository.findMergedSessionIds(taskId),
   resolveDelivery: resolveDeliveryViaGithub,
   classify: classifyClaimFaithfulness,
   upsertVerdict: row => claimFaithfulnessVerdictRepository.upsert(row),
