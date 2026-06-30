@@ -1885,5 +1885,7 @@
   "gates.summary": "{total} get · {passed} lulus · {failed} gagal · {notRun} tidak dijalankan · {notConfigured} tidak dikonfigurasikan",
   "gates.desc.typecheck": "Jenis konsisten (tsc)",
   "gates.desc.build": "Projek terbina — artifak dihasilkan",
-  "gates.desc.test": "Suite ujian berjalan tanpa ralat (bukan sama ada penegasan betul)"
+  "gates.desc.test": "Suite ujian berjalan tanpa ralat (bukan sama ada penegasan betul)",
+  "gates.prColumn": "Pull request",
+  "gates.unlinked": "Isyarat yang tidak terpaut ke PR"
 }

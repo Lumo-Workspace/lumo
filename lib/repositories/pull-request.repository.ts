@@ -124,6 +124,37 @@ export const pullRequestRepository = {
   },
 
   /**
+   * The most recent PR for a repo + head branch (LUM-617) — used at webhook time
+   * to resolve which PR a CI commit belongs to when the event carries the branch
+   * (status events) rather than a PR list. Returns just the number.
+   */
+  async findByHeadBranch(repo: string, headBranch: string) {
+    return prisma.pullRequest.findFirst({
+      where: { repo, headBranch },
+      orderBy: { updatedAt: 'desc' },
+      select: { number: true },
+    })
+  },
+
+  /**
+   * All PRs linked to a task (LUM-617), newest-first, projected to the fields
+   * the per-PR gate audit needs to group and label signals. ISP: only the
+   * grouping/display columns, nothing else.
+   */
+  async findManyByTaskId(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      orderBy: { number: 'desc' },
+      select: {
+        number: true,
+        title: true,
+        state: true,
+        headBranch: true,
+      },
+    })
+  },
+
+  /**
    * Find a PR by task + number for the context-tiering retrieval route
    * (LUM-122). Scoped to the task so the API route's workspace check on the
    * task transitively secures the PR. Returns full structured PR fields.

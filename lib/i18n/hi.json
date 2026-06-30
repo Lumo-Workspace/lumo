@@ -1885,5 +1885,7 @@
   "gates.summary": "{total} गेट · {passed} पास · {failed} विफल · {notRun} नहीं चले · {notConfigured} कॉन्फ़िगर नहीं",
   "gates.desc.typecheck": "टाइप आपस में संगत हैं (tsc)",
   "gates.desc.build": "प्रोजेक्ट बिल्ड होता है — आर्टिफैक्ट बनता है",
-  "gates.desc.test": "टेस्ट सूट बिना त्रुटि के चलता है (यह नहीं कि एसर्शन सही हैं)"
+  "gates.desc.test": "टेस्ट सूट बिना त्रुटि के चलता है (यह नहीं कि एसर्शन सही हैं)",
+  "gates.prColumn": "पुल रिक्वेस्ट",
+  "gates.unlinked": "किसी PR से लिंक न किए गए सिग्नल"
 }

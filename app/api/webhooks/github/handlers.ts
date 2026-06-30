@@ -111,6 +111,29 @@ async function resolveTaskIdForCommit(args: {
   return null
 }
 
+/**
+ * Resolve which PR a CI commit belongs to (LUM-617), stored on each GateSignal
+ * so the gate audit can group by PR. Prefers the event's own PR list
+ * (check_suite); falls back to the head branch (status events). Null when
+ * neither resolves — the audit then buckets the signal as unlinked.
+ */
+async function resolvePrNumberForCommit(args: {
+  repo: string
+  prNumbers: number[]
+  headBranch?: string | undefined
+}): Promise<number | null> {
+  const [first] = args.prNumbers
+  if (first != null) return first
+  if (args.headBranch) {
+    const pr = await pullRequestRepository.findByHeadBranch(
+      args.repo,
+      args.headBranch
+    )
+    if (pr) return pr.number
+  }
+  return null
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 export async function handlePullRequest(
@@ -369,18 +392,26 @@ export async function handleCheckSuite(
   // LUM-616: derive independent per-gate signals from this commit's CI. Detached
   // + fail-soft — reconcile owns its errors and must never break ingestion.
   if (suite.head_sha) {
-    const taskId = await resolveTaskIdForCommit({
-      workspaceId,
-      repo: repository.full_name,
-      prNumbers,
-      headBranch: suite.head_branch,
-    })
+    const [taskId, prNumber] = await Promise.all([
+      resolveTaskIdForCommit({
+        workspaceId,
+        repo: repository.full_name,
+        prNumbers,
+        headBranch: suite.head_branch,
+      }),
+      resolvePrNumberForCommit({
+        repo: repository.full_name,
+        prNumbers,
+        headBranch: suite.head_branch,
+      }),
+    ])
     waitUntil(
       ciSignalService.reconcileCommit({
         workspaceId,
         repo: repository.full_name,
         headSha: suite.head_sha,
         taskId,
+        prNumber,
       })
     )
   }
@@ -398,18 +429,27 @@ export async function handleStatus(
   const { sha, branches, repository } = payload as unknown as StatusPayload
   if (!sha) return
 
-  const taskId = await resolveTaskIdForCommit({
-    workspaceId,
-    repo: repository.full_name,
-    prNumbers: [],
-    headBranch: branches?.[0]?.name,
-  })
+  const headBranch = branches?.[0]?.name
+  const [taskId, prNumber] = await Promise.all([
+    resolveTaskIdForCommit({
+      workspaceId,
+      repo: repository.full_name,
+      prNumbers: [],
+      headBranch,
+    }),
+    resolvePrNumberForCommit({
+      repo: repository.full_name,
+      prNumbers: [],
+      headBranch,
+    }),
+  ])
   waitUntil(
     ciSignalService.reconcileCommit({
       workspaceId,
       repo: repository.full_name,
       headSha: sha,
       taskId,
+      prNumber,
     })
   )
 }
