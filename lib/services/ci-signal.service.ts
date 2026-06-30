@@ -28,6 +28,13 @@ export const ciSignalService = {
     repo: string
     headSha: string
     taskId: string | null
+    /**
+     * LUM-617: the PR this commit's CI belongs to, resolved at the webhook (from
+     * check_suite.pull_requests, or the head branch for status events). Null when
+     * the commit maps to no PR. Stored on each signal so the audit can group
+     * gates by PR.
+     */
+    prNumber?: number | null
   }): Promise<void> {
     if (!input.taskId) return
     try {
@@ -54,6 +61,7 @@ export const ciSignalService = {
           checkName: signal.name,
           detailsUrl: signal.detailsUrl,
           headSha: input.headSha,
+          prNumber: input.prNumber ?? null,
         })
       }
 

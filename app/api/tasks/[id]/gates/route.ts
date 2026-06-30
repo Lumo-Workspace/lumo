@@ -5,8 +5,9 @@ import { taskService, gateAuditService } from '@/lib/services'
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET /api/tasks/[id]/gates — the delivery's mechanical-gate audit (LUM-614):
- * a per-delivery read-model over the task's HookEvent rows. Audit-only, no
+ * GET /api/tasks/[id]/gates — the delivery's mechanical-gate audit, grouped by
+ * PR (LUM-614 / LUM-617): a read-model over the task's HookEvent + CI GateSignal
+ * rows, one gate set per pull request plus an unlinked bucket. Audit-only, no
  * verdict. task not found → 404.
  */
 export async function GET(_request: NextRequest, { params }: Params) {
@@ -27,8 +28,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const audit = await gateAuditService.getForTask(id)
-    return NextResponse.json({ audit })
+    const perPr = await gateAuditService.getPerPrForTask(id)
+    return NextResponse.json({ perPr })
   } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },

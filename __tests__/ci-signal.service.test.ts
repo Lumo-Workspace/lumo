@@ -66,6 +66,7 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
         checkName: 'Vercel',
         detailsUrl: 'u',
         headSha: 'sha1',
+        prNumber: null,
       },
     ])
   })

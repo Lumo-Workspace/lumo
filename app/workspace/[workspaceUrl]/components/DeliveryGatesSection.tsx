@@ -1,16 +1,18 @@
 'use client'
 
 import { useGateAudit } from '../hooks/useGateAudit'
-import { DeliveryGatesPanel } from './DeliveryGatesPanel'
+import { DeliveryGatesByPrPanel } from './DeliveryGatesByPrPanel'
 
 /**
  * Data-fetching wrapper that mounts the audit-only mechanical-gates panel on
- * the delivery card (LUM-614). Keeps DeliveryPanel free of this concern (SRP):
- * it fetches the per-delivery gate read-model and renders the pure panel, or
- * nothing while loading / when there's no audit yet.
+ * the delivery card (LUM-614 / LUM-617). Keeps DeliveryPanel free of this
+ * concern (SRP): it fetches the per-PR gate read-model and renders the pure
+ * panel, or nothing while loading / when there are no PRs and no unlinked
+ * signals to show.
  */
 export function DeliveryGatesSection({ taskId }: { taskId: string }) {
-  const { audit, isLoading } = useGateAudit(taskId)
-  if (isLoading || !audit) return null
-  return <DeliveryGatesPanel audit={audit} />
+  const { perPr, isLoading } = useGateAudit(taskId)
+  if (isLoading || !perPr) return null
+  if (perPr.prs.length === 0 && !perPr.unlinked) return null
+  return <DeliveryGatesByPrPanel perPr={perPr} />
 }

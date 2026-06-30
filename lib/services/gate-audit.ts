@@ -58,6 +58,30 @@ export interface DeliveryGateAudit {
   gates: GateRecord[]
 }
 
+/** A pull request a delivery's gate signals can be grouped under (LUM-617). */
+export interface PrRef {
+  number: number
+  title: string
+  state: string
+  headBranch: string
+}
+
+/** One PR's slice of the gate audit. */
+export interface PrGateAudit {
+  pr: PrRef
+  audit: DeliveryGateAudit
+}
+
+/**
+ * The delivery gate audit grouped by PR (LUM-617). Each known PR gets its own
+ * gate set; signals that resolve to no PR land in `unlinked` (null when none) —
+ * never dropped, never attributed to an arbitrary PR.
+ */
+export interface PerPrGateAudit {
+  prs: PrGateAudit[]
+  unlinked: DeliveryGateAudit | null
+}
+
 /**
  * A gate signal lifted out of a HookEvent row (classification + grounding
  * extraction happen upstream in the normalizer; this read-model consumes the
@@ -79,6 +103,18 @@ export interface NormalizedGateEvent {
   provenance?: GateProvenance
   /** LUM-616: link to the producing CI run (CI-sourced events only). */
   detailsUrl?: string
+  /**
+   * LUM-617: the session a self-reported run ran in — used to attribute the
+   * signal to a PR via the session's worktree branch. Null/absent for CI signals
+   * (which carry `prNumber` directly).
+   */
+  sessionId?: string | null
+  /**
+   * LUM-617: the PR number this signal was recorded against (CI signals carry it
+   * from the write-time linkage). Null/absent for self-reported signals, which
+   * resolve their PR via `sessionId` → branch instead.
+   */
+  prNumber?: number | null
 }
 
 /**
@@ -181,6 +217,8 @@ export interface GateHookEventRow {
   type: string
   payload: unknown
   createdAt: Date
+  /** LUM-617: the session that produced this row (for PR attribution by branch). */
+  sessionId?: string | null
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -235,6 +273,7 @@ export function normalizeHookEvents(
       hookEvent: row.type,
       at: row.createdAt.toISOString(),
       provenance: 'agent_self_reported',
+      sessionId: row.sessionId ?? null,
     })
   }
   return out
@@ -260,6 +299,8 @@ export interface GateSignalRow {
   detailsUrl: string | null
   source: string
   createdAt: Date
+  /** LUM-617: the PR this CI signal was recorded against (write-time linkage). */
+  prNumber?: number | null
 }
 
 /**
@@ -284,6 +325,7 @@ export function normalizeGateSignals(
       hookEvent: row.source,
       at: row.createdAt.toISOString(),
       provenance: 'independent_harness',
+      prNumber: row.prNumber ?? null,
       ...(row.detailsUrl ? { detailsUrl: row.detailsUrl } : {}),
     })
   }
@@ -310,4 +352,83 @@ export function buildDeliveryGateAudit(
       ...normalizeGateSignals(gateSignals),
     ],
   })
+}
+
+// ─── Per-PR grouping (LUM-617) ────────────────────────────────────────────────
+
+/**
+ * Resolve the PR a normalized event belongs to:
+ *   - CI signals carry their PR number directly (write-time linkage), or
+ *   - self-reported runs resolve via their session's worktree branch matching a
+ *     PR's headBranch.
+ * Returns null when neither path resolves — the caller buckets it as unlinked.
+ */
+function resolveEventPr(
+  ev: NormalizedGateEvent,
+  prByBranch: ReadonlyMap<string, number>,
+  sessionBranchById: Readonly<Record<string, string | null>>
+): number | null {
+  if (ev.prNumber != null) return ev.prNumber
+  if (ev.sessionId) {
+    const branch = sessionBranchById[ev.sessionId]
+    if (branch != null) return prByBranch.get(branch) ?? null
+  }
+  return null
+}
+
+/**
+ * Build the delivery gate audit grouped by PR (LUM-617). Each known PR gets a
+ * gate set derived only from the signals that resolve to it; signals that
+ * resolve to no known PR collect in an explicit `unlinked` bucket (null when
+ * none) so a stray signal is never silently dropped nor mis-attributed. Each
+ * group runs through the same `deriveGateAudit` projection, so the four-state
+ * vocabulary and independent-over-self-reported precedence hold per PR.
+ */
+export function buildPerPrGateAudit(input: {
+  hookRows: readonly GateHookEventRow[]
+  gateSignals: readonly GateSignalRow[]
+  pullRequests: readonly PrRef[]
+  sessionBranchById: Readonly<Record<string, string | null>>
+}): PerPrGateAudit {
+  const events: NormalizedGateEvent[] = [
+    ...normalizeHookEvents(input.hookRows),
+    ...normalizeGateSignals(input.gateSignals),
+  ]
+
+  const prByBranch = new Map<string, number>()
+  for (const pr of input.pullRequests) prByBranch.set(pr.headBranch, pr.number)
+  const knownPr = new Set(input.pullRequests.map(p => p.number))
+
+  const byPr = new Map<number, NormalizedGateEvent[]>()
+  const unlinkedEvents: NormalizedGateEvent[] = []
+  for (const ev of events) {
+    const n = resolveEventPr(ev, prByBranch, input.sessionBranchById)
+    if (n != null && knownPr.has(n)) {
+      const arr = byPr.get(n)
+      if (arr) arr.push(ev)
+      else byPr.set(n, [ev])
+    } else {
+      unlinkedEvents.push(ev)
+    }
+  }
+
+  const prs: PrGateAudit[] = [...input.pullRequests]
+    .sort((a, b) => b.number - a.number)
+    .map(pr => ({
+      pr,
+      audit: deriveGateAudit({
+        configured: EXECUTION_GATE_KEYS,
+        events: byPr.get(pr.number) ?? [],
+      }),
+    }))
+
+  const unlinked =
+    unlinkedEvents.length > 0
+      ? deriveGateAudit({
+          configured: EXECUTION_GATE_KEYS,
+          events: unlinkedEvents,
+        })
+      : null
+
+  return { prs, unlinked }
 }

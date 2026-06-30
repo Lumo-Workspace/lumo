@@ -11,6 +11,8 @@ export interface NewGateSignal {
   checkName: string
   detailsUrl: string | null
   headSha: string | null
+  /** LUM-617: PR this CI signal belongs to (null when the commit maps to no PR). */
+  prNumber: number | null
 }
 
 export const gateSignalRepository = {
@@ -33,6 +35,7 @@ export const gateSignalRepository = {
         detailsUrl: true,
         source: true,
         createdAt: true,
+        prNumber: true,
       },
     })
   },

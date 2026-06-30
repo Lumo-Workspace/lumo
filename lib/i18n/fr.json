@@ -1885,5 +1885,7 @@
   "gates.summary": "{total} gates · {passed} réussis · {failed} échoués · {notRun} non exécutés · {notConfigured} non configurés",
   "gates.desc.typecheck": "Les types sont cohérents (tsc)",
   "gates.desc.build": "Le projet se compile — un artefact est produit",
-  "gates.desc.test": "La suite de tests s'exécute sans erreur (pas si les assertions sont justes)"
+  "gates.desc.test": "La suite de tests s'exécute sans erreur (pas si les assertions sont justes)",
+  "gates.prColumn": "Pull request",
+  "gates.unlinked": "Signaux non liés à une PR"
 }
