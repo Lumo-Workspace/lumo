@@ -7,7 +7,10 @@ import {
   resolveDeliveryViaGithub,
   type MergedPrRef,
 } from '@/lib/claim-faithfulness/delivery-github'
-import { isClaimDeliveryMismatch } from '@/lib/claim-faithfulness/delivery-pairing'
+import {
+  hasDeliveryGrown,
+  isClaimDeliveryMismatch,
+} from '@/lib/claim-faithfulness/delivery-pairing'
 import { classifyClaimFaithfulness } from '@/lib/claim-faithfulness/classify'
 import {
   buildVerdictRow,
@@ -44,11 +47,21 @@ export interface ClaimFaithfulnessDeps {
   // (the DB fact of delivery), used to pair the claim with its delivery.
   listMergedSessionIds: (taskId: string) => Promise<string[]>
   upsertVerdict: (row: ReturnType<typeof buildVerdictRow>) => Promise<void>
-  findWatermark: (
-    taskId: string
-  ) => Promise<{ judgedClaimAt: Date | null; verdict: string } | null>
-  listCandidates: () => Promise<{ id: string; claimSnapshotAt: Date | null }[]>
-  listWatermarks: () => Promise<Map<string, Date | null>>
+  // LUM-618: `prNumbers` is the delivery the verdict was judged against — the
+  // second freshness axis (a verdict goes stale when the merged-PR set grows).
+  findWatermark: (taskId: string) => Promise<{
+    judgedClaimAt: Date | null
+    verdict: string
+    prNumbers: number[]
+  } | null>
+  // LUM-618: `mergedPrNumbers` is the task's CURRENT merged-PR set, compared
+  // against each verdict's judged `prNumbers` to detect delivery growth.
+  listCandidates: () => Promise<
+    { id: string; claimSnapshotAt: Date | null; mergedPrNumbers: number[] }[]
+  >
+  listWatermarks: () => Promise<
+    Map<string, { judgedClaimAt: Date | null; prNumbers: number[] }>
+  >
   judgeModel: string
   timeoutMs: number
 }
@@ -99,15 +112,26 @@ export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
       return DELIVERY_MISMATCH_RESULT.verdict
     }
 
+    // LUM-618 (delivery-growth axis): a verdict is fresh only when BOTH the
+    // claim is unchanged AND the delivery has not grown since it was judged.
+    // PR-A merges → judged against [A]; PR-B merges later with the same claim →
+    // the claim-keyed watermark still reads fresh, but the delivery is now
+    // [A,B], so the verdict is pinned to the partial PR-A-only delivery (the
+    // residual LUM-617 false OVERSTATED). Re-fetch the merged PRs up-front and
+    // re-judge when the current set contains a PR the verdict never saw.
     const existing = await deps.findWatermark(taskId)
+    const mergedPRs = await deps.listMergedPRs(taskId)
     if (
       existing &&
-      isFreshVerdict(existing.judgedClaimAt, inputs.claimSnapshotAt)
+      isFreshVerdict(existing.judgedClaimAt, inputs.claimSnapshotAt) &&
+      !hasDeliveryGrown(
+        mergedPRs.map(p => p.number),
+        existing.prNumbers
+      )
     ) {
       return existing.verdict
     }
 
-    const mergedPRs = await deps.listMergedPRs(taskId)
     const delivery = await deps.resolveDelivery({
       identifier: inputs.identifier,
       mergedPRs,
@@ -136,12 +160,20 @@ export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
       // A candidate with no verdict row yet is always due (parity with the
       // webhook path + the operational script), even when claimSnapshotAt is
       // null — otherwise isFreshVerdict(null, null) would wrongly skip it and
-      // leave it PENDING forever. Skip only when a *fresh* row already exists.
-      .filter(
-        c =>
-          !watermarks.has(c.id) ||
-          !isFreshVerdict(watermarks.get(c.id) ?? null, c.claimSnapshotAt)
-      )
+      // leave it PENDING forever. Skip only when a row exists that is fresh by
+      // BOTH axes: claim unchanged AND delivery not grown (LUM-618). The
+      // delivery axis is load-bearing here — without it the sweep's own
+      // pre-filter would skip LUM-617 (fresh claim, but its verdict was judged
+      // against PR-A only while PR-B has since merged) and judgeTask's gate
+      // would never get the chance to re-judge.
+      .filter(c => {
+        const w = watermarks.get(c.id)
+        if (!w) return true
+        const fresh =
+          isFreshVerdict(w.judgedClaimAt, c.claimSnapshotAt) &&
+          !hasDeliveryGrown(c.mergedPrNumbers, w.prNumbers)
+        return !fresh
+      })
       .slice(0, batch)
 
     let processed = 0
@@ -171,7 +203,13 @@ export const claimFaithfulnessService = createClaimFaithfulnessService({
   upsertVerdict: row => claimFaithfulnessVerdictRepository.upsert(row),
   findWatermark: async taskId => {
     const r = await claimFaithfulnessVerdictRepository.findByTaskId(taskId)
-    return r ? { judgedClaimAt: r.judgedClaimAt, verdict: r.verdict } : null
+    return r
+      ? {
+          judgedClaimAt: r.judgedClaimAt,
+          verdict: r.verdict,
+          prNumbers: r.prNumbers,
+        }
+      : null
   },
   listCandidates: () => taskRepository.listFaithfulnessCandidates(),
   listWatermarks: () => claimFaithfulnessVerdictRepository.listWatermarks(),

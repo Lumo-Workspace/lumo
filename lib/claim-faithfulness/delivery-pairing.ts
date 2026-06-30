@@ -36,3 +36,29 @@ export function isClaimDeliveryMismatch(
   if (mergedSessionIds.length === 0) return false
   return !mergedSessionIds.includes(claimSnapshotSessionId)
 }
+
+/**
+ * LUM-618 (delivery-growth staleness). The verdict freshness watermark
+ * (`isFreshVerdict`) keys only on the claim's timestamp. But a delivery can grow
+ * AFTER a verdict was reached without the claim changing: a task merges PR-A,
+ * the judge runs against PR-A only and records OVERSTATED/whatever, then a
+ * follow-up PR-B merges later — same claim, larger delivery. The claim-keyed
+ * watermark still reads "fresh", so the verdict is never re-judged and stays
+ * pinned to the partial (PR-A-only) delivery — the residual false signal that
+ * the claim↔session gate above cannot reach (the claim's session has by then
+ * merged, so the gate correctly stands down). This is the exact shape that left
+ * LUM-617 stuck at OVERSTATED (evidence: only PR-A) after PR-B merged.
+ *
+ * `hasDeliveryGrown` is the second freshness axis: a verdict is stale when the
+ * task's CURRENT merged-PR set contains any PR the verdict was NOT judged
+ * against. True ⇒ re-judge (delivery enlarged); the comparison is value-neutral
+ * and monotonic — merged PRs are never un-merged, so this only ever forces a
+ * re-judge, never suppresses one. Pure — unit-testable in isolation.
+ */
+export function hasDeliveryGrown(
+  currentMergedPrNumbers: readonly number[],
+  judgedPrNumbers: readonly number[]
+): boolean {
+  const judged = new Set(judgedPrNumbers)
+  return currentMergedPrNumbers.some(n => !judged.has(n))
+}

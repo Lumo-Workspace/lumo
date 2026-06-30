@@ -76,6 +76,9 @@ describe('claimFaithfulnessService.judgeTask', () => {
       findWatermark: jest.fn(async () => ({
         judgedClaimAt: new Date('2026-06-02'),
         verdict: 'FAITHFUL',
+        // Judged against the same delivery the task currently has (PR 700) —
+        // fresh by BOTH axes (claim + delivery).
+        prNumbers: [700],
       })),
     })
     const svc = createClaimFaithfulnessService(deps)
@@ -83,6 +86,47 @@ describe('claimFaithfulnessService.judgeTask', () => {
     expect(verdict).toBe('FAITHFUL')
     expect(deps.classify).not.toHaveBeenCalled()
     expect(deps.upsertVerdict).not.toHaveBeenCalled()
+  })
+
+  // ── LUM-618 (delivery-growth axis): the residual LUM-617 false signal ──────
+
+  it('re-judges a claim-fresh verdict once the delivery has grown', async () => {
+    // The LUM-617 shape: PR-A (#761) merged → judged OVERSTATED against [761];
+    // PR-B (#762) merged later with the SAME claim. The claim-keyed watermark
+    // still reads fresh, but the delivery is now [761, 762] — the verdict must
+    // be re-judged against the full delivery, not pinned to the PR-A-only one.
+    const deps = baseDeps({
+      listMergedPRs: jest.fn(async () => [
+        {
+          workspaceId: 'ws1',
+          repo: 'a/b',
+          number: 761,
+          mergeCommitSha: 'a',
+          title: 'A',
+        },
+        {
+          workspaceId: 'ws1',
+          repo: 'a/b',
+          number: 762,
+          mergeCommitSha: 'b',
+          title: 'B',
+        },
+      ]),
+      // Claim's session has merged (PR-B is in) → the Bug-1 gate stands down.
+      listMergedSessionIds: jest.fn(async () => ['sess-delivery']),
+      findWatermark: jest.fn(async () => ({
+        judgedClaimAt: new Date('2026-06-02'),
+        verdict: 'OVERSTATED',
+        prNumbers: [761], // judged against PR-A only
+      })),
+    })
+    const svc = createClaimFaithfulnessService(deps)
+    const verdict = await svc.judgeTask('LUM-617')
+
+    expect(verdict).toBe('FAITHFUL') // re-judged (baseDeps.classify → FAITHFUL)
+    expect(deps.classify).toHaveBeenCalled()
+    expect(deps.resolveDelivery).toHaveBeenCalled()
+    expect(deps.upsertVerdict).toHaveBeenCalledTimes(1)
   })
 
   it('returns null when the task no longer exists', async () => {
@@ -112,6 +156,7 @@ describe('claimFaithfulnessService.judgeTask', () => {
       findWatermark: jest.fn(async () => ({
         judgedClaimAt: new Date('2026-06-10'),
         verdict: 'OVERSTATED',
+        prNumbers: [761],
       })),
     })
     const svc = createClaimFaithfulnessService(deps)
@@ -187,13 +232,30 @@ describe('claimFaithfulnessService.judgeTask', () => {
 describe('claimFaithfulnessService.sweepUnjudged', () => {
   it('processes at most the batch cap and skips fresh verdicts', async () => {
     const candidates = [
-      { id: 't1', claimSnapshotAt: new Date('2026-06-01') },
-      { id: 't2', claimSnapshotAt: new Date('2026-06-01') },
-      { id: 't3', claimSnapshotAt: new Date('2026-06-01') }, // fresh → skipped
-      { id: 't4', claimSnapshotAt: new Date('2026-06-01') },
+      {
+        id: 't1',
+        claimSnapshotAt: new Date('2026-06-01'),
+        mergedPrNumbers: [],
+      },
+      {
+        id: 't2',
+        claimSnapshotAt: new Date('2026-06-01'),
+        mergedPrNumbers: [],
+      },
+      // fresh by both axes → skipped (claim newer + delivery not grown).
+      {
+        id: 't3',
+        claimSnapshotAt: new Date('2026-06-01'),
+        mergedPrNumbers: [700],
+      },
+      {
+        id: 't4',
+        claimSnapshotAt: new Date('2026-06-01'),
+        mergedPrNumbers: [],
+      },
     ]
-    const watermarks = new Map<string, Date | null>([
-      ['t3', new Date('2026-06-05')],
+    const watermarks = new Map([
+      ['t3', { judgedClaimAt: new Date('2026-06-05'), prNumbers: [700] }],
     ])
     const deps = baseDeps({
       listCandidates: jest.fn(async () => candidates),
@@ -205,15 +267,38 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
     expect(deps.loadTaskInputs).toHaveBeenCalledTimes(2)
   })
 
+  it('selects a claim-fresh candidate whose delivery has grown (LUM-617)', async () => {
+    // t3 is fresh by the claim axis but its verdict was judged against [761]
+    // while the task now has [761, 762] merged → delivery grew → due.
+    const candidates = [
+      {
+        id: 't3',
+        claimSnapshotAt: new Date('2026-06-01'),
+        mergedPrNumbers: [761, 762],
+      },
+    ]
+    const watermarks = new Map([
+      ['t3', { judgedClaimAt: new Date('2026-06-05'), prNumbers: [761] }],
+    ])
+    const deps = baseDeps({
+      listCandidates: jest.fn(async () => candidates),
+      listWatermarks: jest.fn(async () => watermarks),
+    })
+    const svc = createClaimFaithfulnessService(deps)
+    const r = await svc.sweepUnjudged(5)
+    expect(r.processed).toBe(1)
+    expect(deps.loadTaskInputs).toHaveBeenCalledWith('t3')
+  })
+
   it('judges a candidate that has no verdict row even when claimSnapshotAt is null', async () => {
     // Parity with the webhook path: a row-less candidate must be due so it is
     // never left PENDING forever. isFreshVerdict(null, null) is true, so the
     // skip must be gated on watermarks.has(), not on freshness alone.
     const deps = baseDeps({
       listCandidates: jest.fn(async () => [
-        { id: 'noClaim', claimSnapshotAt: null },
+        { id: 'noClaim', claimSnapshotAt: null, mergedPrNumbers: [] },
       ]),
-      listWatermarks: jest.fn(async () => new Map<string, Date | null>()),
+      listWatermarks: jest.fn(async () => new Map()),
     })
     const svc = createClaimFaithfulnessService(deps)
     const r = await svc.sweepUnjudged(5)
@@ -224,8 +309,16 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
   it('continues the sweep when one task throws', async () => {
     const deps = baseDeps({
       listCandidates: jest.fn(async () => [
-        { id: 't1', claimSnapshotAt: new Date('2026-06-01') },
-        { id: 't2', claimSnapshotAt: new Date('2026-06-01') },
+        {
+          id: 't1',
+          claimSnapshotAt: new Date('2026-06-01'),
+          mergedPrNumbers: [],
+        },
+        {
+          id: 't2',
+          claimSnapshotAt: new Date('2026-06-01'),
+          mergedPrNumbers: [],
+        },
       ]),
       loadTaskInputs: jest
         .fn()
@@ -234,6 +327,7 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
           identifier: 'LUM-612',
           claim: 'x',
           claimSnapshotAt: new Date('2026-06-01'),
+          claimSnapshotSessionId: null,
           criteria: [],
         }),
     })

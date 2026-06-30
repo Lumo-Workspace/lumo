@@ -96,14 +96,20 @@ async function main(argv: string[]): Promise<number> {
   // work already persisted (and converges even under repeated interruption).
   const watermarks = args.resume
     ? await claimFaithfulnessVerdictRepository.listWatermarks()
-    : new Map<string, Date | null>()
+    : new Map<string, { judgedClaimAt: Date | null; prNumbers: number[] }>()
   let skipped = 0
 
   for (const t of tasks) {
+    // Resume skips by the claim axis only — this operational re-audit re-derives
+    // the delivery from local git each run, so the live sweep's delivery-growth
+    // axis (LUM-618) doesn't apply here.
     if (
       args.resume &&
       watermarks.has(t.id) &&
-      isFreshVerdict(watermarks.get(t.id) ?? null, t.claimSnapshotAt)
+      isFreshVerdict(
+        watermarks.get(t.id)?.judgedClaimAt ?? null,
+        t.claimSnapshotAt
+      )
     ) {
       skipped++
       continue
