@@ -378,10 +378,12 @@ function resolveEventPr(
 
 /**
  * Build the delivery gate audit grouped by PR (LUM-617). Each known PR gets a
- * gate set derived only from the signals that resolve to it; signals that
- * resolve to no known PR collect in an explicit `unlinked` bucket (null when
- * none) so a stray signal is never silently dropped nor mis-attributed. Each
- * group runs through the same `deriveGateAudit` projection, so the four-state
+ * gate set derived only from the signals that resolve to it. An unresolved
+ * signal attributes to the task's sole PR when there is exactly one (the only
+ * candidate); otherwise — ambiguous (≥2 PRs) or naming a PR not on the task —
+ * it collects in an explicit `unlinked` bucket (null when none), so a stray
+ * signal is never silently dropped nor mis-attributed among several. Each group
+ * runs through the same `deriveGateAudit` projection, so the four-state
  * vocabulary and independent-over-self-reported precedence hold per PR.
  */
 export function buildPerPrGateAudit(input: {
@@ -398,15 +400,28 @@ export function buildPerPrGateAudit(input: {
   const prByBranch = new Map<string, number>()
   for (const pr of input.pullRequests) prByBranch.set(pr.headBranch, pr.number)
   const knownPr = new Set(input.pullRequests.map(p => p.number))
+  // When the task has exactly one PR, an *unresolved* signal has a single
+  // candidate — attribute it there rather than orphan it. This is not a guess
+  // among many: with one PR it is the only delivery the signal could belong to.
+  // A signal that *names* a PR not on the task keeps its identity and stays
+  // unlinked (it is not reassigned to the sole PR).
+  const solePr =
+    input.pullRequests.length === 1 ? input.pullRequests[0]!.number : null
 
   const byPr = new Map<number, NormalizedGateEvent[]>()
   const unlinkedEvents: NormalizedGateEvent[] = []
   for (const ev of events) {
-    const n = resolveEventPr(ev, prByBranch, input.sessionBranchById)
-    if (n != null && knownPr.has(n)) {
-      const arr = byPr.get(n)
+    const resolved = resolveEventPr(ev, prByBranch, input.sessionBranchById)
+    const target =
+      resolved != null && knownPr.has(resolved)
+        ? resolved
+        : resolved == null && solePr != null
+          ? solePr
+          : null
+    if (target != null) {
+      const arr = byPr.get(target)
       if (arr) arr.push(ev)
-      else byPr.set(n, [ev])
+      else byPr.set(target, [ev])
     } else {
       unlinkedEvents.push(ev)
     }
