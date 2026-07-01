@@ -22,12 +22,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
-      milestoneId,
-      teamId
-    )
+    const [sprintCoverage, outcome] = await Promise.all([
+      milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
+      milestoneService.getOutcomeForMilestone(milestoneId),
+    ])
     return NextResponse.json({
-      milestone: { ...milestone, taskCounts, health, sprintCoverage },
+      milestone: { ...milestone, taskCounts, health, sprintCoverage, outcome },
     })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

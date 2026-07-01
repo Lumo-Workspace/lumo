@@ -1899,5 +1899,21 @@
   "acceptance.zone.humanNote": "non vérifiable par machine",
   "acceptance.zone.humanResolved": "Jugé par un humain",
   "acceptance.zone.humanAllResolved": "Les {count} jugés",
-  "sprints.settings.timezone": "Fuseau horaire de l'équipe"
+  "sprints.settings.timezone": "Fuseau horaire de l'équipe",
+  "milestone.outcome.title": "Résultat",
+  "milestone.outcome.empty": "Aucune tâche livrée pour l'instant — les résultats concrets apparaîtront ici une fois les tâches terminées.",
+  "milestone.outcome.claims.title": "Résultats livrés",
+  "milestone.outcome.claims.noClaim": "Aucune déclaration enregistrée pour cette livraison",
+  "milestone.outcome.claims.source.AGENT": "auto-déclaré",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "du résumé d'exécution",
+  "milestone.outcome.claims.source.DIGEST": "du condensé de session",
+  "milestone.outcome.fate.title": "Devenir après livraison",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Aucun rejet enregistré sur {done, plural, one {la livraison} other {les # livraisons}} — non concluant, pas une validation.} one {# tâche a reçu des signaux de rejet ; {inconclusive, plural, one {# livraison} other {# livraisons}} sans rejet enregistré (non concluant).} other {# tâches ont reçu des signaux de rejet ; {inconclusive, plural, one {# livraison} other {# livraisons}} sans rejet enregistré (non concluant).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {annulé (revert)} other {annulé (revert) ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {rouvert} other {rouvert ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {déploiement annulé} other {déploiement annulé ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {régression CI} other {régression CI ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {réorienté en aval} other {réorienté en aval ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {contourné} other {contourné ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rejet manuel} other {rejet manuel ×#}}"
 }

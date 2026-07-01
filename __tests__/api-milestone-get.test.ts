@@ -8,6 +8,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
   milestoneService: {
     getMilestoneWithTeam: jest.fn(),
     getSprintCoverageForTeam: jest.fn(),
+    getOutcomeForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -23,12 +24,14 @@ const mockIdentity = requireIdentity as jest.Mock
 const mockGet = milestoneService.getMilestoneWithTeam as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
+const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
   mockGet.mockReset()
   mockCount.mockReset()
   mockCoverage.mockReset()
+  mockOutcome.mockReset()
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -59,6 +62,10 @@ describe('GET /api/milestones/[id]', () => {
       ],
       unsprinted: 1,
     })
+    mockOutcome.mockResolvedValue({
+      claims: [],
+      fate: { doneCount: 3, rejected: [], inconclusiveCount: 3 },
+    })
     const res = await GET(new Request('http://x/m') as any, params)
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -78,9 +85,14 @@ describe('GET /api/milestones/[id]', () => {
         ],
         unsprinted: 1,
       },
+      outcome: {
+        claims: [],
+        fate: { doneCount: 3, rejected: [], inconclusiveCount: 3 },
+      },
     })
     // Authorizes once, then reuses the resolved team for coverage (no re-auth).
     expect(mockGet).toHaveBeenCalledWith('m-1', 'mem-1')
     expect(mockCoverage).toHaveBeenCalledWith('m-1', 'team-1')
+    expect(mockOutcome).toHaveBeenCalledWith('m-1')
   })
 })

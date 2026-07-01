@@ -8,6 +8,7 @@ import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
+import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -134,6 +135,27 @@ export const milestoneService = {
     return sprintCoverageForTeam(milestoneId, teamId)
   },
 
+  /**
+   * LUM-626 outcome rollup (hard results + post-delivery fate) for an
+   * already-authorized milestone. Performs NO auth — only call after
+   * authorizing (e.g. via `getMilestoneWithTeam`).
+   */
+  async getOutcomeForMilestone(milestoneId: string) {
+    const { tasks, signalCounts } =
+      await milestoneRepository.outcomeRollupRows(milestoneId)
+    return computeMilestoneOutcome(
+      tasks.map(t => ({
+        id: t.id,
+        ref: `${t.team.identifier}-${t.number}`,
+        title: t.title,
+        status: t.status,
+        claimSnapshot: t.claimSnapshot,
+        claimSnapshotSource: t.claimSnapshotSource,
+      })),
+      signalCounts
+    )
+  },
+
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {
     await projectService.getProject(projectId, memberId)
     const milestone = await milestoneRepository.findByProjectAndSlug(
@@ -181,7 +203,10 @@ export const milestoneService = {
     if (!existing) {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
-    const project = await projectService.getProject(existing.projectId, memberId)
+    const project = await projectService.getProject(
+      existing.projectId,
+      memberId
+    )
     if (existing.archivedAt) {
       throw Object.assign(
         new Error('Milestone is archived; unarchive it before editing'),

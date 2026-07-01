@@ -1899,5 +1899,21 @@
   "acceptance.zone.humanNote": "tidak boleh disemak mesin",
   "acceptance.zone.humanResolved": "Dinilai manusia",
   "acceptance.zone.humanAllResolved": "Semua {count} dinilai",
-  "sprints.settings.timezone": "Zon waktu pasukan"
+  "sprints.settings.timezone": "Zon waktu pasukan",
+  "milestone.outcome.title": "Hasil",
+  "milestone.outcome.empty": "Belum ada tugasan yang dihantar — hasil konkrit akan dipaparkan di sini apabila tugasan selesai.",
+  "milestone.outcome.claims.title": "Hasil yang dihantar",
+  "milestone.outcome.claims.noClaim": "Tiada penyataan direkodkan untuk penghantaran ini",
+  "milestone.outcome.claims.source.AGENT": "dilaporkan sendiri",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "daripada ringkasan larian",
+  "milestone.outcome.claims.source.DIGEST": "daripada ringkasan sesi",
+  "milestone.outcome.fate.title": "Nasib selepas penghantaran",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Tiada penolakan direkodkan untuk {done} penghantaran — tidak muktamad, bukan lulus.} other {# tugasan menerima isyarat penolakan; {inconclusive} penghantaran tiada rekod penolakan (tidak muktamad).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {di-revert} other {di-revert ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {dibuka semula} other {dibuka semula ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {digulung balik} other {digulung balik ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresi CI} other {regresi CI ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {dialihkan kemudian} other {dialihkan kemudian ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {dipintas} other {dipintas ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}"
 }

@@ -168,6 +168,43 @@ export const milestoneRepository = {
       count: r._count._all,
     }))
   },
+
+  /**
+   * Raw rows for the LUM-626 outcome rollup: every member task's frozen claim
+   * fields plus the outcome well's `(taskId, kind)` rejection-signal counts
+   * across ALL member tasks (a reopened task keeps its signals visible).
+   */
+  async outcomeRollupRows(milestoneId: string) {
+    const tasks = await prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        claimSnapshot: true,
+        claimSnapshotSource: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { number: 'asc' },
+    })
+    if (tasks.length === 0) {
+      return { tasks, signalCounts: [] }
+    }
+    const grouped = await prisma.outcomeSignal.groupBy({
+      by: ['taskId', 'kind'],
+      where: { taskId: { in: tasks.map(t => t.id) } },
+      _count: { _all: true },
+    })
+    return {
+      tasks,
+      signalCounts: grouped.map(g => ({
+        taskId: g.taskId,
+        kind: g.kind,
+        count: g._count._all,
+      })),
+    }
+  },
 }
 
 export type MilestoneRepository = typeof milestoneRepository
