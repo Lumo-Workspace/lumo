@@ -37,6 +37,14 @@ export function buildMentionSuggestion(
   }
 
   return {
+    // Trigger '@' after ANY character, not just a space or block start.
+    // @tiptap/suggestion defaults to `allowedPrefixes: [' ']`, which rejects
+    // '@' typed right after a non-space char. Empty editors (a fresh comment)
+    // hit '@' at block start so it fired there, but description editors always
+    // carry existing content, so typing '@' at the end of a word was silently
+    // rejected — reading as "descriptions have no @-mention" (LUM-330 regression
+    // in feel). `null` disables the prefix guard, matching Slack/Linear/GitHub.
+    allowedPrefixes: null,
     items: ({ query }): MentionItem[] => userMatches(query),
 
     render() {
