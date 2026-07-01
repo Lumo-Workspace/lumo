@@ -9,7 +9,8 @@ import {
   Pencil,
   Archive,
   Trash2,
-  ShieldAlert,
+  ScrollText,
+  Info,
   CheckCircle2,
   UserCheck,
 } from 'lucide-react'
@@ -1724,7 +1725,7 @@ export function AcceptanceTab({
             <div className='space-y-1'>
               <ClaimVsVerification data={data} />
               <div className='flex items-center gap-1.5 px-1 text-caption text-muted-foreground/70'>
-                <ShieldAlert className='size-3 shrink-0' aria-hidden />
+                <Info className='size-3 shrink-0' aria-hidden />
                 <span>
                   {intl.formatMessage({
                     id: 'acceptance.auditOnly.notVerdict',
@@ -1750,7 +1751,7 @@ export function AcceptanceTab({
                 className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
                 aria-hidden
               />
-              <ShieldAlert
+              <ScrollText
                 className='size-4 shrink-0 text-muted-foreground'
                 aria-hidden
               />
