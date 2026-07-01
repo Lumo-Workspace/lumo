@@ -46,11 +46,7 @@ function WorkspaceStep({
       const res = await fetch('/api/workspaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          slug,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
+        body: JSON.stringify({ name: name.trim(), slug }),
       })
       const data = await res.json()
       if (!res.ok) {

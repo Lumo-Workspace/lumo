@@ -87,7 +87,6 @@ describe('teamRepository.listForMember', () => {
       sprintStartWeekday: true,
       sprintAutoCreate: true,
       sprintAutoAddCompleted: true,
-      timezone: true,
     })
   })
 })

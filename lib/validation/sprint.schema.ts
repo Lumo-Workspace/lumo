@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { isValidTimeZone } from '@/lib/datetime/timezone'
 
 export const createSprintSchema = z
   .object({
@@ -65,10 +64,6 @@ export const cadenceSchema = z.object({
   startWeekday: z.number().int().min(0).max(6).optional(),
   autoCreate: z.number().int().min(0).max(4).optional(),
   autoAddCompleted: z.boolean().optional(),
-  timezone: z
-    .string()
-    .refine(isValidTimeZone, { message: 'timezone must be a valid IANA zone' })
-    .optional(),
 })
 
 export type CreateSprintInput = z.infer<typeof createSprintSchema>

@@ -44,41 +44,17 @@ import { Button } from '@/components/ui/button'
 import { formatDueDate, isOverdue } from '../../utils'
 import { cn } from '@/lib/utils'
 import { useNow } from '@/hooks/use-now'
-import { zonedWeekday } from '@/lib/datetime/timezone'
 
 export interface DueDatePickerProps {
   value: string | null
   onChange: (v: string | null) => void
   triggerClassName?: string
-  /** IANA timezone (e.g. `team.timezone`) used to render the due-date label
-   *  and to determine "today"/quick-preset day math. Falls back to the
-   *  runtime's local timezone when omitted. */
-  timeZone?: string
-}
-
-/**
- * Pure formatter for a due-date quick-option label (e.g. "Mon, 5 Jul").
- * `timeZone`, when provided, renders the weekday/day/month in that IANA zone
- * instead of the runtime's local zone.
- */
-export function formatDueLabel(
-  date: Date | string,
-  locale?: string,
-  timeZone?: string
-): string {
-  return new Date(date).toLocaleDateString(locale, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    ...(timeZone ? { timeZone } : {}),
-  })
 }
 
 export function DueDatePicker({
   value,
   onChange,
   triggerClassName,
-  timeZone,
 }: DueDatePickerProps) {
   const intl = useIntl()
   const DATE_FNS_LOCALES: Record<string, DateFnsLocale> = {
@@ -133,7 +109,7 @@ export function DueDatePicker({
         d.setDate(d.getDate() + 1)
         break
       case 'endOfWeek': {
-        const day = timeZone ? zonedWeekday(d, timeZone) : d.getDay() // 0=Sun
+        const day = d.getDay() // 0=Sun
         const diff = day === 0 ? 5 : 5 - day // nearest Friday
         d.setDate(d.getDate() + (diff <= 0 ? 7 + diff : diff))
         break
@@ -143,6 +119,25 @@ export function DueDatePicker({
         break
     }
     return d
+  }
+
+  function formatShortDate(d: Date): string {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`
   }
 
   function formatDateInput(d: Date): string {
@@ -213,8 +208,7 @@ export function DueDatePicker({
       case 'inOneWeek':
         return 7
       case 'endOfWeek': {
-        const now = new Date()
-        const day = timeZone ? zonedWeekday(now, timeZone) : now.getDay() // 0=Sun
+        const day = new Date().getDay() // 0=Sun
         const diff = day === 0 ? 5 : 5 - day // nearest Friday
         return diff <= 0 ? 7 + diff : diff
       }
@@ -292,7 +286,7 @@ export function DueDatePicker({
                   >
                     <span>{intl.formatMessage({ id: msgId })}</span>
                     <span className='text-muted-foreground ml-4'>
-                      {formatDueLabel(d, intl.locale, timeZone)}
+                      {formatShortDate(d)}
                     </span>
                   </button>
                 )

@@ -65,7 +65,6 @@ export const createWorkspaceSchema = z.object({
   summaryEnabled: z.boolean().optional(),
   summaryFrequency: z.enum(['DAILY', 'EVERY_TWO_DAYS', 'WEEKLY']).optional(),
   summaryLocale: z.string().max(10).optional(),
-  timezone: z.string().max(64).optional(),
 })
 
 export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({

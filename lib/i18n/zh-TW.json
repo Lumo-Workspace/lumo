@@ -1898,6 +1898,5 @@
   "acceptance.hero.helper": "你的裁決會將任務標記為完成或退回。",
   "acceptance.zone.humanNote": "無法由機器核驗",
   "acceptance.zone.humanResolved": "人工裁決",
-  "acceptance.zone.humanAllResolved": "全部 {count} 項已裁決",
-  "sprints.settings.timezone": "團隊時區"
+  "acceptance.zone.humanAllResolved": "全部 {count} 項已裁決"
 }
