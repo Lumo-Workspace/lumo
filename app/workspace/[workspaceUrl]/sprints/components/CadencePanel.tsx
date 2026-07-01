@@ -41,7 +41,11 @@ const WEEKDAY_LABEL_IDS = [
   'sprints.settings.weekday.sat',
 ] as const
 
-const TIMEZONES = Intl.supportedValuesOf('timeZone')
+// `Intl.supportedValuesOf` is ES2022 and not in the current TS lib target,
+// though the Node/browser runtime provides it. Narrow the call locally.
+const TIMEZONES = (
+  Intl as typeof Intl & { supportedValuesOf(key: 'timeZone'): string[] }
+).supportedValuesOf('timeZone')
 
 export function CadencePanel({ team }: { team: Team }) {
   const intl = useIntl()

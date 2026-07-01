@@ -6,7 +6,7 @@
  */
 export function formatZonedDate(
   date: Date | string,
-  opts?: { locale?: string; timeZone?: string }
+  opts?: { locale?: string | undefined; timeZone?: string | undefined }
 ): string {
   return new Date(date).toLocaleDateString(opts?.locale, {
     month: 'short',
