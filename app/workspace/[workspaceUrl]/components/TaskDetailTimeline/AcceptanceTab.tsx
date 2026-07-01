@@ -9,6 +9,7 @@ import {
   Pencil,
   Archive,
   Trash2,
+  ShieldAlert,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { effectiveReferentKind } from '@/shared/src/referent-kind'
@@ -61,6 +62,11 @@ interface AcceptanceTabProps {
    *  lineage, memory). Rendered at the tail of the Run report group so the whole
    *  after-the-fact record lives under one collapsible bucket. */
   evidenceSlot?: ReactNode
+  /** LUM-619 — the mechanical gate audit panel, fetched at the dossier level and
+   *  injected here so it renders in the Acceptance container's audit-only zone
+   *  (alongside boundary crossings + claim-vs-verification) rather than buried
+   *  in the Agent runs sub-section. Null when there are no PRs/signals. */
+  gatesSlot?: ReactNode
   /** Open the Run report group on mount — e.g. a legacy deep link targets an
    *  evidence sub-section nested inside it. */
   reportInitiallyOpen?: boolean
@@ -1271,6 +1277,7 @@ export function AcceptanceTab({
   mentionSources,
   latestRunSummary,
   evidenceSlot,
+  gatesSlot,
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
@@ -1291,9 +1298,10 @@ export function AcceptanceTab({
   // machine zone — null = follow the default (collapsed once every human
   // criterion has a PASS); an explicit boolean is the user's manual toggle.
   const [humanOpen, setHumanOpen] = useState<boolean | null>(null)
-  // LUM-572: the contract is its own collapsible section — default open (it's
-  // decision-relevant), foldable to taste. (The claim pairing self-collapses.)
-  const [criteriaOpen, setCriteriaOpen] = useState(true)
+  // LUM-619: the whole verdict region (criteria + verification record + the
+  // audit-only forensic signals) lives in one collapsible "Acceptance"
+  // container — default open (it's decision-relevant), foldable to taste.
+  const [acceptanceOpen, setAcceptanceOpen] = useState(true)
   const [mutating, setMutating] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
@@ -1465,189 +1473,223 @@ export function AcceptanceTab({
         />
       )}
 
-      {/* LUM-572: boundary crossings lead the Record tab — a policy concern, not
-          part of the acceptance contract, and an open crossing blocks Done, so
-          "anything blocking?" is surfaced first. */}
-      <BoundaryCrossingsPanel
-        taskIdentifier={taskIdentifier}
-        enabled={enabled}
-        workspaceUrl={workspaceUrl}
-        members={members}
-        agentActors={agentActors}
-        onChanged={() => {
-          void refresh?.()
-        }}
-      />
-
-      {/* LUM-564 声称 vs 核验: the agent's claim (self-collapsing) paired with the
-          measured verdict — after the boundary check, before the contract.
-          LUM-600: part of the contract block — its main surface is the measured
-          verdict, so it rides with the contract and is hidden without one. */}
-      {hasCriteria && <ClaimVsVerification data={data} />}
-
-      {/* LUM-572: the acceptance contract is its own collapsible section.
-          LUM-581: carded into the uniform DossierGroup shell.
-          LUM-600: with no contract the group is replaced by the empty note;
-          the run report + evidence below still render. */}
-      {hasCriteria ? (
-        <DossierGroup
-          title={intl.formatMessage({
-            id: 'acceptance.contract.title',
-            defaultMessage: 'Acceptance criteria',
-          })}
-          open={criteriaOpen}
-          onToggle={() => setCriteriaOpen(o => !o)}
-        >
-          <div className='space-y-4'>
-            {machineCriteria.length > 0 ? (
-              <div>
-                <div className='mb-1.5 flex w-full items-center gap-1.5 text-body-strong text-foreground'>
-                  <button
-                    type='button'
-                    onClick={() => setMachineOpen(!machineZoneOpen)}
-                    aria-expanded={machineZoneOpen}
-                    className='flex items-center gap-1.5 hover:text-foreground'
-                  >
-                    <ChevronRight
-                      className={`size-3.5 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
-                    {intl.formatMessage({
-                      id: 'acceptance.zone.machine',
-                      defaultMessage: 'Machine-verified',
-                    })}
-                  </button>
-                  <InfoTooltip
-                    label={intl.formatMessage({
-                      id: 'acceptance.zone.machineTip',
-                      defaultMessage:
-                        'Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.',
-                    })}
-                  />
-                  <span className='ml-auto text-caption font-normal text-muted-foreground/70'>
-                    {allMachineVerified
-                      ? intl.formatMessage(
-                          {
-                            id: 'acceptance.zone.machineAllPass',
-                            defaultMessage: 'All {count} machine-verified',
-                          },
-                          { count: machineCriteria.length }
-                        )
-                      : [
-                          intl.formatMessage(
-                            {
-                              id: 'acceptance.zone.machineVerifiedCount',
-                              defaultMessage: '{count} machine-verified',
-                            },
-                            { count: machineVerified }
-                          ),
-                          machineOverridden > 0
-                            ? intl.formatMessage(
-                                {
-                                  id: 'acceptance.zone.machineOverrideCount',
-                                  defaultMessage: '{count} human override',
-                                },
-                                { count: machineOverridden }
-                              )
-                            : null,
-                          machineFailed > 0
-                            ? intl.formatMessage(
-                                {
-                                  id: 'acceptance.zone.machineFailedCount',
-                                  defaultMessage: '{count} failed',
-                                },
-                                { count: machineFailed }
-                              )
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                  </span>
-                </div>
-                {machineZoneOpen ? (
-                  <div className='overflow-hidden rounded-md border border-border'>
-                    {machineCriteria.map(c => (
-                      <CriterionRow
-                        key={c.id}
-                        c={c}
-                        interactive={interactive}
-                        submitting={submitting}
-                        onVerdict={submitVerdict}
-                        editable={false}
-                        repoWebUrl={repoWebUrl}
+      {/* LUM-619: one "Acceptance" container holds the whole verdict region.
+          Verdict basis — the acceptance criteria + the verification record —
+          sits above an audit-only separator; the forensic signals (mechanical
+          gates + boundary crossings + claim-vs-verification) sit below it,
+          surfaced for the reviewer but explicitly NOT inputs to the verdict
+          (the LUM-614 audit-only ≠ verdict red line). LUM-600: with no
+          contract the criteria block is swapped for the empty note; the
+          verification record + audit-only signals still render. */}
+      <DossierGroup
+        title={intl.formatMessage({
+          id: 'acceptance.container.title',
+          defaultMessage: 'Acceptance',
+        })}
+        open={acceptanceOpen}
+        onToggle={() => setAcceptanceOpen(o => !o)}
+      >
+        <div className='space-y-4'>
+          {hasCriteria ? (
+            <div className='space-y-4'>
+              {machineCriteria.length > 0 ? (
+                <div>
+                  <div className='mb-1.5 flex w-full items-center gap-1.5 text-body-strong text-foreground'>
+                    <button
+                      type='button'
+                      onClick={() => setMachineOpen(!machineZoneOpen)}
+                      aria-expanded={machineZoneOpen}
+                      className='flex items-center gap-1.5 hover:text-foreground'
+                    >
+                      <ChevronRight
+                        className={`size-3.5 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                        aria-hidden
                       />
-                    ))}
+                      {intl.formatMessage({
+                        id: 'acceptance.zone.machine',
+                        defaultMessage: 'Machine-verified',
+                      })}
+                    </button>
+                    <InfoTooltip
+                      label={intl.formatMessage({
+                        id: 'acceptance.zone.machineTip',
+                        defaultMessage:
+                          'Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.',
+                      })}
+                    />
+                    <span className='ml-auto text-caption font-normal text-muted-foreground/70'>
+                      {allMachineVerified
+                        ? intl.formatMessage(
+                            {
+                              id: 'acceptance.zone.machineAllPass',
+                              defaultMessage: 'All {count} machine-verified',
+                            },
+                            { count: machineCriteria.length }
+                          )
+                        : [
+                            intl.formatMessage(
+                              {
+                                id: 'acceptance.zone.machineVerifiedCount',
+                                defaultMessage: '{count} machine-verified',
+                              },
+                              { count: machineVerified }
+                            ),
+                            machineOverridden > 0
+                              ? intl.formatMessage(
+                                  {
+                                    id: 'acceptance.zone.machineOverrideCount',
+                                    defaultMessage: '{count} human override',
+                                  },
+                                  { count: machineOverridden }
+                                )
+                              : null,
+                            machineFailed > 0
+                              ? intl.formatMessage(
+                                  {
+                                    id: 'acceptance.zone.machineFailedCount',
+                                    defaultMessage: '{count} failed',
+                                  },
+                                  { count: machineFailed }
+                                )
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                    </span>
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div>
-              <div className='mb-1.5 flex items-center gap-2 text-body-strong text-foreground'>
-                <button
-                  type='button'
-                  onClick={() => setHumanOpen(!humanZoneOpen)}
-                  aria-expanded={humanZoneOpen}
-                  className='flex items-center gap-1.5 hover:text-foreground'
-                >
-                  <ChevronRight
-                    className={`size-3.5 transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
-                    aria-hidden
-                  />
-                  {intl.formatMessage({
-                    id: 'acceptance.zone.human',
-                    defaultMessage: 'Needs human judgment',
-                  })}
-                </button>
-                <InfoTooltip
-                  label={intl.formatMessage({
-                    id: 'acceptance.zone.humanTip',
-                    defaultMessage:
-                      'Human criteria need a person to judge and sign off — they are not machine-checkable.',
-                  })}
-                />
-                <span
-                  className='ml-auto inline-flex min-w-5 items-center justify-center rounded-sm bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background'
-                  title={intl.formatMessage({
-                    id: 'acceptance.zone.humanQuotaTip',
-                    defaultMessage:
-                      'A task can have at most 7 human criteria, to keep human review focused.',
-                  })}
-                >
-                  {humanCriteria.length}
-                </span>
-              </div>
-              {humanZoneOpen ? (
-                <>
-                  {humanCriteria.length > 0 ? (
+                  {machineZoneOpen ? (
                     <div className='overflow-hidden rounded-md border border-border'>
-                      {humanCriteria.map(c => (
+                      {machineCriteria.map(c => (
                         <CriterionRow
                           key={c.id}
                           c={c}
                           interactive={interactive}
                           submitting={submitting}
                           onVerdict={submitVerdict}
-                          editable={canEdit}
-                          onSaveStatement={editStatement}
-                          onDelete={deleteCriterion}
-                          mutating={mutating}
+                          editable={false}
                           repoWebUrl={repoWebUrl}
                         />
                       ))}
                     </div>
                   ) : null}
-                  {canEdit ? (
-                    <AddCriterionRow onAdd={addCriterion} mutating={mutating} />
-                  ) : null}
-                </>
+                </div>
               ) : null}
+
+              <div>
+                <div className='mb-1.5 flex items-center gap-2 text-body-strong text-foreground'>
+                  <button
+                    type='button'
+                    onClick={() => setHumanOpen(!humanZoneOpen)}
+                    aria-expanded={humanZoneOpen}
+                    className='flex items-center gap-1.5 hover:text-foreground'
+                  >
+                    <ChevronRight
+                      className={`size-3.5 transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
+                    {intl.formatMessage({
+                      id: 'acceptance.zone.human',
+                      defaultMessage: 'Needs human judgment',
+                    })}
+                  </button>
+                  <InfoTooltip
+                    label={intl.formatMessage({
+                      id: 'acceptance.zone.humanTip',
+                      defaultMessage:
+                        'Human criteria need a person to judge and sign off — they are not machine-checkable.',
+                    })}
+                  />
+                  <span
+                    className='ml-auto inline-flex min-w-5 items-center justify-center rounded-sm bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background'
+                    title={intl.formatMessage({
+                      id: 'acceptance.zone.humanQuotaTip',
+                      defaultMessage:
+                        'A task can have at most 7 human criteria, to keep human review focused.',
+                    })}
+                  >
+                    {humanCriteria.length}
+                  </span>
+                </div>
+                {humanZoneOpen ? (
+                  <>
+                    {humanCriteria.length > 0 ? (
+                      <div className='overflow-hidden rounded-md border border-border'>
+                        {humanCriteria.map(c => (
+                          <CriterionRow
+                            key={c.id}
+                            c={c}
+                            interactive={interactive}
+                            submitting={submitting}
+                            onVerdict={submitVerdict}
+                            editable={canEdit}
+                            onSaveStatement={editStatement}
+                            onDelete={deleteCriterion}
+                            mutating={mutating}
+                            repoWebUrl={repoWebUrl}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {canEdit ? (
+                      <AddCriterionRow
+                        onAdd={addCriterion}
+                        mutating={mutating}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
+          ) : (
+            emptyContractNote
+          )}
+
+          {/* Verdict basis — the verification record (round history). LUM-619:
+              lifted out of Run report so the "how the verdict was reached"
+              trail sits with the criteria it judged, above the audit-only line. */}
+          <VerificationHistory data={data} />
+
+          {/* Audit-only separator — everything below is forensic evidence for
+              the reviewer, not an input to the verdict (LUM-614 red line). */}
+          <div
+            data-testid='audit-only-divider'
+            className='flex items-center gap-2 pt-1 text-caption text-muted-foreground/70'
+          >
+            <ShieldAlert className='size-3.5 shrink-0' aria-hidden />
+            <span>
+              {intl.formatMessage({
+                id: 'acceptance.auditOnly.label',
+                defaultMessage:
+                  "Audit-only — these signals don't decide the verdict",
+              })}
+            </span>
+            <span className='h-px flex-1 bg-border' aria-hidden />
           </div>
-        </DossierGroup>
-      ) : (
-        emptyContractNote
-      )}
+
+          {/* Forensic signal — mechanical gates (per PR; LUM-617). Injected
+              from the dossier level; null when there are no PRs/signals. */}
+          {gatesSlot}
+
+          {/* Forensic signal — boundary crossings. An open crossing blocks
+              Done, but that is a policy gate, not part of the acceptance
+              verdict, so it lives here in the audit-only zone (LUM-619;
+              supersedes the LUM-572 boundary-leads placement). */}
+          <BoundaryCrossingsPanel
+            taskIdentifier={taskIdentifier}
+            enabled={enabled}
+            workspaceUrl={workspaceUrl}
+            members={members}
+            agentActors={agentActors}
+            onChanged={() => {
+              void refresh?.()
+            }}
+          />
+
+          {/* Forensic signal — the agent's claim paired with the measured
+              verdict (LUM-564). Rides with the contract; hidden without one. */}
+          {hasCriteria && <ClaimVsVerification data={data} />}
+        </div>
+      </DossierGroup>
 
       {/* LUM-572 · Run report — the after-the-fact record, folded into one
           collapsed group so the surface above reads decision → criteria →
@@ -1662,8 +1704,6 @@ export function AcceptanceTab({
         onToggle={() => setRunReportOpen(o => !o)}
       >
         <div className='space-y-4'>
-          <VerificationHistory data={data} />
-
           {/* LUM-560/561/562 honest-report sections — the costs, the struggle the
           all-pass count would wipe, and the movement across attempts. Mirror the
           Cost / Struggle / Trend blocks `lumo task status` prints, same-source so

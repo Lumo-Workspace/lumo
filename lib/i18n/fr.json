@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Le projet se compile — un artefact est produit",
   "gates.desc.test": "La suite de tests s'exécute sans erreur (pas si les assertions sont justes)",
   "gates.prColumn": "Pull request",
-  "gates.unlinked": "Signaux non liés à une PR"
+  "gates.unlinked": "Signaux non liés à une PR",
+  "acceptance.container.title": "Acceptation",
+  "acceptance.auditOnly.label": "Audit uniquement — ces signaux ne décident pas du verdict"
 }

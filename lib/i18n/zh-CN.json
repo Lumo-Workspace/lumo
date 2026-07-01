@@ -1887,5 +1887,7 @@
   "gates.desc.build": "项目能构建——产出产物",
   "gates.desc.test": "测试套件能无错跑通(不验断言对错)",
   "gates.prColumn": "拉取请求",
-  "gates.unlinked": "未关联到 PR 的信号"
+  "gates.unlinked": "未关联到 PR 的信号",
+  "acceptance.container.title": "验收",
+  "acceptance.auditOnly.label": "仅供审计 — 这些信号不参与裁定"
 }

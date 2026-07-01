@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Proyek terbangun — artefak dihasilkan",
   "gates.desc.test": "Rangkaian uji berjalan tanpa error (bukan apakah asersinya benar)",
   "gates.prColumn": "Pull request",
-  "gates.unlinked": "Sinyal yang tidak tertaut ke PR"
+  "gates.unlinked": "Sinyal yang tidak tertaut ke PR",
+  "acceptance.container.title": "Penerimaan",
+  "acceptance.auditOnly.label": "Hanya audit — sinyal ini tidak menentukan putusan"
 }

@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Das Projekt baut — ein Artefakt entsteht",
   "gates.desc.test": "Die Testsuite läuft fehlerfrei (nicht ob die Assertions stimmen)",
   "gates.prColumn": "Pull Request",
-  "gates.unlinked": "Signale ohne PR-Zuordnung"
+  "gates.unlinked": "Signale ohne PR-Zuordnung",
+  "acceptance.container.title": "Abnahme",
+  "acceptance.auditOnly.label": "Nur Audit – diese Signale entscheiden nicht über das Urteil"
 }

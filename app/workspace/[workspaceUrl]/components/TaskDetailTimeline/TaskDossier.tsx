@@ -10,6 +10,7 @@ import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
 import { AcceptanceTab } from './AcceptanceTab'
 import { AgentRunsSection } from './AgentRunsSection'
+import { DeliveryGatesSection } from '../DeliveryGatesSection'
 import { LineageTab } from './LineageTab'
 import { MemoryTab } from '../memory/MemoryTab'
 import { InfoTooltip } from './InfoTooltip'
@@ -255,6 +256,7 @@ export function TaskDossier({
       latestRunSummary={latestRunSummary}
       {...(mentionSources ? { mentionSources } : {})}
       evidenceSlot={evidence}
+      gatesSlot={<DeliveryGatesSection taskId={taskId} />}
       reportInitiallyOpen={targetSection != null}
     />
   )

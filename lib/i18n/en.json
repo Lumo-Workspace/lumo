@@ -736,6 +736,8 @@
   "acceptance.history.sendBackCount": "{count, plural, one {# sent back} other {# sent back}}",
   "acceptance.history.sendBackInline": "{count, plural, one {agent send-back · #} other {agent send-back · #}}",
   "acceptance.contract.title": "Acceptance criteria",
+  "acceptance.container.title": "Acceptance",
+  "acceptance.auditOnly.label": "Audit-only — these signals don't decide the verdict",
   "acceptance.contract.count": "{total} · {machine} MACHINE / {human} HUMAN",
   "acceptance.criterion.editedAtRound": "Edited · round {round}",
   "acceptance.criterion.edited": "Edited",
