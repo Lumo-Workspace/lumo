@@ -1646,7 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "Seseorang menanda kriteria ini lulus tanpa semakan mesin yang mengesahkannya.",
   "acceptance.check.tip": "Arahan (checkpointer) yang dijalankan untuk mengesahkan kriteria ini, beserta kod keluarnya. exit 0 bermakna ia lulus.",
   "acceptance.criterion.staleTip": "Ini lulus terhadap versi kriteria yang lebih lama. Jalankan semula lumo verify untuk pengesahan semula.",
-  "acceptance.zone.machineTip": "Kriteria mesin disemak oleh arahan checkpointer dan bersifat baca sahaja — ia tidak boleh disunting secara manual.",
   "acceptance.zone.humanTip": "Kriteria manusia memerlukan seseorang untuk menilai dan mengesahkannya — ia tidak boleh disemak oleh mesin.",
   "acceptance.zone.humanQuotaTip": "Sesuatu tugasan boleh mempunyai maksimum 7 kriteria manusia, bagi memastikan semakan manusia kekal berfokus.",
   "boundary.tip.category": "Pencerobohan sempadan ialah tindakan terlarang atau berisiko yang dilakukan ejen. Kategori menyatakan jenisnya.",
@@ -1889,5 +1888,15 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Isyarat yang tidak terpaut ke PR",
   "acceptance.container.title": "Penerimaan",
-  "acceptance.auditOnly.label": "Audit sahaja — isyarat ini tidak menentukan keputusan"
+  "acceptance.auditOnly.label": "Audit sahaja — isyarat ini tidak menentukan keputusan",
+  "task.verdict.approveHero": "Luluskan · tanda Selesai",
+  "task.verdict.requestChanges": "Minta perubahan",
+  "acceptance.audit.title": "Bukti & jejak audit",
+  "acceptance.auditOnly.notVerdict": "Audit sahaja — tidak menentukan keputusan",
+  "acceptance.hero.stateReview": "DALAM SEMAKAN",
+  "acceptance.hero.stateAccepted": "DITERIMA",
+  "acceptance.hero.stateChanges": "PERUBAHAN DIMINTA",
+  "acceptance.hero.metLabel": "dipenuhi",
+  "acceptance.hero.helper": "Keputusan anda menanda tugas sebagai Selesai atau menghantarnya semula.",
+  "acceptance.zone.humanNote": "tidak boleh disemak mesin"
 }

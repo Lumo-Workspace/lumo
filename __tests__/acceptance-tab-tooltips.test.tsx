@@ -162,13 +162,16 @@ describe('Acceptance tab — simplification', () => {
 })
 
 describe('Acceptance tab — zone tooltips', () => {
-  it('machine zone has an info tooltip explaining machine verification', () => {
+  // LUM-620: the machine zone was demoted to a collapsible summary — its meaning
+  // is now carried inline by the "Machine-verified" header + a verified-count
+  // caption, not by a hover tooltip. Assert that inline self-explanation.
+  it('machine zone header explains machine verification inline (summary caption)', () => {
     renderAcceptanceTab()
     expect(
-      screen.getByLabelText(
-        'Machine criteria are checked by a checkpointer command and are read-only — they cannot be hand-edited.'
-      )
+      screen.getByRole('button', { name: /Machine-verified/ })
     ).toBeInTheDocument()
+    // The summary caption states the verified count (0 of the unjudged fixture).
+    expect(screen.getByText(/machine-verified/)).toBeInTheDocument()
   })
 
   it('human zone has an info tooltip explaining human judgment', () => {
@@ -424,11 +427,11 @@ describe('Judge steps & history tooltips', () => {
   })
 
   it('verification history title has a tooltip explaining round markers', () => {
-    // LUM-572 folded the history section into the collapsed "Run report" group,
-    // so expand that group first; the title (a plain div) and its tooltip then
-    // render whenever there is at least one round.
+    // LUM-620 moved the history section into the collapsed "Evidence & audit
+    // trail" card, so expand that card first; the title (a plain div) and its
+    // tooltip then render whenever there is at least one round.
     renderWithData({ verificationHistory: [verificationRound()] })
-    fireEvent.click(screen.getByText('Run report'))
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     expect(
       screen.getByLabelText(
         'Each round is one verification pass. MACHINE = checkpointer run, HUMAN = person verdict, AGENT = agent sent the task back.'

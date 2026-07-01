@@ -206,6 +206,9 @@ it('renders boundary crossings when the contract is empty', () => {
   })
   set(statusView({ criteria: [] }))
   const { container } = render_()
+  // LUM-620: boundary crossings live inside the demoted, collapsed "Evidence &
+  // audit trail" card — expand it before asserting the panel renders.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   // Both surface: the panel (anchor id) and the no-criteria note.
   expect(container.querySelector('#boundary-crossings')).not.toBeNull()
   expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
@@ -390,9 +393,9 @@ it('renders the verification record and expands a round to per-criterion verdict
   )
   render_()
   expandMachine()
-  // LUM-619: the verification record now lives in the open-by-default Acceptance
-  // container (above the audit-only line), no longer under the Run report group —
-  // so it's visible without expanding anything.
+  // LUM-620: the verification record now lives inside the demoted, collapsed
+  // "Evidence & audit trail" card — expand it to reveal the round history.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   expect(screen.getByText('Verification record')).toBeInTheDocument()
   expect(screen.getByText('round 1 · machine check')).toBeInTheDocument()
   expect(screen.getByText('2/2 passed')).toBeInTheDocument()
@@ -498,6 +501,10 @@ describe('header verdict surface + section order (LUM-467)', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    // LUM-620: boundary crossings are inside the demoted, collapsed "Evidence &
+    // audit trail" card (which sits below the criteria) — expand it to assert
+    // the panel renders after the contract.
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     const contract = screen.getByText('Machine-verified')
     const panel = container.querySelector('#boundary-crossings')
     expect(panel).not.toBeNull()

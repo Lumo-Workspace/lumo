@@ -1646,7 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "有人在沒有機器檢查確認的情況下把這條標準標記為通過。",
   "acceptance.check.tip": "用於驗證這條標準而執行的命令（checkpointer）及其退出碼。退出碼 0 表示通過。",
   "acceptance.criterion.staleTip": "這是針對修改前版本的標準通過的。重新跑 lumo verify 以再次確認。",
-  "acceptance.zone.machineTip": "機器標準由 checkpointer 命令檢查，唯讀，不能手工編輯。",
   "acceptance.zone.humanTip": "人工標準需要人來裁決簽收，無法機器校驗。",
   "acceptance.zone.humanQuotaTip": "一個任務最多 7 條人工標準，以保持人工審核聚焦。",
   "boundary.tip.category": "越界訊號 = agent 執行的違禁或高風險動作。類別說明是哪一種。",
@@ -1889,5 +1888,15 @@
   "gates.prColumn": "拉取請求",
   "gates.unlinked": "未關聯到 PR 的訊號",
   "acceptance.container.title": "驗收",
-  "acceptance.auditOnly.label": "僅供稽核 — 這些訊號不參與裁定"
+  "acceptance.auditOnly.label": "僅供稽核 — 這些訊號不參與裁定",
+  "task.verdict.approveHero": "核准 · 標記為完成",
+  "task.verdict.requestChanges": "要求修改",
+  "acceptance.audit.title": "證據與稽核紀錄",
+  "acceptance.auditOnly.notVerdict": "僅供稽核 — 不決定裁決",
+  "acceptance.hero.stateReview": "審查中",
+  "acceptance.hero.stateAccepted": "已接受",
+  "acceptance.hero.stateChanges": "已要求修改",
+  "acceptance.hero.metLabel": "已達成",
+  "acceptance.hero.helper": "你的裁決會將任務標記為完成或退回。",
+  "acceptance.zone.humanNote": "無法由機器核驗"
 }

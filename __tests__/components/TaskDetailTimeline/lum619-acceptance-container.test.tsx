@@ -201,18 +201,23 @@ it('LUM-619 acceptance container orders criteria then verification record then a
   )
   const { container } = renderTab()
 
+  // LUM-620 IA: criteria → claim strip → "Evidence & audit trail" card, whose
+  // body (record, gates, boundary, cost) is collapsed by default. Expand it to
+  // assert the forensic signals' order.
   const criteria = screen.getByText('Machine-verified')
+  const claim = screen.getByTestId('claim-vs')
+  const auditCard = screen.getByText('Evidence & audit trail')
+  // Claim strip is pulled up out of the audit zone — it now precedes the card.
+  precedes(criteria, claim)
+  precedes(claim, auditCard)
+
+  fireEvent.click(auditCard)
   const record = screen.getByText('Verification record')
-  const divider = screen.getByTestId('audit-only-divider')
   const gates = screen.getByTestId('gates-slot')
   const boundary = container.querySelector('#boundary-crossings')
-  const claim = screen.getByTestId('claim-vs')
-
-  precedes(criteria, record)
-  precedes(record, divider)
-  precedes(divider, gates)
+  // Inside the card: verification record → gates → boundary crossings.
+  precedes(record, gates)
   precedes(gates, boundary)
-  precedes(boundary, claim)
 })
 
 it('LUM-619 audit-only separator marks the forensic signals as not part of the verdict', () => {
@@ -223,13 +228,17 @@ it('LUM-619 audit-only separator marks the forensic signals as not part of the v
     })
   )
   renderTab()
+  // LUM-620: the audit-only-divider testid now lives inside the "Evidence &
+  // audit trail" button (present even while the card is collapsed).
   const divider = screen.getByTestId('audit-only-divider')
-  const record = screen.getByText('Verification record')
-  const gates = screen.getByTestId('gates-slot')
   // The caption names the verdict — it exists to say these signals don't decide it.
   expect(divider.textContent?.toLowerCase()).toContain('verdict')
-  // ...and it sits between the verdict basis (record) and the forensic signals.
-  precedes(record, divider)
+  // The divider heads the forensic zone — expand and confirm the signals
+  // (verification record + gates) sit below it.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
+  const record = screen.getByText('Verification record')
+  const gates = screen.getByTestId('gates-slot')
+  precedes(divider, record)
   precedes(divider, gates)
 })
 
@@ -241,8 +250,9 @@ it('LUM-619 verification record renders in the acceptance container not under ru
     })
   )
   renderTab()
-  // Visible immediately — the container is open by default and no Run report
-  // expansion is needed.
+  // LUM-620: the verification record lives inside the "Evidence & audit trail"
+  // card within the Acceptance container — expand the card to reveal it.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   const record = screen.getByText('Verification record')
   expect(record).toBeInTheDocument()
 
@@ -260,8 +270,10 @@ it('LUM-619 mechanical gates render in the acceptance audit-only zone and agent 
     })
   )
   renderTab()
-  // Gates render below the audit-only divider (via the injected slot).
+  // LUM-620: gates render inside the collapsed "Evidence & audit trail" card,
+  // below the audit-only divider (via the injected slot). Expand it first.
   const divider = screen.getByTestId('audit-only-divider')
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   const gates = screen.getByTestId('gates-slot')
   precedes(divider, gates)
 
@@ -288,13 +300,14 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   renderTab({
     evidenceSlot: <div data-testid='evidence-slot' />,
   })
-  // Expand the Run report group.
+  // Expand both the Evidence & audit trail card (so the verification record
+  // actually mounts) and the Run report group.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
   const runReportGroup = screen.getByRole('button', { name: /Run report/i })
     .parentElement as HTMLElement
 
-  // After-the-fact metrics + evidence live here.
-  expect(runReportGroup.querySelector('[data-testid="cost"]')).not.toBeNull()
+  // After-the-fact metrics + evidence live here (struggle / trend / evidence).
   expect(
     runReportGroup.querySelector('[data-testid="struggle"]')
   ).not.toBeNull()
@@ -304,6 +317,9 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   ).not.toBeNull()
 
   // Verdict basis + forensic signals do NOT live under Run report anymore.
+  // LUM-620: run cost moved out of Run report and into the Evidence & audit
+  // trail card, so cost is no longer here either.
+  expect(runReportGroup.querySelector('[data-testid="cost"]')).toBeNull()
   expect(runReportGroup.contains(screen.getByText('Verification record'))).toBe(
     false
   )
@@ -318,7 +334,9 @@ it('LUM-619 acceptance container keeps boundary crossings without a contract', (
   // The empty-contract note still shows (criteria block swapped for the note)...
   expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
   // ...and the boundary panel is still rendered (contract-independent), inside
-  // the Acceptance container above the Run report group.
+  // the Acceptance container's Evidence & audit trail card (above the Run report
+  // group). LUM-620: expand the collapsed card to reveal it.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   const boundary = container.querySelector('#boundary-crossings')
   expect(boundary).not.toBeNull()
   const runReportBtn = screen.getByRole('button', { name: /Run report/i })

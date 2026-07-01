@@ -1646,7 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "Une personne a marqué ce critère comme réussi sans confirmation par une vérification machine.",
   "acceptance.check.tip": "La commande (checkpointer) exécutée pour vérifier ce critère, et son code de sortie. exit 0 signifie réussi.",
   "acceptance.criterion.staleTip": "Ce critère a été validé contre une version antérieure. Relancez lumo verify pour reconfirmer.",
-  "acceptance.zone.machineTip": "Les critères machine sont vérifiés par une commande checkpointer et sont en lecture seule — ils ne peuvent pas être modifiés manuellement.",
   "acceptance.zone.humanTip": "Les critères humains nécessitent une personne pour juger et valider — ils ne sont pas vérifiables par machine.",
   "acceptance.zone.humanQuotaTip": "Une tâche peut avoir au plus 7 critères humains, pour que la révision humaine reste ciblée.",
   "boundary.tip.category": "Un franchissement de limite est une action interdite ou risquée effectuée par l'agent. La catégorie indique de quel type il s'agit.",
@@ -1889,5 +1888,15 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Signaux non liés à une PR",
   "acceptance.container.title": "Acceptation",
-  "acceptance.auditOnly.label": "Audit uniquement — ces signaux ne décident pas du verdict"
+  "acceptance.auditOnly.label": "Audit uniquement — ces signaux ne décident pas du verdict",
+  "task.verdict.approveHero": "Approuver · marquer comme Terminé",
+  "task.verdict.requestChanges": "Demander des modifications",
+  "acceptance.audit.title": "Preuves et journal d'audit",
+  "acceptance.auditOnly.notVerdict": "Audit uniquement — ne décide pas du verdict",
+  "acceptance.hero.stateReview": "EN REVUE",
+  "acceptance.hero.stateAccepted": "ACCEPTÉ",
+  "acceptance.hero.stateChanges": "MODIFICATIONS DEMANDÉES",
+  "acceptance.hero.metLabel": "rempli",
+  "acceptance.hero.helper": "Votre verdict marque la tâche comme Terminée ou la renvoie.",
+  "acceptance.zone.humanNote": "non vérifiable par machine"
 }
