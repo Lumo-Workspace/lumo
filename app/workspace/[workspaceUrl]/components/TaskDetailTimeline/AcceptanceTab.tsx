@@ -1539,6 +1539,10 @@ export function AcceptanceTab({
                         : 'border-border bg-muted/30'
                   }`}
                 >
+                  <ChevronRight
+                    className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
                   {humanAllJudged ? (
                     <CheckCircle2
                       className='size-4 shrink-0 text-success'
@@ -1583,13 +1587,9 @@ export function AcceptanceTab({
                           defaultMessage: 'not machine-checkable',
                         })}
                   </span>
-                  <span className='ml-auto flex items-center gap-1.5 text-caption text-muted-foreground'>
+                  <span className='ml-auto text-caption text-muted-foreground'>
                     {humanCriteria.length - humanUnresolvedCount}/
                     {humanCriteria.length}
-                    <ChevronRight
-                      className={`size-3.5 transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
                   </span>
                 </button>
                 {humanZoneOpen ? (
@@ -1636,6 +1636,10 @@ export function AcceptanceTab({
                     aria-expanded={machineZoneOpen}
                     className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${allMachineVerified ? 'bg-success-subtle' : 'bg-muted/30'}`}
                   >
+                    <ChevronRight
+                      className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
                     <CheckCircle2
                       className={`size-4 shrink-0 ${allMachineVerified ? 'text-success' : 'text-muted-foreground'}`}
                       aria-hidden
@@ -1687,12 +1691,8 @@ export function AcceptanceTab({
                             .filter(Boolean)
                             .join(' · ')}
                     </span>
-                    <span className='ml-auto flex items-center gap-1.5 text-caption text-muted-foreground'>
+                    <span className='ml-auto text-caption text-muted-foreground'>
                       {machineVerified}/{machineCriteria.length}
-                      <ChevronRight
-                        className={`size-3.5 transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
-                        aria-hidden
-                      />
                     </span>
                   </button>
                   {machineZoneOpen ? (
@@ -1746,6 +1746,10 @@ export function AcceptanceTab({
               aria-expanded={auditOpen}
               className='flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40'
             >
+              <ChevronRight
+                className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
+                aria-hidden
+              />
               <ShieldAlert
                 className='size-4 shrink-0 text-muted-foreground'
                 aria-hidden
@@ -1766,10 +1770,6 @@ export function AcceptanceTab({
                     "Audit-only — these signals don't decide the verdict",
                 })}
               </span>
-              <ChevronRight
-                className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
-                aria-hidden
-              />
             </button>
             {auditOpen ? (
               <div className='space-y-4 border-t border-border px-4 py-4'>
