@@ -339,6 +339,10 @@ model Team {
   // team's currently ACTIVE sprint so the completed work counts toward it.
   sprintAutoAddCompleted Boolean @default(false)
 
+  // IANA timezone governing sprint boundary computation and date display.
+  // Existing teams backfilled to Pacific; new teams take the creator's zone.
+  timezone String @default("America/Los_Angeles")
+
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]
   members   TeamMember[]
