@@ -59,7 +59,10 @@ const RAW_DEFINITIONS: readonly RawDefinition[] = [
   {
     key: 'typecheck',
     class: 'execution',
-    commandPatterns: [/\btsc\b(?!.*\bbuild\b)/, /typecheck/],
+    // No build-exclusion lookahead: classification is one-command → N gates
+    // (LUM-629), so `tsc && npm run build` reports typecheck AND build instead
+    // of needing build to win a single-choice tie.
+    commandPatterns: [/\btsc\b/, /typecheck/],
   },
   {
     key: 'build',
@@ -115,18 +118,21 @@ function unquotedInvocation(command: string): string {
 }
 
 /**
- * Classify an executed shell command as an execution gate, or null when it
- * matches none. Matching runs against the unquoted invocation only, so a gate
- * keyword buried in quoted argument text never produces a false signal.
- * Detection gates are never returned here — they're not derived from commands.
- * First match wins in declaration order.
+ * Classify an executed shell command as execution gates — EVERY gate whose
+ * invocation tokens the command hits, in declaration order; empty when none.
+ * One command → N gates (LUM-629): agents routinely chain checks in a single
+ * shell line (`npx jest …; npx tsc --noEmit`), and single-choice classification
+ * silently dropped all but one gate's signal (the LUM-620 #770 test=not_run
+ * under-report). Matching still runs against the unquoted invocation only, so
+ * a gate keyword buried in quoted argument text never produces a false signal
+ * (LUM-614). Detection gates are never returned here — they're not derived
+ * from commands.
  */
-export function classifyCommand(command: string): GateKey | null {
+export function classifyCommand(command: string): GateKey[] {
   const invocation = unquotedInvocation(command)
-  for (const def of GATE_DEFINITIONS) {
-    if (def.commandPatterns.some(p => p.test(invocation))) return def.key
-  }
-  return null
+  return GATE_DEFINITIONS.filter(def =>
+    def.commandPatterns.some(p => p.test(invocation))
+  ).map(def => def.key)
 }
 
 /**

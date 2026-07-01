@@ -32,13 +32,32 @@ describe('gate-map', () => {
 
 describe('classifyCommand', () => {
   it('classifies real gate invocations', () => {
-    expect(classifyCommand('tsc --noEmit')).toBe('typecheck')
-    expect(classifyCommand('cd /x && npx tsc --noEmit')).toBe('typecheck')
-    expect(classifyCommand('npx jest foo.test.ts')).toBe('test')
-    expect(classifyCommand('npm test')).toBe('test')
-    expect(classifyCommand('cd /x && npm run build')).toBe('build')
+    expect(classifyCommand('tsc --noEmit')).toEqual(['typecheck'])
+    expect(classifyCommand('cd /x && npx tsc --noEmit')).toEqual(['typecheck'])
+    expect(classifyCommand('npx jest foo.test.ts')).toEqual(['test'])
+    expect(classifyCommand('npm test')).toEqual(['test'])
+    expect(classifyCommand('cd /x && npm run build')).toEqual(['build'])
     // 'parse' gate was removed (LUM-616 follow-up) — node --check no longer maps.
-    expect(classifyCommand('node --check foo.js')).toBeNull()
+    expect(classifyCommand('node --check foo.js')).toEqual([])
+  })
+
+  it('splits a merged multi-gate command into every matched gate', () => {
+    // LUM-629 (observed on LUM-620 #770): jest and tsc written as one shell
+    // command used to classify as typecheck only, so the test gate sat at
+    // not_run even though jest ran and passed inside the delivery window.
+    // Every matched gate is returned, in declaration order.
+    expect(
+      classifyCommand('npx jest __tests__/x.test.ts; npx tsc --noEmit')
+    ).toEqual(['typecheck', 'test'])
+    expect(classifyCommand('npx tsc --noEmit && npm run build')).toEqual([
+      'typecheck',
+      'build',
+    ])
+    expect(
+      classifyCommand('npx jest a.test.ts && npx tsc --noEmit && npm run build')
+    ).toEqual(['typecheck', 'build', 'test'])
+    // A single-gate command still yields exactly one signal.
+    expect(classifyCommand('npx tsc --noEmit')).toEqual(['typecheck'])
   })
 
   it('does NOT classify gate keywords that only appear inside quoted text', () => {
@@ -49,21 +68,26 @@ describe('classifyCommand', () => {
       classifyCommand(
         'lumo task create "机械门闸:执行类 gate(parse/typecheck/build/test)" --new-scope'
       )
-    ).toBeNull()
+    ).toEqual([])
     // A diagnostic echo that merely mentions "test" is not a test run.
     expect(
       classifyCommand(
         'echo "===run same test on main===" && git branch --show-current'
       )
-    ).toBeNull()
+    ).toEqual([])
     // git/echo/cat that merely name a build/test path are not gate runs.
-    expect(classifyCommand("git commit -m 'fix build'")).toBeNull()
-    expect(classifyCommand('cat package.json | grep test')).toBeNull()
+    expect(classifyCommand("git commit -m 'fix build'")).toEqual([])
+    expect(classifyCommand('cat package.json | grep test')).toEqual([])
+    // Multi-gate splitting only applies to unquoted invocation tokens: a real
+    // jest run whose quoted arg mentions tsc is a test run, not a typecheck.
+    expect(
+      classifyCommand('npx jest x.test.ts -t "tsc build test regression"')
+    ).toEqual(['test'])
   })
 
   it('still classifies a real gate run buried after a cd/env prefix', () => {
-    expect(classifyCommand('cd /repo && npx jest __tests__/x.test.ts')).toBe(
-      'test'
+    expect(classifyCommand('cd /repo && npx jest __tests__/x.test.ts')).toEqual(
+      ['test']
     )
   })
 })
