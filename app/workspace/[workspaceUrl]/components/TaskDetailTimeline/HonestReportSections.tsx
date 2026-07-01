@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl, type IntlShape } from 'react-intl'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Scale } from 'lucide-react'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
 
@@ -425,6 +425,10 @@ export function ClaimVsVerification({
         >
           <ChevronRight
             className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+            aria-hidden
+          />
+          <Scale
+            className='size-4 shrink-0 text-muted-foreground'
             aria-hidden
           />
           {intl.formatMessage({
