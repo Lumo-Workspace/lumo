@@ -44,7 +44,7 @@ describe('computeNextSprintWindow', () => {
     // Mon 2026-04-20 → 14-day sprint covers Apr 20 through Sun May 3.
     const now = new Date('2026-04-20T08:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 14, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 14, cooldownDays: 0, startWeekday: 1 },
       null,
       now
     )
@@ -57,7 +57,7 @@ describe('computeNextSprintWindow', () => {
     // cooldown=0 → next starts Mon May 4.
     const lastEnd = new Date('2026-05-03T00:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 14, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 14, cooldownDays: 0, startWeekday: 1 },
       lastEnd,
       new Date('2026-04-20T00:00:00Z')
     )
@@ -70,7 +70,7 @@ describe('computeNextSprintWindow', () => {
     // cooldown 7 days → Sprint 2 starts Mon May 4.
     const lastEnd = new Date('2026-04-26T00:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 7, cooldownDays: 7, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 7, cooldownDays: 7, startWeekday: 1 },
       lastEnd,
       new Date('2026-04-20T00:00:00Z')
     )
@@ -82,7 +82,7 @@ describe('computeNextSprintWindow', () => {
     // 1-week sprint ending Sun Dec 27, cooldown=0 → next starts Mon Dec 28.
     const lastEnd = new Date('2026-12-27T00:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 7, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 7, cooldownDays: 0, startWeekday: 1 },
       lastEnd,
       new Date('2026-12-20T00:00:00Z')
     )
@@ -94,7 +94,7 @@ describe('computeNextSprintWindow', () => {
     // Wed 2026-04-22 → next Monday = 2026-04-27. 14-day sprint ends Sun May 10.
     const now = new Date('2026-04-22T14:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 14, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 14, cooldownDays: 0, startWeekday: 1 },
       null,
       now
     )
@@ -108,7 +108,7 @@ describe('computeNextSprintWindow', () => {
     const staleEnd = new Date('2026-03-15T00:00:00Z')
     const now = new Date('2026-04-20T09:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 14, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 14, cooldownDays: 0, startWeekday: 1 },
       staleEnd,
       now
     )
@@ -122,7 +122,7 @@ describe('computeNextSprintWindow', () => {
     const futureEnd = new Date('2026-04-26T00:00:00Z')
     const now = new Date('2026-04-20T09:00:00Z')
     const window = computeNextSprintWindow(
-      { durationDays: 14, cooldownDays: 0, startWeekday: 1, timeZone: 'UTC' },
+      { durationDays: 14, cooldownDays: 0, startWeekday: 1 },
       futureEnd,
       now
     )

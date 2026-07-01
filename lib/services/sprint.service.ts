@@ -281,7 +281,6 @@ export const sprintService = {
       startWeekday?: number
       autoCreate?: number
       autoAddCompleted?: boolean
-      timezone?: string
     },
     _actor: ActorRef
   ) {
@@ -322,7 +321,6 @@ export const sprintService = {
       durationDays: team.sprintDurationDays,
       cooldownDays: team.sprintCooldownDays,
       startWeekday: team.sprintStartWeekday,
-      timeZone: team.timezone,
     }
 
     for (let i = 0; i < shortfall; i++) {
