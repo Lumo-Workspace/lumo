@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "बदलाव का अनुरोध किया गया",
   "acceptance.hero.metLabel": "पूरा",
   "acceptance.hero.helper": "आपका निर्णय कार्य को पूर्ण चिह्नित करता है या वापस भेजता है।",
-  "acceptance.zone.humanNote": "मशीन द्वारा जाँच योग्य नहीं"
+  "acceptance.zone.humanNote": "मशीन द्वारा जाँच योग्य नहीं",
+  "acceptance.zone.humanResolved": "मानव-निर्णयित",
+  "acceptance.zone.humanAllResolved": "सभी {count} निर्णयित"
 }

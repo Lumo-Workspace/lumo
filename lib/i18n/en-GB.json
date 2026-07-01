@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "CHANGES REQUESTED",
   "acceptance.hero.metLabel": "met",
   "acceptance.hero.helper": "Your verdict marks the task Done or sends it back.",
-  "acceptance.zone.humanNote": "not machine-checkable"
+  "acceptance.zone.humanNote": "not machine-checkable",
+  "acceptance.zone.humanResolved": "Human-judged",
+  "acceptance.zone.humanAllResolved": "All {count} judged"
 }

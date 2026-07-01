@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "ЗАПРОШЕНЫ ИЗМЕНЕНИЯ",
   "acceptance.hero.metLabel": "выполнено",
   "acceptance.hero.helper": "Ваш вердикт отмечает задачу как Готово или возвращает её.",
-  "acceptance.zone.humanNote": "не проверяется машиной"
+  "acceptance.zone.humanNote": "не проверяется машиной",
+  "acceptance.zone.humanResolved": "Оценено человеком",
+  "acceptance.zone.humanAllResolved": "Все {count} оценены"
 }

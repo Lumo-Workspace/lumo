@@ -313,8 +313,10 @@ describe('human judgment zone', () => {
       })
     )
     const { unmount } = renderTab()
+    // LUM-620: an all-resolved human zone relabels its toggle to "Human-judged"
+    // (the state-aware header — no longer a pending "Needs your judgment" call).
     const toggle = screen.getByRole('button', {
-      name: /Needs your judgment/i,
+      name: /Human-judged/i,
     })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('reads naturally')).toBeNull()
