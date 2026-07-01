@@ -20,6 +20,8 @@ export function SprintsLandingClient() {
     }
   }, [teams, selectedTeamId])
 
+  const selectedTeam = teams.find(t => t.id === selectedTeamId)
+
   return (
     <div className='flex h-full flex-col overflow-hidden'>
       <PageBreadcrumb
@@ -35,7 +37,12 @@ export function SprintsLandingClient() {
         }
       />
       <div className='flex-1 overflow-y-auto px-4 py-6 md:px-8'>
-        {selectedTeamId ? <SprintsBoard teamId={selectedTeamId} /> : null}
+        {selectedTeamId && selectedTeam ? (
+          <SprintsBoard
+            teamId={selectedTeamId}
+            timeZone={selectedTeam.timezone}
+          />
+        ) : null}
       </div>
     </div>
   )
