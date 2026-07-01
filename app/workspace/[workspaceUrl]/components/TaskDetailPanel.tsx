@@ -30,6 +30,7 @@ import { useTaskDescription } from '../hooks/useTaskDescription'
 import { useTaskSync } from '../hooks/useTaskSync'
 import { TaskFieldsSection } from './TaskFieldsSection'
 import { CommentSection } from './CommentSection'
+import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
 
 // ─── TaskDetailPanel ──────────────────────────────────────────────────────────
 
@@ -121,6 +122,11 @@ export function TaskDetailPanel({
   )
 
   const projectName = task.project?.name ?? ''
+
+  const { teams } = useWorkspaceTeams()
+  // Extract+pass a flat timezone string (LoD) — TaskFieldsSection never
+  // reaches through a nested `task.team.timezone`.
+  const teamTimeZone = teams.find(t => t.id === task.teamId)?.timezone
 
   const { user } = useCurrentUser()
   const router = useRouter()
@@ -255,6 +261,7 @@ export function TaskDetailPanel({
           sprintId={task.sprintId ?? null}
           sprint={task.sprint ?? null}
           sprintsEnabled={task.sprintsEnabled ?? false}
+          {...(teamTimeZone ? { teamTimeZone } : {})}
         />
 
         {task.pullRequests && task.pullRequests.length > 0 && (

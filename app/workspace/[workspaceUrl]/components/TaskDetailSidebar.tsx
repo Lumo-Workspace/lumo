@@ -33,6 +33,9 @@ interface TaskDetailSidebarProps {
   onTagsChange?: (tags: ApiTag[]) => void
   /** Called to create a new tag inline. */
   onCreateTag?: (name: string) => Promise<ApiTag | null>
+  /** IANA timezone (e.g. `team.timezone`) used to render the sprint field's
+   *  date range. Falls back to the runtime's local timezone when omitted. */
+  teamTimeZone?: string
 }
 
 export function TaskDetailSidebar({
@@ -45,6 +48,7 @@ export function TaskDetailSidebar({
   allTags,
   onTagsChange,
   onCreateTag,
+  teamTimeZone,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
 
@@ -131,6 +135,7 @@ export function TaskDetailSidebar({
                         }}
                         onChange={v => onPatch({ sprintId: v })}
                         triggerClassName={FIELD_TRIGGER_CLS}
+                        {...(teamTimeZone ? { timeZone: teamTimeZone } : {})}
                       />
                     ),
                   },

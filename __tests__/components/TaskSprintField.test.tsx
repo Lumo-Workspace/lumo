@@ -16,10 +16,37 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { TaskSprintField } from '@/app/workspace/[workspaceUrl]/sprints/components/TaskSprintField'
+import {
+  TaskSprintField,
+  formatCompactRange,
+} from '@/app/workspace/[workspaceUrl]/sprints/components/TaskSprintField'
 import { useSprintsForTeam } from '@/app/workspace/[workspaceUrl]/hooks/useSprints'
+import type { Sprint } from '@prisma/client'
 
 const useSprintsForTeamMock = useSprintsForTeam as unknown as jest.Mock
+
+describe('formatCompactRange', () => {
+  // '2026-06-30T23:30:00Z' is Jun 30 in most zones but already Jul 1 in
+  // Asia/Shanghai (UTC+8) — a boundary the naive `toLocaleDateString(locale)`
+  // call (no `timeZone`) can't honor without the explicit override.
+  const sprint = {
+    startDate: '2026-06-30T23:30:00Z',
+    endDate: '2026-07-02T23:30:00Z',
+  } as unknown as Sprint
+
+  it('honors the timeZone argument', () => {
+    expect(formatCompactRange(sprint, 'en', 'UTC')).toBe('Jun 30 – Jul 2')
+    expect(formatCompactRange(sprint, 'en', 'Asia/Shanghai')).toBe(
+      'Jul 1 – Jul 3'
+    )
+  })
+
+  it('falls back to the runtime local zone when timeZone is omitted', () => {
+    expect(formatCompactRange(sprint, 'en')).toBe(
+      formatCompactRange(sprint, 'en', undefined)
+    )
+  })
+})
 
 describe('TaskSprintField', () => {
   beforeEach(() => {
