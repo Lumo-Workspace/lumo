@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Signaux non liés à une PR",
   "acceptance.container.title": "Acceptation",
-  "acceptance.auditOnly.label": "Audit uniquement — ces signaux ne décident pas du verdict"
+  "acceptance.auditOnly.label": "Audit uniquement — ces signaux ne décident pas du verdict",
+  "sprints.settings.timezone": "Fuseau horaire de l'équipe"
 }

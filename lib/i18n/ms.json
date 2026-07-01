@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Isyarat yang tidak terpaut ke PR",
   "acceptance.container.title": "Penerimaan",
-  "acceptance.auditOnly.label": "Audit sahaja — isyarat ini tidak menentukan keputusan"
+  "acceptance.auditOnly.label": "Audit sahaja — isyarat ini tidak menentukan keputusan",
+  "sprints.settings.timezone": "Zon waktu pasukan"
 }

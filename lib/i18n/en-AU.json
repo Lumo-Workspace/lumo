@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Signals not linked to a PR",
   "acceptance.container.title": "Acceptance",
-  "acceptance.auditOnly.label": "Audit-only — these signals don't decide the verdict"
+  "acceptance.auditOnly.label": "Audit-only — these signals don't decide the verdict",
+  "sprints.settings.timezone": "Team timezone"
 }

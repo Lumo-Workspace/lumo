@@ -1889,5 +1889,6 @@
   "gates.prColumn": "풀 리퀘스트",
   "gates.unlinked": "PR에 연결되지 않은 신호",
   "acceptance.container.title": "수락",
-  "acceptance.auditOnly.label": "감사 전용 — 이 신호는 판정을 결정하지 않습니다"
+  "acceptance.auditOnly.label": "감사 전용 — 이 신호는 판정을 결정하지 않습니다",
+  "sprints.settings.timezone": "팀 시간대"
 }

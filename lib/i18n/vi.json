@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Tín hiệu không liên kết với PR",
   "acceptance.container.title": "Chấp nhận",
-  "acceptance.auditOnly.label": "Chỉ để kiểm toán — các tín hiệu này không quyết định phán quyết"
+  "acceptance.auditOnly.label": "Chỉ để kiểm toán — các tín hiệu này không quyết định phán quyết",
+  "sprints.settings.timezone": "Múi giờ của nhóm"
 }

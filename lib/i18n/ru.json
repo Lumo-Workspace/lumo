@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Пул-реквест",
   "gates.unlinked": "Сигналы без привязки к PR",
   "acceptance.container.title": "Приёмка",
-  "acceptance.auditOnly.label": "Только аудит — эти сигналы не определяют вердикт"
+  "acceptance.auditOnly.label": "Только аудит — эти сигналы не определяют вердикт",
+  "sprints.settings.timezone": "Часовой пояс команды"
 }

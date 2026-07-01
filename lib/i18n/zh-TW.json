@@ -1889,5 +1889,6 @@
   "gates.prColumn": "拉取請求",
   "gates.unlinked": "未關聯到 PR 的訊號",
   "acceptance.container.title": "驗收",
-  "acceptance.auditOnly.label": "僅供稽核 — 這些訊號不參與裁定"
+  "acceptance.auditOnly.label": "僅供稽核 — 這些訊號不參與裁定",
+  "sprints.settings.timezone": "團隊時區"
 }

@@ -1889,5 +1889,6 @@
   "gates.prColumn": "Pull request",
   "gates.unlinked": "Sinyal yang tidak tertaut ke PR",
   "acceptance.container.title": "Penerimaan",
-  "acceptance.auditOnly.label": "Hanya audit — sinyal ini tidak menentukan putusan"
+  "acceptance.auditOnly.label": "Hanya audit — sinyal ini tidak menentukan putusan",
+  "sprints.settings.timezone": "Zona waktu tim"
 }

@@ -1889,5 +1889,6 @@
   "gates.prColumn": "プルリクエスト",
   "gates.unlinked": "PR に紐付かないシグナル",
   "acceptance.container.title": "受け入れ",
-  "acceptance.auditOnly.label": "監査専用 — これらのシグナルは判定を左右しません"
+  "acceptance.auditOnly.label": "監査専用 — これらのシグナルは判定を左右しません",
+  "sprints.settings.timezone": "チームのタイムゾーン"
 }

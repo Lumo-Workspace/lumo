@@ -1889,5 +1889,6 @@
   "gates.prColumn": "पुल रिक्वेस्ट",
   "gates.unlinked": "किसी PR से लिंक न किए गए सिग्नल",
   "acceptance.container.title": "स्वीकृति",
-  "acceptance.auditOnly.label": "केवल ऑडिट — ये संकेत निर्णय तय नहीं करते"
+  "acceptance.auditOnly.label": "केवल ऑडिट — ये संकेत निर्णय तय नहीं करते",
+  "sprints.settings.timezone": "टीम का समय क्षेत्र"
 }
