@@ -20,6 +20,7 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { ciSignalService } from '@/lib/services/ci-signal.service'
+import { logger } from '@/lib/logger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -418,6 +419,29 @@ export async function handleCheckSuite(
 }
 
 /**
+ * LUM-623 SHA→PR fallback for handleStatus. Loaded lazily (the `./checks` module
+ * transitively pulls the octokit ESM auth client that is hostile to jest) and
+ * fully fail-soft: a GitHub error resolves to [] so the webhook never breaks —
+ * mirrors ci-signal.service's own lazy-import + swallow contract.
+ */
+async function pullNumbersForCommitSafe(
+  workspaceId: string,
+  fullName: string,
+  sha: string
+): Promise<number[]> {
+  try {
+    const { fetchPullNumbersForCommit } =
+      await import('@/lib/integrations/github/checks')
+    return await fetchPullNumbersForCommit({ workspaceId, fullName, sha })
+  } catch (err) {
+    logger.error(
+      `[github/status] SHA→PR fallback failed for ${fullName}@${sha}: ${err}`
+    )
+    return []
+  }
+}
+
+/**
  * Commit-status event (LUM-616) — the other CI surface, used by providers that
  * report via the Status API (Travis, Jenkins, classic CircleCI) rather than the
  * Checks API. Same reconcile path as check_suite, keyed on the commit SHA.
@@ -430,16 +454,27 @@ export async function handleStatus(
   if (!sha) return
 
   const headBranch = branches?.[0]?.name
+
+  // LUM-623: a commit-status can land AFTER its PR squash-merged and the head
+  // branch was deleted — then `branches` is empty and branch-based resolution
+  // finds nothing, silently dropping the CI signal (the Vercel-status race that
+  // left multi-PR audit rows blank). Recover the PR↔task link from the commit
+  // SHA, which GitHub still answers post-merge. Best-effort: any lookup error is
+  // swallowed so ingestion never breaks — the signal just stays unlinked.
+  const prNumbers = headBranch
+    ? []
+    : await pullNumbersForCommitSafe(workspaceId, repository.full_name, sha)
+
   const [taskId, prNumber] = await Promise.all([
     resolveTaskIdForCommit({
       workspaceId,
       repo: repository.full_name,
-      prNumbers: [],
+      prNumbers,
       headBranch,
     }),
     resolvePrNumberForCommit({
       repo: repository.full_name,
-      prNumbers: [],
+      prNumbers,
       headBranch,
     }),
   ])
