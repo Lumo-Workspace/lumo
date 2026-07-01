@@ -41,21 +41,14 @@ export function buildBurnupChartData(burnup: SprintBurnupResponse): {
  * 'YYYY-MM-DD' → a short, locale-ordered day label (e.g. `6/14` in en, `14/6`
  * in many others). The parts are parsed by hand and fed to a local-time Date
  * (no `new Date('YYYY-MM-DD')` UTC parse) so the rendered day can't slip across
- * a timezone boundary; `locale` is the active react-intl locale. `timeZone`,
- * when provided (e.g. the team's timezone), renders the label in that IANA
- * zone instead of the runtime's local zone.
+ * a timezone boundary; `locale` is the active react-intl locale.
  */
-export function formatDay(
-  date: string,
-  locale?: string,
-  timeZone?: string
-): string {
+function formatDay(date: string, locale?: string): string {
   const [y, m, d] = date.split('-').map(Number)
   if (!y || !m || !d) return date
   return new Date(y, m - 1, d).toLocaleDateString(locale, {
     month: 'numeric',
     day: 'numeric',
-    ...(timeZone ? { timeZone } : {}),
   })
 }
 
@@ -76,14 +69,7 @@ function Card({
   )
 }
 
-export function SprintProgressChart({
-  sprintId,
-  timeZone,
-}: {
-  sprintId: string
-  /** IANA timezone (e.g. `team.timezone`) used to render axis/tooltip dates. */
-  timeZone?: string
-}) {
+export function SprintProgressChart({ sprintId }: { sprintId: string }) {
   const intl = useIntl()
   const { burnup, isLoading } = useSprintBurnup(sprintId)
   const title = intl.formatMessage({ id: 'sprint.burnup.title' })
@@ -146,9 +132,7 @@ export function SprintProgressChart({
             axisLine={false}
             tickMargin={8}
             minTickGap={24}
-            tickFormatter={value =>
-              formatDay(String(value), intl.locale, timeZone)
-            }
+            tickFormatter={value => formatDay(String(value), intl.locale)}
           />
           <YAxis
             width={28}
@@ -162,9 +146,7 @@ export function SprintProgressChart({
             cursor={false}
             content={
               <ChartTooltipContent
-                labelFormatter={value =>
-                  formatDay(String(value), intl.locale, timeZone)
-                }
+                labelFormatter={value => formatDay(String(value), intl.locale)}
               />
             }
           />

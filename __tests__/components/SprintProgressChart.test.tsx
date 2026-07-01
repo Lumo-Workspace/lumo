@@ -38,7 +38,6 @@ import { render, screen } from '@testing-library/react'
 import {
   SprintProgressChart,
   buildBurnupChartData,
-  formatDay,
 } from '@/app/workspace/[workspaceUrl]/sprints/components/SprintProgressChart'
 import type { SprintBurnupResponse } from '@/lib/api-client/sprints'
 
@@ -83,21 +82,6 @@ describe('buildBurnupChartData', () => {
   it('maxY is the larger of scopeTotal and 1', () => {
     expect(buildBurnupChartData(burnup({ scopeTotal: 5 })).maxY).toBe(5)
     expect(buildBurnupChartData(burnup({ scopeTotal: 0 })).maxY).toBe(1)
-  })
-})
-
-describe('formatDay', () => {
-  it('honors the timeZone argument, rendering the wall-clock day in that zone', () => {
-    // '2026-06-30' parses to a local midnight instant. Pacific/Midway
-    // (UTC-11) and Pacific/Kiritimati (UTC+14) are far enough apart (25h)
-    // that local midnight always falls on different calendar days in the
-    // two zones, regardless of which zone the test runner's process is in.
-    expect(formatDay('2026-06-30', 'en', 'Pacific/Midway')).toBe('6/29')
-    expect(formatDay('2026-06-30', 'en', 'Pacific/Kiritimati')).toBe('6/30')
-  })
-
-  it('falls back to the runtime local zone when timeZone is omitted', () => {
-    expect(formatDay('2026-06-30', 'en')).toBe('6/30')
   })
 })
 

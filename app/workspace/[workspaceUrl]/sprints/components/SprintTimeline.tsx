@@ -19,20 +19,12 @@ function pctOf(t: number, d: Domain): number {
   return ((t - d.min) / (d.max - d.min)) * 100
 }
 
-/**
- * First-of-month ticks spanning the domain, for the month axis + gridlines.
- * `timeZone`, when provided (e.g. the team's timezone), renders the month
- * label in that IANA zone instead of the runtime's local zone.
- */
-export function monthTicks(
+/** First-of-month ticks spanning the domain, for the month axis + gridlines. */
+function monthTicks(
   d: Domain,
-  locale: string,
-  timeZone?: string
+  locale: string
 ): Array<{ pos: number; label: string }> {
-  const fmt = new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    ...(timeZone ? { timeZone } : {}),
-  })
+  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' })
   const out: Array<{ pos: number; label: string }> = []
   const start = new Date(d.min)
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
@@ -193,7 +185,7 @@ export function SprintTimeline({
     min: Math.min(...starts, now) - 3 * DAY,
     max: Math.max(...ends, now) + 3 * DAY,
   }
-  const months = monthTicks(domain, intl.locale, timeZone)
+  const months = monthTicks(domain, intl.locale)
   const todayPos = pctOf(now, domain)
 
   function bucketOf(s: Sprint): 'completed' | 'active' | 'planned' {
