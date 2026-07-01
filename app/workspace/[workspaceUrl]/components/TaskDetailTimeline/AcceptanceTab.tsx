@@ -1518,110 +1518,115 @@ export function AcceptanceTab({
                   actionable, not-machine-checkable calls, elevated above the
                   machine summary. Its accent is state-aware: in-review magenta
                   while a call is pending, success green once every one is judged
-                  (or the task is accepted), muted when the section is empty. */}
-              <div
-                className={`overflow-hidden rounded-lg border ${
-                  humanPending
-                    ? 'border-status-in-review-border'
-                    : humanAllJudged
-                      ? 'border-success-border'
-                      : 'border-border'
-                }`}
-              >
-                <button
-                  type='button'
-                  onClick={() => setHumanOpen(!humanZoneOpen)}
-                  aria-expanded={humanZoneOpen}
-                  className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
+                  (or the task is accepted), muted when the section is empty.
+                  With zero human criteria the zone stays only while the
+                  contract is still editable (it carries the add-criterion
+                  entry); on a DONE task an empty 0/0 zone is pure noise. */}
+              {humanCriteria.length > 0 || canEdit ? (
+                <div
+                  className={`overflow-hidden rounded-lg border ${
                     humanPending
-                      ? 'border-status-in-review-border bg-status-in-review-subtle'
+                      ? 'border-status-in-review-border'
                       : humanAllJudged
-                        ? 'border-success-border bg-success-subtle'
-                        : 'border-border bg-muted/30'
+                        ? 'border-success-border'
+                        : 'border-border'
                   }`}
                 >
-                  <ChevronRight
-                    className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
-                    aria-hidden
-                  />
-                  {humanAllJudged ? (
-                    <CheckCircle2
-                      className='size-4 shrink-0 text-success'
-                      aria-hidden
-                    />
-                  ) : (
-                    <UserCheck
-                      className={`size-4 shrink-0 ${humanPending ? 'text-status-in-review' : 'text-muted-foreground'}`}
-                      aria-hidden
-                    />
-                  )}
-                  <span className='text-body-strong text-foreground'>
-                    {humanAllJudged
-                      ? intl.formatMessage({
-                          id: 'acceptance.zone.humanResolved',
-                          defaultMessage: 'Human-judged',
-                        })
-                      : intl.formatMessage({
-                          id: 'acceptance.zone.human',
-                          defaultMessage: 'Needs your judgment',
-                        })}
-                  </span>
-                  <span
-                    className={`text-caption ${
+                  <button
+                    type='button'
+                    onClick={() => setHumanOpen(!humanZoneOpen)}
+                    aria-expanded={humanZoneOpen}
+                    className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
                       humanPending
-                        ? 'text-status-in-review'
+                        ? 'border-status-in-review-border bg-status-in-review-subtle'
                         : humanAllJudged
-                          ? 'text-success'
-                          : 'text-muted-foreground/70'
+                          ? 'border-success-border bg-success-subtle'
+                          : 'border-border bg-muted/30'
                     }`}
                   >
-                    {humanAllJudged
-                      ? intl.formatMessage(
-                          {
-                            id: 'acceptance.zone.humanAllResolved',
-                            defaultMessage: 'All {count} judged',
-                          },
-                          { count: humanCriteria.length }
-                        )
-                      : intl.formatMessage({
-                          id: 'acceptance.zone.humanNote',
-                          defaultMessage: 'not machine-checkable',
-                        })}
-                  </span>
-                  <span className='ml-auto text-caption text-muted-foreground'>
-                    {humanCriteria.length - humanUnresolvedCount}/
-                    {humanCriteria.length}
-                  </span>
-                </button>
-                {humanZoneOpen ? (
-                  <div className='px-1 pb-1'>
-                    {humanCriteria.length > 0
-                      ? humanCriteria.map(c => (
-                          <CriterionRow
-                            key={c.id}
-                            c={c}
-                            interactive={interactive}
-                            submitting={submitting}
-                            onVerdict={submitVerdict}
-                            editable={canEdit}
-                            onSaveStatement={editStatement}
-                            onDelete={deleteCriterion}
+                    <ChevronRight
+                      className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
+                    {humanAllJudged ? (
+                      <CheckCircle2
+                        className='size-4 shrink-0 text-success'
+                        aria-hidden
+                      />
+                    ) : (
+                      <UserCheck
+                        className={`size-4 shrink-0 ${humanPending ? 'text-status-in-review' : 'text-muted-foreground'}`}
+                        aria-hidden
+                      />
+                    )}
+                    <span className='text-body-strong text-foreground'>
+                      {humanAllJudged
+                        ? intl.formatMessage({
+                            id: 'acceptance.zone.humanResolved',
+                            defaultMessage: 'Human-judged',
+                          })
+                        : intl.formatMessage({
+                            id: 'acceptance.zone.human',
+                            defaultMessage: 'Needs your judgment',
+                          })}
+                    </span>
+                    <span
+                      className={`text-caption ${
+                        humanPending
+                          ? 'text-status-in-review'
+                          : humanAllJudged
+                            ? 'text-success'
+                            : 'text-muted-foreground/70'
+                      }`}
+                    >
+                      {humanAllJudged
+                        ? intl.formatMessage(
+                            {
+                              id: 'acceptance.zone.humanAllResolved',
+                              defaultMessage: 'All {count} judged',
+                            },
+                            { count: humanCriteria.length }
+                          )
+                        : intl.formatMessage({
+                            id: 'acceptance.zone.humanNote',
+                            defaultMessage: 'not machine-checkable',
+                          })}
+                    </span>
+                    <span className='ml-auto text-caption text-muted-foreground'>
+                      {humanCriteria.length - humanUnresolvedCount}/
+                      {humanCriteria.length}
+                    </span>
+                  </button>
+                  {humanZoneOpen ? (
+                    <div className='px-1 pb-1'>
+                      {humanCriteria.length > 0
+                        ? humanCriteria.map(c => (
+                            <CriterionRow
+                              key={c.id}
+                              c={c}
+                              interactive={interactive}
+                              submitting={submitting}
+                              onVerdict={submitVerdict}
+                              editable={canEdit}
+                              onSaveStatement={editStatement}
+                              onDelete={deleteCriterion}
+                              mutating={mutating}
+                              repoWebUrl={repoWebUrl}
+                            />
+                          ))
+                        : null}
+                      {canEdit ? (
+                        <div className='px-2 pb-1'>
+                          <AddCriterionRow
+                            onAdd={addCriterion}
                             mutating={mutating}
-                            repoWebUrl={repoWebUrl}
                           />
-                        ))
-                      : null}
-                    {canEdit ? (
-                      <div className='px-2 pb-1'>
-                        <AddCriterionRow
-                          onAdd={addCriterion}
-                          mutating={mutating}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* LUM-620: machine-verified demoted to a collapsible green
                   summary — one glance says "all N checks passed", expandable to

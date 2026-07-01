@@ -197,6 +197,36 @@ describe('LUM-620 · Acceptance redesign', () => {
     ).toBeTruthy()
   })
 
+  it('empty human zone hides on a DONE task but stays while editable', () => {
+    // DONE + zero human criteria → an empty 0/0 zone is pure noise; gone.
+    mockStatus.mockReturnValue({
+      data: statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('MACHINE', 'PASS')],
+      }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    const { unmount } = renderTab()
+    expect(screen.queryByText('Needs your judgment')).toBeNull()
+    expect(screen.queryByText('Human-judged')).toBeNull()
+    unmount()
+
+    // Contract still editable (not DONE) → the zone stays even at zero
+    // criteria: it carries the add-criterion entry.
+    mockStatus.mockReturnValue({
+      data: statusView({ criteria: [crit('MACHINE', 'PASS')] }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    renderTab()
+    expect(screen.getByText('Needs your judgment')).toBeInTheDocument()
+  })
+
   it('decision hero Approve submits a task-level PASS verdict', async () => {
     render(
       <VerdictDecision
