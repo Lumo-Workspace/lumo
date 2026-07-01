@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Projek terbina — artifak dihasilkan",
   "gates.desc.test": "Suite ujian berjalan tanpa ralat (bukan sama ada penegasan betul)",
   "gates.prColumn": "Pull request",
-  "gates.unlinked": "Isyarat yang tidak terpaut ke PR"
+  "gates.unlinked": "Isyarat yang tidak terpaut ke PR",
+  "acceptance.container.title": "Penerimaan",
+  "acceptance.auditOnly.label": "Audit sahaja — isyarat ini tidak menentukan keputusan"
 }

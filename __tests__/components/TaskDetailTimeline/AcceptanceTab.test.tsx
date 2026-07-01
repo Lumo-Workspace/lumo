@@ -390,9 +390,9 @@ it('renders the verification record and expands a round to per-criterion verdict
   )
   render_()
   expandMachine()
-  // LUM-572: the verification record lives inside the collapsed Run report group.
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
-
+  // LUM-619: the verification record now lives in the open-by-default Acceptance
+  // container (above the audit-only line), no longer under the Run report group —
+  // so it's visible without expanding anything.
   expect(screen.getByText('Verification record')).toBeInTheDocument()
   expect(screen.getByText('round 1 · machine check')).toBeInTheDocument()
   expect(screen.getByText('2/2 passed')).toBeInTheDocument()
@@ -485,10 +485,11 @@ describe('header verdict surface + section order (LUM-467)', () => {
     expect(screen.queryByText(/whole contract|整份合约/i)).toBeNull()
   })
 
-  // LUM-572: boundary crossings now LEAD the Record tab — a policy concern that
-  // blocks Done, surfaced above the acceptance contract (supersedes LUM-467's
-  // contract-before-boundary order).
-  it('leads with the boundary crossings panel, above the criteria contract', () => {
+  // LUM-619: boundary crossings are now a forensic (audit-only) signal inside
+  // the Acceptance container, below the audit-only separator — so the criteria
+  // contract (verdict basis) sits ABOVE the boundary-crossings panel
+  // (supersedes the LUM-572 boundary-leads order).
+  it('puts the criteria contract above the boundary crossings panel', () => {
     set(reviewView())
     const { container } = render(
       <AcceptanceTab
@@ -497,11 +498,12 @@ describe('header verdict surface + section order (LUM-467)', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
-    const contract = screen.getByText(/acceptance criteria|验收标准/i)
+    const contract = screen.getByText('Machine-verified')
     const panel = container.querySelector('#boundary-crossings')
     expect(panel).not.toBeNull()
+    // contract precedes the boundary panel in DOM order.
     expect(
-      panel!.compareDocumentPosition(contract) &
+      contract.compareDocumentPosition(panel!) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })

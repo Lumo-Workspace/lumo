@@ -2,7 +2,6 @@
 
 import type { TaskDetail, AgentRunSession } from '../../types'
 import { DeliveryPanel } from '../DeliveryPanel'
-import { DeliveryGatesSection } from '../DeliveryGatesSection'
 import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
 
 interface AgentRunsSectionProps {
@@ -22,6 +21,11 @@ interface AgentRunsSectionProps {
  * is owned by the ③ "cost & risk" region (field-unique home in the data
  * ownership matrix), so the runs evidence carries only per-session detail, never
  * a second copy of the cost total.
+ *
+ * LUM-619: the mechanical-gates panel is no longer mounted here. It moved up
+ * into the Acceptance container's audit-only zone (surfaced next to boundary
+ * crossings + claim-vs-verification), so it's no longer buried in this
+ * evidence sub-section — hence no `footer` on the delivery card.
  */
 export function AgentRunsSection({
   taskId,
@@ -35,9 +39,6 @@ export function AgentRunsSection({
         taskId={taskId}
         status={taskStatus}
         agentStatus={agentStatus}
-        footer={
-          runs.length > 0 ? <DeliveryGatesSection taskId={taskId} /> : undefined
-        }
       />
       {runs.length > 0 && <AgentRunList runs={runs} />}
     </div>

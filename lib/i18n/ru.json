@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Проект собирается — создаётся артефакт",
   "gates.desc.test": "Набор тестов выполняется без ошибок (не значит, что утверждения верны)",
   "gates.prColumn": "Пул-реквест",
-  "gates.unlinked": "Сигналы без привязки к PR"
+  "gates.unlinked": "Сигналы без привязки к PR",
+  "acceptance.container.title": "Приёмка",
+  "acceptance.auditOnly.label": "Только аудит — эти сигналы не определяют вердикт"
 }

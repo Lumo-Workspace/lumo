@@ -1887,5 +1887,7 @@
   "gates.desc.build": "Dự án build được — tạo ra artefact",
   "gates.desc.test": "Bộ kiểm thử chạy không lỗi (không xác minh khẳng định đúng hay sai)",
   "gates.prColumn": "Pull request",
-  "gates.unlinked": "Tín hiệu không liên kết với PR"
+  "gates.unlinked": "Tín hiệu không liên kết với PR",
+  "acceptance.container.title": "Chấp nhận",
+  "acceptance.auditOnly.label": "Chỉ để kiểm toán — các tín hiệu này không quyết định phán quyết"
 }
