@@ -20,6 +20,21 @@ function makeSources(): MentionSources {
   }
 }
 
+it('sets allowedPrefixes:null so @ triggers after any char, not just a space', () => {
+  // @tiptap/suggestion defaults allowedPrefixes to [' '], which only fires '@'
+  // at block start or after a space. Description editors always hold existing
+  // content, so '@' typed after a word was silently rejected. `null` removes
+  // the guard so mentions work mid-text everywhere.
+  const cfg = buildMentionSuggestion(
+    makeSources(),
+    jest.fn(),
+    jest.fn(),
+    jest.fn(),
+    { current: null }
+  )
+  expect(cfg.allowedPrefixes).toBeNull()
+})
+
 it('items() returns matching users synchronously', () => {
   const cfg = buildMentionSuggestion(
     makeSources(),

@@ -175,19 +175,28 @@ describe('run report group', () => {
     expect(groupToggle).toHaveAttribute('aria-expanded', 'false')
 
     // The folded sections are not in the DOM until the group is expanded.
+    // LUM-620: Cost moved out of Run report into the Evidence & audit trail
+    // card (also collapsed), so it is likewise absent here.
     expect(screen.queryByText('Cost')).toBeNull()
     expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
 
     // The decision surface and the contract stay above the group, always shown.
-    expect(screen.getByText('Acceptance criteria')).toBeInTheDocument()
+    // LUM-620: the criteria contract surfaces via the "Machine-verified" zone;
+    // the claim strip is pulled up next to it.
+    expect(screen.getByText('Machine-verified')).toBeInTheDocument()
     expect(screen.getByText('Claim vs verification')).toBeInTheDocument()
 
-    // Expanding the group reveals the same-source report sections.
+    // Expanding the group reveals the after-the-fact struggle section. (Cost is
+    // no longer here — LUM-620 moved it into the Evidence & audit trail card.)
     fireEvent.click(groupToggle)
-    expect(screen.getByText('Cost')).toBeInTheDocument()
     expect(
       screen.getByText('Struggle / rework / outstanding')
     ).toBeInTheDocument()
+    expect(screen.queryByText('Cost')).toBeNull()
+
+    // Cost now lives inside the Evidence & audit trail card — expand it to reach.
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
+    expect(screen.getByText('Cost')).toBeInTheDocument()
   })
 })
 
@@ -216,6 +225,9 @@ describe('boundary crossing row noise', () => {
     setCrossings([dispositioned])
     renderTab()
 
+    // LUM-620: boundary crossings live inside the collapsed Evidence & audit
+    // trail card — expand it before reaching the panel.
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     // A dispositioned-only panel is collapsed — open it to reach the row.
     fireEvent.click(screen.getByText('Boundary crossings'))
 
@@ -237,6 +249,9 @@ describe('boundary crossing row noise', () => {
     // no warning fill — so it stops shouting once everything is handled.
     setCrossings([dispositioned])
     const resolved = renderTab()
+    // LUM-620: the panel renders inside the collapsed Evidence & audit trail
+    // card — expand it so the panel root mounts.
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     const resolvedRoot = resolved.container.querySelector(
       '#boundary-crossings'
     )!
@@ -246,6 +261,7 @@ describe('boundary crossing row noise', () => {
     // An un-dispositioned (open) crossing brings the warning chrome back.
     setCrossings([{ ...dispositioned, id: 'c9', disposition: null }])
     const open = renderTab()
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     const openRoot = open.container.querySelector('#boundary-crossings')!
     expect(openRoot.className).toMatch(/warning-subtle/)
   })
@@ -297,8 +313,10 @@ describe('human judgment zone', () => {
       })
     )
     const { unmount } = renderTab()
+    // LUM-620: an all-resolved human zone relabels its toggle to "Human-judged"
+    // (the state-aware header — no longer a pending "Needs your judgment" call).
     const toggle = screen.getByRole('button', {
-      name: /Needs human judgment/i,
+      name: /Human-judged/i,
     })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('reads naturally')).toBeNull()
@@ -321,7 +339,7 @@ describe('human judgment zone', () => {
     )
     renderTab()
     const toggle2 = screen.getByRole('button', {
-      name: /Needs human judgment/i,
+      name: /Needs your judgment/i,
     })
     expect(toggle2).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('still pending judgment')).toBeInTheDocument()
@@ -348,20 +366,25 @@ describe('record tab order and collapsibles', () => {
     lastDispositionChange: null,
   }
 
-  it('boundary crossings leads the record tab, above claim and acceptance criteria', () => {
+  // LUM-619/620 supersede the old LUM-572 "boundary leads" order: the criteria
+  // contract (verdict basis) and the claim strip now sit ABOVE the boundary
+  // crossings, which are demoted into the collapsed Evidence & audit trail card.
+  it('criteria and claim lead the record tab, above the boundary crossings', () => {
     setStatus(statusView())
     setCrossings([crossing])
     const { container } = renderTab()
-    const boundary = container.querySelector('#boundary-crossings')!
     const claim = screen.getByText('Claim vs verification')
-    const criteria = screen.getByText('Acceptance criteria')
-    // Boundary comes BEFORE both claim and the contract in DOM order.
+    const criteria = screen.getByText('Machine-verified')
+    // Expand the audit card so the boundary panel mounts.
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
+    const boundary = container.querySelector('#boundary-crossings')!
+    // Criteria and claim come BEFORE the boundary panel in DOM order.
     expect(
-      boundary.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING
+      criteria.compareDocumentPosition(boundary) &
+        Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
     expect(
-      boundary.compareDocumentPosition(criteria) &
-        Node.DOCUMENT_POSITION_FOLLOWING
+      claim.compareDocumentPosition(boundary) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 
@@ -380,13 +403,13 @@ describe('record tab order and collapsibles', () => {
     expect(screen.queryByText('Verification — what was confirmed')).toBeNull()
   })
 
-  it('acceptance criteria is a collapsible section', () => {
+  // LUM-619/620: the criteria live inside the collapsible "Acceptance" container
+  // (default open). Collapsing it hides the criteria zones.
+  it('the acceptance container is a collapsible section', () => {
     setStatus(statusView())
     renderTab()
     expect(screen.getByText('Machine-verified')).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('button', { name: /^Acceptance criteria$/i })
-    )
+    fireEvent.click(screen.getByRole('button', { name: /^Acceptance$/i }))
     expect(screen.queryByText('Machine-verified')).toBeNull()
   })
 })
