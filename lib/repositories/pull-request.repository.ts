@@ -150,6 +150,9 @@ export const pullRequestRepository = {
         title: true,
         state: true,
         headBranch: true,
+        // LUM-623: delivery time for temporal attribution of self-reported
+        // signals a multi-PR task can't place by branch.
+        mergedAt: true,
       },
     })
   },

@@ -149,3 +149,29 @@ export async function fetchCommitCiSignals(opts: {
 
   return signals
 }
+
+/**
+ * LUM-623: resolve which PR(s) a commit belongs to straight from GitHub. Used as
+ * a fallback when a commit-status event arrives with no head branch — a
+ * squash-merge deletes the PR branch, so the status payload's `branches` is
+ * empty and branch-based resolution can't place the signal. The commit → PR
+ * association endpoint still works after merge, so it recovers the linkage that
+ * would otherwise be lost. Returns PR numbers (newest-relevant first, as GitHub
+ * orders them); [] when the commit maps to no PR.
+ */
+export async function fetchPullNumbersForCommit(opts: {
+  workspaceId: string
+  fullName: string
+  sha: string
+}): Promise<number[]> {
+  const token = await getGithubInstallationToken(opts.workspaceId)
+  const [owner, repo] = splitFullName(opts.fullName)
+  const url = `https://api.github.com/repos/${owner}/${repo}/commits/${opts.sha}/pulls`
+  const pulls = asArray(await ghJson(url, token))
+  const numbers: number[] = []
+  for (const pull of pulls) {
+    const n = asRecord(pull)?.['number']
+    if (typeof n === 'number') numbers.push(n)
+  }
+  return numbers
+}

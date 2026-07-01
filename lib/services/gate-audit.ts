@@ -64,6 +64,14 @@ export interface PrRef {
   title: string
   state: string
   headBranch: string
+  /**
+   * LUM-623: the PR's delivery time (merge), used for temporal attribution of
+   * self-reported signals a multi-PR task can't place by branch. ISO string, or
+   * null for a still-open PR (its delivery window has no upper bound yet).
+   * Optional/absent → no temporal window is inferred (fail-safe: such a signal
+   * stays in the current branch/sole-PR/unlinked path).
+   */
+  mergedAt?: string | null
 }
 
 /** One PR's slice of the gate audit. */
@@ -377,14 +385,62 @@ function resolveEventPr(
 }
 
 /**
+ * LUM-623: temporal attribution for a multi-PR task's self-reported signal that
+ * no branch resolves. A single session delivers several PRs in sequence, so a
+ * check run at time T fed the delivery it was building toward — the PR delivered
+ * *next*: the one with the earliest `mergedAt` at or after T. A still-open PR
+ * (mergedAt null) is the current in-flight delivery, chosen only when no merged
+ * PR's window still contains T. Returns null when no PR's delivery lies at or
+ * after T (every PR already shipped, none open) — the signal then stays
+ * unlinked. Fail-safe by construction: it never attributes a signal to a PR that
+ * had already merged before the signal ran, and never fabricates a window from a
+ * PR whose `mergedAt` we don't know.
+ */
+function activePrAt(atIso: string, prs: readonly PrRef[]): number | null {
+  const t = Date.parse(atIso)
+  if (Number.isNaN(t)) return null
+  let best: { number: number; deadline: number } | null = null
+  for (const pr of prs) {
+    // A merged PR's delivery deadline is its merge time; a still-open PR extends
+    // to +∞ (its window has no upper bound yet). A PR with unknown mergedAt is
+    // undefined here — skip it (no window to infer).
+    let deadline: number
+    if (pr.mergedAt === null) {
+      deadline = Infinity
+    } else if (typeof pr.mergedAt === 'string') {
+      deadline = Date.parse(pr.mergedAt)
+      if (Number.isNaN(deadline)) continue
+    } else {
+      continue // mergedAt absent → no temporal window
+    }
+    if (deadline < t) continue // already delivered before the signal — not it
+    // Prefer the nearest upcoming delivery; ties → lowest PR number (stable).
+    if (
+      best === null ||
+      deadline < best.deadline ||
+      (deadline === best.deadline && pr.number < best.number)
+    ) {
+      best = { number: pr.number, deadline }
+    }
+  }
+  return best?.number ?? null
+}
+
+/**
  * Build the delivery gate audit grouped by PR (LUM-617). Each known PR gets a
  * gate set derived only from the signals that resolve to it. An unresolved
  * signal attributes to the task's sole PR when there is exactly one (the only
- * candidate); otherwise — ambiguous (≥2 PRs) or naming a PR not on the task —
- * it collects in an explicit `unlinked` bucket (null when none), so a stray
- * signal is never silently dropped nor mis-attributed among several. Each group
- * runs through the same `deriveGateAudit` projection, so the four-state
- * vocabulary and independent-over-self-reported precedence hold per PR.
+ * candidate); for a multi-PR task it attributes by delivery window — the PR
+ * delivered next at or after the signal's timestamp (LUM-623 `activePrAt`),
+ * since a single session ships several PRs in sequence and its self-reported
+ * checks feed the delivery they precede. Only a signal that still can't be
+ * placed — naming a PR not on the task, or running after every delivery with
+ * none open — collects in the explicit `unlinked` bucket (null when none), so a
+ * stray signal is never silently dropped nor mis-attributed to an already-shipped
+ * PR. Each group runs through the same `deriveGateAudit` projection, so the
+ * four-state vocabulary and independent-over-self-reported precedence hold per
+ * PR. Grouping-only: this never changes a gate's status, only which bucket it
+ * lands in (audit-only red line, LUM-614).
  */
 export function buildPerPrGateAudit(input: {
   hookRows: readonly GateHookEventRow[]
@@ -412,12 +468,17 @@ export function buildPerPrGateAudit(input: {
   const unlinkedEvents: NormalizedGateEvent[] = []
   for (const ev of events) {
     const resolved = resolveEventPr(ev, prByBranch, input.sessionBranchById)
+    // Attribution order: a signal that carries/resolves a *known* PR wins; one
+    // naming a PR not on the task keeps its identity and stays unlinked; an
+    // unresolved signal attributes to the sole PR when there is one, else — a
+    // multi-PR task — falls to temporal attribution (LUM-623) by delivery window,
+    // and only stays unlinked when even that can't place it.
     const target =
-      resolved != null && knownPr.has(resolved)
-        ? resolved
-        : resolved == null && solePr != null
-          ? solePr
+      resolved != null
+        ? knownPr.has(resolved)
+          ? resolved
           : null
+        : (solePr ?? activePrAt(ev.at, input.pullRequests))
     if (target != null) {
       const arr = byPr.get(target)
       if (arr) arr.push(ev)

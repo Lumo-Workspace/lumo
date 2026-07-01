@@ -156,4 +156,81 @@ describe('buildPerPrGateAudit', () => {
     // A gate with no signal at all stays not_run — never a fabricated pass.
     expect(gateOf(pr753, 'build').status).toBe('not_run')
   })
+
+  // ── LUM-623: temporal attribution for multi-PR tasks ────────────────────────
+  // A single session can produce several PRs delivered in sequence, and the
+  // self-reported checks it ran cannot be pinned to a PR by branch (the session
+  // has one branch, or none recorded). Attribute each such signal to the PR that
+  // was delivered next (earliest mergedAt at or after the signal's timestamp) —
+  // the delivery its work was building toward — so per-PR rows fill instead of
+  // stranding every self-reported pass in the unlinked bucket.
+
+  /** A merged PR with a known delivery time, for temporal attribution. */
+  function mergedPr(number: number, mergedAt: string): PrRef {
+    return {
+      number,
+      title: `pr ${number}`,
+      state: 'merged',
+      headBranch: `lumo/LUM-620-part-${number}`,
+      mergedAt,
+    }
+  }
+
+  it('multi-PR unresolved self-reported signal attributes to the PR delivered next after its timestamp', () => {
+    // Three sequential deliveries. Session branch matches none of them, so every
+    // self-reported run is unresolved by branch and must fall to temporal.
+    const prs = [
+      mergedPr(766, '2026-07-01T05:25:50.000Z'),
+      mergedPr(768, '2026-07-01T05:43:27.000Z'),
+      mergedPr(770, '2026-07-01T06:12:36.000Z'),
+    ]
+    const result = buildPerPrGateAudit({
+      gateSignals: [],
+      hookRows: [
+        // ran before the first merge → belongs to #766 (next to merge)
+        bash('tsc --noEmit', '2026-07-01T05:00:00.000Z', 's1'),
+        // ran between #766 and #768 merges → belongs to #768
+        bash('npm test', '2026-07-01T05:30:00.000Z', 's1'),
+        // ran between #768 and #770 merges → belongs to #770
+        bash('tsc --noEmit', '2026-07-01T06:00:00.000Z', 's1'),
+      ],
+      pullRequests: prs,
+      sessionBranchById: { s1: 'lumo/LUM-620-session' }, // matches no PR headBranch
+    })
+
+    const byNumber = new Map(result.prs.map(p => [p.pr.number, p]))
+    expect(gateOf(byNumber.get(766)!.audit, 'typecheck').status).toBe('passed')
+    expect(gateOf(byNumber.get(768)!.audit, 'test').status).toBe('passed')
+    expect(gateOf(byNumber.get(770)!.audit, 'typecheck').status).toBe('passed')
+    // #766 ran no test in its window; #768 ran no typecheck in its — honest not_run,
+    // never a fabricated pass leaking across delivery windows.
+    expect(gateOf(byNumber.get(766)!.audit, 'test').status).toBe('not_run')
+    expect(gateOf(byNumber.get(768)!.audit, 'typecheck').status).toBe('not_run')
+    // Everything placed — nothing stranded.
+    expect(result.unlinked).toBeNull()
+  })
+
+  it('unresolved self-reported signal with no later delivery stays unlinked', () => {
+    // All PRs merged before the signal ran, and none is still open — there is no
+    // delivery the signal could have fed. Fail-safe: it stays unlinked, never
+    // force-attributed to an already-shipped PR.
+    const prs = [
+      mergedPr(766, '2026-07-01T05:25:50.000Z'),
+      mergedPr(768, '2026-07-01T05:43:27.000Z'),
+    ]
+    const result = buildPerPrGateAudit({
+      gateSignals: [],
+      hookRows: [bash('tsc --noEmit', '2026-07-01T09:00:00.000Z', 's1')],
+      pullRequests: prs,
+      sessionBranchById: { s1: 'lumo/LUM-620-session' },
+    })
+
+    // No PR receives the late signal; each stays clean not_run.
+    for (const n of [766, 768]) {
+      const pr = result.prs.find(p => p.pr.number === n)!
+      expect(gateOf(pr.audit, 'typecheck').status).toBe('not_run')
+    }
+    expect(result.unlinked).not.toBeNull()
+    expect(gateOf(result.unlinked!, 'typecheck').status).toBe('passed')
+  })
 })
