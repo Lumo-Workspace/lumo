@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "Đang hoạt động",
   "milestone.status.COMPLETED": "Hoàn thành",
   "milestone.status.CANCELLED": "Đã huỷ",
+  "milestone.staleness.statusDrift": "Tiến độ công việc cho thấy trạng thái {status} — đang tự động cập nhật",
+  "milestone.staleness.datesMissing": "Chưa đặt ngày mục tiêu — không thể tính tình trạng tiến độ",
   "milestone.progress": "{done}/{total} nhiệm vụ",
   "milestone.targetDate.none": "Không có ngày mục tiêu",
   "milestone.health.on-track": "Đúng tiến độ",

@@ -372,6 +372,7 @@ export async function updateTask(
     changedFields,
     oldStatus: task.status,
     oldAssigneeActorId: task.assigneeActorId ?? null,
+    oldMilestoneId: task.milestoneId ?? null,
   }
 }
 
@@ -443,6 +444,29 @@ export async function updateTaskWithSideEffects(
     actorId,
     actorClerkId,
   })
+
+  // LUM-624: milestone status rollup. Any task status move (activation,
+  // completion, reopening) or milestone re-binding can change what the
+  // bound milestone's status should be — reconcile the new binding and,
+  // on a move, the milestone the task just left. Fire-and-forget; the
+  // dynamic import keeps the milestone service chain out of every test
+  // module that imports task-state.
+  if (
+    result.changedFields.includes('status') ||
+    result.changedFields.includes('milestoneId')
+  ) {
+    const affectedMilestoneIds = [
+      result.task.milestoneId as string | null,
+      result.oldMilestoneId,
+    ]
+    waitUntil(
+      (async () => {
+        const { milestoneRollupService } =
+          await import('@/lib/services/milestone-rollup.service')
+        milestoneRollupService.dispatchRollup(...affectedMilestoneIds)
+      })().catch(() => {})
+    )
+  }
 
   // Layer 2 memory consolidation: fire when a task just transitioned to
   // DONE. This is the natural sediment point — every TASK-scope memory
@@ -567,4 +591,18 @@ export async function reopen(
   // task's MERGED edges REWORKED (LUM-277). Detached so a stamp failure never
   // fails the reopen.
   stampLineageInBackground(s => s.stampForTaskReopened(taskId))
+
+  // LUM-624: a reopened task un-completes its milestone — reconcile it.
+  // This path writes status directly (bypassing updateTaskWithSideEffects),
+  // so it needs its own dispatch. Fire-and-forget, failures swallowed.
+  if (task.milestoneId) {
+    const milestoneId = task.milestoneId
+    waitUntil(
+      (async () => {
+        const { milestoneRollupService } =
+          await import('@/lib/services/milestone-rollup.service')
+        milestoneRollupService.dispatchRollup(milestoneId)
+      })().catch(() => {})
+    )
+  }
 }

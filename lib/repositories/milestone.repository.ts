@@ -100,6 +100,24 @@ export const milestoneRepository = {
     })
   },
 
+  /**
+   * Guarded status write for the rollup reconciler: only applies when the row
+   * still holds `expectedStatus`, so a concurrent manual status change (e.g.
+   * a human setting CANCELLED) is never clobbered by a stale derivation.
+   * Returns true when the row was updated.
+   */
+  async updateStatusIfCurrent(
+    id: string,
+    expectedStatus: Milestone['status'],
+    data: Pick<MilestoneUpdate, 'status' | 'completedAt'>
+  ): Promise<boolean> {
+    const result = await prisma.milestone.updateMany({
+      where: { id, status: expectedStatus },
+      data,
+    })
+    return result.count === 1
+  },
+
   async delete(id: string) {
     return prisma.milestone.delete({ where: { id } })
   },

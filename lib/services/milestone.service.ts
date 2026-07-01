@@ -41,7 +41,9 @@ interface UpdateInput {
  * milestone.service's static dependency graph, so jest test files importing
  * milestone.service don't crash loading the gateway transform.
  */
-async function generateMilestoneRetro(milestoneId: string): Promise<void> {
+export async function generateMilestoneRetro(
+  milestoneId: string
+): Promise<void> {
   try {
     const { generationJobRepository } =
       await import('@/lib/repositories/generation-job.repository')
@@ -181,7 +183,10 @@ export const milestoneService = {
     if (!existing) {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
-    const project = await projectService.getProject(existing.projectId, memberId)
+    const project = await projectService.getProject(
+      existing.projectId,
+      memberId
+    )
     if (existing.archivedAt) {
       throw Object.assign(
         new Error('Milestone is archived; unarchive it before editing'),

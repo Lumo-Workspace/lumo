@@ -88,3 +88,30 @@ describe('formatMilestoneShow — sprint coverage', () => {
     expect(out).not.toContain('Sprint coverage')
   })
 })
+
+describe('formatMilestoneShow — staleness hints (LUM-624)', () => {
+  it('annotates status drift and missing target date, silent when absent', () => {
+    const stale = formatMilestoneShow(
+      {
+        ...base,
+        status: 'PLANNED',
+        staleness: { statusDrift: 'COMPLETED', datesMissing: true },
+      },
+      []
+    )
+    expect(stale).toContain(
+      'Status:       PLANNED  (stale — task progress indicates COMPLETED; auto-updating)'
+    )
+    expect(stale).toContain(
+      'Target:       -  (no target date — schedule health unavailable)'
+    )
+
+    const clean = formatMilestoneShow(
+      { ...base, staleness: { statusDrift: null, datesMissing: false } },
+      []
+    )
+    expect(clean).toContain('Status:       ACTIVE\n')
+    expect(clean).not.toContain('stale')
+    expect(clean).not.toContain('no target date')
+  })
+})

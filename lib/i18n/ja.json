@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "進行中",
   "milestone.status.COMPLETED": "完了",
   "milestone.status.CANCELLED": "中止",
+  "milestone.staleness.statusDrift": "タスクの進捗は{status}を示しています — 自動的に更新中",
+  "milestone.staleness.datesMissing": "目標日が未設定です — スケジュールの健全性を計算できません",
   "milestone.progress": "{done}/{total} 件のタスク",
   "milestone.targetDate.none": "目標日なし",
   "milestone.health.on-track": "順調",

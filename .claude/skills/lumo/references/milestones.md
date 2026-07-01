@@ -73,6 +73,8 @@ Accepts UUID or name. With a name, `--project <ref>` is required when the worksp
 
 Prints a key:value header (name, status, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
+**Staleness hints (LUM-624):** the `Status:` line is annotated `(stale — task progress indicates <STATUS>; auto-updating)` when the stored status lags the task-derived one (the server self-heals the drift in the background — a re-read shows the corrected status), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
+
 It also prints a **Sprint coverage** section (above the task table) listing which
 sprints the milestone's tasks span — each row shows the sprint number, status, name,
 and `done/total` progress — plus an `Unscheduled` line counting milestone tasks not in any
@@ -106,6 +108,8 @@ lumo milestone show 11111111-2222-3333-4444-555555555555
 | `--target <date>`      | string | `--target ""` clears.                                            |
 
 At least one field required.
+
+**Status rolls up automatically (LUM-624):** milestone status follows task completion — PLANNED → ACTIVE when any task starts, → COMPLETED when every task is DONE (stamps `completedAt`, triggers the retro summary), and COMPLETED → ACTIVE when a non-DONE task (re)appears. A manual `--status planned/active/completed` that contradicts task reality gets reconciled back on the next task event or detail read; `--status cancelled` and archived milestones are human terminal choices the rollup never touches. You normally don't need `--status completed` by hand anymore.
 
 ```bash
 lumo milestone update "Q3 Launch" --status active

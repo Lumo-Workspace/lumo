@@ -23,6 +23,16 @@ export interface ApiMilestone {
    * `null` when no light applies (terminal status or no target date).
    */
   health?: MilestoneHealth | null
+  /**
+   * Staleness hints (LUM-624). Server-enriched on the detail response:
+   * `statusDrift` carries the task-derived status when the stored one lags
+   * behind task completion (the server self-heals it in the background);
+   * `datesMissing` flags an in-flight milestone with no target date.
+   */
+  staleness?: {
+    statusDrift: MilestoneStatus | null
+    datesMissing: boolean
+  }
   sprintCoverage?: {
     sprints: Array<{
       sprintId: string

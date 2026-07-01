@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "진행 중",
   "milestone.status.COMPLETED": "완료됨",
   "milestone.status.CANCELLED": "취소됨",
+  "milestone.staleness.statusDrift": "작업 진행 상황이 {status} 상태를 나타냅니다 — 자동으로 업데이트 중",
+  "milestone.staleness.datesMissing": "목표일이 설정되지 않았습니다 — 일정 상태를 계산할 수 없습니다",
   "milestone.progress": "{done}/{total}개 작업",
   "milestone.targetDate.none": "목표일 없음",
   "milestone.health.on-track": "정상",
