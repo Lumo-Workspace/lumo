@@ -804,8 +804,6 @@
   "acceptance.zone.humanResolved": "Human-judged",
   "acceptance.zone.humanAllResolved": "All {count} judged",
   "acceptance.zone.humanNote": "not machine-checkable",
-  "acceptance.zone.humanTip": "Human criteria need a person to judge and sign off — they are not machine-checkable.",
-  "acceptance.zone.humanQuotaTip": "A task can have at most 7 human criteria, to keep human review focused.",
   "lineage.loading": "Loading…",
   "lineage.empty": "No lineage recorded for this task yet",
   "lineage.emptyHint": "The causal trail is generated automatically when an agent session bound to this task consumes its context",

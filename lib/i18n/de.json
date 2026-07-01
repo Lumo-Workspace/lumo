@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "Eine Person hat dieses Kriterium ohne maschinelle Prüfung als bestanden markiert.",
   "acceptance.check.tip": "Der Befehl (checkpointer), der zur Prüfung dieses Kriteriums ausgeführt wurde, und sein Exit-Code. exit 0 bedeutet bestanden.",
   "acceptance.criterion.staleTip": "Dies wurde gegen eine frühere Version des Kriteriums bestanden. Führe lumo verify erneut aus, um es zu bestätigen.",
-  "acceptance.zone.humanTip": "Menschliche Kriterien erfordern eine Person zum Beurteilen und Abzeichnen — sie sind nicht maschinell prüfbar.",
-  "acceptance.zone.humanQuotaTip": "Eine Aufgabe kann höchstens 7 menschliche Kriterien haben, damit die menschliche Prüfung fokussiert bleibt.",
   "boundary.tip.category": "Eine Grenzüberschreitung ist eine verbotene oder riskante Aktion des Agenten. Die Kategorie gibt an, um welche Art es sich handelt.",
   "boundary.tip.severity": "Wie schwerwiegend diese Überschreitung ist. HIGH-Überschreitungen blockieren das Abschließen der Aufgabe, bis sie behoben sind.",
   "boundary.tip.disposition": "Wie diese Überschreitung gelöst wurde: Falschmeldung (kein echtes Problem), bestätigt (echtes Problem) oder automatisch vom System bereinigt.",

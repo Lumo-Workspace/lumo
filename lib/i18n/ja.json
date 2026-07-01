@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "機械チェックによる確認なしに、担当者がこの基準を合格としました。",
   "acceptance.check.tip": "この基準を検証するために実行されたコマンド（checkpointer）とその終了コードです。終了コード 0 は合格を意味します。",
   "acceptance.criterion.staleTip": "これは以前のバージョンの基準に対して合格しました。lumo verify を再実行して再確認してください。",
-  "acceptance.zone.humanTip": "人間の基準は担当者が判断してサインオフする必要があり、機械でチェックすることはできません。",
-  "acceptance.zone.humanQuotaTip": "人間によるレビューを集中させるため、タスクには最大 7 件の人間基準のみ設定できます。",
   "boundary.tip.category": "境界違反はエージェントが行った禁止または危険なアクションです。カテゴリはその種類を示します。",
   "boundary.tip.severity": "この違反の深刻度です。HIGH の違反は対処されるまでタスクを Done にマークできません。",
   "boundary.tip.disposition": "この違反の処理結果：誤検知（実際の問題ではない）、確認済み（実際の問題）、またはシステムによる自動解決。",

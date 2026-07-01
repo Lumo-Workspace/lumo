@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "有人在沒有機器檢查確認的情況下把這條標準標記為通過。",
   "acceptance.check.tip": "用於驗證這條標準而執行的命令（checkpointer）及其退出碼。退出碼 0 表示通過。",
   "acceptance.criterion.staleTip": "這是針對修改前版本的標準通過的。重新跑 lumo verify 以再次確認。",
-  "acceptance.zone.humanTip": "人工標準需要人來裁決簽收，無法機器校驗。",
-  "acceptance.zone.humanQuotaTip": "一個任務最多 7 條人工標準，以保持人工審核聚焦。",
   "boundary.tip.category": "越界訊號 = agent 執行的違禁或高風險動作。類別說明是哪一種。",
   "boundary.tip.severity": "該越界的嚴重程度。HIGH 會攔截任務標記完成，直到處置。",
   "boundary.tip.disposition": "該越界如何處置：誤報（非真實問題）、確認（真實問題）、或系統自動放行。",

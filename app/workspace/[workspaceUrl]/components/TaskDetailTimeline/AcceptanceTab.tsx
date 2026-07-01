@@ -1527,8 +1527,11 @@ export function AcceptanceTab({
                       : 'border-border'
                 }`}
               >
-                <div
-                  className={`flex items-center gap-2 border-b px-4 py-2.5 ${
+                <button
+                  type='button'
+                  onClick={() => setHumanOpen(!humanZoneOpen)}
+                  aria-expanded={humanZoneOpen}
+                  className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
                     humanPending
                       ? 'border-status-in-review-border bg-status-in-review-subtle'
                       : humanAllJudged
@@ -1547,12 +1550,7 @@ export function AcceptanceTab({
                       aria-hidden
                     />
                   )}
-                  <button
-                    type='button'
-                    onClick={() => setHumanOpen(!humanZoneOpen)}
-                    aria-expanded={humanZoneOpen}
-                    className='flex items-center gap-1.5 text-body-strong text-foreground hover:text-foreground'
-                  >
+                  <span className='text-body-strong text-foreground'>
                     {humanAllJudged
                       ? intl.formatMessage({
                           id: 'acceptance.zone.humanResolved',
@@ -1562,7 +1560,7 @@ export function AcceptanceTab({
                           id: 'acceptance.zone.human',
                           defaultMessage: 'Needs your judgment',
                         })}
-                  </button>
+                  </span>
                   <span
                     className={`text-caption ${
                       humanPending
@@ -1585,30 +1583,15 @@ export function AcceptanceTab({
                           defaultMessage: 'not machine-checkable',
                         })}
                   </span>
-                  <InfoTooltip
-                    label={intl.formatMessage({
-                      id: 'acceptance.zone.humanTip',
-                      defaultMessage:
-                        'Human criteria need a person to judge and sign off — they are not machine-checkable.',
-                    })}
-                  />
-                  <span
-                    className={`ml-auto inline-flex min-w-5 items-center justify-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold ${
-                      humanPending
-                        ? 'bg-status-in-review text-background'
-                        : humanAllJudged
-                          ? 'bg-success text-background'
-                          : 'bg-muted text-muted-foreground'
-                    }`}
-                    title={intl.formatMessage({
-                      id: 'acceptance.zone.humanQuotaTip',
-                      defaultMessage:
-                        'A task can have at most 7 human criteria, to keep human review focused.',
-                    })}
-                  >
-                    {humanPending ? humanUnresolvedCount : humanCriteria.length}
+                  <span className='ml-auto flex items-center gap-1.5 text-caption text-muted-foreground'>
+                    {humanCriteria.length - humanUnresolvedCount}/
+                    {humanCriteria.length}
+                    <ChevronRight
+                      className={`size-3.5 transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
                   </span>
-                </div>
+                </button>
                 {humanZoneOpen ? (
                   <div className='px-1 pb-1'>
                     {humanCriteria.length > 0

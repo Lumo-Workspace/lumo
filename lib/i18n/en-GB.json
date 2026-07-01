@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "A person marked this criterion passed without a machine check confirming it.",
   "acceptance.check.tip": "The command (checkpointer) that was run to verify this criterion, and its exit code. Exit 0 means it passed.",
   "acceptance.criterion.staleTip": "This passed against an earlier version of the criterion. Re-run lumo verify to re-confirm.",
-  "acceptance.zone.humanTip": "Human criteria need a person to judge and sign off — they are not machine-checkable.",
-  "acceptance.zone.humanQuotaTip": "A task can have at most 7 human criteria, to keep human review focused.",
   "boundary.tip.category": "A boundary crossing is a forbidden or risky action the agent took. The category says what kind.",
   "boundary.tip.severity": "How serious this crossing is. HIGH crossings block marking the task Done until resolved.",
   "boundary.tip.disposition": "How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.",
