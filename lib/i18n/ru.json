@@ -1899,5 +1899,13 @@
   "acceptance.zone.humanNote": "не проверяется машиной",
   "acceptance.zone.humanResolved": "Оценено человеком",
   "acceptance.zone.humanAllResolved": "Все {count} оценены",
-  "sprints.settings.timezone": "Часовой пояс команды"
+  "sprints.settings.timezone": "Часовой пояс команды",
+  "milestone.rollup.label": "Сводка по вехе",
+  "milestone.rollup.completion": "Выполнение",
+  "milestone.rollup.health": "Состояние",
+  "milestone.rollup.timespan": "Период",
+  "milestone.rollup.keyOutcome": "Ключевой результат",
+  "milestone.rollup.noTasks": "Задач пока нет",
+  "milestone.rollup.noDates": "Даты не заданы",
+  "milestone.rollup.noOutcome": "Сводка ретро ещё не создана"
 }

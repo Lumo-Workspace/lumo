@@ -1899,5 +1899,13 @@
   "acceptance.zone.humanNote": "機械では検証できません",
   "acceptance.zone.humanResolved": "人間が判定済み",
   "acceptance.zone.humanAllResolved": "{count} 件すべて判定済み",
-  "sprints.settings.timezone": "チームのタイムゾーン"
+  "sprints.settings.timezone": "チームのタイムゾーン",
+  "milestone.rollup.label": "マイルストーン概要",
+  "milestone.rollup.completion": "達成度",
+  "milestone.rollup.health": "健全性",
+  "milestone.rollup.timespan": "期間",
+  "milestone.rollup.keyOutcome": "主な成果",
+  "milestone.rollup.noTasks": "タスクはまだありません",
+  "milestone.rollup.noDates": "日付未設定",
+  "milestone.rollup.noOutcome": "振り返りの要約はまだありません"
 }

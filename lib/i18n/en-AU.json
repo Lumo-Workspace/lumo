@@ -1899,5 +1899,13 @@
   "acceptance.zone.humanNote": "not machine-checkable",
   "acceptance.zone.humanResolved": "Human-judged",
   "acceptance.zone.humanAllResolved": "All {count} judged",
-  "sprints.settings.timezone": "Team timezone"
+  "sprints.settings.timezone": "Team timezone",
+  "milestone.rollup.label": "Milestone summary",
+  "milestone.rollup.completion": "Completion",
+  "milestone.rollup.health": "Health",
+  "milestone.rollup.timespan": "Time span",
+  "milestone.rollup.keyOutcome": "Key outcome",
+  "milestone.rollup.noTasks": "No tasks yet",
+  "milestone.rollup.noDates": "No dates set",
+  "milestone.rollup.noOutcome": "No retro summary yet"
 }

@@ -1899,5 +1899,13 @@
   "acceptance.zone.humanNote": "मशीन द्वारा जाँच योग्य नहीं",
   "acceptance.zone.humanResolved": "मानव-निर्णयित",
   "acceptance.zone.humanAllResolved": "सभी {count} निर्णयित",
-  "sprints.settings.timezone": "टीम का समय क्षेत्र"
+  "sprints.settings.timezone": "टीम का समय क्षेत्र",
+  "milestone.rollup.label": "माइलस्टोन सारांश",
+  "milestone.rollup.completion": "पूर्णता",
+  "milestone.rollup.health": "स्वास्थ्य",
+  "milestone.rollup.timespan": "समय अवधि",
+  "milestone.rollup.keyOutcome": "मुख्य परिणाम",
+  "milestone.rollup.noTasks": "अभी कोई कार्य नहीं",
+  "milestone.rollup.noDates": "कोई तिथि निर्धारित नहीं",
+  "milestone.rollup.noOutcome": "अभी तक कोई रेट्रो सारांश नहीं"
 }

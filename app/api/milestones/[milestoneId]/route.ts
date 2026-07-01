@@ -4,6 +4,7 @@ import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
 
 interface Params {
@@ -26,8 +27,16 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestoneId,
       teamId
     )
+    const summary =
+      await milestoneSummaryRepository.findByMilestoneId(milestoneId)
     return NextResponse.json({
-      milestone: { ...milestone, taskCounts, health, sprintCoverage },
+      milestone: {
+        ...milestone,
+        taskCounts,
+        health,
+        sprintCoverage,
+        summaryTldr: summary?.tldr ?? null,
+      },
     })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

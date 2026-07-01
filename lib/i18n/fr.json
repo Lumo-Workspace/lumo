@@ -1899,5 +1899,13 @@
   "acceptance.zone.humanNote": "non vérifiable par machine",
   "acceptance.zone.humanResolved": "Jugé par un humain",
   "acceptance.zone.humanAllResolved": "Les {count} jugés",
-  "sprints.settings.timezone": "Fuseau horaire de l'équipe"
+  "sprints.settings.timezone": "Fuseau horaire de l'équipe",
+  "milestone.rollup.label": "Résumé du jalon",
+  "milestone.rollup.completion": "Avancement",
+  "milestone.rollup.health": "Santé",
+  "milestone.rollup.timespan": "Période",
+  "milestone.rollup.keyOutcome": "Résultat clé",
+  "milestone.rollup.noTasks": "Aucune tâche pour l'instant",
+  "milestone.rollup.noDates": "Aucune date définie",
+  "milestone.rollup.noOutcome": "Pas encore de résumé de rétro"
 }
