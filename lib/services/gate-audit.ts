@@ -254,10 +254,14 @@ function failureExitCode(payload: unknown): number {
 
 /**
  * Lift execution-gate signals out of HookEvent rows. Only Bash post-tool-use
- * rows whose command classifies as a gate produce an event; pass/fail comes
+ * rows whose command classifies as a gate produce events; pass/fail comes
  * from the event TYPE (the failure variant is the exit≠0 carrier), so the
  * read-model never has to trust a parsed exit code for the verdict — only for
- * display. Rows that match no gate, or carry no command, are dropped.
+ * display. Rows that match no gate, or carry no command, are dropped. A
+ * command hitting several gates' invocation tokens (`npx jest …; npx tsc
+ * --noEmit`) emits one event PER matched gate (LUM-629) — all sharing the
+ * row's command/exit/timestamp grounding — instead of collapsing to a single
+ * gate and under-reporting the rest as not_run.
  */
 export function normalizeHookEvents(
   rows: readonly GateHookEventRow[]
@@ -270,19 +274,19 @@ export function normalizeHookEvents(
 
     const command = commandOf(row.payload)
     if (!command) continue
-    const key = classifyCommand(command)
-    if (!key) continue
 
-    out.push({
-      key,
-      outcome: isSuccess ? 'success' : 'failure',
-      command,
-      exitCode: isSuccess ? 0 : failureExitCode(row.payload),
-      hookEvent: row.type,
-      at: row.createdAt.toISOString(),
-      provenance: 'agent_self_reported',
-      sessionId: row.sessionId ?? null,
-    })
+    for (const key of classifyCommand(command)) {
+      out.push({
+        key,
+        outcome: isSuccess ? 'success' : 'failure',
+        command,
+        exitCode: isSuccess ? 0 : failureExitCode(row.payload),
+        hookEvent: row.type,
+        at: row.createdAt.toISOString(),
+        provenance: 'agent_self_reported',
+        sessionId: row.sessionId ?? null,
+      })
+    }
   }
   return out
 }

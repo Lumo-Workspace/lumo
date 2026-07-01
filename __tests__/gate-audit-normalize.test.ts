@@ -87,6 +87,55 @@ describe('normalizeHookEvents', () => {
     })
   })
 
+  it('emits one self-reported signal per matched gate for a merged command', () => {
+    // LUM-629 (observed on LUM-620 #770): jest and tsc combined in one shell
+    // command classified as typecheck only, so the test gate under-reported
+    // not_run even though jest ran and passed in the delivery window.
+    const cmd = 'npx jest __tests__/x.test.ts; npx tsc --noEmit'
+    const rows: GateHookEventRow[] = [
+      bash('POST_TOOL_USE', cmd, '2026-06-27T10:00:00.000Z'),
+    ]
+    const events = normalizeHookEvents(rows)
+    expect(events.map(e => e.key).sort()).toEqual(['test', 'typecheck'])
+    for (const ev of events) {
+      expect(ev).toMatchObject({
+        outcome: 'success',
+        command: cmd,
+        exitCode: 0,
+        hookEvent: 'POST_TOOL_USE',
+        at: '2026-06-27T10:00:00.000Z',
+        provenance: 'agent_self_reported',
+      })
+    }
+
+    const audit = buildDeliveryGateAudit(rows)
+    const byKey = Object.fromEntries(audit.gates.map(g => [g.key, g]))
+    expect(byKey['test']!.status).toBe('passed')
+    expect(byKey['typecheck']!.status).toBe('passed')
+    expect(byKey['build']!.status).toBe('not_run')
+    // Both signals stay grounded on the same cmd:#exit= pointer.
+    expect(byKey['test']!.grounding?.pointer).toContain('#exit=0')
+    expect(byKey['typecheck']!.grounding?.pointer).toBe(
+      byKey['test']!.grounding?.pointer
+    )
+  })
+
+  it('a failed merged command emits a failure signal for every matched gate', () => {
+    const rows: GateHookEventRow[] = [
+      bash(
+        'POST_TOOL_USE_FAILURE',
+        'npx jest a.test.ts && npx tsc --noEmit',
+        '2026-06-27T11:00:00.000Z',
+        { exit_code: 2 }
+      ),
+    ]
+    const events = normalizeHookEvents(rows)
+    expect(events.map(e => e.key).sort()).toEqual(['test', 'typecheck'])
+    for (const ev of events) {
+      expect(ev).toMatchObject({ outcome: 'failure', exitCode: 2 })
+    }
+  })
+
   it('buildDeliveryGateAudit wires normalize → derive with execution gates configured', () => {
     const rows: GateHookEventRow[] = [
       bash('POST_TOOL_USE', 'tsc --noEmit', '2026-06-27T10:00:00.000Z'),
