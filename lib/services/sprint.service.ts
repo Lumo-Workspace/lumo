@@ -281,6 +281,7 @@ export const sprintService = {
       startWeekday?: number
       autoCreate?: number
       autoAddCompleted?: boolean
+      timezone?: string
     },
     _actor: ActorRef
   ) {

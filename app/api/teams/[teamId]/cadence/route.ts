@@ -31,6 +31,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       startWeekday,
       autoCreate,
       autoAddCompleted,
+      timezone,
     } = parsed.data
     const updated = await sprintService.configureCadence(
       teamId,
@@ -41,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...(startWeekday !== undefined ? { startWeekday } : {}),
         ...(autoCreate !== undefined ? { autoCreate } : {}),
         ...(autoAddCompleted !== undefined ? { autoAddCompleted } : {}),
+        ...(timezone !== undefined ? { timezone } : {}),
       },
       { memberId }
     )
