@@ -42,11 +42,13 @@ function TimelineRow({
   domain,
   bucket,
   href,
+  timeZone,
 }: {
   sprint: Sprint
   domain: Domain
   bucket: 'completed' | 'active' | 'planned'
   href: string
+  timeZone: string
 }) {
   const intl = useIntl()
   // Completion fill is real (task progress); planned sprints have no work yet.
@@ -90,8 +92,8 @@ function TimelineRow({
             {sprint.name}
           </div>
           <div className='truncate font-mono text-[10.5px] text-muted-foreground'>
-            {formatDate(sprint.startDate, intl.locale)} –{' '}
-            {formatDate(sprint.endDate, intl.locale)}
+            {formatDate(sprint.startDate, intl.locale, timeZone)} –{' '}
+            {formatDate(sprint.endDate, intl.locale, timeZone)}
           </div>
         </div>
       </div>
@@ -150,10 +152,13 @@ export function SprintTimeline({
   sprints,
   workspaceUrl,
   now,
+  timeZone,
 }: {
   sprints: Sprint[]
   workspaceUrl: string
   now: number
+  /** IANA timezone (e.g. `team.timezone`) used to render sprint dates. */
+  timeZone: string
 }) {
   const intl = useIntl()
 
@@ -258,6 +263,7 @@ export function SprintTimeline({
               domain={domain}
               bucket={bucketOf(s)}
               href={`/workspace/${workspaceUrl}/sprints/${s.number}`}
+              timeZone={timeZone}
             />
           ))}
 

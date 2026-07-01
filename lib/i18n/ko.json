@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "당신의 판정에 따라 작업이 완료되거나 반려됩니다.",
   "acceptance.zone.humanNote": "기계로 검증 불가",
   "acceptance.zone.humanResolved": "사람이 판정함",
-  "acceptance.zone.humanAllResolved": "{count}개 모두 판정됨"
+  "acceptance.zone.humanAllResolved": "{count}개 모두 판정됨",
+  "sprints.settings.timezone": "팀 시간대"
 }

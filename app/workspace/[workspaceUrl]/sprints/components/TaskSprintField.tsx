@@ -47,7 +47,15 @@ const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
   COMPLETED: 'text-muted-foreground',
 }
 
-function formatCompactRange(s: Sprint, locale: string): string {
+/**
+ * `timeZone`, when provided (e.g. the team's timezone), renders the range in
+ * that IANA zone instead of the runtime's local zone.
+ */
+export function formatCompactRange(
+  s: Sprint,
+  locale: string,
+  timeZone?: string
+): string {
   const start = new Date(s.startDate)
   const end = new Date(s.endDate)
   const sameYear = start.getFullYear() === end.getFullYear()
@@ -55,11 +63,13 @@ function formatCompactRange(s: Sprint, locale: string): string {
   const fmtShort: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
   }
   const fmtFull: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
   }
   if (sameYear && thisYear) {
     return `${start.toLocaleDateString(locale, fmtShort)} – ${end.toLocaleDateString(locale, fmtShort)}`
@@ -77,10 +87,14 @@ export function TaskSprintField({
   task,
   onChange,
   triggerClassName,
+  timeZone,
 }: {
   task: Task
   onChange: (sprintId: string | null) => void
   triggerClassName?: string
+  /** IANA timezone (e.g. `team.timezone`) used to render sprint date ranges.
+   *  Falls back to the runtime's local timezone when omitted. */
+  timeZone?: string
 }) {
   const intl = useIntl()
   // Defer the option-list fetch until the dropdown is first opened. The
@@ -151,7 +165,7 @@ export function TaskSprintField({
             <SelectPrimitive.ItemText>{s.name}</SelectPrimitive.ItemText>
           </span>
           <span className='w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
-            {formatCompactRange(s, intl.locale)}
+            {formatCompactRange(s, intl.locale, timeZone)}
           </span>
           <span className='w-16 shrink-0 text-xs text-muted-foreground/80'>
             {intl.formatMessage({ id: STATUS_LABEL_KEY[state] })}

@@ -1,5 +1,11 @@
 /** Pure date helpers for sprint scheduling. No external dependencies. */
 
+import {
+  nextZonedWeekdayMidnight,
+  addZonedDays,
+  zonedMidnight,
+} from '@/lib/datetime/timezone'
+
 export function nextUtcMondayMidnight(from: Date): Date {
   const d = new Date(
     Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate())
@@ -38,6 +44,7 @@ export interface SprintCadence {
   durationDays: number
   cooldownDays: number
   startWeekday: number
+  timeZone: string
 }
 
 export interface SprintWindow {
@@ -70,16 +77,21 @@ export function computeNextSprintWindow(
   lastEndDate: Date | null,
   now: Date = new Date()
 ): SprintWindow {
+  const todayFloor = zonedMidnight(now, cadence.timeZone)
   const usableAnchor =
-    lastEndDate && lastEndDate.getTime() >= utcMidnight(now).getTime()
+    lastEndDate && lastEndDate.getTime() >= todayFloor.getTime()
       ? lastEndDate
       : null
   const startDate = usableAnchor
-    ? addDays(utcMidnight(usableAnchor), cadence.cooldownDays + 1)
-    : nextUtcWeekdayMidnight(now, cadence.startWeekday)
+    ? addZonedDays(usableAnchor, cadence.cooldownDays + 1, cadence.timeZone)
+    : nextZonedWeekdayMidnight(now, cadence.startWeekday, cadence.timeZone)
   return {
     startDate,
-    endDate: addDays(startDate, cadence.durationDays - 1),
+    endDate: addZonedDays(
+      startDate,
+      cadence.durationDays - 1,
+      cadence.timeZone
+    ),
   }
 }
 

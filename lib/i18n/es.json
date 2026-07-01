@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "Tu veredicto marca la tarea como Hecha o la devuelve.",
   "acceptance.zone.humanNote": "no verificable por máquina",
   "acceptance.zone.humanResolved": "Evaluado por humano",
-  "acceptance.zone.humanAllResolved": "Los {count} evaluados"
+  "acceptance.zone.humanAllResolved": "Los {count} evaluados",
+  "sprints.settings.timezone": "Zona horaria del equipo"
 }

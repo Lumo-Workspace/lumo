@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "Votre verdict marque la tâche comme Terminée ou la renvoie.",
   "acceptance.zone.humanNote": "non vérifiable par machine",
   "acceptance.zone.humanResolved": "Jugé par un humain",
-  "acceptance.zone.humanAllResolved": "Les {count} jugés"
+  "acceptance.zone.humanAllResolved": "Les {count} jugés",
+  "sprints.settings.timezone": "Fuseau horaire de l'équipe"
 }

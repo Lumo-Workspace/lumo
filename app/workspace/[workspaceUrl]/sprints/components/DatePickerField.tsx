@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { formatZonedDate } from '@/lib/datetime/format'
 
 const CALENDAR_LOCALES: Record<string, DateFnsLocale> = {
   en: enUS,
@@ -24,14 +25,16 @@ export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-export function formatDate(date: Date | string, locale?: string): string {
+export function formatDate(
+  date: Date | string,
+  locale?: string,
+  timeZone?: string
+): string {
   // `locale` should be the active react-intl locale (intl.locale) so dates
-  // follow the app's chosen language, not the browser default.
-  return new Date(date).toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  // follow the app's chosen language, not the browser default. `timeZone`,
+  // when provided (e.g. the team's timezone), renders the wall-clock day in
+  // that IANA zone instead of the runtime's local zone.
+  return formatZonedDate(date, { locale, timeZone })
 }
 
 interface DatePickerFieldProps {

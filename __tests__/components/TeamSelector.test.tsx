@@ -20,6 +20,7 @@ const team = (id: string, name: string): ApiTeam => ({
   name,
   identifier: id.toUpperCase(),
   isDefault: false,
+  timezone: 'America/Los_Angeles',
   sprintsEnabled: true,
   sprintDurationDays: 14,
   sprintCooldownDays: 0,
@@ -69,7 +70,11 @@ describe('TeamSelector', () => {
 
   it('hides the selector when there is nothing to switch between', () => {
     const { container } = render(
-      <TeamSelector teams={[team('a', 'Alpha')]} value='a' onChange={jest.fn()} />
+      <TeamSelector
+        teams={[team('a', 'Alpha')]}
+        value='a'
+        onChange={jest.fn()}
+      />
     )
 
     expect(container).toBeEmptyDOMElement()

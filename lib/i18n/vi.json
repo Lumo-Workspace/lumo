@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "Phán quyết của bạn đánh dấu nhiệm vụ là Hoàn thành hoặc trả lại.",
   "acceptance.zone.humanNote": "không thể kiểm tra bằng máy",
   "acceptance.zone.humanResolved": "Đã do người phán quyết",
-  "acceptance.zone.humanAllResolved": "Tất cả {count} đã phán quyết"
+  "acceptance.zone.humanAllResolved": "Tất cả {count} đã phán quyết",
+  "sprints.settings.timezone": "Múi giờ của nhóm"
 }

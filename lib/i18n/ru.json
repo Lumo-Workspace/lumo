@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "Ваш вердикт отмечает задачу как Готово или возвращает её.",
   "acceptance.zone.humanNote": "не проверяется машиной",
   "acceptance.zone.humanResolved": "Оценено человеком",
-  "acceptance.zone.humanAllResolved": "Все {count} оценены"
+  "acceptance.zone.humanAllResolved": "Все {count} оценены",
+  "sprints.settings.timezone": "Часовой пояс команды"
 }

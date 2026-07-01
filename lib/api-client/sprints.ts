@@ -142,6 +142,7 @@ export const sprintsClient = {
       startWeekday?: number
       autoCreate?: number
       autoAddCompleted?: boolean
+      timezone?: string
     }
   ) {
     return apiFetch<void>(API.sprints.cadence(teamId), {

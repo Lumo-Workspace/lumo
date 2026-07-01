@@ -1898,5 +1898,6 @@
   "acceptance.hero.helper": "Keputusan anda menanda tugas sebagai Selesai atau menghantarnya semula.",
   "acceptance.zone.humanNote": "tidak boleh disemak mesin",
   "acceptance.zone.humanResolved": "Dinilai manusia",
-  "acceptance.zone.humanAllResolved": "Semua {count} dinilai"
+  "acceptance.zone.humanAllResolved": "Semua {count} dinilai",
+  "sprints.settings.timezone": "Zon waktu pasukan"
 }
