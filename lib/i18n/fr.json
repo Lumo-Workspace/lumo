@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "Une personne a marqué ce critère comme réussi sans confirmation par une vérification machine.",
   "acceptance.check.tip": "La commande (checkpointer) exécutée pour vérifier ce critère, et son code de sortie. exit 0 signifie réussi.",
   "acceptance.criterion.staleTip": "Ce critère a été validé contre une version antérieure. Relancez lumo verify pour reconfirmer.",
-  "acceptance.zone.humanTip": "Les critères humains nécessitent une personne pour juger et valider — ils ne sont pas vérifiables par machine.",
-  "acceptance.zone.humanQuotaTip": "Une tâche peut avoir au plus 7 critères humains, pour que la révision humaine reste ciblée.",
   "boundary.tip.category": "Un franchissement de limite est une action interdite ou risquée effectuée par l'agent. La catégorie indique de quel type il s'agit.",
   "boundary.tip.severity": "La gravité de ce franchissement. Les franchissements HIGH bloquent la clôture de la tâche jusqu'à leur résolution.",
   "boundary.tip.disposition": "Comment ce franchissement a été résolu : faux positif (pas un vrai problème), confirmé (vrai problème) ou résolu automatiquement par le système.",

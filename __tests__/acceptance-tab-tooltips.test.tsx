@@ -174,13 +174,15 @@ describe('Acceptance tab — zone tooltips', () => {
     expect(screen.getByText(/machine-verified/)).toBeInTheDocument()
   })
 
-  it('human zone has an info tooltip explaining human judgment', () => {
+  // LUM-620: the human zone matches the machine zone — a collapsible summary
+  // whose meaning is carried inline by the "Needs your judgment" / "Human-judged"
+  // header + a "not machine-checkable" caption, not by a hover tooltip.
+  it('human zone explains itself inline (header + not-machine-checkable caption)', () => {
     renderAcceptanceTab()
     expect(
-      screen.getByLabelText(
-        'Human criteria need a person to judge and sign off — they are not machine-checkable.'
-      )
+      screen.getByRole('button', { name: /Needs your judgment/ })
     ).toBeInTheDocument()
+    expect(screen.getByText('not machine-checkable')).toBeInTheDocument()
   })
 })
 

@@ -1646,8 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "머신 검사 확인 없이 담당자가 이 기준을 통과로 표시했습니다.",
   "acceptance.check.tip": "이 기준을 검증하기 위해 실행된 명령(checkpointer)과 종료 코드입니다. 종료 코드 0은 통과를 의미합니다.",
   "acceptance.criterion.staleTip": "이전 버전의 기준에 대해 통과되었습니다. lumo verify를 다시 실행하여 재확인하세요.",
-  "acceptance.zone.humanTip": "사람 기준은 담당자가 판단하고 승인해야 하며 머신으로 확인할 수 없습니다.",
-  "acceptance.zone.humanQuotaTip": "사람 검토를 집중시키기 위해 작업당 최대 7개의 사람 기준만 설정할 수 있습니다.",
   "boundary.tip.category": "경계 위반은 에이전트가 수행한 금지되거나 위험한 작업입니다. 카테고리는 그 종류를 나타냅니다.",
   "boundary.tip.severity": "이 위반의 심각도입니다. HIGH 위반은 처리될 때까지 작업을 Done으로 표시하는 것을 차단합니다.",
   "boundary.tip.disposition": "이 위반의 처리 방식: 오탐(실제 문제 아님), 확인됨(실제 문제), 또는 시스템에 의한 자동 해결.",
