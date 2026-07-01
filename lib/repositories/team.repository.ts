@@ -104,6 +104,7 @@ export const teamRepository = {
         sprintCooldownDays: true,
         sprintStartWeekday: true,
         sprintAutoCreate: true,
+        timezone: true,
       },
     })
   },
