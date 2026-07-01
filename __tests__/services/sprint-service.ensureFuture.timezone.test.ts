@@ -32,7 +32,7 @@ test('ensureFutureSprints creates a sprint starting at the team timezone Monday'
     sprintCooldownDays: 0,
     sprintStartWeekday: 1,
     sprintAutoCreate: 1,
-    timezone: 'America/Los_Angeles',
+    timezone: 'Asia/Shanghai',
   })
   await sprintService.ensureFutureSprints(
     't1',
@@ -40,8 +40,8 @@ test('ensureFutureSprints creates a sprint starting at the team timezone Monday'
   )
   expect(sprintRepository.create).toHaveBeenCalledWith(
     expect.objectContaining({
-      startDate: new Date('2026-07-06T07:00:00.000Z'),
-      endDate: new Date('2026-07-19T07:00:00.000Z'),
+      startDate: new Date('2026-07-05T16:00:00.000Z'),
+      endDate: new Date('2026-07-18T16:00:00.000Z'),
     })
   )
 })
