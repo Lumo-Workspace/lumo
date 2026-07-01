@@ -41,14 +41,21 @@ export function buildBurnupChartData(burnup: SprintBurnupResponse): {
  * 'YYYY-MM-DD' → a short, locale-ordered day label (e.g. `6/14` in en, `14/6`
  * in many others). The parts are parsed by hand and fed to a local-time Date
  * (no `new Date('YYYY-MM-DD')` UTC parse) so the rendered day can't slip across
- * a timezone boundary; `locale` is the active react-intl locale.
+ * a timezone boundary; `locale` is the active react-intl locale. `timeZone`,
+ * when provided (e.g. the team's timezone), renders the label in that IANA
+ * zone instead of the runtime's local zone.
  */
-function formatDay(date: string, locale?: string): string {
+export function formatDay(
+  date: string,
+  locale?: string,
+  timeZone?: string
+): string {
   const [y, m, d] = date.split('-').map(Number)
   if (!y || !m || !d) return date
   return new Date(y, m - 1, d).toLocaleDateString(locale, {
     month: 'numeric',
     day: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
   })
 }
 
@@ -69,7 +76,14 @@ function Card({
   )
 }
 
-export function SprintProgressChart({ sprintId }: { sprintId: string }) {
+export function SprintProgressChart({
+  sprintId,
+  timeZone,
+}: {
+  sprintId: string
+  /** IANA timezone (e.g. `team.timezone`) used to render axis/tooltip dates. */
+  timeZone?: string
+}) {
   const intl = useIntl()
   const { burnup, isLoading } = useSprintBurnup(sprintId)
   const title = intl.formatMessage({ id: 'sprint.burnup.title' })
@@ -132,7 +146,9 @@ export function SprintProgressChart({ sprintId }: { sprintId: string }) {
             axisLine={false}
             tickMargin={8}
             minTickGap={24}
-            tickFormatter={value => formatDay(String(value), intl.locale)}
+            tickFormatter={value =>
+              formatDay(String(value), intl.locale, timeZone)
+            }
           />
           <YAxis
             width={28}
@@ -146,7 +162,9 @@ export function SprintProgressChart({ sprintId }: { sprintId: string }) {
             cursor={false}
             content={
               <ChartTooltipContent
-                labelFormatter={value => formatDay(String(value), intl.locale)}
+                labelFormatter={value =>
+                  formatDay(String(value), intl.locale, timeZone)
+                }
               />
             }
           />

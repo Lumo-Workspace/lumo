@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { useSprintByNumber, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
+import { useWorkspaceTeams } from '../../hooks/useWorkspaceTeams'
 import { useProjects } from '../../hooks/useProjects'
 import { CheckSquare, Plus } from 'lucide-react'
 import type { ApiStatus, MyTask } from '../../types'
@@ -59,6 +60,10 @@ export function SprintDetailClient({
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
   const { members } = useMembers()
   const { projects, fetchProjects } = useProjects()
+  const { teams } = useWorkspaceTeams()
+  // Team extracts+passes a flat timezone string (LoD) — children never reach
+  // through a nested `sprint.team.timezone`.
+  const teamTimeZone = teams.find(t => t.id === sprint?.teamId)?.timezone
   // Mirror the fetched sprint tasks into a local state tuple so
   // TaskWorkspaceView (which drives inline edits + DnD) owns the source of
   // truth for list updates between refetches.
@@ -200,7 +205,10 @@ export function SprintDetailClient({
         }}
       />
       {(sprint.status === 'ACTIVE' || sprint.status === 'CLOSED') && (
-        <SprintProgressChart sprintId={sprint.id} />
+        <SprintProgressChart
+          sprintId={sprint.id}
+          {...(teamTimeZone ? { timeZone: teamTimeZone } : {})}
+        />
       )}
     </div>
   )
