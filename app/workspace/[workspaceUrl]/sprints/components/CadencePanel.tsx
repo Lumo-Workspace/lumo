@@ -28,6 +28,7 @@ interface Team {
   sprintStartWeekday: number
   sprintAutoCreate: number
   sprintAutoAddCompleted: boolean
+  timezone: string
 }
 
 const WEEKDAY_LABEL_IDS = [
@@ -40,6 +41,8 @@ const WEEKDAY_LABEL_IDS = [
   'sprints.settings.weekday.sat',
 ] as const
 
+const TIMEZONES = Intl.supportedValuesOf('timeZone')
+
 export function CadencePanel({ team }: { team: Team }) {
   const intl = useIntl()
   const [enabled, setEnabled] = useState(team.sprintsEnabled)
@@ -50,6 +53,7 @@ export function CadencePanel({ team }: { team: Team }) {
   const [autoAddCompleted, setAutoAddCompleted] = useState(
     team.sprintAutoAddCompleted
   )
+  const [timezone, setTimezone] = useState(team.timezone)
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -62,6 +66,7 @@ export function CadencePanel({ team }: { team: Team }) {
         startWeekday,
         autoCreate,
         autoAddCompleted,
+        timezone,
       })
       toast.success(intl.formatMessage({ id: 'sprints.settings.saved' }))
     } catch (e: unknown) {
@@ -171,6 +176,28 @@ export function CadencePanel({ team }: { team: Team }) {
         </div>
 
         <div className='flex items-center justify-between gap-4'>
+          <Label htmlFor={`timezone-${team.id}`} className='text-sm'>
+            {intl.formatMessage({ id: 'sprints.settings.timezone' })}
+          </Label>
+          <Select
+            value={timezone}
+            onValueChange={setTimezone}
+            disabled={disabled}
+          >
+            <SelectTrigger id={`timezone-${team.id}`} className='w-56'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className='max-h-72'>
+              {TIMEZONES.map(tz => (
+                <SelectItem key={tz} value={tz}>
+                  {tz}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className='flex items-center justify-between gap-4'>
           <Label htmlFor={`autocreate-${team.id}`} className='text-sm'>
             {intl.formatMessage({ id: 'sprints.settings.autoCreate' })}
           </Label>
@@ -201,10 +228,7 @@ export function CadencePanel({ team }: { team: Team }) {
 
         <div className='flex flex-col gap-1'>
           <div className='flex items-center justify-between gap-4'>
-            <Label
-              htmlFor={`autoadd-${team.id}`}
-              className='text-sm'
-            >
+            <Label htmlFor={`autoadd-${team.id}`} className='text-sm'>
               {intl.formatMessage({ id: 'sprints.settings.autoAddCompleted' })}
             </Label>
             <Switch
