@@ -1457,6 +1457,20 @@ export function AcceptanceTab({
     humanCriteria.length > 0 &&
     humanCriteria.every(c => isPass(c.latestVerdict?.verdict))
   const humanZoneOpen = humanOpen ?? !allHumanResolved
+  // LUM-620 follow-up: the human zone reflects STATE, not a constant pending
+  // magenta. While there are unresolved calls (and the task hasn't been
+  // accepted) it wears the actionable in-review magenta; once every human
+  // criterion is signed off — or the task is accepted (DONE) — it flips to a
+  // resolved green so a Done task no longer reads as "still needs your
+  // judgment". The task-level Approve marks the task DONE without necessarily
+  // recording a per-criterion HUMAN verdict, so DONE alone resolves the zone.
+  const humanUnresolvedCount = humanCriteria.filter(
+    c => !isPass(c.latestVerdict?.verdict)
+  ).length
+  const taskAccepted = data.task.status === 'DONE'
+  const humanPending =
+    humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
+  const humanAllJudged = humanCriteria.length > 0 && !humanPending
 
   return (
     <div className='space-y-5 py-1'>
@@ -1501,29 +1515,75 @@ export function AcceptanceTab({
             <div className='space-y-3'>
               {/* LUM-620: human "Needs your judgment" leads — it holds the
                   actionable, not-machine-checkable calls, elevated above the
-                  machine summary and wearing the in-review magenta accent. */}
-              <div className='overflow-hidden rounded-lg border border-status-in-review-border'>
-                <div className='flex items-center gap-2 border-b border-status-in-review-border bg-status-in-review-subtle px-4 py-2.5'>
-                  <UserCheck
-                    className='size-4 shrink-0 text-status-in-review'
-                    aria-hidden
-                  />
+                  machine summary. Its accent is state-aware: in-review magenta
+                  while a call is pending, success green once every one is judged
+                  (or the task is accepted), muted when the section is empty. */}
+              <div
+                className={`overflow-hidden rounded-lg border ${
+                  humanPending
+                    ? 'border-status-in-review-border'
+                    : humanAllJudged
+                      ? 'border-success-border'
+                      : 'border-border'
+                }`}
+              >
+                <div
+                  className={`flex items-center gap-2 border-b px-4 py-2.5 ${
+                    humanPending
+                      ? 'border-status-in-review-border bg-status-in-review-subtle'
+                      : humanAllJudged
+                        ? 'border-success-border bg-success-subtle'
+                        : 'border-border bg-muted/30'
+                  }`}
+                >
+                  {humanAllJudged ? (
+                    <CheckCircle2
+                      className='size-4 shrink-0 text-success'
+                      aria-hidden
+                    />
+                  ) : (
+                    <UserCheck
+                      className={`size-4 shrink-0 ${humanPending ? 'text-status-in-review' : 'text-muted-foreground'}`}
+                      aria-hidden
+                    />
+                  )}
                   <button
                     type='button'
                     onClick={() => setHumanOpen(!humanZoneOpen)}
                     aria-expanded={humanZoneOpen}
                     className='flex items-center gap-1.5 text-body-strong text-foreground hover:text-foreground'
                   >
-                    {intl.formatMessage({
-                      id: 'acceptance.zone.human',
-                      defaultMessage: 'Needs your judgment',
-                    })}
+                    {humanAllJudged
+                      ? intl.formatMessage({
+                          id: 'acceptance.zone.humanResolved',
+                          defaultMessage: 'Human-judged',
+                        })
+                      : intl.formatMessage({
+                          id: 'acceptance.zone.human',
+                          defaultMessage: 'Needs your judgment',
+                        })}
                   </button>
-                  <span className='text-caption text-status-in-review'>
-                    {intl.formatMessage({
-                      id: 'acceptance.zone.humanNote',
-                      defaultMessage: 'not machine-checkable',
-                    })}
+                  <span
+                    className={`text-caption ${
+                      humanPending
+                        ? 'text-status-in-review'
+                        : humanAllJudged
+                          ? 'text-success'
+                          : 'text-muted-foreground/70'
+                    }`}
+                  >
+                    {humanAllJudged
+                      ? intl.formatMessage(
+                          {
+                            id: 'acceptance.zone.humanAllResolved',
+                            defaultMessage: 'All {count} judged',
+                          },
+                          { count: humanCriteria.length }
+                        )
+                      : intl.formatMessage({
+                          id: 'acceptance.zone.humanNote',
+                          defaultMessage: 'not machine-checkable',
+                        })}
                   </span>
                   <InfoTooltip
                     label={intl.formatMessage({
@@ -1533,14 +1593,20 @@ export function AcceptanceTab({
                     })}
                   />
                   <span
-                    className='ml-auto inline-flex min-w-5 items-center justify-center rounded-sm bg-status-in-review px-1.5 py-0.5 text-[10px] font-semibold text-background'
+                    className={`ml-auto inline-flex min-w-5 items-center justify-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold ${
+                      humanPending
+                        ? 'bg-status-in-review text-background'
+                        : humanAllJudged
+                          ? 'bg-success text-background'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
                     title={intl.formatMessage({
                       id: 'acceptance.zone.humanQuotaTip',
                       defaultMessage:
                         'A task can have at most 7 human criteria, to keep human review focused.',
                     })}
                   >
-                    {humanCriteria.length}
+                    {humanPending ? humanUnresolvedCount : humanCriteria.length}
                   </span>
                 </div>
                 {humanZoneOpen ? (

@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "変更依頼",
   "acceptance.hero.metLabel": "達成",
   "acceptance.hero.helper": "あなたの判定でタスクは完了になるか、差し戻されます。",
-  "acceptance.zone.humanNote": "機械では検証できません"
+  "acceptance.zone.humanNote": "機械では検証できません",
+  "acceptance.zone.humanResolved": "人間が判定済み",
+  "acceptance.zone.humanAllResolved": "{count} 件すべて判定済み"
 }

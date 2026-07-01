@@ -263,4 +263,39 @@ describe('LUM-620 · Acceptance redesign', () => {
     expect(screen.getByTestId('cost')).toBeInTheDocument()
     expect(screen.getByText('Verification record')).toBeInTheDocument()
   })
+
+  it('human zone reads resolved (not a pending call) once every human criterion is judged', () => {
+    mockStatus.mockReturnValue({
+      data: statusView({
+        criteria: [crit('HUMAN', 'PASS'), crit('HUMAN', 'PASS')],
+      }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    renderTab()
+    // Signed off → resolved header, NOT the pending "Needs your judgment".
+    expect(screen.getByText('Human-judged')).toBeInTheDocument()
+    expect(screen.queryByText('Needs your judgment')).toBeNull()
+  })
+
+  it('human zone is resolved on an accepted (DONE) task even without per-criterion human verdicts', () => {
+    mockStatus.mockReturnValue({
+      data: statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        // A task-level Approve marks the task DONE without recording a
+        // per-criterion HUMAN verdict — the zone must still read as resolved,
+        // not a pending magenta call-to-action.
+        criteria: [crit('HUMAN', null), crit('HUMAN', null)],
+      }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    renderTab()
+    expect(screen.getByText('Human-judged')).toBeInTheDocument()
+    expect(screen.queryByText('Needs your judgment')).toBeNull()
+  })
 })

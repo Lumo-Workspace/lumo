@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "ÄNDERUNGEN ANGEFORDERT",
   "acceptance.hero.metLabel": "erfüllt",
   "acceptance.hero.helper": "Dein Urteil markiert die Aufgabe als Erledigt oder schickt sie zurück.",
-  "acceptance.zone.humanNote": "nicht maschinell prüfbar"
+  "acceptance.zone.humanNote": "nicht maschinell prüfbar",
+  "acceptance.zone.humanResolved": "Menschlich beurteilt",
+  "acceptance.zone.humanAllResolved": "Alle {count} beurteilt"
 }

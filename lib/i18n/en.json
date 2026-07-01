@@ -801,6 +801,8 @@
   "acceptance.zone.machineOverrideCount": "{count} human override",
   "acceptance.zone.machineFailedCount": "{count} failed",
   "acceptance.zone.human": "Needs your judgment",
+  "acceptance.zone.humanResolved": "Human-judged",
+  "acceptance.zone.humanAllResolved": "All {count} judged",
   "acceptance.zone.humanNote": "not machine-checkable",
   "acceptance.zone.humanTip": "Human criteria need a person to judge and sign off — they are not machine-checkable.",
   "acceptance.zone.humanQuotaTip": "A task can have at most 7 human criteria, to keep human review focused.",

@@ -1898,5 +1898,7 @@
   "acceptance.hero.stateChanges": "MODIFICATIONS DEMANDÉES",
   "acceptance.hero.metLabel": "rempli",
   "acceptance.hero.helper": "Votre verdict marque la tâche comme Terminée ou la renvoie.",
-  "acceptance.zone.humanNote": "non vérifiable par machine"
+  "acceptance.zone.humanNote": "non vérifiable par machine",
+  "acceptance.zone.humanResolved": "Jugé par un humain",
+  "acceptance.zone.humanAllResolved": "Les {count} jugés"
 }
