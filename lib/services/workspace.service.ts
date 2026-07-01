@@ -25,7 +25,11 @@ export const workspaceService = {
   /** Create a new workspace with full initialisation (team, member, actors). */
   async createWorkspace(
     userId: string,
-    data: { name: string; slug?: string | undefined }
+    data: {
+      name: string
+      slug?: string | undefined
+      timezone?: string | undefined
+    }
   ) {
     const slug = data.slug ?? generateWorkspaceSlug(data.name)
 
@@ -33,6 +37,7 @@ export const workspaceService = {
       name: data.name,
       slug,
       clerkId: userId,
+      ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
     })
   },
 
