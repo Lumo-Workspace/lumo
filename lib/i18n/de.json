@@ -1646,7 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "Eine Person hat dieses Kriterium ohne maschinelle Prüfung als bestanden markiert.",
   "acceptance.check.tip": "Der Befehl (checkpointer), der zur Prüfung dieses Kriteriums ausgeführt wurde, und sein Exit-Code. exit 0 bedeutet bestanden.",
   "acceptance.criterion.staleTip": "Dies wurde gegen eine frühere Version des Kriteriums bestanden. Führe lumo verify erneut aus, um es zu bestätigen.",
-  "acceptance.zone.machineTip": "Maschinenkriterien werden von einem checkpointer-Befehl geprüft und sind schreibgeschützt — sie können nicht manuell bearbeitet werden.",
   "acceptance.zone.humanTip": "Menschliche Kriterien erfordern eine Person zum Beurteilen und Abzeichnen — sie sind nicht maschinell prüfbar.",
   "acceptance.zone.humanQuotaTip": "Eine Aufgabe kann höchstens 7 menschliche Kriterien haben, damit die menschliche Prüfung fokussiert bleibt.",
   "boundary.tip.category": "Eine Grenzüberschreitung ist eine verbotene oder riskante Aktion des Agenten. Die Kategorie gibt an, um welche Art es sich handelt.",
@@ -1889,5 +1888,15 @@
   "gates.prColumn": "Pull Request",
   "gates.unlinked": "Signale ohne PR-Zuordnung",
   "acceptance.container.title": "Abnahme",
-  "acceptance.auditOnly.label": "Nur Audit – diese Signale entscheiden nicht über das Urteil"
+  "acceptance.auditOnly.label": "Nur Audit – diese Signale entscheiden nicht über das Urteil",
+  "task.verdict.approveHero": "Freigeben · als Erledigt markieren",
+  "task.verdict.requestChanges": "Änderungen anfordern",
+  "acceptance.audit.title": "Nachweise & Prüfprotokoll",
+  "acceptance.auditOnly.notVerdict": "Nur zur Prüfung — entscheidet nicht über das Urteil",
+  "acceptance.hero.stateReview": "IN PRÜFUNG",
+  "acceptance.hero.stateAccepted": "AKZEPTIERT",
+  "acceptance.hero.stateChanges": "ÄNDERUNGEN ANGEFORDERT",
+  "acceptance.hero.metLabel": "erfüllt",
+  "acceptance.hero.helper": "Dein Urteil markiert die Aufgabe als Erledigt oder schickt sie zurück.",
+  "acceptance.zone.humanNote": "nicht maschinell prüfbar"
 }

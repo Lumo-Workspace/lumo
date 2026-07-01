@@ -80,6 +80,13 @@ const SINGLE_SOURCE_ALLOWLIST: Record<string, string> = {
     'translucent color-mix, re-resolves over --background (LUM-258)',
   'danger-border':
     'translucent color-mix, re-resolves over --background (LUM-258)',
+  // LUM-620: subtle/border companions for the in-review magenta. Translucent
+  // color-mix of --status-in-review (which HAS a .dark override), so one
+  // definition re-resolves correctly over --background in both modes.
+  'status-in-review-subtle':
+    'translucent color-mix, re-resolves over --background (LUM-620)',
+  'status-in-review-border':
+    'translucent color-mix, re-resolves over --background (LUM-620)',
   // LUM-263: urgent red clears contrast on both backgrounds with one value.
   'priority-urgent': 'red-500 passes 3:1 on both backgrounds (LUM-263)',
   // LUM-294: primitive neutral ramp — mode-independent raw grayscale seeds. The

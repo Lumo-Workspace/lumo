@@ -1646,7 +1646,6 @@
   "acceptance.tab.humanOverrideBadgeTip": "機械チェックによる確認なしに、担当者がこの基準を合格としました。",
   "acceptance.check.tip": "この基準を検証するために実行されたコマンド（checkpointer）とその終了コードです。終了コード 0 は合格を意味します。",
   "acceptance.criterion.staleTip": "これは以前のバージョンの基準に対して合格しました。lumo verify を再実行して再確認してください。",
-  "acceptance.zone.machineTip": "機械基準は checkpointer コマンドによって確認され、読み取り専用です — 手動で編集することはできません。",
   "acceptance.zone.humanTip": "人間の基準は担当者が判断してサインオフする必要があり、機械でチェックすることはできません。",
   "acceptance.zone.humanQuotaTip": "人間によるレビューを集中させるため、タスクには最大 7 件の人間基準のみ設定できます。",
   "boundary.tip.category": "境界違反はエージェントが行った禁止または危険なアクションです。カテゴリはその種類を示します。",
@@ -1889,5 +1888,15 @@
   "gates.prColumn": "プルリクエスト",
   "gates.unlinked": "PR に紐付かないシグナル",
   "acceptance.container.title": "受け入れ",
-  "acceptance.auditOnly.label": "監査専用 — これらのシグナルは判定を左右しません"
+  "acceptance.auditOnly.label": "監査専用 — これらのシグナルは判定を左右しません",
+  "task.verdict.approveHero": "承認 · 完了にする",
+  "task.verdict.requestChanges": "変更を依頼",
+  "acceptance.audit.title": "証跡と監査ログ",
+  "acceptance.auditOnly.notVerdict": "監査専用 — 判定は行いません",
+  "acceptance.hero.stateReview": "レビュー中",
+  "acceptance.hero.stateAccepted": "承認済み",
+  "acceptance.hero.stateChanges": "変更依頼",
+  "acceptance.hero.metLabel": "達成",
+  "acceptance.hero.helper": "あなたの判定でタスクは完了になるか、差し戻されます。",
+  "acceptance.zone.humanNote": "機械では検証できません"
 }

@@ -169,15 +169,18 @@ describe('LUM-600 empty-criteria record tab', () => {
     expect(screen.getByText('此任务暂无验收标准')).toBeInTheDocument()
     // Contract-derived verdict surface is not rendered…
     expect(screen.queryByTestId('verdict-status')).not.toBeInTheDocument()
-    // …and the acceptance-criteria contract group is absent.
-    expect(screen.queryByText('Acceptance criteria')).not.toBeInTheDocument()
+    // …and the criteria zones (LUM-620: "Machine-verified" / "Needs your
+    // judgment") are absent when there is no contract.
+    expect(screen.queryByText('Machine-verified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Needs your judgment')).not.toBeInTheDocument()
   })
 
   it('keeps the full contract block when criteria are present', () => {
     render_({ criteria: [machinePass()] })
-    // Contract block still renders in full: verdict surface + criteria group…
+    // Contract block still renders in full: verdict surface + criteria group
+    // (LUM-620: the machine criterion surfaces the "Machine-verified" zone)…
     expect(screen.getByTestId('verdict-status')).toBeInTheDocument()
-    expect(screen.getByText('Acceptance criteria')).toBeInTheDocument()
+    expect(screen.getByText('Machine-verified')).toBeInTheDocument()
     // …alongside the always-on evidence slot (no regression).
     expect(screen.getByTestId('evidence-slot')).toBeInTheDocument()
     // And the empty note must NOT appear when a contract exists.

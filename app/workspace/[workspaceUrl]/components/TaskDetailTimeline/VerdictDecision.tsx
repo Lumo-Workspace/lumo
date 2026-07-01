@@ -12,6 +12,7 @@ import {
   Sparkles,
   Undo2,
   UserCheck,
+  CheckCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { tasksClient } from '@/lib/api-client'
@@ -84,15 +85,96 @@ const KIND_TITLE_ID = {
   inProgress: 'acceptance.banner.inProgress',
 } as const satisfies Record<VerdictStatusKind, string>
 
-const TONE_BOX: Record<VerdictTone, string> = {
-  success: 'bg-success-subtle border-success-border',
-  danger: 'bg-danger-subtle border-danger-border',
-  neutral: 'bg-muted border-border',
-}
 const TONE_TEXT: Record<VerdictTone, string> = {
   success: 'text-success',
   danger: 'text-danger',
   neutral: 'text-muted-foreground',
+}
+
+// LUM-620 · Decision Hero chrome. The redesigned header verdict surface reads as
+// one prominent card whose accent tells the state at a glance: a pending review
+// wears the in-review magenta, an accepted task the success green, a sent-back
+// task the warning amber. Derived from the status kind (not raw task.status) so
+// it stays in lockstep with the banner title/tone already computed once.
+type HeroState = 'pending' | 'accepted' | 'changes'
+
+function heroStateOf(kind: VerdictStatusKind): HeroState {
+  if (kind === 'sentBack' || kind === 'escalated') return 'changes'
+  if (kind === 'done' || kind === 'doneNoHumanVerdict') return 'accepted'
+  return 'pending'
+}
+
+const HERO_CARD: Record<HeroState, string> = {
+  pending: 'border-status-in-review-border bg-status-in-review-subtle',
+  accepted: 'border-success-border bg-success-subtle',
+  changes: 'border-warning-border bg-warning-subtle',
+}
+const HERO_RING: Record<HeroState, string> = {
+  pending: 'text-status-in-review',
+  accepted: 'text-success',
+  changes: 'text-warning',
+}
+const HERO_LABEL: Record<HeroState, string> = {
+  pending: 'text-status-in-review',
+  accepted: 'text-success',
+  changes: 'text-warning',
+}
+
+/**
+ * A compact SVG progress ring — the fraction of criteria met, at a glance. The
+ * arc uses `currentColor` so the caller colors it via the hero accent; the
+ * center reads "N/M" over a quiet "met" label. Purely presentational (no state,
+ * pure render — safe under React's render-purity rule).
+ */
+function ProgressRing({
+  met,
+  total,
+  className = '',
+  metLabel,
+}: {
+  met: number
+  total: number
+  className?: string
+  metLabel: string
+}) {
+  const r = 27
+  const c = 2 * Math.PI * r
+  const frac = total > 0 ? Math.min(1, Math.max(0, met / total)) : 0
+  const offset = c * (1 - frac)
+  return (
+    <div className={`relative size-[66px] shrink-0 ${className}`} aria-hidden>
+      <svg width='66' height='66' viewBox='0 0 66 66'>
+        <circle
+          cx='33'
+          cy='33'
+          r={r}
+          fill='none'
+          className='stroke-border'
+          strokeWidth='6'
+        />
+        <circle
+          cx='33'
+          cy='33'
+          r={r}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='6'
+          strokeLinecap='round'
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          transform='rotate(-90 33 33)'
+        />
+      </svg>
+      <div className='absolute inset-0 flex flex-col items-center justify-center leading-none'>
+        <span className='text-[17px] font-bold text-foreground'>
+          {met}/{total}
+        </span>
+        <span className='mt-0.5 text-[8.5px] text-muted-foreground'>
+          {metLabel}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 /** Strip tags + whitespace to test whether a rich-text note has real content. */
@@ -342,25 +424,22 @@ export function VerdictDecision({
       : 'acceptance.banner.gateOpen',
   })
 
-  const actionButtons = (
-    <div className='flex items-center gap-2'>
-      <ActionTooltip
-        tip={intl.formatMessage({
-          id: 'task.verdict.passTip',
-          defaultMessage:
-            'Accept the task as done — all criteria are met and it moves to completed.',
-        })}
-      >
-        <Button
-          ref={passButtonRef}
-          size='sm'
-          data-testid='verdict-pass'
-          disabled={submitting}
-          onClick={() => submit('PASS')}
-        >
-          {intl.formatMessage({ id: 'task.verdict.pass' })}
-        </Button>
-      </ActionTooltip>
+  // LUM-620: the hero action bar spells the consequence out ("Approve · mark
+  // Done" / "Request changes") with a lead-in helper line; the compact floating
+  // bar keeps the terse Pass / Fail labels. Same testids, same handlers — only
+  // the labels/affordance differ, so every VerdictDecision test still targets
+  // verdict-pass / verdict-fail unchanged.
+  const actionButtons = (hero: boolean) => (
+    <div className='flex flex-wrap items-center gap-2'>
+      {hero ? (
+        <span className='mr-auto text-caption text-muted-foreground'>
+          {intl.formatMessage({
+            id: 'acceptance.hero.helper',
+            defaultMessage:
+              'Your verdict marks the task Done or sends it back.',
+          })}
+        </span>
+      ) : null}
       <ActionTooltip
         tip={intl.formatMessage({
           id: 'task.verdict.failTip',
@@ -375,7 +454,40 @@ export function VerdictDecision({
           disabled={submitting}
           onClick={() => openPanel('FAIL')}
         >
-          {intl.formatMessage({ id: 'task.verdict.fail' })}
+          {hero
+            ? intl.formatMessage({
+                id: 'task.verdict.requestChanges',
+                defaultMessage: 'Request changes',
+              })
+            : intl.formatMessage({ id: 'task.verdict.fail' })}
+        </Button>
+      </ActionTooltip>
+      <ActionTooltip
+        tip={intl.formatMessage({
+          id: 'task.verdict.passTip',
+          defaultMessage:
+            'Accept the task as done — all criteria are met and it moves to completed.',
+        })}
+      >
+        <Button
+          ref={passButtonRef}
+          size='sm'
+          data-testid='verdict-pass'
+          disabled={submitting}
+          onClick={() => submit('PASS')}
+          className={hero ? 'gap-1.5' : undefined}
+        >
+          {hero ? (
+            <>
+              <CheckCheck className='size-3.5' aria-hidden />
+              {intl.formatMessage({
+                id: 'task.verdict.approveHero',
+                defaultMessage: 'Approve · mark Done',
+              })}
+            </>
+          ) : (
+            intl.formatMessage({ id: 'task.verdict.pass' })
+          )}
         </Button>
       </ActionTooltip>
     </div>
@@ -579,16 +691,121 @@ export function VerdictDecision({
     </span>
   )
 
+  // LUM-620 · Decision Hero — the redesigned verdict surface shared by both
+  // variants: a progress ring (criteria met) leads a state label + headline +
+  // met/gate subline; the action bar (Request changes · Approve · mark Done)
+  // rides under a divider during IN_REVIEW. Accent is keyed to the hero state
+  // (pending magenta / accepted green / changes amber), derived from the status
+  // kind so it stays in lockstep with the already-computed banner tone.
+  const heroState = heroStateOf(status.kind)
+  const stateLabelId =
+    heroState === 'accepted'
+      ? 'acceptance.hero.stateAccepted'
+      : heroState === 'changes'
+        ? 'acceptance.hero.stateChanges'
+        : 'acceptance.hero.stateReview'
+  const stateLabelDefault =
+    heroState === 'accepted'
+      ? 'ACCEPTED'
+      : heroState === 'changes'
+        ? 'CHANGES REQUESTED'
+        : 'IN REVIEW'
+
+  const heroBody = (
+    <>
+      <div className='flex items-center gap-4 px-5 py-4'>
+        <ProgressRing
+          met={status.met}
+          total={status.total}
+          className={HERO_RING[heroState]}
+          metLabel={intl.formatMessage({
+            id: 'acceptance.hero.metLabel',
+            defaultMessage: 'met',
+          })}
+        />
+        {/* verdict-status carries the title text the existing tests assert on
+            (KIND_TITLE_ID[kind]); keep the headline inside it. */}
+        <div data-testid='verdict-status' className='min-w-0 flex-1'>
+          <div className='mb-1 flex items-center gap-2'>
+            <span
+              className={`inline-block size-2 rounded-full ${HERO_RING[heroState].replace('text-', 'bg-')}`}
+              aria-hidden
+            />
+            <span
+              className={`text-[11px] font-semibold uppercase tracking-wide ${HERO_LABEL[heroState]}`}
+            >
+              {intl.formatMessage({
+                id: stateLabelId,
+                defaultMessage: stateLabelDefault,
+              })}
+            </span>
+          </div>
+          <div className='text-[19px] font-semibold leading-tight tracking-tight text-foreground'>
+            {title}
+          </div>
+          <div className='mt-1 text-caption text-muted-foreground'>
+            {metLine}
+            {' · '}
+            {gate}
+          </div>
+        </div>
+        {roundBadge}
+      </div>
+      {/* LUM-481: latest run's summary — context for the reviewer (header only;
+          the floating bar never renders it, even if a summary is passed). */}
+      {variant === 'header' && latestRunSummary ? (
+        <div
+          data-testid='verdict-run-summary'
+          className='border-t border-border/60 px-5 py-2.5'
+        >
+          <div className='flex items-center gap-1 text-caption font-medium text-status-in-review'>
+            <Sparkles className='size-3' aria-hidden />
+            {intl.formatMessage({
+              id: 'acceptance.runSummary',
+              defaultMessage: '本次运行',
+            })}
+          </div>
+          <p className='mt-1 text-caption text-foreground'>
+            {latestRunSummary}
+          </p>
+        </div>
+      ) : null}
+      {isReview && (
+        <div className='border-t border-border/60 bg-background/40 px-5 py-3'>
+          {actionButtons(true)}
+          {panelAndNotice}
+        </div>
+      )}
+      {(undoAffordance || withdrawalLine) && (
+        <div className='px-5 pb-4'>
+          {undoAffordance}
+          {withdrawalLine}
+        </div>
+      )}
+    </>
+  )
+
   if (variant === 'header') {
+    // Loud hero card while adjudicating (IN_REVIEW), or right after a verdict
+    // lands while it can still be undone (the mockup's Accepted / Changes
+    // confirmation with an Undo). A long-settled task keeps the quiet passive
+    // banner (LUM-489) — no heavy card for a decision made long ago.
+    const showHeroCard =
+      isReview || (heroState !== 'pending' && data.undoableHumanVerdict != null)
+    if (showHeroCard) {
+      return (
+        <div
+          data-testid='verdict-status-banner'
+          data-hero-state={heroState}
+          className={`overflow-hidden rounded-lg border ${HERO_CARD[heroState]}`}
+        >
+          {heroBody}
+        </div>
+      )
+    }
+    // Passive banner — quiet inline row for a settled/pre-review task.
     return (
-      <div
-        data-testid='verdict-status-banner'
-        className={
-          isReview
-            ? `rounded-lg border px-3.5 py-3 ${TONE_BOX[status.tone]}`
-            : 'py-1'
-        }
-      >
+      <div data-testid='verdict-status-banner' className='py-1'>
         <StatusBannerRow
           layout='header'
           Icon={Icon}
@@ -598,15 +815,12 @@ export function VerdictDecision({
           gate={gate}
           roundBadge={roundBadge}
         />
-        {/* LUM-481: latest run's summary — context for the reviewer right under
-            the status banner. Header variant only; the floating bar never
-            renders it. */}
         {latestRunSummary ? (
           <div
             data-testid='verdict-run-summary'
             className='mt-2.5 border-t border-border pt-2.5'
           >
-            <div className='flex items-center gap-1 text-caption font-medium text-violet-600 dark:text-violet-400'>
+            <div className='flex items-center gap-1 text-caption font-medium text-status-in-review'>
               <Sparkles className='size-3' aria-hidden />
               {intl.formatMessage({
                 id: 'acceptance.runSummary',
@@ -618,40 +832,23 @@ export function VerdictDecision({
             </p>
           </div>
         ) : null}
-        {isReview && (
-          <div className='mt-3 border-t border-border pt-3'>
-            {actionButtons}
-            {panelAndNotice}
-          </div>
-        )}
         {undoAffordance}
         {withdrawalLine}
       </div>
     )
   }
 
-  // floating (review-only): compact bar with a one-line status on the left and
-  // the action buttons inline on the right; panel + notice below as before.
-  // Action buttons only while the task is IN_REVIEW — undo/withdrawal content
-  // can still be shown on a DONE task (LUM-586).
+  // floating — the same Decision Hero, keyed by the task-verdict-bar testid and
+  // a bottom margin; only reached when there is something to show (IN_REVIEW or
+  // an undo/withdrawal affordance on a just-decided task; the earlier guard
+  // returns null otherwise).
   return (
     <div
       data-testid='task-verdict-bar'
-      className='mb-4 rounded-md border border-border px-4 py-2.5'
+      data-hero-state={heroState}
+      className={`mb-4 overflow-hidden rounded-lg border ${HERO_CARD[heroState]}`}
     >
-      <div className='flex flex-wrap items-center gap-3'>
-        <StatusBannerRow
-          layout='floating'
-          Icon={Icon}
-          tone={status.tone}
-          title={title}
-          metLine={metLine}
-        />
-        {isReview && actionButtons}
-      </div>
-      {panelAndNotice}
-      {undoAffordance}
-      {withdrawalLine}
+      {heroBody}
     </div>
   )
 }

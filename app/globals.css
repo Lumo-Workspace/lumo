@@ -545,6 +545,20 @@ a.mention {
   --status-done: oklch(
     0.6271 0.1699 149.214
   ); /* #16a34a light green, 3.3:1 on #fff */
+  /* LUM-620: subtle/border companions for the in-review magenta, mirroring the
+     feedback color-mix pattern below. Composited over --background so they
+     auto-adapt in dark mode; the Acceptance "needs your judgment" (human) zone
+     and the IN REVIEW hero use these for their purple fills. */
+  --status-in-review-subtle: color-mix(
+    in srgb,
+    var(--status-in-review) 10%,
+    transparent
+  );
+  --status-in-review-border: color-mix(
+    in srgb,
+    var(--status-in-review) 28%,
+    transparent
+  );
 
   /* Semantic feedback colors (LUM-258). Accent = left border / icon / emphasis;
      -foreground = near-black text on a solid accent fill (AA-verified, never
@@ -769,6 +783,8 @@ a.mention {
   --color-status-todo: var(--status-todo);
   --color-status-in-progress: var(--status-in-progress);
   --color-status-in-review: var(--status-in-review);
+  --color-status-in-review-subtle: var(--status-in-review-subtle);
+  --color-status-in-review-border: var(--status-in-review-border);
   --color-status-done: var(--status-done);
 
   /* Semantic feedback utilities: generates .text-info / .bg-success-subtle /

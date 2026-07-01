@@ -161,10 +161,12 @@ function render_() {
       onVerdictRecorded={jest.fn()}
     />
   )
-  // LUM-572: cost / struggle / trend / history now live inside the collapsed
-  // "Run report" group — expand it so these same-source sections render. The
-  // claim-vs-verification pairing stays above the group, unaffected.
+  // LUM-572/620: struggle / trend live inside the collapsed "Run report" group;
+  // cost + verification history moved into the collapsed "Evidence & audit
+  // trail" card (LUM-620). Expand both so these same-source sections render. The
+  // claim-vs-verification pairing stays above them, unaffected.
   fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   return result
 }
 

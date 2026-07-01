@@ -179,9 +179,9 @@ function renderTab() {
       onVerdictRecorded={jest.fn()}
     />
   )
-  // LUM-572: the verification record now lives inside the collapsed "Run report"
-  // group — expand it so the round history is in the DOM to assert against.
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  // LUM-620: the verification record now lives inside the collapsed "Evidence &
+  // audit trail" card — expand it so the round history is in the DOM.
+  fireEvent.click(screen.getByText('Evidence & audit trail'))
   return result
 }
 
@@ -255,8 +255,8 @@ describe('LUM-586 verification history — withdrawn badge', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
-    // Expand the run report so the verdict rows are in the DOM
-    fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+    // LUM-620: expand the Evidence & audit trail card so the verdict rows mount
+    fireEvent.click(screen.getByText('Evidence & audit trail'))
     // Expand round 1 so the verdict detail rows appear
     fireEvent.click(screen.getByRole('button', { name: /round 1/i }))
     return result
