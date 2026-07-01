@@ -1,17 +1,17 @@
 /**
- * Format a date as a short calendar day. `locale` should be the active
- * react-intl locale (pass undefined to follow the app language). `timeZone`,
- * when provided, renders the wall-clock day in that IANA zone; omit it to use
- * the runtime's local zone.
+ * Format a date as a short calendar day, pinned to UTC. Sprint dates are
+ * calendar intervals, not moments — rendering them in UTC keeps "Jun 1" as
+ * Jun 1 for every viewer, independent of browser timezone. `locale` should be
+ * the active react-intl locale (undefined follows the app language).
  */
-export function formatZonedDate(
+export function formatCalendarDate(
   date: Date | string,
-  opts?: { locale?: string | undefined; timeZone?: string | undefined }
+  locale?: string
 ): string {
-  return new Date(date).toLocaleDateString(opts?.locale, {
+  return new Date(date).toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    ...(opts?.timeZone ? { timeZone: opts.timeZone } : {}),
+    timeZone: 'UTC',
   })
 }

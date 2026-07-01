@@ -93,14 +93,11 @@ export function CurrentSprintCard({
   sprint,
   workspaceUrl,
   now,
-  timeZone,
   onChanged,
 }: {
   sprint: Sprint
   workspaceUrl: string
   now: number
-  /** IANA timezone (e.g. `team.timezone`) used to render sprint dates. */
-  timeZone: string
   onChanged: () => void
 }) {
   const intl = useIntl()
@@ -143,8 +140,8 @@ export function CurrentSprintCard({
             )}
           </div>
           <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
-            {formatDate(sprint.startDate, intl.locale, timeZone)} –{' '}
-            {formatDate(sprint.endDate, intl.locale, timeZone)} ·{' '}
+            {formatDate(sprint.startDate, intl.locale)} –{' '}
+            {formatDate(sprint.endDate, intl.locale)} ·{' '}
             {intl.formatMessage(
               { id: 'sprints.landing.daysLeft' },
               { count: daysLeft }

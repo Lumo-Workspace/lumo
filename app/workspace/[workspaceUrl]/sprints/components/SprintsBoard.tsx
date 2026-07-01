@@ -80,13 +80,11 @@ function UpcomingCard({
   sprint,
   workspaceUrl,
   now,
-  timeZone,
   onChanged,
 }: {
   sprint: Sprint
   workspaceUrl: string
   now: number
-  timeZone: string
   onChanged: () => void
 }) {
   const intl = useIntl()
@@ -101,8 +99,8 @@ function UpcomingCard({
             <h3 className='truncate text-base font-semibold'>{sprint.name}</h3>
           </Link>
           <p className='mt-1.5 font-mono text-xs text-muted-foreground'>
-            {formatDate(sprint.startDate, intl.locale, timeZone)} –{' '}
-            {formatDate(sprint.endDate, intl.locale, timeZone)}
+            {formatDate(sprint.startDate, intl.locale)} –{' '}
+            {formatDate(sprint.endDate, intl.locale)}
           </p>
         </div>
         <div className='flex shrink-0 items-center gap-1'>
@@ -141,11 +139,9 @@ function UpcomingCard({
 function CompletedRow({
   sprint,
   workspaceUrl,
-  timeZone,
 }: {
   sprint: Sprint
   workspaceUrl: string
-  timeZone: string
 }) {
   const intl = useIntl()
   const { progress } = useSprint(sprint.id)
@@ -163,8 +159,8 @@ function CompletedRow({
         {sprint.name}
       </Link>
       <span className='font-mono text-[13px] text-muted-foreground'>
-        {formatDate(sprint.startDate, intl.locale, timeZone)} –{' '}
-        {formatDate(sprint.endDate, intl.locale, timeZone)}
+        {formatDate(sprint.startDate, intl.locale)} –{' '}
+        {formatDate(sprint.endDate, intl.locale)}
       </span>
       <div className='flex items-center gap-2.5'>
         <div className='h-1.5 flex-1 overflow-hidden rounded-full bg-muted'>
@@ -193,11 +189,9 @@ function CompletedRow({
 function CompletedTable({
   sprints,
   workspaceUrl,
-  timeZone,
 }: {
   sprints: Sprint[]
   workspaceUrl: string
-  timeZone: string
 }) {
   const intl = useIntl()
   return (
@@ -211,12 +205,7 @@ function CompletedTable({
         </span>
       </div>
       {sprints.map(s => (
-        <CompletedRow
-          key={s.id}
-          sprint={s}
-          workspaceUrl={workspaceUrl}
-          timeZone={timeZone}
-        />
+        <CompletedRow key={s.id} sprint={s} workspaceUrl={workspaceUrl} />
       ))}
     </div>
   )
@@ -224,14 +213,7 @@ function CompletedTable({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function SprintsBoard({
-  teamId,
-  timeZone,
-}: {
-  teamId: string
-  /** IANA timezone (e.g. `team.timezone`) used to render sprint dates. */
-  timeZone: string
-}) {
+export function SprintsBoard({ teamId }: { teamId: string }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
   const now = useNow()
@@ -441,7 +423,6 @@ export function SprintsBoard({
               sprints={allSprints.filter(matchesQuery)}
               workspaceUrl={workspaceUrl}
               now={now}
-              timeZone={timeZone}
             />
           )}
         </div>
@@ -472,7 +453,6 @@ export function SprintsBoard({
                 sprint={current}
                 workspaceUrl={workspaceUrl}
                 now={now}
-                timeZone={timeZone}
                 onChanged={refetchAll}
               />
             </section>
@@ -495,7 +475,6 @@ export function SprintsBoard({
                     sprint={s}
                     workspaceUrl={workspaceUrl}
                     now={now}
-                    timeZone={timeZone}
                     onChanged={refetchAll}
                   />
                 ))}
@@ -513,11 +492,7 @@ export function SprintsBoard({
                   { count: completed.length }
                 )}
               />
-              <CompletedTable
-                sprints={completed}
-                workspaceUrl={workspaceUrl}
-                timeZone={timeZone}
-              />
+              <CompletedTable sprints={completed} workspaceUrl={workspaceUrl} />
             </section>
           )}
         </div>

@@ -1,18 +1,12 @@
-import { formatZonedDate } from '@/lib/datetime/format'
+import { formatCalendarDate } from '@/lib/datetime/format'
 
-test('renders the wall-clock day in the given timezone', () => {
-  // 2026-07-06T05:00:00Z is still 2026-07-05 in Los Angeles (22:00 PDT).
+test('renders the UTC calendar day regardless of machine timezone', () => {
+  // 2026-07-06T05:00:00Z is Jul 6 in UTC (and Jul 5 in America/Los_Angeles) —
+  // pinned to UTC it must always be Jul 6.
   const d = '2026-07-06T05:00:00Z'
-  expect(
-    formatZonedDate(d, { locale: 'en', timeZone: 'America/Los_Angeles' })
-  ).toBe('Jul 5, 2026')
-  expect(formatZonedDate(d, { locale: 'en', timeZone: 'Asia/Shanghai' })).toBe(
-    'Jul 6, 2026'
-  )
+  expect(formatCalendarDate(d, 'en')).toBe('Jul 6, 2026')
 })
 
-test('without timeZone, uses the runtime local zone (no crash)', () => {
-  expect(typeof formatZonedDate('2026-07-06T12:00:00Z', { locale: 'en' })).toBe(
-    'string'
-  )
+test('a UTC-midnight instant shows that same UTC day', () => {
+  expect(formatCalendarDate('2026-06-01T00:00:00Z', 'en')).toBe('Jun 1, 2026')
 })
