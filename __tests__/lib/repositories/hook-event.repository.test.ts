@@ -155,7 +155,7 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
 })
 
 describe('hookEventRepository.findTurnUsageByTask', () => {
-  it('queries STOP/STOP_FAILURE turns for the task (own-taskId precedence) and selects only sessionId + usageByModel', async () => {
+  it('queries STOP/STOP_FAILURE turns for the task (own-taskId precedence) and selects only sessionId + usageByModel + createdAt', async () => {
     mockFindMany.mockResolvedValue([])
 
     await hookEventRepository.findTurnUsageByTask('tsk_1')
@@ -169,7 +169,7 @@ describe('hookEventRepository.findTurnUsageByTask', () => {
         ],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, usageByModel: true },
+      select: { sessionId: true, usageByModel: true, createdAt: true },
     })
   })
 
@@ -221,13 +221,30 @@ describe('hookEventRepository.findTurnBoundaryEventsForSessions', () => {
     expect(mockFindMany).not.toHaveBeenCalled()
   })
 
-  it('queries only prompt/STOP types for the given sessions, oldest-first', async () => {
+  it('queries turn-boundary and in-turn activity types for the given sessions, oldest-first', async () => {
     mockFindMany.mockResolvedValue([])
     await hookEventRepository.findTurnBoundaryEventsForSessions(['s1', 's2'])
     expect(mockFindMany).toHaveBeenCalledWith({
       where: {
         sessionId: { in: ['s1', 's2'] },
-        type: { in: ['USER_PROMPT_SUBMIT', 'STOP', 'STOP_FAILURE'] },
+        type: {
+          in: [
+            'USER_PROMPT_SUBMIT',
+            'STOP',
+            'STOP_FAILURE',
+            'PRE_TOOL_USE',
+            'POST_TOOL_USE',
+            'POST_TOOL_USE_FAILURE',
+            'POST_TOOL_BATCH',
+            'SUBAGENT_START',
+            'SUBAGENT_STOP',
+            'PERMISSION_REQUEST',
+            'PERMISSION_DENIED',
+            'NOTIFICATION',
+            'ELICITATION',
+            'ELICITATION_RESULT',
+          ],
+        },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { sessionId: true, type: true, createdAt: true },

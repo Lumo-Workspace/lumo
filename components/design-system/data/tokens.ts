@@ -43,6 +43,8 @@ export const COLOR_GROUPS: TokenGroup[] = [
       'status-todo',
       'status-in-progress',
       'status-in-review',
+      'status-in-review-subtle',
+      'status-in-review-border',
       'status-done',
     ],
   },

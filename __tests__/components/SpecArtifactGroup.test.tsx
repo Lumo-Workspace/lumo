@@ -25,7 +25,13 @@ jest.mock('@/lib/api-client/task-artifacts', () => ({
   },
 }))
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SpecArtifactGroup } from '@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup'
 import { artifactsClient } from '@/lib/api-client/task-artifacts'
@@ -113,7 +119,7 @@ describe('SpecArtifactGroup', () => {
     expect(screen.getByText('body one')).toBeInTheDocument()
   })
 
-  it('deletes a row via the delete button', async () => {
+  it('deletes a row via the delete button after confirming in the dialog', async () => {
     mockList.mockResolvedValue({ artifacts })
     mockRemove.mockResolvedValue(undefined)
     renderGroup()
@@ -123,6 +129,13 @@ describe('SpecArtifactGroup', () => {
       name: 'taskArtifact.delete',
     })
     fireEvent.click(deleteButtons[0]!)
+
+    // LUM-548: deletion is gated behind an AlertDialog confirm.
+    const dialog = await screen.findByRole('alertdialog')
+    expect(mockRemove).not.toHaveBeenCalled()
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'taskArtifact.delete' })
+    )
 
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('t1', 'a1'))
     await waitFor(() =>

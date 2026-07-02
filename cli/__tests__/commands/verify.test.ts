@@ -93,7 +93,9 @@ describe('bindingAdvisory', () => {
       }
     )
 
-    const exit = await verify('LUM-491')
+    const exit = await verify('LUM-491', {
+      note: 'implemented the change; tests pass',
+    })
 
     expect(exit).toBeUndefined() // allPassed path exits with no code
     const out = capturedOutput()
@@ -122,7 +124,9 @@ describe('bindingAdvisory', () => {
       }
     )
 
-    const exit = await verify('LUM-491')
+    const exit = await verify('LUM-491', {
+      note: 'implemented the change; tests pass',
+    })
 
     expect(exit).toBeUndefined()
     const out = capturedOutput()
@@ -151,7 +155,9 @@ describe('bindingAdvisory', () => {
       }
     )
 
-    const exit = await verify('LUM-491')
+    const exit = await verify('LUM-491', {
+      note: 'implemented the change; tests pass',
+    })
 
     expect(exit).toBeUndefined()
     const out = capturedOutput()
@@ -178,7 +184,9 @@ describe('bindingAdvisory', () => {
       }
     )
 
-    const exit = await verify('LUM-491')
+    const exit = await verify('LUM-491', {
+      note: 'implemented the change; tests pass',
+    })
 
     expect(exit).toBeUndefined()
     const out = capturedOutput()
