@@ -250,6 +250,18 @@ export const milestoneRepository = {
   },
 
   /**
+   * Member task ids only — the LUM-632 delivery-stats rollup's fan-out basis
+   * (PR states / complexity / session actuals are all batched off this set).
+   */
+  async taskIds(milestoneId: string): Promise<string[]> {
+    const rows = await prisma.task.findMany({
+      where: { milestoneId },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /**
    * Raw rows for the LUM-628 segmentation rollup: every member task's
    * grouping basis (priority / sprint binding / tags) plus the ref fields
    * the drill-down rows render.

@@ -11,7 +11,10 @@ import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
+import { computeMilestoneDeliveryStats } from '@/lib/summaries/milestone-delivery-stats'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -195,6 +198,41 @@ export const milestoneService = {
         now: new Date(),
       }),
     }
+  },
+
+  /**
+   * LUM-632 delivery-scale + per-member spend rollup for an already-authorized
+   * milestone: merged-PR / multi-PR-churn / unlinked buckets, the summed
+   * change surface (per-task changedFileCount with measurement coverage), and
+   * token/active-time attributed to `Session.workspaceMemberId` (the actual
+   * spender, never the assignee). Same-source with the LUM-627 costRollup, so
+   * the per-member Σ reconciles exactly with it. Pure read model, zero schema
+   * change. Performs NO auth — only call after authorizing (e.g. via
+   * `getMilestoneWithTeam`).
+   */
+  async getDeliveryStatsForMilestone(milestoneId: string) {
+    const taskIds = await milestoneRepository.taskIds(milestoneId)
+    const [prRows, complexityRows, actualRows] = await Promise.all([
+      pullRequestRepository.listStatesByTaskIds(taskIds),
+      taskComplexityRepository.listByTaskIds(taskIds),
+      retrospectiveRepository.loadMemberActualRowsForTasks(taskIds),
+    ])
+    const memberIds = [
+      ...new Set(
+        actualRows.sessions
+          .map(s => s.workspaceMemberId)
+          .filter((id): id is string => !!id)
+      ),
+    ]
+    const memberLabels = await memberRepository.labelsByIds(memberIds)
+    return computeMilestoneDeliveryStats({
+      taskIds,
+      prRows,
+      complexityRows,
+      sessionRows: actualRows.sessions,
+      turnEvents: actualRows.turnEvents,
+      memberLabels,
+    })
   },
 
   /**

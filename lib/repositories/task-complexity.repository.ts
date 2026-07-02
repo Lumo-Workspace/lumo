@@ -22,6 +22,19 @@ export const taskComplexityRepository = {
     return prisma.taskComplexity.findUnique({ where: { taskId } })
   },
 
+  /**
+   * Batched change-surface rows for a task set (LUM-632 milestone delivery
+   * rollup). Only the sum's inputs — a task with no row is simply absent, so
+   * the caller can bucket it as unmeasured instead of a fake 0.
+   */
+  async listByTaskIds(taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.taskComplexity.findMany({
+      where: { taskId: { in: taskIds } },
+      select: { taskId: true, changedFileCount: true },
+    })
+  },
+
   /** team 内全部已沉淀行，作为读时分桶的 cohort。 */
   async listByTeam(teamId: string) {
     return prisma.taskComplexity.findMany({

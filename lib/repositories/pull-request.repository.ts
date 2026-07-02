@@ -218,6 +218,20 @@ export const pullRequestRepository = {
   },
 
   /**
+   * Batched `(taskId, state)` rows for a task set (LUM-632 milestone delivery
+   * rollup) — the minimal projection the merged-PR / multi-PR-churn /
+   * unlinked-task bucketing needs. A task with no row here has no PR record
+   * and lands in the caller's explicit unlinked bucket.
+   */
+  async listStatesByTaskIds(taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.pullRequest.findMany({
+      where: { taskId: { in: taskIds } },
+      select: { taskId: true, state: true },
+    })
+  },
+
+  /**
    * Merged PRs for a task, oldest-first, with the fields the claim-faithfulness
    * GitHub-API delivery resolver needs (workspaceId + repo + number to fetch the
    * diff, mergeCommitSha for the delivery shas, title for commitSubjects).

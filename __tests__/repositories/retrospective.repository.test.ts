@@ -341,3 +341,68 @@ describe('loadPerSessionCost — per-session cost trajectory (LUM-562)', () => {
     ])
   })
 })
+
+describe('loadMemberActualRowsForTasks', () => {
+  it('fetches the SAME token columns and event stream as loadActualsForTasks, plus the attribution keys', async () => {
+    const sessions = [
+      {
+        id: 's-1',
+        taskId: 't1',
+        workspaceMemberId: 'mA',
+        inputTokens: 1,
+        outputTokens: 2,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+    ]
+    const events = [
+      {
+        sessionId: 's-1',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: new Date('2026-06-02T09:00:00Z'),
+      },
+    ]
+    sessionFind.mockResolvedValue(sessions)
+    hookFind.mockResolvedValue(events)
+
+    const out = await retrospectiveRepository.loadMemberActualRowsForTasks([
+      't1',
+      't2',
+    ])
+    expect(out).toEqual({ sessions, turnEvents: events })
+    // Same task-linked session set as loadActualsForTasks, now with the
+    // per-member attribution keys (id + workspaceMemberId) selected.
+    expect(sessionFind).toHaveBeenCalledWith({
+      where: { taskId: { in: ['t1', 't2'] } },
+      select: {
+        id: true,
+        taskId: true,
+        workspaceMemberId: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
+      },
+    })
+    // Same union event stream + type filter — the Σ-identity's same-source leg.
+    expect(hookFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { taskId: { in: ['t1', 't2'] } },
+            { taskId: null, session: { taskId: { in: ['t1', 't2'] } } },
+          ],
+        }),
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { sessionId: true, type: true, createdAt: true },
+      })
+    )
+  })
+
+  it('short-circuits an empty task set without querying', async () => {
+    const out = await retrospectiveRepository.loadMemberActualRowsForTasks([])
+    expect(out).toEqual({ sessions: [], turnEvents: [] })
+    expect(sessionFind).not.toHaveBeenCalled()
+    expect(hookFind).not.toHaveBeenCalled()
+  })
+})

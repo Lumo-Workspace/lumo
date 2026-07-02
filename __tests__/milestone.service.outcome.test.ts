@@ -12,13 +12,26 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     outcomeRollupRows: jest.fn(),
     costTrendRows: jest.fn(),
     segmentationRows: jest.fn(),
+    taskIds: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: { findByIds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
-  retrospectiveRepository: { loadActualsForTasks: jest.fn() },
+  retrospectiveRepository: {
+    loadActualsForTasks: jest.fn(),
+    loadMemberActualRowsForTasks: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listStatesByTaskIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/task-complexity.repository', () => ({
+  taskComplexityRepository: { listByTaskIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: { labelsByIds: jest.fn() },
 }))
 jest.mock('@/lib/services/project.service', () => ({
   projectService: { getProject: jest.fn() },
@@ -39,6 +52,9 @@ import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import { projectService } from '@/lib/services/project.service'
 import { requireIdentity } from '@/lib/auth'
 
@@ -54,6 +70,12 @@ const findByIds = sprintRepository.findByIds as jest.Mock
 const loadActualsForTasks =
   retrospectiveRepository.loadActualsForTasks as jest.Mock
 const getProject = projectService.getProject as jest.Mock
+const taskIds = milestoneRepository.taskIds as jest.Mock
+const loadMemberRows =
+  retrospectiveRepository.loadMemberActualRowsForTasks as jest.Mock
+const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
+const listComplexity = taskComplexityRepository.listByTaskIds as jest.Mock
+const labelsByIds = memberRepository.labelsByIds as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -73,6 +95,16 @@ beforeEach(() => {
     measuredTasks: 0,
   })
   getProject.mockReset()
+  taskIds.mockReset()
+  taskIds.mockResolvedValue([])
+  loadMemberRows.mockReset()
+  loadMemberRows.mockResolvedValue({ sessions: [], turnEvents: [] })
+  listStates.mockReset()
+  listStates.mockResolvedValue([])
+  listComplexity.mockReset()
+  listComplexity.mockResolvedValue([])
+  labelsByIds.mockReset()
+  labelsByIds.mockResolvedValue(new Map())
 })
 
 const rollupRows = {

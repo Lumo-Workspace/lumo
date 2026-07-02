@@ -26,6 +26,7 @@ interface MilestoneOverviewTabProps {
     | 'costRollup'
     | 'burnup'
     | 'segments'
+    | 'deliveryStats'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, so the description editor can @-mention people. */
@@ -93,6 +94,7 @@ export function MilestoneOverviewTab({
       <MilestoneCostTrendSection
         costRollup={milestone.costRollup}
         burnup={milestone.burnup}
+        deliveryStats={milestone.deliveryStats}
       />
 
       <MilestoneSegmentsSection
