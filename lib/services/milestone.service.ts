@@ -206,8 +206,10 @@ export const milestoneService = {
    * change surface (per-task changedFileCount with measurement coverage), and
    * token/active-time attributed to `Session.workspaceMemberId` (the actual
    * spender, never the assignee). Same-source with the LUM-627 costRollup, so
-   * the per-member Σ reconciles exactly with it. Pure read model, zero schema
-   * change. Performs NO auth — only call after authorizing (e.g. via
+   * the per-member Σ reconciles exactly with it. LUM-634 adds the line-level
+   * change volume over merged PRs (three-state fail-closed: unsynced null ≠
+   * real 0 ≠ zero-synced milestone) — both detail routes get it through this
+   * single call. Performs NO auth — only call after authorizing (e.g. via
    * `getMilestoneWithTeam`).
    */
   async getDeliveryStatsForMilestone(milestoneId: string) {

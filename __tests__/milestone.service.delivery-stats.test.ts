@@ -86,7 +86,21 @@ describe('milestoneService.getDeliveryStatsForMilestone', () => {
     })
     expect(stats.perMember.tokenCost).toBe(15)
     expect(stats.perMember.rows).toEqual([
-      { memberId: 'mA', label: 'Alice', tokenCost: 15, activeTimeSec: 0 },
+      {
+        memberId: 'mA',
+        label: 'Alice',
+        tokenCost: 15,
+        activeTimeSec: 0,
+        // The mocked PR rows carry no volume columns → unsynced, fail-closed.
+        changeVolume: null,
+      },
     ])
+    expect(stats.changeVolume).toEqual({
+      additions: null,
+      deletions: null,
+      changedFiles: null,
+      measuredPrs: 0,
+      totalMergedPrs: 2,
+    })
   })
 })

@@ -1071,6 +1071,13 @@ model PullRequest {
   // "Revert <sha>" back to the delivery via this column. Additive + nullable:
   // historical and still-open PRs leave it null.
   mergeCommitSha String?
+  // LUM-634 change-volume pipeline: line/file counts as reported by GitHub
+  // (webhook payload or backfill via the pulls API). All nullable — null means
+  // "not synced/backfilled yet", NEVER a fabricated 0 (0 = a real zero-change
+  // PR). Read as review load / regression exposure, not output.
+  additions      Int?
+  deletions      Int?
+  changedFiles   Int?
   mergedAt       DateTime?
   closedAt       DateTime?
   createdAt      DateTime  @default(now())

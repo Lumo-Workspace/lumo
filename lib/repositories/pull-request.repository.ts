@@ -220,14 +220,60 @@ export const pullRequestRepository = {
   /**
    * Batched `(taskId, state)` rows for a task set (LUM-632 milestone delivery
    * rollup) — the minimal projection the merged-PR / multi-PR-churn /
-   * unlinked-task bucketing needs. A task with no row here has no PR record
-   * and lands in the caller's explicit unlinked bucket.
+   * unlinked-task bucketing needs, plus the LUM-634 change-volume columns
+   * (null = not synced/backfilled, kept distinct from a real 0 downstream).
+   * A task with no row here has no PR record and lands in the caller's
+   * explicit unlinked bucket.
    */
   async listStatesByTaskIds(taskIds: string[]) {
     if (taskIds.length === 0) return []
     return prisma.pullRequest.findMany({
       where: { taskId: { in: taskIds } },
-      select: { taskId: true, state: true },
+      select: {
+        taskId: true,
+        state: true,
+        additions: true,
+        deletions: true,
+        changedFiles: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-634 backfill candidates: merged PRs WITH a task binding (the audit
+   * scope — ownerless PRs are out of scope by decision) that are missing at
+   * least one change-volume column. Oldest first for stable, resumable runs.
+   */
+  async listMergedTaskBoundMissingChangeVolume() {
+    return prisma.pullRequest.findMany({
+      where: {
+        state: 'merged',
+        taskId: { not: null },
+        OR: [{ additions: null }, { deletions: null }, { changedFiles: null }],
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        taskId: true,
+        repo: true,
+        number: true,
+        state: true,
+        additions: true,
+        deletions: true,
+        changedFiles: true,
+      },
+      orderBy: { mergedAt: 'asc' },
+    })
+  },
+
+  /** LUM-634 backfill write: set the three change-volume columns on one PR. */
+  async updateChangeVolume(
+    id: string,
+    volume: { additions: number; deletions: number; changedFiles: number }
+  ) {
+    return prisma.pullRequest.update({
+      where: { id },
+      data: volume,
     })
   },
 
