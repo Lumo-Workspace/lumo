@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "स्प्रिंट्स के पार बर्नअप",
   "milestone.costTrend.scope": "दायरा",
   "milestone.costTrend.completed": "पूर्ण",
-  "milestone.costTrend.empty": "अभी कोई कार्य नहीं — चार्ट के लिए कुछ नहीं"
+  "milestone.costTrend.empty": "अभी कोई कार्य नहीं — चार्ट के लिए कुछ नहीं",
+  "milestone.segments.title": "खंड",
+  "milestone.segments.empty": "अभी कोई कार्य नहीं",
+  "milestone.segments.dimension.sprint": "स्प्रिंट के अनुसार",
+  "milestone.segments.dimension.priority": "प्राथमिकता के अनुसार",
+  "milestone.segments.dimension.workstream": "वर्कस्ट्रीम के अनुसार",
+  "milestone.segments.noSprint": "कोई स्प्रिंट नहीं",
+  "milestone.segments.noWorkstream": "कोई वर्कस्ट्रीम नहीं",
+  "milestone.segments.unknown": "अज्ञात",
+  "milestone.segments.count": "{done}/{total} पूर्ण"
 }

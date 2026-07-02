@@ -105,6 +105,32 @@ export interface ApiMilestone {
       end: string
     }>
   }
+  /**
+   * LUM-628 segmentation rollup. Server-enriched on the detail response only.
+   * Member tasks grouped along three dimensions (sprint / priority /
+   * workstream=tag); segments reference the shared `tasks` rows by id, so a
+   * multi-tag task appears under each of its tags without duplicating rows.
+   * `key: 'NONE'` is the explicit no-sprint / no-workstream bucket; `label`
+   * is `null` where the client labels via i18n (priority + NONE buckets).
+   */
+  segments?: {
+    tasks: Array<{
+      taskId: string
+      ref: string
+      title: string
+      status: TaskStatus
+    }>
+    sprint: Array<MilestoneSegmentEntry>
+    priority: Array<MilestoneSegmentEntry>
+    workstream: Array<MilestoneSegmentEntry>
+  } | null
+}
+
+export interface MilestoneSegmentEntry {
+  key: string
+  label: string | null
+  taskIds: string[]
+  doneCount: number
 }
 
 export interface MilestoneCreateInput {

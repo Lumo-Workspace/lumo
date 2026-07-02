@@ -248,6 +248,28 @@ export const milestoneRepository = {
     })
     return { tasks, activities }
   },
+
+  /**
+   * Raw rows for the LUM-628 segmentation rollup: every member task's
+   * grouping basis (priority / sprint binding / tags) plus the ref fields
+   * the drill-down rows render.
+   */
+  async segmentationRows(milestoneId: string) {
+    return prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        priority: true,
+        sprintId: true,
+        team: { select: { identifier: true } },
+        taskTags: { select: { tag: { select: { id: true, name: true } } } },
+      },
+      orderBy: { number: 'asc' },
+    })
+  },
 }
 
 export type MilestoneRepository = typeof milestoneRepository

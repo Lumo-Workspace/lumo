@@ -10,6 +10,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getSprintCoverageForTeam: jest.fn(),
     getOutcomeForMilestone: jest.fn(),
     getCostTrendForMilestone: jest.fn(),
+    getSegmentsForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -35,6 +36,7 @@ const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock
 const mockCostTrend = milestoneService.getCostTrendForMilestone as jest.Mock
+const mockSegments = milestoneService.getSegmentsForMilestone as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 
@@ -55,6 +57,8 @@ const emptyCostTrend = {
   },
 }
 
+const emptySegments = { tasks: [], sprint: [], priority: [], workstream: [] }
+
 beforeEach(() => {
   mockIdentity.mockReset()
   mockGet.mockReset()
@@ -63,6 +67,8 @@ beforeEach(() => {
   mockOutcome.mockReset()
   mockCostTrend.mockReset()
   mockCostTrend.mockResolvedValue(emptyCostTrend)
+  mockSegments.mockReset()
+  mockSegments.mockResolvedValue(emptySegments)
   mockSummary.mockReset()
   mockSummary.mockResolvedValue(null)
   mockObserve.mockReset()
@@ -135,6 +141,39 @@ describe('GET /api/milestones/[id]', () => {
     expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1')
     expect(body.milestone.costRollup).toEqual(emptyCostTrend.costRollup)
     expect(body.milestone.burnup).toEqual(emptyCostTrend.burnup)
+  })
+
+  it('returns segments rollup (LUM-628) on the by-id detail payload', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 1,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 1 })
+    mockOutcome.mockResolvedValue(null)
+    const segments = {
+      tasks: [
+        { taskId: 't1', ref: 'LUM-283', title: 'Bundle diet', status: 'DONE' },
+      ],
+      sprint: [{ key: 'NONE', label: null, taskIds: ['t1'], doneCount: 1 }],
+      priority: [{ key: 'HIGH', label: null, taskIds: ['t1'], doneCount: 1 }],
+      workstream: [
+        { key: 'tag-a', label: 'perf', taskIds: ['t1'], doneCount: 1 },
+      ],
+    }
+    mockSegments.mockResolvedValue(segments)
+
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.segments).toEqual(segments)
+    expect(mockSegments).toHaveBeenCalledWith('m-1', 'team-1')
   })
 
   it('enriches the payload with rollup staleness hints (LUM-624)', async () => {

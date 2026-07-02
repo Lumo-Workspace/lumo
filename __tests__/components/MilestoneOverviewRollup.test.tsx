@@ -43,6 +43,7 @@ import { MilestoneOverviewTab } from '@/app/workspace/[workspaceUrl]/components/
 const baseProps = {
   onUpdate: () => {},
   members: [],
+  workspaceUrl: 'acme',
 }
 
 const fullMilestone = {

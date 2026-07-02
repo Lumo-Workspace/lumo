@@ -9,6 +9,7 @@ import { useMentionSources } from '../../hooks/useMentionSources'
 import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
 import { MilestoneRollupBar } from './MilestoneRollupBar'
 import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
+import { MilestoneSegmentsSection } from './MilestoneSegmentsSection'
 
 interface MilestoneOverviewTabProps {
   milestone: Pick<
@@ -24,10 +25,13 @@ interface MilestoneOverviewTabProps {
     | 'outcome'
     | 'costRollup'
     | 'burnup'
+    | 'segments'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, so the description editor can @-mention people. */
   members: WorkspaceMemberInfo[]
+  /** Workspace URL segment, so segment task rows can link to task detail. */
+  workspaceUrl: string
   archived?: boolean
 }
 
@@ -40,6 +44,7 @@ export function MilestoneOverviewTab({
   milestone,
   onUpdate,
   members,
+  workspaceUrl,
   archived = false,
 }: MilestoneOverviewTabProps) {
   const intl = useIntl()
@@ -88,6 +93,11 @@ export function MilestoneOverviewTab({
       <MilestoneCostTrendSection
         costRollup={milestone.costRollup}
         burnup={milestone.burnup}
+      />
+
+      <MilestoneSegmentsSection
+        segments={milestone.segments}
+        workspaceUrl={workspaceUrl}
       />
 
       <div className='max-w-3xl'>

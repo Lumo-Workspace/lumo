@@ -41,12 +41,14 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     // outcome rides this path too (LUM-626 shipped it on by-id only — the
     // canonical slug URL was missing it), plus the LUM-627 cost+trend rollup.
-    const [sprintCoverage, outcome, summary, costTrend] = await Promise.all([
-      milestoneService.getSprintCoverageForTeam(milestone.id, project.teamId),
-      milestoneService.getOutcomeForMilestone(milestone.id),
-      milestoneSummaryRepository.findByMilestoneId(milestone.id),
-      milestoneService.getCostTrendForMilestone(milestone.id, project.teamId),
-    ])
+    const [sprintCoverage, outcome, summary, costTrend, segments] =
+      await Promise.all([
+        milestoneService.getSprintCoverageForTeam(milestone.id, project.teamId),
+        milestoneService.getOutcomeForMilestone(milestone.id),
+        milestoneSummaryRepository.findByMilestoneId(milestone.id),
+        milestoneService.getCostTrendForMilestone(milestone.id, project.teamId),
+        milestoneService.getSegmentsForMilestone(milestone.id, project.teamId),
+      ])
     return NextResponse.json({
       milestone: {
         ...milestone,
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         summaryTldr: summary?.tldr ?? null,
         costRollup: costTrend.costRollup,
         burnup: costTrend.burnup,
+        segments,
       },
     })
   } catch (error) {

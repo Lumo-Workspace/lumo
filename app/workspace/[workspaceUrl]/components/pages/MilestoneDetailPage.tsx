@@ -222,6 +222,7 @@ export function MilestoneDetailPage({
         milestone={milestone}
         onUpdate={handleUpdate}
         members={members}
+        workspaceUrl={params.workspaceUrl}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={toggleSidebar}
         onOpenTask={onOpenTask ?? (() => {})}

@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "Burnup entre les sprints",
   "milestone.costTrend.scope": "Périmètre",
   "milestone.costTrend.completed": "Terminées",
-  "milestone.costTrend.empty": "Pas encore de tâches — rien à tracer"
+  "milestone.costTrend.empty": "Pas encore de tâches — rien à tracer",
+  "milestone.segments.title": "Segments",
+  "milestone.segments.empty": "Pas encore de tâches",
+  "milestone.segments.dimension.sprint": "Par sprint",
+  "milestone.segments.dimension.priority": "Par priorité",
+  "milestone.segments.dimension.workstream": "Par axe de travail",
+  "milestone.segments.noSprint": "Sans sprint",
+  "milestone.segments.noWorkstream": "Sans axe de travail",
+  "milestone.segments.unknown": "Inconnu",
+  "milestone.segments.count": "{done}/{total} terminées"
 }

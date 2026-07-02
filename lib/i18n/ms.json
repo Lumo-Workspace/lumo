@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "Burnup merentas sprint",
   "milestone.costTrend.scope": "Skop",
   "milestone.costTrend.completed": "Selesai",
-  "milestone.costTrend.empty": "Belum ada tugasan — tiada apa untuk dicartakan"
+  "milestone.costTrend.empty": "Belum ada tugasan — tiada apa untuk dicartakan",
+  "milestone.segments.title": "Segmen",
+  "milestone.segments.empty": "Belum ada tugasan",
+  "milestone.segments.dimension.sprint": "Mengikut sprint",
+  "milestone.segments.dimension.priority": "Mengikut keutamaan",
+  "milestone.segments.dimension.workstream": "Mengikut aliran kerja",
+  "milestone.segments.noSprint": "Tiada sprint",
+  "milestone.segments.noWorkstream": "Tiada aliran kerja",
+  "milestone.segments.unknown": "Tidak diketahui",
+  "milestone.segments.count": "{done}/{total} selesai"
 }

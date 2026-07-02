@@ -13,6 +13,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getSprintCoverageForTeam: jest.fn(),
     getOutcomeForMilestone: jest.fn(),
     getCostTrendForMilestone: jest.fn(),
+    getSegmentsForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -39,6 +40,7 @@ const mockBySlug = milestoneService.getMilestoneBySlug as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock
 const mockCostTrend = milestoneService.getCostTrendForMilestone as jest.Mock
+const mockSegments = milestoneService.getSegmentsForMilestone as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
@@ -73,6 +75,13 @@ beforeEach(() => {
   mockObserve.mockReturnValue({ statusDrift: null, datesMissing: false })
   mockOutcome.mockResolvedValue(null)
   mockCostTrend.mockResolvedValue(emptyCostTrend)
+  mockSegments.mockReset()
+  mockSegments.mockResolvedValue({
+    tasks: [],
+    sprint: [],
+    priority: [],
+    workstream: [],
+  })
 })
 
 const params = { params: Promise.resolve({ id: 'p-1', slug: 'q3' }) }
@@ -232,5 +241,49 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     // Both enrich calls reuse the already-resolved team — no re-auth.
     expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1')
     expect(mockOutcome).toHaveBeenCalledWith('m-1')
+  })
+
+  it('returns segments rollup (LUM-628) on the canonical slug detail payload', async () => {
+    mockIdentity.mockResolvedValue({ clerkId: 'clerk-1', memberId: 'mem-1' })
+    mockLoad.mockResolvedValue({
+      project: { id: 'p-1', teamId: 'team-1' },
+      member: { id: 'mem-1' },
+      workspaceSlug: 'w',
+    })
+    mockBySlug.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      name: 'Q3',
+      slug: 'q3',
+      status: 'ACTIVE',
+      startDate: null,
+      targetDate: null,
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 1,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 1 })
+    mockSummary.mockResolvedValue(null)
+    const segments = {
+      tasks: [
+        { taskId: 't1', ref: 'LUM-283', title: 'Bundle diet', status: 'DONE' },
+      ],
+      sprint: [{ key: 'NONE', label: null, taskIds: ['t1'], doneCount: 1 }],
+      priority: [{ key: 'HIGH', label: null, taskIds: ['t1'], doneCount: 1 }],
+      workstream: [
+        { key: 'tag-a', label: 'perf', taskIds: ['t1'], doneCount: 1 },
+      ],
+    }
+    mockSegments.mockResolvedValue(segments)
+
+    const res = await GET(new Request('http://x/m') as never, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.segments).toEqual(segments)
+    // Segments enrich reuses the already-resolved team — no re-auth.
+    expect(mockSegments).toHaveBeenCalledWith('m-1', 'team-1')
   })
 })

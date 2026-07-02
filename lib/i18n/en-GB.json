@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "Burnup across sprints",
   "milestone.costTrend.scope": "Scope",
   "milestone.costTrend.completed": "Completed",
-  "milestone.costTrend.empty": "No tasks yet — nothing to chart"
+  "milestone.costTrend.empty": "No tasks yet — nothing to chart",
+  "milestone.segments.title": "Segments",
+  "milestone.segments.empty": "No tasks yet",
+  "milestone.segments.dimension.sprint": "By sprint",
+  "milestone.segments.dimension.priority": "By priority",
+  "milestone.segments.dimension.workstream": "By workstream",
+  "milestone.segments.noSprint": "No sprint",
+  "milestone.segments.noWorkstream": "No workstream",
+  "milestone.segments.unknown": "Unknown",
+  "milestone.segments.count": "{done}/{total} done"
 }
