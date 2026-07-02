@@ -416,7 +416,7 @@ export function ClaimVsVerification({
 
   return (
     <div className='overflow-hidden rounded-lg border border-border'>
-      <div className='flex items-center gap-1.5 px-4 py-3 text-title text-foreground'>
+      <div className='flex items-center gap-1.5 px-4 py-3 text-body-strong text-foreground'>
         <button
           type='button'
           onClick={() => setOpen(o => !o)}
@@ -424,7 +424,7 @@ export function ClaimVsVerification({
           className='flex items-center gap-1.5 hover:text-foreground'
         >
           <ChevronRight
-            className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+            className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
             aria-hidden
           />
           <Scale
