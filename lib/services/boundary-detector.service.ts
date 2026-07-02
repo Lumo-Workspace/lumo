@@ -324,9 +324,29 @@ const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   'MIGRATION_FILE_DELETED',
   'SESSION_BINDING_MISSING',
   'PUSH_TO_PROTECTED_BRANCH',
+  // LUM-630: a committed CLAUDE.md edit that removed/downgraded a rule is repo
+  // state — `git restore` brings the rule back, same editorial class as
+  // CONTRACT_WEAKENING.
+  'POLICY_WEAKENING',
 ])
 
-export function isReversible(category: BoundaryCrossingCategory): boolean {
+/** Target prefix stamped by the code pipeline on diff-based rule violations. */
+const CODE_RULE_TARGET_PREFIX = 'coderule:'
+
+export function isReversible(
+  category: BoundaryCrossingCategory,
+  target?: string | null
+): boolean {
+  // LUM-630: PROJECT_RULE_VIOLATION spans two origins with different
+  // world-state footprints, so it is classified by target, not as a whole:
+  // - `coderule:*` (code pipeline) — the violation is diff content, pure repo
+  //   state, undone by a follow-up commit → reversible.
+  // - `actionrule:*` (command matcher) — the matched command is arbitrary
+  //   shell and may have touched external state → conservative irreversible,
+  //   same default as an unknown category.
+  if (category === 'PROJECT_RULE_VIOLATION') {
+    return target?.startsWith(CODE_RULE_TARGET_PREFIX) === true
+  }
   return REVERSIBLE_CATEGORIES.has(category)
 }
 
@@ -1377,7 +1397,7 @@ export const boundaryDetectorService = {
           category: c.category,
           detail: c.detail,
           target: c.target,
-          reversible: isReversible(c.category),
+          reversible: isReversible(c.category, c.target),
           severity: c.severity,
           ...(c.advisory != null ? { advisory: c.advisory } : {}),
           ...(c.policyRuleRef != null

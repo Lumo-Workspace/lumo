@@ -219,6 +219,9 @@ test('removing a Forbidden rule emits POLICY_WEAKENING with no agent disposition
       category: 'POLICY_WEAKENING',
       taskId: 't1',
       advisory: false,
+      // LUM-630: a committed CLAUDE.md edit is repo state — reversible, and
+      // the create site must say so explicitly (no repository default).
+      reversible: true,
     })
   )
 })

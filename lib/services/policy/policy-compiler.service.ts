@@ -12,6 +12,7 @@
 import { createHash } from 'crypto'
 import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { isReversible } from '@/lib/services/boundary-detector.service'
 import type { CompiledPolicy, PolicyRule } from './types'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
@@ -96,6 +97,9 @@ async function emitWeakening(
       advisory: false,
       detail,
       target: `weakening:${r.id}`,
+      // LUM-630: route through the taxonomy instead of eating the
+      // repository's `?? false` default.
+      reversible: isReversible('POLICY_WEAKENING'),
       policyRuleRef: r.id,
     })
   }
