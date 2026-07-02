@@ -139,3 +139,47 @@ test('semantic judge records advisory and never dispositions and fails closed', 
     expect(call[0]).not.toHaveProperty('disposition')
   }
 })
+
+test('passes explicit reversible on every create site', async () => {
+  // LUM-630: every code-pipeline create must route reversibility through the
+  // taxonomy — an omitted field ate the repository's `?? false` default and
+  // mislabeled diff-only violations as irreversible. All three sites
+  // (deterministic, semantic, judge-unavailable fail-closed) carry a
+  // `coderule:` target, so all three must record reversible: true.
+  const createSpy = jest
+    .spyOn(boundaryCrossingRepository, 'create')
+    .mockResolvedValue(undefined as never)
+
+  // Round 1: deterministic hit + semantic violation.
+  ;(gh.fetchPrDiff as jest.Mock).mockResolvedValue(
+    '+++ b/src/a.ts\n+console.log("x")'
+  )
+  ;(gh.addedLinesFromDiff as jest.Mock).mockReturnValue([
+    { path: 'src/a.ts', addedLines: ['console.log("x")'] },
+  ])
+  ;(judge.judgeCodeRules as jest.Mock).mockResolvedValue({
+    violations: [{ ruleId: 's1', detail: 'default export' }],
+  })
+  await codePipelineService.runForTask(BASE)
+
+  // Round 2: judge unavailable — the fail-closed create site.
+  ;(judge.judgeCodeRules as jest.Mock).mockRejectedValue(new Error('timeout'))
+  await codePipelineService.runForTask(BASE)
+
+  expect(createSpy.mock.calls.length).toBeGreaterThanOrEqual(3)
+  for (const call of createSpy.mock.calls) {
+    expect(call[0]).toHaveProperty('reversible', true)
+  }
+  // All three distinct sites were exercised (deterministic ×2 runs, semantic,
+  // judge-unavailable).
+  const targets = createSpy.mock.calls.map(
+    c => (c[0] as { target?: string }).target
+  )
+  expect(targets).toEqual(
+    expect.arrayContaining([
+      'coderule:c1',
+      'coderule:s1',
+      'coderule:judge-unavailable',
+    ])
+  )
+})

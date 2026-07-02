@@ -20,6 +20,7 @@ import {
 } from '@/lib/integrations/github/contents'
 import { matchDiffRegex } from './predicate-eval'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { isReversible } from '@/lib/services/boundary-detector.service'
 
 export interface CodePipelineInput {
   taskId: string
@@ -70,6 +71,13 @@ export const codePipelineService = {
           advisory: false,
           policyRuleRef: r.id,
           target: `coderule:${r.id}`,
+          // LUM-630: route through the taxonomy — omitting this ate the
+          // repository's `?? false` default and mislabeled diff-only
+          // violations as irreversible.
+          reversible: isReversible(
+            'PROJECT_RULE_VIOLATION',
+            `coderule:${r.id}`
+          ),
           policyRuleText: r.text,
           detail: hit.line?.trim() ?? '',
         })
@@ -107,6 +115,10 @@ export const codePipelineService = {
             advisory: true,
             policyRuleRef: r.id,
             target: `coderule:${r.id}`,
+            reversible: isReversible(
+              'PROJECT_RULE_VIOLATION',
+              `coderule:${r.id}`
+            ),
             policyRuleText: r.text,
             detail: v.detail,
           })
@@ -122,6 +134,10 @@ export const codePipelineService = {
           severity: 'LOW',
           advisory: true,
           target: 'coderule:judge-unavailable',
+          reversible: isReversible(
+            'PROJECT_RULE_VIOLATION',
+            'coderule:judge-unavailable'
+          ),
           detail:
             'Code-rule semantic check could not be confirmed (judge unavailable).',
         })
