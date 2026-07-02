@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "Ключевой результат",
   "milestone.rollup.noTasks": "Задач пока нет",
   "milestone.rollup.noDates": "Даты не заданы",
-  "milestone.rollup.noOutcome": "Сводка ретро ещё не создана"
+  "milestone.rollup.noOutcome": "Сводка ретро ещё не создана",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "Итоги",
+  "milestone.outcome.empty": "Пока нет завершённых задач — конкретные результаты появятся здесь, когда задачи будут выполнены.",
+  "milestone.outcome.claims.title": "Достигнутые результаты",
+  "milestone.outcome.claims.noClaim": "Для этой поставки нет записанного заявления о результате",
+  "milestone.outcome.claims.source.AGENT": "самоотчёт",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "из сводки прогона",
+  "milestone.outcome.claims.source.DIGEST": "из дайджеста сессии",
+  "milestone.outcome.fate.title": "Судьба после поставки",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Нет записей об отклонении по {done, plural, one {# поставке} few {# поставкам} many {# поставкам} other {# поставкам}} — неубедительно, не «зачёт».} one {# задача получила сигналы отклонения; поставок без записей об отклонении: {inconclusive} (неубедительно).} few {# задачи получили сигналы отклонения; поставок без записей об отклонении: {inconclusive} (неубедительно).} many {# задач получили сигналы отклонения; поставок без записей об отклонении: {inconclusive} (неубедительно).} other {# задачи получили сигналы отклонения; поставок без записей об отклонении: {inconclusive} (неубедительно).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {откат (revert)} other {откат (revert) ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {переоткрыто} other {переоткрыто ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {откат развёртывания} other {откат развёртывания ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {регрессия CI} other {регрессия CI ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {пересмотрено позже} other {пересмотрено позже ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {обойдено} other {обойдено ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}"
 }

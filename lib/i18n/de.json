@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "Zentrales Ergebnis",
   "milestone.rollup.noTasks": "Noch keine Aufgaben",
   "milestone.rollup.noDates": "Keine Termine festgelegt",
-  "milestone.rollup.noOutcome": "Noch keine Retro-Zusammenfassung"
+  "milestone.rollup.noOutcome": "Noch keine Retro-Zusammenfassung",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "Ergebnis",
+  "milestone.outcome.empty": "Noch keine gelieferten Aufgaben — harte Ergebnisse erscheinen hier, sobald Aufgaben abgeschlossen sind.",
+  "milestone.outcome.claims.title": "Gelieferte Ergebnisse",
+  "milestone.outcome.claims.noClaim": "Keine erfasste Ergebnisangabe für diese Lieferung",
+  "milestone.outcome.claims.source.AGENT": "selbst berichtet",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "aus der Lauf-Zusammenfassung",
+  "milestone.outcome.claims.source.DIGEST": "aus dem Sitzungs-Digest",
+  "milestone.outcome.fate.title": "Verbleib nach der Lieferung",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Keine Zurückweisung für {done, plural, one {die Lieferung} other {die # Lieferungen}} verzeichnet — nicht schlüssig, kein Bestehen.} one {# Aufgabe erhielt Zurückweisungssignale; {inconclusive, plural, one {# Lieferung} other {# Lieferungen}} ohne verzeichnete Zurückweisung (nicht schlüssig).} other {# Aufgaben erhielten Zurückweisungssignale; {inconclusive, plural, one {# Lieferung} other {# Lieferungen}} ohne verzeichnete Zurückweisung (nicht schlüssig).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {revertiert} other {revertiert ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {wieder geöffnet} other {wieder geöffnet ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {zurückgerollt} other {zurückgerollt ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI-Regression} other {CI-Regression ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {nachgelagert umgelenkt} other {nachgelagert umgelenkt ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {umgangen} other {umgangen ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manuelle Zurückweisung} other {manuelle Zurückweisung ×#}}"
 }

@@ -6,6 +6,7 @@ import type { WorkspaceMemberInfo } from '../../types'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { TypographyH3 } from '@/components/ui/typography'
 import { useMentionSources } from '../../hooks/useMentionSources'
+import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
 import { MilestoneRollupBar } from './MilestoneRollupBar'
 
 interface MilestoneOverviewTabProps {
@@ -19,6 +20,7 @@ interface MilestoneOverviewTabProps {
     | 'taskCounts'
     | 'health'
     | 'summaryTldr'
+    | 'outcome'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, so the description editor can @-mention people. */
@@ -93,6 +95,8 @@ export function MilestoneOverviewTab({
           mentionSources={mentionSources}
         />
       </div>
+
+      <MilestoneOutcomeSection outcome={milestone.outcome} />
     </div>
   )
 }

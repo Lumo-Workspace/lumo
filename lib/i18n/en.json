@@ -1909,5 +1909,22 @@
   "acceptance.referentKind.EXTERNAL_FACT": "External fact",
   "acceptance.referentKind.AGENT_CONSTRUCTED_STATE": "Agent-constructed",
   "acceptance.referentKind.PENDING_OUTCOME": "Pending outcome",
-  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Unverified"
+  "acceptance.referentKind.UNVERIFIED_ASSERTION": "Unverified",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "Outcome",
+  "milestone.outcome.empty": "No delivered tasks yet — hard results appear here once tasks reach done.",
+  "milestone.outcome.claims.title": "Delivered results",
+  "milestone.outcome.claims.noClaim": "No recorded claim for this delivery",
+  "milestone.outcome.claims.source.AGENT": "self-reported",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "from run summary",
+  "milestone.outcome.claims.source.DIGEST": "from session digest",
+  "milestone.outcome.fate.title": "Post-delivery fate",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {No rejection on record for {done, plural, one {the delivery} other {any of the # deliveries}} — inconclusive, not a pass.} one {# task drew rejection signals; {inconclusive, plural, one {# delivery has} other {# deliveries have}} no rejection on record (inconclusive).} other {# tasks drew rejection signals; {inconclusive, plural, one {# delivery has} other {# deliveries have}} no rejection on record (inconclusive).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {reverted} other {reverted ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {reopened} other {reopened ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {rolled back} other {rolled back ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI regression} other {CI regression ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirected downstream} other {redirected downstream ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bypassed} other {bypassed ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manual rejection} other {manual rejection ×#}}"
 }

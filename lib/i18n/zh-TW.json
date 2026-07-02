@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "關鍵成果",
   "milestone.rollup.noTasks": "尚無任務",
   "milestone.rollup.noDates": "未設定日期",
-  "milestone.rollup.noOutcome": "尚未產生回顧摘要"
+  "milestone.rollup.noOutcome": "尚未產生回顧摘要",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "成果",
+  "milestone.outcome.empty": "尚無已交付任務——任務完成後,硬成果會顯示在這裡。",
+  "milestone.outcome.claims.title": "已交付成果",
+  "milestone.outcome.claims.noClaim": "該交付沒有留下成果自述",
+  "milestone.outcome.claims.source.AGENT": "自報",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "來自執行摘要",
+  "milestone.outcome.claims.source.DIGEST": "來自會話摘錄",
+  "milestone.outcome.fate.title": "交付後命運",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {全部 {done} 個交付均無拒絕紀錄——存疑(inconclusive),而非通過。} other {# 個任務出現拒絕訊號;{inconclusive} 個交付無拒絕紀錄(存疑)。}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {提交被 revert} other {提交被 revert ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {任務被重開} other {任務被重開 ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {部署被回滾} other {部署被回滾 ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 回歸} other {CI 回歸 ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {被下游改道} other {被下游改道 ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {被繞過} other {被繞過 ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}"
 }

@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "मुख्य परिणाम",
   "milestone.rollup.noTasks": "अभी कोई कार्य नहीं",
   "milestone.rollup.noDates": "कोई तिथि निर्धारित नहीं",
-  "milestone.rollup.noOutcome": "अभी तक कोई रेट्रो सारांश नहीं"
+  "milestone.rollup.noOutcome": "अभी तक कोई रेट्रो सारांश नहीं",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "परिणाम",
+  "milestone.outcome.empty": "अभी तक कोई डिलीवर किया गया कार्य नहीं — कार्य पूर्ण होते ही ठोस परिणाम यहाँ दिखाई देंगे।",
+  "milestone.outcome.claims.title": "डिलीवर किए गए परिणाम",
+  "milestone.outcome.claims.noClaim": "इस डिलीवरी के लिए कोई दर्ज विवरण नहीं",
+  "milestone.outcome.claims.source.AGENT": "स्व-रिपोर्ट",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "रन सारांश से",
+  "milestone.outcome.claims.source.DIGEST": "सत्र डाइजेस्ट से",
+  "milestone.outcome.fate.title": "डिलीवरी के बाद की स्थिति",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {{done} डिलीवरी में से किसी के लिए अस्वीकृति दर्ज नहीं — अनिर्णीत, पास नहीं।} one {# कार्य को अस्वीकृति संकेत मिले; {inconclusive} डिलीवरी बिना दर्ज अस्वीकृति के (अनिर्णीत)।} other {# कार्यों को अस्वीकृति संकेत मिले; {inconclusive} डिलीवरी बिना दर्ज अस्वीकृति के (अनिर्णीत)।}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {रिवर्ट किया गया} other {रिवर्ट किया गया ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {फिर से खोला गया} other {फिर से खोला गया ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {रोलबैक} other {रोलबैक ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI रिग्रेशन} other {CI रिग्रेशन ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {बाद में दिशा बदली गई} other {बाद में दिशा बदली गई ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {बाईपास किया गया} other {बाईपास किया गया ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {मैन्युअल अस्वीकृति} other {मैन्युअल अस्वीकृति ×#}}"
 }

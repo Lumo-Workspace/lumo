@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "主な成果",
   "milestone.rollup.noTasks": "タスクはまだありません",
   "milestone.rollup.noDates": "日付未設定",
-  "milestone.rollup.noOutcome": "振り返りの要約はまだありません"
+  "milestone.rollup.noOutcome": "振り返りの要約はまだありません",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "成果",
+  "milestone.outcome.empty": "納品済みのタスクはまだありません。タスクが完了すると、具体的な成果がここに表示されます。",
+  "milestone.outcome.claims.title": "納品された成果",
+  "milestone.outcome.claims.noClaim": "この納品には成果の申告記録がありません",
+  "milestone.outcome.claims.source.AGENT": "自己申告",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "実行サマリーより",
+  "milestone.outcome.claims.source.DIGEST": "セッションダイジェストより",
+  "milestone.outcome.fate.title": "納品後の顛末",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {全{done}件の納品に却下記録はありません——不確定であり、合格ではありません。} other {#件のタスクに却下シグナルがあります。{inconclusive}件の納品には却下記録がありません(不確定)。}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {リバート} other {リバート ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {再オープン} other {再オープン ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {ロールバック} other {ロールバック ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CIリグレッション} other {CIリグレッション ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {後続で方針転換} other {後続で方針転換 ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {迂回} other {迂回 ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}"
 }

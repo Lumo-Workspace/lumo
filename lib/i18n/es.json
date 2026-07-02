@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "Resultado clave",
   "milestone.rollup.noTasks": "Aún no hay tareas",
   "milestone.rollup.noDates": "Sin fechas definidas",
-  "milestone.rollup.noOutcome": "Aún no hay resumen de retro"
+  "milestone.rollup.noOutcome": "Aún no hay resumen de retro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "Resultado",
+  "milestone.outcome.empty": "Aún no hay tareas entregadas: los resultados concretos aparecerán aquí cuando las tareas se completen.",
+  "milestone.outcome.claims.title": "Resultados entregados",
+  "milestone.outcome.claims.noClaim": "Sin declaración registrada para esta entrega",
+  "milestone.outcome.claims.source.AGENT": "autoinformado",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "del resumen de ejecución",
+  "milestone.outcome.claims.source.DIGEST": "del extracto de la sesión",
+  "milestone.outcome.fate.title": "Destino tras la entrega",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Sin rechazo registrado en {done, plural, one {la entrega} other {las # entregas}} — no concluyente, no es un aprobado.} one {# tarea recibió señales de rechazo; {inconclusive, plural, one {# entrega} other {# entregas}} sin rechazo registrado (no concluyente).} other {# tareas recibieron señales de rechazo; {inconclusive, plural, one {# entrega} other {# entregas}} sin rechazo registrado (no concluyente).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {revertido} other {revertido ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {reabierto} other {reabierto ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {despliegue revertido} other {despliegue revertido ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresión de CI} other {regresión de CI ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirigido más adelante} other {redirigido más adelante ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {eludido} other {eludido ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}"
 }

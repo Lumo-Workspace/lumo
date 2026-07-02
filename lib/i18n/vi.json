@@ -1909,5 +1909,22 @@
   "milestone.rollup.keyOutcome": "Kết quả chính",
   "milestone.rollup.noTasks": "Chưa có nhiệm vụ",
   "milestone.rollup.noDates": "Chưa đặt ngày",
-  "milestone.rollup.noOutcome": "Chưa có tóm tắt retro"
+  "milestone.rollup.noOutcome": "Chưa có tóm tắt retro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.outcome.title": "Kết quả",
+  "milestone.outcome.empty": "Chưa có nhiệm vụ nào được bàn giao — kết quả cụ thể sẽ hiển thị tại đây khi nhiệm vụ hoàn thành.",
+  "milestone.outcome.claims.title": "Kết quả đã bàn giao",
+  "milestone.outcome.claims.noClaim": "Không có tuyên bố nào được ghi lại cho lần bàn giao này",
+  "milestone.outcome.claims.source.AGENT": "tự báo cáo",
+  "milestone.outcome.claims.source.RUN_SUMMARY": "từ bản tóm tắt phiên chạy",
+  "milestone.outcome.claims.source.DIGEST": "từ bản trích lược phiên",
+  "milestone.outcome.fate.title": "Số phận sau bàn giao",
+  "milestone.outcome.fate.summary": "{rejected, plural, =0 {Không có ghi nhận từ chối nào cho {done} lần bàn giao — chưa kết luận, không phải là đạt.} other {# nhiệm vụ có tín hiệu từ chối; {inconclusive} lần bàn giao không có ghi nhận từ chối (chưa kết luận).}}",
+  "milestone.outcome.fate.kind.REVERTED": "{count, plural, =1 {bị revert} other {bị revert ×#}}",
+  "milestone.outcome.fate.kind.REOPENED": "{count, plural, =1 {mở lại} other {mở lại ×#}}",
+  "milestone.outcome.fate.kind.ROLLED_BACK": "{count, plural, =1 {bị rollback} other {bị rollback ×#}}",
+  "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {hồi quy CI} other {hồi quy CI ×#}}",
+  "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {bị chuyển hướng sau đó} other {bị chuyển hướng sau đó ×#}}",
+  "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bị bỏ qua} other {bị bỏ qua ×#}}",
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}"
 }
