@@ -16,7 +16,13 @@
  *   npx tsx scripts/backfill-pr-change-volume.ts             # apply (authorized runs only)
  */
 import { config } from 'dotenv'
+// Same env posture as the claim-audit scripts: the prod DB URL comes from
+// .env.production (loaded FIRST — dotenv never overrides, so it wins), while
+// the GitHub App credentials (GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY) live
+// only in .env.local. Without the second load every fetch skips with
+// "Missing GitHub App env vars".
 config({ path: '.env.production' })
+config({ path: '.env.local' })
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run')
