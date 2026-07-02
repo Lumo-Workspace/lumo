@@ -23,6 +23,16 @@ export interface ApiMilestone {
    * `null` when no light applies (terminal status or no target date).
    */
   health?: MilestoneHealth | null
+  /**
+   * Staleness hints (LUM-624). Server-enriched on the detail response:
+   * `statusDrift` carries the task-derived status when the stored one lags
+   * behind task completion (the server self-heals it in the background);
+   * `datesMissing` flags an in-flight milestone with no target date.
+   */
+  staleness?: {
+    statusDrift: MilestoneStatus | null
+    datesMissing: boolean
+  }
   sprintCoverage?: {
     sprints: Array<{
       sprintId: string
@@ -34,6 +44,35 @@ export interface ApiMilestone {
     }>
     unsprinted: number
   } | null
+  /**
+   * LUM-626 outcome rollup. Server-enriched on the detail response only.
+   * Fate is falsifier-shaped: rejected (≥1 well signal) or inconclusive
+   * (no rejection on record) — there is no satisfied/pass state.
+   */
+  outcome?: {
+    claims: Array<{
+      taskId: string
+      ref: string
+      title: string
+      claim: string | null
+      source: string | null
+    }>
+    fate: {
+      doneCount: number
+      rejected: Array<{
+        taskId: string
+        ref: string
+        title: string
+        kinds: Array<{ kind: string; count: number }>
+      }>
+      inconclusiveCount: number
+    }
+  } | null
+  /**
+   * One-line key outcome from the generated retro (MilestoneSummary.tldr).
+   * Server-enriched on detail responses; `null` until a retro is generated.
+   */
+  summaryTldr?: string | null
 }
 
 export interface MilestoneCreateInput {

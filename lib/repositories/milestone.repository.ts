@@ -100,6 +100,24 @@ export const milestoneRepository = {
     })
   },
 
+  /**
+   * Guarded status write for the rollup reconciler: only applies when the row
+   * still holds `expectedStatus`, so a concurrent manual status change (e.g.
+   * a human setting CANCELLED) is never clobbered by a stale derivation.
+   * Returns true when the row was updated.
+   */
+  async updateStatusIfCurrent(
+    id: string,
+    expectedStatus: Milestone['status'],
+    data: Pick<MilestoneUpdate, 'status' | 'completedAt'>
+  ): Promise<boolean> {
+    const result = await prisma.milestone.updateMany({
+      where: { id, status: expectedStatus },
+      data,
+    })
+    return result.count === 1
+  },
+
   async delete(id: string) {
     return prisma.milestone.delete({ where: { id } })
   },
@@ -167,6 +185,43 @@ export const milestoneRepository = {
       status: r.status,
       count: r._count._all,
     }))
+  },
+
+  /**
+   * Raw rows for the LUM-626 outcome rollup: every member task's frozen claim
+   * fields plus the outcome well's `(taskId, kind)` rejection-signal counts
+   * across ALL member tasks (a reopened task keeps its signals visible).
+   */
+  async outcomeRollupRows(milestoneId: string) {
+    const tasks = await prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        claimSnapshot: true,
+        claimSnapshotSource: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { number: 'asc' },
+    })
+    if (tasks.length === 0) {
+      return { tasks, signalCounts: [] }
+    }
+    const grouped = await prisma.outcomeSignal.groupBy({
+      by: ['taskId', 'kind'],
+      where: { taskId: { in: tasks.map(t => t.id) } },
+      _count: { _all: true },
+    })
+    return {
+      tasks,
+      signalCounts: grouped.map(g => ({
+        taskId: g.taskId,
+        kind: g.kind,
+        count: g._count._all,
+      })),
+    }
   },
 }
 

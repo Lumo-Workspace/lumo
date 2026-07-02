@@ -3,7 +3,9 @@ import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
 
 interface Params {
@@ -22,12 +24,27 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
-      milestoneId,
-      teamId
+    // LUM-624: staleness hints for the payload; a detected status drift also
+    // dispatches a background reconcile so stale rows self-heal on read.
+    const staleness = milestoneRollupService.observeOnRead(
+      milestone,
+      taskCounts
     )
+    const [sprintCoverage, outcome, summary] = await Promise.all([
+      milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
+      milestoneService.getOutcomeForMilestone(milestoneId),
+      milestoneSummaryRepository.findByMilestoneId(milestoneId),
+    ])
     return NextResponse.json({
-      milestone: { ...milestone, taskCounts, health, sprintCoverage },
+      milestone: {
+        ...milestone,
+        taskCounts,
+        health,
+        staleness,
+        sprintCoverage,
+        outcome,
+        summaryTldr: summary?.tldr ?? null,
+      },
     })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

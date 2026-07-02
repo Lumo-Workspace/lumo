@@ -19,6 +19,14 @@ interface MilestoneSidebarProps {
   startDate: string | null
   targetDate: string | null
   archived: boolean
+  /**
+   * Task-derived status when the stored one lags task completion (LUM-624).
+   * The server self-heals the drift in the background; the hint explains the
+   * transient mismatch instead of leaving a silently-wrong status.
+   */
+  statusDrift?: MilestoneStatus | null
+  /** In-flight milestone with no target date — schedule health unavailable. */
+  datesMissing?: boolean
   onUpdate: (fields: MilestoneUpdateInput) => void
 }
 
@@ -32,6 +40,8 @@ export function MilestoneSidebar({
   startDate,
   targetDate,
   archived,
+  statusDrift = null,
+  datesMissing = false,
   onUpdate,
 }: MilestoneSidebarProps) {
   const intl = useIntl()
@@ -51,7 +61,10 @@ export function MilestoneSidebar({
             onValueChange={v => onUpdate({ status: v as MilestoneStatus })}
             disabled={archived}
           >
-            <SelectTrigger id={`${fieldId}-status`} className='h-7 w-full text-xs'>
+            <SelectTrigger
+              id={`${fieldId}-status`}
+              className='h-7 w-full text-xs'
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -68,6 +81,18 @@ export function MilestoneSidebar({
             </span>
           ) : null}
         </div>
+        {statusDrift ? (
+          <p className='mt-1 text-xs text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'milestone.staleness.statusDrift' },
+              {
+                status: intl.formatMessage({
+                  id: `milestone.status.${statusDrift}`,
+                }),
+              }
+            )}
+          </p>
+        ) : null}
       </section>
 
       <section>
@@ -102,6 +127,11 @@ export function MilestoneSidebar({
           disabled={archived}
           onChange={e => onUpdate({ targetDate: e.target.value || null })}
         />
+        {datesMissing ? (
+          <p className='mt-1 text-xs text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.staleness.datesMissing' })}
+          </p>
+        ) : null}
       </section>
     </div>
   )

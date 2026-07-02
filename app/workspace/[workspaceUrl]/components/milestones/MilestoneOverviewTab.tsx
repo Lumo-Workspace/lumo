@@ -6,16 +6,32 @@ import type { WorkspaceMemberInfo } from '../../types'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { TypographyH3 } from '@/components/ui/typography'
 import { useMentionSources } from '../../hooks/useMentionSources'
+import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
+import { MilestoneRollupBar } from './MilestoneRollupBar'
 
 interface MilestoneOverviewTabProps {
-  milestone: Pick<ApiMilestone, 'id' | 'name' | 'description'>
+  milestone: Pick<
+    ApiMilestone,
+    | 'id'
+    | 'name'
+    | 'description'
+    | 'startDate'
+    | 'targetDate'
+    | 'taskCounts'
+    | 'health'
+    | 'summaryTldr'
+    | 'outcome'
+  >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, so the description editor can @-mention people. */
   members: WorkspaceMemberInfo[]
   archived?: boolean
 }
 
-/** Overview tab: inline-editable name + description. Mirrors ProjectOverviewTab. */
+/**
+ * Overview tab: decision-first rollup bar (completion / health / time span /
+ * key outcome) first, then the inline-editable name + demoted description.
+ */
 export function MilestoneOverviewTab({
   milestone,
   onUpdate,
@@ -57,6 +73,14 @@ export function MilestoneOverviewTab({
         </TypographyH3>
       </div>
 
+      <MilestoneRollupBar
+        taskCounts={milestone.taskCounts ?? null}
+        health={milestone.health ?? null}
+        startDate={milestone.startDate}
+        targetDate={milestone.targetDate}
+        summaryTldr={milestone.summaryTldr ?? null}
+      />
+
       <div className='max-w-3xl'>
         <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3'>
           {intl.formatMessage({ id: 'milestone.field.description' })}
@@ -71,6 +95,8 @@ export function MilestoneOverviewTab({
           mentionSources={mentionSources}
         />
       </div>
+
+      <MilestoneOutcomeSection outcome={milestone.outcome} />
     </div>
   )
 }
