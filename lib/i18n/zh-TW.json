@@ -791,6 +791,8 @@
   "milestone.status.ACTIVE": "進行中",
   "milestone.status.COMPLETED": "已完成",
   "milestone.status.CANCELLED": "已取消",
+  "milestone.staleness.statusDrift": "任務進度顯示應為{status}——正在自動更新",
+  "milestone.staleness.datesMissing": "未設定目標日期——無法計算進度健康度",
   "milestone.progress": "{done}/{total} 項任務",
   "milestone.targetDate.none": "無目標日期",
   "milestone.health.on-track": "正常",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 回歸} other {CI 回歸 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {被下游改道} other {被下游改道 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {被繞過} other {被繞過 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "진행 중",
   "milestone.status.COMPLETED": "완료됨",
   "milestone.status.CANCELLED": "취소됨",
+  "milestone.staleness.statusDrift": "작업 진행 상황이 {status} 상태를 나타냅니다 — 자동으로 업데이트 중",
+  "milestone.staleness.datesMissing": "목표일이 설정되지 않았습니다 — 일정 상태를 계산할 수 없습니다",
   "milestone.progress": "{done}/{total}개 작업",
   "milestone.targetDate.none": "목표일 없음",
   "milestone.health.on-track": "정상",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 회귀} other {CI 회귀 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {후속 작업에서 방향 전환} other {후속 작업에서 방향 전환 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {우회됨} other {우회됨 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

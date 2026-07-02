@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "進行中",
   "milestone.status.COMPLETED": "完了",
   "milestone.status.CANCELLED": "中止",
+  "milestone.staleness.statusDrift": "タスクの進捗は{status}を示しています — 自動的に更新中",
+  "milestone.staleness.datesMissing": "目標日が未設定です — スケジュールの健全性を計算できません",
   "milestone.progress": "{done}/{total} 件のタスク",
   "milestone.targetDate.none": "目標日なし",
   "milestone.health.on-track": "順調",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CIリグレッション} other {CIリグレッション ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {後続で方針転換} other {後続で方針転換 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {迂回} other {迂回 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

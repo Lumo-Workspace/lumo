@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "Activo",
   "milestone.status.COMPLETED": "Completado",
   "milestone.status.CANCELLED": "Cancelado",
+  "milestone.staleness.statusDrift": "El progreso de las tareas indica {status} — actualizando automáticamente",
+  "milestone.staleness.datesMissing": "Sin fecha objetivo — estado del calendario no disponible",
   "milestone.progress": "{done}/{total} tareas",
   "milestone.targetDate.none": "Sin fecha objetivo",
   "milestone.health.on-track": "A tiempo",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresión de CI} other {regresión de CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirigido más adelante} other {redirigido más adelante ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {eludido} other {eludido ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

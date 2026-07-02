@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "Aktif",
   "milestone.status.COMPLETED": "Selesai",
   "milestone.status.CANCELLED": "Dibatalkan",
+  "milestone.staleness.statusDrift": "Progres tugas menunjukkan {status} — memperbarui secara otomatis",
+  "milestone.staleness.datesMissing": "Tanggal target belum diatur — kesehatan jadwal tidak tersedia",
   "milestone.progress": "{done}/{total} tugas",
   "milestone.targetDate.none": "Tanpa tanggal target",
   "milestone.health.on-track": "Sesuai jadwal",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresi CI} other {regresi CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {dialihkan kemudian} other {dialihkan kemudian ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {dilewati} other {dilewati ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

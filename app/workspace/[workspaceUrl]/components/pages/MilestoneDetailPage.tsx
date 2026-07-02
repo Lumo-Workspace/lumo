@@ -209,6 +209,8 @@ export function MilestoneDetailPage({
             startDate={milestone.startDate}
             targetDate={milestone.targetDate}
             archived={archived}
+            statusDrift={milestone.staleness?.statusDrift ?? null}
+            datesMissing={milestone.staleness?.datesMissing ?? false}
             onUpdate={handleUpdate}
           />
         </div>

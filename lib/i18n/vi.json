@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "Đang hoạt động",
   "milestone.status.COMPLETED": "Hoàn thành",
   "milestone.status.CANCELLED": "Đã huỷ",
+  "milestone.staleness.statusDrift": "Tiến độ công việc cho thấy trạng thái {status} — đang tự động cập nhật",
+  "milestone.staleness.datesMissing": "Chưa đặt ngày mục tiêu — không thể tính tình trạng tiến độ",
   "milestone.progress": "{done}/{total} nhiệm vụ",
   "milestone.targetDate.none": "Không có ngày mục tiêu",
   "milestone.health.on-track": "Đúng tiến độ",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {hồi quy CI} other {hồi quy CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {bị chuyển hướng sau đó} other {bị chuyển hướng sau đó ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bị bỏ qua} other {bị bỏ qua ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

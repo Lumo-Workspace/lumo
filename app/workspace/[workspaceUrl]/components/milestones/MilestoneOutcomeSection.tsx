@@ -118,12 +118,14 @@ export function MilestoneOutcomeSection({
                     <span className='shrink-0 text-xs text-muted-foreground'>
                       {r.kinds
                         .map(k =>
-                          KNOWN_KINDS.has(k.kind)
-                            ? intl.formatMessage(
-                                { id: `milestone.outcome.fate.kind.${k.kind}` },
-                                { count: k.count }
-                              )
-                            : `${k.kind} ×${k.count}`
+                          intl.formatMessage(
+                            {
+                              id: KNOWN_KINDS.has(k.kind)
+                                ? `milestone.outcome.fate.kind.${k.kind}`
+                                : 'milestone.outcome.fate.kind.UNKNOWN',
+                            },
+                            { kind: k.kind, count: k.count }
+                          )
                         )
                         .join(' · ')}
                     </span>

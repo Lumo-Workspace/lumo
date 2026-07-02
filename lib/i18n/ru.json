@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "Активна",
   "milestone.status.COMPLETED": "Завершена",
   "milestone.status.CANCELLED": "Отменена",
+  "milestone.staleness.statusDrift": "Прогресс задач указывает на статус {status} — обновляется автоматически",
+  "milestone.staleness.datesMissing": "Целевая дата не задана — оценка графика недоступна",
   "milestone.progress": "{done}/{total} задач",
   "milestone.targetDate.none": "Без даты",
   "milestone.health.on-track": "По плану",
@@ -1915,5 +1917,6 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {регрессия CI} other {регрессия CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {пересмотрено позже} other {пересмотрено позже ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {обойдено} other {обойдено ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
 }

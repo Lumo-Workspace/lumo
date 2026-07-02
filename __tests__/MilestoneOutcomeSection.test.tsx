@@ -95,7 +95,7 @@ describe('MilestoneOutcomeSection', () => {
       )
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/milestone\.outcome\.fate\.kind\.REVERTED count=1/)
+      screen.getByText(/milestone\.outcome\.fate\.kind\.REVERTED.*count=1/)
     ).toBeInTheDocument()
     expect(screen.getAllByText('LUM-283')).toHaveLength(2)
   })
