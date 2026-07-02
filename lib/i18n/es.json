@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "Activo",
   "milestone.status.COMPLETED": "Completado",
   "milestone.status.CANCELLED": "Cancelado",
+  "milestone.staleness.statusDrift": "El progreso de las tareas indica {status} — actualizando automáticamente",
+  "milestone.staleness.datesMissing": "Sin fecha objetivo — estado del calendario no disponible",
   "milestone.progress": "{done}/{total} tareas",
   "milestone.targetDate.none": "Sin fecha objetivo",
   "milestone.health.on-track": "A tiempo",

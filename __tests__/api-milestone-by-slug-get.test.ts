@@ -19,11 +19,15 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/repositories/milestone-summary.repository', () => ({
   milestoneSummaryRepository: { findByMilestoneId: jest.fn() },
 }))
+jest.mock('@/lib/services/milestone-rollup.service', () => ({
+  milestoneRollupService: { observeOnRead: jest.fn() },
+}))
 
 import { GET } from '@/app/api/projects/[id]/milestones/by-slug/[slug]/route'
 import { requireIdentity } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 
@@ -33,6 +37,7 @@ const mockBySlug = milestoneService.getMilestoneBySlug as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
+const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -41,6 +46,8 @@ beforeEach(() => {
   mockCoverage.mockReset()
   mockCount.mockReset()
   mockSummary.mockReset()
+  mockObserve.mockReset()
+  mockObserve.mockReturnValue({ statusDrift: null, datesMissing: false })
 })
 
 const params = { params: Promise.resolve({ id: 'p-1', slug: 'q3' }) }
@@ -86,6 +93,11 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
       summaryTldr: 'Cut first-load JS by 298KB',
     })
     expect(body.milestone).toHaveProperty('health', null)
+    // LUM-624 staleness hints ride along on the slug read path too.
+    expect(body.milestone).toMatchObject({
+      staleness: { statusDrift: null, datesMissing: false },
+    })
+    expect(mockObserve).toHaveBeenCalled()
     // Coverage reuses the project's team — no re-resolution.
     expect(mockCoverage).toHaveBeenCalledWith('m-1', 'team-1')
   })

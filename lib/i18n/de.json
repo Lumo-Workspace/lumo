@@ -641,6 +641,8 @@
   "milestone.status.ACTIVE": "Aktiv",
   "milestone.status.COMPLETED": "Abgeschlossen",
   "milestone.status.CANCELLED": "Abgebrochen",
+  "milestone.staleness.statusDrift": "Der Aufgabenfortschritt deutet auf {status} hin — wird automatisch aktualisiert",
+  "milestone.staleness.datesMissing": "Kein Zieldatum festgelegt — Zeitplan-Status nicht verfügbar",
   "milestone.progress": "{done}/{total} Aufgaben",
   "milestone.targetDate.none": "Kein Zieldatum",
   "milestone.health.on-track": "Im Plan",

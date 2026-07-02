@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "Aktif",
   "milestone.status.COMPLETED": "Selesai",
   "milestone.status.CANCELLED": "Dibatalkan",
+  "milestone.staleness.statusDrift": "Kemajuan tugasan menunjukkan {status} — sedang dikemas kini secara automatik",
+  "milestone.staleness.datesMissing": "Tiada tarikh sasaran ditetapkan — kesihatan jadual tidak tersedia",
   "milestone.progress": "{done}/{total} tugas",
   "milestone.targetDate.none": "Tanpa tarikh sasaran",
   "milestone.health.on-track": "Mengikut jadual",

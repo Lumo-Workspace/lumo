@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestone.id
     )
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
+    // LUM-624 staleness hints + self-heal apply on this read path too — the
+    // detail page resolves canonical slug URLs here, not via by-id.
+    const staleness = milestoneRollupService.observeOnRead(
+      milestone,
+      taskCounts
+    )
     const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
       milestone.id,
       project.teamId
@@ -44,6 +51,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         ...milestone,
         taskCounts,
         health,
+        staleness,
         sprintCoverage,
         summaryTldr: summary?.tldr ?? null,
       },

@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
@@ -23,6 +24,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
+    // LUM-624: staleness hints for the payload; a detected status drift also
+    // dispatches a background reconcile so stale rows self-heal on read.
+    const staleness = milestoneRollupService.observeOnRead(
+      milestone,
+      taskCounts
+    )
     const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
       milestoneId,
       teamId
@@ -34,6 +41,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         ...milestone,
         taskCounts,
         health,
+        staleness,
         sprintCoverage,
         summaryTldr: summary?.tldr ?? null,
       },

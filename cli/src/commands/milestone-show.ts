@@ -27,6 +27,17 @@ export interface MilestoneShowData {
   }
   /** Target-date health light. Server-enriched; null when no light applies. */
   health?: MilestoneHealth | null | undefined
+  /**
+   * Staleness hints (LUM-624). `statusDrift` = the task-derived status when
+   * the stored one lags task completion (the server self-heals it in the
+   * background); `datesMissing` = in-flight milestone with no target date.
+   */
+  staleness?:
+    | {
+        statusDrift: string | null
+        datesMissing: boolean
+      }
+    | undefined
   /** Read-only sprint coverage derived from the milestone's tasks. */
   sprintCoverage?:
     | {
@@ -93,13 +104,19 @@ export function formatMilestoneShow(
     m.taskCounts.IN_PROGRESS +
     m.taskCounts.IN_REVIEW +
     m.taskCounts.DONE
+  const statusLine = m.staleness?.statusDrift
+    ? `Status:       ${m.status}  (stale — task progress indicates ${sanitizeField(m.staleness.statusDrift)}; auto-updating)`
+    : `Status:       ${m.status}`
+  const targetLine = m.staleness?.datesMissing
+    ? `Target:       ${fmtDate(m.targetDate)}  (no target date — schedule health unavailable)`
+    : `Target:       ${fmtDate(m.targetDate)}`
   const lines = [
     `Milestone:    ${sanitizeField(m.name)}`,
-    `Status:       ${m.status}`,
+    statusLine,
     `Archived:     ${m.archivedAt ? m.archivedAt.slice(0, 10) : 'no'}`,
     `Health:       ${fmtHealth(m.health)}`,
     `Start:        ${fmtDate(m.startDate)}`,
-    `Target:       ${fmtDate(m.targetDate)}`,
+    targetLine,
     `Project:      ${sanitizeField(m.projectName)}`,
     `Description:`,
     `  ${m.description && m.description.length > 0 ? sanitizeField(m.description) : '-'}`,
@@ -182,6 +199,7 @@ export async function milestoneShow(
       projectId: string
       taskCounts: MilestoneShowData['taskCounts']
       health?: MilestoneHealth | null
+      staleness?: MilestoneShowData['staleness']
       sprintCoverage?: MilestoneShowData['sprintCoverage']
     }
   }
@@ -215,6 +233,7 @@ export async function milestoneShow(
         projectName,
         taskCounts: milestone.taskCounts,
         health: milestone.health,
+        staleness: milestone.staleness,
         sprintCoverage: milestone.sprintCoverage,
       },
       tasks

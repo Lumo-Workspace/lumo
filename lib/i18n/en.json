@@ -964,6 +964,8 @@
   "milestone.status.ACTIVE": "Active",
   "milestone.status.COMPLETED": "Completed",
   "milestone.status.CANCELLED": "Cancelled",
+  "milestone.staleness.statusDrift": "Task progress indicates {status} — updating automatically",
+  "milestone.staleness.datesMissing": "No target date set — schedule health unavailable",
   "milestone.progress": "{done}/{total} tasks",
   "milestone.targetDate.none": "No target date",
   "milestone.health.on-track": "On track",

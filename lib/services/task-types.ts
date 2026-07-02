@@ -39,6 +39,8 @@ export interface TaskUpdateResult {
   changedFields: string[]
   oldStatus: string
   oldAssigneeActorId: string | null
+  /** Pre-update milestone binding, so side effects can reconcile a milestone the task just left. */
+  oldMilestoneId: string | null
 }
 
 /** Minimal shape of a task detail needed by updateTaskWithSideEffects. */

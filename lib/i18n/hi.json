@@ -642,6 +642,8 @@
   "milestone.status.ACTIVE": "सक्रिय",
   "milestone.status.COMPLETED": "पूर्ण",
   "milestone.status.CANCELLED": "रद्द",
+  "milestone.staleness.statusDrift": "कार्य प्रगति {status} दर्शाती है — स्वचालित रूप से अपडेट हो रहा है",
+  "milestone.staleness.datesMissing": "कोई लक्ष्य तिथि निर्धारित नहीं — शेड्यूल स्वास्थ्य उपलब्ध नहीं",
   "milestone.progress": "{done}/{total} कार्य",
   "milestone.targetDate.none": "कोई लक्ष्य तिथि नहीं",
   "milestone.health.on-track": "समय पर",

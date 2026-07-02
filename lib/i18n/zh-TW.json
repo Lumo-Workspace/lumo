@@ -791,6 +791,8 @@
   "milestone.status.ACTIVE": "進行中",
   "milestone.status.COMPLETED": "已完成",
   "milestone.status.CANCELLED": "已取消",
+  "milestone.staleness.statusDrift": "任務進度顯示應為{status}——正在自動更新",
+  "milestone.staleness.datesMissing": "未設定目標日期——無法計算進度健康度",
   "milestone.progress": "{done}/{total} 項任務",
   "milestone.targetDate.none": "無目標日期",
   "milestone.health.on-track": "正常",
