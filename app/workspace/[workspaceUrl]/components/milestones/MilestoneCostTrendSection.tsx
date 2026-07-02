@@ -31,6 +31,15 @@ function fmtTokens(n: number): string {
   return TOKEN_FMT.format(n)
 }
 
+/**
+ * LUM-634 — compact `+adds/−dels` change-volume reading (same compact
+ * notation as the token formatter, per the task-level convention). Only ever
+ * called with MEASURED sums — the unsynced state renders text, never +0/−0.
+ */
+function fmtVolume(additions: number, deletions: number): string {
+  return `+${TOKEN_FMT.format(additions)}/−${TOKEN_FMT.format(deletions)}`
+}
+
 /** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
 function fmtDuration(totalSec: number): string {
   const sec = Math.max(0, Math.round(totalSec))
@@ -223,6 +232,46 @@ export function MilestoneCostTrendSection({
                   })}
                 </dd>
               </div>
+              {deliveryStats.changeVolume && (
+                <div>
+                  {label('milestone.changeVolume.title')}
+                  <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                    {deliveryStats.changeVolume.totalMergedPrs === 0 ? (
+                      <span className='font-normal text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'milestone.deliveryStats.noPrRecords',
+                        })}
+                      </span>
+                    ) : deliveryStats.changeVolume.additions === null ||
+                      deliveryStats.changeVolume.deletions === null ? (
+                      // Unsynced ≠ 0: zero measured PRs reads as an explicit
+                      // not-synced state, never a fabricated +0/−0.
+                      <span className='font-normal text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'milestone.changeVolume.notSynced',
+                        })}
+                      </span>
+                    ) : (
+                      fmtVolume(
+                        deliveryStats.changeVolume.additions,
+                        deliveryStats.changeVolume.deletions
+                      )
+                    )}
+                  </dd>
+                  <dd className='mt-0.5 text-xs text-muted-foreground'>
+                    {intl.formatMessage(
+                      { id: 'milestone.changeVolume.coverage' },
+                      {
+                        measured: deliveryStats.changeVolume.measuredPrs,
+                        total: deliveryStats.changeVolume.totalMergedPrs,
+                      }
+                    )}
+                  </dd>
+                  <dd className='mt-0.5 text-xs text-muted-foreground'>
+                    {intl.formatMessage({ id: 'milestone.changeVolume.note' })}
+                  </dd>
+                </div>
+              )}
             </>
           )}
         </dl>
@@ -274,6 +323,9 @@ function PerMemberTable({
               <th className='pb-1.5 text-right font-semibold'>
                 {intl.formatMessage({ id: 'milestone.costTrend.activeTime' })}
               </th>
+              <th className='pb-1.5 text-right font-semibold'>
+                {intl.formatMessage({ id: 'milestone.changeVolume.column' })}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -300,6 +352,22 @@ function PerMemberTable({
                 </td>
                 <td className='py-1.5 text-right tabular-nums'>
                   {fmtDuration(row.activeTimeSec)}
+                </td>
+                <td className='py-1.5 text-right tabular-nums'>
+                  {row.changeVolume ? (
+                    fmtVolume(
+                      row.changeVolume.additions,
+                      row.changeVolume.deletions
+                    )
+                  ) : (
+                    // No measured merged PR attributes to this member —
+                    // an explicit state, never a fabricated +0/−0.
+                    <span className='text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'milestone.changeVolume.memberNone',
+                      })}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

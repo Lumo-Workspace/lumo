@@ -117,9 +117,27 @@ describe('computeMilestoneDeliveryStats', () => {
     expect(stats.perMember.tokenCost).toBe(220)
     expect(stats.perMember.activeTimeSec).toBe(105)
     expect(stats.perMember.rows).toEqual([
-      { memberId: 'mA', label: 'Alice', tokenCost: 200, activeTimeSec: 60 },
-      { memberId: 'mB', label: 'Bob', tokenCost: 0, activeTimeSec: 30 },
-      { memberId: null, label: null, tokenCost: 20, activeTimeSec: 15 },
+      {
+        memberId: 'mA',
+        label: 'Alice',
+        tokenCost: 200,
+        activeTimeSec: 60,
+        changeVolume: null,
+      },
+      {
+        memberId: 'mB',
+        label: 'Bob',
+        tokenCost: 0,
+        activeTimeSec: 30,
+        changeVolume: null,
+      },
+      {
+        memberId: null,
+        label: null,
+        tokenCost: 20,
+        activeTimeSec: 15,
+        changeVolume: null,
+      },
     ])
   })
 
@@ -211,7 +229,13 @@ describe('computeMilestoneDeliveryStats', () => {
     expect(unmeasured.perMember.tokenCost).toBeNull()
     expect(unmeasured.changedFiles.total).toBeNull()
     expect(unmeasured.perMember.rows).toEqual([
-      { memberId: 'mA', label: 'mA', tokenCost: 0, activeTimeSec: 30 },
+      {
+        memberId: 'mA',
+        label: 'mA',
+        tokenCost: 0,
+        activeTimeSec: 30,
+        changeVolume: null,
+      },
     ])
   })
 })

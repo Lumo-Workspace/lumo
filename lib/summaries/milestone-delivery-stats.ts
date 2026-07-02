@@ -3,10 +3,17 @@ import {
   type TaskTurnEvent,
 } from '@/lib/agent-run/active-time'
 
-/** One PR row as fetched for the rollup (taskId + state only). */
+/** One PR row as fetched for the rollup. */
 export interface DeliveryPrRow {
   taskId: string | null
   state: string
+  /** LUM-634 change-volume columns. `null`/absent = not synced/backfilled —
+   * excluded from sums and counted against coverage, NEVER read as 0
+   * (0 is a real zero-change PR). Optional so pre-634 rows degrade to
+   * "unsynced" instead of breaking callers. */
+  additions?: number | null
+  deletions?: number | null
+  changedFiles?: number | null
 }
 
 /** One TaskComplexity row projected to the change-surface sum. */
@@ -38,6 +45,16 @@ export interface MilestoneDeliveryMemberRow {
   label: string | null
   tokenCost: number
   activeTimeSec: number
+  /** LUM-634 — change volume of the measured merged PRs attributed to this
+   * member (task → the member with the largest token spend on that task's
+   * sessions, same source as the cost attribution; deterministic tiebreak by
+   * memberId). `null` = no measured merged PR attributes here (unsynced PRs
+   * or no delivery) — fail-closed, never a fabricated `+0/−0`. */
+  changeVolume: {
+    additions: number
+    deletions: number
+    measuredPrs: number
+  } | null
 }
 
 export interface MilestoneDeliveryStats {
@@ -61,6 +78,21 @@ export interface MilestoneDeliveryStats {
     total: number | null
     measuredTasks: number
     totalTasks: number
+  }
+  /** LUM-634 — line-level change volume summed over the member tasks' merged
+   * PRs. Three-state fail-closed: a PR with null columns is UNSYNCED (excluded
+   * from the sums, counted against coverage), a 0 is a real zero-change PR
+   * (included), and a milestone with zero measured PRs reads `null` totals —
+   * never a fabricated 0. Audit semantics: change exposure / review load,
+   * never output. */
+  changeVolume: {
+    additions: number | null
+    deletions: number | null
+    changedFiles: number | null
+    /** Merged PRs with all three columns synced (the sum basis). */
+    measuredPrs: number
+    /** All merged PRs of member tasks — the coverage denominator. */
+    totalMergedPrs: number
   }
   perMember: {
     /** Same measured gate as the LUM-627 costRollup: tasks with ≥1
@@ -155,6 +187,42 @@ export function computeMilestoneDeliveryStats(
     if (count > 1) multiPrTaskCount++
   }
 
+  // ---- Change volume (LUM-634): three-state fail-closed ------------------
+  // A merged PR is "measured" only when ALL THREE columns are synced (webhook
+  // and backfill always write them together). Unsynced PRs are excluded from
+  // the sums and show up as the coverage gap; 0 is a real zero and IS summed.
+  let totalMergedPrs = 0
+  let measuredPrs = 0
+  let addSum = 0
+  let delSum = 0
+  let filesSum = 0
+  const volumeByTask = new Map<
+    string,
+    { additions: number; deletions: number; measuredPrs: number }
+  >()
+  for (const pr of prRows) {
+    if (pr.state !== 'merged') continue
+    if (pr.taskId === null || !taskIdSet.has(pr.taskId)) continue
+    totalMergedPrs++
+    const { additions, deletions, changedFiles } = pr
+    if (additions == null || deletions == null || changedFiles == null) {
+      continue
+    }
+    measuredPrs++
+    addSum += additions
+    delSum += deletions
+    filesSum += changedFiles
+    const acc = volumeByTask.get(pr.taskId) ?? {
+      additions: 0,
+      deletions: 0,
+      measuredPrs: 0,
+    }
+    acc.additions += additions
+    acc.deletions += deletions
+    acc.measuredPrs++
+    volumeByTask.set(pr.taskId, acc)
+  }
+
   // ---- Change surface ---------------------------------------------------
   const measuredComplexity = new Set<string>()
   let changedFilesSum = 0
@@ -201,17 +269,68 @@ export function computeMilestoneDeliveryStats(
   }
   const activeTimeSec = Math.round(totalMs / 1000)
 
+  // ---- Change-volume attribution (LUM-634) -------------------------------
+  // Same-source with the cost attribution: a task's measured merged-PR volume
+  // goes to the member with the LARGEST token spend on that task's sessions
+  // (deterministic tiebreak: lexicographically smallest memberId). A task
+  // with no member-attributable session lands in the explicit unattributed
+  // bucket — never silently dropped, so the per-member Σ always reconciles
+  // with the summary totals.
+  const tokensByTaskMember = new Map<string, Map<string, number>>()
+  for (const s of sessionRows) {
+    if (s.taskId === null || s.workspaceMemberId === null) continue
+    const perMemberTokens =
+      tokensByTaskMember.get(s.taskId) ?? new Map<string, number>()
+    perMemberTokens.set(
+      s.workspaceMemberId,
+      (perMemberTokens.get(s.workspaceMemberId) ?? 0) +
+        (s.inputTokens ?? 0) +
+        (s.outputTokens ?? 0) +
+        (s.cacheReadTokens ?? 0) +
+        (s.cacheCreationTokens ?? 0)
+    )
+    tokensByTaskMember.set(s.taskId, perMemberTokens)
+  }
+  const volumeByMember = new Map<
+    string | null,
+    { additions: number; deletions: number; measuredPrs: number }
+  >()
+  for (const [taskId, volume] of volumeByTask) {
+    let attributed: string | null = null
+    let best = -1
+    for (const [memberId, tokens] of tokensByTaskMember.get(taskId) ?? []) {
+      if (
+        tokens > best ||
+        (tokens === best && (attributed === null || memberId < attributed))
+      ) {
+        attributed = memberId
+        best = tokens
+      }
+    }
+    const acc = volumeByMember.get(attributed) ?? {
+      additions: 0,
+      deletions: 0,
+      measuredPrs: 0,
+    }
+    acc.additions += volume.additions
+    acc.deletions += volume.deletions
+    acc.measuredPrs += volume.measuredPrs
+    volumeByMember.set(attributed, acc)
+  }
+
   // ---- Rows: every member with a session, plus the unattributed bucket --
   const memberKeys: Array<string | null> = [
     ...new Set([
       ...sessionRows.map(s => s.workspaceMemberId),
       ...msByMember.keys(),
+      ...volumeByMember.keys(),
     ]),
   ]
   const hasUnattributed =
     memberKeys.includes(null) &&
     ((tokenByMember.get(null) ?? 0) > 0 ||
       (msByMember.get(null) ?? 0) > 0 ||
+      (volumeByMember.get(null)?.measuredPrs ?? 0) > 0 ||
       sessionRows.some(s => s.workspaceMemberId === null))
   const rowKeys = memberKeys.filter(
     (k): k is string | null => k !== null || hasUnattributed
@@ -226,6 +345,7 @@ export function computeMilestoneDeliveryStats(
       memberId === null ? null : (input.memberLabels.get(memberId) ?? memberId),
     tokenCost: tokenByMember.get(memberId) ?? 0,
     activeTimeSec: secByMember.get(memberId) ?? 0,
+    changeVolume: volumeByMember.get(memberId) ?? null,
   }))
   rows.sort((a, b) => {
     // Unattributed reads last, always.
@@ -254,6 +374,13 @@ export function computeMilestoneDeliveryStats(
       total: measuredComplexity.size > 0 ? changedFilesSum : null,
       measuredTasks: measuredComplexity.size,
       totalTasks: taskIds.length,
+    },
+    changeVolume: {
+      additions: measuredPrs > 0 ? addSum : null,
+      deletions: measuredPrs > 0 ? delSum : null,
+      changedFiles: measuredPrs > 0 ? filesSum : null,
+      measuredPrs,
+      totalMergedPrs,
     },
     perMember: {
       measuredTasks: measuredTasks.size,

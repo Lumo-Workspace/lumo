@@ -25,6 +25,12 @@ export interface UpsertPullRequestData {
   baseBranch: string
   isDraft: boolean
   mergeCommitSha?: string | null
+  // LUM-634: change volume from the webhook payload. null = the payload did
+  // not carry the field — the update path then leaves any existing (e.g.
+  // backfilled) value untouched; 0 is a real zero-change PR.
+  additions?: number | null
+  deletions?: number | null
+  changedFiles?: number | null
   mergedAt: Date | null
   closedAt: Date | null
 }
@@ -171,6 +177,9 @@ export const githubRepository = {
         baseBranch: data.baseBranch,
         isDraft: data.isDraft,
         mergeCommitSha: data.mergeCommitSha ?? null,
+        additions: data.additions ?? null,
+        deletions: data.deletions ?? null,
+        changedFiles: data.changedFiles ?? null,
         mergedAt: data.mergedAt,
         closedAt: data.closedAt,
       },
@@ -184,6 +193,14 @@ export const githubRepository = {
         // later non-merge event for the same PR.
         ...(data.mergeCommitSha ? { mergeCommitSha: data.mergeCommitSha } : {}),
         ...(data.taskId ? { taskId: data.taskId } : {}),
+        // LUM-634: write change volume only when the payload carried it (0 is
+        // a legitimate value — the guard is `!= null`, not falsiness), so a
+        // field-less event never clobbers a backfilled column back to null.
+        ...(data.additions != null ? { additions: data.additions } : {}),
+        ...(data.deletions != null ? { deletions: data.deletions } : {}),
+        ...(data.changedFiles != null
+          ? { changedFiles: data.changedFiles }
+          : {}),
       },
     })
   },

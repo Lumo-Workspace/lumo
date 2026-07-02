@@ -113,6 +113,57 @@ export async function fetchPrDiff(opts: {
 }
 
 /**
+ * LUM-634 — fetches a PR's change-volume stats (additions / deletions /
+ * changed_files) from the pulls API JSON. Throws on any non-2xx or on a
+ * payload missing the numeric fields — the backfill treats every throw as an
+ * explicit skip and NEVER substitutes a fabricated 0.
+ */
+export async function fetchPrStats(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<{ additions: number; deletions: number; changedFiles: number }> {
+  const token = await getGithubInstallationToken(opts.workspaceId)
+  const [owner, repo] = splitFullName(opts.fullName)
+
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    {
+      headers: {
+        ...GH_HEADERS,
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+
+  const body = (await res.json()) as {
+    additions?: unknown
+    deletions?: unknown
+    changed_files?: unknown
+  }
+  const { additions, deletions, changed_files: changedFiles } = body
+  if (
+    typeof additions !== 'number' ||
+    typeof deletions !== 'number' ||
+    typeof changedFiles !== 'number'
+  ) {
+    throw new Error(
+      `GitHub pulls payload missing change-volume fields for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  return { additions, deletions, changedFiles }
+}
+
+/**
  * PURE — parses a unified diff and returns added lines per file.
  *
  * - New-file path is extracted from `+++ b/<path>` headers.
