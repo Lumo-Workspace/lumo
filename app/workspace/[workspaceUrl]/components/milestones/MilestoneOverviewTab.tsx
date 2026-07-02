@@ -1,27 +1,21 @@
 'use client'
 
-import { useIntl } from 'react-intl'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
-import type { WorkspaceMemberInfo } from '../../types'
-import { DescriptionEditor } from '../DescriptionEditorLazy'
-import { TypographyH3 } from '@/components/ui/typography'
-import { useMentionSources } from '../../hooks/useMentionSources'
-import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
-import { MilestoneRollupBar } from './MilestoneRollupBar'
+import { MilestoneHero } from './MilestoneHero'
 import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
-import { MilestoneSegmentsSection } from './MilestoneSegmentsSection'
+import { MilestoneTaskEvidenceSection } from './MilestoneTaskEvidenceSection'
 
 interface MilestoneOverviewTabProps {
   milestone: Pick<
     ApiMilestone,
     | 'id'
     | 'name'
-    | 'description'
     | 'startDate'
     | 'targetDate'
     | 'taskCounts'
     | 'health'
     | 'summaryTldr'
+    | 'sprintCoverage'
     | 'outcome'
     | 'costRollup'
     | 'burnup'
@@ -30,66 +24,35 @@ interface MilestoneOverviewTabProps {
     | 'memberDelivery'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
-  /** Workspace members, so the description editor can @-mention people. */
-  members: WorkspaceMemberInfo[]
-  /** Workspace URL segment, so segment task rows can link to task detail. */
+  /** Workspace URL segment, so evidence cards can link to task detail. */
   workspaceUrl: string
   archived?: boolean
 }
 
 /**
- * Overview tab: decision-first rollup bar (completion / health / time span /
- * key outcome) first, then the cost+trajectory rollup (LUM-627), then the
- * inline-editable name + demoted description.
+ * Overview tab, LUM-636 mission-control order: hero (progress ring / key
+ * outcome / health+dates) → KPI card row → burnup + delivery quality →
+ * per-member rows → task evidence grid. The description now lives in its
+ * own tab — the Overview is the honest-report dashboard, prose-free.
  */
 export function MilestoneOverviewTab({
   milestone,
   onUpdate,
-  members,
   workspaceUrl,
   archived = false,
 }: MilestoneOverviewTabProps) {
-  const intl = useIntl()
-  const mentionSources = useMentionSources(members)
   return (
     <div className='px-4 md:px-8 py-8'>
-      <div className='mb-8'>
-        <TypographyH3
-          key={milestone.id}
-          contentEditable={!archived}
-          suppressContentEditableWarning
-          onBlur={e => {
-            if (archived) return
-            const trimmed = e.currentTarget.textContent?.trim() ?? ''
-            if (!trimmed || trimmed === milestone.name) {
-              e.currentTarget.textContent = milestone.name
-              return
-            }
-            onUpdate({ name: trimmed })
-          }}
-          onKeyDown={e => {
-            if (archived) return
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              e.currentTarget.blur()
-            }
-            if (e.key === 'Escape') {
-              e.currentTarget.textContent = milestone.name
-              e.currentTarget.blur()
-            }
-          }}
-          className='outline-none cursor-text focus:outline-none'
-        >
-          {milestone.name}
-        </TypographyH3>
-      </div>
-
-      <MilestoneRollupBar
+      <MilestoneHero
+        name={milestone.name}
         taskCounts={milestone.taskCounts ?? null}
         health={milestone.health ?? null}
         startDate={milestone.startDate}
         targetDate={milestone.targetDate}
         summaryTldr={milestone.summaryTldr ?? null}
+        sprintCoverage={milestone.sprintCoverage ?? null}
+        onUpdate={onUpdate}
+        archived={archived}
       />
 
       <MilestoneCostTrendSection
@@ -97,29 +60,14 @@ export function MilestoneOverviewTab({
         burnup={milestone.burnup}
         deliveryStats={milestone.deliveryStats}
         memberDelivery={milestone.memberDelivery}
+        outcome={milestone.outcome}
       />
 
-      <MilestoneSegmentsSection
+      <MilestoneTaskEvidenceSection
         segments={milestone.segments}
+        outcome={milestone.outcome}
         workspaceUrl={workspaceUrl}
       />
-
-      <div className='max-w-3xl'>
-        <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3'>
-          {intl.formatMessage({ id: 'milestone.field.description' })}
-        </p>
-        <DescriptionEditor
-          key={milestone.id}
-          value={milestone.description}
-          onCommit={html => {
-            if (!archived) onUpdate({ description: html || null })
-          }}
-          documentId={milestone.id}
-          mentionSources={mentionSources}
-        />
-      </div>
-
-      <MilestoneOutcomeSection outcome={milestone.outcome} />
     </div>
   )
 }

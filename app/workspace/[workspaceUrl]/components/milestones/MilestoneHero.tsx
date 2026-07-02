@@ -1,0 +1,255 @@
+'use client'
+
+import { useRef } from 'react'
+import { useIntl } from 'react-intl'
+import type { TaskStatus } from '@prisma/client'
+import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
+import { useFormatDate } from '../../hooks/useFormatDate'
+import { DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
+
+/** Ring geometry shared by the SVG and the dasharray math. */
+const RING_R = 62
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
+
+interface MilestoneHeroProps {
+  name: string
+  taskCounts: Record<TaskStatus, number> | null
+  health: MilestoneHealth | null
+  startDate: string | null
+  targetDate: string | null
+  /** One-line key outcome from the generated retro; null until generated. */
+  summaryTldr: string | null
+  /** Covering sprints, for the eyebrow — null/empty renders "Milestone" alone. */
+  sprintCoverage: ApiMilestone['sprintCoverage']
+  onUpdate: (fields: MilestoneUpdateInput) => void
+  archived?: boolean
+}
+
+/**
+ * LUM-636 mission-control hero: progress ring (done/total), eyebrow with the
+ * covering sprints, inline-editable name, one-line key outcome, and a right
+ * column of health / start / target stat rows. Honest by construction — a
+ * missing value renders an explicit placeholder ("Not set", "Unavailable"),
+ * never a fabricated number, and schedule health states why it is off until
+ * a target date exists.
+ */
+export function MilestoneHero({
+  name,
+  taskCounts,
+  health,
+  startDate,
+  targetDate,
+  summaryTldr,
+  sprintCoverage,
+  onUpdate,
+  archived = false,
+}: MilestoneHeroProps) {
+  const intl = useIntl()
+  const { fmtDate } = useFormatDate()
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
+  const done = taskCounts?.DONE ?? 0
+  const total = taskCounts
+    ? Object.values(taskCounts).reduce((sum, n) => sum + n, 0)
+    : 0
+  const pct = total > 0 ? Math.round((done / total) * 100) : null
+
+  const sprintNames = (sprintCoverage?.sprints ?? []).map(s => s.name)
+  const eyebrow =
+    sprintNames.length > 0
+      ? intl.formatMessage(
+          { id: 'milestone.hero.eyebrowWithSprints' },
+          { sprints: sprintNames.join(' · ') }
+        )
+      : intl.formatMessage({ id: 'milestone.hero.eyebrow' })
+
+  const statRow = (labelId: string, value: React.ReactNode) => (
+    <div className='flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2.5 text-sm'>
+      <span className='text-muted-foreground'>
+        {intl.formatMessage({ id: labelId })}
+      </span>
+      {value}
+    </div>
+  )
+
+  return (
+    <section
+      aria-label={intl.formatMessage({ id: 'milestone.rollup.label' })}
+      className='mb-8 flex flex-col gap-8 border-b border-border pb-8 lg:flex-row lg:items-center'
+    >
+      {/* Progress ring — the one graphic; --chart-1 is the single-series color. */}
+      <div className='relative h-[150px] w-[150px] shrink-0'>
+        <svg
+          width='150'
+          height='150'
+          viewBox='0 0 150 150'
+          className='-rotate-90'
+          aria-hidden='true'
+        >
+          <circle
+            cx='75'
+            cy='75'
+            r={RING_R}
+            fill='none'
+            stroke='var(--muted)'
+            strokeWidth='10'
+          />
+          {pct !== null && pct > 0 && (
+            <circle
+              cx='75'
+              cy='75'
+              r={RING_R}
+              fill='none'
+              stroke='var(--chart-1)'
+              strokeWidth='10'
+              strokeLinecap='round'
+              strokeDasharray={`${(pct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+            />
+          )}
+        </svg>
+        <div className='absolute inset-0 flex flex-col items-center justify-center'>
+          {total > 0 ? (
+            <>
+              <span className='text-3xl font-extrabold tracking-tight tabular-nums'>
+                {pct}%
+              </span>
+              <span className='text-caption text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'milestone.progress' },
+                  { done, total }
+                )}
+              </span>
+            </>
+          ) : (
+            <span className='px-3 text-center text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: 'milestone.rollup.noTasks' })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Eyebrow, editable title, key outcome. */}
+      <div className='min-w-0 flex-1'>
+        <p className='mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground'>
+          {eyebrow}
+        </p>
+        <h1
+          key={name}
+          contentEditable={!archived}
+          suppressContentEditableWarning
+          onBlur={e => {
+            if (archived) return
+            const trimmed = e.currentTarget.textContent?.trim() ?? ''
+            if (!trimmed || trimmed === name) {
+              e.currentTarget.textContent = name
+              return
+            }
+            onUpdate({ name: trimmed })
+          }}
+          onKeyDown={e => {
+            if (archived) return
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.currentTarget.blur()
+            }
+            if (e.key === 'Escape') {
+              e.currentTarget.textContent = name
+              e.currentTarget.blur()
+            }
+          }}
+          className='mb-3 cursor-text text-heading font-bold leading-snug tracking-tight outline-none focus:outline-none'
+        >
+          {name}
+        </h1>
+        <p className='text-body leading-relaxed'>
+          <span className='font-semibold'>
+            {intl.formatMessage({ id: 'milestone.rollup.keyOutcome' })}
+          </span>
+          <span className='text-muted-foreground'> — </span>
+          {summaryTldr ? (
+            <span className='text-foreground/80'>{summaryTldr}</span>
+          ) : (
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({ id: 'milestone.rollup.noOutcome' })}
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Health / start / target stat column. */}
+      <div className='flex w-full shrink-0 flex-col gap-2.5 lg:w-72'>
+        {statRow(
+          'milestone.rollup.health',
+          health ? (
+            <span className='inline-flex items-center gap-2 font-semibold'>
+              <span
+                className={`h-[7px] w-[7px] shrink-0 rounded-full ${HEALTH_DOT[health]}`}
+                aria-hidden='true'
+              />
+              {intl.formatMessage({ id: `milestone.health.${health}` })}
+            </span>
+          ) : (
+            <span className='inline-flex items-center gap-2 font-semibold text-muted-foreground'>
+              <span
+                className='h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--warning)]'
+                aria-hidden='true'
+              />
+              {intl.formatMessage({ id: 'milestone.hero.healthUnavailable' })}
+            </span>
+          )
+        )}
+        {statRow(
+          'milestone.field.startDate',
+          startDate ? (
+            <span className='font-medium tabular-nums'>
+              {fmtDate(startDate, DATE_OPTS)}
+            </span>
+          ) : (
+            <span className='font-medium text-muted-foreground'>
+              {intl.formatMessage({ id: 'milestone.hero.notSet' })}
+            </span>
+          )
+        )}
+        {statRow(
+          'milestone.field.targetDate',
+          targetDate ? (
+            <span className='font-medium tabular-nums'>
+              {fmtDate(targetDate, DATE_OPTS)}
+            </span>
+          ) : archived ? (
+            <span className='font-medium text-muted-foreground'>
+              {intl.formatMessage({ id: 'milestone.hero.notSet' })}
+            </span>
+          ) : (
+            <span className='relative'>
+              <button
+                type='button'
+                className='font-semibold text-[var(--chart-1)] hover:underline'
+                onClick={() => dateInputRef.current?.showPicker?.()}
+              >
+                {intl.formatMessage({ id: 'milestone.hero.setDate' })}
+              </button>
+              <input
+                ref={dateInputRef}
+                type='date'
+                aria-label={intl.formatMessage({
+                  id: 'milestone.field.targetDate',
+                })}
+                className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+                onChange={e => {
+                  if (e.target.value) onUpdate({ targetDate: e.target.value })
+                }}
+              />
+            </span>
+          )
+        )}
+        {!targetDate && !archived && (
+          <p className='mx-1 text-[11px] leading-normal text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.hero.scheduleHint' })}
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}

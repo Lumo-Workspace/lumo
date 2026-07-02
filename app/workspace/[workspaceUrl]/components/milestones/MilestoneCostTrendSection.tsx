@@ -102,185 +102,63 @@ function formatDay(date: string, locale?: string): string {
   })
 }
 
+/** Shared card-title treatment for the mission-control cards. */
+const KPI_LABEL =
+  'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'
+const CARD = 'rounded-lg border border-border bg-card p-5'
+
 interface MilestoneCostTrendSectionProps {
   costRollup: ApiMilestone['costRollup']
   burnup: ApiMilestone['burnup']
   deliveryStats: ApiMilestone['deliveryStats']
   memberDelivery: ApiMilestone['memberDelivery']
+  /** LUM-626 outcome rollup — feeds the delivery-quality counts. */
+  outcome?: ApiMilestone['outcome']
 }
 
 /**
- * LUM-627 — the Overview tab's cost + trajectory rollup: member tasks'
- * token/active-time actuals (same-source with the task-level LUM-560 cost)
- * and the cross-sprint burnup replay. LUM-632 extends the same section (no
- * new top-level section) with the delivery-scale cards (merged PRs / change
- * surface — read as regression surface and review load, never output) and
- * the per-member spend table. Aggregates only — never a per-task list.
- * Honest by construction: an unmeasured total states "not measured" instead
- * of implying a clean 0, a no-PR milestone states "no PRs on record", and
- * unattributable spend gets an explicit row. Hierarchy via typography, not
- * color.
+ * LUM-627/632/634 — the Overview tab's cost + trajectory rollup, laid out as
+ * the LUM-636 mission-control rows: a 4-card KPI row (tokens / active time /
+ * merged PRs / change volume), a burnup + delivery-quality row, and the
+ * per-member expandable rows (spend + delivery dual attribution). Aggregates
+ * only — never a per-task list. Honest by construction: an unmeasured total
+ * states "not measured" instead of implying a clean 0, a no-PR milestone
+ * states "no PRs on record", unattributable spend gets an explicit row, and
+ * quality reads counts, never ratios.
  */
 export function MilestoneCostTrendSection({
   costRollup,
   burnup,
   deliveryStats,
   memberDelivery,
+  outcome,
 }: MilestoneCostTrendSectionProps) {
   const intl = useIntl()
   // Older-server tolerance: without any enrich field there is nothing
   // honest to say — render nothing rather than fabricate placeholders.
   if (!costRollup && !burnup && !deliveryStats && !memberDelivery) return null
 
-  const label = (id: string) => (
-    <dt className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
-      {intl.formatMessage({ id })}
-    </dt>
-  )
-
   return (
     <section
       aria-label={intl.formatMessage({ id: 'milestone.costTrend.label' })}
-      className='mb-10 max-w-3xl'
+      className='mb-10 space-y-4'
     >
-      <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3'>
-        {intl.formatMessage({ id: 'milestone.costTrend.title' })}
-      </p>
-
       {(costRollup || deliveryStats) && (
-        <dl className='mb-6 flex flex-wrap gap-x-12 gap-y-4'>
-          {costRollup && (
-            <>
-              <div>
-                {label('milestone.costTrend.tokens')}
-                <dd className='mt-1 text-lg font-semibold tabular-nums'>
-                  {costRollup.tokenCost === null ? (
-                    <span className='font-normal text-muted-foreground'>
-                      {intl.formatMessage({
-                        id: 'milestone.costTrend.notMeasured',
-                      })}
-                    </span>
-                  ) : (
-                    fmtTokens(costRollup.tokenCost)
-                  )}
-                </dd>
-                <dd className='mt-0.5 text-xs text-muted-foreground'>
-                  {intl.formatMessage(
-                    { id: 'milestone.costTrend.coverage' },
-                    {
-                      measured: costRollup.measuredTasks,
-                      total: costRollup.totalTasks,
-                    }
-                  )}
-                </dd>
-              </div>
-              <div>
-                {label('milestone.costTrend.activeTime')}
-                <dd className='mt-1 text-lg font-semibold tabular-nums'>
-                  {fmtDuration(costRollup.activeTimeSec)}
-                </dd>
-              </div>
-            </>
-          )}
-          {deliveryStats && (
-            <>
-              <div>
-                {label('milestone.deliveryStats.mergedPrs')}
-                <dd className='mt-1 text-lg font-semibold tabular-nums'>
-                  {deliveryStats.pr.linkedTaskCount === 0 ? (
-                    <span className='font-normal text-muted-foreground'>
-                      {intl.formatMessage({
-                        id: 'milestone.deliveryStats.noPrRecords',
-                      })}
-                    </span>
-                  ) : (
-                    deliveryStats.pr.mergedPrCount
-                  )}
-                </dd>
-                <dd className='mt-0.5 text-xs text-muted-foreground'>
-                  {intl.formatMessage(
-                    { id: 'milestone.deliveryStats.reworkDetail' },
-                    {
-                      multiPr: deliveryStats.pr.multiPrTaskCount,
-                      unlinked: deliveryStats.pr.unlinkedTaskCount,
-                    }
-                  )}
-                </dd>
-              </div>
-              <div>
-                {label('milestone.deliveryStats.changedFiles')}
-                <dd className='mt-1 text-lg font-semibold tabular-nums'>
-                  {deliveryStats.changedFiles.total === null ? (
-                    <span className='font-normal text-muted-foreground'>
-                      {intl.formatMessage({
-                        id: 'milestone.costTrend.notMeasured',
-                      })}
-                    </span>
-                  ) : (
-                    deliveryStats.changedFiles.total
-                  )}
-                </dd>
-                <dd className='mt-0.5 text-xs text-muted-foreground'>
-                  {intl.formatMessage(
-                    { id: 'milestone.costTrend.coverage' },
-                    {
-                      measured: deliveryStats.changedFiles.measuredTasks,
-                      total: deliveryStats.changedFiles.totalTasks,
-                    }
-                  )}
-                </dd>
-                <dd className='mt-0.5 text-xs text-muted-foreground'>
-                  {intl.formatMessage({
-                    id: 'milestone.deliveryStats.changedFilesNote',
-                  })}
-                </dd>
-              </div>
-              {deliveryStats.changeVolume && (
-                <div>
-                  {label('milestone.changeVolume.title')}
-                  <dd className='mt-1 text-lg font-semibold tabular-nums'>
-                    {deliveryStats.changeVolume.totalMergedPrs === 0 ? (
-                      <span className='font-normal text-muted-foreground'>
-                        {intl.formatMessage({
-                          id: 'milestone.deliveryStats.noPrRecords',
-                        })}
-                      </span>
-                    ) : deliveryStats.changeVolume.additions === null ||
-                      deliveryStats.changeVolume.deletions === null ? (
-                      // Unsynced ≠ 0: zero measured PRs reads as an explicit
-                      // not-synced state, never a fabricated +0/−0.
-                      <span className='font-normal text-muted-foreground'>
-                        {intl.formatMessage({
-                          id: 'milestone.changeVolume.notSynced',
-                        })}
-                      </span>
-                    ) : (
-                      fmtVolume(
-                        deliveryStats.changeVolume.additions,
-                        deliveryStats.changeVolume.deletions
-                      )
-                    )}
-                  </dd>
-                  <dd className='mt-0.5 text-xs text-muted-foreground'>
-                    {intl.formatMessage(
-                      { id: 'milestone.changeVolume.coverage' },
-                      {
-                        measured: deliveryStats.changeVolume.measuredPrs,
-                        total: deliveryStats.changeVolume.totalMergedPrs,
-                      }
-                    )}
-                  </dd>
-                  <dd className='mt-0.5 text-xs text-muted-foreground'>
-                    {intl.formatMessage({ id: 'milestone.changeVolume.note' })}
-                  </dd>
-                </div>
-              )}
-            </>
-          )}
-        </dl>
+        <KpiCardRow costRollup={costRollup} deliveryStats={deliveryStats} />
       )}
 
-      {burnup && <BurnupChart burnup={burnup} />}
+      {(burnup || deliveryStats || memberDelivery) && (
+        <div className='grid gap-4 lg:grid-cols-[2fr_1fr]'>
+          {burnup && <BurnupCard burnup={burnup} />}
+          {(deliveryStats || memberDelivery || outcome) && (
+            <DeliveryQualityCard
+              deliveryStats={deliveryStats}
+              memberDelivery={memberDelivery}
+              outcome={outcome ?? null}
+            />
+          )}
+        </div>
+      )}
 
       {(deliveryStats || memberDelivery) && (
         <PerMemberTable
@@ -289,6 +167,236 @@ export function MilestoneCostTrendSection({
         />
       )}
     </section>
+  )
+}
+
+/** The 4-card KPI row: tokens · active time · merged PRs · change volume. */
+function KpiCardRow({
+  costRollup,
+  deliveryStats,
+}: {
+  costRollup: ApiMilestone['costRollup']
+  deliveryStats: ApiMilestone['deliveryStats']
+}) {
+  const intl = useIntl()
+  return (
+    <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+      {costRollup && (
+        <>
+          <div className={CARD}>
+            <p className={KPI_LABEL}>
+              {intl.formatMessage({ id: 'milestone.costTrend.tokens' })}
+            </p>
+            <p className='mt-2 text-2xl font-bold tracking-tight tabular-nums'>
+              {costRollup.tokenCost === null ? (
+                <span className='font-normal text-muted-foreground'>
+                  {intl.formatMessage({
+                    id: 'milestone.costTrend.notMeasured',
+                  })}
+                </span>
+              ) : (
+                fmtTokens(costRollup.tokenCost)
+              )}
+            </p>
+            <p className='mt-1 text-xs text-muted-foreground'>
+              {intl.formatMessage(
+                { id: 'milestone.costTrend.coverage' },
+                {
+                  measured: costRollup.measuredTasks,
+                  total: costRollup.totalTasks,
+                }
+              )}
+            </p>
+          </div>
+          <div className={CARD}>
+            <p className={KPI_LABEL}>
+              {intl.formatMessage({ id: 'milestone.costTrend.activeTime' })}
+            </p>
+            <p className='mt-2 text-2xl font-bold tracking-tight tabular-nums'>
+              {fmtDuration(costRollup.activeTimeSec)}
+            </p>
+            <p className='mt-1 text-xs text-muted-foreground'>
+              {intl.formatMessage({ id: 'milestone.costTrend.activeTimeNote' })}
+            </p>
+          </div>
+        </>
+      )}
+      {deliveryStats && (
+        <>
+          <div className={CARD}>
+            <p className={KPI_LABEL}>
+              {intl.formatMessage({ id: 'milestone.deliveryStats.mergedPrs' })}
+            </p>
+            <p className='mt-2 text-2xl font-bold tracking-tight tabular-nums'>
+              {deliveryStats.pr.linkedTaskCount === 0 ? (
+                <span className='font-normal text-muted-foreground'>
+                  {intl.formatMessage({
+                    id: 'milestone.deliveryStats.noPrRecords',
+                  })}
+                </span>
+              ) : (
+                deliveryStats.pr.mergedPrCount
+              )}
+            </p>
+            <p className='mt-1 text-xs text-muted-foreground'>
+              {intl.formatMessage(
+                { id: 'milestone.deliveryStats.reworkDetail' },
+                {
+                  multiPr: deliveryStats.pr.multiPrTaskCount,
+                  unlinked: deliveryStats.pr.unlinkedTaskCount,
+                }
+              )}
+            </p>
+          </div>
+          {/* Older-server payloads without changeVolume render 3 KPI cards —
+              the change surface stays honest on the quality card instead of
+              being duplicated here. */}
+          {deliveryStats.changeVolume && (
+            <div className={CARD}>
+              <p className={KPI_LABEL}>
+                {intl.formatMessage({ id: 'milestone.changeVolume.title' })}
+              </p>
+              <p className='mt-2 text-2xl font-bold tracking-tight tabular-nums'>
+                {deliveryStats.changeVolume.totalMergedPrs === 0 ? (
+                  <span className='font-normal text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'milestone.deliveryStats.noPrRecords',
+                    })}
+                  </span>
+                ) : deliveryStats.changeVolume.additions === null ||
+                  deliveryStats.changeVolume.deletions === null ? (
+                  // Unsynced ≠ 0: zero measured PRs reads as an explicit
+                  // not-synced state, never a fabricated +0/−0.
+                  <span className='font-normal text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'milestone.changeVolume.notSynced',
+                    })}
+                  </span>
+                ) : (
+                  fmtVolume(
+                    deliveryStats.changeVolume.additions,
+                    deliveryStats.changeVolume.deletions
+                  )
+                )}
+              </p>
+              <p className='mt-1 text-xs text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'milestone.changeVolume.coverage' },
+                  {
+                    measured: deliveryStats.changeVolume.measuredPrs,
+                    total: deliveryStats.changeVolume.totalMergedPrs,
+                  }
+                )}
+              </p>
+              <p className='mt-1 text-xs text-muted-foreground'>
+                {intl.formatMessage({ id: 'milestone.changeVolume.note' })}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Delivery quality — the 2×2 counts grid (rejected after delivery, FAIL
+ * rounds / send-backs, multi-PR tasks, change surface). Counts, never ratios;
+ * a zero reads as "no rejection on record", not a pass, and the change
+ * surface fail-closes to "not measured".
+ */
+function DeliveryQualityCard({
+  deliveryStats,
+  memberDelivery,
+  outcome,
+}: {
+  deliveryStats: ApiMilestone['deliveryStats']
+  memberDelivery: ApiMilestone['memberDelivery']
+  outcome: ApiMilestone['outcome']
+}) {
+  const intl = useIntl()
+  const dash = <span className='text-muted-foreground'>—</span>
+
+  const friction = memberDelivery
+    ? memberDelivery.rows.reduce(
+        (acc, r) => ({
+          failRounds: acc.failRounds + r.friction.failRoundCount,
+          sendBacks: acc.sendBacks + r.friction.sendBackCount,
+        }),
+        { failRounds: 0, sendBacks: 0 }
+      )
+    : null
+
+  const stat = (
+    value: React.ReactNode,
+    labelId: string,
+    detail?: React.ReactNode
+  ) => (
+    <div>
+      <p className='text-xl font-bold tracking-tight tabular-nums'>{value}</p>
+      <p className='mt-0.5 text-xs text-muted-foreground'>
+        {intl.formatMessage({ id: labelId })}
+      </p>
+      {detail}
+    </div>
+  )
+
+  return (
+    <div className={CARD}>
+      <h3 className='mb-4 text-sm font-semibold text-foreground'>
+        {intl.formatMessage({ id: 'milestone.quality.title' })}
+      </h3>
+      <div className='grid grid-cols-2 gap-4'>
+        {stat(
+          outcome ? outcome.fate.rejected.length : dash,
+          'milestone.quality.rejected'
+        )}
+        {stat(
+          friction
+            ? intl.formatMessage(
+                { id: 'milestone.quality.frictionValue' },
+                {
+                  failRounds: friction.failRounds,
+                  sendBacks: friction.sendBacks,
+                }
+              )
+            : dash,
+          'milestone.quality.friction'
+        )}
+        {stat(
+          deliveryStats ? deliveryStats.pr.multiPrTaskCount : dash,
+          'milestone.quality.multiPr'
+        )}
+        {stat(
+          deliveryStats ? (
+            deliveryStats.changedFiles.total === null ? (
+              <span className='font-normal text-muted-foreground'>
+                {intl.formatMessage({ id: 'milestone.costTrend.notMeasured' })}
+              </span>
+            ) : (
+              deliveryStats.changedFiles.total
+            )
+          ) : (
+            dash
+          ),
+          'milestone.quality.changeSurface',
+          deliveryStats ? (
+            <p className='mt-0.5 text-xs text-muted-foreground'>
+              {intl.formatMessage(
+                { id: 'milestone.costTrend.coverage' },
+                {
+                  measured: deliveryStats.changedFiles.measuredTasks,
+                  total: deliveryStats.changedFiles.totalTasks,
+                }
+              )}
+            </p>
+          ) : undefined
+        )}
+      </div>
+      <p className='mt-4 text-[11px] leading-normal text-muted-foreground'>
+        {intl.formatMessage({ id: 'milestone.quality.countsNote' })}
+      </p>
+    </div>
   )
 }
 
@@ -402,13 +510,10 @@ export function buildMemberDeliveryRows(
 }
 
 /**
- * The per-member table. With only the LUM-632 spend payload it renders the
- * spend columns; with the LUM-633 delivery payload it renders both 口径 in
- * one row — quantity (done / merged PRs / change surface) inseparable from
- * quality (post-delivery fate / acceptance friction), counts only, never a
- * ratio, fixed name order. Member rows expand inline to the frozen delivery
- * claims (same source and labels as the Outcome section). Fail-closed: an
- * unmeasured spend side reads '—' / "not measured", never a fabricated 0.
+ * The per-member block. With only the LUM-632 spend payload it renders the
+ * spend table; with the LUM-633 delivery payload it renders the LUM-636
+ * expandable member rows — both 口径 in one row. Fail-closed: an unmeasured
+ * spend side reads '—' / "not measured", never a fabricated 0.
  */
 function PerMemberTable({
   perMember,
@@ -422,16 +527,31 @@ function PerMemberTable({
     return <SpendOnlyMemberTable perMember={perMember} />
   }
   return (
-    <MemberDeliveryTable
-      perMember={perMember}
-      memberDelivery={memberDelivery}
-    />
+    <MemberDeliveryRows perMember={perMember} memberDelivery={memberDelivery} />
   )
 }
 
 const CLAIM_SOURCES = new Set(['AGENT', 'RUN_SUMMARY', 'DIGEST'])
 
-function MemberDeliveryTable({
+/** Initials for the member avatar circle — first letters of up to two words. */
+function initials(label: string): string {
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
+/**
+ * LUM-636 by-member rows: one expandable row per member (fixed name order,
+ * never a leaderboard), the explicit unassigned / unattributed buckets last.
+ * Collapsed: avatar, label, spend/delivery summary, share of milestone
+ * tokens. Expanded: change-volume split, delivered / merged-PR unit marks,
+ * quality chips, and the frozen delivery claims (same source and labels as
+ * the task evidence). Quantity stays inseparable from quality — counts only.
+ */
+function MemberDeliveryRows({
   perMember,
   memberDelivery,
 }: {
@@ -443,6 +563,7 @@ function MemberDeliveryTable({
   const rows = buildMemberDeliveryRows(perMember, memberDelivery)
   // Spend cells are only honest when the spend side measured something.
   const spendMeasured = (perMember?.measuredTasks ?? 0) > 0
+  const totalTokens = spendMeasured ? (perMember?.tokenCost ?? null) : null
 
   const bucketLabel = (row: MergedMemberRow) =>
     row.bucket === 'unassigned'
@@ -451,19 +572,23 @@ function MemberDeliveryTable({
         ? intl.formatMessage({ id: 'milestone.memberDelivery.unattributed' })
         : (row.label ?? row.key)
 
-  const rightHeader = (id: string) => (
-    <th className='pb-1.5 pl-4 text-right font-semibold'>
-      {intl.formatMessage({ id })}
-    </th>
-  )
-
   return (
-    <div className='mt-6'>
-      <h3 className='mb-1 text-sm font-medium text-foreground'>
-        {intl.formatMessage({ id: 'milestone.memberDelivery.tableTitle' })}
-      </h3>
+    <div className={CARD}>
+      <div className='mb-1 flex flex-wrap items-baseline justify-between gap-2'>
+        <h3 className='text-sm font-semibold text-foreground'>
+          {intl.formatMessage({ id: 'milestone.memberDelivery.tableTitle' })}
+        </h3>
+        {totalTokens !== null && (
+          <span className='text-[11px] text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'milestone.memberDelivery.shareHeader' },
+              { total: fmtTokens(totalTokens) }
+            )}
+          </span>
+        )}
+      </div>
       {/* Both attribution 口径, stated where the numbers are read. */}
-      <p className='mb-3 text-xs text-muted-foreground'>
+      <p className='mb-4 text-xs text-muted-foreground'>
         {intl.formatMessage({ id: 'milestone.memberDelivery.attributionNote' })}
       </p>
       {rows.length === 0 ? (
@@ -471,184 +596,260 @@ function MemberDeliveryTable({
           {intl.formatMessage({ id: 'milestone.memberDelivery.empty' })}
         </p>
       ) : (
-        <table className='w-full text-sm'>
-          <thead>
-            <tr className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
-              <th className='pb-1.5 text-left font-semibold'>
-                {intl.formatMessage({ id: 'milestone.deliveryStats.member' })}
-              </th>
-              {rightHeader('milestone.costTrend.tokens')}
-              {rightHeader('milestone.costTrend.activeTime')}
-              {rightHeader('milestone.changeVolume.column')}
-              {rightHeader('milestone.memberDelivery.done')}
-              {rightHeader('milestone.memberDelivery.mergedPrs')}
-              {rightHeader('milestone.memberDelivery.fate')}
-              {rightHeader('milestone.memberDelivery.friction')}
-              {rightHeader('milestone.memberDelivery.changedFiles')}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(row => {
-              const d = row.delivery
-              const isExpanded = expanded[row.key] === true
-              const canExpand = (d?.claims.length ?? 0) > 0
-              return (
-                <MemberDeliveryRowGroup
-                  key={row.key}
-                  row={row}
-                  label={bucketLabel(row)}
-                  spendMeasured={spendMeasured}
-                  isExpanded={isExpanded}
-                  canExpand={canExpand}
-                  onToggle={() =>
-                    setExpanded(prev => ({
-                      ...prev,
-                      [row.key]: !(prev[row.key] === true),
-                    }))
-                  }
-                />
-              )
-            })}
-          </tbody>
-        </table>
+        <ul className='space-y-1'>
+          {rows.map(row => (
+            <MemberRow
+              key={row.key}
+              row={row}
+              label={bucketLabel(row)}
+              spendMeasured={spendMeasured}
+              totalTokens={totalTokens}
+              isExpanded={expanded[row.key] === true}
+              onToggle={() =>
+                setExpanded(prev => ({
+                  ...prev,
+                  [row.key]: !(prev[row.key] === true),
+                }))
+              }
+            />
+          ))}
+        </ul>
       )}
     </div>
   )
 }
 
-function MemberDeliveryRowGroup({
+function MemberRow({
   row,
   label,
   spendMeasured,
+  totalTokens,
   isExpanded,
-  canExpand,
   onToggle,
 }: {
   row: MergedMemberRow
   label: string
   spendMeasured: boolean
+  totalTokens: number | null
   isExpanded: boolean
-  canExpand: boolean
   onToggle: () => void
 }) {
   const intl = useIntl()
   const d = row.delivery
-  const dash = <span className='text-muted-foreground'>—</span>
-  const cell = 'py-1.5 pl-4 text-right tabular-nums align-top'
+  const spend = spendMeasured ? row.spend : null
+  const sharePct =
+    spend && totalTokens !== null && totalTokens > 0
+      ? Math.round((spend.tokenCost / totalTokens) * 100)
+      : null
+
+  const summaryParts: string[] = []
+  if (spend) {
+    summaryParts.push(fmtTokens(spend.tokenCost))
+    summaryParts.push(fmtDuration(spend.activeTimeSec))
+  }
+  if (d) {
+    summaryParts.push(
+      intl.formatMessage(
+        { id: 'milestone.memberDelivery.doneCount' },
+        { count: d.doneCount }
+      )
+    )
+    summaryParts.push(
+      intl.formatMessage(
+        { id: 'milestone.memberDelivery.prCount' },
+        { count: d.mergedPrCount }
+      )
+    )
+  }
+
   return (
-    <>
-      <tr className='border-t border-border/60'>
-        <td
-          className={
-            row.bucket === 'member'
-              ? 'py-1.5 align-top'
-              : 'py-1.5 align-top text-muted-foreground'
-          }
+    <li>
+      <button
+        type='button'
+        aria-expanded={isExpanded}
+        aria-label={intl.formatMessage(
+          { id: 'milestone.memberDelivery.expandClaims' },
+          { member: label }
+        )}
+        onClick={onToggle}
+        className='flex w-full items-center gap-3 rounded-md px-1.5 py-2 text-left hover:bg-muted/50'
+      >
+        <span
+          aria-hidden='true'
+          className='w-2 shrink-0 text-[10px] text-muted-foreground'
         >
-          {canExpand ? (
-            <button
-              type='button'
-              className='inline-flex items-center gap-1 text-left hover:underline'
-              aria-expanded={isExpanded}
-              aria-label={intl.formatMessage(
-                { id: 'milestone.memberDelivery.expandClaims' },
-                { member: label }
+          {isExpanded ? '▾' : '▸'}
+        </span>
+        <span
+          aria-hidden='true'
+          className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold'
+        >
+          {row.bucket === 'member' ? initials(label) : '?'}
+        </span>
+        <span className='min-w-0 flex-1'>
+          <span
+            className={
+              row.bucket === 'member'
+                ? 'block truncate text-sm font-semibold'
+                : 'block truncate text-sm font-semibold text-muted-foreground'
+            }
+          >
+            {label}
+          </span>
+          <span className='block truncate text-xs tabular-nums text-muted-foreground'>
+            {summaryParts.length > 0 ? summaryParts.join(' · ') : '—'}
+          </span>
+        </span>
+        <span className='shrink-0 text-xs font-semibold tabular-nums'>
+          {sharePct !== null ? `${sharePct}%` : '—'}
+        </span>
+      </button>
+
+      {/* Share track: the one bar allowed on the collapsed row. */}
+      {sharePct !== null && (
+        <div
+          aria-hidden='true'
+          className='mb-1 ml-[52px] flex h-1 overflow-hidden rounded-full bg-muted'
+        >
+          <span
+            className='bg-[var(--chart-1)]'
+            style={{ width: `${sharePct}%` }}
+          />
+        </div>
+      )}
+
+      {isExpanded && (
+        <div className='mb-2 ml-[52px] space-y-3 py-1'>
+          {/* Change volume attributed to this spender (LUM-634). */}
+          <div>
+            <div className='flex items-baseline justify-between text-[11px]'>
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({ id: 'milestone.changeVolume.column' })}
+              </span>
+              <span className='font-semibold tabular-nums'>
+                {spend?.changeVolume ? (
+                  fmtVolume(
+                    spend.changeVolume.additions,
+                    spend.changeVolume.deletions
+                  )
+                ) : (
+                  // No measured merged PR attributes here — an explicit
+                  // state, never a fabricated +0/−0.
+                  <span className='font-normal text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'milestone.changeVolume.memberNone',
+                    })}
+                  </span>
+                )}
+              </span>
+            </div>
+            {spend?.changeVolume &&
+              spend.changeVolume.additions + spend.changeVolume.deletions >
+                0 && (
+                <div
+                  aria-hidden='true'
+                  className='mt-1 flex h-1.5 gap-px overflow-hidden rounded-full'
+                >
+                  <span
+                    className='bg-[var(--chart-2)]'
+                    style={{ flexGrow: spend.changeVolume.additions || 0 }}
+                  />
+                  <span
+                    className='bg-[var(--danger)]'
+                    style={{ flexGrow: spend.changeVolume.deletions || 0 }}
+                  />
+                </div>
               )}
-              onClick={onToggle}
-            >
-              <span
-                aria-hidden='true'
-                className='text-[10px] text-muted-foreground'
-              >
-                {isExpanded ? '▾' : '▸'}
-              </span>
-              {label}
-            </button>
-          ) : (
-            label
+          </div>
+
+          {d && (
+            <div className='grid grid-cols-2 gap-4'>
+              <div>
+                <div className='flex items-baseline justify-between text-[11px]'>
+                  <span className='text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'milestone.memberDelivery.done',
+                    })}
+                  </span>
+                  <span className='font-semibold tabular-nums'>
+                    {d.doneCount}/{d.taskCount}
+                  </span>
+                </div>
+                {d.taskCount > 0 && (
+                  <div aria-hidden='true' className='mt-1 flex gap-0.5'>
+                    {Array.from({ length: d.taskCount }, (_, i) => (
+                      <span
+                        key={i}
+                        className={
+                          i < d.doneCount
+                            ? 'h-2 flex-1 rounded-sm bg-[var(--chart-1)]'
+                            : 'h-2 flex-1 rounded-sm border border-dashed border-border bg-muted'
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className='flex items-baseline justify-between text-[11px]'>
+                  <span className='text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'milestone.memberDelivery.mergedPrs',
+                    })}
+                  </span>
+                  <span className='font-semibold tabular-nums'>
+                    {d.mergedPrCount}
+                  </span>
+                </div>
+                {d.mergedPrCount > 0 && (
+                  <div aria-hidden='true' className='mt-1 flex gap-0.5'>
+                    {Array.from({ length: d.mergedPrCount }, (_, i) => (
+                      <span
+                        key={i}
+                        className='h-2 flex-1 rounded-sm bg-[var(--chart-2)]'
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-        </td>
-        <td className={cell}>
-          {row.spend && spendMeasured ? fmtTokens(row.spend.tokenCost) : dash}
-        </td>
-        <td className={cell}>
-          {row.spend && spendMeasured
-            ? fmtDuration(row.spend.activeTimeSec)
-            : dash}
-        </td>
-        <td className={cell}>
-          {/* LUM-634 change volume rides the spend attribution; unsynced
-              reads the explicit no-synced state, never +0/−0. */}
-          {row.spend ? (
-            row.spend.changeVolume ? (
-              fmtVolume(
-                row.spend.changeVolume.additions,
-                row.spend.changeVolume.deletions
-              )
-            ) : (
-              <span className='text-muted-foreground'>
-                {intl.formatMessage({
-                  id: 'milestone.changeVolume.memberNone',
-                })}
+
+          {d && (
+            <div className='flex flex-wrap gap-1.5 text-[11px]'>
+              <span className='rounded-full border border-[var(--success-border)] bg-[var(--success-subtle)] px-2 py-0.5 font-medium'>
+                {intl.formatMessage(
+                  { id: 'milestone.memberDelivery.fateCell' },
+                  {
+                    rejected: d.fate.rejectedTaskCount,
+                    noRecord: d.fate.noRecordDoneCount,
+                  }
+                )}
               </span>
-            )
-          ) : (
-            dash
-          )}
-        </td>
-        <td className={cell}>{d ? d.doneCount : dash}</td>
-        <td className={cell}>{d ? d.mergedPrCount : dash}</td>
-        <td className={cell}>
-          {d
-            ? intl.formatMessage(
-                { id: 'milestone.memberDelivery.fateCell' },
-                {
-                  rejected: d.fate.rejectedTaskCount,
-                  noRecord: d.fate.noRecordDoneCount,
-                }
-              )
-            : dash}
-        </td>
-        <td className={cell}>
-          {d
-            ? intl.formatMessage(
-                { id: 'milestone.memberDelivery.frictionCell' },
-                {
-                  failRounds: d.friction.failRoundCount,
-                  sendBacks: d.friction.sendBackCount,
-                  multiPr: d.friction.multiPrTaskCount,
-                }
-              )
-            : dash}
-        </td>
-        <td className={cell}>
-          {d ? (
-            d.changedFiles.total === null ? (
-              <span className='text-muted-foreground'>
-                {intl.formatMessage({ id: 'milestone.costTrend.notMeasured' })}
+              <span className='rounded-full border border-border bg-muted px-2 py-0.5 font-medium'>
+                {intl.formatMessage(
+                  { id: 'milestone.memberDelivery.frictionCell' },
+                  {
+                    failRounds: d.friction.failRoundCount,
+                    sendBacks: d.friction.sendBackCount,
+                    multiPr: d.friction.multiPrTaskCount,
+                  }
+                )}
               </span>
-            ) : (
-              <>
-                {d.changedFiles.total}
-                <span className='ml-1 text-xs text-muted-foreground'>
-                  {intl.formatMessage(
-                    { id: 'milestone.memberDelivery.measuredOf' },
-                    {
-                      measured: d.changedFiles.measuredTasks,
-                      total: d.taskCount,
-                    }
-                  )}
-                </span>
-              </>
-            )
-          ) : (
-            dash
+              <span className='rounded-full border border-border bg-muted px-2 py-0.5 font-medium'>
+                {d.changedFiles.total === null
+                  ? intl.formatMessage({
+                      id: 'milestone.costTrend.notMeasured',
+                    })
+                  : intl.formatMessage(
+                      { id: 'milestone.memberDelivery.changedFilesChip' },
+                      { count: d.changedFiles.total }
+                    )}
+              </span>
+            </div>
           )}
-        </td>
-      </tr>
-      {isExpanded && d && (
-        <tr className='border-t border-border/30'>
-          <td colSpan={9} className='py-2 pl-5'>
+
+          {d && d.claims.length > 0 && (
             <ul className='space-y-1.5'>
               {d.claims.map(c => (
                 <li
@@ -682,10 +883,10 @@ function MemberDeliveryRowGroup({
                 </li>
               ))}
             </ul>
-          </td>
-        </tr>
+          )}
+        </div>
       )}
-    </>
+    </li>
   )
 }
 
@@ -698,8 +899,8 @@ function MemberDeliveryRowGroup({
 function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
   const intl = useIntl()
   return (
-    <div className='mt-6'>
-      <h3 className='mb-3 text-sm font-medium text-foreground'>
+    <div className={CARD}>
+      <h3 className='mb-3 text-sm font-semibold text-foreground'>
         {intl.formatMessage({ id: 'milestone.deliveryStats.perMemberTitle' })}
       </h3>
       {perMember.rows.length === 0 ? (
@@ -778,7 +979,7 @@ function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
   )
 }
 
-function BurnupChart({ burnup }: { burnup: MilestoneBurnupPayload }) {
+function BurnupCard({ burnup }: { burnup: MilestoneBurnupPayload }) {
   const intl = useIntl()
   const scopeLabel = intl.formatMessage({ id: 'milestone.costTrend.scope' })
   const completedLabel = intl.formatMessage({
@@ -787,9 +988,14 @@ function BurnupChart({ burnup }: { burnup: MilestoneBurnupPayload }) {
 
   if (burnup.series.length === 0 || burnup.scopeTotal === 0) {
     return (
-      <p className='text-sm text-muted-foreground'>
-        {intl.formatMessage({ id: 'milestone.costTrend.empty' })}
-      </p>
+      <div className={CARD}>
+        <h3 className='mb-2 text-sm font-semibold text-foreground'>
+          {intl.formatMessage({ id: 'milestone.costTrend.burnupTitle' })}
+        </h3>
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'milestone.costTrend.empty' })}
+        </p>
+      </div>
     )
   }
 
@@ -801,10 +1007,16 @@ function BurnupChart({ burnup }: { burnup: MilestoneBurnupPayload }) {
   } satisfies ChartConfig
 
   return (
-    <div>
-      <h3 className='mb-3 text-sm font-medium text-foreground'>
-        {intl.formatMessage({ id: 'milestone.costTrend.burnupTitle' })}
-      </h3>
+    <div className={CARD}>
+      <div className='mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5'>
+        <h3 className='text-sm font-semibold text-foreground'>
+          {intl.formatMessage({ id: 'milestone.costTrend.burnupTitle' })}
+        </h3>
+        <span className='text-xs tabular-nums text-muted-foreground'>
+          {formatDay(burnup.start, intl.locale)} –{' '}
+          {formatDay(burnup.end, intl.locale)}
+        </span>
+      </div>
       <ChartContainer config={config} className='aspect-[2/1] w-full'>
         <ComposedChart
           data={rows}
