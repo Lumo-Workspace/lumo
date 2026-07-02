@@ -406,3 +406,45 @@ describe('loadMemberActualRowsForTasks', () => {
     expect(hookFind).not.toHaveBeenCalled()
   })
 })
+
+describe('loadSessionTokenRowsForTasks', () => {
+  it('fetches the same token columns and attribution key, without the event stream', async () => {
+    const sessions = [
+      {
+        taskId: 't1',
+        workspaceMemberId: 'mA',
+        inputTokens: 1,
+        outputTokens: 2,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+    ]
+    sessionFind.mockResolvedValue(sessions)
+
+    const out = await retrospectiveRepository.loadSessionTokenRowsForTasks([
+      't1',
+      't2',
+    ])
+    expect(out).toEqual(sessions)
+    expect(sessionFind).toHaveBeenCalledWith({
+      where: { taskId: { in: ['t1', 't2'] } },
+      select: {
+        taskId: true,
+        workspaceMemberId: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
+      },
+    })
+    // Lean by design: the delivery rollup needs no active time, so the
+    // hook-event stream is never fetched on this path.
+    expect(hookFind).not.toHaveBeenCalled()
+  })
+
+  it('short-circuits an empty task set without querying', async () => {
+    const out = await retrospectiveRepository.loadSessionTokenRowsForTasks([])
+    expect(out).toEqual([])
+    expect(sessionFind).not.toHaveBeenCalled()
+  })
+})

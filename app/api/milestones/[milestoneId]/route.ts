@@ -37,6 +37,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       costTrend,
       segments,
       deliveryStats,
+      memberDelivery,
     ] = await Promise.all([
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestoneService.getCostTrendForMilestone(milestoneId, teamId),
       milestoneService.getSegmentsForMilestone(milestoneId, teamId),
       milestoneService.getDeliveryStatsForMilestone(milestoneId),
+      milestoneService.getMemberDeliveryForMilestone(milestoneId),
     ])
     return NextResponse.json({
       milestone: {
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         burnup: costTrend.burnup,
         segments,
         deliveryStats,
+        memberDelivery,
       },
     })
   } catch (error) {

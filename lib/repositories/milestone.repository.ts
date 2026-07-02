@@ -262,6 +262,52 @@ export const milestoneRepository = {
   },
 
   /**
+   * Raw rows for the LUM-633 per-member delivery rollup: every member task's
+   * claim fields (SAME select as `outcomeRollupRows` — the member expansion
+   * and the outcome section must not drift) plus the assignee-resolution
+   * fields (Actor type/memberId and the agent's owning member), and the same
+   * outcome-well `(taskId, kind)` signal groupBy the LUM-626 fate counts read.
+   */
+  async memberDeliveryRows(milestoneId: string) {
+    const tasks = await prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        claimSnapshot: true,
+        claimSnapshotSource: true,
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            type: true,
+            memberId: true,
+            agent: { select: { memberId: true } },
+          },
+        },
+      },
+      orderBy: { number: 'asc' },
+    })
+    if (tasks.length === 0) {
+      return { tasks, signalCounts: [] }
+    }
+    const grouped = await prisma.outcomeSignal.groupBy({
+      by: ['taskId', 'kind'],
+      where: { taskId: { in: tasks.map(t => t.id) } },
+      _count: { _all: true },
+    })
+    return {
+      tasks,
+      signalCounts: grouped.map(g => ({
+        taskId: g.taskId,
+        kind: g.kind,
+        count: g._count._all,
+      })),
+    }
+  },
+
+  /**
    * Raw rows for the LUM-628 segmentation rollup: every member task's
    * grouping basis (priority / sprint binding / tags) plus the ref fields
    * the drill-down rows render.

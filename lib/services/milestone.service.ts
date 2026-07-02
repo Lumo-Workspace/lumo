@@ -12,6 +12,8 @@ import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
 import { computeMilestoneDeliveryStats } from '@/lib/summaries/milestone-delivery-stats'
+import { computeMilestoneMemberDelivery } from '@/lib/summaries/milestone-member-delivery'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
@@ -231,6 +233,67 @@ export const milestoneService = {
       complexityRows,
       sessionRows: actualRows.sessions,
       turnEvents: actualRows.turnEvents,
+      memberLabels,
+    })
+  },
+
+  /**
+   * LUM-633 per-member delivery rollup for an already-authorized milestone:
+   * DONE / merged-PR / fate / friction / change-surface counts grouped by the
+   * task ASSIGNEE (agent actors folded to a person — owner for personal
+   * agents, top token spender for shared ones), with explicit unassigned and
+   * unattributed buckets, plus each member's DONE tasks' frozen claims
+   * (same sourcing as the LUM-626 outcome section). Counts only — no ratio
+   * appears anywhere in the payload. Pure read model, zero schema change.
+   * Performs NO auth — only call after authorizing (e.g. via
+   * `getMilestoneWithTeam`).
+   */
+  async getMemberDeliveryForMilestone(milestoneId: string) {
+    const { tasks, signalCounts } =
+      await milestoneRepository.memberDeliveryRows(milestoneId)
+    const taskIds = tasks.map(t => t.id)
+    const [prRows, complexityRows, sessionRows, verificationRows] =
+      await Promise.all([
+        pullRequestRepository.listStatesByTaskIds(taskIds),
+        taskComplexityRepository.listByTaskIds(taskIds),
+        retrospectiveRepository.loadSessionTokenRowsForTasks(taskIds),
+        verificationRunRepository.failRowsByTaskIds(taskIds),
+      ])
+    const taskRows = tasks.map(t => ({
+      id: t.id,
+      ref: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      claimSnapshot: t.claimSnapshot,
+      claimSnapshotSource: t.claimSnapshotSource,
+      assignee: t.assignee
+        ? {
+            actorType: t.assignee.type,
+            actorMemberId: t.assignee.memberId,
+            agentOwnerMemberId: t.assignee.agent?.memberId ?? null,
+          }
+        : null,
+    }))
+    // Labels for every member a row can land on: direct member actors, agent
+    // owners, and session spenders (the shared-agent fold candidates).
+    const memberIds = [
+      ...new Set([
+        ...taskRows.flatMap(t =>
+          t.assignee
+            ? [t.assignee.actorMemberId, t.assignee.agentOwnerMemberId]
+            : []
+        ),
+        ...sessionRows.map(s => s.workspaceMemberId),
+      ]),
+    ].filter((id): id is string => !!id)
+    const memberLabels = await memberRepository.labelsByIds(memberIds)
+    return computeMilestoneMemberDelivery({
+      tasks: taskRows,
+      prRows,
+      complexityRows,
+      sessionRows,
+      verificationRows,
+      signalCounts,
       memberLabels,
     })
   },

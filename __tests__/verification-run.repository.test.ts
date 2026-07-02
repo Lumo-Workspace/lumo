@@ -157,6 +157,42 @@ describe('verificationRunRepository', () => {
     })
   })
 
+  describe('failRowsByTaskIds', () => {
+    it('fetches FAIL rows projected to the friction fields for the task set', async () => {
+      const rows = [
+        {
+          taskId: 't-1',
+          round: 1,
+          verdict: 'FAIL',
+          verifierType: 'MACHINE',
+          verdictActionId: null,
+        },
+      ]
+      mockFindMany.mockResolvedValue(rows)
+      const out = await verificationRunRepository.failRowsByTaskIds([
+        't-1',
+        't-2',
+      ])
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: { taskId: { in: ['t-1', 't-2'] }, verdict: 'FAIL' },
+        select: {
+          taskId: true,
+          round: true,
+          verdict: true,
+          verifierType: true,
+          verdictActionId: true,
+        },
+      })
+      expect(out).toEqual(rows)
+    })
+
+    it('returns [] for empty input without querying', async () => {
+      const out = await verificationRunRepository.failRowsByTaskIds([])
+      expect(out).toEqual([])
+      expect(mockFindMany).not.toHaveBeenCalled()
+    })
+  })
+
   describe('taskIdsWithSendBack', () => {
     it('qualifies only HUMAN and AGENT FAIL verdicts', async () => {
       mockFindMany.mockResolvedValue([

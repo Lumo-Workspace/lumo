@@ -13,7 +13,11 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     costTrendRows: jest.fn(),
     segmentationRows: jest.fn(),
     taskIds: jest.fn(),
+    memberDeliveryRows: jest.fn(),
   },
+}))
+jest.mock('@/lib/repositories/verification-run.repository', () => ({
+  verificationRunRepository: { failRowsByTaskIds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: { findByIds: jest.fn() },
@@ -22,6 +26,7 @@ jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: {
     loadActualsForTasks: jest.fn(),
     loadMemberActualRowsForTasks: jest.fn(),
+    loadSessionTokenRowsForTasks: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -56,6 +61,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { projectService } from '@/lib/services/project.service'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { requireIdentity } from '@/lib/auth'
 
 const mockIdentity = requireIdentity as jest.Mock
@@ -76,6 +82,11 @@ const loadMemberRows =
 const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
 const listComplexity = taskComplexityRepository.listByTaskIds as jest.Mock
 const labelsByIds = memberRepository.labelsByIds as jest.Mock
+const memberDeliveryRows = milestoneRepository.memberDeliveryRows as jest.Mock
+const loadSessionTokenRows =
+  retrospectiveRepository.loadSessionTokenRowsForTasks as jest.Mock
+const failRowsByTaskIds =
+  verificationRunRepository.failRowsByTaskIds as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -105,6 +116,12 @@ beforeEach(() => {
   listComplexity.mockResolvedValue([])
   labelsByIds.mockReset()
   labelsByIds.mockResolvedValue(new Map())
+  memberDeliveryRows.mockReset()
+  memberDeliveryRows.mockResolvedValue({ tasks: [], signalCounts: [] })
+  loadSessionTokenRows.mockReset()
+  loadSessionTokenRows.mockResolvedValue([])
+  failRowsByTaskIds.mockReset()
+  failRowsByTaskIds.mockResolvedValue([])
 })
 
 const rollupRows = {

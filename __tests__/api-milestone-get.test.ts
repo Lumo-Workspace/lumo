@@ -12,6 +12,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getCostTrendForMilestone: jest.fn(),
     getSegmentsForMilestone: jest.fn(),
     getDeliveryStatsForMilestone: jest.fn(),
+    getMemberDeliveryForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -42,6 +43,8 @@ const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 const mockDeliveryStats =
   milestoneService.getDeliveryStatsForMilestone as jest.Mock
+const mockMemberDelivery =
+  milestoneService.getMemberDeliveryForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -95,6 +98,8 @@ beforeEach(() => {
   mockObserve.mockReturnValue({ statusDrift: null, datesMissing: false })
   mockDeliveryStats.mockReset()
   mockDeliveryStats.mockResolvedValue(emptyDeliveryStats)
+  mockMemberDelivery.mockReset()
+  mockMemberDelivery.mockResolvedValue({ rows: [] })
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -238,6 +243,73 @@ describe('GET /api/milestones/[id]', () => {
     const body = await res.json()
     expect(body.milestone.deliveryStats).toEqual(deliveryStats)
     expect(mockDeliveryStats).toHaveBeenCalledWith('m-1')
+  })
+
+  it('returns member delivery rollup', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 2,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 2 })
+    mockOutcome.mockResolvedValue(null)
+    const memberDelivery = {
+      rows: [
+        {
+          bucket: 'member',
+          memberId: 'mA',
+          label: 'Alice',
+          taskCount: 2,
+          doneCount: 2,
+          mergedPrCount: 3,
+          fate: { rejectedTaskCount: 1, noRecordDoneCount: 1 },
+          friction: {
+            failRoundCount: 1,
+            sendBackCount: 1,
+            multiPrTaskCount: 1,
+          },
+          changedFiles: { total: 9, measuredTasks: 1 },
+          claims: [
+            {
+              taskId: 't1',
+              ref: 'LUM-1',
+              title: 'T1',
+              claim: 'shipped X',
+              source: 'AGENT',
+            },
+          ],
+        },
+        {
+          bucket: 'unassigned',
+          memberId: null,
+          label: null,
+          taskCount: 1,
+          doneCount: 0,
+          mergedPrCount: 0,
+          fate: { rejectedTaskCount: 0, noRecordDoneCount: 0 },
+          friction: {
+            failRoundCount: 0,
+            sendBackCount: 0,
+            multiPrTaskCount: 0,
+          },
+          changedFiles: { total: null, measuredTasks: 0 },
+          claims: [],
+        },
+      ],
+    }
+    mockMemberDelivery.mockResolvedValue(memberDelivery)
+
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.memberDelivery).toEqual(memberDelivery)
+    expect(mockMemberDelivery).toHaveBeenCalledWith('m-1')
   })
 
   it('enriches the payload with rollup staleness hints (LUM-624)', async () => {
