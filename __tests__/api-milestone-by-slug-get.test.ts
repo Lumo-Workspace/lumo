@@ -14,6 +14,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getOutcomeForMilestone: jest.fn(),
     getCostTrendForMilestone: jest.fn(),
     getSegmentsForMilestone: jest.fn(),
+    getDeliveryStatsForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -44,6 +45,8 @@ const mockSegments = milestoneService.getSegmentsForMilestone as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
+const mockDeliveryStats =
+  milestoneService.getDeliveryStatsForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -81,6 +84,23 @@ beforeEach(() => {
     sprint: [],
     priority: [],
     workstream: [],
+  })
+  mockDeliveryStats.mockReset()
+  mockDeliveryStats.mockResolvedValue({
+    pr: {
+      mergedPrCount: 0,
+      multiPrTaskCount: 0,
+      linkedTaskCount: 0,
+      unlinkedTaskCount: 0,
+      totalTasks: 0,
+    },
+    changedFiles: { total: null, measuredTasks: 0, totalTasks: 0 },
+    perMember: {
+      measuredTasks: 0,
+      tokenCost: null,
+      activeTimeSec: 0,
+      rows: [],
+    },
   })
 })
 
@@ -165,6 +185,60 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone).toHaveProperty('summaryTldr', null)
+  })
+
+  it('returns delivery stats rollup', async () => {
+    mockIdentity.mockResolvedValue({ clerkId: 'clerk-1', memberId: 'mem-1' })
+    mockLoad.mockResolvedValue({
+      project: { id: 'p-1', teamId: 'team-1' },
+      member: { id: 'mem-1' },
+      workspaceSlug: 'w',
+    })
+    mockBySlug.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      name: 'Q3',
+      slug: 'q3',
+      status: 'ACTIVE',
+      startDate: null,
+      targetDate: null,
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 3,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 3 })
+    mockSummary.mockResolvedValue(null)
+    // Same structure the by-id route returns — the canonical slug path must
+    // not lag the by-id enrich (the recurring two-read-paths trap).
+    const deliveryStats = {
+      pr: {
+        mergedPrCount: 4,
+        multiPrTaskCount: 1,
+        linkedTaskCount: 2,
+        unlinkedTaskCount: 1,
+        totalTasks: 3,
+      },
+      changedFiles: { total: 42, measuredTasks: 2, totalTasks: 3 },
+      perMember: {
+        measuredTasks: 2,
+        tokenCost: 1000,
+        activeTimeSec: 90,
+        rows: [
+          { memberId: 'mA', label: 'Alice', tokenCost: 800, activeTimeSec: 60 },
+          { memberId: null, label: null, tokenCost: 200, activeTimeSec: 30 },
+        ],
+      },
+    }
+    mockDeliveryStats.mockResolvedValue(deliveryStats)
+
+    const res = await GET(new Request('http://x/m') as never, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.deliveryStats).toEqual(deliveryStats)
+    expect(mockDeliveryStats).toHaveBeenCalledWith('m-1')
   })
 
   it('by-slug milestone payload carries costRollup burnup and outcome', async () => {

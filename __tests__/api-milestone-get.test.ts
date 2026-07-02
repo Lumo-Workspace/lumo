@@ -11,6 +11,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getOutcomeForMilestone: jest.fn(),
     getCostTrendForMilestone: jest.fn(),
     getSegmentsForMilestone: jest.fn(),
+    getDeliveryStatsForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -39,6 +40,8 @@ const mockCostTrend = milestoneService.getCostTrendForMilestone as jest.Mock
 const mockSegments = milestoneService.getSegmentsForMilestone as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
+const mockDeliveryStats =
+  milestoneService.getDeliveryStatsForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -59,6 +62,23 @@ const emptyCostTrend = {
 
 const emptySegments = { tasks: [], sprint: [], priority: [], workstream: [] }
 
+const emptyDeliveryStats = {
+  pr: {
+    mergedPrCount: 0,
+    multiPrTaskCount: 0,
+    linkedTaskCount: 0,
+    unlinkedTaskCount: 0,
+    totalTasks: 0,
+  },
+  changedFiles: { total: null, measuredTasks: 0, totalTasks: 0 },
+  perMember: {
+    measuredTasks: 0,
+    tokenCost: null,
+    activeTimeSec: 0,
+    rows: [],
+  },
+}
+
 beforeEach(() => {
   mockIdentity.mockReset()
   mockGet.mockReset()
@@ -73,6 +93,8 @@ beforeEach(() => {
   mockSummary.mockResolvedValue(null)
   mockObserve.mockReset()
   mockObserve.mockReturnValue({ statusDrift: null, datesMissing: false })
+  mockDeliveryStats.mockReset()
+  mockDeliveryStats.mockResolvedValue(emptyDeliveryStats)
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -174,6 +196,48 @@ describe('GET /api/milestones/[id]', () => {
     const body = await res.json()
     expect(body.milestone.segments).toEqual(segments)
     expect(mockSegments).toHaveBeenCalledWith('m-1', 'team-1')
+  })
+
+  it('returns delivery stats rollup', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 3,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 3 })
+    mockOutcome.mockResolvedValue(null)
+    const deliveryStats = {
+      pr: {
+        mergedPrCount: 4,
+        multiPrTaskCount: 1,
+        linkedTaskCount: 2,
+        unlinkedTaskCount: 1,
+        totalTasks: 3,
+      },
+      changedFiles: { total: 42, measuredTasks: 2, totalTasks: 3 },
+      perMember: {
+        measuredTasks: 2,
+        tokenCost: 1000,
+        activeTimeSec: 90,
+        rows: [
+          { memberId: 'mA', label: 'Alice', tokenCost: 800, activeTimeSec: 60 },
+          { memberId: null, label: null, tokenCost: 200, activeTimeSec: 30 },
+        ],
+      },
+    }
+    mockDeliveryStats.mockResolvedValue(deliveryStats)
+
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.deliveryStats).toEqual(deliveryStats)
+    expect(mockDeliveryStats).toHaveBeenCalledWith('m-1')
   })
 
   it('enriches the payload with rollup staleness hints (LUM-624)', async () => {

@@ -1,0 +1,92 @@
+/**
+ * @jest-environment node
+ */
+jest.mock('@/lib/repositories/milestone.repository', () => ({
+  milestoneRepository: { taskIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listStatesByTaskIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/task-complexity.repository', () => ({
+  taskComplexityRepository: { listByTaskIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/retrospective.repository', () => ({
+  retrospectiveRepository: { loadMemberActualRowsForTasks: jest.fn() },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: { labelsByIds: jest.fn() },
+}))
+
+import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
+import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+
+const taskIds = milestoneRepository.taskIds as jest.Mock
+const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
+const listComplexity = taskComplexityRepository.listByTaskIds as jest.Mock
+const loadMemberRows =
+  retrospectiveRepository.loadMemberActualRowsForTasks as jest.Mock
+const labelsByIds = memberRepository.labelsByIds as jest.Mock
+
+beforeEach(() => {
+  taskIds.mockReset()
+  listStates.mockReset()
+  listComplexity.mockReset()
+  loadMemberRows.mockReset()
+  labelsByIds.mockReset()
+})
+
+describe('milestoneService.getDeliveryStatsForMilestone', () => {
+  it('fans the member task set through the batch queries and folds honest buckets', async () => {
+    taskIds.mockResolvedValue(['t1', 't2'])
+    listStates.mockResolvedValue([
+      { taskId: 't1', state: 'merged' },
+      { taskId: 't1', state: 'merged' },
+    ])
+    listComplexity.mockResolvedValue([{ taskId: 't1', changedFileCount: 7 }])
+    loadMemberRows.mockResolvedValue({
+      sessions: [
+        {
+          id: 's1',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 10,
+          outputTokens: 5,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+        },
+      ],
+      turnEvents: [],
+    })
+    labelsByIds.mockResolvedValue(new Map([['mA', 'Alice']]))
+
+    const stats = await milestoneService.getDeliveryStatsForMilestone('m-1')
+
+    expect(taskIds).toHaveBeenCalledWith('m-1')
+    expect(listStates).toHaveBeenCalledWith(['t1', 't2'])
+    expect(listComplexity).toHaveBeenCalledWith(['t1', 't2'])
+    expect(loadMemberRows).toHaveBeenCalledWith(['t1', 't2'])
+    // Labels resolved only for the distinct non-null attribution keys.
+    expect(labelsByIds).toHaveBeenCalledWith(['mA'])
+
+    expect(stats.pr).toEqual({
+      mergedPrCount: 2,
+      multiPrTaskCount: 1,
+      linkedTaskCount: 1,
+      unlinkedTaskCount: 1,
+      totalTasks: 2,
+    })
+    expect(stats.changedFiles).toEqual({
+      total: 7,
+      measuredTasks: 1,
+      totalTasks: 2,
+    })
+    expect(stats.perMember.tokenCost).toBe(15)
+    expect(stats.perMember.rows).toEqual([
+      { memberId: 'mA', label: 'Alice', tokenCost: 15, activeTimeSec: 0 },
+    ])
+  })
+})

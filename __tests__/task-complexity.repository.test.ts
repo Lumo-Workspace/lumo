@@ -51,6 +51,20 @@ describe('taskComplexityRepository', () => {
     expect(mockFindUnique).toHaveBeenCalledWith({ where: { taskId: 't1' } })
   })
 
+  it('listByTaskIds 批量取改动面投影,空集短路不打库', async () => {
+    mockFindMany.mockResolvedValueOnce([{ taskId: 't1', changedFileCount: 5 }])
+    const rows = await taskComplexityRepository.listByTaskIds(['t1', 't2'])
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { taskId: { in: ['t1', 't2'] } },
+      select: { taskId: true, changedFileCount: true },
+    })
+    expect(rows).toEqual([{ taskId: 't1', changedFileCount: 5 }])
+
+    mockFindMany.mockClear()
+    expect(await taskComplexityRepository.listByTaskIds([])).toEqual([])
+    expect(mockFindMany).not.toHaveBeenCalled()
+  })
+
   it('listByTeam 取 cohort 的信号字段', async () => {
     mockFindMany.mockResolvedValueOnce([])
     await taskComplexityRepository.listByTeam('team1')

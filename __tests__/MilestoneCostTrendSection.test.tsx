@@ -11,6 +11,17 @@ const messages: Record<string, string> = {
   'milestone.costTrend.scope': 'Scope',
   'milestone.costTrend.completed': 'Completed',
   'milestone.costTrend.empty': 'No tasks yet — nothing to chart',
+  'milestone.deliveryStats.mergedPrs': 'Merged PRs',
+  'milestone.deliveryStats.reworkDetail':
+    '{multiPr} tasks took more than one PR · {unlinked} tasks with no PR on record',
+  'milestone.deliveryStats.noPrRecords': 'No PRs on record',
+  'milestone.deliveryStats.changedFiles': 'Change surface',
+  'milestone.deliveryStats.changedFilesNote':
+    'Files changed, summed per task — a file shared across tasks is counted per task',
+  'milestone.deliveryStats.perMemberTitle': 'Spend by member',
+  'milestone.deliveryStats.member': 'Member',
+  'milestone.deliveryStats.unattributed': 'Unattributed',
+  'milestone.deliveryStats.noSessions': 'No sessions on record',
 }
 
 jest.mock('react-intl', () => ({
@@ -135,7 +146,11 @@ describe('buildMilestoneBurnupChart', () => {
 describe('MilestoneCostTrendSection', () => {
   it('cost trend section renders aggregates not a task list', () => {
     const { container } = render(
-      <MilestoneCostTrendSection costRollup={costRollup()} burnup={burnup()} />
+      <MilestoneCostTrendSection
+        costRollup={costRollup()}
+        burnup={burnup()}
+        deliveryStats={undefined}
+      />
     )
 
     // Aggregate stat row: compact token total + active time + coverage note.
@@ -166,6 +181,7 @@ describe('MilestoneCostTrendSection', () => {
           activeTimeSec: 0,
         })}
         burnup={undefined}
+        deliveryStats={undefined}
       />
     )
     expect(screen.getByText('Not measured')).toBeInTheDocument()
@@ -185,6 +201,7 @@ describe('MilestoneCostTrendSection', () => {
           totalTasks: 0,
         })}
         burnup={burnup({ scopeTotal: 0, series: [] })}
+        deliveryStats={undefined}
       />
     )
     expect(
@@ -195,8 +212,157 @@ describe('MilestoneCostTrendSection', () => {
 
   it('renders nothing on an older-server payload with neither field', () => {
     const { container } = render(
-      <MilestoneCostTrendSection costRollup={undefined} burnup={undefined} />
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={undefined}
+      />
     )
     expect(container.firstChild).toBeNull()
+  })
+
+  it('renders delivery scale and per-member aggregates', () => {
+    const { container } = render(
+      <MilestoneCostTrendSection
+        costRollup={costRollup()}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 12,
+            multiPrTaskCount: 3,
+            linkedTaskCount: 20,
+            unlinkedTaskCount: 6,
+            totalTasks: 26,
+          },
+          changedFiles: { total: 148, measuredTasks: 24, totalTasks: 26 },
+          perMember: {
+            measuredTasks: 20,
+            tokenCost: 1_000_000,
+            activeTimeSec: 3660,
+            rows: [
+              {
+                memberId: 'mA',
+                label: 'Alice',
+                tokenCost: 900_000,
+                activeTimeSec: 3600,
+              },
+              {
+                memberId: null,
+                label: null,
+                tokenCost: 100_000,
+                activeTimeSec: 60,
+              },
+            ],
+          },
+        }}
+      />
+    )
+
+    // Delivery-scale cards ride the SAME stat row as the cost aggregates —
+    // no new top-level section is introduced.
+    expect(
+      container.querySelectorAll('section[aria-label="Cost and trajectory"]')
+    ).toHaveLength(1)
+    expect(container.querySelectorAll('section')).toHaveLength(1)
+    expect(screen.getByText('Merged PRs')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+    // Risk framing sub-line: multi-PR rework + the explicit unlinked bucket.
+    expect(
+      screen.getByText(
+        '3 tasks took more than one PR · 6 tasks with no PR on record'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Change surface')).toBeInTheDocument()
+    expect(screen.getByText('148')).toBeInTheDocument()
+    expect(screen.getByText('measured on 24 of 26 tasks')).toBeInTheDocument()
+    // Honest double-count label on the summed change surface.
+    expect(
+      screen.getByText(
+        'Files changed, summed per task — a file shared across tasks is counted per task'
+      )
+    ).toBeInTheDocument()
+
+    // Per-member table: aggregate attribution rows (member + unattributed),
+    // never a task list — exactly one row per member in the payload.
+    expect(screen.getByText('Spend by member')).toBeInTheDocument()
+    const table = container.querySelector('table')
+    expect(table).not.toBeNull()
+    expect(table!.querySelectorAll('tbody tr')).toHaveLength(2)
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.getByText('900K')).toBeInTheDocument()
+    expect(screen.getByText('1h')).toBeInTheDocument()
+    // The unattributed remainder is a real row, rendered last.
+    const rows = table!.querySelectorAll('tbody tr')
+    expect(rows[1]!.textContent).toContain('Unattributed')
+    expect(rows[1]!.textContent).toContain('100K')
+  })
+
+  it('renders explicit placeholders for no-PR, unmeasured, and empty member states', () => {
+    render(
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 0,
+            multiPrTaskCount: 0,
+            linkedTaskCount: 0,
+            unlinkedTaskCount: 4,
+            totalTasks: 4,
+          },
+          changedFiles: { total: null, measuredTasks: 0, totalTasks: 4 },
+          perMember: {
+            measuredTasks: 0,
+            tokenCost: null,
+            activeTimeSec: 0,
+            rows: [],
+          },
+        }}
+      />
+    )
+    // No PR records → an explicit statement, not a fabricated numeric 0.
+    expect(screen.getByText('No PRs on record')).toBeInTheDocument()
+    // Unmeasured change surface → fail-closed "Not measured".
+    expect(screen.getByText('Not measured')).toBeInTheDocument()
+    // No sessions at all → explicit empty-member placeholder, no table.
+    expect(screen.getByText('No sessions on record')).toBeInTheDocument()
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument()
+  })
+
+  it('fail-closes the whole per-member table when nothing is measured', () => {
+    const { container } = render(
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 1,
+            multiPrTaskCount: 0,
+            linkedTaskCount: 1,
+            unlinkedTaskCount: 0,
+            totalTasks: 1,
+          },
+          changedFiles: { total: 3, measuredTasks: 1, totalTasks: 1 },
+          perMember: {
+            measuredTasks: 0,
+            tokenCost: null,
+            activeTimeSec: 30,
+            rows: [
+              {
+                memberId: 'mA',
+                label: 'Alice',
+                tokenCost: 0,
+                activeTimeSec: 30,
+              },
+            ],
+          },
+        }}
+      />
+    )
+    // Zero measured tasks → the table reads "not measured" as a whole
+    // instead of a column of fabricated zeros.
+    expect(screen.getByText('Spend by member')).toBeInTheDocument()
+    expect(screen.getByText('Not measured')).toBeInTheDocument()
+    expect(container.querySelector('table')).toBeNull()
   })
 })

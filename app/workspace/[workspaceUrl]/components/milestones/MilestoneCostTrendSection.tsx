@@ -95,24 +95,30 @@ function formatDay(date: string, locale?: string): string {
 interface MilestoneCostTrendSectionProps {
   costRollup: ApiMilestone['costRollup']
   burnup: ApiMilestone['burnup']
+  deliveryStats: ApiMilestone['deliveryStats']
 }
 
 /**
  * LUM-627 — the Overview tab's cost + trajectory rollup: member tasks'
  * token/active-time actuals (same-source with the task-level LUM-560 cost)
- * and the cross-sprint burnup replay. Aggregates only — never a per-task
- * list. Honest by construction: an unmeasured token total states "not
- * measured" instead of implying a clean 0, and a task-less milestone gets an
- * explicit empty line, not a fake chart. Hierarchy via typography, not color.
+ * and the cross-sprint burnup replay. LUM-632 extends the same section (no
+ * new top-level section) with the delivery-scale cards (merged PRs / change
+ * surface — read as regression surface and review load, never output) and
+ * the per-member spend table. Aggregates only — never a per-task list.
+ * Honest by construction: an unmeasured total states "not measured" instead
+ * of implying a clean 0, a no-PR milestone states "no PRs on record", and
+ * unattributable spend gets an explicit row. Hierarchy via typography, not
+ * color.
  */
 export function MilestoneCostTrendSection({
   costRollup,
   burnup,
+  deliveryStats,
 }: MilestoneCostTrendSectionProps) {
   const intl = useIntl()
-  // Older-server tolerance: without either enrich field there is nothing
+  // Older-server tolerance: without any enrich field there is nothing
   // honest to say — render nothing rather than fabricate placeholders.
-  if (!costRollup && !burnup) return null
+  if (!costRollup && !burnup && !deliveryStats) return null
 
   const label = (id: string) => (
     <dt className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
@@ -129,42 +135,178 @@ export function MilestoneCostTrendSection({
         {intl.formatMessage({ id: 'milestone.costTrend.title' })}
       </p>
 
-      {costRollup && (
+      {(costRollup || deliveryStats) && (
         <dl className='mb-6 flex flex-wrap gap-x-12 gap-y-4'>
-          <div>
-            {label('milestone.costTrend.tokens')}
-            <dd className='mt-1 text-lg font-semibold tabular-nums'>
-              {costRollup.tokenCost === null ? (
-                <span className='font-normal text-muted-foreground'>
+          {costRollup && (
+            <>
+              <div>
+                {label('milestone.costTrend.tokens')}
+                <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                  {costRollup.tokenCost === null ? (
+                    <span className='font-normal text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'milestone.costTrend.notMeasured',
+                      })}
+                    </span>
+                  ) : (
+                    fmtTokens(costRollup.tokenCost)
+                  )}
+                </dd>
+                <dd className='mt-0.5 text-xs text-muted-foreground'>
+                  {intl.formatMessage(
+                    { id: 'milestone.costTrend.coverage' },
+                    {
+                      measured: costRollup.measuredTasks,
+                      total: costRollup.totalTasks,
+                    }
+                  )}
+                </dd>
+              </div>
+              <div>
+                {label('milestone.costTrend.activeTime')}
+                <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                  {fmtDuration(costRollup.activeTimeSec)}
+                </dd>
+              </div>
+            </>
+          )}
+          {deliveryStats && (
+            <>
+              <div>
+                {label('milestone.deliveryStats.mergedPrs')}
+                <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                  {deliveryStats.pr.linkedTaskCount === 0 ? (
+                    <span className='font-normal text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'milestone.deliveryStats.noPrRecords',
+                      })}
+                    </span>
+                  ) : (
+                    deliveryStats.pr.mergedPrCount
+                  )}
+                </dd>
+                <dd className='mt-0.5 text-xs text-muted-foreground'>
+                  {intl.formatMessage(
+                    { id: 'milestone.deliveryStats.reworkDetail' },
+                    {
+                      multiPr: deliveryStats.pr.multiPrTaskCount,
+                      unlinked: deliveryStats.pr.unlinkedTaskCount,
+                    }
+                  )}
+                </dd>
+              </div>
+              <div>
+                {label('milestone.deliveryStats.changedFiles')}
+                <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                  {deliveryStats.changedFiles.total === null ? (
+                    <span className='font-normal text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'milestone.costTrend.notMeasured',
+                      })}
+                    </span>
+                  ) : (
+                    deliveryStats.changedFiles.total
+                  )}
+                </dd>
+                <dd className='mt-0.5 text-xs text-muted-foreground'>
+                  {intl.formatMessage(
+                    { id: 'milestone.costTrend.coverage' },
+                    {
+                      measured: deliveryStats.changedFiles.measuredTasks,
+                      total: deliveryStats.changedFiles.totalTasks,
+                    }
+                  )}
+                </dd>
+                <dd className='mt-0.5 text-xs text-muted-foreground'>
                   {intl.formatMessage({
-                    id: 'milestone.costTrend.notMeasured',
+                    id: 'milestone.deliveryStats.changedFilesNote',
                   })}
-                </span>
-              ) : (
-                fmtTokens(costRollup.tokenCost)
-              )}
-            </dd>
-            <dd className='mt-0.5 text-xs text-muted-foreground'>
-              {intl.formatMessage(
-                { id: 'milestone.costTrend.coverage' },
-                {
-                  measured: costRollup.measuredTasks,
-                  total: costRollup.totalTasks,
-                }
-              )}
-            </dd>
-          </div>
-          <div>
-            {label('milestone.costTrend.activeTime')}
-            <dd className='mt-1 text-lg font-semibold tabular-nums'>
-              {fmtDuration(costRollup.activeTimeSec)}
-            </dd>
-          </div>
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
       )}
 
       {burnup && <BurnupChart burnup={burnup} />}
+
+      {deliveryStats && <PerMemberTable perMember={deliveryStats.perMember} />}
     </section>
+  )
+}
+
+/**
+ * Per-member spend — an aggregate attribution table (spender = the session's
+ * workspace member, never the assignee), not a task list. Fail-closed: zero
+ * measured tasks renders "not measured" for the whole table instead of a
+ * column of fabricated zeros; a member-less remainder renders as an explicit
+ * unattributed row. Hierarchy via size/weight only.
+ */
+function PerMemberTable({
+  perMember,
+}: {
+  perMember: NonNullable<ApiMilestone['deliveryStats']>['perMember']
+}) {
+  const intl = useIntl()
+  return (
+    <div className='mt-6'>
+      <h3 className='mb-3 text-sm font-medium text-foreground'>
+        {intl.formatMessage({ id: 'milestone.deliveryStats.perMemberTitle' })}
+      </h3>
+      {perMember.rows.length === 0 ? (
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'milestone.deliveryStats.noSessions' })}
+        </p>
+      ) : perMember.tokenCost === null && perMember.measuredTasks === 0 ? (
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'milestone.costTrend.notMeasured' })}
+        </p>
+      ) : (
+        <table className='w-full max-w-md text-sm'>
+          <thead>
+            <tr className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
+              <th className='pb-1.5 text-left font-semibold'>
+                {intl.formatMessage({ id: 'milestone.deliveryStats.member' })}
+              </th>
+              <th className='pb-1.5 text-right font-semibold'>
+                {intl.formatMessage({ id: 'milestone.costTrend.tokens' })}
+              </th>
+              <th className='pb-1.5 text-right font-semibold'>
+                {intl.formatMessage({ id: 'milestone.costTrend.activeTime' })}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {perMember.rows.map(row => (
+              <tr
+                key={row.memberId ?? '__unattributed__'}
+                className='border-t border-border/60'
+              >
+                <td
+                  className={
+                    row.memberId === null
+                      ? 'py-1.5 text-muted-foreground'
+                      : 'py-1.5'
+                  }
+                >
+                  {row.memberId === null
+                    ? intl.formatMessage({
+                        id: 'milestone.deliveryStats.unattributed',
+                      })
+                    : row.label}
+                </td>
+                <td className='py-1.5 text-right tabular-nums'>
+                  {fmtTokens(row.tokenCost)}
+                </td>
+                <td className='py-1.5 text-right tabular-nums'>
+                  {fmtDuration(row.activeTimeSec)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }
 

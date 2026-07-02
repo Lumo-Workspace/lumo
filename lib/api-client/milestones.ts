@@ -124,6 +124,40 @@ export interface ApiMilestone {
     priority: Array<MilestoneSegmentEntry>
     workstream: Array<MilestoneSegmentEntry>
   } | null
+  /**
+   * LUM-632 delivery-scale + per-member spend rollup. Server-enriched on the
+   * detail response only. Scale numbers read as cost/risk (regression surface,
+   * review load) — never as output. Honest buckets: no-PR tasks are counted in
+   * `unlinkedTaskCount`, unmeasured change surface is fail-closed `null` with
+   * its coverage stated, and member-less spend lands in an explicit
+   * `memberId: null` row. Per-member token/active-time rows sum exactly to
+   * `costRollup.tokenCost` / `costRollup.activeTimeSec` (same source).
+   */
+  deliveryStats?: {
+    pr: {
+      mergedPrCount: number
+      multiPrTaskCount: number
+      linkedTaskCount: number
+      unlinkedTaskCount: number
+      totalTasks: number
+    }
+    changedFiles: {
+      total: number | null
+      measuredTasks: number
+      totalTasks: number
+    }
+    perMember: {
+      measuredTasks: number
+      tokenCost: number | null
+      activeTimeSec: number
+      rows: Array<{
+        memberId: string | null
+        label: string | null
+        tokenCost: number
+        activeTimeSec: number
+      }>
+    }
+  } | null
 }
 
 export interface MilestoneSegmentEntry {

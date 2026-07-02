@@ -296,6 +296,63 @@ export const retrospectiveRepository = {
   },
 
   /**
+   * Raw rows for the LUM-632 per-member spend rollup — the member-grouped
+   * variant of `loadActualsForTasks`, same 口径 by construction: the SAME
+   * cumulative `Session.*` token columns (now with `id` +
+   * `workspaceMemberId`, the attribution keys) and the SAME hook-event
+   * stream/filters. The pure fold (`computeMilestoneDeliveryStats`) applies
+   * the identical per-task measured gate and `activeDurationMsBySession`
+   * windows, so the per-member rows reconcile exactly with the LUM-627
+   * costRollup totals — the Σ-identity is same-source, not a coincidence.
+   */
+  async loadMemberActualRowsForTasks(taskIds: string[]): Promise<{
+    sessions: Array<{
+      id: string
+      taskId: string | null
+      workspaceMemberId: string
+      inputTokens: number | null
+      outputTokens: number | null
+      cacheReadTokens: number | null
+      cacheCreationTokens: number | null
+    }>
+    turnEvents: Array<{
+      sessionId: string | null
+      type: HookEventType
+      createdAt: Date
+    }>
+  }> {
+    if (taskIds.length === 0) {
+      return { sessions: [], turnEvents: [] }
+    }
+    const [sessions, turnEvents] = await Promise.all([
+      prisma.session.findMany({
+        where: { taskId: { in: taskIds } },
+        select: {
+          id: true,
+          taskId: true,
+          workspaceMemberId: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+        },
+      }),
+      prisma.hookEvent.findMany({
+        where: {
+          OR: [
+            { taskId: { in: taskIds } },
+            { taskId: null, session: { taskId: { in: taskIds } } },
+          ],
+          type: { in: ACTIVE_TIME_EVENT_TYPES },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { sessionId: true, type: true, createdAt: true },
+      }),
+    ])
+    return { sessions, turnEvents }
+  },
+
+  /**
    * Per-session token spend for the task's cost trajectory (LUM-562, 規律7),
    * oldest-first by session start. Sums the SAME cumulative `Session.*` columns
    * `loadActuals` totals, over the SAME task-linked session set, so the
