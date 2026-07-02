@@ -23,6 +23,10 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!task)
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
-  const crossings = await boundaryCrossingService.listAll(task.id)
-  return NextResponse.json({ crossings })
+  // gateEnabled (LUM-635) is additive — CLI consumers key on `crossings` only.
+  const [crossings, gateEnabled] = await Promise.all([
+    boundaryCrossingService.listAll(task.id),
+    boundaryCrossingService.isGateEnabled(identity.workspaceId),
+  ])
+  return NextResponse.json({ crossings, gateEnabled })
 }

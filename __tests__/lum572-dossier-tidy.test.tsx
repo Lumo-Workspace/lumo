@@ -245,25 +245,23 @@ describe('boundary crossing row noise', () => {
   it('boundary panel drops the warning chrome once every crossing is dispositioned', () => {
     setStatus(statusView())
 
-    // A dispositioned-only panel (0 open) reads as a neutral disclosure row —
-    // no warning fill — so it stops shouting once everything is handled.
+    // A dispositioned-only panel (0 open) reads as a neutral zone row — no
+    // state accent — so it stops shouting once everything is handled. LUM-635:
+    // the panel is a promoted zone (always mounted, no audit-fold expansion
+    // needed) and its blocking accent is danger, not warning.
     setCrossings([dispositioned])
     const resolved = renderTab()
-    // LUM-620: the panel renders inside the collapsed Evidence & audit trail
-    // card — expand it so the panel root mounts.
-    fireEvent.click(screen.getByText('Evidence & audit trail'))
     const resolvedRoot = resolved.container.querySelector(
       '#boundary-crossings'
     )!
-    expect(resolvedRoot.className).not.toMatch(/warning-subtle/)
+    expect(resolvedRoot.className).not.toMatch(/danger/)
     resolved.unmount()
 
-    // An un-dispositioned (open) crossing brings the warning chrome back.
+    // An un-dispositioned (open, blocking) crossing brings the accent back.
     setCrossings([{ ...dispositioned, id: 'c9', disposition: null }])
     const open = renderTab()
-    fireEvent.click(screen.getByText('Evidence & audit trail'))
     const openRoot = open.container.querySelector('#boundary-crossings')!
-    expect(openRoot.className).toMatch(/warning-subtle/)
+    expect(openRoot.className).toMatch(/border-danger-border/)
   })
 })
 
@@ -366,25 +364,25 @@ describe('record tab order and collapsibles', () => {
     lastDispositionChange: null,
   }
 
-  // LUM-619/620 supersede the old LUM-572 "boundary leads" order: the criteria
-  // contract (verdict basis) and the claim strip now sit ABOVE the boundary
-  // crossings, which are demoted into the collapsed Evidence & audit trail card.
+  // LUM-635 supersedes the LUM-619/620 demotion: the boundary crossings are a
+  // promoted zone again — after the criteria zones (verdict basis leads) but
+  // BEFORE the claim strip and the collapsed Evidence & audit trail card (an
+  // open crossing is an actionable Done-blocker, not forensics).
   it('criteria and claim lead the record tab, above the boundary crossings', () => {
     setStatus(statusView())
     setCrossings([crossing])
     const { container } = renderTab()
     const claim = screen.getByText('Claim vs verification')
     const criteria = screen.getByText('Machine-verified')
-    // Expand the audit card so the boundary panel mounts.
-    fireEvent.click(screen.getByText('Evidence & audit trail'))
+    // The panel is always mounted now — no audit-card expansion needed.
     const boundary = container.querySelector('#boundary-crossings')!
-    // Criteria and claim come BEFORE the boundary panel in DOM order.
+    // Criteria come BEFORE the boundary panel; the claim strip follows it.
     expect(
       criteria.compareDocumentPosition(boundary) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
     expect(
-      claim.compareDocumentPosition(boundary) & Node.DOCUMENT_POSITION_FOLLOWING
+      boundary.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 

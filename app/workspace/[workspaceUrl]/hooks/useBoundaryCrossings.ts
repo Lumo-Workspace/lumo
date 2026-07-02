@@ -103,6 +103,10 @@ export interface ExplanationView {
 
 interface BoundaryCrossingsResponse {
   crossings: BoundaryCrossingView[]
+  /** LUM-635: the workspace DONE-gate toggle, so the panel can compute the
+   *  blocking subset like the gate does (opt-out → only HIGH blocks). Absent
+   *  on older server responses. */
+  gateEnabled?: boolean
 }
 
 interface UseBoundaryCrossingsOptions {
@@ -131,6 +135,9 @@ export function useBoundaryCrossings({
 
   return {
     crossings: query.data?.crossings ?? [],
+    // Missing field (older server) defaults to true — the conservative
+    // direction: treat open crossings as blocking rather than quietly not.
+    gateEnabled: query.data?.gateEnabled ?? true,
     loading: query.isPending && !!identifier && enabled,
     error: query.error
       ? ((query.error as Error).message ?? 'Failed to load boundary crossings')

@@ -18,12 +18,13 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 jest.mock('@/lib/services/boundary-crossing.service', () => ({
-  boundaryCrossingService: { listAll: jest.fn() },
+  boundaryCrossingService: { listAll: jest.fn(), isGateEnabled: jest.fn() },
 }))
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockFind = taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockList = boundaryCrossingService.listAll as jest.Mock
+const mockGate = boundaryCrossingService.isGateEnabled as jest.Mock
 
 const IDENTITY = {
   clerkId: 'clerk-1',
@@ -45,6 +46,7 @@ beforeEach(() => {
       detectedAt: '2026-06-11T00:00:00.000Z',
     },
   ])
+  mockGate.mockResolvedValue(true)
 })
 
 describe('GET /api/tasks/[id]/boundary-crossings', () => {
@@ -60,8 +62,19 @@ describe('GET /api/tasks/[id]/boundary-crossings', () => {
           detectedAt: '2026-06-11T00:00:00.000Z',
         },
       ],
+      // LUM-635: the workspace DONE-gate toggle rides along so the panel can
+      // compute the blocking subset (opt-out → only HIGH blocks).
+      gateEnabled: true,
     })
     expect(mockList).toHaveBeenCalledWith('t-1')
+    expect(mockGate).toHaveBeenCalledWith('w-1')
+  })
+
+  it('surfaces gateEnabled=false when the workspace opted the gate out', async () => {
+    mockGate.mockResolvedValue(false)
+    const res = await GET(req(), params)
+    expect(res.status).toBe(200)
+    expect((await res.json()).gateEnabled).toBe(false)
   })
 
   it('404 when the task does not resolve in the workspace', async () => {

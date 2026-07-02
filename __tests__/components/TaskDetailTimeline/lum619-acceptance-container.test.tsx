@@ -201,23 +201,25 @@ it('LUM-619 acceptance container orders criteria then verification record then a
   )
   const { container } = renderTab()
 
-  // LUM-620 IA: criteria → claim strip → "Evidence & audit trail" card, whose
-  // body (record, gates, boundary, cost) is collapsed by default. Expand it to
-  // assert the forensic signals' order.
+  // LUM-635 IA: criteria → boundary crossings zone → claim strip →
+  // "Evidence & audit trail" card, whose body (record, gates, cost) is
+  // collapsed by default. The boundary panel sits with the zones — an open
+  // crossing is an actionable Done-blocker — so its anchor is live even while
+  // the audit card is collapsed. Expand the card to assert the remaining
+  // forensic signals' order.
   const criteria = screen.getByText('Machine-verified')
   const claim = screen.getByTestId('claim-vs')
   const auditCard = screen.getByText('Evidence & audit trail')
-  // Claim strip is pulled up out of the audit zone — it now precedes the card.
-  precedes(criteria, claim)
+  const boundary = container.querySelector('#boundary-crossings')
+  precedes(criteria, boundary)
+  precedes(boundary, claim)
   precedes(claim, auditCard)
 
   fireEvent.click(auditCard)
   const record = screen.getByText('Verification record')
   const gates = screen.getByTestId('gates-slot')
-  const boundary = container.querySelector('#boundary-crossings')
-  // Inside the card: verification record → gates → boundary crossings.
+  // Inside the card: verification record → gates.
   precedes(record, gates)
-  precedes(gates, boundary)
 })
 
 it('LUM-619 audit-only separator marks the forensic signals as not part of the verdict', () => {
