@@ -32,6 +32,15 @@ function fmtTokens(n: number): string {
   return TOKEN_FMT.format(n)
 }
 
+/**
+ * LUM-634 — compact `+adds/−dels` change-volume reading (same compact
+ * notation as the token formatter, per the task-level convention). Only ever
+ * called with MEASURED sums — the unsynced state renders text, never +0/−0.
+ */
+function fmtVolume(additions: number, deletions: number): string {
+  return `+${TOKEN_FMT.format(additions)}/−${TOKEN_FMT.format(deletions)}`
+}
+
 /** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
 function fmtDuration(totalSec: number): string {
   const sec = Math.max(0, Math.round(totalSec))
@@ -226,6 +235,46 @@ export function MilestoneCostTrendSection({
                   })}
                 </dd>
               </div>
+              {deliveryStats.changeVolume && (
+                <div>
+                  {label('milestone.changeVolume.title')}
+                  <dd className='mt-1 text-lg font-semibold tabular-nums'>
+                    {deliveryStats.changeVolume.totalMergedPrs === 0 ? (
+                      <span className='font-normal text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'milestone.deliveryStats.noPrRecords',
+                        })}
+                      </span>
+                    ) : deliveryStats.changeVolume.additions === null ||
+                      deliveryStats.changeVolume.deletions === null ? (
+                      // Unsynced ≠ 0: zero measured PRs reads as an explicit
+                      // not-synced state, never a fabricated +0/−0.
+                      <span className='font-normal text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'milestone.changeVolume.notSynced',
+                        })}
+                      </span>
+                    ) : (
+                      fmtVolume(
+                        deliveryStats.changeVolume.additions,
+                        deliveryStats.changeVolume.deletions
+                      )
+                    )}
+                  </dd>
+                  <dd className='mt-0.5 text-xs text-muted-foreground'>
+                    {intl.formatMessage(
+                      { id: 'milestone.changeVolume.coverage' },
+                      {
+                        measured: deliveryStats.changeVolume.measuredPrs,
+                        total: deliveryStats.changeVolume.totalMergedPrs,
+                      }
+                    )}
+                  </dd>
+                  <dd className='mt-0.5 text-xs text-muted-foreground'>
+                    {intl.formatMessage({ id: 'milestone.changeVolume.note' })}
+                  </dd>
+                </div>
+              )}
             </>
           )}
         </dl>
@@ -248,14 +297,25 @@ type MemberDeliveryPayload = NonNullable<ApiMilestone['memberDelivery']>
 type MemberDeliveryRow = MemberDeliveryPayload['rows'][number]
 
 /** One rendered member-table row: the two attribution 口径 side by side —
- * spend (session spender, LUM-632) and delivery (task assignee, LUM-633).
- * Either half may be absent; the cells then read '—' rather than a
- * fabricated 0. */
+ * spend (session spender, LUM-632, incl. the LUM-634 merged-PR change
+ * volume that rides the same attribution) and delivery (task assignee,
+ * LUM-633). Either half may be absent; the cells then read '—' rather than
+ * a fabricated 0. */
 export interface MergedMemberRow {
   key: string
   bucket: MemberDeliveryRow['bucket']
   label: string | null
-  spend: { tokenCost: number; activeTimeSec: number } | null
+  spend: {
+    tokenCost: number
+    activeTimeSec: number
+    /** LUM-634 measured merged-PR volume; `null` = nothing synced
+     * attributes here — renders the explicit no-synced state, never +0/−0. */
+    changeVolume: {
+      additions: number
+      deletions: number
+      measuredPrs: number
+    } | null
+  } | null
   delivery: MemberDeliveryRow | null
 }
 
@@ -276,7 +336,11 @@ export function buildMemberDeliveryRows(
   const toSpend = (memberId: string | null) => {
     const row = spendByMember.get(memberId)
     return row
-      ? { tokenCost: row.tokenCost, activeTimeSec: row.activeTimeSec }
+      ? {
+          tokenCost: row.tokenCost,
+          activeTimeSec: row.activeTimeSec,
+          changeVolume: row.changeVolume ?? null,
+        }
       : null
   }
 
@@ -313,7 +377,7 @@ export function buildMemberDeliveryRows(
       key: row.memberId,
       bucket: 'member',
       label: row.label,
-      spend: { tokenCost: row.tokenCost, activeTimeSec: row.activeTimeSec },
+      spend: toSpend(row.memberId),
       delivery: null,
     })
   }
@@ -415,6 +479,7 @@ function MemberDeliveryTable({
               </th>
               {rightHeader('milestone.costTrend.tokens')}
               {rightHeader('milestone.costTrend.activeTime')}
+              {rightHeader('milestone.changeVolume.column')}
               {rightHeader('milestone.memberDelivery.done')}
               {rightHeader('milestone.memberDelivery.mergedPrs')}
               {rightHeader('milestone.memberDelivery.fate')}
@@ -511,6 +576,26 @@ function MemberDeliveryRowGroup({
             ? fmtDuration(row.spend.activeTimeSec)
             : dash}
         </td>
+        <td className={cell}>
+          {/* LUM-634 change volume rides the spend attribution; unsynced
+              reads the explicit no-synced state, never +0/−0. */}
+          {row.spend ? (
+            row.spend.changeVolume ? (
+              fmtVolume(
+                row.spend.changeVolume.additions,
+                row.spend.changeVolume.deletions
+              )
+            ) : (
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'milestone.changeVolume.memberNone',
+                })}
+              </span>
+            )
+          ) : (
+            dash
+          )}
+        </td>
         <td className={cell}>{d ? d.doneCount : dash}</td>
         <td className={cell}>{d ? d.mergedPrCount : dash}</td>
         <td className={cell}>
@@ -563,7 +648,7 @@ function MemberDeliveryRowGroup({
       </tr>
       {isExpanded && d && (
         <tr className='border-t border-border/30'>
-          <td colSpan={8} className='py-2 pl-5'>
+          <td colSpan={9} className='py-2 pl-5'>
             <ul className='space-y-1.5'>
               {d.claims.map(c => (
                 <li
@@ -638,6 +723,9 @@ function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
               <th className='pb-1.5 text-right font-semibold'>
                 {intl.formatMessage({ id: 'milestone.costTrend.activeTime' })}
               </th>
+              <th className='pb-1.5 text-right font-semibold'>
+                {intl.formatMessage({ id: 'milestone.changeVolume.column' })}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -664,6 +752,22 @@ function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
                 </td>
                 <td className='py-1.5 text-right tabular-nums'>
                   {fmtDuration(row.activeTimeSec)}
+                </td>
+                <td className='py-1.5 text-right tabular-nums'>
+                  {row.changeVolume ? (
+                    fmtVolume(
+                      row.changeVolume.additions,
+                      row.changeVolume.deletions
+                    )
+                  ) : (
+                    // No measured merged PR attributes to this member —
+                    // an explicit state, never a fabricated +0/−0.
+                    <span className='text-muted-foreground'>
+                      {intl.formatMessage({
+                        id: 'milestone.changeVolume.memberNone',
+                      })}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

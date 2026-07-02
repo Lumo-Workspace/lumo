@@ -41,6 +41,14 @@ const messages: Record<string, string> = {
   'milestone.memberDelivery.empty': 'No tasks yet',
   'milestone.outcome.claims.noClaim': 'No recorded claim for this delivery',
   'milestone.outcome.claims.source.AGENT': 'self-reported',
+  'milestone.changeVolume.title': 'Change volume',
+  'milestone.changeVolume.coverage':
+    'synced on {measured} of {total} merged PRs',
+  'milestone.changeVolume.notSynced': 'Not synced',
+  'milestone.changeVolume.note':
+    'Lines added/removed across merged PRs — read as change exposure and review load, not output',
+  'milestone.changeVolume.column': 'Change volume',
+  'milestone.changeVolume.memberNone': 'No synced PRs',
 }
 
 jest.mock('react-intl', () => ({
@@ -510,6 +518,134 @@ describe('MilestoneCostTrendSection', () => {
     expect(
       screen.getByText('No recorded claim for this delivery')
     ).toBeInTheDocument()
+  })
+
+  it('renders change volume as audit columns', () => {
+    const { container } = render(
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 3,
+            multiPrTaskCount: 0,
+            linkedTaskCount: 3,
+            unlinkedTaskCount: 0,
+            totalTasks: 3,
+          },
+          changedFiles: { total: 10, measuredTasks: 3, totalTasks: 3 },
+          changeVolume: {
+            additions: 1200,
+            deletions: 340,
+            changedFiles: 9,
+            measuredPrs: 2,
+            totalMergedPrs: 3,
+          },
+          perMember: {
+            measuredTasks: 3,
+            tokenCost: 500_000,
+            activeTimeSec: 600,
+            rows: [
+              {
+                memberId: 'mA',
+                label: 'Alice',
+                tokenCost: 500_000,
+                activeTimeSec: 600,
+                changeVolume: {
+                  additions: 1200,
+                  deletions: 340,
+                  measuredPrs: 2,
+                },
+              },
+              {
+                memberId: 'mB',
+                label: 'Bob',
+                tokenCost: 0,
+                activeTimeSec: 0,
+                changeVolume: null,
+              },
+            ],
+          },
+        }}
+        memberDelivery={undefined}
+      />
+    )
+
+    // Summary card: compact +adds/−dels in the delivery-scale stat row —
+    // token-compact notation, tabular numerals. The same compact reading
+    // appears exactly twice: the summary card and Alice's table cell.
+    expect(screen.getAllByText('Change volume').length).toBeGreaterThan(0)
+    const volumes = screen.getAllByText('+1.2K/−340')
+    expect(volumes).toHaveLength(2)
+    const card = volumes.find(el => el.closest('dd') !== null)!
+    expect(card.closest('dd')).toHaveClass('tabular-nums')
+    // Honest coverage: the unsynced third PR reads as a gap, never as 0.
+    expect(screen.getByText('synced on 2 of 3 merged PRs')).toBeInTheDocument()
+    // Audit framing: exposure / review load, explicitly NOT output.
+    expect(
+      screen.getByText(
+        'Lines added/removed across merged PRs — read as change exposure and review load, not output'
+      )
+    ).toBeInTheDocument()
+
+    // Per-member column: header + per-row compact volume, tabular-nums.
+    const table = container.querySelector('table')!
+    const headers = [...table.querySelectorAll('thead th')].map(
+      th => th.textContent
+    )
+    expect(headers).toContain('Change volume')
+    const aliceRow = [...table.querySelectorAll('tbody tr')].find(tr =>
+      tr.textContent?.includes('Alice')
+    )!
+    expect(aliceRow.textContent).toContain('+1.2K/−340')
+    const volumeCell = [...aliceRow.querySelectorAll('td')].find(td =>
+      td.textContent?.includes('+1.2K/−340')
+    )!
+    expect(volumeCell).toHaveClass('tabular-nums')
+    // A member with nothing measured reads an explicit state — never +0/−0.
+    const bobRow = [...table.querySelectorAll('tbody tr')].find(tr =>
+      tr.textContent?.includes('Bob')
+    )!
+    expect(bobRow.textContent).toContain('No synced PRs')
+    expect(bobRow.textContent).not.toContain('+0')
+  })
+
+  it('renders the not-synced state for an unsynced milestone — never +0/−0', () => {
+    render(
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 2,
+            multiPrTaskCount: 0,
+            linkedTaskCount: 2,
+            unlinkedTaskCount: 0,
+            totalTasks: 2,
+          },
+          changedFiles: { total: 5, measuredTasks: 2, totalTasks: 2 },
+          // Old milestone, nothing backfilled: totals are null with honest
+          // coverage — the card must read "Not synced", not 0.
+          changeVolume: {
+            additions: null,
+            deletions: null,
+            changedFiles: null,
+            measuredPrs: 0,
+            totalMergedPrs: 2,
+          },
+          perMember: {
+            measuredTasks: 0,
+            tokenCost: null,
+            activeTimeSec: 0,
+            rows: [],
+          },
+        }}
+        memberDelivery={undefined}
+      />
+    )
+    expect(screen.getByText('Not synced')).toBeInTheDocument()
+    expect(screen.getByText('synced on 0 of 2 merged PRs')).toBeInTheDocument()
+    expect(screen.queryByText(/\+0/)).not.toBeInTheDocument()
   })
 
   it('fail-closes the whole per-member table when nothing is measured', () => {

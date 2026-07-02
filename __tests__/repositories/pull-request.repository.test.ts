@@ -13,7 +13,7 @@ const findMany = prisma.pullRequest.findMany as jest.Mock
 beforeEach(() => findMany.mockReset())
 
 describe('pullRequestRepository.listStatesByTaskIds', () => {
-  it('projects (taskId, state) for the task set — the delivery-stats bucketing basis', async () => {
+  it('projects (taskId, state) plus change-volume columns for the task set — the delivery-stats bucketing basis', async () => {
     findMany.mockResolvedValue([
       { taskId: 't1', state: 'merged' },
       { taskId: 't1', state: 'open' },
@@ -21,7 +21,13 @@ describe('pullRequestRepository.listStatesByTaskIds', () => {
     const rows = await pullRequestRepository.listStatesByTaskIds(['t1', 't2'])
     expect(findMany).toHaveBeenCalledWith({
       where: { taskId: { in: ['t1', 't2'] } },
-      select: { taskId: true, state: true },
+      select: {
+        taskId: true,
+        state: true,
+        additions: true,
+        deletions: true,
+        changedFiles: true,
+      },
     })
     expect(rows).toEqual([
       { taskId: 't1', state: 'merged' },

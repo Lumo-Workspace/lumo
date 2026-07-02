@@ -37,6 +37,11 @@ type GitHubPR = {
   merged_at: string | null
   closed_at: string | null
   merge_commit_sha: string | null
+  // LUM-634: present on pull_request events; optional so a stripped/older
+  // payload degrades to null (never a fabricated 0).
+  additions?: number
+  deletions?: number
+  changed_files?: number
 }
 
 type PullRequestPayload = {
@@ -182,6 +187,13 @@ export async function handlePullRequest(
     // LUM-598 groundwork: persist the merge commit SHA so future automated
     // revert detection can map a later "Revert <sha>" back to this delivery.
     mergeCommitSha: state === 'merged' ? (pr.merge_commit_sha ?? null) : null,
+    // LUM-634: change volume straight off the payload. A missing field stays
+    // null (fail-closed — the repository skips null so it never clobbers a
+    // backfilled value, and 0 is only ever a real zero reported by GitHub).
+    additions: typeof pr.additions === 'number' ? pr.additions : null,
+    deletions: typeof pr.deletions === 'number' ? pr.deletions : null,
+    changedFiles:
+      typeof pr.changed_files === 'number' ? pr.changed_files : null,
     mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
   })

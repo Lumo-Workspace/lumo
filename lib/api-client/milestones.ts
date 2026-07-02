@@ -146,6 +146,20 @@ export interface ApiMilestone {
       measuredTasks: number
       totalTasks: number
     }
+    /**
+     * LUM-634 line-level change volume over the member tasks' merged PRs.
+     * Three-state: an unsynced PR (null columns) is excluded from the sums
+     * and visible only as the coverage gap; 0 is a real zero-change PR;
+     * `additions: null` means zero PRs are synced — "not synced", never 0.
+     * Optional for older-server tolerance.
+     */
+    changeVolume?: {
+      additions: number | null
+      deletions: number | null
+      changedFiles: number | null
+      measuredPrs: number
+      totalMergedPrs: number
+    }
     perMember: {
       measuredTasks: number
       tokenCost: number | null
@@ -155,6 +169,14 @@ export interface ApiMilestone {
         label: string | null
         tokenCost: number
         activeTimeSec: number
+        /** LUM-634 — measured merged-PR volume attributed to this member
+         * (largest-token-spender rule, same source as cost attribution).
+         * `null`/absent = nothing measured attributes here — never +0/−0. */
+        changeVolume?: {
+          additions: number
+          deletions: number
+          measuredPrs: number
+        } | null
       }>
     }
   } | null
