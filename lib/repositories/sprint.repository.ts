@@ -98,7 +98,16 @@ export const sprintRepository = {
     if (sprintIds.length === 0) return []
     return prisma.sprint.findMany({
       where: { id: { in: sprintIds }, ...(teamId ? { teamId } : {}) },
-      select: { id: true, number: true, name: true, status: true },
+      // Calendar window rides along for the milestone burnup's cross-sprint
+      // bands (LUM-627); coverage consumers just ignore the extra fields.
+      select: {
+        id: true,
+        number: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+      },
     })
   },
 

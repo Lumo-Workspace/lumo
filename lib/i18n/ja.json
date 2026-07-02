@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CIリグレッション} other {CIリグレッション ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {後続で方針転換} other {後続で方針転換 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {迂回} other {迂回 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}",
+  "milestone.costTrend.label": "コストと推移",
+  "milestone.costTrend.title": "コストと推移",
+  "milestone.costTrend.tokens": "トークン",
+  "milestone.costTrend.activeTime": "アクティブ時間",
+  "milestone.costTrend.notMeasured": "未計測",
+  "milestone.costTrend.coverage": "{total} 件中 {measured} 件のタスクで計測",
+  "milestone.costTrend.burnupTitle": "スプリント横断バーンアップ",
+  "milestone.costTrend.scope": "スコープ",
+  "milestone.costTrend.completed": "完了",
+  "milestone.costTrend.empty": "タスクがまだありません — 表示するデータがありません"
 }

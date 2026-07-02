@@ -9,6 +9,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getMilestoneWithTeam: jest.fn(),
     getSprintCoverageForTeam: jest.fn(),
     getOutcomeForMilestone: jest.fn(),
+    getCostTrendForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -33,8 +34,26 @@ const mockGet = milestoneService.getMilestoneWithTeam as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 const mockOutcome = milestoneService.getOutcomeForMilestone as jest.Mock
+const mockCostTrend = milestoneService.getCostTrendForMilestone as jest.Mock
 const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
+
+const emptyCostTrend = {
+  costRollup: {
+    tokenCost: null,
+    activeTimeSec: 0,
+    measuredTasks: 0,
+    totalTasks: 0,
+  },
+  burnup: {
+    start: '2026-01-01',
+    end: '2026-01-01',
+    unit: 'tasks',
+    scopeTotal: 0,
+    series: [],
+    sprintWindows: [],
+  },
+}
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -42,6 +61,8 @@ beforeEach(() => {
   mockCount.mockReset()
   mockCoverage.mockReset()
   mockOutcome.mockReset()
+  mockCostTrend.mockReset()
+  mockCostTrend.mockResolvedValue(emptyCostTrend)
   mockSummary.mockReset()
   mockSummary.mockResolvedValue(null)
   mockObserve.mockReset()
@@ -110,6 +131,10 @@ describe('GET /api/milestones/[id]', () => {
     expect(mockGet).toHaveBeenCalledWith('m-1', 'mem-1')
     expect(mockCoverage).toHaveBeenCalledWith('m-1', 'team-1')
     expect(mockOutcome).toHaveBeenCalledWith('m-1')
+    // LUM-627 cost+trend enrich rides the same read, same resolved team.
+    expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1')
+    expect(body.milestone.costRollup).toEqual(emptyCostTrend.costRollup)
+    expect(body.milestone.burnup).toEqual(emptyCostTrend.burnup)
   })
 
   it('enriches the payload with rollup staleness hints (LUM-624)', async () => {

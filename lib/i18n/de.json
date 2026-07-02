@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI-Regression} other {CI-Regression ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {nachgelagert umgelenkt} other {nachgelagert umgelenkt ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {umgangen} other {umgangen ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manuelle Zurückweisung} other {manuelle Zurückweisung ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manuelle Zurückweisung} other {manuelle Zurückweisung ×#}}",
+  "milestone.costTrend.label": "Kosten und Verlauf",
+  "milestone.costTrend.title": "Kosten & Verlauf",
+  "milestone.costTrend.tokens": "Tokens",
+  "milestone.costTrend.activeTime": "Aktive Zeit",
+  "milestone.costTrend.notMeasured": "Nicht gemessen",
+  "milestone.costTrend.coverage": "gemessen bei {measured} von {total} Aufgaben",
+  "milestone.costTrend.burnupTitle": "Burnup über Sprints",
+  "milestone.costTrend.scope": "Umfang",
+  "milestone.costTrend.completed": "Erledigt",
+  "milestone.costTrend.empty": "Noch keine Aufgaben — nichts darzustellen"
 }

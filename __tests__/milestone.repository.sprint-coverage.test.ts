@@ -47,7 +47,15 @@ describe('sprintRepository.findByIds', () => {
     const rows = await sprintRepository.findByIds(['s3'], 'team-1')
     expect(findMany).toHaveBeenCalledWith({
       where: { id: { in: ['s3'] }, teamId: 'team-1' },
-      select: { id: true, number: true, name: true, status: true },
+      // Calendar window rides along for the milestone burnup (LUM-627).
+      select: {
+        id: true,
+        number: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+      },
     })
     expect(rows).toEqual([
       { id: 's3', number: 3, name: 'Sprint 3', status: 'ACTIVE' },

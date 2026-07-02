@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresi CI} other {regresi CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {dialihkan kemudian} other {dialihkan kemudian ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {dilewati} other {dilewati ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}",
+  "milestone.costTrend.label": "Biaya dan lintasan",
+  "milestone.costTrend.title": "Biaya & lintasan",
+  "milestone.costTrend.tokens": "Token",
+  "milestone.costTrend.activeTime": "Waktu aktif",
+  "milestone.costTrend.notMeasured": "Tidak terukur",
+  "milestone.costTrend.coverage": "terukur pada {measured} dari {total} tugas",
+  "milestone.costTrend.burnupTitle": "Burnup lintas sprint",
+  "milestone.costTrend.scope": "Cakupan",
+  "milestone.costTrend.completed": "Selesai",
+  "milestone.costTrend.empty": "Belum ada tugas — tidak ada yang dapat digambarkan"
 }

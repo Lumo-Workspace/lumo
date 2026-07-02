@@ -10,10 +10,14 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     countTasksByStatus: jest.fn(),
     sprintCoverageCounts: jest.fn(),
     outcomeRollupRows: jest.fn(),
+    costTrendRows: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: { findByIds: jest.fn() },
+}))
+jest.mock('@/lib/repositories/retrospective.repository', () => ({
+  retrospectiveRepository: { loadActualsForTasks: jest.fn() },
 }))
 jest.mock('@/lib/services/project.service', () => ({
   projectService: { getProject: jest.fn() },
@@ -33,6 +37,7 @@ import { GET } from '@/app/api/milestones/[milestoneId]/route'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
+import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { projectService } from '@/lib/services/project.service'
 import { requireIdentity } from '@/lib/auth'
 
@@ -42,7 +47,10 @@ const countTasksByStatus = milestoneRepository.countTasksByStatus as jest.Mock
 const sprintCoverageCounts =
   milestoneRepository.sprintCoverageCounts as jest.Mock
 const outcomeRollupRows = milestoneRepository.outcomeRollupRows as jest.Mock
+const costTrendRows = milestoneRepository.costTrendRows as jest.Mock
 const findByIds = sprintRepository.findByIds as jest.Mock
+const loadActualsForTasks =
+  retrospectiveRepository.loadActualsForTasks as jest.Mock
 const getProject = projectService.getProject as jest.Mock
 
 beforeEach(() => {
@@ -51,7 +59,15 @@ beforeEach(() => {
   countTasksByStatus.mockReset()
   sprintCoverageCounts.mockReset()
   outcomeRollupRows.mockReset()
+  costTrendRows.mockReset()
+  costTrendRows.mockResolvedValue({ tasks: [], activities: [] })
   findByIds.mockReset()
+  loadActualsForTasks.mockReset()
+  loadActualsForTasks.mockResolvedValue({
+    tokenCost: null,
+    activeTimeSec: 0,
+    measuredTasks: 0,
+  })
   getProject.mockReset()
 })
 

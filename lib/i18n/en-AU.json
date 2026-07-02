@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI regression} other {CI regression ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirected downstream} other {redirected downstream ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bypassed} other {bypassed ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manual rejection} other {manual rejection ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manual rejection} other {manual rejection ×#}}",
+  "milestone.costTrend.label": "Cost and trajectory",
+  "milestone.costTrend.title": "Cost & trajectory",
+  "milestone.costTrend.tokens": "Tokens",
+  "milestone.costTrend.activeTime": "Active time",
+  "milestone.costTrend.notMeasured": "Not measured",
+  "milestone.costTrend.coverage": "measured on {measured} of {total} tasks",
+  "milestone.costTrend.burnupTitle": "Burnup across sprints",
+  "milestone.costTrend.scope": "Scope",
+  "milestone.costTrend.completed": "Completed",
+  "milestone.costTrend.empty": "No tasks yet — nothing to chart"
 }
