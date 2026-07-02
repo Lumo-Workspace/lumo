@@ -180,6 +180,40 @@ export interface ApiMilestone {
       }>
     }
   } | null
+  /**
+   * LUM-633 per-member delivery rollup. Server-enriched on the detail
+   * response only. Attribution is by task ASSIGNEE (agent deliveries folded
+   * to a person) — a different 口径 from `deliveryStats.perMember` (session
+   * spender); label both when rendering. Counts only, never a ratio; member
+   * rows arrive in fixed name order with the explicit unassigned /
+   * unattributed buckets last. Fate is falsifier-shaped (rejected vs
+   * no-rejection-on-record — no satisfied state); `changedFiles.total` is
+   * fail-closed `null` when none of the row's tasks is measured.
+   */
+  memberDelivery?: {
+    rows: Array<{
+      bucket: 'member' | 'unassigned' | 'unattributed'
+      memberId: string | null
+      label: string | null
+      taskCount: number
+      doneCount: number
+      mergedPrCount: number
+      fate: { rejectedTaskCount: number; noRecordDoneCount: number }
+      friction: {
+        failRoundCount: number
+        sendBackCount: number
+        multiPrTaskCount: number
+      }
+      changedFiles: { total: number | null; measuredTasks: number }
+      claims: Array<{
+        taskId: string
+        ref: string
+        title: string
+        claim: string | null
+        source: string | null
+      }>
+    }>
+  } | null
 }
 
 export interface MilestoneSegmentEntry {

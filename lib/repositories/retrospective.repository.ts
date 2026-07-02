@@ -353,6 +353,37 @@ export const retrospectiveRepository = {
   },
 
   /**
+   * Lean session token rows over a task set — the LUM-633 shared-agent
+   * attribution basis ("the member who spent the most tokens on the task").
+   * Reads the SAME cumulative `Session.*` token columns and
+   * `workspaceMemberId` key as `loadMemberActualRowsForTasks`, without the
+   * hook-event stream (the delivery rollup needs no active time).
+   */
+  async loadSessionTokenRowsForTasks(taskIds: string[]): Promise<
+    Array<{
+      taskId: string | null
+      workspaceMemberId: string
+      inputTokens: number | null
+      outputTokens: number | null
+      cacheReadTokens: number | null
+      cacheCreationTokens: number | null
+    }>
+  > {
+    if (taskIds.length === 0) return []
+    return prisma.session.findMany({
+      where: { taskId: { in: taskIds } },
+      select: {
+        taskId: true,
+        workspaceMemberId: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
+      },
+    })
+  },
+
+  /**
    * Per-session token spend for the task's cost trajectory (LUM-562, 規律7),
    * oldest-first by session start. Sums the SAME cumulative `Session.*` columns
    * `loadActuals` totals, over the SAME task-linked session set, so the

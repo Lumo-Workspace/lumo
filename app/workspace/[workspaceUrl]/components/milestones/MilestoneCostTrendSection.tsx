@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   Area,
@@ -105,6 +106,7 @@ interface MilestoneCostTrendSectionProps {
   costRollup: ApiMilestone['costRollup']
   burnup: ApiMilestone['burnup']
   deliveryStats: ApiMilestone['deliveryStats']
+  memberDelivery: ApiMilestone['memberDelivery']
 }
 
 /**
@@ -123,11 +125,12 @@ export function MilestoneCostTrendSection({
   costRollup,
   burnup,
   deliveryStats,
+  memberDelivery,
 }: MilestoneCostTrendSectionProps) {
   const intl = useIntl()
   // Older-server tolerance: without any enrich field there is nothing
   // honest to say — render nothing rather than fabricate placeholders.
-  if (!costRollup && !burnup && !deliveryStats) return null
+  if (!costRollup && !burnup && !deliveryStats && !memberDelivery) return null
 
   const label = (id: string) => (
     <dt className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
@@ -279,23 +282,420 @@ export function MilestoneCostTrendSection({
 
       {burnup && <BurnupChart burnup={burnup} />}
 
-      {deliveryStats && <PerMemberTable perMember={deliveryStats.perMember} />}
+      {(deliveryStats || memberDelivery) && (
+        <PerMemberTable
+          perMember={deliveryStats?.perMember}
+          memberDelivery={memberDelivery ?? undefined}
+        />
+      )}
     </section>
   )
 }
 
+type SpendPerMember = NonNullable<ApiMilestone['deliveryStats']>['perMember']
+type MemberDeliveryPayload = NonNullable<ApiMilestone['memberDelivery']>
+type MemberDeliveryRow = MemberDeliveryPayload['rows'][number]
+
+/** One rendered member-table row: the two attribution 口径 side by side —
+ * spend (session spender, LUM-632, incl. the LUM-634 merged-PR change
+ * volume that rides the same attribution) and delivery (task assignee,
+ * LUM-633). Either half may be absent; the cells then read '—' rather than
+ * a fabricated 0. */
+export interface MergedMemberRow {
+  key: string
+  bucket: MemberDeliveryRow['bucket']
+  label: string | null
+  spend: {
+    tokenCost: number
+    activeTimeSec: number
+    /** LUM-634 measured merged-PR volume; `null` = nothing synced
+     * attributes here — renders the explicit no-synced state, never +0/−0. */
+    changeVolume: {
+      additions: number
+      deletions: number
+      measuredPrs: number
+    } | null
+  } | null
+  delivery: MemberDeliveryRow | null
+}
+
 /**
- * Per-member spend — an aggregate attribution table (spender = the session's
- * workspace member, never the assignee), not a task list. Fail-closed: zero
- * measured tasks renders "not measured" for the whole table instead of a
- * column of fabricated zeros; a member-less remainder renders as an explicit
- * unattributed row. Hierarchy via size/weight only.
+ * Merge the spend rows and the delivery rows into one per-member table model.
+ * Member rows are FIXED name-sorted (never by volume — no leaderboard);
+ * the explicit unassigned and unattributed buckets always render last, with
+ * the spend-side member-less remainder folded onto the unattributed row.
+ * Pure — exported for unit testing without mounting the table.
+ */
+export function buildMemberDeliveryRows(
+  perMember: SpendPerMember | undefined,
+  memberDelivery: MemberDeliveryPayload
+): MergedMemberRow[] {
+  const spendByMember = new Map<string | null, SpendPerMember['rows'][number]>(
+    (perMember?.rows ?? []).map(r => [r.memberId, r])
+  )
+  const toSpend = (memberId: string | null) => {
+    const row = spendByMember.get(memberId)
+    return row
+      ? {
+          tokenCost: row.tokenCost,
+          activeTimeSec: row.activeTimeSec,
+          changeVolume: row.changeVolume ?? null,
+        }
+      : null
+  }
+
+  const memberRows: MergedMemberRow[] = []
+  const tailRows: MergedMemberRow[] = []
+  const seenMembers = new Set<string>()
+  let unattributedDelivery: MemberDeliveryRow | null = null
+  for (const row of memberDelivery.rows) {
+    if (row.bucket === 'member' && row.memberId !== null) {
+      seenMembers.add(row.memberId)
+      memberRows.push({
+        key: row.memberId,
+        bucket: 'member',
+        label: row.label,
+        spend: toSpend(row.memberId),
+        delivery: row,
+      })
+    } else if (row.bucket === 'unassigned') {
+      tailRows.push({
+        key: '__unassigned__',
+        bucket: 'unassigned',
+        label: null,
+        spend: null,
+        delivery: row,
+      })
+    } else {
+      unattributedDelivery = row
+    }
+  }
+  // Members who only spent (no task attributed to them) still get a row.
+  for (const row of perMember?.rows ?? []) {
+    if (row.memberId === null || seenMembers.has(row.memberId)) continue
+    memberRows.push({
+      key: row.memberId,
+      bucket: 'member',
+      label: row.label,
+      spend: toSpend(row.memberId),
+      delivery: null,
+    })
+  }
+  memberRows.sort(
+    (a, b) =>
+      (a.label ?? '').localeCompare(b.label ?? '') || a.key.localeCompare(b.key)
+  )
+  // One explicit unattributed row carries both leftovers: the delivery
+  // bucket (unresolvable agent deliveries) and the spend remainder
+  // (member-less sessions).
+  const unattributedSpend = toSpend(null)
+  if (unattributedDelivery || unattributedSpend) {
+    tailRows.push({
+      key: '__unattributed__',
+      bucket: 'unattributed',
+      label: null,
+      spend: unattributedSpend,
+      delivery: unattributedDelivery,
+    })
+  }
+  return [...memberRows, ...tailRows]
+}
+
+/**
+ * The per-member table. With only the LUM-632 spend payload it renders the
+ * spend columns; with the LUM-633 delivery payload it renders both 口径 in
+ * one row — quantity (done / merged PRs / change surface) inseparable from
+ * quality (post-delivery fate / acceptance friction), counts only, never a
+ * ratio, fixed name order. Member rows expand inline to the frozen delivery
+ * claims (same source and labels as the Outcome section). Fail-closed: an
+ * unmeasured spend side reads '—' / "not measured", never a fabricated 0.
  */
 function PerMemberTable({
   perMember,
+  memberDelivery,
 }: {
-  perMember: NonNullable<ApiMilestone['deliveryStats']>['perMember']
+  perMember: SpendPerMember | undefined
+  memberDelivery: MemberDeliveryPayload | undefined
 }) {
+  if (!memberDelivery) {
+    if (!perMember) return null
+    return <SpendOnlyMemberTable perMember={perMember} />
+  }
+  return (
+    <MemberDeliveryTable
+      perMember={perMember}
+      memberDelivery={memberDelivery}
+    />
+  )
+}
+
+const CLAIM_SOURCES = new Set(['AGENT', 'RUN_SUMMARY', 'DIGEST'])
+
+function MemberDeliveryTable({
+  perMember,
+  memberDelivery,
+}: {
+  perMember: SpendPerMember | undefined
+  memberDelivery: MemberDeliveryPayload
+}) {
+  const intl = useIntl()
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const rows = buildMemberDeliveryRows(perMember, memberDelivery)
+  // Spend cells are only honest when the spend side measured something.
+  const spendMeasured = (perMember?.measuredTasks ?? 0) > 0
+
+  const bucketLabel = (row: MergedMemberRow) =>
+    row.bucket === 'unassigned'
+      ? intl.formatMessage({ id: 'milestone.memberDelivery.unassigned' })
+      : row.bucket === 'unattributed'
+        ? intl.formatMessage({ id: 'milestone.memberDelivery.unattributed' })
+        : (row.label ?? row.key)
+
+  const rightHeader = (id: string) => (
+    <th className='pb-1.5 pl-4 text-right font-semibold'>
+      {intl.formatMessage({ id })}
+    </th>
+  )
+
+  return (
+    <div className='mt-6'>
+      <h3 className='mb-1 text-sm font-medium text-foreground'>
+        {intl.formatMessage({ id: 'milestone.memberDelivery.tableTitle' })}
+      </h3>
+      {/* Both attribution 口径, stated where the numbers are read. */}
+      <p className='mb-3 text-xs text-muted-foreground'>
+        {intl.formatMessage({ id: 'milestone.memberDelivery.attributionNote' })}
+      </p>
+      {rows.length === 0 ? (
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'milestone.memberDelivery.empty' })}
+        </p>
+      ) : (
+        <table className='w-full text-sm'>
+          <thead>
+            <tr className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'>
+              <th className='pb-1.5 text-left font-semibold'>
+                {intl.formatMessage({ id: 'milestone.deliveryStats.member' })}
+              </th>
+              {rightHeader('milestone.costTrend.tokens')}
+              {rightHeader('milestone.costTrend.activeTime')}
+              {rightHeader('milestone.changeVolume.column')}
+              {rightHeader('milestone.memberDelivery.done')}
+              {rightHeader('milestone.memberDelivery.mergedPrs')}
+              {rightHeader('milestone.memberDelivery.fate')}
+              {rightHeader('milestone.memberDelivery.friction')}
+              {rightHeader('milestone.memberDelivery.changedFiles')}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const d = row.delivery
+              const isExpanded = expanded[row.key] === true
+              const canExpand = (d?.claims.length ?? 0) > 0
+              return (
+                <MemberDeliveryRowGroup
+                  key={row.key}
+                  row={row}
+                  label={bucketLabel(row)}
+                  spendMeasured={spendMeasured}
+                  isExpanded={isExpanded}
+                  canExpand={canExpand}
+                  onToggle={() =>
+                    setExpanded(prev => ({
+                      ...prev,
+                      [row.key]: !(prev[row.key] === true),
+                    }))
+                  }
+                />
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+function MemberDeliveryRowGroup({
+  row,
+  label,
+  spendMeasured,
+  isExpanded,
+  canExpand,
+  onToggle,
+}: {
+  row: MergedMemberRow
+  label: string
+  spendMeasured: boolean
+  isExpanded: boolean
+  canExpand: boolean
+  onToggle: () => void
+}) {
+  const intl = useIntl()
+  const d = row.delivery
+  const dash = <span className='text-muted-foreground'>—</span>
+  const cell = 'py-1.5 pl-4 text-right tabular-nums align-top'
+  return (
+    <>
+      <tr className='border-t border-border/60'>
+        <td
+          className={
+            row.bucket === 'member'
+              ? 'py-1.5 align-top'
+              : 'py-1.5 align-top text-muted-foreground'
+          }
+        >
+          {canExpand ? (
+            <button
+              type='button'
+              className='inline-flex items-center gap-1 text-left hover:underline'
+              aria-expanded={isExpanded}
+              aria-label={intl.formatMessage(
+                { id: 'milestone.memberDelivery.expandClaims' },
+                { member: label }
+              )}
+              onClick={onToggle}
+            >
+              <span
+                aria-hidden='true'
+                className='text-[10px] text-muted-foreground'
+              >
+                {isExpanded ? '▾' : '▸'}
+              </span>
+              {label}
+            </button>
+          ) : (
+            label
+          )}
+        </td>
+        <td className={cell}>
+          {row.spend && spendMeasured ? fmtTokens(row.spend.tokenCost) : dash}
+        </td>
+        <td className={cell}>
+          {row.spend && spendMeasured
+            ? fmtDuration(row.spend.activeTimeSec)
+            : dash}
+        </td>
+        <td className={cell}>
+          {/* LUM-634 change volume rides the spend attribution; unsynced
+              reads the explicit no-synced state, never +0/−0. */}
+          {row.spend ? (
+            row.spend.changeVolume ? (
+              fmtVolume(
+                row.spend.changeVolume.additions,
+                row.spend.changeVolume.deletions
+              )
+            ) : (
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'milestone.changeVolume.memberNone',
+                })}
+              </span>
+            )
+          ) : (
+            dash
+          )}
+        </td>
+        <td className={cell}>{d ? d.doneCount : dash}</td>
+        <td className={cell}>{d ? d.mergedPrCount : dash}</td>
+        <td className={cell}>
+          {d
+            ? intl.formatMessage(
+                { id: 'milestone.memberDelivery.fateCell' },
+                {
+                  rejected: d.fate.rejectedTaskCount,
+                  noRecord: d.fate.noRecordDoneCount,
+                }
+              )
+            : dash}
+        </td>
+        <td className={cell}>
+          {d
+            ? intl.formatMessage(
+                { id: 'milestone.memberDelivery.frictionCell' },
+                {
+                  failRounds: d.friction.failRoundCount,
+                  sendBacks: d.friction.sendBackCount,
+                  multiPr: d.friction.multiPrTaskCount,
+                }
+              )
+            : dash}
+        </td>
+        <td className={cell}>
+          {d ? (
+            d.changedFiles.total === null ? (
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({ id: 'milestone.costTrend.notMeasured' })}
+              </span>
+            ) : (
+              <>
+                {d.changedFiles.total}
+                <span className='ml-1 text-xs text-muted-foreground'>
+                  {intl.formatMessage(
+                    { id: 'milestone.memberDelivery.measuredOf' },
+                    {
+                      measured: d.changedFiles.measuredTasks,
+                      total: d.taskCount,
+                    }
+                  )}
+                </span>
+              </>
+            )
+          ) : (
+            dash
+          )}
+        </td>
+      </tr>
+      {isExpanded && d && (
+        <tr className='border-t border-border/30'>
+          <td colSpan={9} className='py-2 pl-5'>
+            <ul className='space-y-1.5'>
+              {d.claims.map(c => (
+                <li
+                  key={c.taskId}
+                  className='flex items-baseline gap-2 text-sm'
+                >
+                  <span className='shrink-0 text-xs tabular-nums text-muted-foreground'>
+                    {c.ref}
+                  </span>
+                  {c.claim ? (
+                    <span className='min-w-0 text-foreground'>
+                      {c.claim}
+                      {c.source && CLAIM_SOURCES.has(c.source) && (
+                        <span className='ml-1.5 text-xs text-muted-foreground'>
+                          {intl.formatMessage({
+                            id: `milestone.outcome.claims.source.${c.source}`,
+                          })}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span
+                      className='min-w-0 italic text-muted-foreground'
+                      title={c.title}
+                    >
+                      {intl.formatMessage({
+                        id: 'milestone.outcome.claims.noClaim',
+                      })}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+/**
+ * Per-member spend — the LUM-632 rendering, kept for older-server payloads
+ * without the delivery rollup. Fail-closed: zero measured tasks renders
+ * "not measured" for the whole table instead of a column of fabricated
+ * zeros; a member-less remainder renders as an explicit unattributed row.
+ */
+function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
   const intl = useIntl()
   return (
     <div className='mt-6'>

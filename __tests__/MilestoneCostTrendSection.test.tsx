@@ -22,6 +22,25 @@ const messages: Record<string, string> = {
   'milestone.deliveryStats.member': 'Member',
   'milestone.deliveryStats.unattributed': 'Unattributed',
   'milestone.deliveryStats.noSessions': 'No sessions on record',
+  'milestone.memberDelivery.tableTitle': 'By member',
+  'milestone.memberDelivery.attributionNote':
+    "Cost is attributed to the session spender; delivery to the task assignee — an agent's delivery is credited to its owner, or, for a shared agent, to the member who spent the most tokens on the task.",
+  'milestone.memberDelivery.done': 'Done tasks',
+  'milestone.memberDelivery.mergedPrs': 'Merged PRs',
+  'milestone.memberDelivery.fate': 'Post-delivery fate',
+  'milestone.memberDelivery.fateCell':
+    '{rejected} rejected · {noRecord} no rejection on record',
+  'milestone.memberDelivery.friction': 'Acceptance friction',
+  'milestone.memberDelivery.frictionCell':
+    '{failRounds} FAIL rounds · {sendBacks} send-backs · {multiPr} multi-PR',
+  'milestone.memberDelivery.changedFiles': 'Change surface',
+  'milestone.memberDelivery.measuredOf': '{measured}/{total} measured',
+  'milestone.memberDelivery.unassigned': 'Unassigned',
+  'milestone.memberDelivery.unattributed': 'Unattributed',
+  'milestone.memberDelivery.expandClaims': 'Show delivered claims for {member}',
+  'milestone.memberDelivery.empty': 'No tasks yet',
+  'milestone.outcome.claims.noClaim': 'No recorded claim for this delivery',
+  'milestone.outcome.claims.source.AGENT': 'self-reported',
   'milestone.changeVolume.title': 'Change volume',
   'milestone.changeVolume.coverage':
     'synced on {measured} of {total} merged PRs',
@@ -62,7 +81,7 @@ jest.mock('recharts', () => {
 })
 
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import {
   MilestoneCostTrendSection,
   buildMilestoneBurnupChart,
@@ -158,6 +177,7 @@ describe('MilestoneCostTrendSection', () => {
         costRollup={costRollup()}
         burnup={burnup()}
         deliveryStats={undefined}
+        memberDelivery={undefined}
       />
     )
 
@@ -190,6 +210,7 @@ describe('MilestoneCostTrendSection', () => {
         })}
         burnup={undefined}
         deliveryStats={undefined}
+        memberDelivery={undefined}
       />
     )
     expect(screen.getByText('Not measured')).toBeInTheDocument()
@@ -210,6 +231,7 @@ describe('MilestoneCostTrendSection', () => {
         })}
         burnup={burnup({ scopeTotal: 0, series: [] })}
         deliveryStats={undefined}
+        memberDelivery={undefined}
       />
     )
     expect(
@@ -224,6 +246,7 @@ describe('MilestoneCostTrendSection', () => {
         costRollup={undefined}
         burnup={undefined}
         deliveryStats={undefined}
+        memberDelivery={undefined}
       />
     )
     expect(container.firstChild).toBeNull()
@@ -263,6 +286,7 @@ describe('MilestoneCostTrendSection', () => {
             ],
           },
         }}
+        memberDelivery={undefined}
       />
     )
 
@@ -326,6 +350,7 @@ describe('MilestoneCostTrendSection', () => {
             rows: [],
           },
         }}
+        memberDelivery={undefined}
       />
     )
     // No PR records → an explicit statement, not a fabricated numeric 0.
@@ -335,6 +360,164 @@ describe('MilestoneCostTrendSection', () => {
     // No sessions at all → explicit empty-member placeholder, no table.
     expect(screen.getByText('No sessions on record')).toBeInTheDocument()
     expect(screen.queryByText(/^0$/)).not.toBeInTheDocument()
+  })
+
+  it('renders member delivery columns without ratios', () => {
+    const memberDelivery: NonNullable<ApiMilestone['memberDelivery']> = {
+      rows: [
+        // Fixed NAME order from the payload: Alice first even though Bob
+        // out-delivers and out-spends her — never a leaderboard.
+        {
+          bucket: 'member',
+          memberId: 'mA',
+          label: 'Alice',
+          taskCount: 2,
+          doneCount: 1,
+          mergedPrCount: 1,
+          fate: { rejectedTaskCount: 1, noRecordDoneCount: 0 },
+          friction: {
+            failRoundCount: 2,
+            sendBackCount: 1,
+            multiPrTaskCount: 1,
+          },
+          changedFiles: { total: 12, measuredTasks: 1 },
+          claims: [
+            {
+              taskId: 't1',
+              ref: 'LUM-1',
+              title: 'T1',
+              claim: 'shipped the rollup',
+              source: 'AGENT',
+            },
+            {
+              taskId: 't2',
+              ref: 'LUM-2',
+              title: 'T2',
+              claim: null,
+              source: null,
+            },
+          ],
+        },
+        {
+          bucket: 'member',
+          memberId: 'mB',
+          label: 'Bob',
+          taskCount: 6,
+          doneCount: 5,
+          mergedPrCount: 9,
+          fate: { rejectedTaskCount: 0, noRecordDoneCount: 5 },
+          friction: {
+            failRoundCount: 0,
+            sendBackCount: 0,
+            multiPrTaskCount: 0,
+          },
+          changedFiles: { total: 80, measuredTasks: 6 },
+          claims: [
+            {
+              taskId: 't3',
+              ref: 'LUM-3',
+              title: 'T3',
+              claim: 'big delivery',
+              source: 'AGENT',
+            },
+          ],
+        },
+        {
+          bucket: 'unassigned',
+          memberId: null,
+          label: null,
+          taskCount: 1,
+          doneCount: 0,
+          mergedPrCount: 0,
+          fate: { rejectedTaskCount: 0, noRecordDoneCount: 0 },
+          friction: {
+            failRoundCount: 0,
+            sendBackCount: 0,
+            multiPrTaskCount: 0,
+          },
+          changedFiles: { total: null, measuredTasks: 0 },
+          claims: [],
+        },
+      ],
+    }
+    const { container } = render(
+      <MilestoneCostTrendSection
+        costRollup={undefined}
+        burnup={undefined}
+        deliveryStats={{
+          pr: {
+            mergedPrCount: 10,
+            multiPrTaskCount: 1,
+            linkedTaskCount: 8,
+            unlinkedTaskCount: 1,
+            totalTasks: 9,
+          },
+          changedFiles: { total: 92, measuredTasks: 7, totalTasks: 9 },
+          perMember: {
+            measuredTasks: 8,
+            tokenCost: 1_000_000,
+            activeTimeSec: 3660,
+            // Spend rows arrive volume-sorted (Bob first) — the merged
+            // member table must still render by NAME.
+            rows: [
+              {
+                memberId: 'mB',
+                label: 'Bob',
+                tokenCost: 900_000,
+                activeTimeSec: 3600,
+              },
+              {
+                memberId: 'mA',
+                label: 'Alice',
+                tokenCost: 100_000,
+                activeTimeSec: 60,
+              },
+            ],
+          },
+        }}
+        memberDelivery={memberDelivery}
+      />
+    )
+
+    // The delivery column group rides the SAME per-member table as the spend
+    // columns — quantity and quality inseparable, one row per member.
+    expect(screen.getByText('By member')).toBeInTheDocument()
+    expect(screen.getByText('Done tasks')).toBeInTheDocument()
+    expect(screen.getByText('Post-delivery fate')).toBeInTheDocument()
+    expect(screen.getByText('Acceptance friction')).toBeInTheDocument()
+    // Appears on the LUM-632 scale card AND as a member-table column header.
+    expect(screen.getAllByText('Change surface').length).toBeGreaterThan(1)
+    // Both attribution 口径 are stated where the numbers are read.
+    expect(
+      screen.getAllByText(/Cost is attributed to the session spender/).length
+    ).toBeGreaterThan(0)
+
+    // Counts only — no ratio or percentage anywhere in the section.
+    expect(container.textContent).not.toMatch(/%/)
+    expect(container.textContent).not.toMatch(/\brate\b/i)
+
+    // Fixed member-name order (Alice before Bob) despite Bob's larger spend
+    // and delivery volume; the unassigned bucket renders last, explicitly.
+    const rowTexts = [...container.querySelectorAll('tbody tr')].map(
+      tr => tr.textContent ?? ''
+    )
+    expect(rowTexts[0]).toContain('Alice')
+    expect(rowTexts[1]).toContain('Bob')
+    expect(rowTexts[2]).toContain('Unassigned')
+    // Quantity and quality cells share Alice's single row.
+    expect(rowTexts[0]).toContain('1 rejected · 0 no rejection on record')
+    expect(rowTexts[0]).toContain('2 FAIL rounds · 1 send-backs · 1 multi-PR')
+
+    // Claim expansion: the member row opens inline to the frozen claims,
+    // including the explicit no-claim row and the source 标注.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show delivered claims for Alice' })
+    )
+    expect(screen.getByText('shipped the rollup')).toBeInTheDocument()
+    expect(screen.getByText('self-reported')).toBeInTheDocument()
+    expect(
+      screen.getByText('No recorded claim for this delivery')
+    ).toBeInTheDocument()
   })
 
   it('renders change volume as audit columns', () => {
@@ -384,6 +567,7 @@ describe('MilestoneCostTrendSection', () => {
             ],
           },
         }}
+        memberDelivery={undefined}
       />
     )
 
@@ -456,6 +640,7 @@ describe('MilestoneCostTrendSection', () => {
             rows: [],
           },
         }}
+        memberDelivery={undefined}
       />
     )
     expect(screen.getByText('Not synced')).toBeInTheDocument()
@@ -491,6 +676,7 @@ describe('MilestoneCostTrendSection', () => {
             ],
           },
         }}
+        memberDelivery={undefined}
       />
     )
     // Zero measured tasks → the table reads "not measured" as a whole

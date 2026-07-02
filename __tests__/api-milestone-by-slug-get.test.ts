@@ -15,6 +15,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getCostTrendForMilestone: jest.fn(),
     getSegmentsForMilestone: jest.fn(),
     getDeliveryStatsForMilestone: jest.fn(),
+    getMemberDeliveryForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -47,6 +48,8 @@ const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 const mockDeliveryStats =
   milestoneService.getDeliveryStatsForMilestone as jest.Mock
+const mockMemberDelivery =
+  milestoneService.getMemberDeliveryForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -102,6 +105,8 @@ beforeEach(() => {
       rows: [],
     },
   })
+  mockMemberDelivery.mockReset()
+  mockMemberDelivery.mockResolvedValue({ rows: [] })
 })
 
 const params = { params: Promise.resolve({ id: 'p-1', slug: 'q3' }) }
@@ -239,6 +244,93 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     const body = await res.json()
     expect(body.milestone.deliveryStats).toEqual(deliveryStats)
     expect(mockDeliveryStats).toHaveBeenCalledWith('m-1')
+  })
+
+  it('returns member delivery rollup', async () => {
+    mockIdentity.mockResolvedValue({ clerkId: 'clerk-1', memberId: 'mem-1' })
+    mockLoad.mockResolvedValue({
+      project: { id: 'p-1', teamId: 'team-1' },
+      member: { id: 'mem-1' },
+      workspaceSlug: 'w',
+    })
+    mockBySlug.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      name: 'Q3',
+      slug: 'q3',
+      status: 'ACTIVE',
+      startDate: null,
+      targetDate: null,
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 2,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 2 })
+    mockSummary.mockResolvedValue(null)
+    // Same structure the by-id route returns — the canonical slug path must
+    // not lag the by-id enrich (the recurring two-read-paths trap).
+    const memberDelivery = {
+      rows: [
+        {
+          bucket: 'member',
+          memberId: 'mA',
+          label: 'Alice',
+          taskCount: 2,
+          doneCount: 2,
+          mergedPrCount: 3,
+          fate: { rejectedTaskCount: 1, noRecordDoneCount: 1 },
+          friction: {
+            failRoundCount: 1,
+            sendBackCount: 1,
+            multiPrTaskCount: 1,
+          },
+          changedFiles: { total: 9, measuredTasks: 1 },
+          claims: [
+            {
+              taskId: 't1',
+              ref: 'LUM-1',
+              title: 'T1',
+              claim: 'shipped X',
+              source: 'AGENT',
+            },
+          ],
+        },
+        {
+          bucket: 'unattributed',
+          memberId: null,
+          label: null,
+          taskCount: 1,
+          doneCount: 1,
+          mergedPrCount: 0,
+          fate: { rejectedTaskCount: 0, noRecordDoneCount: 1 },
+          friction: {
+            failRoundCount: 0,
+            sendBackCount: 0,
+            multiPrTaskCount: 0,
+          },
+          changedFiles: { total: null, measuredTasks: 0 },
+          claims: [
+            {
+              taskId: 't2',
+              ref: 'LUM-2',
+              title: 'T2',
+              claim: null,
+              source: null,
+            },
+          ],
+        },
+      ],
+    }
+    mockMemberDelivery.mockResolvedValue(memberDelivery)
+
+    const res = await GET(new Request('http://x/m') as never, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.memberDelivery).toEqual(memberDelivery)
+    expect(mockMemberDelivery).toHaveBeenCalledWith('m-1')
   })
 
   it('by-slug milestone payload carries costRollup burnup and outcome', async () => {

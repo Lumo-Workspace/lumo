@@ -373,6 +373,33 @@ export const verificationRunRepository = {
    * Pass `taskIds` to restrict the scan to a (workspace-filtered) set; omit it
    * for a full-table scan. Empty `taskIds` array → empty set, no query.
    */
+  /**
+   * Batched FAIL rows over a task set, projected to the friction fields the
+   * LUM-633 per-member delivery rollup folds (machine rework rounds vs
+   * human/agent send-back actions). Read-only over the append-only log.
+   */
+  async failRowsByTaskIds(taskIds: string[]): Promise<
+    Array<{
+      taskId: string
+      round: number
+      verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
+      verifierType: 'HUMAN' | 'AGENT' | 'MACHINE'
+      verdictActionId: string | null
+    }>
+  > {
+    if (taskIds.length === 0) return []
+    return prisma.verificationRun.findMany({
+      where: { taskId: { in: taskIds }, verdict: 'FAIL' },
+      select: {
+        taskId: true,
+        round: true,
+        verdict: true,
+        verifierType: true,
+        verdictActionId: true,
+      },
+    })
+  },
+
   async taskIdsWithSendBack(
     taskIds?: string[],
     tx?: Prisma.TransactionClient
