@@ -19,6 +19,10 @@ jest.mock('@/lib/services/dependency-detection.service', () => ({
   dependencyDetectionService: { sweepSharedFileCandidates: jest.fn() },
 }))
 
+jest.mock('@/lib/services/claim-faithfulness.service', () => ({
+  claimFaithfulnessService: { sweepUnjudged: jest.fn() },
+}))
+
 import {
   GET,
   maxDuration,
@@ -27,6 +31,7 @@ import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
 import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
+import { claimFaithfulnessService } from '@/lib/services/claim-faithfulness.service'
 
 const mockSweep = lineageOutcomeService.sweepDoneTaskEdges as jest.Mock
 const mockAudit = fragmentUsageAuditService.auditDoneTaskSessions as jest.Mock
@@ -34,10 +39,12 @@ const mockCompaction =
   memoryCompactionService.sweepColdProjectMemories as jest.Mock
 const mockDepSweep =
   dependencyDetectionService.sweepSharedFileCandidates as jest.Mock
+const mockFaithfulness = claimFaithfulnessService.sweepUnjudged as jest.Mock
 
 const OLD_ENV = process.env
 beforeEach(() => {
   jest.clearAllMocks()
+  mockFaithfulness.mockResolvedValue({ processed: 0 })
   process.env = { ...OLD_ENV, CRON_SECRET: 'secret' }
 })
 afterAll(() => {
@@ -45,9 +52,12 @@ afterAll(() => {
 })
 
 function req(auth?: string) {
-  return new NextRequest('http://localhost/api/cron/backfill-lineage-outcomes', {
-    headers: auth ? { authorization: auth } : {},
-  })
+  return new NextRequest(
+    'http://localhost/api/cron/backfill-lineage-outcomes',
+    {
+      headers: auth ? { authorization: auth } : {},
+    }
+  )
 }
 
 it('rejects an unauthorized request', async () => {
@@ -71,18 +81,38 @@ it('runs the sweep for an authorized cron request', async () => {
     projects: [],
   })
   mockDepSweep.mockResolvedValue({ suggested: 4 })
+  mockFaithfulness.mockResolvedValue({ processed: 3 })
   const res = await GET(req('Bearer secret'))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual({
     outcomes: { count: 546 },
     compaction: { projectsOverThreshold: 1, archivedTotal: 10, projects: [] },
     dependencySweep: { suggested: 4 },
+    faithfulness: { processed: 3 },
     usage: { processed: 12 },
   })
   expect(mockSweep).toHaveBeenCalledTimes(1)
   expect(mockAudit).toHaveBeenCalledTimes(1)
   expect(mockCompaction).toHaveBeenCalledTimes(1)
   expect(mockDepSweep).toHaveBeenCalledTimes(1)
+  expect(mockFaithfulness).toHaveBeenCalledTimes(1)
+})
+
+it('isolates faithfulness sweep failure — processed defaults to 0 and the usage audit still runs', async () => {
+  mockSweep.mockResolvedValue({ count: 1 })
+  mockAudit.mockResolvedValue({ processed: 5 })
+  mockCompaction.mockResolvedValue({
+    projectsOverThreshold: 0,
+    archivedTotal: 0,
+    projects: [],
+  })
+  mockDepSweep.mockResolvedValue({ suggested: 0 })
+  mockFaithfulness.mockRejectedValue(new Error('llm blip'))
+  const res = await GET(req('Bearer secret'))
+  expect(res.status).toBe(200)
+  const body = await res.json()
+  expect(body.faithfulness).toEqual({ processed: 0 })
+  expect(mockAudit).toHaveBeenCalledTimes(1)
 })
 
 it('runs compaction before the LLM usage audit so a slow audit cannot starve it', async () => {

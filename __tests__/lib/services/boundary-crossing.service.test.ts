@@ -62,6 +62,8 @@ const addManual = taskDependencyService.addManual as jest.Mock
 const findAttribEvents =
   hookEventRepository.findManyByIdsForAttribution as jest.Mock
 const findTurnUsage = hookEventRepository.findTurnUsageForSessions as jest.Mock
+const findTurnSummaries =
+  hookEventRepository.findTurnSummariesForSessions as jest.Mock
 const findAttribSessions = sessionRepository.findManyForAttribution as jest.Mock
 
 const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
@@ -78,6 +80,9 @@ beforeEach(() => {
   // event degrades to unknown attribution (LUM-469).
   findAttribEvents.mockResolvedValue([])
   findTurnUsage.mockResolvedValue([])
+  // LUM-590 expanded turn-summary coverage to attrib-event sessions — the
+  // agentContext lookup now runs whenever any crossing carries a hook event.
+  findTurnSummaries.mockResolvedValue([])
   // No hook-less (CLI-sourced) crossings by default (LUM-511).
   findAttribSessions.mockResolvedValue([])
 })
