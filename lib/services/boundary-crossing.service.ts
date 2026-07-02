@@ -541,6 +541,16 @@ const SEVERITY_RANK: Record<BoundaryCrossingSeverity, number> = {
 
 export const boundaryCrossingService = {
   /**
+   * Whether the workspace's DONE gate is enabled (LUM-426 toggle). Surfaced on
+   * the list read model (LUM-635) so the web panel can compute the blocking
+   * subset exactly as the gate does: with the gate opted out only HIGH open
+   * crossings still block (LUM-442). Read-only pass-through.
+   */
+  async isGateEnabled(workspaceId: string): Promise<boolean> {
+    return boundaryCrossingRepository.isGateEnabledForWorkspace(workspaceId)
+  },
+
+  /**
    * List ALL of a task's crossings (open and dispositioned), shaped for the web
    * panel (LUM-435). Dispositioned crossings — CONFIRMED especially — stay on
    * record and are never hidden. Read-only: reads aren't the redline; the

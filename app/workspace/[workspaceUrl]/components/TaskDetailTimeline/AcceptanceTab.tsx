@@ -10,7 +10,6 @@ import {
   Archive,
   Trash2,
   ScrollText,
-  Info,
   CheckCircle2,
   UserCheck,
 } from 'lucide-react'
@@ -1306,9 +1305,10 @@ export function AcceptanceTab({
   // container — default open (it's decision-relevant), foldable to taste.
   const [acceptanceOpen, setAcceptanceOpen] = useState(true)
   // LUM-620: the demoted "Evidence & audit trail" sub-card (verification
-  // rounds + mechanical gates + boundary crossings + run cost) — audit-only,
-  // collapsed by default so the surface reads decision → criteria → claim, with
-  // the forensic signals tucked one click away.
+  // rounds + mechanical gates + run cost) — audit-only, collapsed by default
+  // so the surface reads decision → criteria → claim, with the forensic
+  // signals tucked one click away. (LUM-635: boundary crossings moved out —
+  // an open crossing is an actionable Done-blocker, not forensics.)
   const [auditOpen, setAuditOpen] = useState(false)
   const [mutating, setMutating] = useState(false)
 
@@ -1498,11 +1498,13 @@ export function AcceptanceTab({
       {/* LUM-619: one "Acceptance" container holds the whole verdict region.
           Verdict basis — the acceptance criteria + the verification record —
           sits above an audit-only separator; the forensic signals (mechanical
-          gates + boundary crossings + claim-vs-verification) sit below it,
-          surfaced for the reviewer but explicitly NOT inputs to the verdict
-          (the LUM-614 audit-only ≠ verdict red line). LUM-600: with no
-          contract the criteria block is swapped for the empty note; the
-          verification record + audit-only signals still render. */}
+          gates + claim-vs-verification) sit below it, surfaced for the
+          reviewer but explicitly NOT inputs to the verdict (the LUM-614
+          audit-only ≠ verdict red line). LUM-635: boundary crossings sit
+          between the two — actionable (an open one blocks Done) yet still not
+          a verdict input. LUM-600: with no contract the criteria block is
+          swapped for the empty note; every contract-independent section still
+          renders. */}
       <DossierGroup
         title={intl.formatMessage({
           id: 'acceptance.container.title',
@@ -1723,28 +1725,34 @@ export function AcceptanceTab({
             emptyContractNote
           )}
 
-          {/* LUM-620: Claim vs verification — pulled up to its own honest strip
-              (the agent's self-report next to what we measured). Still explicitly
-              audit-only: it does NOT decide the verdict (LUM-614 red line). */}
-          {hasCriteria ? (
-            <div className='space-y-1'>
-              <ClaimVsVerification data={data} />
-              <div className='flex items-center gap-1.5 px-1 text-caption text-muted-foreground/70'>
-                <Info className='size-3 shrink-0' aria-hidden />
-                <span>
-                  {intl.formatMessage({
-                    id: 'acceptance.auditOnly.notVerdict',
-                    defaultMessage: 'Audit-only — does not decide the verdict',
-                  })}
-                </span>
-              </div>
-            </div>
-          ) : null}
+          {/* LUM-635: boundary crossings promoted to a third zone, sibling of
+              the human/machine criteria zones. An open crossing is a human-only
+              to-do that blocks Done (a policy gate — not part of the acceptance
+              verdict, the LUM-614 red line is untouched), so it doesn't belong
+              inside the collapsed audit fold. Out here the #boundary-crossings
+              anchor is permanent, so the verdict bar's DONE-blocked "View
+              crossings" link (LUM-454) always has a target. Renders null when
+              the task has no crossings. */}
+          <BoundaryCrossingsPanel
+            taskIdentifier={taskIdentifier}
+            enabled={enabled}
+            workspaceUrl={workspaceUrl}
+            members={members}
+            agentActors={agentActors}
+            onChanged={() => {
+              void refresh?.()
+            }}
+          />
+
+          {/* LUM-620: Claim vs verification — the agent's self-report next to
+              what we measured. Audit-only: it does NOT decide the verdict
+              (LUM-614 red line). */}
+          {hasCriteria ? <ClaimVsVerification data={data} /> : null}
 
           {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
-              zone. Verification rounds + mechanical gates + boundary crossings +
-              run cost. Audit-only: none of it is an input to the verdict
-              (LUM-614 red line); hierarchy carried by demotion, not color. */}
+              zone. Verification rounds + mechanical gates + run cost.
+              Audit-only: none of it is an input to the verdict (LUM-614 red
+              line); hierarchy carried by demotion, not color. */}
           <div className='overflow-hidden rounded-lg border border-border bg-muted/20'>
             <button
               type='button'
@@ -1785,19 +1793,6 @@ export function AcceptanceTab({
                 {/* Mechanical gates (per PR; LUM-617). Injected from the dossier
                     level; null when there are no PRs/signals. */}
                 {gatesSlot}
-
-                {/* Boundary crossings. An open crossing blocks Done, but that is
-                    a policy gate, not part of the acceptance verdict. */}
-                <BoundaryCrossingsPanel
-                  taskIdentifier={taskIdentifier}
-                  enabled={enabled}
-                  workspaceUrl={workspaceUrl}
-                  members={members}
-                  agentActors={agentActors}
-                  onChanged={() => {
-                    void refresh?.()
-                  }}
-                />
 
                 {/* Run cost — tokens / active time / rework rounds (LUM-560). */}
                 <CostSection data={data} />

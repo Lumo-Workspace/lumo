@@ -283,13 +283,19 @@ describe('LUM-620 · Acceptance redesign', () => {
       optimisticallyPass: jest.fn(),
     })
     renderTab()
-    // The claim strip carries the explicit not-a-verdict label (always visible).
-    expect(screen.getByText(/does not decide the verdict/i)).toBeInTheDocument()
-    // The forensic signals live inside the demoted, collapsed audit card —
-    // expand it, then assert every signal is present (nothing dropped).
+    // LUM-635: the boundary panel is promoted OUT of the audit fold — its
+    // anchor is live while the fold is still collapsed (an open crossing is an
+    // actionable Done-blocker, not forensics)…
+    expect(document.querySelector('#boundary-crossings')).not.toBeNull()
+    // …and the audit fold's not-a-verdict label sits on its header (the
+    // per-strip caption under claim-vs-verification was dropped).
+    expect(
+      screen.getByText(/these signals don't decide the verdict/i)
+    ).toBeInTheDocument()
+    // The remaining forensic signals live inside the demoted, collapsed audit
+    // card — expand it, then assert every signal is present (nothing dropped).
     fireEvent.click(screen.getByText('Evidence & audit trail'))
     expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
-    expect(document.querySelector('#boundary-crossings')).not.toBeNull()
     expect(screen.getByTestId('cost')).toBeInTheDocument()
     expect(screen.getByText('Verification record')).toBeInTheDocument()
   })

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
   ShieldAlert,
+  ShieldCheck,
   Lock,
   Unlock,
   FlagOff,
@@ -96,14 +97,27 @@ export function BoundaryCrossingsPanel({
   onChanged,
 }: BoundaryCrossingsPanelProps) {
   const intl = useIntl()
-  const { crossings, refresh } = useBoundaryCrossings({
+  // gateEnabled defaults true on destructure too — an older mock/response
+  // without the field must err toward "open blocks", never silently not.
+  const {
+    crossings,
+    gateEnabled = true,
+    refresh,
+  } = useBoundaryCrossings({
     identifier: taskIdentifier,
     enabled,
   })
   const [pending, setPending] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
 
-  const openCount = crossings.filter(c => c.disposition == null).length
+  const openCrossings = crossings.filter(c => c.disposition == null)
+  const openCount = openCrossings.length
+  // LUM-635: the subset that actually blocks DONE, mirroring the server gate
+  // (assertNoUnacknowledgedBoundaryCrossings): advisory never blocks (LUM-590);
+  // with the workspace gate opted out only HIGH still blocks (LUM-442).
+  const blockingCount = openCrossings.filter(
+    c => !c.advisory && (gateEnabled || c.severity === 'HIGH')
+  ).length
 
   const [expanded, setExpanded] = useState(() => openCount > 0)
   const prevOpen = useRef(openCount)
@@ -113,14 +127,6 @@ export function BoundaryCrossingsPanel({
   }, [openCount])
 
   if (crossings.length === 0) return null
-
-  const categoryCounts = (() => {
-    const m = new Map<string, number>()
-    for (const c of crossings) m.set(c.category, (m.get(c.category) ?? 0) + 1)
-    return [...m.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-    )
-  })()
 
   const afterChange = () => {
     void refresh()
@@ -207,79 +213,81 @@ export function BoundaryCrossingsPanel({
 
   return (
     // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
+    // LUM-635: the panel is a zone sibling of the human/machine criteria zones
+    // (same row grammar — colored border, status header, dispositioned/total
+    // count). Blocking open crossings escalate to danger; converged (all
+    // dispositioned) reads neutral gray — handled isn't an achievement.
     <div
       id='boundary-crossings'
-      className={`rounded-lg border p-4 ${
-        openCount > 0
-          ? 'border-warning-border bg-warning-subtle/40'
-          : 'border-border'
+      className={`overflow-hidden rounded-lg border ${
+        blockingCount > 0 ? 'border-danger-border' : 'border-border'
       }`}
     >
-      {/* LUM-572: a neutral disclosure row matching the dossier's other folded
-          sections (chevron-left, xs muted). Only un-dispositioned crossings
-          (openCount > 0) escalate it — warning fill above, the danger badge and
-          warning-tinted category tags here; once everything is handled it reads
-          as plain "N dispositioned · 0 open" and stops shouting. */}
       <button
         type='button'
         data-testid='boundary-summary-toggle'
         aria-expanded={expanded}
         onClick={() => setExpanded(e => !e)}
-        className='mb-2 flex w-full items-center gap-2 text-left text-title text-foreground'
+        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+          blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
+        }`}
       >
         <ChevronRight
-          className={`size-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
           aria-hidden
         />
-        <span className={openCount > 0 ? 'text-foreground' : undefined}>
+        {blockingCount > 0 ? (
+          <AlertTriangle className='size-4 shrink-0 text-danger' aria-hidden />
+        ) : (
+          <ShieldCheck
+            className='size-4 shrink-0 text-muted-foreground'
+            aria-hidden
+          />
+        )}
+        <span className='text-body-strong text-foreground'>
           {intl.formatMessage({
             id: 'boundary.panel.title',
             defaultMessage: 'Boundary crossings',
           })}
         </span>
-        {openCount > 0 && (
-          <span className='rounded-sm bg-danger-subtle px-2 py-0.5 text-[11px] font-medium text-danger'>
-            {intl.formatMessage(
-              {
-                id: 'boundary.panel.openCount',
-                defaultMessage: '{count, plural, one {# open} other {# open}}',
-              },
-              { count: openCount }
-            )}
-          </span>
-        )}
-        {categoryCounts.map(([cat, n]) => (
-          <span
-            key={cat}
-            className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${
-              openCount > 0
-                ? 'bg-warning-subtle text-warning'
-                : 'border border-border text-muted-foreground/80'
-            }`}
-          >
-            {boundaryCategoryLabel(cat, intl)} ×{n}
-          </span>
-        ))}
-        <span className='ml-auto text-[11px] text-muted-foreground/70'>
-          {openCount === 0
+        <span
+          className={`text-caption ${
+            blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+          }`}
+        >
+          {blockingCount > 0
             ? intl.formatMessage(
                 {
-                  id: 'boundary.panel.allCleared',
+                  id: 'boundary.zone.blocksDone',
                   defaultMessage:
-                    '{count, plural, one {# dispositioned} other {# dispositioned}} · 0 open',
+                    '{count} open — blocks Done until dispositioned',
                 },
-                { count: crossings.length }
+                { count: blockingCount }
               )
-            : intl.formatMessage({
-                id: 'boundary.panel.confirmedStay',
-                defaultMessage: 'Confirmed crossings stay on record.',
-              })}
+            : openCount > 0
+              ? intl.formatMessage(
+                  {
+                    id: 'boundary.zone.openNonBlocking',
+                    defaultMessage: '{count} open — non-blocking',
+                  },
+                  { count: openCount }
+                )
+              : intl.formatMessage(
+                  {
+                    id: 'boundary.zone.allDispositioned',
+                    defaultMessage: 'All {count} dispositioned — none blocking',
+                  },
+                  { count: crossings.length }
+                )}
+        </span>
+        <span className='ml-auto text-caption text-muted-foreground'>
+          {crossings.length - openCount}/{crossings.length}
         </span>
       </button>
 
       {expanded && (
-        <>
-          {openCount > 0 && (
+        <div className='border-t border-border px-4 py-3'>
+          {blockingCount > 0 && (
             <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
               <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
@@ -334,7 +342,7 @@ export function BoundaryCrossingsPanel({
               })}
             </span>
           </p>
-        </>
+        </div>
       )}
     </div>
   )
