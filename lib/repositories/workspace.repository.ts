@@ -1,7 +1,6 @@
 import type { SummaryFrequency } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
-import { isValidTimeZone } from '@/lib/datetime/timezone'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,7 +8,6 @@ export interface CreateWorkspaceData {
   name: string
   slug: string
   clerkId: string
-  timezone?: string
 }
 
 export interface WorkspaceUpdateData {
@@ -34,11 +32,6 @@ export interface WorkspaceUpdateData {
 export const workspaceRepository = {
   /** Create workspace with default team, owner member, human + agent actors in a transaction. */
   async create(data: CreateWorkspaceData) {
-    const timezone =
-      data.timezone && isValidTimeZone(data.timezone)
-        ? data.timezone
-        : 'America/Los_Angeles'
-
     return prisma.$transaction(async tx => {
       const workspace = await tx.workspace.create({
         data: { name: data.name, slug: data.slug },
@@ -50,7 +43,6 @@ export const workspaceRepository = {
           name: data.name,
           identifier: generateIdentifier(data.name),
           isDefault: true,
-          timezone,
         },
       })
 

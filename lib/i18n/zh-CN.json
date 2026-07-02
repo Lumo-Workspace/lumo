@@ -1909,7 +1909,6 @@
   "acceptance.zone.humanNote": "无法由机器核验",
   "acceptance.zone.humanResolved": "人工裁决",
   "acceptance.zone.humanAllResolved": "全部 {count} 项已裁决",
-  "sprints.settings.timezone": "团队时区",
   "milestone.outcome.title": "成果",
   "milestone.outcome.empty": "尚无已交付任务——任务完成后,硬成果会显示在这里。",
   "milestone.outcome.claims.title": "已交付成果",

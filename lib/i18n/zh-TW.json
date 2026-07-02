@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "無法由機器核驗",
   "acceptance.zone.humanResolved": "人工裁決",
   "acceptance.zone.humanAllResolved": "全部 {count} 項已裁決",
-  "sprints.settings.timezone": "團隊時區",
   "milestone.rollup.label": "里程碑摘要",
   "milestone.rollup.completion": "完成度",
   "milestone.rollup.health": "健康",

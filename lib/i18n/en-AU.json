@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "not machine-checkable",
   "acceptance.zone.humanResolved": "Human-judged",
   "acceptance.zone.humanAllResolved": "All {count} judged",
-  "sprints.settings.timezone": "Team timezone",
   "milestone.rollup.label": "Milestone summary",
   "milestone.rollup.completion": "Completion",
   "milestone.rollup.health": "Health",

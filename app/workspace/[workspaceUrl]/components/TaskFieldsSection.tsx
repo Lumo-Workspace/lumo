@@ -42,9 +42,6 @@ export interface TaskFieldsSectionProps {
   sprint?: { id: string; status: SprintStatus; name: string } | null
   /** Whether the owning team has sprints enabled — gates the sprint selector. */
   sprintsEnabled?: boolean
-  /** IANA timezone (e.g. `team.timezone`) used to render the sprint's date
-   *  range. Falls back to the runtime's local timezone when omitted. */
-  teamTimeZone?: string
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -66,7 +63,6 @@ export function TaskFieldsSection({
   sprintId,
   sprint,
   sprintsEnabled,
-  teamTimeZone,
 }: TaskFieldsSectionProps) {
   return (
     <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
@@ -102,7 +98,6 @@ export function TaskFieldsSection({
         value={dueDate}
         onChange={v => onPatch({ dueDate: v })}
         triggerClassName={FIELD_TRIGGER_CLS}
-        {...(teamTimeZone ? { timeZone: teamTimeZone } : {})}
       />
       {parent && (
         <>
@@ -130,7 +125,6 @@ export function TaskFieldsSection({
             }}
             onChange={v => onPatch({ sprintId: v })}
             triggerClassName={FIELD_TRIGGER_CLS}
-            {...(teamTimeZone ? { timeZone: teamTimeZone } : {})}
           />
         </>
       )}

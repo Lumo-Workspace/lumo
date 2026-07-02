@@ -34,7 +34,6 @@ import { useTaskMutation } from '../../hooks/useTaskMutation'
 import { useTaskDescription } from '../../hooks/useTaskDescription'
 import { useTaskDetailState } from '../../hooks/useTaskDetailState'
 import { useMembers } from '../../hooks/useMembers'
-import { useWorkspaceTeams } from '../../hooks/useWorkspaceTeams'
 import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
 import { useProjects } from '../../hooks/useProjects'
@@ -102,11 +101,6 @@ export function TaskDetailPage({
   // per-page fetch here used to write stale data back to the cache after a
   // concurrent delete.
   const { projects } = useProjects()
-
-  const { teams } = useWorkspaceTeams()
-  // Extract+pass a flat timezone string (LoD) — TaskDetailSidebar never
-  // reaches through a nested `task.team.timezone`.
-  const teamTimeZone = teams.find(t => t.id === task.teamId)?.timezone
 
   // ── Extracted hooks ────────────────────────────────────────────────────────
   const currentMember = members.find(m => m.clerkId === user?.id)
@@ -419,7 +413,6 @@ export function TaskDetailPage({
               handlePatch({ tagIds: tags.map(t => t.id) })
             }}
             onCreateTag={createTag}
-            {...(teamTimeZone ? { teamTimeZone } : {})}
           />
         </div>
       </SidebarInset>

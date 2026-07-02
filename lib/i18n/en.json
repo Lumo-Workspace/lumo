@@ -1369,7 +1369,6 @@
   "sprints.settings.duration": "Sprint duration",
   "sprints.settings.cooldown": "Cooldown between sprints",
   "sprints.settings.startWeekday": "Sprint starts on",
-  "sprints.settings.timezone": "Team timezone",
   "sprints.settings.autoCreate": "Auto-create future sprints",
   "sprints.settings.weeks": "{n, plural, one {1 week} other {# weeks}}",
   "sprints.settings.cooldown.none": "No cooldown",

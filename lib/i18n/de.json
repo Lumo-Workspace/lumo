@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "nicht maschinell prüfbar",
   "acceptance.zone.humanResolved": "Menschlich beurteilt",
   "acceptance.zone.humanAllResolved": "Alle {count} beurteilt",
-  "sprints.settings.timezone": "Team-Zeitzone",
   "milestone.rollup.label": "Meilenstein-Zusammenfassung",
   "milestone.rollup.completion": "Fertigstellung",
   "milestone.rollup.health": "Zustand",

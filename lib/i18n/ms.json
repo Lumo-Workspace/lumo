@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "tidak boleh disemak mesin",
   "acceptance.zone.humanResolved": "Dinilai manusia",
   "acceptance.zone.humanAllResolved": "Semua {count} dinilai",
-  "sprints.settings.timezone": "Zon waktu pasukan",
   "milestone.rollup.label": "Ringkasan tonggak",
   "milestone.rollup.completion": "Penyelesaian",
   "milestone.rollup.health": "Kesihatan",

@@ -11,7 +11,6 @@ export interface ApiTeam {
   sprintStartWeekday: number
   sprintAutoCreate: number
   sprintAutoAddCompleted: boolean
-  timezone: string
 }
 
 interface TeamListResult {

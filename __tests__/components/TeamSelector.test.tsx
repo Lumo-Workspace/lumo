@@ -20,7 +20,6 @@ const team = (id: string, name: string): ApiTeam => ({
   name,
   identifier: id.toUpperCase(),
   isDefault: false,
-  timezone: 'America/Los_Angeles',
   sprintsEnabled: true,
   sprintDurationDays: 14,
   sprintCooldownDays: 0,

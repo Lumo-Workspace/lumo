@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "기계로 검증 불가",
   "acceptance.zone.humanResolved": "사람이 판정함",
   "acceptance.zone.humanAllResolved": "{count}개 모두 판정됨",
-  "sprints.settings.timezone": "팀 시간대",
   "milestone.rollup.label": "마일스톤 요약",
   "milestone.rollup.completion": "완료율",
   "milestone.rollup.health": "건강 상태",

@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "non vérifiable par machine",
   "acceptance.zone.humanResolved": "Jugé par un humain",
   "acceptance.zone.humanAllResolved": "Les {count} jugés",
-  "sprints.settings.timezone": "Fuseau horaire de l'équipe",
   "milestone.rollup.label": "Résumé du jalon",
   "milestone.rollup.completion": "Avancement",
   "milestone.rollup.health": "Santé",

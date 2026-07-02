@@ -1901,7 +1901,6 @@
   "acceptance.zone.humanNote": "не проверяется машиной",
   "acceptance.zone.humanResolved": "Оценено человеком",
   "acceptance.zone.humanAllResolved": "Все {count} оценены",
-  "sprints.settings.timezone": "Часовой пояс команды",
   "milestone.rollup.label": "Сводка по вехе",
   "milestone.rollup.completion": "Выполнение",
   "milestone.rollup.health": "Состояние",

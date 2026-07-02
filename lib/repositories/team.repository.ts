@@ -7,7 +7,6 @@ export interface UpdateSprintCadenceInput {
   startWeekday?: number
   autoCreate?: number
   autoAddCompleted?: boolean
-  timezone?: string
 }
 
 /** Field set returned by `listForMember` — kept in sync with the GET /api/teams contract. */
@@ -22,7 +21,6 @@ const TEAM_LIST_SELECT = {
   sprintStartWeekday: true,
   sprintAutoCreate: true,
   sprintAutoAddCompleted: true,
-  timezone: true,
 } as const
 
 export const teamRepository = {
@@ -106,7 +104,6 @@ export const teamRepository = {
         sprintCooldownDays: true,
         sprintStartWeekday: true,
         sprintAutoCreate: true,
-        timezone: true,
       },
     })
   },
@@ -134,7 +131,6 @@ export const teamRepository = {
         ...(input.autoAddCompleted !== undefined
           ? { sprintAutoAddCompleted: input.autoAddCompleted }
           : {}),
-        ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
       },
     })
   },
