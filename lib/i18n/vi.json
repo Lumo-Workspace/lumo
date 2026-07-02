@@ -1901,5 +1901,13 @@
   "acceptance.zone.humanNote": "không thể kiểm tra bằng máy",
   "acceptance.zone.humanResolved": "Đã do người phán quyết",
   "acceptance.zone.humanAllResolved": "Tất cả {count} đã phán quyết",
-  "sprints.settings.timezone": "Múi giờ của nhóm"
+  "sprints.settings.timezone": "Múi giờ của nhóm",
+  "milestone.rollup.label": "Tóm tắt cột mốc",
+  "milestone.rollup.completion": "Mức hoàn thành",
+  "milestone.rollup.health": "Tình trạng",
+  "milestone.rollup.timespan": "Khoảng thời gian",
+  "milestone.rollup.keyOutcome": "Kết quả chính",
+  "milestone.rollup.noTasks": "Chưa có nhiệm vụ",
+  "milestone.rollup.noDates": "Chưa đặt ngày",
+  "milestone.rollup.noOutcome": "Chưa có tóm tắt retro"
 }

@@ -1901,5 +1901,13 @@
   "acceptance.zone.humanNote": "nicht maschinell prüfbar",
   "acceptance.zone.humanResolved": "Menschlich beurteilt",
   "acceptance.zone.humanAllResolved": "Alle {count} beurteilt",
-  "sprints.settings.timezone": "Team-Zeitzone"
+  "sprints.settings.timezone": "Team-Zeitzone",
+  "milestone.rollup.label": "Meilenstein-Zusammenfassung",
+  "milestone.rollup.completion": "Fertigstellung",
+  "milestone.rollup.health": "Zustand",
+  "milestone.rollup.timespan": "Zeitraum",
+  "milestone.rollup.keyOutcome": "Zentrales Ergebnis",
+  "milestone.rollup.noTasks": "Noch keine Aufgaben",
+  "milestone.rollup.noDates": "Keine Termine festgelegt",
+  "milestone.rollup.noOutcome": "Noch keine Retro-Zusammenfassung"
 }

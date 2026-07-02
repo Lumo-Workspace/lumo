@@ -1901,5 +1901,13 @@
   "acceptance.zone.humanNote": "tidak boleh disemak mesin",
   "acceptance.zone.humanResolved": "Dinilai manusia",
   "acceptance.zone.humanAllResolved": "Semua {count} dinilai",
-  "sprints.settings.timezone": "Zon waktu pasukan"
+  "sprints.settings.timezone": "Zon waktu pasukan",
+  "milestone.rollup.label": "Ringkasan tonggak",
+  "milestone.rollup.completion": "Penyelesaian",
+  "milestone.rollup.health": "Kesihatan",
+  "milestone.rollup.timespan": "Julat masa",
+  "milestone.rollup.keyOutcome": "Hasil utama",
+  "milestone.rollup.noTasks": "Belum ada tugas",
+  "milestone.rollup.noDates": "Tarikh belum ditetapkan",
+  "milestone.rollup.noOutcome": "Belum ada ringkasan retro"
 }

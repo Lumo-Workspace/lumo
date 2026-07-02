@@ -49,7 +49,13 @@ function setup(name = 'Beta release', description: string | null = 'Old body') {
   const onUpdate = jest.fn()
   render(
     <MilestoneOverviewTab
-      milestone={{ id: 'm1', name, description }}
+      milestone={{
+        id: 'm1',
+        name,
+        description,
+        startDate: null,
+        targetDate: null,
+      }}
       onUpdate={onUpdate}
       members={members}
     />
@@ -104,7 +110,13 @@ test('archived milestone does not commit name or description edits', () => {
   const onUpdate = jest.fn()
   render(
     <MilestoneOverviewTab
-      milestone={{ id: 'm1', name: 'Beta release', description: 'Old body' }}
+      milestone={{
+        id: 'm1',
+        name: 'Beta release',
+        description: 'Old body',
+        startDate: null,
+        targetDate: null,
+      }}
       onUpdate={onUpdate}
       members={members}
       archived

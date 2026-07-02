@@ -1901,5 +1901,13 @@
   "acceptance.zone.humanNote": "無法由機器核驗",
   "acceptance.zone.humanResolved": "人工裁決",
   "acceptance.zone.humanAllResolved": "全部 {count} 項已裁決",
-  "sprints.settings.timezone": "團隊時區"
+  "sprints.settings.timezone": "團隊時區",
+  "milestone.rollup.label": "里程碑摘要",
+  "milestone.rollup.completion": "完成度",
+  "milestone.rollup.health": "健康",
+  "milestone.rollup.timespan": "時間跨度",
+  "milestone.rollup.keyOutcome": "關鍵成果",
+  "milestone.rollup.noTasks": "尚無任務",
+  "milestone.rollup.noDates": "未設定日期",
+  "milestone.rollup.noOutcome": "尚未產生回顧摘要"
 }

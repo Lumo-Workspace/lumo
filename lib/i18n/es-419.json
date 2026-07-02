@@ -1901,5 +1901,13 @@
   "acceptance.zone.humanNote": "no verificable por máquina",
   "acceptance.zone.humanResolved": "Evaluado por humano",
   "acceptance.zone.humanAllResolved": "Los {count} evaluados",
-  "sprints.settings.timezone": "Zona horaria del equipo"
+  "sprints.settings.timezone": "Zona horaria del equipo",
+  "milestone.rollup.label": "Resumen del hito",
+  "milestone.rollup.completion": "Avance",
+  "milestone.rollup.health": "Salud",
+  "milestone.rollup.timespan": "Periodo",
+  "milestone.rollup.keyOutcome": "Resultado clave",
+  "milestone.rollup.noTasks": "Aún no hay tareas",
+  "milestone.rollup.noDates": "Sin fechas definidas",
+  "milestone.rollup.noOutcome": "Aún no hay resumen de retro"
 }

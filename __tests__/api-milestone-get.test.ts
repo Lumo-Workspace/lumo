@@ -13,6 +13,9 @@ jest.mock('@/lib/services/milestone.service', () => ({
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { countTasksByStatus: jest.fn() },
 }))
+jest.mock('@/lib/repositories/milestone-summary.repository', () => ({
+  milestoneSummaryRepository: { findByMilestoneId: jest.fn() },
+}))
 jest.mock('@/lib/services/milestone-rollup.service', () => ({
   milestoneRollupService: { observeOnRead: jest.fn() },
 }))
@@ -22,11 +25,13 @@ import { requireIdentity } from '@/lib/auth'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockGet = milestoneService.getMilestoneWithTeam as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
 const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
+const mockSummary = milestoneSummaryRepository.findByMilestoneId as jest.Mock
 const mockObserve = milestoneRollupService.observeOnRead as jest.Mock
 
 beforeEach(() => {
@@ -34,6 +39,8 @@ beforeEach(() => {
   mockGet.mockReset()
   mockCount.mockReset()
   mockCoverage.mockReset()
+  mockSummary.mockReset()
+  mockSummary.mockResolvedValue(null)
   mockObserve.mockReset()
   mockObserve.mockReturnValue({ statusDrift: null, datesMissing: false })
 })
@@ -66,11 +73,13 @@ describe('GET /api/milestones/[id]', () => {
       ],
       unsprinted: 1,
     })
+    mockSummary.mockResolvedValue({ milestoneId: 'm-1', tldr: 'Shipped Q3' })
     const res = await GET(new Request('http://x/m') as any, params)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone).toMatchObject({
       id: 'm-1',
+      summaryTldr: 'Shipped Q3',
       taskCounts: { TODO: 1, IN_PROGRESS: 2, IN_REVIEW: 0, DONE: 3 },
       sprintCoverage: {
         sprints: [
