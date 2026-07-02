@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "заявления самоотчётные · перейдите для проверки",
   "milestone.taskEvidence.filterAll": "Все {count}",
   "milestone.taskEvidence.evidence": "Свидетельства",
-  "milestone.taskEvidence.groupNone": "Без группировки"
+  "milestone.taskEvidence.groupNone": "Без группировки",
+  "milestone.costTrend.moreModels": "{count, plural, one {ещё # модель} few {ещё # модели} many {ещё # моделей} other {ещё # модели}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} не отнесено ни к одной модели"
 }

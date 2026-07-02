@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "Claims sind Selbstauskünfte · zum Prüfen durchklicken",
   "milestone.taskEvidence.filterAll": "Alle {count}",
   "milestone.taskEvidence.evidence": "Evidenz",
-  "milestone.taskEvidence.groupNone": "Ohne Gruppierung"
+  "milestone.taskEvidence.groupNone": "Ohne Gruppierung",
+  "milestone.costTrend.moreModels": "{count, plural, one {# weiteres Modell} other {# weitere Modelle}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} keinem Modell zugeordnet"
 }

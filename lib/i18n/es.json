@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "los claims son autoinformados · haz clic para verificar",
   "milestone.taskEvidence.filterAll": "Todas {count}",
   "milestone.taskEvidence.evidence": "Evidencia",
-  "milestone.taskEvidence.groupNone": "Sin agrupar"
+  "milestone.taskEvidence.groupNone": "Sin agrupar",
+  "milestone.costTrend.moreModels": "{count, plural, one {# modelo más} other {# modelos más}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} sin atribuir a un modelo"
 }

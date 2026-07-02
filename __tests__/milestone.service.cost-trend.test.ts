@@ -66,6 +66,17 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       tokenCost: 500,
       activeTimeSec: 120,
       measuredTasks: 2,
+      models: [
+        {
+          model: 'claude-opus-4-5',
+          input: 100,
+          output: 200,
+          cacheRead: 50,
+          cacheCreation: 50,
+          total: 400,
+        },
+      ],
+      modelUnattributedTokens: 100,
     })
 
     const result = await milestoneService.getCostTrendForMilestone(
@@ -79,6 +90,17 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       activeTimeSec: 120,
       measuredTasks: 2,
       totalTasks: 3,
+      models: [
+        {
+          model: 'claude-opus-4-5',
+          input: 100,
+          output: 200,
+          cacheRead: 50,
+          cacheCreation: 50,
+          total: 400,
+        },
+      ],
+      modelUnattributedTokens: 100,
     })
     // Every member task feeds the batched actuals — including unsprinted ones.
     expect(loadActualsForTasks).toHaveBeenCalledWith(['t1', 't2', 't3'])
@@ -105,6 +127,8 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       tokenCost: null,
       activeTimeSec: 0,
       measuredTasks: 0,
+      models: [],
+      modelUnattributedTokens: 0,
     })
 
     const result = await milestoneService.getCostTrendForMilestone(
@@ -116,6 +140,8 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       activeTimeSec: 0,
       measuredTasks: 0,
       totalTasks: 0,
+      models: [],
+      modelUnattributedTokens: 0,
     })
     expect(result.burnup.series).toEqual([])
   })

@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "claim 为自报 · 点击进入核验",
   "milestone.taskEvidence.filterAll": "全部 {count}",
   "milestone.taskEvidence.evidence": "证据",
-  "milestone.taskEvidence.groupNone": "不分组"
+  "milestone.taskEvidence.groupNone": "不分组",
+  "milestone.costTrend.moreModels": "{count, plural, other {另 # 个模型}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} 未归属到任何模型"
 }

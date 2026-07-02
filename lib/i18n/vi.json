@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "các claim là tự khai · bấm vào để kiểm chứng",
   "milestone.taskEvidence.filterAll": "Tất cả {count}",
   "milestone.taskEvidence.evidence": "Bằng chứng",
-  "milestone.taskEvidence.groupNone": "Không nhóm"
+  "milestone.taskEvidence.groupNone": "Không nhóm",
+  "milestone.costTrend.moreModels": "{count, plural, other {# mô hình khác}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} chưa quy về mô hình nào"
 }

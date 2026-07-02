@@ -123,6 +123,10 @@ describe('computeMilestoneDeliveryStats', () => {
         tokenCost: 200,
         activeTimeSec: 60,
         changeVolume: null,
+        // No usageByModel maps in these fixtures: no fabricated model rows,
+        // the whole spend reads as the explicit unattributed remainder.
+        models: [],
+        modelUnattributedTokens: 200,
       },
       {
         memberId: 'mB',
@@ -130,6 +134,8 @@ describe('computeMilestoneDeliveryStats', () => {
         tokenCost: 0,
         activeTimeSec: 30,
         changeVolume: null,
+        models: [],
+        modelUnattributedTokens: 0,
       },
       {
         memberId: null,
@@ -137,6 +143,8 @@ describe('computeMilestoneDeliveryStats', () => {
         tokenCost: 20,
         activeTimeSec: 15,
         changeVolume: null,
+        models: [],
+        modelUnattributedTokens: 20,
       },
     ])
   })
@@ -235,7 +243,105 @@ describe('computeMilestoneDeliveryStats', () => {
         tokenCost: 0,
         activeTimeSec: 30,
         changeVolume: null,
+        models: [],
+        modelUnattributedTokens: 0,
       },
     ])
+  })
+
+  it('splits per-member spend by model through the same measured gate', () => {
+    const stats = computeMilestoneDeliveryStats({
+      taskIds: ['t1', 't2'],
+      prRows: [],
+      complexityRows: [],
+      sessionRows: [
+        // Two measured sessions for Alice, maps merging across sessions.
+        session({
+          id: 's1',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 10,
+          outputTokens: 20,
+          cacheReadTokens: 30,
+          cacheCreationTokens: 40,
+          usageByModel: {
+            'claude-opus-4-5': {
+              input: 10,
+              output: 20,
+              cacheRead: 30,
+              cacheCreation: 40,
+            },
+          },
+        }),
+        session({
+          id: 's2',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 1,
+          outputTokens: 2,
+          cacheReadTokens: 3,
+          cacheCreationTokens: 4,
+          usageByModel: {
+            'claude-opus-4-5': {
+              input: 1,
+              output: 0,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+            'claude-haiku-4-5': {
+              input: 0,
+              output: 2,
+              cacheRead: 3,
+              cacheCreation: 3,
+            },
+          },
+        }),
+        // Measured session WITHOUT a map (pre-LUM-298): its spend stays in
+        // the flat sum and surfaces as the explicit unattributed remainder.
+        session({
+          id: 's3',
+          taskId: 't2',
+          workspaceMemberId: 'mB',
+          inputTokens: 5,
+          outputTokens: 5,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+        }),
+      ],
+      turnEvents: [],
+      memberLabels: new Map([
+        ['mA', 'Alice'],
+        ['mB', 'Bob'],
+      ]),
+    })
+
+    const alice = stats.perMember.rows.find(r => r.memberId === 'mA')!
+    // Same-model rows merge across sessions; sorted by total desc.
+    expect(alice.models).toEqual([
+      {
+        model: 'claude-opus-4-5',
+        input: 11,
+        output: 20,
+        cacheRead: 30,
+        cacheCreation: 40,
+        total: 101,
+      },
+      {
+        model: 'claude-haiku-4-5',
+        input: 0,
+        output: 2,
+        cacheRead: 3,
+        cacheCreation: 3,
+        total: 8,
+      },
+    ])
+    // Σ(models) + unattributed == the row's flat tokenCost (110 − 109 = 1).
+    expect(alice.tokenCost).toBe(110)
+    expect(alice.modelUnattributedTokens).toBe(1)
+
+    // A member with only map-less sessions: no fabricated model rows.
+    const bob = stats.perMember.rows.find(r => r.memberId === 'mB')!
+    expect(bob.models).toEqual([])
+    expect(bob.modelUnattributedTokens).toBe(10)
   })
 })

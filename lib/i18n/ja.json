@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "クレームは自己申告 · クリックして検証へ",
   "milestone.taskEvidence.filterAll": "すべて {count}",
   "milestone.taskEvidence.evidence": "証跡",
-  "milestone.taskEvidence.groupNone": "グループなし"
+  "milestone.taskEvidence.groupNone": "グループなし",
+  "milestone.costTrend.moreModels": "{count, plural, other {他 # モデル}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} はモデルに帰属されていません"
 }

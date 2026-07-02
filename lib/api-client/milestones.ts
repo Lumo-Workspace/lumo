@@ -84,6 +84,16 @@ export interface ApiMilestone {
     activeTimeSec: number
     measuredTasks: number
     totalTasks: number
+    /**
+     * LUM-636 per-model split of the same measured spend
+     * (`Session.usageByModel`), sorted by total desc. Optional for
+     * older-server tolerance; empty when no measured session carries a map —
+     * the client renders no bars rather than fabricating a split.
+     */
+    models?: MilestoneModelUsage[]
+    /** Spend not attributable to a model (pre-LUM-298 sessions) — rendered
+     * as an explicit line when > 0, keeping Σ(models) + this == tokenCost. */
+    modelUnattributedTokens?: number
   }
   /**
    * LUM-627 cross-sprint burnup trajectory — a backward replay of the member
@@ -177,6 +187,11 @@ export interface ApiMilestone {
           deletions: number
           measuredPrs: number
         } | null
+        /** LUM-636 per-model split of this member's measured spend (same
+         * gate as tokenCost). Optional for older-server tolerance. */
+        models?: MilestoneModelUsage[]
+        /** Flat-only remainder (pre-LUM-298 sessions), stated explicitly. */
+        modelUnattributedTokens?: number
       }>
     }
   } | null
@@ -221,6 +236,17 @@ export interface MilestoneSegmentEntry {
   label: string | null
   taskIds: string[]
   doneCount: number
+}
+
+/** One model's share of a milestone/member token spend (LUM-636) — the
+ * STOP-settled `Session.usageByModel` merged over measured sessions. */
+export interface MilestoneModelUsage {
+  model: string
+  input: number
+  output: number
+  cacheRead: number
+  cacheCreation: number
+  total: number
 }
 
 export interface MilestoneCreateInput {

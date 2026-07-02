@@ -3,6 +3,12 @@ import { prisma } from '@/lib/db/prisma'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
 import {
+  mergeModelCosts,
+  toModelCosts,
+  type ModelCost,
+  type ModelUsage,
+} from '@/lib/services/model-cost'
+import {
   computeFriction,
   type VerificationRunRow,
 } from '@/lib/outcome/friction'
@@ -64,6 +70,15 @@ export interface TaskSetActuals {
   activeTimeSec: number
   /** Tasks with ≥1 usage-bearing session — the coverage numerator. */
   measuredTasks: number
+  /** LUM-636 per-model split of the SAME measured sessions' spend
+   * (`Session.usageByModel`, STOP-settled), merged across sessions and
+   * sorted by total desc. Empty when no measured session carries a map —
+   * the flat `tokenCost` stays authoritative either way. */
+  models: ModelCost[]
+  /** `tokenCost − Σ models.total`, clamped ≥0 — spend from sessions whose
+   * usageByModel predates LUM-298 (flat columns only). Rendered as an
+   * explicit line, never silently folded into a model. 0 when tokenCost is null. */
+  modelUnattributedTokens: number
 }
 
 /** Hook-event types the active-time computation consumes. Shared by
@@ -239,7 +254,13 @@ export const retrospectiveRepository = {
    */
   async loadActualsForTasks(taskIds: string[]): Promise<TaskSetActuals> {
     if (taskIds.length === 0) {
-      return { tokenCost: null, activeTimeSec: 0, measuredTasks: 0 }
+      return {
+        tokenCost: null,
+        activeTimeSec: 0,
+        measuredTasks: 0,
+        models: [],
+        modelUnattributedTokens: 0,
+      }
     }
 
     const sessions = await prisma.session.findMany({
@@ -250,6 +271,7 @@ export const retrospectiveRepository = {
         outputTokens: true,
         cacheReadTokens: true,
         cacheCreationTokens: true,
+        usageByModel: true,
       },
     })
 
@@ -268,6 +290,21 @@ export const retrospectiveRepository = {
         (s.cacheReadTokens ?? 0) +
         (s.cacheCreationTokens ?? 0)
     }
+
+    // Per-model split of the SAME measured sessions (LUM-636): merge each
+    // session's STOP-settled usageByModel map. Sessions predating LUM-298
+    // carry no map — their spend stays in the flat sum only and surfaces as
+    // the explicit unattributed remainder, never as a fabricated model row.
+    const models = mergeModelCosts(
+      sessions
+        .filter(s => s.taskId !== null && measured.has(s.taskId))
+        .map(s =>
+          toModelCosts(s.usageByModel as Record<string, ModelUsage> | null)
+        )
+    )
+    const modelTotal = models.reduce((sum, m) => sum + m.total, 0)
+    const modelUnattributedTokens =
+      measured.size > 0 ? Math.max(0, tokenSum - modelTotal) : 0
 
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
@@ -292,6 +329,8 @@ export const retrospectiveRepository = {
       tokenCost: measured.size > 0 ? tokenSum : null,
       activeTimeSec,
       measuredTasks: measured.size,
+      models,
+      modelUnattributedTokens,
     }
   },
 
@@ -314,6 +353,9 @@ export const retrospectiveRepository = {
       outputTokens: number | null
       cacheReadTokens: number | null
       cacheCreationTokens: number | null
+      /** STOP-settled per-model map (LUM-298 JSON) — the LUM-636 per-member
+       * model split reads it through the same measured gate as the sums. */
+      usageByModel: unknown
     }>
     turnEvents: Array<{
       sessionId: string | null
@@ -335,6 +377,7 @@ export const retrospectiveRepository = {
           outputTokens: true,
           cacheReadTokens: true,
           cacheCreationTokens: true,
+          usageByModel: true,
         },
       }),
       prisma.hookEvent.findMany({

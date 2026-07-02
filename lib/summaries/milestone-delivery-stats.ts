@@ -2,6 +2,12 @@ import {
   activeDurationMsBySession,
   type TaskTurnEvent,
 } from '@/lib/agent-run/active-time'
+import {
+  mergeModelCosts,
+  toModelCosts,
+  type ModelCost,
+  type ModelUsage,
+} from '@/lib/services/model-cost'
 
 /** One PR row as fetched for the rollup. */
 export interface DeliveryPrRow {
@@ -34,6 +40,9 @@ export interface DeliverySessionRow {
   outputTokens: number | null
   cacheReadTokens: number | null
   cacheCreationTokens: number | null
+  /** STOP-settled per-model map (`Session.usageByModel`, LUM-298 JSON).
+   * Optional so pre-636 callers/fixtures degrade to "no model split". */
+  usageByModel?: unknown
 }
 
 export interface MilestoneDeliveryMemberRow {
@@ -55,6 +64,14 @@ export interface MilestoneDeliveryMemberRow {
     deletions: number
     measuredPrs: number
   } | null
+  /** LUM-636 per-model split of this member's measured-session spend
+   * (same gate as `tokenCost`), sorted by total desc. Empty when none of
+   * the member's sessions carries a usageByModel map. */
+  models: ModelCost[]
+  /** `tokenCost − Σ models.total`, clamped ≥0 — the flat-columns-only
+   * remainder (pre-LUM-298 sessions), stated explicitly, never folded
+   * into a model row. */
+  modelUnattributedTokens: number
 }
 
 export interface MilestoneDeliveryStats {
@@ -241,6 +258,7 @@ export function computeMilestoneDeliveryStats(
       measuredTasks.add(s.taskId)
   }
   const tokenByMember = new Map<string | null, number>()
+  const modelListsByMember = new Map<string | null, (ModelCost[] | null)[]>()
   for (const s of sessionRows) {
     if (s.taskId === null || !measuredTasks.has(s.taskId)) continue
     const key = s.workspaceMemberId
@@ -252,6 +270,14 @@ export function computeMilestoneDeliveryStats(
         (s.cacheReadTokens ?? 0) +
         (s.cacheCreationTokens ?? 0)
     )
+    // Per-model split rides the SAME measured gate (LUM-636): sessions
+    // without a usageByModel map contribute nothing here — their spend stays
+    // flat-only and surfaces as the row's explicit unattributed remainder.
+    const lists = modelListsByMember.get(key) ?? []
+    lists.push(
+      toModelCosts(s.usageByModel as Record<string, ModelUsage> | null)
+    )
+    modelListsByMember.set(key, lists)
   }
 
   // ---- Per-member active time (same stream + rounding as costRollup) ----
@@ -339,14 +365,23 @@ export function computeMilestoneDeliveryStats(
     rowKeys.map(k => [k, msByMember.get(k) ?? 0]),
     activeTimeSec
   )
-  const rows: MilestoneDeliveryMemberRow[] = rowKeys.map(memberId => ({
-    memberId,
-    label:
-      memberId === null ? null : (input.memberLabels.get(memberId) ?? memberId),
-    tokenCost: tokenByMember.get(memberId) ?? 0,
-    activeTimeSec: secByMember.get(memberId) ?? 0,
-    changeVolume: volumeByMember.get(memberId) ?? null,
-  }))
+  const rows: MilestoneDeliveryMemberRow[] = rowKeys.map(memberId => {
+    const tokenCost = tokenByMember.get(memberId) ?? 0
+    const models = mergeModelCosts(modelListsByMember.get(memberId) ?? [])
+    const modelTotal = models.reduce((sum, m) => sum + m.total, 0)
+    return {
+      memberId,
+      label:
+        memberId === null
+          ? null
+          : (input.memberLabels.get(memberId) ?? memberId),
+      tokenCost,
+      activeTimeSec: secByMember.get(memberId) ?? 0,
+      changeVolume: volumeByMember.get(memberId) ?? null,
+      models,
+      modelUnattributedTokens: Math.max(0, tokenCost - modelTotal),
+    }
+  })
   rows.sort((a, b) => {
     // Unattributed reads last, always.
     if ((a.memberId === null) !== (b.memberId === null)) {

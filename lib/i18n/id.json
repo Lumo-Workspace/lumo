@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "klaim dilaporkan sendiri · klik untuk verifikasi",
   "milestone.taskEvidence.filterAll": "Semua {count}",
   "milestone.taskEvidence.evidence": "Bukti",
-  "milestone.taskEvidence.groupNone": "Tanpa pengelompokan"
+  "milestone.taskEvidence.groupNone": "Tanpa pengelompokan",
+  "milestone.costTrend.moreModels": "{count, plural, other {# model lainnya}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} tidak teratribusi ke model mana pun"
 }

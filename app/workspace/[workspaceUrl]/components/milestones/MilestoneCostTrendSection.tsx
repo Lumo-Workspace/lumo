@@ -107,6 +107,113 @@ const KPI_LABEL =
   'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground'
 const CARD = 'rounded-lg border border-border bg-card p-5'
 
+type ModelUsageRow = NonNullable<
+  NonNullable<ApiMilestone['costRollup']>['models']
+>[number]
+
+// Token-kind segments in bar order — the same chart-1..4 encoding (and the
+// muted cache-read) the task-level TokenCostBreakdown uses, so the two
+// surfaces read identically. Static literal classes so Tailwind emits them.
+const MODEL_SEGMENTS: {
+  key: 'output' | 'input' | 'cacheCreation' | 'cacheRead'
+  bar: string
+  labelId: string
+}[] = [
+  { key: 'output', bar: 'bg-chart-1', labelId: 'tokenCost.output' },
+  { key: 'input', bar: 'bg-chart-2', labelId: 'tokenCost.input' },
+  {
+    key: 'cacheCreation',
+    bar: 'bg-chart-3',
+    labelId: 'tokenCost.cacheCreate',
+  },
+  { key: 'cacheRead', bar: 'bg-chart-4/40', labelId: 'tokenCost.cacheRead' },
+]
+
+/** How many per-model rows render before folding into the more-models line. */
+const MODEL_ROWS_SHOWN = 3
+
+/**
+ * LUM-636 per-model token split: one row per model (top N by total, the rest
+ * folded into an explicit more-models line) with a four-kind segment bar.
+ * Honest by construction — renders nothing when the payload carries no model
+ * data, and spend not attributable to a model states so on its own line
+ * (pre-LUM-298 sessions), never folded into a model row.
+ */
+function ModelUsageBreakdown({
+  models,
+  unattributedTokens,
+  showLegend = false,
+}: {
+  models: ModelUsageRow[] | undefined
+  unattributedTokens?: number | undefined
+  showLegend?: boolean
+}) {
+  const intl = useIntl()
+  if (!models || models.length === 0) return null
+  const top = models.slice(0, MODEL_ROWS_SHOWN)
+  const rest = models.slice(MODEL_ROWS_SHOWN)
+  const restTotal = rest.reduce((sum, m) => sum + m.total, 0)
+  return (
+    <div className='mt-3 space-y-2'>
+      {top.map(m => (
+        <div key={m.model} data-testid='model-usage-row'>
+          <div className='flex items-baseline justify-between gap-2 text-[11px]'>
+            <span className='min-w-0 truncate font-semibold'>{m.model}</span>
+            <span className='shrink-0 tabular-nums text-muted-foreground'>
+              {fmtTokens(m.total)}
+            </span>
+          </div>
+          <div
+            aria-hidden='true'
+            className='mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted'
+          >
+            {MODEL_SEGMENTS.map(seg => {
+              const value = m[seg.key]
+              if (value <= 0 || m.total <= 0) return null
+              return (
+                <span
+                  key={seg.key}
+                  className={seg.bar}
+                  style={{ width: `${(value / m.total) * 100}%` }}
+                />
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {rest.length > 0 && (
+        <p className='text-[11px] text-muted-foreground'>
+          {intl.formatMessage(
+            { id: 'milestone.costTrend.moreModels' },
+            { count: rest.length, total: fmtTokens(restTotal) }
+          )}
+        </p>
+      )}
+      {(unattributedTokens ?? 0) > 0 && (
+        <p className='text-[11px] text-muted-foreground'>
+          {intl.formatMessage(
+            { id: 'milestone.costTrend.modelUnattributed' },
+            { total: fmtTokens(unattributedTokens ?? 0) }
+          )}
+        </p>
+      )}
+      {showLegend && (
+        <div className='flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-[11px] text-muted-foreground'>
+          {MODEL_SEGMENTS.map(seg => (
+            <span key={seg.key} className='flex items-center gap-1'>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${seg.bar}`}
+                aria-hidden='true'
+              />
+              {intl.formatMessage({ id: seg.labelId })}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface MilestoneCostTrendSectionProps {
   costRollup: ApiMilestone['costRollup']
   burnup: ApiMilestone['burnup']
@@ -198,6 +305,11 @@ function KpiCardRow({
                 fmtTokens(costRollup.tokenCost)
               )}
             </p>
+            <ModelUsageBreakdown
+              models={costRollup.models}
+              unattributedTokens={costRollup.modelUnattributedTokens}
+              showLegend
+            />
             <p className='mt-1 text-xs text-muted-foreground'>
               {intl.formatMessage(
                 { id: 'milestone.costTrend.coverage' },
@@ -423,6 +535,11 @@ export interface MergedMemberRow {
       deletions: number
       measuredPrs: number
     } | null
+    /** LUM-636 per-model split of this member's measured spend; empty when
+     * no session carries a usageByModel map — no bars, never fabricated. */
+    models: ModelUsageRow[]
+    /** Flat-only remainder (pre-LUM-298 sessions), stated explicitly. */
+    modelUnattributedTokens: number
   } | null
   delivery: MemberDeliveryRow | null
 }
@@ -448,6 +565,8 @@ export function buildMemberDeliveryRows(
           tokenCost: row.tokenCost,
           activeTimeSec: row.activeTimeSec,
           changeVolume: row.changeVolume ?? null,
+          models: row.models ?? [],
+          modelUnattributedTokens: row.modelUnattributedTokens ?? 0,
         }
       : null
   }
@@ -720,6 +839,19 @@ function MemberRow({
 
       {isExpanded && (
         <div className='mb-2 ml-[52px] space-y-3 py-1'>
+          {/* Per-model split of this member's spend (LUM-636). */}
+          {spend && spend.models.length > 0 && (
+            <div>
+              <span className='text-[11px] text-muted-foreground'>
+                {intl.formatMessage({ id: 'milestone.costTrend.tokens' })}
+              </span>
+              <ModelUsageBreakdown
+                models={spend.models}
+                unattributedTokens={spend.modelUnattributedTokens}
+              />
+            </div>
+          )}
+
           {/* Change volume attributed to this spender (LUM-634). */}
           <div>
             <div className='flex items-baseline justify-between text-[11px]'>
