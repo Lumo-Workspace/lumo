@@ -7,13 +7,15 @@ import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
 import type { MyTask, WorkspaceMemberInfo } from '../../types'
 import { MilestoneOverviewTab } from './MilestoneOverviewTab'
 import { MilestoneTasksTab } from './MilestoneTasksTab'
+import { MilestoneDescriptionTab } from './MilestoneDescriptionTab'
 
-type Tab = 'overview' | 'tasks'
+const TABS = ['overview', 'tasks', 'description'] as const
+type Tab = (typeof TABS)[number]
 
 interface MilestoneDetailTabsProps {
   milestone: ApiMilestone
   onUpdate: (fields: MilestoneUpdateInput) => void
-  /** Workspace members, threaded into the overview tab for @-mentions. */
+  /** Workspace members, threaded into the description tab for @-mentions. */
   members: WorkspaceMemberInfo[]
   /** Workspace URL segment, threaded into the overview tab for task links. */
   workspaceUrl: string
@@ -24,7 +26,7 @@ interface MilestoneDetailTabsProps {
   onOpenTask: (task: MyTask) => void
 }
 
-/** Tab nav + bodies for the milestone detail page (overview / tasks). */
+/** Tab nav + bodies for the milestone detail page (overview / tasks / description). */
 export function MilestoneDetailTabs({
   milestone,
   onUpdate,
@@ -41,7 +43,7 @@ export function MilestoneDetailTabs({
   return (
     <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
       <div className='mt-4 flex shrink-0 items-center gap-1 px-4 md:px-8'>
-        {(['overview', 'tasks'] as const).map(t => (
+        {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -62,12 +64,11 @@ export function MilestoneDetailTabs({
           <MilestoneOverviewTab
             milestone={milestone}
             onUpdate={onUpdate}
-            members={members}
             workspaceUrl={workspaceUrl}
             archived={archived}
           />
         </div>
-      ) : (
+      ) : tab === 'tasks' ? (
         <MilestoneTasksTab
           milestoneId={milestone.id}
           sprintCoverage={milestone.sprintCoverage}
@@ -75,6 +76,16 @@ export function MilestoneDetailTabs({
           onToggleSidebar={onToggleSidebar}
           onOpenTask={onOpenTask}
         />
+      ) : (
+        <div className='min-h-0 flex-1 overflow-y-auto'>
+          <MilestoneDescriptionTab
+            milestoneId={milestone.id}
+            description={milestone.description}
+            onUpdate={onUpdate}
+            members={members}
+            archived={archived}
+          />
+        </div>
       )}
     </div>
   )

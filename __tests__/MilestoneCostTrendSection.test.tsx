@@ -49,6 +49,19 @@ const messages: Record<string, string> = {
     'Lines added/removed across merged PRs — read as change exposure and review load, not output',
   'milestone.changeVolume.column': 'Change volume',
   'milestone.changeVolume.memberNone': 'No synced PRs',
+  'milestone.costTrend.activeTimeNote': 'non-idle session time',
+  'milestone.quality.title': 'Delivery quality',
+  'milestone.quality.rejected': 'rejected after delivery',
+  'milestone.quality.friction': 'FAIL rounds / send-backs',
+  'milestone.quality.frictionValue': '{failRounds} / {sendBacks}',
+  'milestone.quality.multiPr': 'multi-PR tasks',
+  'milestone.quality.changeSurface': 'change surface (files changed)',
+  'milestone.quality.countsNote':
+    'Counts, never ratios — zero signals read as “no rejection on record”, not a pass.',
+  'milestone.memberDelivery.shareHeader': 'share of {total} tokens',
+  'milestone.memberDelivery.doneCount': '{count} done',
+  'milestone.memberDelivery.prCount': '{count} PRs',
+  'milestone.memberDelivery.changedFilesChip': '{count} files changed',
 }
 
 jest.mock('react-intl', () => ({
@@ -304,13 +317,18 @@ describe('MilestoneCostTrendSection', () => {
         '3 tasks took more than one PR · 6 tasks with no PR on record'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('Change surface')).toBeInTheDocument()
+    // Change surface moved onto the delivery-quality card (no changeVolume
+    // in this older-shape payload → only 3 KPI cards, no duplication).
+    expect(screen.getByText('Delivery quality')).toBeInTheDocument()
+    expect(
+      screen.getByText('change surface (files changed)')
+    ).toBeInTheDocument()
     expect(screen.getByText('148')).toBeInTheDocument()
     expect(screen.getByText('measured on 24 of 26 tasks')).toBeInTheDocument()
-    // Honest double-count label on the summed change surface.
+    // Counts framing is stated on the card itself.
     expect(
       screen.getByText(
-        'Files changed, summed per task — a file shared across tasks is counted per task'
+        'Counts, never ratios — zero signals read as “no rejection on record”, not a pass.'
       )
     ).toBeInTheDocument()
 
@@ -355,11 +373,14 @@ describe('MilestoneCostTrendSection', () => {
     )
     // No PR records → an explicit statement, not a fabricated numeric 0.
     expect(screen.getByText('No PRs on record')).toBeInTheDocument()
-    // Unmeasured change surface → fail-closed "Not measured".
+    // Unmeasured change surface → fail-closed "Not measured" on the quality
+    // card (a real 0 multi-PR count is a true zero and may render).
     expect(screen.getByText('Not measured')).toBeInTheDocument()
+    expect(
+      screen.getByText('change surface (files changed)')
+    ).toBeInTheDocument()
     // No sessions at all → explicit empty-member placeholder, no table.
     expect(screen.getByText('No sessions on record')).toBeInTheDocument()
-    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument()
   })
 
   it('renders member delivery columns without ratios', () => {
@@ -479,40 +500,40 @@ describe('MilestoneCostTrendSection', () => {
       />
     )
 
-    // The delivery column group rides the SAME per-member table as the spend
-    // columns — quantity and quality inseparable, one row per member.
+    // Spend and delivery ride the SAME per-member rows — quantity and
+    // quality inseparable, one expandable row per member.
     expect(screen.getByText('By member')).toBeInTheDocument()
-    expect(screen.getByText('Done tasks')).toBeInTheDocument()
-    expect(screen.getByText('Post-delivery fate')).toBeInTheDocument()
-    expect(screen.getByText('Acceptance friction')).toBeInTheDocument()
-    // Appears on the LUM-632 scale card AND as a member-table column header.
-    expect(screen.getAllByText('Change surface').length).toBeGreaterThan(1)
     // Both attribution 口径 are stated where the numbers are read.
     expect(
       screen.getAllByText(/Cost is attributed to the session spender/).length
     ).toBeGreaterThan(0)
 
-    // Counts only — no ratio or percentage anywhere in the section.
-    expect(container.textContent).not.toMatch(/%/)
+    // Quality signals stay counts — never worded as a rate.
     expect(container.textContent).not.toMatch(/\brate\b/i)
 
     // Fixed member-name order (Alice before Bob) despite Bob's larger spend
     // and delivery volume; the unassigned bucket renders last, explicitly.
-    const rowTexts = [...container.querySelectorAll('tbody tr')].map(
-      tr => tr.textContent ?? ''
+    const rowTexts = [...container.querySelectorAll('li')].map(
+      li => li.textContent ?? ''
     )
     expect(rowTexts[0]).toContain('Alice')
     expect(rowTexts[1]).toContain('Bob')
     expect(rowTexts[2]).toContain('Unassigned')
-    // Quantity and quality cells share Alice's single row.
-    expect(rowTexts[0]).toContain('1 rejected · 0 no rejection on record')
-    expect(rowTexts[0]).toContain('2 FAIL rounds · 1 send-backs · 1 multi-PR')
+    // Collapsed summary carries spend + delivery counts on one line.
+    expect(rowTexts[0]).toContain('100K')
+    expect(rowTexts[0]).toContain('1 done')
 
-    // Claim expansion: the member row opens inline to the frozen claims,
-    // including the explicit no-claim row and the source 标注.
+    // Claim expansion: the member row opens inline to the quality chips and
+    // frozen claims, including the explicit no-claim row and the source 标注.
     fireEvent.click(
       screen.getByRole('button', { name: 'Show delivered claims for Alice' })
     )
+    expect(
+      screen.getByText('1 rejected · 0 no rejection on record')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('2 FAIL rounds · 1 send-backs · 1 multi-PR')
+    ).toBeInTheDocument()
     expect(screen.getByText('shipped the rollup')).toBeInTheDocument()
     expect(screen.getByText('self-reported')).toBeInTheDocument()
     expect(
@@ -577,8 +598,8 @@ describe('MilestoneCostTrendSection', () => {
     expect(screen.getAllByText('Change volume').length).toBeGreaterThan(0)
     const volumes = screen.getAllByText('+1.2K/−340')
     expect(volumes).toHaveLength(2)
-    const card = volumes.find(el => el.closest('dd') !== null)!
-    expect(card.closest('dd')).toHaveClass('tabular-nums')
+    const card = volumes.find(el => el.closest('p') !== null)!
+    expect(card.closest('p')).toHaveClass('tabular-nums')
     // Honest coverage: the unsynced third PR reads as a gap, never as 0.
     expect(screen.getByText('synced on 2 of 3 merged PRs')).toBeInTheDocument()
     // Audit framing: exposure / review load, explicitly NOT output.
