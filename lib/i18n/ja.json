@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "スプリント横断バーンアップ",
   "milestone.costTrend.scope": "スコープ",
   "milestone.costTrend.completed": "完了",
-  "milestone.costTrend.empty": "タスクがまだありません — 表示するデータがありません"
+  "milestone.costTrend.empty": "タスクがまだありません — 表示するデータがありません",
+  "milestone.segments.title": "セグメント",
+  "milestone.segments.empty": "タスクはまだありません",
+  "milestone.segments.dimension.sprint": "スプリント別",
+  "milestone.segments.dimension.priority": "優先度別",
+  "milestone.segments.dimension.workstream": "ワークストリーム別",
+  "milestone.segments.noSprint": "スプリントなし",
+  "milestone.segments.noWorkstream": "ワークストリームなし",
+  "milestone.segments.unknown": "不明",
+  "milestone.segments.count": "{done}/{total} 完了"
 }

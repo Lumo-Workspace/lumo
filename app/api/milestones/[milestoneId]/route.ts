@@ -30,12 +30,14 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestone,
       taskCounts
     )
-    const [sprintCoverage, outcome, summary, costTrend] = await Promise.all([
-      milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
-      milestoneService.getOutcomeForMilestone(milestoneId),
-      milestoneSummaryRepository.findByMilestoneId(milestoneId),
-      milestoneService.getCostTrendForMilestone(milestoneId, teamId),
-    ])
+    const [sprintCoverage, outcome, summary, costTrend, segments] =
+      await Promise.all([
+        milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
+        milestoneService.getOutcomeForMilestone(milestoneId),
+        milestoneSummaryRepository.findByMilestoneId(milestoneId),
+        milestoneService.getCostTrendForMilestone(milestoneId, teamId),
+        milestoneService.getSegmentsForMilestone(milestoneId, teamId),
+      ])
     return NextResponse.json({
       milestone: {
         ...milestone,
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         summaryTldr: summary?.tldr ?? null,
         costRollup: costTrend.costRollup,
         burnup: costTrend.burnup,
+        segments,
       },
     })
   } catch (error) {

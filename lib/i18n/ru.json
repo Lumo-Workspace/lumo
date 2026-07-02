@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "Burnup по спринтам",
   "milestone.costTrend.scope": "Объём",
   "milestone.costTrend.completed": "Завершено",
-  "milestone.costTrend.empty": "Задач пока нет — нечего отображать"
+  "milestone.costTrend.empty": "Задач пока нет — нечего отображать",
+  "milestone.segments.title": "Сегменты",
+  "milestone.segments.empty": "Задач пока нет",
+  "milestone.segments.dimension.sprint": "По спринтам",
+  "milestone.segments.dimension.priority": "По приоритету",
+  "milestone.segments.dimension.workstream": "По направлениям",
+  "milestone.segments.noSprint": "Без спринта",
+  "milestone.segments.noWorkstream": "Без направления",
+  "milestone.segments.unknown": "Неизвестно",
+  "milestone.segments.count": "{done}/{total} выполнено"
 }

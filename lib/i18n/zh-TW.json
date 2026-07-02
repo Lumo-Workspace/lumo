@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "跨 Sprint Burnup",
   "milestone.costTrend.scope": "範圍",
   "milestone.costTrend.completed": "已完成",
-  "milestone.costTrend.empty": "還沒有任務——無可繪製"
+  "milestone.costTrend.empty": "還沒有任務——無可繪製",
+  "milestone.segments.title": "分段",
+  "milestone.segments.empty": "尚無任務",
+  "milestone.segments.dimension.sprint": "依 Sprint",
+  "milestone.segments.dimension.priority": "依優先順序",
+  "milestone.segments.dimension.workstream": "依工作線",
+  "milestone.segments.noSprint": "無 Sprint",
+  "milestone.segments.noWorkstream": "無工作線",
+  "milestone.segments.unknown": "未知",
+  "milestone.segments.count": "{done}/{total} 已完成"
 }

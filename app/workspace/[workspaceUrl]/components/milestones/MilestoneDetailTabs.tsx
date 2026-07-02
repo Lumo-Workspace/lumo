@@ -15,6 +15,8 @@ interface MilestoneDetailTabsProps {
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, threaded into the overview tab for @-mentions. */
   members: WorkspaceMemberInfo[]
+  /** Workspace URL segment, threaded into the overview tab for task links. */
+  workspaceUrl: string
   /** Collapse state of the milestone properties rail (owned by the page). */
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
@@ -27,6 +29,7 @@ export function MilestoneDetailTabs({
   milestone,
   onUpdate,
   members,
+  workspaceUrl,
   sidebarCollapsed,
   onToggleSidebar,
   onOpenTask,
@@ -60,6 +63,7 @@ export function MilestoneDetailTabs({
             milestone={milestone}
             onUpdate={onUpdate}
             members={members}
+            workspaceUrl={workspaceUrl}
             archived={archived}
           />
         </div>

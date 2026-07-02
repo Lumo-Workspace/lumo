@@ -11,6 +11,7 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     sprintCoverageCounts: jest.fn(),
     outcomeRollupRows: jest.fn(),
     costTrendRows: jest.fn(),
+    segmentationRows: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/sprint.repository', () => ({
@@ -48,6 +49,7 @@ const sprintCoverageCounts =
   milestoneRepository.sprintCoverageCounts as jest.Mock
 const outcomeRollupRows = milestoneRepository.outcomeRollupRows as jest.Mock
 const costTrendRows = milestoneRepository.costTrendRows as jest.Mock
+const segmentationRows = milestoneRepository.segmentationRows as jest.Mock
 const findByIds = sprintRepository.findByIds as jest.Mock
 const loadActualsForTasks =
   retrospectiveRepository.loadActualsForTasks as jest.Mock
@@ -61,6 +63,8 @@ beforeEach(() => {
   outcomeRollupRows.mockReset()
   costTrendRows.mockReset()
   costTrendRows.mockResolvedValue({ tasks: [], activities: [] })
+  segmentationRows.mockReset()
+  segmentationRows.mockResolvedValue([])
   findByIds.mockReset()
   loadActualsForTasks.mockReset()
   loadActualsForTasks.mockResolvedValue({

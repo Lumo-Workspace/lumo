@@ -58,6 +58,7 @@ function setup(name = 'Beta release', description: string | null = 'Old body') {
       }}
       onUpdate={onUpdate}
       members={members}
+      workspaceUrl='acme'
     />
   )
   return { onUpdate }
@@ -119,6 +120,7 @@ test('archived milestone does not commit name or description edits', () => {
       }}
       onUpdate={onUpdate}
       members={members}
+      workspaceUrl='acme'
       archived
     />
   )

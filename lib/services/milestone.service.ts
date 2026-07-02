@@ -10,6 +10,7 @@ import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
+import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import {
   buildMilestoneSlugBase,
@@ -194,6 +195,35 @@ export const milestoneService = {
         now: new Date(),
       }),
     }
+  },
+
+  /**
+   * LUM-628 segmentation rollup for an already-authorized milestone: member
+   * tasks grouped by sprint / priority / workstream (=tag), each segment
+   * carrying total+done counts and the task rows the drill-down renders.
+   * Performs NO auth — only call after authorizing (e.g. via
+   * `getMilestoneWithTeam`).
+   */
+  async getSegmentsForMilestone(milestoneId: string, teamId: string) {
+    const rows = await milestoneRepository.segmentationRows(milestoneId)
+    const sprintIds = [
+      ...new Set(
+        rows.map(r => r.sprintId).filter((id): id is string => id !== null)
+      ),
+    ]
+    const sprints = await sprintRepository.findByIds(sprintIds, teamId)
+    return computeMilestoneSegments(
+      rows.map(r => ({
+        id: r.id,
+        ref: `${r.team.identifier}-${r.number}`,
+        title: r.title,
+        status: r.status,
+        priority: r.priority,
+        sprintId: r.sprintId,
+        tags: r.taskTags.map(t => t.tag),
+      })),
+      sprints
+    )
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {

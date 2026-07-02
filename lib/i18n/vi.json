@@ -1935,5 +1935,14 @@
   "milestone.costTrend.burnupTitle": "Burnup qua các sprint",
   "milestone.costTrend.scope": "Phạm vi",
   "milestone.costTrend.completed": "Hoàn thành",
-  "milestone.costTrend.empty": "Chưa có nhiệm vụ — không có gì để vẽ"
+  "milestone.costTrend.empty": "Chưa có nhiệm vụ — không có gì để vẽ",
+  "milestone.segments.title": "Phân đoạn",
+  "milestone.segments.empty": "Chưa có nhiệm vụ nào",
+  "milestone.segments.dimension.sprint": "Theo sprint",
+  "milestone.segments.dimension.priority": "Theo mức ưu tiên",
+  "milestone.segments.dimension.workstream": "Theo luồng công việc",
+  "milestone.segments.noSprint": "Không có sprint",
+  "milestone.segments.noWorkstream": "Không có luồng công việc",
+  "milestone.segments.unknown": "Không xác định",
+  "milestone.segments.count": "{done}/{total} hoàn thành"
 }
