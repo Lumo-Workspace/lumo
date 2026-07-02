@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Jugé par un humain",
   "acceptance.zone.humanAllResolved": "Les {count} jugés",
   "sprints.settings.timezone": "Fuseau horaire de l'équipe",
+  "milestone.rollup.label": "Résumé du jalon",
+  "milestone.rollup.completion": "Avancement",
+  "milestone.rollup.health": "Santé",
+  "milestone.rollup.timespan": "Période",
+  "milestone.rollup.keyOutcome": "Résultat clé",
+  "milestone.rollup.noTasks": "Aucune tâche pour l'instant",
+  "milestone.rollup.noDates": "Aucune date définie",
+  "milestone.rollup.noOutcome": "Pas encore de résumé de rétro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Résultat",
   "milestone.outcome.empty": "Aucune tâche livrée pour l'instant — les résultats concrets apparaîtront ici une fois les tâches terminées.",
   "milestone.outcome.claims.title": "Résultats livrés",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {régression CI} other {régression CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {réorienté en aval} other {réorienté en aval ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {contourné} other {contourné ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rejet manuel} other {rejet manuel ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rejet manuel} other {rejet manuel ×#}}"
 }

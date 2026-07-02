@@ -68,6 +68,11 @@ export interface ApiMilestone {
       inconclusiveCount: number
     }
   } | null
+  /**
+   * One-line key outcome from the generated retro (MilestoneSummary.tldr).
+   * Server-enriched on detail responses; `null` until a retro is generated.
+   */
+  summaryTldr?: string | null
 }
 
 export interface MilestoneCreateInput {

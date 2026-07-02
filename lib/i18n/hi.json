@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "मानव-निर्णयित",
   "acceptance.zone.humanAllResolved": "सभी {count} निर्णयित",
   "sprints.settings.timezone": "टीम का समय क्षेत्र",
+  "milestone.rollup.label": "माइलस्टोन सारांश",
+  "milestone.rollup.completion": "पूर्णता",
+  "milestone.rollup.health": "स्वास्थ्य",
+  "milestone.rollup.timespan": "समय अवधि",
+  "milestone.rollup.keyOutcome": "मुख्य परिणाम",
+  "milestone.rollup.noTasks": "अभी कोई कार्य नहीं",
+  "milestone.rollup.noDates": "कोई तिथि निर्धारित नहीं",
+  "milestone.rollup.noOutcome": "अभी तक कोई रेट्रो सारांश नहीं",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "परिणाम",
   "milestone.outcome.empty": "अभी तक कोई डिलीवर किया गया कार्य नहीं — कार्य पूर्ण होते ही ठोस परिणाम यहाँ दिखाई देंगे।",
   "milestone.outcome.claims.title": "डिलीवर किए गए परिणाम",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI रिग्रेशन} other {CI रिग्रेशन ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {बाद में दिशा बदली गई} other {बाद में दिशा बदली गई ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {बाईपास किया गया} other {बाईपास किया गया ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {मैन्युअल अस्वीकृति} other {मैन्युअल अस्वीकृति ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {मैन्युअल अस्वीकृति} other {मैन्युअल अस्वीकृति ×#}}"
 }

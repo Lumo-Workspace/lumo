@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Đã do người phán quyết",
   "acceptance.zone.humanAllResolved": "Tất cả {count} đã phán quyết",
   "sprints.settings.timezone": "Múi giờ của nhóm",
+  "milestone.rollup.label": "Tóm tắt cột mốc",
+  "milestone.rollup.completion": "Mức hoàn thành",
+  "milestone.rollup.health": "Tình trạng",
+  "milestone.rollup.timespan": "Khoảng thời gian",
+  "milestone.rollup.keyOutcome": "Kết quả chính",
+  "milestone.rollup.noTasks": "Chưa có nhiệm vụ",
+  "milestone.rollup.noDates": "Chưa đặt ngày",
+  "milestone.rollup.noOutcome": "Chưa có tóm tắt retro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Kết quả",
   "milestone.outcome.empty": "Chưa có nhiệm vụ nào được bàn giao — kết quả cụ thể sẽ hiển thị tại đây khi nhiệm vụ hoàn thành.",
   "milestone.outcome.claims.title": "Kết quả đã bàn giao",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {hồi quy CI} other {hồi quy CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {bị chuyển hướng sau đó} other {bị chuyển hướng sau đó ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bị bỏ qua} other {bị bỏ qua ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}"
 }

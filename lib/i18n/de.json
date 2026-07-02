@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Menschlich beurteilt",
   "acceptance.zone.humanAllResolved": "Alle {count} beurteilt",
   "sprints.settings.timezone": "Team-Zeitzone",
+  "milestone.rollup.label": "Meilenstein-Zusammenfassung",
+  "milestone.rollup.completion": "Fertigstellung",
+  "milestone.rollup.health": "Zustand",
+  "milestone.rollup.timespan": "Zeitraum",
+  "milestone.rollup.keyOutcome": "Zentrales Ergebnis",
+  "milestone.rollup.noTasks": "Noch keine Aufgaben",
+  "milestone.rollup.noDates": "Keine Termine festgelegt",
+  "milestone.rollup.noOutcome": "Noch keine Retro-Zusammenfassung",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Ergebnis",
   "milestone.outcome.empty": "Noch keine gelieferten Aufgaben — harte Ergebnisse erscheinen hier, sobald Aufgaben abgeschlossen sind.",
   "milestone.outcome.claims.title": "Gelieferte Ergebnisse",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI-Regression} other {CI-Regression ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {nachgelagert umgelenkt} other {nachgelagert umgelenkt ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {umgangen} other {umgangen ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manuelle Zurückweisung} other {manuelle Zurückweisung ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {manuelle Zurückweisung} other {manuelle Zurückweisung ×#}}"
 }

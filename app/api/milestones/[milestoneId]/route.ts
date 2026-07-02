@@ -5,6 +5,7 @@ import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
 
 interface Params {
@@ -29,9 +30,10 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestone,
       taskCounts
     )
-    const [sprintCoverage, outcome] = await Promise.all([
+    const [sprintCoverage, outcome, summary] = await Promise.all([
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
+      milestoneSummaryRepository.findByMilestoneId(milestoneId),
     ])
     return NextResponse.json({
       milestone: {
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         staleness,
         sprintCoverage,
         outcome,
+        summaryTldr: summary?.tldr ?? null,
       },
     })
   } catch (error) {

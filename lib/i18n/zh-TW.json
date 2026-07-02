@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "人工裁決",
   "acceptance.zone.humanAllResolved": "全部 {count} 項已裁決",
   "sprints.settings.timezone": "團隊時區",
+  "milestone.rollup.label": "里程碑摘要",
+  "milestone.rollup.completion": "完成度",
+  "milestone.rollup.health": "健康",
+  "milestone.rollup.timespan": "時間跨度",
+  "milestone.rollup.keyOutcome": "關鍵成果",
+  "milestone.rollup.noTasks": "尚無任務",
+  "milestone.rollup.noDates": "未設定日期",
+  "milestone.rollup.noOutcome": "尚未產生回顧摘要",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "成果",
   "milestone.outcome.empty": "尚無已交付任務——任務完成後,硬成果會顯示在這裡。",
   "milestone.outcome.claims.title": "已交付成果",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 回歸} other {CI 回歸 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {被下游改道} other {被下游改道 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {被繞過} other {被繞過 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}"
 }

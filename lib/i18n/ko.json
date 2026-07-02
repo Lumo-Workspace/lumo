@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "사람이 판정함",
   "acceptance.zone.humanAllResolved": "{count}개 모두 판정됨",
   "sprints.settings.timezone": "팀 시간대",
+  "milestone.rollup.label": "마일스톤 요약",
+  "milestone.rollup.completion": "완료율",
+  "milestone.rollup.health": "건강 상태",
+  "milestone.rollup.timespan": "기간",
+  "milestone.rollup.keyOutcome": "핵심 성과",
+  "milestone.rollup.noTasks": "아직 작업이 없습니다",
+  "milestone.rollup.noDates": "날짜 미설정",
+  "milestone.rollup.noOutcome": "아직 회고 요약이 없습니다",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "성과",
   "milestone.outcome.empty": "아직 완료된 작업이 없습니다. 작업이 완료되면 구체적인 성과가 여기에 표시됩니다.",
   "milestone.outcome.claims.title": "완료된 성과",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 회귀} other {CI 회귀 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {후속 작업에서 방향 전환} other {후속 작업에서 방향 전환 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {우회됨} other {우회됨 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}"
 }

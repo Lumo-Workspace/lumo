@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Dinilai manusia",
   "acceptance.zone.humanAllResolved": "Semua {count} dinilai",
   "sprints.settings.timezone": "Zon waktu pasukan",
+  "milestone.rollup.label": "Ringkasan tonggak",
+  "milestone.rollup.completion": "Penyelesaian",
+  "milestone.rollup.health": "Kesihatan",
+  "milestone.rollup.timespan": "Julat masa",
+  "milestone.rollup.keyOutcome": "Hasil utama",
+  "milestone.rollup.noTasks": "Belum ada tugas",
+  "milestone.rollup.noDates": "Tarikh belum ditetapkan",
+  "milestone.rollup.noOutcome": "Belum ada ringkasan retro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Hasil",
   "milestone.outcome.empty": "Belum ada tugasan yang dihantar — hasil konkrit akan dipaparkan di sini apabila tugasan selesai.",
   "milestone.outcome.claims.title": "Hasil yang dihantar",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresi CI} other {regresi CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {dialihkan kemudian} other {dialihkan kemudian ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {dipintas} other {dipintas ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {penolakan manual} other {penolakan manual ×#}}"
 }

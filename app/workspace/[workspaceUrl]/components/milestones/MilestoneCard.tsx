@@ -11,9 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import type { ApiMilestone } from '@/lib/api-client'
-import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 import { useFormatDate } from '../../hooks/useFormatDate'
-import { STATUS_CLASS, DATE_OPTS } from './milestoneDisplay'
+import { STATUS_CLASS, DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
 
 interface Props {
   milestone: ApiMilestone
@@ -24,14 +23,6 @@ interface Props {
   onDelete: (m: ApiMilestone) => void
   onArchive: (m: ApiMilestone) => void
   onUnarchive: (m: ApiMilestone) => void
-}
-
-// A single ~7px dot is the one allowed colour signal (typography carries the
-// rest of the hierarchy). Colour encodes the target-date health light.
-const HEALTH_DOT: Record<MilestoneHealth, string> = {
-  'on-track': 'bg-emerald-500',
-  'at-risk': 'bg-amber-500',
-  overdue: 'bg-red-500',
 }
 
 export function MilestoneCard({

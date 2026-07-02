@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Оценено человеком",
   "acceptance.zone.humanAllResolved": "Все {count} оценены",
   "sprints.settings.timezone": "Часовой пояс команды",
+  "milestone.rollup.label": "Сводка по вехе",
+  "milestone.rollup.completion": "Выполнение",
+  "milestone.rollup.health": "Состояние",
+  "milestone.rollup.timespan": "Период",
+  "milestone.rollup.keyOutcome": "Ключевой результат",
+  "milestone.rollup.noTasks": "Задач пока нет",
+  "milestone.rollup.noDates": "Даты не заданы",
+  "milestone.rollup.noOutcome": "Сводка ретро ещё не создана",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Итоги",
   "milestone.outcome.empty": "Пока нет завершённых задач — конкретные результаты появятся здесь, когда задачи будут выполнены.",
   "milestone.outcome.claims.title": "Достигнутые результаты",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {регрессия CI} other {регрессия CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {пересмотрено позже} other {пересмотрено позже ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {обойдено} other {обойдено ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}"
 }

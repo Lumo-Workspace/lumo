@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "Evaluado por humano",
   "acceptance.zone.humanAllResolved": "Los {count} evaluados",
   "sprints.settings.timezone": "Zona horaria del equipo",
+  "milestone.rollup.label": "Resumen del hito",
+  "milestone.rollup.completion": "Avance",
+  "milestone.rollup.health": "Salud",
+  "milestone.rollup.timespan": "Período",
+  "milestone.rollup.keyOutcome": "Resultado clave",
+  "milestone.rollup.noTasks": "Aún no hay tareas",
+  "milestone.rollup.noDates": "Sin fechas definidas",
+  "milestone.rollup.noOutcome": "Aún no hay resumen de retro",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "Resultado",
   "milestone.outcome.empty": "Aún no hay tareas entregadas: los resultados concretos aparecerán aquí cuando las tareas se completen.",
   "milestone.outcome.claims.title": "Resultados entregados",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {regresión de CI} other {regresión de CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirigido más adelante} other {redirigido más adelante ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {eludido} other {eludido ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}"
 }

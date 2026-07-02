@@ -18,6 +18,16 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
 jest.mock('@/lib/services/project.service', () => ({
   projectService: { getProject: jest.fn() },
 }))
+jest.mock('@/lib/services/milestone-rollup.service', () => ({
+  milestoneRollupService: {
+    observeOnRead: jest.fn(() => ({ statusDrift: null, datesMissing: false })),
+  },
+}))
+jest.mock('@/lib/repositories/milestone-summary.repository', () => ({
+  milestoneSummaryRepository: {
+    findByMilestoneId: jest.fn().mockResolvedValue(null),
+  },
+}))
 
 import { GET } from '@/app/api/milestones/[milestoneId]/route'
 import { milestoneService } from '@/lib/services/milestone.service'

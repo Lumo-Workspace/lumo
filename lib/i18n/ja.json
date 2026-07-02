@@ -1902,6 +1902,15 @@
   "acceptance.zone.humanResolved": "人間が判定済み",
   "acceptance.zone.humanAllResolved": "{count} 件すべて判定済み",
   "sprints.settings.timezone": "チームのタイムゾーン",
+  "milestone.rollup.label": "マイルストーン概要",
+  "milestone.rollup.completion": "達成度",
+  "milestone.rollup.health": "健全性",
+  "milestone.rollup.timespan": "期間",
+  "milestone.rollup.keyOutcome": "主な成果",
+  "milestone.rollup.noTasks": "タスクはまだありません",
+  "milestone.rollup.noDates": "日付未設定",
+  "milestone.rollup.noOutcome": "振り返りの要約はまだありません",
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
   "milestone.outcome.title": "成果",
   "milestone.outcome.empty": "納品済みのタスクはまだありません。タスクが完了すると、具体的な成果がここに表示されます。",
   "milestone.outcome.claims.title": "納品された成果",
@@ -1917,6 +1926,5 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CIリグレッション} other {CIリグレッション ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {後続で方針転換} other {後続で方針転換 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {迂回} other {迂回 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {手動での却下} other {手動での却下 ×#}}"
 }
