@@ -73,6 +73,38 @@ export interface ApiMilestone {
    * Server-enriched on detail responses; `null` until a retro is generated.
    */
   summaryTldr?: string | null
+  /**
+   * LUM-627 cost rollup over member tasks, same-source with the task-level
+   * LUM-560 cost. Server-enriched on the detail response only. Fail-closed:
+   * `tokenCost: null` = no member task has measured usage (没测到 ≠ 花了0);
+   * `measuredTasks`/`totalTasks` is the coverage of that measurement.
+   */
+  costRollup?: {
+    tokenCost: number | null
+    activeTimeSec: number
+    measuredTasks: number
+    totalTasks: number
+  }
+  /**
+   * LUM-627 cross-sprint burnup trajectory — a backward replay of the member
+   * tasks' STATUS_CHANGED log per UTC day, never a snapshot. Server-enriched
+   * on the detail response only. `sprintWindows` are the covering sprints'
+   * calendar bands (may extend past `end`; clamp when rendering).
+   */
+  burnup?: {
+    start: string
+    end: string
+    unit: 'tasks'
+    scopeTotal: number
+    series: Array<{ date: string; scope: number; completed: number }>
+    sprintWindows: Array<{
+      sprintId: string
+      number: number
+      name: string
+      start: string
+      end: string
+    }>
+  }
 }
 
 export interface MilestoneCreateInput {

@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {被下游改道} other {被下游改道 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {被绕过} other {被绕过 ×#}}",
   "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工记录的拒绝} other {人工记录的拒绝 ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.costTrend.label": "成本与趋势",
+  "milestone.costTrend.title": "成本与趋势",
+  "milestone.costTrend.tokens": "Token",
+  "milestone.costTrend.activeTime": "活跃时长",
+  "milestone.costTrend.notMeasured": "未测量",
+  "milestone.costTrend.coverage": "已测量 {total} 个任务中的 {measured} 个",
+  "milestone.costTrend.burnupTitle": "跨 Sprint Burnup",
+  "milestone.costTrend.scope": "范围",
+  "milestone.costTrend.completed": "已完成",
+  "milestone.costTrend.empty": "还没有任务——无可绘制"
 }

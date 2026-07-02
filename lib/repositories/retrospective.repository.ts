@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Prisma, type HookEventType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
@@ -51,6 +51,39 @@ export interface RetrospectiveActuals {
   interactionRounds: number
   totalDurationSec: number
 }
+
+/**
+ * Batched actuals over a task set (LUM-627 milestone rollup). Same-source with
+ * `loadActuals`: token sums read the same cumulative `Session.*` columns with
+ * the same per-task measured gate (some session has non-null outputTokens), so
+ * `tokenCost` here equals Σ of the member tasks' `loadActuals.tokenCost` —
+ * fail-closed `null` when NO task is measured (没测到 ≠ 花了0).
+ */
+export interface TaskSetActuals {
+  tokenCost: number | null
+  activeTimeSec: number
+  /** Tasks with ≥1 usage-bearing session — the coverage numerator. */
+  measuredTasks: number
+}
+
+/** Hook-event types the active-time computation consumes. Shared by
+ * `loadActuals` and `loadActualsForTasks` so the two streams cannot drift. */
+const ACTIVE_TIME_EVENT_TYPES: HookEventType[] = [
+  'USER_PROMPT_SUBMIT',
+  'STOP',
+  'STOP_FAILURE',
+  'PRE_TOOL_USE',
+  'POST_TOOL_USE',
+  'POST_TOOL_USE_FAILURE',
+  'POST_TOOL_BATCH',
+  'SUBAGENT_START',
+  'SUBAGENT_STOP',
+  'PERMISSION_REQUEST',
+  'PERMISSION_DENIED',
+  'NOTIFICATION',
+  'ELICITATION',
+  'ELICITATION_RESULT',
+]
 
 /** One session's token spend for the cost trajectory (LUM-562). Summed from the
  *  SAME cumulative `Session.*` columns `loadActuals` totals, over the SAME
@@ -164,24 +197,7 @@ export const retrospectiveRepository = {
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
         OR: [{ taskId }, { taskId: null, session: { taskId } }],
-        type: {
-          in: [
-            'USER_PROMPT_SUBMIT',
-            'STOP',
-            'STOP_FAILURE',
-            'PRE_TOOL_USE',
-            'POST_TOOL_USE',
-            'POST_TOOL_USE_FAILURE',
-            'POST_TOOL_BATCH',
-            'SUBAGENT_START',
-            'SUBAGENT_STOP',
-            'PERMISSION_REQUEST',
-            'PERMISSION_DENIED',
-            'NOTIFICATION',
-            'ELICITATION',
-            'ELICITATION_RESULT',
-          ],
-        },
+        type: { in: ACTIVE_TIME_EVENT_TYPES },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { sessionId: true, type: true, createdAt: true },
@@ -207,6 +223,75 @@ export const retrospectiveRepository = {
       iterations: task.sessions.length,
       interactionRounds,
       totalDurationSec,
+    }
+  },
+
+  /**
+   * Batched actuals over a task set — the LUM-627 milestone cost rollup. Reads
+   * the SAME cumulative `Session.*` token columns as `loadActuals`, with the
+   * same per-task measured gate (a task counts as measured iff some linked
+   * session has non-null outputTokens; the columns are written all-or-none),
+   * so `tokenCost` reconciles exactly with Σ per-task `loadActuals.tokenCost`.
+   * `activeTimeSec` feeds the union hook-event stream of every member task
+   * through the canonical `sumActiveDurationSec` (per-session turn windows) —
+   * one pass over the merged stream rather than N per-task passes.
+   * Fail-closed: zero measured tasks → `tokenCost: null`, never a fake 0.
+   */
+  async loadActualsForTasks(taskIds: string[]): Promise<TaskSetActuals> {
+    if (taskIds.length === 0) {
+      return { tokenCost: null, activeTimeSec: 0, measuredTasks: 0 }
+    }
+
+    const sessions = await prisma.session.findMany({
+      where: { taskId: { in: taskIds } },
+      select: {
+        taskId: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheCreationTokens: true,
+      },
+    })
+
+    const measured = new Set<string>()
+    for (const s of sessions) {
+      if (s.taskId !== null && s.outputTokens !== null) measured.add(s.taskId)
+    }
+    // Sum every session of a measured task (null columns coalesce to 0) —
+    // exactly what loadActuals does per task, so the Σ identity holds.
+    let tokenSum = 0
+    for (const s of sessions) {
+      if (s.taskId === null || !measured.has(s.taskId)) continue
+      tokenSum +=
+        (s.inputTokens ?? 0) +
+        (s.outputTokens ?? 0) +
+        (s.cacheReadTokens ?? 0) +
+        (s.cacheCreationTokens ?? 0)
+    }
+
+    const turnEvents = await prisma.hookEvent.findMany({
+      where: {
+        OR: [
+          { taskId: { in: taskIds } },
+          { taskId: null, session: { taskId: { in: taskIds } } },
+        ],
+        type: { in: ACTIVE_TIME_EVENT_TYPES },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { sessionId: true, type: true, createdAt: true },
+    })
+    const activeTimeSec = sumActiveDurationSec(
+      turnEvents.map(e => ({
+        sessionId: e.sessionId ?? '__none__',
+        type: e.type,
+        createdAt: e.createdAt,
+      }))
+    )
+
+    return {
+      tokenCost: measured.size > 0 ? tokenSum : null,
+      activeTimeSec,
+      measuredTasks: measured.size,
     }
   },
 

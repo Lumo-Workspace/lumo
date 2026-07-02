@@ -1,4 +1,13 @@
 import type { TaskStatus } from '@prisma/client'
+import {
+  DAY_MS,
+  type StatusEvt,
+  enumerateUtcDays,
+  parseStatusPayload,
+  statusAt,
+  toUtcDateKey,
+  utcMidnight,
+} from '@/lib/summaries/burnup-replay'
 
 export interface BurnupTaskInput {
   id: string
@@ -49,45 +58,10 @@ export interface BurnupSeries {
   series: BurnupPoint[]
 }
 
-interface StatusEvt {
-  createdAt: Date
-  from: TaskStatus
-  to: TaskStatus
-}
 interface SprintEvt {
   createdAt: Date
   fromSprintId: string | null
   toSprintId: string | null
-}
-
-const DAY_MS = 86_400_000
-
-function toUtcDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-function utcMidnight(d: Date): number {
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-}
-function enumerateUtcDays(start: Date, end: Date): Date[] {
-  const days: Date[] = []
-  let cur = utcMidnight(start)
-  const last = utcMidnight(end)
-  while (cur <= last) {
-    days.push(new Date(cur))
-    cur += DAY_MS
-  }
-  return days
-}
-
-function parseStatusPayload(
-  p: unknown
-): { from: TaskStatus; to: TaskStatus } | null {
-  if (!p || typeof p !== 'object') return null
-  const o = p as Record<string, unknown>
-  if (typeof o.from !== 'string' || typeof o.to !== 'string') return null
-  // Cast unchecked: only `=== 'DONE'` is compared downstream, so an unexpected
-  // enum value safely counts as "not done" rather than throwing.
-  return { from: o.from as TaskStatus, to: o.to as TaskStatus }
 }
 
 function parseSprintPayload(
@@ -101,30 +75,31 @@ function parseSprintPayload(
   const okFrom = from === null || typeof from === 'string'
   const okTo = to === null || typeof to === 'string'
   if (!okFrom || !okTo) return null
-  return { fromSprintId: from as string | null, toSprintId: to as string | null }
-}
-
-/** State of a step-function at time tMs: last event whose createdAt <= tMs. */
-function statusAt(events: StatusEvt[], tMs: number, fallback: TaskStatus): TaskStatus {
-  const first = events[0]
-  if (!first) return fallback
-  let chosen: StatusEvt | null = null
-  for (const e of events) {
-    if (e.createdAt.getTime() <= tMs) chosen = e
-    else break
+  return {
+    fromSprintId: from as string | null,
+    toSprintId: to as string | null,
   }
-  return chosen ? chosen.to : first.from
 }
 
 export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
-  const { sprintId, startDate, startedAt, endDate, status, now, tasks, activities } =
-    input
+  const {
+    sprintId,
+    startDate,
+    startedAt,
+    endDate,
+    status,
+    now,
+    tasks,
+    activities,
+  } = input
   // Anchor at the EARLIER of startDate and startedAt. Normally that's startDate;
   // only an early start (started before the planned date) pulls the window back.
   // A late startedAt (sprint flipped ACTIVE after work already happened in DRAFT)
   // does NOT truncate — otherwise the real ramp collapses to a single point.
   const effectiveStart =
-    startedAt && startedAt.getTime() < startDate.getTime() ? startedAt : startDate
+    startedAt && startedAt.getTime() < startDate.getTime()
+      ? startedAt
+      : startDate
 
   const statusByTask = new Map<string, StatusEvt[]>()
   const sprintByTask = new Map<string, SprintEvt[]>()
@@ -156,7 +131,9 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
   const candidates = new Set<string>()
   for (const t of tasks) if (t.sprintId === sprintId) candidates.add(t.id)
   for (const [taskId, evts] of sprintByTask) {
-    if (evts.some(e => e.fromSprintId === sprintId || e.toSprintId === sprintId)) {
+    if (
+      evts.some(e => e.fromSprintId === sprintId || e.toSprintId === sprintId)
+    ) {
       candidates.add(taskId)
     }
   }
@@ -176,7 +153,8 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
     for (const id of candidates) {
       const t = taskById.get(id)
       if (!t || t.createdAt.getTime() > eodMs) continue
-      if (statusAt(statusByTask.get(id) ?? [], eodMs, t.status) === 'DONE') count++
+      if (statusAt(statusByTask.get(id) ?? [], eodMs, t.status) === 'DONE')
+        count++
     }
     return count
   }
@@ -202,7 +180,8 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
     const eod = utcMidnight(day) + DAY_MS - 1
     const isFuture = utcMidnight(day) > nowMs
     const scope = countScope(eod)
-    const completed = status === 'ACTIVE' && isFuture ? null : countCompleted(eod)
+    const completed =
+      status === 'ACTIVE' && isFuture ? null : countCompleted(eod)
     return { date: toUtcDateKey(day), scope, completed, projected: null }
   })
 
@@ -220,7 +199,8 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
       for (let i = lastActualIdx; i < n; i++) {
         const p = series[i]
         if (!p) continue
-        const v = startVal + ((scopeTotal - startVal) * (i - lastActualIdx)) / span
+        const v =
+          startVal + ((scopeTotal - startVal) * (i - lastActualIdx)) / span
         p.projected = Math.round(v * 100) / 100
       }
     }

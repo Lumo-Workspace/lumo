@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {hồi quy CI} other {hồi quy CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {bị chuyển hướng sau đó} other {bị chuyển hướng sau đó ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {bị bỏ qua} other {bị bỏ qua ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {từ chối thủ công} other {từ chối thủ công ×#}}",
+  "milestone.costTrend.label": "Chi phí và quỹ đạo",
+  "milestone.costTrend.title": "Chi phí & quỹ đạo",
+  "milestone.costTrend.tokens": "Token",
+  "milestone.costTrend.activeTime": "Thời gian hoạt động",
+  "milestone.costTrend.notMeasured": "Chưa đo",
+  "milestone.costTrend.coverage": "đã đo trên {measured} trong {total} nhiệm vụ",
+  "milestone.costTrend.burnupTitle": "Burnup qua các sprint",
+  "milestone.costTrend.scope": "Phạm vi",
+  "milestone.costTrend.completed": "Hoàn thành",
+  "milestone.costTrend.empty": "Chưa có nhiệm vụ — không có gì để vẽ"
 }

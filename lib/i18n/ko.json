@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 회귀} other {CI 회귀 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {후속 작업에서 방향 전환} other {후속 작업에서 방향 전환 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {우회됨} other {우회됨 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {수동 거부} other {수동 거부 ×#}}",
+  "milestone.costTrend.label": "비용 및 추이",
+  "milestone.costTrend.title": "비용 및 추이",
+  "milestone.costTrend.tokens": "토큰",
+  "milestone.costTrend.activeTime": "활성 시간",
+  "milestone.costTrend.notMeasured": "측정되지 않음",
+  "milestone.costTrend.coverage": "{total}개 중 {measured}개 작업에서 측정됨",
+  "milestone.costTrend.burnupTitle": "스프린트 전반 번업",
+  "milestone.costTrend.scope": "범위",
+  "milestone.costTrend.completed": "완료",
+  "milestone.costTrend.empty": "아직 작업이 없습니다 — 표시할 내용이 없습니다"
 }

@@ -30,10 +30,11 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestone,
       taskCounts
     )
-    const [sprintCoverage, outcome, summary] = await Promise.all([
+    const [sprintCoverage, outcome, summary, costTrend] = await Promise.all([
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
       milestoneSummaryRepository.findByMilestoneId(milestoneId),
+      milestoneService.getCostTrendForMilestone(milestoneId, teamId),
     ])
     return NextResponse.json({
       milestone: {
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest, { params }: Params) {
         sprintCoverage,
         outcome,
         summaryTldr: summary?.tldr ?? null,
+        costRollup: costTrend.costRollup,
+        burnup: costTrend.burnup,
       },
     })
   } catch (error) {

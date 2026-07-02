@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {redirigido más adelante} other {redirigido más adelante ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {eludido} other {eludido ×#}}",
   "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {rechazo manual} other {rechazo manual ×#}}",
-  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}"
+  "milestone.outcome.fate.kind.UNKNOWN": "{count, plural, =1 {{kind}} other {{kind} ×#}}",
+  "milestone.costTrend.label": "Costo y trayectoria",
+  "milestone.costTrend.title": "Costo y trayectoria",
+  "milestone.costTrend.tokens": "Tokens",
+  "milestone.costTrend.activeTime": "Tiempo activo",
+  "milestone.costTrend.notMeasured": "No medido",
+  "milestone.costTrend.coverage": "medido en {measured} de {total} tareas",
+  "milestone.costTrend.burnupTitle": "Burnup entre sprints",
+  "milestone.costTrend.scope": "Alcance",
+  "milestone.costTrend.completed": "Completadas",
+  "milestone.costTrend.empty": "Aún no hay tareas — nada que graficar"
 }

@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI रिग्रेशन} other {CI रिग्रेशन ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {बाद में दिशा बदली गई} other {बाद में दिशा बदली गई ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {बाईपास किया गया} other {बाईपास किया गया ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {मैन्युअल अस्वीकृति} other {मैन्युअल अस्वीकृति ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {मैन्युअल अस्वीकृति} other {मैन्युअल अस्वीकृति ×#}}",
+  "milestone.costTrend.label": "लागत और प्रक्षेपवक्र",
+  "milestone.costTrend.title": "लागत और प्रक्षेपवक्र",
+  "milestone.costTrend.tokens": "टोकन",
+  "milestone.costTrend.activeTime": "सक्रिय समय",
+  "milestone.costTrend.notMeasured": "मापा नहीं गया",
+  "milestone.costTrend.coverage": "{total} में से {measured} कार्यों पर मापा गया",
+  "milestone.costTrend.burnupTitle": "स्प्रिंट्स के पार बर्नअप",
+  "milestone.costTrend.scope": "दायरा",
+  "milestone.costTrend.completed": "पूर्ण",
+  "milestone.costTrend.empty": "अभी कोई कार्य नहीं — चार्ट के लिए कुछ नहीं"
 }

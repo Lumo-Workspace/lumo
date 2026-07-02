@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {регрессия CI} other {регрессия CI ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {пересмотрено позже} other {пересмотрено позже ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {обойдено} other {обойдено ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {ручное отклонение} other {ручное отклонение ×#}}",
+  "milestone.costTrend.label": "Затраты и траектория",
+  "milestone.costTrend.title": "Затраты и траектория",
+  "milestone.costTrend.tokens": "Токены",
+  "milestone.costTrend.activeTime": "Активное время",
+  "milestone.costTrend.notMeasured": "Не измерено",
+  "milestone.costTrend.coverage": "измерено по {measured} из {total} задач",
+  "milestone.costTrend.burnupTitle": "Burnup по спринтам",
+  "milestone.costTrend.scope": "Объём",
+  "milestone.costTrend.completed": "Завершено",
+  "milestone.costTrend.empty": "Задач пока нет — нечего отображать"
 }

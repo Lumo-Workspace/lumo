@@ -9,6 +9,8 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
+import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
+import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -156,6 +158,42 @@ export const milestoneService = {
       })),
       signalCounts
     )
+  },
+
+  /**
+   * LUM-627 cost+trend rollup for an already-authorized milestone: the member
+   * tasks' token/active-time actuals (same-source with the task-level LUM-560
+   * cost via `retrospectiveRepository`, fail-closed on unmeasured) plus the
+   * cross-sprint burnup trajectory (backward replay of STATUS_CHANGED).
+   * Performs NO auth — only call after authorizing (e.g. via
+   * `getMilestoneWithTeam`).
+   */
+  async getCostTrendForMilestone(milestoneId: string, teamId: string) {
+    const { tasks, activities } =
+      await milestoneRepository.costTrendRows(milestoneId)
+    const sprintIds = [
+      ...new Set(
+        tasks.map(t => t.sprintId).filter((id): id is string => id !== null)
+      ),
+    ]
+    const [sprints, actuals] = await Promise.all([
+      sprintRepository.findByIds(sprintIds, teamId),
+      retrospectiveRepository.loadActualsForTasks(tasks.map(t => t.id)),
+    ])
+    return {
+      costRollup: {
+        tokenCost: actuals.tokenCost,
+        activeTimeSec: actuals.activeTimeSec,
+        measuredTasks: actuals.measuredTasks,
+        totalTasks: tasks.length,
+      },
+      burnup: computeMilestoneBurnup({
+        tasks,
+        activities,
+        sprints,
+        now: new Date(),
+      }),
+    }
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {

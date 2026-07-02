@@ -8,6 +8,7 @@ import { TypographyH3 } from '@/components/ui/typography'
 import { useMentionSources } from '../../hooks/useMentionSources'
 import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
 import { MilestoneRollupBar } from './MilestoneRollupBar'
+import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
 
 interface MilestoneOverviewTabProps {
   milestone: Pick<
@@ -21,6 +22,8 @@ interface MilestoneOverviewTabProps {
     | 'health'
     | 'summaryTldr'
     | 'outcome'
+    | 'costRollup'
+    | 'burnup'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, so the description editor can @-mention people. */
@@ -30,7 +33,8 @@ interface MilestoneOverviewTabProps {
 
 /**
  * Overview tab: decision-first rollup bar (completion / health / time span /
- * key outcome) first, then the inline-editable name + demoted description.
+ * key outcome) first, then the cost+trajectory rollup (LUM-627), then the
+ * inline-editable name + demoted description.
  */
 export function MilestoneOverviewTab({
   milestone,
@@ -79,6 +83,11 @@ export function MilestoneOverviewTab({
         startDate={milestone.startDate}
         targetDate={milestone.targetDate}
         summaryTldr={milestone.summaryTldr ?? null}
+      />
+
+      <MilestoneCostTrendSection
+        costRollup={milestone.costRollup}
+        burnup={milestone.burnup}
       />
 
       <div className='max-w-3xl'>

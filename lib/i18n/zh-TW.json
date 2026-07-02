@@ -1925,5 +1925,15 @@
   "milestone.outcome.fate.kind.CI_REGRESSION": "{count, plural, =1 {CI 回歸} other {CI 回歸 ×#}}",
   "milestone.outcome.fate.kind.DOWNSTREAM_REDIRECT": "{count, plural, =1 {被下游改道} other {被下游改道 ×#}}",
   "milestone.outcome.fate.kind.BYPASSED": "{count, plural, =1 {被繞過} other {被繞過 ×#}}",
-  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}"
+  "milestone.outcome.fate.kind.MANUAL": "{count, plural, =1 {人工記錄的拒絕} other {人工記錄的拒絕 ×#}}",
+  "milestone.costTrend.label": "成本與趨勢",
+  "milestone.costTrend.title": "成本與趨勢",
+  "milestone.costTrend.tokens": "Token",
+  "milestone.costTrend.activeTime": "活躍時長",
+  "milestone.costTrend.notMeasured": "未測量",
+  "milestone.costTrend.coverage": "已測量 {total} 個任務中的 {measured} 個",
+  "milestone.costTrend.burnupTitle": "跨 Sprint Burnup",
+  "milestone.costTrend.scope": "範圍",
+  "milestone.costTrend.completed": "已完成",
+  "milestone.costTrend.empty": "還沒有任務——無可繪製"
 }

@@ -223,6 +223,31 @@ export const milestoneRepository = {
       })),
     }
   },
+
+  /**
+   * Raw rows for the LUM-627 cost+trend rollup: every member task's replay
+   * basis (id / status / createdAt / sprintId) plus their append-only
+   * STATUS_CHANGED activity trail, oldest-first — the burnup backward replay
+   * and the cost rollup's task-id set both derive from this one fetch.
+   */
+  async costTrendRows(milestoneId: string) {
+    const tasks = await prisma.task.findMany({
+      where: { milestoneId },
+      select: { id: true, status: true, createdAt: true, sprintId: true },
+    })
+    if (tasks.length === 0) {
+      return { tasks, activities: [] }
+    }
+    const activities = await prisma.taskActivity.findMany({
+      where: {
+        taskId: { in: tasks.map(t => t.id) },
+        type: 'STATUS_CHANGED',
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { taskId: true, payload: true, createdAt: true },
+    })
+    return { tasks, activities }
+  },
 }
 
 export type MilestoneRepository = typeof milestoneRepository
