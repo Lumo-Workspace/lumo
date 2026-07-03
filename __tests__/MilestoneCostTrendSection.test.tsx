@@ -593,13 +593,17 @@ describe('MilestoneCostTrendSection', () => {
     )
 
     // Summary card: compact +adds/−dels in the delivery-scale stat row —
-    // token-compact notation, tabular numerals. The same compact reading
-    // appears exactly twice: the summary card and Alice's table cell.
+    // token-compact notation, tabular numerals, GitHub-style +green/−red
+    // spans (composed text asserted via the change-volume element). The same
+    // compact reading appears exactly twice: the summary card and Alice's
+    // table cell.
     expect(screen.getAllByText('Change volume').length).toBeGreaterThan(0)
-    const volumes = screen.getAllByText('+1.2K/−340')
-    expect(volumes).toHaveLength(2)
-    const card = volumes.find(el => el.closest('p') !== null)!
-    expect(card.closest('p')).toHaveClass('tabular-nums')
+    const volumes = screen.getAllByTestId('change-volume')
+    expect(volumes.map(el => el.textContent)).toEqual([
+      '+1.2K/−340',
+      '+1.2K/−340',
+    ])
+    expect(volumes[0]).toHaveClass('tabular-nums')
     // Honest coverage: the unsynced third PR reads as a gap, never as 0.
     expect(screen.getByText('synced on 2 of 3 merged PRs')).toBeInTheDocument()
     // Audit framing: exposure / review load, explicitly NOT output.
