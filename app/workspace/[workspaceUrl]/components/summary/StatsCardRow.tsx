@@ -3,6 +3,8 @@
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import type { TaskSummaryStats } from '@/types/summary'
+import { noBaseline } from '@/lib/baseline/adapters'
+import { BaselineStatView } from '@/components/BaselineStat'
 
 interface StatsCardRowProps {
   stats: TaskSummaryStats
@@ -10,7 +12,7 @@ interface StatsCardRowProps {
 
 interface StatCardProps {
   label: string
-  value: string | number
+  value: React.ReactNode
   valueClassName?: string
 }
 
@@ -57,10 +59,14 @@ export function StatsCardRow({ stats }: StatsCardRowProps) {
       />
       <StatCard
         label={intl.formatMessage({ id: 'summary.overdue' })}
-        value={overdue}
-        valueClassName={
-          overdue > 0 ? 'text-amber-500' : 'text-foreground'
+        value={
+          <BaselineStatView
+            stat={noBaseline(overdue)}
+            formatValue={n => String(n)}
+            baseLabel='baseline.none'
+          />
         }
+        valueClassName={overdue > 0 ? 'text-amber-500' : 'text-foreground'}
       />
       <StatCard
         label={intl.formatMessage({ id: 'summary.avgCompletion' })}
