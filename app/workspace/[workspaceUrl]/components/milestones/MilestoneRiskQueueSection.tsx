@@ -6,6 +6,16 @@ import type { ApiMilestone } from '@/lib/api-client'
 
 type RiskQueue = NonNullable<ApiMilestone['riskQueue']>
 
+// Same compact token formatter as the cost section (LUM-560 convention) so
+// the budget alert reads identically to the KPI card it summarizes.
+const TOKEN_FMT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+function fmtTokens(n: number): string {
+  return TOKEN_FMT.format(n)
+}
+
 const STATUS_LABEL_ID: Record<string, string> = {
   TODO: 'status.todo',
   IN_PROGRESS: 'status.inProgress',
@@ -15,6 +25,12 @@ const STATUS_LABEL_ID: Record<string, string> = {
 
 interface MilestoneRiskQueueSectionProps {
   riskQueue: ApiMilestone['riskQueue']
+  /**
+   * LUM-644 advisory burn-vs-budget block. Only `exceeded: true` surfaces
+   * here (an advisory alert row — nothing is blocked); unknown/under-budget
+   * states render nothing in this section.
+   */
+  budget?: ApiMilestone['budget']
   workspaceUrl: string
 }
 
@@ -28,6 +44,7 @@ interface MilestoneRiskQueueSectionProps {
  */
 export function MilestoneRiskQueueSection({
   riskQueue,
+  budget,
   workspaceUrl,
 }: MilestoneRiskQueueSectionProps) {
   const intl = useIntl()
@@ -61,12 +78,16 @@ export function MilestoneRiskQueueSection({
       rq.crossings.bySeverity.medium +
       rq.crossings.bySeverity.low
     : 0
+  // Advisory only: the alert exists solely when a MEASURED burn exceeds the
+  // set budget — unknown (unmeasured) and no-budget states surface nothing.
+  const budgetExceeded = budget?.exceeded === true ? budget : null
   const isEmpty =
     rq.blocked.length === 0 &&
     rq.awaitingVerdict.length === 0 &&
     rq.verifyEscalated.length === 0 &&
     rq.crossings.known &&
-    crossingsTotal === 0
+    crossingsTotal === 0 &&
+    budgetExceeded === null
 
   const row = (
     key: string,
@@ -145,6 +166,24 @@ export function MilestoneRiskQueueSection({
         </div>
       ) : (
         <div className='flex flex-col gap-5'>
+          {budgetExceeded && (
+            <div data-testid='risk-queue-budget'>
+              <h3 className='mb-2 flex items-baseline gap-2 text-sm font-semibold'>
+                {t('milestone.riskQueue.budget.title')}
+                <span className='text-xs font-normal tabular-nums text-muted-foreground'>
+                  {t('milestone.riskQueue.budget.count', {
+                    burn: fmtTokens(budgetExceeded.tokenCost ?? 0),
+                    budget: fmtTokens(budgetExceeded.tokenBudget),
+                    percent: Math.round((budgetExceeded.usedRatio ?? 0) * 100),
+                  })}
+                </span>
+              </h3>
+              <div className='rounded-lg border px-3 py-2.5 text-xs text-muted-foreground'>
+                {t('milestone.riskQueue.budget.advisory')}
+              </div>
+            </div>
+          )}
+
           {rq.blocked.length > 0 &&
             queue(
               'milestone.riskQueue.blocked.title',

@@ -85,7 +85,8 @@ describe('milestoneService.getCostTrendForMilestone', () => {
 
     const result = await milestoneService.getCostTrendForMilestone(
       'm-1',
-      'team-1'
+      'team-1',
+      400
     )
 
     // Cost rollup passes the actuals through and adds the coverage denominator.
@@ -125,6 +126,15 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       },
     ])
     expect(result.burnup.start).toBe('2026-01-04')
+    // LUM-644: burn vs the row's advisory budget rides the same rollup —
+    // measured 500 over a 400 budget reads exceeded.
+    expect(result.budget).toEqual({
+      tokenBudget: 400,
+      tokenCost: 500,
+      usedRatio: 1.25,
+      exceeded: true,
+      overBy: 100,
+    })
   })
 
   it('propagates the fail-closed null token cost for an unmeasured milestone', async () => {
@@ -140,8 +150,11 @@ describe('milestoneService.getCostTrendForMilestone', () => {
 
     const result = await milestoneService.getCostTrendForMilestone(
       'm-1',
-      'team-1'
+      'team-1',
+      null
     )
+    // No budget set → no budget block, not a fabricated zero-state.
+    expect(result.budget).toBeNull()
     expect(result.costRollup).toEqual({
       tokenCost: null,
       activeTimeSec: 0,

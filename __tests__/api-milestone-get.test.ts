@@ -116,7 +116,7 @@ describe('GET /api/milestones/[id]', () => {
   it('returns milestone enriched with taskCounts', async () => {
     mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
     mockGet.mockResolvedValue({
-      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE', tokenBudget: null },
       teamId: 'team-1',
     })
     mockCount.mockResolvedValue({
@@ -172,8 +172,9 @@ describe('GET /api/milestones/[id]', () => {
     expect(mockGet).toHaveBeenCalledWith('m-1', 'mem-1')
     expect(mockCoverage).toHaveBeenCalledWith('m-1', 'team-1')
     expect(mockOutcome).toHaveBeenCalledWith('m-1')
-    // LUM-627 cost+trend enrich rides the same read, same resolved team.
-    expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1')
+    // LUM-627 cost+trend enrich rides the same read, same resolved team;
+    // LUM-644 hands it the milestone row's advisory tokenBudget.
+    expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1', null)
     expect(body.milestone.costRollup).toEqual(emptyCostTrend.costRollup)
     expect(body.milestone.burnup).toEqual(emptyCostTrend.burnup)
   })

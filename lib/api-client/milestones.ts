@@ -14,6 +14,11 @@ export interface ApiMilestone {
   targetDate: string | null
   completedAt: string | null
   archivedAt: string | null
+  /**
+   * LUM-644 advisory token budget set on the milestone row; `null` = no
+   * budget. Optional for older-server tolerance.
+   */
+  tokenBudget?: number | null
   createdAt: string
   updatedAt: string
   /** Per-status task counts. Server-enriched on list/detail responses. */
@@ -128,6 +133,21 @@ export interface ApiMilestone {
      * as an explicit line when > 0, keeping Σ(models) + this == tokenCost. */
     modelUnattributedTokens?: number
   }
+  /**
+   * LUM-644 advisory burn-vs-budget block. Server-enriched on the detail
+   * response only; `null`/absent when no budget is set (the UI then renders
+   * no budget content at all). Fail-closed like the rollup it reads:
+   * `exceeded: null` = burn unmeasured (unknown, never an all-clear or a
+   * fabricated alert); `true` only when a MEASURED burn strictly exceeds
+   * the budget. Advisory only — nothing is gated on it.
+   */
+  budget?: {
+    tokenBudget: number
+    tokenCost: number | null
+    usedRatio: number | null
+    exceeded: boolean | null
+    overBy: number | null
+  } | null
   /**
    * LUM-627 cross-sprint burnup trajectory — a backward replay of the member
    * tasks' STATUS_CHANGED log per UTC day, never a snapshot. Server-enriched
@@ -361,6 +381,8 @@ export interface MilestoneUpdateInput {
   status?: MilestoneStatus
   startDate?: string | null
   targetDate?: string | null
+  /** LUM-644 advisory token budget; null clears it. */
+  tokenBudget?: number | null
 }
 
 /** Which milestones a list request returns, by archive state. */

@@ -44,7 +44,11 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
       milestoneSummaryRepository.findByMilestoneId(milestoneId),
-      milestoneService.getCostTrendForMilestone(milestoneId, teamId),
+      milestoneService.getCostTrendForMilestone(
+        milestoneId,
+        teamId,
+        milestone.tokenBudget
+      ),
       milestoneService.getSegmentsForMilestone(milestoneId, teamId),
       milestoneService.getDeliveryStatsForMilestone(milestoneId),
       milestoneService.getMemberDeliveryForMilestone(milestoneId),
@@ -61,6 +65,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         outcome,
         summaryTldr: summary?.tldr ?? null,
         costRollup: costTrend.costRollup,
+        budget: costTrend.budget,
         burnup: costTrend.burnup,
         derivedStartDate: costTrend.derivedStartDate,
         segments,

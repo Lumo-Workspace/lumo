@@ -13,6 +13,7 @@ import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import { computeMilestoneGreenQuality } from '@/lib/summaries/milestone-green-quality'
 import { parseSnapshotCriteria } from '@/lib/fidelity/change-pattern'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
+import { computeMilestoneTokenBudget } from '@/lib/summaries/milestone-token-budget'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
 import { computeMilestoneDeliveryStats } from '@/lib/summaries/milestone-delivery-stats'
 import { computeMilestoneMemberDelivery } from '@/lib/summaries/milestone-member-delivery'
@@ -54,6 +55,8 @@ interface UpdateInput {
   status?: MilestoneStatus | undefined
   startDate?: Date | null | undefined
   targetDate?: Date | null | undefined
+  /** LUM-644 advisory token budget; null clears it. */
+  tokenBudget?: number | null | undefined
 }
 
 /**
@@ -213,10 +216,18 @@ export const milestoneService = {
    * tasks' token/active-time actuals (same-source with the task-level LUM-560
    * cost via `retrospectiveRepository`, fail-closed on unmeasured) plus the
    * cross-sprint burnup trajectory (backward replay of STATUS_CHANGED).
+   * LUM-644 adds the advisory budget block: `tokenBudget` is the milestone
+   * row's value (the caller already holds the row — required so BOTH detail
+   * read paths pass it, the LUM-624 lesson), compared against the same
+   * measured burn, fail-closed to unknown when unmeasured. Advisory only.
    * Performs NO auth — only call after authorizing (e.g. via
    * `getMilestoneWithTeam`).
    */
-  async getCostTrendForMilestone(milestoneId: string, teamId: string) {
+  async getCostTrendForMilestone(
+    milestoneId: string,
+    teamId: string,
+    tokenBudget: number | null
+  ) {
     const { tasks, activities } =
       await milestoneRepository.costTrendRows(milestoneId)
     const sprintIds = [
@@ -253,6 +264,11 @@ export const milestoneService = {
         models: actuals.models,
         modelUnattributedTokens: actuals.modelUnattributedTokens,
       },
+      // LUM-644 advisory burn-vs-budget; null when no budget is set.
+      budget: computeMilestoneTokenBudget({
+        tokenBudget,
+        tokenCost: actuals.tokenCost,
+      }),
       burnup: computeMilestoneBurnup({
         tasks,
         activities,
@@ -489,6 +505,7 @@ export const milestoneService = {
     if (input.description !== undefined) data.description = input.description
     if (input.startDate !== undefined) data.startDate = input.startDate
     if (input.targetDate !== undefined) data.targetDate = input.targetDate
+    if (input.tokenBudget !== undefined) data.tokenBudget = input.tokenBudget
 
     let transitionedToCompleted = false
     if (input.status !== undefined && input.status !== existing.status) {

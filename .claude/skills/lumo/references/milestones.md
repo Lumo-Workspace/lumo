@@ -98,16 +98,21 @@ lumo milestone show 11111111-2222-3333-4444-555555555555
 
 ### `lumo milestone update <identifier>` — patch a milestone
 
-| Flag                   | Type   | Notes                                                            |
-| ---------------------- | ------ | ---------------------------------------------------------------- |
-| `--project <ref>`      | string | Required when identifier is a name and workspace has >1 project. |
-| `-n, --name <text>`    | string | Cannot be empty.                                                 |
-| `-d, --description <>` | string | `--description ""` clears.                                       |
-| `-s, --status <value>` | enum   | `planned \| active \| completed \| cancelled`.                   |
-| `--start <date>`       | string | `--start ""` clears.                                             |
-| `--target <date>`      | string | `--target ""` clears.                                            |
+| Flag                   | Type   | Notes                                                                          |
+| ---------------------- | ------ | ------------------------------------------------------------------------------ |
+| `--project <ref>`      | string | Required when identifier is a name and workspace has >1 project.               |
+| `-n, --name <text>`    | string | Cannot be empty.                                                               |
+| `-d, --description <>` | string | `--description ""` clears.                                                     |
+| `-s, --status <value>` | enum   | `planned \| active \| completed \| cancelled`.                                 |
+| `--start <date>`       | string | `--start ""` clears.                                                           |
+| `--target <date>`      | string | `--target ""` clears.                                                          |
+| `--token-budget <n>`   | int    | Advisory token budget (LUM-644), positive integer; `--token-budget ""` clears. |
 
 At least one field required.
+
+**Token budget is advisory only (LUM-644):** the web Overview's tokens KPI card shows burn vs budget, and when the MEASURED burn exceeds the budget an advisory alert appears in the Risk & pending queue. Nothing is ever blocked by it — no hard gate. Unmeasured burn reads as unknown, never as over/under budget.
+
+**When to suggest**: when the user wants to cap/track token spend on a milestone ("给这个 milestone 设 token 预算 / budget"), or asks why the Overview shows an over-budget alert.
 
 **Status rolls up automatically (LUM-624):** milestone status follows task completion — PLANNED → ACTIVE when any task starts, → COMPLETED when every task is DONE (stamps `completedAt`, triggers the retro summary), and COMPLETED → ACTIVE when a non-DONE task (re)appears. A manual `--status planned/active/completed` that contradicts task reality gets reconciled back on the next task event or detail read; `--status cancelled` and archived milestones are human terminal choices the rollup never touches. You normally don't need `--status completed` by hand anymore.
 
@@ -117,6 +122,8 @@ At least one field required.
 lumo milestone update "Q3 Launch" --status active
 lumo milestone update "Q3 Launch" --target 2026-09-15
 lumo milestone update "Q3 Launch" --description ""
+lumo milestone update "Q3 Launch" --token-budget 50000000
+lumo milestone update "Q3 Launch" --token-budget ""
 ```
 
 ### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` — submit the exit contract

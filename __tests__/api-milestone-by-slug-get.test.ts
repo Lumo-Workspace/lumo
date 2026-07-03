@@ -356,6 +356,7 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
       status: 'ACTIVE',
       startDate: null,
       targetDate: null,
+      tokenBudget: null,
     })
     mockCount.mockResolvedValue({
       TODO: 0,
@@ -412,8 +413,9 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     expect(body.milestone.outcome).toEqual(outcome)
     expect(body.milestone.costRollup).toEqual(costTrend.costRollup)
     expect(body.milestone.burnup).toEqual(costTrend.burnup)
-    // Both enrich calls reuse the already-resolved team — no re-auth.
-    expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1')
+    // Both enrich calls reuse the already-resolved team — no re-auth;
+    // LUM-644 hands it the milestone row's advisory tokenBudget.
+    expect(mockCostTrend).toHaveBeenCalledWith('m-1', 'team-1', null)
     expect(mockOutcome).toHaveBeenCalledWith('m-1')
   })
 
