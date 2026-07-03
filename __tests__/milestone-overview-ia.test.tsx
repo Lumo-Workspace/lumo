@@ -261,12 +261,13 @@ test('overview renders mission-control sections in order without description edi
   const riskQueue = screen.getByText('milestone.riskQueue.title')
   const evidence = screen.getByText('milestone.taskEvidence.title')
 
-  expectBefore(hero, kpi)
+  // Orient (hero) → act (risk queue) → analyze (KPI/burnup/quality/member/evidence).
+  expectBefore(hero, riskQueue)
+  expectBefore(riskQueue, kpi)
   expectBefore(kpi, burnupTitle)
   expectBefore(burnupTitle, quality)
   expectBefore(quality, member)
-  expectBefore(member, riskQueue)
-  expectBefore(riskQueue, evidence)
+  expectBefore(member, evidence)
 
   // The description editor is no longer part of the Overview.
   expect(screen.queryByTestId('desc-editor')).toBeNull()

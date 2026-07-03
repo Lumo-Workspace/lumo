@@ -63,6 +63,13 @@ export function MilestoneOverviewTab({
         archived={archived}
       />
 
+      {/* Action queue sits right under the hero: orient first, act second,
+          analyze after — the rest of the Overview is retrospective. */}
+      <MilestoneRiskQueueSection
+        riskQueue={milestone.riskQueue}
+        workspaceUrl={workspaceUrl}
+      />
+
       <MilestoneCostTrendSection
         costRollup={milestone.costRollup}
         burnup={milestone.burnup}
@@ -70,11 +77,6 @@ export function MilestoneOverviewTab({
         memberDelivery={milestone.memberDelivery}
         outcome={milestone.outcome}
         members={members}
-      />
-
-      <MilestoneRiskQueueSection
-        riskQueue={milestone.riskQueue}
-        workspaceUrl={workspaceUrl}
       />
 
       <MilestoneTaskEvidenceSection
