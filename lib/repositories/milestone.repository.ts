@@ -225,6 +225,34 @@ export const milestoneRepository = {
   },
 
   /**
+   * Raw rows for the LUM-639 green-quality footnote: each DONE member task's
+   * frozen verification-friction scalars (TaskForecastSnapshot, LUM-606), its
+   * claim-faithfulness verdict when one was ever judged, and the LATEST
+   * delivery-time contract snapshot (TaskCriteriaSnapshot is append-only; the
+   * milestone rollup reads the last delivery's freeze). Absent relations stay
+   * absent — the read model turns them into explicit buckets, never zeros.
+   */
+  async greenQualityRows(milestoneId: string) {
+    return prisma.task.findMany({
+      where: { milestoneId, status: 'DONE' },
+      select: {
+        id: true,
+        status: true,
+        forecastSnapshot: {
+          select: { verificationRounds: true, sendBackCount: true },
+        },
+        claimFaithfulness: { select: { verdict: true } },
+        criteriaSnapshots: {
+          select: { criteria: true },
+          orderBy: { frozenAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { number: 'asc' },
+    })
+  },
+
+  /**
    * Raw rows for the LUM-627 cost+trend rollup: every member task's replay
    * basis (id / status / createdAt / sprintId) plus their append-only
    * STATUS_CHANGED activity trail, oldest-first — the burnup backward replay

@@ -40,6 +40,31 @@ export interface SnapshotCriterionShape {
   evidenceRequired: boolean
 }
 
+/**
+ * Coerce a stored `TaskCriteriaSnapshot.criteria` JSON value to the replay
+ * shape, dropping malformed rows. The single parser every snapshot consumer
+ * shares (fidelity show, milestone green quality) — same-source by import,
+ * never by copy.
+ */
+export function parseSnapshotCriteria(raw: unknown): SnapshotCriterionShape[] {
+  if (!Array.isArray(raw)) return []
+  const out: SnapshotCriterionShape[] = []
+  for (const item of raw) {
+    if (item == null || typeof item !== 'object') continue
+    const c = item as Record<string, unknown>
+    if (typeof c.id !== 'string') continue
+    out.push({
+      id: c.id,
+      statement: typeof c.statement === 'string' ? c.statement : '',
+      verifierType: c.verifierType === 'HUMAN' ? 'HUMAN' : 'MACHINE',
+      checkpointer: typeof c.checkpointer === 'string' ? c.checkpointer : null,
+      referentKind: typeof c.referentKind === 'string' ? c.referentKind : null,
+      evidenceRequired: c.evidenceRequired === true,
+    })
+  }
+  return out
+}
+
 /** One CRITERION_CHANGED audit record, reduced to the mechanical fields. */
 export interface CriterionChange {
   op: 'ADDED' | 'UPDATED' | 'DELETED'
