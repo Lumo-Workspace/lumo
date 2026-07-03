@@ -33,6 +33,17 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+beforeAll(() => {
+  // jsdom has no ResizeObserver; Radix tooltip content uses it for sizing.
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  }
+})
+
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MilestoneCostTrendSection } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneCostTrendSection'
@@ -141,6 +152,45 @@ test('tokens KPI and member rows render per-model token breakdown honestly', () 
   )
   expect(screen.getByText('member-model-opus')).toBeInTheDocument()
   expect(screen.getAllByTestId('model-usage-row')).toHaveLength(4)
+})
+
+test('hovering a model bar opens a tooltip with the four exact counts', async () => {
+  render(
+    <MilestoneCostTrendSection
+      costRollup={{
+        tokenCost: 1_000_000,
+        activeTimeSec: 60,
+        measuredTasks: 1,
+        totalTasks: 1,
+        models: [
+          {
+            model: 'claude-opus-4-5',
+            input: 22_158_326,
+            output: 14_772_410,
+            cacheRead: 174_800_732,
+            cacheCreation: 34_468_532,
+            total: 246_200_000,
+          },
+        ],
+        modelUnattributedTokens: 0,
+      }}
+      burnup={undefined}
+      deliveryStats={undefined}
+      memberDelivery={undefined}
+    />
+  )
+
+  // Rows read compact; the exact ungrouped numbers appear only on demand.
+  // jsdom can't drive Radix's pointer-hover path — focus opens the same
+  // tooltip (the bar is keyboard-focusable for exactly this reason).
+  expect(screen.queryByText('14,772,410')).toBeNull()
+  fireEvent.focus(screen.getByTestId('model-usage-bar'))
+  // Radix mounts the content plus a visually-hidden a11y duplicate — assert
+  // presence, not multiplicity.
+  expect((await screen.findAllByText('14,772,410')).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('22,158,326').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('34,468,532').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('174,800,732').length).toBeGreaterThan(0)
 })
 
 test('a payload without model data renders no bars — never fabricated', () => {

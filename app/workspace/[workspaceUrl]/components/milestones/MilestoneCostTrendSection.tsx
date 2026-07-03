@@ -17,6 +17,11 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
 
 type MilestoneBurnupPayload = NonNullable<ApiMilestone['burnup']>
@@ -153,6 +158,9 @@ function ModelUsageBreakdown({
   const top = models.slice(0, MODEL_ROWS_SHOWN)
   const rest = models.slice(MODEL_ROWS_SHOWN)
   const restTotal = rest.reduce((sum, m) => sum + m.total, 0)
+  // Exact (ungrouped-compact) numbers live in the hover tooltip only — the
+  // rows keep the compact reading, the tooltip answers "how much exactly".
+  const fmtExact = (n: number) => n.toLocaleString(intl.locale)
   return (
     <div className='mt-3 space-y-2'>
       {top.map(m => (
@@ -163,22 +171,54 @@ function ModelUsageBreakdown({
               {fmtTokens(m.total)}
             </span>
           </div>
-          <div
-            aria-hidden='true'
-            className='mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted'
-          >
-            {MODEL_SEGMENTS.map(seg => {
-              const value = m[seg.key]
-              if (value <= 0 || m.total <= 0) return null
-              return (
-                <span
-                  key={seg.key}
-                  className={seg.bar}
-                  style={{ width: `${(value / m.total) * 100}%` }}
-                />
-              )
-            })}
-          </div>
+          {/* Same hover affordance as the task-level TokenCostBreakdown bar:
+              the segment bar carries a tooltip with the four exact counts. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Focusable so keyboard users reach the exact counts too. */}
+              <div
+                data-testid='model-usage-bar'
+                tabIndex={0}
+                aria-label={m.model}
+                className='mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              >
+                {MODEL_SEGMENTS.map(seg => {
+                  const value = m[seg.key]
+                  if (value <= 0 || m.total <= 0) return null
+                  return (
+                    <span
+                      key={seg.key}
+                      className={seg.bar}
+                      style={{ width: `${(value / m.total) * 100}%` }}
+                    />
+                  )
+                })}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className='border bg-popover text-popover-foreground'>
+              <div className='flex flex-col gap-1'>
+                {MODEL_SEGMENTS.map(seg => (
+                  <div
+                    key={seg.key}
+                    className={
+                      seg.key === 'cacheRead'
+                        ? 'flex items-center justify-between gap-5 text-muted-foreground/70'
+                        : 'flex items-center justify-between gap-5'
+                    }
+                  >
+                    <span className='flex items-center gap-1.5'>
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${seg.bar}`}
+                        aria-hidden='true'
+                      />
+                      {intl.formatMessage({ id: seg.labelId })}
+                    </span>
+                    <span className='tabular-nums'>{fmtExact(m[seg.key])}</span>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
       ))}
       {rest.length > 0 && (
