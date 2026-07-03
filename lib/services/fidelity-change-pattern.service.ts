@@ -2,10 +2,10 @@ import { taskCriteriaSnapshotRepository } from '@/lib/repositories/task-criteria
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import {
   buildFidelityChangePatternReport,
+  parseSnapshotCriteria,
   type CriterionChange,
   type DeliverySnapshotInput,
   type FidelityChangePatternReport,
-  type SnapshotCriterionShape,
 } from '@/lib/fidelity/change-pattern'
 
 /**
@@ -32,7 +32,7 @@ export const fidelityChangePatternService = {
       frozenAt: s.frozenAt,
       trigger: s.trigger,
       sessionId: s.sessionId,
-      criteria: asCriteria(s.criteria),
+      criteria: parseSnapshotCriteria(s.criteria),
     }))
 
     const changes: CriterionChange[] = activities
@@ -46,26 +46,6 @@ export const fidelityChangePatternService = {
       changes,
     })
   },
-}
-
-/** Coerce the stored snapshot JSON to the replay shape, dropping malformed rows. */
-function asCriteria(raw: unknown): SnapshotCriterionShape[] {
-  if (!Array.isArray(raw)) return []
-  const out: SnapshotCriterionShape[] = []
-  for (const item of raw) {
-    if (item == null || typeof item !== 'object') continue
-    const c = item as Record<string, unknown>
-    if (typeof c.id !== 'string') continue
-    out.push({
-      id: c.id,
-      statement: typeof c.statement === 'string' ? c.statement : '',
-      verifierType: c.verifierType === 'HUMAN' ? 'HUMAN' : 'MACHINE',
-      checkpointer: typeof c.checkpointer === 'string' ? c.checkpointer : null,
-      referentKind: typeof c.referentKind === 'string' ? c.referentKind : null,
-      evidenceRequired: c.evidenceRequired === true,
-    })
-  }
-  return out
 }
 
 /** Reduce a CRITERION_CHANGED payload to the mechanical fields, or null. */

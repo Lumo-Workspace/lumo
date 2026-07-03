@@ -174,6 +174,47 @@ describe('GET /api/milestones/[id]', () => {
     expect(body.milestone.burnup).toEqual(emptyCostTrend.burnup)
   })
 
+  it('returns green quality rollup (LUM-639) inside the outcome block', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 3,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 0 })
+    const greenQuality = {
+      doneCount: 3,
+      friction: { noVerification: 1, singleRound: 2, multiRoundOrSendback: 0 },
+      faithfulness: {
+        faithful: 2,
+        overstated: 0,
+        underReported: 0,
+        unjudged: 1,
+      },
+      referentKind: {
+        externallyAnchored: 4,
+        selfConfirming: 3,
+        other: 1,
+        noSnapshotTasks: 1,
+      },
+    }
+    mockOutcome.mockResolvedValue({
+      claims: [],
+      fate: { doneCount: 3, rejected: [], inconclusiveCount: 3 },
+      greenQuality,
+    })
+
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.outcome.greenQuality).toEqual(greenQuality)
+  })
+
   it('returns segments rollup (LUM-628) on the by-id detail payload', async () => {
     mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
     mockGet.mockResolvedValue({

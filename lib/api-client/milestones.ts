@@ -67,6 +67,32 @@ export interface ApiMilestone {
       }>
       inconclusiveCount: number
     }
+    /**
+     * LUM-639 acceptance-quality footnote — three count groups over the DONE
+     * tasks, never a merged score. Friction buckets share the LUM-606 outcome
+     * rate 口径; referent-kind shares the LUM-609 fidelity grounding split.
+     * Optional so pre-LUM-639 payloads stay valid.
+     */
+    greenQuality?: {
+      doneCount: number
+      friction: {
+        noVerification: number
+        singleRound: number
+        multiRoundOrSendback: number
+      }
+      faithfulness: {
+        faithful: number
+        overstated: number
+        underReported: number
+        unjudged: number
+      }
+      referentKind: {
+        externallyAnchored: number
+        selfConfirming: number
+        other: number
+        noSnapshotTasks: number
+      }
+    }
   } | null
   /**
    * One-line key outcome from the generated retro (MilestoneSummary.tldr).

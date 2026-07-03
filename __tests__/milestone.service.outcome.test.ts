@@ -10,6 +10,7 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     countTasksByStatus: jest.fn(),
     sprintCoverageCounts: jest.fn(),
     outcomeRollupRows: jest.fn(),
+    greenQualityRows: jest.fn(),
     costTrendRows: jest.fn(),
     segmentationRows: jest.fn(),
     taskIds: jest.fn(),
@@ -71,6 +72,7 @@ const countTasksByStatus = milestoneRepository.countTasksByStatus as jest.Mock
 const sprintCoverageCounts =
   milestoneRepository.sprintCoverageCounts as jest.Mock
 const outcomeRollupRows = milestoneRepository.outcomeRollupRows as jest.Mock
+const greenQualityRows = milestoneRepository.greenQualityRows as jest.Mock
 const costTrendRows = milestoneRepository.costTrendRows as jest.Mock
 const segmentationRows = milestoneRepository.segmentationRows as jest.Mock
 const findByIds = sprintRepository.findByIds as jest.Mock
@@ -96,6 +98,8 @@ beforeEach(() => {
   countTasksByStatus.mockReset()
   sprintCoverageCounts.mockReset()
   outcomeRollupRows.mockReset()
+  greenQualityRows.mockReset()
+  greenQualityRows.mockResolvedValue([])
   costTrendRows.mockReset()
   costTrendRows.mockResolvedValue({ tasks: [], activities: [] })
   segmentationRows.mockReset()
@@ -186,6 +190,64 @@ describe('milestoneService.getOutcomeForMilestone', () => {
         },
       ],
       inconclusiveCount: 1,
+    })
+  })
+
+  it('maps green-quality rows through the LUM-639 rollup', async () => {
+    outcomeRollupRows.mockResolvedValue(rollupRows)
+    greenQualityRows.mockResolvedValue([
+      {
+        id: 't1',
+        status: 'DONE',
+        forecastSnapshot: { verificationRounds: 1, sendBackCount: 0 },
+        claimFaithfulness: { verdict: 'FAITHFUL' },
+        criteriaSnapshots: [
+          {
+            criteria: [
+              {
+                id: 'c1',
+                statement: 'suite green',
+                verifierType: 'MACHINE',
+                checkpointer: 'npx jest __tests__/x.test.ts',
+                referentKind: 'AGENT_CONSTRUCTED_STATE',
+                evidenceRequired: false,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        // No snapshot, never verified, never judged — all explicit buckets.
+        id: 't2',
+        status: 'DONE',
+        forecastSnapshot: null,
+        claimFaithfulness: null,
+        criteriaSnapshots: [],
+      },
+    ])
+
+    const outcome = await milestoneService.getOutcomeForMilestone('m-1')
+
+    expect(greenQualityRows).toHaveBeenCalledWith('m-1')
+    expect(outcome.greenQuality).toEqual({
+      doneCount: 2,
+      friction: {
+        noVerification: 1,
+        singleRound: 1,
+        multiRoundOrSendback: 0,
+      },
+      faithfulness: {
+        faithful: 1,
+        overstated: 0,
+        underReported: 0,
+        unjudged: 1,
+      },
+      referentKind: {
+        externallyAnchored: 0,
+        selfConfirming: 1,
+        other: 0,
+        noSnapshotTasks: 1,
+      },
     })
   })
 })
