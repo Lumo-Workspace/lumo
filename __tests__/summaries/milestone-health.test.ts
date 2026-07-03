@@ -50,14 +50,44 @@ describe('computeMilestoneHealth', () => {
     })
   })
 
-  describe('overdue', () => {
-    it('is overdue when now is past the target with work remaining', () => {
+  describe('overdue (calendar-day semantics)', () => {
+    it('is overdue when now is past the end of the target day with work remaining', () => {
       expect(
         computeMilestoneHealth(
           input({
             done: 3,
             total: 10,
-            targetDate: new Date('2026-06-01T00:00:00Z'), // yesterday
+            targetDate: new Date('2026-06-01T00:00:00Z'), // ended yesterday
+          })
+        )
+      ).toBe('overdue')
+    })
+
+    it('keeps the whole target day inside the deadline — never overdue on the day itself', () => {
+      // now = 2026-06-02T12:00Z, target = calendar day 2026-06-02 (stored at
+      // UTC midnight). Comparing against raw midnight would flag this as
+      // overdue half a day early — the LUM-636 west-of-UTC bug.
+      expect(
+        computeMilestoneHealth(
+          input({
+            done: 3,
+            total: 10,
+            targetDate: new Date('2026-06-02T00:00:00Z'), // today
+          })
+        )
+        // Not overdue; with work remaining and the deadline this close the
+        // near-deadline fallback reads at-risk.
+      ).toBe('at-risk')
+    })
+
+    it('flips to overdue exactly when the day after the target begins (UTC)', () => {
+      expect(
+        computeMilestoneHealth(
+          input({
+            done: 3,
+            total: 10,
+            targetDate: new Date('2026-06-01T00:00:00Z'),
+            now: new Date('2026-06-02T00:00:00Z'), // first instant after the target day
           })
         )
       ).toBe('overdue')
@@ -130,7 +160,25 @@ describe('computeMilestoneHealth', () => {
       ).toBe('at-risk')
     })
 
-    it('treats exactly NEAR_DEADLINE_DAYS away as at-risk (inclusive)', () => {
+    it('treats a deadline (end of target day) exactly NEAR_DEADLINE_DAYS away as at-risk (inclusive)', () => {
+      // target + 1 day == the deadline instant; place THAT exactly at the
+      // threshold.
+      expect(
+        computeMilestoneHealth(
+          input({
+            startDate: null,
+            targetDate: new Date(
+              now.getTime() + (NEAR_DEADLINE_DAYS - 1) * DAY
+            ),
+            done: 2,
+            total: 10,
+          })
+        )
+      ).toBe('at-risk')
+    })
+
+    it('is on-track just outside the near-deadline window (end-of-day reckoning)', () => {
+      // Deadline = target + 1 day = 8 days out > NEAR_DEADLINE_DAYS.
       expect(
         computeMilestoneHealth(
           input({
@@ -140,7 +188,7 @@ describe('computeMilestoneHealth', () => {
             total: 10,
           })
         )
-      ).toBe('at-risk')
+      ).toBe('on-track')
     })
 
     it('is on-track when the target is comfortably far away', () => {

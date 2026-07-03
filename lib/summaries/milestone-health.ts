@@ -31,11 +31,18 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * Returns the milestone's health light, or `null` when a light does not apply
  * (terminal status, or no target date to measure against).
  *
- *  - `overdue`   — past the target date with tasks still open
+ *  - `overdue`   — past the END of the target day with tasks still open
  *  - `at-risk`   — behind schedule (completion lags elapsed time) or, when no
- *                  start date is set, the target is within the near-deadline
+ *                  start date is set, the deadline is within the near-deadline
  *                  window with work remaining
  *  - `on-track`  — everything else (including fully-done milestones)
+ *
+ * Calendar-day semantics (LUM-636): the target date is a calendar day stored
+ * at UTC midnight, and "hit the target" means "done before that day ENDS" —
+ * so every deadline comparison uses the end of the target day (`target +
+ * 1 day`, UTC), never the stored midnight instant. Comparing against raw
+ * midnight made the whole target day read as overdue the moment it started —
+ * a full day early for viewers west of UTC.
  */
 export function computeMilestoneHealth(
   input: MilestoneHealthInput
@@ -50,25 +57,29 @@ export function computeMilestoneHealth(
   const allDone = total > 0 && done >= total
   if (allDone) return 'on-track'
 
-  // Past the target date with tasks still open.
-  if (now.getTime() > targetDate.getTime()) return 'overdue'
+  // The deadline instant: the target calendar day is fully inside the
+  // schedule; overdue begins when the NEXT UTC day starts.
+  const targetEnd = targetDate.getTime() + DAY_MS
+
+  // Past the end of the target day with tasks still open.
+  if (now.getTime() >= targetEnd) return 'overdue'
 
   const progressFraction = total > 0 ? done / total : 0
 
   // Primary signal: completion lagging behind elapsed schedule. Requires a
-  // usable [start, target] window.
-  if (startDate && targetDate.getTime() > startDate.getTime()) {
+  // usable [start, end-of-target-day] window — a same-day start/target is a
+  // valid one-day window.
+  if (startDate && targetEnd > startDate.getTime()) {
     const elapsedFraction = clamp01(
-      (now.getTime() - startDate.getTime()) /
-        (targetDate.getTime() - startDate.getTime())
+      (now.getTime() - startDate.getTime()) / (targetEnd - startDate.getTime())
     )
     return progressFraction < elapsedFraction - SCHEDULE_SLIP
       ? 'at-risk'
       : 'on-track'
   }
 
-  // Fallback (no usable start date): warn once the target is near.
-  const daysToTarget = (targetDate.getTime() - now.getTime()) / DAY_MS
+  // Fallback (no usable start date): warn once the deadline is near.
+  const daysToTarget = (targetEnd - now.getTime()) / DAY_MS
   return daysToTarget <= NEAR_DEADLINE_DAYS ? 'at-risk' : 'on-track'
 }
 
