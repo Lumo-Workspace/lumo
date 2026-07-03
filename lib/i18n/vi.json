@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Vượt ngân sách {over}",
   "milestone.riskQueue.budget.title": "Vượt ngân sách token",
   "milestone.riskQueue.budget.count": "đã dùng {burn} trên {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách."
+  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách.",
+  "milestone.hero.progressModeLabel": "Cách đọc tiến độ",
+  "milestone.hero.progressMode.tasks": "Theo số lượng nhiệm vụ",
+  "milestone.hero.progressMode.complexity": "Theo độ phức tạp",
+  "milestone.hero.weightedCoverage": "có trọng số · đã đo {measured}/{total}",
+  "milestone.hero.weightedUnavailable": "Chưa có dữ liệu độ phức tạp"
 }

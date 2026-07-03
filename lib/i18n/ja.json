@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "予算を {over} 超過",
   "milestone.riskQueue.budget.title": "トークン予算を超過",
   "milestone.riskQueue.budget.count": "消費 {burn} / 予算 {budget}({percent}%)",
-  "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。"
+  "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。",
+  "milestone.hero.progressModeLabel": "進捗の見方",
+  "milestone.hero.progressMode.tasks": "タスク数で",
+  "milestone.hero.progressMode.complexity": "複雑度で",
+  "milestone.hero.weightedCoverage": "加重 · {measured}/{total} 計測済み",
+  "milestone.hero.weightedUnavailable": "複雑度データはまだありません"
 }

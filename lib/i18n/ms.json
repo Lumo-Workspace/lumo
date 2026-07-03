@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Melebihi bajet sebanyak {over}",
   "milestone.riskQueue.budget.title": "Bajet token dilampaui",
   "milestone.riskQueue.budget.count": "penggunaan {burn} daripada {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Sekadar makluman — tiada apa-apa disekat. Semak skop yang tinggal atau naikkan bajet."
+  "milestone.riskQueue.budget.advisory": "Sekadar makluman — tiada apa-apa disekat. Semak skop yang tinggal atau naikkan bajet.",
+  "milestone.hero.progressModeLabel": "Bacaan kemajuan",
+  "milestone.hero.progressMode.tasks": "Mengikut bilangan tugas",
+  "milestone.hero.progressMode.complexity": "Mengikut kerumitan",
+  "milestone.hero.weightedCoverage": "berwajaran · {measured}/{total} diukur",
+  "milestone.hero.weightedUnavailable": "Tiada data kerumitan lagi"
 }

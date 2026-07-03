@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Бюджет превышен на {over}",
   "milestone.riskQueue.budget.title": "Бюджет токенов превышен",
   "milestone.riskQueue.budget.count": "расход {burn} из {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет."
+  "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет.",
+  "milestone.hero.progressModeLabel": "Отображение прогресса",
+  "milestone.hero.progressMode.tasks": "По числу задач",
+  "milestone.hero.progressMode.complexity": "По сложности",
+  "milestone.hero.weightedCoverage": "взвешенно · измерено {measured}/{total}",
+  "milestone.hero.weightedUnavailable": "Пока нет данных о сложности"
 }

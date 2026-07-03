@@ -24,6 +24,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getMemberDeliveryForMilestone: jest.fn(),
     getRiskQueueForMilestone: jest.fn(),
     getTopologyForMilestone: jest.fn(),
+    getWeightedProgressForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({

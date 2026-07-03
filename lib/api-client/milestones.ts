@@ -2,6 +2,7 @@ import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { MilestoneStatus, TaskStatus } from '@prisma/client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
+import type { MilestoneWeightedProgress } from '@/lib/summaries/milestone-weighted-progress'
 
 export interface ApiMilestone {
   id: string
@@ -23,6 +24,15 @@ export interface ApiMilestone {
   updatedAt: string
   /** Per-status task counts. Server-enriched on list/detail responses. */
   taskCounts?: Record<TaskStatus, number>
+  /**
+   * LUM-650 complexity-weighted progress reading for the Overview ring — the
+   * dual-read alongside `taskCounts`. A current-status snapshot weighting DONE
+   * tasks by `TaskComplexity.changedFileCount`; `pct`/weights are `null` and
+   * `measuredTasks < totalTasks` when complexity data is missing (unmeasured ≠
+   * 0). Server-enriched on the detail response only; optional for
+   * older-server tolerance.
+   */
+  weightedProgress?: MilestoneWeightedProgress | null
   /**
    * Target-date health light. Server-enriched on list/detail responses.
    * `null` when no light applies (terminal status or no target date).
