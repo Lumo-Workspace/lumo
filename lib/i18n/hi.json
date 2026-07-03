@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "दावे स्व-रिपोर्टेड हैं · सत्यापन के लिए क्लिक करें",
   "milestone.taskEvidence.filterAll": "सभी {count}",
   "milestone.taskEvidence.evidence": "साक्ष्य",
-  "milestone.taskEvidence.groupNone": "बिना समूह"
+  "milestone.taskEvidence.groupNone": "बिना समूह",
+  "milestone.costTrend.moreModels": "{count, plural, one {# और मॉडल} other {# और मॉडल}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} किसी मॉडल से संबद्ध नहीं"
 }

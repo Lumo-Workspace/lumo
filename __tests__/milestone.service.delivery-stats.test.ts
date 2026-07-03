@@ -93,6 +93,10 @@ describe('milestoneService.getDeliveryStatsForMilestone', () => {
         activeTimeSec: 0,
         // The mocked PR rows carry no volume columns → unsynced, fail-closed.
         changeVolume: null,
+        // No usageByModel map in the mocked session rows → no model split,
+        // the spend reads as the explicit unattributed remainder.
+        models: [],
+        modelUnattributedTokens: 15,
       },
     ])
     expect(stats.changeVolume).toEqual({

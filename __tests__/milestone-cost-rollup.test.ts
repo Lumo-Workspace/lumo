@@ -105,7 +105,63 @@ it('an empty task set short-circuits without querying', async () => {
     tokenCost: null,
     activeTimeSec: 0,
     measuredTasks: 0,
+    models: [],
+    modelUnattributedTokens: 0,
   })
   expect(sessionFind).not.toHaveBeenCalled()
   expect(hookFind).not.toHaveBeenCalled()
+})
+
+it('merges per-model usage through the same measured gate (LUM-636)', async () => {
+  sessionFind.mockResolvedValue([
+    // Measured session with a per-model map.
+    {
+      ...S1, // 10+20+5+0 = 35
+      usageByModel: {
+        'claude-opus-4-5': {
+          input: 10,
+          output: 15,
+          cacheRead: 5,
+          cacheCreation: 0,
+        },
+      },
+    },
+    // Second measured-task session, map-less (pre-LUM-298): flat-only spend
+    // becomes the explicit unattributed remainder.
+    {
+      taskId: 't1',
+      inputTokens: 2,
+      outputTokens: 3,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+      usageByModel: null,
+    },
+    // Unmeasured task: even a present map contributes NOTHING (same gate as
+    // the flat sum).
+    {
+      ...S2,
+      usageByModel: {
+        'claude-haiku-4-5': {
+          input: 999,
+          output: 999,
+          cacheRead: 0,
+          cacheCreation: 0,
+        },
+      },
+    },
+  ])
+  const rollup = await retrospectiveRepository.loadActualsForTasks(['t1', 't2'])
+  expect(rollup.tokenCost).toBe(40)
+  expect(rollup.models).toEqual([
+    {
+      model: 'claude-opus-4-5',
+      input: 10,
+      output: 15,
+      cacheRead: 5,
+      cacheCreation: 0,
+      total: 30,
+    },
+  ])
+  // Σ(models) + unattributed == tokenCost — the flat total stays authoritative.
+  expect(rollup.modelUnattributedTokens).toBe(10)
 })

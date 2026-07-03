@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "claims are self-reported · click through for verification",
   "milestone.taskEvidence.filterAll": "All {count}",
   "milestone.taskEvidence.evidence": "Evidence",
-  "milestone.taskEvidence.groupNone": "No grouping"
+  "milestone.taskEvidence.groupNone": "No grouping",
+  "milestone.costTrend.moreModels": "{count, plural, one {# more model} other {# more models}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} not attributed to a model"
 }

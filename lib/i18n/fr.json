@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "les claims sont auto-déclarés · cliquez pour vérifier",
   "milestone.taskEvidence.filterAll": "Toutes {count}",
   "milestone.taskEvidence.evidence": "Preuves",
-  "milestone.taskEvidence.groupNone": "Sans regroupement"
+  "milestone.taskEvidence.groupNone": "Sans regroupement",
+  "milestone.costTrend.moreModels": "{count, plural, one {# autre modèle} other {# autres modèles}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total} non attribués à un modèle"
 }

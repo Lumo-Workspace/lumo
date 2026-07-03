@@ -371,7 +371,8 @@ describe('loadMemberActualRowsForTasks', () => {
     ])
     expect(out).toEqual({ sessions, turnEvents: events })
     // Same task-linked session set as loadActualsForTasks, now with the
-    // per-member attribution keys (id + workspaceMemberId) selected.
+    // per-member attribution keys (id + workspaceMemberId) and the LUM-636
+    // per-model map selected.
     expect(sessionFind).toHaveBeenCalledWith({
       where: { taskId: { in: ['t1', 't2'] } },
       select: {
@@ -382,6 +383,7 @@ describe('loadMemberActualRowsForTasks', () => {
         outputTokens: true,
         cacheReadTokens: true,
         cacheCreationTokens: true,
+        usageByModel: true,
       },
     })
     // Same union event stream + type filter — the Σ-identity's same-source leg.

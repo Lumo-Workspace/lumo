@@ -1981,5 +1981,7 @@
   "milestone.taskEvidence.subtitle": "클레임은 자가 보고 · 클릭하여 검증 확인",
   "milestone.taskEvidence.filterAll": "전체 {count}",
   "milestone.taskEvidence.evidence": "증거",
-  "milestone.taskEvidence.groupNone": "그룹 없음"
+  "milestone.taskEvidence.groupNone": "그룹 없음",
+  "milestone.costTrend.moreModels": "{count, plural, other {외 #개 모델}} · {total}",
+  "milestone.costTrend.modelUnattributed": "{total}은 모델에 귀속되지 않음"
 }

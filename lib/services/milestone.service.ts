@@ -192,6 +192,11 @@ export const milestoneService = {
         activeTimeSec: actuals.activeTimeSec,
         measuredTasks: actuals.measuredTasks,
         totalTasks: tasks.length,
+        // LUM-636 per-model split — same measured sessions, empty when no
+        // session carries a usageByModel map (older CLIs); the explicit
+        // unattributed remainder keeps Σ honest.
+        models: actuals.models,
+        modelUnattributedTokens: actuals.modelUnattributedTokens,
       },
       burnup: computeMilestoneBurnup({
         tasks,
