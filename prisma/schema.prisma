@@ -717,6 +717,8 @@ model Milestone {
   boundaryCrossings BoundaryCrossing[]
   // LUM-643: milestone-level exit criteria (the close contract).
   exitCriteria MilestoneExitCriterion[]
+  // LUM-647: MILESTONE-scope memories distilled from this milestone's close retro.
+  memories Memory[]
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -1947,6 +1949,9 @@ enum MemoryCategory {
 enum MemoryScope {
   TASK
   PROJECT
+  // LUM-647: milestone-close retro distilled into a learning unit, injected at
+  // the next milestone's steward session start. milestoneId is set, taskId null.
+  MILESTONE
 }
 
 /// Memory lifecycle status (LUM-325, MemGPT-style tiering / Zep bi-temporal
@@ -2002,14 +2007,21 @@ model Memory {
   /// columns. Deliberate pgvector exception to the never-raw-SQL rule. LUM-324.
   embedding         Unsupported("vector(1024)")?
 
+  /// LUM-647: scope pointer for MILESTONE-scope memories (the learning unit a
+  /// milestone-close retro distilled). Set only when scope=MILESTONE; null for
+  /// TASK/PROJECT rows. SetNull on milestone delete keeps the distilled lesson.
+  milestoneId       String?
+
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task            Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  milestone       Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
   createdByMember WorkspaceMember? @relation("MemoryCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
 
   @@index([projectId, scope, status])
   @@index([taskId, status])
+  @@index([milestoneId, status])
   @@map("memories")
 }
 

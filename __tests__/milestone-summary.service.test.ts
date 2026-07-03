@@ -34,6 +34,15 @@ jest.mock('@/lib/llm/milestone-summary-client', () => ({
   callMilestoneSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
+// LUM-647: the retro→memory distillation is a separate concern with its own
+// suite; mock it here so `generate` doesn't pull @ai-sdk/gateway into this test.
+const mockDistill = jest.fn()
+jest.mock('@/lib/services/memory/milestone-distill.service', () => ({
+  milestoneDistillService: {
+    triggerForMilestoneClose: (...a: any[]) => mockDistill(...a),
+  },
+}))
+
 jest.mock('@/lib/services/task-verification.service', () => ({
   taskVerificationService: {
     aggregateStruggleForTasks: (...a: any[]) => mockAggregateStruggle(...a),

@@ -174,6 +174,10 @@ export function formatHookStdoutLines(
     body.linkedResourcesSection,
     body.reviewTodosSection,
     body.layer2ReviewSection,
+    // LUM-647: prior-milestone learnings for a resumed STEWARD session. Only the
+    // steward branch of the session-start hook populates this; task-bound
+    // sessions leave it empty.
+    body.stewardMemorySection,
   ])
   if (envelope) lines.push(envelope)
   return lines
@@ -201,6 +205,8 @@ type SessionStartBody = {
   reviewTodosSection?: string
   layer2ReviewSection?: string
   blockerWarningSection?: string
+  /** LUM-647: prior-milestone learnings injected for a resumed STEWARD session. */
+  stewardMemorySection?: string
   /**
    * Structured prior-session recovery. Still sent by the server (it drives the
    * lineage SESSION fragment + LUM-402 metrics), but LUM-500 stopped rendering
