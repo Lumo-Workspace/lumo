@@ -88,7 +88,7 @@ export interface MilestoneRiskQueue {
 function parseStatusPayload(p: unknown): { to?: string } | null {
   if (typeof p !== 'object' || p === null) return null
   const o = p as Record<string, unknown>
-  return { to: typeof o.to === 'string' ? o.to : undefined }
+  return typeof o.to === 'string' ? { to: o.to } : {}
 }
 
 export function computeMilestoneRiskQueue(
