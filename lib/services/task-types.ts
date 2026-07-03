@@ -17,6 +17,8 @@ export interface UpdateTaskInput {
   projectId?: string | undefined
   sprintId?: string | null | undefined
   milestoneId?: string | null | undefined
+  /** LUM-646: agent-claimable triage marker (see Task.claimable). */
+  claimable?: boolean | undefined
   tagIds?: string[] | undefined
   addTagIds?: string[] | undefined
   removeTagIds?: string[] | undefined

@@ -16,6 +16,10 @@ export interface UpdateTaskOptions {
   assignee?: string
   milestone?: string
   sprint?: string
+  /** LUM-646: `--claimable` sets the agent-claimable marker true. */
+  claimable?: boolean
+  /** LUM-646: `--not-claimable` sets it false. Mutually exclusive with the above. */
+  notClaimable?: boolean
   tag?: string[]
   tagId?: string[]
   addTag?: string[]
@@ -120,6 +124,12 @@ export function buildUpdatePayload(opts: UpdateTaskOptions): {
     payload.milestoneRef = opts.milestone === '' ? null : opts.milestone
     flagsGiven.push('--milestone')
   }
+  // LUM-646: resolved agent-claimable marker (true/false). The caller collapses
+  // --claimable / --not-claimable into this single tri-state before building.
+  if (opts.claimable !== undefined) {
+    payload.claimable = opts.claimable
+    flagsGiven.push(opts.claimable ? '--claimable' : '--not-claimable')
+  }
 
   return { payload, flagsGiven }
 }
@@ -171,6 +181,18 @@ export async function taskUpdate(
     return 1
   }
 
+  // LUM-646: collapse --claimable / --not-claimable into one tri-state
+  // (undefined = don't touch). The two flags cannot both be set.
+  if (opts.claimable && opts.notClaimable) {
+    console.error(
+      'Error: --claimable and --not-claimable are mutually exclusive'
+    )
+    return 1
+  }
+  let claimable: boolean | undefined
+  if (opts.claimable) claimable = true
+  else if (opts.notClaimable) claimable = false
+
   // Normalize status / priority before payload build.
   let status: Status | undefined
   if (opts.status !== undefined) {
@@ -200,6 +222,7 @@ export async function taskUpdate(
     ...opts,
     ...(status !== undefined ? { status } : {}),
     ...(priority !== undefined ? { priority } : {}),
+    ...(claimable !== undefined ? { claimable } : {}),
   })
 
   // Tag fields count as "something to update" even when no other flags given
@@ -409,7 +432,9 @@ export async function taskUpdate(
           return 1
         }
         if (!sprintRes.ok) {
-          console.error(`Error: sprint lookup failed (HTTP ${sprintRes.status})`)
+          console.error(
+            `Error: sprint lookup failed (HTTP ${sprintRes.status})`
+          )
           return 1
         }
         const { sprint: full } = (await sprintRes.json()) as {
@@ -466,7 +491,9 @@ export async function taskUpdate(
           { headers: { Authorization: `Bearer ${creds.token}` } }
         )
         if (sprintRes.ok) {
-          const body = (await sprintRes.json()) as { sprint: { number: number } }
+          const body = (await sprintRes.json()) as {
+            sprint: { number: number }
+          }
           oldNumber = body.sprint.number
         }
       } catch {
@@ -492,13 +519,17 @@ export async function taskUpdate(
         try {
           const b = (await deleteRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 
       const oldLabel = oldNumber !== null ? `#${oldNumber}` : action.oldSprintId
-      process.stdout.write(`Unbound ${task.identifier} from sprint ${oldLabel}\n`)
+      process.stdout.write(
+        `Unbound ${task.identifier} from sprint ${oldLabel}\n`
+      )
       return
     }
 
@@ -526,14 +557,18 @@ export async function taskUpdate(
         try {
           const b = (await postRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 
       // resolvedSprintNumber is set from the resolveSprintId call above
       const newLabel =
-        resolvedSprintNumber !== null ? `#${resolvedSprintNumber}` : action.newSprintId
+        resolvedSprintNumber !== null
+          ? `#${resolvedSprintNumber}`
+          : action.newSprintId
       process.stdout.write(`Sprint: - → ${newLabel}\n`)
       return
     }
@@ -547,7 +582,9 @@ export async function taskUpdate(
           { headers: { Authorization: `Bearer ${creds.token}` } }
         )
         if (oldSprintRes.ok) {
-          const b = (await oldSprintRes.json()) as { sprint: { number: number } }
+          const b = (await oldSprintRes.json()) as {
+            sprint: { number: number }
+          }
           oldNumber = b.sprint.number
         }
       } catch {
@@ -607,7 +644,9 @@ export async function taskUpdate(
       const oldLabel = oldNumber !== null ? `#${oldNumber}` : '-'
       // resolvedSprintNumber is set from the resolveSprintId call above
       const newLabel =
-        resolvedSprintNumber !== null ? `#${resolvedSprintNumber}` : action.newSprintId
+        resolvedSprintNumber !== null
+          ? `#${resolvedSprintNumber}`
+          : action.newSprintId
       process.stdout.write(`Sprint: ${oldLabel} → ${newLabel}\n`)
       return
     }

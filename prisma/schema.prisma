@@ -574,6 +574,13 @@ model Task {
   updatedAt         DateTime     @updatedAt
   dueDate           DateTime?
 
+  // LUM-646 (F4/自治边界): agent-claimable triage marker. Fail-closed —
+  // a task is NOT auto-claimable until a steward (or human) explicitly
+  // triages it. Consumed by `lumo next --claimable`, which surfaces only
+  // claimable ∩ unblocked (F3) ∩ in-budget (F2) tasks. Advisory only:
+  // nothing is gated on it server-side; default `lumo next` ignores it.
+  claimable         Boolean      @default(false)
+
   // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
   // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
   // one carrying a MERGED lineage edge (DB fact of delivery), else the latest

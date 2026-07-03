@@ -59,6 +59,8 @@ Pure flag-driven update. Provide at least one of:
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
+| `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
+| `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                    |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
 | `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                   |
 | `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                                                                                                          |
@@ -170,7 +172,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 - The user asks "what am I working on", "what tasks do I have", "list my tasks", "show me my queue".
 - Before suggesting a status change ("mark something as done"), if no task ID is in context — run `task list` first to surface candidates.
 
-### `lumo next [--count <N>]` — recommend the next task to work on
+### `lumo next [--count <N>] [--claimable]` — recommend the next task to work on
 
 Ranks the tasks assigned to you and prints the top N (default 3), each with a
 one-line reason. Read-only — it does **not** bind or load context. Pick one from
@@ -186,14 +188,18 @@ command still recommends, just without the sprint boost. The topology counts
 come from the server (`/api/tasks/me`); against an older server without them
 the order is simply the pre-topology ranking.
 
-| Flag              | Type    | Notes                                                                   |
-| ----------------- | ------- | ----------------------------------------------------------------------- |
-| `-n, --count <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer. |
+| Flag              | Type    | Notes                                                                                                                                                                                                                                                                                                  |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-n, --count <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer.                                                                                                                                                                                                                                |
+| `--claimable`     | boolean | LUM-646 (F4/自治边界): restrict to the autonomy boundary — recommend **only** tasks that are agent-claimable (steward-triaged) **and** unblocked (no open CONFIRMED blocker, F3) **and** within milestone budget (not measured over the LUM-644 token budget, F2). Off by default (unchanged ranking). |
 
 ```bash
 lumo next
 lumo next --count 1
+lumo next --claimable        # autonomy-scoped: only claimable ∩ unblocked ∩ in-budget
 ```
+
+**`--claimable` semantics (LUM-646):** the three-part gate is a hard filter, not just a re-ranking (default `next` still soft-deprioritizes blocked tasks per LUM-645). `claimable` is **fail-closed** — a task is not claimable until a steward (`lumo milestone triage`) or `lumo task update --claimable` marks it, so the default field value excludes it. Budget is **fail-open on the unknown** — only a _measured_ overrun excludes; no budget set / unmeasured burn never gates. When the gate empties the list, the output states the honest breakdown (e.g. `No claimable, unblocked, in-budget tasks right now. (excluded: 3 not triaged claimable, 1 blocked by open deps)`). Against a server that predates F4 (no `claimable` field), `--claimable` prints a one-line notice and **degrades to the standard ranking** rather than returning nothing.
 
 Output:
 

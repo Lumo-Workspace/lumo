@@ -26,6 +26,19 @@ export interface NextTask {
    */
   blockedByOpenCount?: number
   unblocksOpenCount?: number
+  /**
+   * LUM-646 agent-claimable marker. A new server always sends a boolean
+   * (default false); an older server omits it entirely — the absence of the
+   * field across all tasks is how `lumo next --claimable` detects an
+   * unsupported server and degrades gracefully.
+   */
+  claimable?: boolean
+  /**
+   * LUM-646 F2 budget signal, only populated when the caller requested it
+   * (`?claimable=1`). `true` = the task's milestone measured over its token
+   * budget; `false`/`null`/absent = not over (or no budget / unmeasured).
+   */
+  milestoneBudgetExceeded?: boolean | null
 }
 
 export interface RankedTask {

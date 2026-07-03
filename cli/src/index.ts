@@ -82,6 +82,7 @@ import { milestoneArchive } from './commands/milestone-archive'
 import { milestoneUnarchive } from './commands/milestone-unarchive'
 import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
+import { milestoneTriage } from './commands/milestone-triage'
 import { milestoneSummary } from './commands/milestone-summary'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
@@ -382,10 +383,18 @@ outcome
 program
   .command('next')
   .description(
-    'Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`.'
+    'Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`. Use --claimable to restrict to the autonomy boundary (claimable ∩ unblocked ∩ in-budget).'
   )
   .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
-  .action(wrap(options => nextCommand(options as { count?: string })))
+  .option(
+    '--claimable',
+    'Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)'
+  )
+  .action(
+    wrap(options =>
+      nextCommand(options as { count?: string; claimable?: boolean })
+    )
+  )
 
 program
   .command('cost')
@@ -1199,6 +1208,28 @@ milestoneCmd
   )
 
 milestoneCmd
+  .command('triage <identifier> <tasks...>')
+  .description(
+    'Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option('--claimable', 'Mark the listed tasks agent-claimable')
+  .option('--not-claimable', 'Mark the listed tasks NOT agent-claimable')
+  .action(
+    wrap((identifier, tasks, options) =>
+      milestoneTriage(
+        identifier as string,
+        tasks as string[],
+        options as {
+          project?: string
+          claimable?: boolean
+          notClaimable?: boolean
+        }
+      )
+    )
+  )
+
+milestoneCmd
   .command('summary <identifier>')
   .description(
     'Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
@@ -1778,6 +1809,14 @@ task
   .option(
     '--sprint <ref>',
     'Sprint number or UUID to bind the task to; empty string to unbind from current sprint'
+  )
+  .option(
+    '--claimable',
+    'Mark the task agent-claimable (surfaces in `lumo next --claimable`)'
+  )
+  .option(
+    '--not-claimable',
+    'Mark the task NOT agent-claimable (mutually exclusive with --claimable)'
   )
   .option(
     '--tag <name>',
