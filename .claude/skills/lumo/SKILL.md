@@ -126,6 +126,7 @@ lumo fidelity show LUM-42 --json
 - `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
 - `lumo milestone summary [--retry]` — AI retro
 - `lumo milestone reorder/move` — manual ordering
+- `lumo milestone criteria set/list/verdict` — milestone-level **exit criteria** (LUM-643): the close contract, drafted & adjudicated (裁定) by the steward (LUM-640) or a human. Unresolved criteria (pending or NOT_MET) block `--status completed` **and** the LUM-624 auto-rollup with 409/fail-closed; human override is web-only (`?force=1`, stamped as a persistent trail). `verdict --met` on `EXTERNAL_FACT` requires `--evidence` (422); `PENDING_OUTCOME` can never be MET
 
 **Documents** — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** (raw/section/patch/append/diff/rebuild) → [doc-editing.md](references/doc-editing.md)
 

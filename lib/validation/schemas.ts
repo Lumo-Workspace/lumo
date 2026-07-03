@@ -651,6 +651,10 @@ export const updateMilestoneSchema = z.object({
   // LUM-644: advisory token budget — a positive integer within Postgres INT
   // range; null clears it. Never gates anything.
   tokenBudget: z.number().int().min(1).max(2_147_483_647).nullable().optional(),
+  // LUM-643: optional note accompanying a `?force=1` close-gate override
+  // (human/Clerk path only — ignored otherwise). Stamped on the milestone as
+  // completedOverrideNote.
+  overrideNote: z.string().trim().min(1).max(2000).optional(),
 })
 
 export const listMilestonesQuerySchema = z.object({

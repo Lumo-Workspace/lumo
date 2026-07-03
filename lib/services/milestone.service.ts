@@ -3,6 +3,7 @@ import {
   type MilestoneListFilter,
 } from '@/lib/repositories/milestone.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
 import { projectService } from '@/lib/services/project.service'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -56,6 +57,17 @@ interface UpdateInput {
   targetDate?: Date | null | undefined
   /** LUM-644 advisory token budget; null clears it. */
   tokenBudget?: number | null | undefined
+}
+
+/**
+ * LUM-643: close-gate escape hatch. `overrideCloseGate` may ONLY be set by a
+ * human-initiated path (the PATCH route gates it on the Clerk source — the
+ * agent/Bearer path has no override). The override is stamped on the
+ * milestone (completedOverride* fields) as a persistent trail.
+ */
+interface UpdateMilestoneOptions {
+  overrideCloseGate?: boolean
+  overrideNote?: string | null
 }
 
 /**
@@ -469,7 +481,8 @@ export const milestoneService = {
   async updateMilestone(
     milestoneId: string,
     memberId: string,
-    input: UpdateInput
+    input: UpdateInput,
+    options?: UpdateMilestoneOptions
   ) {
     const existing = await milestoneRepository.findById(milestoneId)
     if (!existing) {
@@ -498,6 +511,30 @@ export const milestoneService = {
     if (input.status !== undefined && input.status !== existing.status) {
       data.status = input.status
       if (input.status === 'COMPLETED') {
+        // LUM-643 close gate: exit criteria not adjudicated MET (unadjudicated
+        // or NOT_MET) refuse the close with 409 — unless the caller carries an
+        // explicit human override, which is stamped as a persistent trail.
+        const unresolved =
+          await milestoneExitCriterionRepository.listUnresolved(milestoneId)
+        if (unresolved.length > 0) {
+          if (!options?.overrideCloseGate) {
+            const pending = unresolved.filter(c => c.verdict === null).length
+            const notMet = unresolved.length - pending
+            const preview = unresolved
+              .slice(0, 3)
+              .map(c => `"${c.statement.slice(0, 80)}"`)
+              .join(', ')
+            throw Object.assign(
+              new Error(
+                `Milestone close blocked: ${unresolved.length} exit criteria unresolved (${pending} unadjudicated, ${notMet} NOT_MET) — e.g. ${preview}. Adjudicate them (\`lumo milestone criteria verdict\`) or have a human override the close explicitly.`
+              ),
+              { status: 409 }
+            )
+          }
+          data.completedOverrideAt = new Date()
+          data.completedOverrideByMemberId = memberId
+          data.completedOverrideNote = options.overrideNote ?? null
+        }
         data.completedAt = new Date()
         transitionedToCompleted = true
       } else if (existing.status === 'COMPLETED') {

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
     // LUM-624 staleness hints + self-heal apply on this read path too — the
     // detail page resolves canonical slug URLs here, not via by-id.
-    const staleness = milestoneRollupService.observeOnRead(
+    const staleness = await milestoneRollupService.observeOnRead(
       milestone,
       taskCounts
     )

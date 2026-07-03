@@ -31,6 +31,15 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
   },
 }))
 
+// LUM-643: updateMilestone consults the exit-criteria close gate on a
+// COMPLETED transition — default to an empty contract (gate open).
+const mockListUnresolved = jest.fn().mockResolvedValue([])
+jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
+  milestoneExitCriterionRepository: {
+    listUnresolved: (...a: any[]) => mockListUnresolved(...a),
+  },
+}))
+
 import { milestoneService } from '@/lib/services/milestone.service'
 
 beforeEach(() => {
@@ -43,7 +52,11 @@ describe('milestoneService.listMilestones', () => {
     mockRepoFindByProject.mockResolvedValue([{ id: 'm1' }])
     const result = await milestoneService.listMilestones('p1', 'mem1')
     expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
-    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'active', undefined)
+    expect(mockRepoFindByProject).toHaveBeenCalledWith(
+      'p1',
+      'active',
+      undefined
+    )
     expect(result).toEqual([{ id: 'm1' }])
   })
 

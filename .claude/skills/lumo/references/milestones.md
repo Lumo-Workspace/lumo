@@ -116,6 +116,8 @@ At least one field required.
 
 **Status rolls up automatically (LUM-624):** milestone status follows task completion — PLANNED → ACTIVE when any task starts, → COMPLETED when every task is DONE (stamps `completedAt`, triggers the retro summary), and COMPLETED → ACTIVE when a non-DONE task (re)appears. A manual `--status planned/active/completed` that contradicts task reality gets reconciled back on the next task event or detail read; `--status cancelled` and archived milestones are human terminal choices the rollup never touches. You normally don't need `--status completed` by hand anymore.
 
+**The close is gated by exit criteria (LUM-643):** when the milestone has exit criteria (see `milestone criteria` below), any row not adjudicated MET — unadjudicated (PENDING) **or** NOT_MET — refuses `--status completed` with **409**, and holds the LUM-624 auto-rollup fail-closed (all tasks DONE keeps the milestone ACTIVE, no retro fires). There is **no CLI/agent override**: the only escape hatch is a human closing via the web with an explicit override (`?force=1` + optional note), stamped on the milestone as a persistent trail (`completedOverride*` — who/when/note, never auto-cleared). To open the gate legitimately, adjudicate the contract with `lumo milestone criteria verdict`.
+
 ```bash
 lumo milestone update "Q3 Launch" --status active
 lumo milestone update "Q3 Launch" --target 2026-09-15
@@ -123,6 +125,64 @@ lumo milestone update "Q3 Launch" --description ""
 lumo milestone update "Q3 Launch" --token-budget 50000000
 lumo milestone update "Q3 Launch" --token-budget ""
 ```
+
+### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` — submit the exit contract
+
+Milestone-level **exit criteria** (LUM-643) — the close contract, mirroring the task-level acceptance contract where it transfers. Key differences from `task criteria`: there is **no `verifierType` / no `checkpointer`** — exit criteria are **adjudicated (裁定)**, not machine-verified — and each item requires only `statement` + `referentKind`. The **steward session (LUM-640) is the intended drafting & adjudicating subject** (drafting is a governance action; session provenance is recorded on every row); `--human` records a transcribed HUMAN_EDIT revision instead.
+
+The file is a JSON array:
+
+```json
+[
+  {
+    "statement": "Every LUM-64x migration is applied on prod (migrate status clean)",
+    "referentKind": "EXTERNAL_FACT"
+  },
+  {
+    "statement": "All milestone read models render the new fields",
+    "referentKind": "AGENT_CONSTRUCTED_STATE"
+  }
+]
+```
+
+Semantics: **full-group replace** — existing rows with a verdict are tombstoned (their adjudication trail survives for audit), verdict-free rows are hard-deleted. The contract **locks with 409 once the milestone is COMPLETED** (reopen to edit). Archived milestones also refuse with 409.
+
+```bash
+lumo milestone criteria set "Q3 Launch" --file exit-criteria.json
+lumo milestone criteria set "Q3 Launch" --file exit-criteria.json --human
+```
+
+### `lumo milestone criteria list <identifier>` — print the exit contract
+
+One line per criterion — `<id>  [MET|NOT_MET|PENDING]  SOURCE ⟨REFERENT⟩  statement` — plus an indented `↳` detail line (date · evidence · note) for adjudicated rows, and a trailing gate-state line: either `All exit criteria MET — the close gate is open.` or `N unresolved (pending or NOT_MET) — the close gate refuses status→COMPLETED until adjudicated (human override only via web).`
+
+```bash
+lumo milestone criteria list "Q3 Launch"
+```
+
+### `lumo milestone criteria verdict <identifier> <criterion> --met|--unmet` — adjudicate one criterion
+
+Records the adjudication (裁定) on one exit criterion — verdict, who, when, and the adjudicating session (LUM-640 steward provenance) are stamped server-side; re-adjudication overwrites in place (latest verdict wins). `<criterion>` accepts the full id or a **≥6-char unique id prefix** from `criteria list` (ambiguous/unknown selectors list candidates and exit 1).
+
+| Flag                   | Type    | Notes                                                                                                 |
+| ---------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `--met` / `--unmet`    | boolean | Exactly one required.                                                                                 |
+| `--note <text>`        | string  | Why this verdict (recommended).                                                                       |
+| `--evidence <pointer>` | string  | **Required for `--met` on an `EXTERNAL_FACT` criterion** (422 otherwise) — the fact it was read from. |
+| `--project <ref>`      | string  | Required when identifier is a name and workspace has >1 project.                                      |
+
+**Grounding gate (LUM-602/605 reuse):** `--met` on `EXTERNAL_FACT` without `--evidence` → **422** (re-ground or honestly re-declare the criterion `AGENT_CONSTRUCTED_STATE`); a `PENDING_OUTCOME` criterion can **never** be adjudicated MET (its truth lands post-delivery — use the outcome well). `--unmet` never needs evidence.
+
+```bash
+lumo milestone criteria verdict "Q3 Launch" cmexit0001 --met --evidence "prisma migrate status @ prod, 2026-07-02" --note "all LUM-64x applied"
+lumo milestone criteria verdict "Q3 Launch" cmexit0002 --unmet --note "read model not wired yet"
+```
+
+### When to suggest `milestone criteria`
+
+- A steward session planning a milestone ("what does done mean for this milestone", "draft exit criteria") → `criteria set`.
+- Before recommending `milestone update --status completed`, or when it just bounced with 409 → `criteria list` to see what holds the gate, then `verdict` per criterion.
+- User asks "can we close this milestone / what's blocking the close" → `criteria list` (the gate-state line answers it).
 
 ### `lumo milestone delete <identifier>` — delete a milestone
 
