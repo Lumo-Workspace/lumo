@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { formatDuration } from './AgentRunTimeline/format-duration'
+import { formatDurationMs } from '@/lib/datetime/duration'
 
 // Single delivery KPI: label on top, value below. No hint, no warning tint —
 // the block is identical in the in-progress and done delivery cards (LUM-524).
@@ -50,7 +50,9 @@ export function DeliveryKpis({
         />
         <KpiMetric
           label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
-          value={duration !== null ? formatDuration(duration * 1000) : '—'}
+          value={
+            duration !== null ? formatDurationMs(intl, duration * 1000) : '—'
+          }
         />
       </div>
     </div>

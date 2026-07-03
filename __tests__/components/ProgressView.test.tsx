@@ -13,6 +13,10 @@ const en: Record<string, string> = {
   'retrospective.iterations': 'Runs',
   'retrospective.interactionRounds': 'Interaction rounds',
   'retrospective.totalDuration': 'Run time',
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+  'duration.milliseconds': '{ms}ms',
 }
 
 jest.mock('react-intl', () => ({

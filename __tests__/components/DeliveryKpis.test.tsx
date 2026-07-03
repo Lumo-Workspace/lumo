@@ -5,12 +5,23 @@ const en: Record<string, string> = {
   'retrospective.iterations': 'Runs',
   'retrospective.interactionRounds': 'Interaction rounds',
   'retrospective.totalDuration': 'Run time',
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+  'duration.milliseconds': '{ms}ms',
 }
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
-    formatMessage: ({ id }: { id: string }) => en[id] ?? id,
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, unknown>
+    ) => {
+      const tpl = en[id] ?? id
+      if (!values) return tpl
+      return tpl.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ''))
+    },
   }),
 }))
 

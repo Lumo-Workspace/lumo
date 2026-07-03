@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useIntl, type IntlShape } from 'react-intl'
 import { ChevronRight, Scale } from 'lucide-react'
+import { formatDurationSec } from '@/lib/datetime/duration'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
 
@@ -26,20 +27,6 @@ const TOKEN_FMT = new Intl.NumberFormat('en-US', {
 })
 function fmtTokens(n: number): string {
   return TOKEN_FMT.format(n)
-}
-
-/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
-function fmtDuration(totalSec: number): string {
-  const sec = Math.max(0, Math.round(totalSec))
-  if (sec === 0) return '0s'
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  const parts: string[] = []
-  if (h > 0) parts.push(`${h}h`)
-  if (m > 0) parts.push(`${m}m`)
-  if (s > 0 && h === 0) parts.push(`${s}s`)
-  return parts.join(' ')
 }
 
 function SectionTitle({
@@ -568,7 +555,7 @@ export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
             })}
           </dt>
           <dd className='mt-1 text-heading text-foreground'>
-            {fmtDuration(cost.activeTimeSec)}
+            {formatDurationSec(intl, cost.activeTimeSec)}
           </dd>
         </div>
         <div className='px-4 py-3'>
