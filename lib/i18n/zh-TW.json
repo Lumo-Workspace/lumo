@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "超出預算 {over}",
   "milestone.riskQueue.budget.title": "token 預算超限",
   "milestone.riskQueue.budget.count": "已耗 {burn} / 預算 {budget}（{percent}%）",
-  "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。"
+  "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。",
+  "milestone.hero.progressModeLabel": "進度口徑",
+  "milestone.hero.progressMode.tasks": "按任務數",
+  "milestone.hero.progressMode.complexity": "按複雜度",
+  "milestone.hero.weightedCoverage": "加權 · 已測 {measured}/{total}",
+  "milestone.hero.weightedUnavailable": "暫無複雜度資料"
 }

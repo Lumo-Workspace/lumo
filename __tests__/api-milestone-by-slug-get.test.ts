@@ -18,6 +18,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getMemberDeliveryForMilestone: jest.fn(),
     getRiskQueueForMilestone: jest.fn(),
     getTopologyForMilestone: jest.fn(),
+    getWeightedProgressForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -54,6 +55,16 @@ const mockMemberDelivery =
   milestoneService.getMemberDeliveryForMilestone as jest.Mock
 const mockRiskQueue = milestoneService.getRiskQueueForMilestone as jest.Mock
 const mockTopology = milestoneService.getTopologyForMilestone as jest.Mock
+const mockWeighted =
+  milestoneService.getWeightedProgressForMilestone as jest.Mock
+
+const emptyWeighted = {
+  doneWeight: null,
+  totalWeight: null,
+  pct: null,
+  measuredTasks: 0,
+  totalTasks: 0,
+}
 
 const emptyCostTrend = {
   costRollup: {
@@ -115,6 +126,8 @@ beforeEach(() => {
   mockRiskQueue.mockResolvedValue(null)
   mockTopology.mockReset()
   mockTopology.mockResolvedValue(null)
+  mockWeighted.mockReset()
+  mockWeighted.mockResolvedValue(emptyWeighted)
 })
 
 const params = { params: Promise.resolve({ id: 'p-1', slug: 'q3' }) }
@@ -576,6 +589,48 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone.riskQueue).toEqual(riskQueue)
+  })
+
+  it('serves the weightedProgress reading on the milestone detail payload', async () => {
+    mockIdentity.mockResolvedValue({ clerkId: 'clerk-1', memberId: 'mem-1' })
+    mockLoad.mockResolvedValue({
+      project: { id: 'p-1', teamId: 'team-1' },
+      member: { id: 'mem-1' },
+      workspaceSlug: 'w',
+    })
+    mockBySlug.mockResolvedValue({
+      id: 'm-1',
+      projectId: 'p-1',
+      name: 'Q3',
+      slug: 'q3',
+      status: 'ACTIVE',
+      startDate: null,
+      targetDate: null,
+    })
+    mockCount.mockResolvedValue({
+      TODO: 1,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 2,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 3 })
+    mockSummary.mockResolvedValue(null)
+    // The canonical slug path must not lag the by-id enrich (the recurring
+    // two-read-paths trap — LUM-624).
+    const weightedProgress = {
+      doneWeight: 12,
+      totalWeight: 20,
+      pct: 60,
+      measuredTasks: 2,
+      totalTasks: 3,
+    }
+    mockWeighted.mockResolvedValue(weightedProgress)
+
+    const res = await GET(new Request('http://x/m') as never, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.weightedProgress).toEqual(weightedProgress)
+    expect(mockWeighted).toHaveBeenCalledWith('m-1')
   })
 
   test('returns topology rollup like the by-id detail route (LUM-645)', async () => {

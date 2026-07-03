@@ -32,6 +32,10 @@ import {
   type MilestoneTopology,
 } from '@/lib/summaries/milestone-topology'
 import {
+  computeWeightedProgress,
+  type MilestoneWeightedProgress,
+} from '@/lib/summaries/milestone-weighted-progress'
+import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
 } from '@/lib/utils/milestone-slug'
@@ -438,6 +442,35 @@ export const milestoneService = {
     const rows = await milestoneRepository.topologyRows(milestoneId)
     if (!rows) return null
     return computeMilestoneTopology(rows)
+  },
+
+  /**
+   * LUM-650 complexity-weighted progress reading for the Overview ring — a
+   * current-status snapshot weighting DONE tasks by TaskComplexity
+   * .changedFileCount over the measured tasks. Unmeasured tasks (no complexity
+   * row) are carried as coverage only, never a 0 weight (three-state, LUM-634).
+   */
+  async getWeightedProgressForMilestone(
+    milestoneId: string
+  ): Promise<MilestoneWeightedProgress> {
+    const tasks = await milestoneRepository.taskStatusRows(milestoneId)
+    const complexityRows = await taskComplexityRepository.listByTaskIds(
+      tasks.map(t => t.id)
+    )
+    const weightByTask = new Map<string, number>()
+    for (const row of complexityRows) {
+      if (!weightByTask.has(row.taskId)) {
+        weightByTask.set(row.taskId, row.changedFileCount)
+      }
+    }
+    return computeWeightedProgress(
+      tasks.map(t => ({
+        status: t.status,
+        changedFileCount: weightByTask.has(t.id)
+          ? weightByTask.get(t.id)!
+          : null,
+      }))
+    )
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {

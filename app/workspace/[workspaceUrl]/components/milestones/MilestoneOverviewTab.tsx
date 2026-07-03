@@ -17,6 +17,7 @@ interface MilestoneOverviewTabProps {
     | 'derivedStartDate'
     | 'targetDate'
     | 'taskCounts'
+    | 'weightedProgress'
     | 'health'
     | 'summaryTldr'
     | 'sprintCoverage'
@@ -56,6 +57,7 @@ export function MilestoneOverviewTab({
       <MilestoneHero
         name={milestone.name}
         taskCounts={milestone.taskCounts ?? null}
+        weightedProgress={milestone.weightedProgress ?? null}
         health={milestone.health ?? null}
         startDate={milestone.startDate}
         derivedStartDate={milestone.derivedStartDate ?? null}

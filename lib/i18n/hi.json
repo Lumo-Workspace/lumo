@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "बजट से {over} अधिक",
   "milestone.riskQueue.budget.title": "टोकन बजट पार हो गया",
   "milestone.riskQueue.budget.count": "{budget} में से {burn} खपत ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।"
+  "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।",
+  "milestone.hero.progressModeLabel": "प्रगति दृश्य",
+  "milestone.hero.progressMode.tasks": "कार्य संख्या के अनुसार",
+  "milestone.hero.progressMode.complexity": "जटिलता के अनुसार",
+  "milestone.hero.weightedCoverage": "भारित · {measured}/{total} मापे गए",
+  "milestone.hero.weightedUnavailable": "अभी तक कोई जटिलता डेटा नहीं"
 }

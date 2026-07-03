@@ -15,6 +15,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getMemberDeliveryForMilestone: jest.fn(),
     getRiskQueueForMilestone: jest.fn(),
     getTopologyForMilestone: jest.fn(),
+    getWeightedProgressForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -49,6 +50,16 @@ const mockMemberDelivery =
   milestoneService.getMemberDeliveryForMilestone as jest.Mock
 const mockRiskQueue = milestoneService.getRiskQueueForMilestone as jest.Mock
 const mockTopology = milestoneService.getTopologyForMilestone as jest.Mock
+const mockWeighted =
+  milestoneService.getWeightedProgressForMilestone as jest.Mock
+
+const emptyWeighted = {
+  doneWeight: null,
+  totalWeight: null,
+  pct: null,
+  measuredTasks: 0,
+  totalTasks: 0,
+}
 
 const emptyCostTrend = {
   costRollup: {
@@ -108,6 +119,8 @@ beforeEach(() => {
   mockRiskQueue.mockResolvedValue(null)
   mockTopology.mockReset()
   mockTopology.mockResolvedValue(null)
+  mockWeighted.mockReset()
+  mockWeighted.mockResolvedValue(emptyWeighted)
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -441,6 +454,36 @@ describe('GET /api/milestones/[id]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone.riskQueue).toEqual(riskQueue)
+  })
+
+  it('serves the weightedProgress reading on the milestone detail payload', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 1,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 2,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 3 })
+    mockOutcome.mockResolvedValue(null)
+    const weightedProgress = {
+      doneWeight: 12,
+      totalWeight: 20,
+      pct: 60,
+      measuredTasks: 2,
+      totalTasks: 3,
+    }
+    mockWeighted.mockResolvedValue(weightedProgress)
+
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.weightedProgress).toEqual(weightedProgress)
+    expect(mockWeighted).toHaveBeenCalledWith('m-1')
   })
 
   it('returns topology on the payload (LUM-645)', async () => {

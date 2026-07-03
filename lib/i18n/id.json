@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Melebihi anggaran sebesar {over}",
   "milestone.riskQueue.budget.title": "Anggaran token terlampaui",
   "milestone.riskQueue.budget.count": "pemakaian {burn} dari {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran."
+  "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran.",
+  "milestone.hero.progressModeLabel": "Tampilan progres",
+  "milestone.hero.progressMode.tasks": "Berdasarkan jumlah tugas",
+  "milestone.hero.progressMode.complexity": "Berdasarkan kompleksitas",
+  "milestone.hero.weightedCoverage": "berbobot · {measured}/{total} terukur",
+  "milestone.hero.weightedUnavailable": "Belum ada data kompleksitas"
 }
