@@ -55,18 +55,26 @@ describe('tokenBudget patch', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone.tokenBudget).toBe(5000000)
-    expect(mockUpdate).toHaveBeenCalledWith('m-1', 'mem-1', {
-      tokenBudget: 5000000,
-    })
+    // Fourth arg is the LUM-643 close-gate override — undefined on the
+    // bearer/agent path.
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'm-1',
+      'mem-1',
+      { tokenBudget: 5000000 },
+      undefined
+    )
   })
 
   it('clears the budget with null', async () => {
     mockUpdate.mockResolvedValue({ id: 'm-1', name: 'Q3', tokenBudget: null })
     const res = await PATCH(patchReq({ tokenBudget: null }) as never, params)
     expect(res.status).toBe(200)
-    expect(mockUpdate).toHaveBeenCalledWith('m-1', 'mem-1', {
-      tokenBudget: null,
-    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'm-1',
+      'mem-1',
+      { tokenBudget: null },
+      undefined
+    )
   })
 
   it('rejects non-positive, non-integer and out-of-range values with 400', async () => {
@@ -81,8 +89,11 @@ describe('tokenBudget patch', () => {
     mockUpdate.mockResolvedValue({ id: 'm-1', name: 'Renamed' })
     const res = await PATCH(patchReq({ name: 'Renamed' }) as never, params)
     expect(res.status).toBe(200)
-    expect(mockUpdate).toHaveBeenCalledWith('m-1', 'mem-1', {
-      name: 'Renamed',
-    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'm-1',
+      'mem-1',
+      { name: 'Renamed' },
+      undefined
+    )
   })
 })
