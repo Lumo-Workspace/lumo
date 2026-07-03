@@ -433,7 +433,7 @@ export const boundaryCrossingRepository = {
   /** LUM-638 — raw severity/disposition rows; OPEN filtering happens in the pure fn. */
   async findSeverityRowsByTaskIds(taskIds: string[]) {
     if (taskIds.length === 0) return []
-    return prisma.boundaryCrossing.findMany({
+    const rows = await prisma.boundaryCrossing.findMany({
       where: { taskId: { in: taskIds } },
       select: {
         taskId: true,
@@ -442,5 +442,11 @@ export const boundaryCrossingRepository = {
         advisory: true,
       },
     })
+    // The WHERE pins taskId to the in-list, so it is never null at runtime —
+    // but the column is nullable since LUM-640 (milestone-scoped steward
+    // crossings), so narrow the Prisma type back to string.
+    return rows.filter(
+      (r): r is (typeof rows)[number] & { taskId: string } => r.taskId !== null
+    )
   },
 }
