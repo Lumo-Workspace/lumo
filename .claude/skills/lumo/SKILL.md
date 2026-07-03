@@ -126,6 +126,7 @@ lumo fidelity show LUM-42 --json
 - `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
 - `lumo milestone triage <id> <task...> --claimable|--not-claimable` — steward batch agent-claimable triage (LUM-646): mark in-milestone tasks (not) claimable; tasks not in the milestone are skipped. Feeds `lumo next --claimable`
 - `lumo milestone summary [--retry]` — AI retro
+- `lumo milestone changelog <id> [--json]` — structured changelog from DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones (LUM-508); each claim shows provenance, no-PR/no-claim rendered explicitly (LUM-649)
 - `lumo milestone reorder/move` — manual ordering
 - `lumo milestone criteria set/list/verdict` — milestone-level **exit criteria** (LUM-643): the close contract, drafted & adjudicated (裁定) by the steward (LUM-640) or a human. Unresolved criteria (pending or NOT_MET) block `--status completed` **and** the LUM-624 auto-rollup with 409/fail-closed; human override is web-only (`?force=1`, stamped as a persistent trail). `verdict --met` on `EXTERNAL_FACT` requires `--evidence` (422); `PENDING_OUTCOME` can never be MET
 

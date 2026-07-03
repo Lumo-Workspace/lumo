@@ -1016,6 +1016,53 @@ export const taskRepository = {
   },
 
   /**
+   * LUM-649 changelog projection: every task in the milestone (all statuses —
+   * the service filters to DONE, so the honest boundary lives in one place)
+   * with the identifier parts, title, frozen claimSnapshot fields, and
+   * `updatedAt` (the best-available "last moved" proxy — Task has no
+   * completedAt column) for newest-first ordering.
+   */
+  async listByMilestoneForChangelog(milestoneId: string) {
+    return prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        status: true,
+        number: true,
+        title: true,
+        updatedAt: true,
+        claimSnapshot: true,
+        claimSnapshotSource: true,
+        claimSnapshotSessionId: true,
+        claimSnapshotAt: true,
+        team: { select: { identifier: true } },
+      },
+    })
+  },
+
+  /**
+   * LUM-649 baseline sample: DONE-task count grouped per milestone, for a set
+   * of prior COMPLETED milestones (the changelog headline's reference class).
+   * A prior milestone with zero DONE tasks is simply absent — the service
+   * reads a missing group as 0.
+   */
+  async countDoneByMilestones(
+    milestoneIds: string[]
+  ): Promise<Array<{ milestoneId: string; count: number }>> {
+    if (milestoneIds.length === 0) return []
+    const rows = await prisma.task.groupBy({
+      by: ['milestoneId'],
+      where: { milestoneId: { in: milestoneIds }, status: 'DONE' },
+      _count: { _all: true },
+    })
+    return rows
+      .filter(
+        (r): r is typeof r & { milestoneId: string } => r.milestoneId !== null
+      )
+      .map(r => ({ milestoneId: r.milestoneId, count: r._count._all }))
+  },
+
+  /**
    * Cache the LLM-generated comment-thread summary on the task row.
    * Part of the context-injection tiering pipeline (LUM-122): comment threads
    * have no standalone entity, so the cached summary lives on Task.

@@ -295,4 +295,62 @@ export const pullRequestRepository = {
       orderBy: { mergedAt: 'asc' },
     })
   },
+
+  /**
+   * LUM-649 changelog: merged PRs across a set of DONE tasks, batched (one
+   * query for the whole milestone instead of N). `taskId` is the join key the
+   * changelog fold groups on; oldest-merged first so a task's PRs read in
+   * delivery order. Tasks with no merged PR simply have no rows — the fold
+   * keeps them as an explicit no-PR entry.
+   */
+  async listMergedByTaskIds(taskIds: string[]): Promise<
+    Array<{
+      taskId: string
+      repo: string
+      number: number
+      title: string
+      mergeCommitSha: string | null
+    }>
+  > {
+    if (taskIds.length === 0) return []
+    const rows = await prisma.pullRequest.findMany({
+      where: { taskId: { in: taskIds }, state: 'merged' },
+      select: {
+        taskId: true,
+        repo: true,
+        number: true,
+        title: true,
+        mergeCommitSha: true,
+      },
+      orderBy: { mergedAt: 'asc' },
+    })
+    return rows.filter(
+      (r): r is typeof r & { taskId: string } => r.taskId !== null
+    )
+  },
+
+  /**
+   * LUM-649 baseline sample: merged-PR count grouped per milestone, for a set
+   * of prior COMPLETED milestones. PullRequest has no milestoneId, so this
+   * joins through the task and folds in memory. A prior milestone with no
+   * merged PR is absent — the service reads a missing group as 0.
+   */
+  async countMergedByMilestones(
+    milestoneIds: string[]
+  ): Promise<Array<{ milestoneId: string; count: number }>> {
+    if (milestoneIds.length === 0) return []
+    const rows = await prisma.pullRequest.findMany({
+      where: {
+        state: 'merged',
+        task: { milestoneId: { in: milestoneIds } },
+      },
+      select: { task: { select: { milestoneId: true } } },
+    })
+    const counts = new Map<string, number>()
+    for (const row of rows) {
+      const mid = row.task?.milestoneId
+      if (mid) counts.set(mid, (counts.get(mid) ?? 0) + 1)
+    }
+    return [...counts].map(([milestoneId, count]) => ({ milestoneId, count }))
+  },
 }
