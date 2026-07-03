@@ -30,6 +30,10 @@ export async function GET(req: Request) {
     const sprintIds = sprintIdsParam
       ? sprintIdsParam.split(',').filter(Boolean)
       : undefined
+    // LUM-646: `lumo next --claimable` asks for the extra F2 budget signal so
+    // the autonomy gate can drop over-budget tasks. Only computed on request —
+    // the default `lumo next` payload stays lean.
+    const wantBudget = searchParams.get('claimable') === '1'
 
     const tasks = await taskRepository.findAssignedTasks(
       actorId,
@@ -70,6 +74,22 @@ export async function GET(req: Request) {
       }
     }
 
+    // LUM-646: per-milestone F2 budget signal, only when the claimable gate
+    // asked for it. Dynamic import keeps the milestone-service graph off the
+    // default path. `null` when a task has no milestone or none is over budget.
+    let budgetExceeded = new Map<string, boolean | null>()
+    if (wantBudget) {
+      const milestoneIds = tasks
+        .map(t => t.milestoneId)
+        .filter((id): id is string => id !== null)
+      if (milestoneIds.length > 0) {
+        const { milestoneService } =
+          await import('@/lib/services/milestone.service')
+        budgetExceeded =
+          await milestoneService.getBudgetExceededForMilestones(milestoneIds)
+      }
+    }
+
     return NextResponse.json({
       // TODO(LUM-65 follow-up): adopt flattenTaskForListing
       tasks: tasks.map(t => {
@@ -94,6 +114,14 @@ export async function GET(req: Request) {
           childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
           blockedByOpenCount: blockedByOpen.get(t.id) ?? 0,
           unblocksOpenCount: unblocksOpen.get(t.id) ?? 0,
+          // LUM-646: F2 budget signal, present only under ?claimable=1.
+          ...(wantBudget
+            ? {
+                milestoneBudgetExceeded: t.milestoneId
+                  ? (budgetExceeded.get(t.milestoneId) ?? null)
+                  : null,
+              }
+            : {}),
         }
       }),
       myTasksViewId: myView.id,

@@ -29,6 +29,11 @@ interface CreateMemoryInput {
   createdByMemberId: string | null
   agent?: TaskArtifactAgent | undefined
   /**
+   * Scope pointer for MILESTONE-scope rows (LUM-647) — the milestone whose
+   * close-retro distilled this lesson. Null/omitted for TASK/PROJECT rows.
+   */
+  milestoneId?: string | null
+  /**
    * Birth task (LUM-397): the task whose session extracted/recorded this
    * memory, distinct from `taskId` (a scope pointer that PROJECT rows null
    * out). Captured at creation, never mutated. Omit when there is no single
@@ -74,6 +79,55 @@ export const memoryRepository = {
         content: true,
         createdAt: true,
         // LUM-347: see findActiveTaskMemories.
+        createdByMemberId: true,
+      },
+    })
+  },
+
+  /**
+   * All ACTIVE MILESTONE-scope memories for one milestone (LUM-647). Feeds the
+   * close-retro distillation's dedup input (existing lessons already distilled
+   * from this milestone) so a retry emits NOOP/UPDATE instead of duplicating.
+   */
+  async findActiveMilestoneMemories(milestoneId: string) {
+    return prisma.memory.findMany({
+      where: { milestoneId, scope: 'MILESTONE', status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        category: true,
+        content: true,
+        createdAt: true,
+        createdByMemberId: true,
+      },
+    })
+  },
+
+  /**
+   * ACTIVE MILESTONE-scope memories across a project (LUM-647), optionally
+   * excluding one milestone's own rows. Used to inject a project's prior
+   * milestone learnings into the next milestone's steward session — the steward
+   * of milestone B reads what milestone A's close distilled, but not B's own.
+   */
+  async findActiveMilestoneScopeMemoriesByProject(
+    projectId: string,
+    excludeMilestoneId?: string | null
+  ) {
+    return prisma.memory.findMany({
+      where: {
+        projectId,
+        scope: 'MILESTONE',
+        status: 'ACTIVE',
+        ...(excludeMilestoneId
+          ? { NOT: { milestoneId: excludeMilestoneId } }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        category: true,
+        content: true,
+        createdAt: true,
         createdByMemberId: true,
       },
     })
@@ -381,6 +435,7 @@ export const memoryRepository = {
         workspaceId: input.workspaceId,
         projectId: input.projectId,
         taskId: input.taskId,
+        milestoneId: input.milestoneId ?? null,
         scope: input.scope,
         category: input.category,
         content: input.content,

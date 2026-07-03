@@ -251,6 +251,29 @@ Q3 Launch: 1 removed, 1 skipped
 - `remove` only clears the binding for tasks actually in the named milestone, so it's safe to pass a broad list — anything not in it is reported as skipped, not clobbered.
 - For one-at-a-time sprint binding see `lumo sprint add / remove` (sprint batch is not yet supported).
 
+### `lumo milestone triage <identifier> <task...> --claimable | --not-claimable` — steward batch agent-claimable triage (LUM-646)
+
+The **steward's batch annotation** for the F4/自治边界 loop. Marks **one or more** in-milestone tasks agent-claimable (or not) in one call — the "可领范围" leg of the autonomy-boundary triad (契约 F1 / 预算 F2 / 可领范围 F4). Exactly one direction is required: `--claimable` or `--not-claimable` (mutually exclusive; the CLI errors before any network call if both or neither is given).
+
+Mirrors `milestone add/remove`: dedupes refs, and a task **not in this milestone is skipped** (triage is milestone-scoped, never touches tasks elsewhere). `<identifier>` accepts a name or UUID; each `<task>` accepts `LUM-N` or a task UUID. `--project <ref>` is required when the identifier is a name and the workspace has >1 project. Best-effort — partial failures do not roll back.
+
+Setting the marker is a **governance** action, so a STEWARD session (`lumo session attach --steward <milestone>`) passes the server-side binding guard. `claimable` is **fail-closed**: a task is not auto-claimable until triaged. Once tasks are triaged, an agent runs `lumo next --claimable` to get only claimable ∩ unblocked (F3) ∩ in-budget (F2) work. A single task can also be toggled with `lumo task update <id> --claimable | --not-claimable`.
+
+```bash
+lumo milestone triage "Agent-Native Milestones" LUM-1 LUM-2 --claimable
+lumo milestone triage "Agent-Native Milestones" LUM-9 --not-claimable
+```
+
+Output — `✓` marked, `-` skipped (not in milestone), `✗` failed:
+
+```
+Agent-Native Milestones: 1 marked claimable, 1 skipped
+  ✓ LUM-1
+  - LUM-9  not in this milestone
+```
+
+**When to suggest `milestone triage`**: the user (typically in a steward/governance session) wants to declare which of a milestone's tasks are safe for an agent to autonomously pick up ("mark these claimable", "open these up for agents", "triage the milestone for auto-dispatch"). For a single task, `task update --claimable` is equally fine.
+
 ### `lumo milestone summary <identifier> [--retry]` — fetch AI-generated milestone retro
 
 Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has more than one project. When no summary exists yet the command prints `(no summary generated yet)`.

@@ -50,6 +50,16 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
     buildBlockerWarningSectionForTask: jest.fn(),
   },
 }))
+// LUM-647: steward bind injects prior-milestone memory via this service (dynamic
+// import). Mock it to an empty section so the binding assertions stay focused on
+// the lock semantics (the injection has its own suite).
+jest.mock('@/lib/services/steward-context.service', () => ({
+  stewardContextService: {
+    buildMilestoneMemorySection: jest
+      .fn()
+      .mockResolvedValue({ section: '', count: 0 }),
+  },
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
@@ -158,6 +168,7 @@ describe('steward binding is a lifetime milestone lock', () => {
       role: 'STEWARD',
       milestoneId: MILESTONE.id,
       milestoneName: MILESTONE.name,
+      stewardMemorySection: '',
     })
     expect(sessRepo.upsertWithMilestoneId).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -43,6 +43,13 @@ export type BindSessionToMilestoneResult = {
   role: 'STEWARD'
   milestoneId: string
   milestoneName: string
+  /**
+   * LUM-647: prior-milestone learnings injected at steward start — the
+   * MILESTONE-scope memories distilled from this project's earlier milestone-close
+   * retros, wrapped in the untrusted-team-memory boundary. Empty string when the
+   * project has no prior distilled learnings.
+   */
+  stewardMemorySection: string
 }
 
 interface SessionScopedInput {
@@ -319,11 +326,27 @@ export const sessionService = {
       })
     }
 
+    // LUM-647: inject this project's prior-milestone learnings at steward start.
+    // Best-effort — a rendering failure must never fail the bind (the lifetime
+    // lock has already committed above), so it degrades to an empty section.
+    let stewardMemorySection = ''
+    try {
+      const { stewardContextService } =
+        await import('@/lib/services/steward-context.service')
+      const built = await stewardContextService.buildMilestoneMemorySection(
+        milestone.id
+      )
+      stewardMemorySection = built.section
+    } catch {
+      stewardMemorySection = ''
+    }
+
     return {
       status: 'bound',
       role: 'STEWARD',
       milestoneId: milestone.id,
       milestoneName: milestone.name,
+      stewardMemorySection,
     }
   },
 

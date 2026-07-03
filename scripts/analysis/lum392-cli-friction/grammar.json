@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.51.0",
+  "cliVersion": "1.52.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1499,6 +1499,40 @@
       "hasSubcommands": false,
       "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
     },
+    "milestone triage": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "tasks", "required": true, "variadic": true }
+      ],
+      "flags": {
+        "--claimable": {
+          "long": "--claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Mark the listed tasks agent-claimable"
+        },
+        "--not-claimable": {
+          "long": "--not-claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Mark the listed tasks NOT agent-claimable"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks."
+    },
     "milestone unarchive": {
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
@@ -1584,6 +1618,14 @@
     "next": {
       "arguments": [],
       "flags": {
+        "--claimable": {
+          "long": "--claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Only recommend agent-claimable tasks that are unblocked (F3) and within milestone budget (F2)"
+        },
         "--count": {
           "long": "--count",
           "short": "-n",
@@ -1594,7 +1636,7 @@
         }
       },
       "hasSubcommands": false,
-      "description": "Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`."
+      "description": "Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`. Use --claimable to restrict to the autonomy boundary (claimable ∩ unblocked ∩ in-budget)."
     },
     "outcome": {
       "arguments": [],
@@ -2908,6 +2950,14 @@
           "enumCaseInsensitive": false,
           "description": "New assignee: email, name, or \"me\" (empty string to clear)"
         },
+        "--claimable": {
+          "long": "--claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Mark the task agent-claimable (surfaces in `lumo next --claimable`)"
+        },
         "--description": {
           "long": "--description",
           "short": "-d",
@@ -2923,6 +2973,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Milestone name (case-insensitive); empty string to unbind"
+        },
+        "--not-claimable": {
+          "long": "--not-claimable",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Mark the task NOT agent-claimable (mutually exclusive with --claimable)"
         },
         "--priority": {
           "long": "--priority",

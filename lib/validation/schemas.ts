@@ -169,6 +169,7 @@ export const updateTaskSchema = z
     tagIds: z.array(z.string().cuid()).max(20).optional(),
     sprintId: z.string().nullable().optional(),
     milestoneId: z.string().nullable().optional(),
+    claimable: z.boolean().optional(),
     ...tagsIncrementalShape,
   })
   .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
@@ -224,6 +225,9 @@ export const cliUpdateTaskSchema = z
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
     milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
+    // LUM-646: agent-claimable triage marker. Set by `lumo task update
+    // --claimable|--no-claimable` and by `lumo milestone triage` (batch).
+    claimable: z.boolean().optional(),
     ...tagIdsShape,
     ...tagsIncrementalShape,
   })

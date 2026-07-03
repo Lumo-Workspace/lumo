@@ -176,6 +176,16 @@ export const milestoneRepository = {
     return result
   },
 
+  /** Per-task status rows for the LUM-650 complexity-weighted progress fold
+   * (joined against TaskComplexity to weight by changedFileCount). Only the
+   * two columns the snapshot needs — id to join, status to bucket DONE. */
+  async taskStatusRows(milestoneId: string) {
+    return prisma.task.findMany({
+      where: { milestoneId },
+      select: { id: true, status: true },
+    })
+  },
+
   async sprintCoverageCounts(milestoneId: string) {
     const rows = await prisma.task.groupBy({
       by: ['sprintId', 'status'],

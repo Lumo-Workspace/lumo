@@ -25,6 +25,8 @@ interface StewardBoundResponse {
   role: 'STEWARD'
   milestoneId: string
   milestoneName: string
+  /** LUM-647: prior-milestone learnings distilled from earlier close retros. */
+  stewardMemorySection?: string
 }
 
 /**
@@ -310,4 +312,10 @@ async function stewardAttach(args: {
   console.log(
     '  note:    commits/PRs produced in this session are recorded as boundary crossings (human-reviewed on the web)'
   )
+  // LUM-647: prior-milestone learnings distilled from this project's earlier
+  // milestone-close retros, injected so the steward carries them into planning.
+  if (body.stewardMemorySection && body.stewardMemorySection.trim() !== '') {
+    console.log('')
+    console.log(sanitizeField(body.stewardMemorySection))
+  }
 }

@@ -5,7 +5,11 @@
 Record and curate the long-term Memory that Claude reads on future sessions.
 Memories are scoped **TASK** (useful only for one task) or **PROJECT** (useful
 across the whole project). Automated extraction (layer1) and promotion (layer2,
-on task→done) already run; these commands are the manual override.
+on task→done) already run; these commands are the manual override. A third,
+**MILESTONE** scope is written automatically only (no manual command): when a
+milestone closes and its retro is generated, the durable forward-looking
+learnings are distilled into MILESTONE-scope memories and injected at the next
+milestone's steward session start (LUM-647) — see [sessions.md](sessions.md).
 
 ### Commands
 

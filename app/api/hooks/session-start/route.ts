@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       let reviewTodosSection = ''
       let layer2ReviewSection = ''
       let blockerWarningSection = ''
+      let stewardMemorySection = ''
       let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
         const [
@@ -139,6 +140,26 @@ export async function POST(request: Request) {
               console.error('session-start context metrics stamp error:', error)
             )
         )
+      } else {
+        // LUM-647: a resumed milestone STEWARD session re-injects this project's
+        // prior-milestone learnings (the distilled cross-milestone learning
+        // unit). First-attach injection rides the bind-milestone response; this
+        // branch covers session resume. Best-effort throughout — a lookup or
+        // render failure must never break session-start context injection.
+        try {
+          const steward = await sessionRepository.findStewardBinding(sessionId)
+          if (steward) {
+            const { stewardContextService } =
+              await import('@/lib/services/steward-context.service')
+            const built =
+              await stewardContextService.buildMilestoneMemorySection(
+                steward.milestoneId
+              )
+            stewardMemorySection = built.section
+          }
+        } catch (error) {
+          console.error('session-start steward memory injection error:', error)
+        }
       }
       return {
         sessionId,
@@ -150,6 +171,7 @@ export async function POST(request: Request) {
         reviewTodosSection,
         layer2ReviewSection,
         blockerWarningSection,
+        stewardMemorySection,
         previousSession,
       }
     },
