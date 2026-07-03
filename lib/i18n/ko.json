@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "첫 작업이 시작된 시점 — 폼 입력이 아닌 활동에서 도출",
   "milestone.riskQueue.aging.days": "{days}일",
   "milestone.riskQueue.aging.hours": "{hours}시간",
-  "milestone.riskQueue.aging.minutes": "{minutes}분"
+  "milestone.riskQueue.aging.minutes": "{minutes}분",
+  "milestone.topology.title": "다음 착수 추천",
+  "milestone.topology.subtitle": "의존성 토폴로지 순 — 이것부터 시작하면 가장 많은 작업이 풀립니다",
+  "milestone.topology.batch.title": "바로 시작 가능",
+  "milestone.topology.batch.count": "{count}건 준비됨",
+  "milestone.topology.batch.stillBlocked": "{count}건 아직 차단됨",
+  "milestone.topology.batch.unblocks": "{count}건 해제",
+  "milestone.topology.batch.critical": "크리티컬 패스",
+  "milestone.topology.criticalPath.label": "크리티컬 패스:",
+  "milestone.topology.criticalPath.depth": "({levels}단계 · {length}개 작업)",
+  "milestone.topology.cycle.title": "의존성 순환 —",
+  "milestone.topology.cycle.body": "이 작업들은 서로를 차단하고 있어, 간선 하나를 제거하거나 방향을 바꾸기 전까지 실행 순서를 정할 수 없습니다: {refs}",
+  "milestone.topology.empty.noEdges.title": "확정된 의존성이 없습니다",
+  "milestone.topology.empty.noEdges.body": "작업 간 차단 관계를 확정하면 의존성 순서에 따른 실행 계획이 여기에 표시됩니다.",
+  "milestone.topology.empty.noneReady.title": "시작할 수 있는 작업이 없습니다",
+  "milestone.topology.empty.noneReady.body": "모든 미완료 작업이 끝나지 않은 차단 작업을 기다리는 중입니다 — 먼저 위의 차단 체인을 해소하세요.",
+  "milestone.topology.empty.done.title": "모든 작업 완료",
+  "milestone.topology.empty.done.body": "이 마일스톤에서 더 계획할 작업이 없습니다."
 }

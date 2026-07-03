@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "Thời điểm nhiệm vụ đầu tiên bắt đầu — suy ra từ hoạt động, không phải trường biểu mẫu",
   "milestone.riskQueue.aging.days": "{days} ngày",
   "milestone.riskQueue.aging.hours": "{hours} giờ",
-  "milestone.riskQueue.aging.minutes": "{minutes} phút"
+  "milestone.riskQueue.aging.minutes": "{minutes} phút",
+  "milestone.topology.title": "Nên làm tiếp",
+  "milestone.topology.subtitle": "sắp theo thứ tự phụ thuộc — bắt đầu từ những việc này để mở khóa nhiều việc nhất",
+  "milestone.topology.batch.title": "Sẵn sàng bắt đầu",
+  "milestone.topology.batch.count": "{count} việc sẵn sàng",
+  "milestone.topology.batch.stillBlocked": "{count} việc vẫn bị chặn",
+  "milestone.topology.batch.unblocks": "mở khóa {count} việc",
+  "milestone.topology.batch.critical": "đường găng",
+  "milestone.topology.criticalPath.label": "Đường găng:",
+  "milestone.topology.criticalPath.depth": "({levels} tầng · {length} nhiệm vụ)",
+  "milestone.topology.cycle.title": "Vòng phụ thuộc —",
+  "milestone.topology.cycle.body": "các nhiệm vụ này chặn lẫn nhau; không thể xác định thứ tự thực hiện cho đến khi gỡ hoặc chuyển hướng một cạnh: {refs}",
+  "milestone.topology.empty.noEdges.title": "Chưa có phụ thuộc nào được xác nhận",
+  "milestone.topology.empty.noEdges.body": "Xác nhận các cạnh chặn giữa nhiệm vụ để nhận kế hoạch thực hiện theo thứ tự phụ thuộc tại đây.",
+  "milestone.topology.empty.noneReady.title": "Chưa có việc nào sẵn sàng bắt đầu",
+  "milestone.topology.empty.noneReady.body": "Mọi nhiệm vụ đang mở đều chờ một việc chặn chưa xong — hãy gỡ chuỗi bị chặn ở trên trước.",
+  "milestone.topology.empty.done.title": "Đã hoàn thành tất cả nhiệm vụ",
+  "milestone.topology.empty.done.body": "Không còn gì để sắp xếp trong cột mốc này."
 }

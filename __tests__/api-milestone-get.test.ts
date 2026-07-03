@@ -14,6 +14,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getDeliveryStatsForMilestone: jest.fn(),
     getMemberDeliveryForMilestone: jest.fn(),
     getRiskQueueForMilestone: jest.fn(),
+    getTopologyForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -47,6 +48,7 @@ const mockDeliveryStats =
 const mockMemberDelivery =
   milestoneService.getMemberDeliveryForMilestone as jest.Mock
 const mockRiskQueue = milestoneService.getRiskQueueForMilestone as jest.Mock
+const mockTopology = milestoneService.getTopologyForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -104,6 +106,8 @@ beforeEach(() => {
   mockMemberDelivery.mockResolvedValue({ rows: [] })
   mockRiskQueue.mockReset()
   mockRiskQueue.mockResolvedValue(null)
+  mockTopology.mockReset()
+  mockTopology.mockResolvedValue(null)
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -436,5 +440,47 @@ describe('GET /api/milestones/[id]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.milestone.riskQueue).toEqual(riskQueue)
+  })
+
+  it('returns topology on the payload (LUM-645)', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 0,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 0 })
+    const topology = {
+      edgeCount: 2,
+      levels: [['LUM-1'], ['LUM-2'], ['LUM-3']],
+      criticalPath: [
+        { taskId: 't1', ref: 'LUM-1', title: 'A', status: 'DONE' },
+        { taskId: 't2', ref: 'LUM-2', title: 'B', status: 'TODO' },
+        { taskId: 't3', ref: 'LUM-3', title: 'C', status: 'TODO' },
+      ],
+      cycleRefs: [],
+      nextBatch: [
+        {
+          taskId: 't2',
+          ref: 'LUM-2',
+          title: 'B',
+          status: 'TODO',
+          unblocksCount: 1,
+          onCriticalPath: true,
+        },
+      ],
+      blockedOpenCount: 1,
+    }
+    mockTopology.mockResolvedValue(topology)
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.topology).toEqual(topology)
+    expect(mockTopology).toHaveBeenCalledWith('m-1')
   })
 })

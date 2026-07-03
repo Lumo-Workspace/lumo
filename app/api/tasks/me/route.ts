@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { taskRepository, viewRepository } from '@/lib/repositories'
+import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 
 /**
  * GET /api/tasks/me
@@ -45,6 +46,30 @@ export async function GET(req: Request) {
     const taskOrders = await viewRepository.findTaskOrders(myView.id)
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
+    // LUM-645: per-task dependency-topology counts for `lumo next` ranking.
+    // blockedByOpenCount — confirmed BLOCKS edges whose blocker is unfinished;
+    // unblocksOpenCount — open tasks this one directly releases when done.
+    const depEdges =
+      await taskDependencyRepository.findConfirmedBlocksEdgesTouching(
+        tasks.map(t => t.id)
+      )
+    const blockedByOpen = new Map<string, number>()
+    const unblocksOpen = new Map<string, number>()
+    for (const e of depEdges) {
+      if (e.blockingTask.status !== 'DONE') {
+        blockedByOpen.set(
+          e.blockedTaskId,
+          (blockedByOpen.get(e.blockedTaskId) ?? 0) + 1
+        )
+      }
+      if (e.blockedTask.status !== 'DONE') {
+        unblocksOpen.set(
+          e.blockingTaskId,
+          (unblocksOpen.get(e.blockingTaskId) ?? 0) + 1
+        )
+      }
+    }
+
     return NextResponse.json({
       // TODO(LUM-65 follow-up): adopt flattenTaskForListing
       tasks: tasks.map(t => {
@@ -67,6 +92,8 @@ export async function GET(req: Request) {
             : null,
           _count: t._count,
           childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
+          blockedByOpenCount: blockedByOpen.get(t.id) ?? 0,
+          unblocksOpenCount: unblocksOpen.get(t.id) ?? 0,
         }
       }),
       myTasksViewId: myView.id,

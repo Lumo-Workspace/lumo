@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "Début de la première tâche — dérivé de l’activité, pas d’un champ de formulaire",
   "milestone.riskQueue.aging.days": "{days} j",
   "milestone.riskQueue.aging.hours": "{hours} h",
-  "milestone.riskQueue.aging.minutes": "{minutes} min"
+  "milestone.riskQueue.aging.minutes": "{minutes} min",
+  "milestone.topology.title": "À suivre",
+  "milestone.topology.subtitle": "ordonné par dépendances — commencez ici pour débloquer le plus de travail",
+  "milestone.topology.batch.title": "Prêtes à démarrer",
+  "milestone.topology.batch.count": "{count} prêtes",
+  "milestone.topology.batch.stillBlocked": "{count} encore bloquées",
+  "milestone.topology.batch.unblocks": "débloque {count}",
+  "milestone.topology.batch.critical": "chemin critique",
+  "milestone.topology.criticalPath.label": "Chemin critique :",
+  "milestone.topology.criticalPath.depth": "({levels} niveaux · {length} tâches)",
+  "milestone.topology.cycle.title": "Cycle de dépendances —",
+  "milestone.topology.cycle.body": "ces tâches se bloquent mutuellement, aucun ordre d'exécution n'existe tant qu'une arête n'est pas supprimée ou réorientée : {refs}",
+  "milestone.topology.empty.noEdges.title": "Aucune dépendance confirmée",
+  "milestone.topology.empty.noEdges.body": "Confirmez des liens de blocage entre les tâches pour obtenir ici un plan d'exécution ordonné par dépendances.",
+  "milestone.topology.empty.noneReady.title": "Rien n'est prêt à démarrer",
+  "milestone.topology.empty.noneReady.body": "Chaque tâche ouverte attend un bloqueur inachevé — dégagez d'abord la chaîne bloquée ci-dessus.",
+  "milestone.topology.empty.done.title": "Toutes les tâches sont terminées",
+  "milestone.topology.empty.done.body": "Plus rien à planifier dans ce jalon."
 }

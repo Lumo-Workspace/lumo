@@ -177,10 +177,14 @@ one-line reason. Read-only — it does **not** bind or load context. Pick one fr
 the list, then run `lumo session attach <LUM-N>` + `lumo task context <LUM-N>`.
 
 Ranking is lexicographic: **priority** (URGENT→LOW) first, then **active-sprint
-membership**, then **due date** (earlier first), then in-flight status
-(IN_PROGRESS / IN_REVIEW ahead of TODO). DONE tasks are excluded. The active
-sprint lookup is best-effort — if it fails the command still recommends, just
-without the sprint boost.
+membership**, then **dependency topology** (LUM-645: tasks with an open
+CONFIRMED blocker sort after workable ones; among workable peers the task that
+directly unblocks the most open tasks ranks first), then **due date** (earlier
+first), then in-flight status (IN_PROGRESS / IN_REVIEW ahead of TODO). DONE
+tasks are excluded. The active sprint lookup is best-effort — if it fails the
+command still recommends, just without the sprint boost. The topology counts
+come from the server (`/api/tasks/me`); against an older server without them
+the order is simply the pre-topology ranking.
 
 | Flag              | Type    | Notes                                                                   |
 | ----------------- | ------- | ----------------------------------------------------------------------- |
@@ -199,9 +203,9 @@ Top 3 recommended tasks (of 12 open):
 1. LUM-42  IN_PROGRESS  URGENT  Fix Slack OAuth redirect
      ↳ URGENT · active sprint · due 2026-06-03 (overdue) · in progress
 2. LUM-48  TODO         HIGH    Investigate slow query
-     ↳ HIGH · active sprint
+     ↳ HIGH · active sprint · unblocks 2 tasks
 3. LUM-12  TODO         MEDIUM  Add rate limiting
-     ↳ MEDIUM · due 2026-06-10
+     ↳ MEDIUM · blocked by 1 open dep · due 2026-06-10
 
 Next: lumo session attach LUM-42 && lumo task context LUM-42
 ```

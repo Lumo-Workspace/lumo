@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "Startzeitpunkt der ersten Aufgabe — aus der Aktivität abgeleitet, kein Formularfeld",
   "milestone.riskQueue.aging.days": "{days} Tage",
   "milestone.riskQueue.aging.hours": "{hours} Std.",
-  "milestone.riskQueue.aging.minutes": "{minutes} Min."
+  "milestone.riskQueue.aging.minutes": "{minutes} Min.",
+  "milestone.topology.title": "Als Nächstes",
+  "milestone.topology.subtitle": "nach Abhängigkeiten geordnet — diese zuerst, um am meisten Arbeit freizugeben",
+  "milestone.topology.batch.title": "Startbereit",
+  "milestone.topology.batch.count": "{count} bereit",
+  "milestone.topology.batch.stillBlocked": "{count} noch blockiert",
+  "milestone.topology.batch.unblocks": "gibt {count} frei",
+  "milestone.topology.batch.critical": "kritischer Pfad",
+  "milestone.topology.criticalPath.label": "Kritischer Pfad:",
+  "milestone.topology.criticalPath.depth": "({levels} Ebenen · {length} Aufgaben)",
+  "milestone.topology.cycle.title": "Abhängigkeitszyklus —",
+  "milestone.topology.cycle.body": "diese Aufgaben blockieren sich gegenseitig; es gibt keine Ausführungsreihenfolge, bis eine Kante entfernt oder umgelenkt wird: {refs}",
+  "milestone.topology.empty.noEdges.title": "Keine bestätigten Abhängigkeiten",
+  "milestone.topology.empty.noEdges.body": "Bestätige Blockierungskanten zwischen Aufgaben, um hier einen nach Abhängigkeiten geordneten Ausführungsplan zu erhalten.",
+  "milestone.topology.empty.noneReady.title": "Nichts ist startbereit",
+  "milestone.topology.empty.noneReady.body": "Jede offene Aufgabe wartet auf einen unfertigen Blocker — löse zuerst die blockierte Kette oben.",
+  "milestone.topology.empty.done.title": "Alle Aufgaben abgeschlossen",
+  "milestone.topology.empty.done.body": "In diesem Meilenstein ist nichts mehr zu planen."
 }

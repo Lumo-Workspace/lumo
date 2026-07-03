@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "第一個任務開工的時間——由活動紀錄推導,非手填欄位",
   "milestone.riskQueue.aging.days": "{days} 天",
   "milestone.riskQueue.aging.hours": "{hours} 小時",
-  "milestone.riskQueue.aging.minutes": "{minutes} 分鐘"
+  "milestone.riskQueue.aging.minutes": "{minutes} 分鐘",
+  "milestone.topology.title": "建議下一批",
+  "milestone.topology.subtitle": "依相依拓撲排序 — 先做這些,解鎖最多後續工作",
+  "milestone.topology.batch.title": "可立即開工",
+  "milestone.topology.batch.count": "{count} 個就緒",
+  "milestone.topology.batch.stillBlocked": "{count} 個仍被阻塞",
+  "milestone.topology.batch.unblocks": "解鎖 {count} 個",
+  "milestone.topology.batch.critical": "關鍵路徑",
+  "milestone.topology.criticalPath.label": "關鍵路徑:",
+  "milestone.topology.criticalPath.depth": "({levels} 層 · {length} 個任務)",
+  "milestone.topology.cycle.title": "相依成環 —",
+  "milestone.topology.cycle.body": "這些任務互相阻塞,執行順序無解;需移除或調整其中一條相依邊:{refs}",
+  "milestone.topology.empty.noEdges.title": "尚無已確認的相依關係",
+  "milestone.topology.empty.noEdges.body": "確認任務間的阻塞關係後,這裡會給出依相依排序的執行計畫。",
+  "milestone.topology.empty.noneReady.title": "沒有可開工的任務",
+  "milestone.topology.empty.noneReady.body": "每個未完成任務都在等待前置任務 — 請先疏通上方的阻塞鏈。",
+  "milestone.topology.empty.done.title": "任務已全部完成",
+  "milestone.topology.empty.done.body": "此里程碑沒有待安排的任務了。"
 }

@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "पहला कार्य कब शुरू हुआ — गतिविधि से व्युत्पन्न, फ़ॉर्म फ़ील्ड नहीं",
   "milestone.riskQueue.aging.days": "{days} दिन",
   "milestone.riskQueue.aging.hours": "{hours} घंटे",
-  "milestone.riskQueue.aging.minutes": "{minutes} मिनट"
+  "milestone.riskQueue.aging.minutes": "{minutes} मिनट",
+  "milestone.topology.title": "आगे क्या करें",
+  "milestone.topology.subtitle": "निर्भरता क्रम में — इनसे शुरू करें ताकि सबसे ज़्यादा काम अनब्लॉक हो",
+  "milestone.topology.batch.title": "शुरू करने के लिए तैयार",
+  "milestone.topology.batch.count": "{count} तैयार",
+  "milestone.topology.batch.stillBlocked": "{count} अभी भी अवरुद्ध",
+  "milestone.topology.batch.unblocks": "{count} अनब्लॉक करता है",
+  "milestone.topology.batch.critical": "क्रिटिकल पाथ",
+  "milestone.topology.criticalPath.label": "क्रिटिकल पाथ:",
+  "milestone.topology.criticalPath.depth": "({levels} स्तर · {length} कार्य)",
+  "milestone.topology.cycle.title": "निर्भरता चक्र —",
+  "milestone.topology.cycle.body": "ये कार्य एक-दूसरे को अवरुद्ध करते हैं; जब तक कोई एक कड़ी हटाई या बदली नहीं जाती, निष्पादन क्रम तय नहीं हो सकता: {refs}",
+  "milestone.topology.empty.noEdges.title": "कोई पुष्ट निर्भरता नहीं",
+  "milestone.topology.empty.noEdges.body": "कार्यों के बीच अवरोधक कड़ियों की पुष्टि करें, ताकि यहाँ निर्भरता-क्रम में निष्पादन योजना मिले।",
+  "milestone.topology.empty.noneReady.title": "शुरू करने के लिए कुछ तैयार नहीं",
+  "milestone.topology.empty.noneReady.body": "हर खुला कार्य किसी अधूरे अवरोधक की प्रतीक्षा में है — पहले ऊपर की अवरुद्ध श्रृंखला सुलझाएँ।",
+  "milestone.topology.empty.done.title": "सभी कार्य पूर्ण",
+  "milestone.topology.empty.done.body": "इस माइलस्टोन में योजना के लिए कुछ शेष नहीं।"
 }

@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "Cuándo empezó la primera tarea — derivado de la actividad, no de un formulario",
   "milestone.riskQueue.aging.days": "{days} d",
   "milestone.riskQueue.aging.hours": "{hours} h",
-  "milestone.riskQueue.aging.minutes": "{minutes} min"
+  "milestone.riskQueue.aging.minutes": "{minutes} min",
+  "milestone.topology.title": "A continuación",
+  "milestone.topology.subtitle": "ordenado por dependencias — empieza por estas para desbloquear más trabajo",
+  "milestone.topology.batch.title": "Listas para empezar",
+  "milestone.topology.batch.count": "{count} listas",
+  "milestone.topology.batch.stillBlocked": "{count} aún bloqueadas",
+  "milestone.topology.batch.unblocks": "desbloquea {count}",
+  "milestone.topology.batch.critical": "ruta crítica",
+  "milestone.topology.criticalPath.label": "Ruta crítica:",
+  "milestone.topology.criticalPath.depth": "({levels} niveles · {length} tareas)",
+  "milestone.topology.cycle.title": "Ciclo de dependencias —",
+  "milestone.topology.cycle.body": "estas tareas se bloquean entre sí; no existe orden de ejecución hasta eliminar o redirigir una arista: {refs}",
+  "milestone.topology.empty.noEdges.title": "Sin dependencias confirmadas",
+  "milestone.topology.empty.noEdges.body": "Confirma vínculos de bloqueo entre tareas para obtener aquí un plan de ejecución ordenado por dependencias.",
+  "milestone.topology.empty.noneReady.title": "Nada listo para empezar",
+  "milestone.topology.empty.noneReady.body": "Cada tarea abierta espera a un bloqueador sin terminar — despeja primero la cadena bloqueada de arriba.",
+  "milestone.topology.empty.done.title": "Todas las tareas terminadas",
+  "milestone.topology.empty.done.body": "No queda nada por planificar en este hito."
 }

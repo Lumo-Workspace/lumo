@@ -2039,5 +2039,22 @@
   "milestone.hero.startDerivedHint": "When the first task started — derived from activity, not a form field",
   "milestone.riskQueue.aging.days": "{days}d",
   "milestone.riskQueue.aging.hours": "{hours}h",
-  "milestone.riskQueue.aging.minutes": "{minutes}m"
+  "milestone.riskQueue.aging.minutes": "{minutes}m",
+  "milestone.topology.title": "Next up",
+  "milestone.topology.subtitle": "dependency-ordered — start these to unblock the most work",
+  "milestone.topology.batch.title": "Ready to start",
+  "milestone.topology.batch.count": "{count} ready",
+  "milestone.topology.batch.stillBlocked": "{count} still blocked",
+  "milestone.topology.batch.unblocks": "unblocks {count}",
+  "milestone.topology.batch.critical": "critical path",
+  "milestone.topology.criticalPath.label": "Critical path:",
+  "milestone.topology.criticalPath.depth": "({levels} levels · {length} tasks)",
+  "milestone.topology.cycle.title": "Dependency cycle —",
+  "milestone.topology.cycle.body": "these tasks block each other, so no execution order exists until one edge is removed or re-pointed: {refs}",
+  "milestone.topology.empty.noEdges.title": "No confirmed dependencies",
+  "milestone.topology.empty.noEdges.body": "Confirm blocking edges between tasks to get a dependency-ordered execution plan here.",
+  "milestone.topology.empty.noneReady.title": "Nothing is ready to start",
+  "milestone.topology.empty.noneReady.body": "Every open task is waiting on an unfinished blocker — clear the blocked chain above first.",
+  "milestone.topology.empty.done.title": "All tasks finished",
+  "milestone.topology.empty.done.body": "Nothing left to schedule in this milestone."
 }
