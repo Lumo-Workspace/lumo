@@ -194,11 +194,16 @@ export function MilestoneRiskQueueSection({
                   <>
                     {c.high > 0 && (
                       <em className='not-italic font-semibold text-foreground'>
-                        HIGH {c.high} ·{' '}
+                        {t('milestone.riskQueue.crossings.high', {
+                          count: c.high,
+                        })}{' '}
+                        ·{' '}
                       </em>
                     )}
-                    {c.medium > 0 && `MED ${c.medium} · `}
-                    {c.low > 0 && `LOW ${c.low} · `}
+                    {c.medium > 0 &&
+                      `${t('milestone.riskQueue.crossings.medium', { count: c.medium })} · `}
+                    {c.low > 0 &&
+                      `${t('milestone.riskQueue.crossings.low', { count: c.low })} · `}
                     {t('milestone.riskQueue.crossings.panel')}
                   </>
                 )

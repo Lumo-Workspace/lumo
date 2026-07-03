@@ -10,6 +10,9 @@ const messages: Record<string, string> = {
   'milestone.costTrend.coverage': 'measured on {measured} of {total} tasks',
   'milestone.changeVolume.coverage':
     'synced on {measured} of {total} merged PRs',
+  'milestone.riskQueue.crossings.high': 'HIGH {count}',
+  'milestone.riskQueue.crossings.medium': 'MED {count}',
+  'milestone.riskQueue.crossings.low': 'LOW {count}',
 }
 
 jest.mock('react-intl', () => ({
@@ -27,6 +30,18 @@ jest.mock('react-intl', () => ({
     },
   }),
 }))
+
+// Recharts' ResponsiveContainer measures its parent (0×0 in jsdom) and renders
+// nothing — replace with a fixed-size passthrough so the burnup mounts.
+jest.mock('recharts', () => {
+  const Original = jest.requireActual('recharts')
+  const React = jest.requireActual('react')
+  return {
+    ...Original,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      React.cloneElement(children, { width: 500, height: 300 }),
+  }
+})
 
 import { render, screen } from '@testing-library/react'
 import { MilestoneOverviewTab } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneOverviewTab'
