@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "차단 체인, 판정 대기 중인 검토, 미처리 경계 위반, verify 에스컬레이션이 없습니다.",
   "milestone.costTrend.moreModels": "{count, plural, other {외 #개 모델}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total}은 모델에 귀속되지 않음",
-  "milestone.hero.startDerivedHint": "첫 작업이 시작된 시점 — 폼 입력이 아닌 활동에서 도출"
+  "milestone.hero.startDerivedHint": "첫 작업이 시작된 시점 — 폼 입력이 아닌 활동에서 도출",
+  "milestone.riskQueue.aging.days": "{days}일",
+  "milestone.riskQueue.aging.hours": "{hours}시간",
+  "milestone.riskQueue.aging.minutes": "{minutes}분"
 }

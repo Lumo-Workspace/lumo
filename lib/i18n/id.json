@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "Tidak ada rantai terblokir, tinjauan menunggu putusan, pelanggaran batas terbuka, atau eskalasi verify.",
   "milestone.costTrend.moreModels": "{count, plural, other {# model lainnya}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} tidak teratribusi ke model mana pun",
-  "milestone.hero.startDerivedHint": "Saat tugas pertama dimulai — diturunkan dari aktivitas, bukan isian formulir"
+  "milestone.hero.startDerivedHint": "Saat tugas pertama dimulai — diturunkan dari aktivitas, bukan isian formulir",
+  "milestone.riskQueue.aging.days": "{days} hari",
+  "milestone.riskQueue.aging.hours": "{hours} jam",
+  "milestone.riskQueue.aging.minutes": "{minutes} menit"
 }

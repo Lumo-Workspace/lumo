@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "Không có chuỗi bị chặn, đánh giá đang chờ phán quyết, vi phạm ranh giới chưa xử lý, hay leo thang verify nào.",
   "milestone.costTrend.moreModels": "{count, plural, other {# mô hình khác}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} chưa quy về mô hình nào",
-  "milestone.hero.startDerivedHint": "Thời điểm nhiệm vụ đầu tiên bắt đầu — suy ra từ hoạt động, không phải trường biểu mẫu"
+  "milestone.hero.startDerivedHint": "Thời điểm nhiệm vụ đầu tiên bắt đầu — suy ra từ hoạt động, không phải trường biểu mẫu",
+  "milestone.riskQueue.aging.days": "{days} ngày",
+  "milestone.riskQueue.aging.hours": "{hours} giờ",
+  "milestone.riskQueue.aging.minutes": "{minutes} phút"
 }

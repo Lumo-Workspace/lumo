@@ -6,13 +6,6 @@ import type { ApiMilestone } from '@/lib/api-client'
 
 type RiskQueue = NonNullable<ApiMilestone['riskQueue']>
 
-/** Server-computed aging seconds → compact "2.4d" / "8h" / "5m" (render stays pure — no Date.now here). */
-function fmtAging(sec: number): string {
-  if (sec >= 86400) return `${(sec / 86400).toFixed(1)}d`
-  if (sec >= 3600) return `${Math.round(sec / 3600)}h`
-  return `${Math.max(1, Math.round(sec / 60))}m`
-}
-
 const STATUS_LABEL_ID: Record<string, string> = {
   TODO: 'status.todo',
   IN_PROGRESS: 'status.inProgress',
@@ -47,6 +40,21 @@ export function MilestoneRiskQueueSection({
   const statusLabel = (s: string) => {
     const id = STATUS_LABEL_ID[s]
     return id ? t(id) : s
+  }
+  // Server-computed aging seconds → localized "2.4 天" / "8h" / "5 min"
+  // (units are i18n keys; render stays pure — no Date.now here).
+  const agingLabel = (sec: number): string => {
+    if (sec >= 86400)
+      return t('milestone.riskQueue.aging.days', {
+        days: (sec / 86400).toFixed(1),
+      })
+    if (sec >= 3600)
+      return t('milestone.riskQueue.aging.hours', {
+        hours: Math.round(sec / 3600),
+      })
+    return t('milestone.riskQueue.aging.minutes', {
+      minutes: Math.max(1, Math.round(sec / 60)),
+    })
   }
   const crossingsTotal = rq.crossings.known
     ? rq.crossings.bySeverity.high +
@@ -172,7 +180,7 @@ export function MilestoneRiskQueueSection({
                   a.agingSec === null
                     ? t('milestone.riskQueue.review.agingUnknown')
                     : t('milestone.riskQueue.review.waiting', {
-                        duration: fmtAging(a.agingSec),
+                        duration: agingLabel(a.agingSec),
                       })
                 )
               )

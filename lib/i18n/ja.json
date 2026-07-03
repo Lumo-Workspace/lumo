@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "ブロック連鎖、判定待ちレビュー、未処理の越境、verify エスカレーションのいずれもありません。",
   "milestone.costTrend.moreModels": "{count, plural, other {他 # モデル}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} はモデルに帰属されていません",
-  "milestone.hero.startDerivedHint": "最初のタスクが開始された時点 — フォーム入力ではなくアクティビティから導出"
+  "milestone.hero.startDerivedHint": "最初のタスクが開始された時点 — フォーム入力ではなくアクティビティから導出",
+  "milestone.riskQueue.aging.days": "{days}日",
+  "milestone.riskQueue.aging.hours": "{hours}時間",
+  "milestone.riskQueue.aging.minutes": "{minutes}分"
 }
