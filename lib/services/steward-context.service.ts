@@ -21,20 +21,38 @@ const MILESTONE_MEMORY_BUDGET_TOKENS = 1000
  * EARLIER milestones learned, not this milestone's own close retro), as are
  * every other project's rows (the repository query is project-scoped).
  */
+/** LUM-648: a prior-milestone memory actually injected (post-budget) into a
+ *  steward session — the birth record of a cross-milestone learning edge. */
+export interface InjectedMilestoneMemory {
+  memoryId: string
+  /** The milestone this memory was distilled from (null if it was deleted). */
+  sourceMilestoneId: string | null
+}
+
+export interface MilestoneMemorySection {
+  section: string
+  count: number
+  /** LUM-648: the post-budget injected set, for lineage edge birth. */
+  memories: InjectedMilestoneMemory[]
+}
+
 export const stewardContextService = {
   async buildMilestoneMemorySection(
     milestoneId: string
-  ): Promise<{ section: string; count: number }> {
+  ): Promise<MilestoneMemorySection> {
     const milestone = await milestoneRepository.findById(milestoneId)
-    if (!milestone) return { section: '', count: 0 }
+    if (!milestone) return { section: '', count: 0, memories: [] }
 
     const rows =
       await memoryRepository.findActiveMilestoneScopeMemoriesByProject(
         milestone.projectId,
         milestoneId
       )
-    if (rows.length === 0) return { section: '', count: 0 }
+    if (rows.length === 0) return { section: '', count: 0, memories: [] }
 
+    // LUM-648: keep each row's source-milestone pointer so the budgeted set
+    // can be turned into learning edges after rendering.
+    const sourceById = new Map(rows.map(m => [m.id, m.milestoneId ?? null]))
     const renderable: RenderableMemory[] = rows.map(m => ({
       id: m.id,
       scope: 'MILESTONE',
@@ -49,7 +67,15 @@ export const stewardContextService = {
       MILESTONE_MEMORY_BUDGET_TOKENS
     )
     const wrapped = wrapUntrustedMemory(renderMemorySection(budgeted))
-    if (!wrapped) return { section: '', count: 0 }
+    if (!wrapped) return { section: '', count: 0, memories: [] }
+
+    // LUM-648: only rows that survived the token budget were actually injected
+    // — mirrors the flywheel's "实际注入" 口径 (overflow-dropped rows are not
+    // counted as an impression).
+    const memories: InjectedMilestoneMemory[] = budgeted.map(m => ({
+      memoryId: m.id,
+      sourceMilestoneId: sourceById.get(m.id) ?? null,
+    }))
 
     // Trusted framing OUTSIDE the untrusted boundary (mirrors renderLayer2ReviewSection).
     const section = [
@@ -61,6 +87,6 @@ export const stewardContextService = {
       '',
       wrapped,
     ].join('\n')
-    return { section, count: budgeted.length }
+    return { section, count: budgeted.length, memories }
   },
 }

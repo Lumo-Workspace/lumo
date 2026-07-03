@@ -129,6 +129,9 @@ export const memoryRepository = {
         content: true,
         createdAt: true,
         createdByMemberId: true,
+        // LUM-648: the milestone this row was distilled from — the source node
+        // of a cross-milestone learning-migration edge.
+        milestoneId: true,
       },
     })
   },

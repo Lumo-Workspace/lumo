@@ -283,6 +283,7 @@ model Workspace {
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
+  milestoneMemoryEdges    MilestoneMemoryEdge[]
   droppedFragments        DroppedFragment[]
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
@@ -726,6 +727,11 @@ model Milestone {
   exitCriteria MilestoneExitCriterion[]
   // LUM-647: MILESTONE-scope memories distilled from this milestone's close retro.
   memories Memory[]
+  /// LUM-648: cross-milestone learning-migration edges. `asSource` = this
+  /// milestone's distilled memory consumed elsewhere; `asConsumer` = prior
+  /// milestones' memory this milestone's steward sessions consumed.
+  memoryEdgesAsSource   MilestoneMemoryEdge[] @relation("MilestoneMemoryEdgeSource")
+  memoryEdgesAsConsumer MilestoneMemoryEdge[] @relation("MilestoneMemoryEdgeConsumer")
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -1911,6 +1917,7 @@ model Session {
   events           HookEvent[]
   memories         Memory[]
   lineageEdges     LineageEdge[]
+  milestoneMemoryEdges MilestoneMemoryEdge[]
   droppedFragments DroppedFragment[]
 
   @@index([workspaceId, lastActivityAt])
@@ -2025,6 +2032,10 @@ model Memory {
   milestone       Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
   createdByMember WorkspaceMember? @relation("MemoryCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+
+  /// LUM-648: cross-milestone learning-migration usage edges — one per steward
+  /// session this MILESTONE-scope memory was injected into.
+  milestoneMemoryEdges MilestoneMemoryEdge[]
 
   @@index([projectId, scope, status])
   @@index([taskId, status])
@@ -2426,6 +2437,50 @@ model LineageEdge {
   @@index([taskId])
   @@index([workspaceId])
   @@map("lineage_edges")
+}
+
+/// LUM-648: cross-milestone learning-migration edge. The task-flywheel's
+/// LineageEdge requires a non-null taskId, but a milestone STEWARD session is
+/// bound to a milestone, not a task — so it cannot carry a LineageEdge. This
+/// dedicated table records the same used=true/false/null usage-vote substrate
+/// for the one injection path a steward session has: a MILESTONE-scope memory
+/// (distilled from an earlier milestone's close retro, LUM-647) injected into a
+/// later milestone's steward session. Isolated from the task flywheel by design
+/// (no reader assumes taskId/outcome here). One row per (steward session ×
+/// injected memory); the usage vote is stamped by the audit at the CONSUMER
+/// milestone's close, reusing judgeFragmentUsage.
+model MilestoneMemoryEdge {
+  id          String @id @default(cuid())
+  workspaceId String
+  /// The injected MILESTONE-scope memory.
+  memoryId    String
+  /// The milestone whose close retro distilled the memory (= Memory.milestoneId
+  /// at injection time). Nullable + SetNull so a deleted source milestone leaves
+  /// the usage record intact (mirrors Memory.milestoneId).
+  sourceMilestoneId String?
+  /// The later milestone whose steward session consumed the memory.
+  consumerMilestoneId String
+  /// The steward session the memory was injected into.
+  sessionId   String
+  injectedAt  DateTime @default(now())
+  /// Usage vote (mirrors LineageEdge.used): null = not yet audited / judge
+  /// abstained, true = judge found concrete evidence of use, false = judged
+  /// unused. usedAt also marks "has this session been audited?" (idempotency).
+  used        Boolean?
+  usedAt      DateTime?
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memory    Memory     @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  source    Milestone? @relation("MilestoneMemoryEdgeSource", fields: [sourceMilestoneId], references: [id], onDelete: SetNull)
+  consumer  Milestone  @relation("MilestoneMemoryEdgeConsumer", fields: [consumerMilestoneId], references: [id], onDelete: Cascade)
+  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, memoryId])
+  @@index([consumerMilestoneId])
+  @@index([memoryId])
+  @@index([workspaceId])
+  @@map("milestone_memory_edges")
 }
 
 /// LUM-522: a PROJECT-memory fragment the relevance gate (LUM-486) dropped

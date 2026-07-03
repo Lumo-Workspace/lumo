@@ -52,6 +52,21 @@ export interface MilestoneShowData {
         unsprinted: number
       }
     | undefined
+  /**
+   * LUM-648: cross-milestone learning migration — how much of the learning
+   * distilled from earlier milestones this milestone's steward sessions
+   * actually used. `rate` is null when too few edges are judged (insufficient).
+   */
+  crossMilestoneLearning?:
+    | {
+        injected: number
+        judged: number
+        judgedUsed: number
+        abstained: number
+        sourceMilestones: number
+        rate: number | null
+      }
+    | undefined
 }
 
 const HEALTH_LABEL: Record<MilestoneHealth, string> = {
@@ -95,6 +110,30 @@ function sprintCoverageLines(
   return ['', 'Sprint coverage:', ...rows]
 }
 
+/**
+ * LUM-648: the cross-milestone learning-migration read-out. Omitted entirely
+ * when this milestone's stewards were injected no prior learning (injected=0) —
+ * that's "nothing to migrate", not a 0% usage rate. When judged samples are too
+ * thin the rate reads `insufficient` rather than a fabricated percentage.
+ */
+function crossMilestoneLearningLines(
+  learning: MilestoneShowData['crossMilestoneLearning']
+): string[] {
+  if (!learning || learning.injected === 0) return []
+  const { injected, judged, judgedUsed, sourceMilestones, rate } = learning
+  const srcLabel = `${sourceMilestones} prior milestone${sourceMilestones === 1 ? '' : 's'}`
+  const rateLabel =
+    rate === null
+      ? `insufficient (judged ${judged}, need ≥3)`
+      : `${Math.round(rate * 100)}% (judged-used ${judgedUsed}/${judged})`
+  return [
+    '',
+    'Cross-milestone learning:',
+    `  Injected: ${injected} prior learning${injected === 1 ? '' : 's'} (from ${srcLabel})`,
+    `  Usage rate: ${rateLabel}`,
+  ]
+}
+
 export function formatMilestoneShow(
   m: MilestoneShowData,
   tasks: TaskRow[]
@@ -124,6 +163,7 @@ export function formatMilestoneShow(
     `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})`,
   ]
   lines.push(...sprintCoverageLines(m.sprintCoverage))
+  lines.push(...crossMilestoneLearningLines(m.crossMilestoneLearning))
   if (tasks.length > 0) {
     lines.push('', formatTaskListTable(tasks))
   }
@@ -201,6 +241,7 @@ export async function milestoneShow(
       health?: MilestoneHealth | null
       staleness?: MilestoneShowData['staleness']
       sprintCoverage?: MilestoneShowData['sprintCoverage']
+      crossMilestoneLearning?: MilestoneShowData['crossMilestoneLearning']
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
@@ -235,6 +276,7 @@ export async function milestoneShow(
         health: milestone.health,
         staleness: milestone.staleness,
         sprintCoverage: milestone.sprintCoverage,
+        crossMilestoneLearning: milestone.crossMilestoneLearning,
       },
       tasks
     ) + '\n'

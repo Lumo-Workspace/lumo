@@ -4,6 +4,7 @@ import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
+import { milestoneLearningService } from '@/lib/services/milestone-learning.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneSummaryRepository } from '@/lib/repositories/milestone-summary.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       riskQueue,
       topology,
       weightedProgress,
+      crossMilestoneLearning,
     ] = await Promise.all([
       milestoneService.getSprintCoverageForTeam(milestoneId, teamId),
       milestoneService.getOutcomeForMilestone(milestoneId),
@@ -56,6 +58,15 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestoneService.getRiskQueueForMilestone(milestoneId),
       milestoneService.getTopologyForMilestone(milestoneId),
       milestoneService.getWeightedProgressForMilestone(milestoneId),
+      // LUM-648: cross-milestone learning-migration usage read-out. Fail-soft
+      // — a secondary analytics read must never 500 the whole milestone detail;
+      // on error it degrades to null (the CLI omits the section).
+      milestoneLearningService
+        .getCrossMilestoneUsage(milestoneId)
+        .catch(err => {
+          console.error('cross-milestone learning read failed:', err)
+          return null
+        }),
     ])
     return NextResponse.json({
       milestone: {
@@ -76,6 +87,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         riskQueue,
         topology,
         weightedProgress,
+        crossMilestoneLearning,
       },
     })
   } catch (error) {

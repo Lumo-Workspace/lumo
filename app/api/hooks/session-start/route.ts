@@ -156,6 +156,31 @@ export async function POST(request: Request) {
                 steward.milestoneId
               )
             stewardMemorySection = built.section
+
+            // LUM-648: birth one cross-milestone learning edge per injected
+            // prior-milestone memory (resume path — first-attach edges ride the
+            // bind-milestone response). Fire-and-forget; idempotent via the
+            // [sessionId, memoryId] unique index, so re-injection on every
+            // resume never double-counts.
+            if (built.memories.length > 0) {
+              const { milestoneMemoryEdgeRepository } =
+                await import('@/lib/repositories/milestone-memory-edge.repository')
+              waitUntil(
+                milestoneMemoryEdgeRepository
+                  .recordInjection({
+                    workspaceId: ctx.workspaceId,
+                    consumerMilestoneId: steward.milestoneId,
+                    sessionId,
+                    rows: built.memories,
+                  })
+                  .catch(error =>
+                    console.error(
+                      'session-start steward memory edge birth error:',
+                      error
+                    )
+                  )
+              )
+            }
           }
         } catch (error) {
           console.error('session-start steward memory injection error:', error)
