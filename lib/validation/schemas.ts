@@ -648,6 +648,10 @@ export const updateMilestoneSchema = z.object({
   status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']).optional(),
   startDate: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),
+  // LUM-643: optional note accompanying a `?force=1` close-gate override
+  // (human/Clerk path only — ignored otherwise). Stamped on the milestone as
+  // completedOverrideNote.
+  overrideNote: z.string().trim().min(1).max(2000).optional(),
 })
 
 export const listMilestonesQuerySchema = z.object({
