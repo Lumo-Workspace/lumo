@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Bằng chứng",
   "milestone.taskEvidence.groupNone": "Không nhóm",
   "milestone.costTrend.moreModels": "{count, plural, other {# mô hình khác}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} chưa quy về mô hình nào"
+  "milestone.costTrend.modelUnattributed": "{total} chưa quy về mô hình nào",
+  "milestone.hero.startDerivedHint": "Thời điểm nhiệm vụ đầu tiên bắt đầu — suy ra từ hoạt động, không phải trường biểu mẫu"
 }

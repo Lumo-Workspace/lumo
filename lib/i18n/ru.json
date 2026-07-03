@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Свидетельства",
   "milestone.taskEvidence.groupNone": "Без группировки",
   "milestone.costTrend.moreModels": "{count, plural, one {ещё # модель} few {ещё # модели} many {ещё # моделей} other {ещё # модели}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} не отнесено ни к одной модели"
+  "milestone.costTrend.modelUnattributed": "{total} не отнесено ни к одной модели",
+  "milestone.hero.startDerivedHint": "Когда началась первая задача — выведено из активности, а не из поля формы"
 }

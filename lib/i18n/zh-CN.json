@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "证据",
   "milestone.taskEvidence.groupNone": "不分组",
   "milestone.costTrend.moreModels": "{count, plural, other {另 # 个模型}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} 未归属到任何模型"
+  "milestone.costTrend.modelUnattributed": "{total} 未归属到任何模型",
+  "milestone.hero.startDerivedHint": "第一个任务开工的时间——由活动记录派生,非手填字段"
 }

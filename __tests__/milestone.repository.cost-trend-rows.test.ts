@@ -40,7 +40,14 @@ describe('milestoneRepository.costTrendRows', () => {
 
     expect(taskFindMany).toHaveBeenCalledWith({
       where: { milestoneId: 'm-1' },
-      select: { id: true, status: true, createdAt: true, sprintId: true },
+      // workStartedAt rides the same fetch (LUM-636 derived start date).
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        sprintId: true,
+        workStartedAt: true,
+      },
     })
     expect(activityFindMany).toHaveBeenCalledWith({
       where: { taskId: { in: ['t1'] }, type: 'STATUS_CHANGED' },

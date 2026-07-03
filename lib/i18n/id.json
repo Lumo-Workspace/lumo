@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Bukti",
   "milestone.taskEvidence.groupNone": "Tanpa pengelompokan",
   "milestone.costTrend.moreModels": "{count, plural, other {# model lainnya}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} tidak teratribusi ke model mana pun"
+  "milestone.costTrend.modelUnattributed": "{total} tidak teratribusi ke model mana pun",
+  "milestone.hero.startDerivedHint": "Saat tugas pertama dimulai — diturunkan dari aktivitas, bukan isian formulir"
 }

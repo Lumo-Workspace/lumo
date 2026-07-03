@@ -74,6 +74,13 @@ export interface ApiMilestone {
    */
   summaryTldr?: string | null
   /**
+   * LUM-636 derived start: the earliest first-exit-from-TODO across member
+   * tasks (min `Task.workStartedAt`). Server-enriched on detail responses.
+   * Activity truth for the hero's Start date when no explicit `startDate`
+   * was set; `null` until some member task actually starts.
+   */
+  derivedStartDate?: string | null
+  /**
    * LUM-627 cost rollup over member tasks, same-source with the task-level
    * LUM-560 cost. Server-enriched on the detail response only. Fail-closed:
    * `tokenCost: null` = no member task has measured usage (没测到 ≠ 花了0);

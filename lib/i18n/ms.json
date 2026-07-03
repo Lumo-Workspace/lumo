@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Bukti",
   "milestone.taskEvidence.groupNone": "Tanpa kumpulan",
   "milestone.costTrend.moreModels": "{count, plural, other {# model lagi}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} tidak dikaitkan dengan mana-mana model"
+  "milestone.costTrend.modelUnattributed": "{total} tidak dikaitkan dengan mana-mana model",
+  "milestone.hero.startDerivedHint": "Bila tugas pertama bermula — diterbitkan daripada aktiviti, bukan medan borang"
 }

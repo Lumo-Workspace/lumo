@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "साक्ष्य",
   "milestone.taskEvidence.groupNone": "बिना समूह",
   "milestone.costTrend.moreModels": "{count, plural, one {# और मॉडल} other {# और मॉडल}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} किसी मॉडल से संबद्ध नहीं"
+  "milestone.costTrend.modelUnattributed": "{total} किसी मॉडल से संबद्ध नहीं",
+  "milestone.hero.startDerivedHint": "पहला कार्य कब शुरू हुआ — गतिविधि से व्युत्पन्न, फ़ॉर्म फ़ील्ड नहीं"
 }

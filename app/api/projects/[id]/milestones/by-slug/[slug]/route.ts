@@ -69,6 +69,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         summaryTldr: summary?.tldr ?? null,
         costRollup: costTrend.costRollup,
         burnup: costTrend.burnup,
+        derivedStartDate: costTrend.derivedStartDate,
         segments,
         deliveryStats,
         memberDelivery,
