@@ -2063,9 +2063,9 @@
   "milestone.riskQueue.budget.title": "Бюджет токенов превышен",
   "milestone.riskQueue.budget.count": "расход {burn} из {budget} ({percent}%)",
   "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет.",
-  "baseline.none": "[TODO:ru] No baseline yet",
-  "baseline.insufficient": "[TODO:ru] Baseline sample too small",
-  "baseline.median": "[TODO:ru] median",
-  "baseline.history": "[TODO:ru] history avg",
-  "baseline.base": "[TODO:ru] base"
+  "baseline.none": "Базового значения пока нет",
+  "baseline.insufficient": "Недостаточно данных для базового значения",
+  "baseline.median": "медиана",
+  "baseline.history": "среднее за период",
+  "baseline.base": "база"
 }

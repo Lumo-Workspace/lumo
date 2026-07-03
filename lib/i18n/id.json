@@ -2063,9 +2063,9 @@
   "milestone.riskQueue.budget.title": "Anggaran token terlampaui",
   "milestone.riskQueue.budget.count": "pemakaian {burn} dari {budget} ({percent}%)",
   "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran.",
-  "baseline.none": "[TODO:id] No baseline yet",
-  "baseline.insufficient": "[TODO:id] Baseline sample too small",
-  "baseline.median": "[TODO:id] median",
-  "baseline.history": "[TODO:id] history avg",
-  "baseline.base": "[TODO:id] base"
+  "baseline.none": "Belum ada garis dasar",
+  "baseline.insufficient": "Sampel garis dasar terlalu sedikit",
+  "baseline.median": "median",
+  "baseline.history": "rata-rata historis",
+  "baseline.base": "dasar"
 }

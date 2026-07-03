@@ -2063,9 +2063,9 @@
   "milestone.riskQueue.budget.title": "token 預算超限",
   "milestone.riskQueue.budget.count": "已耗 {burn} / 預算 {budget}（{percent}%）",
   "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。",
-  "baseline.none": "[TODO:zh-TW] No baseline yet",
-  "baseline.insufficient": "[TODO:zh-TW] Baseline sample too small",
-  "baseline.median": "[TODO:zh-TW] median",
-  "baseline.history": "[TODO:zh-TW] history avg",
-  "baseline.base": "[TODO:zh-TW] base"
+  "baseline.none": "尚無基準線",
+  "baseline.insufficient": "基準線樣本不足",
+  "baseline.median": "中位數",
+  "baseline.history": "歷史均值",
+  "baseline.base": "基準"
 }

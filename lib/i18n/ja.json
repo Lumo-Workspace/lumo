@@ -2063,9 +2063,9 @@
   "milestone.riskQueue.budget.title": "トークン予算を超過",
   "milestone.riskQueue.budget.count": "消費 {burn} / 予算 {budget}({percent}%)",
   "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。",
-  "baseline.none": "[TODO:ja] No baseline yet",
-  "baseline.insufficient": "[TODO:ja] Baseline sample too small",
-  "baseline.median": "[TODO:ja] median",
-  "baseline.history": "[TODO:ja] history avg",
-  "baseline.base": "[TODO:ja] base"
+  "baseline.none": "基準値なし",
+  "baseline.insufficient": "基準値のサンプルが不足",
+  "baseline.median": "中央値",
+  "baseline.history": "過去平均",
+  "baseline.base": "基準"
 }

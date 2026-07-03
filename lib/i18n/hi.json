@@ -2063,9 +2063,9 @@
   "milestone.riskQueue.budget.title": "टोकन बजट पार हो गया",
   "milestone.riskQueue.budget.count": "{budget} में से {burn} खपत ({percent}%)",
   "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।",
-  "baseline.none": "[TODO:hi] No baseline yet",
-  "baseline.insufficient": "[TODO:hi] Baseline sample too small",
-  "baseline.median": "[TODO:hi] median",
-  "baseline.history": "[TODO:hi] history avg",
-  "baseline.base": "[TODO:hi] base"
+  "baseline.none": "अभी तक कोई आधार रेखा नहीं",
+  "baseline.insufficient": "आधार रेखा हेतु नमूना अपर्याप्त",
+  "baseline.median": "माध्यिका",
+  "baseline.history": "इतिहास औसत",
+  "baseline.base": "आधार"
 }
