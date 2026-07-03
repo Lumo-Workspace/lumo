@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "âm thầm sửa công việc đã nộp (không trả lại)",
   "boundary.category.PROJECT_RULE_VIOLATION": "Vi phạm quy tắc dự án",
   "boundary.category.POLICY_WEAKENING": "Làm yếu chính sách",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Sản phẩm triển khai từ phiên steward",
   "boundary.advisoryBadge": "Khuyến cáo",
   "boundary.severity.high": "cao",
   "boundary.severity.medium": "trung bình",

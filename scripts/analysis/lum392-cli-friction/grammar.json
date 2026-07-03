@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.48.0",
+  "cliVersion": "1.49.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -85,13 +85,7 @@
       "description": "Inspect and annotate boundary crossings"
     },
     "crossing explain": {
-      "arguments": [
-        {
-          "name": "id",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
       "flags": {
         "--note": {
           "long": "--note",
@@ -112,13 +106,7 @@
       "description": "Manage Lumo documents"
     },
     "doc append": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--content": {
           "long": "--content",
@@ -158,29 +146,15 @@
     },
     "doc bind": {
       "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "doc", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
       "description": "Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it."
     },
     "doc create": {
-      "arguments": [
-        {
-          "name": "title",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "title", "required": false, "variadic": false }],
       "flags": {
         "--content": {
           "long": "--content",
@@ -251,13 +225,7 @@
       "description": "Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc."
     },
     "doc delete": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--yes": {
           "long": "--yes",
@@ -272,13 +240,7 @@
       "description": "Delete a document (requires --yes)"
     },
     "doc diff": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--file": {
           "long": "--file",
@@ -293,13 +255,7 @@
       "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
     },
     "doc import-gdoc": {
-      "arguments": [
-        {
-          "name": "url",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "url", "required": true, "variadic": false }],
       "flags": {
         "--scope": {
           "long": "--scope",
@@ -369,13 +325,7 @@
       "description": "List documents visible to the current user"
     },
     "doc move": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--parent": {
           "long": "--parent",
@@ -398,13 +348,7 @@
       "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only."
     },
     "doc patch": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--allow-shrink": {
           "long": "--allow-shrink",
@@ -451,13 +395,7 @@
       "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed."
     },
     "doc rebuild-source": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--allow-shrink": {
           "long": "--allow-shrink",
@@ -489,16 +427,8 @@
     },
     "doc share": {
       "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "member",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "doc", "required": true, "variadic": false },
+        { "name": "member", "required": true, "variadic": false }
       ],
       "flags": {
         "--role": {
@@ -514,25 +444,13 @@
       "description": "Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts \"me\", an email, or a display name."
     },
     "doc share-list": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>."
     },
     "doc show": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--raw": {
           "long": "--raw",
@@ -555,29 +473,15 @@
       "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr)."
     },
     "doc sync": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "Re-sync a Google-imported doc (overwrites the Lumo body)"
     },
     "doc unbind": {
       "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "doc", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -585,29 +489,15 @@
     },
     "doc unshare": {
       "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "member",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "doc", "required": true, "variadic": false },
+        { "name": "member", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
       "description": "Remove a member from a document's share list. Idempotent — prints \"Not shared with …\" if no row exists."
     },
     "doc update": {
-      "arguments": [
-        {
-          "name": "doc",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
         "--add-tag": {
           "long": "--add-tag",
@@ -724,13 +614,7 @@
       "description": "Mechanical fidelity read-outs (LUM-610)"
     },
     "fidelity show": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
         "--json": {
           "long": "--json",
@@ -1133,11 +1017,7 @@
     },
     "memory fold": {
       "arguments": [
-        {
-          "name": "project-ref",
-          "required": false,
-          "variadic": false
-        }
+        { "name": "project-ref", "required": false, "variadic": false }
       ],
       "flags": {
         "--dry-run": {
@@ -1154,11 +1034,7 @@
     },
     "memory promote": {
       "arguments": [
-        {
-          "name": "memoryId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "memoryId", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -1197,11 +1073,7 @@
     },
     "memory rm": {
       "arguments": [
-        {
-          "name": "memoryId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "memoryId", "required": true, "variadic": false }
       ],
       "flags": {
         "--yes": {
@@ -1218,11 +1090,7 @@
     },
     "memory show": {
       "arguments": [
-        {
-          "name": "memoryId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "memoryId", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -1283,16 +1151,8 @@
     },
     "milestone add": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "tasks",
-          "required": true,
-          "variadic": true
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "tasks", "required": true, "variadic": true }
       ],
       "flags": {
         "--project": {
@@ -1309,11 +1169,7 @@
     },
     "milestone archive": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--project": {
@@ -1329,13 +1185,7 @@
       "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name."
     },
     "milestone create": {
-      "arguments": [
-        {
-          "name": "name",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "name", "required": true, "variadic": false }],
       "flags": {
         "--description": {
           "long": "--description",
@@ -1375,11 +1225,7 @@
     },
     "milestone delete": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--project": {
@@ -1442,13 +1288,7 @@
       "description": "List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown."
     },
     "milestone move": {
-      "arguments": [
-        {
-          "name": "ref",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "ref", "required": true, "variadic": false }],
       "flags": {
         "--after": {
           "long": "--after",
@@ -1480,16 +1320,8 @@
     },
     "milestone remove": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "tasks",
-          "required": true,
-          "variadic": true
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "tasks", "required": true, "variadic": true }
       ],
       "flags": {
         "--project": {
@@ -1505,13 +1337,7 @@
       "description": "Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID."
     },
     "milestone reorder": {
-      "arguments": [
-        {
-          "name": "refs",
-          "required": true,
-          "variadic": true
-        }
-      ],
+      "arguments": [{ "name": "refs", "required": true, "variadic": true }],
       "flags": {
         "--project": {
           "long": "--project",
@@ -1527,11 +1353,7 @@
     },
     "milestone show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--project": {
@@ -1548,11 +1370,7 @@
     },
     "milestone summary": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--project": {
@@ -1577,11 +1395,7 @@
     },
     "milestone unarchive": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--project": {
@@ -1598,11 +1412,7 @@
     },
     "milestone update": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--description": {
@@ -1702,13 +1512,7 @@
       "description": "Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read \"insufficient\" and the high-vs-low comparison stays \"inconclusive\" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied)."
     },
     "outcome record": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
         "--kind": {
           "long": "--kind",
@@ -1746,13 +1550,7 @@
       "description": "Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no \"mark satisfied\" counterpart — the well only asserts rejection."
     },
     "outcome show": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
@@ -1777,11 +1575,7 @@
     },
     "project memory add": {
       "arguments": [
-        {
-          "name": "project",
-          "required": false,
-          "variadic": false
-        }
+        { "name": "project", "required": false, "variadic": false }
       ],
       "flags": {
         "--agent": {
@@ -1901,11 +1695,7 @@
     },
     "project memory list": {
       "arguments": [
-        {
-          "name": "project",
-          "required": false,
-          "variadic": false
-        }
+        { "name": "project", "required": false, "variadic": false }
       ],
       "flags": {
         "--category": {
@@ -1936,21 +1726,26 @@
     },
     "session attach": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--steward": {
+          "long": "--steward",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings."
+        }
+      },
       "hasSubcommands": false,
-      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. The binding is a lifetime lock: re-attaching to the same task is a no-op, attaching to a different task is refused — start a new session for a different task."
+      "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead."
     },
     "session status": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
-      "description": "Show the task currently bound to this Claude Code session (or \"no task\" if none)."
+      "description": "Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing."
     },
     "setup": {
       "arguments": [],
@@ -1999,16 +1794,8 @@
     },
     "sprint add": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false }
       ],
       "flags": {
         "--team": {
@@ -2025,11 +1812,7 @@
     },
     "sprint close": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--backlog-all": {
@@ -2109,11 +1892,7 @@
     },
     "sprint delete": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--team": {
@@ -2169,16 +1948,8 @@
     },
     "sprint remove": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "task", "required": true, "variadic": false }
       ],
       "flags": {
         "--team": {
@@ -2195,11 +1966,7 @@
     },
     "sprint show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--team": {
@@ -2216,11 +1983,7 @@
     },
     "sprint start": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--team": {
@@ -2237,11 +2000,7 @@
     },
     "sprint summary": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--retry": {
@@ -2266,11 +2025,7 @@
     },
     "sprint update": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--end": {
@@ -2322,13 +2077,7 @@
       "description": "Record spec-engineering artifacts (spec / plan / design …) on a task"
     },
     "task artifact add": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
         "--agent": {
           "long": "--agent",
@@ -2382,29 +2131,15 @@
       "description": "Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content."
     },
     "task artifact list": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "List artifacts attached to a task, in order"
     },
     "task artifact rm": {
       "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "artifact-id",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "task", "required": true, "variadic": false },
+        { "name": "artifact-id", "required": true, "variadic": false }
       ],
       "flags": {
         "--yes": {
@@ -2421,16 +2156,8 @@
     },
     "task artifact show": {
       "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "artifact-id",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "task", "required": true, "variadic": false },
+        { "name": "artifact-id", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2438,16 +2165,8 @@
     },
     "task artifact update": {
       "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "artifact-id",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "task", "required": true, "variadic": false },
+        { "name": "artifact-id", "required": true, "variadic": false }
       ],
       "flags": {
         "--agent": {
@@ -2495,16 +2214,8 @@
     },
     "task comment": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "body",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "body", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2518,11 +2229,7 @@
     },
     "task comments list": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--full": {
@@ -2539,24 +2246,14 @@
     },
     "task context": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
       "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup."
     },
     "task create": {
-      "arguments": [
-        {
-          "name": "title",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "title", "required": true, "variadic": false }],
       "flags": {
         "--assignee": {
           "long": "--assignee",
@@ -2649,25 +2346,13 @@
       "description": "Acceptance criteria — the task’s verification contract (LUM-342)"
     },
     "task criteria list": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "List a task’s acceptance criteria (id, type, provenance, checkpointer)"
     },
     "task criteria set": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
         "--cause": {
           "long": "--cause",
@@ -2711,11 +2396,7 @@
     },
     "task deps add": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--blocked-by": {
@@ -2732,16 +2413,8 @@
     },
     "task deps confirm": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "edge",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
         "--reverse": {
@@ -2758,16 +2431,8 @@
     },
     "task deps dismiss": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "edge",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2775,11 +2440,7 @@
     },
     "task deps list": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2787,16 +2448,8 @@
     },
     "task deps rm": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "edge",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
         "--yes": {
@@ -2819,16 +2472,8 @@
     },
     "task figma add": {
       "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "url",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "task", "required": true, "variadic": false },
+        { "name": "url", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2836,57 +2481,29 @@
     },
     "task figma context": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "linkId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "linkId", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
       "description": "Show the cached Figma design context (metadata)"
     },
     "task figma list": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "List Figma links attached to a task"
     },
     "task figma refresh": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
       "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated."
     },
     "task figma rm": {
       "arguments": [
-        {
-          "name": "task",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "link-id-or-url",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "task", "required": true, "variadic": false },
+        { "name": "link-id-or-url", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -2894,11 +2511,7 @@
     },
     "task lineage": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--signal": {
@@ -2959,13 +2572,7 @@
       "description": "View and record memories scoped to a task"
     },
     "task memory add": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--agent": {
           "long": "--agent",
@@ -3083,13 +2690,7 @@
       "description": "Record a memory on a task (<task> defaults to the bound session). Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. Pick --category then its fields."
     },
     "task memory list": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--category": {
           "long": "--category",
@@ -3119,16 +2720,8 @@
     },
     "task pr show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "number",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "number", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -3136,11 +2729,7 @@
     },
     "task show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -3154,29 +2743,15 @@
     },
     "task slack show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "contextId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "contextId", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
       "description": "Show the full stored Slack thread snapshot"
     },
     "task status": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--json": {
           "long": "--json",
@@ -3192,11 +2767,7 @@
     },
     "task update": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--add-tag": {
@@ -3315,16 +2886,8 @@
     },
     "task web show": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "linkId",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "linkId", "required": true, "variadic": false }
       ],
       "flags": {},
       "hasSubcommands": false,
@@ -3337,13 +2900,7 @@
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
     },
     "verdict": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--criterion": {
           "long": "--criterion",
@@ -3396,13 +2953,7 @@
       "description": "Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
     },
     "verify": {
-      "arguments": [
-        {
-          "name": "task",
-          "required": false,
-          "variadic": false
-        }
-      ],
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
         "--note": {
           "long": "--note",
@@ -3438,16 +2989,8 @@
     },
     "worktree add": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        },
-        {
-          "name": "slug",
-          "required": false,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "slug", "required": false, "variadic": false }
       ],
       "flags": {
         "--base": {
@@ -3486,11 +3029,7 @@
     },
     "worktree rm": {
       "arguments": [
-        {
-          "name": "identifier",
-          "required": true,
-          "variadic": false
-        }
+        { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
         "--delete-branch": {

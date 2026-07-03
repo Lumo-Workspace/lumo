@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "제출된 작업을 반려 없이 조용히 수정함",
   "boundary.category.PROJECT_RULE_VIOLATION": "프로젝트 규칙 위반",
   "boundary.category.POLICY_WEAKENING": "정책 약화",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "스튜어드 세션에서 생성된 구현 산출물",
   "boundary.advisoryBadge": "권고",
   "boundary.severity.high": "높음",
   "boundary.severity.medium": "중간",

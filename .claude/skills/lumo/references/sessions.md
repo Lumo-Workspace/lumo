@@ -113,11 +113,39 @@ A successful `session attach` also runs a **best-effort team-memory downsync** f
 Error: this session is permanently bound to LUM-7 "Other task". A session works one task for its lifetime — start a new Claude Code session to work on LUM-42.
 ```
 
-There is no `--force` and no `session detach`. To work on a different task, open a new terminal / Claude Code session and run `lumo session attach <new-task>` there.
+There is no `--force` and no `session detach`. To work on a different task, open a new terminal / Claude Code session and run `lumo session attach <new-task>` there. A session already bound as **STEWARD** of a milestone (below) also 409s here — it can never attach a task.
 
 #### When to suggest
 
 If `session attach` returns 409, do not retry or look for a workaround — start a fresh Claude Code session for the target task.
+
+### `lumo session attach --steward <milestone>` — bind as a STEWARD (governance) session (LUM-640)
+
+The **second legal session form**: instead of a task, the session binds a **milestone** and becomes a governance role — it plans and accepts, it never implements.
+
+```bash
+lumo session attach --steward "Agent-Native Milestones"   # by name (case-insensitive)
+lumo session attach --steward agent-native-milestones     # by slug
+lumo session attach --steward cmxyz123...                 # by milestone id
+```
+
+- **Resolution:** exact id → case-insensitive name/slug across the workspace's active milestones. An **ambiguous** name is refused with 400 listing the candidates (retry with the id); no match is 404.
+- **Lifetime lock, same semantics as the task form:** re-attach to the **same** milestone = idempotent no-op; attach a **task** after a steward bind → 409; attach a **different milestone** → 409; a task-bound session running `--steward` → 409. No `--force`, no detach — a different binding needs a new Claude Code session.
+- **Multiple stewards per milestone are allowed** (acceptance is multi-round by nature); sessions don't conflict.
+
+**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `task criteria set` (incl. `--human`), `task deps confirm/dismiss`, `verdict --fail` (the send-back rows carry `sourceSessionId`), `milestone add/remove`, and **all read operations**.
+
+**Blocked (implementation — first layer, API gate):**
+
+- `lumo verify` → **409, no round burned, no VerificationRun written**. The error names the milestone and the remedy (start an implementation session and `lumo session attach <task>`). Do not retry from the steward session.
+- Moving a task to `in_progress` with **yourself as the effective assignee** (whether already assigned to you or assigned in the same call) → 409. Dispatching to _someone else_ is planning and passes.
+- Red line unchanged: a steward writes no PASS of any kind; DONE stays human-only.
+
+**Backstop (second layer, detector):** commits / PR creations produced during a steward session anyway (the CLI can't stop local git) are recorded as **`STEWARD_IMPLEMENTATION_ARTIFACT` boundary crossings against the milestone** — fail-closed (an unparseable Bash payload records an _unconfirmed_ crossing rather than nothing), disposition stays **web + human-only**, and there is **no CLI clear path** (`crossing explain` remains an appeal, never a clear).
+
+#### When to suggest
+
+The user asks to "review/accept/plan a milestone", to act as reviewer/steward across tasks, or wants a governance session that must not implement. If a steward session needs code changed, dispatch the task to an implementation owner (or tell the user to open a new implementation session) — never work around the gate.
 
 ### Parallel sessions
 
@@ -129,7 +157,7 @@ Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`. Two terminals run
 lumo session status
 ```
 
-Prints which task the current Claude Code session is bound to, or "(no task)" if none. Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code).
+Prints what the current Claude Code session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code).
 
 #### When to suggest
 

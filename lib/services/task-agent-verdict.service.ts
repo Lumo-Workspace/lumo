@@ -19,6 +19,10 @@ export interface AgentVerdictAttribution {
   actorMemberId: string
   /** Clerk user id of the caller — drives the status fan-out + comment author. */
   actorClerkId: string
+  /** LUM-640: the originating Claude Code session (X-Lumo-Session-Id header),
+   *  stamped on the FAIL rows so a send-back from a STEWARD (governance)
+   *  session stays attributable to that session. Null for older CLIs / no header. */
+  sourceSessionId?: string | null
 }
 
 export interface AgentVerdictOutcome {
@@ -128,6 +132,8 @@ export const taskAgentVerdictService = {
         evidencePointer: null,
         rejectionReason: summary,
         rejectionReasonEnum: input.rejectionReasonEnum,
+        // LUM-640: session provenance — a steward's send-back names its session.
+        sourceSessionId: attribution.sourceSessionId ?? null,
       }))
       await verificationRunRepository.createMany(rows, tx)
 

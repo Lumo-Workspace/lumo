@@ -10,6 +10,10 @@ interface StatusResponse {
   eventCount: number
   taskIdentifier: string | null
   taskTitle: string | null
+  /** LUM-640: STEWARD when milestone-bound. Absent on older servers. */
+  role?: 'IMPLEMENTATION' | 'STEWARD'
+  /** LUM-640: the bound milestone's name for STEWARD sessions. Absent on older servers. */
+  milestoneName?: string | null
 }
 
 export async function sessionStatus(): Promise<number | void> {
@@ -61,6 +65,16 @@ export async function sessionStatus(): Promise<number | void> {
   }
 
   const data = (await res.json()) as StatusResponse
+  // LUM-640: the steward form — milestone-bound governance session.
+  if (data.role === 'STEWARD' && data.milestoneName) {
+    process.stdout.write(
+      `Session ${sessionId}\n` +
+        `  Role:      STEWARD (governance — plan & accept only)\n` +
+        `  Bound to:  milestone "${sanitizeField(data.milestoneName)}"\n` +
+        `  Events:    ${data.eventCount}\n`
+    )
+    return
+  }
   if (data.taskIdentifier && data.taskTitle) {
     process.stdout.write(
       `Session ${sessionId}\n` +

@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "提出済みの作業を差し戻しなしで黙って修正した",
   "boundary.category.PROJECT_RULE_VIOLATION": "プロジェクトルール違反",
   "boundary.category.POLICY_WEAKENING": "ポリシーの弱体化",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "スチュワードセッションからの実装成果物",
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.severity.high": "高",
   "boundary.severity.medium": "中",

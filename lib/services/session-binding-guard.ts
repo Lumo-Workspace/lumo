@@ -20,12 +20,18 @@ import {
  * - `unbound`    — the session resolves to a row whose taskId is null: provably
  *                  doing task work without a binding.
  * - `mismatch`   — the session is bound to a *different* task (the LUM-459 lock).
+ * - `steward`    — LUM-640: the session is a milestone-bound STEWARD (governance)
+ *                  session. NOT unbound — it is legitimately bound, just not to a
+ *                  task. The caller decides per action class: implementation
+ *                  actions are refused (409, no crossing, no round burned);
+ *                  governance actions pass through untouched.
  */
 export type BindingClassification =
   | { kind: 'ok' }
   | { kind: 'unconfirmed' }
   | { kind: 'unbound' }
   | { kind: 'mismatch'; boundIdentifier: string; boundTitle: string }
+  | { kind: 'steward'; milestoneId: string; milestoneName: string }
 
 export interface ClassifyBindingInput {
   source: 'bearer' | 'clerk'
@@ -52,6 +58,16 @@ export async function classifyBinding({
   )
   // Member-scoped: a missing/unowned session reads back null. Cannot prove unbound.
   if (!session) return { kind: 'unconfirmed' }
+  // LUM-640: a STEWARD session is milestone-bound — a distinct legal form, not
+  // "unbound". Classified before the taskId check so it never records a
+  // SESSION_BINDING_MISSING crossing.
+  if (session.role === 'STEWARD' && session.milestone) {
+    return {
+      kind: 'steward',
+      milestoneId: session.milestone.id,
+      milestoneName: session.milestone.name,
+    }
+  }
   // Provably unbound: a real session row with no task binding.
   if (!session.task) return { kind: 'unbound' }
   if (session.task.id === targetTaskId) return { kind: 'ok' }
@@ -120,15 +136,29 @@ export async function recordUnboundCrossing({
 
 export type BindingAdvisory = 'unbound' | 'unconfirmed' | null
 
+/** LUM-640: steward binding details surfaced to the caller on pass-through. */
+export interface StewardBinding {
+  milestoneId: string
+  milestoneName: string
+}
+
 /**
  * The single decision point both work-boundary call sites use (LUM-491).
  * - mismatch  → throws a 409 mirroring the LUM-459 bind lock (no crossing).
  * - unbound   → records the MEDIUM crossing, returns `{ advisory: 'unbound' }`.
  * - unconfirmed → returns `{ advisory: 'unconfirmed' }` (soft nudge, no crossing).
  * - ok        → `{ advisory: null }`.
+ * - steward   → LUM-640, decided by `stewardPolicy`:
+ *     'forbid-implementation' → throws 409 BEFORE any downstream write — no
+ *       VerificationRun, no round burned, no crossing. The error names the
+ *       milestone and the remedy (start an implementation session).
+ *     'allow-governance' → passes through clean (advisory null, no crossing;
+ *       a steward is legitimately bound, just not to a task) and returns the
+ *       steward binding so the caller can apply narrower checks (e.g. the
+ *       self-dispatch refusal) and stamp attribution.
  *
  * `action` is a short human label ('machine verification' | 'status change')
- * baked into the crossing detail.
+ * baked into the crossing detail and the steward refusal message.
  */
 export async function enforceSessionBinding({
   source,
@@ -136,8 +166,13 @@ export async function enforceSessionBinding({
   memberId,
   targetTaskId,
   action,
-}: ClassifyBindingInput & { action: string }): Promise<{
+  stewardPolicy,
+}: ClassifyBindingInput & {
+  action: string
+  stewardPolicy: 'forbid-implementation' | 'allow-governance'
+}): Promise<{
   advisory: BindingAdvisory
+  steward: StewardBinding | null
 }> {
   const check = await classifyBinding({
     source,
@@ -157,10 +192,33 @@ export async function enforceSessionBinding({
       }
     )
   }
+  if (check.kind === 'steward') {
+    if (stewardPolicy === 'forbid-implementation') {
+      throw Object.assign(
+        new Error(
+          `This session is a STEWARD (governance) session for milestone "${check.milestoneName}" (LUM-640) — it plans and accepts but cannot run implementation actions (${action} refused; no verification round was used). To implement, start a new Claude Code session and run \`lumo session attach <task>\`.`
+        ),
+        {
+          status: 409,
+          sessionRole: 'STEWARD',
+          stewardMilestoneId: check.milestoneId,
+          stewardMilestoneName: check.milestoneName,
+        }
+      )
+    }
+    return {
+      advisory: null,
+      steward: {
+        milestoneId: check.milestoneId,
+        milestoneName: check.milestoneName,
+      },
+    }
+  }
   if (check.kind === 'unbound') {
     await recordUnboundCrossing({ taskId: targetTaskId, action })
-    return { advisory: 'unbound' }
+    return { advisory: 'unbound', steward: null }
   }
-  if (check.kind === 'unconfirmed') return { advisory: 'unconfirmed' }
-  return { advisory: null }
+  if (check.kind === 'unconfirmed')
+    return { advisory: 'unconfirmed', steward: null }
+  return { advisory: null, steward: null }
 }

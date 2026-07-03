@@ -86,6 +86,11 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.POLICY_WEAKENING',
         defaultMessage: 'weakened a blocking policy rule',
       })
+    case 'STEWARD_IMPLEMENTATION_ARTIFACT':
+      return intl.formatMessage({
+        id: 'boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT',
+        defaultMessage: 'implementation artifact from a steward session',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

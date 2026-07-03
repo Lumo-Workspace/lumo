@@ -54,6 +54,8 @@ describe('verificationRunRepository', () => {
           rejectionReason: '2 jest suites failing',
           rejectionReasonEnum: 'CRITERION_UNMET',
           verdictActionId: null,
+          // LUM-640: session provenance pointer, explicit null when absent.
+          sourceSessionId: null,
         },
         select: expect.objectContaining({ id: true, verdict: true }),
       })

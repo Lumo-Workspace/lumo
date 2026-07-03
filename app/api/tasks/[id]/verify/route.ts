@@ -38,12 +38,16 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
+    // LUM-640: a STEWARD (governance) session cannot start a machine round —
+    // refused 409 HERE, before recordMachineRound, so no VerificationRun is
+    // written and no round is burned.
     const { advisory } = await enforceSessionBinding({
       source: identity.source,
       sessionId: request.headers.get('X-Lumo-Session-Id'),
       memberId: identity.memberId,
       targetTaskId: task.id,
       action: 'machine verification',
+      stewardPolicy: 'forbid-implementation',
     })
     const outcome = await taskVerificationService.recordMachineRound(
       task.id,

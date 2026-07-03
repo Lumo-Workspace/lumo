@@ -8,6 +8,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
 import {
@@ -328,6 +329,9 @@ const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   // state — `git restore` brings the rule back, same editorial class as
   // CONTRACT_WEAKENING.
   'POLICY_WEAKENING',
+  // LUM-640: a steward-session commit is repo state (revertable) and a PR can
+  // be closed — same world-state class as PUSH_TO_PROTECTED_BRANCH.
+  'STEWARD_IMPLEMENTATION_ARTIFACT',
 ])
 
 /** Target prefix stamped by the code pipeline on diff-based rule violations. */
@@ -380,6 +384,10 @@ export function severityFor(
     // visible + dismissable, blocks DONE until a human acknowledges it.
     case 'SPINOFF_LAUNDERED':
     case 'SILENT_FIX':
+    // LUM-640: implementation artifacts from a STEWARD (governance) session —
+    // a role-boundary breach, deterministically detectable and repo-scoped
+    // (like SESSION_BINDING_MISSING), so MEDIUM.
+    case 'STEWARD_IMPLEMENTATION_ARTIFACT':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
@@ -390,6 +398,32 @@ export function severityFor(
     default:
       return 'MEDIUM'
   }
+}
+
+// --- LUM-640 steward implementation-artifact detection --------------------------
+
+/**
+ * LUM-640: the artifact classes a STEWARD (governance) session must not
+ * produce — a git commit or a PR creation is implementation output, not
+ * planning/acceptance. Segment-scanned like the other command matchers
+ * (compound commands split on shell separators; a missed split only leaves
+ * MORE text in a segment, erring toward flagging). Pure + exported for tests.
+ *
+ * Returns the matched kind + segment, or null when the command is clean.
+ */
+export function detectStewardImplementationArtifact(
+  cmd: string
+): { kind: 'git-commit' | 'pr-create'; segment: string } | null {
+  for (const raw of splitCommandSegments(cmd)) {
+    const seg = raw.trim()
+    if (/^git(\s+\S+)*\s+commit\b/.test(seg)) {
+      return { kind: 'git-commit', segment: seg }
+    }
+    if (/^gh\s+pr\s+create\b/.test(seg)) {
+      return { kind: 'pr-create', segment: seg }
+    }
+  }
+  return null
 }
 
 // --- LUM-442 evasion awareness (base64 decode-and-rescan) ---------------------
@@ -1437,6 +1471,84 @@ export const boundaryDetectorService = {
     } catch (error) {
       // Observe-only: a detector failure must never disrupt ingestion.
       console.error('boundaryDetectorService.detectAndRecord error:', error)
+    }
+  },
+
+  /**
+   * LUM-640 detector backstop for STEWARD (governance) sessions. The API gate
+   * blocks `verify` and self-dispatch, but it cannot see file edits or local
+   * git — so when a task-less hook event arrives, this checks whether the
+   * session is a milestone-bound steward and whether the Bash command produced
+   * an implementation artifact (git commit / PR creation). A match records a
+   * STEWARD_IMPLEMENTATION_ARTIFACT crossing against the MILESTONE (taskId
+   * null, sessionId + hookEventId attribution).
+   *
+   * Fail-closed on what it cannot confirm: a Bash event in a steward session
+   * whose payload yields no readable command is recorded as an UNCONFIRMED
+   * crossing rather than skipped — uncertainty is surfaced, not swallowed.
+   * Best-effort like detectAndRecord: it owns its errors and never throws.
+   * Disposition stays web + human-only — there is no CLI clear path and this
+   * recorder never writes a disposition.
+   */
+  async detectAndRecordStewardArtifact(input: {
+    sessionId: string | null
+    hookEventId?: string | null
+    toolName: string | null
+    payload: unknown
+  }): Promise<void> {
+    try {
+      if (!input.sessionId) return
+      // Commits/PRs are produced through Bash — other tools have no artifact
+      // to classify here (file edits alone are not a commit).
+      if (input.toolName !== 'Bash') return
+      const steward = await sessionRepository.findStewardBinding(
+        input.sessionId
+      )
+      if (!steward) return
+
+      const cmd = readCommand(input.payload)
+      let category_target: string
+      let detail: string
+      if (cmd == null) {
+        // Fail-closed: a steward-session Bash event we cannot parse is
+        // "unconfirmed", never "nothing happened".
+        category_target = 'unconfirmed'
+        detail =
+          'Bash activity during a STEWARD (governance) session could not be parsed — implementation-artifact detection is unconfirmed (fail-closed)'
+      } else {
+        const artifact = detectStewardImplementationArtifact(cmd)
+        if (!artifact) return
+        category_target = artifact.kind
+        detail = `implementation artifact produced during a STEWARD (governance) session for milestone "${steward.milestoneName}": ${clip(artifact.segment)}`
+      }
+
+      const now = new Date()
+      const coalesced =
+        await boundaryCrossingRepository.coalesceRecurrenceForMilestone(
+          steward.milestoneId,
+          'STEWARD_IMPLEMENTATION_ARTIFACT',
+          category_target,
+          now
+        )
+      if (coalesced > 0) return
+      await boundaryCrossingRepository.create({
+        taskId: null,
+        milestoneId: steward.milestoneId,
+        sessionId: input.sessionId,
+        hookEventId: input.hookEventId ?? null,
+        category: 'STEWARD_IMPLEMENTATION_ARTIFACT',
+        detail,
+        target: category_target,
+        reversible: isReversible('STEWARD_IMPLEMENTATION_ARTIFACT'),
+        severity: severityFor('STEWARD_IMPLEMENTATION_ARTIFACT'),
+      })
+      // No TaskActivity mirror: there is no task to attach a timeline marker to.
+    } catch (error) {
+      // Observe-only: a detector failure must never disrupt ingestion.
+      console.error(
+        'boundaryDetectorService.detectAndRecordStewardArtifact error:',
+        error
+      )
     }
   },
 }

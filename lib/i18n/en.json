@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "silently fixed submitted work (no send-back)",
   "boundary.category.PROJECT_RULE_VIOLATION": "Project rule violation",
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Implementation artifact from a steward session",
   "boundary.advisoryBadge": "Advisory",
   "boundary.severity.high": "high",
   "boundary.severity.medium": "medium",

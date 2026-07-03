@@ -56,12 +56,20 @@ beforeEach(() => {
 
 describe('POST /api/tasks/[id]/agent-verdict', () => {
   it('records an AGENT send-back for a bearer (CLI) identity with caller attribution', async () => {
-    const res = await POST(req({ rejectionReasonEnum: 'CRITERION_UNMET' }), params)
+    const res = await POST(
+      req({ rejectionReasonEnum: 'CRITERION_UNMET' }),
+      params
+    )
     expect(res.status).toBe(200)
     expect(mockRecord).toHaveBeenCalledWith(
       't-1',
       { rejectionReasonEnum: 'CRITERION_UNMET' },
-      { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
+      {
+        actorMemberId: 'member-1',
+        actorClerkId: 'clerk-1',
+        // LUM-640: session provenance rides along (null when no header).
+        sourceSessionId: null,
+      }
     )
   })
 

@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "eingereichte Arbeit still korrigiert (ohne Rückläufer)",
   "boundary.category.PROJECT_RULE_VIOLATION": "Projektregel-Verstoß",
   "boundary.category.POLICY_WEAKENING": "Richtlinienabschwächung",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Implementierungsartefakt aus einer Steward-Session",
   "boundary.advisoryBadge": "Hinweis",
   "boundary.severity.high": "hoch",
   "boundary.severity.medium": "mittel",

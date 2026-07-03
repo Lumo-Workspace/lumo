@@ -195,6 +195,13 @@ enum BoundaryCrossingCategory {
   PROJECT_RULE_VIOLATION
   // LUM-590: a committed CLAUDE.md edit removed/downgraded a deterministic Forbidden rule
   POLICY_WEAKENING
+  // LUM-640: an implementation artifact (git commit / PR creation) was produced
+  // during a STEWARD (governance) session — the detector backstop for what the
+  // API gate can't see (file edits + local git happen outside the API). Recorded
+  // against the steward session's MILESTONE (taskId null); fail-closed: an
+  // unparseable Bash payload in a steward session records an unconfirmed
+  // crossing rather than nothing. Disposition stays web + human-only.
+  STEWARD_IMPLEMENTATION_ARTIFACT
 }
 
 enum BoundaryCrossingDisposition {
@@ -692,6 +699,11 @@ model Milestone {
   project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
   summary MilestoneSummary?
+  // LUM-640: STEWARD (governance) sessions bound to this milestone.
+  sessions          Session[]
+  // LUM-640: steward-session implementation-artifact crossings recorded against
+  // this milestone (no task to attach to — the steward session is task-less).
+  boundaryCrossings BoundaryCrossing[]
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -849,7 +861,14 @@ model TaskActivity {
  */
 model BoundaryCrossing {
   id                String                       @id @default(cuid())
-  taskId            String
+  // Nullable since LUM-640: a STEWARD_IMPLEMENTATION_ARTIFACT crossing has no
+  // task — the steward session is milestone-bound, so the crossing attaches to
+  // `milestoneId` instead. Every task-scoped detector still writes a taskId;
+  // exactly one of taskId/milestoneId is set in practice.
+  taskId            String?
+  // LUM-640: the steward session's milestone, for crossings recorded during a
+  // milestone-bound (STEWARD) session. Null on all task-scoped crossings.
+  milestoneId       String?
   hookEventId       String?
   // The originating Claude Code session, when the crossing was recorded from a
   // path that has no hook event to attribute through (LUM-511 spinoff laundering
@@ -893,7 +912,8 @@ model BoundaryCrossing {
   // Advisory only — never touches disposition or the DONE gate.
   systemExplanation String?
 
-  task            Task                          @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
+  task            Task?                         @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
+  milestone       Milestone?                    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
   // LUM-542: append-only agent self-explanations ("申辩"). A purely additive
   // annotation layer — never read by the DONE gate, never a disposition.
@@ -902,6 +922,8 @@ model BoundaryCrossing {
   @@index([taskId, disposition])
   // Supports the LUM-477 open-crossing coalescing lookup (taskId, category, target).
   @@index([taskId, category, target])
+  // LUM-640: milestone-scoped coalescing lookup for steward-session crossings.
+  @@index([milestoneId, category, target])
   @@map("boundary_crossings")
 }
 
@@ -1724,11 +1746,33 @@ model GateSignal {
   @@map("gate_signals")
 }
 
+// LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound
+// coding session (Session.taskId lifetime lock, LUM-459). STEWARD = a
+// governance session bound to a MILESTONE (Session.milestoneId): it plans and
+// accepts (task create/update, criteria set, deps confirm/dismiss,
+// verdict --fail, milestone add/remove, all reads) but is gated out of
+// implementation actions (`lumo verify` → 409 without burning a round;
+// dispatching a task to itself → 409); implementation artifacts it produces
+// anyway are recorded as STEWARD_IMPLEMENTATION_ARTIFACT boundary crossings.
+enum SessionRole {
+  IMPLEMENTATION
+  STEWARD
+}
+
 model Session {
   id                    String            @id // Claude Code session UUID — not cuid
   workspaceId           String
   workspaceMemberId     String
   taskId                String?
+  // LUM-640: which legal form this session takes. STEWARD sessions bind a
+  // milestone (below) instead of a task; the default keeps every existing and
+  // hook-created session an IMPLEMENTATION session (behavior unchanged).
+  role                  SessionRole       @default(IMPLEMENTATION)
+  // LUM-640: the milestone a STEWARD session is bound to. Same write-once
+  // lifetime-lock semantics as taskId (LUM-459): set by
+  // `lumo session attach --steward`, never rebound; re-attach to the same
+  // milestone is idempotent, any other attach is refused with 409.
+  milestoneId           String?
   cwd                   String?
   // Which coding agent owns this session. Captured from the `X-Lumo-Agent`
   // header the CLI hook sends (baked in at `lumo setup --agent <token>`), set
@@ -1792,6 +1836,7 @@ model Session {
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member           WorkspaceMember   @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
   task             Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  milestone        Milestone?        @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   worktree         Worktree?         @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
   events           HookEvent[]
   memories         Memory[]
@@ -1801,6 +1846,7 @@ model Session {
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
   @@index([taskId, lastActivityAt])
+  @@index([milestoneId])
   @@index([worktreeId])
   @@map("sessions")
 }
@@ -2550,6 +2596,12 @@ model VerificationRun {
   /// (one transaction → one id). Null on machine runs. Lets an action be
   /// withdrawn as a unit (LUM-586).
   verdictActionId     String?
+  /// LUM-640: the Claude Code session that produced this run, when the caller
+  /// carried an `X-Lumo-Session-Id` header — how a governance write (an AGENT
+  /// send-back from a STEWARD session) stays attributable to its session.
+  /// FK-less audit pointer (mirrors OutcomeSignal.sessionId): a pruned session
+  /// must not erase the provenance trail. Null on web/human rows and legacy rows.
+  sourceSessionId     String?
   createdAt           DateTime                     @default(now())
 
   task      Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)

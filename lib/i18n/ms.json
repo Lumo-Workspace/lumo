@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "diam-diam membaiki kerja yang dihantar (tanpa hantar balik)",
   "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran peraturan projek",
   "boundary.category.POLICY_WEAKENING": "Pelemahan dasar",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Artifak pelaksanaan daripada sesi steward",
   "boundary.advisoryBadge": "Nasihat",
   "boundary.severity.high": "tinggi",
   "boundary.severity.medium": "sederhana",

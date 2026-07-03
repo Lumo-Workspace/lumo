@@ -14,8 +14,22 @@ export async function POST(request: Request) {
       // LUM-426: async forbidden-action boundary detection. Observe-only and
       // server-side, AFTER ingestion — runs detached via waitUntil so it never
       // blocks the response (exit-0 invariant, LUM-348). detectAndRecord owns
-      // its errors and never throws. Unbound events (no task) have no target.
-      if (!ctx.taskId) return
+      // its errors and never throws.
+      if (!ctx.taskId) {
+        // LUM-640: a task-less event may belong to a milestone-bound STEWARD
+        // session — the detector backstop checks for implementation artifacts
+        // (git commit / PR creation) and records a milestone-scoped crossing.
+        // No-op for ordinary unbound sessions.
+        waitUntil(
+          boundaryDetectorService.detectAndRecordStewardArtifact({
+            sessionId: ctx.sessionId,
+            hookEventId: ctx.eventId,
+            toolName: ctx.toolName,
+            payload: ctx.payload,
+          })
+        )
+        return
+      }
       waitUntil(
         boundaryDetectorService.detectAndRecord({
           taskId: ctx.taskId,

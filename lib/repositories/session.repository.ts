@@ -102,6 +102,14 @@ interface UpsertWithTaskIdData {
   now: Date
 }
 
+interface UpsertWithMilestoneIdData {
+  id: string
+  workspaceId: string
+  workspaceMemberId: string
+  milestoneId: string
+  now: Date
+}
+
 export const sessionRepository = {
   /**
    * Idempotent per hook event: create the session on first touch, otherwise
@@ -292,6 +300,77 @@ export const sessionRepository = {
   },
 
   /**
+   * Create-or-update a session row with a STEWARD milestone binding (LUM-640).
+   * Mirrors `upsertWithTaskId` — the row may not exist yet (attach can run
+   * before any hook fires) — but stamps `role: STEWARD` alongside the
+   * milestoneId. The lifetime-lock checks (already task-bound / bound to a
+   * different milestone) live in the service; this is the raw write.
+   */
+  async upsertWithMilestoneId(data: UpsertWithMilestoneIdData): Promise<
+    | { ownedByOther: true }
+    | {
+        ownedByOther: false
+        session: { id: string; milestoneId: string | null }
+      }
+  > {
+    return prisma.$transaction(async tx => {
+      const existing = await tx.session.findUnique({
+        where: { id: data.id },
+        select: { workspaceMemberId: true },
+      })
+      if (existing) {
+        if (existing.workspaceMemberId !== data.workspaceMemberId) {
+          return { ownedByOther: true } as const
+        }
+        const updated = await tx.session.update({
+          where: { id: data.id },
+          data: { milestoneId: data.milestoneId, role: 'STEWARD' },
+          select: { id: true, milestoneId: true },
+        })
+        return { ownedByOther: false, session: updated } as const
+      }
+      const created = await tx.session.create({
+        data: {
+          id: data.id,
+          workspaceId: data.workspaceId,
+          workspaceMemberId: data.workspaceMemberId,
+          milestoneId: data.milestoneId,
+          role: 'STEWARD',
+          startedAt: data.now,
+          lastActivityAt: data.now,
+          eventCount: 0,
+        },
+        select: { id: true, milestoneId: true },
+      })
+      return { ownedByOther: false, session: created } as const
+    })
+  },
+
+  /**
+   * LUM-640: a session's steward binding, if any — the detector backstop reads
+   * this to decide whether an unbound-looking hook event actually belongs to a
+   * milestone-bound governance session. Returns null when the session row is
+   * missing OR the session is not a STEWARD session with a milestone.
+   */
+  async findStewardBinding(id: string): Promise<{
+    milestoneId: string
+    milestoneName: string
+  } | null> {
+    const row = await prisma.session.findUnique({
+      where: { id },
+      select: {
+        role: true,
+        milestone: { select: { id: true, name: true } },
+      },
+    })
+    if (!row || row.role !== 'STEWARD' || !row.milestone) return null
+    return {
+      milestoneId: row.milestone.id,
+      milestoneName: row.milestone.name,
+    }
+  },
+
+  /**
    * Read the coding agent that owns a session. Used by Layer 1 memory
    * extraction so an auto-sedimented memory inherits the session's agent.
    * Returns null when the session row is missing.
@@ -387,6 +466,10 @@ export const sessionRepository = {
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,
+        // LUM-640: the steward form of the binding — role + milestone ride
+        // along so the guard/attach paths can classify without a second read.
+        role: true,
+        milestone: { select: { id: true, name: true } },
         task: {
           select: {
             id: true,

@@ -25,6 +25,10 @@ export interface CreateVerificationRunInput {
   rejectionReasonEnum?: VerificationRejectionReason | null
   /** Shared id stamped on every run written by ONE human-verdict action (LUM-586). Null on machine runs. */
   verdictActionId?: string | null
+  /** LUM-640: originating Claude Code session (X-Lumo-Session-Id header), FK-less
+   *  audit pointer — how an agent send-back from a STEWARD session stays
+   *  attributable. Null on web/human rows and rows from older CLIs. */
+  sourceSessionId?: string | null
 }
 
 const runSelect = {
@@ -38,6 +42,7 @@ const runSelect = {
   rejectionReason: true,
   rejectionReasonEnum: true,
   verdictActionId: true,
+  sourceSessionId: true,
   createdAt: true,
 } satisfies Prisma.VerificationRunSelect
 
@@ -57,6 +62,7 @@ function toCreateData(i: CreateVerificationRunInput) {
     rejectionReason: i.rejectionReason ?? null,
     rejectionReasonEnum: i.rejectionReasonEnum ?? null,
     verdictActionId: i.verdictActionId ?? null,
+    sourceSessionId: i.sourceSessionId ?? null,
   }
 }
 

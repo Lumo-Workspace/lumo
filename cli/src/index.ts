@@ -448,14 +448,22 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. The binding is a lifetime lock: re-attaching to the same task is a no-op, attaching to a different task is refused — start a new session for a different task.'
+    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead.'
   )
-  .action(wrap(identifier => sessionAttach(identifier as string)))
+  .option(
+    '--steward',
+    'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
+  )
+  .action(
+    wrap((identifier, options) =>
+      sessionAttach(identifier as string, options as { steward?: boolean })
+    )
+  )
 
 session
   .command('status')
   .description(
-    'Show the task currently bound to this Claude Code session (or "no task" if none).'
+    'Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
   .action(wrap(() => sessionStatus()))
 

@@ -1092,6 +1092,7 @@
   "boundary.category.silentFix": "सबमिट किए गए काम को चुपचाप ठीक किया (कोई वापसी नहीं)",
   "boundary.category.PROJECT_RULE_VIOLATION": "परियोजना नियम उल्लंघन",
   "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "स्टीवर्ड सत्र से कार्यान्वयन आर्टिफ़ैक्ट",
   "boundary.advisoryBadge": "सलाह",
   "boundary.severity.high": "उच्च",
   "boundary.severity.medium": "मध्यम",

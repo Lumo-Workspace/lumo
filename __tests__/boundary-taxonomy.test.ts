@@ -24,6 +24,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     'SESSION_BINDING_MISSING',
     'PUSH_TO_PROTECTED_BRANCH',
     'POLICY_WEAKENING',
+    // LUM-640: a steward-session commit/PR is repo/GitHub state — revert/close
+    // undoes it, same world-state class as PUSH_TO_PROTECTED_BRANCH.
+    'STEWARD_IMPLEMENTATION_ARTIFACT',
   ]
   const IRREVERSIBLE: BoundaryCrossingCategory[] = [
     'HARDCODED_SECRET',

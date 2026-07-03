@@ -523,14 +523,33 @@ async function updateFromCli(args: {
   // lock at this work boundary — a session bound to a different task is refused
   // (409, mirroring LUM-459); a provably-unbound session records a MEDIUM crossing
   // and proceeds (the DONE gate then catches it). Bearer-only route → source bearer.
+  // LUM-640: steward sessions PASS here — task update is a governance action
+  // (planning/dispatch); the one steward-specific refusal is below.
   if (updateInput.status !== undefined) {
-    await enforceSessionBinding({
+    const { steward } = await enforceSessionBinding({
       source: 'bearer',
       sessionId: sourceSessionId ?? null,
       memberId: callerMember.id,
       targetTaskId: resolved.id,
       action: 'status change',
+      stewardPolicy: 'allow-governance',
     })
+    // LUM-640: a steward may dispatch work to OTHERS, but taking a task into
+    // IN_PROGRESS with itself as the effective assignee is implementation-by-
+    // another-name — refused. The effective assignee is the one this update
+    // lands on: the incoming assignee when the call sets it, else the current.
+    if (steward && updateInput.status === 'IN_PROGRESS') {
+      const effectiveAssigneeActorId =
+        updateInput.assigneeActorId !== undefined
+          ? updateInput.assigneeActorId
+          : (detail.assignee?.id ?? null)
+      if (effectiveAssigneeActorId === callerActor.id) {
+        throw httpError(
+          409,
+          `This session is a STEWARD (governance) session for milestone "${steward.milestoneName}" (LUM-640) — it cannot move ${identifier} to in_progress assigned to itself. Dispatch the task to an implementation owner, or start a new Claude Code session and run \`lumo session attach ${identifier}\`.`
+        )
+      }
+    }
   }
 
   // Only forward the session id once we've confirmed it's a real session in

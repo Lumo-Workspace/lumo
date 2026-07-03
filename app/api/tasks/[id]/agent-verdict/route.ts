@@ -40,6 +40,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
+        // LUM-640: governance provenance — the send-back rows carry the
+        // originating session so a steward's verdict is attributable.
+        sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
       }
     )
     return NextResponse.json(outcome)
