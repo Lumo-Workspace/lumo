@@ -55,6 +55,15 @@ export const milestoneSummaryService = {
         )
       }
 
+      // LUM-647: distil the retro's durable, forward-looking learnings into
+      // MILESTONE-scope memories for the next milestone's steward session. Runs
+      // AFTER the summary is saved (it reads the persisted report as its source)
+      // and is best-effort — it owns its own error handling and never throws, so
+      // a distillation failure can't fail the retro generation or the retry job.
+      const { milestoneDistillService } =
+        await import('@/lib/services/memory/milestone-distill.service')
+      await milestoneDistillService.triggerForMilestoneClose(milestoneId)
+
       return savedSummary
     } catch (err) {
       if (pendingJob) {

@@ -165,7 +165,15 @@ export function renderMemoryItem(m: RenderableMemory): string {
 }
 
 function tag(m: RenderableMemory): string {
-  const scope = m.scope === 'PROJECT' ? 'project' : 'task'
+  // LUM-647: MILESTONE-scope memories (distilled from a milestone-close retro)
+  // are labeled `[milestone …]` so a steward reads them as project-wide,
+  // milestone-level learnings — not a task note.
+  const scope =
+    m.scope === 'PROJECT'
+      ? 'project'
+      : m.scope === 'MILESTONE'
+        ? 'milestone'
+        : 'task'
   // LUM-347: per-entry source attribution so the agent can weight content by
   // origin. `source` is optional only as a guard for callers that predate the
   // field — every injection path threads it through.
