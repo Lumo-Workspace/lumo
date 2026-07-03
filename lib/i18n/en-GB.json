@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Over budget by {over}",
   "milestone.riskQueue.budget.title": "Token budget exceeded",
   "milestone.riskQueue.budget.count": "burn {burn} of {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Advisory only — nothing is blocked. Review the remaining scope or raise the budget."
+  "milestone.riskQueue.budget.advisory": "Advisory only — nothing is blocked. Review the remaining scope or raise the budget.",
+  "baseline.none": "[TODO:en-GB] No baseline yet",
+  "baseline.insufficient": "[TODO:en-GB] Baseline sample too small",
+  "baseline.median": "[TODO:en-GB] median",
+  "baseline.history": "[TODO:en-GB] history avg",
+  "baseline.base": "[TODO:en-GB] base"
 }

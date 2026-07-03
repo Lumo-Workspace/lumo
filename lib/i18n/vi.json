@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Vượt ngân sách {over}",
   "milestone.riskQueue.budget.title": "Vượt ngân sách token",
   "milestone.riskQueue.budget.count": "đã dùng {burn} trên {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách."
+  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách.",
+  "baseline.none": "[TODO:vi] No baseline yet",
+  "baseline.insufficient": "[TODO:vi] Baseline sample too small",
+  "baseline.median": "[TODO:vi] median",
+  "baseline.history": "[TODO:vi] history avg",
+  "baseline.base": "[TODO:vi] base"
 }

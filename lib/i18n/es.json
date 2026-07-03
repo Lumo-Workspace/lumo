@@ -2062,5 +2062,10 @@
   "milestone.costTrend.budgetOver": "Presupuesto superado en {over}",
   "milestone.riskQueue.budget.title": "Presupuesto de tokens superado",
   "milestone.riskQueue.budget.count": "consumo {burn} de {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Solo aviso — nada se bloquea. Revisa el alcance restante o aumenta el presupuesto."
+  "milestone.riskQueue.budget.advisory": "Solo aviso — nada se bloquea. Revisa el alcance restante o aumenta el presupuesto.",
+  "baseline.none": "[TODO:es] No baseline yet",
+  "baseline.insufficient": "[TODO:es] Baseline sample too small",
+  "baseline.median": "[TODO:es] median",
+  "baseline.history": "[TODO:es] history avg",
+  "baseline.base": "[TODO:es] base"
 }
