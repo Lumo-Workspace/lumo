@@ -2033,5 +2033,22 @@
   "milestone.hero.startDerivedHint": "Saat tugas pertama dimulai — diturunkan dari aktivitas, bukan isian formulir",
   "milestone.riskQueue.aging.days": "{days} hari",
   "milestone.riskQueue.aging.hours": "{hours} jam",
-  "milestone.riskQueue.aging.minutes": "{minutes} menit"
+  "milestone.riskQueue.aging.minutes": "{minutes} menit",
+  "milestone.topology.title": "Berikutnya",
+  "milestone.topology.subtitle": "diurutkan berdasarkan dependensi — mulai dari sini untuk membuka paling banyak pekerjaan",
+  "milestone.topology.batch.title": "Siap dimulai",
+  "milestone.topology.batch.count": "{count} siap",
+  "milestone.topology.batch.stillBlocked": "{count} masih terblokir",
+  "milestone.topology.batch.unblocks": "membuka {count}",
+  "milestone.topology.batch.critical": "jalur kritis",
+  "milestone.topology.criticalPath.label": "Jalur kritis:",
+  "milestone.topology.criticalPath.depth": "({levels} tingkat · {length} tugas)",
+  "milestone.topology.cycle.title": "Siklus dependensi —",
+  "milestone.topology.cycle.body": "tugas-tugas ini saling memblokir; urutan eksekusi tidak ada sampai salah satu sisi dihapus atau dialihkan: {refs}",
+  "milestone.topology.empty.noEdges.title": "Belum ada dependensi terkonfirmasi",
+  "milestone.topology.empty.noEdges.body": "Konfirmasikan relasi pemblokiran antar tugas untuk mendapatkan rencana eksekusi berurutan dependensi di sini.",
+  "milestone.topology.empty.noneReady.title": "Belum ada yang siap dimulai",
+  "milestone.topology.empty.noneReady.body": "Setiap tugas terbuka menunggu pemblokir yang belum selesai — bereskan dulu rantai terblokir di atas.",
+  "milestone.topology.empty.done.title": "Semua tugas selesai",
+  "milestone.topology.empty.done.body": "Tidak ada lagi yang perlu dijadwalkan di milestone ini."
 }

@@ -447,6 +447,55 @@ export const milestoneRepository = {
       verificationFails,
     }
   },
+
+  /**
+   * LUM-645 topology rollup rows: member tasks + every dependency edge whose
+   * blocked end is a member. Kind/status ride raw — the honesty filter
+   * (CONFIRMED + BLOCKS only) lives in computeMilestoneTopology.
+   */
+  async topologyRows(milestoneId: string) {
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      select: {
+        tasks: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            status: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+    if (!milestone) return null
+    const tasks = milestone.tasks.map(t => ({
+      id: t.id,
+      ref: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+    }))
+    const edges = await prisma.taskDependency.findMany({
+      where: { blockedTaskId: { in: tasks.map(t => t.id) } },
+      select: {
+        blockedTaskId: true,
+        blockingTaskId: true,
+        kind: true,
+        status: true,
+        blockingTask: { select: { status: true } },
+      },
+    })
+    return {
+      tasks,
+      edges: edges.map(e => ({
+        blockedTaskId: e.blockedTaskId,
+        blockingTaskId: e.blockingTaskId,
+        kind: e.kind,
+        status: e.status,
+        blockingStatus: e.blockingTask.status,
+      })),
+    }
+  },
 }
 
 export type MilestoneRepository = typeof milestoneRepository

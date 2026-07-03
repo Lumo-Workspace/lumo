@@ -2033,5 +2033,22 @@
   "milestone.hero.startDerivedHint": "Bila tugas pertama bermula — diterbitkan daripada aktiviti, bukan medan borang",
   "milestone.riskQueue.aging.days": "{days} hari",
   "milestone.riskQueue.aging.hours": "{hours} jam",
-  "milestone.riskQueue.aging.minutes": "{minutes} minit"
+  "milestone.riskQueue.aging.minutes": "{minutes} minit",
+  "milestone.topology.title": "Seterusnya",
+  "milestone.topology.subtitle": "disusun ikut kebergantungan — mulakan dengan ini untuk membuka paling banyak kerja",
+  "milestone.topology.batch.title": "Sedia untuk dimulakan",
+  "milestone.topology.batch.count": "{count} sedia",
+  "milestone.topology.batch.stillBlocked": "{count} masih tersekat",
+  "milestone.topology.batch.unblocks": "membuka {count}",
+  "milestone.topology.batch.critical": "laluan kritikal",
+  "milestone.topology.criticalPath.label": "Laluan kritikal:",
+  "milestone.topology.criticalPath.depth": "({levels} tahap · {length} tugasan)",
+  "milestone.topology.cycle.title": "Kitaran kebergantungan —",
+  "milestone.topology.cycle.body": "tugasan ini saling menyekat; tiada susunan pelaksanaan sehingga satu sisi dibuang atau dihalakan semula: {refs}",
+  "milestone.topology.empty.noEdges.title": "Tiada kebergantungan yang disahkan",
+  "milestone.topology.empty.noEdges.body": "Sahkan hubungan sekatan antara tugasan untuk mendapatkan pelan pelaksanaan ikut kebergantungan di sini.",
+  "milestone.topology.empty.noneReady.title": "Tiada yang sedia untuk dimulakan",
+  "milestone.topology.empty.noneReady.body": "Setiap tugasan terbuka menunggu penyekat yang belum selesai — leraikan dahulu rantaian tersekat di atas.",
+  "milestone.topology.empty.done.title": "Semua tugasan selesai",
+  "milestone.topology.empty.done.body": "Tiada apa lagi untuk dirancang dalam pencapaian ini."
 }

@@ -2033,5 +2033,22 @@
   "milestone.hero.startDerivedHint": "最初のタスクが開始された時点 — フォーム入力ではなくアクティビティから導出",
   "milestone.riskQueue.aging.days": "{days}日",
   "milestone.riskQueue.aging.hours": "{hours}時間",
-  "milestone.riskQueue.aging.minutes": "{minutes}分"
+  "milestone.riskQueue.aging.minutes": "{minutes}分",
+  "milestone.topology.title": "次に着手すべきタスク",
+  "milestone.topology.subtitle": "依存関係トポロジー順 — これらを先に進めると最も多くの作業が解放されます",
+  "milestone.topology.batch.title": "着手可能",
+  "milestone.topology.batch.count": "{count} 件が準備完了",
+  "milestone.topology.batch.stillBlocked": "{count} 件はまだブロック中",
+  "milestone.topology.batch.unblocks": "{count} 件を解放",
+  "milestone.topology.batch.critical": "クリティカルパス",
+  "milestone.topology.criticalPath.label": "クリティカルパス:",
+  "milestone.topology.criticalPath.depth": "({levels} 層 · {length} タスク)",
+  "milestone.topology.cycle.title": "依存の循環 —",
+  "milestone.topology.cycle.body": "これらのタスクは互いにブロックし合っており、いずれかのエッジを削除または付け替えるまで実行順序は決まりません:{refs}",
+  "milestone.topology.empty.noEdges.title": "確認済みの依存関係がありません",
+  "milestone.topology.empty.noEdges.body": "タスク間のブロック関係を確認すると、依存順の実行プランがここに表示されます。",
+  "milestone.topology.empty.noneReady.title": "着手できるタスクがありません",
+  "milestone.topology.empty.noneReady.body": "未完了タスクはすべて未完のブロッカー待ちです — まず上のブロック連鎖を解消してください。",
+  "milestone.topology.empty.done.title": "すべてのタスクが完了",
+  "milestone.topology.empty.done.body": "このマイルストーンで予定すべき作業は残っていません。"
 }

@@ -2033,5 +2033,22 @@
   "milestone.hero.startDerivedHint": "第一个任务开工的时间——由活动记录派生,非手填字段",
   "milestone.riskQueue.aging.days": "{days} 天",
   "milestone.riskQueue.aging.hours": "{hours} 小时",
-  "milestone.riskQueue.aging.minutes": "{minutes} 分钟"
+  "milestone.riskQueue.aging.minutes": "{minutes} 分钟",
+  "milestone.topology.title": "推荐下一批",
+  "milestone.topology.subtitle": "按依赖拓扑排序 — 先做这些,解锁最多后续工作",
+  "milestone.topology.batch.title": "可立即开工",
+  "milestone.topology.batch.count": "{count} 个就绪",
+  "milestone.topology.batch.stillBlocked": "{count} 个仍被阻塞",
+  "milestone.topology.batch.unblocks": "解锁 {count} 个",
+  "milestone.topology.batch.critical": "关键路径",
+  "milestone.topology.criticalPath.label": "关键路径:",
+  "milestone.topology.criticalPath.depth": "({levels} 层 · {length} 个任务)",
+  "milestone.topology.cycle.title": "依赖成环 —",
+  "milestone.topology.cycle.body": "这些任务互相阻塞,执行顺序无解;需移除或调整其中一条依赖边:{refs}",
+  "milestone.topology.empty.noEdges.title": "暂无已确认的依赖",
+  "milestone.topology.empty.noEdges.body": "确认任务间的阻塞关系后,这里会给出按依赖排序的执行计划。",
+  "milestone.topology.empty.noneReady.title": "没有可开工的任务",
+  "milestone.topology.empty.noneReady.body": "每个未完成任务都在等待前置任务 — 先疏通上方的阻塞链。",
+  "milestone.topology.empty.done.title": "任务已全部完成",
+  "milestone.topology.empty.done.body": "此里程碑没有待安排的任务了。"
 }

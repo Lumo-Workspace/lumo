@@ -2033,5 +2033,22 @@
   "milestone.hero.startDerivedHint": "Когда началась первая задача — выведено из активности, а не из поля формы",
   "milestone.riskQueue.aging.days": "{days} дн.",
   "milestone.riskQueue.aging.hours": "{hours} ч",
-  "milestone.riskQueue.aging.minutes": "{minutes} мин"
+  "milestone.riskQueue.aging.minutes": "{minutes} мин",
+  "milestone.topology.title": "Что дальше",
+  "milestone.topology.subtitle": "в порядке зависимостей — начните с этих задач, чтобы разблокировать больше всего работы",
+  "milestone.topology.batch.title": "Готовы к старту",
+  "milestone.topology.batch.count": "{count} готово",
+  "milestone.topology.batch.stillBlocked": "{count} всё ещё заблокировано",
+  "milestone.topology.batch.unblocks": "разблокирует {count}",
+  "milestone.topology.batch.critical": "критический путь",
+  "milestone.topology.criticalPath.label": "Критический путь:",
+  "milestone.topology.criticalPath.depth": "({levels} уровней · {length} задач)",
+  "milestone.topology.cycle.title": "Цикл зависимостей —",
+  "milestone.topology.cycle.body": "эти задачи блокируют друг друга; порядок выполнения невозможен, пока одно из рёбер не удалено или не перенаправлено: {refs}",
+  "milestone.topology.empty.noEdges.title": "Нет подтверждённых зависимостей",
+  "milestone.topology.empty.noEdges.body": "Подтвердите блокирующие связи между задачами, чтобы получить здесь план выполнения в порядке зависимостей.",
+  "milestone.topology.empty.noneReady.title": "Нет задач, готовых к старту",
+  "milestone.topology.empty.noneReady.body": "Каждая открытая задача ждёт незавершённый блокер — сначала расчистите заблокированную цепочку выше.",
+  "milestone.topology.empty.done.title": "Все задачи завершены",
+  "milestone.topology.empty.done.body": "В этой вехе больше нечего планировать."
 }
