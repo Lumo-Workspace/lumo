@@ -9,6 +9,8 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
+import { computeMilestoneGreenQuality } from '@/lib/summaries/milestone-green-quality'
+import { parseSnapshotCriteria } from '@/lib/fidelity/change-pattern'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
 import { computeMilestoneDeliveryStats } from '@/lib/summaries/milestone-delivery-stats'
@@ -17,6 +19,12 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import {
+  computeMilestoneRiskQueue,
+  type MilestoneRiskQueue,
+  type RiskQueueCrossingRow,
+} from '@/lib/summaries/milestone-risk-queue'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -151,9 +159,11 @@ export const milestoneService = {
    * authorizing (e.g. via `getMilestoneWithTeam`).
    */
   async getOutcomeForMilestone(milestoneId: string) {
-    const { tasks, signalCounts } =
-      await milestoneRepository.outcomeRollupRows(milestoneId)
-    return computeMilestoneOutcome(
+    const [{ tasks, signalCounts }, greenQualityRows] = await Promise.all([
+      milestoneRepository.outcomeRollupRows(milestoneId),
+      milestoneRepository.greenQualityRows(milestoneId),
+    ])
+    const outcome = computeMilestoneOutcome(
       tasks.map(t => ({
         id: t.id,
         ref: `${t.team.identifier}-${t.number}`,
@@ -164,6 +174,22 @@ export const milestoneService = {
       })),
       signalCounts
     )
+    // LUM-639 acceptance-quality footnote — rides the outcome block so both
+    // detail read paths (by-id and by-slug) return it from this one place.
+    const greenQuality = computeMilestoneGreenQuality(
+      greenQualityRows.map(t => ({
+        id: t.id,
+        status: t.status,
+        verificationRounds: t.forecastSnapshot?.verificationRounds ?? null,
+        sendBackCount: t.forecastSnapshot?.sendBackCount ?? null,
+        faithfulnessVerdict: t.claimFaithfulness?.verdict ?? null,
+        snapshotCriteria:
+          t.criteriaSnapshots.length > 0
+            ? parseSnapshotCriteria(t.criteriaSnapshots[0]?.criteria)
+            : null,
+      }))
+    )
+    return { ...outcome, greenQuality }
   },
 
   /**
@@ -345,6 +371,28 @@ export const milestoneService = {
       })),
       sprints
     )
+  },
+
+  /**
+   * LUM-638 risk queue. The crossings fetch is isolated in its own
+   * try/catch: a read failure degrades that block to `unknown`
+   * (crossings: null → { known: false }) instead of failing the payload —
+   * unknown is not zero.
+   */
+  async getRiskQueueForMilestone(
+    milestoneId: string
+  ): Promise<MilestoneRiskQueue | null> {
+    const rows = await milestoneRepository.riskQueueRows(milestoneId)
+    if (!rows) return null
+    let crossings: RiskQueueCrossingRow[] | null
+    try {
+      crossings = await boundaryCrossingRepository.findSeverityRowsByTaskIds(
+        rows.tasks.map(t => t.id)
+      )
+    } catch {
+      crossings = null
+    }
+    return computeMilestoneRiskQueue({ ...rows, crossings, now: new Date() })
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {

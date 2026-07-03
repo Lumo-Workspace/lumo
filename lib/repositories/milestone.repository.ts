@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import type { Milestone, Prisma, TaskStatus } from '@prisma/client'
 
 type MilestoneUpdate = Partial<
@@ -225,6 +226,34 @@ export const milestoneRepository = {
   },
 
   /**
+   * Raw rows for the LUM-639 green-quality footnote: each DONE member task's
+   * frozen verification-friction scalars (TaskForecastSnapshot, LUM-606), its
+   * claim-faithfulness verdict when one was ever judged, and the LATEST
+   * delivery-time contract snapshot (TaskCriteriaSnapshot is append-only; the
+   * milestone rollup reads the last delivery's freeze). Absent relations stay
+   * absent — the read model turns them into explicit buckets, never zeros.
+   */
+  async greenQualityRows(milestoneId: string) {
+    return prisma.task.findMany({
+      where: { milestoneId, status: 'DONE' },
+      select: {
+        id: true,
+        status: true,
+        forecastSnapshot: {
+          select: { verificationRounds: true, sendBackCount: true },
+        },
+        claimFaithfulness: { select: { verdict: true } },
+        criteriaSnapshots: {
+          select: { criteria: true },
+          orderBy: { frozenAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { number: 'asc' },
+    })
+  },
+
+  /**
    * Raw rows for the LUM-627 cost+trend rollup: every member task's replay
    * basis (id / status / createdAt / sprintId) plus their append-only
    * STATUS_CHANGED activity trail, oldest-first — the burnup backward replay
@@ -335,6 +364,88 @@ export const milestoneRepository = {
       },
       orderBy: { number: 'asc' },
     })
+  },
+
+  /**
+   * LUM-638 risk-queue rollup rows. Crossings are deliberately NOT fetched
+   * here — their read failure must degrade that one block to `unknown`
+   * without taking the rest of the queue down (fail-closed).
+   */
+  async riskQueueRows(milestoneId: string) {
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      select: {
+        createdAt: true,
+        project: {
+          select: {
+            workspace: { select: { verificationMaxRounds: true } },
+          },
+        },
+        tasks: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+    if (!milestone) return null
+    const tasks = milestone.tasks.map(t => ({
+      id: t.id,
+      ref: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      createdAt: t.createdAt,
+    }))
+    const taskIds = tasks.map(t => t.id)
+    // Aging replay only ever inspects tasks currently IN_REVIEW — fetching
+    // the full milestone trail would duplicate costTrendRows' query for rows
+    // the pure fn ignores.
+    const inReviewIds = tasks
+      .filter(t => t.status === 'IN_REVIEW')
+      .map(t => t.id)
+    const [edges, statusActivities, verificationFails] = await Promise.all([
+      prisma.taskDependency.findMany({
+        where: { blockedTaskId: { in: taskIds }, kind: 'BLOCKS' },
+        select: {
+          blockedTaskId: true,
+          status: true,
+          blockingTask: {
+            select: {
+              number: true,
+              title: true,
+              status: true,
+              team: { select: { identifier: true } },
+            },
+          },
+        },
+      }),
+      prisma.taskActivity.findMany({
+        where: { taskId: { in: inReviewIds }, type: 'STATUS_CHANGED' },
+        select: { taskId: true, payload: true, createdAt: true },
+      }),
+      verificationRunRepository.failRowsByTaskIds(taskIds),
+    ])
+    return {
+      milestoneCreatedAt: milestone.createdAt,
+      maxRounds: milestone.project.workspace.verificationMaxRounds,
+      tasks,
+      edges: edges.map(e => ({
+        blockedTaskId: e.blockedTaskId,
+        status: e.status,
+        blocking: {
+          ref: `${e.blockingTask.team.identifier}-${e.blockingTask.number}`,
+          title: e.blockingTask.title,
+          status: e.blockingTask.status,
+        },
+      })),
+      statusActivities,
+      verificationFails,
+    }
   },
 }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { MilestoneOutcomeSection } from './MilestoneOutcomeSection'
 import {
   Area,
   CartesianGrid,
@@ -306,7 +307,14 @@ export function MilestoneCostTrendSection({
   const intl = useIntl()
   // Older-server tolerance: without any enrich field there is nothing
   // honest to say — render nothing rather than fabricate placeholders.
-  if (!costRollup && !burnup && !deliveryStats && !memberDelivery) return null
+  if (
+    !costRollup &&
+    !burnup &&
+    !deliveryStats &&
+    !memberDelivery &&
+    !outcome?.greenQuality
+  )
+    return null
 
   return (
     <section
@@ -337,6 +345,9 @@ export function MilestoneCostTrendSection({
           members={members}
         />
       )}
+
+      {/* LUM-639 acceptance-quality audit footnote — closes the outcome zone. */}
+      <MilestoneOutcomeSection greenQuality={outcome?.greenQuality} />
     </section>
   )
 }

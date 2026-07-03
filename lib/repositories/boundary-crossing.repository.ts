@@ -429,4 +429,18 @@ export const boundaryCrossingRepository = {
       select: { id: true, systemExplanation: true },
     })
   },
+
+  /** LUM-638 — raw severity/disposition rows; OPEN filtering happens in the pure fn. */
+  async findSeverityRowsByTaskIds(taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.boundaryCrossing.findMany({
+      where: { taskId: { in: taskIds } },
+      select: {
+        taskId: true,
+        severity: true,
+        disposition: true,
+        advisory: true,
+      },
+    })
+  },
 }

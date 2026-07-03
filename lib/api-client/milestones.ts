@@ -67,6 +67,32 @@ export interface ApiMilestone {
       }>
       inconclusiveCount: number
     }
+    /**
+     * LUM-639 acceptance-quality footnote — three count groups over the DONE
+     * tasks, never a merged score. Friction buckets share the LUM-606 outcome
+     * rate 口径; referent-kind shares the LUM-609 fidelity grounding split.
+     * Optional so pre-LUM-639 payloads stay valid.
+     */
+    greenQuality?: {
+      doneCount: number
+      friction: {
+        noVerification: number
+        singleRound: number
+        multiRoundOrSendback: number
+      }
+      faithfulness: {
+        faithful: number
+        overstated: number
+        underReported: number
+        unjudged: number
+      }
+      referentKind: {
+        externallyAnchored: number
+        selfConfirming: number
+        other: number
+        noSnapshotTasks: number
+      }
+    }
   } | null
   /**
    * One-line key outcome from the generated retro (MilestoneSummary.tldr).
@@ -235,6 +261,47 @@ export interface ApiMilestone {
         source: string | null
       }>
     }>
+  } | null
+  /**
+   * LUM-638 risk queue rollup. Server-enriched on the detail response only.
+   * Fail-closed: `crossings: { known: false }` when the boundary-crossing
+   * read failed — never coerced to zero counts.
+   */
+  riskQueue?: {
+    blocked: Array<{
+      taskId: string
+      ref: string
+      title: string
+      blockingRef: string
+      blockingStatus: TaskStatus
+    }>
+    awaitingVerdict: Array<{
+      taskId: string
+      ref: string
+      title: string
+      agingSec: number | null
+    }>
+    crossings:
+      | {
+          known: true
+          bySeverity: { high: number; medium: number; low: number }
+          tasks: Array<{
+            taskId: string
+            ref: string
+            title: string
+            high: number
+            medium: number
+            low: number
+          }>
+        }
+      | { known: false }
+    verifyEscalated: Array<{
+      taskId: string
+      ref: string
+      title: string
+      round: number
+    }>
+    scopeBaseline: { initial: number; current: number; addedLater: number }
   } | null
 }
 
