@@ -69,12 +69,18 @@ export async function POST(
         message?: string
         currentTaskIdentifier?: string
         currentTaskTitle?: string
+        currentMilestoneId?: string
+        currentMilestoneName?: string
       }
       return NextResponse.json(
         {
           error: e.message ?? 'Session is already bound to another task',
           currentTaskIdentifier: e.currentTaskIdentifier,
           currentTaskTitle: e.currentTaskTitle,
+          // LUM-640: the steward form of the lifetime lock — the session is
+          // milestone-bound, so the CLI names the milestone instead of a task.
+          currentMilestoneId: e.currentMilestoneId,
+          currentMilestoneName: e.currentMilestoneName,
         },
         { status: 409 }
       )

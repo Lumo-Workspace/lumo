@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "वापस लिया गया",
   "boundary.category.PROJECT_RULE_VIOLATION": "परियोजना नियम उल्लंघन",
   "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "स्टीवर्ड सत्र से कार्यान्वयन आर्टिफ़ैक्ट",
   "boundary.advisoryBadge": "सलाह",
   "boundary.field.rule": "नियम",
   "boundary.field.triggeredBy": "ट्रिगर किया गया",

@@ -1,6 +1,7 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
@@ -30,6 +31,20 @@ export type BindSessionToTaskResult = {
   blockerWarningSection: string
 }
 
+interface BindSessionToMilestoneInput {
+  identity: VerifyApiKeyResult
+  sessionId: string
+  /** Milestone reference: exact id, or a case-insensitive name/slug match. */
+  milestoneRef: string
+}
+
+export type BindSessionToMilestoneResult = {
+  status: 'bound'
+  role: 'STEWARD'
+  milestoneId: string
+  milestoneName: string
+}
+
 interface SessionScopedInput {
   identity: VerifyApiKeyResult
   sessionId: string
@@ -45,7 +60,68 @@ export type SessionStatusResult =
       eventCount: number
       taskIdentifier: string | null
       taskTitle: string | null
+      /** LUM-640: STEWARD when the session is milestone-bound. Absent/IMPLEMENTATION otherwise. */
+      role: 'IMPLEMENTATION' | 'STEWARD'
+      /** LUM-640: the bound milestone's name for STEWARD sessions, else null. */
+      milestoneName: string | null
     }
+
+/**
+ * Resolve a milestone reference workspace-wide (LUM-640): exact id first, then
+ * a case-insensitive name/slug match across the workspace's active milestones.
+ * Ambiguous references are rejected with the candidate list (the workspace
+ * convention for user-supplied identifiers) — the caller retries with the id.
+ */
+async function resolveMilestoneInWorkspace(
+  workspaceId: string,
+  milestoneRef: string
+): Promise<{ id: string; name: string }> {
+  const ref = milestoneRef.trim()
+  const byId = await milestoneRepository.findById(ref)
+  if (byId) {
+    // Guard the workspace boundary: an id from another workspace must read as
+    // not-found, not leak the milestone's existence.
+    const inWorkspace = await milestoneRepository.findByWorkspace(
+      workspaceId,
+      'all'
+    )
+    const match = inWorkspace.find(m => m.id === byId.id)
+    if (match) return { id: match.id, name: match.name }
+  }
+  const candidates = await milestoneRepository.findByWorkspace(
+    workspaceId,
+    'active'
+  )
+  const lowered = ref.toLowerCase()
+  const matches = candidates.filter(
+    m => m.name.toLowerCase() === lowered || m.slug.toLowerCase() === lowered
+  )
+  if (matches.length === 0) {
+    throw Object.assign(
+      new Error(
+        `No milestone matches "${milestoneRef}" in this workspace. Try \`lumo milestone list\`.`
+      ),
+      { status: 404 }
+    )
+  }
+  if (matches.length > 1) {
+    const list = matches.map(m => `${m.id} "${m.name}"`).join(', ')
+    throw Object.assign(
+      new Error(
+        `Milestone reference "${milestoneRef}" is ambiguous — matches: ${list}. Use the milestone id.`
+      ),
+      { status: 400 }
+    )
+  }
+  const only = matches[0]
+  if (!only) {
+    // Unreachable (length === 1) — satisfies noUncheckedIndexedAccess.
+    throw Object.assign(new Error('Milestone resolution failed'), {
+      status: 500,
+    })
+  }
+  return { id: only.id, name: only.name }
+}
 
 export const sessionService = {
   async bindSessionToTask({
@@ -81,6 +157,22 @@ export const sessionService = {
       sessionId,
       memberId
     )
+    // LUM-640: a STEWARD session is milestone-bound for its lifetime — the same
+    // lock as taskId, in the other legal form. It never converts to an
+    // implementation session; a task attach is refused outright.
+    if (current?.role === 'STEWARD' && current.milestone) {
+      throw Object.assign(
+        new Error(
+          `Session is a STEWARD (governance) session for milestone "${current.milestone.name}" — it cannot attach a task. Start a new Claude Code session to implement ${taskIdentifier}.`
+        ),
+        {
+          status: 409,
+          currentMilestoneId: current.milestone.id,
+          currentMilestoneName: current.milestone.name,
+          sessionRole: 'STEWARD',
+        }
+      )
+    }
     if (current?.task && current.task.id !== task.id) {
       const currentTaskIdentifier = `${current.task.team.identifier}-${current.task.number}`
       throw Object.assign(
@@ -149,6 +241,93 @@ export const sessionService = {
   },
 
   /**
+   * Bind a session to a MILESTONE as a STEWARD (governance) session (LUM-640).
+   * The steward binding is the second legal session form: same lifetime-lock
+   * semantics as the task binding (LUM-459) — a task-bound session cannot
+   * become a steward, a steward cannot rebind to a different milestone, and
+   * re-attaching the same milestone is an idempotent no-op. Multiple steward
+   * sessions on one milestone are allowed (acceptance is multi-round by
+   * nature), so there is no uniqueness check across sessions.
+   */
+  async bindSessionToMilestone({
+    identity,
+    sessionId,
+    milestoneRef,
+  }: BindSessionToMilestoneInput): Promise<BindSessionToMilestoneResult> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) {
+      throw Object.assign(new Error('Not a workspace member'), { status: 403 })
+    }
+
+    const milestone = await resolveMilestoneInWorkspace(
+      identity.workspace.id,
+      milestoneRef
+    )
+
+    const current = await sessionRepository.findForMemberWithBinding(
+      sessionId,
+      memberId
+    )
+    // Lifetime lock, task form: an implementation session never becomes a
+    // steward. Mirrors the LUM-459 refusal shape so the CLI can name the task.
+    if (current?.task) {
+      const currentTaskIdentifier = `${current.task.team.identifier}-${current.task.number}`
+      throw Object.assign(
+        new Error(
+          `Session is permanently bound to ${currentTaskIdentifier} — an implementation session cannot become a steward. Start a new Claude Code session for governance work.`
+        ),
+        {
+          status: 409,
+          currentTaskIdentifier,
+          currentTaskTitle: current.task.title,
+        }
+      )
+    }
+    // Lifetime lock, milestone form: bound to a DIFFERENT milestone → refuse;
+    // the SAME milestone falls through (idempotent re-attach).
+    if (
+      current?.role === 'STEWARD' &&
+      current.milestone &&
+      current.milestone.id !== milestone.id
+    ) {
+      throw Object.assign(
+        new Error(
+          `Session is permanently bound as STEWARD of milestone "${current.milestone.name}" — start a new Claude Code session to steward a different milestone.`
+        ),
+        {
+          status: 409,
+          currentMilestoneId: current.milestone.id,
+          currentMilestoneName: current.milestone.name,
+          sessionRole: 'STEWARD',
+        }
+      )
+    }
+
+    const upserted = await sessionRepository.upsertWithMilestoneId({
+      id: sessionId,
+      workspaceId: identity.workspace.id,
+      workspaceMemberId: memberId,
+      milestoneId: milestone.id,
+      now: new Date(),
+    })
+    if (upserted.ownedByOther) {
+      throw Object.assign(new Error('Session belongs to another member'), {
+        status: 403,
+      })
+    }
+
+    return {
+      status: 'bound',
+      role: 'STEWARD',
+      milestoneId: milestone.id,
+      milestoneName: milestone.name,
+    }
+  },
+
+  /**
    * Look up the current binding state for a session owned by the bearer's
    * member. Returns `{ exists: false }` for sessions that don't exist or
    * belong to another member — both 404s from the caller's perspective,
@@ -179,6 +358,8 @@ export const sessionService = {
       eventCount: row.eventCount,
       taskIdentifier: task ? `${task.team.identifier}-${task.number}` : null,
       taskTitle: task ? task.title : null,
+      role: row.role,
+      milestoneName: row.milestone?.name ?? null,
     }
   },
 }

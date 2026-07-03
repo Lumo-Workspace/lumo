@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "ditarik balik",
   "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran peraturan projek",
   "boundary.category.POLICY_WEAKENING": "Pelemahan dasar",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Artifak pelaksanaan daripada sesi steward",
   "boundary.advisoryBadge": "Nasihat",
   "boundary.field.rule": "Peraturan",
   "boundary.field.triggeredBy": "Dicetuskan oleh",

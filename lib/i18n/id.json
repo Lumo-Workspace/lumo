@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "dibatalkan",
   "boundary.category.PROJECT_RULE_VIOLATION": "Pelanggaran aturan proyek",
   "boundary.category.POLICY_WEAKENING": "Pelemahan kebijakan",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Artefak implementasi dari sesi steward",
   "boundary.advisoryBadge": "Saran",
   "boundary.field.rule": "Aturan",
   "boundary.field.triggeredBy": "Dipicu oleh",

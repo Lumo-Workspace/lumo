@@ -1858,6 +1858,7 @@
   "task.verdict.historyWithdrawn": "已撤销",
   "boundary.category.PROJECT_RULE_VIOLATION": "项目规则违反",
   "boundary.category.POLICY_WEAKENING": "规则弱化",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "治理(steward)session 产出实现产物",
   "boundary.advisoryBadge": "提示",
   "boundary.field.rule": "规则",
   "boundary.field.triggeredBy": "触发来源",

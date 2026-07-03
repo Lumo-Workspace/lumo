@@ -157,7 +157,8 @@ lumo fidelity show LUM-42 --json
 **Sessions** — see [sessions.md](references/sessions.md)
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
-- `lumo session status` — show current binding
+- `lumo session attach --steward <milestone>` — bind this session to a **milestone** as a **STEWARD (governance) session** (LUM-640): plan & accept only. Governance passes (task create/update, criteria set incl. `--human`, deps confirm/dismiss, `verdict --fail` with session provenance, milestone add/remove, all reads); implementation is gated (`lumo verify` → 409 **without burning a round**; moving a task to in_progress assigned to yourself → 409); commits/PRs produced anyway are recorded as milestone-scoped boundary crossings (fail-closed; disposition stays web+human-only, no CLI clear path). Same lifetime lock: same milestone idempotent, any other attach (a task, or a different milestone) → 409; multiple stewards per milestone are fine. See [sessions.md](references/sessions.md)
+- `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
 - End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
@@ -192,6 +193,7 @@ Don't guess these:
 
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
+- No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
 - No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`

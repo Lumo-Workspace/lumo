@@ -7,7 +7,12 @@ import type {
 } from '@prisma/client'
 
 export interface CreateBoundaryCrossingInput {
-  taskId: string
+  /** Null since LUM-640 for milestone-scoped steward crossings (no task exists);
+   *  every task-scoped detector still passes a string. */
+  taskId: string | null
+  /** LUM-640: the steward session's milestone for STEWARD_IMPLEMENTATION_ARTIFACT
+   *  crossings. Null (omitted) on all task-scoped crossings. */
+  milestoneId?: string | null
   hookEventId?: string | null
   /** LUM-511: the originating session for a CLI-sourced crossing (spinoff
    *  laundering) that has no hook event — the attribution read model resolves
@@ -137,6 +142,7 @@ export const boundaryCrossingRepository = {
     return client.boundaryCrossing.create({
       data: {
         taskId: input.taskId,
+        milestoneId: input.milestoneId ?? null,
         hookEventId: input.hookEventId ?? null,
         sessionId: input.sessionId ?? null,
         category: input.category,
@@ -185,6 +191,25 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-640: the milestone-scoped twin of `coalesceRecurrence` for steward
+   * crossings (which have no taskId) — same open-row (category, target)
+   * semantics, keyed on milestoneId instead.
+   */
+  async coalesceRecurrenceForMilestone(
+    milestoneId: string,
+    category: BoundaryCrossingCategory,
+    target: string | null,
+    now: Date
+  ): Promise<number> {
+    if (target == null) return 0
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { milestoneId, category, target, disposition: null },
+      data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
+    })
+    return count
+  },
+
+  /**
    * Task ids (within the candidate set) carrying ≥1 crossing of the given
    * category (or any of the categories) — LUM-511 folds the judge-confirmed
    * laundering crossings (CONTRACT_WEAKENING, SPINOFF_LAUNDERED, SILENT_FIX)
@@ -203,7 +228,9 @@ export const boundaryCrossingRepository = {
       select: { taskId: true },
       distinct: ['taskId'],
     })
-    return new Set(rows.map(r => r.taskId))
+    return new Set(
+      rows.map(r => r.taskId).filter((id): id is string => id !== null)
+    )
   },
 
   /**

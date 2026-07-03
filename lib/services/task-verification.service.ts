@@ -583,6 +583,9 @@ export const taskVerificationService = {
         rejectionReason: r.rejectionReason,
         rejectionReasonEnum:
           rejectionEnumByCriterion.get(r.criterionId) ?? null,
+        // LUM-640: session provenance on machine rows too (same audit pointer
+        // the agent-verdict rows carry).
+        sourceSessionId: attribution.sourceSessionId,
       }))
       await verificationRunRepository.createMany(rows, tx)
 

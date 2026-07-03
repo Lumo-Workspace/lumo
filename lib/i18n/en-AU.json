@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "withdrawn",
   "boundary.category.PROJECT_RULE_VIOLATION": "Project rule violation",
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Implementation artefact from a steward session",
   "boundary.advisoryBadge": "Advisory",
   "boundary.field.rule": "Rule",
   "boundary.field.triggeredBy": "Triggered by",

@@ -19,25 +19,43 @@ interface BoundResponse {
   criteriaSection?: string
 }
 
+/** LUM-640: successful steward (milestone) bind. */
+interface StewardBoundResponse {
+  status?: 'bound'
+  role: 'STEWARD'
+  milestoneId: string
+  milestoneName: string
+}
+
 /**
- * `lumo session attach <identifier>` — bind the currently-running
- * Claude Code session to a task.
+ * `lumo session attach <identifier> [--steward]` — bind the currently-running
+ * Claude Code session to a task, or (with `--steward`) to a MILESTONE as a
+ * STEWARD (governance) session (LUM-640).
  *
  * Required environment: `CLAUDE_CODE_SESSION_ID` (set automatically by
  * Claude Code). Must be invoked from inside a Claude Code session.
  *
- * The binding is a **lifetime lock** (LUM-459): `Session.taskId` is write-once.
- * Re-attaching to the *same* task is an idempotent no-op (re-emits context).
- * Attaching to a *different* task is refused with HTTP 409 — there is no
- * `--force` and no `session detach`; a different task requires a brand-new
- * Claude Code session.
+ * Both forms are a **lifetime lock** (LUM-459/LUM-640): the binding is
+ * write-once. Re-attaching to the *same* task/milestone is an idempotent
+ * no-op. Attaching to anything else — a different task, a different
+ * milestone, a task after a steward bind, a milestone after a task bind —
+ * is refused with HTTP 409; there is no `--force` and no `session detach`;
+ * a different binding requires a brand-new Claude Code session.
+ *
+ * A STEWARD session plans and accepts only: task create/update, criteria
+ * set, deps confirm/dismiss, verdict --fail, milestone add/remove and all
+ * reads pass; `lumo verify` and self-dispatch are refused with 409, and
+ * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
 export async function sessionAttach(
-  identifier: string | undefined
+  identifier: string | undefined,
+  options?: { steward?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <identifier>. Usage: lumo session attach <LUM-42>'
+      options?.steward
+        ? 'Error: missing <identifier>. Usage: lumo session attach --steward <milestone id | name | slug>'
+        : 'Error: missing <identifier>. Usage: lumo session attach <LUM-42>'
     )
     return 1
   }
@@ -55,6 +73,15 @@ export async function sessionAttach(
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
     return 1
+  }
+
+  if (options?.steward) {
+    return stewardAttach({
+      identifier,
+      sessionId,
+      apiUrl: resolveAuthedApiUrl(creds.apiUrl),
+      token: creds.token,
+    })
   }
 
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
@@ -91,21 +118,34 @@ export async function sessionAttach(
     console.error(`Error: ${sanitizeField(message)}`)
     return 1
   }
-  // Lifetime lock (LUM-459): the session is permanently bound to another task.
+  // Lifetime lock (LUM-459): the session is permanently bound to another task —
+  // or (LUM-640) it is a STEWARD session bound to a milestone.
   if (res.status === 409) {
     let current = 'another task'
+    let stewardMilestone: string | null = null
     try {
       const data = (await res.json()) as {
         currentTaskIdentifier?: string
         currentTaskTitle?: string
+        currentMilestoneName?: string
       }
-      if (data.currentTaskIdentifier) {
+      if (data.currentMilestoneName) {
+        stewardMilestone = sanitizeField(data.currentMilestoneName)
+      } else if (data.currentTaskIdentifier) {
         current = data.currentTaskTitle
           ? `${data.currentTaskIdentifier} "${sanitizeField(data.currentTaskTitle)}"`
           : data.currentTaskIdentifier
       }
     } catch {
       // fall through with the generic phrasing
+    }
+    if (stewardMilestone) {
+      console.error(
+        `Error: this session is a STEWARD (governance) session for milestone "${stewardMilestone}" — ` +
+          'it cannot attach a task. Start a new Claude Code session to ' +
+          `implement ${identifier}.`
+      )
+      return 1
     }
     console.error(
       `Error: this session is permanently bound to ${current}. ` +
@@ -180,4 +220,94 @@ export async function sessionAttach(
   } catch {
     // best-effort — the bind already succeeded; never surface a sync error here
   }
+}
+
+/**
+ * LUM-640: the `--steward` form — bind this session to a MILESTONE as a
+ * governance session. Same lifetime-lock error surface as the task form; the
+ * success output spells out the allowed/blocked action split so the agent
+ * knows its lane without a round-trip to the docs.
+ */
+async function stewardAttach(args: {
+  identifier: string
+  sessionId: string
+  apiUrl: string
+  token: string
+}): Promise<number | void> {
+  const { identifier, sessionId, apiUrl, token } = args
+  const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(sessionId)}/bind-milestone`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ milestoneRef: identifier }),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  // 400 (ambiguous reference) and 404 (no match) carry actionable server
+  // messages — print them verbatim (sanitized).
+  if (res.status === 400 || res.status === 404) {
+    let message = res.status === 404 ? 'Not found' : 'Bad request'
+    try {
+      const data = (await res.json()) as { error?: string }
+      if (data.error) message = data.error
+    } catch {
+      // fall through
+    }
+    console.error(`Error: ${sanitizeField(message)}`)
+    return 1
+  }
+  // Lifetime lock: already task-bound, or steward of a different milestone.
+  if (res.status === 409) {
+    let message = 'this session is already permanently bound'
+    try {
+      const data = (await res.json()) as {
+        error?: string
+        currentTaskIdentifier?: string
+        currentMilestoneName?: string
+      }
+      if (data.error) message = data.error
+    } catch {
+      // fall through with the generic phrasing
+    }
+    console.error(
+      `Error: ${sanitizeField(message)} ` +
+        'A session holds one binding for its lifetime — start a new Claude ' +
+        'Code session for a different task or milestone.'
+    )
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: bind-milestone failed (HTTP ${res.status})`)
+    return 1
+  }
+
+  const body = (await res.json()) as StewardBoundResponse
+  console.log(
+    `Attached session ${sessionId} as STEWARD of milestone "${sanitizeField(body.milestoneName)}"`
+  )
+  console.log('')
+  console.log('Governance role — plan & accept only (lifetime lock):')
+  console.log(
+    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · verdict --fail · milestone add/remove · all reads'
+  )
+  console.log(
+    '  blocked: lumo verify (409, no round burned) · moving a task to in_progress assigned to yourself · attaching a task'
+  )
+  console.log(
+    '  note:    commits/PRs produced in this session are recorded as boundary crossings (human-reviewed on the web)'
+  )
 }

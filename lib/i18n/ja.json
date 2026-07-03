@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "取り消し済み",
   "boundary.category.PROJECT_RULE_VIOLATION": "プロジェクトルール違反",
   "boundary.category.POLICY_WEAKENING": "ポリシーの弱体化",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "スチュワードセッションからの実装成果物",
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.field.rule": "ルール",
   "boundary.field.triggeredBy": "トリガー",

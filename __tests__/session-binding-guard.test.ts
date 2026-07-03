@@ -160,6 +160,7 @@ describe('enforceSessionBinding', () => {
         memberId: 'm1',
         targetTaskId: 't1',
         action: 'machine verification',
+        stewardPolicy: 'forbid-implementation',
       })
     ).rejects.toMatchObject({ status: 409, boundTaskIdentifier: 'LUM-487' })
     expect(createCrossing).not.toHaveBeenCalled()
@@ -174,8 +175,9 @@ describe('enforceSessionBinding', () => {
       memberId: 'm1',
       targetTaskId: 't1',
       action: 'machine verification',
+      stewardPolicy: 'forbid-implementation',
     })
-    expect(r).toEqual({ advisory: 'unbound' })
+    expect(r).toEqual({ advisory: 'unbound', steward: null })
     expect(createCrossing).toHaveBeenCalled()
   })
   it('returns the unconfirmed advisory without recording when it cannot prove unbound', async () => {
@@ -186,8 +188,9 @@ describe('enforceSessionBinding', () => {
       memberId: 'm1',
       targetTaskId: 't1',
       action: 'status change',
+      stewardPolicy: 'allow-governance',
     })
-    expect(r).toEqual({ advisory: 'unconfirmed' })
+    expect(r).toEqual({ advisory: 'unconfirmed', steward: null })
     expect(createCrossing).not.toHaveBeenCalled()
   })
   it('returns no advisory when bound correctly, and never records', async () => {
@@ -198,8 +201,9 @@ describe('enforceSessionBinding', () => {
       memberId: 'm1',
       targetTaskId: 't1',
       action: 'machine verification',
+      stewardPolicy: 'forbid-implementation',
     })
-    expect(r).toEqual({ advisory: null })
+    expect(r).toEqual({ advisory: null, steward: null })
     expect(createCrossing).not.toHaveBeenCalled()
   })
   it('returns no advisory for the clerk path (RED LINE — never records/throws)', async () => {
@@ -209,8 +213,9 @@ describe('enforceSessionBinding', () => {
       memberId: 'm1',
       targetTaskId: 't1',
       action: 'status change',
+      stewardPolicy: 'allow-governance',
     })
-    expect(r).toEqual({ advisory: null })
+    expect(r).toEqual({ advisory: null, steward: null })
     expect(createCrossing).not.toHaveBeenCalled()
   })
 })

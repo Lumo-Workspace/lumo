@@ -1853,6 +1853,7 @@
   "task.verdict.historyWithdrawn": "已撤銷",
   "boundary.category.PROJECT_RULE_VIOLATION": "專案規則違反",
   "boundary.category.POLICY_WEAKENING": "規則弱化",
+  "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "治理(steward)session 產出實作產物",
   "boundary.advisoryBadge": "提示",
   "boundary.field.rule": "規則",
   "boundary.field.triggeredBy": "觸發來源",
