@@ -5,6 +5,7 @@ import type { WorkspaceMemberInfo } from '../../types'
 import { MilestoneHero } from './MilestoneHero'
 import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
 import { MilestoneRiskQueueSection } from './MilestoneRiskQueueSection'
+import { MilestoneTopologySection } from './MilestoneTopologySection'
 import { MilestoneTaskEvidenceSection } from './MilestoneTaskEvidenceSection'
 
 interface MilestoneOverviewTabProps {
@@ -27,6 +28,7 @@ interface MilestoneOverviewTabProps {
     | 'deliveryStats'
     | 'memberDelivery'
     | 'riskQueue'
+    | 'topology'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace URL segment, so evidence cards can link to task detail. */
@@ -69,6 +71,13 @@ export function MilestoneOverviewTab({
       <MilestoneRiskQueueSection
         riskQueue={milestone.riskQueue}
         budget={milestone.budget}
+        workspaceUrl={workspaceUrl}
+      />
+
+      {/* The forward-looking half of the action queue: what to start next,
+          dependency-ordered — still ahead of the retrospective sections. */}
+      <MilestoneTopologySection
+        topology={milestone.topology}
         workspaceUrl={workspaceUrl}
       />
 

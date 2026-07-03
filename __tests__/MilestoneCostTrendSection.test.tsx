@@ -62,6 +62,10 @@ const messages: Record<string, string> = {
   'milestone.memberDelivery.doneCount': '{count} done',
   'milestone.memberDelivery.prCount': '{count} PRs',
   'milestone.memberDelivery.changedFilesChip': '{count} files changed',
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+  'duration.milliseconds': '{ms}ms',
 }
 
 jest.mock('react-intl', () => ({

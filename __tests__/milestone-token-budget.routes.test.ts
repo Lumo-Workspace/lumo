@@ -23,6 +23,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getDeliveryStatsForMilestone: jest.fn(),
     getMemberDeliveryForMilestone: jest.fn(),
     getRiskQueueForMilestone: jest.fn(),
+    getTopologyForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -135,6 +136,9 @@ beforeEach(() => {
     milestoneService.getMemberDeliveryForMilestone as jest.Mock
   ).mockResolvedValue({ rows: [] })
   ;(milestoneService.getRiskQueueForMilestone as jest.Mock).mockResolvedValue(
+    null
+  )
+  ;(milestoneService.getTopologyForMilestone as jest.Mock).mockResolvedValue(
     null
   )
 })

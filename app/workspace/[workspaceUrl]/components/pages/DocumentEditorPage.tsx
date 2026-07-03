@@ -46,6 +46,7 @@ import { CommentSheet } from '../document/comments/CommentSheet'
 import { NewCommentPopoverPortal } from '../document/comments/NewCommentPopoverPortal'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { queryKeys } from '@/lib/query/keys'
+import { formatRelativeTime } from '@/lib/datetime/relative'
 import {
   setActiveEditorAnchor,
   setResolvedEditorAnchors,
@@ -63,24 +64,6 @@ interface DocumentEditorPageProps {
   onEmojiChanged?: (id: string, emoji: string | null) => void
   members: WorkspaceMemberInfo[]
   currentMemberId: string | undefined
-}
-
-function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  if (diffSec < 60) return rtf.format(0, 'second')
-  const diffMins = Math.floor(diffSec / 60)
-  if (diffMins < 60) return rtf.format(-diffMins, 'minute')
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return rtf.format(-diffHours, 'hour')
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return rtf.format(-diffDays, 'day')
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 /**

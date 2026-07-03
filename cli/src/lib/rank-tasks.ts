@@ -4,8 +4,9 @@
  * of human-readable reason factors.
  *
  * Ordering is lexicographic (explainable over a tunable magic score), honoring
- * "priority first": priority → active-sprint membership → dueDate → in-flight
- * status → updatedAt desc tiebreak.
+ * "priority first": priority → active-sprint membership → dependency topology
+ * (unblocked before blocked, then most open tasks released) → dueDate →
+ * in-flight status → updatedAt desc tiebreak.
  */
 
 /** Subset of the /api/tasks/me task shape that ranking needs. */
@@ -19,6 +20,12 @@ export interface NextTask {
   sprintId: string | null
   dueDate: string | null
   updatedAt: string
+  /**
+   * LUM-645 dependency-topology counts. Optional: an older server simply
+   * doesn't send them, and ranking degrades to the pre-topology order.
+   */
+  blockedByOpenCount?: number
+  unblocksOpenCount?: number
 }
 
 export interface RankedTask {
@@ -60,6 +67,15 @@ function inActiveSprint(task: NextTask, activeSprintIds: Set<string>): boolean {
   return task.sprintId !== null && activeSprintIds.has(task.sprintId)
 }
 
+/** Missing counts (older server) read as 0 — no topology signal, no reorder. */
+function blockedByOpen(task: NextTask): number {
+  return task.blockedByOpenCount ?? 0
+}
+
+function unblocksOpen(task: NextTask): number {
+  return task.unblocksOpenCount ?? 0
+}
+
 function deriveReasons(
   task: NextTask,
   activeSprintIds: Set<string>,
@@ -69,6 +85,20 @@ function deriveReasons(
 
   if (inActiveSprint(task, activeSprintIds)) {
     reasons.push('active sprint')
+  }
+
+  const blocked = blockedByOpen(task)
+  const unblocks = unblocksOpen(task)
+  if (blocked > 0) {
+    reasons.push(
+      blocked === 1
+        ? 'blocked by 1 open dep'
+        : `blocked by ${blocked} open deps`
+    )
+  } else if (unblocks > 0) {
+    reasons.push(
+      unblocks === 1 ? 'unblocks 1 task' : `unblocks ${unblocks} tasks`
+    )
   }
 
   if (task.dueDate) {
@@ -96,6 +126,16 @@ export function rankTasks(
     const sa = inActiveSprint(a, activeSprintIds) ? 0 : 1
     const sb = inActiveSprint(b, activeSprintIds) ? 0 : 1
     if (sa !== sb) return sa - sb
+
+    // Dependency topology (LUM-645): workable-now before blocked, then the
+    // task that releases the most open work. Both 0 when the server doesn't
+    // send counts — the comparator falls through unchanged.
+    const ba = blockedByOpen(a) > 0 ? 1 : 0
+    const bb = blockedByOpen(b) > 0 ? 1 : 0
+    if (ba !== bb) return ba - bb
+
+    const ub = unblocksOpen(b) - unblocksOpen(a)
+    if (ub !== 0) return ub
 
     const dv = dueValue(a.dueDate) - dueValue(b.dueDate)
     if (dv !== 0 && !Number.isNaN(dv)) return dv

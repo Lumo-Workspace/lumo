@@ -41,12 +41,17 @@ export const taskDependencyRepository = {
   },
 
   async findById(id: string) {
-    return prisma.taskDependency.findUnique({ where: { id }, include: EDGE_INCLUDE })
+    return prisma.taskDependency.findUnique({
+      where: { id },
+      include: EDGE_INCLUDE,
+    })
   },
 
   async findByPair(blockedTaskId: string, blockingTaskId: string) {
     return prisma.taskDependency.findUnique({
-      where: { blockedTaskId_blockingTaskId: { blockedTaskId, blockingTaskId } },
+      where: {
+        blockedTaskId_blockingTaskId: { blockedTaskId, blockingTaskId },
+      },
     })
   },
 
@@ -111,7 +116,11 @@ export const taskDependencyRepository = {
     if (data.blockingTaskId !== undefined)
       patch.blockingTask = { connect: { id: data.blockingTaskId } }
     if (data.confirmedAt !== undefined) patch.confirmedAt = data.confirmedAt
-    return prisma.taskDependency.update({ where: { id }, data: patch, include: EDGE_INCLUDE })
+    return prisma.taskDependency.update({
+      where: { id },
+      data: patch,
+      include: EDGE_INCLUDE,
+    })
   },
 
   async delete(id: string) {
@@ -163,6 +172,27 @@ export const taskDependencyRepository = {
     return prisma.task.findMany({
       where: { id: { in: ids }, status: { not: 'DONE' } },
       select: { id: true, createdAt: true, parentTaskId: true },
+    })
+  },
+
+  /** LUM-645 `lumo next` 拓扑感知:触及给定任务任一端的已确认 BLOCKS 边,带两端状态。 */
+  async findConfirmedBlocksEdgesTouching(taskIds: string[]) {
+    if (taskIds.length === 0) return []
+    return prisma.taskDependency.findMany({
+      where: {
+        status: 'CONFIRMED',
+        kind: 'BLOCKS',
+        OR: [
+          { blockedTaskId: { in: taskIds } },
+          { blockingTaskId: { in: taskIds } },
+        ],
+      },
+      select: {
+        blockedTaskId: true,
+        blockingTaskId: true,
+        blockedTask: { select: { status: true } },
+        blockingTask: { select: { status: true } },
+      },
     })
   },
 }

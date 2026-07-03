@@ -5,24 +5,13 @@ import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2 } from 'lucide-react'
 import { FigmaIcon } from '../FigmaIcon'
 import type { OptimisticFigmaLink } from '../../hooks/useFigmaLinks'
+import { formatRelativeAgo } from '@/lib/datetime/relative'
+import { useNow } from '@/hooks/use-now'
 
 interface Props {
   link: OptimisticFigmaLink
   onRemove: (linkId: string) => Promise<void>
   onRefreshAll?: () => Promise<void>
-}
-
-function relativeAgo(isoDate: string, now = new Date()): string {
-  const date = new Date(isoDate)
-  const diffMin = Math.max(
-    0,
-    Math.round((now.getTime() - date.getTime()) / 60000)
-  )
-  if (diffMin < 1) return 'just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `${diffH}h ago`
-  return `${Math.round(diffH / 24)}d ago`
 }
 
 function isSafeUrl(url: string): boolean {
@@ -35,6 +24,7 @@ export function FigmaLinkCard({
   onRefreshAll,
 }: Props): React.ReactElement {
   const intl = useIntl()
+  const now = useNow()
   const [busy, setBusy] = useState(false)
 
   const safeHref = isSafeUrl(link.url) ? link.url : undefined
@@ -170,7 +160,12 @@ export function FigmaLinkCard({
                   id: 'task.figma.lastSynced',
                   defaultMessage: 'Synced {ago}',
                 },
-                { ago: relativeAgo(link.lastSyncedAt) }
+                {
+                  ago:
+                    now != null
+                      ? formatRelativeAgo(intl, link.lastSyncedAt, now)
+                      : '',
+                }
               )}
             </p>
           )}

@@ -27,6 +27,10 @@ import {
   type RiskQueueCrossingRow,
 } from '@/lib/summaries/milestone-risk-queue'
 import {
+  computeMilestoneTopology,
+  type MilestoneTopology,
+} from '@/lib/summaries/milestone-topology'
+import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
 } from '@/lib/utils/milestone-slug'
@@ -409,6 +413,19 @@ export const milestoneService = {
       crossings = null
     }
     return computeMilestoneRiskQueue({ ...rows, crossings, now: new Date() })
+  },
+
+  /**
+   * LUM-645 dependency topology: layered order, unweighted critical path and
+   * the recommended next batch, over CONFIRMED BLOCKS edges (the honesty
+   * filter lives in the pure fn).
+   */
+  async getTopologyForMilestone(
+    milestoneId: string
+  ): Promise<MilestoneTopology | null> {
+    const rows = await milestoneRepository.topologyRows(milestoneId)
+    if (!rows) return null
+    return computeMilestoneTopology(rows)
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {

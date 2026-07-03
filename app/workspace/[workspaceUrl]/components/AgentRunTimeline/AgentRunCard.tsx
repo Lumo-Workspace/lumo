@@ -12,7 +12,7 @@ import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
 import { initialsOf } from '../initials'
-import { formatDuration } from './format-duration'
+import { formatDurationMs } from '@/lib/datetime/duration'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -27,7 +27,7 @@ export function AgentRunCard({
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   const digest = run.runSummary ? [] : deriveRunDigest(run.items)
-  const durationLabel = formatDuration(run.durationMs)
+  const durationLabel = formatDurationMs(intl, run.durationMs)
   const startLabel = new Date(run.startedAt).toLocaleString(intl.locale, {
     month: 'short',
     day: 'numeric',

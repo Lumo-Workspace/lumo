@@ -323,6 +323,31 @@ export interface ApiMilestone {
     }>
     scopeBaseline: { initial: number; current: number; addedLater: number }
   } | null
+  /**
+   * LUM-645 dependency topology rollup (CONFIRMED BLOCKS edges only):
+   * layered order, unweighted critical path, and the recommended next batch.
+   * Cycles are reported explicitly, never silently dropped.
+   */
+  topology?: {
+    edgeCount: number
+    levels: string[][]
+    criticalPath: Array<{
+      taskId: string
+      ref: string
+      title: string
+      status: TaskStatus
+    }>
+    cycleRefs: string[]
+    nextBatch: Array<{
+      taskId: string
+      ref: string
+      title: string
+      status: TaskStatus
+      unblocksCount: number
+      onCriticalPath: boolean
+    }>
+    blockedOpenCount: number
+  } | null
 }
 
 export interface MilestoneSegmentEntry {

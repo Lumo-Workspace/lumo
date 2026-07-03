@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
+import { formatDurationSec } from '@/lib/datetime/duration'
 import type { WorkspaceMemberInfo } from '../../types'
 
 type MilestoneBurnupPayload = NonNullable<ApiMilestone['burnup']>
@@ -65,20 +66,6 @@ function VolumeText({
       </span>
     </span>
   )
-}
-
-/** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
-function fmtDuration(totalSec: number): string {
-  const sec = Math.max(0, Math.round(totalSec))
-  if (sec === 0) return '0s'
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  const parts: string[] = []
-  if (h > 0) parts.push(`${h}h`)
-  if (m > 0) parts.push(`${m}m`)
-  if (s > 0 && h === 0) parts.push(`${s}s`)
-  return parts.join(' ')
 }
 
 export interface MilestoneBurnupBand {
@@ -465,7 +452,7 @@ function KpiCardRow({
               {intl.formatMessage({ id: 'milestone.costTrend.activeTime' })}
             </p>
             <p className='mt-2 text-2xl font-bold tracking-tight tabular-nums'>
-              {fmtDuration(costRollup.activeTimeSec)}
+              {formatDurationSec(intl, costRollup.activeTimeSec)}
             </p>
             <p className='mt-1 text-xs text-muted-foreground'>
               {intl.formatMessage({ id: 'milestone.costTrend.activeTimeNote' })}
@@ -921,7 +908,7 @@ function MemberRow({
   const summaryParts: string[] = []
   if (spend) {
     summaryParts.push(fmtTokens(spend.tokenCost))
-    summaryParts.push(fmtDuration(spend.activeTimeSec))
+    summaryParts.push(formatDurationSec(intl, spend.activeTimeSec))
   }
   if (d) {
     summaryParts.push(
@@ -1252,7 +1239,7 @@ function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
                   {fmtTokens(row.tokenCost)}
                 </td>
                 <td className='py-1.5 text-right tabular-nums'>
-                  {fmtDuration(row.activeTimeSec)}
+                  {formatDurationSec(intl, row.activeTimeSec)}
                 </td>
                 <td className='py-1.5 text-right tabular-nums'>
                   {row.changeVolume ? (
