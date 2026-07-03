@@ -84,6 +84,7 @@ import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
 import { milestoneTriage } from './commands/milestone-triage'
 import { milestoneSummary } from './commands/milestone-summary'
+import { milestoneChangelog } from './commands/milestone-changelog'
 import { milestoneReorder } from './commands/milestone-reorder'
 import { milestoneMove } from './commands/milestone-move'
 import { milestoneCriteriaSet } from './commands/milestone-criteria-set'
@@ -1241,6 +1242,22 @@ milestoneCmd
       milestoneSummary(
         identifier as string,
         options as { project?: string; retry?: boolean }
+      )
+    )
+  )
+
+milestoneCmd
+  .command('changelog <identifier>')
+  .description(
+    "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option('--json', 'Emit the raw structured changelog payload')
+  .action(
+    wrap((identifier, options) =>
+      milestoneChangelog(
+        identifier as string,
+        options as { project?: string; json?: boolean }
       )
     )
   )

@@ -301,6 +301,31 @@ lumo milestone summary 11111111-2222-3333-4444-555555555555
 
 When to suggest: user asks "summarize the milestone", "milestone retro", "give me a summary of the Q3 milestone".
 
+### `lumo milestone changelog <identifier> [--project <ref>] [--json]` — structured changelog (LUM-649)
+
+Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no COMPLETED gate**: it runs on a milestone of any status, so an ACTIVE milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+
+Honest-reporting contract (why this is more than a task list):
+
+- **Headline counts carry a baseline (LUM-508 reuse).** "Tasks shipped" and "PRs merged" are rendered as a current-vs-base stat against the reference class of **prior COMPLETED milestones in the same project** — e.g. `4 (base 3, +33% · above)`. With **fewer than 3** prior milestones the base is honestly suppressed to `4 (no baseline yet)` — never a naked number, never a thin fabricated baseline.
+- **Claim provenance.** Each DONE task shows its frozen `claimSnapshot` tagged with its source + session (`Claim [RUN_SUMMARY · sess-1]: …`). A synthesized-but-empty claim reads `(no claim recorded)` (fail-closed "no material"), distinct from a never-synthesized `(not synthesized)`.
+- **Nothing silently dropped.** A DONE task with no merged PR renders an explicit `PRs: (no merged PR)`. Entries are ordered newest-delivery-first (by task `updatedAt` — Task has no `completedAt` column, so this is a best-available proxy).
+
+`--json` emits the raw structured payload (milestone / headline baseline stats / entries) unchanged for programmatic use.
+
+| Flag              | Type    | Notes                                                                                      |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `--project <ref>` | string  | Project name or slug. Required when identifier is a name and the workspace has >1 project. |
+| `--json`          | boolean | Emit the raw structured changelog payload instead of the human markdown.                   |
+
+```bash
+lumo milestone changelog "Agent-Native Milestones"
+lumo milestone changelog "Agent-Native Milestones" --json
+lumo milestone changelog 11111111-2222-3333-4444-555555555555
+```
+
+When to suggest: user asks for a "changelog", "release notes", "what shipped in this milestone", or wants a structured delivery list they can paste into a release note. For the AI narrative retro use `milestone summary`; for the honest delivery-count/cost rollup see `milestone show`.
+
 ### `lumo milestone reorder <ref...> [--project <ref>]` — set the full milestone order
 
 Reorders a project's milestones. Pass **every** milestone in the project (by name, case-insensitive, or its cuid) in the desired order — the command rewrites each milestone's `sortOrder` to match. An incomplete list (not every milestone named), an unknown ref, or a duplicate is rejected **before any network mutation**, with a message naming the offending / missing milestones.

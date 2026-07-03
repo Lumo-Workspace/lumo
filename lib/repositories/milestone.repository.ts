@@ -176,6 +176,27 @@ export const milestoneRepository = {
     return result
   },
 
+  /**
+   * LUM-649 changelog baseline: ids of the OTHER COMPLETED milestones in the
+   * same project — the reference class the changelog's headline counts are
+   * baselined against. Excludes the milestone being reported so it never
+   * baselines against itself.
+   */
+  async listCompletedIdsInProject(
+    projectId: string,
+    excludeMilestoneId: string
+  ): Promise<string[]> {
+    const rows = await prisma.milestone.findMany({
+      where: {
+        projectId,
+        status: 'COMPLETED',
+        id: { not: excludeMilestoneId },
+      },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /** Per-task status rows for the LUM-650 complexity-weighted progress fold
    * (joined against TaskComplexity to weight by changedFileCount). Only the
    * two columns the snapshot needs — id to join, status to bucket DONE. */
