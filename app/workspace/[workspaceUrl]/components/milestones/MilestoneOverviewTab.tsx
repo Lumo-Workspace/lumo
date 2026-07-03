@@ -4,6 +4,7 @@ import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
 import type { WorkspaceMemberInfo } from '../../types'
 import { MilestoneHero } from './MilestoneHero'
 import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
+import { MilestoneRiskQueueSection } from './MilestoneRiskQueueSection'
 import { MilestoneTaskEvidenceSection } from './MilestoneTaskEvidenceSection'
 
 interface MilestoneOverviewTabProps {
@@ -24,6 +25,7 @@ interface MilestoneOverviewTabProps {
     | 'segments'
     | 'deliveryStats'
     | 'memberDelivery'
+    | 'riskQueue'
   >
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace URL segment, so evidence cards can link to task detail. */
@@ -68,6 +70,11 @@ export function MilestoneOverviewTab({
         memberDelivery={milestone.memberDelivery}
         outcome={milestone.outcome}
         members={members}
+      />
+
+      <MilestoneRiskQueueSection
+        riskQueue={milestone.riskQueue}
+        workspaceUrl={workspaceUrl}
       />
 
       <MilestoneTaskEvidenceSection
