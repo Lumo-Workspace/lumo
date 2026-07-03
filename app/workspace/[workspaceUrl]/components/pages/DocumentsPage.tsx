@@ -38,6 +38,7 @@ import { PageBreadcrumb } from '../PageBreadcrumb'
 import { SearchInput } from '../SearchInput'
 import { CACHE_KEY } from '../../constants'
 import { cn } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/datetime/relative'
 
 interface DocumentsPageProps {
   documents: ApiDocument[]
@@ -68,24 +69,6 @@ function sortDocuments(docs: ApiDocument[], sortBy: SortKey): ApiDocument[] {
       case 'title':
         return a.title.localeCompare(b.title)
     }
-  })
-}
-
-function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  if (diffSec < 60) return rtf.format(-diffSec, 'second')
-  const diffMins = Math.floor(diffSec / 60)
-  if (diffMins < 60) return rtf.format(-diffMins, 'minute')
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return rtf.format(-diffHours, 'hour')
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return rtf.format(-diffDays, 'day')
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
   })
 }
 

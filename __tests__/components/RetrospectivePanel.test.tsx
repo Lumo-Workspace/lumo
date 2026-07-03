@@ -19,6 +19,10 @@ const en: Record<string, string> = {
   'retrospective.flywheel':
     'Based on {count} similar tasks in the reference library · this run included',
   'forecast.range': '{median} ({low}–{high})',
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+  'duration.milliseconds': '{ms}ms',
 }
 
 jest.mock('react-intl', () => ({

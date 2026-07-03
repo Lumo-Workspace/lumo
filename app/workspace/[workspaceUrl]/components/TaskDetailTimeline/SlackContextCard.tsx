@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2, MessageSquare } from 'lucide-react'
 import type { SlackContextResource } from '@/lib/api-client/slack-contexts'
+import { formatRelativeAgo } from '@/lib/datetime/relative'
+import { useNow } from '@/hooks/use-now'
 import { SlackMrkdwn } from './slackMrkdwn'
 
 interface Props {
@@ -12,24 +14,17 @@ interface Props {
   onUnlink: () => Promise<void>
 }
 
-function relativeAgo(iso: string, now = new Date()): string {
-  const t = new Date(iso).getTime()
-  const diffMin = Math.max(0, Math.round((now.getTime() - t) / 60000))
-  if (diffMin < 1) return 'just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `${diffH}h ago`
-  return `${Math.round(diffH / 24)}d ago`
-}
-
 export function SlackContextCard({
   context,
   onRefresh,
   onUnlink,
 }: Props): React.ReactElement {
   const intl = useIntl()
+  const now = useNow()
   const [expanded, setExpanded] = useState(!context.isThread)
   const [busy, setBusy] = useState(false)
+  const snapshotAgo =
+    now != null ? formatRelativeAgo(intl, context.snapshotAt, now) : ''
 
   const msgs = context.snapshot.messages
   const root = msgs[0]
@@ -73,7 +68,7 @@ export function SlackContextCard({
         <span>
           {intl.formatMessage(
             { id: 'slackContext.fetchedAgo', defaultMessage: 'Fetched {ago}' },
-            { ago: relativeAgo(context.snapshotAt) }
+            { ago: snapshotAgo }
           )}
         </span>
         <div className='ml-auto flex items-center gap-1'>
@@ -147,7 +142,7 @@ export function SlackContextCard({
               id: 'slackContext.refresh.failedBanner',
               defaultMessage: 'Refresh failed · {ago}',
             },
-            { ago: relativeAgo(context.snapshotAt) }
+            { ago: snapshotAgo }
           )}
         </div>
       )}

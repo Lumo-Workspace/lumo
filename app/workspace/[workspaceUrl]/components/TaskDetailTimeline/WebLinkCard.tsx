@@ -5,20 +5,12 @@ import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2, Link } from 'lucide-react'
 import type { OptimisticWebLink } from '../../hooks/useWebLinks'
 import { useNow } from '@/hooks/use-now'
+import { formatRelativeAgo } from '@/lib/datetime/relative'
 
 interface Props {
   link: OptimisticWebLink
   onRefresh: (linkId: string) => Promise<void>
   onRemove: (linkId: string) => Promise<void>
-}
-
-function relativeAgo(date: Date, now: number): string {
-  const diffMin = Math.max(0, Math.round((now - date.getTime()) / 60000))
-  if (diffMin < 1) return 'just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `${diffH}h ago`
-  return `${Math.round(diffH / 24)}d ago`
 }
 
 function isSafeUrl(url: string): boolean {
@@ -124,7 +116,7 @@ export function WebLinkCard({
             <p className='mt-1 text-caption text-muted-foreground'>
               {link.domain}
               {now != null &&
-                ` · ${relativeAgo(new Date(link.createdAt), now)}`}
+                ` · ${formatRelativeAgo(intl, link.createdAt, now)}`}
             </p>
           </div>
         </div>
@@ -139,7 +131,10 @@ export function WebLinkCard({
               className='w-4 h-4 mt-0.5 flex-shrink-0'
             />
           ) : (
-            <Link size={14} className='mt-0.5 flex-shrink-0 text-muted-foreground' />
+            <Link
+              size={14}
+              className='mt-0.5 flex-shrink-0 text-muted-foreground'
+            />
           )}
           <div className='flex-1 min-w-0'>
             <div className='flex items-start justify-between gap-1'>
@@ -202,7 +197,7 @@ export function WebLinkCard({
               )}
             </div>
             <p className='mt-1 text-caption text-muted-foreground'>
-              {now != null ? relativeAgo(new Date(link.createdAt), now) : ''}
+              {now != null ? formatRelativeAgo(intl, link.createdAt, now) : ''}
             </p>
           </div>
         </div>
