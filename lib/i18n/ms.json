@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "Tiada rantaian tersekat, semakan menunggu keputusan, pelanggaran sempadan terbuka, atau eskalasi verify.",
   "milestone.costTrend.moreModels": "{count, plural, other {# model lagi}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} tidak dikaitkan dengan mana-mana model",
-  "milestone.hero.startDerivedHint": "Bila tugas pertama bermula — diterbitkan daripada aktiviti, bukan medan borang"
+  "milestone.hero.startDerivedHint": "Bila tugas pertama bermula — diterbitkan daripada aktiviti, bukan medan borang",
+  "milestone.riskQueue.aging.days": "{days} hari",
+  "milestone.riskQueue.aging.hours": "{hours} jam",
+  "milestone.riskQueue.aging.minutes": "{minutes} minit"
 }

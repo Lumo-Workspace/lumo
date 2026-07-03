@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "Aucune chaîne bloquée, revue en attente de verdict, franchissement ouvert ni escalade de vérification.",
   "milestone.costTrend.moreModels": "{count, plural, one {# autre modèle} other {# autres modèles}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} non attribués à un modèle",
-  "milestone.hero.startDerivedHint": "Début de la première tâche — dérivé de l’activité, pas d’un champ de formulaire"
+  "milestone.hero.startDerivedHint": "Début de la première tâche — dérivé de l’activité, pas d’un champ de formulaire",
+  "milestone.riskQueue.aging.days": "{days} j",
+  "milestone.riskQueue.aging.hours": "{hours} h",
+  "milestone.riskQueue.aging.minutes": "{minutes} min"
 }

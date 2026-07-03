@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "Sin cadenas bloqueadas, revisiones pendientes de veredicto, infracciones abiertas ni escalamientos de verificación.",
   "milestone.costTrend.moreModels": "{count, plural, one {# modelo más} other {# modelos más}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} sin atribuir a un modelo",
-  "milestone.hero.startDerivedHint": "Cuándo empezó la primera tarea — derivado de la actividad, no de un formulario"
+  "milestone.hero.startDerivedHint": "Cuándo empezó la primera tarea — derivado de la actividad, no de un formulario",
+  "milestone.riskQueue.aging.days": "{days} d",
+  "milestone.riskQueue.aging.hours": "{hours} h",
+  "milestone.riskQueue.aging.minutes": "{minutes} min"
 }

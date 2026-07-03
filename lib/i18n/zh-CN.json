@@ -2030,5 +2030,8 @@
   "milestone.riskQueue.empty.body": "没有阻塞链、等裁定、未决越界或 verify 升级 — 此刻没有人被卡住。",
   "milestone.costTrend.moreModels": "{count, plural, other {另 # 个模型}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} 未归属到任何模型",
-  "milestone.hero.startDerivedHint": "第一个任务开工的时间——由活动记录派生,非手填字段"
+  "milestone.hero.startDerivedHint": "第一个任务开工的时间——由活动记录派生,非手填字段",
+  "milestone.riskQueue.aging.days": "{days} 天",
+  "milestone.riskQueue.aging.hours": "{hours} 小时",
+  "milestone.riskQueue.aging.minutes": "{minutes} 分钟"
 }
