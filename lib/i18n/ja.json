@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "証跡",
   "milestone.taskEvidence.groupNone": "グループなし",
   "milestone.costTrend.moreModels": "{count, plural, other {他 # モデル}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} はモデルに帰属されていません"
+  "milestone.costTrend.modelUnattributed": "{total} はモデルに帰属されていません",
+  "milestone.hero.startDerivedHint": "最初のタスクが開始された時点 — フォーム入力ではなくアクティビティから導出"
 }

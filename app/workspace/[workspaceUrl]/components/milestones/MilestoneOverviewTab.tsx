@@ -1,6 +1,7 @@
 'use client'
 
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import type { WorkspaceMemberInfo } from '../../types'
 import { MilestoneHero } from './MilestoneHero'
 import { MilestoneCostTrendSection } from './MilestoneCostTrendSection'
 import { MilestoneTaskEvidenceSection } from './MilestoneTaskEvidenceSection'
@@ -11,6 +12,7 @@ interface MilestoneOverviewTabProps {
     | 'id'
     | 'name'
     | 'startDate'
+    | 'derivedStartDate'
     | 'targetDate'
     | 'taskCounts'
     | 'health'
@@ -26,6 +28,8 @@ interface MilestoneOverviewTabProps {
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace URL segment, so evidence cards can link to task detail. */
   workspaceUrl: string
+  /** Workspace members (client cache) — avatars for the by-member rows. */
+  members?: WorkspaceMemberInfo[] | undefined
   archived?: boolean
 }
 
@@ -39,6 +43,7 @@ export function MilestoneOverviewTab({
   milestone,
   onUpdate,
   workspaceUrl,
+  members,
   archived = false,
 }: MilestoneOverviewTabProps) {
   return (
@@ -48,6 +53,7 @@ export function MilestoneOverviewTab({
         taskCounts={milestone.taskCounts ?? null}
         health={milestone.health ?? null}
         startDate={milestone.startDate}
+        derivedStartDate={milestone.derivedStartDate ?? null}
         targetDate={milestone.targetDate}
         summaryTldr={milestone.summaryTldr ?? null}
         sprintCoverage={milestone.sprintCoverage ?? null}
@@ -61,6 +67,7 @@ export function MilestoneOverviewTab({
         deliveryStats={milestone.deliveryStats}
         memberDelivery={milestone.memberDelivery}
         outcome={milestone.outcome}
+        members={members}
       />
 
       <MilestoneTaskEvidenceSection

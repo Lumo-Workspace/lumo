@@ -22,7 +22,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { ApiMilestone } from '@/lib/api-client/milestones'
+import type { WorkspaceMemberInfo } from '../../types'
 
 type MilestoneBurnupPayload = NonNullable<ApiMilestone['burnup']>
 
@@ -39,11 +41,29 @@ function fmtTokens(n: number): string {
 
 /**
  * LUM-634 — compact `+adds/−dels` change-volume reading (same compact
- * notation as the token formatter, per the task-level convention). Only ever
- * called with MEASURED sums — the unsynced state renders text, never +0/−0.
+ * notation as the token formatter, per the task-level convention), colored
+ * the GitHub way: additions green, deletions red (chart-2 / danger — the
+ * same hues the member change-volume split bar already uses). Only ever
+ * rendered with MEASURED sums — the unsynced state renders text, never +0/−0.
  */
-function fmtVolume(additions: number, deletions: number): string {
-  return `+${TOKEN_FMT.format(additions)}/−${TOKEN_FMT.format(deletions)}`
+function VolumeText({
+  additions,
+  deletions,
+}: {
+  additions: number
+  deletions: number
+}) {
+  return (
+    <span data-testid='change-volume' className='tabular-nums'>
+      <span className='text-[var(--chart-2)]'>
+        +{TOKEN_FMT.format(additions)}
+      </span>
+      <span className='font-normal text-muted-foreground'>/</span>
+      <span className='text-[var(--danger)]'>
+        −{TOKEN_FMT.format(deletions)}
+      </span>
+    </span>
+  )
 }
 
 /** Active (non-idle) seconds → a compact "2h 14m" / "3m 5s" / "12s"; 0 → "0s". */
@@ -261,6 +281,8 @@ interface MilestoneCostTrendSectionProps {
   memberDelivery: ApiMilestone['memberDelivery']
   /** LUM-626 outcome rollup — feeds the delivery-quality counts. */
   outcome?: ApiMilestone['outcome']
+  /** Workspace members (client cache) — avatars for the by-member rows. */
+  members?: WorkspaceMemberInfo[] | undefined
 }
 
 /**
@@ -279,6 +301,7 @@ export function MilestoneCostTrendSection({
   deliveryStats,
   memberDelivery,
   outcome,
+  members,
 }: MilestoneCostTrendSectionProps) {
   const intl = useIntl()
   // Older-server tolerance: without any enrich field there is nothing
@@ -311,6 +334,7 @@ export function MilestoneCostTrendSection({
         <PerMemberTable
           perMember={deliveryStats?.perMember}
           memberDelivery={memberDelivery ?? undefined}
+          members={members}
         />
       )}
     </section>
@@ -425,10 +449,10 @@ function KpiCardRow({
                     })}
                   </span>
                 ) : (
-                  fmtVolume(
-                    deliveryStats.changeVolume.additions,
-                    deliveryStats.changeVolume.deletions
-                  )
+                  <VolumeText
+                    additions={deliveryStats.changeVolume.additions}
+                    deletions={deliveryStats.changeVolume.deletions}
+                  />
                 )}
               </p>
               <p className='mt-1 text-xs text-muted-foreground'>
@@ -677,16 +701,22 @@ export function buildMemberDeliveryRows(
 function PerMemberTable({
   perMember,
   memberDelivery,
+  members,
 }: {
   perMember: SpendPerMember | undefined
   memberDelivery: MemberDeliveryPayload | undefined
+  members: WorkspaceMemberInfo[] | undefined
 }) {
   if (!memberDelivery) {
     if (!perMember) return null
     return <SpendOnlyMemberTable perMember={perMember} />
   }
   return (
-    <MemberDeliveryRows perMember={perMember} memberDelivery={memberDelivery} />
+    <MemberDeliveryRows
+      perMember={perMember}
+      memberDelivery={memberDelivery}
+      members={members}
+    />
   )
 }
 
@@ -713,13 +743,20 @@ function initials(label: string): string {
 function MemberDeliveryRows({
   perMember,
   memberDelivery,
+  members,
 }: {
   perMember: SpendPerMember | undefined
   memberDelivery: MemberDeliveryPayload
+  members: WorkspaceMemberInfo[] | undefined
 }) {
   const intl = useIntl()
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const rows = buildMemberDeliveryRows(perMember, memberDelivery)
+  // memberId → workspace avatar (client members cache); rows without a
+  // match simply fall back to initials — never a broken image.
+  const imageByMember = new Map(
+    (members ?? []).map(m => [m.id, m.imageUrl] as const)
+  )
   // Spend cells are only honest when the spend side measured something.
   const spendMeasured = (perMember?.measuredTasks ?? 0) > 0
   const totalTokens = spendMeasured ? (perMember?.tokenCost ?? null) : null
@@ -761,6 +798,7 @@ function MemberDeliveryRows({
               key={row.key}
               row={row}
               label={bucketLabel(row)}
+              imageUrl={imageByMember.get(row.key) ?? null}
               spendMeasured={spendMeasured}
               totalTokens={totalTokens}
               isExpanded={expanded[row.key] === true}
@@ -781,6 +819,7 @@ function MemberDeliveryRows({
 function MemberRow({
   row,
   label,
+  imageUrl,
   spendMeasured,
   totalTokens,
   isExpanded,
@@ -788,6 +827,8 @@ function MemberRow({
 }: {
   row: MergedMemberRow
   label: string
+  /** Workspace avatar for member rows (client members cache); buckets none. */
+  imageUrl: string | null
   spendMeasured: boolean
   totalTokens: number | null
   isExpanded: boolean
@@ -839,12 +880,23 @@ function MemberRow({
         >
           {isExpanded ? '▾' : '▸'}
         </span>
-        <span
-          aria-hidden='true'
-          className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold'
-        >
-          {row.bucket === 'member' ? initials(label) : '?'}
-        </span>
+        {row.bucket === 'member' ? (
+          // Real workspace avatar; initials only as the loading/no-image
+          // fallback (never the primary rendering).
+          <Avatar aria-hidden='true' className='h-8 w-8 shrink-0'>
+            {imageUrl && <AvatarImage src={imageUrl} alt='' />}
+            <AvatarFallback className='text-xs font-semibold'>
+              {initials(label)}
+            </AvatarFallback>
+          </Avatar>
+        ) : (
+          <span
+            aria-hidden='true'
+            className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold'
+          >
+            ?
+          </span>
+        )}
         <span className='min-w-0 flex-1'>
           <span
             className={
@@ -900,10 +952,10 @@ function MemberRow({
               </span>
               <span className='font-semibold tabular-nums'>
                 {spend?.changeVolume ? (
-                  fmtVolume(
-                    spend.changeVolume.additions,
-                    spend.changeVolume.deletions
-                  )
+                  <VolumeText
+                    additions={spend.changeVolume.additions}
+                    deletions={spend.changeVolume.deletions}
+                  />
                 ) : (
                   // No measured merged PR attributes here — an explicit
                   // state, never a fabricated +0/−0.
@@ -1128,10 +1180,10 @@ function SpendOnlyMemberTable({ perMember }: { perMember: SpendPerMember }) {
                 </td>
                 <td className='py-1.5 text-right tabular-nums'>
                   {row.changeVolume ? (
-                    fmtVolume(
-                      row.changeVolume.additions,
-                      row.changeVolume.deletions
-                    )
+                    <VolumeText
+                      additions={row.changeVolume.additions}
+                      deletions={row.changeVolume.deletions}
+                    />
                   ) : (
                     // No measured merged PR attributes to this member —
                     // an explicit state, never a fabricated +0/−0.

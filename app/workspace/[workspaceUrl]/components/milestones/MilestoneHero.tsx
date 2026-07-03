@@ -17,6 +17,9 @@ interface MilestoneHeroProps {
   taskCounts: Record<TaskStatus, number> | null
   health: MilestoneHealth | null
   startDate: string | null
+  /** Earliest first-exit-from-TODO across member tasks (min workStartedAt) —
+   * the activity-derived start shown when no explicit startDate was set. */
+  derivedStartDate: string | null
   targetDate: string | null
   /** One-line key outcome from the generated retro; null until generated. */
   summaryTldr: string | null
@@ -39,6 +42,7 @@ export function MilestoneHero({
   taskCounts,
   health,
   startDate,
+  derivedStartDate,
   targetDate,
   summaryTldr,
   sprintCoverage,
@@ -202,8 +206,25 @@ export function MilestoneHero({
         {statRow(
           'milestone.field.startDate',
           startDate ? (
+            // An explicitly set calendar date (stored at UTC midnight) —
+            // format in UTC so the entered day never shifts.
             <span className='font-medium tabular-nums'>
               {fmtDate(startDate, DATE_OPTS)}
+            </span>
+          ) : derivedStartDate ? (
+            // Activity-derived: when the first member task actually started
+            // (a real timestamp — format in the viewer's zone, no UTC pin).
+            <span
+              className='font-medium tabular-nums'
+              title={intl.formatMessage({
+                id: 'milestone.hero.startDerivedHint',
+              })}
+            >
+              {fmtDate(derivedStartDate, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
             </span>
           ) : (
             <span className='font-medium text-muted-foreground'>
@@ -226,17 +247,31 @@ export function MilestoneHero({
               <button
                 type='button'
                 className='font-semibold text-[var(--chart-1)] hover:underline'
-                onClick={() => dateInputRef.current?.showPicker?.()}
+                onClick={() => {
+                  const input = dateInputRef.current
+                  if (!input) return
+                  // Chrome ≥99: open the native calendar directly. Older
+                  // engines fall back to focusing the (invisible) input,
+                  // which at least enables keyboard entry.
+                  try {
+                    input.showPicker()
+                  } catch {
+                    input.focus()
+                  }
+                }}
               >
                 {intl.formatMessage({ id: 'milestone.hero.setDate' })}
               </button>
+              {/* pointer-events-none: the CTA button must receive the click
+                  (a bare date input opens no picker on click) — the input
+                  exists only as the showPicker/keyboard anchor. */}
               <input
                 ref={dateInputRef}
                 type='date'
                 aria-label={intl.formatMessage({
                   id: 'milestone.field.targetDate',
                 })}
-                className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+                className='pointer-events-none absolute inset-0 h-full w-full opacity-0'
                 onChange={e => {
                   if (e.target.value) onUpdate({ targetDate: e.target.value })
                 }}

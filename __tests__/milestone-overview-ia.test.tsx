@@ -62,7 +62,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MilestoneOverviewTab } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneOverviewTab'
 import { MilestoneDetailTabs } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneDetailTabs'
@@ -231,6 +231,76 @@ test('overview renders mission-control sections in order without description edi
 
   // The description editor is no longer part of the Overview.
   expect(screen.queryByTestId('desc-editor')).toBeNull()
+})
+
+test('hero start date falls back to the first task work start', () => {
+  const { unmount } = render(
+    <MilestoneOverviewTab
+      milestone={{
+        id: 'm1',
+        name: 'Beta',
+        startDate: null,
+        derivedStartDate: '2026-06-29T10:00:00.000Z',
+        targetDate: null,
+      }}
+      onUpdate={() => {}}
+      workspaceUrl='acme'
+    />
+  )
+  // No explicit startDate → the activity-derived first-work-start renders,
+  // never the "not set" placeholder.
+  expect(
+    screen.getByTitle('milestone.hero.startDerivedHint')
+  ).toBeInTheDocument()
+  expect(screen.queryAllByText('milestone.hero.notSet')).toHaveLength(0)
+  unmount()
+
+  // An explicitly set startDate wins over the derived one.
+  render(
+    <MilestoneOverviewTab
+      milestone={{
+        id: 'm1',
+        name: 'Beta',
+        startDate: '2026-06-20T00:00:00.000Z',
+        derivedStartDate: '2026-06-29T10:00:00.000Z',
+        targetDate: null,
+      }}
+      onUpdate={() => {}}
+      workspaceUrl='acme'
+    />
+  )
+  expect(screen.queryByTitle('milestone.hero.startDerivedHint')).toBeNull()
+  expect(screen.getByText(/Jun 20/)).toBeInTheDocument()
+})
+
+test('set date opens the native picker and commits the chosen date', () => {
+  const showPicker = jest.fn()
+  ;(
+    HTMLInputElement.prototype as HTMLInputElement & {
+      showPicker: () => void
+    }
+  ).showPicker = showPicker
+  const onUpdate = jest.fn()
+  render(
+    <MilestoneOverviewTab
+      milestone={{
+        id: 'm1',
+        name: 'Beta',
+        startDate: null,
+        derivedStartDate: null,
+        targetDate: null,
+      }}
+      onUpdate={onUpdate}
+      workspaceUrl='acme'
+    />
+  )
+  const cta = screen.getByRole('button', { name: 'milestone.hero.setDate' })
+  fireEvent.click(cta)
+  expect(showPicker).toHaveBeenCalledTimes(1)
+
+  const input = screen.getByLabelText('milestone.field.targetDate')
+  fireEvent.change(input, { target: { value: '2026-07-12' } })
+  expect(onUpdate).toHaveBeenCalledWith({ targetDate: '2026-07-12' })
 })
 
 test('description renders in its own tab with i18n label', async () => {

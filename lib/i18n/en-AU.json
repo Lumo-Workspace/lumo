@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Evidence",
   "milestone.taskEvidence.groupNone": "No grouping",
   "milestone.costTrend.moreModels": "{count, plural, one {# more model} other {# more models}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} not attributed to a model"
+  "milestone.costTrend.modelUnattributed": "{total} not attributed to a model",
+  "milestone.hero.startDerivedHint": "When the first task started — derived from activity, not a form field"
 }

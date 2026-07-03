@@ -186,7 +186,20 @@ export const milestoneService = {
       sprintRepository.findByIds(sprintIds, teamId),
       retrospectiveRepository.loadActualsForTasks(tasks.map(t => t.id)),
     ])
+    // LUM-636 derived start: the earliest first-exit-from-TODO across member
+    // tasks (Task.workStartedAt — set once, never reset). Activity truth for
+    // the hero's Start date; null until some task actually starts. The stored
+    // milestone.startDate, when a human set one, still wins at render time.
+    let derivedStartDate: string | null = null
+    for (const t of tasks) {
+      if (!t.workStartedAt) continue
+      const iso = t.workStartedAt.toISOString()
+      if (derivedStartDate === null || iso < derivedStartDate) {
+        derivedStartDate = iso
+      }
+    }
     return {
+      derivedStartDate,
       costRollup: {
         tokenCost: actuals.tokenCost,
         activeTimeSec: actuals.activeTimeSec,

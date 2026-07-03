@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Evidencia",
   "milestone.taskEvidence.groupNone": "Sin agrupar",
   "milestone.costTrend.moreModels": "{count, plural, one {# modelo más} other {# modelos más}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} sin atribuir a un modelo"
+  "milestone.costTrend.modelUnattributed": "{total} sin atribuir a un modelo",
+  "milestone.hero.startDerivedHint": "Cuándo empezó la primera tarea — derivado de la actividad, no de un formulario"
 }

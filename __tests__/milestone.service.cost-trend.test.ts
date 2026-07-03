@@ -36,18 +36,22 @@ describe('milestoneService.getCostTrendForMilestone', () => {
           status: 'DONE',
           createdAt: new Date('2026-01-04T00:00:00Z'),
           sprintId: 's1',
+          workStartedAt: new Date('2026-01-06T09:00:00Z'),
         },
         {
           id: 't2',
           status: 'TODO',
           createdAt: new Date('2026-01-05T00:00:00Z'),
           sprintId: 's1',
+          // Earliest first-exit-from-TODO — the derived milestone start.
+          workStartedAt: new Date('2026-01-05T08:00:00Z'),
         },
         {
           id: 't3',
           status: 'TODO',
           createdAt: new Date('2026-01-05T00:00:00Z'),
           sprintId: null,
+          workStartedAt: null,
         },
       ],
       activities: [],
@@ -104,6 +108,9 @@ describe('milestoneService.getCostTrendForMilestone', () => {
     })
     // Every member task feeds the batched actuals — including unsprinted ones.
     expect(loadActualsForTasks).toHaveBeenCalledWith(['t1', 't2', 't3'])
+    // Derived start = earliest workStartedAt; never-started tasks contribute
+    // nothing.
+    expect(result.derivedStartDate).toBe('2026-01-05T08:00:00.000Z')
     // Sprint windows resolve deduped sprint ids against the caller's team.
     expect(findByIds).toHaveBeenCalledWith(['s1'], 'team-1')
     // The burnup replay rides the same fetch.
@@ -144,5 +151,7 @@ describe('milestoneService.getCostTrendForMilestone', () => {
       modelUnattributedTokens: 0,
     })
     expect(result.burnup.series).toEqual([])
+    // No member task ever started → no fabricated derived start.
+    expect(result.derivedStartDate).toBeNull()
   })
 })

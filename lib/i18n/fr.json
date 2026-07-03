@@ -1983,5 +1983,6 @@
   "milestone.taskEvidence.evidence": "Preuves",
   "milestone.taskEvidence.groupNone": "Sans regroupement",
   "milestone.costTrend.moreModels": "{count, plural, one {# autre modèle} other {# autres modèles}} · {total}",
-  "milestone.costTrend.modelUnattributed": "{total} non attribués à un modèle"
+  "milestone.costTrend.modelUnattributed": "{total} non attribués à un modèle",
+  "milestone.hero.startDerivedHint": "Début de la première tâche — dérivé de l’activité, pas d’un champ de formulaire"
 }

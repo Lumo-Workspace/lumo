@@ -65,6 +65,7 @@ export function MilestoneDetailTabs({
             milestone={milestone}
             onUpdate={onUpdate}
             workspaceUrl={workspaceUrl}
+            members={members}
             archived={archived}
           />
         </div>

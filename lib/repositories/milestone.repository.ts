@@ -233,7 +233,15 @@ export const milestoneRepository = {
   async costTrendRows(milestoneId: string) {
     const tasks = await prisma.task.findMany({
       where: { milestoneId },
-      select: { id: true, status: true, createdAt: true, sprintId: true },
+      // workStartedAt feeds the LUM-636 derived start date (earliest first
+      // exit from TODO across member tasks) — activity truth, not a form field.
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        sprintId: true,
+        workStartedAt: true,
+      },
     })
     if (tasks.length === 0) {
       return { tasks, activities: [] }

@@ -132,6 +132,20 @@ test('member rows expand to delivery detail and keep explicit buckets', () => {
       burnup={undefined}
       deliveryStats={deliveryStats}
       memberDelivery={memberDelivery}
+      members={
+        [
+          {
+            id: 'mA',
+            clerkId: 'ck_a',
+            role: 'member',
+            name: 'Ada',
+            email: null,
+            imageUrl: 'https://img.example/ada.png',
+            joinedAt: '2026-01-01T00:00:00.000Z',
+            actorId: null,
+          },
+        ] as never
+      }
     />
   )
 
@@ -147,6 +161,12 @@ test('member rows expand to delivery detail and keep explicit buckets', () => {
   expect(adaRow.textContent).toContain('3 done')
   expect(adaRow.textContent).toContain('4 PRs')
   expect(adaRow.textContent).toContain('60%')
+
+  // Member rows carry the workspace avatar (initials only as the image
+  // fallback — jsdom never fires image load, so the fallback is what
+  // renders here); bucket rows keep the neutral '?' circle.
+  expect(adaRow.querySelectorAll('img').length).toBeLessThanOrEqual(1)
+  expect(screen.getAllByText('?')).toHaveLength(2)
 
   // Explicit buckets render and never merge into a member row.
   expect(screen.getByText('Unassigned')).toBeInTheDocument()
@@ -167,7 +187,12 @@ test('member rows expand to delivery detail and keep explicit buckets', () => {
   fireEvent.click(adaRow)
   // Expanded: change volume, delivered / merged-PR detail, quality chips,
   // and the frozen claims.
-  expect(screen.getByText('+900/−120')).toBeInTheDocument()
+  // GitHub-style coloring splits the reading into +green/−red spans —
+  // assert on the composed text of the change-volume element.
+  const volumes = screen
+    .getAllByTestId('change-volume')
+    .map(el => el.textContent)
+  expect(volumes).toContain('+900/−120')
   expect(screen.getByText('Delivered')).toBeInTheDocument()
   expect(screen.getByText('3/4')).toBeInTheDocument()
   expect(
