@@ -36,6 +36,7 @@ export function fromRetrospectiveMetric(
   const spread = m.forecast
     ? { p25: m.forecast.p25, p75: m.forecast.p75 }
     : null
+  // band + deltaPct are reused as-computed by retrospective.service (not re-derived from spread).
   return {
     current: m.actual,
     base,
@@ -77,6 +78,7 @@ export function fromSample(
   }
 }
 
+// Reserved for the LUM-484 merge-rate surface / LUM-649 reuse — no call site yet (kept as part of the complete baseline adapter set).
 /** LUM-484 口径:used rate vs base rate(rate 类)。 */
 export function fromMergeRate(
   usedRate: number | null,

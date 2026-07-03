@@ -53,3 +53,23 @@ it('renders runs baseline (current + median + pill) and duration without baselin
   expect(screen.getAllByText(/\+50%/).length).toBeGreaterThan(0)
   expect(screen.getByText('No baseline yet')).toBeInTheDocument()
 })
+
+it('renders baseline sample too small state when sampleSize is below MIN_BASELINE_SAMPLE', () => {
+  const insufficient: BaselineStat = {
+    current: 6,
+    base: 4,
+    spread: { p25: 3, p75: 5 },
+    sampleSize: 1,
+    band: 'above',
+    deltaPct: 50,
+    deltaKind: 'magnitude',
+  }
+  render(
+    <DeliveryKpis
+      runs={insufficient}
+      interactionRounds={withBase}
+      duration={noBase}
+    />
+  )
+  expect(screen.getByText('Baseline sample too small')).toBeInTheDocument()
+})

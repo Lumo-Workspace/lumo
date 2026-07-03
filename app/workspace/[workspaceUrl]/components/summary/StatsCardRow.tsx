@@ -64,9 +64,9 @@ export function StatsCardRow({ stats }: StatsCardRowProps) {
             stat={noBaseline(overdue)}
             formatValue={n => String(n)}
             baseLabel='baseline.none'
+            valueClassName='text-2xl font-bold'
           />
         }
-        valueClassName={overdue > 0 ? 'text-amber-500' : 'text-foreground'}
       />
       <StatCard
         label={intl.formatMessage({ id: 'summary.avgCompletion' })}

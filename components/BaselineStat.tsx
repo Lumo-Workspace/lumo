@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { cn } from '@/lib/utils'
 import { MIN_BASELINE_SAMPLE, type BaselineStat } from '@/lib/baseline/types'
 import { VariancePill } from '@/components/VariancePill'
 
@@ -13,10 +14,12 @@ export function BaselineStatView({
   stat,
   formatValue,
   baseLabel,
+  valueClassName,
 }: {
   stat: BaselineStat
   formatValue: (n: number) => string
   baseLabel: string
+  valueClassName?: string
 }) {
   const intl = useIntl()
   const currentText = stat.current !== null ? formatValue(stat.current) : '—'
@@ -25,7 +28,11 @@ export function BaselineStatView({
 
   return (
     <div className='flex flex-col gap-0.5'>
-      <span className='text-body-strong tabular-nums'>{currentText}</span>
+      <span
+        className={cn('tabular-nums', valueClassName ?? 'text-body-strong')}
+      >
+        {currentText}
+      </span>
       {!hasBase ? (
         <span className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'baseline.none' })}
