@@ -283,6 +283,39 @@ export const milestoneService = {
   },
 
   /**
+   * LUM-646: per-milestone F2 budget signal for the `lumo next --claimable`
+   * gate. Returns milestoneId → exceeded, where `true` means the milestone's
+   * MEASURED burn is over its advisory token budget (LUM-644). `null` = no
+   * budget set, or burn unmeasured — fail-open on the unknown, so only a
+   * measured overrun ever gates a task out of the claimable pool. Ids that
+   * resolve to no milestone map to `null`.
+   */
+  async getBudgetExceededForMilestones(
+    milestoneIds: string[]
+  ): Promise<Map<string, boolean | null>> {
+    const out = new Map<string, boolean | null>()
+    const unique = [...new Set(milestoneIds)]
+    await Promise.all(
+      unique.map(async milestoneId => {
+        const milestone = await milestoneRepository.findById(milestoneId)
+        if (!milestone || milestone.tokenBudget == null) {
+          out.set(milestoneId, null)
+          return
+        }
+        const taskIds = await milestoneRepository.taskIds(milestoneId)
+        const actuals =
+          await retrospectiveRepository.loadActualsForTasks(taskIds)
+        const status = computeMilestoneTokenBudget({
+          tokenBudget: milestone.tokenBudget,
+          tokenCost: actuals.tokenCost,
+        })
+        out.set(milestoneId, status?.exceeded ?? null)
+      })
+    )
+    return out
+  },
+
+  /**
    * LUM-632 delivery-scale + per-member spend rollup for an already-authorized
    * milestone: merged-PR / multi-PR-churn / unlinked buckets, the summed
    * change surface (per-task changedFileCount with measurement coverage), and

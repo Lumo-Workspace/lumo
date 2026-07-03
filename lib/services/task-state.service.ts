@@ -318,6 +318,8 @@ export async function updateTask(
   if (projectId !== undefined) data.projectId = projectId
   if (sprintId !== undefined) data.sprintId = sprintId
   if (milestoneId !== undefined) data.milestoneId = milestoneId
+  // LUM-646: agent-claimable triage marker (fail-closed; steward/human sets it).
+  if (rest.claimable !== undefined) data.claimable = rest.claimable
 
   // Write SPRINT_CHANGED activity when sprintId changes
   if ('sprintId' in input && sprintId !== task.sprintId) {

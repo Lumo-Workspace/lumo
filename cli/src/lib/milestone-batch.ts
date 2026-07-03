@@ -74,7 +74,9 @@ const STATUS_GLYPH: Record<BatchStatus, string> = {
  */
 export function formatBatchSummary(args: {
   milestoneName: string
-  verb: 'added' | 'removed'
+  /** Past-tense action word for the tally header, e.g. "added", "removed",
+   *  "marked claimable" (LUM-646 triage). */
+  verb: 'added' | 'removed' | 'marked claimable' | 'marked not-claimable'
   outcomes: BatchOutcome[]
 }): string {
   const { verb, outcomes } = args

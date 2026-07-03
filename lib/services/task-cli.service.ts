@@ -418,6 +418,7 @@ async function updateFromCli(args: {
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
     milestoneRef?: string | null | undefined
+    claimable?: boolean | undefined
     tagIds?: string[] | undefined
     addTagIds?: string[] | undefined
     removeTagIds?: string[] | undefined
@@ -502,6 +503,7 @@ async function updateFromCli(args: {
     priority?: TaskPriority
     assigneeActorId?: string | null
     milestoneId?: string | null
+    claimable?: boolean
     tagIds?: string[]
     addTagIds?: string[]
     removeTagIds?: string[]
@@ -514,6 +516,7 @@ async function updateFromCli(args: {
   if (assigneeActorId !== undefined)
     updateInput.assigneeActorId = assigneeActorId
   if (milestoneId !== undefined) updateInput.milestoneId = milestoneId
+  if (input.claimable !== undefined) updateInput.claimable = input.claimable
   if (input.tagIds !== undefined) updateInput.tagIds = input.tagIds
   if (input.addTagIds !== undefined) updateInput.addTagIds = input.addTagIds
   if (input.removeTagIds !== undefined)

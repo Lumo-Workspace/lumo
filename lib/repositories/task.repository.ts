@@ -30,6 +30,7 @@ export interface TaskUpdateData {
   projectId?: string | undefined
   sprintId?: string | null | undefined
   milestoneId?: string | null | undefined
+  claimable?: boolean | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
   workStartedAt?: Date | null | undefined
