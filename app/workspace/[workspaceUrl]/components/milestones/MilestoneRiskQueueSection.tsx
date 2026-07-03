@@ -43,6 +43,11 @@ export function MilestoneRiskQueueSection({
   const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id }, values)
   const taskHref = (ref: string) => `/workspace/${workspaceUrl}/my-tasks/${ref}`
+  // Unknown future statuses show raw rather than lying "Todo".
+  const statusLabel = (s: string) => {
+    const id = STATUS_LABEL_ID[s]
+    return id ? t(id) : s
+  }
   const crossingsTotal = rq.crossings.known
     ? rq.crossings.bySeverity.high +
       rq.crossings.bySeverity.medium +
@@ -146,9 +151,7 @@ export function MilestoneRiskQueueSection({
                   b.title,
                   t('milestone.riskQueue.blocked.meta', {
                     ref: b.blockingRef,
-                    status: t(
-                      STATUS_LABEL_ID[b.blockingStatus] ?? 'status.todo'
-                    ),
+                    status: statusLabel(b.blockingStatus),
                   })
                 )
               )

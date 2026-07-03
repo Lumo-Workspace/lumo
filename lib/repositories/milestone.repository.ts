@@ -374,6 +374,12 @@ export const milestoneRepository = {
       createdAt: t.createdAt,
     }))
     const taskIds = tasks.map(t => t.id)
+    // Aging replay only ever inspects tasks currently IN_REVIEW — fetching
+    // the full milestone trail would duplicate costTrendRows' query for rows
+    // the pure fn ignores.
+    const inReviewIds = tasks
+      .filter(t => t.status === 'IN_REVIEW')
+      .map(t => t.id)
     const [edges, statusActivities, verificationFails] = await Promise.all([
       prisma.taskDependency.findMany({
         where: { blockedTaskId: { in: taskIds }, kind: 'BLOCKS' },
@@ -391,7 +397,7 @@ export const milestoneRepository = {
         },
       }),
       prisma.taskActivity.findMany({
-        where: { taskId: { in: taskIds }, type: 'STATUS_CHANGED' },
+        where: { taskId: { in: inReviewIds }, type: 'STATUS_CHANGED' },
         select: { taskId: true, payload: true, createdAt: true },
       }),
       verificationRunRepository.failRowsByTaskIds(taskIds),
