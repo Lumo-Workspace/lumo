@@ -91,6 +91,14 @@ Sprint coverage:
   Unscheduled             1 task
 ```
 
+**Cross-milestone learning (LUM-648):** when this milestone's STEWARD sessions were injected prior-milestone distilled learning (the LUM-647 learning unit), a **Cross-milestone learning** section reports how much of it was actually used — `Injected: N prior learnings (from K prior milestones)` and `Usage rate: Z% (judged-used X/Y)`. The rate reuses lineage's `used=true/false/null` usage voting (judged at the successor milestone's close): abstentions (un-audited / judge-abstained impressions) are **excluded from the denominator**, so it is a lower bound. Below 3 judged edges it reads `insufficient (judged Y, need ≥3)` rather than a fabricated percentage. The section is omitted entirely when nothing was injected (that's "nothing to migrate", not 0%).
+
+```
+Cross-milestone learning:
+  Injected: 8 prior learnings (from 2 prior milestones)
+  Usage rate: 62% (judged-used 5/8)
+```
+
 ```bash
 lumo milestone show "Q3 Launch"
 lumo milestone show 11111111-2222-3333-4444-555555555555

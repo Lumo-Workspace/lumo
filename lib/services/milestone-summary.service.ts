@@ -64,6 +64,16 @@ export const milestoneSummaryService = {
         await import('@/lib/services/memory/milestone-distill.service')
       await milestoneDistillService.triggerForMilestoneClose(milestoneId)
 
+      // LUM-648: audit how much of the PRIOR milestones' distilled learning
+      // this milestone's steward sessions actually used — the milestone-close
+      // analog of the task→DONE usage audit. Independent of the distillation
+      // above (that produces THIS milestone's learning for the next one; this
+      // judges THIS milestone's consumption of earlier ones). Best-effort —
+      // owns its errors, never throws.
+      const { milestoneMemoryUsageAuditService } =
+        await import('@/lib/services/lineage/milestone-memory-usage-audit.service')
+      await milestoneMemoryUsageAuditService.auditForMilestoneClose(milestoneId)
+
       return savedSummary
     } catch (err) {
       if (pendingJob) {

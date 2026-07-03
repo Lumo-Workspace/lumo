@@ -337,6 +337,27 @@ export const sessionService = {
         milestone.id
       )
       stewardMemorySection = built.section
+      // LUM-648: birth one cross-milestone learning edge per prior-milestone
+      // memory actually injected — the usage-vote substrate the milestone-close
+      // audit later stamps. Isolated best-effort so it can never disturb the
+      // rendered section or fail the bind; idempotent on re-attach (skipDuplicates).
+      if (built.memories.length > 0) {
+        try {
+          const { milestoneMemoryEdgeRepository } =
+            await import('@/lib/repositories/milestone-memory-edge.repository')
+          await milestoneMemoryEdgeRepository.recordInjection({
+            workspaceId: identity.workspace.id,
+            consumerMilestoneId: milestone.id,
+            sessionId,
+            rows: built.memories,
+          })
+        } catch (err) {
+          console.error(
+            'LUM-648 milestone memory edge birth (bind) failed:',
+            err
+          )
+        }
+      }
     } catch {
       stewardMemorySection = ''
     }
