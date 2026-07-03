@@ -12,6 +12,8 @@ import {
 import { SprintActionsMenu } from './SprintActionsMenu'
 import { formatDate } from './DatePickerField'
 import { daysFromNow, timeElapsedPct } from './sprintLandingUtils'
+import { fromSample } from '@/lib/baseline/adapters'
+import { BaselineStatView } from '@/components/BaselineStat'
 
 /** Distinct-assignee count for the contributor row (real, not story points). */
 function contributorCount(tasks: unknown[] | undefined): number {
@@ -108,6 +110,10 @@ export function CurrentSprintCard({
   const total = progress?.total ?? 0
   const remaining = Math.max(0, total - done)
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const priorPct = (progress?.priorCompletionRates ?? []).map(r =>
+    Math.round(r * 100)
+  )
+  const completionStat = fromSample(total > 0 ? pct : null, priorPct, 'rate')
   const timePct = timeElapsedPct(sprint.startDate, sprint.endDate, now)
   const daysLeft = Math.max(0, daysFromNow(sprint.endDate, now))
   const contributors = contributorCount(tasks)
@@ -166,14 +172,11 @@ export function CurrentSprintCard({
               {intl.formatMessage({ id: 'sprints.landing.tasksComplete' })}
             </span>
           </div>
-          <span
-            className={cn(
-              'text-sm font-semibold tabular-nums',
-              allDone ? 'text-success' : 'text-foreground'
-            )}
-          >
-            {pct}%
-          </span>
+          <BaselineStatView
+            stat={completionStat}
+            formatValue={n => `${n}%`}
+            baseLabel='baseline.history'
+          />
         </div>
         {/* Layered bar: track → time-elapsed underlay → completion fill. */}
         <div

@@ -39,15 +39,16 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
     const fresh = (await sprintRepository.findById(sprintId)) ?? sprint
 
-    const [done, total, sprintRisk] = await Promise.all([
+    const [done, total, sprintRisk, priorCompletionRates] = await Promise.all([
       sprintRepository.countTasks(sprintId, { status: 'DONE' }),
       sprintRepository.countTasks(sprintId),
       getSprintRisk(sprintId, fresh.team.workspaceId),
+      sprintRepository.completedCompletionRates(fresh.teamId, sprintId),
     ])
 
     return NextResponse.json({
       sprint: fresh,
-      progress: { done, total },
+      progress: { done, total, priorCompletionRates },
       risk: sprintRisk.risk,
       topBlockers: sprintRisk.topBlockers,
     })

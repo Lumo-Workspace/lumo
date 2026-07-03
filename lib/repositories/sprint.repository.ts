@@ -162,6 +162,40 @@ export const sprintRepository = {
   },
 
   /**
+   * 该 team 已 CLOSED sprint(排除当前)各自的完成率 done/total(0..1)。
+   * total=0 的 sprint 跳过(无意义样本)。用作完成率的同类历史基线(LUM-508)。
+   */
+  async completedCompletionRates(
+    teamId: string,
+    excludeSprintId: string
+  ): Promise<number[]> {
+    const closed = await prisma.sprint.findMany({
+      where: { teamId, status: 'CLOSED', id: { not: excludeSprintId } },
+      select: { id: true },
+    })
+    if (closed.length === 0) return []
+    const ids = closed.map(s => s.id)
+    const grouped = await prisma.task.groupBy({
+      by: ['sprintId', 'status'],
+      where: { sprintId: { in: ids } },
+      _count: { _all: true },
+    })
+    const totals = new Map<string, { done: number; total: number }>()
+    for (const g of grouped) {
+      if (!g.sprintId) continue
+      const acc = totals.get(g.sprintId) ?? { done: 0, total: 0 }
+      acc.total += g._count._all
+      if (g.status === 'DONE') acc.done += g._count._all
+      totals.set(g.sprintId, acc)
+    }
+    const rates: number[] = []
+    for (const { done, total } of totals.values()) {
+      if (total > 0) rates.push(done / total)
+    }
+    return rates
+  },
+
+  /**
    * Transition a DRAFT sprint to ACTIVE, checking there isn't already an
    * ACTIVE sprint on the team. Throws httpError with status 404/409 on
    * pre-condition failures. P2002 from a racing peer maps to 409.
