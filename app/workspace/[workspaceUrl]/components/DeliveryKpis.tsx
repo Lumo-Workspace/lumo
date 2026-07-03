@@ -2,58 +2,62 @@
 
 import { useIntl } from 'react-intl'
 import { formatDurationMs } from '@/lib/datetime/duration'
-
-// Single delivery KPI: label on top, value below. No hint, no warning tint —
-// the block is identical in the in-progress and done delivery cards (LUM-524).
-function KpiMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className='flex flex-col'>
-      <span className='text-caption text-muted-foreground'>{label}</span>
-      <span className='text-body-strong tabular-nums'>{value}</span>
-    </div>
-  )
-}
+import { BaselineStatView } from '@/components/BaselineStat'
+import type { BaselineStat } from '@/lib/baseline/types'
 
 /**
- * Shared bottom KPI block for the delivery card — the same labeled three-column
- * layout (运行次数 / 交互轮次 / 运行时长) whether the task is in-progress or done.
- * Values only: forecast ranges and over-budget warnings live in the token zone,
- * not here. `null` renders as an em-dash. `duration` is in seconds.
+ * 交付卡底部 KPI 块:运行次数 / 交互轮次 / 运行时长,每项带参照类基线。
+ * 进行中与已交付共用(LUM-524)。时长以秒计,formatValue 内转 ms 显示。
  */
 export function DeliveryKpis({
   runs,
   interactionRounds,
   duration,
 }: {
-  runs: number | null
-  interactionRounds: number | null
-  duration: number | null
+  runs: BaselineStat
+  interactionRounds: BaselineStat
+  duration: BaselineStat
 }) {
   const intl = useIntl()
-  const fmtCount = (n: number | null) =>
-    n !== null ? String(Math.round(n)) : '—'
+  const fmtCount = (n: number) => String(Math.round(n))
+  const fmtDuration = (sec: number) => formatDurationMs(intl, sec * 1000)
+
   return (
     <div className='mt-4 border-t border-border pt-3'>
       <p className='mb-2 text-caption text-muted-foreground'>
         {intl.formatMessage({ id: 'retrospective.delivery' })}
       </p>
       <div className='flex flex-wrap gap-x-8 gap-y-2'>
-        <KpiMetric
-          label={intl.formatMessage({ id: 'retrospective.iterations' })}
-          value={fmtCount(runs)}
-        />
-        <KpiMetric
-          label={intl.formatMessage({
-            id: 'retrospective.interactionRounds',
-          })}
-          value={fmtCount(interactionRounds)}
-        />
-        <KpiMetric
-          label={intl.formatMessage({ id: 'retrospective.totalDuration' })}
-          value={
-            duration !== null ? formatDurationMs(intl, duration * 1000) : '—'
-          }
-        />
+        <div className='flex flex-col'>
+          <span className='text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'retrospective.iterations' })}
+          </span>
+          <BaselineStatView
+            stat={runs}
+            formatValue={fmtCount}
+            baseLabel='baseline.median'
+          />
+        </div>
+        <div className='flex flex-col'>
+          <span className='text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'retrospective.interactionRounds' })}
+          </span>
+          <BaselineStatView
+            stat={interactionRounds}
+            formatValue={fmtCount}
+            baseLabel='baseline.median'
+          />
+        </div>
+        <div className='flex flex-col'>
+          <span className='text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'retrospective.totalDuration' })}
+          </span>
+          <BaselineStatView
+            stat={duration}
+            formatValue={fmtDuration}
+            baseLabel='baseline.median'
+          />
+        </div>
       </div>
     </div>
   )

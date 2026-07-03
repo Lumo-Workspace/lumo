@@ -9,6 +9,7 @@ import type {
 import { RangeBand } from './RangeBand'
 import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
+import { noBaseline } from '@/lib/baseline/adapters'
 
 // over 预警 pill（warning token）。on-track 不渲染 —— 飞行途中偏低是正常进度。
 function OverPill({ metric }: { metric: ProgressMetric }) {
@@ -115,9 +116,9 @@ export function ProgressView({
       {/* KPI block sits last — after the per-model footer — to match the done
           card's order (token → per-model breakdown → 交付 KPIs). */}
       <DeliveryKpis
-        runs={iterations.actual}
-        interactionRounds={interactionRounds.actual}
-        duration={totalDuration.actual}
+        runs={noBaseline(iterations.actual)}
+        interactionRounds={noBaseline(interactionRounds.actual)}
+        duration={noBaseline(totalDuration.actual)}
       />
     </section>
   )

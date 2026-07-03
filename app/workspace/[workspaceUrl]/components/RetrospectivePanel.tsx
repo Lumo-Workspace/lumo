@@ -7,6 +7,7 @@ import { RangeBand } from './RangeBand'
 import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
 import { VariancePill } from '@/components/VariancePill'
+import { fromRetrospectiveMetric } from '@/lib/baseline/adapters'
 import type { ApiStatus } from '../types'
 
 export function RetrospectivePanel({
@@ -88,9 +89,17 @@ export function RetrospectivePanel({
       {footer}
 
       <DeliveryKpis
-        runs={iterations.actual}
-        interactionRounds={interactionRounds.actual}
-        duration={totalDuration.actual}
+        runs={fromRetrospectiveMetric(
+          iterations,
+          referenceLibrarySize,
+          'magnitude'
+        )}
+        interactionRounds={fromRetrospectiveMetric(
+          interactionRounds,
+          referenceLibrarySize,
+          'magnitude'
+        )}
+        duration={fromRetrospectiveMetric(totalDuration, 0, 'magnitude')}
       />
     </section>
   )
