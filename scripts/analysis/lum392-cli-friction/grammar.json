@@ -1184,6 +1184,31 @@
       "hasSubcommands": false,
       "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name."
     },
+    "milestone changelog": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the raw structured changelog payload"
+        },
+        "--project": {
+          "long": "--project",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project name or slug (when identifier is a name)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
+    },
     "milestone create": {
       "arguments": [{ "name": "name", "required": true, "variadic": false }],
       "flags": {
