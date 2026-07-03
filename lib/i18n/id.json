@@ -2005,8 +2005,8 @@
   "milestone.riskQueue.verify.title": "Eskalasi verify",
   "milestone.riskQueue.verify.count": "{count} menunggu putusan manusia",
   "milestone.riskQueue.verify.meta": "putaran {round} gagal · dieskalasi ke manusia",
-  "milestone.riskQueue.scopeBaseline": "Baseline cakupan: {initial} tugas saat milestone dibuat · {current} sekarang ({added} ditambahkan kemudian)",
-  "milestone.riskQueue.scopeBaselineNone": "Baseline cakupan: {initial} tugas saat milestone dibuat · {current} sekarang (tidak ada yang ditambahkan kemudian)",
+  "milestone.riskQueue.scopeBaseline": "Baseline cakupan: {initial} tugas saat tonggak dibuat · {current} sekarang ({added} ditambahkan kemudian)",
+  "milestone.riskQueue.scopeBaselineNone": "Baseline cakupan: {initial} tugas saat tonggak dibuat · {current} sekarang (tidak ada yang ditambahkan kemudian)",
   "milestone.riskQueue.empty.title": "Tidak ada yang tertunda",
   "milestone.riskQueue.empty.body": "Tidak ada rantai terblokir, tinjauan menunggu putusan, pelanggaran batas terbuka, atau eskalasi verify."
 }
