@@ -188,6 +188,43 @@ const fullMilestone = {
       },
     ],
   },
+  riskQueue: {
+    blocked: [
+      {
+        taskId: 't2',
+        ref: 'LUM-2',
+        title: 'Blocked task',
+        blockingRef: 'LUM-9',
+        blockingStatus: 'IN_PROGRESS',
+      },
+    ],
+    awaitingVerdict: [
+      {
+        taskId: 't1',
+        ref: 'LUM-1',
+        title: 'In review task',
+        agingSec: 207_360,
+      },
+    ],
+    crossings: {
+      known: true,
+      bySeverity: { high: 1, medium: 0, low: 0 },
+      tasks: [
+        {
+          taskId: 't3',
+          ref: 'LUM-3',
+          title: 'Crossing task',
+          high: 1,
+          medium: 0,
+          low: 0,
+        },
+      ],
+    },
+    verifyEscalated: [
+      { taskId: 't4', ref: 'LUM-4', title: 'Escalated', round: 3 },
+    ],
+    scopeBaseline: { initial: 8, current: 8, addedLater: 0 },
+  },
 } as unknown as ApiMilestone
 
 /** a precedes b in document order. */
@@ -221,13 +258,15 @@ test('overview renders mission-control sections in order without description edi
   const burnupTitle = screen.getByText('milestone.costTrend.burnupTitle')
   const quality = screen.getByText('milestone.quality.title')
   const member = screen.getByText('milestone.memberDelivery.tableTitle')
+  const riskQueue = screen.getByText('milestone.riskQueue.title')
   const evidence = screen.getByText('milestone.taskEvidence.title')
 
   expectBefore(hero, kpi)
   expectBefore(kpi, burnupTitle)
   expectBefore(burnupTitle, quality)
   expectBefore(quality, member)
-  expectBefore(member, evidence)
+  expectBefore(member, riskQueue)
+  expectBefore(riskQueue, evidence)
 
   // The description editor is no longer part of the Overview.
   expect(screen.queryByTestId('desc-editor')).toBeNull()

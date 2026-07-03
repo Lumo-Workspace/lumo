@@ -15,6 +15,7 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     segmentationRows: jest.fn(),
     taskIds: jest.fn(),
     memberDeliveryRows: jest.fn(),
+    riskQueueRows: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
@@ -79,6 +80,7 @@ const loadActualsForTasks =
   retrospectiveRepository.loadActualsForTasks as jest.Mock
 const getProject = projectService.getProject as jest.Mock
 const taskIds = milestoneRepository.taskIds as jest.Mock
+const riskQueueRows = milestoneRepository.riskQueueRows as jest.Mock
 const loadMemberRows =
   retrospectiveRepository.loadMemberActualRowsForTasks as jest.Mock
 const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
@@ -112,6 +114,8 @@ beforeEach(() => {
   getProject.mockReset()
   taskIds.mockReset()
   taskIds.mockResolvedValue([])
+  riskQueueRows.mockReset()
+  riskQueueRows.mockResolvedValue(null)
   loadMemberRows.mockReset()
   loadMemberRows.mockResolvedValue({ sessions: [], turnEvents: [] })
   listStates.mockReset()

@@ -19,6 +19,12 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import {
+  computeMilestoneRiskQueue,
+  type MilestoneRiskQueue,
+  type RiskQueueCrossingRow,
+} from '@/lib/summaries/milestone-risk-queue'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -365,6 +371,28 @@ export const milestoneService = {
       })),
       sprints
     )
+  },
+
+  /**
+   * LUM-638 risk queue. The crossings fetch is isolated in its own
+   * try/catch: a read failure degrades that block to `unknown`
+   * (crossings: null → { known: false }) instead of failing the payload —
+   * unknown is not zero.
+   */
+  async getRiskQueueForMilestone(
+    milestoneId: string
+  ): Promise<MilestoneRiskQueue | null> {
+    const rows = await milestoneRepository.riskQueueRows(milestoneId)
+    if (!rows) return null
+    let crossings: RiskQueueCrossingRow[] | null
+    try {
+      crossings = await boundaryCrossingRepository.findSeverityRowsByTaskIds(
+        rows.tasks.map(t => t.id)
+      )
+    } catch {
+      crossings = null
+    }
+    return computeMilestoneRiskQueue({ ...rows, crossings, now: new Date() })
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {
