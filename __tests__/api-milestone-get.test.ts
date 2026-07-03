@@ -13,6 +13,7 @@ jest.mock('@/lib/services/milestone.service', () => ({
     getSegmentsForMilestone: jest.fn(),
     getDeliveryStatsForMilestone: jest.fn(),
     getMemberDeliveryForMilestone: jest.fn(),
+    getRiskQueueForMilestone: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
@@ -45,6 +46,7 @@ const mockDeliveryStats =
   milestoneService.getDeliveryStatsForMilestone as jest.Mock
 const mockMemberDelivery =
   milestoneService.getMemberDeliveryForMilestone as jest.Mock
+const mockRiskQueue = milestoneService.getRiskQueueForMilestone as jest.Mock
 
 const emptyCostTrend = {
   costRollup: {
@@ -100,6 +102,8 @@ beforeEach(() => {
   mockDeliveryStats.mockResolvedValue(emptyDeliveryStats)
   mockMemberDelivery.mockReset()
   mockMemberDelivery.mockResolvedValue({ rows: [] })
+  mockRiskQueue.mockReset()
+  mockRiskQueue.mockResolvedValue(null)
 })
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
@@ -339,5 +343,57 @@ describe('GET /api/milestones/[id]', () => {
       { id: 'm-1', name: 'Q3', status: 'PLANNED' },
       taskCounts
     )
+  })
+
+  test('returns risk queue rollup', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
+    mockCount.mockResolvedValue({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 0,
+    })
+    mockCoverage.mockResolvedValue({ sprints: [], unsprinted: 0 })
+    const riskQueue = {
+      blocked: [
+        {
+          taskId: 't2',
+          ref: 'LUM-2',
+          title: 'B',
+          blockingRef: 'LUM-9',
+          blockingStatus: 'IN_PROGRESS',
+        },
+      ],
+      awaitingVerdict: [
+        { taskId: 't1', ref: 'LUM-1', title: 'A', agingSec: 7200 },
+      ],
+      crossings: {
+        known: true,
+        bySeverity: { high: 1, medium: 0, low: 0 },
+        tasks: [
+          {
+            taskId: 't3',
+            ref: 'LUM-3',
+            title: 'C',
+            high: 1,
+            medium: 0,
+            low: 0,
+          },
+        ],
+      },
+      verifyEscalated: [{ taskId: 't4', ref: 'LUM-4', title: 'D', round: 3 }],
+      scopeBaseline: { initial: 12, current: 15, addedLater: 3 },
+    }
+    ;(milestoneService.getRiskQueueForMilestone as jest.Mock).mockResolvedValue(
+      riskQueue
+    )
+    const res = await GET(new Request('http://x/m') as any, params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.milestone.riskQueue).toEqual(riskQueue)
   })
 })

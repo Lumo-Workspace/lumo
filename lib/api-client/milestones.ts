@@ -236,6 +236,47 @@ export interface ApiMilestone {
       }>
     }>
   } | null
+  /**
+   * LUM-638 risk queue rollup. Server-enriched on the detail response only.
+   * Fail-closed: `crossings: { known: false }` when the boundary-crossing
+   * read failed — never coerced to zero counts.
+   */
+  riskQueue?: {
+    blocked: Array<{
+      taskId: string
+      ref: string
+      title: string
+      blockingRef: string
+      blockingStatus: TaskStatus
+    }>
+    awaitingVerdict: Array<{
+      taskId: string
+      ref: string
+      title: string
+      agingSec: number | null
+    }>
+    crossings:
+      | {
+          known: true
+          bySeverity: { high: number; medium: number; low: number }
+          tasks: Array<{
+            taskId: string
+            ref: string
+            title: string
+            high: number
+            medium: number
+            low: number
+          }>
+        }
+      | { known: false }
+    verifyEscalated: Array<{
+      taskId: string
+      ref: string
+      title: string
+      round: number
+    }>
+    scopeBaseline: { initial: number; current: number; addedLater: number }
+  } | null
 }
 
 export interface MilestoneSegmentEntry {
