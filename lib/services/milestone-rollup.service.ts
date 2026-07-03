@@ -1,4 +1,5 @@
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneExitCriterionRepository } from '@/lib/repositories/milestone-exit-criterion.repository'
 import {
   deriveRollupStatus,
   computeMilestoneStaleness,
@@ -31,10 +32,16 @@ export const milestoneRollupService = {
     if (!milestone) return
 
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
+    // LUM-643: unresolved exit criteria hold the auto-COMPLETED transition
+    // shut (fail-closed — a count-read failure aborts the reconcile rather
+    // than completing past an unread contract; dispatchRollup swallows it).
+    const unresolvedExitCriteria =
+      await milestoneExitCriterionRepository.countUnresolved(milestoneId)
     const next = deriveRollupStatus({
       status: milestone.status,
       archived: milestone.archivedAt !== null,
       taskCounts,
+      unresolvedExitCriteria,
     })
     if (!next) return
 
@@ -73,8 +80,11 @@ export const milestoneRollupService = {
    * the staleness hints for the payload and, when the stored status drifted
    * from the task-derived one, dispatches a background reconcile so stale
    * legacy rows (the 26/26-DONE-but-PLANNED shape) converge on first view.
+   * Async since LUM-643: the exit-criteria gate feeds the drift computation,
+   * so an all-tasks-DONE milestone held by unresolved criteria neither shows
+   * a lying "auto-updating to COMPLETED" hint nor loops reconcile dispatches.
    */
-  observeOnRead(
+  async observeOnRead(
     milestone: {
       id: string
       status: MilestoneStatus
@@ -82,12 +92,19 @@ export const milestoneRollupService = {
       targetDate: Date | null
     },
     taskCounts: Record<TaskStatus, number>
-  ): MilestoneStaleness {
+  ): Promise<MilestoneStaleness> {
+    const unresolvedExitCriteria = await milestoneExitCriterionRepository
+      .countUnresolved(milestone.id)
+      // Best-effort read enrichment; fail closed (treat as gate-held) so a
+      // count failure can't surface a COMPLETED drift the reconcile would
+      // then refuse to apply.
+      .catch(() => 1)
     const staleness = computeMilestoneStaleness({
       status: milestone.status,
       archived: milestone.archivedAt !== null,
       taskCounts,
       targetDate: milestone.targetDate,
+      unresolvedExitCriteria,
     })
     if (staleness.statusDrift) {
       this.dispatchRollup(milestone.id)

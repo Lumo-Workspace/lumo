@@ -16,6 +16,13 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
 jest.mock('@/lib/services/milestone.service', () => ({
   generateMilestoneRetro: jest.fn().mockResolvedValue(undefined),
 }))
+// LUM-643: the rollup consults the exit-criteria close gate — default to an
+// empty contract (gate open) so pre-existing rollup behavior is unchanged.
+jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
+  milestoneExitCriterionRepository: {
+    countUnresolved: jest.fn().mockResolvedValue(0),
+  },
+}))
 
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import {
@@ -128,13 +135,13 @@ describe('milestone status rollup (LUM-624)', () => {
     expect(mockGuardedUpdate).not.toHaveBeenCalled()
   })
 
-  it('milestone detail read dispatches reconcile when stored status drifts from task-derived status', () => {
+  it('milestone detail read dispatches reconcile when stored status drifts from task-derived status', async () => {
     const reconcileSpy = jest
       .spyOn(milestoneRollupService, 'reconcileMilestoneStatus')
       .mockResolvedValue(undefined)
 
     // Stored PLANNED vs all-done tasks → drift surfaced + self-heal dispatched.
-    const staleness = milestoneRollupService.observeOnRead(
+    const staleness = await milestoneRollupService.observeOnRead(
       {
         id: 'm-1',
         status: 'PLANNED',
@@ -148,7 +155,7 @@ describe('milestone status rollup (LUM-624)', () => {
 
     // Stored status already matches the task-derived one → no dispatch.
     reconcileSpy.mockClear()
-    const consistent = milestoneRollupService.observeOnRead(
+    const consistent = await milestoneRollupService.observeOnRead(
       {
         id: 'm-1',
         status: 'ACTIVE',

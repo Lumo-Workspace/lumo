@@ -20,6 +20,14 @@ export interface MilestoneRollupInput {
   status: MilestoneStatus
   archived: boolean
   taskCounts: Record<TaskStatus, number>
+  /**
+   * LUM-643: active exit criteria not adjudicated MET (unadjudicated or
+   * NOT_MET). While > 0 the close gate holds: an all-tasks-DONE milestone is
+   * NOT auto-completed (and reads report no COMPLETED drift) until the
+   * contract is adjudicated or a human overrides explicitly. Omitted → 0
+   * (no contract = gate open), preserving pre-LUM-643 caller behavior.
+   */
+  unresolvedExitCriteria?: number
 }
 
 /** Status drift + missing-schedule hints surfaced on milestone reads. */
@@ -56,7 +64,13 @@ export function deriveRollupStatus(
   if (total === 0) return null
 
   const allDone = taskCounts.DONE === total
-  if (allDone) return status === 'COMPLETED' ? null : 'COMPLETED'
+  if (allDone) {
+    if (status === 'COMPLETED') return null
+    // LUM-643 close gate: unresolved exit criteria hold the auto-completion
+    // shut — fail-closed, no transition (and no drift hint) until adjudicated.
+    if ((input.unresolvedExitCriteria ?? 0) > 0) return null
+    return 'COMPLETED'
+  }
 
   // Tasks remain open from here on.
   if (status === 'COMPLETED') return 'ACTIVE'
