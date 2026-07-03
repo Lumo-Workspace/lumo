@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "第一個任務開工的時間——由活動紀錄推導,非手填欄位",
   "milestone.riskQueue.aging.days": "{days} 天",
   "milestone.riskQueue.aging.hours": "{hours} 小時",
-  "milestone.riskQueue.aging.minutes": "{minutes} 分鐘"
+  "milestone.riskQueue.aging.minutes": "{minutes} 分鐘",
+  "milestone.costTrend.budgetUsage": "已用 {budget} token 預算的 {percent}%",
+  "milestone.costTrend.budgetUnmeasured": "token 預算 {budget} — 消耗未測量",
+  "milestone.costTrend.budgetOver": "超出預算 {over}",
+  "milestone.riskQueue.budget.title": "token 預算超限",
+  "milestone.riskQueue.budget.count": "已耗 {burn} / 預算 {budget}（{percent}%）",
+  "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。"
 }

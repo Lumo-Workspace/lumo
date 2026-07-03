@@ -277,6 +277,8 @@ function ModelUsageBreakdown({
 
 interface MilestoneCostTrendSectionProps {
   costRollup: ApiMilestone['costRollup']
+  /** LUM-644 advisory burn-vs-budget block; absent = no budget set. */
+  budget?: ApiMilestone['budget']
   burnup: ApiMilestone['burnup']
   deliveryStats: ApiMilestone['deliveryStats']
   memberDelivery: ApiMilestone['memberDelivery']
@@ -298,6 +300,7 @@ interface MilestoneCostTrendSectionProps {
  */
 export function MilestoneCostTrendSection({
   costRollup,
+  budget,
   burnup,
   deliveryStats,
   memberDelivery,
@@ -322,7 +325,11 @@ export function MilestoneCostTrendSection({
       className='mb-10 space-y-4'
     >
       {(costRollup || deliveryStats) && (
-        <KpiCardRow costRollup={costRollup} deliveryStats={deliveryStats} />
+        <KpiCardRow
+          costRollup={costRollup}
+          budget={budget}
+          deliveryStats={deliveryStats}
+        />
       )}
 
       {(burnup || deliveryStats || memberDelivery) && (
@@ -352,12 +359,69 @@ export function MilestoneCostTrendSection({
   )
 }
 
+/**
+ * LUM-644 burn-vs-budget line inside the tokens KPI card. Renders nothing
+ * when no budget is set; with a budget it always states the budget, plus —
+ * fail-closed — either the measured usage (track + percent, an over-budget
+ * note when exceeded) or the explicit unmeasured state. Advisory only.
+ */
+function TokenBudgetLine({ budget }: { budget: ApiMilestone['budget'] }) {
+  const intl = useIntl()
+  if (!budget) return null
+  if (budget.usedRatio === null) {
+    return (
+      <p
+        data-testid='token-budget-line'
+        className='mt-1 text-xs text-muted-foreground'
+      >
+        {intl.formatMessage(
+          { id: 'milestone.costTrend.budgetUnmeasured' },
+          { budget: fmtTokens(budget.tokenBudget) }
+        )}
+      </p>
+    )
+  }
+  const pct = Math.round(budget.usedRatio * 100)
+  return (
+    <div data-testid='token-budget-line' className='mt-1'>
+      <p className='text-xs text-muted-foreground'>
+        {intl.formatMessage(
+          { id: 'milestone.costTrend.budgetUsage' },
+          { percent: pct, budget: fmtTokens(budget.tokenBudget) }
+        )}
+      </p>
+      <div
+        aria-hidden='true'
+        className='mt-1 flex h-1 overflow-hidden rounded-full bg-muted'
+      >
+        <span
+          className={budget.exceeded ? 'bg-[var(--danger)]' : 'bg-chart-1'}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      {budget.exceeded && budget.overBy !== null && (
+        <p
+          data-testid='token-budget-over'
+          className='mt-1 text-xs font-semibold text-[var(--danger)]'
+        >
+          {intl.formatMessage(
+            { id: 'milestone.costTrend.budgetOver' },
+            { over: fmtTokens(budget.overBy) }
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** The 4-card KPI row: tokens · active time · merged PRs · change volume. */
 function KpiCardRow({
   costRollup,
+  budget,
   deliveryStats,
 }: {
   costRollup: ApiMilestone['costRollup']
+  budget: ApiMilestone['budget'] | undefined
   deliveryStats: ApiMilestone['deliveryStats']
 }) {
   const intl = useIntl()
@@ -394,6 +458,7 @@ function KpiCardRow({
                 }
               )}
             </p>
+            <TokenBudgetLine budget={budget ?? null} />
           </div>
           <div className={CARD}>
             <p className={KPI_LABEL}>

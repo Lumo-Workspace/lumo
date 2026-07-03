@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "Cuándo empezó la primera tarea — derivado de la actividad, no de un formulario",
   "milestone.riskQueue.aging.days": "{days} d",
   "milestone.riskQueue.aging.hours": "{hours} h",
-  "milestone.riskQueue.aging.minutes": "{minutes} min"
+  "milestone.riskQueue.aging.minutes": "{minutes} min",
+  "milestone.costTrend.budgetUsage": "{percent}% del presupuesto de tokens de {budget}",
+  "milestone.costTrend.budgetUnmeasured": "Presupuesto de tokens {budget} — consumo no medido",
+  "milestone.costTrend.budgetOver": "Presupuesto superado en {over}",
+  "milestone.riskQueue.budget.title": "Presupuesto de tokens superado",
+  "milestone.riskQueue.budget.count": "consumo {burn} de {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Solo aviso — nada se bloquea. Revisa el alcance restante o aumenta el presupuesto."
 }

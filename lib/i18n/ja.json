@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "最初のタスクが開始された時点 — フォーム入力ではなくアクティビティから導出",
   "milestone.riskQueue.aging.days": "{days}日",
   "milestone.riskQueue.aging.hours": "{hours}時間",
-  "milestone.riskQueue.aging.minutes": "{minutes}分"
+  "milestone.riskQueue.aging.minutes": "{minutes}分",
+  "milestone.costTrend.budgetUsage": "トークン予算 {budget} の {percent}%",
+  "milestone.costTrend.budgetUnmeasured": "トークン予算 {budget} — 消費は未計測",
+  "milestone.costTrend.budgetOver": "予算を {over} 超過",
+  "milestone.riskQueue.budget.title": "トークン予算を超過",
+  "milestone.riskQueue.budget.count": "消費 {burn} / 予算 {budget}({percent}%)",
+  "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。"
 }

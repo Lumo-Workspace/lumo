@@ -18,6 +18,8 @@ export interface UpdateMilestoneOptions {
   status?: string
   start?: string
   target?: string
+  /** LUM-644 advisory token budget: a positive integer, '' to clear. */
+  tokenBudget?: string
 }
 
 interface UpdatePayload {
@@ -26,6 +28,7 @@ interface UpdatePayload {
   status?: Status
   startDate?: string | null
   targetDate?: string | null
+  tokenBudget?: number | null
 }
 
 export function normalizeMilestoneStatus(value: string): Status | null {
@@ -34,6 +37,19 @@ export function normalizeMilestoneStatus(value: string): Status | null {
   return (ALLOWED_STATUSES as readonly string[]).includes(upper)
     ? (upper as Status)
     : null
+}
+
+/**
+ * LUM-644: '' clears the budget (→ null, the nullable-flag convention);
+ * otherwise the value must be a positive integer within Postgres INT range.
+ * Invalid input → undefined (caller prints the error and exits 1).
+ */
+export function normalizeTokenBudget(value: string): number | null | undefined {
+  if (value === '') return null
+  if (!/^\d+$/.test(value)) return undefined
+  const n = Number(value)
+  if (!Number.isSafeInteger(n) || n < 1 || n > 2_147_483_647) return undefined
+  return n
 }
 
 export function buildMilestoneUpdatePayload(opts: UpdateMilestoneOptions): {
@@ -62,6 +78,12 @@ export function buildMilestoneUpdatePayload(opts: UpdateMilestoneOptions): {
     payload.targetDate = opts.target === '' ? null : opts.target
     flagsGiven.push('--target')
   }
+  if (opts.tokenBudget !== undefined) {
+    // The caller validated eagerly (normalizeTokenBudget); '' means clear.
+    payload.tokenBudget =
+      opts.tokenBudget === '' ? null : Number(opts.tokenBudget)
+    flagsGiven.push('--token-budget')
+  }
   return { payload, flagsGiven }
 }
 
@@ -71,6 +93,7 @@ interface MilestoneSnapshot {
   status?: string
   startDate?: string | null
   targetDate?: string | null
+  tokenBudget?: number | null
 }
 
 function fmtDate(v: string | null | undefined): string {
@@ -102,6 +125,13 @@ export function formatMilestoneUpdateSummary(
   if (after.targetDate !== undefined) {
     changes.push(`target → ${fmtDate(after.targetDate)}`)
   }
+  if (after.tokenBudget !== undefined) {
+    changes.push(
+      after.tokenBudget === null
+        ? 'token budget → ∅'
+        : `token budget → ${after.tokenBudget.toLocaleString('en-US')}`
+    )
+  }
   return `Updated milestone "${beforeName}": ${changes.join(', ')}`
 }
 
@@ -122,13 +152,24 @@ export async function milestoneUpdate(
     normalizedStatus = n
   }
 
+  // Validate token budget eagerly (LUM-644): positive integer, or '' to clear.
+  if (
+    opts.tokenBudget !== undefined &&
+    normalizeTokenBudget(opts.tokenBudget) === undefined
+  ) {
+    console.error(
+      `Error: invalid token budget "${opts.tokenBudget}". Provide a positive integer (e.g. 5000000), or "" to clear.`
+    )
+    return 1
+  }
+
   const { payload, flagsGiven } = buildMilestoneUpdatePayload({
     ...opts,
     ...(normalizedStatus !== undefined && { status: normalizedStatus }),
   })
   if (flagsGiven.length === 0) {
     console.error(
-      'Error: provide at least one field to update (--name, --description, --status, --start, --target)'
+      'Error: provide at least one field to update (--name, --description, --status, --start, --target, --token-budget)'
     )
     return 1
   }

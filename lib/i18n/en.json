@@ -2033,5 +2033,11 @@
   "milestone.riskQueue.empty.body": "No blocked chains, reviews awaiting verdict, open crossings, or verify escalations.",
   "milestone.costTrend.moreModels": "{count, plural, one {# more model} other {# more models}} · {total}",
   "milestone.costTrend.modelUnattributed": "{total} not attributed to a model",
-  "milestone.hero.startDerivedHint": "When the first task started — derived from activity, not a form field"
+  "milestone.hero.startDerivedHint": "When the first task started — derived from activity, not a form field",
+  "milestone.costTrend.budgetUsage": "{percent}% of {budget} token budget",
+  "milestone.costTrend.budgetUnmeasured": "Token budget {budget} — burn not measured",
+  "milestone.costTrend.budgetOver": "Over budget by {over}",
+  "milestone.riskQueue.budget.title": "Token budget exceeded",
+  "milestone.riskQueue.budget.count": "burn {burn} of {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Advisory only — nothing is blocked. Review the remaining scope or raise the budget."
 }

@@ -1462,10 +1462,18 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Target date YYYY-MM-DD (empty string to clear)"
+        },
+        "--token-budget": {
+          "long": "--token-budget",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Advisory token budget, positive integer (empty string to clear). Overview shows burn vs budget; over-budget raises a risk-queue alert — never a hard gate."
         }
       },
       "hasSubcommands": false,
-      "description": "Update a milestone. Provide at least one of --name, --description, --status, --start, --target. Use \"\" to clear nullable fields."
+      "description": "Update a milestone. Provide at least one of --name, --description, --status, --start, --target, --token-budget. Use \"\" to clear nullable fields."
     },
     "next": {
       "arguments": [],

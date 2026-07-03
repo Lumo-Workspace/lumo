@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "Thời điểm nhiệm vụ đầu tiên bắt đầu — suy ra từ hoạt động, không phải trường biểu mẫu",
   "milestone.riskQueue.aging.days": "{days} ngày",
   "milestone.riskQueue.aging.hours": "{hours} giờ",
-  "milestone.riskQueue.aging.minutes": "{minutes} phút"
+  "milestone.riskQueue.aging.minutes": "{minutes} phút",
+  "milestone.costTrend.budgetUsage": "{percent}% của ngân sách token {budget}",
+  "milestone.costTrend.budgetUnmeasured": "Ngân sách token {budget} — mức tiêu thụ chưa được đo",
+  "milestone.costTrend.budgetOver": "Vượt ngân sách {over}",
+  "milestone.riskQueue.budget.title": "Vượt ngân sách token",
+  "milestone.riskQueue.budget.count": "đã dùng {burn} trên {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách."
 }

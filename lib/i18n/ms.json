@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "Bila tugas pertama bermula — diterbitkan daripada aktiviti, bukan medan borang",
   "milestone.riskQueue.aging.days": "{days} hari",
   "milestone.riskQueue.aging.hours": "{hours} jam",
-  "milestone.riskQueue.aging.minutes": "{minutes} minit"
+  "milestone.riskQueue.aging.minutes": "{minutes} minit",
+  "milestone.costTrend.budgetUsage": "{percent}% daripada bajet token {budget}",
+  "milestone.costTrend.budgetUnmeasured": "Bajet token {budget} — penggunaan belum diukur",
+  "milestone.costTrend.budgetOver": "Melebihi bajet sebanyak {over}",
+  "milestone.riskQueue.budget.title": "Bajet token dilampaui",
+  "milestone.riskQueue.budget.count": "penggunaan {burn} daripada {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Sekadar makluman — tiada apa-apa disekat. Semak skop yang tinggal atau naikkan bajet."
 }

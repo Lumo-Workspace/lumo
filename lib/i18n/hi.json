@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "पहला कार्य कब शुरू हुआ — गतिविधि से व्युत्पन्न, फ़ॉर्म फ़ील्ड नहीं",
   "milestone.riskQueue.aging.days": "{days} दिन",
   "milestone.riskQueue.aging.hours": "{hours} घंटे",
-  "milestone.riskQueue.aging.minutes": "{minutes} मिनट"
+  "milestone.riskQueue.aging.minutes": "{minutes} मिनट",
+  "milestone.costTrend.budgetUsage": "{budget} टोकन बजट का {percent}%",
+  "milestone.costTrend.budgetUnmeasured": "टोकन बजट {budget} — खपत मापी नहीं गई",
+  "milestone.costTrend.budgetOver": "बजट से {over} अधिक",
+  "milestone.riskQueue.budget.title": "टोकन बजट पार हो गया",
+  "milestone.riskQueue.budget.count": "{budget} में से {burn} खपत ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।"
 }

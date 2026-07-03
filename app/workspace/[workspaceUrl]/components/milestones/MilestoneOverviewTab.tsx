@@ -21,6 +21,7 @@ interface MilestoneOverviewTabProps {
     | 'sprintCoverage'
     | 'outcome'
     | 'costRollup'
+    | 'budget'
     | 'burnup'
     | 'segments'
     | 'deliveryStats'
@@ -67,11 +68,13 @@ export function MilestoneOverviewTab({
           analyze after — the rest of the Overview is retrospective. */}
       <MilestoneRiskQueueSection
         riskQueue={milestone.riskQueue}
+        budget={milestone.budget}
         workspaceUrl={workspaceUrl}
       />
 
       <MilestoneCostTrendSection
         costRollup={milestone.costRollup}
+        budget={milestone.budget}
         burnup={milestone.burnup}
         deliveryStats={milestone.deliveryStats}
         memberDelivery={milestone.memberDelivery}

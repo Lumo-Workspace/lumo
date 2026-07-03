@@ -693,6 +693,9 @@ model Milestone {
   completedAt DateTime?
   sortOrder   Float           @default(0)
   archivedAt  DateTime?
+  // LUM-644: advisory token budget — Overview compares burn vs this and the
+  // risk queue surfaces an over-budget alert; nothing is ever hard-gated on it.
+  tokenBudget Int?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 

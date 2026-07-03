@@ -648,6 +648,9 @@ export const updateMilestoneSchema = z.object({
   status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']).optional(),
   startDate: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),
+  // LUM-644: advisory token budget — a positive integer within Postgres INT
+  // range; null clears it. Never gates anything.
+  tokenBudget: z.number().int().min(1).max(2_147_483_647).nullable().optional(),
 })
 
 export const listMilestonesQuerySchema = z.object({

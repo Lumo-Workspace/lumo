@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "Saat tugas pertama dimulai — diturunkan dari aktivitas, bukan isian formulir",
   "milestone.riskQueue.aging.days": "{days} hari",
   "milestone.riskQueue.aging.hours": "{hours} jam",
-  "milestone.riskQueue.aging.minutes": "{minutes} menit"
+  "milestone.riskQueue.aging.minutes": "{minutes} menit",
+  "milestone.costTrend.budgetUsage": "{percent}% dari anggaran token {budget}",
+  "milestone.costTrend.budgetUnmeasured": "Anggaran token {budget} — pemakaian belum terukur",
+  "milestone.costTrend.budgetOver": "Melebihi anggaran sebesar {over}",
+  "milestone.riskQueue.budget.title": "Anggaran token terlampaui",
+  "milestone.riskQueue.budget.count": "pemakaian {burn} dari {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran."
 }

@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "第一个任务开工的时间——由活动记录派生,非手填字段",
   "milestone.riskQueue.aging.days": "{days} 天",
   "milestone.riskQueue.aging.hours": "{hours} 小时",
-  "milestone.riskQueue.aging.minutes": "{minutes} 分钟"
+  "milestone.riskQueue.aging.minutes": "{minutes} 分钟",
+  "milestone.costTrend.budgetUsage": "已用 {budget} token 预算的 {percent}%",
+  "milestone.costTrend.budgetUnmeasured": "token 预算 {budget} — 消耗未测量",
+  "milestone.costTrend.budgetOver": "超出预算 {over}",
+  "milestone.riskQueue.budget.title": "token 预算超限",
+  "milestone.riskQueue.budget.count": "已耗 {burn} / 预算 {budget}（{percent}%）",
+  "milestone.riskQueue.budget.advisory": "仅为提示 — 不阻断任何操作。请审视剩余范围或上调预算。"
 }

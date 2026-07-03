@@ -12,6 +12,7 @@ type MilestoneUpdate = Partial<
     | 'targetDate'
     | 'completedAt'
     | 'sortOrder'
+    | 'tokenBudget'
   >
 >
 

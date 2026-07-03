@@ -1102,7 +1102,7 @@ milestoneCmd
 milestoneCmd
   .command('update <identifier>')
   .description(
-    'Update a milestone. Provide at least one of --name, --description, --status, --start, --target. Use "" to clear nullable fields.'
+    'Update a milestone. Provide at least one of --name, --description, --status, --start, --target, --token-budget. Use "" to clear nullable fields.'
   )
   .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .option('-n, --name <text>', 'New name')
@@ -1113,6 +1113,10 @@ milestoneCmd
   )
   .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
   .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
+  .option(
+    '--token-budget <tokens>',
+    'Advisory token budget, positive integer (empty string to clear). Overview shows burn vs budget; over-budget raises a risk-queue alert — never a hard gate.'
+  )
   .action(
     wrap((identifier, options) =>
       milestoneUpdate(identifier as string, options as Record<string, string>)

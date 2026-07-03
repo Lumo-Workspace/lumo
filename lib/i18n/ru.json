@@ -2033,5 +2033,11 @@
   "milestone.hero.startDerivedHint": "Когда началась первая задача — выведено из активности, а не из поля формы",
   "milestone.riskQueue.aging.days": "{days} дн.",
   "milestone.riskQueue.aging.hours": "{hours} ч",
-  "milestone.riskQueue.aging.minutes": "{minutes} мин"
+  "milestone.riskQueue.aging.minutes": "{minutes} мин",
+  "milestone.costTrend.budgetUsage": "{percent}% от бюджета токенов {budget}",
+  "milestone.costTrend.budgetUnmeasured": "Бюджет токенов {budget} — расход не измерен",
+  "milestone.costTrend.budgetOver": "Бюджет превышен на {over}",
+  "milestone.riskQueue.budget.title": "Бюджет токенов превышен",
+  "milestone.riskQueue.budget.count": "расход {burn} из {budget} ({percent}%)",
+  "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет."
 }
