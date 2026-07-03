@@ -6,38 +6,9 @@ import { useTaskRetrospective } from '../hooks/useTaskRetrospective'
 import { RangeBand } from './RangeBand'
 import { DeliveryKpis } from './DeliveryKpis'
 import { fmtCompact } from './AgentRunTimeline/model-cost-format'
-import type {
-  RetrospectiveMetric,
-  VarianceBand,
-} from '@/lib/forecast/retrospective-types'
+import { VariancePill } from '@/components/VariancePill'
+import { fromRetrospectiveMetric } from '@/lib/baseline/adapters'
 import type { ApiStatus } from '../types'
-
-const BAND_KEY: Record<VarianceBand, string> = {
-  within: 'retrospective.bandWithin',
-  above: 'retrospective.bandAbove',
-  below: 'retrospective.bandBelow',
-}
-
-// Variance pill: layered feedback tokens — success-subtle for "within",
-// warning-subtle for "above"/"below". Colour is a light hint; hierarchy
-// comes from the numbers' weight, not the pill's colour.
-function VariancePill({ metric }: { metric: RetrospectiveMetric }) {
-  const intl = useIntl()
-  if (metric.band === null || metric.deltaPct === null) return null
-  const tone =
-    metric.band === 'within'
-      ? 'bg-success-subtle text-success'
-      : 'bg-warning-subtle text-warning'
-  const sign = metric.deltaPct > 0 ? '+' : ''
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${tone}`}
-    >
-      {sign}
-      {metric.deltaPct}% · {intl.formatMessage({ id: BAND_KEY[metric.band] })}
-    </span>
-  )
-}
 
 export function RetrospectivePanel({
   taskId,
@@ -98,7 +69,11 @@ export function RetrospectivePanel({
               </span>
             </span>
           </div>
-          <VariancePill metric={tokenCost} />
+          <VariancePill
+            band={tokenCost.band}
+            deltaPct={tokenCost.deltaPct}
+            deltaKind='magnitude'
+          />
           <RangeBand
             forecast={tokenCost.forecast}
             actual={tokenCost.actual as number}
@@ -114,9 +89,17 @@ export function RetrospectivePanel({
       {footer}
 
       <DeliveryKpis
-        runs={iterations.actual}
-        interactionRounds={interactionRounds.actual}
-        duration={totalDuration.actual}
+        runs={fromRetrospectiveMetric(
+          iterations,
+          referenceLibrarySize,
+          'magnitude'
+        )}
+        interactionRounds={fromRetrospectiveMetric(
+          interactionRounds,
+          referenceLibrarySize,
+          'magnitude'
+        )}
+        duration={fromRetrospectiveMetric(totalDuration, 0, 'magnitude')}
       />
     </section>
   )

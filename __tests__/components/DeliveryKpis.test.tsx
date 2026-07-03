@@ -1,56 +1,75 @@
 /** @jest-environment jsdom */
-
-const en: Record<string, string> = {
-  'retrospective.delivery': 'Delivery',
-  'retrospective.iterations': 'Runs',
-  'retrospective.interactionRounds': 'Interaction rounds',
-  'retrospective.totalDuration': 'Run time',
-  'duration.hours': '{hours}h',
-  'duration.minutes': '{minutes}m',
-  'duration.seconds': '{seconds}s',
-  'duration.milliseconds': '{ms}ms',
-}
-
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    locale: 'en',
-    formatMessage: (
-      { id }: { id: string },
-      values?: Record<string, unknown>
-    ) => {
-      const tpl = en[id] ?? id
-      if (!values) return tpl
-      return tpl.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ''))
-    },
-  }),
-}))
+jest.mock('react-intl', () => {
+  const en = require('@/lib/i18n/en.json') as Record<string, string>
+  return {
+    useIntl: () => ({
+      locale: 'en',
+      formatMessage: (
+        { id, defaultMessage }: { id: string; defaultMessage?: string },
+        values?: Record<string, unknown>
+      ) => {
+        const template = en[id] ?? defaultMessage ?? id
+        if (!values) return template
+        return template.replace(/\{(\w+)(?:,[^}]*)?\}/g, (_, key) =>
+          values[key] != null ? String(values[key]) : _
+        )
+      },
+    }),
+  }
+})
 
 import { render, screen } from '@testing-library/react'
 import { DeliveryKpis } from '@/app/workspace/[workspaceUrl]/components/DeliveryKpis'
+import type { BaselineStat } from '@/lib/baseline/types'
 
-it('DeliveryKpis renders three labeled KPI columns and em-dash for null values', () => {
-  render(<DeliveryKpis runs={3} interactionRounds={8} duration={null} />)
+const withBase: BaselineStat = {
+  current: 6,
+  base: 4,
+  spread: { p25: 3, p75: 5 },
+  sampleSize: 5,
+  band: 'above',
+  deltaPct: 50,
+  deltaKind: 'magnitude',
+}
+const noBase: BaselineStat = {
+  current: 120,
+  base: null,
+  spread: null,
+  sampleSize: 0,
+  band: null,
+  deltaPct: null,
+  deltaKind: 'magnitude',
+}
 
-  // all three labels present
-  expect(screen.getByText('Delivery')).toBeInTheDocument()
-  expect(screen.getByText('Runs')).toBeInTheDocument()
-  expect(screen.getByText('Interaction rounds')).toBeInTheDocument()
-  expect(screen.getByText('Run time')).toBeInTheDocument()
-
-  // values shown verbatim
-  expect(screen.getByText('3')).toBeInTheDocument()
-  expect(screen.getByText('8')).toBeInTheDocument()
-
-  // null duration → em-dash
-  expect(screen.getByText('—')).toBeInTheDocument()
+it('renders runs baseline (current + median + pill) and duration without baseline', () => {
+  render(
+    <DeliveryKpis
+      runs={withBase}
+      interactionRounds={withBase}
+      duration={noBase}
+    />
+  )
+  expect(screen.getAllByText('6').length).toBeGreaterThan(0)
+  expect(screen.getAllByText(/\+50%/).length).toBeGreaterThan(0)
+  expect(screen.getByText('No baseline yet')).toBeInTheDocument()
 })
 
-it('DeliveryKpis duration-formats the duration in seconds', () => {
-  render(<DeliveryKpis runs={1} interactionRounds={0} duration={217} />)
-  expect(screen.getByText('3m 37s')).toBeInTheDocument()
-})
-
-it('DeliveryKpis renders em-dash for every null metric', () => {
-  render(<DeliveryKpis runs={null} interactionRounds={null} duration={null} />)
-  expect(screen.getAllByText('—')).toHaveLength(3)
+it('renders baseline sample too small state when sampleSize is below MIN_BASELINE_SAMPLE', () => {
+  const insufficient: BaselineStat = {
+    current: 6,
+    base: 4,
+    spread: { p25: 3, p75: 5 },
+    sampleSize: 1,
+    band: 'above',
+    deltaPct: 50,
+    deltaKind: 'magnitude',
+  }
+  render(
+    <DeliveryKpis
+      runs={insufficient}
+      interactionRounds={withBase}
+      duration={noBase}
+    />
+  )
+  expect(screen.getByText('Baseline sample too small')).toBeInTheDocument()
 })

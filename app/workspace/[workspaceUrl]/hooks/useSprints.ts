@@ -35,6 +35,8 @@ function seedTaskDetailCache(queryClient: QueryClient, tasks: unknown[]) {
 interface SprintProgress {
   total: number
   done: number
+  /** 同类历史基线:该 team 已完成 sprint 的完成率样本(0..1)。空=暂无基线。 */
+  priorCompletionRates: number[]
 }
 
 interface SprintWithProgress {

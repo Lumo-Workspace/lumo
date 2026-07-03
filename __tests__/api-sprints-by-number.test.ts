@@ -8,6 +8,7 @@ jest.mock('@/lib/repositories', () => ({
   sprintRepository: {
     findByWorkspaceAndNumber: jest.fn(),
     countTasks: jest.fn(),
+    completedCompletionRates: jest.fn(),
   },
   taskRepository: {
     findBySprint: jest.fn(),
@@ -30,6 +31,8 @@ import { NextResponse } from 'next/server'
 const mockIdentity = requireIdentity as jest.Mock
 const mockFindByNumber = sprintRepository.findByWorkspaceAndNumber as jest.Mock
 const mockCountTasks = sprintRepository.countTasks as jest.Mock
+const mockCompletedRates =
+  sprintRepository.completedCompletionRates as jest.Mock
 const mockFindBySprint = taskRepository.findBySprint as jest.Mock
 const mockRequireTeam = requireTeamMemberOrOwner as jest.Mock
 const mockRisk = getSprintRisk as jest.Mock
@@ -38,12 +41,15 @@ beforeEach(() => {
   mockIdentity.mockReset()
   mockFindByNumber.mockReset()
   mockCountTasks.mockReset()
+  mockCompletedRates.mockReset()
   mockFindBySprint.mockReset()
   mockRequireTeam.mockReset()
   mockRisk.mockReset()
 })
 
-function req(url = 'http://x/api/sprints/by-number?workspaceUrl=acme&number=1') {
+function req(
+  url = 'http://x/api/sprints/by-number?workspaceUrl=acme&number=1'
+) {
   return { nextUrl: new URL(url) } as any
 }
 
@@ -113,13 +119,19 @@ describe('GET /api/sprints/by-number', () => {
     mockCountTasks.mockResolvedValueOnce(2).mockResolvedValueOnce(5)
     mockRisk.mockResolvedValue({ risk: 'LOW', topBlockers: [] })
     mockFindBySprint.mockResolvedValue([rawTask])
+    mockCompletedRates.mockResolvedValue([0.5, 0.75])
 
     const res = await GET(req())
     expect(res.status).toBe(200)
     const body = await res.json()
 
     expect(body.sprint).toMatchObject({ id: 's-1', number: 1 })
-    expect(body.progress).toEqual({ done: 2, total: 5 })
+    expect(body.progress).toEqual({
+      done: 2,
+      total: 5,
+      priorCompletionRates: [0.5, 0.75],
+    })
+    expect(mockCompletedRates).toHaveBeenCalledWith('team-1', 's-1')
     expect(body.risk).toBe('LOW')
     expect(body.tasks).toHaveLength(1)
     expect(body.tasks[0]).toMatchObject({

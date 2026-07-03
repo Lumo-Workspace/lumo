@@ -59,16 +59,18 @@ export async function GET(req: NextRequest) {
     // here, then fired a second request to /sprints/[id]/tasks gated on the
     // returned id — a serial waterfall worth ~300-500ms of skeleton. The
     // client seeds the tasks.bySprint cache from `tasks` below (LUM-200).
-    const [done, total, sprintRisk, sprintTasks] = await Promise.all([
-      sprintRepository.countTasks(sprint.id, { status: 'DONE' }),
-      sprintRepository.countTasks(sprint.id),
-      getSprintRisk(sprint.id, sprint.team.workspaceId),
-      taskRepository.findBySprint(sprint.id),
-    ])
+    const [done, total, sprintRisk, sprintTasks, priorCompletionRates] =
+      await Promise.all([
+        sprintRepository.countTasks(sprint.id, { status: 'DONE' }),
+        sprintRepository.countTasks(sprint.id),
+        getSprintRisk(sprint.id, sprint.team.workspaceId),
+        taskRepository.findBySprint(sprint.id),
+        sprintRepository.completedCompletionRates(sprint.teamId, sprint.id),
+      ])
 
     return NextResponse.json({
       sprint,
-      progress: { done, total },
+      progress: { done, total, priorCompletionRates },
       risk: sprintRisk.risk,
       topBlockers: sprintRisk.topBlockers,
       tasks: sprintTasks.map(shapeSprintTask),
