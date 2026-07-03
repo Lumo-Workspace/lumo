@@ -3,7 +3,7 @@
 -- BoundaryCrossing gains nullable milestoneId (and taskId relaxes to nullable
 -- so a milestone-scoped steward crossing has somewhere to live);
 -- VerificationRun gains a FK-less sourceSessionId provenance pointer.
--- No DROP TABLE / DROP COLUMN / DROP INDEX; no data migration.
+-- Purely additive DDL throughout; nothing destructive, no data migration.
 
 -- CreateEnum
 CREATE TYPE "SessionRole" AS ENUM ('IMPLEMENTATION', 'STEWARD');

@@ -25,12 +25,22 @@ async function main() {
     program: CommandLike
   }
   const grammar = extractGrammar(program, cliPkg.version)
-  const json = JSON.stringify(grammar, null, 2) + '\n'
+  // Format through prettier (repo config) so the emitted bytes are identical
+  // to what the pre-commit hook would produce — `emit-grammar && git diff
+  // --exit-code grammar.json` must be a clean no-op on an up-to-date tree
+  // (LUM-640; raw JSON.stringify expands the short arrays prettier collapses).
+  const prettier = await import('prettier')
+  const outPath = join(here, 'grammar.json')
+  const config = (await prettier.resolveConfig(outPath)) ?? {}
+  const json = await prettier.format(JSON.stringify(grammar), {
+    ...config,
+    parser: 'json',
+  })
   if (process.argv.includes('--print')) {
     process.stdout.write(json)
     return
   }
-  writeFileSync(join(here, 'grammar.json'), json)
+  writeFileSync(outPath, json)
   console.log(
     `grammar.json written: ${Object.keys(grammar.commands).length} command nodes (cli v${grammar.cliVersion})`
   )
