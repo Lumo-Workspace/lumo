@@ -13,6 +13,11 @@ import {
   SEGMENT_BY_KIND,
   TERMINAL_STAGES,
 } from '@/lib/plan-run/state-machine'
+import {
+  assertEditPartitionsUniverse,
+  collectClusterGateIds,
+  type ClusterGateOutput,
+} from '@/lib/plan-run/cluster-gate'
 import type { Prisma, PlanStageKind } from '@prisma/client'
 
 /**
@@ -118,6 +123,130 @@ export const planRunService = {
 
     await planRunRepository.confirmStageRecord(run.id, gate.kind, {
       humanConfirmedOutput: args.humanConfirmedOutput,
+      confirmedBy: args.confirmedBy,
+      confirmedAt: new Date(),
+    })
+    return planRunRepository.updateStage(run.id, gate.next)
+  },
+
+  /**
+   * Load the gate-A (闸门A) board view: the run, the CLUSTER stage record's
+   * current editable structure (the human-confirmed edit if one exists, else
+   * the raw Stage-1 clustering), its optimistic-concurrency `revision`, and the
+   * statements of the ideas it references so the board can render them.
+   *
+   * Workspace-scoped: a run in another workspace 404s (never leaks). Throws 404
+   * if the run is missing or Stage-1 hasn't produced a CLUSTER record yet.
+   */
+  async getClusterGateView(args: {
+    planRunId: string
+    workspaceId: string
+  }): Promise<{
+    run: { id: string; stage: PlanRunRow['stage'] }
+    board: ClusterGateOutput
+    revision: number
+    confirmedAt: Date | null
+    ideas: { id: string; statement: string; sourceContext: string | null }[]
+  }> {
+    const run = await this.requireRun(args.planRunId)
+    if (run.workspaceId !== args.workspaceId) {
+      throw Object.assign(new Error(`Plan run ${run.id} not found`), {
+        status: 404,
+      })
+    }
+
+    const record = await planRunRepository.findStageRecord(run.id, 'CLUSTER')
+    if (!record) {
+      throw Object.assign(
+        new Error(`Plan run ${run.id} has no clustering to review yet`),
+        { status: 404 }
+      )
+    }
+
+    const board = (record.humanConfirmedOutput ??
+      record.llmRawOutput) as unknown as ClusterGateOutput
+
+    const ideaRows = await ideaRepository.findByIds(
+      collectClusterGateIds(board)
+    )
+    const ideas = ideaRows.map(i => ({
+      id: i.id,
+      statement: i.statement,
+      sourceContext: i.sourceContext,
+    }))
+
+    return {
+      run: { id: run.id, stage: run.stage },
+      board,
+      revision: record.revision,
+      confirmedAt: record.confirmedAt,
+      ideas,
+    }
+  },
+
+  /**
+   * Confirm gate A (闸门A): persist the reviewer's edited clustering (renamed
+   * clusters + ideas moved between clusters/orphans) as the CLUSTER record's
+   * `humanConfirmedOutput`, then advance the run CLUSTERS_READY → ALIGNING.
+   *
+   * Guards, in order:
+   * - 409 if gate A is not open at the run's current stage (already confirmed /
+   *   wrong stage).
+   * - 409 if `ifRevision` is stale (a concurrent edit or a re-run bumped the
+   *   record's `revision`) — the confirm is rejected rather than clobbering.
+   * - 422 if the edit does not partition the original idea set exactly (a
+   *   dropped/invented/duplicated id, or a blank cluster name).
+   *
+   * Advancing the stage is the trigger point for Stage-2 — the route schedules
+   * the align run after this resolves. Throws 404 if the run is missing.
+   */
+  async confirmClusterGate(args: {
+    planRunId: string
+    workspaceId: string
+    edited: ClusterGateOutput
+    ifRevision: number
+    confirmedBy: string
+  }): Promise<PlanRunRow> {
+    const run = await this.requireRun(args.planRunId)
+    if (run.workspaceId !== args.workspaceId) {
+      throw Object.assign(new Error(`Plan run ${run.id} not found`), {
+        status: 404,
+      })
+    }
+
+    const gate = gateAt(run.stage)
+    if (!gate || gate.kind !== 'CLUSTER') {
+      throw Object.assign(
+        new Error(`Gate A is not open at stage ${run.stage}`),
+        { status: 409 }
+      )
+    }
+
+    const record = await planRunRepository.findStageRecord(run.id, 'CLUSTER')
+    if (!record) {
+      throw Object.assign(
+        new Error(`Plan run ${run.id} has no clustering to confirm`),
+        { status: 409 }
+      )
+    }
+
+    if (args.ifRevision !== record.revision) {
+      throw Object.assign(
+        new Error(
+          `Revision conflict: the clustering changed since you loaded it ` +
+            `(current revision: ${record.revision}, your base: ${args.ifRevision}). ` +
+            `Reload the board and re-apply your edits.`
+        ),
+        { status: 409 }
+      )
+    }
+
+    const rawOutput = record.llmRawOutput as unknown as ClusterGateOutput
+    const universe = new Set(collectClusterGateIds(rawOutput))
+    assertEditPartitionsUniverse(universe, args.edited)
+
+    await planRunRepository.confirmStageRecord(run.id, gate.kind, {
+      humanConfirmedOutput: args.edited as unknown as Prisma.InputJsonValue,
       confirmedBy: args.confirmedBy,
       confirmedAt: new Date(),
     })

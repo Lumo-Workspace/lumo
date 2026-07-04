@@ -113,3 +113,26 @@ export const materializePlanSchema = z.object({
 export type MaterializePlanInput = z.infer<typeof materializePlanSchema>
 export type MaterializeDraftInput = z.infer<typeof materializeDraftSchema>
 export type MaterializeTaskInput = z.infer<typeof materializeTaskSchema>
+
+/**
+ * Payload for `POST /api/plan-runs/[id]/gate/cluster` — confirming gate A
+ * (闸门A). The reviewer submits the full edited clustering (renamed clusters +
+ * ideas moved between clusters/orphans) plus the `ifRevision` they loaded, for
+ * optimistic-concurrency (cf. doc LUM-409). Shape mirrors the Stage-1
+ * `PlanClusterOutput`; the deeper integrity rule (the edit must partition the
+ * original idea set exactly) is a business invariant enforced in the service,
+ * not here.
+ */
+const clusterEditSchema = z.object({
+  name: z.string().min(1, 'A cluster name is required'),
+  thrust: z.string(),
+  ideaIds: z.array(z.string().min(1)),
+})
+
+export const confirmClusterGateSchema = z.object({
+  clusters: z.array(clusterEditSchema),
+  orphans: z.array(z.string().min(1)),
+  ifRevision: z.number().int().nonnegative(),
+})
+
+export type ConfirmClusterGateInput = z.infer<typeof confirmClusterGateSchema>

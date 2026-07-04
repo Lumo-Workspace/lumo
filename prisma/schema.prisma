@@ -585,6 +585,11 @@ model PlanRunStageRecord {
   humanConfirmedOutput Json? // human-confirmed output, post-gate (null until confirmed)
   confirmedBy          String? // soft member pointer (no FK)
   confirmedAt          DateTime?
+  // Optimistic-concurrency token for the web gate (LUM-669, cf. doc LUM-409
+  // ifRevision): the board reads it, submits it back on confirm, and a mismatch
+  // 409s rather than clobbering a concurrent edit. Bumped on every confirm and
+  // on a stage re-run (which invalidates any already-loaded board).
+  revision             Int           @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

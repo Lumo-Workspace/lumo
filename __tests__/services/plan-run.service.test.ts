@@ -3,6 +3,7 @@ jest.mock('@/lib/repositories/plan-run.repository', () => ({
   planRunRepository: {
     findActiveByTeam: jest.fn(),
     findById: jest.fn(),
+    findStageRecord: jest.fn(),
     create: jest.fn(),
     updateStage: jest.fn(),
     upsertStageRecord: jest.fn(),
@@ -10,7 +11,7 @@ jest.mock('@/lib/repositories/plan-run.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/idea.repository', () => ({
-  ideaRepository: { listCapturedByTeam: jest.fn() },
+  ideaRepository: { listCapturedByTeam: jest.fn(), findByIds: jest.fn() },
 }))
 jest.mock('@/lib/repositories/priority.repository', () => ({
   priorityRepository: { findCurrent: jest.fn() },
@@ -227,6 +228,213 @@ describe('planRunService.getActiveRun', () => {
       planRunService.getActiveRun({ workspaceId: 'w1' })
     ).rejects.toMatchObject({ status: 404 })
     expect(planRunRepository.findActiveByTeam).not.toHaveBeenCalled()
+  })
+})
+
+// The CLUSTER stage record the gate-A reviewer edits: the raw Stage-1 output
+// partitions ideas a/b/c, at revision 0.
+const clusterRecord = (over: Partial<Record<string, unknown>> = {}) => ({
+  id: 'rec-1',
+  planRunId: 'run-1',
+  kind: 'CLUSTER' as const,
+  model: 'deepseek/deepseek-v4-pro',
+  promptTokens: 0,
+  outputTokens: 0,
+  llmInput: 'ideas…',
+  llmRawOutput: {
+    clusters: [{ name: 'A', thrust: 't1', ideaIds: ['idea-a', 'idea-b'] }],
+    orphans: ['idea-c'],
+  },
+  humanConfirmedOutput: null,
+  confirmedBy: null,
+  confirmedAt: null,
+  revision: 0,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+  ...over,
+})
+
+// A valid rename+move edit over the same {a,b,c} universe: 'A' renamed to
+// 'Alpha', idea-b moved to a new-position (still same ids), idea-c pulled out of
+// orphans into the cluster, orphans now empty.
+const validEdit = {
+  clusters: [{ name: 'Alpha', thrust: 't1', ideaIds: ['idea-a', 'idea-c'] }],
+  orphans: ['idea-b'],
+}
+
+describe('planRunService.confirmClusterGate', () => {
+  it('persists the edit, bumps nothing it should not, and advances to ALIGNING', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERS_READY' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(
+      clusterRecord({ revision: 2 })
+    )
+    ;(planRunRepository.updateStage as jest.Mock).mockResolvedValue(
+      run({ stage: 'ALIGNING' })
+    )
+
+    const result = await planRunService.confirmClusterGate({
+      planRunId: 'run-1',
+      workspaceId: 'w1',
+      edited: validEdit,
+      ifRevision: 2,
+      confirmedBy: 'm1',
+    })
+
+    expect(planRunRepository.confirmStageRecord).toHaveBeenCalledWith(
+      'run-1',
+      'CLUSTER',
+      expect.objectContaining({
+        humanConfirmedOutput: validEdit,
+        confirmedBy: 'm1',
+      })
+    )
+    expect(planRunRepository.updateStage).toHaveBeenCalledWith(
+      'run-1',
+      'ALIGNING'
+    )
+    expect(result.stage).toBe('ALIGNING')
+  })
+
+  it('rejects a stale ifRevision with 409 and writes nothing', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERS_READY' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(
+      clusterRecord({ revision: 5 })
+    )
+
+    await expect(
+      planRunService.confirmClusterGate({
+        planRunId: 'run-1',
+        workspaceId: 'w1',
+        edited: validEdit,
+        ifRevision: 2, // stale — record is at 5
+        confirmedBy: 'm1',
+      })
+    ).rejects.toMatchObject({ status: 409 })
+
+    expect(planRunRepository.confirmStageRecord).not.toHaveBeenCalled()
+    expect(planRunRepository.updateStage).not.toHaveBeenCalled()
+  })
+
+  it('rejects 409 when gate A is not open (wrong stage)', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'ALIGNING' })
+    )
+    await expect(
+      planRunService.confirmClusterGate({
+        planRunId: 'run-1',
+        workspaceId: 'w1',
+        edited: validEdit,
+        ifRevision: 0,
+        confirmedBy: 'm1',
+      })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(planRunRepository.findStageRecord).not.toHaveBeenCalled()
+    expect(planRunRepository.confirmStageRecord).not.toHaveBeenCalled()
+  })
+
+  it('rejects 422 when the edit drops an idea from the original universe', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERS_READY' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(
+      clusterRecord()
+    )
+
+    await expect(
+      planRunService.confirmClusterGate({
+        planRunId: 'run-1',
+        workspaceId: 'w1',
+        // idea-c dropped entirely — not a legal rename/move.
+        edited: {
+          clusters: [
+            { name: 'A', thrust: 't1', ideaIds: ['idea-a', 'idea-b'] },
+          ],
+          orphans: [],
+        },
+        ifRevision: 0,
+        confirmedBy: 'm1',
+      })
+    ).rejects.toMatchObject({ status: 422 })
+    expect(planRunRepository.confirmStageRecord).not.toHaveBeenCalled()
+  })
+
+  it('404s a run in another workspace before touching the record', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERS_READY', workspaceId: 'other-ws' })
+    )
+    await expect(
+      planRunService.confirmClusterGate({
+        planRunId: 'run-1',
+        workspaceId: 'w1',
+        edited: validEdit,
+        ifRevision: 0,
+        confirmedBy: 'm1',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(planRunRepository.findStageRecord).not.toHaveBeenCalled()
+  })
+})
+
+describe('planRunService.getClusterGateView', () => {
+  it('returns the editable board (raw when unconfirmed) + revision + idea statements', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERS_READY' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(
+      clusterRecord({ revision: 4 })
+    )
+    ;(ideaRepository.findByIds as jest.Mock).mockResolvedValue([
+      { id: 'idea-a', statement: 'Idea A', sourceContext: null },
+      { id: 'idea-b', statement: 'Idea B', sourceContext: 'slack' },
+      { id: 'idea-c', statement: 'Idea C', sourceContext: null },
+    ])
+
+    const view = await planRunService.getClusterGateView({
+      planRunId: 'run-1',
+      workspaceId: 'w1',
+    })
+
+    expect(view.revision).toBe(4)
+    expect(view.board.orphans).toEqual(['idea-c'])
+    expect(ideaRepository.findByIds).toHaveBeenCalledWith([
+      'idea-a',
+      'idea-b',
+      'idea-c',
+    ])
+    expect(view.ideas).toHaveLength(3)
+  })
+
+  it('prefers the confirmed edit as the board when present', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'ALIGNING' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(
+      clusterRecord({ humanConfirmedOutput: validEdit })
+    )
+    ;(ideaRepository.findByIds as jest.Mock).mockResolvedValue([])
+
+    const view = await planRunService.getClusterGateView({
+      planRunId: 'run-1',
+      workspaceId: 'w1',
+    })
+    expect(view.board).toEqual(validEdit)
+  })
+
+  it('404s when the run has no clustering yet', async () => {
+    ;(planRunRepository.findById as jest.Mock).mockResolvedValue(
+      run({ stage: 'CLUSTERING' })
+    )
+    ;(planRunRepository.findStageRecord as jest.Mock).mockResolvedValue(null)
+    await expect(
+      planRunService.getClusterGateView({
+        planRunId: 'run-1',
+        workspaceId: 'w1',
+      })
+    ).rejects.toMatchObject({ status: 404 })
   })
 })
 
