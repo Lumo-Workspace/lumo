@@ -32,6 +32,13 @@ enum TaskPriority {
   URGENT
 }
 
+// LUM-663: coarse S/M/L sizing hint on materialised Tasks (nullable, best-effort).
+enum SizeHint {
+  S
+  M
+  L
+}
+
 enum ViewType {
   DOCUMENT
   KANBAN
@@ -290,6 +297,8 @@ model Workspace {
   gateSignals             GateSignal[]
   ideas                   Idea[]
   priorities              Priority[]
+  planRuns                PlanRun[]
+  initiatives             Initiative[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -353,13 +362,15 @@ model Team {
   // Existing teams backfilled to Pacific; new teams take the creator's zone.
   timezone String @default("America/Los_Angeles")
 
-  workspace  Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projects   Project[]
-  members    TeamMember[]
-  tasks      Task[]
-  sprints    Sprint[]
-  ideas      Idea[]
-  priorities Priority[]
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects    Project[]
+  members     TeamMember[]
+  tasks       Task[]
+  sprints     Sprint[]
+  ideas       Idea[]
+  priorities  Priority[]
+  planRuns    PlanRun[]
+  initiatives Initiative[]
 
   @@unique([workspaceId, identifier])
   @@index([workspaceId])
@@ -450,18 +461,28 @@ model Idea {
   sourceSessionId    String? // session that captured the idea, if any
   sourceTaskId       String? // task bound at capture time, nullable
 
+  // LUM-663 (Spec2-1) additive FKs: link an idea to the 转换器 run that consumed
+  // it and the Initiative it fed. Both nullable — set at materialisation time.
+  planRunId    String?
+  initiativeId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parent    Idea?     @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Idea[]    @relation("IdeaHierarchy")
+  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent     Idea?       @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Idea[]      @relation("IdeaHierarchy")
+  planRun    PlanRun?    @relation(fields: [planRunId], references: [id], onDelete: SetNull)
+  initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
+  tasks      Task[]
 
   @@unique([teamId, number])
   @@index([teamId, status])
   @@index([workspaceId])
   @@index([parentId])
+  @@index([planRunId])
+  @@index([initiativeId])
   @@map("ideas")
 }
 
@@ -482,6 +503,125 @@ model Priority {
 
   @@index([teamId, effectiveFrom])
   @@map("priorities")
+}
+
+// ─── Converter (PlanRun state machine + Initiative, LUM-663, Spec2-1) ─────────
+// Data foundation for the design-thinking 转换器: a per-team, recoverable
+// 3-gate state machine (cluster → align → generate) plus the team-level
+// Initiative concept (= Linear Initiative, NO projectId — sits above projects,
+// never touches the core Milestone). Everything here is team-level. Spec2-1 =
+// this schema foundation only; the state-machine service, web gates and
+// materialisation are later specs.
+
+enum PlanRunStage {
+  CLUSTERING
+  CLUSTERS_READY
+  ALIGNING
+  ALIGNMENT_READY
+  GENERATING
+  DRAFT_READY
+  MATERIALIZED
+  ABANDONED
+  FAILED
+}
+
+enum PlanStageKind {
+  CLUSTER
+  ALIGN
+  GENERATE
+}
+
+enum InitiativeStatus {
+  ACTIVE
+  DONE
+  DROPPED
+}
+
+// One 转换器 run for a team. At most one active run per team is a business rule
+// enforced in the (later) service layer — the terminal stages are MATERIALIZED /
+// ABANDONED / FAILED. `inputIdeaIds` is a frozen snapshot of the idea ids fed in
+// (soft — the ideas may change/prune independently), and `prioritySnapshot`
+// freezes the priority text at run start, so the run stays a self-contained
+// training record even if the Priority row is later superseded. `priorityId` is
+// a soft pointer (no FK), consistent with the snapshot design and Priority's
+// append-only minimalism.
+model PlanRun {
+  id                String       @id @default(cuid())
+  teamId            String
+  workspaceId       String // redundant with team.workspaceId, cheap workspace scoping
+  stage             PlanRunStage @default(CLUSTERING)
+  startedByMemberId String // soft member pointer (no FK), cf. Idea.proposedByMemberId
+  inputIdeaIds      String[] // frozen snapshot of the idea ids fed into this run
+  priorityId        String? // soft pointer to the Priority in effect at run start
+  prioritySnapshot  String?      @db.Text // frozen priority text at run start
+  proseDocument     String?      @db.Text // final human-readable plan document
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  team         Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace    Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stageRecords PlanRunStageRecord[]
+  initiatives  Initiative[]
+  ideas        Idea[]
+
+  @@index([teamId, stage])
+  @@index([workspaceId])
+  @@map("plan_runs")
+}
+
+// One row per (run, gate) — @@unique([planRunId, kind]). The SOLE collection
+// point for "what the human changed" = diff(llmRawOutput, humanConfirmedOutput):
+// llmRawOutput is the model output BEFORE the gate; humanConfirmedOutput is the
+// human-confirmed version AFTER the gate (null until confirmed).
+model PlanRunStageRecord {
+  id                   String        @id @default(cuid())
+  planRunId            String
+  kind                 PlanStageKind
+  model                String // LLM model id used for this stage
+  promptTokens         Int           @default(0)
+  outputTokens         Int           @default(0)
+  llmInput             String        @db.Text
+  llmRawOutput         Json // model output, pre-gate
+  humanConfirmedOutput Json? // human-confirmed output, post-gate (null until confirmed)
+  confirmedBy          String? // soft member pointer (no FK)
+  confirmedAt          DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  planRun PlanRun @relation(fields: [planRunId], references: [id], onDelete: Cascade)
+
+  @@unique([planRunId, kind])
+  @@index([planRunId])
+  @@map("plan_run_stage_records")
+}
+
+// Team-level strategic layer (= Linear Initiative). NO projectId — lives above
+// projects, never touches the core Milestone. `number` is per-team, rendered as
+// LUM-INIT-N ((teamId, number) is the visible id). `planRunId` (nullable) is the
+// run that materialised it — an initiative may also be created manually.
+model Initiative {
+  id             String           @id @default(cuid())
+  teamId         String
+  workspaceId    String
+  number         Int
+  planRunId      String? // the 转换器 run that produced this initiative, if any
+  goalStatement  String           @db.Text
+  assumptionNote String?          @db.Text // 赌注旁注 — the bet's side note
+  status         InitiativeStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  planRun   PlanRun?  @relation(fields: [planRunId], references: [id], onDelete: SetNull)
+  tasks     Task[]
+  ideas     Idea[]
+
+  @@unique([teamId, number])
+  @@index([teamId, status])
+  @@index([workspaceId])
+  @@index([planRunId])
+  @@map("initiatives")
 }
 
 // ─── Agent Profiles ─────────────────────────────────────────────────────────
@@ -665,13 +805,22 @@ model Task {
   claimSnapshotSessionId String?
   claimSnapshotAt        DateTime?
 
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team      Team       @relation(fields: [teamId], references: [id])
-  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
-  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  parent    Task?      @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  children  Task[]     @relation("TaskChildren")
-  assignee  Actor?     @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  // LUM-663 (Spec2-1) additive links to the 转换器 layer. All nullable, set at
+  // materialisation time: initiativeId = the Initiative this task rolls up to;
+  // ideaId = the originating Idea (best-effort); sizeHint = a coarse S/M/L sizing.
+  initiativeId String?
+  ideaId       String?
+  sizeHint     SizeHint?
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team       Team        @relation(fields: [teamId], references: [id])
+  sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  milestone  Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parent     Task?       @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children   Task[]      @relation("TaskChildren")
+  assignee   Actor?      @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
+  idea       Idea?       @relation(fields: [ideaId], references: [id], onDelete: SetNull)
 
   viewTaskOrders             ViewTaskOrder[]
   comments                   Comment[]
@@ -714,6 +863,8 @@ model Task {
   @@index([assigneeActorId])
   @@index([sprintId])
   @@index([milestoneId])
+  @@index([initiativeId])
+  @@index([ideaId])
   @@map("tasks")
 }
 
