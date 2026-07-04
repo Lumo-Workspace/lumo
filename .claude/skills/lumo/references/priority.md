@@ -17,11 +17,8 @@ Declare the current team priority.
   ```bash
   lumo priority "Ship the idea-capture MVP; defer the converter to Spec 2."
   ```
-- **With no argument** — prompts interactively for a 1-3 sentence statement:
-  ```bash
-  lumo priority
-  # Priority (1-3 sentences): _
-  ```
+- **With no argument** — running `lumo priority` on its own prompts
+  interactively for a 1-3 sentence statement (`Priority (1-3 sentences): _`).
   An empty prompt records nothing and exits non-zero.
 
 On success it prints `Recorded priority: <statement>`. A blank statement is
@@ -31,6 +28,10 @@ rejected (the API's Zod layer returns 400).
 
 Print the append history, newest-first. The current declaration (the row with
 the latest `effectiveFrom`) is marked with a leading `*`:
+
+```bash
+lumo priority list
+```
 
 ```
 * 2026-02-01  Now focus on the converter state machine
