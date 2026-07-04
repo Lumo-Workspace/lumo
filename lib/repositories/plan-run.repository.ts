@@ -36,6 +36,7 @@ const STAGE_RECORD_SELECT = {
   humanConfirmedOutput: true,
   confirmedBy: true,
   confirmedAt: true,
+  revision: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.PlanRunStageRecordSelect
@@ -83,7 +84,8 @@ export const planRunRepository = {
     return prisma.planRun.findUnique({ where: { id }, select: RUN_SELECT })
   },
 
-  /** One stage record by its `(planRunId, kind)` unique key, or null. */
+  /** One stage record by (run, kind), or null. Used by the web gate to read the
+   *  pre-gate output + its optimistic-concurrency `revision`. */
   async findStageRecord(
     planRunId: string,
     kind: PlanStageKind
@@ -129,12 +131,16 @@ export const planRunRepository = {
         humanConfirmedOutput: Prisma.DbNull,
         confirmedBy: null,
         confirmedAt: null,
+        // A re-run invalidates any board a reviewer already loaded, so bump the
+        // optimistic-concurrency token: their stale confirm will now 409.
+        revision: { increment: 1 },
       },
       select: STAGE_RECORD_SELECT,
     })
   },
 
-  /** Persist the human-confirmed output for a gate onto its stage record. */
+  /** Persist the human-confirmed output for a gate onto its stage record and
+   *  bump its optimistic-concurrency `revision`. */
   async confirmStageRecord(
     planRunId: string,
     kind: PlanStageKind,
@@ -146,7 +152,7 @@ export const planRunRepository = {
   ): Promise<PlanRunStageRecordRow> {
     return prisma.planRunStageRecord.update({
       where: { planRunId_kind: { planRunId, kind } },
-      data,
+      data: { ...data, revision: { increment: 1 } },
       select: STAGE_RECORD_SELECT,
     })
   },

@@ -1,11 +1,39 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
+import type { PlanRunStage } from '@prisma/client'
 import type { AlignVerdict } from '@/lib/plan-run/gate-b'
+import type { ClusterGateOutput } from '@/lib/plan-run/cluster-gate'
 import type {
   ConfirmAlignGateInput,
+  ConfirmClusterGateInput,
   MaterializePlanInput,
 } from '@/lib/validation/plan-run'
 import type { GateCData, MaterializeResult } from '@/lib/services'
+
+// ── Gate A (闸门A) — cluster board (LUM-669) ──────────────────────────────────
+
+/** An idea as rendered on the gate-A board (statement + light origin). */
+export interface ClusterGateIdea {
+  id: string
+  statement: string
+  sourceContext: string | null
+}
+
+/** GET response for the gate-A board. */
+export interface ClusterGateView {
+  run: { id: string; stage: PlanRunStage }
+  board: ClusterGateOutput
+  revision: number
+  confirmedAt: string | null
+  ideas: ClusterGateIdea[]
+}
+
+/** POST response — the run after the gate advanced. */
+export interface ConfirmClusterGateResponse {
+  run: { id: string; stage: PlanRunStage }
+}
+
+// ── Gate B (闸门B) — align board (LUM-670) ────────────────────────────────────
 
 /** One cluster card as rendered on the gate-B board (align LLM verdict). */
 export interface AlignGateClusterView {
@@ -27,6 +55,8 @@ export interface ConfirmAlignGateResult {
   selectedClusterIds: string[]
 }
 
+// ── Gate dispatcher (LUM-671) ─────────────────────────────────────────────────
+
 /** Thin run read for the gate dispatcher — which gate to render by stage. */
 export interface PlanRunView {
   id: string
@@ -34,10 +64,11 @@ export interface PlanRunView {
 }
 
 /**
- * Typed client for the design-thinking 转换器 gates. The web boards read/confirm
- * through here — no direct `fetch` in components. Gate B (闸门B · 对齐,
- * LUM-670) via `getAlignGate`/`confirmAlignGate`; Gate C (闸门C · 物化, LUM-671)
- * via `getGateC`/`materialize`; the deep-link page picks the gate via `getRun`.
+ * Typed client for the design-thinking 转换器 (idea→plan converter) web gates.
+ * The deep-link page picks the gate via `getRun`; gate A (闸门A · 聚类,
+ * LUM-669) via `getClusterGate`/`confirmClusterGate`; gate B (闸门B · 对齐,
+ * LUM-670) via `getAlignGate`/`confirmAlignGate`; gate C (闸门C · 物化,
+ * LUM-671) via `getGateC`/`materialize`. No direct `fetch` in components.
  */
 export const planRunsClient = {
   /** GET the run's current stage (gate dispatcher). */
@@ -45,10 +76,25 @@ export const planRunsClient = {
     return apiFetch<PlanRunView>(API.planRuns.run(runId))
   },
 
+  /** GET the gate-A cluster board for a run. */
+  getClusterGate(runId: string) {
+    return apiFetch<ClusterGateView>(API.planRuns.clusterGate(runId))
+  },
+
+  /** POST the reviewer's edited clustering to confirm gate A. */
+  confirmClusterGate(runId: string, input: ConfirmClusterGateInput) {
+    return apiFetch<ConfirmClusterGateResponse>(
+      API.planRuns.clusterGate(runId),
+      { method: 'POST', body: input }
+    )
+  },
+
+  /** GET the gate-B align board for a run. */
   getAlignGate(runId: string) {
     return apiFetch<AlignGateView>(API.planRuns.alignGate(runId))
   },
 
+  /** POST the human's confirmed verdicts to confirm gate B. */
   confirmAlignGate(runId: string, input: ConfirmAlignGateInput) {
     return apiFetch<ConfirmAlignGateResult>(API.planRuns.alignGate(runId), {
       method: 'POST',

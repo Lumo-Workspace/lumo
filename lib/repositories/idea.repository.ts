@@ -90,4 +90,17 @@ export const ideaRepository = {
       orderBy: { number: 'asc' },
     })
   },
+
+  /**
+   * Fetch ideas by id (order unspecified — callers key by `id`). Used by the
+   * gate-A board to render idea statements and by Stage-2 to build the align
+   * input from the confirmed clusters. An empty `ids` short-circuits to `[]`.
+   */
+  async findByIds(ids: string[]): Promise<IdeaRow[]> {
+    if (ids.length === 0) return []
+    return prisma.idea.findMany({
+      where: { id: { in: ids } },
+      select: IDEA_SELECT,
+    })
+  },
 }
