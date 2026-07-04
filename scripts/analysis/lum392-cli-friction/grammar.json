@@ -1753,6 +1753,18 @@
       "hasSubcommands": false,
       "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
     },
+    "priority": {
+      "arguments": [{ "name": "text", "required": false, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it."
+    },
+    "priority list": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Print the team priority append history, newest-first (the current declaration is marked with *)."
+    },
     "project": {
       "arguments": [],
       "flags": {},
