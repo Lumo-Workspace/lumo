@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
+description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, ideas, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -68,6 +68,11 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body>` — leave a comment
+
+**Ideas (team-level capture pool)**
+
+- `lumo idea "<statement>" [--context <text>]` — capture a team-level idea into the pool in <10s. Provenance is grabbed opportunistically and never blocks the capture: the current `CLAUDE_CODE_SESSION_ID` (→ sourceSessionId) and the session's bound task (→ sourceTaskId, null when nothing is bound). Prints an **I-prefixed** id (`✓ 想法 LUM-I42 已入池`) — the `I` keeps ideas from colliding with task ids (`LUM-42`) in the same team namespace. Ideas are team-scoped (no project); the workspace's default team owns them. The unprocessed (CAPTURED) pool is what the Phase-2 transformer consumes.
+  - **When to suggest**: the user has a stray idea/thought/improvement they want to park without derailing the current task ("记一下这个想法", "capture this idea", "add to the backlog of ideas"). Prefer this over `task create` for un-triaged sparks — an idea is above projects and isn't yet actionable work.
 
 **Task dependencies** — see [task-deps.md](references/task-deps.md)
 

@@ -32,6 +32,10 @@ export const API = {
     dependency: (taskId: string, depId: string) =>
       `/api/tasks/${taskId}/dependencies/${depId}`,
   },
+  ideas: {
+    list: '/api/ideas',
+    create: '/api/ideas',
+  },
   projects: {
     list: '/api/projects',
     byId: (id: string) => `/api/projects/${id}`,

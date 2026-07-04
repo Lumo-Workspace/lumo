@@ -11,6 +11,7 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
+import { ideaCapture } from './commands/idea'
 import { cost } from './commands/cost'
 import { criteriaAudit } from './commands/criteria-audit'
 import { fidelityShow, type FidelityShowOptions } from './commands/fidelity'
@@ -394,6 +395,18 @@ program
   .action(
     wrap(options =>
       nextCommand(options as { count?: string; claimable?: boolean })
+    )
+  )
+
+program
+  .command('idea <statement>')
+  .description(
+    'Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool.'
+  )
+  .option('-c, --context <text>', 'Free-text origin context for the idea')
+  .action(
+    wrap((statement, options) =>
+      ideaCapture(statement as string, options as { context?: string })
     )
   )
 
