@@ -82,6 +82,28 @@ export type Page =
   | 'sprints'
   | 'sprint-detail'
   | 'milestone-detail'
+  | 'ideas'
+
+/**
+ * A team idea as returned by `GET /api/ideas` (the pool view). Mirrors the
+ * service's `PooledIdea`, with `createdAt` serialised to an ISO string and the
+ * materialisation lineage a PLANNED idea carries: `planRunId` + the
+ * `initiative` it fed (both null while CAPTURED).
+ */
+export interface ApiIdea {
+  id: string
+  number: number
+  identifier: string
+  statement: string
+  status: 'CAPTURED' | 'PLANNED'
+  sourceContext: string | null
+  sourceSessionId: string | null
+  sourceTaskId: string | null
+  proposedByMemberId: string
+  createdAt: string
+  planRunId: string | null
+  initiative: { id: string; number: number; goalStatement: string } | null
+}
 
 export interface ApiDraft {
   id: string

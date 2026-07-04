@@ -11,7 +11,7 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
-import { ideaCapture } from './commands/idea'
+import { ideaCapture, ideaList } from './commands/idea'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
@@ -400,17 +400,27 @@ program
     )
   )
 
-program
-  .command('idea <statement>')
+const ideaCmd = program
+  .command('idea [statement]')
   .description(
     'Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool.'
   )
   .option('-c, --context <text>', 'Free-text origin context for the idea')
   .action(
     wrap((statement, options) =>
-      ideaCapture(statement as string, options as { context?: string })
+      ideaCapture(
+        statement as string | undefined,
+        options as { context?: string }
+      )
     )
   )
+
+ideaCmd
+  .command('list')
+  .description(
+    'List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement.'
+  )
+  .action(wrap(() => ideaList()))
 
 const planCmd = program
   .command('plan')

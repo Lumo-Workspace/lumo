@@ -17,6 +17,37 @@ interface CapturedIdeaResponse {
   }
 }
 
+/** One row of the team idea pool as returned by `GET /api/ideas`. */
+interface IdeaListItem {
+  identifier: string
+  status: string
+  statement: string
+}
+
+interface IdeaListResponse {
+  ideas: IdeaListItem[]
+}
+
+/**
+ * Render the idea pool as aligned `<id>  <status>  <statement>` lines. The
+ * server already returns the pool newest-first, so this preserves order.
+ * Empty pool → a friendly one-liner.
+ */
+export function formatIdeaList(ideas: IdeaListItem[]): string {
+  if (ideas.length === 0) return 'No ideas.\n'
+  const idWidth = Math.max(...ideas.map(i => i.identifier.length))
+  const statusWidth = Math.max(...ideas.map(i => i.status.length))
+  return (
+    ideas
+      .map(i => {
+        const id = i.identifier.padEnd(idWidth)
+        const status = i.status.padEnd(statusWidth)
+        return `${id}  ${status}  ${sanitizeField(i.statement)}`
+      })
+      .join('\n') + '\n'
+  )
+}
+
 /**
  * Success line for a captured idea. Echoes the human-referenceable id
  * (`<TEAM>-I<n>`, e.g. `LUM-I42`) — the `I` prefix keeps it visibly distinct
@@ -105,4 +136,45 @@ export async function ideaCapture(
     console.error(`Error: idea capture failed (HTTP ${res.status})`)
   }
   return 1
+}
+
+/**
+ * `lumo idea list` — print the team's idea pool newest-first, each line
+ * showing the `<TEAM>-I<n>` id, status (CAPTURED|PLANNED) and statement.
+ * Reads `GET /api/ideas`, which returns the whole pool already ordered
+ * newest-first.
+ */
+export async function ideaList(): Promise<number | void> {
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const base = trimTrailingSlash(apiUrl)
+  const url = `${base}/api/ideas`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: idea list failed (HTTP ${res.status})`)
+    return 1
+  }
+
+  const data = (await res.json()) as IdeaListResponse
+  process.stdout.write(formatIdeaList(data.ideas))
 }

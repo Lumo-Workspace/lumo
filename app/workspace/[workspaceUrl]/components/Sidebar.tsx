@@ -11,6 +11,7 @@ import {
   FileEdit,
   Search,
   CalendarClock,
+  Lightbulb,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
@@ -321,6 +322,24 @@ export function AppSidebar({
                     <span>
                       {intl.formatMessage({ id: 'sidebar.documents' })}
                     </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPage === 'ideas'}
+                  tooltip={intl.formatMessage({ id: 'sidebar.ideas' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/ideas`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('ideas')
+                    }}
+                  >
+                    <Lightbulb />
+                    <span>{intl.formatMessage({ id: 'sidebar.ideas' })}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

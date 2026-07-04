@@ -1011,7 +1011,7 @@
     },
     "idea": {
       "arguments": [
-        { "name": "statement", "required": true, "variadic": false }
+        { "name": "statement", "required": false, "variadic": false }
       ],
       "flags": {
         "--context": {
@@ -1023,8 +1023,14 @@
           "description": "Free-text origin context for the idea"
         }
       },
-      "hasSubcommands": false,
+      "hasSubcommands": true,
       "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
+    },
+    "idea list": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement."
     },
     "memory": {
       "arguments": [],

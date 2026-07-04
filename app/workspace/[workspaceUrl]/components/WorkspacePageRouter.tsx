@@ -22,6 +22,7 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
+import { IdeaPoolPage } from './pages/IdeaPoolPage'
 import { DraftsPage } from './DraftsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
@@ -210,7 +211,11 @@ export function WorkspacePageRouter(props: Props) {
       documentHandlers.handleTreeCreateChild(
         templatePickerParentId,
         template
-          ? { id: template.id, content: template.content, emoji: template.emoji }
+          ? {
+              id: template.id,
+              content: template.content,
+              emoji: template.emoji,
+            }
           : undefined
       )
     },
@@ -400,6 +405,9 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'milestone-detail':
       return <MilestoneDetailPage onOpenTask={handleOpenTask} />
+
+    case 'ideas':
+      return <IdeaPoolPage workspaceUrl={workspaceUrl} />
 
     case 'inbox':
       return (

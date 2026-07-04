@@ -1,6 +1,10 @@
 jest.mock('@/lib/team', () => ({ getDefaultTeam: jest.fn() }))
 jest.mock('@/lib/repositories/idea.repository', () => ({
-  ideaRepository: { createCaptured: jest.fn(), listCapturedByTeam: jest.fn() },
+  ideaRepository: {
+    createCaptured: jest.fn(),
+    listCapturedByTeam: jest.fn(),
+    listPoolByTeam: jest.fn(),
+  },
 }))
 
 import { ideaService } from '@/lib/services/idea.service'
@@ -94,25 +98,53 @@ describe('ideaService.capture', () => {
   })
 })
 
-describe('ideaService.listUnprocessed', () => {
+describe('ideaService.listPool', () => {
   it("scopes to the caller's default team and maps I-prefixed ids", async () => {
     ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
-    ;(ideaRepository.listCapturedByTeam as jest.Mock).mockResolvedValue([
-      row({ id: 'i1', number: 1 }),
+    ;(ideaRepository.listPoolByTeam as jest.Mock).mockResolvedValue([
       row({ id: 'i2', number: 2 }),
+      row({ id: 'i1', number: 1 }),
     ])
 
-    const ideas = await ideaService.listUnprocessed({ workspaceId: 'w1' })
+    const ideas = await ideaService.listPool({ workspaceId: 'w1' })
 
     // Never crosses teams — the repo is queried with the resolved team id.
-    expect(ideaRepository.listCapturedByTeam).toHaveBeenCalledWith('team-1')
-    expect(ideas.map(i => i.identifier)).toEqual(['LUM-I1', 'LUM-I2'])
+    expect(ideaRepository.listPoolByTeam).toHaveBeenCalledWith('team-1')
+    // Order is whatever the repo returns (newest-first); the service preserves it.
+    expect(ideas.map(i => i.identifier)).toEqual(['LUM-I2', 'LUM-I1'])
+  })
+
+  it('projects the materialisation lineage for a PLANNED idea and null for CAPTURED', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.listPoolByTeam as jest.Mock).mockResolvedValue([
+      row({
+        id: 'i2',
+        number: 2,
+        status: 'PLANNED',
+        planRunId: 'run-1',
+        initiative: { id: 'init-1', number: 3, goalStatement: 'ship pool' },
+      }),
+      row({ id: 'i1', number: 1, planRunId: null, initiative: null }),
+    ])
+
+    const ideas = await ideaService.listPool({ workspaceId: 'w1' })
+
+    expect(ideas[0]).toMatchObject({
+      status: 'PLANNED',
+      planRunId: 'run-1',
+      initiative: { id: 'init-1', number: 3, goalStatement: 'ship pool' },
+    })
+    expect(ideas[1]).toMatchObject({
+      status: 'CAPTURED',
+      planRunId: null,
+      initiative: null,
+    })
   })
 
   it('returns an empty pool when the workspace has no default team', async () => {
     ;(getDefaultTeam as jest.Mock).mockResolvedValue(null)
-    const ideas = await ideaService.listUnprocessed({ workspaceId: 'w1' })
+    const ideas = await ideaService.listPool({ workspaceId: 'w1' })
     expect(ideas).toEqual([])
-    expect(ideaRepository.listCapturedByTeam).not.toHaveBeenCalled()
+    expect(ideaRepository.listPoolByTeam).not.toHaveBeenCalled()
   })
 })

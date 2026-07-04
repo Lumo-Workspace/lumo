@@ -74,6 +74,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo idea "<statement>" [--context <text>]` — capture a team-level idea into the pool in <10s. Provenance is grabbed opportunistically and never blocks the capture: the current `CLAUDE_CODE_SESSION_ID` (→ sourceSessionId) and the session's bound task (→ sourceTaskId, null when nothing is bound). Prints an **I-prefixed** id (`✓ 想法 LUM-I42 已入池`) — the `I` keeps ideas from colliding with task ids (`LUM-42`) in the same team namespace. Ideas are team-scoped (no project); the workspace's default team owns them. The unprocessed (CAPTURED) pool is what the Phase-2 transformer consumes.
   - **When to suggest**: the user has a stray idea/thought/improvement they want to park without derailing the current task ("记一下这个想法", "capture this idea", "add to the backlog of ideas"). Prefer this over `task create` for un-triaged sparks — an idea is above projects and isn't yet actionable work.
+- `lumo idea list` — print the team idea pool **newest-first**, one line per idea: the `LUM-I<n>` id, status (`CAPTURED` | `PLANNED`) and statement. Reads `GET /api/ideas`, which returns the whole pool (both statuses), not just the unprocessed slice. Empty pool prints `No ideas.`. The same pool is browsable/searchable in web at `/workspace/<slug>/ideas` (sidebar → Ideas), where a PLANNED idea links to the plan run that materialised it.
+  - **When to suggest**: the user wants to see what's parked in the idea pool / "看看想法池" / "list the ideas" / triage before running `lumo plan`.
 
 **Plan runs (design-thinking 转换器)**
 

@@ -8,9 +8,9 @@ const mockApiFetch = apiFetch as jest.Mock
 beforeEach(() => jest.clearAllMocks())
 
 describe('ideasClient', () => {
-  it('listUnprocessed GETs the ideas pool endpoint', async () => {
+  it('listPool GETs the ideas pool endpoint', async () => {
     mockApiFetch.mockResolvedValue({ ideas: [] })
-    await ideasClient.listUnprocessed()
+    await ideasClient.listPool()
     expect(mockApiFetch).toHaveBeenCalledWith('/api/ideas')
   })
 
