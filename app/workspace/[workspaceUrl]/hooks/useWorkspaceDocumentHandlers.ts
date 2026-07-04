@@ -5,6 +5,7 @@ import type { ApiDocument, TreeNode } from '../types'
 import { CACHE_KEY } from '../constants'
 import { writeCache } from '../cache'
 import { documentsClient } from '@/lib/api-client'
+import { TEMP_DOC_ID_PREFIX } from '../utils/tempDocId'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export function useWorkspaceDocumentHandlers({
       parentId: string | null,
       template?: { id: string; content: string; emoji: string | null }
     ) => {
-      const tempId = `temp-${crypto.randomUUID()}`
+      const tempId = `${TEMP_DOC_ID_PREFIX}${crypto.randomUUID()}`
       const node: TreeNode = {
         id: tempId,
         slug: null,
@@ -117,9 +118,10 @@ export function useWorkspaceDocumentHandlers({
       })
       // Background sync — carry templateId so the server injects the skeleton.
       documentsClient
-        .create<{ document: ApiDocument; ancestors?: unknown[] }>(
-          template ? { parentId, templateId: template.id } : { parentId }
-        )
+        .create<{
+          document: ApiDocument
+          ancestors?: unknown[]
+        }>(template ? { parentId, templateId: template.id } : { parentId })
         .then(data => {
           // Swap the optimistic identifier (`temp-uuid`) for the real slug.
           // We index the tree by id (stable cuid, never collides) and route
