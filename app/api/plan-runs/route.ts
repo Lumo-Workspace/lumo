@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { startPlanRunSchema } from '@/lib/validation/plan-run'
 import { planRunService } from '@/lib/services'
+import { triggerClusterStage } from '@/lib/services/plan-cluster-runner'
 
 /**
  * POST /api/plan-runs
@@ -12,6 +14,10 @@ import { planRunService } from '@/lib/services'
  * input snapshot, enforces one active run per team, and creates the run in
  * CLUSTERING. Returns 409 when a run is already active unless `abandonActive`
  * is passed (abandons the prior run first), 404 when there is no default team.
+ *
+ * Stage-1 (聚类) is then triggered out of band via `waitUntil` (fail-soft —
+ * never blocks or fails the response): it advances the run CLUSTERING →
+ * CLUSTERS_READY so gate A actually opens instead of sitting stuck (LUM-674).
  */
 export async function POST(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)
@@ -36,6 +42,7 @@ export async function POST(request: Request): Promise<Response> {
         abandonActive: parsed.data.abandonActive,
       }),
     })
+    waitUntil(triggerClusterStage(run.id))
     return NextResponse.json({ run }, { status: 201 })
   } catch (err) {
     return errorResponse(err, 'POST /api/plan-runs')
