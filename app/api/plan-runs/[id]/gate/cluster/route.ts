@@ -6,6 +6,11 @@ import { planRunService } from '@/lib/services/plan-run.service'
 import { triggerAlignStage } from '@/lib/services/plan-align-runner'
 import { confirmClusterGateSchema } from '@/lib/validation/plan-run'
 
+// Confirming gate A triggers Stage-2 (对齐) — another reasoning-model LLM call
+// on the same order as Stage-1's ~70s. Give it the same headroom over the
+// ~60s platform default so it isn't killed mid-call (LUM-676).
+export const maxDuration = 300
+
 type Params = { params: Promise<{ id: string }> }
 
 /** Map a service error carrying `{ status }` to its Response; rethrow the rest
