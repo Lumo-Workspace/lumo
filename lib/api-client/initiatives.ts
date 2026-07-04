@@ -52,6 +52,12 @@ export interface ApiInitiativeDetail {
  * `apiFetch` — pages read initiatives through here rather than hitting `fetch`
  * directly.
  */
+/** Payload for creating an initiative directly (no plan run). */
+export interface CreateInitiativeBody {
+  goalStatement: string
+  assumptionNote?: string | null
+}
+
 export const initiativesClient = {
   /** GET the caller team's initiatives (list). */
   list<T>() {
@@ -61,5 +67,10 @@ export const initiativesClient = {
   /** GET one initiative with its lineage. */
   getDetail<T>(id: string) {
     return apiFetch<T>(API.initiatives.byId(id))
+  },
+
+  /** POST a new initiative created directly (no plan run). */
+  create<T>(input: CreateInitiativeBody) {
+    return apiFetch<T>(API.initiatives.create, { method: 'POST', body: input })
   },
 }

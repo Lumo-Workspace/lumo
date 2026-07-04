@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "正在加载举措…",
   "initiative.list.error": "无法加载举措",
   "initiative.list.empty": "暂无举措",
-  "initiative.list.emptyHint": "当从想法池物化出一份计划后，举措会显示在这里。",
+  "initiative.list.emptyHint": "可以直接创建，也可以在从想法池物化出计划后自动显示在这里。",
   "initiative.list.taskCount": "{count, plural, other {# 个任务}}",
   "initiative.list.ideaCount": "{count, plural, other {# 个想法}}",
   "initiative.detail.loading": "正在加载举措…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} / {total} 已完成",
   "initiative.detail.noTasks": "尚无关联任务",
   "initiative.detail.noIdeas": "尚无采纳的想法",
-  "initiative.detail.backToList": "返回举措列表"
+  "initiative.detail.backToList": "返回举措列表",
+  "initiative.new": "新建举措",
+  "initiative.create.goalLabel": "目标",
+  "initiative.create.goalPlaceholder": "这项举措要实现什么成果？",
+  "initiative.create.assumptionLabel": "核心假设（可选）",
+  "initiative.create.assumptionPlaceholder": "你押注在什么上？",
+  "initiative.create.submit": "创建举措",
+  "initiative.create.submitting": "创建中…",
+  "initiative.create.cancel": "取消",
+  "initiative.create.error": "无法创建举措"
 }

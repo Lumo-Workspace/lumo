@@ -2,8 +2,10 @@ import {
   initiativeRepository,
   type InitiativeListRow,
   type InitiativeDetailRow,
+  type InitiativeCreatedRow,
 } from '@/lib/repositories/initiative.repository'
 import { getDefaultTeam } from '@/lib/team'
+import type { CreateInitiativeInput } from '@/lib/validation/initiative'
 import type { InitiativeStatus, TaskStatus } from '@prisma/client'
 
 /**
@@ -74,6 +76,23 @@ function toListItem(
   }
 }
 
+/** A freshly-created initiative has no lineage yet — counts are zero. */
+function toCreatedItem(
+  row: InitiativeCreatedRow,
+  teamIdentifier: string
+): InitiativeListItem {
+  return {
+    id: row.id,
+    number: row.number,
+    identifier: initiativeIdentifier(teamIdentifier, row.number),
+    goalStatement: row.goalStatement,
+    status: row.status,
+    taskCount: 0,
+    ideaCount: 0,
+    createdAt: row.createdAt,
+  }
+}
+
 function toDetail(
   row: InitiativeDetailRow,
   teamIdentifier: string
@@ -112,6 +131,40 @@ function toDetail(
  * to another team (the same response, so cross-team ids can't be probed).
  */
 export const initiativeService = {
+  /**
+   * Create a team-level Initiative directly — no plan run required (LUM-673).
+   * The team is resolved from the workspace's default team (mirroring ideas).
+   * Throws with `{ status }`: 400 for a blank goal, 404 when the workspace has
+   * no default team.
+   */
+  async create(args: {
+    workspaceId: string
+    input: CreateInitiativeInput
+  }): Promise<InitiativeListItem> {
+    const goalStatement = args.input.goalStatement.trim()
+    if (!goalStatement) {
+      throw Object.assign(new Error('Goal statement is required'), {
+        status: 400,
+      })
+    }
+
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+
+    const row = await initiativeRepository.create({
+      teamId: team.id,
+      workspaceId: args.workspaceId,
+      goalStatement,
+      assumptionNote: args.input.assumptionNote?.trim() || null,
+    })
+
+    return toCreatedItem(row, team.identifier)
+  },
+
   /**
    * The caller team's initiatives (newest first). Empty when the workspace has
    * no default team — never another team's initiatives.

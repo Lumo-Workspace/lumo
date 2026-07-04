@@ -1032,6 +1032,33 @@
       "hasSubcommands": false,
       "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement."
     },
+    "initiative": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Team-level Initiatives (LUM-INIT-<n>): create one directly (no plan run required) or list them. Converter-materialised initiatives show here too."
+    },
+    "initiative create": {
+      "arguments": [{ "name": "goal", "required": true, "variadic": false }],
+      "flags": {
+        "--assumption": {
+          "long": "--assumption",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The bet/assumption behind the initiative (赌注旁注)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Create a team-level initiative directly from a goal statement — no plan run required. Prints the LUM-INIT-<n> id; --assumption records the bet behind it."
+    },
+    "initiative list": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (ACTIVE|DONE|DROPPED) and goal."
+    },
     "memory": {
       "arguments": [],
       "flags": {},

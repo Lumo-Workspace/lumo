@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Загрузка инициатив…",
   "initiative.list.error": "Не удалось загрузить инициативы",
   "initiative.list.empty": "Инициатив пока нет",
-  "initiative.list.emptyHint": "Инициативы появятся здесь после того, как план будет материализован из пула идей.",
+  "initiative.list.emptyHint": "Создайте инициативу напрямую, или они появятся здесь после того, как план будет материализован из пула идей.",
   "initiative.list.taskCount": "{count, plural, one {# задача} few {# задачи} many {# задач} other {# задачи}}",
   "initiative.list.ideaCount": "{count, plural, one {# идея} few {# идеи} many {# идей} other {# идеи}}",
   "initiative.detail.loading": "Загрузка инициативы…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} из {total} выполнено",
   "initiative.detail.noTasks": "Задачи ещё не прикреплены",
   "initiative.detail.noIdeas": "Идеи не использованы",
-  "initiative.detail.backToList": "Назад к инициативам"
+  "initiative.detail.backToList": "Назад к инициативам",
+  "initiative.new": "Новая инициатива",
+  "initiative.create.goalLabel": "Цель",
+  "initiative.create.goalPlaceholder": "К какому результату ведёт эта инициатива?",
+  "initiative.create.assumptionLabel": "Ставка (необязательно)",
+  "initiative.create.assumptionPlaceholder": "На что вы делаете ставку?",
+  "initiative.create.submit": "Создать инициативу",
+  "initiative.create.submitting": "Создание…",
+  "initiative.create.cancel": "Отмена",
+  "initiative.create.error": "Не удалось создать инициативу"
 }

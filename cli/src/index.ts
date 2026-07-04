@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { ideaCapture, ideaList } from './commands/idea'
+import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
@@ -421,6 +422,37 @@ ideaCmd
     'List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement.'
   )
   .action(wrap(() => ideaList()))
+
+const initiativeCmd = program
+  .command('initiative')
+  .description(
+    'Team-level Initiatives (LUM-INIT-<n>): create one directly (no plan run required) or list them. Converter-materialised initiatives show here too.'
+  )
+
+initiativeCmd
+  .command('create <goal>')
+  .description(
+    'Create a team-level initiative directly from a goal statement — no plan run required. Prints the LUM-INIT-<n> id; --assumption records the bet behind it.'
+  )
+  .option(
+    '--assumption <text>',
+    'The bet/assumption behind the initiative (赌注旁注)'
+  )
+  .action(
+    wrap((goal, options) =>
+      initiativeCreate(
+        goal as string | undefined,
+        options as { assumption?: string }
+      )
+    )
+  )
+
+initiativeCmd
+  .command('list')
+  .description(
+    'List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (ACTIVE|DONE|DROPPED) and goal.'
+  )
+  .action(wrap(() => initiativeList()))
 
 const planCmd = program
   .command('plan')

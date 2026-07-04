@@ -8,23 +8,37 @@
  */
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/team', () => ({ getDefaultTeam: jest.fn() }))
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    initiative: { findMany: jest.fn(), findUnique: jest.fn() },
-  },
-}))
+jest.mock('@/lib/db/prisma', () => {
+  const initiative = {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    aggregate: jest.fn(),
+    create: jest.fn(),
+  }
+  return {
+    prisma: {
+      initiative,
+      // Run the repository's create transaction against the same mock table.
+      $transaction: jest.fn(async (cb: (tx: unknown) => unknown) =>
+        cb({ initiative })
+      ),
+    },
+  }
+})
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { getDefaultTeam } from '@/lib/team'
 import { prisma } from '@/lib/db/prisma'
-import { GET as GET_LIST } from '@/app/api/initiatives/route'
+import { GET as GET_LIST, POST } from '@/app/api/initiatives/route'
 import { GET as GET_DETAIL } from '@/app/api/initiatives/[initiativeId]/route'
 
 const mockIdentity = requireIdentity as jest.Mock
 const mockTeam = getDefaultTeam as jest.Mock
 const mockFindMany = prisma.initiative.findMany as jest.Mock
 const mockFindUnique = prisma.initiative.findUnique as jest.Mock
+const mockAggregate = prisma.initiative.aggregate as jest.Mock
+const mockCreate = prisma.initiative.create as jest.Mock
 
 const ID = {
   clerkId: 'u1',
@@ -36,6 +50,11 @@ const ID = {
 }
 const TEAM = { id: 'team-1', identifier: 'LUM' }
 
+const postReq = (b: unknown) =>
+  new NextRequest('http://x/api/initiatives', {
+    method: 'POST',
+    body: JSON.stringify(b),
+  })
 const listReq = () => new NextRequest('http://x/api/initiatives')
 const detailReq = () => new NextRequest('http://x/api/initiatives/init-1')
 const detailCtx = (initiativeId: string) => ({
@@ -43,6 +62,78 @@ const detailCtx = (initiativeId: string) => ({
 })
 
 beforeEach(() => jest.clearAllMocks())
+
+describe('POST /api/initiatives (direct create)', () => {
+  it('POST /api/initiatives creates a team initiative without a plan run', async () => {
+    mockIdentity.mockResolvedValue(ID)
+    mockTeam.mockResolvedValue(TEAM)
+    mockAggregate.mockResolvedValue({ _max: { number: 2 } })
+    mockCreate.mockResolvedValue({
+      id: 'init-3',
+      number: 3,
+      goalStatement: 'Ship the initiatives surface',
+      assumptionNote: 'teams curate directly',
+      status: 'ACTIVE',
+      createdAt: new Date(0),
+    })
+
+    const res = await POST(
+      postReq({
+        goalStatement: 'Ship the initiatives surface',
+        assumptionNote: 'teams curate directly',
+      })
+    )
+
+    expect(res.status).toBe(201)
+    const { initiative } = await res.json()
+    expect(initiative).toMatchObject({
+      identifier: 'LUM-INIT-3',
+      goalStatement: 'Ship the initiatives surface',
+      status: 'ACTIVE',
+      taskCount: 0,
+      ideaCount: 0,
+    })
+    // The row is created with NO plan run and an ACTIVE status, scoped to the
+    // caller's team — the number follows the current max (2 → 3).
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teamId: 'team-1',
+          number: 3,
+          planRunId: null,
+          status: 'ACTIVE',
+          goalStatement: 'Ship the initiatives surface',
+          assumptionNote: 'teams curate directly',
+        }),
+      })
+    )
+  })
+
+  it('400 rejects a blank goalStatement via Zod (no create)', async () => {
+    mockIdentity.mockResolvedValue(ID)
+    mockTeam.mockResolvedValue(TEAM)
+    const res = await POST(postReq({ goalStatement: '   ' }))
+    expect(res.status).toBe(400)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('404 when the workspace has no default team', async () => {
+    mockIdentity.mockResolvedValue(ID)
+    mockTeam.mockResolvedValue(null)
+    const res = await POST(postReq({ goalStatement: 'valid goal' }))
+    expect(res.status).toBe(404)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('401 when unauthenticated', async () => {
+    mockIdentity.mockResolvedValue(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    )
+    const res = await POST(postReq({ goalStatement: 'x' }))
+    expect(res.status).toBe(401)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+})
 
 describe('GET /api/initiatives (list)', () => {
   it('returns the caller team initiatives with LUM-INIT-<n> ids + lineage counts', async () => {

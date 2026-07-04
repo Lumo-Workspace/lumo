@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "이니셔티브를 불러오는 중…",
   "initiative.list.error": "이니셔티브를 불러올 수 없습니다",
   "initiative.list.empty": "아직 이니셔티브가 없습니다",
-  "initiative.list.emptyHint": "아이디어 풀에서 플랜이 구체화되면 이니셔티브가 여기에 표시됩니다.",
+  "initiative.list.emptyHint": "직접 만들거나, 아이디어 풀에서 플랜이 구체화되면 여기에 표시됩니다.",
   "initiative.list.taskCount": "{count, plural, other {작업 #개}}",
   "initiative.list.ideaCount": "{count, plural, other {아이디어 #개}}",
   "initiative.detail.loading": "이니셔티브를 불러오는 중…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} / {total} 완료",
   "initiative.detail.noTasks": "아직 연결된 작업이 없습니다",
   "initiative.detail.noIdeas": "반영된 아이디어가 없습니다",
-  "initiative.detail.backToList": "이니셔티브 목록으로 돌아가기"
+  "initiative.detail.backToList": "이니셔티브 목록으로 돌아가기",
+  "initiative.new": "새 이니셔티브",
+  "initiative.create.goalLabel": "목표",
+  "initiative.create.goalPlaceholder": "이 이니셔티브가 지향하는 성과는 무엇인가요?",
+  "initiative.create.assumptionLabel": "핵심 가설 (선택)",
+  "initiative.create.assumptionPlaceholder": "무엇에 베팅하고 있나요?",
+  "initiative.create.submit": "이니셔티브 만들기",
+  "initiative.create.submitting": "만드는 중…",
+  "initiative.create.cancel": "취소",
+  "initiative.create.error": "이니셔티브를 만들 수 없습니다"
 }
