@@ -59,3 +59,57 @@ export const confirmAlignGateSchema = z
   })
 
 export type ConfirmAlignGateInput = z.infer<typeof confirmAlignGateSchema>
+
+/**
+ * Payload for `POST /api/plan-runs/[runId]/gate/materialize` — Gate C (闸门C,
+ * LUM-671) accepting a DRAFT_READY plan run.
+ *
+ * The human has, at Gate C, edited the prose document, ticked each drafted task
+ * keep/strike, and picked the project the materialised tasks land in. The whole
+ * confirmed state is submitted here (not a diff): the server freezes it onto the
+ * GENERATE stage record's `humanConfirmedOutput` (the "人改了什么" training
+ * signal) and materialises it in one transaction.
+ *
+ * `tasks` carries EVERY drafted task with an explicit `keep` flag rather than
+ * pre-filtering to the kept ones — so the frozen confirmed output records what
+ * was struck too, and the server (not the client) decides what gets created.
+ * `ideaIds` are the ideas the cluster behind this draft consumed; the service
+ * validates them against the run's frozen `inputIdeaIds` before linking them to
+ * the created Initiative.
+ */
+
+const materializeTaskSchema = z.object({
+  title: z.string().trim().min(1, 'Task title is required').max(500),
+  why: z.string().trim().max(2000),
+  size: z.enum(['S', 'M', 'L']),
+  /** Kept (checked) → materialised into a Task; struck (unchecked) → skipped. */
+  keep: z.boolean(),
+})
+
+const materializeDraftSchema = z.object({
+  /** Echoed from the Stage-3 draft — identifies the draft in the frozen output. */
+  clusterId: z.string().trim().min(1),
+  goalStatement: z
+    .string()
+    .trim()
+    .min(1, 'Goal statement is required')
+    .max(2000),
+  assumptionNote: z.string().trim().max(2000).nullable().optional(),
+  /** Ids of the ideas this draft consumed (⊆ the run's frozen inputIdeaIds). */
+  ideaIds: z.array(z.string().trim().min(1)),
+  tasks: z.array(materializeTaskSchema),
+})
+
+export const materializePlanSchema = z.object({
+  /** The project the materialised tasks land in (Gate C picker; D4). */
+  projectId: z.string().trim().min(1, 'A project is required'),
+  /** The human-edited prose document — frozen onto PlanRun.proseDocument. */
+  proseDocument: z.string().max(50000),
+  drafts: z
+    .array(materializeDraftSchema)
+    .min(1, 'At least one draft is required'),
+})
+
+export type MaterializePlanInput = z.infer<typeof materializePlanSchema>
+export type MaterializeDraftInput = z.infer<typeof materializeDraftSchema>
+export type MaterializeTaskInput = z.infer<typeof materializeTaskSchema>

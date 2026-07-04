@@ -1,6 +1,13 @@
 export type * from './types'
 export { taskService } from './task.service'
 export { ideaService, type CapturedIdea } from './idea.service'
+export {
+  planMaterializeService,
+  type MaterializeResult,
+  type GateCData,
+  type GateDraft,
+  type GateProjectOption,
+} from './plan-materialize.service'
 export type {
   UpdateTaskInput,
   TaskUpdateResult,

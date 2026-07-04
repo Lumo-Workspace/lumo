@@ -1,5 +1,6 @@
 export { apiFetch, apiFetchQuiet, ApiClientError } from './base'
 export { tasksClient } from './tasks'
+export { planRunsClient } from './plan-runs'
 export { projectsClient } from './projects'
 export { documentsClient, documentRevisionsApi } from './documents'
 export { documentTemplatesClient } from './document-templates'
