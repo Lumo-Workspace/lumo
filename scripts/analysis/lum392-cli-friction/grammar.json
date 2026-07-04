@@ -1009,6 +1009,23 @@
       "hasSubcommands": false,
       "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
     },
+    "idea": {
+      "arguments": [
+        { "name": "statement", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--context": {
+          "long": "--context",
+          "short": "-c",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Free-text origin context for the idea"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
+    },
     "memory": {
       "arguments": [],
       "flags": {},

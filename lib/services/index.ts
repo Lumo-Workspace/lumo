@@ -1,5 +1,6 @@
 export type * from './types'
 export { taskService } from './task.service'
+export { ideaService, type CapturedIdea } from './idea.service'
 export type {
   UpdateTaskInput,
   TaskUpdateResult,
