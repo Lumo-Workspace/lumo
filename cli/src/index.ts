@@ -13,6 +13,7 @@ import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { ideaCapture } from './commands/idea'
 import { cost } from './commands/cost'
+import { priority, priorityList } from './commands/priority'
 import { criteriaAudit } from './commands/criteria-audit'
 import { fidelityShow, type FidelityShowOptions } from './commands/fidelity'
 import { verify } from './commands/verify'
@@ -439,6 +440,20 @@ program
       )
     )
   )
+
+const priorityCmd = program
+  .command('priority [text]')
+  .description(
+    'Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it.'
+  )
+  .action(wrap((text: unknown) => priority(text as string | undefined)))
+
+priorityCmd
+  .command('list')
+  .description(
+    'Print the team priority append history, newest-first (the current declaration is marked with *).'
+  )
+  .action(wrap(() => priorityList()))
 
 const criteria = program
   .command('criteria')
