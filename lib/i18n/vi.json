@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "Đã xác nhận {date}",
   "planRuns.gatePending": "Chưa xác nhận",
   "planRuns.noClusters": "Không có phân nhóm nào được ghi lại.",
-  "planRuns.noInitiatives": "Không có sáng kiến nào được hiện thực hóa."
+  "planRuns.noInitiatives": "Không có sáng kiến nào được hiện thực hóa.",
+  "ideas.ungrouped": "Mới / chưa nhóm"
 }

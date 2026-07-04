@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "Dikonfirmasi {date}",
   "planRuns.gatePending": "Belum dikonfirmasi",
   "planRuns.noClusters": "Tidak ada pengelompokan yang tercatat.",
-  "planRuns.noInitiatives": "Tidak ada inisiatif yang terwujud."
+  "planRuns.noInitiatives": "Tidak ada inisiatif yang terwujud.",
+  "ideas.ungrouped": "Baru / tidak dikelompokkan"
 }

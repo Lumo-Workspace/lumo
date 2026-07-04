@@ -5,7 +5,11 @@
  * workspace guard (a run in another workspace is reported as 404, never leaked).
  */
 jest.mock('@/lib/repositories/plan-run.repository', () => ({
-  planRunRepository: { listByTeam: jest.fn(), findArchiveById: jest.fn() },
+  planRunRepository: {
+    listByTeam: jest.fn(),
+    findArchiveById: jest.fn(),
+    findLatestClusterRecordByTeam: jest.fn(),
+  },
 }))
 jest.mock('@/lib/team', () => ({ getDefaultTeam: jest.fn() }))
 
@@ -15,6 +19,8 @@ import { getDefaultTeam as getDefaultTeamImpl } from '@/lib/team'
 
 const listByTeam = planRunRepository.listByTeam as jest.Mock
 const findArchiveById = planRunRepository.findArchiveById as jest.Mock
+const findLatestClusterRecord =
+  planRunRepository.findLatestClusterRecordByTeam as jest.Mock
 const getDefaultTeam = getDefaultTeamImpl as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
@@ -68,6 +74,81 @@ describe('planRunService.getArchive', () => {
 
     await expect(
       planRunService.getArchive({ runId: 'missing', workspaceId: 'w1' })
+    ).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('planRunService.getLatestClustering', () => {
+  beforeEach(() => getDefaultTeam.mockResolvedValue({ id: 'team-1' }))
+
+  it('returns null when no run has clustered yet', async () => {
+    findLatestClusterRecord.mockResolvedValue(null)
+
+    expect(
+      await planRunService.getLatestClustering({ workspaceId: 'w1' })
+    ).toBeNull()
+    expect(findLatestClusterRecord).toHaveBeenCalledWith('team-1')
+  })
+
+  it('prefers the human-confirmed clustering over the raw Stage-1 output', async () => {
+    findLatestClusterRecord.mockResolvedValue({
+      planRunId: 'run-1',
+      llmRawOutput: {
+        clusters: [{ name: 'raw', ideaIds: ['x'] }],
+        orphans: [],
+      },
+      humanConfirmedOutput: {
+        clusters: [{ name: 'Auth', ideaIds: ['a', 'b'] }],
+        orphans: [],
+      },
+    })
+
+    const result = await planRunService.getLatestClustering({
+      workspaceId: 'w1',
+    })
+
+    expect(result).toEqual({
+      runId: 'run-1',
+      clusters: [{ name: 'Auth', ideaIds: ['a', 'b'] }],
+    })
+  })
+
+  it('falls back to the raw output when the gate was not confirmed', async () => {
+    findLatestClusterRecord.mockResolvedValue({
+      planRunId: 'run-1',
+      llmRawOutput: {
+        clusters: [{ name: 'Raw', ideaIds: ['x'] }],
+        orphans: [],
+      },
+      humanConfirmedOutput: null,
+    })
+
+    const result = await planRunService.getLatestClustering({
+      workspaceId: 'w1',
+    })
+
+    expect(result?.clusters).toEqual([{ name: 'Raw', ideaIds: ['x'] }])
+  })
+
+  it('defensively yields [] clusters for a malformed stored output', async () => {
+    findLatestClusterRecord.mockResolvedValue({
+      planRunId: 'run-1',
+      llmRawOutput: { not: 'a clustering' },
+      humanConfirmedOutput: null,
+    })
+
+    const result = await planRunService.getLatestClustering({
+      workspaceId: 'w1',
+    })
+
+    expect(result).toEqual({ runId: 'run-1', clusters: [] })
+  })
+
+  it('throws 404 when the workspace has no default team', async () => {
+    getDefaultTeam.mockResolvedValue(null)
+
+    await expect(
+      planRunService.getLatestClustering({ workspaceId: 'w1' })
     ).rejects.toMatchObject({ status: 404 })
   })
 })

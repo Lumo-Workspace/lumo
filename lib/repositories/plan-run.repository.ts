@@ -154,6 +154,30 @@ export const planRunRepository = {
     return prisma.planRun.findUnique({ where: { id }, select: ARCHIVE_SELECT })
   },
 
+  /**
+   * The CLUSTER stage record of the team's most recent run to have reached
+   * CLUSTERS_READY (i.e. that produced a clustering), or null. Ordered by the
+   * parent run's `createdAt` so the newest clustering wins. Carries both the
+   * raw Stage-1 output and the human-confirmed edit so the caller can prefer
+   * the confirmed clustering. Powers the Ideas-page grouped view (LUM-677) —
+   * a pure DB read, no clustering LLM call.
+   */
+  async findLatestClusterRecordByTeam(teamId: string): Promise<{
+    planRunId: string
+    llmRawOutput: PlanRunStageRecordRow['llmRawOutput']
+    humanConfirmedOutput: PlanRunStageRecordRow['humanConfirmedOutput']
+  } | null> {
+    return prisma.planRunStageRecord.findFirst({
+      where: { kind: 'CLUSTER', planRun: { teamId } },
+      orderBy: { planRun: { createdAt: 'desc' } },
+      select: {
+        planRunId: true,
+        llmRawOutput: true,
+        humanConfirmedOutput: true,
+      },
+    })
+  },
+
   /** One stage record by (run, kind), or null. Used by the web gate to read the
    *  pre-gate output + its optimistic-concurrency `revision`. */
   async findStageRecord(

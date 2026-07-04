@@ -44,6 +44,12 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/usePlanRuns', () => ({
   }),
 }))
 
+// No clustering here → the flat time-ordered list (the grouped view has its own
+// suite). LUM-677.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
+  useIdeaGrouping: () => ({ clustering: null, loading: false, error: null }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'

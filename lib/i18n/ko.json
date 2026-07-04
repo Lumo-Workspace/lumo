@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "확인됨 {date}",
   "planRuns.gatePending": "확인되지 않음",
   "planRuns.noClusters": "클러스터링이 기록되지 않았습니다.",
-  "planRuns.noInitiatives": "구체화된 이니셔티브가 없습니다."
+  "planRuns.noInitiatives": "구체화된 이니셔티브가 없습니다.",
+  "ideas.ungrouped": "신규 / 미분류"
 }

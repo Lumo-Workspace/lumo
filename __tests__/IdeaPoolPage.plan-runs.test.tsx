@@ -45,6 +45,11 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/usePlanRuns', () => ({
   usePlanRuns: () => mockUsePlanRuns(),
 }))
 
+// Grouping is out of scope for this suite — flat list.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
+  useIdeaGrouping: () => ({ clustering: null, loading: false, error: null }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'

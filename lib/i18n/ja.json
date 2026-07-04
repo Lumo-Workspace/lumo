@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "確認済み {date}",
   "planRuns.gatePending": "未確認",
   "planRuns.noClusters": "クラスタリングは記録されていません。",
-  "planRuns.noInitiatives": "イニシアチブは具体化されていません。"
+  "planRuns.noInitiatives": "イニシアチブは具体化されていません。",
+  "ideas.ungrouped": "新規 / 未分類"
 }

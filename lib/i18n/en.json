@@ -183,6 +183,7 @@
   "ideas.statusPlanned": "Planned",
   "ideas.fromTask": "from {task}",
   "ideas.plannedInto": "Planned into {goal}",
+  "ideas.ungrouped": "New / ungrouped",
   "planRuns.title": "Plan runs",
   "planRuns.activeLabel": "Active run",
   "planRuns.resume": "Resume",

@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "已确认 {date}",
   "planRuns.gatePending": "未确认",
   "planRuns.noClusters": "没有记录聚类结果。",
-  "planRuns.noInitiatives": "未物化任何举措。"
+  "planRuns.noInitiatives": "未物化任何举措。",
+  "ideas.ungrouped": "新增 / 未分组"
 }

@@ -5,7 +5,10 @@
  * is a single-run lookup carrying the workspace guard field.
  */
 jest.mock('@/lib/db/prisma', () => ({
-  prisma: { planRun: { findMany: jest.fn(), findUnique: jest.fn() } },
+  prisma: {
+    planRun: { findMany: jest.fn(), findUnique: jest.fn() },
+    planRunStageRecord: { findFirst: jest.fn() },
+  },
 }))
 
 import { planRunRepository } from '@/lib/repositories/plan-run.repository'
@@ -13,6 +16,7 @@ import { prisma } from '@/lib/db/prisma'
 
 const findMany = prisma.planRun.findMany as jest.Mock
 const findUnique = prisma.planRun.findUnique as jest.Mock
+const findFirstStageRecord = prisma.planRunStageRecord.findFirst as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -55,5 +59,25 @@ describe('planRunRepository.findArchiveById', () => {
     expect(arg.select.workspaceId).toBe(true)
     expect(arg.select.stageRecords).toBeDefined()
     expect(arg.select.initiatives).toBeDefined()
+  })
+})
+
+describe('planRunRepository.findLatestClusterRecordByTeam', () => {
+  it('finds the CLUSTER record of the team newest run, ordered by run createdAt', async () => {
+    findFirstStageRecord.mockResolvedValue(null)
+
+    await planRunRepository.findLatestClusterRecordByTeam('team-1')
+
+    const arg = findFirstStageRecord.mock.calls[0][0]
+    expect(arg.where).toEqual({
+      kind: 'CLUSTER',
+      planRun: { teamId: 'team-1' },
+    })
+    expect(arg.orderBy).toEqual({ planRun: { createdAt: 'desc' } })
+    expect(arg.select).toMatchObject({
+      planRunId: true,
+      llmRawOutput: true,
+      humanConfirmedOutput: true,
+    })
   })
 })

@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "पुष्टि की गई {date}",
   "planRuns.gatePending": "पुष्टि नहीं हुई",
   "planRuns.noClusters": "कोई क्लस्टरिंग दर्ज नहीं की गई।",
-  "planRuns.noInitiatives": "कोई पहल साकार नहीं की गई।"
+  "planRuns.noInitiatives": "कोई पहल साकार नहीं की गई।",
+  "ideas.ungrouped": "नई / असमूहीकृत"
 }

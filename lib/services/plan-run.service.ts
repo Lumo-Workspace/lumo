@@ -335,6 +335,36 @@ export const planRunService = {
     return run
   },
 
+  /**
+   * The clustering the Ideas page should group its pool by (LUM-677): the
+   * CLUSTER output of the workspace default team's most recent run to reach
+   * CLUSTERS_READY — the human-confirmed clustering if the gate was confirmed,
+   * else the raw Stage-1 output. Returns null when no run has clustered yet
+   * (the page then falls back to a flat list). A pure read of stored records —
+   * **no clustering LLM call**. Throws 404 when there is no default team.
+   */
+  async getLatestClustering(args: { workspaceId: string }): Promise<{
+    runId: string
+    clusters: { name: string; ideaIds: string[] }[]
+  } | null> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+    const record = await planRunRepository.findLatestClusterRecordByTeam(
+      team.id
+    )
+    if (!record) return null
+    return {
+      runId: record.planRunId,
+      clusters: extractClusterGroups(
+        record.humanConfirmedOutput ?? record.llmRawOutput
+      ),
+    }
+  },
+
   /** Load a run or throw 404. */
   async requireRun(planRunId: string): Promise<PlanRunRow> {
     const run = await planRunRepository.findById(planRunId)
@@ -345,6 +375,36 @@ export const planRunService = {
     }
     return run
   },
+}
+
+/**
+ * Pull `{ name, ideaIds }` clusters out of a stored CLUSTER output. The output
+ * is opaque JSON (`ClusterGateOutput` shape when well-formed), so read
+ * defensively: keep only clusters with a string `name` and a string[] of
+ * `ideaIds`. Malformed / empty output yields `[]` (page falls back gracefully).
+ */
+function extractClusterGroups(
+  output: unknown
+): { name: string; ideaIds: string[] }[] {
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    !Array.isArray((output as { clusters?: unknown }).clusters)
+  ) {
+    return []
+  }
+  return (output as { clusters: unknown[] }).clusters
+    .map(c => {
+      if (!c || typeof c !== 'object') return null
+      const name = (c as { name?: unknown }).name
+      const ideaIds = (c as { ideaIds?: unknown }).ideaIds
+      if (typeof name !== 'string' || !Array.isArray(ideaIds)) return null
+      return {
+        name,
+        ideaIds: ideaIds.filter((id): id is string => typeof id === 'string'),
+      }
+    })
+    .filter((c): c is { name: string; ideaIds: string[] } => c !== null)
 }
 
 export type {

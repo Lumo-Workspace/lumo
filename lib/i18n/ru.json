@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "Подтверждено {date}",
   "planRuns.gatePending": "Не подтверждено",
   "planRuns.noClusters": "Кластеризация не записана.",
-  "planRuns.noInitiatives": "Ни одна инициатива не материализована."
+  "planRuns.noInitiatives": "Ни одна инициатива не материализована.",
+  "ideas.ungrouped": "Новые / без группы"
 }

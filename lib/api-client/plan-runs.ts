@@ -86,6 +86,19 @@ export interface PlanRunArchiveStage {
   revision: number
 }
 
+/** One cluster from the latest run's clustering — a label + its idea ids. */
+export interface IdeaClusterGroup {
+  name: string
+  ideaIds: string[]
+}
+
+/** The clustering the Ideas page groups its pool by, or null when no run has
+ *  clustered yet (the page then falls back to a flat list). */
+export interface LatestClustering {
+  runId: string
+  clusters: IdeaClusterGroup[]
+}
+
 /** A run's full read-only archive: the run + every gate record + materialized
  *  Initiative(s) for lineage. */
 export interface PlanRunArchive {
@@ -123,6 +136,13 @@ export const planRunsClient = {
   /** GET a run's read-only archive (stage records + materialized initiatives). */
   getArchive(runId: string) {
     return apiFetch<PlanRunArchive>(API.planRuns.archive(runId))
+  },
+
+  /** GET the latest run's clustering (groups the Ideas page pool), or null. */
+  latestClustering() {
+    return apiFetch<{ clustering: LatestClustering | null }>(
+      API.planRuns.latestClustering
+    )
   },
 
   /** GET the run's current stage (gate dispatcher). */

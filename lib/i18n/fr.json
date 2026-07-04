@@ -2168,5 +2168,6 @@
   "planRuns.gateConfirmed": "Confirmé {date}",
   "planRuns.gatePending": "Non confirmé",
   "planRuns.noClusters": "Aucun regroupement enregistré.",
-  "planRuns.noInitiatives": "Aucune initiative matérialisée."
+  "planRuns.noInitiatives": "Aucune initiative matérialisée.",
+  "ideas.ungrouped": "Nouvelles / non regroupées"
 }
