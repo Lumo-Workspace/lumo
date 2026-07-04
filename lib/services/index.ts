@@ -2,6 +2,13 @@ export type * from './types'
 export { taskService } from './task.service'
 export { ideaService, type CapturedIdea } from './idea.service'
 export {
+  initiativeService,
+  type InitiativeListItem,
+  type InitiativeDetail,
+  type InitiativeIdeaRef,
+  type InitiativeTaskRef,
+} from './initiative.service'
+export {
   planMaterializeService,
   type MaterializeResult,
   type GateCData,
