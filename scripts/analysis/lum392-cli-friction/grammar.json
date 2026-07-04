@@ -1753,6 +1753,27 @@
       "hasSubcommands": false,
       "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
     },
+    "plan": {
+      "arguments": [],
+      "flags": {
+        "--abandon-active": {
+          "long": "--abandon-active",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Abandon the team’s existing active run before starting a fresh one"
+        }
+      },
+      "hasSubcommands": true,
+      "description": "Start a design-thinking 转换器 run (聚类→对齐→成计划) and print the gate-A web deep-link. Refuses when a run is already active (see `lumo plan status`); --abandon-active abandons the prior run first. Editing/confirmation happen in web."
+    },
+    "plan status": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Print the active plan run’s current stage and the deep-link to its next gate; with no active run, prompts to run `lumo plan`."
+    },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
       "flags": {},
