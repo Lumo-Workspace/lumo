@@ -50,6 +50,10 @@ export const queryKeys = {
     detail: (id: string) => ['projects', 'detail', id] as const,
   },
 
+  planRuns: {
+    alignGate: (runId: string) => ['planRuns', 'alignGate', runId] as const,
+  },
+
   sprints: {
     all: () => ['sprints'] as const,
     byTeam: (teamId: string, status?: SprintStatus) =>

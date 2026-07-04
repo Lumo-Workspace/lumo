@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Presupuesto excedido por {over}",
   "milestone.riskQueue.budget.title": "Presupuesto de tokens excedido",
   "milestone.riskQueue.budget.count": "consumo {burn} de {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Solo aviso — nada se bloquea. Revisa el alcance restante o aumenta el presupuesto."
+  "milestone.riskQueue.budget.advisory": "Solo aviso — nada se bloquea. Revisa el alcance restante o aumenta el presupuesto.",
+  "planGate.title": "Alinear los grupos con la prioridad",
+  "planGate.verdictLabel": "Veredicto de alineación",
+  "planGate.verdict.aligned": "Alineado",
+  "planGate.verdict.unrelated": "No relacionado",
+  "planGate.verdict.conflict": "En conflicto",
+  "planGate.trapBadge": "Trampa de personalización",
+  "planGate.rationaleLabel": "Justificación",
+  "planGate.rationalePlaceholder": "Una línea sobre el motivo de este veredicto…",
+  "planGate.star": "Destacar",
+  "planGate.starHint": "Destaca hasta {max} grupos alineados para planificar ahora",
+  "planGate.starCount": "{count} de {max} destacados",
+  "planGate.confirm": "Confirmar y generar plan",
+  "planGate.confirming": "Confirmando…",
+  "planGate.loadError": "No se pudo cargar la puerta de alineación.",
+  "planGate.empty": "No hay grupos para revisar."
 }

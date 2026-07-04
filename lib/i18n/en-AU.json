@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Over budget by {over}",
   "milestone.riskQueue.budget.title": "Token budget exceeded",
   "milestone.riskQueue.budget.count": "burn {burn} of {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Advisory only — nothing is blocked. Review the remaining scope or raise the budget."
+  "milestone.riskQueue.budget.advisory": "Advisory only — nothing is blocked. Review the remaining scope or raise the budget.",
+  "planGate.title": "Align clusters to the priority",
+  "planGate.verdictLabel": "Alignment verdict",
+  "planGate.verdict.aligned": "Aligned",
+  "planGate.verdict.unrelated": "Unrelated",
+  "planGate.verdict.conflict": "Conflict",
+  "planGate.trapBadge": "Customization trap",
+  "planGate.rationaleLabel": "Rationale",
+  "planGate.rationalePlaceholder": "One line on why this verdict…",
+  "planGate.star": "Star",
+  "planGate.starHint": "Star up to {max} aligned clusters to plan now",
+  "planGate.starCount": "{count} of {max} starred",
+  "planGate.confirm": "Confirm & generate plan",
+  "planGate.confirming": "Confirming…",
+  "planGate.loadError": "Could not load the alignment gate.",
+  "planGate.empty": "No clusters to review."
 }

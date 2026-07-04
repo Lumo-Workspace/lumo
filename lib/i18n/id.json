@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Melebihi anggaran sebesar {over}",
   "milestone.riskQueue.budget.title": "Anggaran token terlampaui",
   "milestone.riskQueue.budget.count": "pemakaian {burn} dari {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran."
+  "milestone.riskQueue.budget.advisory": "Hanya peringatan — tidak ada yang diblokir. Tinjau cakupan tersisa atau naikkan anggaran.",
+  "planGate.title": "Selaraskan klaster dengan prioritas",
+  "planGate.verdictLabel": "Putusan penyelarasan",
+  "planGate.verdict.aligned": "Selaras",
+  "planGate.verdict.unrelated": "Tidak terkait",
+  "planGate.verdict.conflict": "Bertentangan",
+  "planGate.trapBadge": "Jebakan kustomisasi",
+  "planGate.rationaleLabel": "Alasan",
+  "planGate.rationalePlaceholder": "Satu baris alasan putusan ini…",
+  "planGate.star": "Bintangi",
+  "planGate.starHint": "Bintangi hingga {max} klaster selaras untuk direncanakan sekarang",
+  "planGate.starCount": "{count} dari {max} dibintangi",
+  "planGate.confirm": "Konfirmasi & buat rencana",
+  "planGate.confirming": "Mengonfirmasi…",
+  "planGate.loadError": "Tidak dapat memuat gerbang penyelarasan.",
+  "planGate.empty": "Tidak ada klaster untuk ditinjau."
 }

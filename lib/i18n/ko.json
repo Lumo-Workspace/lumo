@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "예산 {over} 초과",
   "milestone.riskQueue.budget.title": "토큰 예산 초과",
   "milestone.riskQueue.budget.count": "사용량 {burn} / 예산 {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "권고 사항일 뿐 아무것도 차단되지 않습니다. 남은 범위를 검토하거나 예산을 늘리세요."
+  "milestone.riskQueue.budget.advisory": "권고 사항일 뿐 아무것도 차단되지 않습니다. 남은 범위를 검토하거나 예산을 늘리세요.",
+  "planGate.title": "클러스터를 우선순위에 정렬",
+  "planGate.verdictLabel": "정렬 판정",
+  "planGate.verdict.aligned": "정렬됨",
+  "planGate.verdict.unrelated": "관련 없음",
+  "planGate.verdict.conflict": "충돌",
+  "planGate.trapBadge": "커스터마이징 함정",
+  "planGate.rationaleLabel": "근거",
+  "planGate.rationalePlaceholder": "이 판정의 이유를 한 줄로…",
+  "planGate.star": "별표",
+  "planGate.starHint": "지금 계획할 정렬된 클러스터를 최대 {max}개까지 별표 표시",
+  "planGate.starCount": "{max}개 중 {count}개 별표",
+  "planGate.confirm": "확인 및 계획 생성",
+  "planGate.confirming": "확인 중…",
+  "planGate.loadError": "정렬 게이트를 불러올 수 없습니다.",
+  "planGate.empty": "검토할 클러스터가 없습니다."
 }

@@ -83,6 +83,17 @@ export const planRunRepository = {
     return prisma.planRun.findUnique({ where: { id }, select: RUN_SELECT })
   },
 
+  /** One stage record by its `(planRunId, kind)` unique key, or null. */
+  async findStageRecord(
+    planRunId: string,
+    kind: PlanStageKind
+  ): Promise<PlanRunStageRecordRow | null> {
+    return prisma.planRunStageRecord.findUnique({
+      where: { planRunId_kind: { planRunId, kind } },
+      select: STAGE_RECORD_SELECT,
+    })
+  },
+
   /** Create a run in the initial CLUSTERING stage with a frozen input snapshot. */
   async create(data: CreatePlanRunData): Promise<PlanRunRow> {
     return prisma.planRun.create({

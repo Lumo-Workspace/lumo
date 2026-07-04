@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "超出預算 {over}",
   "milestone.riskQueue.budget.title": "token 預算超限",
   "milestone.riskQueue.budget.count": "已耗 {burn} / 預算 {budget}（{percent}%）",
-  "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。"
+  "milestone.riskQueue.budget.advisory": "僅為提示 — 不會封鎖任何操作。請檢視剩餘範圍或調高預算。",
+  "planGate.title": "將叢集與優先項目對齊",
+  "planGate.verdictLabel": "對齊判定",
+  "planGate.verdict.aligned": "對齊",
+  "planGate.verdict.unrelated": "無關",
+  "planGate.verdict.conflict": "衝突",
+  "planGate.trapBadge": "客製化陷阱",
+  "planGate.rationaleLabel": "理由",
+  "planGate.rationalePlaceholder": "用一行說明此判定的原因…",
+  "planGate.star": "加星號",
+  "planGate.starHint": "最多為 {max} 個對齊叢集加星號以立即規劃",
+  "planGate.starCount": "已加星號 {count}/{max}",
+  "planGate.confirm": "確認並產生計畫",
+  "planGate.confirming": "確認中…",
+  "planGate.loadError": "無法載入對齊閘門。",
+  "planGate.empty": "沒有可檢閱的叢集。"
 }

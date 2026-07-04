@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "बजट से {over} अधिक",
   "milestone.riskQueue.budget.title": "टोकन बजट पार हो गया",
   "milestone.riskQueue.budget.count": "{budget} में से {burn} खपत ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।"
+  "milestone.riskQueue.budget.advisory": "केवल सूचना — कुछ भी अवरुद्ध नहीं है। बचे हुए दायरे की समीक्षा करें या बजट बढ़ाएँ।",
+  "planGate.title": "क्लस्टर को प्राथमिकता से संरेखित करें",
+  "planGate.verdictLabel": "संरेखण निर्णय",
+  "planGate.verdict.aligned": "संरेखित",
+  "planGate.verdict.unrelated": "असंबंधित",
+  "planGate.verdict.conflict": "टकराव",
+  "planGate.trapBadge": "कस्टमाइज़ेशन जाल",
+  "planGate.rationaleLabel": "औचित्य",
+  "planGate.rationalePlaceholder": "इस निर्णय का कारण एक पंक्ति में…",
+  "planGate.star": "तारांकित करें",
+  "planGate.starHint": "अभी योजना बनाने के लिए {max} तक संरेखित क्लस्टर तारांकित करें",
+  "planGate.starCount": "{max} में से {count} तारांकित",
+  "planGate.confirm": "पुष्टि करें और योजना बनाएँ",
+  "planGate.confirming": "पुष्टि हो रही है…",
+  "planGate.loadError": "संरेखण गेट लोड नहीं हो सका।",
+  "planGate.empty": "समीक्षा के लिए कोई क्लस्टर नहीं।"
 }

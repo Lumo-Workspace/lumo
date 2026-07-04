@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Budget um {over} überschritten",
   "milestone.riskQueue.budget.title": "Token-Budget überschritten",
   "milestone.riskQueue.budget.count": "Verbrauch {burn} von {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Nur ein Hinweis — nichts wird blockiert. Verbleibenden Umfang prüfen oder das Budget erhöhen."
+  "milestone.riskQueue.budget.advisory": "Nur ein Hinweis — nichts wird blockiert. Verbleibenden Umfang prüfen oder das Budget erhöhen.",
+  "planGate.title": "Cluster an der Priorität ausrichten",
+  "planGate.verdictLabel": "Ausrichtungsurteil",
+  "planGate.verdict.aligned": "Ausgerichtet",
+  "planGate.verdict.unrelated": "Nicht relevant",
+  "planGate.verdict.conflict": "Konflikt",
+  "planGate.trapBadge": "Anpassungsfalle",
+  "planGate.rationaleLabel": "Begründung",
+  "planGate.rationalePlaceholder": "Eine Zeile zur Begründung dieses Urteils…",
+  "planGate.star": "Markieren",
+  "planGate.starHint": "Markiere bis zu {max} ausgerichtete Cluster, die jetzt geplant werden",
+  "planGate.starCount": "{count} von {max} markiert",
+  "planGate.confirm": "Bestätigen & Plan erstellen",
+  "planGate.confirming": "Wird bestätigt…",
+  "planGate.loadError": "Das Ausrichtungs-Gate konnte nicht geladen werden.",
+  "planGate.empty": "Keine Cluster zur Überprüfung."
 }

@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Бюджет превышен на {over}",
   "milestone.riskQueue.budget.title": "Бюджет токенов превышен",
   "milestone.riskQueue.budget.count": "расход {burn} из {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет."
+  "milestone.riskQueue.budget.advisory": "Только предупреждение — ничего не блокируется. Пересмотрите оставшийся объём или увеличьте бюджет.",
+  "planGate.title": "Согласовать кластеры с приоритетом",
+  "planGate.verdictLabel": "Вердикт согласованности",
+  "planGate.verdict.aligned": "Согласовано",
+  "planGate.verdict.unrelated": "Не относится",
+  "planGate.verdict.conflict": "Конфликт",
+  "planGate.trapBadge": "Ловушка кастомизации",
+  "planGate.rationaleLabel": "Обоснование",
+  "planGate.rationalePlaceholder": "Одна строка о причине этого вердикта…",
+  "planGate.star": "В избранное",
+  "planGate.starHint": "Отметьте до {max} согласованных кластеров для планирования сейчас",
+  "planGate.starCount": "{count} из {max} отмечено",
+  "planGate.confirm": "Подтвердить и создать план",
+  "planGate.confirming": "Подтверждение…",
+  "planGate.loadError": "Не удалось загрузить шлюз согласованности.",
+  "planGate.empty": "Нет кластеров для проверки."
 }
