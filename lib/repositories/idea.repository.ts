@@ -22,6 +22,25 @@ const IDEA_SELECT = {
 
 export type IdeaRow = Prisma.IdeaGetPayload<{ select: typeof IDEA_SELECT }>
 
+/**
+ * Pool-view projection: the base fields plus the materialisation lineage a
+ * PLANNED idea carries — the `planRunId` of the run that consumed it and the
+ * `Initiative` it fed. Both are null for a CAPTURED idea. Used by the ideas
+ * pool page and `lumo idea list`, which show the whole pool (not just the
+ * unprocessed slice) newest-first.
+ */
+const IDEA_POOL_SELECT = {
+  ...IDEA_SELECT,
+  planRunId: true,
+  initiative: {
+    select: { id: true, number: true, goalStatement: true },
+  },
+} satisfies Prisma.IdeaSelect
+
+export type IdeaPoolRow = Prisma.IdeaGetPayload<{
+  select: typeof IDEA_POOL_SELECT
+}>
+
 /** Prisma unique-constraint violation — a concurrent racer took our number. */
 function isUniqueViolation(err: unknown): boolean {
   return (
@@ -88,6 +107,24 @@ export const ideaRepository = {
       where: { teamId, status: 'CAPTURED' },
       select: IDEA_SELECT,
       orderBy: { number: 'asc' },
+    })
+  },
+
+  /**
+   * The team's full idea pool — every status, newest first. `number` is a
+   * per-team monotonic sequence, so ordering by it descending yields
+   * newest-first without a `createdAt` tiebreak. Scoped by `teamId`; a caller
+   * never sees another team's ideas. Each row carries its materialisation
+   * lineage (`planRunId` + `initiative`) so PLANNED ideas can link back to the
+   * Initiative they fed. This is the read the pool page and `lumo idea list`
+   * consume — distinct from `listCapturedByTeam` (CAPTURED-only), which the
+   * Spec-2 transformer still uses.
+   */
+  async listPoolByTeam(teamId: string): Promise<IdeaPoolRow[]> {
+    return prisma.idea.findMany({
+      where: { teamId },
+      select: IDEA_POOL_SELECT,
+      orderBy: { number: 'desc' },
     })
   },
 

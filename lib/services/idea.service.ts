@@ -1,6 +1,7 @@
 import {
   ideaRepository,
   type IdeaRow,
+  type IdeaPoolRow,
 } from '@/lib/repositories/idea.repository'
 import { getDefaultTeam } from '@/lib/team'
 import type { CaptureIdeaInput } from '@/lib/validation/idea'
@@ -24,6 +25,23 @@ export interface CapturedIdea {
   createdAt: Date
 }
 
+/** The Initiative a PLANNED idea was materialised into (lineage back-link). */
+export interface IdeaInitiativeRef {
+  id: string
+  number: number
+  goalStatement: string
+}
+
+/**
+ * A pool-view idea: a `CapturedIdea` plus its materialisation lineage. For a
+ * CAPTURED idea `planRunId` and `initiative` are null; for a PLANNED one they
+ * point at the run that consumed it and the Initiative it fed.
+ */
+export interface PooledIdea extends CapturedIdea {
+  planRunId: string | null
+  initiative: IdeaInitiativeRef | null
+}
+
 function ideaIdentifier(teamIdentifier: string, number: number): string {
   return `${teamIdentifier}-I${number}`
 }
@@ -40,6 +58,20 @@ function toCapturedIdea(idea: IdeaRow, teamIdentifier: string): CapturedIdea {
     sourceTaskId: idea.sourceTaskId,
     proposedByMemberId: idea.proposedByMemberId,
     createdAt: idea.createdAt,
+  }
+}
+
+function toPooledIdea(row: IdeaPoolRow, teamIdentifier: string): PooledIdea {
+  return {
+    ...toCapturedIdea(row, teamIdentifier),
+    planRunId: row.planRunId,
+    initiative: row.initiative
+      ? {
+          id: row.initiative.id,
+          number: row.initiative.number,
+          goalStatement: row.initiative.goalStatement,
+        }
+      : null,
   }
 }
 
@@ -85,15 +117,15 @@ export const ideaService = {
   },
 
   /**
-   * The caller's team pool of unprocessed (CAPTURED) ideas. Empty when the
-   * workspace has no default team — never another team's ideas.
+   * The caller's team idea pool — every status, newest first, each idea
+   * carrying its materialisation lineage (`planRunId` + `initiative`). Empty
+   * when the workspace has no default team — never another team's ideas. This
+   * is the read the ideas pool page and `lumo idea list` consume.
    */
-  async listUnprocessed(args: {
-    workspaceId: string
-  }): Promise<CapturedIdea[]> {
+  async listPool(args: { workspaceId: string }): Promise<PooledIdea[]> {
     const team = await getDefaultTeam(args.workspaceId)
     if (!team) return []
-    const ideas = await ideaRepository.listCapturedByTeam(team.id)
-    return ideas.map(idea => toCapturedIdea(idea, team.identifier))
+    const rows = await ideaRepository.listPoolByTeam(team.id)
+    return rows.map(row => toPooledIdea(row, team.identifier))
   },
 }

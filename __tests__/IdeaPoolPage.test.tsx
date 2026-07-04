@@ -1,0 +1,167 @@
+/** @jest-environment jsdom */
+
+// react-intl → id-as-message with value interpolation appended, and a
+// deterministic date formatter so we can assert the captured time renders.
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, unknown>
+    ) => (values ? `${id} ${Object.values(values).join(' ')}` : id),
+    formatDate: (d: Date) => `date:${d.getUTCFullYear()}`,
+  }),
+}))
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
+const mockUseIdeas = jest.fn()
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeas', () => ({
+  useIdeas: () => mockUseIdeas(),
+}))
+
+import '@testing-library/jest-dom'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'
+import type { ApiIdea } from '@/app/workspace/[workspaceUrl]/types'
+
+const base: ApiIdea = {
+  id: 'i0',
+  number: 0,
+  identifier: 'LUM-I0',
+  statement: '',
+  status: 'CAPTURED',
+  sourceContext: null,
+  sourceSessionId: null,
+  sourceTaskId: null,
+  proposedByMemberId: 'm1',
+  createdAt: '2026-07-04T10:00:00.000Z',
+  planRunId: null,
+  initiative: null,
+}
+
+const planned: ApiIdea = {
+  ...base,
+  id: 'i3',
+  number: 3,
+  identifier: 'LUM-I3',
+  statement: 'ship the idea pool',
+  status: 'PLANNED',
+  planRunId: 'run-1',
+  initiative: { id: 'init-1', number: 5, goalStatement: 'Idea visibility' },
+}
+
+const capturedWithContext: ApiIdea = {
+  ...base,
+  id: 'i2',
+  number: 2,
+  identifier: 'LUM-I2',
+  statement: 'dark mode toggle',
+  sourceContext: 'from the standup',
+}
+
+const capturedFromTask: ApiIdea = {
+  ...base,
+  id: 'i1',
+  number: 1,
+  identifier: 'LUM-I1',
+  statement: 'faster search',
+  sourceTaskId: 'LUM-9',
+}
+
+function setIdeas(ideas: ApiIdea[]) {
+  mockUseIdeas.mockReturnValue({
+    ideas,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  })
+}
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('IdeaPoolPage', () => {
+  it('renders each idea with statement, status, source and captured time', () => {
+    setIdeas([planned, capturedWithContext, capturedFromTask])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    // statements
+    expect(screen.getByText('ship the idea pool')).toBeInTheDocument()
+    expect(screen.getByText('dark mode toggle')).toBeInTheDocument()
+    expect(screen.getByText('faster search')).toBeInTheDocument()
+
+    // status labels (both kinds present)
+    expect(screen.getByText('ideas.statusPlanned')).toBeInTheDocument()
+    expect(screen.getAllByText('ideas.statusCaptured')).toHaveLength(2)
+
+    // source: free-text context rendered verbatim; task source templated
+    expect(screen.getByText('from the standup')).toBeInTheDocument()
+    expect(screen.getByText('ideas.fromTask LUM-9')).toBeInTheDocument()
+
+    // captured time is rendered via the locale-aware formatter
+    expect(screen.getAllByText('date:2026').length).toBeGreaterThan(0)
+  })
+
+  it('links a PLANNED idea to the plan run it was materialised into', () => {
+    setIdeas([planned, capturedWithContext])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    const link = screen
+      .getByText(/ideas\.plannedInto Idea visibility/)
+      .closest('a')
+    expect(link).not.toBeNull()
+    expect(link).toHaveAttribute('href', '/workspace/lumo/plan/run-1')
+  })
+
+  it('shows no Initiative link on a CAPTURED idea', () => {
+    setIdeas([capturedWithContext])
+    const { container } = render(<IdeaPoolPage workspaceUrl='lumo' />)
+    expect(container.querySelector('a[href*="/plan/"]')).toBeNull()
+  })
+
+  it('filters the pool by the search box', () => {
+    setIdeas([planned, capturedWithContext, capturedFromTask])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    fireEvent.change(screen.getByPlaceholderText('ideas.search'), {
+      target: { value: 'dark' },
+    })
+
+    expect(screen.getByText('dark mode toggle')).toBeInTheDocument()
+    expect(screen.queryByText('ship the idea pool')).not.toBeInTheDocument()
+    expect(screen.queryByText('faster search')).not.toBeInTheDocument()
+  })
+
+  it('renders the empty state when the pool is empty', () => {
+    setIdeas([])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+    expect(screen.getByText('ideas.empty')).toBeInTheDocument()
+  })
+
+  it('surfaces a load error with retry', () => {
+    const refetch = jest.fn()
+    mockUseIdeas.mockReturnValue({
+      ideas: [],
+      loading: false,
+      error: 'boom',
+      refetch,
+    })
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+    expect(screen.getByText('boom')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('common.retry'))
+    expect(refetch).toHaveBeenCalled()
+  })
+})

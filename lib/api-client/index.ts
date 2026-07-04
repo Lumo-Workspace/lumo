@@ -11,6 +11,7 @@ export type {
 export { planRunsClient } from './plan-runs'
 export { projectsClient } from './projects'
 export { documentsClient, documentRevisionsApi } from './documents'
+export { ideasClient } from './ideas'
 export { documentTemplatesClient } from './document-templates'
 export { workspacesClient } from './workspaces'
 export { notificationsClient } from './notifications'

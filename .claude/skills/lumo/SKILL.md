@@ -78,6 +78,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
     ```bash
     lumo idea "Add a quick-capture keyboard shortcut" --context "raised in standup"
     ```
+- `lumo idea list` — print the team idea pool **newest-first**, one line per idea: the `LUM-I<n>` id, status (`CAPTURED` | `PLANNED`) and statement. Reads `GET /api/ideas`, which returns the whole pool (both statuses), not just the unprocessed slice. Empty pool prints `No ideas.`. The same pool is browsable/searchable in web at `/workspace/<slug>/ideas` (sidebar → Ideas), where a PLANNED idea links to the plan run that materialised it.
+  - **When to suggest**: the user wants to see what's parked in the idea pool / "看看想法池" / "list the ideas" / triage before running `lumo plan`.
 
 **Plan runs (design-thinking 转换器)**
 

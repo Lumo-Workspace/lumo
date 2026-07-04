@@ -41,16 +41,18 @@ export async function POST(request: Request): Promise<Response> {
 /**
  * GET /api/ideas
  *
- * The caller team's unprocessed (CAPTURED) pool — the read the transformer
- * (Spec 2) consumes. Scoped to the caller's default team; never leaks another
- * team's ideas.
+ * The caller team's full idea pool — every status, newest first, each idea
+ * carrying its materialisation lineage (`planRunId` + `initiative`) so a
+ * PLANNED idea can link back to the Initiative it fed. Powers the ideas pool
+ * page and `lumo idea list`. Scoped to the caller's default team; never leaks
+ * another team's ideas.
  */
 export async function GET(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
 
   try {
-    const ideas = await ideaService.listUnprocessed({
+    const ideas = await ideaService.listPool({
       workspaceId: identity.workspaceId,
     })
     return NextResponse.json({ ideas })

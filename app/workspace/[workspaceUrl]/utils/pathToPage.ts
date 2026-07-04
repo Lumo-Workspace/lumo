@@ -24,6 +24,7 @@ export function pathToPage(
     return { page: 'document-editor', projectSlug: docId }
   }
   if (rest.startsWith('/documents')) return { page: 'documents' }
+  if (rest.startsWith('/ideas')) return { page: 'ideas' }
   if (rest.startsWith('/dashboard')) return { page: 'dashboard' }
   if (rest.startsWith('/inbox')) return { page: 'inbox' }
   if (rest.startsWith('/projects/')) {

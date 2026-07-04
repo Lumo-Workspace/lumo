@@ -8,8 +8,8 @@ import type { CaptureIdeaInput } from '@/lib/validation/idea'
  * rather than hitting `fetch` directly.
  */
 export const ideasClient = {
-  /** GET the caller team's unprocessed (CAPTURED) pool. */
-  listUnprocessed<T>() {
+  /** GET the caller team's full idea pool (every status, newest first). */
+  listPool<T>() {
     return apiFetch<T>(API.ideas.list)
   },
 

@@ -86,6 +86,10 @@ export const queryKeys = {
     tree: () => ['documents', 'tree'] as const,
   },
 
+  ideas: {
+    all: () => ['ideas'] as const,
+  },
+
   summary: {
     project: (projectId: string) => ['summary', 'project', projectId] as const,
     workspace: () => ['summary', 'workspace'] as const,

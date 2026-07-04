@@ -1,7 +1,7 @@
 /** @jest-environment node */
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/services', () => ({
-  ideaService: { capture: jest.fn(), listUnprocessed: jest.fn() },
+  ideaService: { capture: jest.fn(), listPool: jest.fn() },
 }))
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -117,11 +117,11 @@ describe('POST /api/ideas', () => {
 })
 
 describe('GET /api/ideas', () => {
-  it('GET /api/ideas lists CAPTURED team ideas', async () => {
+  it('GET /api/ideas lists the team pool newest-first as the service returns it', async () => {
     ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
-    ;(ideaService.listUnprocessed as jest.Mock).mockResolvedValue([
+    ;(ideaService.listPool as jest.Mock).mockResolvedValue([
+      { ...IDEA, id: 'i2', number: 2, identifier: 'LUM-I2', status: 'PLANNED' },
       { ...IDEA, id: 'i1', number: 1, identifier: 'LUM-I1' },
-      { ...IDEA, id: 'i2', number: 2, identifier: 'LUM-I2' },
     ])
 
     const res = await GET(getReq())
@@ -130,11 +130,11 @@ describe('GET /api/ideas', () => {
     const json = await res.json()
     expect(json.ideas).toHaveLength(2)
     expect(json.ideas.map((i: { identifier: string }) => i.identifier)).toEqual(
-      ['LUM-I1', 'LUM-I2']
+      ['LUM-I2', 'LUM-I1']
     )
     // Scoped to the caller's workspace only — the service resolves the caller
     // team from this and never crosses teams.
-    expect(ideaService.listUnprocessed).toHaveBeenCalledWith({
+    expect(ideaService.listPool).toHaveBeenCalledWith({
       workspaceId: 'w1',
     })
   })
@@ -145,6 +145,6 @@ describe('GET /api/ideas', () => {
     )
     const res = await GET(getReq())
     expect(res.status).toBe(401)
-    expect(ideaService.listUnprocessed).not.toHaveBeenCalled()
+    expect(ideaService.listPool).not.toHaveBeenCalled()
   })
 })
