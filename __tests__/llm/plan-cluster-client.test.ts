@@ -2,8 +2,17 @@ jest.mock('ai', () => ({ generateObject: jest.fn() }))
 jest.mock('@ai-sdk/gateway', () => ({
   gateway: jest.fn().mockReturnValue('mocked-model'),
 }))
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}))
 
 import { generateObject } from 'ai'
+import { logger } from '@/lib/logger'
 import {
   callPlanClusterLLM,
   buildPlanClusterPrompt,
@@ -81,43 +90,54 @@ describe('callPlanClusterLLM', () => {
     await expect(callPlanClusterLLM(IDEAS)).rejects.toThrow(/schema/)
   })
 
-  it('throws when the model drops an input idea id (silent partial result)', async () => {
+  it('omitted idea ids are reconciled into orphans not dropped', async () => {
+    // Model returns only i1, i2 — i3 and i4 are silently omitted (the exact
+    // failure mode a long-cuid pool hits: the model echoes one id short).
     mockGenerateObject.mockResolvedValueOnce({
       object: {
         clusters: [{ name: 'Theming', thrust: 'x', ideaIds: ['i1', 'i2'] }],
-        orphans: [], // i3 and i4 dropped
+        orphans: [],
       },
     } as any)
 
-    await expect(callPlanClusterLLM(IDEAS)).rejects.toThrow(/dropped/)
+    const result = await callPlanClusterLLM(IDEAS)
+
+    // No throw: every input id survives, the omitted ones land in orphans.
+    const assigned = [
+      ...result.clusters.flatMap(c => c.ideaIds),
+      ...result.orphans,
+    ]
+    expect(assigned.sort()).toEqual(['i1', 'i2', 'i3', 'i4'])
+    expect(result.orphans).toEqual(expect.arrayContaining(['i3', 'i4']))
+    // No idea is ever lost — the partition still covers the whole input.
+    expect(new Set(assigned).size).toBe(IDEAS.length)
   })
 
-  it('throws when the model invents an id not in the input pool', async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        clusters: [
-          { name: 'Theming', thrust: 'x', ideaIds: ['i1', 'i2'] },
-          { name: 'Dev', thrust: 'y', ideaIds: ['i3'] },
-        ],
-        orphans: ['i4', 'i99'], // i99 hallucinated
-      },
-    } as any)
-
-    await expect(callPlanClusterLLM(IDEAS)).rejects.toThrow(/unknown idea id/)
-  })
-
-  it('throws when the model assigns the same id twice', async () => {
+  it('unknown and duplicate ids are tolerated not thrown', async () => {
+    // Model hallucinates i99 (not in the pool) and repeats i4 across a cluster
+    // and orphans. A single such blemish must not hard-fail the whole run.
     mockGenerateObject.mockResolvedValueOnce({
       object: {
         clusters: [
           { name: 'Theming', thrust: 'x', ideaIds: ['i1', 'i2'] },
           { name: 'Dev', thrust: 'y', ideaIds: ['i3', 'i4'] },
         ],
-        orphans: ['i4'], // i4 duplicated
+        orphans: ['i4', 'i99'],
       },
     } as any)
 
-    await expect(callPlanClusterLLM(IDEAS)).rejects.toThrow(/more than once/)
+    const result = await callPlanClusterLLM(IDEAS)
+
+    const assigned = [
+      ...result.clusters.flatMap(c => c.ideaIds),
+      ...result.orphans,
+    ]
+    // Unknown id excluded; duplicate collapsed to one; real ids all present once.
+    expect(assigned).not.toContain('i99')
+    expect(assigned.filter(id => id === 'i4')).toHaveLength(1)
+    expect(new Set(assigned)).toEqual(new Set(['i1', 'i2', 'i3', 'i4']))
+    // The blemish is surfaced, not swallowed silently.
+    expect(logger.warn).toHaveBeenCalled()
   })
 })
 

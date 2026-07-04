@@ -1,4 +1,5 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -96,9 +97,15 @@ Group these into 3-6 coherent clusters. Put ideas that fit no cluster in orphans
  * Stage-1 clustering: group an unprocessed idea pool into 3-6 clusters plus an
  * explicit orphan list. `generateObject` performs schema validation and SDK
  * retries; a malformed model response therefore throws rather than returning a
- * partial result. On top of that, we verify the returned ids exactly partition
- * the input set — a dropped or invented id is a silent partial result and is
- * rejected with a thrown error.
+ * partial result.
+ *
+ * On top of that, we RECONCILE the returned ids against the input pool rather
+ * than hard-failing on any imperfection: with a 15-long-cuid pool the model
+ * very easily echoes one id short or duplicates one, and throwing there would
+ * FAIL the entire run over a cosmetic blemish. Instead we tolerate the noise —
+ * unknown/duplicate ids are dropped with a warning, and (the load-bearing
+ * invariant) any input id the model omitted is reassigned to orphans so no idea
+ * is ever silently lost. See `reconcileClusterOutput`.
  */
 export async function callPlanClusterLLM(
   ideas: ClusterIdeaInput[]
@@ -112,43 +119,65 @@ export async function callPlanClusterLLM(
     prompt,
   })
 
-  assertIdsPartitionInput(ideas, object)
-
-  return object
+  return reconcileClusterOutput(ideas, object)
 }
 
-/** Throw unless every input id appears exactly once across clusters+orphans and
- *  no unknown id was introduced — guards against a silently partial clustering. */
-function assertIdsPartitionInput(
+/**
+ * Reconcile a raw model clustering against the input pool without throwing.
+ *
+ * Invariants:
+ * - **Never drop an idea.** Every input id appears exactly once in the result:
+ *   ids the model omitted are appended to `orphans`.
+ * - **Tolerate id noise.** An id not in the input pool (hallucinated) or a
+ *   second occurrence of an already-placed id is excluded and warned, not
+ *   thrown — a single blemish never hard-fails the run.
+ * - First placement wins: an id kept in a cluster is not re-added from orphans
+ *   (or a later cluster), preserving the model's primary assignment.
+ * - A cluster left empty after filtering is dropped (clusters carry ≥1 idea).
+ */
+export function reconcileClusterOutput(
   ideas: ClusterIdeaInput[],
   output: PlanClusterOutput
-): void {
+): PlanClusterOutput {
   const inputIds = new Set(ideas.map(i => i.id))
-  const seen = new Set<string>()
+  const placed = new Set<string>()
+  const unknownIds: string[] = []
+  const duplicateIds: string[] = []
 
-  const allAssigned = [
-    ...output.clusters.flatMap(c => c.ideaIds),
-    ...output.orphans,
-  ]
+  // Keep only in-pool, not-yet-placed ids; record why anything is excluded.
+  const keep = (ids: string[]): string[] =>
+    ids.filter(id => {
+      if (!inputIds.has(id)) {
+        unknownIds.push(id)
+        return false
+      }
+      if (placed.has(id)) {
+        duplicateIds.push(id)
+        return false
+      }
+      placed.add(id)
+      return true
+    })
 
-  for (const id of allAssigned) {
-    if (!inputIds.has(id)) {
-      throw new Error(
-        `plan-cluster: model returned unknown idea id "${id}" not present in the input pool`
-      )
-    }
-    if (seen.has(id)) {
-      throw new Error(
-        `plan-cluster: model assigned idea id "${id}" more than once`
-      )
-    }
-    seen.add(id)
+  const clusters = output.clusters
+    .map(c => ({ ...c, ideaIds: keep(c.ideaIds) }))
+    .filter(c => c.ideaIds.length > 0)
+
+  const orphans = keep(output.orphans)
+
+  // The invariant: any input id the model never placed goes to orphans so it is
+  // carried forward, never silently lost.
+  const missing = ideas.map(i => i.id).filter(id => !placed.has(id))
+  if (missing.length > 0) orphans.push(...missing)
+
+  if (unknownIds.length || duplicateIds.length || missing.length) {
+    logger.warn('plan-cluster: reconciled imperfect model ids', {
+      inputCount: inputIds.size,
+      unknownIds,
+      duplicateIds,
+      missingReassignedToOrphans: missing,
+    })
   }
 
-  if (seen.size !== inputIds.size) {
-    const missing = [...inputIds].filter(id => !seen.has(id))
-    throw new Error(
-      `plan-cluster: model dropped ${missing.length} idea id(s) from the clustering: ${missing.join(', ')}`
-    )
-  }
+  return { clusters, orphans }
 }
