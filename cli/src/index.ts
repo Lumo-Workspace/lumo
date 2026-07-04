@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { ideaCapture } from './commands/idea'
+import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
 import { criteriaAudit } from './commands/criteria-audit'
@@ -410,6 +411,24 @@ program
       ideaCapture(statement as string, options as { context?: string })
     )
   )
+
+const planCmd = program
+  .command('plan')
+  .description(
+    'Start a design-thinking 转换器 run (聚类→对齐→成计划) and print the gate-A web deep-link. Refuses when a run is already active (see `lumo plan status`); --abandon-active abandons the prior run first. Editing/confirmation happen in web.'
+  )
+  .option(
+    '--abandon-active',
+    'Abandon the team’s existing active run before starting a fresh one'
+  )
+  .action(wrap(options => plan(options as PlanOptions)))
+
+planCmd
+  .command('status')
+  .description(
+    'Print the active plan run’s current stage and the deep-link to its next gate; with no active run, prompts to run `lumo plan`.'
+  )
+  .action(wrap(() => planStatus()))
 
 program
   .command('cost')

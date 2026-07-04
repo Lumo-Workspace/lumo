@@ -2,6 +2,20 @@ import { z } from 'zod'
 import { ALIGN_VERDICTS, MAX_STARRED } from '@/lib/plan-run/gate-b'
 
 /**
+ * Payload for `POST /api/plan-runs` — starting a design-thinking 转换器 run
+ * (LUM-668, `lumo plan`). The only field is the run-lock override:
+ * `abandonActive` first abandons the team's existing active run before
+ * starting a fresh one. Absent/false → the service refuses with 409 when a run
+ * is already active. The input snapshot (ideas + priority) is frozen
+ * server-side, so the request carries no run inputs.
+ */
+export const startPlanRunSchema = z.object({
+  abandonActive: z.boolean().optional(),
+})
+
+export type StartPlanRunInput = z.infer<typeof startPlanRunSchema>
+
+/**
  * Gate B (闸门B) confirm payload. The web board sends back one entry per cluster
  * the align stage produced: the (possibly switched) three-way verdict, the
  * (possibly edited) one-line rationale, and whether the human starred it.

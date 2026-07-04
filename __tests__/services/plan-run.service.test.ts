@@ -194,6 +194,42 @@ describe('planRunService.confirmGate', () => {
   })
 })
 
+describe('planRunService.getActiveRun', () => {
+  it('returns the team active run (non-terminal stages only)', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(planRunRepository.findActiveByTeam as jest.Mock).mockResolvedValue(
+      run({ stage: 'ALIGNING' })
+    )
+
+    const result = await planRunService.getActiveRun({ workspaceId: 'w1' })
+
+    expect(result?.stage).toBe('ALIGNING')
+    // Terminal stages are excluded — an active run is one still in flight.
+    expect(planRunRepository.findActiveByTeam).toHaveBeenCalledWith('team-1', [
+      'MATERIALIZED',
+      'ABANDONED',
+    ])
+  })
+
+  it('returns null when the team has no active run', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(planRunRepository.findActiveByTeam as jest.Mock).mockResolvedValue(null)
+
+    const result = await planRunService.getActiveRun({ workspaceId: 'w1' })
+
+    expect(result).toBeNull()
+  })
+
+  it('throws 404 when the workspace has no default team', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(null)
+
+    await expect(
+      planRunService.getActiveRun({ workspaceId: 'w1' })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(planRunRepository.findActiveByTeam).not.toHaveBeenCalled()
+  })
+})
+
 describe('planRunService.recordStageOutput', () => {
   it('failed stage retry overwrites the stage record', async () => {
     // The CLUSTER segment failed; retrying re-runs it. recordStageOutput
