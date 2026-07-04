@@ -41,9 +41,57 @@ const STAGE_RECORD_SELECT = {
   updatedAt: true,
 } satisfies Prisma.PlanRunStageRecordSelect
 
+// A lightweight row for the plan-runs list surface (LUM-677): enough to render
+// one line per run + its materialized Initiative(s) for lineage, without the
+// heavy frozen-snapshot / prose columns.
+const LIST_SELECT = {
+  id: true,
+  stage: true,
+  createdAt: true,
+  updatedAt: true,
+  initiatives: {
+    select: { id: true, number: true, goalStatement: true },
+  },
+} satisfies Prisma.PlanRunSelect
+
+// The read-only archive of a whole run (LUM-677): the run + every gate's
+// stage record (llmRawOutput vs humanConfirmedOutput = the "全量存档") + the
+// materialized Initiative(s) for lineage. `workspaceId` is carried so the
+// service can enforce workspace scoping before returning.
+const ARCHIVE_SELECT = {
+  id: true,
+  workspaceId: true,
+  stage: true,
+  startedByMemberId: true,
+  prioritySnapshot: true,
+  createdAt: true,
+  updatedAt: true,
+  stageRecords: {
+    select: {
+      kind: true,
+      model: true,
+      llmRawOutput: true,
+      humanConfirmedOutput: true,
+      confirmedBy: true,
+      confirmedAt: true,
+      revision: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+  initiatives: {
+    select: { id: true, number: true, goalStatement: true },
+  },
+} satisfies Prisma.PlanRunSelect
+
 export type PlanRunRow = Prisma.PlanRunGetPayload<{ select: typeof RUN_SELECT }>
 export type PlanRunStageRecordRow = Prisma.PlanRunStageRecordGetPayload<{
   select: typeof STAGE_RECORD_SELECT
+}>
+export type PlanRunListRow = Prisma.PlanRunGetPayload<{
+  select: typeof LIST_SELECT
+}>
+export type PlanRunArchiveRow = Prisma.PlanRunGetPayload<{
+  select: typeof ARCHIVE_SELECT
 }>
 
 export interface CreatePlanRunData {
@@ -82,6 +130,52 @@ export const planRunRepository = {
 
   async findById(id: string): Promise<PlanRunRow | null> {
     return prisma.planRun.findUnique({ where: { id }, select: RUN_SELECT })
+  },
+
+  /**
+   * Every run for a team, newest first — the active run plus terminal ones
+   * (MATERIALIZED / ABANDONED / FAILED). Team-scoped so one team's runs never
+   * leak into another's list (LUM-677). Light `LIST_SELECT` for the list surface.
+   */
+  async listByTeam(teamId: string): Promise<PlanRunListRow[]> {
+    return prisma.planRun.findMany({
+      where: { teamId },
+      select: LIST_SELECT,
+      orderBy: { createdAt: 'desc' },
+    })
+  },
+
+  /**
+   * A run's full read-only archive by id (run + all gate stage records +
+   * materialized initiatives), or null. The service enforces workspace scoping
+   * on the returned `workspaceId` before handing it out (LUM-677).
+   */
+  async findArchiveById(id: string): Promise<PlanRunArchiveRow | null> {
+    return prisma.planRun.findUnique({ where: { id }, select: ARCHIVE_SELECT })
+  },
+
+  /**
+   * The CLUSTER stage record of the team's most recent run to have reached
+   * CLUSTERS_READY (i.e. that produced a clustering), or null. Ordered by the
+   * parent run's `createdAt` so the newest clustering wins. Carries both the
+   * raw Stage-1 output and the human-confirmed edit so the caller can prefer
+   * the confirmed clustering. Powers the Ideas-page grouped view (LUM-677) —
+   * a pure DB read, no clustering LLM call.
+   */
+  async findLatestClusterRecordByTeam(teamId: string): Promise<{
+    planRunId: string
+    llmRawOutput: PlanRunStageRecordRow['llmRawOutput']
+    humanConfirmedOutput: PlanRunStageRecordRow['humanConfirmedOutput']
+  } | null> {
+    return prisma.planRunStageRecord.findFirst({
+      where: { kind: 'CLUSTER', planRun: { teamId } },
+      orderBy: { planRun: { createdAt: 'desc' } },
+      select: {
+        planRunId: true,
+        llmRawOutput: true,
+        humanConfirmedOutput: true,
+      },
+    })
   },
 
   /** One stage record by (run, kind), or null. Used by the web gate to read the

@@ -43,6 +43,12 @@ export const API = {
     byId: (id: string) => `/api/initiatives/${id}`,
   },
   planRuns: {
+    // The caller team's plan runs (active + terminal), newest first (LUM-677).
+    list: '/api/plan-runs',
+    // The latest run's clustering — groups the Ideas page pool (LUM-677).
+    latestClustering: '/api/plan-runs/latest-clustering',
+    // A run's read-only archive: stage records + materialized initiatives.
+    archive: (runId: string) => `/api/plan-runs/${runId}/archive`,
     // Thin run read (stage) for the deep-link gate dispatcher.
     run: (runId: string) => `/api/plan-runs/${runId}`,
     // Gate A (闸门A · 聚类确认) render source + confirm.

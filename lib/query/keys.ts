@@ -51,6 +51,9 @@ export const queryKeys = {
   },
 
   planRuns: {
+    list: () => ['planRuns', 'list'] as const,
+    latestClustering: () => ['planRuns', 'latestClustering'] as const,
+    archive: (runId: string) => ['planRuns', 'archive', runId] as const,
     run: (runId: string) => ['planRuns', 'run', runId] as const,
     alignGate: (runId: string) => ['planRuns', 'alignGate', runId] as const,
     materializeGate: (runId: string) =>

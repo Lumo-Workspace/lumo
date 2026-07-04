@@ -1,6 +1,6 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
-import type { PlanRunStage } from '@prisma/client'
+import type { PlanRunStage, PlanStageKind } from '@prisma/client'
 import type { AlignVerdict } from '@/lib/plan-run/gate-b'
 import type { ClusterGateOutput } from '@/lib/plan-run/cluster-gate'
 import type {
@@ -55,6 +55,63 @@ export interface ConfirmAlignGateResult {
   selectedClusterIds: string[]
 }
 
+// ── Plan-runs list + archive (LUM-677) ────────────────────────────────────────
+
+/** A materialized Initiative referenced from a run (list + archive lineage). */
+export interface PlanRunInitiativeRef {
+  id: string
+  number: number
+  goalStatement: string
+}
+
+/** One row on the Ideas-page plan-runs surface: a run + its materialized
+ *  Initiative(s). Newest-first, active + terminal. */
+export interface PlanRunListRow {
+  id: string
+  stage: PlanRunStage
+  createdAt: string
+  updatedAt: string
+  initiatives: PlanRunInitiativeRef[]
+}
+
+/** One gate's frozen record in the archive — the AI draft (`llmRawOutput`) and
+ *  the human-confirmed edit (`humanConfirmedOutput`, null until confirmed). */
+export interface PlanRunArchiveStage {
+  kind: PlanStageKind
+  model: string
+  llmRawOutput: unknown
+  humanConfirmedOutput: unknown
+  confirmedBy: string | null
+  confirmedAt: string | null
+  revision: number
+}
+
+/** One cluster from the latest run's clustering — a label + its idea ids. */
+export interface IdeaClusterGroup {
+  name: string
+  ideaIds: string[]
+}
+
+/** The clustering the Ideas page groups its pool by, or null when no run has
+ *  clustered yet (the page then falls back to a flat list). */
+export interface LatestClustering {
+  runId: string
+  clusters: IdeaClusterGroup[]
+}
+
+/** A run's full read-only archive: the run + every gate record + materialized
+ *  Initiative(s) for lineage. */
+export interface PlanRunArchive {
+  id: string
+  stage: PlanRunStage
+  startedByMemberId: string
+  prioritySnapshot: string | null
+  createdAt: string
+  updatedAt: string
+  stageRecords: PlanRunArchiveStage[]
+  initiatives: PlanRunInitiativeRef[]
+}
+
 // ── Gate dispatcher (LUM-671) ─────────────────────────────────────────────────
 
 /** Thin run read for the gate dispatcher — which gate to render by stage. */
@@ -71,6 +128,23 @@ export interface PlanRunView {
  * LUM-671) via `getGateC`/`materialize`. No direct `fetch` in components.
  */
 export const planRunsClient = {
+  /** GET the caller team's plan runs (active + terminal), newest first. */
+  list() {
+    return apiFetch<{ runs: PlanRunListRow[] }>(API.planRuns.list)
+  },
+
+  /** GET a run's read-only archive (stage records + materialized initiatives). */
+  getArchive(runId: string) {
+    return apiFetch<PlanRunArchive>(API.planRuns.archive(runId))
+  },
+
+  /** GET the latest run's clustering (groups the Ideas page pool), or null. */
+  latestClustering() {
+    return apiFetch<{ clustering: LatestClustering | null }>(
+      API.planRuns.latestClustering
+    )
+  },
+
   /** GET the run's current stage (gate dispatcher). */
   getRun(runId: string) {
     return apiFetch<PlanRunView>(API.planRuns.run(runId))

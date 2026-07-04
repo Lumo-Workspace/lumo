@@ -7,7 +7,13 @@ import { Lightbulb } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AsyncContent } from '../AsyncContent'
 import { SearchInput } from '../SearchInput'
+import { PlanRunsSection } from '../plan-run/PlanRunsSection'
+import { groupIdeasByClustering } from '../../utils/groupIdeasByClustering'
 import { ApiIdea } from '../../types'
+import type {
+  PlanRunListRow,
+  LatestClustering,
+} from '@/lib/api-client/plan-runs'
 
 interface IdeaPoolViewProps {
   ideas: ApiIdea[]
@@ -15,6 +21,10 @@ interface IdeaPoolViewProps {
   error: string | null
   onRetry: () => void
   workspaceUrl: string
+  planRuns: PlanRunListRow[]
+  planRunsLoading: boolean
+  planRunsError: string | null
+  clustering: LatestClustering | null
 }
 
 /**
@@ -30,9 +40,15 @@ export function IdeaPoolView({
   error,
   onRetry,
   workspaceUrl,
+  planRuns,
+  planRunsLoading,
+  planRunsError,
+  clustering,
 }: IdeaPoolViewProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
+
+  const searching = search.trim().length > 0
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -44,9 +60,26 @@ export function IdeaPoolView({
     )
   }, [ideas, search])
 
+  // Default view: group the pool by the latest run's clustering (LUM-677).
+  // Searching flattens to a filtered list; no run yet → grouped is null →
+  // flat time-ordered fallback. Pure — no LLM call on load.
+  const grouped = useMemo(
+    () => (searching ? null : groupIdeasByClustering(ideas, clustering)),
+    [ideas, clustering, searching]
+  )
+
   return (
     <div className='flex-1 overflow-y-auto p-6'>
       <div className='mx-auto max-w-3xl'>
+        {/* Plan runs surfaced here (LUM-677) — not a separate top-level nav
+            entry; the converter is the idea pool's primary downstream action. */}
+        <PlanRunsSection
+          runs={planRuns}
+          loading={planRunsLoading}
+          error={planRunsError}
+          workspaceUrl={workspaceUrl}
+        />
+
         <div className='mb-4 flex items-center gap-2'>
           <Lightbulb className='size-5 text-muted-foreground' />
           <h1 className='text-lg font-semibold'>
@@ -83,10 +116,67 @@ export function IdeaPoolView({
             </div>
           }
         >
-          {filtered.length === 0 ? (
-            <p className='py-8 text-center text-sm text-muted-foreground'>
-              {intl.formatMessage({ id: 'ideas.noMatches' })}
-            </p>
+          {searching ? (
+            filtered.length === 0 ? (
+              <p className='py-8 text-center text-sm text-muted-foreground'>
+                {intl.formatMessage({ id: 'ideas.noMatches' })}
+              </p>
+            ) : (
+              <ul className='flex flex-col gap-2'>
+                {filtered.map(idea => (
+                  <IdeaRow
+                    key={idea.id}
+                    idea={idea}
+                    workspaceUrl={workspaceUrl}
+                  />
+                ))}
+              </ul>
+            )
+          ) : grouped ? (
+            <div className='flex flex-col gap-5'>
+              {grouped.clusters.map(cluster => (
+                <section
+                  key={cluster.name}
+                  data-testid='idea-cluster'
+                  className='flex flex-col gap-2'
+                >
+                  <h2
+                    data-testid='cluster-heading'
+                    className='text-sm font-medium text-muted-foreground'
+                  >
+                    {cluster.name}
+                  </h2>
+                  <ul className='flex flex-col gap-2'>
+                    {cluster.ideas.map(idea => (
+                      <IdeaRow
+                        key={idea.id}
+                        idea={idea}
+                        workspaceUrl={workspaceUrl}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              {grouped.ungrouped.length > 0 && (
+                <section
+                  data-testid='idea-ungrouped'
+                  className='flex flex-col gap-2'
+                >
+                  <h2 className='text-sm font-medium text-muted-foreground'>
+                    {intl.formatMessage({ id: 'ideas.ungrouped' })}
+                  </h2>
+                  <ul className='flex flex-col gap-2'>
+                    {grouped.ungrouped.map(idea => (
+                      <IdeaRow
+                        key={idea.id}
+                        idea={idea}
+                        workspaceUrl={workspaceUrl}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
           ) : (
             <ul className='flex flex-col gap-2'>
               {filtered.map(idea => (

@@ -2,6 +2,8 @@ import {
   planRunRepository,
   type PlanRunRow,
   type PlanRunStageRecordRow,
+  type PlanRunListRow,
+  type PlanRunArchiveRow,
   type StageOutputData,
 } from '@/lib/repositories/plan-run.repository'
 import { ideaRepository } from '@/lib/repositories/idea.repository'
@@ -297,6 +299,72 @@ export const planRunService = {
     return planRunRepository.findActiveByTeam(team.id, [...TERMINAL_STAGES])
   },
 
+  /**
+   * Every plan run for the workspace's default team, newest first — the active
+   * run plus terminal ones (MATERIALIZED / ABANDONED / FAILED). Powers the
+   * Ideas-page plan-runs surface (LUM-677) so runs are reachable without the
+   * CLI deep-link. Team-scoped: a caller only ever sees their own team's runs.
+   * Throws 404 when the workspace has no default team.
+   */
+  async listRuns(args: { workspaceId: string }): Promise<PlanRunListRow[]> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+    return planRunRepository.listByTeam(team.id)
+  },
+
+  /**
+   * A run's full read-only archive (LUM-677): the run + each gate's stage
+   * record (llmRawOutput vs humanConfirmedOutput) + the materialized
+   * Initiative(s). Workspace-scoped — a run in another workspace is reported as
+   * 404 (not 403) so the endpoint never confirms a foreign run's existence.
+   */
+  async getArchive(args: {
+    runId: string
+    workspaceId: string
+  }): Promise<PlanRunArchiveRow> {
+    const run = await planRunRepository.findArchiveById(args.runId)
+    if (!run || run.workspaceId !== args.workspaceId) {
+      throw Object.assign(new Error(`Plan run ${args.runId} not found`), {
+        status: 404,
+      })
+    }
+    return run
+  },
+
+  /**
+   * The clustering the Ideas page should group its pool by (LUM-677): the
+   * CLUSTER output of the workspace default team's most recent run to reach
+   * CLUSTERS_READY — the human-confirmed clustering if the gate was confirmed,
+   * else the raw Stage-1 output. Returns null when no run has clustered yet
+   * (the page then falls back to a flat list). A pure read of stored records —
+   * **no clustering LLM call**. Throws 404 when there is no default team.
+   */
+  async getLatestClustering(args: { workspaceId: string }): Promise<{
+    runId: string
+    clusters: { name: string; ideaIds: string[] }[]
+  } | null> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+    const record = await planRunRepository.findLatestClusterRecordByTeam(
+      team.id
+    )
+    if (!record) return null
+    return {
+      runId: record.planRunId,
+      clusters: extractClusterGroups(
+        record.humanConfirmedOutput ?? record.llmRawOutput
+      ),
+    }
+  },
+
   /** Load a run or throw 404. */
   async requireRun(planRunId: string): Promise<PlanRunRow> {
     const run = await planRunRepository.findById(planRunId)
@@ -309,4 +377,39 @@ export const planRunService = {
   },
 }
 
-export type { PlanRunRow, PlanRunStageRecordRow }
+/**
+ * Pull `{ name, ideaIds }` clusters out of a stored CLUSTER output. The output
+ * is opaque JSON (`ClusterGateOutput` shape when well-formed), so read
+ * defensively: keep only clusters with a string `name` and a string[] of
+ * `ideaIds`. Malformed / empty output yields `[]` (page falls back gracefully).
+ */
+function extractClusterGroups(
+  output: unknown
+): { name: string; ideaIds: string[] }[] {
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    !Array.isArray((output as { clusters?: unknown }).clusters)
+  ) {
+    return []
+  }
+  return (output as { clusters: unknown[] }).clusters
+    .map(c => {
+      if (!c || typeof c !== 'object') return null
+      const name = (c as { name?: unknown }).name
+      const ideaIds = (c as { ideaIds?: unknown }).ideaIds
+      if (typeof name !== 'string' || !Array.isArray(ideaIds)) return null
+      return {
+        name,
+        ideaIds: ideaIds.filter((id): id is string => typeof id === 'string'),
+      }
+    })
+    .filter((c): c is { name: string; ideaIds: string[] } => c !== null)
+}
+
+export type {
+  PlanRunRow,
+  PlanRunStageRecordRow,
+  PlanRunListRow,
+  PlanRunArchiveRow,
+}

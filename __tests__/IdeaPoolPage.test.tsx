@@ -33,6 +33,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeas', () => ({
   useIdeas: () => mockUseIdeas(),
 }))
 
+// This suite focuses on the idea pool; the plan-runs surface (LUM-677) has its
+// own suite, so stub it to an empty pool (the section renders nothing then).
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/usePlanRuns', () => ({
+  usePlanRuns: () => ({
+    runs: [],
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}))
+
+// No clustering here → the flat time-ordered list (the grouped view has its own
+// suite). LUM-677.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
+  useIdeaGrouping: () => ({ clustering: null, loading: false, error: null }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'

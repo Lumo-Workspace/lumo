@@ -1,17 +1,18 @@
-import { PlanRunGate } from '../../components/plan-run/PlanRunGate'
+import { PlanRunDetail } from '../../components/plan-run/PlanRunDetail'
 
 /**
- * Converter gate page — the CLI deep-link target (`lumo plan` / `lumo plan
- * status` print `/workspace/<slug>/plan/<runId>`). Auth + workspace access are
+ * Converter run page — the CLI deep-link target (`lumo plan` / `lumo plan
+ * status` print `/workspace/<slug>/plan/<runId>`) and the Ideas-page
+ * plan-runs surface both land here (LUM-677). Auth + workspace access are
  * validated by the parent WorkspaceLayout; react-query + i18n come from the
- * root providers. The client dispatcher renders whichever gate is open by the
- * run's stage (Gate B · 对齐 / Gate C · 物化).
+ * root providers. `PlanRunDetail` renders per state: an active run resumes at
+ * its current gate, a terminal run shows a read-only archive.
  */
-export default async function PlanRunGatePage({
+export default async function PlanRunPage({
   params,
 }: {
   params: Promise<{ workspaceUrl: string; runId: string }>
 }) {
   const { workspaceUrl, runId } = await params
-  return <PlanRunGate runId={runId} workspaceUrl={workspaceUrl} />
+  return <PlanRunDetail runId={runId} workspaceUrl={workspaceUrl} />
 }

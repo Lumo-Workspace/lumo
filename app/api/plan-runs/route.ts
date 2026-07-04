@@ -25,6 +25,28 @@ export const maxDuration = 300
  * never blocks or fails the response): it advances the run CLUSTERING →
  * CLUSTERS_READY so gate A actually opens instead of sitting stuck (LUM-674).
  */
+/**
+ * GET /api/plan-runs
+ *
+ * List the caller team's plan runs — the active run plus terminal ones
+ * (MATERIALIZED / ABANDONED / FAILED), newest first (LUM-677). Team-scoped by
+ * the service so one team's runs never leak into another's list. Powers the
+ * Ideas-page plan-runs surface, so runs are reachable without the CLI deep-link.
+ */
+export async function GET(request: Request): Promise<Response> {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
+
+  try {
+    const runs = await planRunService.listRuns({
+      workspaceId: identity.workspaceId,
+    })
+    return NextResponse.json({ runs })
+  } catch (err) {
+    return errorResponse(err, 'GET /api/plan-runs')
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
