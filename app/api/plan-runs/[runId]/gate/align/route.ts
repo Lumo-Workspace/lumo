@@ -6,6 +6,11 @@ import { planGateService } from '@/lib/services/plan-gate.service'
 
 export const runtime = 'nodejs'
 
+// Confirming gate B advances the run into GENERATING (Stage-3) — a slow LLM
+// stage on the same order as Stages 1/2. Give it headroom over the ~60s
+// platform default so it isn't killed mid-call (LUM-676).
+export const maxDuration = 300
+
 type Params = { params: Promise<{ runId: string }> }
 
 /**

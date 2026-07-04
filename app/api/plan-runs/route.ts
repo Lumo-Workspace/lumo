@@ -6,6 +6,12 @@ import { startPlanRunSchema } from '@/lib/validation/plan-run'
 import { planRunService } from '@/lib/services'
 import { triggerClusterStage } from '@/lib/services/plan-cluster-runner'
 
+// Stage-1 (聚类) runs a reasoning-model LLM call that measures ~70s locally
+// (deepseek-v4-pro). Without this, the function inherits the platform default
+// (~60s) and is killed mid-call → run lands FAILED (LUM-676). 300s is the
+// Vercel Pro ceiling and leaves ample headroom.
+export const maxDuration = 300
+
 /**
  * POST /api/plan-runs
  *
