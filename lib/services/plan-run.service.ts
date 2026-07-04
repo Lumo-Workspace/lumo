@@ -2,6 +2,8 @@ import {
   planRunRepository,
   type PlanRunRow,
   type PlanRunStageRecordRow,
+  type PlanRunListRow,
+  type PlanRunArchiveRow,
   type StageOutputData,
 } from '@/lib/repositories/plan-run.repository'
 import { ideaRepository } from '@/lib/repositories/idea.repository'
@@ -297,6 +299,42 @@ export const planRunService = {
     return planRunRepository.findActiveByTeam(team.id, [...TERMINAL_STAGES])
   },
 
+  /**
+   * Every plan run for the workspace's default team, newest first — the active
+   * run plus terminal ones (MATERIALIZED / ABANDONED / FAILED). Powers the
+   * Ideas-page plan-runs surface (LUM-677) so runs are reachable without the
+   * CLI deep-link. Team-scoped: a caller only ever sees their own team's runs.
+   * Throws 404 when the workspace has no default team.
+   */
+  async listRuns(args: { workspaceId: string }): Promise<PlanRunListRow[]> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+    return planRunRepository.listByTeam(team.id)
+  },
+
+  /**
+   * A run's full read-only archive (LUM-677): the run + each gate's stage
+   * record (llmRawOutput vs humanConfirmedOutput) + the materialized
+   * Initiative(s). Workspace-scoped — a run in another workspace is reported as
+   * 404 (not 403) so the endpoint never confirms a foreign run's existence.
+   */
+  async getArchive(args: {
+    runId: string
+    workspaceId: string
+  }): Promise<PlanRunArchiveRow> {
+    const run = await planRunRepository.findArchiveById(args.runId)
+    if (!run || run.workspaceId !== args.workspaceId) {
+      throw Object.assign(new Error(`Plan run ${args.runId} not found`), {
+        status: 404,
+      })
+    }
+    return run
+  },
+
   /** Load a run or throw 404. */
   async requireRun(planRunId: string): Promise<PlanRunRow> {
     const run = await planRunRepository.findById(planRunId)
@@ -309,4 +347,9 @@ export const planRunService = {
   },
 }
 
-export type { PlanRunRow, PlanRunStageRecordRow }
+export type {
+  PlanRunRow,
+  PlanRunStageRecordRow,
+  PlanRunListRow,
+  PlanRunArchiveRow,
+}

@@ -7,7 +7,9 @@ import { Lightbulb } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AsyncContent } from '../AsyncContent'
 import { SearchInput } from '../SearchInput'
+import { PlanRunsSection } from '../plan-run/PlanRunsSection'
 import { ApiIdea } from '../../types'
+import type { PlanRunListRow } from '@/lib/api-client/plan-runs'
 
 interface IdeaPoolViewProps {
   ideas: ApiIdea[]
@@ -15,6 +17,9 @@ interface IdeaPoolViewProps {
   error: string | null
   onRetry: () => void
   workspaceUrl: string
+  planRuns: PlanRunListRow[]
+  planRunsLoading: boolean
+  planRunsError: string | null
 }
 
 /**
@@ -30,6 +35,9 @@ export function IdeaPoolView({
   error,
   onRetry,
   workspaceUrl,
+  planRuns,
+  planRunsLoading,
+  planRunsError,
 }: IdeaPoolViewProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
@@ -47,6 +55,15 @@ export function IdeaPoolView({
   return (
     <div className='flex-1 overflow-y-auto p-6'>
       <div className='mx-auto max-w-3xl'>
+        {/* Plan runs surfaced here (LUM-677) — not a separate top-level nav
+            entry; the converter is the idea pool's primary downstream action. */}
+        <PlanRunsSection
+          runs={planRuns}
+          loading={planRunsLoading}
+          error={planRunsError}
+          workspaceUrl={workspaceUrl}
+        />
+
         <div className='mb-4 flex items-center gap-2'>
           <Lightbulb className='size-5 text-muted-foreground' />
           <h1 className='text-lg font-semibold'>
