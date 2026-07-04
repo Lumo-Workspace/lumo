@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Memuatkan inisiatif…",
   "initiative.list.error": "Tidak dapat memuatkan inisiatif",
   "initiative.list.empty": "Belum ada inisiatif",
-  "initiative.list.emptyHint": "Inisiatif akan dipaparkan di sini setelah sesuatu rancangan direalisasikan daripada kumpulan idea.",
+  "initiative.list.emptyHint": "Cipta terus, atau inisiatif akan dipaparkan di sini setelah sesuatu rancangan direalisasikan daripada kumpulan idea.",
   "initiative.list.taskCount": "{count, plural, other {# tugasan}}",
   "initiative.list.ideaCount": "{count, plural, other {# idea}}",
   "initiative.detail.loading": "Memuatkan inisiatif…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} daripada {total} selesai",
   "initiative.detail.noTasks": "Belum ada tugasan yang dilampirkan",
   "initiative.detail.noIdeas": "Tiada idea yang digunakan",
-  "initiative.detail.backToList": "Kembali ke inisiatif"
+  "initiative.detail.backToList": "Kembali ke inisiatif",
+  "initiative.new": "Inisiatif baharu",
+  "initiative.create.goalLabel": "Matlamat",
+  "initiative.create.goalPlaceholder": "Hasil apa yang ingin dicapai oleh inisiatif ini?",
+  "initiative.create.assumptionLabel": "Andaian utama (pilihan)",
+  "initiative.create.assumptionPlaceholder": "Apakah yang menjadi pertaruhan anda?",
+  "initiative.create.submit": "Cipta inisiatif",
+  "initiative.create.submitting": "Mencipta…",
+  "initiative.create.cancel": "Batal",
+  "initiative.create.error": "Tidak dapat mencipta inisiatif"
 }

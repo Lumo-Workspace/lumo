@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Cargando iniciativas…",
   "initiative.list.error": "No se pudieron cargar las iniciativas",
   "initiative.list.empty": "Aún no hay iniciativas",
-  "initiative.list.emptyHint": "Las iniciativas aparecen aquí una vez que un plan se materializa a partir del grupo de ideas.",
+  "initiative.list.emptyHint": "Crea una directamente, o aparecerán aquí una vez que un plan se materializa a partir del grupo de ideas.",
   "initiative.list.taskCount": "{count, plural, one {# tarea} other {# tareas}}",
   "initiative.list.ideaCount": "{count, plural, one {# idea} other {# ideas}}",
   "initiative.detail.loading": "Cargando iniciativa…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} de {total} completadas",
   "initiative.detail.noTasks": "Aún no hay tareas vinculadas",
   "initiative.detail.noIdeas": "No se han consumido ideas",
-  "initiative.detail.backToList": "Volver a las iniciativas"
+  "initiative.detail.backToList": "Volver a las iniciativas",
+  "initiative.new": "Nueva iniciativa",
+  "initiative.create.goalLabel": "Objetivo",
+  "initiative.create.goalPlaceholder": "¿Hacia qué resultado avanza esta iniciativa?",
+  "initiative.create.assumptionLabel": "La apuesta (opcional)",
+  "initiative.create.assumptionPlaceholder": "¿A qué le estás apostando?",
+  "initiative.create.submit": "Crear iniciativa",
+  "initiative.create.submitting": "Creando…",
+  "initiative.create.cancel": "Cancelar",
+  "initiative.create.error": "No se pudo crear la iniciativa"
 }

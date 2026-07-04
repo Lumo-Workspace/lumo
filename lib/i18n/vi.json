@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Đang tải sáng kiến…",
   "initiative.list.error": "Không thể tải sáng kiến",
   "initiative.list.empty": "Chưa có sáng kiến nào",
-  "initiative.list.emptyHint": "Các sáng kiến sẽ xuất hiện ở đây sau khi một kế hoạch được hiện thực hóa từ nhóm ý tưởng.",
+  "initiative.list.emptyHint": "Tạo trực tiếp một sáng kiến, hoặc chúng sẽ xuất hiện ở đây sau khi một kế hoạch được hiện thực hóa từ nhóm ý tưởng.",
   "initiative.list.taskCount": "{count, plural, other {# nhiệm vụ}}",
   "initiative.list.ideaCount": "{count, plural, other {# ý tưởng}}",
   "initiative.detail.loading": "Đang tải sáng kiến…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} trên {total} đã hoàn thành",
   "initiative.detail.noTasks": "Chưa có nhiệm vụ nào được đính kèm",
   "initiative.detail.noIdeas": "Chưa sử dụng ý tưởng nào",
-  "initiative.detail.backToList": "Quay lại danh sách sáng kiến"
+  "initiative.detail.backToList": "Quay lại danh sách sáng kiến",
+  "initiative.new": "Sáng kiến mới",
+  "initiative.create.goalLabel": "Mục tiêu",
+  "initiative.create.goalPlaceholder": "Sáng kiến này hướng tới kết quả nào?",
+  "initiative.create.assumptionLabel": "Giả định (tùy chọn)",
+  "initiative.create.assumptionPlaceholder": "Bạn đang đặt cược vào điều gì?",
+  "initiative.create.submit": "Tạo sáng kiến",
+  "initiative.create.submitting": "Đang tạo…",
+  "initiative.create.cancel": "Hủy",
+  "initiative.create.error": "Không thể tạo sáng kiến"
 }

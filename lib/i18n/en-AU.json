@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Loading initiatives…",
   "initiative.list.error": "Could not load initiatives",
   "initiative.list.empty": "No initiatives yet",
-  "initiative.list.emptyHint": "Initiatives appear here once a plan is materialized from the idea pool.",
+  "initiative.list.emptyHint": "Create one directly, or they appear here once a plan is materialized from the idea pool.",
   "initiative.list.taskCount": "{count, plural, one {# task} other {# tasks}}",
   "initiative.list.ideaCount": "{count, plural, one {# idea} other {# ideas}}",
   "initiative.detail.loading": "Loading initiative…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} of {total} done",
   "initiative.detail.noTasks": "No tasks attached yet",
   "initiative.detail.noIdeas": "No ideas consumed",
-  "initiative.detail.backToList": "Back to initiatives"
+  "initiative.detail.backToList": "Back to initiatives",
+  "initiative.new": "New initiative",
+  "initiative.create.goalLabel": "Goal",
+  "initiative.create.goalPlaceholder": "What outcome is this initiative driving toward?",
+  "initiative.create.assumptionLabel": "The bet (optional)",
+  "initiative.create.assumptionPlaceholder": "What are you betting on?",
+  "initiative.create.submit": "Create initiative",
+  "initiative.create.submitting": "Creating…",
+  "initiative.create.cancel": "Cancel",
+  "initiative.create.error": "Could not create the initiative"
 }

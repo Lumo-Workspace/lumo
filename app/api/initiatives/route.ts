@@ -1,13 +1,47 @@
 import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
+import { createInitiativeSchema } from '@/lib/validation/initiative'
 import { initiativeService } from '@/lib/services/initiative.service'
+
+/**
+ * POST /api/initiatives
+ *
+ * Create a team-level Initiative directly (no plan run required). Auth via
+ * Clerk (web) or Bearer (CLI — `lumo initiative create`). Scoped to the
+ * workspace's default team; `planRunId` is null and `status` starts ACTIVE.
+ */
+export async function POST(request: Request): Promise<Response> {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const parsed = createInitiativeSchema.safeParse(body)
+  if (!parsed.success) return zodError(parsed)
+
+  try {
+    const initiative = await initiativeService.create({
+      workspaceId: identity.workspaceId,
+      input: parsed.data,
+    })
+    return NextResponse.json({ initiative }, { status: 201 })
+  } catch (err) {
+    return errorResponse(err, 'POST /api/initiatives')
+  }
+}
 
 /**
  * GET /api/initiatives
  *
- * The caller team's materialised initiatives (list). Auth via Clerk (web) or
- * Bearer (CLI). Scoped to the workspace's default team; never leaks another
- * team's initiatives.
+ * The caller team's initiatives (list). Auth via Clerk (web) or Bearer (CLI).
+ * Scoped to the workspace's default team; never leaks another team's
+ * initiatives.
  */
 export async function GET(request: Request): Promise<Response> {
   const identity = await requireIdentity(request)

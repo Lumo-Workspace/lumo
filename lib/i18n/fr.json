@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Chargement des initiatives…",
   "initiative.list.error": "Impossible de charger les initiatives",
   "initiative.list.empty": "Aucune initiative pour l’instant",
-  "initiative.list.emptyHint": "Les initiatives apparaissent ici une fois qu’un plan est matérialisé à partir du pool d’idées.",
+  "initiative.list.emptyHint": "Créez-en une directement, ou elles apparaîtront ici une fois qu’un plan est matérialisé à partir du pool d’idées.",
   "initiative.list.taskCount": "{count, plural, one {# tâche} other {# tâches}}",
   "initiative.list.ideaCount": "{count, plural, one {# idée} other {# idées}}",
   "initiative.detail.loading": "Chargement de l’initiative…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} sur {total} terminées",
   "initiative.detail.noTasks": "Aucune tâche rattachée pour l’instant",
   "initiative.detail.noIdeas": "Aucune idée consommée",
-  "initiative.detail.backToList": "Retour aux initiatives"
+  "initiative.detail.backToList": "Retour aux initiatives",
+  "initiative.new": "Nouvelle initiative",
+  "initiative.create.goalLabel": "Objectif",
+  "initiative.create.goalPlaceholder": "Vers quel résultat cette initiative avance-t-elle ?",
+  "initiative.create.assumptionLabel": "Le pari (facultatif)",
+  "initiative.create.assumptionPlaceholder": "Sur quoi pariez-vous ?",
+  "initiative.create.submit": "Créer l’initiative",
+  "initiative.create.submitting": "Création…",
+  "initiative.create.cancel": "Annuler",
+  "initiative.create.error": "Impossible de créer l’initiative"
 }

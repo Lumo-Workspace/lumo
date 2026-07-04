@@ -80,6 +80,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
     ```
 - `lumo idea list` — print the team idea pool **newest-first**, one line per idea: the `LUM-I<n>` id, status (`CAPTURED` | `PLANNED`) and statement. Reads `GET /api/ideas`, which returns the whole pool (both statuses), not just the unprocessed slice. Empty pool prints `No ideas.`. The same pool is browsable/searchable in web at `/workspace/<slug>/ideas` (sidebar → Ideas), where a PLANNED idea links to the plan run that materialised it.
   - **When to suggest**: the user wants to see what's parked in the idea pool / "看看想法池" / "list the ideas" / triage before running `lumo plan`.
+  - **Example**:
+    ```bash
+    lumo idea list
+    ```
 
 **Plan runs (design-thinking 转换器)**
 
@@ -89,6 +93,21 @@ The command catalog below is a **map**: it lists every command grouped by domain
   - **Example** — check where the active run stands:
     ```bash
     lumo plan status
+    ```
+
+**Initiatives (team-level, LUM-INIT-<n>)**
+
+- `lumo initiative create "<goal>" [--assumption <text>]` — create a team-level Initiative **directly, no plan run required** (`planRunId=null`, status `ACTIVE`). Prints the `LUM-INIT-<n>` id; `--assumption` records the bet (赌注旁注) behind it. A blank goal is rejected (400). Converter-materialised initiatives (from `lumo plan`) live in the same list.
+  - **When to suggest**: the user wants to stand up a strategic initiative directly — "建一个 initiative" / "create an initiative" / "开一个举措" — without running the converter.
+  - **Example**:
+    ```bash
+    lumo initiative create "Ship the initiatives browse surface" --assumption "teams curate initiatives directly"
+    ```
+- `lumo initiative list` — print the team's initiatives newest-first, one line per initiative: the `LUM-INIT-<n>` id, status (`ACTIVE` | `DONE` | `DROPPED`) and goal. Browsable in web at `/workspace/<slug>/initiatives` (sidebar → Initiatives), where each links to its lineage (consumed ideas + attached tasks).
+  - **When to suggest**: the user wants to see the team's initiatives / "看看 initiatives" / "list the initiatives".
+  - **Example**:
+    ```bash
+    lumo initiative list
     ```
 
 **Task dependencies** — see [task-deps.md](references/task-deps.md)

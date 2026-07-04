@@ -1,13 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Lightbulb, ListChecks, Target } from 'lucide-react'
+import { Lightbulb, ListChecks, Plus, Target } from 'lucide-react'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import type { ApiInitiativeStatus } from '@/lib/api-client/initiatives'
-import { useInitiatives } from '../../hooks/useInitiatives'
+import { useCreateInitiative, useInitiatives } from '../../hooks/useInitiatives'
 
 const STATUS_KEY: Record<ApiInitiativeStatus, string> = {
   ACTIVE: 'initiative.status.active',
@@ -27,7 +32,8 @@ const STATUS_VARIANT: Record<
 }
 
 /**
- * Initiatives landing (LUM-673) — the caller team's materialised initiatives.
+ * Initiatives landing (LUM-673) — the caller team's initiatives, with a
+ * **New Initiative** action to create one directly (no plan run required).
  * Each card links to the detail page where the lineage (which ideas became it,
  * which tasks hang off it) is shown. First-class browse; does not touch the
  * core Milestone concept.
@@ -36,14 +42,113 @@ export function InitiativesLandingClient() {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { initiatives, isLoading, error } = useInitiatives()
+  const {
+    createInitiative,
+    isCreating,
+    error: createError,
+  } = useCreateInitiative()
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [goal, setGoal] = useState('')
+  const [assumption, setAssumption] = useState('')
+
+  const resetForm = () => {
+    setGoal('')
+    setAssumption('')
+    setFormOpen(false)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!goal.trim() || isCreating) return
+    try {
+      await createInitiative({
+        goalStatement: goal.trim(),
+        assumptionNote: assumption.trim() || null,
+      })
+      resetForm()
+    } catch {
+      // Error surfaced via the hook's `createError`; keep the form open.
+    }
+  }
 
   return (
     <div className='flex h-full flex-col overflow-hidden'>
       <PageBreadcrumb
         title={intl.formatMessage({ id: 'sidebar.initiatives' })}
+        actions={
+          <Button size='sm' onClick={() => setFormOpen(o => !o)}>
+            <Plus className='size-4' />
+            {intl.formatMessage({ id: 'initiative.new' })}
+          </Button>
+        }
       />
       <div className='flex-1 overflow-y-auto px-4 py-6 md:px-8'>
         <div className='mx-auto max-w-3xl'>
+          {formOpen && (
+            <form
+              onSubmit={handleSubmit}
+              className='mb-6 flex flex-col gap-3 rounded-lg border p-4'
+            >
+              <div className='flex flex-col gap-1.5'>
+                <Label htmlFor='initiative-goal'>
+                  {intl.formatMessage({ id: 'initiative.create.goalLabel' })}
+                </Label>
+                <Textarea
+                  id='initiative-goal'
+                  value={goal}
+                  onChange={e => setGoal(e.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: 'initiative.create.goalPlaceholder',
+                  })}
+                  rows={2}
+                  autoFocus
+                />
+              </div>
+              <div className='flex flex-col gap-1.5'>
+                <Label htmlFor='initiative-assumption'>
+                  {intl.formatMessage({
+                    id: 'initiative.create.assumptionLabel',
+                  })}
+                </Label>
+                <Input
+                  id='initiative-assumption'
+                  value={assumption}
+                  onChange={e => setAssumption(e.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: 'initiative.create.assumptionPlaceholder',
+                  })}
+                />
+              </div>
+              {createError && (
+                <p className='text-sm text-destructive'>
+                  {intl.formatMessage({ id: 'initiative.create.error' })}
+                </p>
+              )}
+              <div className='flex items-center gap-2'>
+                <Button
+                  type='submit'
+                  size='sm'
+                  disabled={!goal.trim() || isCreating}
+                >
+                  {intl.formatMessage({
+                    id: isCreating
+                      ? 'initiative.create.submitting'
+                      : 'initiative.create.submit',
+                  })}
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='ghost'
+                  onClick={resetForm}
+                >
+                  {intl.formatMessage({ id: 'initiative.create.cancel' })}
+                </Button>
+              </div>
+            </form>
+          )}
+
           {isLoading ? (
             <p className='text-sm text-muted-foreground'>
               {intl.formatMessage({ id: 'initiative.list.loading' })}

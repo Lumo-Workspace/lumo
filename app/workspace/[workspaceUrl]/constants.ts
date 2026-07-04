@@ -37,8 +37,9 @@ export const API = {
     create: '/api/ideas',
   },
   initiatives: {
-    // Team-level materialised initiatives (LUM-673): list + detail w/ lineage.
+    // Team-level initiatives (LUM-673): list + detail w/ lineage + direct create.
     list: '/api/initiatives',
+    create: '/api/initiatives',
     byId: (id: string) => `/api/initiatives/${id}`,
   },
   planRuns: {

@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "पहल लोड हो रही हैं…",
   "initiative.list.error": "पहल लोड नहीं हो सकीं",
   "initiative.list.empty": "अभी तक कोई पहल नहीं",
-  "initiative.list.emptyHint": "जब किसी योजना को विचार पूल से मूर्त रूप दिया जाता है, तो पहल यहाँ दिखाई देती हैं।",
+  "initiative.list.emptyHint": "सीधे एक पहल बनाएँ, या जब किसी योजना को विचार पूल से मूर्त रूप दिया जाता है तो वे यहाँ दिखाई देती हैं।",
   "initiative.list.taskCount": "{count, plural, one {# कार्य} other {# कार्य}}",
   "initiative.list.ideaCount": "{count, plural, one {# विचार} other {# विचार}}",
   "initiative.detail.loading": "पहल लोड हो रही है…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{total} में से {done} पूर्ण",
   "initiative.detail.noTasks": "अभी तक कोई कार्य संलग्न नहीं",
   "initiative.detail.noIdeas": "कोई विचार उपयोग नहीं किया गया",
-  "initiative.detail.backToList": "पहल पर वापस जाएँ"
+  "initiative.detail.backToList": "पहल पर वापस जाएँ",
+  "initiative.new": "नई पहल",
+  "initiative.create.goalLabel": "लक्ष्य",
+  "initiative.create.goalPlaceholder": "यह पहल किस परिणाम की ओर बढ़ रही है?",
+  "initiative.create.assumptionLabel": "दांव (वैकल्पिक)",
+  "initiative.create.assumptionPlaceholder": "आप किस पर दांव लगा रहे हैं?",
+  "initiative.create.submit": "पहल बनाएँ",
+  "initiative.create.submitting": "बना रहे हैं…",
+  "initiative.create.cancel": "रद्द करें",
+  "initiative.create.error": "पहल नहीं बनाई जा सकी"
 }

@@ -1,10 +1,11 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { initiativesClient } from '@/lib/api-client'
 import type {
   ApiInitiativeListItem,
   ApiInitiativeDetail,
+  CreateInitiativeBody,
 } from '@/lib/api-client/initiatives'
 
 interface InitiativesListResult {
@@ -13,6 +14,10 @@ interface InitiativesListResult {
 
 interface InitiativeDetailResult {
   initiative: ApiInitiativeDetail
+}
+
+interface CreateInitiativeResult {
+  initiative: ApiInitiativeListItem
 }
 
 /** The caller team's materialised initiatives (list). */
@@ -26,6 +31,26 @@ export function useInitiatives() {
     isLoading: query.isLoading,
     error: query.error ? 'Failed to load initiatives' : null,
     refetch: query.refetch,
+  }
+}
+
+/**
+ * Create a team-level initiative directly (no plan run). On success the
+ * initiatives list query is invalidated so the new row appears.
+ */
+export function useCreateInitiative() {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (input: CreateInitiativeBody) =>
+      initiativesClient.create<CreateInitiativeResult>(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['initiatives'] })
+    },
+  })
+  return {
+    createInitiative: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error ? 'Failed to create initiative' : null,
   }
 }
 

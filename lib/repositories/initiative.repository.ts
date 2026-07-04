@@ -2,11 +2,37 @@ import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
 
 /**
- * Read repository for team-level Initiatives (LUM-673). Initiatives are
- * materialised by the Spec-2 converter (LUM-671); this repo only reads them
- * back for the browse page. All queries are `teamId`-scoped so a caller can
+ * Repository for team-level Initiatives (LUM-673). Initiatives are either
+ * materialised by the Spec-2 converter (LUM-671) or created directly here; this
+ * repo reads them back for the browse page and allocates the team-scoped
+ * `number` for a direct create. All queries are `teamId`-scoped so a caller can
  * never see another team's initiatives.
  */
+
+/** Prisma unique-constraint violation — a concurrent racer took our number. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: unknown }).code === 'P2002'
+  )
+}
+
+const MAX_NUMBER_ATTEMPTS = 5
+
+/** Scalar projection for a freshly-created initiative (no lineage yet). */
+const INITIATIVE_CREATED_SELECT = {
+  id: true,
+  number: true,
+  goalStatement: true,
+  assumptionNote: true,
+  status: true,
+  createdAt: true,
+} satisfies Prisma.InitiativeSelect
+
+export type InitiativeCreatedRow = Prisma.InitiativeGetPayload<{
+  select: typeof INITIATIVE_CREATED_SELECT
+}>
 
 /** List-card projection — the scalar summary plus lineage counts (ISP). */
 const INITIATIVE_LIST_SELECT = {
@@ -71,6 +97,53 @@ export const initiativeRepository = {
     return prisma.initiative.findUnique({
       where: { id },
       select: INITIATIVE_DETAIL_SELECT,
+    })
+  },
+
+  /**
+   * Create a team-level Initiative directly (no plan run): `planRunId` is null
+   * and `status` starts ACTIVE. Like Idea, there is no per-team counter column,
+   * so the next `number` is derived from the current max inside a transaction;
+   * the `@@unique([teamId, number])` constraint guards a concurrent racer and a
+   * resulting P2002 retries with a freshly-read max (bounded).
+   */
+  async create(data: {
+    teamId: string
+    workspaceId: string
+    goalStatement: string
+    assumptionNote: string | null
+  }): Promise<InitiativeCreatedRow> {
+    for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+      try {
+        return await prisma.$transaction(async tx => {
+          const { _max } = await tx.initiative.aggregate({
+            where: { teamId: data.teamId },
+            _max: { number: true },
+          })
+          const number = (_max.number ?? 0) + 1
+          return tx.initiative.create({
+            data: {
+              teamId: data.teamId,
+              workspaceId: data.workspaceId,
+              number,
+              planRunId: null,
+              goalStatement: data.goalStatement,
+              assumptionNote: data.assumptionNote,
+              status: 'ACTIVE',
+            },
+            select: INITIATIVE_CREATED_SELECT,
+          })
+        })
+      } catch (err) {
+        if (isUniqueViolation(err) && attempt < MAX_NUMBER_ATTEMPTS - 1) {
+          continue
+        }
+        throw err
+      }
+    }
+    // Exhausted retries under sustained contention on the initiative number.
+    throw Object.assign(new Error('Could not allocate an initiative number'), {
+      status: 503,
     })
   },
 }

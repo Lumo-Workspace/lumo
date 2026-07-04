@@ -19,4 +19,16 @@ describe('initiativesClient', () => {
     await initiativesClient.getDetail('init-1')
     expect(mockApiFetch).toHaveBeenCalledWith('/api/initiatives/init-1')
   })
+
+  it('create POSTs the goal + assumption payload', async () => {
+    mockApiFetch.mockResolvedValue({ initiative: { identifier: 'LUM-INIT-2' } })
+    await initiativesClient.create({
+      goalStatement: 'Ship it',
+      assumptionNote: 'a bet',
+    })
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/initiatives', {
+      method: 'POST',
+      body: { goalStatement: 'Ship it', assumptionNote: 'a bet' },
+    })
+  })
 })

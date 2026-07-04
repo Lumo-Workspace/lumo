@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "正在載入舉措…",
   "initiative.list.error": "無法載入舉措",
   "initiative.list.empty": "尚無舉措",
-  "initiative.list.emptyHint": "當從想法池物化出一份計畫後，舉措會顯示在這裡。",
+  "initiative.list.emptyHint": "可以直接建立，也可以在從想法池物化出計畫後自動顯示在這裡。",
   "initiative.list.taskCount": "{count, plural, other {# 個任務}}",
   "initiative.list.ideaCount": "{count, plural, other {# 個想法}}",
   "initiative.detail.loading": "正在載入舉措…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} / {total} 已完成",
   "initiative.detail.noTasks": "尚無關聯任務",
   "initiative.detail.noIdeas": "尚無採納的想法",
-  "initiative.detail.backToList": "返回舉措列表"
+  "initiative.detail.backToList": "返回舉措列表",
+  "initiative.new": "新增舉措",
+  "initiative.create.goalLabel": "目標",
+  "initiative.create.goalPlaceholder": "這項舉措要達成什麼成果？",
+  "initiative.create.assumptionLabel": "核心假設（選填）",
+  "initiative.create.assumptionPlaceholder": "你押注在什麼上？",
+  "initiative.create.submit": "建立舉措",
+  "initiative.create.submitting": "建立中…",
+  "initiative.create.cancel": "取消",
+  "initiative.create.error": "無法建立舉措"
 }

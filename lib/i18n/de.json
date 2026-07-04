@@ -2127,7 +2127,7 @@
   "initiative.list.loading": "Initiativen werden geladen…",
   "initiative.list.error": "Initiativen konnten nicht geladen werden",
   "initiative.list.empty": "Noch keine Initiativen",
-  "initiative.list.emptyHint": "Initiativen erscheinen hier, sobald ein Plan aus dem Ideenpool materialisiert wird.",
+  "initiative.list.emptyHint": "Erstelle direkt eine, oder sie erscheinen hier, sobald ein Plan aus dem Ideenpool materialisiert wird.",
   "initiative.list.taskCount": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
   "initiative.list.ideaCount": "{count, plural, one {# Idee} other {# Ideen}}",
   "initiative.detail.loading": "Initiative wird geladen…",
@@ -2138,5 +2138,14 @@
   "initiative.detail.progress": "{done} von {total} erledigt",
   "initiative.detail.noTasks": "Noch keine Aufgaben zugeordnet",
   "initiative.detail.noIdeas": "Keine Ideen verbraucht",
-  "initiative.detail.backToList": "Zurück zu den Initiativen"
+  "initiative.detail.backToList": "Zurück zu den Initiativen",
+  "initiative.new": "Neue Initiative",
+  "initiative.create.goalLabel": "Ziel",
+  "initiative.create.goalPlaceholder": "Auf welches Ergebnis steuert diese Initiative zu?",
+  "initiative.create.assumptionLabel": "Die Wette (optional)",
+  "initiative.create.assumptionPlaceholder": "Worauf wettest du?",
+  "initiative.create.submit": "Initiative erstellen",
+  "initiative.create.submitting": "Wird erstellt…",
+  "initiative.create.cancel": "Abbrechen",
+  "initiative.create.error": "Initiative konnte nicht erstellt werden"
 }
