@@ -288,6 +288,8 @@ model Workspace {
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
   gateSignals             GateSignal[]
+  ideas                   Idea[]
+  priorities              Priority[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -351,11 +353,13 @@ model Team {
   // Existing teams backfilled to Pacific; new teams take the creator's zone.
   timezone String @default("America/Los_Angeles")
 
-  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projects  Project[]
-  members   TeamMember[]
-  tasks     Task[]
-  sprints   Sprint[]
+  workspace  Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects   Project[]
+  members    TeamMember[]
+  tasks      Task[]
+  sprints    Sprint[]
+  ideas      Idea[]
+  priorities Priority[]
 
   @@unique([workspaceId, identifier])
   @@index([workspaceId])
@@ -415,6 +419,69 @@ model WorkspaceMember {
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
   @@map("workspace_members")
+}
+
+// ─── Idea & Priority (team-level foundation, LUM-660) ────────────────────────
+// Two team-level tables that sit ABOVE projects (no projectId): a team's raw
+// idea pool and its declared priorities. Spec1 = this schema foundation only;
+// materialisation into project-scoped Tasks and the Initiative concept are Spec2.
+
+enum IdeaStatus {
+  CAPTURED
+  PLANNED
+}
+
+// A captured team-level idea. NO projectId — ideas live above projects until
+// materialised (Spec2). `number` is per-team (@@unique([teamId, number])).
+// `parentId` is a Phase-2 hierarchy placeholder — always null in Phase 1.
+model Idea {
+  id            String     @id @default(cuid())
+  teamId        String
+  workspaceId   String // redundant with team.workspaceId, for cheap workspace scoping
+  number        Int
+  parentId      String? // self-ref hierarchy, reserved for Phase 2 (null in P1)
+  statement     String
+  sourceContext String? // free-text origin context at capture time
+  status        IdeaStatus @default(CAPTURED)
+
+  // Attribution / provenance. Soft pointers (no FK): the source session or task
+  // may be pruned independently of the idea (cf. Task.claimSnapshotSessionId).
+  proposedByMemberId String
+  sourceSessionId    String? // session that captured the idea, if any
+  sourceTaskId       String? // task bound at capture time, nullable
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent    Idea?     @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Idea[]    @relation("IdeaHierarchy")
+
+  @@unique([teamId, number])
+  @@index([teamId, status])
+  @@index([workspaceId])
+  @@index([parentId])
+  @@map("ideas")
+}
+
+// A team-level priority statement. Append-only by design: no `updatedAt`, and
+// no update/delete path in any layer — a newer declaration supersedes an older
+// one by a later `effectiveFrom`, the history is never mutated.
+model Priority {
+  id                 String   @id @default(cuid())
+  teamId             String
+  workspaceId        String
+  statement          String // 1-3 sentence plain text
+  effectiveFrom      DateTime
+  declaredByMemberId String
+  createdAt          DateTime @default(now())
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, effectiveFrom])
+  @@map("priorities")
 }
 
 // ─── Agent Profiles ─────────────────────────────────────────────────────────
@@ -580,7 +647,7 @@ model Task {
   // triages it. Consumed by `lumo next --claimable`, which surfaces only
   // claimable ∩ unblocked (F3) ∩ in-budget (F2) tasks. Advisory only:
   // nothing is gated on it server-side; default `lumo next` ignores it.
-  claimable         Boolean      @default(false)
+  claimable Boolean @default(false)
 
   // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
   // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
@@ -715,23 +782,23 @@ model Milestone {
   completedOverrideByMemberId String?
   completedOverrideNote       String?
 
-  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
-  summary MilestoneSummary?
+  project               Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks                 Task[]
+  summary               MilestoneSummary?
   // LUM-640: STEWARD (governance) sessions bound to this milestone.
-  sessions          Session[]
+  sessions              Session[]
   // LUM-640: steward-session implementation-artifact crossings recorded against
   // this milestone (no task to attach to — the steward session is task-less).
-  boundaryCrossings BoundaryCrossing[]
+  boundaryCrossings     BoundaryCrossing[]
   // LUM-643: milestone-level exit criteria (the close contract).
-  exitCriteria MilestoneExitCriterion[]
+  exitCriteria          MilestoneExitCriterion[]
   // LUM-647: MILESTONE-scope memories distilled from this milestone's close retro.
-  memories Memory[]
+  memories              Memory[]
   /// LUM-648: cross-milestone learning-migration edges. `asSource` = this
   /// milestone's distilled memory consumed elsewhere; `asConsumer` = prior
   /// milestones' memory this milestone's steward sessions consumed.
-  memoryEdgesAsSource   MilestoneMemoryEdge[] @relation("MilestoneMemoryEdgeSource")
-  memoryEdgesAsConsumer MilestoneMemoryEdge[] @relation("MilestoneMemoryEdgeConsumer")
+  memoryEdgesAsSource   MilestoneMemoryEdge[]    @relation("MilestoneMemoryEdgeSource")
+  memoryEdgesAsConsumer MilestoneMemoryEdge[]    @relation("MilestoneMemoryEdgeConsumer")
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -757,11 +824,11 @@ enum MilestoneExitVerdict {
 /// gate is enforced at adjudication time: a MET on EXTERNAL_FACT must carry an
 /// evidence pointer, and PENDING_OUTCOME can never be adjudicated MET.
 model MilestoneExitCriterion {
-  id           String       @id @default(cuid())
-  milestoneId  String
-  statement    String
-  referentKind ReferentKind
-  source       AcceptanceCriterionSource
+  id              String                    @id @default(cuid())
+  milestoneId     String
+  statement       String
+  referentKind    ReferentKind
+  source          AcceptanceCriterionSource
   // Drafting session provenance (LUM-640 steward attribution), FK-less.
   sourceSessionId String?
 
@@ -1909,16 +1976,16 @@ model Session {
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member           WorkspaceMember   @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-  task             Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  milestone        Milestone?        @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  worktree         Worktree?         @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
-  events           HookEvent[]
-  memories         Memory[]
-  lineageEdges     LineageEdge[]
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member               WorkspaceMember       @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  task                 Task?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  milestone            Milestone?            @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  worktree             Worktree?             @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
+  events               HookEvent[]
+  memories             Memory[]
+  lineageEdges         LineageEdge[]
   milestoneMemoryEdges MilestoneMemoryEdge[]
-  droppedFragments DroppedFragment[]
+  droppedFragments     DroppedFragment[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
@@ -2024,7 +2091,7 @@ model Memory {
   /// LUM-647: scope pointer for MILESTONE-scope memories (the learning unit a
   /// milestone-close retro distilled). Set only when scope=MILESTONE; null for
   /// TASK/PROJECT rows. SetNull on milestone delete keeps the distilled lesson.
-  milestoneId       String?
+  milestoneId String?
 
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2450,25 +2517,25 @@ model LineageEdge {
 /// injected memory); the usage vote is stamped by the audit at the CONSUMER
 /// milestone's close, reusing judgeFragmentUsage.
 model MilestoneMemoryEdge {
-  id          String @id @default(cuid())
-  workspaceId String
+  id                  String    @id @default(cuid())
+  workspaceId         String
   /// The injected MILESTONE-scope memory.
-  memoryId    String
+  memoryId            String
   /// The milestone whose close retro distilled the memory (= Memory.milestoneId
   /// at injection time). Nullable + SetNull so a deleted source milestone leaves
   /// the usage record intact (mirrors Memory.milestoneId).
-  sourceMilestoneId String?
+  sourceMilestoneId   String?
   /// The later milestone whose steward session consumed the memory.
   consumerMilestoneId String
   /// The steward session the memory was injected into.
-  sessionId   String
-  injectedAt  DateTime @default(now())
+  sessionId           String
+  injectedAt          DateTime  @default(now())
   /// Usage vote (mirrors LineageEdge.used): null = not yet audited / judge
   /// abstained, true = judge found concrete evidence of use, false = judged
   /// unused. usedAt also marks "has this session been audited?" (idempotency).
-  used        Boolean?
-  usedAt      DateTime?
-  updatedAt   DateTime @updatedAt
+  used                Boolean?
+  usedAt              DateTime?
+  updatedAt           DateTime  @updatedAt
 
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   memory    Memory     @relation(fields: [memoryId], references: [id], onDelete: Cascade)
@@ -2569,19 +2636,19 @@ enum OutcomeSignalSource {
 /// 交付时固化的 forecast 快照（LUM-319）。只存预测区间；actual 渲染时实算。
 /// keep-first：taskId 唯一，reopen 重交付不覆盖，留住首次交付的真实预测。
 model TaskForecastSnapshot {
-  id                String   @id @default(cuid())
-  taskId            String   @unique
-  iterations        Json? // { p25, median, p75 } | null
-  interactionRounds Json?
-  tokenCost         Json?
-  cohortSize        Int // 相似 cohort 大小（喂 iterations/interaction）
-  tokenCostBasis    Int // 项目级样本数（喂 token）
+  id                 String   @id @default(cuid())
+  taskId             String   @unique
+  iterations         Json? // { p25, median, p75 } | null
+  interactionRounds  Json?
+  tokenCost          Json?
+  cohortSize         Int // 相似 cohort 大小（喂 iterations/interaction）
+  tokenCostBasis     Int // 项目级样本数（喂 token）
   // LUM-606 verification-friction axis — frozen at delivery, cut at capturedAt.
   // Two SEPARATE raw scalars (never a merged friction score); null = no
   // verification record by capture (the no-verification bucket, distinct from 0).
   verificationRounds Int?
   sendBackCount      Int?
-  capturedAt        DateTime @default(now())
+  capturedAt         DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
