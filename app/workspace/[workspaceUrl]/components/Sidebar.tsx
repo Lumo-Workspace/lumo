@@ -23,6 +23,7 @@ import { useWorkspace } from '../hooks/useWorkspace'
 import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
 import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
+import { InitiativesSidebarItem } from './sidebar/InitiativesSidebarItem'
 import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -302,6 +303,11 @@ export function AppSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              <InitiativesSidebarItem
+                workspaceUrl={workspaceUrl}
+                currentPage={currentPage}
+                onNavigate={onNavigate}
+              />
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

@@ -83,6 +83,8 @@ export type Page =
   | 'sprint-detail'
   | 'milestone-detail'
   | 'ideas'
+  | 'initiatives'
+  | 'initiative-detail'
 
 /**
  * A team idea as returned by `GET /api/ideas` (the pool view). Mirrors the

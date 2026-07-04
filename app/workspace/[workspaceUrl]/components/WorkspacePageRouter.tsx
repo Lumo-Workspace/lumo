@@ -27,6 +27,8 @@ import { DraftsPage } from './DraftsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
 import { SprintDetailClient } from '../sprints/[sprintId]/SprintDetailClient'
+import { InitiativesLandingClient } from '../initiatives/components/InitiativesLandingClient'
+import { InitiativeDetailPage } from './pages/InitiativeDetailPage'
 import { GlobalDocTree, CollapsedDocTreeRail } from './document/GlobalDocTree'
 import {
   DocumentTemplatePicker,
@@ -408,6 +410,12 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'ideas':
       return <IdeaPoolPage workspaceUrl={workspaceUrl} />
+
+    case 'initiatives':
+      return <InitiativesLandingClient />
+
+    case 'initiative-detail':
+      return <InitiativeDetailPage />
 
     case 'inbox':
       return (
