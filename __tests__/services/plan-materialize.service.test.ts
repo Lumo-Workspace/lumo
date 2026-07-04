@@ -128,15 +128,18 @@ describe('planMaterializeService.materialize', () => {
 
     // One Initiative created from the accepted draft, numbered max+1.
     expect(tx.initiative.create).toHaveBeenCalledTimes(1)
+    // LUM-678: the drafted goal becomes the Linear `name` (kept mirrored into
+    // the deprecated `goalStatement`), and a materialised initiative starts PLANNED.
     expect(tx.initiative.create).toHaveBeenCalledWith({
       data: {
         teamId: 'team-1',
         workspaceId: 'w1',
         number: 5,
         planRunId: 'run-1',
+        name: 'Goal one',
         goalStatement: 'Goal one',
         assumptionNote: 'the bet',
-        status: 'ACTIVE',
+        status: 'PLANNED',
       },
       select: { id: true, number: true, goalStatement: true },
     })

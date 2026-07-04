@@ -531,9 +531,20 @@ enum PlanStageKind {
   GENERATE
 }
 
+// LUM-678: Linear-aligned 5-state lifecycle. The change is ADDITIVE (criterion
+// 4): PROPOSED/PLANNED/COMPLETED/CANCELLED are ADDed to the existing enum and
+// ACTIVE is kept. DONE/DROPPED are retained-but-deprecated — Postgres enum
+// values can't be removed without a destructive type-swap (DROP DEFAULT), which
+// the additive-migration contract forbids; new code writes only the 5 states.
 enum InitiativeStatus {
+  PROPOSED
+  PLANNED
   ACTIVE
+  COMPLETED
+  CANCELLED
+  /// @deprecated LUM-678 — legacy value, superseded by COMPLETED. Do not write.
   DONE
+  /// @deprecated LUM-678 — legacy value, superseded by CANCELLED. Do not write.
   DROPPED
 }
 
@@ -605,22 +616,45 @@ model PlanRunStageRecord {
 // LUM-INIT-N ((teamId, number) is the visible id). `planRunId` (nullable) is the
 // run that materialised it — an initiative may also be created manually.
 model Initiative {
-  id             String           @id @default(cuid())
-  teamId         String
-  workspaceId    String
-  number         Int
-  planRunId      String? // the 转换器 run that produced this initiative, if any
-  goalStatement  String           @db.Text
-  assumptionNote String?          @db.Text // 赌注旁注 — the bet's side note
-  status         InitiativeStatus @default(ACTIVE)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id          String @id @default(cuid())
+  teamId      String
+  workspaceId String
+  number      Int
 
-  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  planRun   PlanRun?  @relation(fields: [planRunId], references: [id], onDelete: SetNull)
-  tasks     Task[]
-  ideas     Idea[]
+  // LUM-678 (Spec2-16): Linear-aligned scalar fields. `name` is the short title
+  // (required); `description` is the body — the old `goalStatement` content is
+  // relocated here going forward. `priority` reuses TaskPriority (nullable).
+  // `ownerMemberId` is a soft member pointer (no FK, cf. PlanRun.startedByMemberId).
+  // `startDate`/`targetDate` bracket the initiative's window.
+  name          String
+  description   String?           @db.Text
+  priority      TaskPriority?
+  ownerMemberId String?
+  startDate     DateTime?
+  targetDate    DateTime?
+  status        InitiativeStatus  @default(ACTIVE)
+
+  // Lumo-specific, KEPT (Linear has no equivalent): the run that materialised
+  // this initiative (blood-lineage), and the epistemic bet behind it.
+  planRunId      String? // the 转换器 run that produced this initiative, if any
+  assumptionNote String? @db.Text // 赌注旁注 — the bet's side note
+
+  // Deprecated (LUM-678): retained because DROP COLUMN is destructive DDL and the
+  // additive-migration contract forbids it. New writes mirror `name` into it so
+  // existing readers keep working; prefer `name`/`description` going forward.
+  goalStatement String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  planRun    PlanRun?    @relation(fields: [planRunId], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  ideas      Idea[]
+  // LUM-678: the two-layer container — an initiative holds Milestones (each with
+  // their own tasks) and directly-attached Tasks.
+  milestones Milestone[]
 
   @@unique([teamId, number])
   @@index([teamId, status])
@@ -915,6 +949,10 @@ model Sprint {
 model Milestone {
   id          String          @id @default(cuid())
   projectId   String
+  // LUM-678 (Spec2-16): optional roll-up to a team-level Initiative. Additive and
+  // orthogonal to the existing project scoping — a milestone stays project-scoped
+  // and simply *also* participates in an initiative when this is set.
+  initiativeId String?
   name        String
   slug        String
   description String?
@@ -939,6 +977,9 @@ model Milestone {
   completedOverrideNote       String?
 
   project               Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // LUM-678: nullable roll-up to a team-level Initiative (SetNull so dropping an
+  // initiative never cascades away project milestones).
+  initiative            Initiative?              @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
   tasks                 Task[]
   summary               MilestoneSummary?
   // LUM-640: STEWARD (governance) sessions bound to this milestone.
@@ -961,6 +1002,7 @@ model Milestone {
   @@index([projectId, status])
   @@index([projectId, sortOrder])
   @@index([projectId, archivedAt])
+  @@index([initiativeId])
   @@map("milestones")
 }
 

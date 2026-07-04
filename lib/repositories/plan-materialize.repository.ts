@@ -97,9 +97,13 @@ export const planMaterializeRepository = {
                 workspaceId: plan.workspaceId,
                 number: nextInitiativeNumber++,
                 planRunId: plan.planRunId,
+                // LUM-678: Linear `name` (short title) from the drafted goal;
+                // `goalStatement` kept as a deprecated mirror for existing
+                // readers. A materialised initiative starts PLANNED.
+                name: init.goalStatement,
                 goalStatement: init.goalStatement,
                 assumptionNote: init.assumptionNote,
-                status: 'ACTIVE',
+                status: 'PLANNED',
               },
               select: { id: true, number: true, goalStatement: true },
             })

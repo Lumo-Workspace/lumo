@@ -75,6 +75,48 @@ export type InitiativeDetailRow = Prisma.InitiativeGetPayload<{
   select: typeof INITIATIVE_DETAIL_SELECT
 }>
 
+/**
+ * Composition projection (LUM-678) — the two-layer contents of an initiative:
+ * its Milestones (each with its own tasks) and ALL of its initiative-linked
+ * Tasks (both directly-attached and any that also sit under a milestone). The
+ * de-dup (a task under a milestone is not a "direct" task) is a service-layer
+ * decision, so `milestoneId` is selected on the flat `tasks` list for it to
+ * partition on — the repository stays query-only (no business logic).
+ */
+const INITIATIVE_COMPOSITION_SELECT = {
+  id: true,
+  number: true,
+  teamId: true,
+  name: true,
+  milestones: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      status: true,
+      tasks: {
+        select: { id: true, number: true, title: true, status: true },
+        orderBy: { number: 'asc' },
+      },
+    },
+    orderBy: { sortOrder: 'asc' },
+  },
+  tasks: {
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      status: true,
+      milestoneId: true,
+    },
+    orderBy: { number: 'asc' },
+  },
+} satisfies Prisma.InitiativeSelect
+
+export type InitiativeCompositionRow = Prisma.InitiativeGetPayload<{
+  select: typeof INITIATIVE_COMPOSITION_SELECT
+}>
+
 export const initiativeRepository = {
   /**
    * The team's initiatives, newest first. Scoped by `teamId` so a caller never
@@ -97,6 +139,20 @@ export const initiativeRepository = {
     return prisma.initiative.findUnique({
       where: { id },
       select: INITIATIVE_DETAIL_SELECT,
+    })
+  },
+
+  /**
+   * One initiative's two-layer contents (LUM-678): its milestones (each with
+   * their tasks) plus its initiative-linked tasks. Returns the row regardless
+   * of team — the service enforces the team boundary (cf. `findDetailById`).
+   */
+  async findCompositionById(
+    id: string
+  ): Promise<InitiativeCompositionRow | null> {
+    return prisma.initiative.findUnique({
+      where: { id },
+      select: INITIATIVE_COMPOSITION_SELECT,
     })
   },
 
@@ -127,6 +183,9 @@ export const initiativeRepository = {
               workspaceId: data.workspaceId,
               number,
               planRunId: null,
+              // LUM-678: Linear `name` from the goal; `goalStatement` kept as a
+              // deprecated mirror. A directly-created initiative starts ACTIVE.
+              name: data.goalStatement,
               goalStatement: data.goalStatement,
               assumptionNote: data.assumptionNote,
               status: 'ACTIVE',
