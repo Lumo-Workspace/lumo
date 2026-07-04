@@ -27,7 +27,7 @@ jest.mock('@/lib/api-client', () => {
 })
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { ClusterGateBoard } from '@/app/plan/[runId]/gate-a/ClusterGateBoard'
+import { ClusterGateBoard } from '@/app/workspace/[workspaceUrl]/components/plan-run/ClusterGateBoard'
 
 const { ApiClientError } = jest.requireMock('@/lib/api-client') as {
   ApiClientError: typeof import('@/lib/api-client').ApiClientError
@@ -72,7 +72,8 @@ it('renders cluster cards + an orphan zone', async () => {
 })
 
 it('confirm reflects a rename + a move (idea-c orphan → cluster 1)', async () => {
-  render(<ClusterGateBoard runId='run-1' />)
+  const onConfirmed = jest.fn()
+  render(<ClusterGateBoard runId='run-1' onConfirmed={onConfirmed} />)
 
   const nameInput = await screen.findByLabelText('Cluster 1 name')
   fireEvent.change(nameInput, { target: { value: 'Onboarding v2' } })
@@ -99,6 +100,9 @@ it('confirm reflects a rename + a move (idea-c orphan → cluster 1)', async () 
     ideaIds: ['idea-a', 'idea-c'],
   })
   expect(payload.orphans).toEqual([]) // idea-c left the orphan zone
+
+  // The dispatcher is signalled so it can re-read the (now advanced) stage.
+  await waitFor(() => expect(onConfirmed).toHaveBeenCalledTimes(1))
 })
 
 it('shows a conflict message when the confirm 409s (stale revision)', async () => {

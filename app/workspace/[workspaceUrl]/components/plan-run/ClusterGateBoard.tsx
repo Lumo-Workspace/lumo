@@ -13,6 +13,9 @@ import type { ClusterGateCluster } from '@/lib/plan-run/cluster-gate'
 
 interface ClusterGateBoardProps {
   runId: string
+  /** Fired after a successful confirm so the deep-link dispatcher can re-read
+   *  the run's stage and advance to the next gate. */
+  onConfirmed?: () => void
 }
 
 const ORPHAN_TARGET = 'orphans'
@@ -28,7 +31,10 @@ const ORPHAN_TARGET = 'orphans'
  * SRP: this component owns UI state + rendering only; the fetch/confirm calls
  * go through the api-client, and all business rules live behind the gate API.
  */
-export function ClusterGateBoard({ runId }: ClusterGateBoardProps) {
+export function ClusterGateBoard({
+  runId,
+  onConfirmed,
+}: ClusterGateBoardProps) {
   const [view, setView] = useState<ClusterGateView | null>(null)
   const [clusters, setClusters] = useState<ClusterGateCluster[]>([])
   const [orphans, setOrphans] = useState<string[]>([])
@@ -98,6 +104,7 @@ export function ClusterGateBoard({ runId }: ClusterGateBoardProps) {
         ifRevision: view?.revision ?? 0,
       })
       setConfirmedStage(res.run.stage)
+      onConfirmed?.()
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 409) {
         setConfirmError(

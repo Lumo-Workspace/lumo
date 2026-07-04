@@ -5,15 +5,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
 import { planRunsClient } from '@/lib/api-client/plan-runs'
 import { Spinner } from '@/components/ui/spinner'
+import { ClusterGateBoard } from './ClusterGateBoard'
 import { GateBBoard } from './GateBBoard'
 import { GateCView } from './GateCView'
 
 /**
  * Deep-link gate dispatcher (`/workspace/<slug>/plan/<runId>`, the target of
  * `lumo plan` / `lumo plan status`). Reads the run's stage and renders the gate
- * board that is currently open: Gate B (闸门B · 对齐) at ALIGNMENT_READY, Gate C
- * (闸门C · 物化) at DRAFT_READY. Transitional stages (an LLM segment running)
- * show a spinner; terminal / non-gate stages show a plain status line.
+ * board that is currently open: Gate A (闸门A · 聚类) at CLUSTERS_READY, Gate B
+ * (闸门B · 对齐) at ALIGNMENT_READY, Gate C (闸门C · 物化) at DRAFT_READY.
+ * Transitional stages (an LLM segment running) show a spinner; terminal /
+ * non-gate stages show a plain status line.
  */
 export function PlanRunGate({
   runId,
@@ -47,6 +49,19 @@ export function PlanRunGate({
         <p className='text-destructive'>
           {intl.formatMessage({ id: 'plan.gateC.loadError' })}
         </p>
+      </div>
+    )
+  }
+
+  if (data.stage === 'CLUSTERS_READY') {
+    return (
+      <div className='mx-auto max-w-3xl p-8'>
+        <ClusterGateBoard
+          runId={runId}
+          onConfirmed={() =>
+            qc.invalidateQueries({ queryKey: queryKeys.planRuns.run(runId) })
+          }
+        />
       </div>
     )
   }
