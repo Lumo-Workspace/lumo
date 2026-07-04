@@ -37,8 +37,12 @@ export const API = {
     create: '/api/ideas',
   },
   planRuns: {
+    // Thin run read (stage) for the deep-link gate dispatcher.
+    run: (runId: string) => `/api/plan-runs/${runId}`,
     // Gate B (闸门B · 对齐确认) render source + confirm.
     alignGate: (runId: string) => `/api/plan-runs/${runId}/gate/align`,
+    // Gate C (闸门C · 物化) render source + materialise.
+    materializeGate: (runId: string) => `/api/plan-runs/${runId}/gate/materialize`,
   },
   projects: {
     list: '/api/projects',

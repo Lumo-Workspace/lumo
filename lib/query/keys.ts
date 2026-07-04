@@ -51,7 +51,10 @@ export const queryKeys = {
   },
 
   planRuns: {
+    run: (runId: string) => ['planRuns', 'run', runId] as const,
     alignGate: (runId: string) => ['planRuns', 'alignGate', runId] as const,
+    materializeGate: (runId: string) =>
+      ['planRuns', 'materializeGate', runId] as const,
   },
 
   sprints: {
