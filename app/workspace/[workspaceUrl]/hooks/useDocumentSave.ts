@@ -20,6 +20,12 @@ interface UseDocumentSaveOptions {
   applyResult: (partial: Partial<ApiDocumentDetail>) => void
   /** Debounce window in ms. Defaults to 1000. */
   debounceMs?: number
+  /** The document is still an optimistic placeholder — created from a template
+   *  it opens on a client-only `temp-<uuid>` id while the real doc is created
+   *  in the background (LUM-658). PATCHing that id 404s ("Error saving"), so
+   *  while `true` saves are held in `pendingRef` (never sent); the transition
+   *  to `false` (real id now supplied) replays them against the real id. */
+  isPending?: boolean
 }
 
 interface UseDocumentSave {
@@ -54,11 +60,15 @@ export function useDocumentSave({
   documentId,
   applyResult,
   debounceMs = 1000,
+  isPending = false,
 }: UseDocumentSaveOptions): UseDocumentSave {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<DocumentSaveUpdates>({})
+  // Read inside `save` so the deferral tracks the latest value without putting
+  // `isPending` in `save`'s deps (which would rebuild the memoized handlers).
+  const isPendingRef = useRef(isPending)
   // Monotonic id assigned when a request starts; `latestSeqRef` tracks the
   // newest one so older completions can detect they've been superseded.
   const seqRef = useRef(0)
@@ -74,6 +84,13 @@ export function useDocumentSave({
   const save = useCallback(
     async (updates: DocumentSaveUpdates) => {
       if (Object.keys(updates).length === 0) return
+      // Optimistic placeholder (LUM-658): the real doc doesn't exist yet, so a
+      // PATCH would 404. Retain the merged patch — don't send, don't flip
+      // saveStatus — the isPending→false effect replays it against the real id.
+      if (isPendingRef.current) {
+        pendingRef.current = { ...pendingRef.current, ...updates }
+        return
+      }
       const mySeq = ++seqRef.current
       latestSeqRef.current = mySeq
       setSaveStatus('saving')
@@ -133,6 +150,16 @@ export function useDocumentSave({
     },
     [flush]
   )
+
+  // Replay deferred edits once the optimistic placeholder resolves (LUM-658).
+  // `documentId` swaps to the real slug and `isPending` clears in the same
+  // render, so `flush` here is already bound to the real id — the retained
+  // patch lands as one PATCH to the real doc instead of 404ing the temp id.
+  useEffect(() => {
+    const wasPending = isPendingRef.current
+    isPendingRef.current = isPending
+    if (wasPending && !isPending) flush()
+  }, [isPending, flush])
 
   // Flush nothing on unmount, but clear timers so a pending callback can't
   // fire against an unmounted component.

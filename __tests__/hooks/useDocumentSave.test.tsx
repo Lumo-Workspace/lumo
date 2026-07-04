@@ -91,7 +91,10 @@ describe('useDocumentSave', () => {
     })
 
     expect(mockUpdate).toHaveBeenCalledTimes(1)
-    expect(mockUpdate).toHaveBeenCalledWith('doc_1', { title: 'T', emoji: '🚀' })
+    expect(mockUpdate).toHaveBeenCalledWith('doc_1', {
+      title: 'T',
+      emoji: '🚀',
+    })
 
     // The cancelled debounce timer must not fire a second request.
     act(() => jest.advanceTimersByTime(1000))
@@ -172,5 +175,63 @@ describe('useDocumentSave', () => {
     act(() => jest.advanceTimersByTime(1000))
 
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  // Optimistic create window (LUM-658): a doc created from a template opens
+  // the editor on a client-only `temp-<uuid>` id while the real doc is created
+  // in the background. A save fired before the swap would PATCH the temp id,
+  // which the server 404s → "Error saving". Saves must defer, then replay
+  // against the real id once it arrives.
+  it('defers saves while the document is an optimistic placeholder', async () => {
+    mockUpdate.mockResolvedValue({ document: {} })
+    const { result } = renderHook(() =>
+      useDocumentSave({
+        documentId: 'temp-abc',
+        isPending: true,
+        applyResult: jest.fn(),
+      })
+    )
+
+    // Edit during the temp window, then let both the debounce and an immediate
+    // flush elapse — nothing may hit the network (the temp id doesn't exist).
+    act(() => result.current.debouncedSave({ content: '<p>edit</p>' }))
+    await act(async () => {
+      jest.advanceTimersByTime(1000)
+    })
+    act(() => result.current.saveNow({ title: 'T' }))
+    await act(async () => {
+      jest.advanceTimersByTime(1000)
+    })
+
+    expect(mockUpdate).not.toHaveBeenCalled()
+    // And the deferral is silent — never a phantom saving/error state.
+    expect(result.current.saveStatus).toBe('idle')
+  })
+
+  it('replays deferred edits to the real document id once the placeholder resolves', async () => {
+    mockUpdate.mockResolvedValue({ document: {} })
+    const { result, rerender } = renderHook(
+      (props: { documentId: string; isPending: boolean }) =>
+        useDocumentSave({ ...props, applyResult: jest.fn() }),
+      { initialProps: { documentId: 'temp-abc', isPending: true } }
+    )
+
+    // User edits while still on the temp id — deferred, not sent.
+    act(() => result.current.debouncedSave({ content: '<p>edit</p>' }))
+    await act(async () => {
+      jest.advanceTimersByTime(1000)
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
+
+    // Background create resolves: id swaps to the real slug, isPending clears.
+    await act(async () => {
+      rerender({ documentId: 'doc_real', isPending: false })
+    })
+
+    // The retained edit is replayed as ONE PATCH to the REAL id — never temp.
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockUpdate).toHaveBeenCalledWith('doc_real', {
+      content: '<p>edit</p>',
+    })
   })
 })

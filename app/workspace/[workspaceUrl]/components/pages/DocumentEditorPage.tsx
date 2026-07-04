@@ -36,6 +36,7 @@ import { readCache, writeCache } from '../../cache'
 import { useTags } from '../../hooks/useTags'
 import { useDocTocCollapsed } from '../../hooks/useDocTocCollapsed'
 import { useDocumentSave } from '../../hooks/useDocumentSave'
+import { isTempDocumentId } from '../../utils/tempDocId'
 import { useDocumentComments } from '../../hooks/useDocumentComments'
 import {
   buildCreateCommentPayload,
@@ -297,6 +298,10 @@ export function DocumentEditorPage({
   const { saveStatus, debouncedSave, saveNow, flushAsync } = useDocumentSave({
     documentId,
     applyResult,
+    // While the doc is still an optimistic `temp-<uuid>` (created from a
+    // template, real doc pending), hold saves — PATCHing the temp id 404s.
+    // They replay against the real id once the background create resolves.
+    isPending: isTempDocumentId(documentId),
   })
 
   const handleSubmitComment = useCallback(
