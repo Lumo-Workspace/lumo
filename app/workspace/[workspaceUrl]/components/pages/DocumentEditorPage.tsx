@@ -36,7 +36,7 @@ import { readCache, writeCache } from '../../cache'
 import { useTags } from '../../hooks/useTags'
 import { useDocTocCollapsed } from '../../hooks/useDocTocCollapsed'
 import { useDocumentSave } from '../../hooks/useDocumentSave'
-import { isTempDocumentId } from '../../utils/tempDocId'
+import { isTempDocumentId, isTempToRealSwap } from '../../utils/tempDocId'
 import { useDocumentComments } from '../../hooks/useDocumentComments'
 import {
   buildCreateCommentPayload,
@@ -98,6 +98,11 @@ export function DocumentEditorPage({
   const [loading, setLoading] = useState(!initialCache)
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const lastContentRef = useRef<string | null>(null)
+  // Tracks the id the fetch effect last ran for, so it can detect the
+  // temp→real swap render and skip the GET that would race the replayed PATCH
+  // (LUM-659). Seeded to the initial id so a first mount is not mistaken for a
+  // swap.
+  const prevDocumentIdRef = useRef(documentId)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editorReloadKey, setEditorReloadKey] = useState(0)
@@ -203,6 +208,15 @@ export function DocumentEditorPage({
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
     let cancelled = false
+    const prevDocumentId = prevDocumentIdRef.current
+    prevDocumentIdRef.current = documentId
+    // The optimistic temp id just swapped to the real slug: the created doc is
+    // already seeded into cache(realSlug) by the swap handler, and
+    // useDocumentSave replays the user's held edits against the real id. A GET
+    // here would return the pre-edit template body and race that replay,
+    // flashing the editor back to the template (LUM-659). Skip it — normal
+    // navigation (real→real, initial load) still fetches below.
+    const swappedFromTemp = isTempToRealSwap(prevDocumentId, documentId)
     const cached = readCache<ApiDocumentDetail>(
       CACHE_KEY.documentDetail(documentId)
     )
@@ -253,7 +267,13 @@ export function DocumentEditorPage({
       }
     }
 
-    fetchDocument()
+    if (swappedFromTemp) {
+      // Content is authoritative locally; don't race the replayed PATCH. The
+      // swap handler already seeded cache(realSlug), so `doc` is populated.
+      setLoading(false)
+    } else {
+      fetchDocument()
+    }
 
     return () => {
       cancelled = true
