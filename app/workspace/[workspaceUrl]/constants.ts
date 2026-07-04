@@ -36,6 +36,11 @@ export const API = {
     list: '/api/ideas',
     create: '/api/ideas',
   },
+  initiatives: {
+    // Team-level materialised initiatives (LUM-673): list + detail w/ lineage.
+    list: '/api/initiatives',
+    byId: (id: string) => `/api/initiatives/${id}`,
+  },
   planRuns: {
     // Thin run read (stage) for the deep-link gate dispatcher.
     run: (runId: string) => `/api/plan-runs/${runId}`,

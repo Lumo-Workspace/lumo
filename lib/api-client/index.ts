@@ -1,5 +1,13 @@
 export { apiFetch, apiFetchQuiet, ApiClientError } from './base'
 export { tasksClient } from './tasks'
+export { initiativesClient } from './initiatives'
+export type {
+  ApiInitiativeListItem,
+  ApiInitiativeDetail,
+  ApiInitiativeIdeaRef,
+  ApiInitiativeTaskRef,
+  ApiInitiativeStatus,
+} from './initiatives'
 export { planRunsClient } from './plan-runs'
 export { projectsClient } from './projects'
 export { documentsClient, documentRevisionsApi } from './documents'

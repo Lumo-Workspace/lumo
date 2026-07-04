@@ -82,6 +82,8 @@ export type Page =
   | 'sprints'
   | 'sprint-detail'
   | 'milestone-detail'
+  | 'initiatives'
+  | 'initiative-detail'
 
 export interface ApiDraft {
   id: string
