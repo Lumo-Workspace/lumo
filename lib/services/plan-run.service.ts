@@ -150,6 +150,24 @@ export const planRunService = {
     return planRunRepository.updateStage(run.id, 'ABANDONED')
   },
 
+  /**
+   * The workspace default team's currently active run, or null. "Active" =
+   * any non-terminal stage (FAILED counts as active — it is recoverable). A
+   * read-only lookup: powers `lumo plan status` and the CLI's run-lock probe.
+   * Throws 404 when the workspace has no default team.
+   */
+  async getActiveRun(args: {
+    workspaceId: string
+  }): Promise<PlanRunRow | null> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('No default team for workspace'), {
+        status: 404,
+      })
+    }
+    return planRunRepository.findActiveByTeam(team.id, [...TERMINAL_STAGES])
+  },
+
   /** Load a run or throw 404. */
   async requireRun(planRunId: string): Promise<PlanRunRow> {
     const run = await planRunRepository.findById(planRunId)

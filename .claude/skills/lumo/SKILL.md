@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, ideas, projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
+description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, ideas, plan runs (the idea→plan converter), projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -74,6 +74,12 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo idea "<statement>" [--context <text>]` — capture a team-level idea into the pool in <10s. Provenance is grabbed opportunistically and never blocks the capture: the current `CLAUDE_CODE_SESSION_ID` (→ sourceSessionId) and the session's bound task (→ sourceTaskId, null when nothing is bound). Prints an **I-prefixed** id (`✓ 想法 LUM-I42 已入池`) — the `I` keeps ideas from colliding with task ids (`LUM-42`) in the same team namespace. Ideas are team-scoped (no project); the workspace's default team owns them. The unprocessed (CAPTURED) pool is what the Phase-2 transformer consumes.
   - **When to suggest**: the user has a stray idea/thought/improvement they want to park without derailing the current task ("记一下这个想法", "capture this idea", "add to the backlog of ideas"). Prefer this over `task create` for un-triaged sparks — an idea is above projects and isn't yet actionable work.
+
+**Plan runs (design-thinking 转换器)**
+
+- `lumo plan [--abandon-active]` — start a converter run that turns the team's captured idea pool + current priority into an executable plan through a 3-gate recoverable state machine (聚类→对齐→成计划). Freezes the input snapshot at start and enforces **one active run per team**: if a run is already active it refuses and points to `lumo plan status`; `--abandon-active` abandons the prior run first, then starts fresh. On success it prints (and opens) the **gate-A** web deep-link (`/workspace/<slug>/plan/<runId>`). The CLI only triggers — **all editing and gate confirmation happen in web**.
+- `lumo plan status` — print the active run's current stage (working segment or the open `*_READY` gate) and the deep-link to act on its next gate; with no active run, prompts to run `lumo plan`.
+  - **When to suggest**: the user wants to turn the parked idea pool into a plan / "跑一下转换器" / "start a planning run" / "把想法变成计划"; or asks where an in-flight plan run stands ("plan 到哪一步了", "plan status"). The gate work itself is web-only — the CLI hands off the deep-link.
 
 **Task dependencies** — see [task-deps.md](references/task-deps.md)
 

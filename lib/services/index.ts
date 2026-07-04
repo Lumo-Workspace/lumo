@@ -64,6 +64,8 @@ export { preferenceService } from './preference.service'
 export { priorityService } from './priority.service'
 export type { DeclarePriorityInput } from './priority.service'
 export { memoryManagementService } from './memory-management.service'
+export { planRunService } from './plan-run.service'
+export type { PlanRunRow, PlanRunStageRecordRow } from './plan-run.service'
 export { documentCommentService } from './documentComment.service'
 export type {
   CreateDocCommentInput,
