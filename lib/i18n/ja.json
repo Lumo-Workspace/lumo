@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "予算を {over} 超過",
   "milestone.riskQueue.budget.title": "トークン予算を超過",
   "milestone.riskQueue.budget.count": "消費 {burn} / 予算 {budget}({percent}%)",
-  "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。"
+  "milestone.riskQueue.budget.advisory": "あくまで注意喚起です — 何もブロックされません。残りのスコープを見直すか、予算を引き上げてください。",
+  "planGate.title": "クラスターを優先事項に合わせる",
+  "planGate.verdictLabel": "整合性の判定",
+  "planGate.verdict.aligned": "整合",
+  "planGate.verdict.unrelated": "無関係",
+  "planGate.verdict.conflict": "対立",
+  "planGate.trapBadge": "カスタマイズの罠",
+  "planGate.rationaleLabel": "根拠",
+  "planGate.rationalePlaceholder": "この判定の理由を一行で…",
+  "planGate.star": "スター",
+  "planGate.starHint": "今すぐ計画する整合クラスターを最大{max}件までスター付け",
+  "planGate.starCount": "{max}件中{count}件をスター付け",
+  "planGate.confirm": "確定してプランを生成",
+  "planGate.confirming": "確定中…",
+  "planGate.loadError": "整合ゲートを読み込めませんでした。",
+  "planGate.empty": "レビューするクラスターがありません。"
 }

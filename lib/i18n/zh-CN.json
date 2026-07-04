@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "超出预算 {over}",
   "milestone.riskQueue.budget.title": "token 预算超限",
   "milestone.riskQueue.budget.count": "已耗 {burn} / 预算 {budget}（{percent}%）",
-  "milestone.riskQueue.budget.advisory": "仅为提示 — 不阻断任何操作。请审视剩余范围或上调预算。"
+  "milestone.riskQueue.budget.advisory": "仅为提示 — 不阻断任何操作。请审视剩余范围或上调预算。",
+  "planGate.title": "将簇与优先级对齐",
+  "planGate.verdictLabel": "对齐判定",
+  "planGate.verdict.aligned": "对齐",
+  "planGate.verdict.unrelated": "无关",
+  "planGate.verdict.conflict": "冲突",
+  "planGate.trapBadge": "定制陷阱",
+  "planGate.rationaleLabel": "理由",
+  "planGate.rationalePlaceholder": "用一行说明该判定的原因…",
+  "planGate.star": "标星",
+  "planGate.starHint": "最多为 {max} 个对齐簇标星以立即规划",
+  "planGate.starCount": "已标星 {count}/{max}",
+  "planGate.confirm": "确认并生成计划",
+  "planGate.confirming": "确认中…",
+  "planGate.loadError": "无法加载对齐闸门。",
+  "planGate.empty": "没有可审阅的簇。"
 }

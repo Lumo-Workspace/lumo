@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Melebihi bajet sebanyak {over}",
   "milestone.riskQueue.budget.title": "Bajet token dilampaui",
   "milestone.riskQueue.budget.count": "penggunaan {burn} daripada {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Sekadar makluman — tiada apa-apa disekat. Semak skop yang tinggal atau naikkan bajet."
+  "milestone.riskQueue.budget.advisory": "Sekadar makluman — tiada apa-apa disekat. Semak skop yang tinggal atau naikkan bajet.",
+  "planGate.title": "Selaraskan kluster dengan keutamaan",
+  "planGate.verdictLabel": "Keputusan penyelarasan",
+  "planGate.verdict.aligned": "Selaras",
+  "planGate.verdict.unrelated": "Tidak berkaitan",
+  "planGate.verdict.conflict": "Bercanggah",
+  "planGate.trapBadge": "Perangkap penyesuaian",
+  "planGate.rationaleLabel": "Rasional",
+  "planGate.rationalePlaceholder": "Satu baris tentang sebab keputusan ini…",
+  "planGate.star": "Bintang",
+  "planGate.starHint": "Bintangkan sehingga {max} kluster selaras untuk dirancang sekarang",
+  "planGate.starCount": "{count} daripada {max} dibintangkan",
+  "planGate.confirm": "Sahkan & jana pelan",
+  "planGate.confirming": "Mengesahkan…",
+  "planGate.loadError": "Tidak dapat memuatkan get penyelarasan.",
+  "planGate.empty": "Tiada kluster untuk disemak."
 }

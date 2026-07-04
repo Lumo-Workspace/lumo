@@ -36,6 +36,10 @@ export const API = {
     list: '/api/ideas',
     create: '/api/ideas',
   },
+  planRuns: {
+    // Gate B (闸门B · 对齐确认) render source + confirm.
+    alignGate: (runId: string) => `/api/plan-runs/${runId}/gate/align`,
+  },
   projects: {
     list: '/api/projects',
     byId: (id: string) => `/api/projects/${id}`,

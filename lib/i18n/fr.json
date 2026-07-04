@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Budget dépassé de {over}",
   "milestone.riskQueue.budget.title": "Budget de tokens dépassé",
   "milestone.riskQueue.budget.count": "consommation {burn} sur {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "À titre indicatif — rien n'est bloqué. Passez en revue le périmètre restant ou augmentez le budget."
+  "milestone.riskQueue.budget.advisory": "À titre indicatif — rien n'est bloqué. Passez en revue le périmètre restant ou augmentez le budget.",
+  "planGate.title": "Aligner les groupes sur la priorité",
+  "planGate.verdictLabel": "Verdict d’alignement",
+  "planGate.verdict.aligned": "Aligné",
+  "planGate.verdict.unrelated": "Sans rapport",
+  "planGate.verdict.conflict": "En conflit",
+  "planGate.trapBadge": "Piège de personnalisation",
+  "planGate.rationaleLabel": "Justification",
+  "planGate.rationalePlaceholder": "Une ligne sur la raison de ce verdict…",
+  "planGate.star": "Épingler",
+  "planGate.starHint": "Épinglez jusqu’à {max} groupes alignés à planifier maintenant",
+  "planGate.starCount": "{count} sur {max} épinglés",
+  "planGate.confirm": "Confirmer et générer le plan",
+  "planGate.confirming": "Confirmation…",
+  "planGate.loadError": "Impossible de charger la porte d’alignement.",
+  "planGate.empty": "Aucun groupe à examiner."
 }

@@ -2072,5 +2072,20 @@
   "milestone.costTrend.budgetOver": "Vượt ngân sách {over}",
   "milestone.riskQueue.budget.title": "Vượt ngân sách token",
   "milestone.riskQueue.budget.count": "đã dùng {burn} trên {budget} ({percent}%)",
-  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách."
+  "milestone.riskQueue.budget.advisory": "Chỉ mang tính cảnh báo — không có gì bị chặn. Xem lại phạm vi còn lại hoặc nâng ngân sách.",
+  "planGate.title": "Căn chỉnh các cụm theo mức ưu tiên",
+  "planGate.verdictLabel": "Phán quyết căn chỉnh",
+  "planGate.verdict.aligned": "Đã căn chỉnh",
+  "planGate.verdict.unrelated": "Không liên quan",
+  "planGate.verdict.conflict": "Xung đột",
+  "planGate.trapBadge": "Bẫy tùy chỉnh",
+  "planGate.rationaleLabel": "Lý do",
+  "planGate.rationalePlaceholder": "Một dòng về lý do cho phán quyết này…",
+  "planGate.star": "Gắn sao",
+  "planGate.starHint": "Gắn sao tối đa {max} cụm đã căn chỉnh để lập kế hoạch ngay",
+  "planGate.starCount": "{count} trên {max} được gắn sao",
+  "planGate.confirm": "Xác nhận & tạo kế hoạch",
+  "planGate.confirming": "Đang xác nhận…",
+  "planGate.loadError": "Không thể tải cổng căn chỉnh.",
+  "planGate.empty": "Không có cụm nào để xem xét."
 }
