@@ -21,3 +21,19 @@ export const captureIdeaSchema = z.object({
 })
 
 export type CaptureIdeaInput = z.infer<typeof captureIdeaSchema>
+
+/**
+ * Payload for `PATCH /api/ideas/[id]` — editing a captured idea from the detail
+ * slide-over (LUM-683). Only the `statement` is editable here: it carries the
+ * same non-blank/≤2000 rule as capture. The 4-state status lifecycle and its
+ * mutation belong to the sibling task (679); this task edits text only.
+ */
+export const updateIdeaSchema = z.object({
+  statement: z
+    .string()
+    .trim()
+    .min(1, 'Idea statement is required')
+    .max(2000, 'Idea statement must be at most 2000 characters'),
+})
+
+export type UpdateIdeaInput = z.infer<typeof updateIdeaSchema>

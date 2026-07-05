@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "확인되지 않음",
   "planRuns.noClusters": "클러스터링이 기록되지 않았습니다.",
   "planRuns.noInitiatives": "구체화된 이니셔티브가 없습니다.",
-  "ideas.ungrouped": "신규 / 미분류"
+  "ideas.ungrouped": "신규 / 미분류",
+  "ideas.detail.title": "아이디어 세부 정보",
+  "ideas.detail.lineage": "계보",
+  "ideas.detail.sourceContext": "출처: {context}",
+  "ideas.detail.sourceSession": "세션 {session}에서 캡처됨",
+  "ideas.detail.consumedByRun": "플랜 실행에서 소비됨",
+  "ideas.detail.noLineage": "아직 계보가 없습니다.",
+  "ideas.detail.tabComments": "댓글",
+  "ideas.detail.tabActivity": "활동",
+  "ideas.detail.tabEvidence": "증거",
+  "ideas.detail.comingSoon": "곧 제공됩니다."
 }

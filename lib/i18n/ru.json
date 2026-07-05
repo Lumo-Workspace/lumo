@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "Не подтверждено",
   "planRuns.noClusters": "Кластеризация не записана.",
   "planRuns.noInitiatives": "Ни одна инициатива не материализована.",
-  "ideas.ungrouped": "Новые / без группы"
+  "ideas.ungrouped": "Новые / без группы",
+  "ideas.detail.title": "Детали идеи",
+  "ideas.detail.lineage": "Происхождение",
+  "ideas.detail.sourceContext": "Источник: {context}",
+  "ideas.detail.sourceSession": "Зафиксировано в сессии {session}",
+  "ideas.detail.consumedByRun": "Использовано запуском плана",
+  "ideas.detail.noLineage": "Происхождение пока отсутствует.",
+  "ideas.detail.tabComments": "Комментарии",
+  "ideas.detail.tabActivity": "Активность",
+  "ideas.detail.tabEvidence": "Доказательства",
+  "ideas.detail.comingSoon": "Скоро."
 }

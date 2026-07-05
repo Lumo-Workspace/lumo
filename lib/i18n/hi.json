@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "पुष्टि नहीं हुई",
   "planRuns.noClusters": "कोई क्लस्टरिंग दर्ज नहीं की गई।",
   "planRuns.noInitiatives": "कोई पहल साकार नहीं की गई।",
-  "ideas.ungrouped": "नई / असमूहीकृत"
+  "ideas.ungrouped": "नई / असमूहीकृत",
+  "ideas.detail.title": "आइडिया विवरण",
+  "ideas.detail.lineage": "वंशावली",
+  "ideas.detail.sourceContext": "स्रोत: {context}",
+  "ideas.detail.sourceSession": "सत्र {session} में कैप्चर किया गया",
+  "ideas.detail.consumedByRun": "प्लान रन द्वारा उपयोग किया गया",
+  "ideas.detail.noLineage": "अभी कोई वंशावली नहीं।",
+  "ideas.detail.tabComments": "टिप्पणियाँ",
+  "ideas.detail.tabActivity": "गतिविधि",
+  "ideas.detail.tabEvidence": "साक्ष्य",
+  "ideas.detail.comingSoon": "जल्द आ रहा है।"
 }

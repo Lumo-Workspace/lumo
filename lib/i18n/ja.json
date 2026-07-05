@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "未確認",
   "planRuns.noClusters": "クラスタリングは記録されていません。",
   "planRuns.noInitiatives": "イニシアチブは具体化されていません。",
-  "ideas.ungrouped": "新規 / 未分類"
+  "ideas.ungrouped": "新規 / 未分類",
+  "ideas.detail.title": "アイデアの詳細",
+  "ideas.detail.lineage": "系譜",
+  "ideas.detail.sourceContext": "出典：{context}",
+  "ideas.detail.sourceSession": "セッション {session} で取得",
+  "ideas.detail.consumedByRun": "プラン実行で消費済み",
+  "ideas.detail.noLineage": "系譜はまだありません。",
+  "ideas.detail.tabComments": "コメント",
+  "ideas.detail.tabActivity": "アクティビティ",
+  "ideas.detail.tabEvidence": "エビデンス",
+  "ideas.detail.comingSoon": "近日公開。"
 }

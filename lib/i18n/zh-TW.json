@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "未確認",
   "planRuns.noClusters": "沒有記錄分群結果。",
   "planRuns.noInitiatives": "未具體化任何倡議。",
-  "ideas.ungrouped": "新增 / 未分組"
+  "ideas.ungrouped": "新增 / 未分組",
+  "ideas.detail.title": "想法詳情",
+  "ideas.detail.lineage": "血緣",
+  "ideas.detail.sourceContext": "來源：{context}",
+  "ideas.detail.sourceSession": "於工作階段 {session} 擷取",
+  "ideas.detail.consumedByRun": "已被計畫執行消化",
+  "ideas.detail.noLineage": "尚無血緣。",
+  "ideas.detail.tabComments": "留言",
+  "ideas.detail.tabActivity": "動態",
+  "ideas.detail.tabEvidence": "證據",
+  "ideas.detail.comingSoon": "即將推出。"
 }

@@ -35,6 +35,7 @@ export const API = {
   ideas: {
     list: '/api/ideas',
     create: '/api/ideas',
+    byId: (id: string) => `/api/ideas/${id}`,
   },
   initiatives: {
     // Team-level initiatives (LUM-673): list + detail w/ lineage + direct create.
