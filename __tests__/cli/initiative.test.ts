@@ -59,8 +59,8 @@ describe('formatCreatedInitiativeLine', () => {
 describe('formatInitiativeList', () => {
   it('renders aligned id / status / goal lines', () => {
     const out = formatInitiativeList([
-      { identifier: 'LUM-INIT-2', status: 'ACTIVE', goalStatement: 'Ship it' },
-      { identifier: 'LUM-INIT-1', status: 'DONE', goalStatement: 'Idea pool' },
+      { identifier: 'LUM-INIT-2', status: 'ACTIVE', name: 'Ship it' },
+      { identifier: 'LUM-INIT-1', status: 'COMPLETED', name: 'Idea pool' },
     ])
     expect(out).toContain('LUM-INIT-2')
     expect(out).toContain('ACTIVE')
@@ -84,7 +84,7 @@ describe('lumo initiative create', () => {
 
     expect(code).toBeUndefined()
     const body = lastBody()
-    expect(body.goalStatement).toBe('Ship the surface')
+    expect(body.name).toBe('Ship the surface')
     expect(body.assumptionNote).toBe('teams curate directly')
     // POST to the initiatives collection endpoint.
     const call = (global.fetch as jest.Mock).mock.calls[0]
@@ -127,7 +127,7 @@ describe('lumo initiative list', () => {
           {
             identifier: 'LUM-INIT-2',
             status: 'ACTIVE',
-            goalStatement: 'Ship it',
+            name: 'Ship it',
           },
         ],
       })

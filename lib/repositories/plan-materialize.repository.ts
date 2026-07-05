@@ -58,7 +58,7 @@ export interface MaterializePlan {
 export interface MaterializedInitiative {
   id: string
   number: number
-  goalStatement: string
+  name: string
   taskIds: string[]
 }
 
@@ -97,15 +97,13 @@ export const planMaterializeRepository = {
                 workspaceId: plan.workspaceId,
                 number: nextInitiativeNumber++,
                 planRunId: plan.planRunId,
-                // LUM-678: Linear `name` (short title) from the drafted goal;
-                // `goalStatement` kept as a deprecated mirror for existing
-                // readers. A materialised initiative starts PLANNED.
+                // LUM-678: `name` (the initiative's goal text) from the drafted
+                // goal. A materialised initiative starts PLANNED.
                 name: init.goalStatement,
-                goalStatement: init.goalStatement,
                 assumptionNote: init.assumptionNote,
                 status: 'PLANNED',
               },
-              select: { id: true, number: true, goalStatement: true },
+              select: { id: true, number: true, name: true },
             })
 
             // Reserve a contiguous block of task numbers via the team's
@@ -156,7 +154,7 @@ export const planMaterializeRepository = {
             initiatives.push({
               id: initiative.id,
               number: initiative.number,
-              goalStatement: initiative.goalStatement,
+              name: initiative.name,
               taskIds,
             })
           }

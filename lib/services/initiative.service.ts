@@ -23,7 +23,7 @@ export interface InitiativeListItem {
   id: string
   number: number
   identifier: string
-  goalStatement: string
+  name: string
   status: InitiativeStatus
   taskCount: number
   ideaCount: number
@@ -49,7 +49,7 @@ export interface InitiativeDetail {
   id: string
   number: number
   identifier: string
-  goalStatement: string
+  name: string
   assumptionNote: string | null
   status: InitiativeStatus
   createdAt: Date
@@ -135,7 +135,7 @@ function toListItem(
     id: row.id,
     number: row.number,
     identifier: initiativeIdentifier(teamIdentifier, row.number),
-    goalStatement: row.goalStatement,
+    name: row.name,
     status: row.status,
     taskCount: row._count.tasks,
     ideaCount: row._count.ideas,
@@ -152,7 +152,7 @@ function toCreatedItem(
     id: row.id,
     number: row.number,
     identifier: initiativeIdentifier(teamIdentifier, row.number),
-    goalStatement: row.goalStatement,
+    name: row.name,
     status: row.status,
     taskCount: 0,
     ideaCount: 0,
@@ -169,7 +169,7 @@ function toDetail(
     id: row.id,
     number: row.number,
     identifier: initiativeIdentifier(teamIdentifier, row.number),
-    goalStatement: row.goalStatement,
+    name: row.name,
     assumptionNote: row.assumptionNote,
     status: row.status,
     createdAt: row.createdAt,
@@ -208,9 +208,9 @@ export const initiativeService = {
     workspaceId: string
     input: CreateInitiativeInput
   }): Promise<InitiativeListItem> {
-    const goalStatement = args.input.goalStatement.trim()
-    if (!goalStatement) {
-      throw Object.assign(new Error('Goal statement is required'), {
+    const name = args.input.name.trim()
+    if (!name) {
+      throw Object.assign(new Error('Name is required'), {
         status: 400,
       })
     }
@@ -225,7 +225,7 @@ export const initiativeService = {
     const row = await initiativeRepository.create({
       teamId: team.id,
       workspaceId: args.workspaceId,
-      goalStatement,
+      name,
       assumptionNote: args.input.assumptionNote?.trim() || null,
     })
 

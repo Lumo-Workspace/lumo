@@ -48,7 +48,7 @@ describe('LUM-678 Initiative model reshape', () => {
     expect(init).toMatch(/^\s*targetDate\s+DateTime\?/m)
     expect(init).toMatch(/^\s*startDate\s+DateTime\?/m)
 
-    // ── 5-state Linear status enum ───────────────────────────────────────────
+    // ── a CLEAN 5-state Linear status enum (no legacy DONE/DROPPED) ──────────
     expect(init).toMatch(/^\s*status\s+InitiativeStatus\b/m)
     const status = enumBlock('InitiativeStatus')
     for (const state of [
@@ -60,10 +60,16 @@ describe('LUM-678 Initiative model reshape', () => {
     ]) {
       expect(status).toMatch(new RegExp(`\\b${state}\\b`))
     }
+    // The interim legacy values were dropped in the clean-up follow-up.
+    expect(status).not.toMatch(/\bDONE\b/)
+    expect(status).not.toMatch(/\bDROPPED\b/)
 
     // ── Lumo-specific fields KEPT (Linear has no equivalent) ─────────────────
     expect(init).toMatch(/^\s*planRunId\s+String\?/m)
     expect(init).toMatch(/^\s*assumptionNote\s+String\?/m)
+
+    // ── the redundant goalStatement column was dropped — `name` is canonical ──
+    expect(init).not.toMatch(/\bgoalStatement\b/)
   })
 
   it('Milestone gains nullable initiativeId and Task direct attach is additive', () => {

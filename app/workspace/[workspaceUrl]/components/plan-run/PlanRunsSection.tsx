@@ -118,7 +118,7 @@ export function PlanRunsSection({
                     <span className='truncate text-muted-foreground'>
                       {intl.formatMessage(
                         { id: 'planRuns.materializedInto' },
-                        { goal: run.initiatives[0].goalStatement }
+                        { goal: run.initiatives[0].name }
                       )}
                     </span>
                   )}

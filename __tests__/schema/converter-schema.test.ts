@@ -63,8 +63,9 @@ describe('LUM-663 converter schema foundation (Spec2-1)', () => {
     const kind = enumBlock('PlanStageKind')
     for (const v of ['CLUSTER', 'ALIGN', 'GENERATE'])
       expect(kind).toMatch(new RegExp(`\\b${v}\\b`))
+    // LUM-678: the enum was reshaped to the clean 5-state Linear lifecycle.
     const initStatus = enumBlock('InitiativeStatus')
-    for (const v of ['ACTIVE', 'DONE', 'DROPPED'])
+    for (const v of ['PROPOSED', 'PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED'])
       expect(initStatus).toMatch(new RegExp(`\\b${v}\\b`))
 
     // ── PlanRun: team-level (teamId + workspaceId), NO projectId ──────────────
@@ -97,7 +98,7 @@ describe('LUM-663 converter schema foundation (Spec2-1)', () => {
     // per-team visible id (LUM-INIT-N)
     expect(initiative).toMatch(/^\s*number\s+Int\b/m)
     expect(initiative).toMatch(/@@unique\(\[teamId,\s*number\]\)/)
-    expect(initiative).toMatch(/^\s*goalStatement\s+String\b/m)
+    expect(initiative).toMatch(/^\s*name\s+String\b/m)
     expect(initiative).toMatch(/^\s*assumptionNote\s+String\?/m)
     expect(initiative).toMatch(/status\s+InitiativeStatus\s+@default\(ACTIVE\)/)
     expect(initiative).toMatch(/@@map\("initiatives"\)/)

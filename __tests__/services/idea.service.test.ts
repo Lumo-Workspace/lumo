@@ -122,7 +122,7 @@ describe('ideaService.listPool', () => {
         number: 2,
         status: 'PLANNED',
         planRunId: 'run-1',
-        initiative: { id: 'init-1', number: 3, goalStatement: 'ship pool' },
+        initiative: { id: 'init-1', number: 3, name: 'ship pool' },
       }),
       row({ id: 'i1', number: 1, planRunId: null, initiative: null }),
     ])
@@ -132,7 +132,7 @@ describe('ideaService.listPool', () => {
     expect(ideas[0]).toMatchObject({
       status: 'PLANNED',
       planRunId: 'run-1',
-      initiative: { id: 'init-1', number: 3, goalStatement: 'ship pool' },
+      initiative: { id: 'init-1', number: 3, name: 'ship pool' },
     })
     expect(ideas[1]).toMatchObject({
       status: 'CAPTURED',

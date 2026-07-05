@@ -12,16 +12,13 @@ import type {
 } from '@/lib/api-client/initiatives'
 import { useInitiativeDetail } from '../../hooks/useInitiatives'
 
-// LUM-678: Linear-aligned 5-state lifecycle (DONE/DROPPED are deprecated legacy
-// values, still rendered so historical rows read correctly).
+// LUM-678: Linear-aligned 5-state lifecycle.
 const INITIATIVE_STATUS_KEY: Record<ApiInitiativeStatus, string> = {
   PROPOSED: 'initiative.status.proposed',
   PLANNED: 'initiative.status.planned',
   ACTIVE: 'initiative.status.active',
   COMPLETED: 'initiative.status.completed',
   CANCELLED: 'initiative.status.cancelled',
-  DONE: 'initiative.status.done',
-  DROPPED: 'initiative.status.dropped',
 }
 
 // Convey status by Badge variant (semantic, token-backed) rather than brand
@@ -36,8 +33,6 @@ const INITIATIVE_STATUS_VARIANT: Record<
   ACTIVE: 'default',
   COMPLETED: 'secondary',
   CANCELLED: 'outline',
-  DONE: 'secondary',
-  DROPPED: 'outline',
 }
 
 const TASK_STATUS_KEY: Record<ApiTaskStatus, string> = {
@@ -112,7 +107,7 @@ export function InitiativeDetailPage() {
             </div>
             <h1 className='flex items-start gap-2 text-2xl font-semibold leading-tight'>
               <Target className='mt-1 size-5 shrink-0 text-muted-foreground' />
-              {initiative.goalStatement}
+              {initiative.name}
             </h1>
           </header>
 

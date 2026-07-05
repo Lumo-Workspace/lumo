@@ -96,7 +96,7 @@ describe('Initiatives list page + New Initiative create action', () => {
         {
           id: 'init-2',
           identifier: 'LUM-INIT-2',
-          goalStatement: 'Ship the converter',
+          name: 'Ship the converter',
           status: 'ACTIVE',
           taskCount: 3,
           ideaCount: 2,
@@ -132,7 +132,7 @@ describe('Initiatives list page + New Initiative create action', () => {
 
     await waitFor(() =>
       expect(mockCreateInitiative).toHaveBeenCalledWith({
-        goalStatement: 'Adopt trunk-based dev',
+        name: 'Adopt trunk-based dev',
         assumptionNote: 'faster review cycles',
       })
     )
@@ -146,7 +146,7 @@ describe('Initiative detail page renders lineage', () => {
         id: 'init-1',
         number: 3,
         identifier: 'LUM-INIT-3',
-        goalStatement: 'Ship the design-thinking converter',
+        name: 'Ship the design-thinking converter',
         assumptionNote: 'Teams will curate the pool weekly',
         status: 'ACTIVE',
         createdAt: '1970-01-01T00:00:00.000Z',

@@ -104,7 +104,7 @@ export interface ApiIdea {
   proposedByMemberId: string
   createdAt: string
   planRunId: string | null
-  initiative: { id: string; number: number; goalStatement: string } | null
+  initiative: { id: string; number: number; name: string } | null
 }
 
 export interface ApiDraft {

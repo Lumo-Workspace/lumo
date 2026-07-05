@@ -252,7 +252,7 @@ function IdeaRow({
           >
             {intl.formatMessage(
               { id: 'ideas.plannedInto' },
-              { goal: idea.initiative.goalStatement }
+              { goal: idea.initiative.name }
             )}
           </Link>
         )}
