@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const { id } = await params
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
     const parsed = createWebLinkBodySchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 

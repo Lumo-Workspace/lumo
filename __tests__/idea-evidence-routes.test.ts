@@ -81,6 +81,13 @@ const RESOLVED = { ideaId: 'i8', workspaceId: 'w1', teamId: 't1' }
 const jsonReq = (body: unknown): NextRequest =>
   ({ json: async () => body }) as unknown as NextRequest
 
+const malformedJsonReq = (): NextRequest =>
+  ({
+    json: async () => {
+      throw new SyntaxError('Unexpected token in JSON')
+    },
+  }) as unknown as NextRequest
+
 const paramsP = (p: Record<string, string>) =>
   ({ params: Promise.resolve(p) }) as { params: Promise<never> }
 
@@ -121,6 +128,11 @@ describe('GET /api/ideas/[id]/slack-contexts', () => {
 describe('POST /api/ideas/[id]/slack-contexts', () => {
   it('400 on invalid body', async () => {
     const res = await SLACK_POST(jsonReq({}), paramsP({ id: 'LUM-I8' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400 (not 500) on malformed JSON body', async () => {
+    const res = await SLACK_POST(malformedJsonReq(), paramsP({ id: 'LUM-I8' }))
     expect(res.status).toBe(400)
   })
 
@@ -261,6 +273,11 @@ describe('GET /api/ideas/[id]/web-links', () => {
 describe('POST /api/ideas/[id]/web-links', () => {
   it('400 on invalid body', async () => {
     const res = await WEB_POST(jsonReq({}), paramsP({ id: 'LUM-I8' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400 (not 500) on malformed JSON body', async () => {
+    const res = await WEB_POST(malformedJsonReq(), paramsP({ id: 'LUM-I8' }))
     expect(res.status).toBe(400)
   })
 
