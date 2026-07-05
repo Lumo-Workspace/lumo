@@ -13,6 +13,8 @@ interface IdeaDrawerProps {
   onClose: () => void
   onSave: (statement: string) => Promise<void>
   saving?: boolean
+  /** Forwarded to `IdeaDetailPanel`'s Evidence tab — see its prop doc. */
+  slackConnected?: boolean
 }
 
 /**
@@ -28,6 +30,7 @@ export function IdeaDrawer({
   onClose,
   onSave,
   saving,
+  slackConnected,
 }: IdeaDrawerProps) {
   const intl = useIntl()
 
@@ -73,6 +76,7 @@ export function IdeaDrawer({
             workspaceUrl={workspaceUrl}
             onSave={onSave}
             {...(saving !== undefined ? { saving } : {})}
+            {...(slackConnected !== undefined ? { slackConnected } : {})}
           />
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>

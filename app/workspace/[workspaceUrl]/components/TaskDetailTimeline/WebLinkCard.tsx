@@ -8,7 +8,11 @@ import { useNow } from '@/hooks/use-now'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 
 interface Props {
-  link: OptimisticWebLink
+  // Owner-agnostic: the card only reads fields common to both the task- and
+  // idea-scoped web link resources, so it accepts either by omitting the
+  // owner id field (`taskId`) neither the Idea variant carries nor the card
+  // uses (LUM-681 reuse boundary).
+  link: Omit<OptimisticWebLink, 'taskId'>
   onRefresh: (linkId: string) => Promise<void>
   onRemove: (linkId: string) => Promise<void>
 }

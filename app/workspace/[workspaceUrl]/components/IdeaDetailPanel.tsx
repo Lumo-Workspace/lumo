@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiIdea } from '../types'
+import { IdeaEvidenceTab } from './IdeaEvidenceTab'
 
 interface IdeaDetailPanelProps {
   idea: ApiIdea
@@ -15,6 +16,14 @@ interface IdeaDetailPanelProps {
   /** Persist an edited statement (wired to the PATCH mutation by the host). */
   onSave: (statement: string) => Promise<void>
   saving?: boolean
+  /**
+   * Whether the workspace has Slack connected — sourced the same way the
+   * Task detail's `ContextTab` does (`workspace.slackIntegration !== null`).
+   * The idea pool page doesn't currently fetch `workspace`, so callers that
+   * lack it can default to `false`; the Evidence tab's Slack section then
+   * shows its existing "not connected" fallback rather than misreporting.
+   */
+  slackConnected?: boolean
 }
 
 /**
@@ -35,6 +44,7 @@ export function IdeaDetailPanel({
   workspaceUrl,
   onSave,
   saving = false,
+  slackConnected = false,
 }: IdeaDetailPanelProps) {
   const intl = useIntl()
   const [editing, setEditing] = useState(false)
@@ -124,8 +134,9 @@ export function IdeaDetailPanel({
       {/* Lineage — where the idea came from and what consumed it */}
       <IdeaLineage idea={idea} workspaceUrl={workspaceUrl} />
 
-      {/* Reserved section shells — filled by 680 (comments/activity) + 681
-          (evidence). This task ships the empty tabs + layout only. */}
+      {/* Comments/Activity remain reserved shells (owned by sibling task 680).
+          Evidence is filled by this task (681) with the source-card system
+          mirrored from the Task detail's ContextTab. */}
       <Tabs defaultValue='comments' className='flex flex-col gap-3'>
         <TabsList className='self-start'>
           <TabsTrigger value='comments'>
@@ -138,7 +149,7 @@ export function IdeaDetailPanel({
             {intl.formatMessage({ id: 'ideas.detail.tabEvidence' })}
           </TabsTrigger>
         </TabsList>
-        {(['comments', 'activity', 'evidence'] as const).map(section => (
+        {(['comments', 'activity'] as const).map(section => (
           <TabsContent key={section} value={section}>
             <p
               data-testid={`idea-section-${section}`}
@@ -148,6 +159,9 @@ export function IdeaDetailPanel({
             </p>
           </TabsContent>
         ))}
+        <TabsContent value='evidence'>
+          <IdeaEvidenceTab ideaId={idea.id} slackConnected={slackConnected} />
+        </TabsContent>
       </Tabs>
     </div>
   )
