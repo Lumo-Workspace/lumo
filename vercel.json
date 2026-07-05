@@ -1,4 +1,5 @@
 {
+  "buildCommand": "bash scripts/deploy/vercel-build.sh",
   "crons": [
     {
       "path": "/api/cron/backfill-lineage-outcomes",
