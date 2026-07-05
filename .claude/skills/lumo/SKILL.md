@@ -91,6 +91,22 @@ The command catalog below is a **map**: it lists every command grouped by domain
     lumo idea update LUM-I42 --status developing
     lumo idea update LUM-I42 --status dropped
     ```
+- `lumo idea slack add/show/rm <idea> ...`, `lumo idea web add/show/rm <idea> ...`, `lumo idea figma add/list/rm/refresh/context <idea> ...` (LUM-681) — attach & inspect evidence (Slack threads, web links, Figma design links) on an idea, mirroring the `task slack/web/figma` source-card commands but hitting `/api/ideas/:id/...`. `<idea>` is the `LUM-I<n>` id. `show`/`context` are Tier-2 retrieval (stored snapshot / fetched body / cached design metadata, no live re-fetch) and stamp the disclosure funnel like their task-side counterparts; `figma refresh` re-fetches metadata for every link on the idea.
+  - **When to suggest**: the user wants to attach supporting evidence (a Slack discussion, a spec doc link, a Figma mock) to an idea before it goes through `lumo plan` — the converter carries this evidence forward into the resulting task/initiative. Prefer attaching to the idea over waiting until after conversion.
+  - **Example**:
+    ```bash
+    lumo idea web add LUM-I42 https://example.com/spec
+    lumo idea web show LUM-I42 wl_1
+    lumo idea web rm LUM-I42 wl_1
+    lumo idea slack add LUM-I42 https://myteam.slack.com/archives/C1/p123
+    lumo idea slack show LUM-I42 ctx_1
+    lumo idea slack rm LUM-I42 ctx_1
+    lumo idea figma add LUM-I42 https://www.figma.com/file/abc/Mock
+    lumo idea figma list LUM-I42
+    lumo idea figma context LUM-I42 cfl_1
+    lumo idea figma refresh LUM-I42
+    lumo idea figma rm LUM-I42 cfl_1
+    ```
 
 **Plan runs (design-thinking 转换器)**
 

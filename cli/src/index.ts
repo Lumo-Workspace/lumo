@@ -12,6 +12,17 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { ideaCapture, ideaList, ideaUpdate } from './commands/idea'
+import { ideaSlackAdd } from './commands/idea-slack-add'
+import { ideaSlackShow } from './commands/idea-slack-show'
+import { ideaSlackRm } from './commands/idea-slack-rm'
+import { ideaWebAdd } from './commands/idea-web-add'
+import { ideaWebShow } from './commands/idea-web-show'
+import { ideaWebRm } from './commands/idea-web-rm'
+import { ideaFigmaAdd } from './commands/idea-figma-add'
+import { ideaFigmaList } from './commands/idea-figma-list'
+import { ideaFigmaRm } from './commands/idea-figma-rm'
+import { ideaFigmaRefresh } from './commands/idea-figma-refresh'
+import { ideaFigmaContext } from './commands/idea-figma-context'
 import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
@@ -437,6 +448,74 @@ ideaCmd
       ideaUpdate(id as string | undefined, options as { status?: string })
     )
   )
+
+// Idea evidence commands (LUM-681): mirrors `task slack/web/figma`, hitting
+// `/api/ideas/:id/...` instead of `/api/tasks/:id/...`. Lets an agent attach
+// Slack threads, web links, and Figma design links to an idea before it goes
+// through the plan-run converter.
+const ideaSlack = ideaCmd
+  .command('slack')
+  .description('Attach & inspect Slack context on an idea')
+ideaSlack
+  .command('add <idea> <permalink>')
+  .description('Attach a Slack thread to an idea')
+  .action(wrap((id, p) => ideaSlackAdd(id as string, p as string)))
+ideaSlack
+  .command('show <idea> <contextId>')
+  .description('Show the full stored Slack thread snapshot')
+  .action(wrap((id, ctx) => ideaSlackShow(id as string, ctx as string)))
+ideaSlack
+  .command('rm <idea> <contextId>')
+  .description('Remove a Slack context from an idea')
+  .action(wrap((id, ctx) => ideaSlackRm(id as string, ctx as string)))
+
+const ideaWeb = ideaCmd
+  .command('web')
+  .description('Attach & inspect web links on an idea')
+ideaWeb
+  .command('add <idea> <url>')
+  .description('Attach a web link to an idea')
+  .action(wrap((id, u) => ideaWebAdd(id as string, u as string)))
+ideaWeb
+  .command('show <idea> <linkId>')
+  .description('Show the fetched web link body as plain text')
+  .action(wrap((id, l) => ideaWebShow(id as string, l as string)))
+ideaWeb
+  .command('rm <idea> <linkId>')
+  .description('Remove a web link from an idea')
+  .action(wrap((id, l) => ideaWebRm(id as string, l as string)))
+
+const ideaFigma = ideaCmd
+  .command('figma')
+  .description('Attach Figma links to an idea')
+ideaFigma
+  .command('add <idea> <url>')
+  .description('Attach a Figma file/frame URL to an idea')
+  .action(
+    wrap((id, u) =>
+      ideaFigmaAdd({ identifier: id as string, url: u as string })
+    )
+  )
+ideaFigma
+  .command('list <idea>')
+  .description('List Figma links on an idea')
+  .action(wrap(id => ideaFigmaList({ identifier: id as string })))
+ideaFigma
+  .command('rm <idea> <link-id-or-url>')
+  .description('Remove a Figma link from an idea (idempotent)')
+  .action(
+    wrap((id, l) =>
+      ideaFigmaRm({ identifier: id as string, linkIdOrUrl: l as string })
+    )
+  )
+ideaFigma
+  .command('refresh <idea>')
+  .description('Re-fetch Figma metadata for every link on an idea')
+  .action(wrap(id => ideaFigmaRefresh({ identifier: id as string })))
+ideaFigma
+  .command('context <idea> <linkId>')
+  .description('Show cached Figma design context')
+  .action(wrap((id, l) => ideaFigmaContext(id as string, l as string)))
 
 const initiativeCmd = program
   .command('initiative')

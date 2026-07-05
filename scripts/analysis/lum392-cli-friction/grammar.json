@@ -1026,11 +1026,89 @@
       "hasSubcommands": true,
       "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
     },
+    "idea figma": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Attach Figma links to an idea"
+    },
+    "idea figma add": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "url", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Attach a Figma file/frame URL to an idea"
+    },
+    "idea figma context": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "linkId", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show cached Figma design context"
+    },
+    "idea figma list": {
+      "arguments": [{ "name": "idea", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "List Figma links on an idea"
+    },
+    "idea figma refresh": {
+      "arguments": [{ "name": "idea", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Re-fetch Figma metadata for every link on an idea"
+    },
+    "idea figma rm": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "link-id-or-url", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Remove a Figma link from an idea (idempotent)"
+    },
     "idea list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
       "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|DEVELOPING|PLANNED|DROPPED) and statement."
+    },
+    "idea slack": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Attach & inspect Slack context on an idea"
+    },
+    "idea slack add": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "permalink", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Attach a Slack thread to an idea"
+    },
+    "idea slack rm": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "contextId", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Remove a Slack context from an idea"
+    },
+    "idea slack show": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "contextId", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the full stored Slack thread snapshot"
     },
     "idea update": {
       "arguments": [{ "name": "id", "required": true, "variadic": false }],
@@ -1046,6 +1124,39 @@
       },
       "hasSubcommands": false,
       "description": "Move an idea through its lifecycle (LUM-679). Allowed: CAPTURED↔DEVELOPING→PLANNED and any state→DROPPED (DROPPED is terminal). <id> is the LUM-I<n> id (a bare number also resolves)."
+    },
+    "idea web": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Attach & inspect web links on an idea"
+    },
+    "idea web add": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "url", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Attach a web link to an idea"
+    },
+    "idea web rm": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "linkId", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Remove a web link from an idea"
+    },
+    "idea web show": {
+      "arguments": [
+        { "name": "idea", "required": true, "variadic": false },
+        { "name": "linkId", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Show the fetched web link body as plain text"
     },
     "initiative": {
       "arguments": [],
