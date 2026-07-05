@@ -231,6 +231,14 @@ The platform is fully responsive and works on:
 2. Connect your repository to Vercel
 3. Deploy with zero configuration
 
+**Migration gate (LUM-682):** `vercel.json` sets the build command to
+`scripts/deploy/vercel-build.sh`. On a **production** deploy this runs
+`prisma migrate deploy` (plus a `prisma migrate status` drift check) **before**
+`next build`, so migrations are applied ahead of the code that depends on them —
+a failed/blocked migration fails the build instead of shipping code against a
+not-yet-migrated schema. Preview/dev builds skip the migrate step. Migrations
+use the unpooled connection automatically via `prisma.config.ts`.
+
 ### Other Platforms
 
 ```bash
