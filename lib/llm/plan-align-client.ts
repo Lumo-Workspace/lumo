@@ -62,6 +62,8 @@ For EACH cluster, return exactly one entry echoing its clusterId with:
 - rationale: ONE line (a single concise sentence).
 - customizationTrap: boolean. Set TRUE when the cluster is supported ONLY by a single customer or a single source (e.g. every idea in it traces to one requester/one report). When true, the rationale MUST point out the single-source / one-off customization risk. This judgment is independent of the priority.
 
+Each cluster is annotated with a \`sources:\` line — the number of distinct evidence sources backing it and their channels (or "none"). Treat this as the primary signal for customizationTrap: \`sources: 1 (...)\` is the single-source trap; higher counts or "none" (no attached evidence to judge from) are not.
+
 Rules:
 - If NO priority is declared, you cannot assess alignment: return verdict UNRELATED for every cluster and state in the rationale that the team priority is undeclared. Still assess customizationTrap normally.
 - Return exactly one verdict per input cluster and nothing else. Be concise.`
@@ -75,6 +77,13 @@ export interface AlignClusterInput {
   label: string
   /** The idea statements grouped into this cluster. */
   items: string[]
+  /**
+   * Aggregated evidence backing this cluster (distinct source count + which
+   * channels), so the model's customizationTrap judgment has real signal
+   * instead of guessing from the idea statements alone. `null`/omitted means
+   * evidence lookup failed or produced nothing (rendered as "sources: none").
+   */
+  evidenceSources?: { count: number; channels: string[] } | null
 }
 
 export interface PlanAlignInput {
@@ -98,7 +107,10 @@ export interface PlanAlignResult {
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
-function buildPrompt(input: PlanAlignInput, priorityDeclared: boolean): string {
+export function buildAlignPrompt(
+  input: PlanAlignInput,
+  priorityDeclared: boolean
+): string {
   const priorityBlock = priorityDeclared
     ? (input.priority as string).trim()
     : '(none declared — team priority is undeclared)'
@@ -106,7 +118,10 @@ function buildPrompt(input: PlanAlignInput, priorityDeclared: boolean): string {
   const clusterBlock = input.clusters
     .map(c => {
       const items = c.items.map(i => `  - ${i}`).join('\n')
-      return `[${c.clusterId}] ${c.label}\n${items}`
+      const sources = c.evidenceSources
+        ? `sources: ${c.evidenceSources.count} (${c.evidenceSources.channels.join(', ')})`
+        : 'sources: none'
+      return `[${c.clusterId}] ${c.label}\n  ${sources}\n${items}`
     })
     .join('\n\n')
 
@@ -123,7 +138,7 @@ export async function alignClusters(
   const priorityDeclared = !!(
     input.priority && input.priority.trim().length > 0
   )
-  const prompt = buildPrompt(input, priorityDeclared)
+  const prompt = buildAlignPrompt(input, priorityDeclared)
 
   const { object } = await generateObject({
     model: gateway(REASONING_MODEL),
