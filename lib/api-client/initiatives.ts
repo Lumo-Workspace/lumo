@@ -7,7 +7,16 @@ import { API } from '@/app/workspace/[workspaceUrl]/constants'
  * must not import server-only `lib/services` (DIP / server-client split).
  * `createdAt` is an ISO string over the wire (JSON), not a `Date`.
  */
-export type ApiInitiativeStatus = 'ACTIVE' | 'DONE' | 'DROPPED'
+// LUM-678: Linear-aligned 5-state lifecycle. DONE/DROPPED are retained-but-
+// deprecated legacy values (see the InitiativeStatus enum in schema.prisma).
+export type ApiInitiativeStatus =
+  | 'PROPOSED'
+  | 'PLANNED'
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DONE'
+  | 'DROPPED'
 export type ApiTaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 
 export interface ApiInitiativeListItem {

@@ -3,10 +3,15 @@ import {
   type InitiativeListRow,
   type InitiativeDetailRow,
   type InitiativeCreatedRow,
+  type InitiativeCompositionRow,
 } from '@/lib/repositories/initiative.repository'
 import { getDefaultTeam } from '@/lib/team'
 import type { CreateInitiativeInput } from '@/lib/validation/initiative'
-import type { InitiativeStatus, TaskStatus } from '@prisma/client'
+import type {
+  InitiativeStatus,
+  TaskStatus,
+  MilestoneStatus,
+} from '@prisma/client'
 
 /**
  * A materialised initiative as returned to callers. `identifier` is the
@@ -56,8 +61,70 @@ export interface InitiativeDetail {
   taskProgress: { total: number; done: number }
 }
 
+/** A milestone rolled up under an initiative, with its own tasks (LUM-678). */
+export interface InitiativeMilestoneRef {
+  id: string
+  name: string
+  slug: string
+  status: MilestoneStatus
+  tasks: InitiativeTaskRef[]
+}
+
+/**
+ * The two-layer contents of an initiative (LUM-678): the milestones it contains
+ * (each carrying its own tasks) plus the tasks attached DIRECTLY to the
+ * initiative — i.e. not sitting under one of its milestones.
+ */
+export interface InitiativeComposition {
+  id: string
+  number: number
+  identifier: string
+  name: string
+  milestones: InitiativeMilestoneRef[]
+  directTasks: InitiativeTaskRef[]
+}
+
 function initiativeIdentifier(teamIdentifier: string, number: number): string {
   return `${teamIdentifier}-INIT-${number}`
+}
+
+/**
+ * Partition an initiative's raw contents into its two layers (LUM-678), pure so
+ * it is unit-testable in isolation. Resolution rule (design §两层容纳): a task
+ * that sits under a milestone is represented via that milestone and is NOT also
+ * counted as a direct task — so `directTasks` is exactly the initiative-linked
+ * tasks whose `milestoneId` is null. This is what prevents double counting.
+ */
+export function composeInitiativeContents(
+  row: InitiativeCompositionRow,
+  teamIdentifier: string
+): InitiativeComposition {
+  const taskRef = (t: {
+    id: string
+    number: number
+    title: string
+    status: TaskStatus
+  }): InitiativeTaskRef => ({
+    id: t.id,
+    identifier: `${teamIdentifier}-${t.number}`,
+    title: t.title,
+    status: t.status,
+  })
+
+  return {
+    id: row.id,
+    number: row.number,
+    identifier: initiativeIdentifier(teamIdentifier, row.number),
+    name: row.name,
+    milestones: row.milestones.map(m => ({
+      id: m.id,
+      name: m.name,
+      slug: m.slug,
+      status: m.status,
+      tasks: m.tasks.map(taskRef),
+    })),
+    directTasks: row.tasks.filter(t => t.milestoneId === null).map(taskRef),
+  }
 }
 
 function toListItem(
@@ -198,5 +265,28 @@ export const initiativeService = {
     if (!row || row.teamId !== team.id) throw notFound()
 
     return toDetail(row, team.identifier)
+  },
+
+  /**
+   * One initiative's two-layer contents (LUM-678): its milestones (each with
+   * their tasks) plus its directly-attached tasks, de-duplicated so a task
+   * under a milestone is never also listed as a direct task. Team-scoped with
+   * the same fail-closed 404 as `getDetail`.
+   */
+  async getComposition(args: {
+    workspaceId: string
+    initiativeId: string
+  }): Promise<InitiativeComposition> {
+    const team = await getDefaultTeam(args.workspaceId)
+    const notFound = () =>
+      Object.assign(new Error('Initiative not found'), { status: 404 })
+    if (!team) throw notFound()
+
+    const row = await initiativeRepository.findCompositionById(
+      args.initiativeId
+    )
+    if (!row || row.teamId !== team.id) throw notFound()
+
+    return composeInitiativeContents(row, team.identifier)
   },
 }

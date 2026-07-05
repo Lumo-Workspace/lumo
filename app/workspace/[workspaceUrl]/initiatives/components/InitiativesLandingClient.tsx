@@ -14,19 +14,30 @@ import { Textarea } from '@/components/ui/textarea'
 import type { ApiInitiativeStatus } from '@/lib/api-client/initiatives'
 import { useCreateInitiative, useInitiatives } from '../../hooks/useInitiatives'
 
+// LUM-678: Linear-aligned 5-state lifecycle (DONE/DROPPED are deprecated legacy
+// values, still rendered so historical rows read correctly).
 const STATUS_KEY: Record<ApiInitiativeStatus, string> = {
+  PROPOSED: 'initiative.status.proposed',
+  PLANNED: 'initiative.status.planned',
   ACTIVE: 'initiative.status.active',
+  COMPLETED: 'initiative.status.completed',
+  CANCELLED: 'initiative.status.cancelled',
   DONE: 'initiative.status.done',
   DROPPED: 'initiative.status.dropped',
 }
 
 // Semantic Badge variants (token-backed) instead of brand colors — active
-// stands out (primary), done recedes (secondary), dropped de-emphasized.
+// stands out (primary), planned/completed recede (secondary), proposed/
+// cancelled de-emphasized (outline).
 const STATUS_VARIANT: Record<
   ApiInitiativeStatus,
   'default' | 'secondary' | 'outline'
 > = {
+  PROPOSED: 'outline',
+  PLANNED: 'secondary',
   ACTIVE: 'default',
+  COMPLETED: 'secondary',
+  CANCELLED: 'outline',
   DONE: 'secondary',
   DROPPED: 'outline',
 }

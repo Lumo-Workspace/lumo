@@ -12,20 +12,30 @@ import type {
 } from '@/lib/api-client/initiatives'
 import { useInitiativeDetail } from '../../hooks/useInitiatives'
 
+// LUM-678: Linear-aligned 5-state lifecycle (DONE/DROPPED are deprecated legacy
+// values, still rendered so historical rows read correctly).
 const INITIATIVE_STATUS_KEY: Record<ApiInitiativeStatus, string> = {
+  PROPOSED: 'initiative.status.proposed',
+  PLANNED: 'initiative.status.planned',
   ACTIVE: 'initiative.status.active',
+  COMPLETED: 'initiative.status.completed',
+  CANCELLED: 'initiative.status.cancelled',
   DONE: 'initiative.status.done',
   DROPPED: 'initiative.status.dropped',
 }
 
 // Convey status by Badge variant (semantic, token-backed) rather than brand
-// colors — the live one stands out (primary), completed recedes (secondary),
-// dropped is de-emphasized (outline).
+// colors — the live one stands out (primary), planned/completed recede
+// (secondary), proposed/cancelled are de-emphasized (outline).
 const INITIATIVE_STATUS_VARIANT: Record<
   ApiInitiativeStatus,
   'default' | 'secondary' | 'outline'
 > = {
+  PROPOSED: 'outline',
+  PLANNED: 'secondary',
   ACTIVE: 'default',
+  COMPLETED: 'secondary',
+  CANCELLED: 'outline',
   DONE: 'secondary',
   DROPPED: 'outline',
 }
