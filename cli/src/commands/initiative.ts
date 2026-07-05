@@ -11,7 +11,7 @@ interface CreatedInitiativeResponse {
     id: string
     identifier: string
     number: number
-    goalStatement: string
+    name: string
     status: string
   }
 }
@@ -20,7 +20,7 @@ interface CreatedInitiativeResponse {
 interface InitiativeListItem {
   identifier: string
   status: string
-  goalStatement: string
+  name: string
 }
 
 interface InitiativeListResponse {
@@ -53,7 +53,7 @@ export function formatInitiativeList(
       .map(i => {
         const id = i.identifier.padEnd(idWidth)
         const status = i.status.padEnd(statusWidth)
-        return `${id}  ${status}  ${sanitizeField(i.goalStatement)}`
+        return `${id}  ${status}  ${sanitizeField(i.name)}`
       })
       .join('\n') + '\n'
   )
@@ -85,7 +85,7 @@ export async function initiativeCreate(
   const base = trimTrailingSlash(apiUrl)
   const url = `${base}/api/initiatives`
 
-  const body: Record<string, unknown> = { goalStatement: goal.trim() }
+  const body: Record<string, unknown> = { name: goal.trim() }
   if (opts.assumption !== undefined) body.assumptionNote = opts.assumption
 
   let res: Response

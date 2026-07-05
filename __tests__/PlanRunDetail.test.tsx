@@ -100,7 +100,7 @@ const ARCHIVE = {
       revision: 0,
     },
   ],
-  initiatives: [{ id: 'init-1', number: 5, goalStatement: 'Ship the revamp' }],
+  initiatives: [{ id: 'init-1', number: 5, name: 'Ship the revamp' }],
 }
 
 beforeEach(() => jest.clearAllMocks())

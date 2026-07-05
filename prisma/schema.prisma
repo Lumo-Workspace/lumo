@@ -531,21 +531,15 @@ enum PlanStageKind {
   GENERATE
 }
 
-// LUM-678: Linear-aligned 5-state lifecycle. The change is ADDITIVE (criterion
-// 4): PROPOSED/PLANNED/COMPLETED/CANCELLED are ADDed to the existing enum and
-// ACTIVE is kept. DONE/DROPPED are retained-but-deprecated — Postgres enum
-// values can't be removed without a destructive type-swap (DROP DEFAULT), which
-// the additive-migration contract forbids; new code writes only the 5 states.
+// LUM-678: Linear-aligned lifecycle — a clean 5-state enum. (The interim
+// additive step kept the legacy DONE/DROPPED values; this follow-up removes them
+// via a destructive type-swap now that data loss is acceptable — no real users.)
 enum InitiativeStatus {
   PROPOSED
   PLANNED
   ACTIVE
   COMPLETED
   CANCELLED
-  /// @deprecated LUM-678 — legacy value, superseded by COMPLETED. Do not write.
-  DONE
-  /// @deprecated LUM-678 — legacy value, superseded by CANCELLED. Do not write.
-  DROPPED
 }
 
 // One 转换器 run for a team. At most one active run per team is a business rule
@@ -622,27 +616,22 @@ model Initiative {
   number      Int
 
   // LUM-678 (Spec2-16): Linear-aligned scalar fields. `name` is the short title
-  // (required); `description` is the body — the old `goalStatement` content is
-  // relocated here going forward. `priority` reuses TaskPriority (nullable).
+  // (required — the single source of truth for the initiative's goal text);
+  // `description` is the body. `priority` reuses TaskPriority (nullable).
   // `ownerMemberId` is a soft member pointer (no FK, cf. PlanRun.startedByMemberId).
   // `startDate`/`targetDate` bracket the initiative's window.
   name          String
-  description   String?           @db.Text
+  description   String?          @db.Text
   priority      TaskPriority?
   ownerMemberId String?
   startDate     DateTime?
   targetDate    DateTime?
-  status        InitiativeStatus  @default(ACTIVE)
+  status        InitiativeStatus @default(ACTIVE)
 
   // Lumo-specific, KEPT (Linear has no equivalent): the run that materialised
   // this initiative (blood-lineage), and the epistemic bet behind it.
   planRunId      String? // the 转换器 run that produced this initiative, if any
   assumptionNote String? @db.Text // 赌注旁注 — the bet's side note
-
-  // Deprecated (LUM-678): retained because DROP COLUMN is destructive DDL and the
-  // additive-migration contract forbids it. New writes mirror `name` into it so
-  // existing readers keep working; prefer `name`/`description` going forward.
-  goalStatement String @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

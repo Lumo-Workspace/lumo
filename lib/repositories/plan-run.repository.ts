@@ -50,7 +50,7 @@ const LIST_SELECT = {
   createdAt: true,
   updatedAt: true,
   initiatives: {
-    select: { id: true, number: true, goalStatement: true },
+    select: { id: true, number: true, name: true },
   },
 } satisfies Prisma.PlanRunSelect
 
@@ -79,7 +79,7 @@ const ARCHIVE_SELECT = {
     orderBy: { createdAt: 'asc' },
   },
   initiatives: {
-    select: { id: true, number: true, goalStatement: true },
+    select: { id: true, number: true, name: true },
   },
 } satisfies Prisma.PlanRunSelect
 

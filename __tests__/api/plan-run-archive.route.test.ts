@@ -26,7 +26,7 @@ const ARCHIVE = {
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
   stageRecords: [],
-  initiatives: [{ id: 'init-1', number: 5, goalStatement: 'Ship it' }],
+  initiatives: [{ id: 'init-1', number: 5, name: 'Ship it' }],
 }
 
 const req = () =>
@@ -45,7 +45,7 @@ describe('GET /api/plan-runs/[runId]/archive', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.id).toBe('run-1')
-    expect(json.initiatives[0].goalStatement).toBe('Ship it')
+    expect(json.initiatives[0].name).toBe('Ship it')
     expect(planRunService.getArchive).toHaveBeenCalledWith({
       runId: 'run-1',
       workspaceId: 'w1',

@@ -14,16 +14,13 @@ import { Textarea } from '@/components/ui/textarea'
 import type { ApiInitiativeStatus } from '@/lib/api-client/initiatives'
 import { useCreateInitiative, useInitiatives } from '../../hooks/useInitiatives'
 
-// LUM-678: Linear-aligned 5-state lifecycle (DONE/DROPPED are deprecated legacy
-// values, still rendered so historical rows read correctly).
+// LUM-678: Linear-aligned 5-state lifecycle.
 const STATUS_KEY: Record<ApiInitiativeStatus, string> = {
   PROPOSED: 'initiative.status.proposed',
   PLANNED: 'initiative.status.planned',
   ACTIVE: 'initiative.status.active',
   COMPLETED: 'initiative.status.completed',
   CANCELLED: 'initiative.status.cancelled',
-  DONE: 'initiative.status.done',
-  DROPPED: 'initiative.status.dropped',
 }
 
 // Semantic Badge variants (token-backed) instead of brand colors — active
@@ -38,8 +35,6 @@ const STATUS_VARIANT: Record<
   ACTIVE: 'default',
   COMPLETED: 'secondary',
   CANCELLED: 'outline',
-  DONE: 'secondary',
-  DROPPED: 'outline',
 }
 
 /**
@@ -74,7 +69,7 @@ export function InitiativesLandingClient() {
     if (!goal.trim() || isCreating) return
     try {
       await createInitiative({
-        goalStatement: goal.trim(),
+        name: goal.trim(),
         assumptionNote: assumption.trim() || null,
       })
       resetForm()
@@ -197,7 +192,7 @@ export function InitiativesLandingClient() {
                       </Badge>
                     </div>
                     <p className='font-medium leading-snug'>
-                      {initiative.goalStatement}
+                      {initiative.name}
                     </p>
                     <div className='flex items-center gap-4 text-xs text-muted-foreground'>
                       <span className='flex items-center gap-1'>

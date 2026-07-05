@@ -33,7 +33,7 @@ const IDEA_POOL_SELECT = {
   ...IDEA_SELECT,
   planRunId: true,
   initiative: {
-    select: { id: true, number: true, goalStatement: true },
+    select: { id: true, number: true, name: true },
   },
 } satisfies Prisma.IdeaSelect
 

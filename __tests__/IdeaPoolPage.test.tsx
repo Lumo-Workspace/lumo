@@ -78,7 +78,7 @@ const planned: ApiIdea = {
   statement: 'ship the idea pool',
   status: 'PLANNED',
   planRunId: 'run-1',
-  initiative: { id: 'init-1', number: 5, goalStatement: 'Idea visibility' },
+  initiative: { id: 'init-1', number: 5, name: 'Idea visibility' },
 }
 
 const capturedWithContext: ApiIdea = {

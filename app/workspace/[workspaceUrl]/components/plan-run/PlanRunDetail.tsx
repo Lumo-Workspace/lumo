@@ -200,7 +200,7 @@ function PlanRunArchiveView({
                   data-testid='archive-initiative'
                   className='block rounded-md border border-border bg-card px-3 py-2 text-sm text-primary underline underline-offset-2 hover:no-underline'
                 >
-                  {initiative.goalStatement}
+                  {initiative.name}
                 </Link>
               </li>
             ))}

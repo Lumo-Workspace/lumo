@@ -61,7 +61,7 @@ export interface ConfirmAlignGateResult {
 export interface PlanRunInitiativeRef {
   id: string
   number: number
-  goalStatement: string
+  name: string
 }
 
 /** One row on the Ideas-page plan-runs surface: a run + its materialized

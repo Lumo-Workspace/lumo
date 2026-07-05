@@ -71,7 +71,7 @@ describe('POST /api/initiatives (direct create)', () => {
     mockCreate.mockResolvedValue({
       id: 'init-3',
       number: 3,
-      goalStatement: 'Ship the initiatives surface',
+      name: 'Ship the initiatives surface',
       assumptionNote: 'teams curate directly',
       status: 'ACTIVE',
       createdAt: new Date(0),
@@ -79,7 +79,7 @@ describe('POST /api/initiatives (direct create)', () => {
 
     const res = await POST(
       postReq({
-        goalStatement: 'Ship the initiatives surface',
+        name: 'Ship the initiatives surface',
         assumptionNote: 'teams curate directly',
       })
     )
@@ -88,7 +88,7 @@ describe('POST /api/initiatives (direct create)', () => {
     const { initiative } = await res.json()
     expect(initiative).toMatchObject({
       identifier: 'LUM-INIT-3',
-      goalStatement: 'Ship the initiatives surface',
+      name: 'Ship the initiatives surface',
       status: 'ACTIVE',
       taskCount: 0,
       ideaCount: 0,
@@ -102,17 +102,17 @@ describe('POST /api/initiatives (direct create)', () => {
           number: 3,
           planRunId: null,
           status: 'ACTIVE',
-          goalStatement: 'Ship the initiatives surface',
+          name: 'Ship the initiatives surface',
           assumptionNote: 'teams curate directly',
         }),
       })
     )
   })
 
-  it('400 rejects a blank goalStatement via Zod (no create)', async () => {
+  it('400 rejects a blank name via Zod (no create)', async () => {
     mockIdentity.mockResolvedValue(ID)
     mockTeam.mockResolvedValue(TEAM)
-    const res = await POST(postReq({ goalStatement: '   ' }))
+    const res = await POST(postReq({ name: '   ' }))
     expect(res.status).toBe(400)
     expect(mockCreate).not.toHaveBeenCalled()
   })
@@ -120,7 +120,7 @@ describe('POST /api/initiatives (direct create)', () => {
   it('404 when the workspace has no default team', async () => {
     mockIdentity.mockResolvedValue(ID)
     mockTeam.mockResolvedValue(null)
-    const res = await POST(postReq({ goalStatement: 'valid goal' }))
+    const res = await POST(postReq({ name: 'valid goal' }))
     expect(res.status).toBe(404)
     expect(mockCreate).not.toHaveBeenCalled()
   })
@@ -129,7 +129,7 @@ describe('POST /api/initiatives (direct create)', () => {
     mockIdentity.mockResolvedValue(
       NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     )
-    const res = await POST(postReq({ goalStatement: 'x' }))
+    const res = await POST(postReq({ name: 'x' }))
     expect(res.status).toBe(401)
     expect(mockCreate).not.toHaveBeenCalled()
   })
@@ -143,7 +143,7 @@ describe('GET /api/initiatives (list)', () => {
       {
         id: 'init-2',
         number: 2,
-        goalStatement: 'Ship the converter',
+        name: 'Ship the converter',
         status: 'ACTIVE',
         createdAt: new Date(0),
         _count: { tasks: 3, ideas: 2 },
@@ -151,7 +151,7 @@ describe('GET /api/initiatives (list)', () => {
       {
         id: 'init-1',
         number: 1,
-        goalStatement: 'Idea capture',
+        name: 'Idea capture',
         status: 'DONE',
         createdAt: new Date(0),
         _count: { tasks: 1, ideas: 4 },
@@ -166,7 +166,7 @@ describe('GET /api/initiatives (list)', () => {
       json.initiatives.map((i: { identifier: string }) => i.identifier)
     ).toEqual(['LUM-INIT-2', 'LUM-INIT-1'])
     expect(json.initiatives[0]).toMatchObject({
-      goalStatement: 'Ship the converter',
+      name: 'Ship the converter',
       status: 'ACTIVE',
       taskCount: 3,
       ideaCount: 2,
@@ -202,7 +202,7 @@ describe('GET /api/initiatives/[initiativeId] (detail w/ lineage)', () => {
     id: 'init-1',
     number: 3,
     teamId: 'team-1',
-    goalStatement: 'Ship the converter',
+    name: 'Ship the converter',
     assumptionNote: 'Bet: teams will curate the idea pool',
     status: 'ACTIVE',
     createdAt: new Date(0),
@@ -225,7 +225,7 @@ describe('GET /api/initiatives/[initiativeId] (detail w/ lineage)', () => {
 
     expect(initiative).toMatchObject({
       identifier: 'LUM-INIT-3',
-      goalStatement: 'Ship the converter',
+      name: 'Ship the converter',
       assumptionNote: 'Bet: teams will curate the idea pool',
       status: 'ACTIVE',
       taskProgress: { total: 2, done: 1 },

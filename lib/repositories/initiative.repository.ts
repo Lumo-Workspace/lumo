@@ -24,7 +24,7 @@ const MAX_NUMBER_ATTEMPTS = 5
 const INITIATIVE_CREATED_SELECT = {
   id: true,
   number: true,
-  goalStatement: true,
+  name: true,
   assumptionNote: true,
   status: true,
   createdAt: true,
@@ -38,7 +38,7 @@ export type InitiativeCreatedRow = Prisma.InitiativeGetPayload<{
 const INITIATIVE_LIST_SELECT = {
   id: true,
   number: true,
-  goalStatement: true,
+  name: true,
   status: true,
   createdAt: true,
   _count: { select: { tasks: true, ideas: true } },
@@ -57,7 +57,7 @@ const INITIATIVE_DETAIL_SELECT = {
   id: true,
   number: true,
   teamId: true,
-  goalStatement: true,
+  name: true,
   assumptionNote: true,
   status: true,
   createdAt: true,
@@ -166,7 +166,7 @@ export const initiativeRepository = {
   async create(data: {
     teamId: string
     workspaceId: string
-    goalStatement: string
+    name: string
     assumptionNote: string | null
   }): Promise<InitiativeCreatedRow> {
     for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
@@ -183,10 +183,9 @@ export const initiativeRepository = {
               workspaceId: data.workspaceId,
               number,
               planRunId: null,
-              // LUM-678: Linear `name` from the goal; `goalStatement` kept as a
-              // deprecated mirror. A directly-created initiative starts ACTIVE.
-              name: data.goalStatement,
-              goalStatement: data.goalStatement,
+              // LUM-678: `name` is the initiative's goal text. A directly-created
+              // initiative starts ACTIVE.
+              name: data.name,
               assumptionNote: data.assumptionNote,
               status: 'ACTIVE',
             },

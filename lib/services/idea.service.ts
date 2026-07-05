@@ -29,7 +29,7 @@ export interface CapturedIdea {
 export interface IdeaInitiativeRef {
   id: string
   number: number
-  goalStatement: string
+  name: string
 }
 
 /**
@@ -69,7 +69,7 @@ function toPooledIdea(row: IdeaPoolRow, teamIdentifier: string): PooledIdea {
       ? {
           id: row.initiative.id,
           number: row.initiative.number,
-          goalStatement: row.initiative.goalStatement,
+          name: row.initiative.name,
         }
       : null,
   }

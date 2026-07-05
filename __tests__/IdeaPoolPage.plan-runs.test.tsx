@@ -68,7 +68,7 @@ const materializedRun: PlanRunListRow = {
   stage: 'MATERIALIZED',
   createdAt: '2026-06-01T10:00:00.000Z',
   updatedAt: '2026-06-01T10:00:00.000Z',
-  initiatives: [{ id: 'init-1', number: 5, goalStatement: 'Ship the revamp' }],
+  initiatives: [{ id: 'init-1', number: 5, name: 'Ship the revamp' }],
 }
 
 function setRuns(runs: PlanRunListRow[], overrides = {}) {

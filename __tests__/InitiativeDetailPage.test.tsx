@@ -56,7 +56,7 @@ const DETAIL = {
   id: 'init-1',
   number: 3,
   identifier: 'LUM-INIT-3',
-  goalStatement: 'Ship the design-thinking converter',
+  name: 'Ship the design-thinking converter',
   assumptionNote: 'Bet: teams will curate the idea pool weekly',
   status: 'ACTIVE' as const,
   createdAt: '1970-01-01T00:00:00.000Z',

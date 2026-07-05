@@ -31,7 +31,7 @@ const RUNS = [
     stage: 'MATERIALIZED' as const,
     createdAt: new Date(1).toISOString(),
     updatedAt: new Date(1).toISOString(),
-    initiatives: [{ id: 'init-1', number: 5, goalStatement: 'Ship it' }],
+    initiatives: [{ id: 'init-1', number: 5, name: 'Ship it' }],
   },
 ]
 
