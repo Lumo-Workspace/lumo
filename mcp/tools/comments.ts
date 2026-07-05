@@ -112,7 +112,11 @@ export function registerCommentTools(server: McpServer) {
           where: { id: commentId },
           include: { task: { include: { team: true } } },
         })
-        if (!existing || existing.task.team.workspaceId !== workspaceId) {
+        if (
+          !existing ||
+          !existing.task ||
+          existing.task.team.workspaceId !== workspaceId
+        ) {
           throw new Error(`Comment ${commentId} not found`)
         }
 
@@ -139,7 +143,11 @@ export function registerCommentTools(server: McpServer) {
         where: { id: commentId },
         include: { task: { include: { team: true } } },
       })
-      if (!existing || existing.task.team.workspaceId !== workspaceId) {
+      if (
+        !existing ||
+        !existing.task ||
+        existing.task.team.workspaceId !== workspaceId
+      ) {
         throw new Error(`Comment ${commentId} not found`)
       }
 

@@ -24,6 +24,9 @@ export interface CommentThreadOptions {
   identifier?: string | undefined
   /** Override the token ceiling (tests). */
   maxTokens?: number | undefined
+  /** The `lumo <…>` sub-command the fetch-more pointer advertises. Defaults to
+   *  the task thread; the idea thread (LUM-680) passes `idea comments list`. */
+  fetchCommand?: string | undefined
 }
 
 /**
@@ -77,11 +80,12 @@ export function formatCommentThread(
   const blocks = comments.map(c => renderCommentBlock(c, ''))
   if (opts.full) return blocks.join('\n\n')
   const id = opts.identifier ?? '<LUM-N>'
+  const fetchCommand = opts.fetchCommand ?? 'task comments list'
   return truncateUnitsToBudget({
     units: blocks,
     maxTokens: opts.maxTokens,
     unitNoun: 'comments',
-    fetchHint: `read the whole thread with: lumo task comments list ${id} --full`,
+    fetchHint: `read the whole thread with: lumo ${fetchCommand} ${id} --full`,
     separator: '\n\n',
   }).text
 }

@@ -11,6 +11,12 @@ jest.mock('@/lib/team', () => ({
   getDefaultTeam: (...a: unknown[]) => mockGetDefaultTeam(...a),
 }))
 
+// LUM-680: updateStatement now records a STATEMENT_CHANGED activity — mock the
+// repo so this unit test doesn't reach prisma.
+jest.mock('@/lib/repositories/idea-activity.repository', () => ({
+  ideaActivityRepository: { create: jest.fn(), listByIdea: jest.fn() },
+}))
+
 import { ideaService } from '@/lib/services/idea.service'
 
 const TEAM = { id: 'team-1', identifier: 'LUM' }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
+import { getHumanActorId } from '@/lib/actor'
 import { updateIdeaSchema, updateIdeaStatusSchema } from '@/lib/validation/idea'
 import { ideaService } from '@/lib/services'
 
@@ -38,6 +39,8 @@ export async function PATCH(
     typeof body === 'object' && body !== null && 'status' in body
 
   try {
+    const actorId = await getHumanActorId(identity.memberId)
+
     if (isStatusEdit) {
       const parsed = updateIdeaStatusSchema.safeParse(body)
       if (!parsed.success) return zodError(parsed)
@@ -45,6 +48,7 @@ export async function PATCH(
         workspaceId: identity.workspaceId,
         ideaRef: id,
         status: parsed.data.status,
+        actorId,
       })
       return NextResponse.json({ idea })
     }
@@ -55,6 +59,7 @@ export async function PATCH(
       workspaceId: identity.workspaceId,
       ideaId: id,
       input: parsed.data,
+      actorId,
     })
     return NextResponse.json({ idea })
   } catch (err) {

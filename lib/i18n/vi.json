@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Bình luận",
   "ideas.detail.tabActivity": "Hoạt động",
   "ideas.detail.tabEvidence": "Bằng chứng",
-  "ideas.detail.comingSoon": "Sắp ra mắt."
+  "ideas.detail.comingSoon": "Sắp ra mắt.",
+  "ideas.comments.empty": "Chưa có bình luận.",
+  "ideas.comments.composerLabel": "Thêm bình luận",
+  "ideas.comments.composerPlaceholder": "Viết bình luận…",
+  "ideas.comments.post": "Bình luận",
+  "ideas.activity.empty": "Chưa có hoạt động.",
+  "ideas.activity.captured": "Đã ghi nhận ý tưởng",
+  "ideas.activity.statementChanged": "Đã chỉnh sửa nội dung",
+  "ideas.activity.statusChanged": "Trạng thái đã đổi thành {to}",
+  "ideas.activity.commentAdded": "Đã thêm bình luận"
 }

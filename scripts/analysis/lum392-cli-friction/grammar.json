@@ -1026,6 +1026,36 @@
       "hasSubcommands": true,
       "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
     },
+    "idea comment": {
+      "arguments": [
+        { "name": "id", "required": true, "variadic": false },
+        { "name": "body", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "description": "Comment on an idea (LUM-680). <id> is the LUM-I<n> id (a bare number also resolves). Body is plain text — quote it to pass spaces or newlines."
+    },
+    "idea comments": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "description": "Inspect an idea comment thread"
+    },
+    "idea comments list": {
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print every comment, bypassing the output-token cap"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "List an idea comment thread (capped to the output budget; --full prints every comment)."
+    },
     "idea list": {
       "arguments": [],
       "flags": {},

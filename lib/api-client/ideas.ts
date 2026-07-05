@@ -34,4 +34,22 @@ export const ideasClient = {
   updateStatus<T>(idRef: string, input: UpdateIdeaStatusInput) {
     return apiFetch<T>(API.ideas.byId(idRef), { method: 'PATCH', body: input })
   },
+
+  /** GET an idea's comment thread (LUM-680). */
+  listComments<T>(id: string) {
+    return apiFetch<T>(API.ideas.comments(id))
+  },
+
+  /** POST a comment on an idea (LUM-680). */
+  createComment<T>(id: string, body: string) {
+    return apiFetch<T>(API.ideas.comments(id), {
+      method: 'POST',
+      body: { body },
+    })
+  },
+
+  /** GET an idea's activity timeline (LUM-680). */
+  listActivity<T>(id: string) {
+    return apiFetch<T>(API.ideas.activity(id))
+  },
 }

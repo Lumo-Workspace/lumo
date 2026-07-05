@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "留言",
   "ideas.detail.tabActivity": "動態",
   "ideas.detail.tabEvidence": "證據",
-  "ideas.detail.comingSoon": "即將推出。"
+  "ideas.detail.comingSoon": "即將推出。",
+  "ideas.comments.empty": "還沒有留言。",
+  "ideas.comments.composerLabel": "新增留言",
+  "ideas.comments.composerPlaceholder": "撰寫留言…",
+  "ideas.comments.post": "留言",
+  "ideas.activity.empty": "還沒有活動。",
+  "ideas.activity.captured": "想法已擷取",
+  "ideas.activity.statementChanged": "陳述已編輯",
+  "ideas.activity.statusChanged": "狀態已變更為 {to}",
+  "ideas.activity.commentAdded": "已新增留言"
 }

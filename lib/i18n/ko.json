@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "댓글",
   "ideas.detail.tabActivity": "활동",
   "ideas.detail.tabEvidence": "증거",
-  "ideas.detail.comingSoon": "곧 제공됩니다."
+  "ideas.detail.comingSoon": "곧 제공됩니다.",
+  "ideas.comments.empty": "아직 댓글이 없습니다.",
+  "ideas.comments.composerLabel": "댓글 추가",
+  "ideas.comments.composerPlaceholder": "댓글 작성…",
+  "ideas.comments.post": "댓글",
+  "ideas.activity.empty": "아직 활동이 없습니다.",
+  "ideas.activity.captured": "아이디어가 기록됨",
+  "ideas.activity.statementChanged": "설명이 편집됨",
+  "ideas.activity.statusChanged": "상태가 {to}(으)로 변경됨",
+  "ideas.activity.commentAdded": "댓글이 추가됨"
 }
