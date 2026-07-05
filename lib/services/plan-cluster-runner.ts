@@ -1,9 +1,25 @@
 import { planRunService } from '@/lib/services/plan-run.service'
 import { planRunRepository } from '@/lib/repositories/plan-run.repository'
 import { ideaRepository } from '@/lib/repositories/idea.repository'
+import { summariseIdeaEvidence } from '@/lib/services/idea-evidence-summary'
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import type { ClusterIdeaInput } from '@/lib/llm/plan-cluster-client'
 import type { Prisma } from '@prisma/client'
+
+/**
+ * Fail-soft per-idea evidence lookup: any thrown error (or malformed summary)
+ * omits that idea's evidence rather than failing the whole clustering stage —
+ * evidence is an enrichment, not a load-bearing input.
+ */
+async function safeEvidenceLines(ideaId: string): Promise<string[] | null> {
+  try {
+    const summary = await summariseIdeaEvidence(ideaId)
+    const lines = summary.slack.concat(summary.web, summary.figma)
+    return lines.length ? lines : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Stage-1 (聚类) trigger for the design-thinking 转换器 (LUM-674). Fired
@@ -33,10 +49,14 @@ export async function triggerClusterStage(planRunId: string): Promise<void> {
 
   try {
     const ideaRows = await ideaRepository.findByIds(run.inputIdeaIds)
-    const ideas: ClusterIdeaInput[] = ideaRows.map(i => ({
+    const evidenceByIdeaId = await Promise.all(
+      ideaRows.map(i => safeEvidenceLines(i.id))
+    )
+    const ideas: ClusterIdeaInput[] = ideaRows.map((i, index) => ({
       id: i.id,
       statement: i.statement,
       sourceContext: i.sourceContext,
+      evidence: evidenceByIdeaId[index] ?? null,
     }))
 
     const { callPlanClusterLLM } = await import('@/lib/llm/plan-cluster-client')

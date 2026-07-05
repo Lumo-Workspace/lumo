@@ -7,11 +7,15 @@ import { gateway } from '@ai-sdk/gateway'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** One unprocessed idea fed into Stage-1 clustering. `sourceContext` is the
- *  light free-text origin captured with the idea (may be absent). */
+ *  light free-text origin captured with the idea (may be absent). `evidence`
+ *  is a list of human-readable lines summarising attached Slack/web/Figma
+ *  sources (see `summariseIdeaEvidence`); absent or empty means no attached
+ *  evidence and is omitted from the prompt entirely. */
 export interface ClusterIdeaInput {
   id: string
   statement: string
   sourceContext?: string | null
+  evidence?: string[] | null
 }
 
 export interface PlanClusterCluster {
@@ -74,7 +78,8 @@ Rules:
 - Each cluster needs a short "name" and a one-sentence "thrust" that states what the ideas jointly point at (the shared intent), NOT a mere list of the ideas.
 - Assign every idea by its id. An idea that does not genuinely belong to any cluster's thrust goes in "orphans". Do NOT force an unrelated idea into a cluster to make it fit — a truthful orphan is better than a forced member.
 - Every input idea id must appear EXACTLY ONCE across all clusters and orphans — never drop an id, never invent an id that was not in the input, never assign the same id twice.
-- Cluster by shared thrust/intent, not by superficial keyword overlap.`
+- Cluster by shared thrust/intent, not by superficial keyword overlap.
+- Some ideas carry an "evidence" list (attached Slack/web/Figma sources) — weigh shared or overlapping evidence as a signal that ideas jointly point at the same thrust.`
 
 // ── Prompt builder ──────────────────────────────────────────────────────────
 
@@ -82,7 +87,10 @@ export function buildPlanClusterPrompt(ideas: ClusterIdeaInput[]): string {
   const lines = ideas.map(idea => {
     const ctx = idea.sourceContext?.trim()
     const ctxPart = ctx ? `\n    context: ${ctx}` : ''
-    return `- id: ${idea.id}\n    statement: ${idea.statement}${ctxPart}`
+    const evidencePart = idea.evidence?.length
+      ? `\n    evidence:\n${idea.evidence.map(line => `      - ${line}`).join('\n')}`
+      : ''
+    return `- id: ${idea.id}\n    statement: ${idea.statement}${ctxPart}${evidencePart}`
   })
 
   return `Idea pool (${ideas.length} unprocessed idea${ideas.length === 1 ? '' : 's'}):

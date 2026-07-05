@@ -84,10 +84,14 @@ it('run reaches CLUSTERS_READY after the clustering trigger', async () => {
 
   // Stage-1 runs on the frozen input ideas.
   expect(findByIds).toHaveBeenCalledWith(['idea-a', 'idea-b', 'idea-c'])
+  // Evidence lookup is fail-soft (LUM-681): the evidence repos aren't mocked
+  // here so the underlying reads throw against the mocked prisma, and each
+  // idea's `evidence` gracefully falls back to null rather than failing the
+  // stage — see idea-evidence-summary.test.ts / plan-cluster-runner coverage.
   expect(cluster).toHaveBeenCalledWith([
-    { id: 'idea-a', statement: 'Idea A', sourceContext: null },
-    { id: 'idea-b', statement: 'Idea B', sourceContext: 'ctx' },
-    { id: 'idea-c', statement: 'Idea C', sourceContext: null },
+    { id: 'idea-a', statement: 'Idea A', sourceContext: null, evidence: null },
+    { id: 'idea-b', statement: 'Idea B', sourceContext: 'ctx', evidence: null },
+    { id: 'idea-c', statement: 'Idea C', sourceContext: null, evidence: null },
   ])
 
   // The CLUSTER stage record holds the Stage-1 output (clusters + orphans).
