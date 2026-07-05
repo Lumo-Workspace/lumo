@@ -97,7 +97,7 @@ export interface ApiIdea {
   number: number
   identifier: string
   statement: string
-  status: 'CAPTURED' | 'PLANNED'
+  status: 'CAPTURED' | 'DEVELOPING' | 'PLANNED' | 'DROPPED'
   sourceContext: string | null
   sourceSessionId: string | null
   sourceTaskId: string | null

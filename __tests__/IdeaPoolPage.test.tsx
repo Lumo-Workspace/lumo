@@ -61,7 +61,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'
 import type { ApiIdea } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -130,9 +130,13 @@ describe('IdeaPoolPage', () => {
     expect(screen.getByText('dark mode toggle')).toBeInTheDocument()
     expect(screen.getByText('faster search')).toBeInTheDocument()
 
-    // status labels (both kinds present)
-    expect(screen.getByText('ideas.statusPlanned')).toBeInTheDocument()
-    expect(screen.getAllByText('ideas.statusCaptured')).toHaveLength(2)
+    // status labels (both kinds present) — scoped to the idea rows so the
+    // per-status filter chips (which also render every label) don't count.
+    const rows = screen.getAllByTestId('idea-row')
+    const rowBadges = (id: string) =>
+      rows.filter(r => within(r).queryByText(id) !== null)
+    expect(rowBadges('ideas.statusPlanned')).toHaveLength(1)
+    expect(rowBadges('ideas.statusCaptured')).toHaveLength(2)
 
     // source: free-text context rendered verbatim; task source templated
     expect(screen.getByText('from the standup')).toBeInTheDocument()

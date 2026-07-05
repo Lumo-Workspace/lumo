@@ -437,9 +437,17 @@ model WorkspaceMember {
 // idea pool and its declared priorities. Spec1 = this schema foundation only;
 // materialisation into project-scoped Tasks and the Initiative concept are Spec2.
 
+// LUM-679 (Spec2-17): the idea lifecycle widens from 2 → 4 states.
+// CAPTURED (pooled) → DEVELOPING (in triage / pre-work) → PLANNED (consumed by
+// an initiative/plan) with DROPPED as the terminal discard reachable from any
+// non-terminal state. Materialisation still lands ideas in PLANNED. The two new
+// values were added additively (ADD VALUE); allowed transitions live in
+// lib/idea-status.ts.
 enum IdeaStatus {
   CAPTURED
+  DEVELOPING
   PLANNED
+  DROPPED
 }
 
 // A captured team-level idea. NO projectId — ideas live above projects until

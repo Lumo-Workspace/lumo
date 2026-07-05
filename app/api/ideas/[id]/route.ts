@@ -1,27 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
-import { updateIdeaSchema } from '@/lib/validation/idea'
+import { updateIdeaSchema, updateIdeaStatusSchema } from '@/lib/validation/idea'
 import { ideaService } from '@/lib/services'
-
-interface Params {
-  params: Promise<{ id: string }>
-}
 
 /**
  * PATCH /api/ideas/[id]
  *
- * Edit a captured idea's statement from the detail slide-over (LUM-683). Auth
- * via Clerk (web). Scoped to the caller's default team: an id in another team
- * returns 404 (same as a genuinely missing row), so the boundary can't be
- * probed. Returns the updated pool-view idea (with lineage).
+ * Two edits share this route, dispatched by the body shape:
+ *  - a `status` field → a lifecycle status change (LUM-679), validated against
+ *    the transition rules in the service;
+ *  - otherwise a `statement` field → a text edit from the detail slide-over
+ *    (LUM-683).
+ *
+ * `[id]` is a cuid id (web) or a `<TEAM>-I<n>` identifier / bare number (CLI —
+ * `lumo idea update`). Auth via Clerk (web) or Bearer (CLI). Everything is
+ * scoped to the caller's default team: an id in another team returns 404 (same
+ * as a genuinely missing row), so the boundary can't be probed.
  */
 export async function PATCH(
-  request: NextRequest,
-  { params }: Params
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
+
+  const { id } = await params
 
   let body: unknown
   try {
@@ -30,11 +34,23 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const parsed = updateIdeaSchema.safeParse(body)
-  if (!parsed.success) return zodError(parsed)
+  const isStatusEdit =
+    typeof body === 'object' && body !== null && 'status' in body
 
   try {
-    const { id } = await params
+    if (isStatusEdit) {
+      const parsed = updateIdeaStatusSchema.safeParse(body)
+      if (!parsed.success) return zodError(parsed)
+      const idea = await ideaService.updateStatus({
+        workspaceId: identity.workspaceId,
+        ideaRef: id,
+        status: parsed.data.status,
+      })
+      return NextResponse.json({ idea })
+    }
+
+    const parsed = updateIdeaSchema.safeParse(body)
+    if (!parsed.success) return zodError(parsed)
     const idea = await ideaService.updateStatement({
       workspaceId: identity.workspaceId,
       ideaId: id,

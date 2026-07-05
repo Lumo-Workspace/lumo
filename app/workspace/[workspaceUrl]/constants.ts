@@ -35,6 +35,8 @@ export const API = {
   ideas: {
     list: '/api/ideas',
     create: '/api/ideas',
+    // PATCH target for both a statement edit (LUM-683) and a status change
+    // (LUM-679); accepts a cuid id or a `<TEAM>-I<n>` identifier.
     byId: (id: string) => `/api/ideas/${id}`,
   },
   initiatives: {

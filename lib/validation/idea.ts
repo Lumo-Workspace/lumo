@@ -23,10 +23,10 @@ export const captureIdeaSchema = z.object({
 export type CaptureIdeaInput = z.infer<typeof captureIdeaSchema>
 
 /**
- * Payload for `PATCH /api/ideas/[id]` — editing a captured idea from the detail
- * slide-over (LUM-683). Only the `statement` is editable here: it carries the
- * same non-blank/≤2000 rule as capture. The 4-state status lifecycle and its
- * mutation belong to the sibling task (679); this task edits text only.
+ * Payload for `PATCH /api/ideas/[id]` when editing a captured idea's text from
+ * the detail slide-over (LUM-683). Only the `statement` is editable here: it
+ * carries the same non-blank/≤2000 rule as capture. The status lifecycle is a
+ * separate mutation (below).
  */
 export const updateIdeaSchema = z.object({
   statement: z
@@ -37,3 +37,29 @@ export const updateIdeaSchema = z.object({
 })
 
 export type UpdateIdeaInput = z.infer<typeof updateIdeaSchema>
+
+/**
+ * The four Idea lifecycle states (LUM-679). Kept as a literal tuple so the Zod
+ * enum, the CLI grammar and the web control share one source of truth for the
+ * legal status values (the *transitions* between them live in
+ * `lib/idea-status.ts`).
+ */
+export const IDEA_STATUSES = [
+  'CAPTURED',
+  'DEVELOPING',
+  'PLANNED',
+  'DROPPED',
+] as const
+
+/**
+ * Payload for `PATCH /api/ideas/[id]` when changing an idea's lifecycle status
+ * (LUM-679). Only `status` is mutable here; the transition's legality (and
+ * 404/400 handling) is enforced in the service against `lib/idea-status.ts`.
+ * The route dispatches to this vs `updateIdeaSchema` by whether the body
+ * carries a `status`.
+ */
+export const updateIdeaStatusSchema = z.object({
+  status: z.enum(IDEA_STATUSES),
+})
+
+export type UpdateIdeaStatusInput = z.infer<typeof updateIdeaStatusSchema>

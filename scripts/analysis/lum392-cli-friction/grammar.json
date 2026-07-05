@@ -1030,7 +1030,22 @@
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
-      "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement."
+      "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|DEVELOPING|PLANNED|DROPPED) and statement."
+    },
+    "idea update": {
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "flags": {
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": ["captured", "developing", "planned", "dropped"],
+          "enumCaseInsensitive": true,
+          "description": "New status: captured | developing | planned | dropped (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "description": "Move an idea through its lifecycle (LUM-679). Allowed: CAPTURED↔DEVELOPING→PLANNED and any state→DROPPED (DROPPED is terminal). <id> is the LUM-I<n> id (a bare number also resolves)."
     },
     "initiative": {
       "arguments": [],
