@@ -3,6 +3,7 @@ const mockCreate = jest.fn()
 const mockFindMany = jest.fn()
 const mockUpdateMany = jest.fn()
 const mockFindUnique = jest.fn()
+const mockFindFirst = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -18,6 +19,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: (...a: unknown[]) => mockFindMany(...a),
       updateMany: (...a: unknown[]) => mockUpdateMany(...a),
       findUnique: (...a: unknown[]) => mockFindUnique(...a),
+      findFirst: (...a: unknown[]) => mockFindFirst(...a),
     },
   },
 }))
@@ -136,5 +138,79 @@ describe('ideaRepository.listCapturedByTeam', () => {
         orderBy: { number: 'asc' },
       })
     )
+  })
+})
+
+describe('ideaRepository.findByNumber', () => {
+  it('resolves by the team-scoped compound unique key', async () => {
+    mockFindUnique.mockResolvedValue({
+      id: 'i8',
+      number: 8,
+      status: 'CAPTURED',
+    })
+
+    const row = await ideaRepository.findByNumber('team-1', 8)
+
+    expect(row).toMatchObject({ id: 'i8', status: 'CAPTURED' })
+    expect(mockFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { teamId_number: { teamId: 'team-1', number: 8 } },
+      })
+    )
+  })
+
+  it('returns null when the number is not in the team', async () => {
+    mockFindUnique.mockResolvedValue(null)
+    expect(await ideaRepository.findByNumber('team-1', 99)).toBeNull()
+  })
+})
+
+describe('ideaRepository.findByIdInTeam', () => {
+  it('resolves by { id, teamId } so it can never cross teams', async () => {
+    mockFindFirst.mockResolvedValue({ id: 'i8', number: 8, status: 'CAPTURED' })
+
+    const row = await ideaRepository.findByIdInTeam('i8', 'team-1')
+
+    expect(row).toMatchObject({ id: 'i8', status: 'CAPTURED' })
+    expect(mockFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'i8', teamId: 'team-1' } })
+    )
+  })
+
+  it('returns null when the id is not in the team', async () => {
+    mockFindFirst.mockResolvedValue(null)
+    expect(await ideaRepository.findByIdInTeam('nope', 'team-1')).toBeNull()
+  })
+})
+
+describe('ideaRepository.updateStatusInTeam', () => {
+  it('writes the status within the team filter and returns the refreshed pool row', async () => {
+    mockUpdateMany.mockResolvedValue({ count: 1 })
+    mockFindUnique.mockResolvedValue({ id: 'i8', status: 'DROPPED' })
+
+    const row = await ideaRepository.updateStatusInTeam({
+      ideaId: 'i8',
+      teamId: 'team-1',
+      status: 'DROPPED',
+    })
+
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'i8', teamId: 'team-1' },
+      data: { status: 'DROPPED' },
+    })
+    expect(row).toEqual({ id: 'i8', status: 'DROPPED' })
+  })
+
+  it('returns null (no re-read) when the id is not in the team', async () => {
+    mockUpdateMany.mockResolvedValue({ count: 0 })
+
+    const row = await ideaRepository.updateStatusInTeam({
+      ideaId: 'not-in-team',
+      teamId: 'team-1',
+      status: 'DROPPED',
+    })
+
+    expect(row).toBeNull()
+    expect(mockFindUnique).not.toHaveBeenCalled()
   })
 })

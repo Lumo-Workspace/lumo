@@ -7,6 +7,22 @@ export interface IdeaCaptureOptions {
   context?: string
 }
 
+export interface IdeaUpdateOptions {
+  status?: string
+}
+
+/**
+ * The four Idea lifecycle states (LUM-679), lower-cased for CLI input. The
+ * command normalizes case before sending, so `--status Developing` and
+ * `--status developing` both resolve. Mirrors `lib/validation/idea.ts`.
+ */
+const IDEA_STATUS_VALUES = [
+  'captured',
+  'developing',
+  'planned',
+  'dropped',
+] as const
+
 interface CapturedIdeaResponse {
   idea: {
     id: string
@@ -177,4 +193,92 @@ export async function ideaList(): Promise<number | void> {
 
   const data = (await res.json()) as IdeaListResponse
   process.stdout.write(formatIdeaList(data.ideas))
+}
+
+/**
+ * `lumo idea update <id> --status <STATUS>` — move an idea through its
+ * lifecycle (LUM-679). `<id>` is the `<TEAM>-I<n>` identifier (a bare `<n>`
+ * also resolves). The status is case-insensitive; the server enforces the
+ * allowed transitions (CAPTURED↔DEVELOPING→PLANNED, any→DROPPED, DROPPED
+ * terminal) and rejects an illegal move with a clear error.
+ */
+export async function ideaUpdate(
+  idRef: string | undefined,
+  opts: IdeaUpdateOptions
+): Promise<number | void> {
+  if (!idRef || idRef.trim().length === 0) {
+    console.error(
+      'Error: missing <id>. Usage: lumo idea update <LUM-I42> --status <captured|developing|planned|dropped>'
+    )
+    return 1
+  }
+
+  const status = opts.status?.trim().toLowerCase()
+  if (!status) {
+    console.error(
+      'Error: --status is required. One of: captured | developing | planned | dropped'
+    )
+    return 1
+  }
+  if (
+    !IDEA_STATUS_VALUES.includes(status as (typeof IDEA_STATUS_VALUES)[number])
+  ) {
+    console.error(
+      `Error: invalid status "${sanitizeField(opts.status ?? '')}". One of: captured | developing | planned | dropped`
+    )
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+  const base = trimTrailingSlash(apiUrl)
+  const url = `${base}/api/ideas/${encodeURIComponent(idRef.trim())}`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${creds.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: status.toUpperCase() }),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+
+  if (res.ok) {
+    const data = (await res.json()) as CapturedIdeaResponse
+    process.stdout.write(
+      `✓ 想法 ${data.idea.identifier} → ${data.idea.status}\n`
+    )
+    return
+  }
+
+  let serverMsg: string | null = null
+  try {
+    const errBody = (await res.json()) as { error?: string }
+    if (typeof errBody.error === 'string') serverMsg = errBody.error
+  } catch {
+    // Body wasn't JSON; fall through to status-only message
+  }
+  if (serverMsg) {
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
+  } else {
+    console.error(`Error: idea update failed (HTTP ${res.status})`)
+  }
+  return 1
 }

@@ -78,11 +78,18 @@ The command catalog below is a **map**: it lists every command grouped by domain
     ```bash
     lumo idea "Add a quick-capture keyboard shortcut" --context "raised in standup"
     ```
-- `lumo idea list` — print the team idea pool **newest-first**, one line per idea: the `LUM-I<n>` id, status (`CAPTURED` | `PLANNED`) and statement. Reads `GET /api/ideas`, which returns the whole pool (both statuses), not just the unprocessed slice. Empty pool prints `No ideas.`. The same pool is browsable/searchable in web at `/workspace/<slug>/ideas` (sidebar → Ideas), where a PLANNED idea links to the plan run that materialised it.
+- `lumo idea list` — print the team idea pool **newest-first**, one line per idea: the `LUM-I<n>` id, status (`CAPTURED` | `DEVELOPING` | `PLANNED` | `DROPPED`) and statement. Reads `GET /api/ideas`, which returns the whole pool (every status), not just the unprocessed slice. Empty pool prints `No ideas.`. The same pool is browsable/searchable in web at `/workspace/<slug>/ideas` (sidebar → Ideas), where a PLANNED idea links to the plan run that materialised it and the status filter hides DROPPED by default.
   - **When to suggest**: the user wants to see what's parked in the idea pool / "看看想法池" / "list the ideas" / triage before running `lumo plan`.
   - **Example**:
     ```bash
     lumo idea list
+    ```
+- `lumo idea update <id> --status <captured|developing|planned|dropped>` — move an idea through its lifecycle (LUM-679). `<id>` is the `LUM-I<n>` id (a bare number also resolves); `--status` is case-insensitive. The four states are `CAPTURED` (pooled) → `DEVELOPING` (in triage / pre-work) → `PLANNED` (consumed by an initiative/plan), with `DROPPED` the terminal discard. Allowed transitions: `CAPTURED↔DEVELOPING`, `DEVELOPING→PLANNED`, and **any non-terminal → DROPPED**; nothing transitions out of `DROPPED`, and `CAPTURED→PLANNED` is not a manual move (only the converter's materialisation lands an idea in PLANNED). An illegal move is rejected with a clear error (400); an unknown id → 404.
+  - **When to suggest**: the user wants to triage the pool by hand — start pre-work on an idea ("开始预研这个想法" → `developing`), or discard one ("废弃/丢掉这个想法" → `dropped`). The status control also lives on the Idea detail page in web.
+  - **Example**:
+    ```bash
+    lumo idea update LUM-I42 --status developing
+    lumo idea update LUM-I42 --status dropped
     ```
 
 **Plan runs (design-thinking 转换器)**

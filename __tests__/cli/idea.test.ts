@@ -4,7 +4,11 @@ jest.mock('@/cli/src/lib/resolve-bound-task', () => ({
   resolveBoundTaskIdentifier: jest.fn(),
 }))
 
-import { ideaCapture, formatCapturedIdeaLine } from '@/cli/src/commands/idea'
+import {
+  ideaCapture,
+  ideaUpdate,
+  formatCapturedIdeaLine,
+} from '@/cli/src/commands/idea'
 import { readCredentials } from '@/cli/src/lib/config'
 import { resolveBoundTaskIdentifier } from '@/cli/src/lib/resolve-bound-task'
 
@@ -121,6 +125,60 @@ describe('lumo idea', () => {
     expect(code).toBe(1)
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining('No default team for workspace')
+    )
+  })
+})
+
+describe('lumo idea update', () => {
+  it('PATCHes the idea with the upper-cased status and echoes the new state', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      jsonResponse(200, {
+        idea: { identifier: 'LUM-I8', status: 'DEVELOPING' },
+      })
+    )
+
+    const code = await ideaUpdate('LUM-I8', { status: 'developing' })
+
+    expect(code).toBeUndefined()
+    const call = (global.fetch as jest.Mock).mock.calls[0]
+    expect(call[0]).toBe('https://api.test/api/ideas/LUM-I8')
+    expect((call[1] as RequestInit).method).toBe('PATCH')
+    expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({
+      status: 'DEVELOPING',
+    })
+    expect(writeSpy).toHaveBeenCalledWith('✓ 想法 LUM-I8 → DEVELOPING\n')
+  })
+
+  it('rejects a missing --status without hitting the network', async () => {
+    const code = await ideaUpdate('LUM-I8', {})
+    expect(code).toBe(1)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid status value without hitting the network', async () => {
+    const code = await ideaUpdate('LUM-I8', { status: 'archived' })
+    expect(code).toBe(1)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a missing <id> without hitting the network', async () => {
+    const code = await ideaUpdate('  ', { status: 'dropped' })
+    expect(code).toBe(1)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a server error body (illegal transition)', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue(
+      jsonResponse(400, {
+        error: 'Cannot move LUM-I8 from DROPPED to CAPTURED',
+      })
+    )
+
+    const code = await ideaUpdate('LUM-I8', { status: 'captured' })
+
+    expect(code).toBe(1)
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Cannot move LUM-I8 from DROPPED to CAPTURED')
     )
   })
 })

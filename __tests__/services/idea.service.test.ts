@@ -4,6 +4,9 @@ jest.mock('@/lib/repositories/idea.repository', () => ({
     createCaptured: jest.fn(),
     listCapturedByTeam: jest.fn(),
     listPoolByTeam: jest.fn(),
+    findByNumber: jest.fn(),
+    findByIdInTeam: jest.fn(),
+    updateStatusInTeam: jest.fn(),
   },
 }))
 
@@ -146,5 +149,135 @@ describe('ideaService.listPool', () => {
     const ideas = await ideaService.listPool({ workspaceId: 'w1' })
     expect(ideas).toEqual([])
     expect(ideaRepository.listPoolByTeam).not.toHaveBeenCalled()
+  })
+})
+
+describe('ideaService.updateStatus', () => {
+  it('resolves LUM-I<n>, allows a legal transition, and returns the updated pool idea', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByNumber as jest.Mock).mockResolvedValue(
+      row({ id: 'i1', number: 8, status: 'CAPTURED' })
+    )
+    ;(ideaRepository.updateStatusInTeam as jest.Mock).mockResolvedValue(
+      row({ id: 'i1', number: 8, status: 'DEVELOPING' })
+    )
+
+    const idea = await ideaService.updateStatus({
+      workspaceId: 'w1',
+      ideaRef: 'LUM-I8',
+      status: 'DEVELOPING',
+    })
+
+    expect(ideaRepository.findByNumber).toHaveBeenCalledWith('team-1', 8)
+    expect(ideaRepository.updateStatusInTeam).toHaveBeenCalledWith({
+      ideaId: 'i1',
+      teamId: 'team-1',
+      status: 'DEVELOPING',
+    })
+    expect(idea).toMatchObject({ identifier: 'LUM-I8', status: 'DEVELOPING' })
+  })
+
+  it('accepts a bare number as the idea ref', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByNumber as jest.Mock).mockResolvedValue(
+      row({ number: 3, status: 'DEVELOPING' })
+    )
+    ;(ideaRepository.updateStatusInTeam as jest.Mock).mockResolvedValue(
+      row({ number: 3, status: 'PLANNED' })
+    )
+
+    await ideaService.updateStatus({
+      workspaceId: 'w1',
+      ideaRef: '3',
+      status: 'PLANNED',
+    })
+
+    expect(ideaRepository.findByNumber).toHaveBeenCalledWith('team-1', 3)
+    expect(ideaRepository.findByIdInTeam).not.toHaveBeenCalled()
+  })
+
+  it('resolves a cuid ref via findByIdInTeam (the web addresses by id)', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByIdInTeam as jest.Mock).mockResolvedValue(
+      row({ id: 'clabc123', number: 5, status: 'CAPTURED' })
+    )
+    ;(ideaRepository.updateStatusInTeam as jest.Mock).mockResolvedValue(
+      row({ id: 'clabc123', number: 5, status: 'DEVELOPING' })
+    )
+
+    await ideaService.updateStatus({
+      workspaceId: 'w1',
+      ideaRef: 'clabc123',
+      status: 'DEVELOPING',
+    })
+
+    expect(ideaRepository.findByIdInTeam).toHaveBeenCalledWith(
+      'clabc123',
+      'team-1'
+    )
+    expect(ideaRepository.findByNumber).not.toHaveBeenCalled()
+    expect(ideaRepository.updateStatusInTeam).toHaveBeenCalledWith({
+      ideaId: 'clabc123',
+      teamId: 'team-1',
+      status: 'DEVELOPING',
+    })
+  })
+
+  it('rejects a disallowed transition with 400 without writing', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByNumber as jest.Mock).mockResolvedValue(
+      row({ number: 8, status: 'CAPTURED' })
+    )
+
+    await expect(
+      ideaService.updateStatus({
+        workspaceId: 'w1',
+        ideaRef: 'LUM-I8',
+        status: 'PLANNED', // CAPTURED→PLANNED is not a manual move
+      })
+    ).rejects.toMatchObject({ status: 400 })
+    expect(ideaRepository.updateStatusInTeam).not.toHaveBeenCalled()
+  })
+
+  it('rejects a transition out of the terminal DROPPED state with 400', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByNumber as jest.Mock).mockResolvedValue(
+      row({ number: 8, status: 'DROPPED' })
+    )
+
+    await expect(
+      ideaService.updateStatus({
+        workspaceId: 'w1',
+        ideaRef: 'LUM-I8',
+        status: 'CAPTURED',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+    expect(ideaRepository.updateStatusInTeam).not.toHaveBeenCalled()
+  })
+
+  it('throws 404 when no idea matches the ref', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(TEAM)
+    ;(ideaRepository.findByNumber as jest.Mock).mockResolvedValue(null)
+
+    await expect(
+      ideaService.updateStatus({
+        workspaceId: 'w1',
+        ideaRef: 'LUM-I99',
+        status: 'DROPPED',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(ideaRepository.updateStatusInTeam).not.toHaveBeenCalled()
+  })
+
+  it('throws 404 when the workspace has no default team', async () => {
+    ;(getDefaultTeam as jest.Mock).mockResolvedValue(null)
+
+    await expect(
+      ideaService.updateStatus({
+        workspaceId: 'w1',
+        ideaRef: 'LUM-I8',
+        status: 'DROPPED',
+      })
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

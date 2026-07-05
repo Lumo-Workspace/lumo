@@ -5,6 +5,7 @@ import {
 } from '@/lib/repositories/idea.repository'
 import { getDefaultTeam } from '@/lib/team'
 import type { CaptureIdeaInput, UpdateIdeaInput } from '@/lib/validation/idea'
+import { canTransitionIdeaStatus } from '@/lib/idea-status'
 import type { IdeaStatus } from '@prisma/client'
 
 /**
@@ -168,4 +169,70 @@ export const ideaService = {
 
     return toPooledIdea(row, team.identifier)
   },
+
+  /**
+   * Manually move an idea through its lifecycle (LUM-679). `ideaRef` is either
+   * the cuid `id` (the web addresses ideas by id) or the human `<TEAM>-I<n>`
+   * identifier / bare `<n>` (the CLI). Resolves the caller's default team, looks
+   * the idea up team-scoped, and enforces the transition rules in
+   * `lib/idea-status.ts` before writing. Returns the updated pool-view idea
+   * (same projection as `updateStatement`).
+   *
+   * Throws with `{ status }`: 400 for a disallowed transition, 404 when the
+   * workspace has no default team or the idea isn't in it.
+   */
+  async updateStatus(args: {
+    workspaceId: string
+    ideaRef: string
+    status: IdeaStatus
+  }): Promise<PooledIdea> {
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('Idea not found'), { status: 404 })
+    }
+
+    // Resolve by team-scoped number when the ref looks like `<TEAM>-I<n>` / a
+    // bare number (CLI), otherwise treat it as a cuid id (web).
+    const number = parseIdeaNumber(args.ideaRef)
+    const current =
+      number !== null
+        ? await ideaRepository.findByNumber(team.id, number)
+        : await ideaRepository.findByIdInTeam(args.ideaRef, team.id)
+    if (!current) {
+      throw Object.assign(new Error('Idea not found'), { status: 404 })
+    }
+
+    if (!canTransitionIdeaStatus(current.status, args.status)) {
+      throw Object.assign(
+        new Error(
+          `Cannot move ${team.identifier}-I${current.number} from ${current.status} to ${args.status}`
+        ),
+        { status: 400 }
+      )
+    }
+
+    const updated = await ideaRepository.updateStatusInTeam({
+      ideaId: current.id,
+      teamId: team.id,
+      status: args.status,
+    })
+    if (!updated) {
+      throw Object.assign(new Error('Idea not found'), { status: 404 })
+    }
+
+    return toPooledIdea(updated, team.identifier)
+  },
+}
+
+/**
+ * Extract the team-scoped idea number from a reference. Accepts the full
+ * `<TEAM>-I<n>` identifier (case-insensitive `I`) or a bare `<n>`. Returns
+ * `null` for anything else (e.g. a cuid id, which the caller resolves by id).
+ */
+function parseIdeaNumber(ref: string): number | null {
+  const trimmed = ref.trim()
+  const withPrefix = trimmed.match(/-I(\d+)$/i)
+  if (withPrefix) return Number(withPrefix[1])
+  if (/^\d+$/.test(trimmed)) return Number(trimmed)
+  return null
 }

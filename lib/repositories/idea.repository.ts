@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, IdeaStatus } from '@prisma/client'
 
 /**
  * Fields returned to the service layer. Ideas are small, but we still project
@@ -157,6 +157,56 @@ export const ideaRepository = {
     const { count } = await prisma.idea.updateMany({
       where: { id: data.ideaId, teamId: data.teamId },
       data: { statement: data.statement },
+    })
+    if (count === 0) return null
+    return prisma.idea.findUnique({
+      where: { id: data.ideaId },
+      select: IDEA_POOL_SELECT,
+    })
+  },
+
+  /**
+   * Resolve one idea by its team-scoped `number` (the `<TEAM>-I<n>` id the CLI
+   * references). Scoped by `teamId` via the `@@unique([teamId, number])` key so
+   * a caller never resolves another team's idea; `null` when there is no such
+   * number in the team.
+   */
+  async findByNumber(teamId: string, number: number): Promise<IdeaRow | null> {
+    return prisma.idea.findUnique({
+      where: { teamId_number: { teamId, number } },
+      select: IDEA_SELECT,
+    })
+  },
+
+  /**
+   * Resolve one idea by its cuid `id`, scoped to `teamId` so the web (which
+   * addresses ideas by id) can never read across teams. `null` when the id
+   * doesn't exist in this team.
+   */
+  async findByIdInTeam(
+    ideaId: string,
+    teamId: string
+  ): Promise<IdeaRow | null> {
+    return prisma.idea.findFirst({
+      where: { id: ideaId, teamId },
+      select: IDEA_SELECT,
+    })
+  },
+
+  /**
+   * Set an idea's lifecycle status, scoped to `teamId` (the `{ id, teamId }`
+   * filter goes through `updateMany` like `updateStatementInTeam` — a zero
+   * count → `null` → 404). The transition's legality is enforced in the service
+   * before this runs. Returns the refreshed pool row (with lineage) on success.
+   */
+  async updateStatusInTeam(data: {
+    ideaId: string
+    teamId: string
+    status: IdeaStatus
+  }): Promise<IdeaPoolRow | null> {
+    const { count } = await prisma.idea.updateMany({
+      where: { id: data.ideaId, teamId: data.teamId },
+      data: { status: data.status },
     })
     if (count === 0) return null
     return prisma.idea.findUnique({

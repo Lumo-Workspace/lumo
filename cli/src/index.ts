@@ -11,7 +11,7 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
-import { ideaCapture, ideaList } from './commands/idea'
+import { ideaCapture, ideaList, ideaUpdate } from './commands/idea'
 import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
@@ -419,9 +419,24 @@ const ideaCmd = program
 ideaCmd
   .command('list')
   .description(
-    'List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|PLANNED) and statement.'
+    'List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|DEVELOPING|PLANNED|DROPPED) and statement.'
   )
   .action(wrap(() => ideaList()))
+
+ideaCmd
+  .command('update <id>')
+  .description(
+    'Move an idea through its lifecycle (LUM-679). Allowed: CAPTURED↔DEVELOPING→PLANNED and any state→DROPPED (DROPPED is terminal). <id> is the LUM-I<n> id (a bare number also resolves).'
+  )
+  .option(
+    '-s, --status <value>',
+    'New status: captured | developing | planned | dropped (case-insensitive)'
+  )
+  .action(
+    wrap((id, options) =>
+      ideaUpdate(id as string | undefined, options as { status?: string })
+    )
+  )
 
 const initiativeCmd = program
   .command('initiative')

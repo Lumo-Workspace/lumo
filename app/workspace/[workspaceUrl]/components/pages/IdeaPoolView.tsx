@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import Link from 'next/link'
 import { Lightbulb } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { AsyncContent } from '../AsyncContent'
 import { SearchInput } from '../SearchInput'
 import { PlanRunsSection } from '../plan-run/PlanRunsSection'
@@ -14,6 +15,37 @@ import type {
   PlanRunListRow,
   LatestClustering,
 } from '@/lib/api-client/plan-runs'
+
+type IdeaStatus = ApiIdea['status']
+
+/** The lifecycle statuses, in display order (LUM-679). */
+const IDEA_STATUSES: readonly IdeaStatus[] = [
+  'CAPTURED',
+  'DEVELOPING',
+  'PLANNED',
+  'DROPPED',
+]
+
+/** i18n key + badge variant for each status. Single source for the pool UI. */
+const STATUS_META: Record<
+  IdeaStatus,
+  {
+    labelId: string
+    variant: 'outline' | 'secondary' | 'default' | 'destructive'
+  }
+> = {
+  CAPTURED: { labelId: 'ideas.statusCaptured', variant: 'outline' },
+  DEVELOPING: { labelId: 'ideas.statusDeveloping', variant: 'default' },
+  PLANNED: { labelId: 'ideas.statusPlanned', variant: 'secondary' },
+  DROPPED: { labelId: 'ideas.statusDropped', variant: 'destructive' },
+}
+
+/** DROPPED is hidden by default — a discarded idea shouldn't clutter the pool. */
+const DEFAULT_VISIBLE_STATUSES: readonly IdeaStatus[] = [
+  'CAPTURED',
+  'DEVELOPING',
+  'PLANNED',
+]
 
 interface IdeaPoolViewProps {
   ideas: ApiIdea[]
@@ -31,10 +63,11 @@ interface IdeaPoolViewProps {
 
 /**
  * Presentational idea-pool page: renders the team pool (already newest-first
- * from the API) with client-side search over the statement/id. Each idea shows
- * its id, status, source and captured time; a PLANNED idea links back to the
- * plan run that materialised it (its Initiative lineage). Pure — all data +
- * retry come from props (SRP; the container owns fetching).
+ * from the API) with a per-status filter (DROPPED hidden by default, LUM-679)
+ * and client-side search over the statement/id. Each idea shows its id, status,
+ * source and captured time; a PLANNED idea links back to the plan run that
+ * materialised it (its Initiative lineage). Pure — all data + retry come from
+ * props (SRP; the container owns fetching).
  */
 export function IdeaPoolView({
   ideas,
@@ -50,26 +83,46 @@ export function IdeaPoolView({
 }: IdeaPoolViewProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<IdeaStatus>>(
+    () => new Set(DEFAULT_VISIBLE_STATUSES)
+  )
 
   const searching = search.trim().length > 0
 
+  // Status filter is applied first, so search + clustering only ever see the
+  // statuses the user has enabled (DROPPED stays hidden until toggled on).
+  const statusFiltered = useMemo(
+    () => ideas.filter(i => visibleStatuses.has(i.status)),
+    [ideas, visibleStatuses]
+  )
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return ideas
-    return ideas.filter(
+    if (!q) return statusFiltered
+    return statusFiltered.filter(
       i =>
         i.statement.toLowerCase().includes(q) ||
         i.identifier.toLowerCase().includes(q)
     )
-  }, [ideas, search])
+  }, [statusFiltered, search])
 
-  // Default view: group the pool by the latest run's clustering (LUM-677).
-  // Searching flattens to a filtered list; no run yet → grouped is null →
-  // flat time-ordered fallback. Pure — no LLM call on load.
+  // Default view: group the status-filtered pool by the latest run's clustering
+  // (LUM-677). Searching flattens to a filtered list; no run yet → grouped is
+  // null → flat time-ordered fallback. Pure — no LLM call on load.
   const grouped = useMemo(
-    () => (searching ? null : groupIdeasByClustering(ideas, clustering)),
-    [ideas, clustering, searching]
+    () =>
+      searching ? null : groupIdeasByClustering(statusFiltered, clustering),
+    [statusFiltered, clustering, searching]
   )
+
+  const toggleStatus = (status: IdeaStatus) => {
+    setVisibleStatuses(prev => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
 
   return (
     <div className='flex-1 overflow-y-auto p-6'>
@@ -95,12 +148,41 @@ export function IdeaPoolView({
           )}
         </div>
 
-        <div className='mb-4'>
+        <div className='mb-3'>
           <SearchInput
             value={search}
             onChange={setSearch}
             placeholder={intl.formatMessage({ id: 'ideas.search' })}
           />
+        </div>
+
+        {/* Per-status filter — DROPPED off by default; click to toggle. */}
+        <div
+          className='mb-4 flex flex-wrap gap-1.5'
+          role='group'
+          aria-label={intl.formatMessage({ id: 'ideas.filterLabel' })}
+          data-testid='idea-status-filter'
+        >
+          {IDEA_STATUSES.map(status => {
+            const active = visibleStatuses.has(status)
+            return (
+              <button
+                key={status}
+                type='button'
+                onClick={() => toggleStatus(status)}
+                aria-pressed={active}
+                data-testid={`idea-status-toggle-${status}`}
+                className={cn(
+                  'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                  active
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {intl.formatMessage({ id: STATUS_META[status].labelId })}
+              </button>
+            )
+          })}
         </div>
 
         <AsyncContent
@@ -119,23 +201,23 @@ export function IdeaPoolView({
             </div>
           }
         >
-          {searching ? (
-            filtered.length === 0 ? (
-              <p className='py-8 text-center text-sm text-muted-foreground'>
-                {intl.formatMessage({ id: 'ideas.noMatches' })}
-              </p>
-            ) : (
-              <ul className='flex flex-col gap-2'>
-                {filtered.map(idea => (
-                  <IdeaRow
-                    key={idea.id}
-                    idea={idea}
-                    workspaceUrl={workspaceUrl}
-                    onOpen={onOpenIdea}
-                  />
-                ))}
-              </ul>
-            )
+          {filtered.length === 0 ? (
+            <p className='py-8 text-center text-sm text-muted-foreground'>
+              {intl.formatMessage({
+                id: searching ? 'ideas.noMatches' : 'ideas.noneForFilter',
+              })}
+            </p>
+          ) : searching ? (
+            <ul className='flex flex-col gap-2'>
+              {filtered.map(idea => (
+                <IdeaRow
+                  key={idea.id}
+                  idea={idea}
+                  workspaceUrl={workspaceUrl}
+                  onOpen={onOpenIdea}
+                />
+              ))}
+            </ul>
           ) : grouped ? (
             <div className='flex flex-col gap-5'>
               {grouped.clusters.map(cluster => (
@@ -211,12 +293,12 @@ function IdeaRow({
   onOpen: (idea: ApiIdea) => void
 }) {
   const intl = useIntl()
-  const isPlanned = idea.status === 'PLANNED'
+  const meta = STATUS_META[idea.status]
 
   // A PLANNED idea links back to the plan run that materialised it — the place
   // its Initiative is shown (there is no standalone Initiative route yet).
   const initiativeHref =
-    isPlanned && idea.planRunId
+    idea.status === 'PLANNED' && idea.planRunId
       ? `/workspace/${workspaceUrl}/plan/${idea.planRunId}`
       : null
 
@@ -232,6 +314,7 @@ function IdeaRow({
   return (
     <li
       data-testid='idea-row'
+      data-status={idea.status}
       role='button'
       tabIndex={0}
       onClick={() => onOpen(idea)}
@@ -247,13 +330,8 @@ function IdeaRow({
         <span className='shrink-0 font-mono text-xs text-muted-foreground'>
           {idea.identifier}
         </span>
-        <Badge
-          variant={isPlanned ? 'secondary' : 'outline'}
-          className='shrink-0 text-[10px]'
-        >
-          {intl.formatMessage({
-            id: isPlanned ? 'ideas.statusPlanned' : 'ideas.statusCaptured',
-          })}
+        <Badge variant={meta.variant} className='shrink-0 text-[10px]'>
+          {intl.formatMessage({ id: meta.labelId })}
         </Badge>
         <p className='flex-1 text-sm'>{idea.statement}</p>
       </div>
