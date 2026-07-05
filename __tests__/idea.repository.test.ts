@@ -1,6 +1,8 @@
 const mockAggregate = jest.fn()
 const mockCreate = jest.fn()
 const mockFindMany = jest.fn()
+const mockUpdateMany = jest.fn()
+const mockFindUnique = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -14,6 +16,8 @@ jest.mock('@/lib/db/prisma', () => ({
       }),
     idea: {
       findMany: (...a: unknown[]) => mockFindMany(...a),
+      updateMany: (...a: unknown[]) => mockUpdateMany(...a),
+      findUnique: (...a: unknown[]) => mockFindUnique(...a),
     },
   },
 }))
@@ -84,6 +88,38 @@ describe('ideaRepository.createCaptured', () => {
       'connection lost'
     )
     expect(mockCreate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ideaRepository.updateStatementInTeam', () => {
+  it('updates within the team filter and returns the refreshed pool row', async () => {
+    mockUpdateMany.mockResolvedValue({ count: 1 })
+    mockFindUnique.mockResolvedValue({ id: 'i1', statement: 'edited' })
+
+    const row = await ideaRepository.updateStatementInTeam({
+      ideaId: 'i1',
+      teamId: 'team-1',
+      statement: 'edited',
+    })
+
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'i1', teamId: 'team-1' },
+      data: { statement: 'edited' },
+    })
+    expect(row).toEqual({ id: 'i1', statement: 'edited' })
+  })
+
+  it('returns null (no re-read) when the id is not in the team', async () => {
+    mockUpdateMany.mockResolvedValue({ count: 0 })
+
+    const row = await ideaRepository.updateStatementInTeam({
+      ideaId: 'not-in-team',
+      teamId: 'team-1',
+      statement: 'edited',
+    })
+
+    expect(row).toBeNull()
+    expect(mockFindUnique).not.toHaveBeenCalled()
   })
 })
 

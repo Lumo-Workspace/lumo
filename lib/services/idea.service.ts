@@ -4,7 +4,7 @@ import {
   type IdeaPoolRow,
 } from '@/lib/repositories/idea.repository'
 import { getDefaultTeam } from '@/lib/team'
-import type { CaptureIdeaInput } from '@/lib/validation/idea'
+import type { CaptureIdeaInput, UpdateIdeaInput } from '@/lib/validation/idea'
 import type { IdeaStatus } from '@prisma/client'
 
 /**
@@ -127,5 +127,45 @@ export const ideaService = {
     if (!team) return []
     const rows = await ideaRepository.listPoolByTeam(team.id)
     return rows.map(row => toPooledIdea(row, team.identifier))
+  },
+
+  /**
+   * Edit a captured idea's statement from the detail slide-over (LUM-683).
+   * Team-scoped: the idea is only editable through the caller's default team,
+   * so an id in another team is indistinguishable from a missing one — both
+   * throw 404 rather than leaking cross-team existence. The trimmed statement
+   * is validated at the route (Zod); this layer re-trims defensively and
+   * rejects an empty result with 400. Returns the updated pool-view idea.
+   *
+   * Throws with `{ status }`: 400 for a blank statement, 404 when the workspace
+   * has no default team or the idea isn't in it.
+   */
+  async updateStatement(args: {
+    workspaceId: string
+    ideaId: string
+    input: UpdateIdeaInput
+  }): Promise<PooledIdea> {
+    const statement = args.input.statement.trim()
+    if (!statement) {
+      throw Object.assign(new Error('Idea statement is required'), {
+        status: 400,
+      })
+    }
+
+    const team = await getDefaultTeam(args.workspaceId)
+    if (!team) {
+      throw Object.assign(new Error('Idea not found'), { status: 404 })
+    }
+
+    const row = await ideaRepository.updateStatementInTeam({
+      ideaId: args.ideaId,
+      teamId: team.id,
+      statement,
+    })
+    if (!row) {
+      throw Object.assign(new Error('Idea not found'), { status: 404 })
+    }
+
+    return toPooledIdea(row, team.identifier)
   },
 }

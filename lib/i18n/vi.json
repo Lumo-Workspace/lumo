@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "Chưa xác nhận",
   "planRuns.noClusters": "Không có phân nhóm nào được ghi lại.",
   "planRuns.noInitiatives": "Không có sáng kiến nào được hiện thực hóa.",
-  "ideas.ungrouped": "Mới / chưa nhóm"
+  "ideas.ungrouped": "Mới / chưa nhóm",
+  "ideas.detail.title": "Chi tiết ý tưởng",
+  "ideas.detail.lineage": "Nguồn gốc",
+  "ideas.detail.sourceContext": "Nguồn: {context}",
+  "ideas.detail.sourceSession": "Được ghi lại trong phiên {session}",
+  "ideas.detail.consumedByRun": "Đã được lần chạy kế hoạch sử dụng",
+  "ideas.detail.noLineage": "Chưa có nguồn gốc.",
+  "ideas.detail.tabComments": "Bình luận",
+  "ideas.detail.tabActivity": "Hoạt động",
+  "ideas.detail.tabEvidence": "Bằng chứng",
+  "ideas.detail.comingSoon": "Sắp ra mắt."
 }

@@ -25,6 +25,8 @@ interface IdeaPoolViewProps {
   planRunsLoading: boolean
   planRunsError: string | null
   clustering: LatestClustering | null
+  /** Open the detail slide-over for a row (LUM-683). */
+  onOpenIdea: (idea: ApiIdea) => void
 }
 
 /**
@@ -44,6 +46,7 @@ export function IdeaPoolView({
   planRunsLoading,
   planRunsError,
   clustering,
+  onOpenIdea,
 }: IdeaPoolViewProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
@@ -128,6 +131,7 @@ export function IdeaPoolView({
                     key={idea.id}
                     idea={idea}
                     workspaceUrl={workspaceUrl}
+                    onOpen={onOpenIdea}
                   />
                 ))}
               </ul>
@@ -152,6 +156,7 @@ export function IdeaPoolView({
                         key={idea.id}
                         idea={idea}
                         workspaceUrl={workspaceUrl}
+                        onOpen={onOpenIdea}
                       />
                     ))}
                   </ul>
@@ -171,6 +176,7 @@ export function IdeaPoolView({
                         key={idea.id}
                         idea={idea}
                         workspaceUrl={workspaceUrl}
+                        onOpen={onOpenIdea}
                       />
                     ))}
                   </ul>
@@ -184,6 +190,7 @@ export function IdeaPoolView({
                   key={idea.id}
                   idea={idea}
                   workspaceUrl={workspaceUrl}
+                  onOpen={onOpenIdea}
                 />
               ))}
             </ul>
@@ -197,9 +204,11 @@ export function IdeaPoolView({
 function IdeaRow({
   idea,
   workspaceUrl,
+  onOpen,
 }: {
   idea: ApiIdea
   workspaceUrl: string
+  onOpen: (idea: ApiIdea) => void
 }) {
   const intl = useIntl()
   const isPlanned = idea.status === 'PLANNED'
@@ -223,7 +232,16 @@ function IdeaRow({
   return (
     <li
       data-testid='idea-row'
-      className='rounded-md border border-border bg-card p-3'
+      role='button'
+      tabIndex={0}
+      onClick={() => onOpen(idea)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen(idea)
+        }
+      }}
+      className='cursor-pointer rounded-md border border-border bg-card p-3 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
     >
       <div className='flex items-start gap-2'>
         <span className='shrink-0 font-mono text-xs text-muted-foreground'>
@@ -248,6 +266,7 @@ function IdeaRow({
         {initiativeHref && idea.initiative && (
           <Link
             href={initiativeHref}
+            onClick={e => e.stopPropagation()}
             className='text-primary underline underline-offset-2 hover:no-underline'
           >
             {intl.formatMessage(

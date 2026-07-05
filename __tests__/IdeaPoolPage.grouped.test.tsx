@@ -51,6 +51,16 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
   useIdeaGrouping: () => mockUseIdeaGrouping(),
 }))
 
+// The detail slide-over's edit mutation (LUM-683) — stubbed; this suite covers
+// the clustering grouping, not the drawer.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
+  useUpdateIdea: () => ({
+    updateStatement: jest.fn(),
+    saving: false,
+    error: null,
+  }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'

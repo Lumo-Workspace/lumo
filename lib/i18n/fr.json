@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "Non confirmé",
   "planRuns.noClusters": "Aucun regroupement enregistré.",
   "planRuns.noInitiatives": "Aucune initiative matérialisée.",
-  "ideas.ungrouped": "Nouvelles / non regroupées"
+  "ideas.ungrouped": "Nouvelles / non regroupées",
+  "ideas.detail.title": "Détail de l'idée",
+  "ideas.detail.lineage": "Filiation",
+  "ideas.detail.sourceContext": "Source : {context}",
+  "ideas.detail.sourceSession": "Capturée dans la session {session}",
+  "ideas.detail.consumedByRun": "Consommée par l'exécution du plan",
+  "ideas.detail.noLineage": "Aucune filiation pour l'instant.",
+  "ideas.detail.tabComments": "Commentaires",
+  "ideas.detail.tabActivity": "Activité",
+  "ideas.detail.tabEvidence": "Preuves",
+  "ideas.detail.comingSoon": "Bientôt disponible."
 }

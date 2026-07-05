@@ -140,4 +140,28 @@ export const ideaRepository = {
       select: IDEA_SELECT,
     })
   },
+
+  /**
+   * Update an idea's `statement`, scoped to `teamId` so a caller can only edit
+   * ideas in their own team. The `{ id, teamId }` filter goes through
+   * `updateMany` (a plain `update` can't take a non-unique compound filter): a
+   * zero count means the id doesn't exist in this team → returns `null` for the
+   * service to map to a 404. On success the freshly-updated pool row (with
+   * lineage) is returned so callers reflect the edit without a second read.
+   */
+  async updateStatementInTeam(data: {
+    ideaId: string
+    teamId: string
+    statement: string
+  }): Promise<IdeaPoolRow | null> {
+    const { count } = await prisma.idea.updateMany({
+      where: { id: data.ideaId, teamId: data.teamId },
+      data: { statement: data.statement },
+    })
+    if (count === 0) return null
+    return prisma.idea.findUnique({
+      where: { id: data.ideaId },
+      select: IDEA_POOL_SELECT,
+    })
+  },
 }

@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "Belum disahkan",
   "planRuns.noClusters": "Tiada pengelompokan direkodkan.",
   "planRuns.noInitiatives": "Tiada inisiatif direalisasikan.",
-  "ideas.ungrouped": "Baharu / tidak dikumpulkan"
+  "ideas.ungrouped": "Baharu / tidak dikumpulkan",
+  "ideas.detail.title": "Butiran idea",
+  "ideas.detail.lineage": "Salasilah",
+  "ideas.detail.sourceContext": "Sumber: {context}",
+  "ideas.detail.sourceSession": "Ditangkap dalam sesi {session}",
+  "ideas.detail.consumedByRun": "Digunakan oleh larian pelan",
+  "ideas.detail.noLineage": "Belum ada salasilah.",
+  "ideas.detail.tabComments": "Komen",
+  "ideas.detail.tabActivity": "Aktiviti",
+  "ideas.detail.tabEvidence": "Bukti",
+  "ideas.detail.comingSoon": "Akan datang."
 }

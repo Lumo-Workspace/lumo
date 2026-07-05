@@ -2173,5 +2173,15 @@
   "planRuns.gatePending": "Not confirmed",
   "planRuns.noClusters": "No clustering was recorded.",
   "planRuns.noInitiatives": "No initiative was materialised.",
-  "ideas.ungrouped": "New / ungrouped"
+  "ideas.ungrouped": "New / ungrouped",
+  "ideas.detail.title": "Idea detail",
+  "ideas.detail.lineage": "Lineage",
+  "ideas.detail.sourceContext": "Source: {context}",
+  "ideas.detail.sourceSession": "Captured in session {session}",
+  "ideas.detail.consumedByRun": "Consumed by plan run",
+  "ideas.detail.noLineage": "No lineage yet.",
+  "ideas.detail.tabComments": "Comments",
+  "ideas.detail.tabActivity": "Activity",
+  "ideas.detail.tabEvidence": "Evidence",
+  "ideas.detail.comingSoon": "Coming soon."
 }

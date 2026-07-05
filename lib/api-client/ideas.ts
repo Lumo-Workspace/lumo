@@ -1,6 +1,6 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
-import type { CaptureIdeaInput } from '@/lib/validation/idea'
+import type { CaptureIdeaInput, UpdateIdeaInput } from '@/lib/validation/idea'
 
 /**
  * Typed client for the team idea pool. Thin wrappers over `apiFetch` — the
@@ -16,5 +16,10 @@ export const ideasClient = {
   /** POST a new captured idea. */
   capture<T>(input: CaptureIdeaInput) {
     return apiFetch<T>(API.ideas.create, { method: 'POST', body: input })
+  },
+
+  /** PATCH an idea's statement (detail slide-over edit, LUM-683). */
+  update<T>(id: string, input: UpdateIdeaInput) {
+    return apiFetch<T>(API.ideas.byId(id), { method: 'PATCH', body: input })
   },
 }
