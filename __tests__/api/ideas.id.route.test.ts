@@ -3,6 +3,10 @@ jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/services', () => ({
   ideaService: { updateStatus: jest.fn(), updateStatement: jest.fn() },
 }))
+// LUM-680: the PATCH route resolves the acting actor for the timeline entry.
+jest.mock('@/lib/actor', () => ({
+  getHumanActorId: jest.fn(async () => 'actor-1'),
+}))
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
@@ -57,6 +61,7 @@ describe('PATCH /api/ideas/[id]', () => {
       workspaceId: 'w1',
       ideaRef: 'LUM-I8',
       status: 'DEVELOPING',
+      actorId: 'actor-1',
     })
   })
 

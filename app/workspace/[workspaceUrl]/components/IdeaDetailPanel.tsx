@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiIdea } from '../types'
+import { IdeaCommentsSection } from './IdeaCommentsSection'
+import { IdeaActivityTimeline } from './IdeaActivityTimeline'
 
 interface IdeaDetailPanelProps {
   idea: ApiIdea
@@ -124,8 +126,8 @@ export function IdeaDetailPanel({
       {/* Lineage — where the idea came from and what consumed it */}
       <IdeaLineage idea={idea} workspaceUrl={workspaceUrl} />
 
-      {/* Reserved section shells — filled by 680 (comments/activity) + 681
-          (evidence). This task ships the empty tabs + layout only. */}
+      {/* Comments + Activity are filled by LUM-680; Evidence stays an empty
+          shell for LUM-681 to fill. */}
       <Tabs defaultValue='comments' className='flex flex-col gap-3'>
         <TabsList className='self-start'>
           <TabsTrigger value='comments'>
@@ -138,16 +140,20 @@ export function IdeaDetailPanel({
             {intl.formatMessage({ id: 'ideas.detail.tabEvidence' })}
           </TabsTrigger>
         </TabsList>
-        {(['comments', 'activity', 'evidence'] as const).map(section => (
-          <TabsContent key={section} value={section}>
-            <p
-              data-testid={`idea-section-${section}`}
-              className='rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground'
-            >
-              {intl.formatMessage({ id: 'ideas.detail.comingSoon' })}
-            </p>
-          </TabsContent>
-        ))}
+        <TabsContent value='comments'>
+          <IdeaCommentsSection ideaId={idea.id} />
+        </TabsContent>
+        <TabsContent value='activity'>
+          <IdeaActivityTimeline ideaId={idea.id} />
+        </TabsContent>
+        <TabsContent value='evidence'>
+          <p
+            data-testid='idea-section-evidence'
+            className='rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground'
+          >
+            {intl.formatMessage({ id: 'ideas.detail.comingSoon' })}
+          </p>
+        </TabsContent>
       </Tabs>
     </div>
   )

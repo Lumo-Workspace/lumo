@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "评论",
   "ideas.detail.tabActivity": "动态",
   "ideas.detail.tabEvidence": "证据",
-  "ideas.detail.comingSoon": "即将推出。"
+  "ideas.detail.comingSoon": "即将推出。",
+  "ideas.comments.empty": "还没有评论。",
+  "ideas.comments.composerLabel": "添加评论",
+  "ideas.comments.composerPlaceholder": "写评论…",
+  "ideas.comments.post": "评论",
+  "ideas.activity.empty": "还没有活动。",
+  "ideas.activity.captured": "想法已捕获",
+  "ideas.activity.statementChanged": "陈述已编辑",
+  "ideas.activity.statusChanged": "状态已更改为 {to}",
+  "ideas.activity.commentAdded": "已添加评论"
 }

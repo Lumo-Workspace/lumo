@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Комментарии",
   "ideas.detail.tabActivity": "Активность",
   "ideas.detail.tabEvidence": "Доказательства",
-  "ideas.detail.comingSoon": "Скоро."
+  "ideas.detail.comingSoon": "Скоро.",
+  "ideas.comments.empty": "Пока нет комментариев.",
+  "ideas.comments.composerLabel": "Добавить комментарий",
+  "ideas.comments.composerPlaceholder": "Напишите комментарий…",
+  "ideas.comments.post": "Комментировать",
+  "ideas.activity.empty": "Пока нет активности.",
+  "ideas.activity.captured": "Идея зафиксирована",
+  "ideas.activity.statementChanged": "Формулировка изменена",
+  "ideas.activity.statusChanged": "Статус изменён на {to}",
+  "ideas.activity.commentAdded": "Комментарий добавлен"
 }

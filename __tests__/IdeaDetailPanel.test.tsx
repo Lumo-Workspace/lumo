@@ -27,6 +27,27 @@ jest.mock('next/link', () => ({
   ),
 }))
 
+// LUM-680: the panel now composes the Comments + Activity sections (each has its
+// own test + react-query data-fetching). Stub them here so the panel test stays
+// focused on the panel's own concerns (statement / lineage / tabs / save) and
+// needs no QueryClientProvider.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/IdeaCommentsSection',
+  () => ({
+    IdeaCommentsSection: ({ ideaId }: { ideaId: string }) => (
+      <div data-testid='comments-section'>comments:{ideaId}</div>
+    ),
+  })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/IdeaActivityTimeline',
+  () => ({
+    IdeaActivityTimeline: ({ ideaId }: { ideaId: string }) => (
+      <div data-testid='activity-timeline'>activity:{ideaId}</div>
+    ),
+  })
+)
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { IdeaDetailPanel } from '@/app/workspace/[workspaceUrl]/components/IdeaDetailPanel'
@@ -114,18 +135,22 @@ describe('IdeaDetailPanel', () => {
     expect(screen.getByText('ideas.statusCaptured')).toBeInTheDocument()
   })
 
-  it('renders empty Comments, Activity and Evidence section shells', () => {
+  it('fills the Comments + Activity tabs and keeps the Evidence shell (LUM-680)', () => {
     render(
       <IdeaDetailPanel idea={bare} workspaceUrl='lumo' onSave={jest.fn()} />
     )
-    // The three reserved tabs are present (680/681 fill their content later).
+    // All three tabs are present.
     expect(screen.getByText('ideas.detail.tabComments')).toBeInTheDocument()
     expect(screen.getByText('ideas.detail.tabActivity')).toBeInTheDocument()
     expect(screen.getByText('ideas.detail.tabEvidence')).toBeInTheDocument()
-    // The active section is an empty placeholder shell.
-    expect(screen.getByTestId('idea-section-comments')).toHaveTextContent(
-      'ideas.detail.comingSoon'
+    // The default Comments tab now renders the real section wired to this idea,
+    // not the old coming-soon placeholder.
+    expect(screen.getByTestId('comments-section')).toHaveTextContent(
+      'comments:i1'
     )
+    expect(
+      screen.queryByTestId('idea-section-comments')
+    ).not.toBeInTheDocument()
   })
 
   it('saving an edited statement calls onSave with the new text', async () => {

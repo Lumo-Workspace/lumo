@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Komentar",
   "ideas.detail.tabActivity": "Aktivitas",
   "ideas.detail.tabEvidence": "Bukti",
-  "ideas.detail.comingSoon": "Segera hadir."
+  "ideas.detail.comingSoon": "Segera hadir.",
+  "ideas.comments.empty": "Belum ada komentar.",
+  "ideas.comments.composerLabel": "Tambahkan komentar",
+  "ideas.comments.composerPlaceholder": "Tulis komentar…",
+  "ideas.comments.post": "Komentari",
+  "ideas.activity.empty": "Belum ada aktivitas.",
+  "ideas.activity.captured": "Ide ditangkap",
+  "ideas.activity.statementChanged": "Pernyataan diedit",
+  "ideas.activity.statusChanged": "Status diubah menjadi {to}",
+  "ideas.activity.commentAdded": "Komentar ditambahkan"
 }

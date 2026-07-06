@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
+import { getHumanActorId } from '@/lib/actor'
 import { captureIdeaSchema } from '@/lib/validation/idea'
 import { ideaService } from '@/lib/services'
 
@@ -31,6 +32,7 @@ export async function POST(request: Request): Promise<Response> {
       workspaceId: identity.workspaceId,
       memberId: identity.memberId,
       input: parsed.data,
+      actorId: await getHumanActorId(identity.memberId),
     })
     return NextResponse.json({ idea }, { status: 201 })
   } catch (err) {

@@ -107,6 +107,35 @@ export interface ApiIdea {
   initiative: { id: string; number: number; name: string } | null
 }
 
+/**
+ * A comment on an idea (LUM-680), as returned by `GET /api/ideas/[id]/comments`.
+ * Flat thread — `replies` is always empty but kept so the shape matches the
+ * task comment renderer. `createdAt` is an ISO string.
+ */
+export interface ApiIdeaComment {
+  id: string
+  authorActorId: string | null
+  body: string
+  createdAt: string
+  replies: ApiIdeaComment[]
+}
+
+/**
+ * One entry on an idea's activity timeline (LUM-680), from
+ * `GET /api/ideas/[id]/activity`. `payload` shape depends on `type`.
+ */
+export interface ApiIdeaActivity {
+  id: string
+  type:
+    | 'IDEA_CAPTURED'
+    | 'STATEMENT_CHANGED'
+    | 'STATUS_CHANGED'
+    | 'COMMENT_ADDED'
+  payload: Record<string, unknown> | null
+  actorId: string | null
+  createdAt: string
+}
+
 export interface ApiDraft {
   id: string
   type: 'TASK' | 'PROJECT'

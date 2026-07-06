@@ -3,10 +3,42 @@ import {
   type IdeaRow,
   type IdeaPoolRow,
 } from '@/lib/repositories/idea.repository'
+import { ideaActivityRepository } from '@/lib/repositories/idea-activity.repository'
 import { getDefaultTeam } from '@/lib/team'
 import type { CaptureIdeaInput, UpdateIdeaInput } from '@/lib/validation/idea'
 import { canTransitionIdeaStatus } from '@/lib/idea-status'
 import type { IdeaStatus } from '@prisma/client'
+
+/** The default team a workspace's ideas belong to (never null once resolved). */
+type ResolvedTeam = NonNullable<Awaited<ReturnType<typeof getDefaultTeam>>>
+
+/**
+ * Resolve an idea reference to its row within the caller's default team. `ref`
+ * is a cuid `id` (web) or a `<TEAM>-I<n>` identifier / bare `<n>` (CLI). Shared
+ * by every idea mutation and by the comment/activity services so team scoping
+ * and 404 semantics live in one place: an id in another team is
+ * indistinguishable from a missing one (both 404), so the boundary can't be
+ * probed. Throws `{ status: 404 }` when the workspace has no default team or the
+ * idea isn't in it.
+ */
+export async function resolveIdeaInTeam(
+  workspaceId: string,
+  ref: string
+): Promise<{ idea: IdeaRow; team: ResolvedTeam }> {
+  const team = await getDefaultTeam(workspaceId)
+  if (!team) {
+    throw Object.assign(new Error('Idea not found'), { status: 404 })
+  }
+  const number = parseIdeaNumber(ref)
+  const idea =
+    number !== null
+      ? await ideaRepository.findByNumber(team.id, number)
+      : await ideaRepository.findByIdInTeam(ref, team.id)
+  if (!idea) {
+    throw Object.assign(new Error('Idea not found'), { status: 404 })
+  }
+  return { idea, team }
+}
 
 /**
  * An idea as returned to callers — the stored row plus a human-referenceable
@@ -89,6 +121,8 @@ export const ideaService = {
     workspaceId: string
     memberId: string
     input: CaptureIdeaInput
+    /** Acting actor for the timeline entry; null when unresolved (LUM-680). */
+    actorId?: string | null
   }): Promise<CapturedIdea> {
     const statement = args.input.statement.trim()
     if (!statement) {
@@ -112,6 +146,13 @@ export const ideaService = {
       sourceSessionId: args.input.sourceSessionId?.trim() || null,
       sourceTaskId: args.input.sourceTaskId?.trim() || null,
       proposedByMemberId: args.memberId,
+    })
+
+    await ideaActivityRepository.create({
+      ideaId: idea.id,
+      actorId: args.actorId ?? null,
+      type: 'IDEA_CAPTURED',
+      payload: null,
     })
 
     return toCapturedIdea(idea, team.identifier)
@@ -145,6 +186,8 @@ export const ideaService = {
     workspaceId: string
     ideaId: string
     input: UpdateIdeaInput
+    /** Acting actor for the timeline entry; null when unresolved (LUM-680). */
+    actorId?: string | null
   }): Promise<PooledIdea> {
     const statement = args.input.statement.trim()
     if (!statement) {
@@ -167,6 +210,13 @@ export const ideaService = {
       throw Object.assign(new Error('Idea not found'), { status: 404 })
     }
 
+    await ideaActivityRepository.create({
+      ideaId: row.id,
+      actorId: args.actorId ?? null,
+      type: 'STATEMENT_CHANGED',
+      payload: null,
+    })
+
     return toPooledIdea(row, team.identifier)
   },
 
@@ -185,22 +235,13 @@ export const ideaService = {
     workspaceId: string
     ideaRef: string
     status: IdeaStatus
+    /** Acting actor for the timeline entry; null when unresolved (LUM-680). */
+    actorId?: string | null
   }): Promise<PooledIdea> {
-    const team = await getDefaultTeam(args.workspaceId)
-    if (!team) {
-      throw Object.assign(new Error('Idea not found'), { status: 404 })
-    }
-
-    // Resolve by team-scoped number when the ref looks like `<TEAM>-I<n>` / a
-    // bare number (CLI), otherwise treat it as a cuid id (web).
-    const number = parseIdeaNumber(args.ideaRef)
-    const current =
-      number !== null
-        ? await ideaRepository.findByNumber(team.id, number)
-        : await ideaRepository.findByIdInTeam(args.ideaRef, team.id)
-    if (!current) {
-      throw Object.assign(new Error('Idea not found'), { status: 404 })
-    }
+    const { idea: current, team } = await resolveIdeaInTeam(
+      args.workspaceId,
+      args.ideaRef
+    )
 
     if (!canTransitionIdeaStatus(current.status, args.status)) {
       throw Object.assign(
@@ -219,6 +260,13 @@ export const ideaService = {
     if (!updated) {
       throw Object.assign(new Error('Idea not found'), { status: 404 })
     }
+
+    await ideaActivityRepository.create({
+      ideaId: updated.id,
+      actorId: args.actorId ?? null,
+      type: 'STATUS_CHANGED',
+      payload: { from: current.status, to: args.status },
+    })
 
     return toPooledIdea(updated, team.identifier)
   },

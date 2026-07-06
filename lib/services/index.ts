@@ -1,6 +1,18 @@
 export type * from './types'
 export { taskService } from './task.service'
-export { ideaService, type CapturedIdea } from './idea.service'
+export {
+  ideaService,
+  resolveIdeaInTeam,
+  type CapturedIdea,
+} from './idea.service'
+export {
+  ideaCommentService,
+  type IdeaCommentNode,
+} from './idea-comment.service'
+export {
+  ideaActivityService,
+  type IdeaActivityEntry,
+} from './idea-activity.service'
 export {
   initiativeService,
   type InitiativeListItem,

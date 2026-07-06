@@ -8,6 +8,17 @@ interface CreateCommentData {
   quotedCommentId: string | null
 }
 
+/**
+ * An idea comment (LUM-680). Ideas reuse the same `comments` table via the
+ * polymorphic `ideaId` FK, but the thread is flat (no replies/quotes/PR-mirror),
+ * so the create shape is deliberately narrower than the task variant.
+ */
+interface CreateIdeaCommentData {
+  ideaId: string
+  authorActorId: string
+  body: string
+}
+
 export const commentRepository = {
   async findByTaskId(taskId: string) {
     return prisma.comment.findMany({
@@ -19,6 +30,31 @@ export const commentRepository = {
         },
       },
       orderBy: { createdAt: 'asc' as const },
+    })
+  },
+
+  /**
+   * An idea's comment thread — flat, oldest first (LUM-680). Idea comments have
+   * no replies, so no nested include is needed; `replies: []` is added by the
+   * service so the shape still matches the shared comment-thread renderer.
+   */
+  async findByIdeaId(ideaId: string) {
+    return prisma.comment.findMany({
+      where: { ideaId, deletedAt: null },
+      orderBy: { createdAt: 'asc' as const },
+    })
+  },
+
+  /** Create a flat comment on an idea (LUM-680). */
+  async createForIdea(data: CreateIdeaCommentData) {
+    return prisma.comment.create({
+      data: {
+        ideaId: data.ideaId,
+        authorActorId: data.authorActorId,
+        body: data.body,
+        parentId: null,
+        quotedCommentId: null,
+      },
     })
   },
 

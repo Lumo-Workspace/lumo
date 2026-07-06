@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "टिप्पणियाँ",
   "ideas.detail.tabActivity": "गतिविधि",
   "ideas.detail.tabEvidence": "साक्ष्य",
-  "ideas.detail.comingSoon": "जल्द आ रहा है।"
+  "ideas.detail.comingSoon": "जल्द आ रहा है।",
+  "ideas.comments.empty": "अभी तक कोई टिप्पणी नहीं।",
+  "ideas.comments.composerLabel": "टिप्पणी जोड़ें",
+  "ideas.comments.composerPlaceholder": "टिप्पणी लिखें…",
+  "ideas.comments.post": "टिप्पणी करें",
+  "ideas.activity.empty": "अभी तक कोई गतिविधि नहीं।",
+  "ideas.activity.captured": "विचार दर्ज किया गया",
+  "ideas.activity.statementChanged": "कथन संपादित किया गया",
+  "ideas.activity.statusChanged": "स्थिति {to} में बदली गई",
+  "ideas.activity.commentAdded": "टिप्पणी जोड़ी गई"
 }

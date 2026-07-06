@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Komen",
   "ideas.detail.tabActivity": "Aktiviti",
   "ideas.detail.tabEvidence": "Bukti",
-  "ideas.detail.comingSoon": "Akan datang."
+  "ideas.detail.comingSoon": "Akan datang.",
+  "ideas.comments.empty": "Belum ada komen.",
+  "ideas.comments.composerLabel": "Tambah komen",
+  "ideas.comments.composerPlaceholder": "Tulis komen…",
+  "ideas.comments.post": "Komen",
+  "ideas.activity.empty": "Belum ada aktiviti.",
+  "ideas.activity.captured": "Idea ditangkap",
+  "ideas.activity.statementChanged": "Pernyataan disunting",
+  "ideas.activity.statusChanged": "Status ditukar kepada {to}",
+  "ideas.activity.commentAdded": "Komen ditambah"
 }

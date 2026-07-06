@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
 import { nextCommand } from './commands/next'
 import { ideaCapture, ideaList, ideaUpdate } from './commands/idea'
+import { ideaComment, ideaCommentList } from './commands/idea-comment'
 import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
@@ -435,6 +436,34 @@ ideaCmd
   .action(
     wrap((id, options) =>
       ideaUpdate(id as string | undefined, options as { status?: string })
+    )
+  )
+
+ideaCmd
+  .command('comment <id> <body>')
+  .description(
+    'Comment on an idea (LUM-680). <id> is the LUM-I<n> id (a bare number also resolves). Body is plain text — quote it to pass spaces or newlines.'
+  )
+  .action(
+    wrap((id, body) =>
+      ideaComment(id as string | undefined, body as string | undefined)
+    )
+  )
+
+// Plural `comments` parent (mirrors `task comments`): `idea comment <id> <body>`
+// already exists for posting, and commander disallows a duplicate name.
+const ideaComments = ideaCmd
+  .command('comments')
+  .description('Inspect an idea comment thread')
+ideaComments
+  .command('list <id>')
+  .description(
+    'List an idea comment thread (capped to the output budget; --full prints every comment).'
+  )
+  .option('--full', 'Print every comment, bypassing the output-token cap')
+  .action(
+    wrap((id, opts) =>
+      ideaCommentList(id as string | undefined, opts as { full?: boolean })
     )
   )
 

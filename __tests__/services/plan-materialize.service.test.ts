@@ -15,6 +15,7 @@ jest.mock('@/lib/db/prisma', () => {
     team: { update: jest.fn() },
     task: { create: jest.fn() },
     idea: { updateMany: jest.fn() },
+    ideaActivity: { createMany: jest.fn() }, // LUM-680: materialisation timeline
     planRunStageRecord: { update: jest.fn() },
     planRun: { update: jest.fn() },
   }
@@ -43,6 +44,7 @@ const prismaMock = prisma as unknown as {
     team: { update: jest.Mock }
     task: { create: jest.Mock }
     idea: { updateMany: jest.Mock }
+    ideaActivity: { createMany: jest.Mock }
     planRunStageRecord: { update: jest.Mock }
     planRun: { update: jest.Mock }
   }

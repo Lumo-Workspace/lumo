@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Kommentare",
   "ideas.detail.tabActivity": "Aktivität",
   "ideas.detail.tabEvidence": "Nachweise",
-  "ideas.detail.comingSoon": "Demnächst verfügbar."
+  "ideas.detail.comingSoon": "Demnächst verfügbar.",
+  "ideas.comments.empty": "Noch keine Kommentare.",
+  "ideas.comments.composerLabel": "Kommentar hinzufügen",
+  "ideas.comments.composerPlaceholder": "Kommentar schreiben…",
+  "ideas.comments.post": "Kommentieren",
+  "ideas.activity.empty": "Noch keine Aktivität.",
+  "ideas.activity.captured": "Idee erfasst",
+  "ideas.activity.statementChanged": "Aussage bearbeitet",
+  "ideas.activity.statusChanged": "Status geändert zu {to}",
+  "ideas.activity.commentAdded": "Kommentar hinzugefügt"
 }
