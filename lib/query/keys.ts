@@ -91,6 +91,8 @@ export const queryKeys = {
 
   ideas: {
     all: () => ['ideas'] as const,
+    comments: (ideaId: string) => ['ideas', ideaId, 'comments'] as const,
+    activity: (ideaId: string) => ['ideas', ideaId, 'activity'] as const,
   },
 
   summary: {

@@ -9,6 +9,11 @@ jest.mock('@/lib/repositories/idea.repository', () => ({
     updateStatusInTeam: jest.fn(),
   },
 }))
+// LUM-680: idea mutations now record activity — mock the repo so these unit
+// tests don't reach prisma.
+jest.mock('@/lib/repositories/idea-activity.repository', () => ({
+  ideaActivityRepository: { create: jest.fn(), listByIdea: jest.fn() },
+}))
 
 import { ideaService } from '@/lib/services/idea.service'
 import { getDefaultTeam } from '@/lib/team'

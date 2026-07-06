@@ -1,6 +1,10 @@
 export type * from './types'
 export { taskService } from './task.service'
-export { ideaService, type CapturedIdea } from './idea.service'
+export {
+  ideaService,
+  resolveIdeaInTeam,
+  type CapturedIdea,
+} from './idea.service'
 export { resolveIdeaRef } from './idea-evidence-resolve'
 export {
   ideaSlackContextService,
@@ -11,6 +15,14 @@ export {
   type AddIdeaWebLinkInput,
 } from './idea-web-link.service'
 export { ideaFigmaLinkService } from './idea-figma-link.service'
+export {
+  ideaCommentService,
+  type IdeaCommentNode,
+} from './idea-comment.service'
+export {
+  ideaActivityService,
+  type IdeaActivityEntry,
+} from './idea-activity.service'
 export {
   initiativeService,
   type InitiativeListItem,

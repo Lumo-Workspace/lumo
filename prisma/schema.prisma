@@ -456,6 +456,23 @@ enum IdeaStatus {
   DROPPED
 }
 
+// LUM-680: the lifecycle events recorded on an Idea's activity timeline. Mirrors
+// the TaskActivity pattern (append-only, `payload` carries the specifics), but
+// scoped to the events an idea actually has today:
+//   IDEA_CAPTURED     — idea captured into the pool
+//   STATEMENT_CHANGED — the statement was edited
+//   STATUS_CHANGED    — a lifecycle transition ({from,to}); also emitted when a
+//                       plan run materialises the idea to PLANNED (carries the
+//                       planRunId + initiativeId it entered)
+//   COMMENT_ADDED     — a comment was posted ({commentId})
+// Evidence-added lives with the evidence feature (LUM-681) and is not here yet.
+enum IdeaActivityType {
+  IDEA_CAPTURED
+  STATEMENT_CHANGED
+  STATUS_CHANGED
+  COMMENT_ADDED
+}
+
 // A captured team-level idea. NO projectId — ideas live above projects until
 // materialised (Spec2). `number` is per-team (@@unique([teamId, number])).
 // `parentId` is a Phase-2 hierarchy placeholder — always null in Phase 1.
@@ -490,6 +507,8 @@ model Idea {
   planRun    PlanRun?    @relation(fields: [planRunId], references: [id], onDelete: SetNull)
   initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
   tasks      Task[]
+  comments   Comment[] // LUM-680: idea comments (polymorphic Comment via ideaId)
+  activities IdeaActivity[] // LUM-680: the idea's activity timeline
 
   slackContexts IdeaSlackContext[]
   webLinks      IdeaWebLink[]
@@ -502,6 +521,24 @@ model Idea {
   @@index([planRunId])
   @@index([initiativeId])
   @@map("ideas")
+}
+
+// LUM-680: an append-only activity entry on an Idea (mirrors TaskActivity).
+// `actorId` is nullable — system transitions (e.g. plan-run materialisation)
+// have no acting actor. `payload` carries event specifics (see IdeaActivityType).
+model IdeaActivity {
+  id        String           @id @default(cuid())
+  ideaId    String
+  actorId   String?
+  type      IdeaActivityType
+  payload   Json?
+  createdAt DateTime         @default(now())
+
+  idea  Idea   @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  actor Actor? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ideaId, createdAt])
+  @@map("idea_activities")
 }
 
 // A team-level priority statement. Append-only by design: no `updatedAt`, and
@@ -706,6 +743,7 @@ model Actor {
   assignedTasks            Task[]            @relation("TaskAssignee")
   comments                 Comment[]         @relation("CommentAuthor")
   activities               TaskActivity[]
+  ideaActivities           IdeaActivity[]
   receivedNotifications    Notification[]    @relation("NotificationRecipient")
   triggeredNotifications   Notification[]    @relation("NotificationTrigger")
   documentComments         DocumentComment[] @relation("DocumentCommentAuthor")
@@ -1154,9 +1192,16 @@ model ViewTaskOrder {
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
+// A comment on a Task or (LUM-680) a team-level Idea. The owner is polymorphic
+// via two nullable FKs: exactly one of `taskId` / `ideaId` is set — enforced by
+// the app layer (`assertSingleCommentOwner`) and a DB CHECK constraint in the
+// migration. This mirrors the selective-nullable-FK pattern the Memory model
+// uses (scope + one non-null FK) rather than an opaque entityType/entityId
+// discriminator, so Prisma keeps real FK constraints and cascade deletes.
 model Comment {
   id              String      @id @default(cuid())
-  taskId          String
+  taskId          String? // set for a task comment (xor ideaId)
+  ideaId          String? // LUM-680: set for an idea comment (xor taskId)
   authorActorId   String?
   body            String // HTML; @mentions encoded as data-id attributes
   parentId        String? // null = top-level; non-null = reply (max 1 level deep)
@@ -1167,7 +1212,8 @@ model Comment {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  task     Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task     Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  idea     Idea?              @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   author   Actor?             @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
   parent   Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies  Comment[]          @relation("CommentReplies")
@@ -1175,6 +1221,7 @@ model Comment {
   syncJobs PrCommentSyncJob[]
 
   @@index([taskId])
+  @@index([ideaId])
   @@index([parentId])
   @@index([authorActorId])
   @@map("comments")

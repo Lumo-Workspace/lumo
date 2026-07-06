@@ -1,6 +1,7 @@
 export type * from './types'
 export { taskRepository } from './task.repository'
 export { ideaRepository, type IdeaRow } from './idea.repository'
+export { ideaActivityRepository } from './idea-activity.repository'
 export { pullRequestRepository } from './pull-request.repository'
 export { commentRepository } from './comment.repository'
 export { projectRepository } from './project.repository'

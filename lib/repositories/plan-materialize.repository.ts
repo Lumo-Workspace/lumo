@@ -149,6 +149,23 @@ export const planMaterializeRepository = {
                   initiativeId: initiative.id,
                 },
               })
+
+              // LUM-680: record the materialisation on each consumed idea's
+              // timeline — a STATUS_CHANGED(→PLANNED) carrying the run +
+              // Initiative it entered. Written in the SAME transaction, so a
+              // rollback erases these alongside the status flip.
+              await tx.ideaActivity.createMany({
+                data: init.ideaIds.map(ideaId => ({
+                  ideaId,
+                  actorId: null,
+                  type: 'STATUS_CHANGED' as const,
+                  payload: {
+                    to: 'PLANNED',
+                    planRunId: plan.planRunId,
+                    initiativeId: initiative.id,
+                  },
+                })),
+              })
             }
 
             initiatives.push({

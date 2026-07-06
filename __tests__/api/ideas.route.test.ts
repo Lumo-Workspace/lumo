@@ -3,6 +3,10 @@ jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/services', () => ({
   ideaService: { capture: jest.fn(), listPool: jest.fn() },
 }))
+// LUM-680: the capture route resolves the acting actor for the timeline entry.
+jest.mock('@/lib/actor', () => ({
+  getHumanActorId: jest.fn(async () => 'actor-1'),
+}))
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'

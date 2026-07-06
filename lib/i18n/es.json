@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "Comentarios",
   "ideas.detail.tabActivity": "Actividad",
   "ideas.detail.tabEvidence": "Evidencia",
-  "ideas.detail.comingSoon": "Próximamente."
+  "ideas.detail.comingSoon": "Próximamente.",
+  "ideas.comments.empty": "Aún no hay comentarios.",
+  "ideas.comments.composerLabel": "Añadir un comentario",
+  "ideas.comments.composerPlaceholder": "Escribe un comentario…",
+  "ideas.comments.post": "Comentar",
+  "ideas.activity.empty": "Aún no hay actividad.",
+  "ideas.activity.captured": "Idea capturada",
+  "ideas.activity.statementChanged": "Enunciado editado",
+  "ideas.activity.statusChanged": "Estado cambiado a {to}",
+  "ideas.activity.commentAdded": "Comentario añadido"
 }

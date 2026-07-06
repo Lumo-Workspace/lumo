@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiIdea } from '../types'
 import { IdeaEvidenceTab } from './IdeaEvidenceTab'
+import { IdeaCommentsSection } from './IdeaCommentsSection'
+import { IdeaActivityTimeline } from './IdeaActivityTimeline'
 
 interface IdeaDetailPanelProps {
   idea: ApiIdea
@@ -30,9 +32,8 @@ interface IdeaDetailPanelProps {
  * Presentational host for a single idea's detail (LUM-683). Renders the
  * statement (inline-editable), the `LUM-I` identifier, the status badge, and
  * the full lineage (source context/task/session, the run that consumed it, the
- * Initiative it fed). Below sits the reserved section shell — Comments /
- * Activity / Evidence tabs — that sibling tasks 680 (comments + activity) and
- * 681 (evidence) will fill; this task ships the empty layout only.
+ * Initiative it fed). Below sit the Comments / Activity tabs (LUM-680) and the
+ * Evidence tab (LUM-681, the source-card system mirrored from the Task detail).
  *
  * Pure presentation (SRP): all data comes in via `idea`, persistence via
  * `onSave`. The status is read-only here — the interactive 4-state lifecycle
@@ -134,9 +135,8 @@ export function IdeaDetailPanel({
       {/* Lineage — where the idea came from and what consumed it */}
       <IdeaLineage idea={idea} workspaceUrl={workspaceUrl} />
 
-      {/* Comments/Activity remain reserved shells (owned by sibling task 680).
-          Evidence is filled by this task (681) with the source-card system
-          mirrored from the Task detail's ContextTab. */}
+      {/* Comments + Activity are filled by LUM-680; Evidence by LUM-681
+          (source-card system mirrored from the Task detail's ContextTab). */}
       <Tabs defaultValue='comments' className='flex flex-col gap-3'>
         <TabsList className='self-start'>
           <TabsTrigger value='comments'>
@@ -149,16 +149,12 @@ export function IdeaDetailPanel({
             {intl.formatMessage({ id: 'ideas.detail.tabEvidence' })}
           </TabsTrigger>
         </TabsList>
-        {(['comments', 'activity'] as const).map(section => (
-          <TabsContent key={section} value={section}>
-            <p
-              data-testid={`idea-section-${section}`}
-              className='rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground'
-            >
-              {intl.formatMessage({ id: 'ideas.detail.comingSoon' })}
-            </p>
-          </TabsContent>
-        ))}
+        <TabsContent value='comments'>
+          <IdeaCommentsSection ideaId={idea.id} />
+        </TabsContent>
+        <TabsContent value='activity'>
+          <IdeaActivityTimeline ideaId={idea.id} />
+        </TabsContent>
         <TabsContent value='evidence'>
           <IdeaEvidenceTab ideaId={idea.id} slackConnected={slackConnected} />
         </TabsContent>

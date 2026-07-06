@@ -23,6 +23,7 @@ import { ideaFigmaList } from './commands/idea-figma-list'
 import { ideaFigmaRm } from './commands/idea-figma-rm'
 import { ideaFigmaRefresh } from './commands/idea-figma-refresh'
 import { ideaFigmaContext } from './commands/idea-figma-context'
+import { ideaComment, ideaCommentList } from './commands/idea-comment'
 import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
@@ -516,6 +517,34 @@ ideaFigma
   .command('context <idea> <linkId>')
   .description('Show cached Figma design context')
   .action(wrap((id, l) => ideaFigmaContext(id as string, l as string)))
+
+ideaCmd
+  .command('comment <id> <body>')
+  .description(
+    'Comment on an idea (LUM-680). <id> is the LUM-I<n> id (a bare number also resolves). Body is plain text — quote it to pass spaces or newlines.'
+  )
+  .action(
+    wrap((id, body) =>
+      ideaComment(id as string | undefined, body as string | undefined)
+    )
+  )
+
+// Plural `comments` parent (mirrors `task comments`): `idea comment <id> <body>`
+// already exists for posting, and commander disallows a duplicate name.
+const ideaComments = ideaCmd
+  .command('comments')
+  .description('Inspect an idea comment thread')
+ideaComments
+  .command('list <id>')
+  .description(
+    'List an idea comment thread (capped to the output budget; --full prints every comment).'
+  )
+  .option('--full', 'Print every comment, bypassing the output-token cap')
+  .action(
+    wrap((id, opts) =>
+      ideaCommentList(id as string | undefined, opts as { full?: boolean })
+    )
+  )
 
 const initiativeCmd = program
   .command('initiative')

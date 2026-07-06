@@ -2187,5 +2187,14 @@
   "ideas.detail.tabComments": "コメント",
   "ideas.detail.tabActivity": "アクティビティ",
   "ideas.detail.tabEvidence": "エビデンス",
-  "ideas.detail.comingSoon": "近日公開。"
+  "ideas.detail.comingSoon": "近日公開。",
+  "ideas.comments.empty": "まだコメントはありません。",
+  "ideas.comments.composerLabel": "コメントを追加",
+  "ideas.comments.composerPlaceholder": "コメントを入力…",
+  "ideas.comments.post": "コメント",
+  "ideas.activity.empty": "まだアクティビティはありません。",
+  "ideas.activity.captured": "アイデアを記録しました",
+  "ideas.activity.statementChanged": "ステートメントを編集しました",
+  "ideas.activity.statusChanged": "ステータスが {to} に変更されました",
+  "ideas.activity.commentAdded": "コメントが追加されました"
 }

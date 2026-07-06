@@ -108,6 +108,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
     lumo idea figma rm LUM-I42 cfl_1
     ```
 
+- `lumo idea comment <id> <body>` — post a comment on an idea (LUM-680). `<id>` is the `LUM-I<n>` id (a bare number also resolves) or a cuid; the body is plain text — quote it to pass spaces/newlines. Ideas reuse the task Comment model via a polymorphic `ideaId`; the thread is flat (no replies). Posting also records a `COMMENT_ADDED` entry on the idea's activity timeline. Comments/activity also render on the Idea detail slide-over in web.
+- `lumo idea comments list <id> [--full]` — print an idea's comment thread (oldest first), capped to the output budget like `task comments list`; `--full` prints every comment. Empty thread → `(no comments)`.
+  - **When to suggest**: the user wants to discuss or annotate a parked idea ("给这个想法加条评论", "comment on the idea"), or review an idea's discussion/history ("看看这个想法的评论/活动"). For the activity timeline (status changes, statement edits, materialisation) there is no CLI reader — it's shown on the Idea detail slide-over in web.
+  - **Example**:
+    ```bash
+    lumo idea comment LUM-I42 "Let's scope this for next sprint"
+    lumo idea comments list LUM-I42
+    ```
+
 **Plan runs (design-thinking 转换器)**
 
 - `lumo plan [--abandon-active]` — start a converter run that turns the team's captured idea pool + current priority into an executable plan through a 3-gate recoverable state machine (聚类→对齐→成计划). Freezes the input snapshot at start and enforces **one active run per team**: if a run is already active it refuses and points to `lumo plan status`; `--abandon-active` abandons the prior run first, then starts fresh. On success it prints (and opens) the **gate-A** web deep-link (`/workspace/<slug>/plan/<runId>`). The CLI only triggers — **all editing and gate confirmation happen in web**.

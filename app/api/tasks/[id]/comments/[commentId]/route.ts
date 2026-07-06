@@ -16,7 +16,8 @@ async function requireCommentOwner(
   action: string
 ) {
   const comment = await commentRepository.findByIdWithTask(commentId)
-  if (!comment || comment.taskId !== taskId) {
+  // A comment with no task is an idea comment (LUM-680) — never editable here.
+  if (!comment || !comment.task || comment.taskId !== taskId) {
     return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
   }
   const memberResult = await requireWorkspaceMember(
