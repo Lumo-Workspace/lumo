@@ -1,9 +1,36 @@
 import { planRunService } from '@/lib/services/plan-run.service'
 import { planRunRepository } from '@/lib/repositories/plan-run.repository'
 import { ideaRepository } from '@/lib/repositories/idea.repository'
+import { summariseIdeaEvidence } from '@/lib/services/idea-evidence-summary'
 import { REASONING_MODEL } from '@/lib/ai/models'
 import type { ClusterGateOutput } from '@/lib/plan-run/cluster-gate'
+import type { AlignClusterInput } from '@/lib/llm/plan-align-client'
 import type { Prisma } from '@prisma/client'
+
+/**
+ * Fail-soft evidence-source aggregation for one cluster: sums `sourceCount`
+ * and unions `channels` across the cluster's ideas. Evidence is an
+ * enrichment, not a load-bearing input — any thrown error (or an idea with no
+ * evidence at all) omits the signal for that cluster (`null`) rather than
+ * failing the whole alignment stage (mirrors `safeEvidenceLines` in
+ * plan-cluster-runner.ts).
+ */
+async function safeEvidenceSources(
+  ideaIds: string[]
+): Promise<AlignClusterInput['evidenceSources']> {
+  try {
+    const summaries = await Promise.all(
+      ideaIds.map(id => summariseIdeaEvidence(id))
+    )
+    const count = summaries.reduce((sum, s) => sum + s.sourceCount, 0)
+    const channels = Array.from(
+      new Set(summaries.flatMap(s => s.channels))
+    ) as Array<'slack' | 'web' | 'figma'>
+    return count > 0 ? { count, channels } : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Stage-2 (对齐) trigger for the design-thinking 转换器 (LUM-669). Fired
@@ -41,13 +68,18 @@ export async function triggerAlignStage(planRunId: string): Promise<void> {
     const ideaRows = await ideaRepository.findByIds(ideaIds)
     const statementById = new Map(ideaRows.map(i => [i.id, i.statement]))
 
+    const evidenceByCluster = await Promise.all(
+      confirmed.clusters.map(c => safeEvidenceSources(c.ideaIds))
+    )
+
     // Stable, snapshot-local cluster ids echoed back by the align verdicts.
-    const clusters = confirmed.clusters.map((c, i) => ({
+    const clusters: AlignClusterInput[] = confirmed.clusters.map((c, i) => ({
       clusterId: `cluster-${i}`,
       label: c.name,
       items: c.ideaIds
         .map(id => statementById.get(id))
         .filter((s): s is string => typeof s === 'string'),
+      evidenceSources: evidenceByCluster[i] ?? null,
     }))
 
     const input = { clusters, priority: run.prioritySnapshot }

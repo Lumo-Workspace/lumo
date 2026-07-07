@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiIdea } from '../types'
+import { IdeaEvidenceTab } from './IdeaEvidenceTab'
 import { IdeaCommentsSection } from './IdeaCommentsSection'
 import { IdeaActivityTimeline } from './IdeaActivityTimeline'
 
@@ -17,15 +18,22 @@ interface IdeaDetailPanelProps {
   /** Persist an edited statement (wired to the PATCH mutation by the host). */
   onSave: (statement: string) => Promise<void>
   saving?: boolean
+  /**
+   * Whether the workspace has Slack connected — sourced the same way the
+   * Task detail's `ContextTab` does (`workspace.slackIntegration !== null`).
+   * The idea pool page doesn't currently fetch `workspace`, so callers that
+   * lack it can default to `false`; the Evidence tab's Slack section then
+   * shows its existing "not connected" fallback rather than misreporting.
+   */
+  slackConnected?: boolean
 }
 
 /**
  * Presentational host for a single idea's detail (LUM-683). Renders the
  * statement (inline-editable), the `LUM-I` identifier, the status badge, and
  * the full lineage (source context/task/session, the run that consumed it, the
- * Initiative it fed). Below sits the reserved section shell — Comments /
- * Activity / Evidence tabs — that sibling tasks 680 (comments + activity) and
- * 681 (evidence) will fill; this task ships the empty layout only.
+ * Initiative it fed). Below sit the Comments / Activity tabs (LUM-680) and the
+ * Evidence tab (LUM-681, the source-card system mirrored from the Task detail).
  *
  * Pure presentation (SRP): all data comes in via `idea`, persistence via
  * `onSave`. The status is read-only here — the interactive 4-state lifecycle
@@ -37,6 +45,7 @@ export function IdeaDetailPanel({
   workspaceUrl,
   onSave,
   saving = false,
+  slackConnected = false,
 }: IdeaDetailPanelProps) {
   const intl = useIntl()
   const [editing, setEditing] = useState(false)
@@ -126,8 +135,8 @@ export function IdeaDetailPanel({
       {/* Lineage — where the idea came from and what consumed it */}
       <IdeaLineage idea={idea} workspaceUrl={workspaceUrl} />
 
-      {/* Comments + Activity are filled by LUM-680; Evidence stays an empty
-          shell for LUM-681 to fill. */}
+      {/* Comments + Activity are filled by LUM-680; Evidence by LUM-681
+          (source-card system mirrored from the Task detail's ContextTab). */}
       <Tabs defaultValue='comments' className='flex flex-col gap-3'>
         <TabsList className='self-start'>
           <TabsTrigger value='comments'>
@@ -147,12 +156,7 @@ export function IdeaDetailPanel({
           <IdeaActivityTimeline ideaId={idea.id} />
         </TabsContent>
         <TabsContent value='evidence'>
-          <p
-            data-testid='idea-section-evidence'
-            className='rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground'
-          >
-            {intl.formatMessage({ id: 'ideas.detail.comingSoon' })}
-          </p>
+          <IdeaEvidenceTab ideaId={idea.id} slackConnected={slackConnected} />
         </TabsContent>
       </Tabs>
     </div>

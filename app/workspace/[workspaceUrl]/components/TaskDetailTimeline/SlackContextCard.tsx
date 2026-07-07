@@ -9,7 +9,11 @@ import { useNow } from '@/hooks/use-now'
 import { SlackMrkdwn } from './slackMrkdwn'
 
 interface Props {
-  context: SlackContextResource
+  // Owner-agnostic: the card only reads fields common to both the task- and
+  // idea-scoped Slack context resources, so it accepts either by omitting the
+  // owner id field (`taskId`) neither the Idea variant carries nor the card
+  // uses (LUM-681 reuse boundary).
+  context: Omit<SlackContextResource, 'taskId'>
   onRefresh: () => Promise<void>
   onUnlink: () => Promise<void>
 }

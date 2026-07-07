@@ -136,6 +136,10 @@ export const queryKeys = {
 
   taskArtifacts: (taskId: string) => ['task-artifacts', taskId] as const,
 
+  ideaWebLinks: (ideaId: string) => ['idea-web-links', ideaId] as const,
+
+  ideaFigmaLinks: (ideaId: string) => ['idea-figma-links', ideaId] as const,
+
   integrations: {
     slack: (workspaceUrl: string) =>
       ['integrations', 'slack', workspaceUrl] as const,

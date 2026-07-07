@@ -5,6 +5,16 @@ export {
   resolveIdeaInTeam,
   type CapturedIdea,
 } from './idea.service'
+export { resolveIdeaRef } from './idea-evidence-resolve'
+export {
+  ideaSlackContextService,
+  type LinkIdeaSlackPermalinkInput,
+} from './idea-slack-context.service'
+export {
+  ideaWebLinkService,
+  type AddIdeaWebLinkInput,
+} from './idea-web-link.service'
+export { ideaFigmaLinkService } from './idea-figma-link.service'
 export {
   ideaCommentService,
   type IdeaCommentNode,
