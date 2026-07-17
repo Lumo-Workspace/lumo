@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { ALIGN_VERDICTS, type AlignVerdict } from '@/lib/plan-run/gate-b'
+import {
+  ALIGN_VERDICTS,
+  MAX_STARRED,
+  type AlignVerdict,
+} from '@/lib/plan-run/gate-b'
 
 export interface ClusterCardState {
   clusterId: string
@@ -80,7 +84,10 @@ export function ClusterAlignCard({
           disabled={starDisabled}
           aria-pressed={cluster.starred}
           onClick={onToggleStar}
-          title={intl.formatMessage({ id: 'planGate.starHint' })}
+          title={intl.formatMessage(
+            { id: 'planGate.starHint' },
+            { max: MAX_STARRED }
+          )}
         >
           <Star
             className={cn('h-4 w-4', cluster.starred && 'fill-current')}

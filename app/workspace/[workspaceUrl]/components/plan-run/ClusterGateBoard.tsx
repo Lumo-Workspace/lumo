@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -10,6 +11,7 @@ import {
   type ClusterGateView,
 } from '@/lib/api-client'
 import type { ClusterGateCluster } from '@/lib/plan-run/cluster-gate'
+import { IdeaCard, type MoveTarget } from './IdeaCard'
 
 interface ClusterGateBoardProps {
   runId: string
@@ -30,11 +32,14 @@ const ORPHAN_TARGET = 'orphans'
  *
  * SRP: this component owns UI state + rendering only; the fetch/confirm calls
  * go through the api-client, and all business rules live behind the gate API.
+ * Each idea renders as an <IdeaCard> (LUM-685) — it owns the statement's
+ * clamp/expand and the move menu.
  */
 export function ClusterGateBoard({
   runId,
   onConfirmed,
 }: ClusterGateBoardProps) {
+  const intl = useIntl()
   const [view, setView] = useState<ClusterGateView | null>(null)
   const [clusters, setClusters] = useState<ClusterGateCluster[]>([])
   const [orphans, setOrphans] = useState<string[]>([])
@@ -56,10 +61,12 @@ export function ClusterGateBoard({
       setOrphans([...data.board.orphans])
     } catch (err) {
       setLoadError(
-        err instanceof Error ? err.message : 'Failed to load the board'
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'planGateA.loadFailed' })
       )
     }
-  }, [runId])
+  }, [runId, intl])
 
   useEffect(() => {
     void load()
@@ -74,6 +81,14 @@ export function ClusterGateBoard({
   const gateOpen =
     view?.run.stage === 'CLUSTERS_READY' && confirmedStage === null
   const statement = (id: string) => ideaById.get(id)?.statement ?? id
+  const sourceContext = (id: string) => ideaById.get(id)?.sourceContext ?? null
+
+  const clusterLabel = (name: string, index: number) =>
+    name.trim() ||
+    intl.formatMessage(
+      { id: 'planGateA.clusterFallback' },
+      { index: index + 1 }
+    )
 
   const rename = (index: number, name: string) => {
     setClusters(prev => prev.map((c, i) => (i === index ? { ...c, name } : c)))
@@ -108,10 +123,17 @@ export function ClusterGateBoard({
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 409) {
         setConfirmError(
-          `${err.message} — someone else changed this clustering; reload to get the latest.`
+          intl.formatMessage(
+            { id: 'planGateA.conflict' },
+            { message: err.message }
+          )
         )
       } else {
-        setConfirmError(err instanceof Error ? err.message : 'Confirm failed')
+        setConfirmError(
+          err instanceof Error
+            ? err.message
+            : intl.formatMessage({ id: 'planGateA.confirmFailed' })
+        )
       }
     } finally {
       setSaving(false)
@@ -123,7 +145,7 @@ export function ClusterGateBoard({
       <div className='space-y-3'>
         <p className='text-sm text-destructive'>{loadError}</p>
         <Button variant='outline' onClick={() => void load()}>
-          Retry
+          {intl.formatMessage({ id: 'planGateA.retry' })}
         </Button>
       </div>
     )
@@ -132,92 +154,91 @@ export function ClusterGateBoard({
   if (!view) {
     return (
       <p className='text-sm text-muted-foreground'>
-        Loading the cluster board…
+        {intl.formatMessage({ id: 'planGateA.loading' })}
       </p>
     )
   }
 
-  const moveOptions = (currentTarget: string) =>
+  const moveTargets = (currentTarget: string): MoveTarget[] =>
     [
       ...clusters.map((c, i) => ({
         value: String(i),
-        label: c.name.trim() || `Cluster ${i + 1}`,
+        label: clusterLabel(c.name, i),
       })),
-      { value: ORPHAN_TARGET, label: 'Orphans' },
+      {
+        value: ORPHAN_TARGET,
+        label: intl.formatMessage({ id: 'planGateA.orphansTarget' }),
+      },
     ].filter(o => o.value !== currentTarget)
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-8'>
       <header className='space-y-1'>
         <h1 className='text-xl font-semibold text-foreground'>
-          Review the clusters
+          {intl.formatMessage({ id: 'planGateA.title' })}
         </h1>
         <p className='text-sm text-muted-foreground'>
-          Rename a cluster or move an idea between clusters and the orphan zone,
-          then confirm to move on to alignment.
+          {intl.formatMessage({ id: 'planGateA.subtitle' })}
         </p>
       </header>
 
       {confirmedStage !== null ? (
-        <p className='rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground'>
-          Confirmed. The run advanced to{' '}
-          <span className='font-medium'>{confirmedStage}</span> and alignment is
-          running.
+        <p className='rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground'>
+          {intl.formatMessage(
+            { id: 'planGateA.confirmed' },
+            { stage: confirmedStage }
+          )}
         </p>
       ) : !gateOpen ? (
-        <p className='rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground'>
-          This gate is closed (run stage: {view.run.stage}). Editing is
-          disabled.
+        <p className='rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground'>
+          {intl.formatMessage(
+            { id: 'planGateA.gateClosed' },
+            { stage: view.run.stage }
+          )}
         </p>
       ) : null}
 
-      <div className='grid gap-4 sm:grid-cols-2'>
+      <div className='grid items-start gap-6 sm:grid-cols-2'>
         {clusters.map((cluster, index) => (
           <section
             key={index}
             className='space-y-3 rounded-lg border border-border p-4'
           >
-            <Input
-              aria-label={`Cluster ${index + 1} name`}
-              value={cluster.name}
-              disabled={!gateOpen}
-              onChange={e => rename(index, e.target.value)}
-              className='font-medium'
-            />
-            {cluster.thrust ? (
-              <p className='text-xs text-muted-foreground'>{cluster.thrust}</p>
-            ) : null}
+            <div className='space-y-1.5'>
+              <Input
+                aria-label={intl.formatMessage(
+                  { id: 'planGateA.clusterNameLabel' },
+                  { index: index + 1 }
+                )}
+                value={cluster.name}
+                disabled={!gateOpen}
+                onChange={e => rename(index, e.target.value)}
+                className='font-medium'
+              />
+              {cluster.thrust ? (
+                <p className='text-xs text-muted-foreground'>
+                  {cluster.thrust}
+                </p>
+              ) : null}
+            </div>
             <ul className='space-y-2'>
               {cluster.ideaIds.map(id => (
-                <li
+                <IdeaCard
                   key={id}
-                  className='flex items-start justify-between gap-2 rounded-md bg-muted/40 p-2'
-                >
-                  <span className='text-sm text-foreground'>
-                    {statement(id)}
-                  </span>
-                  {gateOpen ? (
-                    <select
-                      aria-label={`Move idea ${statement(id)}`}
-                      className='shrink-0 rounded-md border border-border bg-background px-1 py-0.5 text-xs text-muted-foreground'
-                      value=''
-                      onChange={e =>
-                        e.target.value && moveIdea(id, e.target.value)
-                      }
-                    >
-                      <option value=''>Move to…</option>
-                      {moveOptions(String(index)).map(o => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                </li>
+                  statement={statement(id)}
+                  sourceContext={sourceContext(id)}
+                  moveTargets={moveTargets(String(index))}
+                  moveLabel={intl.formatMessage(
+                    { id: 'planGateA.moveIdeaLabel' },
+                    { statement: statement(id) }
+                  )}
+                  onMove={target => moveIdea(id, target)}
+                  movable={gateOpen}
+                />
               ))}
               {cluster.ideaIds.length === 0 ? (
-                <li className='text-xs italic text-muted-foreground'>
-                  (empty — move an idea here)
+                <li className='rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground'>
+                  {intl.formatMessage({ id: 'planGateA.emptyCluster' })}
                 </li>
               ) : null}
             </ul>
@@ -227,36 +248,29 @@ export function ClusterGateBoard({
 
       <section className='space-y-3 rounded-lg border border-dashed border-border p-4'>
         <h2 className='text-sm font-medium text-foreground'>
-          Orphans{' '}
-          <span className='text-muted-foreground'>({orphans.length})</span>
+          {intl.formatMessage(
+            { id: 'planGateA.orphansTitle' },
+            { count: orphans.length }
+          )}
         </h2>
-        <ul className='space-y-2'>
+        <ul className='grid items-start gap-2 sm:grid-cols-2'>
           {orphans.map(id => (
-            <li
+            <IdeaCard
               key={id}
-              className='flex items-start justify-between gap-2 rounded-md bg-muted/40 p-2'
-            >
-              <span className='text-sm text-foreground'>{statement(id)}</span>
-              {gateOpen ? (
-                <select
-                  aria-label={`Move orphan idea ${statement(id)}`}
-                  className='shrink-0 rounded-md border border-border bg-background px-1 py-0.5 text-xs text-muted-foreground'
-                  value=''
-                  onChange={e => e.target.value && moveIdea(id, e.target.value)}
-                >
-                  <option value=''>Move to…</option>
-                  {moveOptions(ORPHAN_TARGET).map(o => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </li>
+              statement={statement(id)}
+              sourceContext={sourceContext(id)}
+              moveTargets={moveTargets(ORPHAN_TARGET)}
+              moveLabel={intl.formatMessage(
+                { id: 'planGateA.moveOrphanLabel' },
+                { statement: statement(id) }
+              )}
+              onMove={target => moveIdea(id, target)}
+              movable={gateOpen}
+            />
           ))}
           {orphans.length === 0 ? (
             <li className='text-xs italic text-muted-foreground'>
-              No orphans — every idea belongs to a cluster.
+              {intl.formatMessage({ id: 'planGateA.orphansEmpty' })}
             </li>
           ) : null}
         </ul>
@@ -268,10 +282,12 @@ export function ClusterGateBoard({
 
       <div className='flex items-center gap-3'>
         <Button onClick={() => void confirm()} disabled={!gateOpen || saving}>
-          {saving ? 'Confirming…' : 'Confirm clusters'}
+          {saving
+            ? intl.formatMessage({ id: 'planGateA.confirming' })
+            : intl.formatMessage({ id: 'planGateA.confirm' })}
         </Button>
         <Button variant='outline' onClick={() => void load()} disabled={saving}>
-          Reset
+          {intl.formatMessage({ id: 'planGateA.reset' })}
         </Button>
       </div>
     </div>
