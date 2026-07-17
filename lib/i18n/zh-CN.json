@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "粘贴链接 (https://…)",
   "task.contextLink.slack.placeholder": "粘贴 Slack 消息链接",
   "task.contextLink.slack.connectCta": "前往集成设置 →",
+  "task.contextLink.figma.connectCta": "前往集成设置 →",
   "task.contextLink.slack.errors.workspaceNotConnected": "请先连接 Slack。",
   "task.contextLink.doc.placeholder": "搜索文档或粘贴文档链接",
   "task.contextLink.doc.searchEmpty": "未找到匹配的文档",

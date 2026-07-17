@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "Вставьте URL (https://…)",
   "task.contextLink.slack.placeholder": "Вставьте ссылку на сообщение Slack",
   "task.contextLink.slack.connectCta": "Открыть интеграции →",
+  "task.contextLink.figma.connectCta": "Открыть интеграции →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Сначала подключите Slack.",
   "task.contextLink.doc.placeholder": "Найдите документ или вставьте его URL",
   "task.contextLink.doc.searchEmpty": "Совпадающие документы не найдены.",

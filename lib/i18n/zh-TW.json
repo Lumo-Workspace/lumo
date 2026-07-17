@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "貼上連結 (https://…)",
   "task.contextLink.slack.placeholder": "貼上 Slack 訊息連結",
   "task.contextLink.slack.connectCta": "前往整合設定 →",
+  "task.contextLink.figma.connectCta": "前往整合設定 →",
   "task.contextLink.slack.errors.workspaceNotConnected": "請先連接 Slack。",
   "task.contextLink.doc.placeholder": "搜尋文件或貼上文件連結",
   "task.contextLink.doc.searchEmpty": "找不到符合的文件",

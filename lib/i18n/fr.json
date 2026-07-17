@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "Collez une URL (https://…)",
   "task.contextLink.slack.placeholder": "Collez le lien d’un message Slack",
   "task.contextLink.slack.connectCta": "Ouvrir les intégrations →",
+  "task.contextLink.figma.connectCta": "Ouvrir les intégrations →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Connectez d’abord Slack.",
   "task.contextLink.doc.placeholder": "Rechercher un document ou coller une URL",
   "task.contextLink.doc.searchEmpty": "Aucun document correspondant.",

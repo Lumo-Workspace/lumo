@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "URL を貼り付け (https://…)",
   "task.contextLink.slack.placeholder": "Slack メッセージのリンクを貼り付け",
   "task.contextLink.slack.connectCta": "連携設定を開く →",
+  "task.contextLink.figma.connectCta": "連携設定を開く →",
   "task.contextLink.slack.errors.workspaceNotConnected": "先に Slack を接続してください。",
   "task.contextLink.doc.placeholder": "ドキュメントを検索、または URL を貼り付け",
   "task.contextLink.doc.searchEmpty": "一致するドキュメントがありません。",

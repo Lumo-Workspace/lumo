@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "URL einfügen (https://…)",
   "task.contextLink.slack.placeholder": "Link zu einer Slack-Nachricht einfügen",
   "task.contextLink.slack.connectCta": "Integrationen öffnen →",
+  "task.contextLink.figma.connectCta": "Integrationen öffnen →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Bitte zuerst Slack verbinden.",
   "task.contextLink.doc.placeholder": "Dokumente suchen oder Dokument-URL einfügen",
   "task.contextLink.doc.searchEmpty": "Keine passenden Dokumente.",

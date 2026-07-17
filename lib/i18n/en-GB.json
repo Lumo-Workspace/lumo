@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "Paste a URL (https://…)",
   "task.contextLink.slack.placeholder": "Paste a Slack message link",
   "task.contextLink.slack.connectCta": "Open integrations →",
+  "task.contextLink.figma.connectCta": "Open integrations →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Connect Slack first.",
   "task.contextLink.doc.placeholder": "Search docs or paste a doc URL",
   "task.contextLink.doc.searchEmpty": "No matching documents.",

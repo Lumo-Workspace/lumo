@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "Pega una URL (https://…)",
   "task.contextLink.slack.placeholder": "Pega el enlace a un mensaje de Slack",
   "task.contextLink.slack.connectCta": "Abrir integraciones →",
+  "task.contextLink.figma.connectCta": "Abrir integraciones →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Conecta Slack primero.",
   "task.contextLink.doc.placeholder": "Busca documentos o pega una URL de documento",
   "task.contextLink.doc.searchEmpty": "No se encontraron documentos.",

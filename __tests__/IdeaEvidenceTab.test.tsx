@@ -32,6 +32,13 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ workspaceUrl: 'test-workspace' }),
 }))
 
+// Each evidence section reads its own workspace integration state (LUM-684),
+// so the status endpoint has to answer for the sections to render their lists.
+// The gate itself is covered by idea-evidence-integrations.test.tsx.
+jest.mock('@/lib/api-client', () => ({
+  apiFetch: jest.fn().mockResolvedValue({ connected: true }),
+}))
+
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaWebLinks', () => ({
   useIdeaWebLinks: jest.fn(),
 }))
@@ -55,7 +62,7 @@ const mockWebLinks = useIdeaWebLinks as jest.Mock
 const mockSlack = useIdeaSlackContexts as jest.Mock
 const mockFigma = useIdeaFigmaLinks as jest.Mock
 
-function renderTab(props: { ideaId: string; slackConnected: boolean }) {
+function renderTab(props: { ideaId: string }) {
   const queryClient = new QueryClient()
   return render(
     <QueryClientProvider client={queryClient}>
@@ -163,15 +170,18 @@ beforeEach(() => {
 })
 
 describe('IdeaEvidenceTab', () => {
-  it('idea evidence tab lists attached evidence and offers add controls', () => {
-    renderTab({ ideaId: 'idea1', slackConnected: true })
+  it('idea evidence tab lists attached evidence and offers add controls', async () => {
+    renderTab({ ideaId: 'idea1' })
 
     // Attached web link renders (title, falling back to domain if untitled).
     expect(screen.getByText('Design notes doc')).toBeInTheDocument()
 
     // Attached Slack context and Figma link also render, proving all three
-    // idea evidence sections are wired to their hooks.
-    expect(screen.getByText('attached slack message')).toBeInTheDocument()
+    // idea evidence sections are wired to their hooks. Slack resolves async
+    // now that the section reads the workspace's integration state itself.
+    expect(
+      await screen.findByText('attached slack message')
+    ).toBeInTheDocument()
     expect(screen.getByText('Idea evidence mockups')).toBeInTheDocument()
 
     // Add controls (popover triggers) are present for each evidence kind,

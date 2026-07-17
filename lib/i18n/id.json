@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "Tempel URL (https://…)",
   "task.contextLink.slack.placeholder": "Tempel tautan pesan Slack",
   "task.contextLink.slack.connectCta": "Buka integrasi →",
+  "task.contextLink.figma.connectCta": "Buka integrasi →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Hubungkan Slack terlebih dahulu.",
   "task.contextLink.doc.placeholder": "Cari dokumen atau tempel URL dokumen",
   "task.contextLink.doc.searchEmpty": "Tidak ada dokumen yang cocok.",

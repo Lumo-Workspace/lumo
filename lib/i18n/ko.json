@@ -873,6 +873,7 @@
   "task.contextLink.weblink.placeholder": "URL 붙여넣기 (https://…)",
   "task.contextLink.slack.placeholder": "Slack 메시지 링크 붙여넣기",
   "task.contextLink.slack.connectCta": "연동 설정 열기 →",
+  "task.contextLink.figma.connectCta": "연동 설정 열기 →",
   "task.contextLink.slack.errors.workspaceNotConnected": "Slack을 먼저 연결하세요.",
   "task.contextLink.doc.placeholder": "문서를 검색하거나 문서 URL을 붙여넣기",
   "task.contextLink.doc.searchEmpty": "일치하는 문서가 없습니다.",
