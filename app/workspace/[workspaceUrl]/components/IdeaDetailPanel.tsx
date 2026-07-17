@@ -18,14 +18,6 @@ interface IdeaDetailPanelProps {
   /** Persist an edited statement (wired to the PATCH mutation by the host). */
   onSave: (statement: string) => Promise<void>
   saving?: boolean
-  /**
-   * Whether the workspace has Slack connected — sourced the same way the
-   * Task detail's `ContextTab` does (`workspace.slackIntegration !== null`).
-   * The idea pool page doesn't currently fetch `workspace`, so callers that
-   * lack it can default to `false`; the Evidence tab's Slack section then
-   * shows its existing "not connected" fallback rather than misreporting.
-   */
-  slackConnected?: boolean
 }
 
 /**
@@ -45,7 +37,6 @@ export function IdeaDetailPanel({
   workspaceUrl,
   onSave,
   saving = false,
-  slackConnected = false,
 }: IdeaDetailPanelProps) {
   const intl = useIntl()
   const [editing, setEditing] = useState(false)
@@ -156,7 +147,7 @@ export function IdeaDetailPanel({
           <IdeaActivityTimeline ideaId={idea.id} />
         </TabsContent>
         <TabsContent value='evidence'>
-          <IdeaEvidenceTab ideaId={idea.id} slackConnected={slackConnected} />
+          <IdeaEvidenceTab ideaId={idea.id} />
         </TabsContent>
       </Tabs>
     </div>

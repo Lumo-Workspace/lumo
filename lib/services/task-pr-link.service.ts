@@ -2,20 +2,16 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
+import {
+  fetchPullRequest,
+  parsePrUrl,
+  toPrState,
+} from '@/lib/integrations/github/fetch-pull-request'
 
-/**
- * Parse a GitHub PR URL into `{ repo, number }`. Returns null on malformed
- * URLs so callers can map that to HTTP 400.
- *
- * Example: `https://github.com/owner/repo/pull/42` → `{ repo: "owner/repo", number: 42 }`.
- */
-export function parsePrUrl(
-  url: string
-): { repo: string; number: number } | null {
-  const match = url.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/)
-  if (!match) return null
-  return { repo: match[1]!, number: Number(match[2]) }
-}
+// Re-exported for existing importers; the implementation moved to
+// lib/integrations/github/fetch-pull-request.ts so the idea-evidence link path
+// can share it (LUM-684).
+export { parsePrUrl }
 
 /**
  * Link a pull request to a task. Two entry modes:
@@ -85,41 +81,18 @@ export async function linkPullRequest(
         )
       }
 
-      const token = decrypt(integration.accessToken)
-      const res = await fetch(
-        `https://api.github.com/repos/${parsed.repo}/pulls/${parsed.number}`,
-        {
-          headers: {
-            Authorization: `token ${token}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-        }
-      )
-      if (!res.ok) {
+      const ghPr = await fetchPullRequest({
+        token: decrypt(integration.accessToken),
+        repo: parsed.repo,
+        number: parsed.number,
+      })
+      if (!ghPr) {
         throw Object.assign(new Error('PR not found on GitHub'), {
           status: 404,
         })
       }
 
-      const ghPr = (await res.json()) as {
-        number: number
-        title: string
-        html_url: string
-        state: string
-        merged: boolean
-        draft: boolean
-        user: { login: string }
-        head: { ref: string }
-        base: { ref: string }
-        merged_at: string | null
-        closed_at: string | null
-      }
-
-      const state = ghPr.merged
-        ? 'merged'
-        : ghPr.state === 'closed'
-          ? 'closed'
-          : 'open'
+      const state = toPrState(ghPr)
 
       const upserted = await githubRepository.upsertPullRequest({
         workspaceId,

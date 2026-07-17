@@ -140,6 +140,8 @@ export const queryKeys = {
 
   ideaFigmaLinks: (ideaId: string) => ['idea-figma-links', ideaId] as const,
 
+  ideaPullRequests: (ideaId: string) => ['idea-pull-requests', ideaId] as const,
+
   integrations: {
     slack: (workspaceUrl: string) =>
       ['integrations', 'slack', workspaceUrl] as const,

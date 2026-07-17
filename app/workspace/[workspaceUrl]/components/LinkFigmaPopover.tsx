@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import Link from 'next/link'
 import {
   Popover,
   PopoverContent,
@@ -12,10 +13,23 @@ import { ApiClientError } from '@/lib/api-client/base'
 
 export interface LinkFigmaPopoverProps {
   onAttach: (url: string) => Promise<void>
+  /**
+   * Whether the workspace's Figma integration is connected. `undefined` means
+   * the caller does not gate — the input renders and a missing integration
+   * surfaces lazily as a `figma_not_connected` error on attach (the Task
+   * variant's long-standing behaviour). Pass `false` to swap the input for a
+   * pointer at workspace settings instead of letting someone paste a URL into
+   * a dead end (LUM-684).
+   */
+  connected?: boolean
+  /** Required to render the not-connected pointer; ignored otherwise. */
+  integrationsHref?: string
 }
 
 export function LinkFigmaPopover({
   onAttach,
+  connected,
+  integrationsHref,
 }: LinkFigmaPopoverProps): React.ReactElement {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
@@ -92,33 +106,56 @@ export function LinkFigmaPopover({
         <SectionAddButton label={label} />
       </PopoverTrigger>
       <PopoverContent align='end' className='w-80 p-0'>
-        <div className='p-2 border-b border-border'>
-          <input
-            type='url'
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void submit()
-              }
-            }}
-            disabled={submitting}
-            placeholder={intl.formatMessage({
-              id: 'task.figma.urlPlaceholder',
-              defaultMessage: 'Paste a Figma URL…',
-            })}
-            className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
-            autoFocus
-          />
-        </div>
-        {error && (
-          <p
-            role='alert'
-            className='px-3 py-2 text-xs text-red-500 dark:text-red-400'
-          >
-            {error}
-          </p>
+        {connected === false && integrationsHref ? (
+          <div className='p-3 space-y-2'>
+            <p className='text-xs text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'task.figma.notConnected',
+                defaultMessage:
+                  'Figma is not connected. Go to Settings → Integrations to connect.',
+              })}
+            </p>
+            <Link
+              href={integrationsHref}
+              className='inline-block text-xs font-medium text-info hover:underline'
+            >
+              {intl.formatMessage({
+                id: 'task.contextLink.figma.connectCta',
+                defaultMessage: 'Open integrations →',
+              })}
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className='p-2 border-b border-border'>
+              <input
+                type='url'
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void submit()
+                  }
+                }}
+                disabled={submitting}
+                placeholder={intl.formatMessage({
+                  id: 'task.figma.urlPlaceholder',
+                  defaultMessage: 'Paste a Figma URL…',
+                })}
+                className='w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground dark:placeholder:text-muted-foreground text-foreground px-1 py-1 disabled:opacity-50'
+                autoFocus
+              />
+            </div>
+            {error && (
+              <p
+                role='alert'
+                className='px-3 py-2 text-xs text-red-500 dark:text-red-400'
+              >
+                {error}
+              </p>
+            )}
+          </>
         )}
       </PopoverContent>
     </Popover>

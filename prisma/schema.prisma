@@ -290,6 +290,7 @@ model Workspace {
   ideaSlackContexts       IdeaSlackContext[]
   ideaWebLinks            IdeaWebLink[]
   ideaFigmaLinks          IdeaFigmaLink[]
+  ideaPullRequests        IdeaPullRequest[]
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
   lineageEdges            LineageEdge[]
@@ -432,6 +433,7 @@ model WorkspaceMember {
   ideaSlackContextsCreated IdeaSlackContext[]       @relation("IdeaSlackContextCreator")
   ideaWebLinksCreated      IdeaWebLink[]            @relation("IdeaWebLinkCreator")
   ideaFigmaLinksCreated    IdeaFigmaLink[]          @relation("IdeaFigmaLinkCreator")
+  ideaPullRequestsCreated  IdeaPullRequest[]        @relation("IdeaPullRequestCreator")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -500,12 +502,12 @@ model Idea {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parent     Idea?       @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children   Idea[]      @relation("IdeaHierarchy")
-  planRun    PlanRun?    @relation(fields: [planRunId], references: [id], onDelete: SetNull)
-  initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
+  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent     Idea?          @relation("IdeaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Idea[]         @relation("IdeaHierarchy")
+  planRun    PlanRun?       @relation(fields: [planRunId], references: [id], onDelete: SetNull)
+  initiative Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
   tasks      Task[]
   comments   Comment[] // LUM-680: idea comments (polymorphic Comment via ideaId)
   activities IdeaActivity[] // LUM-680: the idea's activity timeline
@@ -513,6 +515,7 @@ model Idea {
   slackContexts IdeaSlackContext[]
   webLinks      IdeaWebLink[]
   figmaLinks    IdeaFigmaLink[]
+  pullRequests  IdeaPullRequest[]
 
   @@unique([teamId, number])
   @@index([teamId, status])
@@ -1504,6 +1507,7 @@ model PullRequest {
   task             Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
+  ideaCitations    IdeaPullRequest[]
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -2769,6 +2773,36 @@ model IdeaFigmaLink {
   @@index([ideaId])
   @@index([workspaceId])
   @@map("idea_figma_links")
+}
+
+// LUM-684: a GitHub pull request cited as evidence for an Idea.
+//
+// Deliberately a join table rather than an `ideaId` column on PullRequest. A
+// Task *owns* its PR — `PullRequest.taskId` is a single FK, one task per PR,
+// which is why linking there needs the 409/force-move flow. An idea only
+// *cites* a PR as evidence: the same PR can back several ideas, and citing it
+// must never steal it from a task. The PR's own fields stay the sync
+// pipeline's business, so this row holds no PR metadata of its own — unlike
+// the Slack/web/figma idea evidence tables, whose payload has no other home.
+model IdeaPullRequest {
+  id            String @id @default(cuid())
+  ideaId        String
+  pullRequestId String
+  workspaceId   String
+
+  createdById String
+  createdAt   DateTime @default(now())
+
+  idea        Idea            @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest     @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   WorkspaceMember @relation("IdeaPullRequestCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([ideaId, pullRequestId])
+  @@index([ideaId, createdAt])
+  @@index([pullRequestId])
+  @@index([workspaceId])
+  @@map("idea_pull_requests")
 }
 
 // ─── Context Lineage (LUM-275) ────────────────────────────────────────────────
