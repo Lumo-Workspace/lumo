@@ -45,6 +45,17 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaSlackContexts', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaFigmaLinks', () => ({
   useIdeaFigmaLinks: jest.fn(),
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaPullRequests', () => ({
+  useIdeaPullRequests: jest.fn(),
+}))
+// The GitHub section needs the workspace cuid to search PRs; it comes from the
+// shared workspace-metadata cache, not from props.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspace', () => ({
+  useWorkspace: () => ({ workspace: { id: 'ws-cuid' }, isLoading: false }),
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/usePrSearch', () => ({
+  usePrSearch: () => ({ results: [], loading: false }),
+}))
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
@@ -53,6 +64,7 @@ import { IdeaEvidenceTab } from '@/app/workspace/[workspaceUrl]/components/IdeaE
 import { useIdeaWebLinks } from '@/app/workspace/[workspaceUrl]/hooks/useIdeaWebLinks'
 import { useIdeaSlackContexts } from '@/app/workspace/[workspaceUrl]/hooks/useIdeaSlackContexts'
 import { useIdeaFigmaLinks } from '@/app/workspace/[workspaceUrl]/hooks/useIdeaFigmaLinks'
+import { useIdeaPullRequests } from '@/app/workspace/[workspaceUrl]/hooks/useIdeaPullRequests'
 import { apiFetch } from '@/lib/api-client'
 
 const mockApiFetch = apiFetch as jest.Mock
@@ -113,11 +125,18 @@ beforeEach(() => {
     remove: jest.fn(),
     refreshAll: jest.fn(),
   })
+  ;(useIdeaPullRequests as jest.Mock).mockReturnValue({
+    citations: [],
+    loading: false,
+    error: null,
+    link: jest.fn(),
+    unlink: jest.fn(),
+  })
 })
 
 describe('idea evidence ↔ workspace integrations', () => {
   it('idea evidence reuses an already-connected workspace integration', async () => {
-    givenWorkspaceIntegrations({ slack: true, figma: true })
+    givenWorkspaceIntegrations({ slack: true, figma: true, github: true })
     renderEvidence()
 
     // Once the workspace's Slack state resolves the section shows its normal
@@ -138,10 +157,19 @@ describe('idea evidence ↔ workspace integrations', () => {
     expect(
       await screen.findByPlaceholderText('Paste a Figma URL…')
     ).toBeInTheDocument()
+
+    // And GitHub: connected → straight to PR search, no connect prompt.
+    expect(
+      screen.queryByText('GitHub is not connected.')
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cite pull request' }))
+    expect(
+      await screen.findByPlaceholderText('linkPr.searchPlaceholder')
+    ).toBeInTheDocument()
   })
 
   it('unconnected integration links to workspace settings not a separate flow', async () => {
-    givenWorkspaceIntegrations({ slack: false, figma: false })
+    givenWorkspaceIntegrations({ slack: false, figma: false, github: false })
     renderEvidence()
 
     expect(await screen.findByText('Slack not connected')).toBeInTheDocument()
@@ -171,6 +199,23 @@ describe('idea evidence ↔ workspace integrations', () => {
       'href',
       '/workspace/test-workspace/settings/integrations'
     )
+
+    // GitHub too. The section body already says so once; opening its popover
+    // adds the same copy there rather than an idea-local OAuth hop.
+    expect(screen.getAllByText('GitHub is not connected.')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Cite pull request' }))
+    await waitFor(() =>
+      expect(screen.getAllByText('GitHub is not connected.')).toHaveLength(2)
+    )
+    const ghCta = screen.getByRole('link', { name: 'Open integrations →' })
+    expect(ghCta).toHaveAttribute(
+      'href',
+      '/workspace/test-workspace/settings/integrations'
+    )
+    // The PR search input is not even offered — nothing to paste into a dead end.
+    expect(
+      screen.queryByPlaceholderText('linkPr.searchPlaceholder')
+    ).not.toBeInTheDocument()
   })
 
   it('never shows a not-connected prompt while the status read is still in flight', () => {
