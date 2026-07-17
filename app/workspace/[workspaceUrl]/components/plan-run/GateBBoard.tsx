@@ -44,6 +44,9 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
         rationale: c.rationale,
         customizationTrap: c.customizationTrap,
         starred: false,
+        name: c.name,
+        thrust: c.thrust,
+        ideas: c.ideas,
       }))
     )
   }, [data])

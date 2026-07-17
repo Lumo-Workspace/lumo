@@ -7,7 +7,7 @@
  * clobbering; GET returns the board. Auth, the service, and the Stage-2 runner
  * are mocked — this test pins the route's contract, not the state machine.
  */
-import { GET, POST } from '@/app/api/plan-runs/[id]/gate/cluster/route'
+import { GET, POST } from '@/app/api/plan-runs/[runId]/gate/cluster/route'
 
 jest.mock('@/lib/auth', () => ({
   requireIdentity: jest
@@ -33,7 +33,7 @@ const confirmClusterGate = planRunService.confirmClusterGate as jest.Mock
 const getClusterGateView = planRunService.getClusterGateView as jest.Mock
 const trigger = triggerAlignStage as jest.Mock
 
-const params = (id: string) => ({ params: Promise.resolve({ id }) })
+const params = (runId: string) => ({ params: Promise.resolve({ runId }) })
 
 function postReq(body: unknown): Request {
   return new Request('http://x/api/plan-runs/run-1/gate/cluster', {
@@ -56,7 +56,7 @@ const advancedRun = { id: 'run-1', stage: 'ALIGNING' as const }
 
 beforeEach(() => jest.clearAllMocks())
 
-describe('POST /api/plan-runs/[id]/gate/cluster', () => {
+describe('POST /api/plan-runs/[runId]/gate/cluster', () => {
   it('writes the edit, advances to ALIGNING, and triggers Stage-2', async () => {
     confirmClusterGate.mockResolvedValue(advancedRun)
 
@@ -125,7 +125,7 @@ describe('POST /api/plan-runs/[id]/gate/cluster', () => {
   })
 })
 
-describe('GET /api/plan-runs/[id]/gate/cluster', () => {
+describe('GET /api/plan-runs/[runId]/gate/cluster', () => {
   it('returns the board view for the run', async () => {
     getClusterGateView.mockResolvedValue({
       run: { id: 'run-1', stage: 'CLUSTERS_READY' },

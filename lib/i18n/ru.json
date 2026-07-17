@@ -2219,5 +2219,7 @@
   "planGateA.moveIdeaLabel": "Перенести идею {statement}",
   "planGateA.moveOrphanLabel": "Перенести идею без кластера {statement}",
   "planGateA.showMore": "Показать больше",
-  "planGateA.showLess": "Показать меньше"
+  "planGateA.showLess": "Показать меньше",
+  "planGate.ideaCount": "{count, plural, one {# идея} few {# идеи} many {# идей} other {# идеи}}",
+  "planGate.unnamedCluster": "Кластер без названия"
 }

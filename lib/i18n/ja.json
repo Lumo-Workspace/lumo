@@ -2219,5 +2219,7 @@
   "planGateA.moveIdeaLabel": "アイデア {statement} を移動",
   "planGateA.moveOrphanLabel": "孤立アイデア {statement} を移動",
   "planGateA.showMore": "もっと見る",
-  "planGateA.showLess": "折りたたむ"
+  "planGateA.showLess": "折りたたむ",
+  "planGate.ideaCount": "{count, plural, other {# 件のアイデア}}",
+  "planGate.unnamedCluster": "名前のないクラスター"
 }

@@ -27,6 +27,34 @@ export function collectClusterGateIds(output: ClusterGateOutput): string[] {
   return [...output.clusters.flatMap(c => c.ideaIds), ...output.orphans]
 }
 
+// ── Snapshot-local cluster ids ───────────────────────────────────────────────
+// A confirmed cluster has no id of its own — it is identified by its POSITION
+// in `ClusterGateOutput.clusters`. Stage-2 mints `cluster-<i>` from that index
+// when building the align input, and the ALIGN verdicts echo it back, so the id
+// is the only link from a gate-B verdict back to the cluster it judged
+// (LUM-685). Minting and parsing live here so the two sides can never drift.
+
+const CLUSTER_ID_PREFIX = 'cluster-'
+
+/** The snapshot-local id for the cluster at `index` of a confirmed clustering. */
+export function clusterIdForIndex(index: number): string {
+  return `${CLUSTER_ID_PREFIX}${index}`
+}
+
+/**
+ * The confirmed-clustering index a `cluster-<i>` id points at, or null if the
+ * id isn't one we minted (an LLM that garbled the echo, or an id from a future
+ * scheme). Callers treat null as "cluster identity unresolvable" and degrade —
+ * a verdict must never be dropped just because its label can't be resolved.
+ */
+export function clusterIndexFromId(clusterId: string): number | null {
+  if (!clusterId.startsWith(CLUSTER_ID_PREFIX)) return null
+  const raw = clusterId.slice(CLUSTER_ID_PREFIX.length)
+  // Reject '', '1.5', '+1', '01', ' 1' — only canonical non-negative integers.
+  if (!/^(0|[1-9]\d*)$/.test(raw)) return null
+  return Number(raw)
+}
+
 /**
  * Assert a human edit still partitions `universe` (the id set of the original
  * Stage-1 clustering) exactly: every original id present exactly once, no

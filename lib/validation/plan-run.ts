@@ -115,7 +115,7 @@ export type MaterializeDraftInput = z.infer<typeof materializeDraftSchema>
 export type MaterializeTaskInput = z.infer<typeof materializeTaskSchema>
 
 /**
- * Payload for `POST /api/plan-runs/[id]/gate/cluster` — confirming gate A
+ * Payload for `POST /api/plan-runs/[runId]/gate/cluster` — confirming gate A
  * (闸门A). The reviewer submits the full edited clustering (renamed clusters +
  * ideas moved between clusters/orphans) plus the `ifRevision` they loaded, for
  * optimistic-concurrency (cf. doc LUM-409). Shape mirrors the Stage-1

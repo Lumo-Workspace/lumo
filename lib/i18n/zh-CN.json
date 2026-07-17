@@ -2219,5 +2219,7 @@
   "planGateA.moveIdeaLabel": "移动想法 {statement}",
   "planGateA.moveOrphanLabel": "移动孤立想法 {statement}",
   "planGateA.showMore": "展开",
-  "planGateA.showLess": "收起"
+  "planGateA.showLess": "收起",
+  "planGate.ideaCount": "{count, plural, other {# 个想法}}",
+  "planGate.unnamedCluster": "未命名的簇"
 }

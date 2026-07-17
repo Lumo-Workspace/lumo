@@ -25,7 +25,7 @@ const LLM_STAGE_ROUTES = [
   },
   {
     stage: 'Stage-2 (对齐)',
-    file: 'app/api/plan-runs/[id]/gate/cluster/route.ts',
+    file: 'app/api/plan-runs/[runId]/gate/cluster/route.ts',
   },
   {
     stage: 'Stage-3 (生成)',

@@ -2219,5 +2219,7 @@
   "planGateA.moveIdeaLabel": "아이디어 {statement} 이동",
   "planGateA.moveOrphanLabel": "미분류 아이디어 {statement} 이동",
   "planGateA.showMore": "더 보기",
-  "planGateA.showLess": "접기"
+  "planGateA.showLess": "접기",
+  "planGate.ideaCount": "{count, plural, other {아이디어 #개}}",
+  "planGate.unnamedCluster": "이름 없는 클러스터"
 }

@@ -2219,5 +2219,7 @@
   "planGateA.moveIdeaLabel": "Pindahkan ide {statement}",
   "planGateA.moveOrphanLabel": "Pindahkan ide yatim {statement}",
   "planGateA.showMore": "Tampilkan lebih banyak",
-  "planGateA.showLess": "Tampilkan lebih sedikit"
+  "planGateA.showLess": "Tampilkan lebih sedikit",
+  "planGate.ideaCount": "{count, plural, other {# ide}}",
+  "planGate.unnamedCluster": "Klaster tanpa nama"
 }
