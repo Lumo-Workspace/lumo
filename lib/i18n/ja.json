@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "もっと見る",
   "planGateA.showLess": "折りたたむ",
   "planGate.ideasKept": "{total, plural, other {# 件のアイデア}}中 {kept} 件を維持",
-  "planGate.unnamedCluster": "名前のないクラスター"
+  "planGate.unnamedCluster": "名前のないクラスター",
+  "planGate.failed": "このステップは完了しませんでした。",
+  "planGate.retry": "このステップを再実行",
+  "planGate.retrying": "再実行中…",
+  "planGate.retryHint": "このステップをもう一度実行します。これまでの確認内容は保持されます。",
+  "planGate.retryFailed": "再実行できませんでした。現在、再実行できる処理が動いていない可能性があります。"
 }

@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Tampilkan lebih banyak",
   "planGateA.showLess": "Tampilkan lebih sedikit",
   "planGate.ideasKept": "{kept} dari {total, plural, other {# ide}} dipertahankan",
-  "planGate.unnamedCluster": "Klaster tanpa nama"
+  "planGate.unnamedCluster": "Klaster tanpa nama",
+  "planGate.failed": "Langkah ini tidak selesai.",
+  "planGate.retry": "Coba lagi langkah ini",
+  "planGate.retrying": "Mencoba lagi…",
+  "planGate.retryHint": "Menjalankan kembali langkah ini. Konfirmasi Anda sebelumnya tetap tersimpan.",
+  "planGate.retryFailed": "Tidak dapat mencoba lagi. Mungkin saat ini tidak ada langkah berjalan yang bisa diulang."
 }

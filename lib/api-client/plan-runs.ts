@@ -132,6 +132,14 @@ export interface PlanRunView {
   stage: string
 }
 
+// ── Retry (LUM-689) ───────────────────────────────────────────────────────────
+
+/** The run re-armed onto the working stage now re-running, and which segment. */
+export interface PlanRunRetryResult {
+  run: { id: string; stage: PlanRunStage }
+  kind: PlanStageKind
+}
+
 /**
  * Typed client for the design-thinking 转换器 (idea→plan converter) web gates.
  * The deep-link page picks the gate via `getRun`; gate A (闸门A · 聚类,
@@ -198,6 +206,13 @@ export const planRunsClient = {
     return apiFetch<MaterializeResult>(API.planRuns.materializeGate(runId), {
       method: 'POST',
       body: input,
+    })
+  },
+
+  /** POST to re-dispatch the LLM segment a stuck run is sitting in (LUM-689). */
+  retry(runId: string) {
+    return apiFetch<PlanRunRetryResult>(API.planRuns.retry(runId), {
+      method: 'POST',
     })
   },
 }

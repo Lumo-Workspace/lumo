@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Mehr anzeigen",
   "planGateA.showLess": "Weniger anzeigen",
   "planGate.ideasKept": "{kept} von {total, plural, one {# Idee} other {# Ideen}} behalten",
-  "planGate.unnamedCluster": "Unbenanntes Cluster"
+  "planGate.unnamedCluster": "Unbenanntes Cluster",
+  "planGate.failed": "Dieser Schritt wurde nicht abgeschlossen.",
+  "planGate.retry": "Schritt wiederholen",
+  "planGate.retrying": "Wird wiederholt…",
+  "planGate.retryHint": "Führt diesen Schritt erneut aus. Ihre bisherigen Bestätigungen bleiben erhalten.",
+  "planGate.retryFailed": "Wiederholen nicht möglich. Derzeit läuft möglicherweise kein Schritt, der wiederholt werden kann."
 }

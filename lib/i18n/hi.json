@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "और दिखाएँ",
   "planGateA.showLess": "कम दिखाएँ",
   "planGate.ideasKept": "{total, plural, one {# विचार} other {# विचार}} में से {kept} रखे गए",
-  "planGate.unnamedCluster": "बिना नाम का क्लस्टर"
+  "planGate.unnamedCluster": "बिना नाम का क्लस्टर",
+  "planGate.failed": "यह चरण पूरा नहीं हुआ।",
+  "planGate.retry": "यह चरण फिर से चलाएँ",
+  "planGate.retrying": "फिर से चलाया जा रहा है…",
+  "planGate.retryHint": "यह चरण दोबारा चलाया जाएगा। आपकी पिछली पुष्टियाँ बनी रहेंगी।",
+  "planGate.retryFailed": "फिर से नहीं चलाया जा सका। हो सकता है अभी दोबारा चलाने योग्य कोई चरण न चल रहा हो।"
 }

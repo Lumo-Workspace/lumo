@@ -59,3 +59,53 @@ export function gateAt(
 export function isTerminalStage(stage: PlanRunStage): boolean {
   return TERMINAL_STAGES.includes(stage)
 }
+
+// ── Retry (LUM-689) ──────────────────────────────────────────────────────────
+
+/** The working stage of each segment, keyed for the reverse lookup below. */
+const KIND_BY_WORKING_STAGE: Partial<Record<PlanRunStage, PlanStageKind>> = {
+  CLUSTERING: 'CLUSTER',
+  ALIGNING: 'ALIGN',
+  GENERATING: 'GENERATE',
+}
+
+/**
+ * Which segment a stuck run should re-run, or `null` when there is nothing to
+ * retry.
+ *
+ * A run wedges in two shapes, and both are recoverable by re-running exactly
+ * one segment:
+ *
+ * - **A working stage** — its runner never ran, died before recording, or was
+ *   never wired at all (every gate-B-confirmed run sat in GENERATING until
+ *   LUM-689). The stage itself names the segment.
+ * - **FAILED** — a runner caught and marked the run failed. FAILED overwrites
+ *   the stage, so the segment is recovered from the stage records instead: the
+ *   first kind in pipeline order that has not produced a record yet is the one
+ *   that failed. A kind whose record exists but is unconfirmed means the run
+ *   failed *at a gate*, which is not a segment to re-run.
+ *
+ * A run parked at an open gate or in a terminal stage returns `null` — the
+ * caller is expected to reject it rather than silently re-running work.
+ */
+export function retryableKind(args: {
+  stage: PlanRunStage
+  /** Stage records that exist, with whether each has been gate-confirmed. */
+  records: ReadonlyArray<{ kind: PlanStageKind; confirmed: boolean }>
+}): PlanStageKind | null {
+  const working = KIND_BY_WORKING_STAGE[args.stage]
+  if (working) return working
+  if (args.stage !== 'FAILED') return null
+
+  const byKind = new Map(args.records.map(r => [r.kind, r.confirmed]))
+  // Pipeline order: the first segment with no record is where the run stopped.
+  for (const kind of ['CLUSTER', 'ALIGN', 'GENERATE'] as const) {
+    const confirmed = byKind.get(kind)
+    if (confirmed === undefined) return kind
+    // Record exists but was never confirmed → the run failed sitting at that
+    // gate, not inside a segment. Re-running would discard a human's pending
+    // review, so there is nothing to retry.
+    if (!confirmed) return null
+  }
+  return null
+}

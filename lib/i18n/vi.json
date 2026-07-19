@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Xem thêm",
   "planGateA.showLess": "Thu gọn",
   "planGate.ideasKept": "Giữ {kept} trong {total, plural, other {# ý tưởng}}",
-  "planGate.unnamedCluster": "Cụm chưa đặt tên"
+  "planGate.unnamedCluster": "Cụm chưa đặt tên",
+  "planGate.failed": "Bước này chưa hoàn tất.",
+  "planGate.retry": "Chạy lại bước này",
+  "planGate.retrying": "Đang chạy lại…",
+  "planGate.retryHint": "Chạy lại bước này. Các xác nhận trước đó của bạn vẫn được giữ.",
+  "planGate.retryFailed": "Không thể chạy lại. Có thể hiện không có bước nào đang chạy để chạy lại."
 }

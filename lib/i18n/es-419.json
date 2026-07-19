@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Mostrar más",
   "planGateA.showLess": "Mostrar menos",
   "planGate.ideasKept": "{kept} de {total, plural, one {# idea} other {# ideas}} conservadas",
-  "planGate.unnamedCluster": "Grupo sin nombre"
+  "planGate.unnamedCluster": "Grupo sin nombre",
+  "planGate.failed": "Este paso no se completó.",
+  "planGate.retry": "Reintentar este paso",
+  "planGate.retrying": "Reintentando…",
+  "planGate.retryHint": "Vuelve a ejecutar este paso. Se conservan tus confirmaciones anteriores.",
+  "planGate.retryFailed": "No se pudo reintentar. Puede que en este momento no haya ningún paso en ejecución que reintentar."
 }

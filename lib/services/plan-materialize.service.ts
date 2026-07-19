@@ -35,9 +35,20 @@ export interface GateCData {
   defaultProjectId: string | null
 }
 
-/** Read a clusterId→ideaIds map from the CLUSTER stage record, best-effort.
- *  The join lights up once Gate A freezes clusters carrying both fields; until
- *  then a draft simply renders with no linked ideas rather than failing. */
+/** Read a clusterId→ideaIds map from the ALIGN stage record's gate-B
+ *  confirmation, best-effort.
+ *
+ *  The source is deliberately gate B, not gate A: a confirmed *clustering*
+ *  (`ClusterGateCluster`) is `{name, thrust, ideaIds}` and carries no
+ *  `clusterId` at all — cluster identity there is positional. Reading it here
+ *  therefore matched nothing and left every draft with an empty idea list, so
+ *  materialisation consumed no ideas and none ever reached PLANNED (LUM-689).
+ *  Gate B's `humanConfirmedOutput.clusters[]` carries both the `clusterId` the
+ *  drafts are keyed by and the ideas the reviewer actually kept for this plan
+ *  (the per-idea 取舍, LUM-688) — which is exactly what a draft consumes.
+ *
+ *  Still best-effort: an unreadable record renders a draft with no linked
+ *  ideas rather than failing the gate. */
 function clusterIdeaMap(raw: unknown): Map<string, string[]> {
   const map = new Map<string, string[]>()
   const clusters =
@@ -131,10 +142,8 @@ export const planMaterializeService = {
     }
     const output = generate.llmRawOutput as unknown as PlanGenerateOutput
 
-    const cluster = await planRunRepository.findStageRecord(run.id, 'CLUSTER')
-    const ideaMap = clusterIdeaMap(
-      cluster?.humanConfirmedOutput ?? cluster?.llmRawOutput
-    )
+    const align = await planRunRepository.findStageRecord(run.id, 'ALIGN')
+    const ideaMap = clusterIdeaMap(align?.humanConfirmedOutput)
 
     const drafts: GateDraft[] = (output.drafts ?? []).map(d => ({
       ...d,
