@@ -35,12 +35,22 @@ export interface ConfirmClusterGateResponse {
 
 // ── Gate B (闸门B) — align board (LUM-670) ────────────────────────────────────
 
-/** One cluster card as rendered on the gate-B board (align LLM verdict). */
+/** One idea inside a gate-B cluster card. */
+export interface AlignGateIdeaView {
+  id: string
+  statement: string
+}
+
+/** One cluster card as rendered on the gate-B board: the align LLM verdict plus
+ *  the identity of the cluster it judges (name/thrust/ideas, LUM-685). */
 export interface AlignGateClusterView {
   clusterId: string
   verdict: AlignVerdict
   rationale: string
   customizationTrap: boolean
+  name: string
+  thrust: string
+  ideas: AlignGateIdeaView[]
 }
 
 export interface AlignGateView {

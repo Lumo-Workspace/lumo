@@ -4,6 +4,13 @@ import {
   type PlanRunRow,
 } from '@/lib/repositories/plan-run.repository'
 import { planRunService } from '@/lib/services/plan-run.service'
+import { ideaRepository } from '@/lib/repositories/idea.repository'
+import {
+  clusterIndexFromId,
+  collectClusterGateIds,
+  type ClusterGateCluster,
+  type ClusterGateOutput,
+} from '@/lib/plan-run/cluster-gate'
 import { ALIGN_GATE_STAGE, selectStarredAligned } from '@/lib/plan-run/gate-b'
 import type {
   ConfirmedAlignCluster,
@@ -32,11 +39,23 @@ import type {
  * selection recorded. No Prisma, no HTTP — errors carry `{ status }`.
  */
 
+/** One idea inside a gate-B cluster card — enough to recognise it, no more. */
+export interface AlignGateIdea {
+  id: string
+  statement: string
+}
+
 export interface AlignGateCluster {
   clusterId: string
   verdict: PlanAlignClusterVerdict['verdict']
   rationale: string
   customizationTrap: boolean
+  /** The cluster's name as confirmed at gate A; '' when unresolvable. */
+  name: string
+  /** Stage-1's one-line thrust, carried through gate A; '' when unresolvable. */
+  thrust: string
+  /** The ideas this cluster holds — what the verdict is actually about. */
+  ideas: AlignGateIdea[]
 }
 
 export interface AlignGateView {
@@ -73,6 +92,52 @@ async function loadOpenAlignGate(
   return { run, aligned: record.llmRawOutput as unknown as PlanAlignResult }
 }
 
+/**
+ * The clustering gate A confirmed (falling back to Stage-1's raw output, as the
+ * cluster-gate view does). Returns undefined rather than throwing: gate B's job
+ * is the verdicts, and a missing CLUSTER record must degrade the card's label,
+ * not close the gate.
+ */
+async function loadConfirmedClustering(
+  planRunId: string
+): Promise<ClusterGateOutput | undefined> {
+  const record = await planRunRepository.findStageRecord(planRunId, 'CLUSTER')
+  if (!record) return undefined
+  const raw = record.humanConfirmedOutput ?? record.llmRawOutput
+  return isClusterGateOutput(raw) ? raw : undefined
+}
+
+/** Shape-check the stored JSON before trusting it as a clustering. The column is
+ *  an untyped blob, and a malformed one must degrade the cards' labels — not
+ *  throw the reviewer out of a gate whose verdicts are perfectly readable. */
+function isClusterGateOutput(raw: unknown): raw is ClusterGateOutput {
+  if (!raw || typeof raw !== 'object') return false
+  const { clusters } = raw as { clusters?: unknown }
+  return (
+    Array.isArray(clusters) &&
+    clusters.every(
+      c =>
+        !!c &&
+        typeof c === 'object' &&
+        typeof (c as ClusterGateCluster).name === 'string' &&
+        Array.isArray((c as ClusterGateCluster).ideaIds)
+    )
+  )
+}
+
+/** id → statement for every idea on the board (empty map when there's none). */
+async function loadIdeaStatements(
+  board: ClusterGateOutput | undefined
+): Promise<Map<string, string>> {
+  if (!board) return new Map()
+  const ids = collectClusterGateIds(board).filter(
+    (id): id is string => typeof id === 'string'
+  )
+  if (ids.length === 0) return new Map()
+  const rows = await ideaRepository.findByIds(ids)
+  return new Map(rows.map(i => [i.id, i.statement]))
+}
+
 export const planGateService = {
   /**
    * Render source for the gate-B board: the ALIGN LLM verdicts, one per
@@ -81,15 +146,34 @@ export const planGateService = {
    */
   async getAlignGate(planRunId: string): Promise<AlignGateView> {
     const { run, aligned } = await loadOpenAlignGate(planRunId)
+
+    // A verdict alone is anonymous — the reviewer can't tell WHICH cluster it
+    // judges (LUM-685). The identity lives in the CLUSTER record, joined back
+    // by the snapshot-local `cluster-<i>` id Stage-2 minted from its index.
+    // Fail-soft: an unresolvable id yields a card with an empty name rather
+    // than dropping the verdict or 500ing the whole gate.
+    const board = await loadConfirmedClustering(run.id)
+    const statementById = await loadIdeaStatements(board)
+
     return {
       planRunId: run.id,
       stage: run.stage,
-      clusters: aligned.clusters.map(c => ({
-        clusterId: c.clusterId,
-        verdict: c.verdict,
-        rationale: c.rationale,
-        customizationTrap: c.customizationTrap,
-      })),
+      clusters: aligned.clusters.map(c => {
+        const index = clusterIndexFromId(c.clusterId)
+        const source = index === null ? undefined : board?.clusters[index]
+        return {
+          clusterId: c.clusterId,
+          verdict: c.verdict,
+          rationale: c.rationale,
+          customizationTrap: c.customizationTrap,
+          name: source?.name ?? '',
+          thrust: source?.thrust ?? '',
+          ideas: (source?.ideaIds ?? []).map(id => ({
+            id,
+            statement: statementById.get(id) ?? id,
+          })),
+        }
+      }),
     }
   },
 

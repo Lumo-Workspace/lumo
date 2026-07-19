@@ -54,8 +54,10 @@ export function PlanRunGate({
   }
 
   if (data.stage === 'CLUSTERS_READY') {
+    // Wider than the other gates on purpose: A is a multi-column board, not a
+    // prose column, and max-w-3xl left each cluster too narrow to read (LUM-685).
     return (
-      <div className='mx-auto max-w-3xl p-8'>
+      <div className='mx-auto max-w-5xl p-8'>
         <ClusterGateBoard
           runId={runId}
           onConfirmed={() =>

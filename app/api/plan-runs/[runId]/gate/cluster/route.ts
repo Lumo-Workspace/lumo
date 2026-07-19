@@ -11,7 +11,7 @@ import { confirmClusterGateSchema } from '@/lib/validation/plan-run'
 // ~60s platform default so it isn't killed mid-call (LUM-676).
 export const maxDuration = 300
 
-type Params = { params: Promise<{ id: string }> }
+type Params = { params: Promise<{ runId: string }> }
 
 /** Map a service error carrying `{ status }` to its Response; rethrow the rest
  *  (a genuine 500). */
@@ -26,7 +26,7 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 /**
- * GET /api/plan-runs/[id]/gate/cluster — the gate-A (闸门A) board: the run's
+ * GET /api/plan-runs/[runId]/gate/cluster — the gate-A (闸门A) board: the run's
  * stage, the editable clustering (confirmed edit if any, else the Stage-1 raw
  * output), its optimistic-concurrency `revision`, and the referenced ideas'
  * statements. Workspace-scoped — another workspace's run 404s.
@@ -35,10 +35,10 @@ export async function GET(request: Request, { params }: Params) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
 
-  const { id } = await params
+  const { runId } = await params
   try {
     const view = await planRunService.getClusterGateView({
-      planRunId: id,
+      planRunId: runId,
       workspaceId: identity.workspaceId,
     })
     return NextResponse.json(view)
@@ -48,7 +48,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 /**
- * POST /api/plan-runs/[id]/gate/cluster — confirm gate A: persist the reviewer's
+ * POST /api/plan-runs/[runId]/gate/cluster — confirm gate A: persist the reviewer's
  * edited clustering, advance the run to ALIGNING, and trigger Stage-2 (对齐)
  * out of band via `waitUntil` (fail-soft — never blocks or fails the confirm).
  *
@@ -59,14 +59,14 @@ export async function POST(request: Request, { params }: Params) {
   const identity = await requireIdentity(request)
   if (identity instanceof NextResponse) return identity
 
-  const { id } = await params
+  const { runId } = await params
   const body = await request.json().catch(() => null)
   const parsed = confirmClusterGateSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
   try {
     const run = await planRunService.confirmClusterGate({
-      planRunId: id,
+      planRunId: runId,
       workspaceId: identity.workspaceId,
       edited: { clusters: parsed.data.clusters, orphans: parsed.data.orphans },
       ifRevision: parsed.data.ifRevision,

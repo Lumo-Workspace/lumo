@@ -3,7 +3,10 @@ import { planRunRepository } from '@/lib/repositories/plan-run.repository'
 import { ideaRepository } from '@/lib/repositories/idea.repository'
 import { summariseIdeaEvidence } from '@/lib/services/idea-evidence-summary'
 import { REASONING_MODEL } from '@/lib/ai/models'
-import type { ClusterGateOutput } from '@/lib/plan-run/cluster-gate'
+import {
+  clusterIdForIndex,
+  type ClusterGateOutput,
+} from '@/lib/plan-run/cluster-gate'
 import type { AlignClusterInput } from '@/lib/llm/plan-align-client'
 import type { Prisma } from '@prisma/client'
 
@@ -74,7 +77,7 @@ export async function triggerAlignStage(planRunId: string): Promise<void> {
 
     // Stable, snapshot-local cluster ids echoed back by the align verdicts.
     const clusters: AlignClusterInput[] = confirmed.clusters.map((c, i) => ({
-      clusterId: `cluster-${i}`,
+      clusterId: clusterIdForIndex(i),
       label: c.name,
       items: c.ideaIds
         .map(id => statementById.get(id))
