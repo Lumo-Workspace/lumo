@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { rankTasks, type NextTask, type RankedTask } from '../lib/rank-tasks'
+import { formatNextSteps } from '../lib/next-steps'
 import {
   filterClaimable,
   formatClaimableExclusions,
@@ -180,8 +181,15 @@ export function formatNextOutput(
   })
 
   lines.push('')
+  // LUM-686: was a hand-written string here — the original drift source this
+  // feature exists to remove. Same advice, now through the shared renderer.
   lines.push(
-    `Next: lumo session attach ${first.identifier} && lumo task context ${first.identifier}`
+    formatNextSteps([
+      {
+        command: `lumo session attach ${first.identifier} && lumo task context ${first.identifier}`,
+        why: 'start on the top-ranked task',
+      },
+    ])
   )
   if (ranked.length > 1) {
     lines.push('(or pick any other LUM-N from the list)')

@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { spawnSync } from 'child_process'
+import { formatNextSteps } from '../lib/next-steps'
 import {
   normalizeTaskId,
   deriveBranchName,
@@ -22,8 +23,13 @@ function printGuidance(dir: string, branch: string): void {
   console.log(`  branch:        ${branch}`)
   console.log(`  node_modules:  symlinked to main checkout`)
   console.log('')
-  console.log('Next:')
-  console.log(`  cd ${dir}`)
+  // Locally-static source: no server round-trip to carry steps, but the same
+  // renderer so the block looks identical everywhere (LUM-686).
+  console.log(
+    formatNextSteps([
+      { command: `cd ${dir}`, why: 'work from the isolated checkout' },
+    ])
+  )
   console.log('')
   console.log('Gotchas baked into this worktree:')
   console.log(

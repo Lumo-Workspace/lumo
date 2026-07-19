@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { autoDownsyncOnAttach } from '../lib/memory-auto'
 
@@ -17,6 +18,8 @@ interface BoundResponse {
   blockerWarningSection?: string
   /** Acceptance contract (or draft nudge); absent on older servers. */
   criteriaSection?: string
+  /** Absent on older servers — the block is simply omitted (LUM-686). */
+  nextSteps?: NextStep[]
 }
 
 /** LUM-640: successful steward (milestone) bind. */
@@ -51,7 +54,7 @@ interface StewardBoundResponse {
  */
 export async function sessionAttach(
   identifier: string | undefined,
-  options?: { steward?: boolean }
+  options?: { steward?: boolean; hints?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -222,6 +225,10 @@ export async function sessionAttach(
   } catch {
     // best-effort — the bind already succeeded; never surface a sync error here
   }
+
+  // Last, after the contract/memory/sync sections — the block reads as the
+  // closing "so do this now" line rather than interrupting them (LUM-686).
+  emitNextSteps(body.nextSteps ?? [], options ?? {})
 }
 
 /**

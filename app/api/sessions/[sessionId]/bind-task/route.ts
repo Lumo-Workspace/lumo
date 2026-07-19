@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
+import { nextStepsService } from '@/lib/services/next-steps.service'
 import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
 import { waitUntil } from '@vercel/functions'
 
@@ -57,7 +58,19 @@ export async function POST(
           console.error('attach lineage edge recording error:', error)
         )
     )
-    return NextResponse.json(result)
+    // LUM-686: the response already carries `criteriaSection` (the contract or
+    // the draft nudge), so `criteriaNudgeAlreadyShown` is true — the rule table
+    // must not restate that advice as a step.
+    const { taskStatus, ...bound } = result
+    const nextSteps = await nextStepsService.forExistingTask({
+      taskId: result.taskId,
+      taskIdentifier: result.taskIdentifier,
+      status: taskStatus,
+      // Attaching is what just happened.
+      sessionBound: true,
+      criteriaNudgeAlreadyShown: true,
+    })
+    return NextResponse.json({ ...bound, nextSteps })
   } catch (error) {
     const status = (error as { status?: number } | null)?.status
     if (status === 403 || status === 404) {

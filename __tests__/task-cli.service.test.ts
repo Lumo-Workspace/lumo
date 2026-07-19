@@ -394,6 +394,18 @@ describe('taskCliService.createFromCli', () => {
       url: 'https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-44',
       teamId: 'team-1',
       taskTags: [],
+      // LUM-686: an unbound session creating a contract-less task gets both
+      // the attach and the criteria-draft suggestion.
+      nextSteps: [
+        {
+          command: 'lumo session attach LUM-44',
+          why: 'Bind this session to the task so its work is recorded against it',
+        },
+        {
+          command: 'lumo task criteria set LUM-44 --file <criteria.json>',
+          why: 'Draft the acceptance contract before writing the first line of code',
+        },
+      ],
     })
   })
 

@@ -268,6 +268,16 @@ lumo criteria audit
 
 **When to suggest**: when the user wants to audit how much of the workspace's "green" criteria are self-confirming vs externally anchored; when diagnosing whether acceptance criteria have real external hooks or are circular.
 
+## Next-step hints (the trailing `Next:` block)
+
+`task create`, `task update`, `session attach`, `task context` and `next` end with a short `Next:` block naming what to do now — attach an unbound session, draft a missing contract, run `lumo verify`, read `task status` after a rejected round, explain an open boundary crossing, or stop and wait when the task is IN_REVIEW.
+
+The rules are computed **server-side** from task status × contract × session binding × verify round, so the advice tracks the real state machine rather than a hard-coded string. Capped at **3 suggestions**; a rule whose condition is already satisfied never appears. The block goes to **stdout**, after the command's own result line — the result line stays first and unchanged, so reading line 1 still works.
+
+Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole shell.
+
+The block never replaces the acceptance-contract section: on `session attach` / `task context` the criteria draft reminder comes from `criteriaSection` and is deliberately **not** repeated as a step.
+
 ## Commands & flags that do NOT exist (common mistakes)
 
 Don't guess these:

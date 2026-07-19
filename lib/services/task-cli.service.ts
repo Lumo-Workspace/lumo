@@ -17,6 +17,11 @@ import {
   type BoundTaskRef,
 } from '@/lib/services/task-create-binding'
 import type { TaskPriority } from '@prisma/client'
+import {
+  computeNextSteps,
+  type NextStep,
+  type TaskStatusForNextSteps,
+} from '@/lib/context/render/next-steps'
 
 function httpError(status: number, message: string): Error {
   return Object.assign(new Error(message), { status })
@@ -247,8 +252,14 @@ async function createFromCli(args: {
   url: string
   teamId: string
   taskTags: Array<{ id: string; name: string }>
+  nextSteps: NextStep[]
 }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
+
+  // LUM-686: whether this session already carries a binding. A bound session
+  // must NOT be told to attach — the binding is a lifetime lock and a second
+  // attach is refused with 409.
+  let sessionAlreadyBound = false
 
   // Layer 1: force an explicit intent. --rework-of always redirects (the work
   // belongs on the existing task); otherwise a mid-task binding forces a
@@ -268,6 +279,7 @@ async function createFromCli(args: {
         args.memberId
       )
       if (bound?.task) {
+        sessionAlreadyBound = true
         boundTaskId = bound.task.id
         boundTask = {
           identifier: `${bound.task.team.identifier}-${bound.task.number}`,
@@ -397,6 +409,18 @@ async function createFromCli(args: {
     url,
     teamId: task.teamId,
     taskTags,
+    // A brand-new task: no contract, no crossings, no verification yet — the
+    // only unknown is whether this session can still be attached.
+    nextSteps: computeNextSteps({
+      taskIdentifier: identifier,
+      status: 'TODO',
+      hasCriteria: false,
+      sessionBound: sessionAlreadyBound,
+      openCrossings: 0,
+      verifyRound: 0,
+      hasUnmetCriteria: false,
+      criteriaNudgeAlreadyShown: false,
+    }),
   }
 }
 
@@ -429,6 +453,8 @@ async function updateFromCli(args: {
   title: string
   url: string
   taskTags: Array<{ id: string; name: string }>
+  /** Post-update status — the route needs it to compute next steps (LUM-686). */
+  status: TaskStatusForNextSteps
 }> {
   const {
     workspaceId,
@@ -602,6 +628,11 @@ async function updateFromCli(args: {
     title: result.task.title,
     url,
     taskTags,
+    // Surfaced, not acted on: next-step state reads belong off this write path
+    // (they broke every partial-prisma mock when they lived here), so the route
+    // composes them via nextStepsService instead.
+    status: (result.task as unknown as { status: TaskStatusForNextSteps })
+      .status,
   }
 }
 

@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { formatDuration, relativeTime } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
 
@@ -31,6 +32,8 @@ interface TaskContextResponse {
   prSection?: string
   prReviewTodosSection?: string
   lineageSection?: string
+  /** Absent on older servers — the block is simply omitted (LUM-686). */
+  nextSteps?: NextStep[]
   sessions: Array<{
     id: string
     startedAt: string
@@ -44,7 +47,8 @@ interface TaskContextResponse {
 }
 
 export async function taskContext(
-  identifier: string | undefined
+  identifier: string | undefined,
+  options?: { hints?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -91,6 +95,9 @@ export async function taskContext(
   const data = (await res.json()) as TaskContextResponse
   const now = new Date()
   process.stdout.write(formatTaskContextMarkdown(data, now))
+  // Emitted outside the rendered markdown so the output budget can never drop
+  // it — the closing "so do this now" line is the cheapest section here.
+  emitNextSteps(data.nextSteps ?? [], options ?? {})
 }
 
 /**

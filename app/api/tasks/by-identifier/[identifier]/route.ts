@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { cliUpdateTaskSchema } from '@/lib/validation/schemas'
 import { taskCliService } from '@/lib/services/task-cli.service'
+import { nextStepsService } from '@/lib/services/next-steps.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -95,7 +96,18 @@ export async function PATCH(
       sourceSessionId: request.headers.get('x-lumo-session-id'),
       input: parsed.data,
     })
-    return NextResponse.json({ task }, { status: 200 })
+    // Compose: the update service reports the new status, nextStepsService
+    // reads the acceptance state. Keeping the reads here leaves the write path
+    // free of them (LUM-686).
+    const { status: newStatus, ...taskPayload } = task
+    const nextSteps = await nextStepsService.forExistingTask({
+      taskId: task.id,
+      taskIdentifier: task.identifier,
+      status: newStatus,
+      sessionBound: request.headers.get('X-Lumo-Session-Id') != null,
+      criteriaNudgeAlreadyShown: false,
+    })
+    return NextResponse.json({ task: taskPayload, nextSteps }, { status: 200 })
   } catch (err) {
     const errStatus = (err as { status?: unknown })?.status
     const status = typeof errStatus === 'number' ? errStatus : 500

@@ -6,6 +6,11 @@ jest.mock('@/lib/services/session.service', () => ({
 jest.mock('@/lib/services/session-start-edges.service', () => ({
   sessionStartEdgesService: { collectAndRecord: jest.fn() },
 }))
+// LUM-686: the route composes next-step suggestions from acceptance state.
+// Mocked here — this suite covers the route's own contract, not those reads.
+jest.mock('@/lib/services/next-steps.service', () => ({
+  nextStepsService: { forExistingTask: jest.fn().mockResolvedValue([]) },
+}))
 // waitUntil runs its argument synchronously so the test can observe the call.
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => p,

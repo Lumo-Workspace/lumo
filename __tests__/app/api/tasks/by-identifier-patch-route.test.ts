@@ -7,6 +7,12 @@ jest.mock('@/lib/auth/bearer', () => ({
 jest.mock('@/lib/services/task-cli.service', () => ({
   taskCliService: { updateFromCli: jest.fn() },
 }))
+// LUM-686: the route composes next-step suggestions after the update. Mocked
+// here for the same reason the update service is — this suite exercises the
+// route's HTTP contract, not the acceptance-state reads behind the block.
+jest.mock('@/lib/services/next-steps.service', () => ({
+  nextStepsService: { forExistingTask: jest.fn().mockResolvedValue([]) },
+}))
 
 import { verifyBearer } from '@/lib/auth/bearer'
 import { taskCliService } from '@/lib/services/task-cli.service'

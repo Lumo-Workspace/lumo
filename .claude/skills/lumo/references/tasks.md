@@ -34,9 +34,15 @@ On success the command prints one or two lines to stdout:
 ```
 Created LUM-55 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-55
 Tags: bug, urgent
+
+Next:
+  lumo session attach LUM-55
+      Bind this session to the task so its work is recorded against it
+  lumo task criteria set LUM-55 --file <criteria.json>
+      Draft the acceptance contract before writing the first line of code
 ```
 
-The `Tags:` line is omitted when no tags were attached.
+The `Tags:` line is omitted when no tags were attached. The trailing `Next:` block is server-computed and conditional — the attach line is skipped when this session is already bound (a second attach is a 409), and the whole block is suppressed by `--no-hints` / `LUMO_NO_HINTS=1`. The `Created …` line stays first and unchanged. See SKILL.md "Next-step hints".
 
 If the workspace has multiple projects and `--project` is omitted, the server will return an error naming available projects — re-run with `--project <slug>`.
 
@@ -93,9 +99,13 @@ On success the command prints one or two lines to stdout:
 ```
 Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 Tags: urgent
+
+Next:
+  lumo verify --note "<self-report>"
+      Run the machine acceptance loop before claiming the task is done
 ```
 
-The `Tags:` line is omitted when the resulting tag set is empty.
+The `Tags:` line is omitted when the resulting tag set is empty. The trailing `Next:` block reflects the **post-update** status — `--status in_review` prints a stop-and-wait note instead of a command, and a DONE task prints nothing. Suppressed by `--no-hints` / `LUMO_NO_HINTS=1`.
 
 ### Status transitions — direct moves are legal
 
@@ -213,7 +223,9 @@ Top 3 recommended tasks (of 12 open):
 3. LUM-12  TODO         MEDIUM  Add rate limiting
      ↳ MEDIUM · blocked by 1 open dep · due 2026-06-10
 
-Next: lumo session attach LUM-42 && lumo task context LUM-42
+Next:
+  lumo session attach LUM-42 && lumo task context LUM-42
+      start on the top-ranked task
 ```
 
 When to suggest: the user asks "what should I work on", "what's next", "recommend my next task" (in any language), "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.

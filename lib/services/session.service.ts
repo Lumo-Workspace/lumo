@@ -7,6 +7,7 @@ import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
+import type { TaskStatusForNextSteps } from '@/lib/context/render/next-steps'
 
 interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
@@ -29,6 +30,8 @@ export type BindSessionToTaskResult = {
   previousSession: PreviousSessionRecovery | null
   /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
   blockerWarningSection: string
+  /** Post-bind task status. Surfaced so the route can compute next steps without a second read (LUM-686). */
+  taskStatus: TaskStatusForNextSteps
 }
 
 interface BindSessionToMilestoneInput {
@@ -244,6 +247,7 @@ export const sessionService = {
       criteriaSection,
       previousSession,
       blockerWarningSection,
+      taskStatus: task.status as TaskStatusForNextSteps,
     }
   },
 

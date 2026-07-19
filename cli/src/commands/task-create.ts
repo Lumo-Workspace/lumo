@@ -3,6 +3,12 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  formatNextSteps,
+  nextStepsSilenced,
+  type EnvLike,
+  type NextStep,
+} from '../lib/next-steps'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -18,6 +24,8 @@ export interface CreateTaskOptions {
   sprint?: string
   reworkOf?: string
   newScope?: boolean
+  /** Commander sets this to false for `--no-hints` (LUM-686). */
+  hints?: boolean
 }
 
 interface CreatedTaskResponse {
@@ -29,6 +37,8 @@ interface CreatedTaskResponse {
     teamId: string
     taskTags?: Array<{ id: string; name: string }>
   }
+  /** Absent on older servers — the block is simply omitted (LUM-686). */
+  nextSteps?: NextStep[]
 }
 
 interface SprintInfo {
@@ -129,6 +139,32 @@ export function normalizePriority(value: string): Priority | null {
   return (ALLOWED_PRIORITIES as readonly string[]).includes(upper)
     ? (upper as Priority)
     : null
+}
+
+/**
+ * Compose the full `task create` output: the result line first, then the
+ * server-computed next-step block (LUM-686). Exported so the render test
+ * exercises the real composition rather than re-assembling the parts itself.
+ *
+ * The result line stays byte-identical and first — a reader taking line 1 is
+ * unaffected by the block below it.
+ */
+export function formatCreateOutput(
+  task: {
+    id: string
+    identifier: string
+    title: string
+    url: string
+    tags?: string[]
+  },
+  steps: NextStep[] = [],
+  opts: { hints?: boolean } = {},
+  env: EnvLike = process.env
+): string {
+  const head = formatCreatedTaskLine(task)
+  if (nextStepsSilenced(env, opts)) return head
+  const block = formatNextSteps(steps)
+  return block === '' ? head : `${head}\n\n${block}`
 }
 
 /**
@@ -243,7 +279,11 @@ export async function taskCreate(
     const data = (await res.json()) as CreatedTaskResponse
     const responseTagNames = (data.task.taskTags ?? []).map(t => t.name)
     process.stdout.write(
-      formatCreatedTaskLine({ ...data.task, tags: responseTagNames }) + '\n'
+      formatCreateOutput(
+        { ...data.task, tags: responseTagNames },
+        data.nextSteps ?? [],
+        opts
+      ) + '\n'
     )
 
     // Sprint binding (optional): if --sprint was passed, bind the new task.
