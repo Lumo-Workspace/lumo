@@ -11,7 +11,12 @@ import {
   type ClusterGateCluster,
   type ClusterGateOutput,
 } from '@/lib/plan-run/cluster-gate'
-import { ALIGN_GATE_STAGE, selectStarredAligned } from '@/lib/plan-run/gate-b'
+import {
+  ALIGN_GATE_STAGE,
+  clusterIdeaUniverse,
+  resolveKeptIdeaIds,
+  selectStarredAligned,
+} from '@/lib/plan-run/gate-b'
 import type {
   ConfirmedAlignCluster,
   AlignGateConfirmedOutput,
@@ -187,6 +192,10 @@ export const planGateService = {
    * board can't silently drop or invent a cluster. `customizationTrap` is taken
    * from the record, never the request. (The ≤2-star and star-only-on-ALIGNED
    * rules are already enforced by `confirmAlignGateSchema` at the route.)
+   *
+   * Each cluster's `ideaIds` is the reviewer's per-idea 取舍 (LUM-688), checked
+   * against gate A's confirmed clustering: an id from another cluster is a 422,
+   * and omitting the field keeps the whole cluster.
    */
   async confirmAlignGate(args: {
     planRunId: string
@@ -194,6 +203,9 @@ export const planGateService = {
     input: ConfirmAlignGateInput
   }): Promise<ConfirmAlignGateResult> {
     const { run, aligned } = await loadOpenAlignGate(args.planRunId)
+    // Gate A's clustering is the authority for which ideas a cluster owns —
+    // loaded the same fail-soft way the board's labels are (LUM-685).
+    const board = await loadConfirmedClustering(run.id)
 
     const trapById = new Map(
       aligned.clusters.map(c => [c.clusterId, c.customizationTrap])
@@ -218,14 +230,31 @@ export const planGateService = {
       )
     }
 
-    const clusters: ConfirmedAlignCluster[] = args.input.clusters.map(c => ({
-      clusterId: c.clusterId,
-      verdict: c.verdict,
-      starred: c.starred,
-      rationale: c.rationale,
-      // Server-authoritative: the trap flag can't be edited away at the gate.
-      customizationTrap: trapById.get(c.clusterId) ?? false,
-    }))
+    const clusters: ConfirmedAlignCluster[] = args.input.clusters.map(c => {
+      const ideaIds = resolveKeptIdeaIds({
+        clusterId: c.clusterId,
+        universe: clusterIdeaUniverse(c.clusterId, board),
+        submitted: c.ideaIds,
+      })
+      // The schema catches an explicitly-emptied starred cluster; this also
+      // catches a star on a cluster whose ideas were never resolvable, so a
+      // corrupt clustering can't put an empty "plan this now" into Stage 3.
+      if (c.starred && ideaIds.length === 0) {
+        badRequest(
+          `Cluster "${c.clusterId}" is starred but keeps no ideas — there is nothing to plan`,
+          422
+        )
+      }
+      return {
+        clusterId: c.clusterId,
+        verdict: c.verdict,
+        starred: c.starred,
+        rationale: c.rationale,
+        // Server-authoritative: the trap flag can't be edited away at the gate.
+        customizationTrap: trapById.get(c.clusterId) ?? false,
+        ideaIds,
+      }
+    })
 
     const humanConfirmedOutput: AlignGateConfirmedOutput = { clusters }
 

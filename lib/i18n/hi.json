@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "अवर्गीकृत विचार {statement} ले जाएँ",
   "planGateA.showMore": "और दिखाएँ",
   "planGateA.showLess": "कम दिखाएँ",
-  "planGate.ideaCount": "{count, plural, one {# विचार} other {# विचार}}",
+  "planGate.ideasKept": "{total, plural, one {# विचार} other {# विचार}} में से {kept} रखे गए",
   "planGate.unnamedCluster": "बिना नाम का क्लस्टर"
 }

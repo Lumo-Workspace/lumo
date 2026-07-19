@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "Verwaiste Idee {statement} verschieben",
   "planGateA.showMore": "Mehr anzeigen",
   "planGateA.showLess": "Weniger anzeigen",
-  "planGate.ideaCount": "{count, plural, one {# Idee} other {# Ideen}}",
+  "planGate.ideasKept": "{kept} von {total, plural, one {# Idee} other {# Ideen}} behalten",
   "planGate.unnamedCluster": "Unbenanntes Cluster"
 }

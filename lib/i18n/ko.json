@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "미분류 아이디어 {statement} 이동",
   "planGateA.showMore": "더 보기",
   "planGateA.showLess": "접기",
-  "planGate.ideaCount": "{count, plural, other {아이디어 #개}}",
+  "planGate.ideasKept": "{total, plural, other {아이디어 #개}} 중 {kept}개 유지",
   "planGate.unnamedCluster": "이름 없는 클러스터"
 }

@@ -20,10 +20,17 @@ export type StartPlanRunInput = z.infer<typeof startPlanRunSchema>
  * the align stage produced: the (possibly switched) three-way verdict, the
  * (possibly edited) one-line rationale, and whether the human starred it.
  *
+ * `ideaIds` (LUM-688) is the per-idea 取舍: the ideas still checked on the card,
+ * i.e. the ones that enter THIS plan. Omitting it keeps the whole cluster, so a
+ * client predating the checkboxes can never silently drop ideas. Which ids are
+ * legal for a cluster is checked in the service against gate A's confirmed
+ * clustering — only the "not zero ideas behind a star" rule is expressible here.
+ *
  * Cross-field rules enforced here (return 400 via `zodError` before any DB
- * work): a star is only legal on an ALIGNED cluster, and at most `MAX_STARRED`
- * clusters may be starred. Which clusterIds are valid — and that the full set
- * is present — is checked in the service against the frozen ALIGN record.
+ * work): a star is only legal on an ALIGNED cluster, at most `MAX_STARRED`
+ * clusters may be starred, and a starred cluster may not have had every idea
+ * unchecked. Which clusterIds are valid — and that the full set is present —
+ * is checked in the service against the frozen ALIGN record.
  */
 export const confirmAlignGateSchema = z
   .object({
@@ -34,6 +41,8 @@ export const confirmAlignGateSchema = z
           verdict: z.enum(ALIGN_VERDICTS),
           starred: z.boolean(),
           rationale: z.string(),
+          /** Kept ideas; omitted = keep every idea in the cluster. */
+          ideaIds: z.array(z.string().min(1)).optional(),
         })
       )
       .min(1, 'at least one cluster verdict is required'),
@@ -53,6 +62,14 @@ export const confirmAlignGateSchema = z
           code: z.ZodIssueCode.custom,
           message: 'only an ALIGNED cluster may be starred',
           path: ['clusters', i, 'starred'],
+        })
+      }
+      // Starring is "plan this now" — an emptied cluster has nothing to plan.
+      if (c.starred && c.ideaIds?.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'a starred cluster must keep at least one idea',
+          path: ['clusters', i, 'ideaIds'],
         })
       }
     })

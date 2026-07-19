@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "Mover la idea huérfana {statement}",
   "planGateA.showMore": "Mostrar más",
   "planGateA.showLess": "Mostrar menos",
-  "planGate.ideaCount": "{count, plural, one {# idea} other {# ideas}}",
+  "planGate.ideasKept": "{kept} de {total, plural, one {# idea} other {# ideas}} conservadas",
   "planGate.unnamedCluster": "Grupo sin nombre"
 }

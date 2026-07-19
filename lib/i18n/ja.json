@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "孤立アイデア {statement} を移動",
   "planGateA.showMore": "もっと見る",
   "planGateA.showLess": "折りたたむ",
-  "planGate.ideaCount": "{count, plural, other {# 件のアイデア}}",
+  "planGate.ideasKept": "{total, plural, other {# 件のアイデア}}中 {kept} 件を維持",
   "planGate.unnamedCluster": "名前のないクラスター"
 }

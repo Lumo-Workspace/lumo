@@ -79,9 +79,18 @@ const CLUSTER_CONFIRMED = {
       thrust: 'fewer failed charges',
       ideaIds: ['idea-b', 'idea-c'],
     },
+    { name: 'Speed', thrust: 'faster sprints', ideaIds: ['idea-d'] },
+  ],
+  orphans: ['idea-e'],
+}
+
+/** A clustering whose last cluster holds no ideas — the empty-cluster cases. */
+const CLUSTER_WITH_EMPTY_LAST = {
+  ...CLUSTER_CONFIRMED,
+  clusters: [
+    ...CLUSTER_CONFIRMED.clusters.slice(0, 2),
     { name: 'Speed', thrust: 'faster sprints', ideaIds: [] },
   ],
-  orphans: ['idea-d'],
 }
 
 const IDEA_ROWS = [
@@ -89,6 +98,7 @@ const IDEA_ROWS = [
   { id: 'idea-b', statement: 'Idea B' },
   { id: 'idea-c', statement: 'Idea C' },
   { id: 'idea-d', statement: 'Idea D' },
+  { id: 'idea-e', statement: 'Idea E' },
 ]
 
 function alignReadyRun(overrides: Record<string, unknown> = {}) {
@@ -210,6 +220,7 @@ describe('POST /api/plan-runs/[runId]/gate/align — confirm', () => {
         starred: true,
         rationale: 'serves priority',
         customizationTrap: false,
+        ideaIds: ['idea-a'],
       },
       {
         clusterId: 'cluster-1',
@@ -217,6 +228,7 @@ describe('POST /api/plan-runs/[runId]/gate/align — confirm', () => {
         starred: false,
         rationale: 'pulls against priority',
         customizationTrap: true,
+        ideaIds: ['idea-b', 'idea-c'],
       },
       {
         clusterId: 'cluster-2',
@@ -224,6 +236,7 @@ describe('POST /api/plan-runs/[runId]/gate/align — confirm', () => {
         starred: true,
         rationale: 'also on-priority',
         customizationTrap: false,
+        ideaIds: ['idea-d'],
       },
     ])
 
@@ -302,6 +315,196 @@ describe('POST /api/plan-runs/[runId]/gate/align — confirm', () => {
     const json = await res.json()
     // c3 is ALIGNED but unstarred → shelved; c2 unrelated → shelved.
     expect(json.selectedClusterIds).toEqual(['cluster-0'])
+  })
+})
+
+// ── per-idea 取舍 (LUM-688) ─────────────────────────────────────────────────
+
+describe('POST /api/plan-runs/[runId]/gate/align — per-idea selection', () => {
+  /** The three clusters, verdicts unchanged, with per-cluster idea overrides. */
+  function confirmWith(ideaIdsByCluster: Record<string, string[] | undefined>) {
+    return {
+      clusters: [
+        { clusterId: 'cluster-0', verdict: 'ALIGNED', rationale: 'a' },
+        { clusterId: 'cluster-1', verdict: 'UNRELATED', rationale: 'b' },
+        { clusterId: 'cluster-2', verdict: 'ALIGNED', rationale: 'c' },
+      ].map(c => {
+        const ideaIds = ideaIdsByCluster[c.clusterId]
+        return {
+          ...c,
+          starred: false,
+          ...(ideaIds === undefined ? {} : { ideaIds }),
+        }
+      }),
+    }
+  }
+
+  function frozenIdeaIds(): Record<string, string[]> {
+    const data = mockConfirmStageRecord.mock.calls[0][2]
+    return Object.fromEntries(
+      data.humanConfirmedOutput.clusters.map(
+        (c: { clusterId: string; ideaIds: string[] }) => [c.clusterId, c.ideaIds]
+      )
+    )
+  }
+
+  it('freezes only the kept ideaIds per cluster', async () => {
+    // The reviewer drops idea-c from cluster-1 — say it reads "details TBD".
+    const res = await POST(
+      req(
+        confirmWith({
+          'cluster-0': ['idea-a'],
+          'cluster-1': ['idea-b'],
+          'cluster-2': ['idea-d'],
+        })
+      ),
+      params
+    )
+    expect(res.status).toBe(200)
+
+    // An unchecked idea is ABSENT from the frozen set — not flagged, not kept.
+    expect(frozenIdeaIds()).toEqual({
+      'cluster-0': ['idea-a'],
+      'cluster-1': ['idea-b'],
+      'cluster-2': ['idea-d'],
+    })
+  })
+
+  it('rejects an ideaId outside the cluster', async () => {
+    // idea-b belongs to cluster-1; submitting it under cluster-0 would smuggle
+    // it into a cluster gate A never put it in.
+    const res = await POST(
+      req(
+        confirmWith({
+          'cluster-0': ['idea-a', 'idea-b'],
+          'cluster-1': ['idea-b', 'idea-c'],
+          'cluster-2': ['idea-d'],
+        })
+      ),
+      params
+    )
+    expect(res.status).toBe(422)
+    expect(mockConfirmStageRecord).not.toHaveBeenCalled()
+    expect(mockUpdateStage).not.toHaveBeenCalled()
+  })
+
+  it('rejects an orphaned ideaId — an orphan belongs to no cluster', async () => {
+    const res = await POST(
+      req(confirmWith({ 'cluster-0': ['idea-a', 'idea-e'] })),
+      params
+    )
+    expect(res.status).toBe(422)
+    expect(mockConfirmStageRecord).not.toHaveBeenCalled()
+  })
+
+  it('defaults to keeping every idea when ideaIds is omitted', async () => {
+    // An older client that predates the checkboxes sends no ideaIds at all.
+    const res = await POST(req(confirmWith({})), params)
+    expect(res.status).toBe(200)
+
+    expect(frozenIdeaIds()).toEqual({
+      'cluster-0': ['idea-a'],
+      'cluster-1': ['idea-b', 'idea-c'],
+      'cluster-2': ['idea-d'],
+    })
+  })
+
+  it('freezes kept ideas in gate-A order regardless of submitted order', async () => {
+    await POST(req(confirmWith({ 'cluster-1': ['idea-c', 'idea-b'] })), params)
+    expect(frozenIdeaIds()['cluster-1']).toEqual(['idea-b', 'idea-c'])
+  })
+
+  it('422 when a cluster lists the same idea twice', async () => {
+    const res = await POST(
+      req(confirmWith({ 'cluster-1': ['idea-b', 'idea-b'] })),
+      params
+    )
+    expect(res.status).toBe(422)
+    expect(mockConfirmStageRecord).not.toHaveBeenCalled()
+  })
+
+  it('400 when a starred cluster has every idea unchecked', async () => {
+    const res = await POST(
+      req({
+        clusters: [
+          {
+            clusterId: 'cluster-0',
+            verdict: 'ALIGNED',
+            starred: true,
+            rationale: 'a',
+            ideaIds: [],
+          },
+          {
+            clusterId: 'cluster-1',
+            verdict: 'UNRELATED',
+            starred: false,
+            rationale: 'b',
+          },
+          {
+            clusterId: 'cluster-2',
+            verdict: 'ALIGNED',
+            starred: false,
+            rationale: 'c',
+          },
+        ],
+      }),
+      params
+    )
+    // Stage 3 must never receive a "plan this now" cluster with nothing in it.
+    expect(res.status).toBe(400)
+    expect(mockConfirmStageRecord).not.toHaveBeenCalled()
+    expect(mockUpdateStage).not.toHaveBeenCalled()
+  })
+
+  it('422 when a starred cluster holds no ideas at all', async () => {
+    // The schema can't see this one: ideaIds is omitted, and the cluster is
+    // empty in gate A's clustering. Only the service knows the universe.
+    mockFindStageRecord.mockImplementation(async (_id: string, kind: string) =>
+      kind === 'CLUSTER' ? clusterRecord(CLUSTER_WITH_EMPTY_LAST) : alignRecord()
+    )
+    const res = await POST(
+      req({
+        clusters: [
+          {
+            clusterId: 'cluster-0',
+            verdict: 'ALIGNED',
+            starred: false,
+            rationale: 'a',
+          },
+          {
+            clusterId: 'cluster-1',
+            verdict: 'UNRELATED',
+            starred: false,
+            rationale: 'b',
+          },
+          {
+            clusterId: 'cluster-2',
+            verdict: 'ALIGNED',
+            starred: true,
+            rationale: 'c',
+          },
+        ],
+      }),
+      params
+    )
+    expect(res.status).toBe(422)
+    expect(mockConfirmStageRecord).not.toHaveBeenCalled()
+  })
+
+  it('confirms with empty selections when the clustering is unreadable', async () => {
+    // Mirrors the GET degradation (LUM-685): an unreadable CLUSTER record must
+    // not close a gate whose verdicts are perfectly readable. Nothing can be
+    // starred in that state, so no unaccounted-for cluster reaches Stage 3.
+    mockFindStageRecord.mockImplementation(async (_id: string, kind: string) =>
+      kind === 'CLUSTER' ? null : alignRecord()
+    )
+    const res = await POST(req(confirmWith({})), params)
+    expect(res.status).toBe(200)
+    expect(frozenIdeaIds()).toEqual({
+      'cluster-0': [],
+      'cluster-1': [],
+      'cluster-2': [],
+    })
   })
 })
 
@@ -521,9 +724,23 @@ describe('GET /api/plan-runs/[runId]/gate/align — render source', () => {
         customizationTrap: false,
         name: 'Speed',
         thrust: 'faster sprints',
-        ideas: [], // an empty cluster still names itself
+        ideas: [{ id: 'idea-d', statement: 'Idea D' }],
       },
     ])
+  })
+
+  it('an empty cluster still names itself', async () => {
+    mockFindStageRecord.mockImplementation(async (_id: string, kind: string) =>
+      kind === 'CLUSTER' ? clusterRecord(CLUSTER_WITH_EMPTY_LAST) : alignRecord()
+    )
+    const res = await GET(req(), params)
+    const json = await res.json()
+    expect(json.clusters[2]).toMatchObject({
+      clusterId: 'cluster-2',
+      name: 'Speed',
+      thrust: 'faster sprints',
+      ideas: [],
+    })
   })
 
   it('serves the gate with empty labels when the clustering is unreadable', async () => {
