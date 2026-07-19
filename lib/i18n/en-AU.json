@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Show more",
   "planGateA.showLess": "Show less",
   "planGate.ideasKept": "{kept} of {total, plural, one {# idea} other {# ideas}} kept",
-  "planGate.unnamedCluster": "Unnamed cluster"
+  "planGate.unnamedCluster": "Unnamed cluster",
+  "planGate.failed": "This step didn't finish.",
+  "planGate.retry": "Retry this step",
+  "planGate.retrying": "Retrying…",
+  "planGate.retryHint": "Runs this step again. Your earlier confirmations are kept.",
+  "planGate.retryFailed": "Couldn't retry. There may be nothing running to retry right now."
 }

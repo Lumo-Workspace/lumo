@@ -1,10 +1,11 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
 import { planRunsClient } from '@/lib/api-client/plan-runs'
 import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@/components/ui/button'
 import { ClusterGateBoard } from './ClusterGateBoard'
 import { GateBBoard } from './GateBBoard'
 import { GateCView } from './GateCView'
@@ -85,12 +86,12 @@ export function PlanRunGate({
     return <GateCView runId={runId} workspaceUrl={workspaceUrl} />
   }
 
-  if (isTransitional(data.stage)) {
-    return (
-      <div className='mx-auto flex max-w-3xl items-center gap-2 p-8 text-muted-foreground'>
-        <Spinner /> {intl.formatMessage({ id: 'planGate.working' })}
-      </div>
-    )
+  // A working stage and FAILED share one screen: both mean "a step is not
+  // done", and both are recovered the same way — re-dispatch that step. Before
+  // LUM-689 a working stage was a bare spinner with no way out, and FAILED fell
+  // through to the generic non-actionable line.
+  if (isTransitional(data.stage) || data.stage === 'FAILED') {
+    return <StuckStage runId={runId} failed={data.stage === 'FAILED'} />
   }
 
   return (
@@ -99,6 +100,58 @@ export function PlanRunGate({
         { id: 'planGate.notActionable' },
         { stage: data.stage }
       )}
+    </div>
+  )
+}
+
+/**
+ * The "nothing to confirm yet" screen: an LLM segment is running, or it failed.
+ * Either way the only useful action is to re-run that segment, so both states
+ * render the same retry control — a spinner alone leaves a wedged run (the
+ * shape that motivated LUM-689) with no exit at all.
+ */
+function StuckStage({ runId, failed }: { runId: string; failed: boolean }) {
+  const intl = useIntl()
+  const qc = useQueryClient()
+
+  const retry = useMutation({
+    mutationFn: () => planRunsClient.retry(runId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: queryKeys.planRuns.run(runId) }),
+  })
+
+  return (
+    <div className='mx-auto flex max-w-3xl flex-col items-start gap-4 p-8'>
+      {failed ? (
+        <p className='text-destructive'>
+          {intl.formatMessage({ id: 'planGate.failed' })}
+        </p>
+      ) : (
+        <p className='flex items-center gap-2 text-muted-foreground'>
+          <Spinner /> {intl.formatMessage({ id: 'planGate.working' })}
+        </p>
+      )}
+
+      <div className='flex flex-col items-start gap-2'>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => retry.mutate()}
+          disabled={retry.isPending}
+        >
+          {intl.formatMessage({
+            id: retry.isPending ? 'planGate.retrying' : 'planGate.retry',
+          })}
+        </Button>
+        <p className='text-xs text-muted-foreground'>
+          {intl.formatMessage({ id: 'planGate.retryHint' })}
+        </p>
+        {retry.isError && (
+          <p className='text-xs text-destructive'>
+            {intl.formatMessage({ id: 'planGate.retryFailed' })}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

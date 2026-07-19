@@ -64,6 +64,8 @@ export const API = {
     // Gate C (闸门C · 物化) render source + materialise.
     materializeGate: (runId: string) =>
       `/api/plan-runs/${runId}/gate/materialize`,
+    // Re-dispatch the LLM segment a stuck run is sitting in (LUM-689).
+    retry: (runId: string) => `/api/plan-runs/${runId}/retry`,
   },
   projects: {
     list: '/api/projects',

@@ -12,6 +12,7 @@ import { getDefaultTeam } from '@/lib/team'
 import {
   gateAt,
   isTerminalStage,
+  retryableKind,
   SEGMENT_BY_KIND,
   TERMINAL_STAGES,
 } from '@/lib/plan-run/state-machine'
@@ -366,6 +367,52 @@ export const planRunService = {
   },
 
   /** Load a run or throw 404. */
+  /**
+   * Re-arm a stuck run so its segment can be dispatched again (LUM-689).
+   *
+   * Resolves which segment to re-run (see `retryableKind`) and parks the run on
+   * that segment's working stage, so the runner's `stage !== 'X' → no-op` guard
+   * lets the retry through. Returns the kind for the caller to dispatch; the
+   * caller fires the matching runner out of band.
+   *
+   * Deliberately does NOT clear the existing stage record: `upsertStageRecord`
+   * overwrites it when the re-run succeeds, so a failed retry leaves the prior
+   * output intact rather than destroying it.
+   *
+   * 404 if the run is missing / not in this workspace, 409 if the run is parked
+   * at an open gate or in a terminal stage — neither is a segment to re-run.
+   */
+  async retryStage(args: {
+    planRunId: string
+    workspaceId: string
+  }): Promise<{ run: PlanRunRow; kind: PlanStageKind }> {
+    const run = await this.requireRun(args.planRunId)
+    if (run.workspaceId !== args.workspaceId) {
+      // Never leak the existence of another workspace's run.
+      throw Object.assign(new Error(`Plan run ${args.planRunId} not found`), {
+        status: 404,
+      })
+    }
+
+    const records = await planRunRepository.findStageRecordSummaries(run.id)
+    const kind = retryableKind({ stage: run.stage, records })
+    if (!kind) {
+      throw Object.assign(
+        new Error(
+          `Plan run ${run.id} is at ${run.stage} — there is no running step to retry`
+        ),
+        { status: 409 }
+      )
+    }
+
+    const working = SEGMENT_BY_KIND[kind].working
+    const rearmed =
+      run.stage === working
+        ? run
+        : await planRunRepository.updateStage(run.id, working)
+    return { run: rearmed, kind }
+  },
+
   async requireRun(planRunId: string): Promise<PlanRunRow> {
     const run = await planRunRepository.findById(planRunId)
     if (!run) {

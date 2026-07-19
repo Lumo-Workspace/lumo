@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Afficher plus",
   "planGateA.showLess": "Afficher moins",
   "planGate.ideasKept": "{kept} conservées sur {total, plural, one {# idée} other {# idées}}",
-  "planGate.unnamedCluster": "Groupe sans nom"
+  "planGate.unnamedCluster": "Groupe sans nom",
+  "planGate.failed": "Cette étape ne s'est pas terminée.",
+  "planGate.retry": "Réessayer cette étape",
+  "planGate.retrying": "Nouvelle tentative…",
+  "planGate.retryHint": "Relance cette étape. Vos confirmations précédentes sont conservées.",
+  "planGate.retryFailed": "Impossible de réessayer. Il n'y a peut-être aucune étape en cours à relancer pour le moment."
 }

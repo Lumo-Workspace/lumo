@@ -190,6 +190,19 @@ export const planRunRepository = {
     })
   },
 
+  /** Which segments a run has already produced, and whether each was
+   *  gate-confirmed. Enough to recover the segment a FAILED run stopped in
+   *  (LUM-689) without loading the stage payloads. */
+  async findStageRecordSummaries(
+    planRunId: string
+  ): Promise<Array<{ kind: PlanStageKind; confirmed: boolean }>> {
+    const rows = await prisma.planRunStageRecord.findMany({
+      where: { planRunId },
+      select: { kind: true, confirmedAt: true },
+    })
+    return rows.map(r => ({ kind: r.kind, confirmed: r.confirmedAt !== null }))
+  },
+
   /** Create a run in the initial CLUSTERING stage with a frozen input snapshot. */
   async create(data: CreatePlanRunData): Promise<PlanRunRow> {
     return prisma.planRun.create({

@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "展開",
   "planGateA.showLess": "收合",
   "planGate.ideasKept": "已保留 {kept}/{total, plural, other {# 個想法}}",
-  "planGate.unnamedCluster": "未命名的叢集"
+  "planGate.unnamedCluster": "未命名的叢集",
+  "planGate.failed": "這一步沒有完成。",
+  "planGate.retry": "重試這一步",
+  "planGate.retrying": "重試中…",
+  "planGate.retryHint": "將重新執行這一步，之前的確認結果會保留。",
+  "planGate.retryFailed": "無法重試。目前可能沒有正在執行、可重試的步驟。"
 }

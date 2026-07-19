@@ -2227,5 +2227,10 @@
   "planGateA.showMore": "Показать больше",
   "planGateA.showLess": "Показать меньше",
   "planGate.ideasKept": "Сохранено {kept} из {total, plural, one {# идеи} few {# идей} many {# идей} other {# идеи}}",
-  "planGate.unnamedCluster": "Кластер без названия"
+  "planGate.unnamedCluster": "Кластер без названия",
+  "planGate.failed": "Этот шаг не завершился.",
+  "planGate.retry": "Повторить шаг",
+  "planGate.retrying": "Повтор…",
+  "planGate.retryHint": "Шаг будет выполнен заново. Ваши прежние подтверждения сохранятся.",
+  "planGate.retryFailed": "Не удалось повторить. Возможно, сейчас нет выполняющегося шага, который можно повторить."
 }
