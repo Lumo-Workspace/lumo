@@ -7,6 +7,11 @@ jest.mock('@/lib/auth/identity', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: { getContextForIdentifier: jest.fn() },
 }))
+// LUM-686: the route composes next-step suggestions from acceptance state.
+// Mocked here — this suite covers the route's own contract, not those reads.
+jest.mock('@/lib/services/next-steps.service', () => ({
+  nextStepsService: { forExistingTask: jest.fn().mockResolvedValue([]) },
+}))
 
 import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
@@ -64,6 +69,8 @@ describe('GET /api/tasks/context/[identifier]', () => {
       ctx('LUM-30')
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual(context)
+    // LUM-686: the route now appends the next-step block alongside the
+    // assembled context; the context payload itself passes through unchanged.
+    expect(await res.json()).toEqual({ ...context, nextSteps: [] })
   })
 })

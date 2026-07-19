@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { execSync, spawnSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
+import { formatNextSteps, type NextStep } from '../lib/next-steps'
 import {
   mergeGitHook,
   resolveHookInstall,
@@ -278,29 +279,28 @@ function printPostInstall(): void {
   const credsPath = path.join(configDir(), 'credentials.json')
   const authed = fs.existsSync(credsPath)
 
-  process.stdout.write('\nNext steps:\n')
-
+  // LUM-686: same conditional advice, now assembled as NextStep[] and handed
+  // to the shared renderer. Locally static — setup has no task state to judge.
+  const steps: NextStep[] = []
   if (!onPath || isRunningUnderNpx()) {
-    process.stdout.write(
-      '  • Install the CLI globally so Claude Code hooks can find it:\n' +
-        '      npm install -g @lumoai/cli\n'
-    )
+    steps.push({
+      command: 'npm install -g @lumoai/cli',
+      why: 'install the CLI globally so Claude Code hooks can find it',
+    })
   }
-
   if (!authed) {
-    process.stdout.write(
-      '  • Authenticate so the CLI can sync with the Lumo server:\n' +
-        '      lumo auth login\n'
-    )
+    steps.push({
+      command: 'lumo auth login',
+      why: 'authenticate so the CLI can sync with the Lumo server',
+    })
   }
-
   if (onPath && authed && !isRunningUnderNpx()) {
-    process.stdout.write(
-      '  • All set. Open Claude Code in this directory — the SKILL.md and\n' +
-        '    hooks are wired in.\n'
-    )
+    steps.push({
+      command: null,
+      why: 'All set. Open Claude Code in this directory — the SKILL.md and hooks are wired in.',
+    })
   }
-  process.stdout.write('\n')
+  process.stdout.write(`\n${formatNextSteps(steps)}\n\n`)
 }
 
 function isLumoOnPath(): boolean {

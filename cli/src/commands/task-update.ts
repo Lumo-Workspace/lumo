@@ -4,6 +4,7 @@ import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { emitNextSteps, type NextStep } from '../lib/next-steps'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -26,6 +27,8 @@ export interface UpdateTaskOptions {
   addTagId?: string[]
   removeTag?: string[]
   removeTagId?: string[]
+  /** Commander sets this to false for `--no-hints` (LUM-686). */
+  hints?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +75,8 @@ interface UpdatedTaskResponse {
     url: string
     taskTags?: Array<{ name: string }>
   }
+  /** Absent on older servers — the block is simply omitted (LUM-686). */
+  nextSteps?: NextStep[]
 }
 
 /**
@@ -154,9 +159,27 @@ export function formatUpdatedTaskLine(task: {
   return head
 }
 
+/**
+ * Thin wrapper so the next-step block always lands last (LUM-686). The update
+ * flow has several success exits — a plain PATCH, plus the sprint bind/unbind
+ * branches — and hints belong after whatever the command printed, not wedged
+ * before the Sprint line. Only the wrapper emits; the inner run just collects.
+ */
 export async function taskUpdate(
   identifier: string | undefined,
   opts: UpdateTaskOptions
+): Promise<number | void> {
+  const collected: { steps: NextStep[] } = { steps: [] }
+  const code = await runTaskUpdate(identifier, opts, collected)
+  // Success only — a failed update's advice would be noise on top of an error.
+  if (code === undefined) emitNextSteps(collected.steps, opts)
+  return code
+}
+
+async function runTaskUpdate(
+  identifier: string | undefined,
+  opts: UpdateTaskOptions,
+  collected: { steps: NextStep[] }
 ): Promise<number | void> {
   if (!identifier || identifier.trim().length === 0) {
     console.error(
@@ -349,6 +372,7 @@ export async function taskUpdate(
       }
       if (responseTagNames !== undefined) taskLine.tags = responseTagNames
       process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
+      collected.steps = data.nextSteps ?? []
     } else {
       let serverMsg: string | null = null
       try {

@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
   const sessionId = request.headers.get('X-Lumo-Session-Id')
 
   try {
-    const task = await taskCliService.createFromCli({
+    const { nextSteps, ...task } = await taskCliService.createFromCli({
       workspaceId: identity.workspace.id,
       workspaceSlug: identity.workspace.slug,
       callerClerkId: identity.user.id,
@@ -48,7 +48,9 @@ export async function POST(request: Request): Promise<Response> {
       sessionId,
       input: parsed.data,
     })
-    return NextResponse.json({ task }, { status: 201 })
+    // nextSteps rides alongside `task`, not inside it — the task payload shape
+    // is consumed elsewhere and must not grow a presentation field (LUM-686).
+    return NextResponse.json({ task, nextSteps }, { status: 201 })
   } catch (err) {
     const errStatus = (err as { status?: unknown })?.status
     const status = typeof errStatus === 'number' ? errStatus : 500

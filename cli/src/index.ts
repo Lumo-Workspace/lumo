@@ -219,6 +219,16 @@ const program = new Command()
   .showHelpAfterError(
     '(run the command with --help to list its valid flags and arguments)'
   )
+  // LUM-686: global mute for the trailing next-step block. `LUMO_NO_HINTS=1`
+  // does the same for a whole shell.
+  .option('--no-hints', 'suppress the trailing next-step suggestions')
+
+// Commander does not merge program-level options into a subcommand's own
+// opts(), so the global `--no-hints` is folded into the env channel before any
+// action runs. One silencing path (`nextStepsSilenced`) instead of two.
+program.hook('preAction', thisCommand => {
+  if (thisCommand.opts().hints === false) process.env.LUMO_NO_HINTS = '1'
+})
 
 const auth = program.command('auth').description('Manage Lumo authentication')
 

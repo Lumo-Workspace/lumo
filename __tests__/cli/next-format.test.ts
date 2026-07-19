@@ -53,8 +53,11 @@ describe('formatNextOutput', () => {
       '↳ URGENT · active sprint · due 2026-06-03 · in progress'
     )
     expect(out).toContain('2. LUM-48')
+    // LUM-686: the footer moved to the shared renderer — heading on its own
+    // line, command indented beneath it. Same advice, same command string.
+    expect(out).toContain('Next:')
     expect(out).toContain(
-      'Next: lumo session attach LUM-42 && lumo task context LUM-42'
+      'lumo session attach LUM-42 && lumo task context LUM-42'
     )
     expect(out).toContain('(or pick any other LUM-N from the list)')
   })
