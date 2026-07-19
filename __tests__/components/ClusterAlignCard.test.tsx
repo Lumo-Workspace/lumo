@@ -17,16 +17,25 @@ jest.mock('react-intl', () => ({
         string
       >
       const raw = messages[id] ?? id
-      // Enough ICU for these keys: {count, plural, one {# idea} other {# ideas}}
-      const plural = raw.match(
-        /^\{(\w+), plural, one \{([^}]*)\} other \{([^}]*)\}\}$/
+      // Enough ICU for these keys: a `{n, plural, one {…} other {…}}` block,
+      // which may sit anywhere in the message (LUM-688 embeds one mid-string),
+      // followed by plain `{var}` substitution.
+      const withPlurals = raw.replace(
+        /\{(\w+), plural,\s*((?:\w+ \{[^}]*\}\s*)+)\}/g,
+        (_m: string, key: string, arms: string) => {
+          const n = Number(values?.[key] ?? 0)
+          const byCategory = new Map<string, string>()
+          for (const arm of arms.matchAll(/(\w+) \{([^}]*)\}/g)) {
+            byCategory.set(arm[1]!, arm[2]!)
+          }
+          const chosen =
+            (n === 1 ? byCategory.get('one') : undefined) ??
+            byCategory.get('other') ??
+            ''
+          return chosen.replace('#', String(n))
+        }
       )
-      if (plural) {
-        const [, key, one, other] = plural as unknown as string[]
-        const n = Number(values?.[key!] ?? 0)
-        return (n === 1 ? one! : other!).replace('#', String(n))
-      }
-      return raw.replace(/\{(\w+)\}/g, (_m, k: string) =>
+      return withPlurals.replace(/\{(\w+)\}/g, (_m, k: string) =>
         String(values?.[k] ?? `{${k}}`)
       )
     },
@@ -114,6 +123,9 @@ const CLUSTER: ClusterCardState = {
     { id: 'i1', statement: 'AI Native Sprints 需要统计 velocity' },
     { id: 'i2', statement: '速度统计要能按成员拆分' },
   ],
+  // The board seeds every idea as kept; unchecking is the deliberate act
+  // (LUM-688).
+  keptIdeaIds: ['i1', 'i2'],
 }
 
 function setup(overrides: Partial<ClusterCardState> = {}, props = {}) {
@@ -122,6 +134,7 @@ function setup(overrides: Partial<ClusterCardState> = {}, props = {}) {
     onVerdictChange: jest.fn(),
     onRationaleChange: jest.fn(),
     onToggleStar: jest.fn(),
+    onToggleIdea: jest.fn(),
     ...props,
   }
   render(
@@ -164,8 +177,18 @@ describe('ClusterAlignCard — cluster identity', () => {
   })
 
   it('pluralises the idea count', () => {
-    setup({ ideas: [{ id: 'i1', statement: 'Only one' }] })
-    expect(screen.getByRole('button', { name: /1 idea$/ })).toBeInTheDocument()
+    // The count now reports kept/total (LUM-688) but keeps the plural form.
+    setup({ ideas: [{ id: 'i1', statement: 'Only one' }], keptIdeaIds: ['i1'] })
+    expect(
+      screen.getByRole('button', { name: '1 of 1 idea kept' })
+    ).toBeInTheDocument()
+  })
+
+  it('reports how many of the cluster\u2019s ideas are kept', () => {
+    setup({ keptIdeaIds: ['i1'] })
+    expect(
+      screen.getByRole('button', { name: '1 of 2 ideas kept' })
+    ).toBeInTheDocument()
   })
 
   it('falls back to a placeholder when the name is unresolvable', () => {

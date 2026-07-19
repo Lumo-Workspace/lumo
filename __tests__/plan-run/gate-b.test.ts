@@ -1,4 +1,10 @@
-import { selectStarredAligned, MAX_STARRED } from '@/lib/plan-run/gate-b'
+import {
+  clusterIdeaUniverse,
+  resolveKeptIdeaIds,
+  selectStarredAligned,
+  MAX_STARRED,
+} from '@/lib/plan-run/gate-b'
+import { clusterIdForIndex } from '@/lib/plan-run/cluster-gate'
 import { confirmAlignGateSchema } from '@/lib/validation/plan-run'
 
 // ── selectStarredAligned ─────────────────────────────────────────────────────
@@ -81,5 +87,123 @@ describe('confirmAlignGateSchema', () => {
     expect(confirmAlignGateSchema.safeParse({ clusters: [] }).success).toBe(
       false
     )
+  })
+
+  it('accepts an omitted ideaIds (keep the whole cluster)', () => {
+    expect(
+      confirmAlignGateSchema.safeParse({ clusters: [cluster()] }).success
+    ).toBe(true)
+  })
+
+  it('accepts an explicit kept-idea subset', () => {
+    expect(
+      confirmAlignGateSchema.safeParse({
+        clusters: [cluster({ ideaIds: ['i1'] })],
+      }).success
+    ).toBe(true)
+  })
+
+  it('rejects starring a cluster whose ideas were all unchecked', () => {
+    const r = confirmAlignGateSchema.safeParse({
+      clusters: [cluster({ starred: true, ideaIds: [] })],
+    })
+    expect(r.success).toBe(false)
+  })
+
+  it('allows an emptied cluster that is not starred', () => {
+    expect(
+      confirmAlignGateSchema.safeParse({
+        clusters: [cluster({ starred: false, ideaIds: [] })],
+      }).success
+    ).toBe(true)
+  })
+})
+
+// ── ideaUniverseByClusterId / resolveKeptIdeaIds (LUM-688) ───────────────────
+
+describe('clusterIdeaUniverse', () => {
+  const clustering = {
+    clusters: [
+      { name: 'A', thrust: '', ideaIds: ['i1', 'i2'] },
+      { name: 'B', thrust: '', ideaIds: ['i3'] },
+    ],
+    orphans: ['i9'],
+  }
+
+  it('resolves a cluster by its positional align id', () => {
+    expect(clusterIdeaUniverse(clusterIdForIndex(0), clustering)).toEqual([
+      'i1',
+      'i2',
+    ])
+    expect(clusterIdeaUniverse(clusterIdForIndex(1), clustering)).toEqual(['i3'])
+  })
+
+  it('excludes orphans — an orphan belongs to no cluster', () => {
+    const all = [0, 1].flatMap(i =>
+      clusterIdeaUniverse(clusterIdForIndex(i), clustering)
+    )
+    expect(all).not.toContain('i9')
+  })
+
+  it('fails soft to [] on an unresolvable id or a missing clustering', () => {
+    expect(clusterIdeaUniverse('not-a-minted-id', clustering)).toEqual([])
+    expect(clusterIdeaUniverse(clusterIdForIndex(9), clustering)).toEqual([])
+    expect(clusterIdeaUniverse(clusterIdForIndex(0), undefined)).toEqual([])
+  })
+})
+
+describe('resolveKeptIdeaIds', () => {
+  const universe = ['i1', 'i2', 'i3']
+
+  it('keeps the whole cluster when nothing was submitted', () => {
+    expect(resolveKeptIdeaIds({ clusterId: 'cluster-0', universe })).toEqual(
+      universe
+    )
+  })
+
+  it('keeps only the submitted subset', () => {
+    expect(
+      resolveKeptIdeaIds({
+        clusterId: 'cluster-0',
+        universe,
+        submitted: ['i1', 'i3'],
+      })
+    ).toEqual(['i1', 'i3'])
+  })
+
+  it('normalises to gate-A order', () => {
+    expect(
+      resolveKeptIdeaIds({
+        clusterId: 'cluster-0',
+        universe,
+        submitted: ['i3', 'i1'],
+      })
+    ).toEqual(['i1', 'i3'])
+  })
+
+  it('accepts an explicitly emptied cluster', () => {
+    expect(
+      resolveKeptIdeaIds({ clusterId: 'cluster-0', universe, submitted: [] })
+    ).toEqual([])
+  })
+
+  it('rejects an idea from outside the cluster with 422', () => {
+    expect(() =>
+      resolveKeptIdeaIds({
+        clusterId: 'cluster-0',
+        universe,
+        submitted: ['i1', 'i9'],
+      })
+    ).toThrow(expect.objectContaining({ status: 422 }))
+  })
+
+  it('rejects a duplicate idea with 422', () => {
+    expect(() =>
+      resolveKeptIdeaIds({
+        clusterId: 'cluster-0',
+        universe,
+        submitted: ['i1', 'i1'],
+      })
+    ).toThrow(expect.objectContaining({ status: 422 }))
   })
 })

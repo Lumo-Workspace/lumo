@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import {
   ALIGN_VERDICTS,
@@ -30,6 +31,8 @@ export interface ClusterCardState {
   name: string
   thrust: string
   ideas: AlignCardIdea[]
+  /** Ids of the ideas still checked — the ones entering this plan (LUM-688). */
+  keptIdeaIds: string[]
 }
 
 interface Props {
@@ -39,6 +42,7 @@ interface Props {
   onVerdictChange: (verdict: AlignVerdict) => void
   onRationaleChange: (rationale: string) => void
   onToggleStar: () => void
+  onToggleIdea: (ideaId: string) => void
 }
 
 const VERDICT_LABEL: Record<AlignVerdict, string> = {
@@ -93,9 +97,14 @@ export function ClusterAlignCard({
   onVerdictChange,
   onRationaleChange,
   onToggleStar,
+  onToggleIdea,
 }: Props) {
   const intl = useIntl()
-  const [ideasOpen, setIdeasOpen] = useState(false)
+  // Open by default once something has been dropped, so an unchecked idea is
+  // never hidden behind a collapsed disclosure (LUM-688).
+  const [ideasOpen, setIdeasOpen] = useState(
+    cluster.keptIdeaIds.length < cluster.ideas.length
+  )
   const rationaleRef = useRef<HTMLTextAreaElement>(null)
 
   useLayoutEffect(() => {
@@ -119,7 +128,9 @@ export function ClusterAlignCard({
     observer.observe(wrapper)
     return () => observer.disconnect()
   }, [])
-  const canStar = cluster.verdict === 'ALIGNED'
+  const keptIds = new Set(cluster.keptIdeaIds)
+  // A star means "plan this now" — an emptied cluster has nothing to plan.
+  const canStar = cluster.verdict === 'ALIGNED' && keptIds.size > 0
   // Cap only blocks starring a not-yet-starred card; you can always un-star.
   const starDisabled = !canStar || (starCapReached && !cluster.starred)
   const rationaleId = `rationale-${cluster.clusterId}`
@@ -157,20 +168,35 @@ export function ClusterAlignCard({
               aria-hidden
             />
             {intl.formatMessage(
-              { id: 'planGate.ideaCount' },
-              { count: cluster.ideas.length }
+              { id: 'planGate.ideasKept' },
+              { kept: keptIds.size, total: cluster.ideas.length }
             )}
           </Button>
           {ideasOpen ? (
-            <ul id={ideasId} className='flex flex-col gap-1.5 pl-4'>
-              {cluster.ideas.map(idea => (
-                <li
-                  key={idea.id}
-                  className='list-disc text-sm leading-relaxed text-foreground marker:text-muted-foreground'
-                >
-                  {idea.statement}
-                </li>
-              ))}
+            <ul id={ideasId} className='flex flex-col gap-1.5 pl-1'>
+              {cluster.ideas.map(idea => {
+                const kept = keptIds.has(idea.id)
+                return (
+                  <li key={idea.id}>
+                    {/* Unchecking drops the idea from THIS plan only — it stays
+                        in the pool, unmarked, for a later run (LUM-688). */}
+                    <label className='flex items-start gap-2 text-sm leading-relaxed'>
+                      <Checkbox
+                        checked={kept}
+                        onCheckedChange={() => onToggleIdea(idea.id)}
+                        className='mt-0.5 shrink-0'
+                      />
+                      <span
+                        className={cn(
+                          kept ? 'text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
+                        {idea.statement}
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
             </ul>
           ) : null}
         </div>

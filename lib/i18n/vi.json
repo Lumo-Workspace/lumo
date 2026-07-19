@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "Di chuyển ý tưởng mồ côi {statement}",
   "planGateA.showMore": "Xem thêm",
   "planGateA.showLess": "Thu gọn",
-  "planGate.ideaCount": "{count, plural, other {# ý tưởng}}",
+  "planGate.ideasKept": "Giữ {kept} trong {total, plural, other {# ý tưởng}}",
   "planGate.unnamedCluster": "Cụm chưa đặt tên"
 }

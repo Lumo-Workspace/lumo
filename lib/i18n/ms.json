@@ -2226,6 +2226,6 @@
   "planGateA.moveOrphanLabel": "Alihkan idea yatim {statement}",
   "planGateA.showMore": "Tunjukkan lebih banyak",
   "planGateA.showLess": "Tunjukkan lebih sedikit",
-  "planGate.ideaCount": "{count, plural, other {# idea}}",
+  "planGate.ideasKept": "{kept} daripada {total, plural, other {# idea}} dikekalkan",
   "planGate.unnamedCluster": "Kluster tanpa nama"
 }

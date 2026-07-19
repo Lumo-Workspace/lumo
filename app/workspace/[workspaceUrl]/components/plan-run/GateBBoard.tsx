@@ -47,6 +47,8 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
         name: c.name,
         thrust: c.thrust,
         ideas: c.ideas,
+        // Default is keep-everything; unchecking is the deliberate act.
+        keptIdeaIds: c.ideas.map(i => i.id),
       }))
     )
   }, [data])
@@ -66,6 +68,7 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
           clusterId: c.clusterId,
           verdict: c.verdict,
           starred: c.starred,
+          ideaIds: c.keptIdeaIds,
           rationale: c.rationale,
         })),
       }),
@@ -81,11 +84,32 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
         if (c.clusterId !== clusterId) return c
         const next = { ...c, ...patch }
         // Switching a starred cluster away from ALIGNED drops its star, so the
-        // selection can never contain a non-ALIGNED starred cluster.
-        if (next.verdict !== 'ALIGNED') next.starred = false
+        // selection can never contain a non-ALIGNED starred cluster. Emptying
+        // a starred cluster's ideas drops it for the same reason: a star means
+        // "plan this now", and there would be nothing left to plan (LUM-688).
+        if (next.verdict !== 'ALIGNED' || next.keptIdeaIds.length === 0) {
+          next.starred = false
+        }
         return next
       })
     )
+  }
+
+  /** Keep/drop one idea. Unchecking removes it from THIS plan only — the idea
+   *  stays in the pool, unmarked, for a later run. */
+  function toggleIdea(clusterId: string, ideaId: string) {
+    const card = cards.find(c => c.clusterId === clusterId)
+    if (!card) return
+    const kept = card.keptIdeaIds.includes(ideaId)
+    updateCard(clusterId, {
+      keptIdeaIds: kept
+        ? card.keptIdeaIds.filter(id => id !== ideaId)
+        : // Re-check restores gate-A order, so the payload never depends on
+          // the order the reviewer happened to click.
+          card.ideas
+            .map(i => i.id)
+            .filter(id => card.keptIdeaIds.includes(id) || id === ideaId),
+    })
   }
 
   if (isLoading) return <Spinner />
@@ -131,6 +155,7 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
             onToggleStar={() =>
               updateCard(card.clusterId, { starred: !card.starred })
             }
+            onToggleIdea={ideaId => toggleIdea(card.clusterId, ideaId)}
           />
         ))}
       </div>

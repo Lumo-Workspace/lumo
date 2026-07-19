@@ -42,7 +42,9 @@ export interface AlignGateIdeaView {
 }
 
 /** One cluster card as rendered on the gate-B board: the align LLM verdict plus
- *  the identity of the cluster it judges (name/thrust/ideas, LUM-685). */
+ *  the identity of the cluster it judges (name/thrust/ideas, LUM-685). The
+ *  board starts with every idea kept; the confirm carries the survivors as
+ *  `ideaIds` (LUM-688). */
 export interface AlignGateClusterView {
   clusterId: string
   verdict: AlignVerdict
