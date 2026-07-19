@@ -3,8 +3,11 @@
 `lumo verify` is the machine half of the acceptance system: it executes every **MACHINE** criterion's checkpointer in the local
 repo, POSTs one structured PASS/FAIL verdict per criterion, and prints what to
 do next. Execution is on the client; adjudication is server-side — round
-numbering, the **3-round cap**, escalation, and the **IN_REVIEW** transition all
-happen on the server.
+numbering, the **round cap**, escalation, and the **IN_REVIEW** transition all
+happen on the server. The cap is **not a universal constant** — it is the
+workspace-level `verificationMaxRounds` (default 3); the effective value for
+_this_ workspace is the `M` in the `Round N/M` line that `lumo verify` and
+`lumo task status` print.
 
 ## The claim-done rule
 
@@ -39,11 +42,11 @@ still verifies — the claim degrades to the synthesized run-summary fallback.)
    TaskActivity event.
 4. Prints the round outcome:
 
-| Round outcome             | Effect                                                                                                                                                            | What to do                                                                                    |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **All PASS**              | Task transitions to **IN_REVIEW** (existing state machine + TASK_IN_REVIEW notification); the `--note` self-report is frozen as the task's claim (source `AGENT`) | **Stop here.** Human adjudication + any HUMAN criteria take over; **never set DONE yourself** |
-| **Any FAIL**              | Task status untouched; unmet criteria printed as next actions (statement, checkpointer, failure tail)                                                             | Fix and re-run                                                                                |
-| **Round 3 still failing** | Loop escalates: a human is notified (AGENT_VERIFY, requires action); further `lumo verify` rounds are rejected with **409**                                       | **Stop retrying**; fix only what the human directs                                            |
+| Round outcome                                      | Effect                                                                                                                                                            | What to do                                                                                    |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **All PASS**                                       | Task transitions to **IN_REVIEW** (existing state machine + TASK_IN_REVIEW notification); the `--note` self-report is frozen as the task's claim (source `AGENT`) | **Stop here.** Human adjudication + any HUMAN criteria take over; **never set DONE yourself** |
+| **Any FAIL**                                       | Task status untouched; unmet criteria printed as next actions (statement, checkpointer, failure tail)                                                             | Fix and re-run                                                                                |
+| **Last round still failing** (round = the cap `M`) | Loop escalates: a human is notified (AGENT_VERIFY, requires action); further `lumo verify` rounds are rejected with **409**                                       | **Stop retrying**; fix only what the human directs                                            |
 
 Exit code 0 = all passed (or nothing to run); 1 = failures, escalation, or
 errors.
@@ -74,9 +77,10 @@ errors.
 
 ## Round discipline
 
-Rounds are a hard budget of 3, not a retry loop. Between rounds, actually fix
-the failures — re-running without changes burns a round and (at round 3) pages a
-human. **A FAIL round never changes task status; only an all-pass round moves it
+Rounds are a hard budget, not a retry loop — and the size of that budget is a
+workspace setting (`verificationMaxRounds`, default 3), so check `Round N/M`
+instead of assuming three. Between rounds, actually fix the failures —
+re-running without changes burns a round and (on the last one) pages a human. **A FAIL round never changes task status; only an all-pass round moves it
 (to IN_REVIEW, never further).**
 
 ## Review-time drift habits (gap findings)
@@ -120,7 +124,7 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 
 ### What it prints
 
-- **Header** — task identifier/title/status + `verification round N/3` (round 0 = never verified) + an escalation warning when the machine loop is exhausted.
+- **Header** — task identifier/title/status + `verification round N/M` (`M` = the workspace's `verificationMaxRounds`; round 0 = never verified) + an escalation warning when the machine loop is exhausted.
 - **Claim vs verification** — 规律 2 声称vs核验: the headline contrast, printed right after the header (whenever the contract exists), so the report shows **both** columns instead of only the verification one. Two sides:
   - **Claim** — what the agent _says_ it did: an **unverified self-report** (`agent self-report · estimated, not verification`), estimate-tier provenance (估, not 测). Sourced by layering (LUM-597, preference `AGENT > RUN_SUMMARY > DIGEST > null`): if you supplied a `lumo verify --note`, that **own self-report** is the claim (`↳ source: agent self-report (verify --note)`) — the汇报者's voice, what faithfulness judges. Absent a self-report (old CLI / non-verify path) it degrades to the summarizer paraphrase, labelled honestly (`↳ source: synthesized run summary (no self-report)`). **Fail-closed**: when only a raw STOP turn digest exists it prints `generating — the formal run summary is still being synthesized` and **withholds the raw digest**; with no material at all it prints `not generated yet — …`, never a fabricated claim.
   - **Verification** — what was actually _confirmed_ (measured): the machine-verification rollup `N machine-verified / M human override (of T MACHINE criteria)` over the active MACHINE criteria (relocated here from its old standalone line under `Criteria`), plus `X of Y criteria met by their latest verdict`. **Fail-closed**: before any round runs it prints `no verification has run yet — the claim is unconfirmed` rather than implying a pass.
@@ -179,8 +183,9 @@ fields don't. Pin on `version` when scripting against it.
 - **`openCrossings` is `null` when the crossings check failed** — distinct from `[]` (a successful read with zero open crossings). Script consumers must treat `null` as "unknown / could not confirm", **not** "safe".
 
 `status` reads; `verify` judges. Running status never starts a round, never
-escalates, and never changes task state — loop rules (cap 3, IN_REVIEW on
-all-pass, human-only DONE) live entirely in `lumo verify` and the server.
+escalates, and never changes task state — loop rules (the workspace round cap,
+IN_REVIEW on all-pass, human-only DONE) live entirely in `lumo verify` and the
+server.
 
 ## lumo verdict — the three verdict channels
 

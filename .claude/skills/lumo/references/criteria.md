@@ -219,4 +219,4 @@ lumo task criteria list LUM-42
 
 ## After the contract: the verification loop
 
-The contract is judged by `lumo verify` — run it before claiming the task is done. See [verify.md](verify.md) for the loop (round cap 3, IN_REVIEW on all-pass, escalation on a round-3 fail).
+The contract is judged by `lumo verify` — run it before claiming the task is done. See [verify.md](verify.md) for the loop (a workspace-configurable round cap — `verificationMaxRounds`, default 3, shown as `Round N/M` in the output — IN_REVIEW on all-pass, escalation on a last-round fail).
