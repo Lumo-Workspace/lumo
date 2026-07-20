@@ -1,6 +1,13 @@
-import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
+import type {
+  Sprint,
+  SprintStatus,
+  SprintSummary,
+  TaskStatus,
+  TaskPriority,
+} from '@prisma/client'
 import type { SprintCloseDecisions } from '@/lib/validation/sprint.schema'
 import type { RiskAssessment, TopBlockers } from '@/types/summary'
+import type { ModelCost } from '@/lib/services/model-cost'
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 
@@ -41,6 +48,41 @@ export interface SprintBurnupResponse {
     completed: number | null
     projected: number | null
   }>
+}
+
+/** One task in a member's Team-performance drill-down (dates as ISO wire). */
+export interface SprintMemberTaskRowDto {
+  taskId: string
+  identifier: string
+  title: string
+  status: TaskStatus
+  priority: TaskPriority | null
+  tokenCost: number
+  activeTimeSec: number
+  topModel: string | null
+  updatedAt: string
+}
+
+export interface SprintMemberPerfRowDto {
+  /** `null` = the explicit unattributed bucket, rendered last. */
+  memberId: string | null
+  label: string | null
+  tasksDone: number
+  tokenCost: number
+  activeTimeSec: number
+  runs: number
+  models: ModelCost[]
+  modelUnattributedTokens: number
+  perTask: SprintMemberTaskRowDto[]
+}
+
+export interface SprintTeamPerformanceResponse {
+  measuredTasks: number
+  /** `null` = token side unmeasured (fail-closed, never a fabricated 0). */
+  totalTokenCost: number | null
+  totalActiveTimeSec: number
+  totalRuns: number
+  rows: SprintMemberPerfRowDto[]
 }
 
 export const sprintsClient = {
@@ -123,6 +165,12 @@ export const sprintsClient = {
 
   getBurnup(sprintId: string) {
     return apiFetch<SprintBurnupResponse>(API.sprints.burnup(sprintId))
+  },
+
+  getTeamPerformance(sprintId: string) {
+    return apiFetch<SprintTeamPerformanceResponse>(
+      API.sprints.teamPerformance(sprintId)
+    )
   },
 
   retrySummary(sprintId: string) {

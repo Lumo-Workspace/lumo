@@ -199,6 +199,8 @@ export const API = {
     summaryRetry: (sprintId: string) =>
       `/api/sprints/${sprintId}/summary/retry`,
     burnup: (sprintId: string) => `/api/sprints/${sprintId}/burnup`,
+    teamPerformance: (sprintId: string) =>
+      `/api/sprints/${sprintId}/team-performance`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   milestones: {

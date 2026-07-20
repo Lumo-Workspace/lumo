@@ -69,6 +69,8 @@ export const queryKeys = {
       ['sprints', 'byNumber', workspaceUrl, number] as const,
     summary: (sprintId: string) => ['sprints', 'summary', sprintId] as const,
     burnup: (sprintId: string) => ['sprints', 'burnup', sprintId] as const,
+    teamPerformance: (sprintId: string) =>
+      ['sprints', 'teamPerformance', sprintId] as const,
   },
 
   milestones: {
