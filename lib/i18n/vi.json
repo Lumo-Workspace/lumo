@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "Theo mô hình",
   "sprints.team.modelOther": "khác",
   "sprints.team.footer": "Token được gộp theo mô hình cho từng thành viên · tổng sprint {tokens} · {time} thời gian agent · {runs} lần chạy",
-  "sprints.team.tokensTotal": "{n} token"
+  "sprints.team.tokensTotal": "{n} token",
+  "planGate.failed": "Bước này chưa hoàn tất.",
+  "planGate.retry": "Chạy lại bước này",
+  "planGate.retrying": "Đang chạy lại…",
+  "planGate.retryHint": "Chạy lại bước này. Các xác nhận trước đó của bạn vẫn được giữ.",
+  "planGate.retryFailed": "Không thể chạy lại. Có thể hiện không có bước nào đang chạy để chạy lại."
 }

@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "依模型",
   "sprints.team.modelOther": "其他",
   "sprints.team.footer": "依成員跨模型合併的 token · 衝刺合計 {tokens} · {time} Agent 時間 · {runs} 次執行",
-  "sprints.team.tokensTotal": "{n} 個 token"
+  "sprints.team.tokensTotal": "{n} 個 token",
+  "planGate.failed": "這一步沒有完成。",
+  "planGate.retry": "重試這一步",
+  "planGate.retrying": "重試中…",
+  "planGate.retryHint": "將重新執行這一步，之前的確認結果會保留。",
+  "planGate.retryFailed": "無法重試。目前可能沒有正在執行、可重試的步驟。"
 }

@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "By model",
   "sprints.team.modelOther": "other",
   "sprints.team.footer": "Tokens folded across models per member · sprint total {tokens} · {time} agent time · {runs} runs",
-  "sprints.team.tokensTotal": "{n} tokens"
+  "sprints.team.tokensTotal": "{n} tokens",
+  "planGate.failed": "This step didn't finish.",
+  "planGate.retry": "Retry this step",
+  "planGate.retrying": "Retrying…",
+  "planGate.retryHint": "Runs this step again. Your earlier confirmations are kept.",
+  "planGate.retryFailed": "Couldn't retry. There may be nothing running to retry right now."
 }

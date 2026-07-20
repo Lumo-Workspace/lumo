@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "По модели",
   "sprints.team.modelOther": "прочее",
   "sprints.team.footer": "Токены объединены по моделям для каждого участника · всего за спринт {tokens} · {time} времени агента · {runs} запусков",
-  "sprints.team.tokensTotal": "{n} токенов"
+  "sprints.team.tokensTotal": "{n} токенов",
+  "planGate.failed": "Этот шаг не завершился.",
+  "planGate.retry": "Повторить шаг",
+  "planGate.retrying": "Повтор…",
+  "planGate.retryHint": "Шаг будет выполнен заново. Ваши прежние подтверждения сохранятся.",
+  "planGate.retryFailed": "Не удалось повторить. Возможно, сейчас нет выполняющегося шага, который можно повторить."
 }

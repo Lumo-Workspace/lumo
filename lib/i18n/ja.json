@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "モデル別",
   "sprints.team.modelOther": "その他",
   "sprints.team.footer": "メンバーごとにモデルをまとめたトークン · スプリント合計 {tokens} · エージェント時間 {time} · {runs} 回の実行",
-  "sprints.team.tokensTotal": "{n} トークン"
+  "sprints.team.tokensTotal": "{n} トークン",
+  "planGate.failed": "このステップは完了しませんでした。",
+  "planGate.retry": "このステップを再実行",
+  "planGate.retrying": "再実行中…",
+  "planGate.retryHint": "このステップをもう一度実行します。これまでの確認内容は保持されます。",
+  "planGate.retryFailed": "再実行できませんでした。現在、再実行できる処理が動いていない可能性があります。"
 }

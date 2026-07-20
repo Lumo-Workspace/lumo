@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "Berdasarkan model",
   "sprints.team.modelOther": "lainnya",
   "sprints.team.footer": "Token digabungkan antar model per anggota · total sprint {tokens} · {time} waktu agen · {runs} eksekusi",
-  "sprints.team.tokensTotal": "{n} token"
+  "sprints.team.tokensTotal": "{n} token",
+  "planGate.failed": "Langkah ini tidak selesai.",
+  "planGate.retry": "Coba lagi langkah ini",
+  "planGate.retrying": "Mencoba lagi…",
+  "planGate.retryHint": "Menjalankan kembali langkah ini. Konfirmasi Anda sebelumnya tetap tersimpan.",
+  "planGate.retryFailed": "Tidak dapat mencoba lagi. Mungkin saat ini tidak ada langkah berjalan yang bisa diulang."
 }

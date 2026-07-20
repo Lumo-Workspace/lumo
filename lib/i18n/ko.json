@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "모델별",
   "sprints.team.modelOther": "기타",
   "sprints.team.footer": "구성원별로 모델을 합산한 토큰 · 스프린트 합계 {tokens} · 에이전트 시간 {time} · {runs}회 실행",
-  "sprints.team.tokensTotal": "{n} 토큰"
+  "sprints.team.tokensTotal": "{n} 토큰",
+  "planGate.failed": "이 단계가 완료되지 않았습니다.",
+  "planGate.retry": "이 단계 다시 실행",
+  "planGate.retrying": "다시 실행 중…",
+  "planGate.retryHint": "이 단계를 다시 실행합니다. 이전 확인 내용은 그대로 유지됩니다.",
+  "planGate.retryFailed": "다시 실행할 수 없습니다. 지금은 다시 실행할 수 있는 단계가 없을 수 있습니다."
 }

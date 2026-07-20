@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "Par modèle",
   "sprints.team.modelOther": "autres",
   "sprints.team.footer": "Tokens regroupés entre les modèles par membre · total du sprint {tokens} · {time} de temps d'agent · {runs} exécutions",
-  "sprints.team.tokensTotal": "{n} tokens"
+  "sprints.team.tokensTotal": "{n} tokens",
+  "planGate.failed": "Cette étape ne s'est pas terminée.",
+  "planGate.retry": "Réessayer cette étape",
+  "planGate.retrying": "Nouvelle tentative…",
+  "planGate.retryHint": "Relance cette étape. Vos confirmations précédentes sont conservées.",
+  "planGate.retryFailed": "Impossible de réessayer. Il n'y a peut-être aucune étape en cours à relancer pour le moment."
 }

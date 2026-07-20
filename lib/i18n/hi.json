@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "मॉडल के अनुसार",
   "sprints.team.modelOther": "अन्य",
   "sprints.team.footer": "प्रत्येक सदस्य के लिए मॉडलों में समेकित टोकन · स्प्रिंट कुल {tokens} · {time} एजेंट समय · {runs} रन",
-  "sprints.team.tokensTotal": "{n} टोकन"
+  "sprints.team.tokensTotal": "{n} टोकन",
+  "planGate.failed": "यह चरण पूरा नहीं हुआ।",
+  "planGate.retry": "यह चरण फिर से चलाएँ",
+  "planGate.retrying": "फिर से चलाया जा रहा है…",
+  "planGate.retryHint": "यह चरण दोबारा चलाया जाएगा। आपकी पिछली पुष्टियाँ बनी रहेंगी।",
+  "planGate.retryFailed": "फिर से नहीं चलाया जा सका। हो सकता है अभी दोबारा चलाने योग्य कोई चरण न चल रहा हो।"
 }

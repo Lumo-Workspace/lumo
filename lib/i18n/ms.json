@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "Mengikut model",
   "sprints.team.modelOther": "lain",
   "sprints.team.footer": "Token digabungkan merentas model setiap ahli · jumlah sprint {tokens} · {time} masa agen · {runs} larian",
-  "sprints.team.tokensTotal": "{n} token"
+  "sprints.team.tokensTotal": "{n} token",
+  "planGate.failed": "Langkah ini tidak selesai.",
+  "planGate.retry": "Cuba semula langkah ini",
+  "planGate.retrying": "Mencuba semula…",
+  "planGate.retryHint": "Menjalankan semula langkah ini. Pengesahan anda sebelum ini dikekalkan.",
+  "planGate.retryFailed": "Tidak dapat mencuba semula. Mungkin tiada langkah sedang berjalan yang boleh dicuba semula sekarang."
 }

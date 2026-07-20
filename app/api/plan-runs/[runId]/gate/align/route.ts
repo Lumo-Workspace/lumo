@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { confirmAlignGateSchema } from '@/lib/validation/plan-run'
 import { planGateService } from '@/lib/services/plan-gate.service'
+import { triggerGenerateStage } from '@/lib/services/plan-generate-runner'
 
 export const runtime = 'nodejs'
 
@@ -43,6 +45,10 @@ export async function GET(
  * the ALIGN stage record's `humanConfirmedOutput`, advance the run to
  * GENERATING, and hand the ≤2 starred ALIGNED clusters to Stage 3. Returns the
  * updated run and the selected clusterIds.
+ *
+ * Stage 3 (成计划) is then kicked off out of band via `waitUntil` — fail-soft,
+ * mirroring gate A → `triggerAlignStage`. It never blocks or fails this
+ * confirm, which has already been persisted (LUM-689).
  */
 export async function POST(
   request: Request,
@@ -69,6 +75,7 @@ export async function POST(
       memberId: identity.memberId,
       input: parsed.data,
     })
+    waitUntil(triggerGenerateStage(result.run.id))
     return NextResponse.json(result)
   } catch (err) {
     return errorResponse(err, 'POST /api/plan-runs/[runId]/gate/align')

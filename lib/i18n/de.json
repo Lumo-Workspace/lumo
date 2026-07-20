@@ -2249,5 +2249,10 @@
   "sprints.team.byModel": "Nach Modell",
   "sprints.team.modelOther": "andere",
   "sprints.team.footer": "Tokens pro Mitglied über Modelle zusammengefasst · Sprint gesamt {tokens} · {time} Agent-Zeit · {runs} Läufe",
-  "sprints.team.tokensTotal": "{n} Tokens"
+  "sprints.team.tokensTotal": "{n} Tokens",
+  "planGate.failed": "Dieser Schritt wurde nicht abgeschlossen.",
+  "planGate.retry": "Schritt wiederholen",
+  "planGate.retrying": "Wird wiederholt…",
+  "planGate.retryHint": "Führt diesen Schritt erneut aus. Ihre bisherigen Bestätigungen bleiben erhalten.",
+  "planGate.retryFailed": "Wiederholen nicht möglich. Derzeit läuft möglicherweise kein Schritt, der wiederholt werden kann."
 }
