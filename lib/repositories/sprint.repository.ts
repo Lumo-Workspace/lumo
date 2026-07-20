@@ -162,6 +162,35 @@ export const sprintRepository = {
   },
 
   /**
+   * Lean task rows for the sprint "Team performance" rollup: id + human
+   * identifier (team prefix + number) + status/priority/updatedAt, no bodies.
+   * The `@@index([sprintId])` covers the scan. Identifier is composed here so
+   * the pure fold stays DB-free.
+   */
+  async taskRowsForPerformance(sprintId: string) {
+    const rows = await prisma.task.findMany({
+      where: { sprintId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        priority: true,
+        updatedAt: true,
+        team: { select: { identifier: true } },
+      },
+    })
+    return rows.map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      updatedAt: t.updatedAt,
+    }))
+  },
+
+  /**
    * 该 team 已 CLOSED sprint(排除当前)各自的完成率 done/total(0..1)。
    * total=0 的 sprint 跳过(无意义样本)。用作完成率的同类历史基线(LUM-508)。
    */

@@ -10,11 +10,9 @@ import { useProjects } from '../../hooks/useProjects'
 import { CheckSquare, Plus } from 'lucide-react'
 import type { ApiStatus, MyTask } from '../../types'
 import { TaskWorkspaceView } from '../../components/task-list/TaskWorkspaceView'
-import { SprintSidebar } from '../components/SprintSidebar'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
-import { SprintProgressChart } from '../components/SprintProgressChart'
-import { CACHE_KEY } from '../../constants'
-import { readCache, writeCache } from '../../cache'
+import { SprintStatCards } from '../components/SprintStatCards'
+import { SprintTeamPerformance } from '../components/SprintTeamPerformance'
 import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
 import {
   Breadcrumb,
@@ -54,7 +52,7 @@ export function SprintDetailClient({
   // The `sprintId` segment is now the per-team sprint number (e.g. `1`).
   const parsedNumber = Number(sprintId)
   const sprintNumber = Number.isInteger(parsedNumber) ? parsedNumber : null
-  const { sprint, progress, risk, topBlockers, isLoading, error, refetch } =
+  const { sprint, progress, risk, isLoading, error, refetch } =
     useSprintByNumber(workspaceUrl, sprintNumber)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
   const { members } = useMembers()
@@ -67,21 +65,6 @@ export function SprintDetailClient({
     setLocalTasks((tasks ?? []) as MyTask[])
   }, [tasks])
 
-  // Collapse / expand the right-hand sprint info panel. Preference is global
-  // across sprints (not per-sprint) so users don't have to re-toggle on every
-  // visit — matches how doc tree collapse behaves.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  useEffect(() => {
-    const cached = readCache<boolean>(CACHE_KEY.sprintSidebarCollapsed)
-    if (cached !== null) setSidebarCollapsed(cached)
-  }, [])
-  const toggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const next = !prev
-      writeCache(CACHE_KEY.sprintSidebarCollapsed, next)
-      return next
-    })
-  }
   useEffect(() => {
     void fetchProjects()
   }, [fetchProjects])
@@ -149,14 +132,6 @@ export function SprintDetailClient({
       members={members}
       projects={projects}
       displayOptionsKey={`lumo:display:sprint:${sprint.id}`}
-      sidebarCollapsed={sidebarCollapsed}
-      onToggleSidebar={toggleSidebar}
-      sidebarExpandLabel={intl.formatMessage({
-        id: 'sprints.detail.expandSidebar',
-      })}
-      sidebarCollapseLabel={intl.formatMessage({
-        id: 'sprints.detail.collapseSidebar',
-      })}
       emptyState={
         <Empty>
           <EmptyHeader>
@@ -185,26 +160,6 @@ export function SprintDetailClient({
     />
   )
 
-  const sidePanel = (
-    <div className='flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
-      <SprintSidebar
-        sprint={sprint}
-        progress={progress ?? { done: 0, total: 0 }}
-        risk={risk ?? null}
-        topBlockers={topBlockers ?? null}
-        tasks={localTasks}
-        members={members}
-        onRefresh={() => {
-          refetch()
-          refetchTasks()
-        }}
-      />
-      {(sprint.status === 'ACTIVE' || sprint.status === 'CLOSED') && (
-        <SprintProgressChart sprintId={sprint.id} />
-      )}
-    </div>
-  )
-
   return (
     <DetailLayout
       breadcrumb={
@@ -216,11 +171,21 @@ export function SprintDetailClient({
           />
         </div>
       }
-      sidebar={sidePanel}
-      sidebarCollapsed={sidebarCollapsed}
-      flushSidebar
     >
-      {workspace}
+      {/* Sprint info — the relocated sidebar content — sits above the board. */}
+      <div className='flex shrink-0 flex-col gap-4 px-6 pb-2 pt-5'>
+        <SprintStatCards
+          sprint={sprint}
+          progress={progress ?? { done: 0, total: 0 }}
+          risk={risk ?? null}
+          onRefresh={() => {
+            refetch()
+            refetchTasks()
+          }}
+        />
+        <SprintTeamPerformance sprintId={sprint.id} members={members} />
+      </div>
+      <div className='flex min-h-0 flex-1 flex-col'>{workspace}</div>
     </DetailLayout>
   )
 }

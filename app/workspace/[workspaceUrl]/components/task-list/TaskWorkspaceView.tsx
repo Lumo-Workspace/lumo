@@ -60,9 +60,11 @@ interface TaskWorkspaceViewProps {
   projects: ApiProject[]
   /** Per-scope localStorage key for display options. */
   displayOptionsKey: string
-  /** Show + drive the properties-rail collapse toggle in the toolbar. */
-  sidebarCollapsed: boolean
-  onToggleSidebar: () => void
+  /** Show + drive the properties-rail collapse toggle in the toolbar. Omit
+   * both when the scope has no properties rail (e.g. the sprint detail page,
+   * where the info moved above the board) — the toolbar then hides the toggle. */
+  sidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
   /** Scope-specific tooltip/aria copy for the collapse toggle. */
   sidebarExpandLabel?: string
   sidebarCollapseLabel?: string
@@ -213,8 +215,8 @@ export function TaskWorkspaceView({
           onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={onToggleSidebar}
+          {...(sidebarCollapsed !== undefined && { sidebarCollapsed })}
+          {...(onToggleSidebar !== undefined && { onToggleSidebar })}
           {...(sidebarExpandLabel !== undefined && { sidebarExpandLabel })}
           {...(sidebarCollapseLabel !== undefined && { sidebarCollapseLabel })}
         />
