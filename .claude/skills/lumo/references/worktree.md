@@ -1,10 +1,24 @@
 # Worktrees
 
-Local dev tooling that scaffolds parallel git worktrees. Unlike every other
-`lumo` command, these do **not** touch the Lumo server — they shell out to git
-and the local filesystem. **Run `add` and `rm` from the main checkout**, not from
-inside a worktree (the node_modules symlink source and `.worktrees/` both live
-there); `list` is read-only and runnable from anywhere.
+Local dev tooling that scaffolds parallel git worktrees. These are almost
+entirely local — they shell out to git and the local filesystem; the **only**
+server call is a single `GET /api/teams` to expand a **bare number** to your
+default team prefix (see "Accepted identifier forms" below), and even that is
+skipped when you pass an explicit `<TEAM>-N`. **Run `add` and `rm` from the main
+checkout**, not from inside a worktree (the node_modules symlink source and
+`.worktrees/` both live there); `list` is read-only and runnable from anywhere.
+
+### Accepted identifier forms
+
+The `<id>` argument to `add`/`rm` is a task id with **any team prefix**, not
+just `LUM-` (the `<LUM-N>` in the examples below is just a placeholder):
+
+- `LUM-267`, `SPEC-12`, `spec-12` — an explicit `<TEAM>-<n>` (1–10 letters,
+  case-insensitive; the prefix is upper-cased). Resolved locally, no network.
+- `267` — a **bare number**: expanded to the workspace's **default team**
+  prefix via `GET /api/teams` (or the sole team in a single-team workspace).
+  In a multi-team workspace with no default, this errors and asks for an
+  explicit prefix; the same happens when you're offline / not logged in.
 
 ## `lumo worktree add <LUM-N> [slug]`
 

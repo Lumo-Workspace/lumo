@@ -15,7 +15,7 @@ function nodeModulesLinked(dir: string): boolean {
   }
 }
 
-/** Pull a LUM-N from a worktree dir basename or its branch, else '—'. */
+/** Pull a `<TEAM>-N` id from a worktree dir basename or its branch, else '—'. */
 function taskIdOf(dirBase: string, branch: string | null): string {
   return (
     matchTaskIdentifier(dirBase) ??
