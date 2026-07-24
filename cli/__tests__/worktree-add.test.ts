@@ -53,7 +53,7 @@ describe('worktreeAdd', () => {
         ? { status: 1, stdout: '', stderr: '' }
         : { status: 0, stdout: '', stderr: '' }
     )
-    expect(await worktreeAdd('267', 'scaffold', {})).toBe(0)
+    expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
 
     const calls = runGit.mock.calls.map(c => c[0])
     expect(calls).toContainEqual(['fetch', 'origin', 'main'])

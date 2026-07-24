@@ -1,15 +1,18 @@
 /**
- * Normalize a user-supplied task reference to canonical `LUM-<n>` form.
- * Accepts `LUM-267`, `lum-267`, and bare `267`. Returns null for anything
- * that is not a recognizable task id.
+ * Normalize a user-supplied task reference to canonical `<TEAM>-<n>` form.
+ * Accepts any team prefix (`LUM-267`, `SPEC-12`, `spec-12`), not just LUM —
+ * the prefix is a team's configured identifier (1–10 letters), matching the
+ * single-sourced shape in shared/src/task-identifier.ts (LUM-419). The prefix
+ * is upper-cased; the number is preserved.
+ *
+ * A bare number (`267`) returns null here: without team context the prefix
+ * cannot be inferred locally. Team-aware bare-number resolution (via the
+ * workspace's default team) lives in `resolveWorktreeTaskId` (worktree-ref.ts).
  */
 export function normalizeTaskId(input: string): string | null {
-  const trimmed = input.trim()
-  const prefixed = trimmed.match(/^lum-?(\d+)$/i)
-  if (prefixed) return `LUM-${prefixed[1]}`
-  const bare = trimmed.match(/^(\d+)$/)
-  if (bare) return `LUM-${bare[1]}`
-  return null
+  const m = input.trim().match(/^([A-Za-z]{1,10})-(\d+)$/)
+  if (!m) return null
+  return `${m[1]!.toUpperCase()}-${m[2]}`
 }
 
 /**
@@ -100,10 +103,7 @@ export function findWorktreeByTaskId(
 import { spawnSync, type SpawnSyncReturns } from 'child_process'
 
 /** Low-level git runner — returns the raw spawn result, never throws on exit. */
-export function runGit(
-  args: string[],
-  cwd?: string
-): SpawnSyncReturns<string> {
+export function runGit(args: string[], cwd?: string): SpawnSyncReturns<string> {
   // 120s is a safety net against a genuine hang (e.g. an index.lock deadlock),
   // NOT a tight bound: this wrapper runs legitimately-slow ops like `git fetch`
   // and `git worktree add`, which must not be killed prematurely. On timeout

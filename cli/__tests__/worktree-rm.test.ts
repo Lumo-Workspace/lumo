@@ -53,16 +53,14 @@ describe('worktreeRm', () => {
   })
 
   it('removes a clean worktree and keeps the branch by default', async () => {
-    expect(await worktreeRm('267', { yes: true })).toBe(0)
+    expect(await worktreeRm('LUM-267', { yes: true })).toBe(0)
     const calls = runGit.mock.calls.map(c => c[0])
     expect(calls).toContainEqual([
       'worktree',
       'remove',
       '/repo/.worktrees/LUM-267-scaffold',
     ])
-    expect(calls).not.toContainEqual(
-      expect.arrayContaining(['branch', '-d'])
-    )
+    expect(calls).not.toContainEqual(expect.arrayContaining(['branch', '-d']))
   })
 
   it('refuses a dirty worktree without --force, removes with --force', async () => {
@@ -88,9 +86,9 @@ describe('worktreeRm', () => {
   })
 
   it('deletes the branch with --delete-branch', async () => {
-    expect(
-      await worktreeRm('LUM-267', { yes: true, deleteBranch: true })
-    ).toBe(0)
+    expect(await worktreeRm('LUM-267', { yes: true, deleteBranch: true })).toBe(
+      0
+    )
     expect(runGit.mock.calls.map(c => c[0])).toContainEqual([
       'branch',
       '-d',

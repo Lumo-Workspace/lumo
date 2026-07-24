@@ -6,16 +6,30 @@ import {
 } from '../src/lib/worktree'
 
 describe('normalizeTaskId', () => {
-  it('accepts canonical, bare, and lowercase forms', () => {
+  it('accepts canonical and lowercase LUM forms', () => {
     expect(normalizeTaskId('LUM-267')).toBe('LUM-267')
     expect(normalizeTaskId('lum-267')).toBe('LUM-267')
-    expect(normalizeTaskId('267')).toBe('LUM-267')
     expect(normalizeTaskId('  LUM-267  ')).toBe('LUM-267')
+  })
+  it('accepts arbitrary team prefixes, not just LUM', () => {
+    // The prefix is a team's configured identifier (1–10 letters), never
+    // hardcoded to LUM — mirrors shared/src/task-identifier.ts (LUM-419).
+    expect(normalizeTaskId('SPEC-12')).toBe('SPEC-12')
+    expect(normalizeTaskId('spec-12')).toBe('SPEC-12')
+    expect(normalizeTaskId('  Proj-9  ')).toBe('PROJ-9')
+    expect(normalizeTaskId('ab-1')).toBe('AB-1')
+    expect(normalizeTaskId('abcdefghij-1')).toBe('ABCDEFGHIJ-1')
+  })
+  it('returns null for a bare number — the prefix cannot be inferred without team context', () => {
+    // A bare number is no longer silently rewritten to LUM-N; team-aware
+    // resolution lives in resolveWorktreeTaskId (needs the API).
+    expect(normalizeTaskId('267')).toBeNull()
   })
   it('rejects garbage', () => {
     expect(normalizeTaskId('foo')).toBeNull()
     expect(normalizeTaskId('LUM-')).toBeNull()
     expect(normalizeTaskId('')).toBeNull()
+    expect(normalizeTaskId('toolongprefix-1')).toBeNull()
   })
 })
 
@@ -92,8 +106,16 @@ describe('parseWorktreePorcelain', () => {
 describe('findWorktreeByTaskId', () => {
   const entries: WorktreeEntry[] = [
     { path: '/repo/main', head: 'a', branch: 'lumo/LUM-261-radius' },
-    { path: '/repo/main/.worktrees/LUM-256', head: 'b', branch: 'lumo/LUM-256-mermaid-diagrams' },
-    { path: '/repo/main/.worktrees/LUM-267', head: 'c', branch: 'lumo/LUM-267' },
+    {
+      path: '/repo/main/.worktrees/LUM-256',
+      head: 'b',
+      branch: 'lumo/LUM-256-mermaid-diagrams',
+    },
+    {
+      path: '/repo/main/.worktrees/LUM-267',
+      head: 'c',
+      branch: 'lumo/LUM-267',
+    },
   ]
   it('matches by branch prefix', () => {
     expect(findWorktreeByTaskId(entries, 'LUM-256')?.path).toBe(
@@ -126,12 +148,20 @@ describe('gitOutput', () => {
   afterEach(() => mockSpawn.mockReset())
 
   it('returns trimmed stdout on success', () => {
-    mockSpawn.mockReturnValue({ status: 0, stdout: '  hello\n', stderr: '' } as never)
+    mockSpawn.mockReturnValue({
+      status: 0,
+      stdout: '  hello\n',
+      stderr: '',
+    } as never)
     expect(gitOutput(['rev-parse', 'HEAD'])).toBe('hello')
   })
 
   it('throws with stderr on non-zero exit', () => {
-    mockSpawn.mockReturnValue({ status: 128, stdout: '', stderr: 'fatal: nope\n' } as never)
+    mockSpawn.mockReturnValue({
+      status: 128,
+      stdout: '',
+      stderr: 'fatal: nope\n',
+    } as never)
     expect(() => gitOutput(['bad'])).toThrow('fatal: nope')
   })
 })
@@ -141,15 +171,31 @@ describe('isMainCheckout', () => {
 
   it('true when git-dir equals common-dir', () => {
     mockSpawn
-      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never) // --absolute-git-dir
-      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never) // --git-common-dir
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: '/repo/.git\n',
+        stderr: '',
+      } as never) // --absolute-git-dir
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: '/repo/.git\n',
+        stderr: '',
+      } as never) // --git-common-dir
     expect(isMainCheckout()).toBe(true)
   })
 
   it('false inside a linked worktree', () => {
     mockSpawn
-      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git/worktrees/LUM-1\n', stderr: '' } as never)
-      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never)
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: '/repo/.git/worktrees/LUM-1\n',
+        stderr: '',
+      } as never)
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: '/repo/.git\n',
+        stderr: '',
+      } as never)
     expect(isMainCheckout()).toBe(false)
   })
 })
@@ -158,7 +204,11 @@ describe('getGitCommonDir', () => {
   afterEach(() => mockSpawn.mockReset())
 
   it('resolves a relative --git-common-dir against the cwd', () => {
-    mockSpawn.mockReturnValue({ status: 0, stdout: '.git\n', stderr: '' } as never)
+    mockSpawn.mockReturnValue({
+      status: 0,
+      stdout: '.git\n',
+      stderr: '',
+    } as never)
     expect(getGitCommonDir('/repo/sub')).toBe('/repo/sub/.git')
   })
 })
@@ -167,7 +217,11 @@ describe('runGit', () => {
   afterEach(() => mockSpawn.mockReset())
 
   it('returns the raw spawn result without throwing on non-zero status', () => {
-    mockSpawn.mockReturnValue({ status: 1, stdout: '', stderr: 'boom' } as never)
+    mockSpawn.mockReturnValue({
+      status: 1,
+      stdout: '',
+      stderr: 'boom',
+    } as never)
     expect(runGit(['x']).status).toBe(1)
   })
 })
@@ -176,7 +230,11 @@ describe('getRepoRoot', () => {
   afterEach(() => mockSpawn.mockReset())
 
   it('returns the trimmed toplevel path', () => {
-    mockSpawn.mockReturnValue({ status: 0, stdout: '/repo\n', stderr: '' } as never)
+    mockSpawn.mockReturnValue({
+      status: 0,
+      stdout: '/repo\n',
+      stderr: '',
+    } as never)
     expect(getRepoRoot()).toBe('/repo')
   })
 })

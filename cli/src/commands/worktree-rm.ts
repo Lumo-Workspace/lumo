@@ -1,5 +1,4 @@
 import {
-  normalizeTaskId,
   isMainCheckout,
   getRepoRoot,
   gitOutput,
@@ -7,6 +6,7 @@ import {
   parseWorktreePorcelain,
   findWorktreeByTaskId,
 } from '../lib/worktree'
+import { resolveWorktreeTaskId } from '../lib/worktree-ref'
 
 export interface WorktreeRmOptions {
   yes?: boolean | undefined
@@ -18,9 +18,17 @@ export async function worktreeRm(
   rawId: string,
   opts: WorktreeRmOptions
 ): Promise<number> {
-  const taskId = normalizeTaskId(rawId)
+  let taskId: string | null
+  try {
+    taskId = await resolveWorktreeTaskId(rawId)
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    return 1
+  }
   if (!taskId) {
-    console.error(`Error: "${rawId}" is not a task id (expected LUM-N or N)`)
+    console.error(
+      `Error: "${rawId}" is not a task id (expected <TEAM>-N like LUM-42 or SPEC-12, or a bare number)`
+    )
     return 1
   }
   if (!isMainCheckout()) {
