@@ -2,16 +2,17 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronRight, CheckCircle2, Sparkles } from 'lucide-react'
+import { ChevronRight, Sparkles } from 'lucide-react'
 import { formatDurationSec } from '@/lib/datetime/duration'
 import { useSprintTeamPerformance } from '../../hooks/useSprints'
 import type {
   SprintMemberPerfRowDto,
   SprintMemberTaskRowDto,
+  SprintTeamPerformanceResponse,
 } from '@/lib/api-client/sprints'
 import type { WorkspaceMemberInfo } from '../../types'
 import { MemberAvatar } from '../../components/fields/shared'
-import { PriorityBadge } from '../../components/PriorityBadge'
+import { TokenCostBreakdown } from '../../components/TokenCostBreakdown'
 
 /** Compact token count, e.g. `12.7M` — mirrors the CLI / milestone reading. */
 const TOKEN_FMT = new Intl.NumberFormat('en-US', {
@@ -29,9 +30,7 @@ interface Props {
 }
 
 export function SprintTeamPerformance({ sprintId, members }: Props) {
-  const intl = useIntl()
   const { performance, isLoading } = useSprintTeamPerformance(sprintId)
-  const [open, setOpen] = useState<Set<string>>(new Set())
 
   if (isLoading) {
     return (
@@ -39,6 +38,26 @@ export function SprintTeamPerformance({ sprintId, members }: Props) {
     )
   }
   if (!performance || performance.rows.length === 0) return null
+
+  return (
+    <SprintTeamPerformanceView performance={performance} members={members} />
+  )
+}
+
+/**
+ * Pure rendering half of the panel — takes an already-loaded rollup so the
+ * fetching lives in one place (SRP) and the table can be rendered against
+ * fixtures.
+ */
+function SprintTeamPerformanceView({
+  performance,
+  members,
+}: {
+  performance: SprintTeamPerformanceResponse
+  members: WorkspaceMemberInfo[]
+}) {
+  const intl = useIntl()
+  const [open, setOpen] = useState<Set<string>>(new Set())
 
   const total = performance.totalTokenCost
   const memberById = new Map(members.map(m => [m.id, m]))
@@ -300,7 +319,6 @@ function DrillDown({
   fmtTokens: (n: number) => string
   fmtTime: (sec: number) => string
 }) {
-  const intl = useIntl()
   return (
     <div className='border-b border-border bg-muted/20'>
       {row.perTask.map(task => (
@@ -311,40 +329,16 @@ function DrillDown({
           fmtTime={fmtTime}
         />
       ))}
-      {row.models.length > 0 && (
-        <div className='flex flex-wrap items-center gap-2 border-t border-border py-2.5 pl-16 pr-4'>
-          <span className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'sprints.team.byModel',
-              defaultMessage: 'By model',
-            })}
-          </span>
-          {row.models.map(m => (
-            <span
-              key={m.model}
-              className='inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-caption'
-            >
-              <span className='font-mono text-muted-foreground'>{m.model}</span>
-              <b className='tabular-nums'>{fmtTokens(m.total)}</b>
-            </span>
-          ))}
-          {row.modelUnattributedTokens > 0 && (
-            <span className='inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-caption text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'sprints.team.modelOther',
-                defaultMessage: 'other',
-              })}
-              <b className='tabular-nums'>
-                {fmtTokens(row.modelUnattributedTokens)}
-              </b>
-            </span>
-          )}
-        </div>
-      )}
     </div>
   )
 }
 
+/**
+ * One task line inside a member's drill-down — itself a disclosure: the line
+ * reads as tokens/time/date, and expanding it reveals that task's per-model
+ * token composition (the same {@link TokenCostBreakdown} the run timeline
+ * uses, so the four token kinds keep one palette across the app).
+ */
 function TaskRow({
   task,
   fmtTokens,
@@ -355,46 +349,70 @@ function TaskRow({
   fmtTime: (sec: number) => string
 }) {
   const intl = useIntl()
-  const done = task.status === 'DONE'
+  const [open, setOpen] = useState(false)
+  // Spend the per-model fold can't place (pre-LUM-298 sessions). Stated, never
+  // folded into a model row — the same honesty rule as the member row.
+  const remainder = Math.max(
+    0,
+    task.tokenCost - task.models.reduce((sum, m) => sum + m.total, 0)
+  )
   return (
-    <div className={`${COLS} h-12 border-t border-border first:border-t-0`}>
-      <div className='flex min-w-0 items-center gap-2.5 pl-16 pr-4'>
-        {done ? (
-          <CheckCircle2 className='size-3.5 shrink-0 text-success' />
-        ) : (
-          <span className='size-3.5 shrink-0 rounded-full border border-border' />
-        )}
+    <div className='border-t border-border first:border-t-0'>
+      <button
+        type='button'
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className='flex w-full items-center gap-2.5 py-2.5 pl-14 pr-5 text-left hover:bg-muted/40'
+      >
+        <ChevronRight
+          className={`size-3 shrink-0 text-muted-foreground transition-transform ${
+            open ? 'rotate-90' : ''
+          }`}
+        />
         <span className='shrink-0 font-mono text-caption text-muted-foreground'>
           {task.identifier}
         </span>
-        <span className='min-w-0 truncate text-body text-foreground'>
+        <span className='min-w-0 flex-1 truncate text-body text-foreground'>
           {task.title}
         </span>
-      </div>
-      <div>
-        {task.priority && (
-          <PriorityBadge priority={task.priority} variant='bare' />
-        )}
-      </div>
-      <div className='flex flex-col gap-px'>
-        <span className='flex items-center gap-1.5 text-body tabular-nums'>
+        <span className='w-20 shrink-0 text-right text-body-strong tabular-nums'>
           {fmtTokens(task.tokenCost)}
-          {task.topModel && (
-            <span className='inline-flex rounded-sm bg-muted px-1.5 font-mono text-caption text-muted-foreground'>
-              {task.topModel}
-            </span>
-          )}
         </span>
-      </div>
-      <div className='text-body tabular-nums text-foreground'>
-        {fmtTime(task.activeTimeSec)}
-      </div>
-      <div className='pr-5 text-right text-caption text-muted-foreground'>
-        {intl.formatDate(new Date(task.updatedAt), {
-          month: 'short',
-          day: 'numeric',
-        })}
-      </div>
+        <span className='w-16 shrink-0 text-right text-caption tabular-nums text-muted-foreground'>
+          {fmtTime(task.activeTimeSec)}
+        </span>
+        <span className='w-12 shrink-0 text-right text-caption text-muted-foreground'>
+          {intl.formatDate(new Date(task.updatedAt), {
+            month: 'short',
+            day: 'numeric',
+          })}
+        </span>
+      </button>
+
+      {open && (
+        <div className='pb-3.5 pl-[4.75rem] pr-5'>
+          {/* No model split captured (pre-LUM-298 sessions) → the remainder
+              line below carries the whole spend on its own. */}
+          {task.models.length > 0 && (
+            <TokenCostBreakdown
+              models={task.models}
+              variant='compact'
+              showTitle={false}
+            />
+          )}
+          {remainder > 0 && (
+            <div className='mt-2 text-caption text-muted-foreground'>
+              {intl.formatMessage(
+                {
+                  id: 'sprints.team.taskModelRemainder',
+                  defaultMessage: '{n} not attributed to a model',
+                },
+                { n: fmtTokens(remainder) }
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -24,6 +24,9 @@ jest.mock('react-intl', () => ({
         month: 'short',
         day: 'numeric',
       }),
+    // The nested per-task breakdown formats its own counts (compact notation).
+    formatNumber: (n: number, opts?: Intl.NumberFormatOptions) =>
+      new Intl.NumberFormat('en-US', opts).format(n),
   }),
 }))
 
@@ -33,11 +36,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSprints', () => ({
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/components/fields/shared', () => ({
   MemberAvatar: () => <span data-testid='avatar' />,
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/components/PriorityBadge', () => ({
-  PriorityBadge: ({ priority }: { priority: string }) => (
-    <span data-testid='prio'>{priority}</span>
-  ),
 }))
 
 import { SprintTeamPerformance } from '@/app/workspace/[workspaceUrl]/sprints/components/SprintTeamPerformance'
@@ -89,6 +87,16 @@ const perf: SprintTeamPerformanceResponse = {
           tokenCost: 800_000,
           activeTimeSec: 3000,
           topModel: 'claude-opus-4-8',
+          models: [
+            {
+              model: 'claude-opus-4-8',
+              input: 20_000,
+              output: 80_000,
+              cacheRead: 600_000,
+              cacheCreation: 100_000,
+              total: 800_000,
+            },
+          ],
           updatedAt: '2026-07-15T00:00:00.000Z',
         },
       ],
@@ -144,14 +152,63 @@ describe('SprintTeamPerformance', () => {
     expect(screen.getByText(/sprint total 1M tokens/)).toBeInTheDocument()
   })
 
-  it('expands a member row to reveal per-task drill-down and BY MODEL', () => {
+  it('expands a member row to reveal the per-task drill-down', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
     expect(screen.queryByText('LUM-1')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Alice'))
     expect(screen.getByText('LUM-1')).toBeInTheDocument()
     expect(screen.getByText('Build the thing')).toBeInTheDocument()
-    const byModel = screen.getByText('By model').parentElement!
-    expect(within(byModel).getByText('claude-opus-4-8')).toBeInTheDocument()
+    // The task line stays a one-liner: the model split lives behind its own
+    // disclosure, not spread across the drill-down.
+    expect(screen.queryByText('claude-opus-4-8')).not.toBeInTheDocument()
+  })
+
+  it('expands a task row to reveal its per-model token breakdown', () => {
+    mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
+    renderPanel()
+    fireEvent.click(screen.getByText('Alice'))
+
+    const taskRow = screen.getByText('Build the thing').closest('button')!
+    expect(taskRow).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(taskRow)
+    expect(taskRow).toHaveAttribute('aria-expanded', 'true')
+
+    // Model heading + the four token-kind rows with their own values.
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
+    const panel = taskRow.parentElement!
+    expect(within(panel).getByText('output')).toBeInTheDocument()
+    expect(within(panel).getByText('80K')).toBeInTheDocument()
+    expect(within(panel).getByText('input')).toBeInTheDocument()
+    expect(within(panel).getByText('20K')).toBeInTheDocument()
+    expect(within(panel).getByText('cache-create')).toBeInTheDocument()
+    expect(within(panel).getByText('100K')).toBeInTheDocument()
+    expect(within(panel).getByText('cache-read')).toBeInTheDocument()
+    expect(within(panel).getByText('600K')).toBeInTheDocument()
+
+    // Collapsing hides it again.
+    fireEvent.click(taskRow)
+    expect(taskRow).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('claude-opus-4-8')).not.toBeInTheDocument()
+    expect(screen.queryByText('cache-read')).not.toBeInTheDocument()
+  })
+
+  it('states the spend no model split accounts for', () => {
+    const row = perf.rows[0]!
+    const task = row.perTask[0]!
+    mockUsePerf.mockReturnValue({
+      performance: {
+        ...perf,
+        // Flat columns only (pre-per-model capture): nothing to attribute.
+        rows: [{ ...row, perTask: [{ ...task, models: [] }] }],
+      },
+      isLoading: false,
+    })
+    renderPanel()
+    fireEvent.click(screen.getByText('Alice'))
+    fireEvent.click(screen.getByText('Build the thing').closest('button')!)
+    expect(
+      screen.getByText('800K not attributed to a model')
+    ).toBeInTheDocument()
   })
 })
