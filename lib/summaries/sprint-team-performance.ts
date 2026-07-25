@@ -81,6 +81,10 @@ export interface SprintMemberTaskRow {
   /** Dominant model id for this member's spend on the task; `null` when no
    * per-model map was captured. */
   topModel: string | null
+  /** Per-model split of this member's spend on this task, sorted by total
+   * desc — the same fold as the member row's `models`, narrowed to one task.
+   * Empty for pre-LUM-298 sessions that carry no per-model map. */
+  models: ModelCost[]
   updatedAt: Date
 }
 
@@ -295,6 +299,7 @@ export function computeSprintTeamPerformance(
           tokenCost: tokensByTaskMember.get(taskId)?.get(memberId) ?? 0,
           activeTimeSec: secByTask.get(taskId) ?? 0,
           topModel: taskModels[0]?.model ?? null,
+          models: taskModels,
           updatedAt: meta.updatedAt,
         }
       })

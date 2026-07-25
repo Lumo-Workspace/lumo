@@ -2251,8 +2251,7 @@
   "sprints.team.unattributed": "未归集",
   "sprints.team.modelCount": "{n, plural, other {# 个模型}}",
   "sprints.team.runCount": "{n, plural, other {# 次运行}}",
-  "sprints.team.byModel": "按模型",
-  "sprints.team.modelOther": "其他",
+  "sprints.team.taskModelRemainder": "{n} 未归属到具体模型",
   "sprints.team.footer": "按成员跨模型合并的 token · 冲刺合计 {tokens} · {time} Agent 时间 · {runs} 次运行",
   "sprints.team.tokensTotal": "{n} 个 token"
 }

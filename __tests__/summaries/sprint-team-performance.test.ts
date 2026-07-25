@@ -207,4 +207,98 @@ describe('computeSprintTeamPerformance', () => {
     expect(alice.modelUnattributedTokens).toBe(40)
     expect(alice.perTask[0]!.topModel).toBe('claude-opus-4-8')
   })
+
+  it('exposes the per-model token split on each drill-down task row', () => {
+    const out = computeSprintTeamPerformance({
+      taskRows: [task('t1', 'DONE'), task('t2', 'DONE')],
+      sessionRows: [
+        // t1: two models, split across two sessions of the same member.
+        session({
+          id: 's1',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 10,
+          outputTokens: 20,
+          cacheReadTokens: 30,
+          cacheCreationTokens: 40,
+          usageByModel: {
+            'claude-opus-4-8': {
+              input: 10,
+              output: 20,
+              cacheRead: 30,
+              cacheCreation: 40,
+            },
+          },
+        }),
+        session({
+          id: 's2',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 0,
+          outputTokens: 5,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          usageByModel: {
+            'claude-haiku-4-5': {
+              input: 0,
+              output: 5,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+          },
+        }),
+        // t2: flat columns only (pre-LUM-298) → no model split to show.
+        session({
+          id: 's3',
+          taskId: 't2',
+          workspaceMemberId: 'mA',
+          outputTokens: 7,
+        }),
+        // Another member's spend on t1 must not leak into mA's split.
+        session({
+          id: 's4',
+          taskId: 't1',
+          workspaceMemberId: 'mB',
+          outputTokens: 900,
+          usageByModel: {
+            'claude-sonnet-4-5': {
+              input: 0,
+              output: 900,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+          },
+        }),
+      ],
+      turnEvents: [],
+      memberLabels: new Map([
+        ['mA', 'Alice'],
+        ['mB', 'Bob'],
+      ]),
+    })
+
+    const alice = out.rows.find(r => r.memberId === 'mA')!
+    const t1 = alice.perTask.find(r => r.taskId === 't1')!
+    // Sorted by total desc, with the four token kinds carried per model.
+    expect(t1.models.map(m => m.model)).toEqual([
+      'claude-opus-4-8',
+      'claude-haiku-4-5',
+    ])
+    expect(t1.models[0]).toMatchObject({
+      input: 10,
+      output: 20,
+      cacheRead: 30,
+      cacheCreation: 40,
+      total: 100,
+    })
+    expect(t1.models[1]!.total).toBe(5)
+    // The split reconciles with the row's own spend — Bob's 900 stays out.
+    expect(t1.models.reduce((s, m) => s + m.total, 0)).toBe(t1.tokenCost)
+    expect(t1.tokenCost).toBe(105)
+
+    // No per-model map captured → empty split, spend still reported.
+    const t2 = alice.perTask.find(r => r.taskId === 't2')!
+    expect(t2.models).toEqual([])
+    expect(t2.tokenCost).toBe(7)
+  })
 })

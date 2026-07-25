@@ -60,6 +60,9 @@ export interface SprintMemberTaskRowDto {
   tokenCost: number
   activeTimeSec: number
   topModel: string | null
+  /** Per-model split of this member's spend on this task (empty when the
+   * sessions carry no per-model map). Feeds the row's expanded breakdown. */
+  models: ModelCost[]
   updatedAt: string
 }
 
