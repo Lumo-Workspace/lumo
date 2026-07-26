@@ -171,6 +171,30 @@ describe('buildAnchor', () => {
     }
   })
 
+  // The anchor is awaited AFTER the parallel fetch block in
+  // buildSessionStartSections, i.e. it is a serial tail on a ~3s session-start
+  // budget. At the old 1_500ms default a slow read could burn half the budget
+  // and then return '' anyway — the worst of both. The default must abandon a
+  // slow read well inside the budget. Uses the real clock with a wide margin
+  // (800ms mock vs the 600ms default) rather than an exported constant, so it
+  // pins the behaviour rather than the literal.
+  it('abandons a slow read on the default budget, without an explicit timeoutMs', async () => {
+    let leakedTimer: ReturnType<typeof setTimeout> | undefined
+    repo.rejectionRows.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          leakedTimer = setTimeout(() => resolve([]), 800)
+        })
+    )
+    try {
+      await expect(referenceClassService.buildAnchor('current')).resolves.toBe(
+        ''
+      )
+    } finally {
+      clearTimeout(leakedTimer)
+    }
+  })
+
   it('maps criterion-change payloads through toCriterionChange, tolerating malformed rows while still counting a genuine post-start edit', async () => {
     // Real CRITERION_CHANGED rows are freeform stored JSON — a payload can be
     // null, a bare string, or an object with the wrong shape/types if it was

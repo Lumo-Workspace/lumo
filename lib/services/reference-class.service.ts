@@ -26,8 +26,23 @@ import { referenceClassRepository } from '@/lib/repositories/reference-class.rep
  * as before. Session-start runs on a ~3s budget, hence the timeout.
  */
 
-/** Default read budget. Session-start must not wait on history analytics. */
-const DEFAULT_TIMEOUT_MS = 1_500
+/**
+ * Default read budget. Session-start must not wait on history analytics.
+ *
+ * WHY 600: `buildAnchor` is awaited AFTER the parallel fetch block in
+ * `buildSessionStartSections` — it is a serial TAIL on that path's ~3s budget,
+ * not one more branch of the fan-out (hoisting it into the block would cost
+ * every opted-out workspace a query it never reads, which
+ * __tests__/services/task-context-acceptance-mode-gate.test.ts pins). The
+ * anchor is a nice-to-have decoration on a nudge that stands on its own, so a
+ * slow read must be abandoned rather than allowed to delay the nudge; at the
+ * previous 1_500 it could burn half the budget and then return '' anyway.
+ *
+ * Note `withTimeout` RACES, it does not cancel: the underlying queries keep
+ * running after the anchor is abandoned. This number bounds how long
+ * session-start waits, not how long the DB works.
+ */
+const DEFAULT_TIMEOUT_MS = 600
 
 async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
