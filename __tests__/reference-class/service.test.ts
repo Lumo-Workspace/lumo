@@ -93,12 +93,85 @@ describe('buildAnchor', () => {
   })
 
   it('gives up and returns empty when the reads exceed the time budget', async () => {
+    // The mock must always lose the race against the 50ms timeoutMs below, so
+    // it resolves far later — but a bare setTimeout that fires after the test
+    // completes leaves an open handle ("worker process failed to exit
+    // gracefully"). Capture it and clear it once the race is decided; the
+    // 10s duration itself is still what proves buildAnchor gave up on the
+    // timeout rather than on some unrelated rejection.
+    let leakedTimer: ReturnType<typeof setTimeout> | undefined
     repo.rejectionRows.mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve([]), 10_000))
+      () =>
+        new Promise(resolve => {
+          leakedTimer = setTimeout(() => resolve([]), 10_000)
+        })
     )
-    const promise = referenceClassService.buildAnchor('current', {
-      timeoutMs: 50,
-    })
-    await expect(promise).resolves.toBe('')
-  }, 10_000)
+    try {
+      await expect(
+        referenceClassService.buildAnchor('current', { timeoutMs: 50 })
+      ).resolves.toBe('')
+    } finally {
+      clearTimeout(leakedTimer)
+    }
+  })
+
+  it('maps criterion-change payloads through toCriterionChange, tolerating malformed rows while still counting a genuine post-start edit', async () => {
+    // Real CRITERION_CHANGED rows are freeform stored JSON — a payload can be
+    // null, a bare string, or an object with the wrong shape/types if it was
+    // written by an older code path. All of those must be skipped rather than
+    // thrown on. Alongside them, one well-formed row must actually survive the
+    // mapping and count, and one well-formed-but-round-less row must NOT
+    // count — otherwise a test that only proves "garbage is skipped" would
+    // pass even if the mapper dropped everything, well-formed rows included.
+    const frozenAt = new Date('2026-01-01T00:00:00.000Z')
+    const beforeFreeze = new Date('2025-12-15T00:00:00.000Z')
+
+    repo.latestSnapshots.mockResolvedValue([
+      { taskId: 't0', criteria: [{ id: 'c1' }], frozenAt },
+      { taskId: 't1', criteria: [{ id: 'c2' }], frozenAt },
+    ])
+
+    repo.criterionChanges.mockResolvedValue([
+      // null payload — skipped, no throw.
+      { taskId: 't0', payload: null, createdAt: beforeFreeze },
+      // non-object payload — skipped, no throw.
+      { taskId: 't0', payload: 'not-json', createdAt: beforeFreeze },
+      // op outside the ADDED/UPDATED/DELETED enum — skipped.
+      {
+        taskId: 't0',
+        payload: { op: 'RENAMED', criterionId: 'c1', round: 1 },
+        createdAt: beforeFreeze,
+      },
+      // criterionId not a string — skipped.
+      {
+        taskId: 't0',
+        payload: { op: 'ADDED', criterionId: 42, round: 1 },
+        createdAt: beforeFreeze,
+      },
+      // Well-formed: round > 0, criterionId 'c1' is in t0's frozen snapshot,
+      // and the change lands before the freeze — this is the one row that
+      // MUST survive and register as t0's post-start edit.
+      {
+        taskId: 't0',
+        payload: { op: 'ADDED', criterionId: 'c1', round: 2 },
+        createdAt: beforeFreeze,
+      },
+      // Well-formed but missing `round` — defaults to 0 (initial draft), so
+      // it must NOT count as a post-start edit for t1.
+      {
+        taskId: 't1',
+        payload: { op: 'ADDED', criterionId: 'c2' },
+        createdAt: beforeFreeze,
+      },
+    ])
+
+    const out = await referenceClassService.buildAnchor('current')
+
+    // Only t0 qualifies. If a malformed row crashed the mapper this would
+    // never render; if the missing-round row for t1 were miscounted, the
+    // numerator would read 2/10 instead of 1/10.
+    expect(out).toContain(
+      'Contract still being written after work started: 1/10 deliveries'
+    )
+  })
 })
