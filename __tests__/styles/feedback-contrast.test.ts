@@ -100,6 +100,21 @@ function oklchToLinearRgb(value: string): [number, number, number] {
   return rgb.map(x => Math.min(1, Math.max(0, x))) as [number, number, number]
 }
 
+/** oklch → `#rrggbb`, gamma-encoding the linear channels back to sRGB. */
+function oklchToHex(value: string): string {
+  return (
+    '#' +
+    oklchToLinearRgb(value)
+      .map(c => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055))
+      .map(c =>
+        Math.round(c * 255)
+          .toString(16)
+          .padStart(2, '0')
+      )
+      .join('')
+  )
+}
+
 /** WCAG relative luminance from linear-light sRGB. */
 function relativeLuminance(value: string): number {
   const [r, g, b] = oklchToLinearRgb(value)
@@ -143,16 +158,12 @@ describe('feedback -foreground meets AA text contrast on its accent', () => {
   })
 })
 
-// ── Status / priority as graphical objects on the page background (3:1) ─────
+// ── Status tokens as graphical objects on the page background (3:1) ─────────
 const GRAPHIC_TOKENS = [
   'status-todo',
   'status-in-progress',
   'status-in-review',
   'status-done',
-  'priority-urgent',
-  'priority-high',
-  'priority-medium',
-  'priority-low',
   // Data-viz categorical palette (LUM-290) — rendered as bars/lines/segments.
   'chart-1',
   'chart-2',
@@ -161,7 +172,7 @@ const GRAPHIC_TOKENS = [
   'chart-5',
 ] as const
 
-describe('status / priority tokens meet 3:1 graphics contrast on --background', () => {
+describe('status tokens meet 3:1 graphics contrast on --background', () => {
   it.each(GRAPHIC_TOKENS)('--%s vs --background (light + dark)', token => {
     const light = contrastRatio(
       resolve(token, 'light'),
@@ -173,5 +184,72 @@ describe('status / priority tokens meet 3:1 graphics contrast on --background', 
     )
     expect(light).toBeGreaterThanOrEqual(GRAPHICS)
     expect(dark).toBeGreaterThanOrEqual(GRAPHICS)
+  })
+})
+
+// ── Priority: a fixed brand palette, measured but NOT held to 3:1 (LUM-702) ──
+// The four priority colours are design-mandated and identical in both modes,
+// which puts high/medium/low below the WCAG 1.4.11 graphics threshold on the
+// light background. That is an accepted product decision, so asserting 3:1 here
+// would be a standing red build. What this file still owes the codebase is that
+// the trade-off stays VISIBLE and can't silently get worse: pin the measured
+// ratios, so any future edit to a --priority-* value has to come back here and
+// restate what it costs. Mitigation that makes it defensible: the dot is never
+// the sole carrier — PriorityDot ships an aria-label and a tooltip, and the
+// `label` variants print the priority as text.
+const PRIORITY_RATIOS: Record<string, { light: number; dark: number }> = {
+  'priority-urgent': { light: 4.68, dark: 4.23 }, // #dd2d2d — clears 3:1 in both
+  'priority-high': { light: 2.68, dark: 7.38 }, // #ff752b — below 3:1 on light
+  'priority-medium': { light: 1.35, dark: 14.64 }, // #ffdc2e — below 3:1 on light
+  'priority-low': { light: 1.47, dark: 13.45 }, // #d1d5dc — below 3:1 on light
+}
+
+const BRAND_HEX: Record<string, string> = {
+  'priority-urgent': '#dd2d2d',
+  'priority-high': '#ff752b',
+  'priority-medium': '#ffdc2e',
+  'priority-low': '#d1d5dc',
+}
+
+describe('priority tokens are the brand palette', () => {
+  it('every priority token resolves to its brand hex in both modes', () => {
+    for (const [token, hex] of Object.entries(BRAND_HEX)) {
+      expect(oklchToHex(resolve(token, 'light'))).toBe(hex)
+      expect(oklchToHex(resolve(token, 'dark'))).toBe(hex)
+    }
+  })
+})
+
+describe('priority tokens keep their documented contrast (brand palette)', () => {
+  it.each(Object.keys(PRIORITY_RATIOS))(
+    '--%s measures the ratio globals.css documents',
+    token => {
+      const expected = PRIORITY_RATIOS[token]!
+      const light = contrastRatio(
+        resolve(token, 'light'),
+        resolve('background', 'light')
+      )
+      const dark = contrastRatio(
+        resolve(token, 'dark'),
+        resolve('background', 'dark')
+      )
+      expect(light).toBeCloseTo(expected.light, 1)
+      expect(dark).toBeCloseTo(expected.dark, 1)
+    }
+  )
+
+  it('urgent is the one priority colour that clears 3:1 in both modes', () => {
+    expect(
+      contrastRatio(
+        resolve('priority-urgent', 'light'),
+        resolve('background', 'light')
+      )
+    ).toBeGreaterThanOrEqual(GRAPHICS)
+    expect(
+      contrastRatio(
+        resolve('priority-urgent', 'dark'),
+        resolve('background', 'dark')
+      )
+    ).toBeGreaterThanOrEqual(GRAPHICS)
   })
 })

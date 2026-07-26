@@ -583,20 +583,22 @@ a.mention {
   --danger-subtle: color-mix(in srgb, var(--danger) 10%, transparent);
   --danger-border: color-mix(in srgb, var(--danger) 28%, transparent);
 
-  /* Semantic priority colors (LUM-263). Single source for PriorityBadge /
-     PriorityDot / PrioritySelect (was raw text-red-500/orange-500/yellow-500/
-     zinc-400). Like the status tokens, LIGHT mode is the graphics-contrast
-     offender, so high/medium/low are darkened here to clear WCAG 3:1 on #fff;
-     the bright dark-mode counterparts live in the .dark block. urgent (red)
-     passes both modes, so it has no .dark override. */
-  --priority-urgent: oklch(
-    0.6369 0.2079 25.334
-  ); /* #ef4444 red-500, 3.7:1 on #fff */
-  --priority-high: oklch(0.646 0.222 41.116); /* #ea580c orange-600, ~3.4:1 */
-  --priority-medium: oklch(
-    0.66 0.162 75.834
-  ); /* yellow-600 darkened to clear WCAG 3:1 graphics on #fff (was L0.681=2.93:1, now 3.18:1) — LUM-286 */
-  --priority-low: oklch(0.552 0.016 285.938); /* #71717b zinc-500, ~4.6:1 */
+  /* Semantic priority colors (LUM-263; brand palette pinned by design in
+     LUM-702). Single source for PriorityBadge / PriorityDot / PrioritySelect.
+     ONE value per priority, identical in light and dark — the per-mode
+     darkening/brightening this block used to carry is deliberately gone, so
+     the platform shows the same four colours everywhere.
+     Measured vs --background (light / dark): urgent 4.68:1 / 4.23:1 ·
+     high 2.68:1 / 7.38:1 · medium 1.35:1 / 14.64:1 · low 1.47:1 / 13.45:1.
+     high/medium/low sit BELOW the WCAG 1.4.11 3:1 graphics threshold on the
+     light background — an accepted brand trade-off, not drift. Priority is
+     never carried by colour alone: every dot ships an aria-label + tooltip and
+     the `label` variants print the priority as text. feedback-contrast.test.ts
+     pins these values rather than asserting 3:1 on them. */
+  --priority-urgent: oklch(0.5841 0.211 26.795); /* #dd2d2d */
+  --priority-high: oklch(0.7173 0.1869 44.719); /* #ff752b */
+  --priority-medium: oklch(0.8977 0.1753 96.594); /* #ffdc2e */
+  --priority-low: oklch(0.872 0.0106 261.787); /* #d1d5dc */
 
   /* Data-visualization categorical palette (LUM-290). Five distinct hues spread
      around the wheel for multi-series charts (bars / lines / segments). Like
@@ -694,12 +696,9 @@ a.mention {
   --success: oklch(0.8003 0.1821 151.707); /* #4ade80 */
   --danger: oklch(0.7106 0.1662 22.222); /* #f87171 */
 
-  /* Priority — bright shades on the dark background (#0a0a0a); these already
-     clear 3:1 there, so they restore the original light/dark-identical look the
-     raw Tailwind classes had. urgent is shared from :root. */
-  --priority-high: oklch(0.705 0.213 47.604); /* orange-500 */
-  --priority-medium: oklch(0.795 0.184 86.047); /* yellow-500 */
-  --priority-low: oklch(0.705 0.015 286.067); /* zinc-400 */
+  /* Priority — no .dark overrides since LUM-702: the four priority colours are
+     a fixed brand palette and render identically in both modes. All four are
+     defined once in :root. */
 
   /* Data-viz palette — brighter shades on the dark background (#0a0a0a), each
      clearing 3:1 there (7–11:1). Same hues as :root, lightened for dark. */
