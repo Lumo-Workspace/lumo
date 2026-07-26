@@ -5,9 +5,13 @@ import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
 import type { RiskAssessment } from '@/types/summary'
 import {
+  DAY_MS,
+  calendarDayKey,
   deriveSprintState,
+  viewerDayKey,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
+import { formatCalendarDate } from '@/lib/datetime/format'
 import { RiskBadge } from '../../components/summary/RiskBadge'
 import { SprintBurnupSparkline } from './SprintBurnupSparkline'
 import { SprintDateRange } from './SprintDateRange'
@@ -91,24 +95,16 @@ export function SprintStatCards({
     [risk]
   )
 
-  const end = new Date(sprint.endDate)
-  const msPerDay = 24 * 60 * 60 * 1000
+  // Sprint endpoints are calendar days: count and render them in the same
+  // UTC-pinned frame the rest of the sprint surfaces use, or the detail page
+  // disagrees with the landing about which day a sprint ends on.
   const daysLeft = Math.max(
     0,
-    Math.ceil((end.getTime() - now.getTime()) / msPerDay)
+    (calendarDayKey(sprint.endDate) - viewerDayKey(now)) / DAY_MS
   )
-  const endLabel = intl.formatDate(end, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  const endLabel = formatCalendarDate(sprint.endDate, intl.locale)
 
-  const fmtDate = (d: string | Date) =>
-    intl.formatDate(new Date(d), {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+  const fmtDate = (d: string | Date) => formatCalendarDate(d, intl.locale)
 
   return (
     <div className='flex flex-col gap-4'>

@@ -128,6 +128,35 @@ describe('sprintService.reconcileSprintStates', () => {
     expect(mockListByTeam).not.toHaveBeenCalled()
   })
 
+  it('does not close an ACTIVE sprint on its inclusive last day', async () => {
+    // endDate is the inclusive last day, stored at UTC midnight. Reconciling
+    // late on that very day must leave the sprint running — comparing the raw
+    // instant used to close it the moment its last day began.
+    const lastDay = new Date('2026-06-14T23:30:00Z')
+    mockFindActiveByTeam.mockResolvedValueOnce(activeStillRunning)
+
+    await sprintService.reconcileSprintStates('t1', lastDay)
+
+    expect(mockCloseAtomically).not.toHaveBeenCalled()
+    expect(mockStartAtomically).not.toHaveBeenCalled()
+  })
+
+  it('activates the draft on the first day of its window and closes it only after the last', async () => {
+    // Same inclusive-day rule on the activation side: a draft starting today
+    // is startable from the first moment of that day.
+    mockFindActiveByTeam.mockResolvedValueOnce(null)
+    mockListByTeam.mockResolvedValueOnce([draftInWindow])
+    mockFindById.mockResolvedValueOnce(draftInWindow)
+    mockStartAtomically.mockResolvedValueOnce({ id: 'sB', status: 'ACTIVE' })
+
+    await sprintService.reconcileSprintStates(
+      't1',
+      new Date('2026-06-01T00:00:00Z')
+    )
+
+    expect(mockStartAtomically).toHaveBeenCalledWith('sB')
+  })
+
   it('closes the ended active sprint routing all unfinished to backlog, then activates the next in-window draft', async () => {
     mockFindActiveByTeam.mockResolvedValueOnce(activeEnded)
     mockListUnfinishedIds.mockResolvedValueOnce([{ id: 'k1' }, { id: 'k2' }])
@@ -166,7 +195,9 @@ describe('sprintService.reconcileSprintStates', () => {
     mockListByTeam.mockResolvedValueOnce([draftInWindow])
     mockFindById.mockResolvedValueOnce(draftInWindow)
     mockStartAtomically.mockRejectedValueOnce(
-      Object.assign(new Error('team already has ACTIVE sprint'), { status: 409 })
+      Object.assign(new Error('team already has ACTIVE sprint'), {
+        status: 409,
+      })
     )
 
     await expect(
