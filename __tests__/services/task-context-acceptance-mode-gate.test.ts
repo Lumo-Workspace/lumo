@@ -66,18 +66,26 @@ jest.mock('@/lib/repositories/pr-comment-mirror.repository', () => ({
 jest.mock('@/lib/repositories/actor.repository', () => ({
   actorRepository: { findGithubIdentitiesByIds: jest.fn(async () => []) },
 }))
+// LUM-497: the reference-class anchor rides on the same gate as the nudge
+// itself. Mocked so we can assert buildAnchor is never invoked (not even
+// the underlying query) when the workspace has opted out.
+jest.mock('@/lib/services/reference-class.service', () => ({
+  referenceClassService: { buildAnchor: jest.fn(async () => '') },
+}))
 
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { taskService } from '@/lib/services/task.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { referenceClassService } from '@/lib/services/reference-class.service'
 
 const mockFindById = taskRepository.findById as jest.Mock
 const mockResolve = taskService.resolveIdentifier as jest.Mock
 const mockListCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
 const mockAcceptanceMode =
   workspaceRepository.findAcceptanceModeByTask as jest.Mock
+const mockBuildAnchor = referenceClassService.buildAnchor as jest.Mock
 
 const NUDGE = 'This task has no acceptance criteria yet'
 
@@ -135,6 +143,21 @@ describe('acceptance-mode nudge gate', () => {
     expect(ctx!.criteriaSection).toBe('')
   })
 
+  // LUM-497: an opted-out workspace must pay nothing for the reference-class
+  // anchor — not even the query buildAnchor issues internally. The ternary
+  // wiring at each call site makes it easy for a future refactor to start
+  // evaluating buildAnchor eagerly (e.g. hoisting it out of the conditional),
+  // so this pins the "never called when the gate is off" property directly.
+  it('OFF: never calls referenceClassService.buildAnchor at any injection point', async () => {
+    mockAcceptanceMode.mockResolvedValue(false)
+
+    await taskContextService.buildSessionStartSections('tsk_1')
+    await taskContextService.buildCriteriaSectionForTask('tsk_1')
+    await taskContextService.getContextForIdentifier('w-1', 'member-1', 'LUM-1')
+
+    expect(mockBuildAnchor).not.toHaveBeenCalled()
+  })
+
   it('ON: emits the draft nudge at all three injection points', async () => {
     mockAcceptanceMode.mockResolvedValue(true)
 
@@ -150,6 +173,23 @@ describe('acceptance-mode nudge gate', () => {
       'LUM-1'
     )
     expect(ctx!.criteriaSection).toContain(NUDGE)
+  })
+
+  // LUM-497: the counterpart to the OFF assertion above — with the gate on
+  // and no criteria yet, buildAnchor must actually run at each call site.
+  it('ON: calls referenceClassService.buildAnchor at all three injection points', async () => {
+    mockAcceptanceMode.mockResolvedValue(true)
+
+    await taskContextService.buildSessionStartSections('tsk_1')
+    expect(mockBuildAnchor).toHaveBeenCalledWith('tsk_1')
+
+    mockBuildAnchor.mockClear()
+    await taskContextService.buildCriteriaSectionForTask('tsk_1')
+    expect(mockBuildAnchor).toHaveBeenCalledWith('tsk_1')
+
+    mockBuildAnchor.mockClear()
+    await taskContextService.getContextForIdentifier('w-1', 'member-1', 'LUM-1')
+    expect(mockBuildAnchor).toHaveBeenCalledWith('tsk_1')
   })
 
   it('OFF: a read error on the toggle fails safe to suppressed (never throws)', async () => {
