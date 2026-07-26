@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/command'
 import type { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
-import { MemberAvatar, PRIORITY_CONFIG } from '../fields/shared'
+import { MemberAvatar, PRIORITY_CONFIG, PriorityDot } from '../fields/shared'
 
 export function BulkStatusPicker({
   onPick,
@@ -78,7 +78,7 @@ export function BulkPriorityPicker({
         <Command>
           <CommandList>
             {(['URGENT', 'HIGH', 'MEDIUM', 'LOW'] as const).map(p => {
-              const { label, Icon, iconColor } = PRIORITY_CONFIG[p]
+              const { label } = PRIORITY_CONFIG[p]
               return (
                 <CommandItem
                   key={p}
@@ -88,9 +88,7 @@ export function BulkPriorityPicker({
                   }}
                   className='gap-2'
                 >
-                  <span className={iconColor}>
-                    <Icon className='size-4' />
-                  </span>
+                  <PriorityDot priority={p} />
                   {label}
                 </CommandItem>
               )

@@ -10,7 +10,7 @@ export {
   FIELD_TRIGGER_CLS,
   FieldValueSkeleton,
   SeparatorDot,
-  PriorityIcon,
+  PriorityDot,
   PRIORITY_CONFIG,
   PRIORITY_LABEL_ID,
   MemberAvatar,

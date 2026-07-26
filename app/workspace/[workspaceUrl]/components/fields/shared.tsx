@@ -1,12 +1,6 @@
 'use client'
 
-import type { ComponentType } from 'react'
-import {
-  BatteryWarning,
-  BatteryFull,
-  BatteryMedium,
-  BatteryLow,
-} from 'lucide-react'
+import type { ComponentProps } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getInitials } from '@/lib/utils/getInitials'
@@ -19,28 +13,23 @@ export const PRIORITY_CONFIG: Record<
   ApiPriority,
   {
     label: string
-    Icon: ComponentType<{ className?: string }>
     iconColor: string
   }
 > = {
   URGENT: {
     label: 'Urgent',
-    Icon: BatteryWarning,
     iconColor: 'text-priority-urgent',
   },
   HIGH: {
     label: 'High',
-    Icon: BatteryLow,
     iconColor: 'text-priority-high',
   },
   MEDIUM: {
     label: 'Medium',
-    Icon: BatteryMedium,
     iconColor: 'text-priority-medium',
   },
   LOW: {
     label: 'Low',
-    Icon: BatteryFull,
     iconColor: 'text-priority-low',
   },
 }
@@ -86,15 +75,33 @@ export function SeparatorDot() {
   return <span className='text-muted-foreground select-none'>·</span>
 }
 
-// ─── PriorityIcon ──────────────────────────────────────────────────────────────
+// ─── PriorityDot ───────────────────────────────────────────────────────────────
 
-export function PriorityIcon({ priority }: { priority: ApiPriority }) {
-  const { Icon, iconColor } =
-    PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
+/**
+ * The single markup source for the priority disc (LUM-702). Every surface that
+ * shows a task's priority renders this — board cards, table cells, selects,
+ * bulk pickers, the activity timeline and the Signal tab — so the size and the
+ * `--priority-*` colour can never drift between them.
+ * `bg-current` paints the disc from the same token class the label text uses.
+ * Extra props are spread onto the span so a `TooltipTrigger asChild` can hand
+ * it a ref and its aria wiring.
+ */
+export function PriorityDot({
+  priority,
+  className,
+  ...props
+}: { priority: ApiPriority } & ComponentProps<'span'>) {
+  const { iconColor } = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
   return (
-    <span className={iconColor}>
-      <Icon className='size-4' />
-    </span>
+    <span
+      data-testid={`priority-dot-${priority.toLowerCase()}`}
+      className={cn(
+        'inline-block size-2.5 shrink-0 rounded-full bg-current',
+        iconColor,
+        className
+      )}
+      {...props}
+    />
   )
 }
 

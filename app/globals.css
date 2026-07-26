@@ -584,7 +584,7 @@ a.mention {
   --danger-border: color-mix(in srgb, var(--danger) 28%, transparent);
 
   /* Semantic priority colors (LUM-263). Single source for PriorityBadge /
-     PriorityIcon / PrioritySelect (was raw text-red-500/orange-500/yellow-500/
+     PriorityDot / PrioritySelect (was raw text-red-500/orange-500/yellow-500/
      zinc-400). Like the status tokens, LIGHT mode is the graphics-contrast
      offender, so high/medium/low are darkened here to clear WCAG 3:1 on #fff;
      the bright dark-mode counterparts live in the .dark block. urgent (red)

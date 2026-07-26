@@ -17,7 +17,7 @@ import { CommentAvatar } from '../../CommentAvatar'
 import { TAG_COLORS } from './tag-colors'
 import { API_STATUS_LABEL } from '../../../utils'
 import { StatusIcon } from '../../StatusIcon'
-import { PRIORITY_CONFIG, PriorityIcon } from '../../fields/shared'
+import { PRIORITY_CONFIG, PriorityDot } from '../../fields/shared'
 import type { ApiPriority } from '../../../types'
 import { buildActorMention } from '../ActorMention'
 
@@ -151,7 +151,7 @@ function formatActivityText(
             defaultMessage: 'changed priority from',
           })}{' '}
           <span className='inline-flex items-center gap-1 align-middle'>
-            <PriorityIcon priority={fromPriority} />
+            <PriorityDot priority={fromPriority} />
             <span>{fromPriorityLabel}</span>
           </span>{' '}
           {intl.formatMessage({
@@ -159,7 +159,7 @@ function formatActivityText(
             defaultMessage: 'to',
           })}{' '}
           <span className='inline-flex items-center gap-1 align-middle'>
-            <PriorityIcon priority={toPriority} />
+            <PriorityDot priority={toPriority} />
             <span>{toPriorityLabel}</span>
           </span>
         </>

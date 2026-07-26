@@ -14,27 +14,49 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { PriorityBadge } from '@/app/workspace/[workspaceUrl]/components/PriorityBadge'
+import type { ApiPriority } from '@/app/workspace/[workspaceUrl]/types'
+
+const CASES: [ApiPriority, string][] = [
+  ['URGENT', 'text-priority-urgent'],
+  ['HIGH', 'text-priority-high'],
+  ['MEDIUM', 'text-priority-medium'],
+  ['LOW', 'text-priority-low'],
+]
 
 describe('PriorityBadge', () => {
-  it('icon variant renders the localized label', () => {
-    render(<PriorityBadge priority='URGENT' variant='icon' />)
+  it('renders a colour dot for every priority', () => {
+    for (const [priority, colorClass] of CASES) {
+      for (const variant of ['dot', 'label'] as const) {
+        const { container, unmount } = render(
+          <PriorityBadge priority={priority} variant={variant} />
+        )
+        const dot = within(container).getByTestId(
+          `priority-dot-${priority.toLowerCase()}`
+        )
+        expect(dot).toHaveClass('rounded-full', 'bg-current', colorClass)
+        // The battery glyph is gone — a priority surface renders no icon (LUM-702).
+        expect(container.querySelector('svg')).toBeNull()
+        unmount()
+      }
+    }
+  })
+
+  it('label variant renders the localized label next to the dot', () => {
+    render(<PriorityBadge priority='URGENT' variant='label' />)
     expect(screen.getByText('Urgent')).toBeInTheDocument()
+    expect(screen.getByTestId('priority-dot-urgent')).toBeInTheDocument()
   })
 
-  it('bare variant renders no visible label text', () => {
-    render(<PriorityBadge priority='HIGH' variant='bare' />)
-    expect(screen.queryByText('High')).not.toBeInTheDocument()
-  })
-
-  it('defaults to bare (preserves existing icon-only call sites)', () => {
+  it('defaults to the tooltip-only dot with no visible label', () => {
     render(<PriorityBadge priority='LOW' />)
+    expect(screen.getByTestId('priority-dot-low')).toBeInTheDocument()
     expect(screen.queryByText('Low')).not.toBeInTheDocument()
   })
 
-  it('icon variant honors a label override', () => {
-    render(<PriorityBadge priority='MEDIUM' variant='icon' label='P2' />)
+  it('label variant honors a label override', () => {
+    render(<PriorityBadge priority='MEDIUM' variant='label' label='P2' />)
     expect(screen.getByText('P2')).toBeInTheDocument()
   })
 })

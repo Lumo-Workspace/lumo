@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { ApiPriority } from '../../types'
-import { PRIORITY_CONFIG, PriorityIcon } from './shared'
+import { PRIORITY_CONFIG, PriorityDot } from './shared'
 
 export interface PrioritySelectProps {
   value: ApiPriority
@@ -34,7 +34,7 @@ export function PrioritySelect({
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
             <div className='flex items-center gap-1.5'>
-              <PriorityIcon priority={value} />
+              <PriorityDot priority={value} />
               <span>{label}</span>
             </div>
           </SelectTrigger>
@@ -53,12 +53,10 @@ export function PrioritySelect({
             ApiPriority,
             (typeof PRIORITY_CONFIG)[ApiPriority],
           ][]
-        ).map(([val, { label: lbl, Icon, iconColor }]) => (
+        ).map(([val, { label: lbl }]) => (
           <SelectItem key={val} value={val}>
             <div className='flex items-center gap-2'>
-              <span className={iconColor}>
-                <Icon className='size-4' />
-              </span>
+              <PriorityDot priority={val} />
               {lbl}
             </div>
           </SelectItem>
