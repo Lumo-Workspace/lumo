@@ -83,10 +83,48 @@ export function computeNextSprintWindow(
   }
 }
 
+/** One calendar day in ms — the spacing between two day keys. */
+export const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Key for a stored sprint calendar date: UTC midnight of the day it names.
+ *
+ * Sprint start/end are calendar days, stored at UTC midnight and rendered
+ * pinned to UTC (`lib/datetime/format.ts`) so "Jun 1" reads as Jun 1 for every
+ * viewer. Comparisons must run in that same frame — see `viewerDayKey`.
+ */
+export function calendarDayKey(date: Date | string | number): number {
+  const d = new Date(date)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
+
+/**
+ * Key for "the day the viewer is currently living in", in the same frame as
+ * `calendarDayKey` — the viewer's LOCAL calendar day, folded to UTC midnight.
+ *
+ * Comparing a raw instant against a sprint's UTC-midnight endpoints flips the
+ * bucket at UTC midnight, which for a viewer west of UTC lands in the previous
+ * local afternoon — a sprint printed as running "through Jul 26" would already
+ * read as completed on the afternoon of Jul 24 local. Folding `now` to its
+ * local calendar day first keeps bucketing and rendering in one frame.
+ */
+export function viewerDayKey(now: Date | number = new Date()): number {
+  const d = new Date(now)
+  // Shift the instant by the viewer's offset (evaluated at that instant, so
+  // DST is handled) and floor to the day — the local calendar day expressed in
+  // the same UTC-midnight coordinate as `calendarDayKey`.
+  const local = d.getTime() - d.getTimezoneOffset() * 60_000
+  return Math.floor(local / DAY_MS) * DAY_MS
+}
+
 /**
  * Derived sprint state from its date range. The DB status enum
  * (DRAFT/ACTIVE/CLOSED) is legacy plumbing — the user-facing model is
  * strictly time-based.
+ *
+ * `endDate` is the INCLUSIVE last day (see `computeNextSprintWindow`), so the
+ * sprint stays CURRENT for the whole of that day rather than ending at the
+ * instant it begins.
  */
 export type DerivedSprintState = 'UPCOMING' | 'CURRENT' | 'COMPLETED'
 
@@ -94,11 +132,11 @@ export function deriveSprintState(
   sprint: { startDate: Date | string; endDate: Date | string },
   now: Date = new Date()
 ): DerivedSprintState {
-  const start = new Date(sprint.startDate).getTime()
-  const end = new Date(sprint.endDate).getTime()
-  const t = now.getTime()
-  if (t < start) return 'UPCOMING'
-  if (t > end) return 'COMPLETED'
+  const start = calendarDayKey(sprint.startDate)
+  const end = calendarDayKey(sprint.endDate)
+  const today = viewerDayKey(now)
+  if (today < start) return 'UPCOMING'
+  if (today > end) return 'COMPLETED'
   return 'CURRENT'
 }
 

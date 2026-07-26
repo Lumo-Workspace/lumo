@@ -4,10 +4,13 @@ import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
 import { cn } from '@/lib/utils'
+import {
+  DAY_MS as DAY,
+  calendarDayKey,
+  viewerDayKey,
+} from '@/lib/services/sprint-date'
 import { useSprint } from '../../hooks/useSprints'
 import { formatDate } from './DatePickerField'
-
-const DAY = 24 * 60 * 60 * 1000
 
 interface Domain {
   min: number
@@ -19,20 +22,30 @@ function pctOf(t: number, d: Domain): number {
   return ((t - d.min) / (d.max - d.min)) * 100
 }
 
-/** First-of-month ticks spanning the domain, for the month axis + gridlines. */
+/**
+ * First-of-month ticks spanning the domain, for the month axis + gridlines.
+ * The domain is calendar-day keys (UTC midnight), so the cursor walks in UTC —
+ * reading local month fields off a UTC key puts the "Jul" tick on Jun 30 for
+ * viewers west of UTC.
+ */
 function monthTicks(
   d: Domain,
   locale: string
 ): Array<{ pos: number; label: string }> {
-  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' })
+  const fmt = new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    timeZone: 'UTC',
+  })
   const out: Array<{ pos: number; label: string }> = []
   const start = new Date(d.min)
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const cursor = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)
+  )
   // Begin at the first month boundary at or after the domain start.
-  if (cursor.getTime() < d.min) cursor.setMonth(cursor.getMonth() + 1)
+  if (cursor.getTime() < d.min) cursor.setUTCMonth(cursor.getUTCMonth() + 1)
   while (cursor.getTime() <= d.max) {
     out.push({ pos: pctOf(cursor.getTime(), d), label: fmt.format(cursor) })
-    cursor.setMonth(cursor.getMonth() + 1)
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1)
   }
   return out
 }
@@ -56,8 +69,10 @@ function TimelineRow({
   const done = progress?.done ?? 0
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const start = new Date(sprint.startDate).getTime()
-  const end = new Date(sprint.endDate).getTime()
+  // Bars span through the end of the inclusive last day, so a 14-day sprint
+  // covers 14 days of axis rather than stopping at the start of day 14.
+  const start = calendarDayKey(sprint.startDate)
+  const end = calendarDayKey(sprint.endDate) + DAY
   const left = Math.max(0, pctOf(start, domain))
   const width = Math.max(2, pctOf(end, domain) - left)
 
@@ -167,27 +182,28 @@ export function SprintTimeline({
     )
   }
 
+  // Everything on this axis is a calendar-day key (UTC midnight), including
+  // "today" — the bars are drawn from UTC-pinned dates, so the marker has to
+  // live in that same frame or it drifts by the viewer's UTC offset.
+  const today = viewerDayKey(now)
   const ordered = sprints
     .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    )
-  const starts = ordered.map(s => new Date(s.startDate).getTime())
-  const ends = ordered.map(s => new Date(s.endDate).getTime())
+    .sort((a, b) => calendarDayKey(a.startDate) - calendarDayKey(b.startDate))
+  const starts = ordered.map(s => calendarDayKey(s.startDate))
+  const ends = ordered.map(s => calendarDayKey(s.endDate) + DAY)
   // Pad the domain a few days each side so end-anchored bars aren't flush.
   const domain: Domain = {
-    min: Math.min(...starts, now) - 3 * DAY,
-    max: Math.max(...ends, now) + 3 * DAY,
+    min: Math.min(...starts, today) - 3 * DAY,
+    max: Math.max(...ends, today) + 3 * DAY,
   }
   const months = monthTicks(domain, intl.locale)
-  const todayPos = pctOf(now, domain)
+  const todayPos = pctOf(today, domain)
 
   function bucketOf(s: Sprint): 'completed' | 'active' | 'planned' {
-    const start = new Date(s.startDate).getTime()
-    const end = new Date(s.endDate).getTime()
-    if (end < now) return 'completed'
-    if (start > now) return 'planned'
+    const start = calendarDayKey(s.startDate)
+    const end = calendarDayKey(s.endDate)
+    if (end < today) return 'completed'
+    if (start > today) return 'planned'
     return 'active'
   }
 

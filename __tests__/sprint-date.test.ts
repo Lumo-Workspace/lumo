@@ -1,10 +1,34 @@
 import {
   computeNextSprintWindow,
+  deriveSprintState,
   groupSprintsForTaskField,
   nextUtcWeekdayMidnight,
   utcMidnight,
   addDays,
 } from '@/lib/services/sprint-date'
+
+/**
+ * Run `fn` as if the viewer's browser were in `tz`. Setting `process.env.TZ`
+ * has no effect inside jest's VM context (the date cache is never invalidated),
+ * so the viewer's offset is stubbed instead — that is the only ambient input
+ * `viewerDayKey` reads. Offsets are the July 2026 (summer) values.
+ */
+const TZ_OFFSET_MINUTES: Record<string, number> = {
+  'America/Los_Angeles': 420, // UTC-7
+  UTC: 0,
+  'Asia/Shanghai': -480, // UTC+8
+}
+
+function inTimezone<T>(tz: string, fn: () => T): T {
+  const spy = jest
+    .spyOn(Date.prototype, 'getTimezoneOffset')
+    .mockReturnValue(TZ_OFFSET_MINUTES[tz] as number)
+  try {
+    return fn()
+  } finally {
+    spy.mockRestore()
+  }
+}
 
 describe('utcMidnight', () => {
   it('floors to UTC midnight of the same day', () => {
@@ -135,6 +159,58 @@ describe('addDays', () => {
   it('advances a UTC date across month boundary', () => {
     const d = new Date('2026-04-30T00:00:00Z')
     expect(addDays(d, 1).toISOString()).toBe('2026-05-01T00:00:00.000Z')
+  })
+})
+
+describe('deriveSprintState', () => {
+  // Sprint 7 from the LUM-700 report: Jul 13 – Jul 26 inclusive.
+  const sprint = {
+    startDate: new Date('2026-07-13T00:00:00Z'),
+    endDate: new Date('2026-07-26T00:00:00Z'),
+  }
+
+  it('returns CURRENT on the inclusive last day', () => {
+    // Midday on Jul 26 — past the endDate *instant* (Jul 26 00:00Z) but still
+    // inside the last day the card prints, in every timezone that agrees it is
+    // Jul 26 locally.
+    expect(deriveSprintState(sprint, new Date('2026-07-26T12:00:00Z'))).toBe(
+      'CURRENT'
+    )
+    expect(
+      inTimezone('Asia/Shanghai', () =>
+        deriveSprintState(sprint, new Date('2026-07-26T12:00:00Z'))
+      )
+    ).toBe('CURRENT')
+    // …and COMPLETED only once the day after has begun locally.
+    expect(
+      inTimezone('UTC', () =>
+        deriveSprintState(sprint, new Date('2026-07-27T00:30:00Z'))
+      )
+    ).toBe('COMPLETED')
+  })
+
+  it('reads the viewer local calendar day, not the raw UTC instant', () => {
+    // Sat Jul 25, 18:08 in Los Angeles = Sun Jul 26 01:08 UTC. Local Jul 25 is
+    // well inside Jul 13–26, so the sprint is running for that viewer.
+    const instant = new Date('2026-07-26T01:08:00Z')
+    expect(
+      inTimezone('America/Los_Angeles', () =>
+        deriveSprintState(sprint, instant)
+      )
+    ).toBe('CURRENT')
+  })
+
+  it('reports UPCOMING strictly before the first day', () => {
+    expect(
+      inTimezone('UTC', () =>
+        deriveSprintState(sprint, new Date('2026-07-12T23:00:00Z'))
+      )
+    ).toBe('UPCOMING')
+    expect(
+      inTimezone('UTC', () =>
+        deriveSprintState(sprint, new Date('2026-07-13T00:00:00Z'))
+      )
+    ).toBe('CURRENT')
   })
 })
 

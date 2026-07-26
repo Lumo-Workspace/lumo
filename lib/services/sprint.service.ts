@@ -3,7 +3,10 @@ import { teamRepository } from '@/lib/repositories/team.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
-import { computeNextSprintWindow } from '@/lib/services/sprint-date'
+import {
+  calendarDayKey,
+  computeNextSprintWindow,
+} from '@/lib/services/sprint-date'
 import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import type { SprintCloseDecisions } from '@/lib/repositories/sprint.repository'
 
@@ -117,10 +120,15 @@ export const sprintService = {
 
   /**
    * Roll a team's sprint state forward to `now`:
-   *  - Close the ACTIVE sprint once its window has ended (`endDate < now`),
-   *    routing every unfinished task back to the backlog.
-   *  - Activate the DRAFT sprint whose window currently contains `now`
-   *    (`startDate <= now <= endDate`) when no sprint is ACTIVE.
+   *  - Close the ACTIVE sprint once its window has ended (today is past the
+   *    inclusive `endDate` day), routing every unfinished task back to the
+   *    backlog.
+   *  - Activate the DRAFT sprint whose window currently contains today
+   *    (`startDate <= today <= endDate`) when no sprint is ACTIVE.
+   *
+   * Both endpoints are inclusive calendar days, so the comparison runs on day
+   * keys — an ACTIVE sprint survives the whole of its last day instead of
+   * closing at the instant that day begins.
    *
    * Past DRAFT sprints that were never started (window already ended) are left
    * untouched — we don't retroactively run history. Idempotent and race-safe:
@@ -131,11 +139,12 @@ export const sprintService = {
    * Call opportunistically from sprint read paths and from the daily cron.
    */
   async reconcileSprintStates(teamId: string, now: Date = new Date()) {
+    const today = calendarDayKey(now)
     const active = await sprintRepository.findActiveByTeam(teamId)
     if (active) {
       // Still within its window — single-active invariant means nothing else
       // can start, so there's nothing to do.
-      if (active.endDate.getTime() >= now.getTime()) return
+      if (calendarDayKey(active.endDate) >= today) return
 
       const unfinished = await taskRepository.listUnfinishedIdsBySprint(
         active.id
@@ -159,8 +168,8 @@ export const sprintService = {
     })
     const candidate = drafts.find(
       s =>
-        s.startDate.getTime() <= now.getTime() &&
-        now.getTime() <= s.endDate.getTime()
+        calendarDayKey(s.startDate) <= today &&
+        today <= calendarDayKey(s.endDate)
     )
     if (!candidate) return
     try {

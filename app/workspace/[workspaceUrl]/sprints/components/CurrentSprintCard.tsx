@@ -119,7 +119,9 @@ export function CurrentSprintCard({
   const contributors = contributorCount(tasks)
 
   const allDone = total > 0 && done >= total
-  const finishedEarly = allDone && now < new Date(sprint.endDate).getTime()
+  // "Early" means days still left on the calendar — the last day itself is
+  // still part of the sprint, so finishing on it isn't early.
+  const finishedEarly = allDone && daysLeft > 0
   // Ahead of plan when work outpaces elapsed calendar; otherwise behind.
   const onTrack = pct >= timePct
   const href = `/workspace/${workspaceUrl}/sprints/${sprint.number}`
