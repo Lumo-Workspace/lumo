@@ -237,15 +237,11 @@ function MemberRow({
             ?
           </span>
         )}
-        <span className='min-w-0'>
-          <span className='block truncate text-body-strong'>
-            {row.label ?? unattributedLabel}
-          </span>
-          {member && (
-            <span className='block truncate text-caption text-muted-foreground'>
-              {member.role}
-            </span>
-          )}
+        {/* Name only — a sprint belongs to a team, while `member.role` is the
+            workspace/project-level role, so showing it here would label the
+            row with a scope this table doesn't speak for. */}
+        <span className='min-w-0 truncate text-body-strong'>
+          {row.label ?? unattributedLabel}
         </span>
       </div>
 
