@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "No se pudo reintentar. Puede que en este momento no haya ningún paso en ejecución que reintentar.",
   "signal.title": "Señal",
   "signal.noSignals": "Aún no hay datos de señal para este proyecto.",
-  "signal.headline.fallback": "{n, plural, =0 {No hay nada que requiera tu atención en este momento.} one {# señal requiere tu atención.} other {# señales requieren tu atención.}}",
   "signal.metric.stalled": "Tareas detenidas",
   "signal.metric.stalled.hint": "sin actividad desde hace 7 días o más",
   "signal.metric.highStakes": "Detenciones de alto riesgo",

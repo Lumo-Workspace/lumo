@@ -3,6 +3,7 @@ import type {
   RiskLevel,
   RiskReason,
   RiskReasonCode,
+  TaskPriority,
   TaskSummaryStats,
   TopBlockers,
 } from '@/types/summary'
@@ -147,6 +148,7 @@ export function collectTopBlockers(input: {
     identifier: string
     title: string
     status: string
+    priority: TaskPriority
     dueDate: Date | null
     updatedAt: Date
   }>
@@ -188,6 +190,7 @@ export function collectTopBlockers(input: {
         id: t.id,
         identifier: t.identifier,
         title: t.title,
+        priority: t.priority,
         updatedAt: t.updatedAt.toISOString(),
       }))
   )

@@ -12,6 +12,7 @@ describe('top blockers — Signal tab timestamps', () => {
           identifier: 'LUM-550',
           title: 'PR: project detail overview',
           status: 'IN_PROGRESS',
+          priority: 'MEDIUM',
           dueDate: null,
           updatedAt: daysAgo(9),
         },
@@ -33,6 +34,7 @@ describe('top blockers — Signal tab timestamps', () => {
         id: 't1',
         identifier: 'LUM-550',
         title: 'PR: project detail overview',
+        priority: 'MEDIUM',
         updatedAt: daysAgo(9).toISOString(),
       },
     ])

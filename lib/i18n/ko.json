@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "다시 실행할 수 없습니다. 지금은 다시 실행할 수 있는 단계가 없을 수 있습니다.",
   "signal.title": "신호",
   "signal.noSignals": "이 프로젝트의 신호 데이터가 아직 없습니다.",
-  "signal.headline.fallback": "{n, plural, other {신호 #건을 확인해야 합니다.}}",
   "signal.metric.stalled": "정체된 작업",
   "signal.metric.stalled.hint": "7일 이상 활동 없음",
   "signal.metric.highStakes": "중요도 높은 정체",

@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Wiederholen nicht möglich. Derzeit läuft möglicherweise kein Schritt, der wiederholt werden kann.",
   "signal.title": "Signal",
   "signal.noSignals": "Für dieses Projekt liegen noch keine Signaldaten vor.",
-  "signal.headline.fallback": "{n, plural, =0 {Derzeit ist nichts zu tun.} one {# Signal erfordert deine Aufmerksamkeit.} other {# Signale erfordern deine Aufmerksamkeit.}}",
   "signal.metric.stalled": "Stockende Aufgaben",
   "signal.metric.stalled.hint": "seit 7+ Tagen keine Aktivität",
   "signal.metric.highStakes": "Kritische Stillstände",

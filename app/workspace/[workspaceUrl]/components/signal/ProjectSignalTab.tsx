@@ -38,11 +38,10 @@ export function ProjectSignalTab({
     error: statsError,
   } = useProjectRealtimeStats(projectId)
 
-  const {
-    tldr,
-    loading: reportLoading,
-    refetch: refetchReport,
-  } = useProjectLatestReport(projectId)
+  // The page no longer renders a prose headline — the cards are the statement.
+  // The report is still fetched so Refresh has something to invalidate.
+  const { loading: reportLoading, refetch: refetchReport } =
+    useProjectLatestReport(projectId)
 
   const {
     state: refreshState,
@@ -86,14 +85,6 @@ export function ProjectSignalTab({
   }
 
   const { topBlockers } = stats
-  // The generated TL;DR is the page's conclusion sentence. Until one exists,
-  // fall back to a plain count rather than an empty headline.
-  const headline =
-    tldr?.trim() ||
-    intl.formatMessage(
-      { id: 'signal.headline.fallback' },
-      { n: view.anomalies.length }
-    )
 
   return (
     <div className='space-y-6 px-4 py-6 md:px-8'>
@@ -105,11 +96,7 @@ export function ProjectSignalTab({
         />
       </div>
 
-      <SignalHeader
-        level={stats.risk?.level ?? null}
-        headline={headline}
-        view={view}
-      />
+      <SignalHeader view={view} />
 
       <NeedsAttentionPanel
         highStakes={topBlockers.highStakesTaskIds}

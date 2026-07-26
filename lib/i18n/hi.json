@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "फिर से नहीं चलाया जा सका। हो सकता है अभी दोबारा चलाने योग्य कोई चरण न चल रहा हो।",
   "signal.title": "संकेत",
   "signal.noSignals": "इस प्रोजेक्ट के लिए अभी कोई संकेत डेटा नहीं है।",
-  "signal.headline.fallback": "{n, plural, =0 {अभी किसी चीज़ पर ध्यान देने की ज़रूरत नहीं है।} one {# संकेत पर आपका ध्यान चाहिए।} other {# संकेतों पर आपका ध्यान चाहिए।}}",
   "signal.metric.stalled": "रुके हुए कार्य",
   "signal.metric.stalled.hint": "7+ दिनों से कोई गतिविधि नहीं",
   "signal.metric.highStakes": "उच्च जोखिम वाले ठहराव",

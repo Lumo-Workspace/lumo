@@ -2255,7 +2255,6 @@
   "sprints.team.tokensTotal": "{n} 个 token",
   "signal.title": "信号",
   "signal.noSignals": "该项目暂无信号数据。",
-  "signal.headline.fallback": "{n, plural, other {# 个信号需要你处理。}}",
   "signal.metric.stalled": "停滞任务",
   "signal.metric.stalled.hint": "超过 7 天无活动",
   "signal.metric.highStakes": "高风险停滞",

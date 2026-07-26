@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Tidak dapat mencoba lagi. Mungkin saat ini tidak ada langkah berjalan yang bisa diulang.",
   "signal.title": "Sinyal",
   "signal.noSignals": "Belum ada data sinyal untuk proyek ini.",
-  "signal.headline.fallback": "{n, plural, other {# sinyal perlu perhatian Anda.}}",
   "signal.metric.stalled": "Tugas mandek",
   "signal.metric.stalled.hint": "tanpa aktivitas 7+ hari",
   "signal.metric.highStakes": "Kemandekan berisiko tinggi",

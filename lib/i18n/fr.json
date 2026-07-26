@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Impossible de réessayer. Il n'y a peut-être aucune étape en cours à relancer pour le moment.",
   "signal.title": "Signal",
   "signal.noSignals": "Aucune donnée de signal pour ce projet pour l'instant.",
-  "signal.headline.fallback": "{n, plural, =0 {Rien ne requiert votre attention pour le moment.} one {# signal requiert votre attention.} other {# signaux requièrent votre attention.}}",
   "signal.metric.stalled": "Tâches à l’arrêt",
   "signal.metric.stalled.hint": "aucune activité depuis 7 jours ou plus",
   "signal.metric.highStakes": "Arrêts à enjeux",
