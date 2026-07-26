@@ -12,6 +12,35 @@ If `lumo task context` / session-start shows the draft reminder ("This task has 
 2. Draft **3–7 criteria** for a typical multi-file task (soft range — the server warns outside it but never rejects; if you genuinely need more, merge related checks instead). Scale the count down for small tasks (see "Scale the contract to the task size").
 3. `lumo task criteria set <task> --file <criteria.json>` — submit.
 
+### The reference-class block (outside view) — LUM-497
+
+Below the draft reminder you may see a `### Reference class (outside view)` block: mechanical statistics over **similar delivered tasks** — the send-back reasons they hit, how often their contract was still being written after work started, and the boundary crossings they tripped. It exists because an agent drafting its own acceptance criteria is systematically optimistic: you write down what you intend to build, not what tasks like this one historically got sent back for.
+
+```
+### Reference class (outside view)
+
+Based on: 14 delivered tasks in milestone "Trust and cognitive load"
+
+· Most common send-back reasons: evidence insufficient 5/14 · work did not match the criterion 3/14
+· Contract still being written after work started: 9/14 deliveries
+· Most common boundary crossing: edited a file a checkpointer depends on 3/14
+
+Tasks here most often come back for insufficient evidence — what will your key criteria point at as proof?
+```
+
+**How to use it:** read the failure modes, then ask which of them this task can plausibly hit, and let that change what you write. "Evidence insufficient" leads the class → decide what your key criteria will actually point at as proof. "Work did not match the criterion" leads → check that your statements describe outcomes rather than the steps you plan to take.
+
+**How NOT to use it — this is the failure mode the block itself is most likely to cause:** do not treat the lines as a checklist to be "covered". Adding one criterion per listed failure mode, or setting `evidenceRequired` on everything because evidence leads the distribution, inflates the criterion count without adding information and taxes every verification round. The trailing line is deliberately a **question, not an instruction** — answer it for this task.
+
+Reading the numbers honestly:
+
+- Counts are **raw fractions over a small class** (`5/14`), never percentages, on purpose — `5/14` is a handful of tasks, not a rate. Weight them accordingly.
+- The block names its own class and sample size (`Based on: N delivered tasks in <scope>`) — a milestone-level class is far more relevant to your task than a team-level fallback. Check which one you got.
+- **`Insufficient sample: …` is a correct, deliberate output**, not a failure or a missing feature. It means no scope reached the minimum class size (the block states the floor in its own message), and a distribution over fewer tasks would read as evidence while carrying none. Draft from the task itself and move on.
+- A class with no recorded send-backs, post-start contract edits or crossings says so explicitly. That is a stated fact about the class, not missing data.
+
+The block is derived server-side from delivery history; it is not a claim by any agent, and there is nothing to reply to or act on beyond your own drafting.
+
 **The contract is editable until DONE — changes after work starts leave a recorded drift trail.** Behaviour changes at two thresholds tracked by `Task.workStartedAt` (set the first time the task leaves TODO; never resets even if the task bounces back to TODO):
 
 | Stage                                                              | `criteria set` resubmit behaviour                                                                                                                                                                                                                                                                                                       |
@@ -214,6 +243,7 @@ lumo task criteria list LUM-42
 
 - **Session start** (bound task): the contract is the highest-priority section in the injection budget — ahead of memory/PR/Slack/Figma/web. If a still-open task has no criteria, the draft reminder is injected instead.
 - **`lumo session attach`**: prints the contract (or the draft reminder) right after binding.
+- **The reference-class block** rides on the draft reminder at all three of those surfaces, so it appears only when the task has no contract yet — the one moment it can still change what gets written. It is capped at a few lines, sits outside the injection budget, and is skipped silently if the read fails or the workspace has acceptance mode off.
 - **`lumo task context`**: the `## Acceptance criteria (contract)` section appears after the task description, before memory.
 - **Review-time gap findings** are appended at the round they surface and show up in the contract automatically — `REVIEW_ADDED` provenance via human review paths; findings a human raises in conversation are transcribed with `--human` + `--cause` (see verify.md "Review-time drift habits").
 

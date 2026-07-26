@@ -300,7 +300,7 @@ Don't guess these:
 
 1. `lumo session attach LUM-42` — bind this session (the binding is a lifetime lock; one session = one task)
 2. `lumo task context LUM-42` — load background; review unresolved items, PR-review todos, the description
-3. **If the task has no acceptance criteria** (context shows the draft reminder, not a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code** — see [criteria.md](references/criteria.md)
+3. **If the task has no acceptance criteria** (context shows the draft reminder, not a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code**. When a `### Reference class (outside view)` block follows the reminder, draft against it — it lists how similar delivered tasks actually failed; treat it as material to reason from, never as a checklist to cover. See [criteria.md](references/criteria.md)
 4. Do the work
 5. **Before claiming done: `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (the cap is workspace-configurable — see the `Round N/M` line in the output). All-pass → task moves to IN_REVIEW and you stop. See [verify.md](references/verify.md)
 

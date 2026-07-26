@@ -91,7 +91,7 @@ What it does:
 - Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
-- Prints the task's **acceptance contract** (`## Acceptance criteria (contract)`) right after the bind confirmation — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory).
+- Prints the task's **acceptance contract** (`## Acceptance criteria (contract)`) right after the bind confirmation — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code, followed by the `### Reference class (outside view)` block when history supports one (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory).
 
 After attaching, always run `lumo task context <identifier>` to load the task background.
 
