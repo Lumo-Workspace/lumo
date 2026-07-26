@@ -87,8 +87,13 @@ const SINGLE_SOURCE_ALLOWLIST: Record<string, string> = {
     'translucent color-mix, re-resolves over --background (LUM-620)',
   'status-in-review-border':
     'translucent color-mix, re-resolves over --background (LUM-620)',
-  // LUM-263: urgent red clears contrast on both backgrounds with one value.
-  'priority-urgent': 'red-500 passes 3:1 on both backgrounds (LUM-263)',
+  // LUM-702: the four priority colours are a design-fixed brand palette shown
+  // identically in light and dark — the per-mode split they used to carry is
+  // gone on purpose. Contrast consequences are pinned in feedback-contrast.
+  'priority-urgent': 'fixed brand palette, identical light/dark (LUM-702)',
+  'priority-high': 'fixed brand palette, identical light/dark (LUM-702)',
+  'priority-medium': 'fixed brand palette, identical light/dark (LUM-702)',
+  'priority-low': 'fixed brand palette, identical light/dark (LUM-702)',
   // LUM-294: primitive neutral ramp — mode-independent raw grayscale seeds. The
   // semantic neutral tokens (background/card/muted/border/sidebar*/…) derive
   // from these via var(--gray-N) and keep their own per-mode overrides, so only

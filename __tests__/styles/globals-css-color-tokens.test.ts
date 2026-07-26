@@ -187,24 +187,23 @@ describe('.dark feedback accent overrides', () => {
   )
 })
 
-// LUM-263: priority colors mirror the status approach — light mode is the
-// contrast offender for small graphics, so high/medium/low are darkened in
-// :root and kept bright in .dark. urgent (red) passes both modes (single def).
+// LUM-702: the priority palette is design-fixed and mode-independent — one
+// definition per colour in :root, no .dark overrides at all. (Before LUM-702
+// high/medium/low were darkened in :root and re-brightened in .dark to chase
+// 3:1 graphics contrast; the brand palette replaced that per-mode split.)
 describe('priority color tokens', () => {
   const darkBlock = css.slice(
     css.indexOf('.dark {'),
     css.indexOf('@theme inline')
   )
 
-  it.each(['priority-high', 'priority-medium', 'priority-low'])(
-    '.dark redefines --%s (brighter on the dark background)',
-    token => {
-      expect(darkBlock).toMatch(new RegExp(`--${token}:\\s*oklch\\(`))
-    }
-  )
-
-  it('--priority-urgent has no .dark override (red passes both modes)', () => {
-    expect(darkBlock).not.toMatch(/--priority-urgent:/)
+  it.each([
+    'priority-urgent',
+    'priority-high',
+    'priority-medium',
+    'priority-low',
+  ])('--%s has no .dark override (same colour in both modes)', token => {
+    expect(darkBlock).not.toMatch(new RegExp(`--${token}:`))
   })
 })
 
