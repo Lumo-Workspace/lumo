@@ -22,7 +22,14 @@ describe('copy maps', () => {
       ...Object.values(CROSSING_PROMPTS),
     ]) {
       expect(text.endsWith('?')).toBe(true)
-      expect(text).not.toMatch(/^(add|make sure|you should|ensure)\b/i)
+      // Scan the WHOLE string, not just the start: every prompt opens with
+      // "Tasks here…"/"Send-backs here…", so an anchor to the start can never
+      // fire. The directive shape this guards against (LUM-497 Finding 1) put
+      // its instruction mid-string, after an em dash — e.g. "should one of
+      // your criteria assert that none are?".
+      expect(text).not.toMatch(
+        /\b(add|make sure|you should|ensure|should|must|assert|noted)\b/i
+      )
     }
   })
 

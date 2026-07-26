@@ -57,11 +57,11 @@ export const CROSSING_PROMPTS: Record<BoundaryCrossingCategory, string> = {
   PUSH_TO_PROTECTED_BRANCH:
     'Tasks here have pushed to a protected branch — where will this work land?',
   MIGRATION_FILE_DELETED:
-    'Tasks here have deleted migration files — should one of your criteria assert that none are?',
+    'Tasks here have deleted migration files — does this change touch any migration files, and what happens if it does?',
   HARDCODED_SECRET:
     'Tasks here have committed secrets — does this change touch anything that reads credentials?',
   NEW_NPM_DEPENDENCY:
-    'Tasks here have added npm dependencies — will this one, and is that noted?',
+    'Tasks here have added npm dependencies — does this change introduce one, and why is it needed?',
   DESTRUCTIVE_DB_COMMAND:
     'Tasks here have run destructive DB commands — what does this change do to existing data?',
   TEST_TAMPERING:
