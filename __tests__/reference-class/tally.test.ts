@@ -5,10 +5,13 @@
  * produced. Otherwise a single much-rejected task dominates the distribution
  * and the anchor stops describing the class.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   tallyByTask,
   crossingObservations,
   countPostStartContractTasks,
+  CROSSING_DISPOSITION_COUNTS,
   TOP_N,
 } from '@/lib/reference-class'
 
@@ -69,6 +72,43 @@ describe('crossingObservations', () => {
       { taskId: 'd', category: 'TEST_TAMPERING', disposition: 'AUTO_LEGIT' },
     ])
     expect(out.map(o => o.taskId)).toEqual(['a', 'b'])
+  })
+
+  // The filter used to compare `disposition: string | null` against a string
+  // literal, so a NEW BoundaryCrossingDisposition value would have been
+  // silently not-counted with no compile error — asymmetric with copy.ts,
+  // which uses Record<PrismaEnum, string> maps precisely so tsc breaks. The
+  // policy is now a Record over the enum: adding a value fails `tsc --noEmit`.
+  // This test is the runtime half of the same guard — it reads the enum
+  // straight out of the schema, so it fails the moment the schema grows a
+  // value the policy map has not decided on.
+  it('has an explicit count/do-not-count decision for every disposition in the schema', () => {
+    const schema = readFileSync(
+      join(__dirname, '../../prisma/schema.prisma'),
+      'utf8'
+    )
+    const body = /enum BoundaryCrossingDisposition \{([^}]*)\}/.exec(
+      schema
+    )?.[1]
+    const values = (body ?? '')
+      .split('\n')
+      .map(l => l.replace(/\/\/.*$/, '').trim())
+      .filter(l => /^[A-Z][A-Z_]*$/.test(l))
+
+    expect(values).toEqual(
+      expect.arrayContaining(['FALSE_POSITIVE', 'CONFIRMED', 'AUTO_LEGIT'])
+    )
+    expect(Object.keys(CROSSING_DISPOSITION_COUNTS).sort()).toEqual(
+      [...values].sort()
+    )
+  })
+
+  it('keeps the current decision for each known disposition', () => {
+    expect(CROSSING_DISPOSITION_COUNTS).toEqual({
+      CONFIRMED: true,
+      FALSE_POSITIVE: false,
+      AUTO_LEGIT: false,
+    })
   })
 })
 

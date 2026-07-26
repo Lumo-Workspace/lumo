@@ -5,6 +5,7 @@ export {
   tallyByTask,
   crossingObservations,
   countPostStartContractTasks,
+  CROSSING_DISPOSITION_COUNTS,
   type Observation,
   type CrossingRow,
 } from './tally'
