@@ -156,7 +156,10 @@ describe('partitionSprints', () => {
     expect(after.completed.map(s => s.name)).toEqual(['current', 'past2'])
   })
 
-  it('buckets a sprint the same way for UTC-7, UTC and UTC+8 viewers', () => {
+  // Name kept free of regex metacharacters — `jest -t` treats the pattern as a
+  // regex, so a literal "UTC+8" here would match nothing and the checkpointer
+  // would report zero tests.
+  it('buckets a sprint the same way for viewers west and east of UTC', () => {
     // One fixed instant: Sat Jul 25 18:08 in Los Angeles / Sun Jul 26 01:08
     // UTC / Sun Jul 26 09:08 in Shanghai. Every one of those local days falls
     // inside Jul 13–26, so every viewer must see the same running sprint —
