@@ -17,6 +17,7 @@ import { prisma } from '@/lib/db/prisma'
 import { referenceClassRepository } from '@/lib/repositories/reference-class.repository'
 
 const mockPrisma = prisma as unknown as {
+  task: { findUnique: jest.Mock }
   taskCriteriaSnapshot: { findMany: jest.Mock }
   verificationRun: { findMany: jest.Mock }
   boundaryCrossing: { findMany: jest.Mock }
@@ -25,6 +26,72 @@ const mockPrisma = prisma as unknown as {
 
 beforeEach(() => jest.clearAllMocks())
 
+describe('taskScope', () => {
+  it('maps nested relation names onto the flat TaskScope shape', async () => {
+    // Realistic row with a milestone present, so the milestone?.name mapping
+    // is genuinely exercised (not just a mocked-through null).
+    mockPrisma.task.findUnique.mockResolvedValue({
+      milestoneId: 'ms1',
+      projectId: 'p1',
+      teamId: 't1',
+      milestone: { name: 'Sprint 12' },
+      project: { name: 'Lumo Core' },
+      team: { name: 'Platform' },
+    })
+
+    const result = await referenceClassRepository.taskScope('task1')
+
+    const arg = mockPrisma.task.findUnique.mock.calls[0]![0]
+    expect(arg.where).toEqual({ id: 'task1' })
+    expect(arg.select).toEqual({
+      milestoneId: true,
+      projectId: true,
+      teamId: true,
+      milestone: { select: { name: true } },
+      project: { select: { name: true } },
+      team: { select: { name: true } },
+    })
+    expect(result).toEqual({
+      milestoneId: 'ms1',
+      milestoneName: 'Sprint 12',
+      projectId: 'p1',
+      projectName: 'Lumo Core',
+      teamId: 't1',
+      teamName: 'Platform',
+    })
+  })
+
+  it('maps a task with no milestone to milestoneName: null', async () => {
+    mockPrisma.task.findUnique.mockResolvedValue({
+      milestoneId: null,
+      projectId: 'p1',
+      teamId: 't1',
+      milestone: null,
+      project: { name: 'Lumo Core' },
+      team: { name: 'Platform' },
+    })
+
+    const result = await referenceClassRepository.taskScope('task2')
+
+    expect(result).toEqual({
+      milestoneId: null,
+      milestoneName: null,
+      projectId: 'p1',
+      projectName: 'Lumo Core',
+      teamId: 't1',
+      teamName: 'Platform',
+    })
+  })
+
+  it('returns null for a missing task', async () => {
+    mockPrisma.task.findUnique.mockResolvedValue(null)
+
+    await expect(referenceClassRepository.taskScope('missing')).resolves.toBe(
+      null
+    )
+  })
+})
+
 describe('deliveredByMilestone', () => {
   it('takes the most recent deliveries, one row per task', async () => {
     mockPrisma.taskCriteriaSnapshot.findMany.mockResolvedValue([])
@@ -32,6 +99,36 @@ describe('deliveredByMilestone', () => {
 
     const arg = mockPrisma.taskCriteriaSnapshot.findMany.mock.calls[0]![0]
     expect(arg.where).toEqual({ task: { milestoneId: 'm1' } })
+    expect(arg.orderBy).toEqual({ frozenAt: 'desc' })
+    expect(arg.distinct).toEqual(['taskId'])
+    expect(arg.take).toBe(50)
+  })
+})
+
+describe('deliveredByProject', () => {
+  it('scopes to projectId and carries the same shape as the milestone variant', async () => {
+    mockPrisma.taskCriteriaSnapshot.findMany.mockResolvedValue([])
+    await referenceClassRepository.deliveredByProject('p1', 50)
+
+    const arg = mockPrisma.taskCriteriaSnapshot.findMany.mock.calls[0]![0]
+    // Pins the field name specifically — the three delivered* variants share a
+    // private helper, so a copy/paste bug pointing this at the wrong relation
+    // field (e.g. milestoneId or teamId) would slip past unless this asserts
+    // on `projectId` by name.
+    expect(arg.where).toEqual({ task: { projectId: 'p1' } })
+    expect(arg.orderBy).toEqual({ frozenAt: 'desc' })
+    expect(arg.distinct).toEqual(['taskId'])
+    expect(arg.take).toBe(50)
+  })
+})
+
+describe('deliveredByTeam', () => {
+  it('scopes to teamId and carries the same shape as the milestone variant', async () => {
+    mockPrisma.taskCriteriaSnapshot.findMany.mockResolvedValue([])
+    await referenceClassRepository.deliveredByTeam('t1', 50)
+
+    const arg = mockPrisma.taskCriteriaSnapshot.findMany.mock.calls[0]![0]
+    expect(arg.where).toEqual({ task: { teamId: 't1' } })
     expect(arg.orderBy).toEqual({ frozenAt: 'desc' })
     expect(arg.distinct).toEqual(['taskId'])
     expect(arg.take).toBe(50)
@@ -68,6 +165,48 @@ describe('crossingRows', () => {
       disposition: true,
     })
   })
+
+  it('scopes to the given tasks WITHOUT filtering on disposition', async () => {
+    // Which dispositions count is a policy decision that belongs in the pure
+    // layer (crossingObservations), not here. This must fail if a disposition
+    // filter is ever added to the query.
+    mockPrisma.boundaryCrossing.findMany.mockResolvedValue([])
+    await referenceClassRepository.crossingRows(['a', 'b'])
+
+    const arg = mockPrisma.boundaryCrossing.findMany.mock.calls[0]![0]
+    expect(arg.where).toEqual({ taskId: { in: ['a', 'b'] } })
+  })
+
+  it('short-circuits without querying on an empty id list', async () => {
+    await expect(referenceClassRepository.crossingRows([])).resolves.toEqual([])
+    expect(mockPrisma.boundaryCrossing.findMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('latestSnapshots', () => {
+  it('selects criteria alongside taskId/frozenAt, one row per task', async () => {
+    mockPrisma.taskCriteriaSnapshot.findMany.mockResolvedValue([])
+    await referenceClassRepository.latestSnapshots(['a', 'b'])
+
+    const arg = mockPrisma.taskCriteriaSnapshot.findMany.mock.calls[0]![0]
+    expect(arg.where).toEqual({ taskId: { in: ['a', 'b'] } })
+    expect(arg.select).toEqual({
+      taskId: true,
+      criteria: true,
+      frozenAt: true,
+    })
+    expect(arg.orderBy).toEqual({ frozenAt: 'desc' })
+    // Task 6 replays exactly one frozen snapshot per task — distinct is what
+    // guarantees that collapse.
+    expect(arg.distinct).toEqual(['taskId'])
+  })
+
+  it('short-circuits without querying on an empty id list', async () => {
+    await expect(referenceClassRepository.latestSnapshots([])).resolves.toEqual(
+      []
+    )
+    expect(mockPrisma.taskCriteriaSnapshot.findMany).not.toHaveBeenCalled()
+  })
 })
 
 describe('criterionChanges', () => {
@@ -80,5 +219,12 @@ describe('criterionChanges', () => {
       taskId: { in: ['a'] },
       type: 'CRITERION_CHANGED',
     })
+  })
+
+  it('short-circuits without querying on an empty id list', async () => {
+    await expect(
+      referenceClassRepository.criterionChanges([])
+    ).resolves.toEqual([])
+    expect(mockPrisma.taskActivity.findMany).not.toHaveBeenCalled()
   })
 })
