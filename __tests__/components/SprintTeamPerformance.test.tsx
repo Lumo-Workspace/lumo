@@ -142,7 +142,6 @@ describe('SprintTeamPerformance', () => {
     renderPanel()
     expect(screen.getByText('Team performance')).toBeInTheDocument()
     expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('Engineer')).toBeInTheDocument()
     expect(screen.getByText('Unattributed')).toBeInTheDocument()
     // Compact token count for the member row.
     expect(screen.getByText('800K')).toBeInTheDocument()
@@ -150,6 +149,16 @@ describe('SprintTeamPerformance', () => {
     expect(screen.getByText('80%')).toBeInTheDocument()
     // Footer reconciles the sprint total (compact 1M).
     expect(screen.getByText(/sprint total 1M tokens/)).toBeInTheDocument()
+  })
+
+  // A sprint hangs off a Team, while `member.role` is the workspace-level
+  // WorkspaceRole — a scope this table doesn't speak for. The member cell is
+  // name-only; the avatar is the only thing `members` still feeds.
+  it('shows the member name without their workspace role', () => {
+    mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
+    renderPanel()
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.queryByText('Engineer')).not.toBeInTheDocument()
   })
 
   it('expands a member row to reveal the per-task drill-down', () => {
