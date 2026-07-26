@@ -5,9 +5,12 @@ export {
   tallyByTask,
   crossingObservations,
   countPostStartContractTasks,
+  rejectionObservations,
   CROSSING_DISPOSITION_COUNTS,
   type Observation,
   type CrossingRow,
+  type RejectionRow,
+  type VerdictWithdrawal,
 } from './tally'
 
 export {

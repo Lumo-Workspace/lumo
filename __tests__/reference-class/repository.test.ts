@@ -8,6 +8,7 @@ jest.mock('@/lib/db/prisma', () => ({
     task: { findUnique: jest.fn() },
     taskCriteriaSnapshot: { findMany: jest.fn() },
     verificationRun: { findMany: jest.fn() },
+    verificationRunWithdrawal: { findMany: jest.fn() },
     boundaryCrossing: { findMany: jest.fn() },
     taskActivity: { findMany: jest.fn() },
   },
@@ -20,6 +21,7 @@ const mockPrisma = prisma as unknown as {
   task: { findUnique: jest.Mock }
   taskCriteriaSnapshot: { findMany: jest.Mock }
   verificationRun: { findMany: jest.Mock }
+  verificationRunWithdrawal: { findMany: jest.Mock }
   boundaryCrossing: { findMany: jest.Mock }
   taskActivity: { findMany: jest.Mock }
 }
@@ -150,6 +152,41 @@ describe('rejectionRows', () => {
     const arg = mockPrisma.verificationRun.findMany.mock.calls[0]![0]
     expect(arg.where.taskId).toEqual({ in: ['a', 'b'] })
     expect(arg.where.verdict).toBe('FAIL')
+  })
+
+  it('carries verdictActionId so the pure layer can drop withdrawn send-backs', async () => {
+    // Whether a withdrawn verdict still counts is policy (LUM-586), decided in
+    // lib/reference-class — so the query must hand the action id over rather
+    // than filtering here. Without this field the exclusion is impossible.
+    mockPrisma.verificationRun.findMany.mockResolvedValue([])
+    await referenceClassRepository.rejectionRows(['a'])
+
+    const arg = mockPrisma.verificationRun.findMany.mock.calls[0]![0]
+    expect(arg.select).toEqual({
+      taskId: true,
+      rejectionReasonEnum: true,
+      verdictActionId: true,
+    })
+  })
+})
+
+describe('withdrawnVerdictActions', () => {
+  it('reads the withdrawal tombstones for the class, keyed by task', async () => {
+    mockPrisma.verificationRunWithdrawal.findMany.mockResolvedValue([])
+    await referenceClassRepository.withdrawnVerdictActions(['a', 'b'])
+
+    const arg = mockPrisma.verificationRunWithdrawal.findMany.mock.calls[0]![0]
+    expect(arg.where).toEqual({ taskId: { in: ['a', 'b'] } })
+    // taskId travels with the action id: withdrawals are unique per
+    // (taskId, verdictActionId), so the pure filter needs both to stay scoped.
+    expect(arg.select).toEqual({ taskId: true, verdictActionId: true })
+  })
+
+  it('short-circuits without querying on an empty id list', async () => {
+    await expect(
+      referenceClassRepository.withdrawnVerdictActions([])
+    ).resolves.toEqual([])
+    expect(mockPrisma.verificationRunWithdrawal.findMany).not.toHaveBeenCalled()
   })
 })
 

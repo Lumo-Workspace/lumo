@@ -11,6 +11,7 @@ import {
   tallyByTask,
   crossingObservations,
   countPostStartContractTasks,
+  rejectionObservations,
   CROSSING_DISPOSITION_COUNTS,
   TOP_N,
 } from '@/lib/reference-class'
@@ -109,6 +110,80 @@ describe('crossingObservations', () => {
       FALSE_POSITIVE: false,
       AUTO_LEGIT: false,
     })
+  })
+})
+
+/**
+ * LUM-586 lets a human WITHDRAW a verdict action. `lumo task status` already
+ * ignores a withdrawn send-back; the anchor must too, or a reviewer who fails a
+ * task by mistake and undoes it still tells every future agent in the milestone
+ * "tasks here most often come back for insufficient evidence".
+ */
+describe('rejectionObservations', () => {
+  it('drops a FAIL whose verdict action was withdrawn', () => {
+    const out = rejectionObservations(
+      [
+        {
+          taskId: 'a',
+          rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT',
+          verdictActionId: 'act1',
+        },
+      ],
+      [{ taskId: 'a', verdictActionId: 'act1' }]
+    )
+    expect(out).toEqual([])
+  })
+
+  it('keeps a FAIL whose verdict action was never withdrawn', () => {
+    const out = rejectionObservations(
+      [
+        {
+          taskId: 'a',
+          rejectionReasonEnum: 'CRITERION_UNMET',
+          verdictActionId: 'act2',
+        },
+      ],
+      [{ taskId: 'a', verdictActionId: 'act1' }]
+    )
+    expect(out).toEqual([{ taskId: 'a', key: 'CRITERION_UNMET' }])
+  })
+
+  it('keeps a machine-written FAIL, which carries no verdictActionId and can never be withdrawn', () => {
+    const out = rejectionObservations(
+      [
+        {
+          taskId: 'a',
+          rejectionReasonEnum: 'CHECK_EXECUTION_ERROR',
+          verdictActionId: null,
+        },
+      ],
+      [{ taskId: 'a', verdictActionId: 'act1' }]
+    )
+    expect(out).toEqual([{ taskId: 'a', key: 'CHECK_EXECUTION_ERROR' }])
+  })
+
+  it('scopes the tombstone to its own task', () => {
+    // Withdrawals are keyed on (taskId, verdictActionId), so a withdrawal
+    // recorded for task a must not suppress task b's run.
+    const out = rejectionObservations(
+      [
+        {
+          taskId: 'b',
+          rejectionReasonEnum: 'SCOPE_MISMATCH',
+          verdictActionId: 'act1',
+        },
+      ],
+      [{ taskId: 'a', verdictActionId: 'act1' }]
+    )
+    expect(out).toEqual([{ taskId: 'b', key: 'SCOPE_MISMATCH' }])
+  })
+
+  it('passes a null reason through for tallyByTask to drop', () => {
+    const out = rejectionObservations(
+      [{ taskId: 'a', rejectionReasonEnum: null, verdictActionId: null }],
+      []
+    )
+    expect(out).toEqual([{ taskId: 'a', key: null }])
   })
 })
 

@@ -12,6 +12,7 @@ jest.mock('@/lib/repositories/reference-class.repository', () => ({
     deliveredByProject: jest.fn(),
     deliveredByTeam: jest.fn(),
     rejectionRows: jest.fn(),
+    withdrawnVerdictActions: jest.fn(),
     crossingRows: jest.fn(),
     latestSnapshots: jest.fn(),
     criterionChanges: jest.fn(),
@@ -27,6 +28,7 @@ const repo = referenceClassRepository as unknown as {
   deliveredByProject: jest.Mock
   deliveredByTeam: jest.Mock
   rejectionRows: jest.Mock
+  withdrawnVerdictActions: jest.Mock
   crossingRows: jest.Mock
   latestSnapshots: jest.Mock
   criterionChanges: jest.Mock
@@ -53,9 +55,18 @@ beforeEach(() => {
   repo.deliveredByProject.mockResolvedValue([])
   repo.deliveredByTeam.mockResolvedValue([])
   repo.rejectionRows.mockResolvedValue([
-    { taskId: 't1', rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT' },
-    { taskId: 't2', rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT' },
+    {
+      taskId: 't1',
+      rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT',
+      verdictActionId: 'act1',
+    },
+    {
+      taskId: 't2',
+      rejectionReasonEnum: 'EVIDENCE_INSUFFICIENT',
+      verdictActionId: 'act2',
+    },
   ])
+  repo.withdrawnVerdictActions.mockResolvedValue([])
   repo.crossingRows.mockResolvedValue([])
   repo.latestSnapshots.mockResolvedValue([])
   repo.criterionChanges.mockResolvedValue([])
@@ -67,6 +78,50 @@ describe('buildAnchor', () => {
     expect(out).toContain('Reference class (outside view)')
     expect(out).toContain('10 delivered tasks')
     expect(out).toContain('evidence insufficient 2/10')
+  })
+
+  // LUM-586: a human can withdraw a verdict action as a mistake. `lumo task
+  // status` already ignores the withdrawn send-back; if the anchor did not, one
+  // undone review would keep telling every future agent in the class that this
+  // is how tasks here fail.
+  it('does not count a send-back whose verdict action was withdrawn', async () => {
+    repo.withdrawnVerdictActions.mockResolvedValue([
+      { taskId: 't1', verdictActionId: 'act1' },
+    ])
+
+    const out = await referenceClassService.buildAnchor('current')
+
+    expect(out).toContain('evidence insufficient 1/10')
+    expect(out).not.toContain('evidence insufficient 2/10')
+  })
+
+  it('still counts a machine-written FAIL, which carries no verdictActionId', async () => {
+    repo.rejectionRows.mockResolvedValue([
+      {
+        taskId: 't1',
+        rejectionReasonEnum: 'CHECK_EXECUTION_ERROR',
+        verdictActionId: null,
+      },
+    ])
+    repo.withdrawnVerdictActions.mockResolvedValue([
+      { taskId: 't1', verdictActionId: 'act1' },
+    ])
+
+    const out = await referenceClassService.buildAnchor('current')
+
+    expect(out).toContain('checkpointer failed to run 1/10')
+  })
+
+  it('drops the whole send-back line when every FAIL in the class was withdrawn', async () => {
+    repo.withdrawnVerdictActions.mockResolvedValue([
+      { taskId: 't1', verdictActionId: 'act1' },
+      { taskId: 't2', verdictActionId: 'act2' },
+    ])
+
+    const out = await referenceClassService.buildAnchor('current')
+
+    expect(out).not.toContain('send-back reasons')
+    expect(out).toContain('no recorded send-backs')
   })
 
   it('returns an empty string when a repository read throws', async () => {
@@ -90,6 +145,7 @@ describe('buildAnchor', () => {
     await referenceClassService.buildAnchor('current')
     expect(repo.rejectionRows).not.toHaveBeenCalled()
     expect(repo.crossingRows).not.toHaveBeenCalled()
+    expect(repo.withdrawnVerdictActions).not.toHaveBeenCalled()
   })
 
   it('gives up and returns empty when the reads exceed the time budget', async () => {

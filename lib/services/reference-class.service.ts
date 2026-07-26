@@ -7,6 +7,7 @@ import {
   countPostStartContractTasks,
   crossingObservations,
   MAX_CLASS_SIZE,
+  rejectionObservations,
   renderReferenceClassAnchor,
   selectReferenceClass,
   tallyByTask,
@@ -99,12 +100,14 @@ async function build(taskId: string): Promise<string> {
   }
 
   const { taskIds, size, level } = selected
-  const [rejections, crossings, snapshots, changes] = await Promise.all([
-    referenceClassRepository.rejectionRows(taskIds),
-    referenceClassRepository.crossingRows(taskIds),
-    referenceClassRepository.latestSnapshots(taskIds),
-    referenceClassRepository.criterionChanges(taskIds),
-  ])
+  const [rejections, withdrawals, crossings, snapshots, changes] =
+    await Promise.all([
+      referenceClassRepository.rejectionRows(taskIds),
+      referenceClassRepository.withdrawnVerdictActions(taskIds),
+      referenceClassRepository.crossingRows(taskIds),
+      referenceClassRepository.latestSnapshots(taskIds),
+      referenceClassRepository.criterionChanges(taskIds),
+    ])
 
   const changesByTask = new Map<string, CriterionChange[]>()
   for (const row of changes) {
@@ -134,9 +137,7 @@ async function build(taskId: string): Promise<string> {
     level,
     label: scopeLabel(level, scope),
     size,
-    rejections: tallyByTask(
-      rejections.map(r => ({ taskId: r.taskId, key: r.rejectionReasonEnum }))
-    ),
+    rejections: tallyByTask(rejectionObservations(rejections, withdrawals)),
     crossings: tallyByTask(crossingObservations(crossings)),
     postStartContractTasks: countPostStartContractTasks(signals),
   }

@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
-import type { CrossingRow, DeliveredTask } from '@/lib/reference-class'
+import type {
+  CrossingRow,
+  DeliveredTask,
+  RejectionRow,
+  VerdictWithdrawal,
+} from '@/lib/reference-class'
 
 /**
  * LUM-497 — every Prisma read behind the reference-class anchor. Read-only by
@@ -79,14 +84,38 @@ export const referenceClassRepository = {
     return deliveredWhere({ task: { teamId } }, take)
   },
 
-  /** FAIL runs across the class — the send-back reason distribution source. */
-  async rejectionRows(
-    taskIds: string[]
-  ): Promise<Array<{ taskId: string; rejectionReasonEnum: string | null }>> {
+  /**
+   * FAIL runs across the class — the send-back reason distribution source.
+   *
+   * `verdictActionId` travels with the row (null on machine runs) so the pure
+   * layer can drop withdrawn verdicts: whether a retracted send-back still
+   * counts as history is policy, and this branch keeps policy out of the
+   * queries (same split as {@link crossingRows}).
+   */
+  async rejectionRows(taskIds: string[]): Promise<RejectionRow[]> {
     if (taskIds.length === 0) return []
     return prisma.verificationRun.findMany({
       where: { taskId: { in: taskIds }, verdict: 'FAIL' },
-      select: { taskId: true, rejectionReasonEnum: true },
+      select: {
+        taskId: true,
+        rejectionReasonEnum: true,
+        verdictActionId: true,
+      },
+    })
+  },
+
+  /**
+   * Withdrawal tombstones across the class (LUM-586). Both key parts are
+   * selected because VerificationRunWithdrawal is unique on
+   * (taskId, verdictActionId) — the pure filter must stay task-scoped.
+   */
+  async withdrawnVerdictActions(
+    taskIds: string[]
+  ): Promise<VerdictWithdrawal[]> {
+    if (taskIds.length === 0) return []
+    return prisma.verificationRunWithdrawal.findMany({
+      where: { taskId: { in: taskIds } },
+      select: { taskId: true, verdictActionId: true },
     })
   },
 
