@@ -9,6 +9,15 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+// getProjectStats reconciles drifted PR state before aggregating; no
+// candidates here, so the reconcile is a no-op and never reaches GitHub.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findStaleOpenByProject: jest.fn(async () => []),
+    updateState: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/summaries/stats', () => ({
   aggregateProjectStats: jest.fn(),
   aggregateWorkspaceStats: jest.fn(),

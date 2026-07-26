@@ -33,6 +33,21 @@ export const pullRequestRepository = {
     })
   },
 
+  /**
+   * PRs in a project still stored as open past the stale cutoff — the
+   * candidates whose state may have drifted because a `pull_request closed`
+   * webhook never landed (LUM-699). Capped: the caller re-checks each one
+   * against GitHub on a read path, so this must stay a handful.
+   */
+  async findStaleOpenByProject(projectId: string, cutoff: Date, take: number) {
+    return prisma.pullRequest.findMany({
+      where: { task: { projectId }, state: 'open', createdAt: { lt: cutoff } },
+      select: { id: true, repo: true, number: true },
+      orderBy: { createdAt: 'asc' },
+      take,
+    })
+  },
+
   /** Find the most recent open PR for a task. */
   async findActivePr(taskId: string) {
     return prisma.pullRequest.findFirst({
