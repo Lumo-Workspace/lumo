@@ -20,6 +20,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { referenceClassService } from '@/lib/services/reference-class.service'
 import {
   assembleLineageSection,
   computeFragmentTrust,
@@ -670,9 +671,12 @@ export const taskContextService = {
     if (criteria.length > 0) return renderCriteriaSection(criteria)
     if (task.status === 'DONE') return ''
     // LUM-431: the nudge is gated by the workspace acceptance-mode toggle.
-    return (await acceptanceNudgeEnabled(taskId))
-      ? renderCriteriaDraftNudge()
-      : ''
+    if (!(await acceptanceNudgeEnabled(taskId))) return ''
+    // LUM-497: the outside view rides along with the nudge — same gate, so a
+    // workspace with acceptance mode off pays nothing (not even the query).
+    return renderCriteriaDraftNudge(
+      await referenceClassService.buildAnchor(taskId)
+    )
   },
 
   /**
@@ -857,7 +861,9 @@ export const taskContextService = {
       criteria.length > 0
         ? criteriaOut
         : showNudge
-          ? renderCriteriaDraftNudge()
+          ? renderCriteriaDraftNudge(
+              await referenceClassService.buildAnchor(taskId)
+            )
           : ''
 
     // LUM-500: linked resources are Tier-2 — each renders as a clean manifest
@@ -1224,7 +1230,9 @@ export const taskContextService = {
       // LUM-431: the draft nudge is gated by the workspace acceptance-mode
       // toggle; the contract body above is always-on.
       if (await acceptanceNudgeEnabled(resolved.id)) {
-        criteriaSection = renderCriteriaDraftNudge()
+        criteriaSection = renderCriteriaDraftNudge(
+          await referenceClassService.buildAnchor(resolved.id)
+        )
       }
     }
 
