@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import { idleDays, IDLE_SEVERE_DAYS } from '@/lib/summaries/signal-view'
 import type { StalledBlockerItem, StalePrItem } from '@/types/summary'
+import { PriorityBadge } from '../PriorityBadge'
 
 interface NeedsAttentionPanelProps {
   highStakes: StalledBlockerItem[]
@@ -81,6 +82,7 @@ export function NeedsAttentionPanel({
                 className='rounded-lg border border-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted'
               >
                 <div className='mb-1.5 flex items-center gap-2'>
+                  <PriorityBadge priority={task.priority} variant='dot' />
                   <span className='text-caption font-mono text-muted-foreground'>
                     {task.identifier}
                   </span>
@@ -102,7 +104,9 @@ export function NeedsAttentionPanel({
             count={stalled.length}
           />
           <div className='overflow-hidden rounded-lg border border-border'>
-            <div className='grid grid-cols-[100px_1fr_110px_90px] gap-3 border-b border-border bg-muted px-4 py-2 text-caption font-mono uppercase tracking-wider text-muted-foreground'>
+            <div className='grid grid-cols-[20px_100px_1fr_110px_90px] gap-3 border-b border-border bg-muted px-4 py-2 text-caption font-mono uppercase tracking-wider text-muted-foreground'>
+              {/* Priority column: the dot is its own label. */}
+              <span aria-hidden />
               <span>{intl.formatMessage({ id: 'signal.col.id' })}</span>
               <span>{intl.formatMessage({ id: 'signal.col.title' })}</span>
               <span>{intl.formatMessage({ id: 'signal.col.updated' })}</span>
@@ -115,8 +119,9 @@ export function NeedsAttentionPanel({
                   key={task.id}
                   type='button'
                   onClick={() => onOpenTask(task.id)}
-                  className='grid w-full grid-cols-[100px_1fr_110px_90px] items-center gap-3 border-b border-border px-4 py-2 text-left last:border-b-0 hover:bg-muted'
+                  className='grid w-full grid-cols-[20px_100px_1fr_110px_90px] items-center gap-3 border-b border-border px-4 py-2 text-left last:border-b-0 hover:bg-muted'
                 >
+                  <PriorityBadge priority={task.priority} variant='dot' />
                   <span className='text-caption font-mono text-muted-foreground'>
                     {task.identifier}
                   </span>

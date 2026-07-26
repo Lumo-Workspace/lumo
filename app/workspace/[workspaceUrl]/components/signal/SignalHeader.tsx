@@ -8,12 +8,8 @@ import type {
   ClearNote,
   SignalView,
 } from '@/lib/summaries/signal-view'
-import type { RiskLevel } from '@/types/summary'
-import { RiskBadge } from '../summary/RiskBadge'
 
 interface SignalHeaderProps {
-  level: RiskLevel | null
-  headline: string
   view: SignalView
 }
 
@@ -86,16 +82,9 @@ function ClearLine({ notes }: { notes: ClearNote[] }) {
   )
 }
 
-export function SignalHeader({ level, headline, view }: SignalHeaderProps) {
+export function SignalHeader({ view }: SignalHeaderProps) {
   return (
     <div className='space-y-4'>
-      <div className='flex items-start gap-4'>
-        <div className='shrink-0 pt-1'>
-          <RiskBadge level={level} />
-        </div>
-        <h1 className='text-heading text-foreground text-pretty'>{headline}</h1>
-      </div>
-
       {view.anomalies.length > 0 && (
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'>
           {view.anomalies.map(card => (

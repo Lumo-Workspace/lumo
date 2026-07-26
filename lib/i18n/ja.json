@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "再実行できませんでした。現在、再実行できる処理が動いていない可能性があります。",
   "signal.title": "シグナル",
   "signal.noSignals": "このプロジェクトのシグナルデータはまだありません。",
-  "signal.headline.fallback": "{n, plural, other {# 件のシグナルに対応が必要です。}}",
   "signal.metric.stalled": "停滞中のタスク",
   "signal.metric.stalled.hint": "7 日以上動きなし",
   "signal.metric.highStakes": "重要度の高い停滞",

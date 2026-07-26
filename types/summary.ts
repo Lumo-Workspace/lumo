@@ -33,7 +33,13 @@ export interface TopBlockerItem {
 export interface StalledBlockerItem extends TopBlockerItem {
   /** ISO string — the serialized shape, as it crosses the API boundary. */
   updatedAt: string
+  /** Drives the priority dot the Signal rows lead with. */
+  priority: TaskPriority
 }
+
+/** Mirrors the Prisma `Priority` enum; declared here so this module stays
+ *  free of workspace-UI imports. */
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 /** An open PR that has been awaiting review past the stale threshold. */
 export interface StalePrItem {

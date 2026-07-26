@@ -112,6 +112,7 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'PR: project detail overview',
             updatedAt: daysAgo(9),
+            priority: 'MEDIUM' as const,
           },
         ],
       })
@@ -149,6 +150,7 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'PR: project detail overview',
             updatedAt: daysAgo(9),
+            priority: 'MEDIUM' as const,
           },
         ],
         stalledTaskIds: [
@@ -157,12 +159,14 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'PR: project detail overview',
             updatedAt: daysAgo(9),
+            priority: 'MEDIUM' as const,
           },
           {
             id: 't2',
             identifier: 'LUM-462',
             title: 'EDA: MERGED signal dispersion',
             updatedAt: daysAgo(19),
+            priority: 'MEDIUM' as const,
           },
         ],
         staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
@@ -198,6 +202,7 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'Stalled',
             updatedAt: daysAgo(8),
+            priority: 'MEDIUM' as const,
           },
         ],
         staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
@@ -220,6 +225,7 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'Only stalled',
             updatedAt: daysAgo(8),
+            priority: 'MEDIUM' as const,
           },
         ],
       })
@@ -234,7 +240,60 @@ describe('ProjectSignalTab', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('uses the generated TL;DR as the headline when one exists', () => {
+  it('leads every stalled row and high-stakes card with its priority dot', () => {
+    setup(
+      makeStats({
+        highStakesTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Urgent one',
+            updatedAt: daysAgo(9),
+            priority: 'URGENT' as const,
+          },
+        ],
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Urgent one',
+            updatedAt: daysAgo(9),
+            priority: 'URGENT' as const,
+          },
+          {
+            id: 't2',
+            identifier: 'LUM-462',
+            title: 'Low one',
+            updatedAt: daysAgo(19),
+            priority: 'LOW' as const,
+          },
+        ],
+      })
+    )
+
+    const table = screen.getByTestId('signal-section-stalled')
+    // One dot per row, each coloured from its own --priority-* token.
+    expect(within(table).getByTestId('priority-dot-urgent')).toHaveClass(
+      'text-priority-urgent'
+    )
+    expect(within(table).getByTestId('priority-dot-low')).toHaveClass(
+      'text-priority-low'
+    )
+
+    // The high-stakes card leads with the same dot.
+    const cards = screen.getByTestId('signal-section-high-stakes')
+    expect(within(cards).getByTestId('priority-dot-urgent')).toBeInTheDocument()
+
+    // The dot carries its label for anyone who can't resolve colour alone.
+    expect(within(table).getByTestId('priority-dot-urgent')).toHaveAttribute(
+      'aria-label',
+      'Urgent'
+    )
+  })
+
+  it('no longer renders a prose headline above the cards', () => {
+    // The design dropped the risk capsule + TL;DR sentence: the cards are the
+    // statement. A stray heading here means the old header crept back.
     setup(
       makeStats({
         stalledTaskIds: [
@@ -243,16 +302,18 @@ describe('ProjectSignalTab', () => {
             identifier: 'LUM-550',
             title: 'Stalled',
             updatedAt: daysAgo(8),
+            priority: 'MEDIUM' as const,
           },
         ],
       }),
       '37 stalled tasks and 3 stale PRs need your attention.'
     )
 
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', {
-        name: '37 stalled tasks and 3 stale PRs need your attention.',
-      })
-    ).toBeInTheDocument()
+      screen.queryByText(
+        '37 stalled tasks and 3 stale PRs need your attention.'
+      )
+    ).not.toBeInTheDocument()
   })
 })

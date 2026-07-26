@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Couldn't retry. There may be nothing running to retry right now.",
   "signal.title": "Signal",
   "signal.noSignals": "No signal data for this project yet.",
-  "signal.headline.fallback": "{n, plural, =0 {Nothing needs your attention right now.} one {# signal needs your attention.} other {# signals need your attention.}}",
   "signal.metric.stalled": "Stalled tasks",
   "signal.metric.stalled.hint": "no activity for 7+ days",
   "signal.metric.highStakes": "High-stakes stalls",

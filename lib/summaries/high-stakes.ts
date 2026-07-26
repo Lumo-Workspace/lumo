@@ -62,22 +62,19 @@ function isUnmeasured(sample: TaskContextSample): boolean {
  * appears in the full stalled table below, it just isn't promoted.
  */
 export function selectHighStakesStalls(input: {
+  /** Each item carries its own priority — the declared-importance axis. */
   stalled: StalledBlockerItem[]
-  /** taskId → task priority, for the declared-importance axis. */
-  priorities: Map<string, string>
   /** taskId → accumulated session context, for the sunk-investment axis. */
   context: Map<string, TaskContextSample>
   config?: HighStakesConfig
 }): StalledBlockerItem[] {
-  const { stalled, priorities, context } = input
+  const { stalled, context } = input
   const config = input.config ?? DEFAULT_HIGH_STAKES_CONFIG
 
   const scored: Array<{ item: StalledBlockerItem; weight: number }> = []
 
   for (const item of stalled) {
-    const isDeclaredImportant = HIGH_STAKES_PRIORITIES.includes(
-      priorities.get(item.id) ?? ''
-    )
+    const isDeclaredImportant = HIGH_STAKES_PRIORITIES.includes(item.priority)
 
     const sample = context.get(item.id)
     const measured = sample && !isUnmeasured(sample) ? sample : null

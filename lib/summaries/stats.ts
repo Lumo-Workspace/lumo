@@ -321,6 +321,7 @@ export async function aggregateProjectStats(
       identifier: `${t.team.identifier}-${t.number}`,
       title: t.title,
       status: t.status,
+      priority: t.priority,
       dueDate: t.dueDate,
       updatedAt: t.updatedAt,
     })),
@@ -347,7 +348,6 @@ export async function aggregateProjectStats(
   // expensive enough that restarting them is a real cost.
   topBlockers.highStakesTaskIds = selectHighStakesStalls({
     stalled: topBlockers.stalledTaskIds,
-    priorities: new Map(stalledCandidates.map(t => [t.id, t.priority])),
     context: await loadTaskContextSamples(
       topBlockers.stalledTaskIds.map(t => t.id)
     ),
@@ -466,6 +466,7 @@ export async function aggregateSprintRisk(
         number: true,
         title: true,
         status: true,
+        priority: true,
         dueDate: true,
         updatedAt: true,
         team: { select: { identifier: true } },
@@ -561,6 +562,7 @@ export async function aggregateSprintRisk(
       identifier: `${t.team.identifier}-${t.number}`,
       title: t.title,
       status: t.status,
+      priority: t.priority,
       dueDate: t.dueDate,
       updatedAt: t.updatedAt,
     })),

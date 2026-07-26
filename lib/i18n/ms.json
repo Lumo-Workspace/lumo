@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Tidak dapat mencuba semula. Mungkin tiada langkah sedang berjalan yang boleh dicuba semula sekarang.",
   "signal.title": "Isyarat",
   "signal.noSignals": "Belum ada data isyarat untuk projek ini.",
-  "signal.headline.fallback": "{n, plural, other {# isyarat perlukan perhatian anda.}}",
   "signal.metric.stalled": "Tugasan terbengkalai",
   "signal.metric.stalled.hint": "tiada aktiviti 7+ hari",
   "signal.metric.highStakes": "Kebuntuan berisiko tinggi",

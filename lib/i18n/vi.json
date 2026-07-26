@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "Không thể chạy lại. Có thể hiện không có bước nào đang chạy để chạy lại.",
   "signal.title": "Tín hiệu",
   "signal.noSignals": "Chưa có dữ liệu tín hiệu cho dự án này.",
-  "signal.headline.fallback": "{n, plural, other {# tín hiệu cần bạn xử lý.}}",
   "signal.metric.stalled": "Công việc đình trệ",
   "signal.metric.stalled.hint": "không có hoạt động từ 7 ngày trở lên",
   "signal.metric.highStakes": "Đình trệ rủi ro cao",

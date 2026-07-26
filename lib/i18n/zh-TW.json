@@ -2255,7 +2255,6 @@
   "planGate.retryFailed": "無法重試。目前可能沒有正在執行、可重試的步驟。",
   "signal.title": "訊號",
   "signal.noSignals": "這個專案尚無訊號資料。",
-  "signal.headline.fallback": "{n, plural, other {# 個訊號需要你處理。}}",
   "signal.metric.stalled": "停滯任務",
   "signal.metric.stalled.hint": "超過 7 天無活動",
   "signal.metric.highStakes": "高風險停滯",
