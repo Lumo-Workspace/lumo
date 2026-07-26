@@ -184,7 +184,12 @@ export function collectTopBlockers(input: {
           t.status !== 'CANCELLED' &&
           t.updatedAt < stalledCutoff
       )
-      .map(t => ({ id: t.id, identifier: t.identifier, title: t.title }))
+      .map(t => ({
+        id: t.id,
+        identifier: t.identifier,
+        title: t.title,
+        updatedAt: t.updatedAt.toISOString(),
+      }))
   )
 
   const failingAgentTaskIds = cap(
@@ -193,17 +198,23 @@ export function collectTopBlockers(input: {
       .map(a => ({ id: a.taskId, identifier: a.identifier, title: a.title }))
   )
 
-  const staleOpenPrNumbers = cap(
-    prs
-      .filter(p => p.state === 'open' && p.createdAt < stalePrCutoff)
-      .map(p => p.number)
+  const stalePrs = cap(
+    prs.filter(p => p.state === 'open' && p.createdAt < stalePrCutoff)
   )
 
   return {
     overdueTaskIds,
     stalledTaskIds,
     failingAgentTaskIds,
-    staleOpenPrNumbers,
+    // Bare numbers stay for published CLI versions; the richer list rides along.
+    staleOpenPrNumbers: stalePrs.map(p => p.number),
+    staleOpenPrs: stalePrs.map(p => ({
+      number: p.number,
+      openedAt: p.createdAt.toISOString(),
+    })),
+    // Filled in by the caller, which has the per-task session context that
+    // decides which stalled tasks are expensive enough to promote.
+    highStakesTaskIds: [],
   }
 }
 

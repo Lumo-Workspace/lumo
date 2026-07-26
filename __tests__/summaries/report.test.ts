@@ -34,6 +34,8 @@ function makeStats(): TaskSummaryStats {
       stalledTaskIds: [],
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
+      staleOpenPrs: [],
+      highStakesTaskIds: [],
     },
   }
 }
