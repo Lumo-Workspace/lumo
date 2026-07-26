@@ -17,6 +17,8 @@ describe('collectTopBlockers', () => {
       stalledTaskIds: [],
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
+      staleOpenPrs: [],
+      highContextTaskIds: [],
     })
   })
 
@@ -92,7 +94,12 @@ describe('collectTopBlockers', () => {
       config: DEFAULT_RISK_CONFIG, // stalledDays = 7
     })
     expect(result.stalledTaskIds).toEqual([
-      { id: 'a', identifier: 'LUM-4', title: 'Stalled task' },
+      {
+        id: 'a',
+        identifier: 'LUM-4',
+        title: 'Stalled task',
+        updatedAt: '2026-04-01T12:00:00.000Z',
+      },
     ])
   })
 

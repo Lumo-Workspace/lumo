@@ -47,6 +47,8 @@ function makeStats(
       stalledTaskIds: [],
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
+      staleOpenPrs: [],
+      highContextTaskIds: [],
     },
     ...overrides,
   }

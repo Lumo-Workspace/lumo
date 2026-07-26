@@ -14,6 +14,7 @@ import {
   type RiskConfig,
   type RiskSignals,
 } from './risk'
+import { selectHighContextTasks, type TaskContextSample } from './high-context'
 
 const EMPTY_RISK: RiskAssessment = { level: 'healthy', score: 0, reasons: [] }
 const EMPTY_BLOCKERS: TopBlockers = {
@@ -21,6 +22,8 @@ const EMPTY_BLOCKERS: TopBlockers = {
   stalledTaskIds: [],
   failingAgentTaskIds: [],
   staleOpenPrNumbers: [],
+  staleOpenPrs: [],
+  highContextTaskIds: [],
 }
 
 export async function aggregateProjectStats(
@@ -333,15 +336,71 @@ export async function aggregateProjectStats(
 
   // Re-populate overdue blockers from the overdue query (collectTopBlockers
   // only saw the stalled subset)
-  topBlockers.overdueTaskIds = overdueTasks
-    .slice(0, 10)
-    .map(t => ({
-      id: t.id,
-      identifier: `${t.team.identifier}-${t.number}`,
-      title: t.title,
-    }))
+  topBlockers.overdueTaskIds = overdueTasks.slice(0, 10).map(t => ({
+    id: t.id,
+    identifier: `${t.team.identifier}-${t.number}`,
+    title: t.title,
+  }))
+
+  // Promote the stalled tasks that already swallowed a lot of agent context.
+  topBlockers.highContextTaskIds = selectHighContextTasks({
+    stalled: topBlockers.stalledTaskIds,
+    context: await loadTaskContextSamples(
+      topBlockers.stalledTaskIds.map(t => t.id)
+    ),
+  })
 
   return { ...baseStats, risk, topBlockers }
+}
+
+/**
+ * Aggregate per-task agent context across the task's sessions.
+ *
+ * Token columns stay null until a STOP hook carries usage and historical rows
+ * are never backfilled, so an all-null sum is reported as `null` ("never
+ * measured") rather than collapsed to 0 — a task nobody measured must not read
+ * as a task that cost nothing.
+ */
+async function loadTaskContextSamples(
+  taskIds: string[]
+): Promise<Map<string, TaskContextSample>> {
+  if (taskIds.length === 0) return new Map()
+
+  const groups = await prisma.session.groupBy({
+    by: ['taskId'],
+    where: { taskId: { in: taskIds } },
+    _count: { _all: true },
+    _sum: {
+      loopCount: true,
+      inputTokens: true,
+      outputTokens: true,
+      cacheReadTokens: true,
+      cacheCreationTokens: true,
+    },
+  })
+
+  const samples = new Map<string, TaskContextSample>()
+  for (const g of groups) {
+    if (!g.taskId) continue
+    const sums = g._sum
+    const tokenParts = [
+      sums.inputTokens,
+      sums.outputTokens,
+      sums.cacheReadTokens,
+      sums.cacheCreationTokens,
+    ]
+    const totalTokens = tokenParts.every(p => p === null)
+      ? null
+      : tokenParts.reduce<number>((acc, p) => acc + (p ?? 0), 0)
+
+    samples.set(g.taskId, {
+      taskId: g.taskId,
+      sessionCount: g._count._all,
+      loopCount: sums.loopCount,
+      totalTokens,
+    })
+  }
+  return samples
 }
 
 /**

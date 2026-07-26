@@ -24,6 +24,8 @@ function statsWithOverdue(total: number, overdue: number): TaskSummaryStats {
       stalledTaskIds: [],
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
+      staleOpenPrs: [],
+      highContextTaskIds: [],
     },
   }
 }

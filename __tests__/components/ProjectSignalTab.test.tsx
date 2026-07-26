@@ -1,0 +1,232 @@
+/** @jest-environment jsdom */
+
+// react-intl ships pure ESM and can't be transformed by jest without special
+// config, so mock it like the other component tests here — reading the real
+// en.json so copy assertions resolve to shipped text.
+jest.mock('react-intl', () => {
+  const en = require('@/lib/i18n/en.json') as Record<string, string>
+  const format = (
+    { id, defaultMessage }: { id: string; defaultMessage?: string },
+    values?: Record<string, unknown>
+  ) => {
+    const template = en[id] ?? defaultMessage ?? id
+    if (!values) return template
+    return template.replace(/\{(\w+)(?:,[^}]*)?\}/g, (m, key) =>
+      values[key] != null ? String(values[key]) : m
+    )
+  }
+  return {
+    useIntl: () => ({
+      locale: 'en',
+      formatMessage: format,
+      formatDate: (d: string | Date) =>
+        new Date(d).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        }),
+    }),
+  }
+})
+
+const mockStats = jest.fn()
+const mockReport = jest.fn()
+
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useRealtimeStats', () => ({
+  useProjectRealtimeStats: () => mockStats(),
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useLatestReport', () => ({
+  useProjectLatestReport: () => mockReport(),
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useReportRefresh', () => ({
+  useReportRefresh: () => ({
+    state: 'idle',
+    cooldownSeconds: 0,
+    trigger: jest.fn(),
+  }),
+}))
+
+import { render, screen, within } from '@testing-library/react'
+import { ProjectSignalTab } from '@/app/workspace/[workspaceUrl]/components/signal/ProjectSignalTab'
+import type { TaskSummaryStats, TopBlockers } from '@/types/summary'
+
+const DAY = 24 * 60 * 60 * 1000
+const daysAgo = (d: number) => new Date(Date.now() - d * DAY).toISOString()
+
+const emptyBlockers: TopBlockers = {
+  overdueTaskIds: [],
+  stalledTaskIds: [],
+  failingAgentTaskIds: [],
+  staleOpenPrNumbers: [],
+  staleOpenPrs: [],
+  highContextTaskIds: [],
+}
+
+function makeStats(
+  blockers: Partial<TopBlockers> = {},
+  over: Partial<TaskSummaryStats> = {}
+): TaskSummaryStats {
+  return {
+    totalTasks: 638,
+    statusDistribution: { DONE: 595 },
+    priorityDistribution: {},
+    overdueTasks: { count: 0, taskIds: [] },
+    memberWorkload: [],
+    completionTrend: [],
+    avgCompletionTime: null,
+    subtaskCompletionRate: null,
+    agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
+    prStats: { total: 0, merged: 0, open: 0 },
+    risk: { level: 'watch', score: 40, reasons: [] },
+    topBlockers: { ...emptyBlockers, ...blockers },
+    ...over,
+  }
+}
+
+function setup(stats: TaskSummaryStats | null, tldr: string | null = null) {
+  mockStats.mockReturnValue({ stats, loading: false, error: null })
+  mockReport.mockReturnValue({
+    tldr,
+    report: null,
+    generatedAt: null,
+    loading: false,
+    refetch: jest.fn(),
+  })
+  return render(<ProjectSignalTab projectId='p1' />)
+}
+
+beforeEach(() => {
+  mockStats.mockReset()
+  mockReport.mockReset()
+})
+
+describe('ProjectSignalTab', () => {
+  it('collapses non-firing signals into the all-clear line', () => {
+    // Only stalled fires. The other three tracked signals are quiet and must
+    // not take up a metric card — they belong on the single green-check row.
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'PR: project detail overview',
+            updatedAt: daysAgo(9),
+          },
+        ],
+      })
+    )
+
+    const card = screen.getByTestId('signal-card-stalled')
+    expect(within(card).getByText('Stalled tasks')).toBeInTheDocument()
+    expect(within(card).getByText('1')).toBeInTheDocument()
+
+    // Quiet signals appear as clear notes, never as cards.
+    expect(screen.getByTestId('signal-clear-stalePrs')).toBeInTheDocument()
+    expect(screen.getByTestId('signal-clear-overdue')).toBeInTheDocument()
+    expect(screen.getByTestId('signal-clear-highContext')).toBeInTheDocument()
+    expect(screen.queryByTestId('signal-card-stalePrs')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('signal-card-overdue')).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('signal-card-highContext')
+    ).not.toBeInTheDocument()
+
+    // The standing completion fact rides along on the same line.
+    expect(
+      within(screen.getByTestId('signal-clear-completion')).getByText(
+        '595 / 638 done'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Everything else is quiet.')).toBeInTheDocument()
+  })
+
+  it('renders high-context cards, the stalled table and stale PR cards', () => {
+    setup(
+      makeStats({
+        highContextTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'PR: project detail overview',
+            updatedAt: daysAgo(9),
+          },
+        ],
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'PR: project detail overview',
+            updatedAt: daysAgo(9),
+          },
+          {
+            id: 't2',
+            identifier: 'LUM-462',
+            title: 'EDA: MERGED signal dispersion',
+            updatedAt: daysAgo(19),
+          },
+        ],
+        staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
+      })
+    )
+
+    const highContext = screen.getByTestId('signal-section-high-context')
+    expect(within(highContext).getByText('9d idle')).toBeInTheDocument()
+
+    const stalled = screen.getByTestId('signal-section-stalled')
+    // The four designed columns, and a row per stalled task.
+    for (const col of ['ID', 'Title', 'Updated', 'Idle']) {
+      expect(within(stalled).getByText(col)).toBeInTheDocument()
+    }
+    expect(within(stalled).getByText('LUM-462')).toBeInTheDocument()
+    expect(within(stalled).getByText('19d')).toBeInTheDocument()
+
+    const prs = screen.getByTestId('signal-section-stale-prs')
+    expect(within(prs).getByText('#16')).toBeInTheDocument()
+    expect(within(prs).getByText('in review 6d')).toBeInTheDocument()
+  })
+
+  it('omits a section entirely when its signal is empty', () => {
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Only stalled',
+            updatedAt: daysAgo(8),
+          },
+        ],
+      })
+    )
+
+    expect(screen.getByTestId('signal-section-stalled')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('signal-section-high-context')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('signal-section-stale-prs')
+    ).not.toBeInTheDocument()
+  })
+
+  it('uses the generated TL;DR as the headline when one exists', () => {
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Stalled',
+            updatedAt: daysAgo(8),
+          },
+        ],
+      }),
+      '37 stalled tasks and 3 stale PRs need your attention.'
+    )
+
+    expect(
+      screen.getByRole('heading', {
+        name: '37 stalled tasks and 3 stale PRs need your attention.',
+      })
+    ).toBeInTheDocument()
+  })
+})

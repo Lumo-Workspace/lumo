@@ -11,7 +11,7 @@ import {
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
-import { ProjectSummaryTab } from '../summary/ProjectSummaryTab'
+import { ProjectSignalTab } from '../signal/ProjectSignalTab'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
@@ -83,7 +83,7 @@ export function ProjectDetailPage({
   workspaceUrl,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<
-    'overview' | 'milestones' | 'tasks' | 'summary' | 'memory'
+    'overview' | 'milestones' | 'tasks' | 'signal' | 'memory'
   >('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
@@ -128,6 +128,16 @@ export function ProjectDetailPage({
     [members]
   )
 
+  // The Signal tab hands back a task id (that is all its blocker rows carry);
+  // resolve it to the task the detail pane expects.
+  const openTaskById = useCallback(
+    (taskId: string) => {
+      const task = tasks.find(t => t.id === taskId)
+      if (task) onTaskClick(task)
+    },
+    [tasks, onTaskClick]
+  )
+
   const filteredTasks = useMemo(() => {
     let result = filterCompletedTasks(tasks, displayOptions.completedFilter)
     if (!displayOptions.showSubtasks) {
@@ -166,25 +176,25 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(
-          ['overview', 'milestones', 'tasks', 'summary', 'memory'] as const
-        ).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
-              tab === t
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            {intl.formatMessage({
-              id: `project.tab.${t}`,
-              defaultMessage: t.charAt(0).toUpperCase() + t.slice(1),
-            })}
-          </button>
-        ))}
+        {(['overview', 'milestones', 'tasks', 'signal', 'memory'] as const).map(
+          t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                'px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
+                tab === t
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              )}
+            >
+              {intl.formatMessage({
+                id: `project.tab.${t}`,
+                defaultMessage: t.charAt(0).toUpperCase() + t.slice(1),
+              })}
+            </button>
+          )
+        )}
       </div>
 
       {/* ── Overview tab ── */}
@@ -208,10 +218,10 @@ export function ProjectDetailPage({
         </div>
       )}
 
-      {/* ── Summary tab ── */}
-      {tab === 'summary' && (
+      {/* ── Signal tab ── */}
+      {tab === 'signal' && (
         <div className='flex-1 overflow-y-auto'>
-          <ProjectSummaryTab projectId={project.id} />
+          <ProjectSignalTab projectId={project.id} onOpenTask={openTaskById} />
         </div>
       )}
 
