@@ -6,9 +6,6 @@ import { Activity } from 'lucide-react'
 import { useNow } from '@/hooks/use-now'
 import { buildSignalView } from '@/lib/summaries/signal-view'
 import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
-import { useProjectLatestReport } from '../../hooks/useLatestReport'
-import { useReportRefresh } from '../../hooks/useReportRefresh'
-import { RefreshReportButton } from '../summary/RefreshReportButton'
 import { SignalHeader } from './SignalHeader'
 import { NeedsAttentionPanel } from './NeedsAttentionPanel'
 import {
@@ -38,20 +35,9 @@ export function ProjectSignalTab({
     error: statsError,
   } = useProjectRealtimeStats(projectId)
 
-  // The page no longer renders a prose headline — the cards are the statement.
-  // The report is still fetched so Refresh has something to invalidate.
-  const { loading: reportLoading, refetch: refetchReport } =
-    useProjectLatestReport(projectId)
-
-  const {
-    state: refreshState,
-    cooldownSeconds,
-    trigger: triggerRefresh,
-  } = useReportRefresh({ type: 'project', projectId }, refetchReport)
-
   const view = useMemo(() => (stats ? buildSignalView(stats) : null), [stats])
 
-  if (statsLoading && reportLoading && !stats) {
+  if (statsLoading && !stats) {
     return (
       <div className='flex items-center justify-center py-16'>
         <p className='text-body text-muted-foreground'>
@@ -88,14 +74,6 @@ export function ProjectSignalTab({
 
   return (
     <div className='space-y-6 px-4 py-6 md:px-8'>
-      <div className='flex justify-end'>
-        <RefreshReportButton
-          state={refreshState}
-          cooldownSeconds={cooldownSeconds}
-          onRefresh={triggerRefresh}
-        />
-      </div>
-
       <SignalHeader view={view} />
 
       <NeedsAttentionPanel

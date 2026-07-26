@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { idleDays, IDLE_SEVERE_DAYS } from '@/lib/summaries/signal-view'
 import type { StalledBlockerItem, StalePrItem } from '@/types/summary'
@@ -65,6 +66,14 @@ export function NeedsAttentionPanel({
   const intl = useIntl()
   const daysSince = (iso: string) => (now === null ? null : idleDays(iso, now))
 
+  // High-stakes stalls are a *subset* of the stalled set, promoted above the
+  // table. Listing them again below would make the same task read as two
+  // separate problems, and pad the table with rows the eye already passed.
+  // Deduped here rather than by the caller: this component owns both sections,
+  // so it is the only place that can know a row was already shown.
+  const promotedIds = new Set(highStakes.map(t => t.id))
+  const remainingStalled = stalled.filter(t => !promotedIds.has(t.id))
+
   return (
     <div className='flex flex-col gap-6'>
       {highStakes.length > 0 && (
@@ -97,11 +106,11 @@ export function NeedsAttentionPanel({
         </section>
       )}
 
-      {stalled.length > 0 && (
+      {remainingStalled.length > 0 && (
         <section data-testid='signal-section-stalled'>
           <SectionHeading
             labelKey='signal.section.stalled'
-            count={stalled.length}
+            count={remainingStalled.length}
           />
           <div className='overflow-hidden rounded-lg border border-border'>
             <div className='grid grid-cols-[20px_100px_1fr_110px_90px] gap-3 border-b border-border bg-muted px-4 py-2 text-caption font-mono uppercase tracking-wider text-muted-foreground'>
@@ -112,7 +121,7 @@ export function NeedsAttentionPanel({
               <span>{intl.formatMessage({ id: 'signal.col.updated' })}</span>
               <span>{intl.formatMessage({ id: 'signal.col.idle' })}</span>
             </div>
-            {stalled.map(task => {
+            {remainingStalled.map(task => {
               const days = daysSince(task.updatedAt)
               return (
                 <button
@@ -166,9 +175,12 @@ export function NeedsAttentionPanel({
             {stalePrs.map(pr => {
               const days = daysSince(pr.openedAt)
               return (
-                <div
+                <a
                   key={pr.number}
-                  className='flex items-center gap-2.5 rounded-lg border border-border bg-card px-4 py-3'
+                  href={pr.url}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='flex items-center gap-2.5 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted'
                 >
                   <span className='text-body-strong font-mono text-foreground'>
                     #{pr.number}
@@ -181,7 +193,11 @@ export function NeedsAttentionPanel({
                           { d: days }
                         )}
                   </span>
-                </div>
+                  <ArrowUpRight
+                    className='ml-auto size-3.5 text-muted-foreground'
+                    aria-hidden
+                  />
+                </a>
               )
             })}
           </div>

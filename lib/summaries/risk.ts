@@ -158,7 +158,7 @@ export function collectTopBlockers(input: {
     title: string
     agentStatus: string | null
   }>
-  prs: Array<{ number: number; state: string; createdAt: Date }>
+  prs: Array<{ number: number; state: string; createdAt: Date; url: string }>
   now: Date
   config: RiskConfig
 }): TopBlockers {
@@ -214,6 +214,7 @@ export function collectTopBlockers(input: {
     staleOpenPrs: stalePrs.map(p => ({
       number: p.number,
       openedAt: p.createdAt.toISOString(),
+      url: p.url,
     })),
     // Filled in by the caller, which has the per-task session context that
     // decides which stalled tasks are expensive enough to promote.

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api-client'
 import { API } from '../constants'
 import { queryKeys } from '@/lib/query/keys'
-import type { ApiProjectSummary, ApiWorkspaceSummary } from '@/types/summary'
+import type { ApiWorkspaceSummary } from '@/types/summary'
 
 interface UseSummaryReturn<T> {
   summary: T | null
@@ -25,49 +25,6 @@ function isValidSummary(v: unknown): boolean {
     typeof (v as Record<string, unknown>).generatedAt === 'string' &&
     !isNaN(Date.parse((v as Record<string, unknown>).generatedAt as string))
   )
-}
-
-export function useProjectSummary(
-  projectId: string
-): UseSummaryReturn<ApiProjectSummary> {
-  const query = useQuery<ApiProjectSummary | null>({
-    queryKey: queryKeys.summary.project(projectId),
-    queryFn: async () => {
-      const data = await apiFetch<{
-        summary?: ApiProjectSummary
-        summaries?: ApiProjectSummary[]
-      }>(API.summaries.project(projectId))
-      const latest = data.summary ?? data.summaries?.[0] ?? null
-      return isValidSummary(latest) ? (latest as ApiProjectSummary) : null
-    },
-    enabled: !!projectId,
-  })
-
-  const [history, setHistory] = useState<ApiProjectSummary[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-
-  const loadHistory = useCallback(async () => {
-    setHistoryLoading(true)
-    try {
-      const data = await apiFetch<{ summaries?: ApiProjectSummary[] }>(
-        `${API.summaries.project(projectId)}?limit=30`
-      )
-      setHistory(data.summaries ?? [])
-    } catch {
-      // silently ignore history load failure
-    } finally {
-      setHistoryLoading(false)
-    }
-  }, [projectId])
-
-  return {
-    summary: query.data ?? null,
-    history,
-    loading: query.isPending && !!projectId,
-    error: query.error ? 'Failed to load summary' : null,
-    loadHistory,
-    historyLoading,
-  }
 }
 
 export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {

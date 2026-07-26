@@ -46,6 +46,8 @@ export interface StalePrItem {
   number: number
   /** ISO string — when the PR was opened, for the "in review Nd" read-out. */
   openedAt: string
+  /** GitHub URL, so a stale PR is one click from being unblocked. */
+  url: string
 }
 
 export interface TopBlockers {
