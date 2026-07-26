@@ -89,11 +89,9 @@ function StatusCell({
 }) {
   return (
     <td className='py-4 px-6 border-b border-border'>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center justify-center gap-2'>
         <div className={`size-2 rounded-full ${STATUS_DOT_CLS[status]}`} />
-        <span className='text-xs text-foreground'>
-          {count}
-        </span>
+        <span className='text-xs text-foreground'>{count}</span>
       </div>
     </td>
   )
@@ -360,7 +358,7 @@ export function ProjectsPage({
           <table className='w-full border-collapse'>
             <thead className='sticky top-0 bg-card z-sticky'>
               <tr>
-                <th className='py-3 px-4 w-10'>
+                <th className='py-3 px-4 w-10 text-center'>
                   <Checkbox
                     checked={headerCheckboxState}
                     onCheckedChange={toggleAll}
@@ -374,7 +372,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'projects.column.name' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6'
+                  className='text-center py-3 px-6'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.name',
                     defaultMessage:
@@ -386,7 +384,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'projects.column.tasks' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-24'
+                  className='text-center py-3 px-6 w-24'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.tasks',
                     defaultMessage: 'Total task count in this project.',
@@ -397,7 +395,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'projects.column.todo' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-24'
+                  className='text-center py-3 px-6 w-24'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.todo',
                     defaultMessage: 'Tasks not yet started.',
@@ -410,7 +408,7 @@ export function ProjectsPage({
                   })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-28'
+                  className='text-center py-3 px-6 w-28'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.inProgress',
                     defaultMessage: 'Tasks currently being worked on.',
@@ -421,7 +419,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'projects.column.inReview' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-28'
+                  className='text-center py-3 px-6 w-28'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.inReview',
                     defaultMessage: 'Tasks waiting for review.',
@@ -432,7 +430,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'projects.column.done' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-24'
+                  className='text-center py-3 px-6 w-24'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.done',
                     defaultMessage: 'Completed tasks.',
@@ -446,7 +444,7 @@ export function ProjectsPage({
                   })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-32'
+                  className='text-center py-3 px-6 w-32'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.owner',
                     defaultMessage:
@@ -458,7 +456,7 @@ export function ProjectsPage({
                   label={intl.formatMessage({ id: 'common.updated' })}
                   sort={sort}
                   onToggle={toggle}
-                  className='text-right py-3 px-6'
+                  className='text-center py-3 px-6'
                   tooltip={intl.formatMessage({
                     id: 'projects.tooltip.updated',
                     defaultMessage: 'Most recent activity timestamp.',
@@ -474,7 +472,7 @@ export function ProjectsPage({
                   className='hover:bg-muted transition-colors cursor-pointer group'
                 >
                   <td
-                    className='py-4 px-4 border-b border-border'
+                    className='py-4 px-4 border-b border-border text-center'
                     onClick={e => e.stopPropagation()}
                   >
                     <Checkbox
@@ -487,7 +485,7 @@ export function ProjectsPage({
                     />
                   </td>
                   <td className='py-4 px-6 border-b border-border'>
-                    <div className='flex items-center gap-3'>
+                    <div className='flex items-center justify-center gap-3'>
                       <span className='font-medium text-foreground group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                         {project.name}
                       </span>
@@ -498,7 +496,7 @@ export function ProjectsPage({
                       )}
                     </div>
                   </td>
-                  <td className='py-4 px-6 border-b border-border'>
+                  <td className='py-4 px-6 border-b border-border text-center'>
                     <span className='px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-muted-foreground'>
                       {project._count.tasks}
                     </span>
@@ -513,11 +511,11 @@ export function ProjectsPage({
                     status='IN_REVIEW'
                   />
                   <StatusCell count={project.doneCount} status='DONE' />
-                  <td className='py-4 px-6 border-b border-border text-xs text-foreground'>
+                  <td className='py-4 px-6 border-b border-border text-xs text-foreground text-center'>
                     {project.owner?.name ?? '—'}
                   </td>
-                  <td className='py-4 px-6 text-right text-muted-foreground text-xs border-b border-border'>
-                    <div className='flex items-center justify-end gap-2'>
+                  <td className='py-4 px-6 text-center text-muted-foreground text-xs border-b border-border'>
+                    <div className='flex items-center justify-center gap-2'>
                       <span>
                         {new Date(project.updatedAt).toLocaleDateString()}
                       </span>
