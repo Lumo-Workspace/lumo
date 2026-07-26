@@ -6,6 +6,7 @@ import {
   type ProjectRiskOverride,
 } from '@/lib/summaries/stats'
 import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
+import { reconcileStaleProjectPrs } from './stale-pr-reconcile.service'
 import type {
   RiskAssessment,
   TaskSummaryStats,
@@ -28,6 +29,13 @@ export async function getProjectStats(
     throw Object.assign(new Error('Workspace not found'), { status: 404 })
 
   const config = resolveEffectiveRiskConfig(workspace, project)
+
+  // Correct any drifted PR state before aggregating, so a PR that was merged
+  // without its webhook landing doesn't get counted (and shown) as a stale PR
+  // awaiting review. Fail-soft and bounded — see the service for why this runs
+  // on the read path rather than only in a background job.
+  await reconcileStaleProjectPrs(projectId, workspaceId, config.stalePrDays)
+
   return aggregateProjectStats(projectId, config)
 }
 
