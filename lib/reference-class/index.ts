@@ -17,3 +17,9 @@ export {
   labelFor,
   selectReflectionPrompt,
 } from './copy'
+
+export {
+  renderReferenceClassAnchor,
+  ANCHOR_HEADING,
+  ANCHOR_MAX_LINES,
+} from './render'
