@@ -16,6 +16,15 @@ interface DetailLayoutProps {
    * matching the task detail sidebar. Default keeps the floating-gap layout.
    */
   flushSidebar?: boolean
+  /**
+   * Let the single-column body scroll vertically instead of pinning it to the
+   * viewport. Use it when content *above* the main pane can grow unbounded —
+   * the sprint detail info block, whose Team performance table expands per
+   * member and per task. Without it `overflow-hidden` clips that content and
+   * everything below it becomes unreachable. Ignored when a sidebar shows
+   * (the two-column body already scrolls its columns).
+   */
+  scrollBody?: boolean
   /** Main content area. */
   children: ReactNode
 }
@@ -35,6 +44,7 @@ export function DetailLayout({
   sidebar,
   sidebarCollapsed = false,
   flushSidebar = false,
+  scrollBody = false,
   children,
 }: DetailLayoutProps) {
   const showSidebar = sidebar != null && !sidebarCollapsed
@@ -49,7 +59,9 @@ export function DetailLayout({
   // minmax(0,1fr)`, pinning the row to the container height so each column
   // scrolls on its own — matching the project task board.
   const bodyClass = !showSidebar
-    ? 'flex-1 min-h-0 flex flex-col overflow-hidden'
+    ? scrollBody
+      ? 'flex-1 min-h-0 flex flex-col overflow-y-auto'
+      : 'flex-1 min-h-0 flex flex-col overflow-hidden'
     : flushSidebar
       ? 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:grid-rows-1 lg:overflow-hidden'
       : 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:grid-rows-1 lg:gap-4 lg:pr-4 lg:overflow-hidden'

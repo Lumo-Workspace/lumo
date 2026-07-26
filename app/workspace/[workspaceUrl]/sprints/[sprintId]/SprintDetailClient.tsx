@@ -162,6 +162,7 @@ export function SprintDetailClient({
 
   return (
     <DetailLayout
+      scrollBody
       breadcrumb={
         <div className='flex items-center gap-1.5'>
           {breadcrumb(sprint.name)}
@@ -172,7 +173,11 @@ export function SprintDetailClient({
         </div>
       }
     >
-      {/* Sprint info — the relocated sidebar content — sits above the board. */}
+      {/*
+        Sprint info — the relocated sidebar content — sits above the board and
+        grows unbounded (Team performance expands per member and per task), so
+        the body scrolls (`scrollBody`) rather than clipping it.
+      */}
       <div className='flex shrink-0 flex-col gap-4 px-6 pb-2 pt-5'>
         <SprintStatCards
           sprint={sprint}
@@ -185,7 +190,12 @@ export function SprintDetailClient({
         />
         <SprintTeamPerformance sprintId={sprint.id} members={members} />
       </div>
-      <div className='flex min-h-0 flex-1 flex-col'>{workspace}</div>
+      {/*
+        `flex-1` still fills the viewport when the info block is short; the
+        `min-h` floor keeps the board/list usable (its columns scroll
+        internally) once a tall info block pushes it past the fold.
+      */}
+      <div className='flex min-h-[480px] flex-1 flex-col'>{workspace}</div>
     </DetailLayout>
   )
 }

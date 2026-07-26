@@ -118,6 +118,20 @@ test('no-sidebar body is a flex column so the content fills/scrolls', () => {
   expect(body.className).toContain('overflow-hidden')
 })
 
+test('scrollBody swaps the no-sidebar clip for a vertical scroller', () => {
+  // Opt-in for pages whose content *above* the main pane grows unbounded (the
+  // sprint detail info block): `overflow-hidden` would clip it with no way to
+  // reach what fell past the fold.
+  const { container } = render(
+    <DetailLayout breadcrumb={<span>BC</span>} scrollBody>
+      <span>BODY</span>
+    </DetailLayout>
+  )
+  const body = container.querySelector('div.flex-1.min-h-0')!
+  expect(body.className).toContain('overflow-y-auto')
+  expect(body.className).not.toContain('overflow-hidden')
+})
+
 test('renders actions slot', () => {
   render(
     <DetailLayout breadcrumb={<span>BC</span>} actions={<span>ACT</span>}>
