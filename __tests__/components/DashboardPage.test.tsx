@@ -100,7 +100,7 @@ const stats: WorkspaceSummaryStats = {
     failingAgentTaskIds: [],
     staleOpenPrNumbers: [],
     staleOpenPrs: [],
-    highContextTaskIds: [],
+    highStakesTaskIds: [],
   },
   projectBreakdown: [],
 }

@@ -35,7 +35,7 @@ function makeStats(): TaskSummaryStats {
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
       staleOpenPrs: [],
-      highContextTaskIds: [],
+      highStakesTaskIds: [],
     },
   }
 }

@@ -1,7 +1,7 @@
 import type { TaskSummaryStats } from '@/types/summary'
 
 /** The signals the Signal tab tracks, in the order they are surfaced. */
-export type SignalKey = 'stalled' | 'highContext' | 'stalePrs' | 'overdue'
+export type SignalKey = 'stalled' | 'highStakes' | 'stalePrs' | 'overdue'
 
 export type SignalTone = 'danger' | 'warning'
 
@@ -24,7 +24,7 @@ export interface SignalView {
 
 const TONES: Record<SignalKey, SignalTone> = {
   stalled: 'danger',
-  highContext: 'warning',
+  highStakes: 'warning',
   stalePrs: 'warning',
   overdue: 'danger',
 }
@@ -40,12 +40,12 @@ const TONES: Record<SignalKey, SignalTone> = {
 export function buildSignalView(stats: TaskSummaryStats): SignalView {
   const counts: Record<SignalKey, number> = {
     stalled: stats.topBlockers.stalledTaskIds.length,
-    highContext: stats.topBlockers.highContextTaskIds.length,
+    highStakes: stats.topBlockers.highStakesTaskIds.length,
     stalePrs: stats.topBlockers.staleOpenPrs.length,
     overdue: stats.overdueTasks.count,
   }
 
-  const order: SignalKey[] = ['stalled', 'highContext', 'stalePrs', 'overdue']
+  const order: SignalKey[] = ['stalled', 'highStakes', 'stalePrs', 'overdue']
 
   const anomalies: AnomalyCard[] = []
   const clear: ClearNote[] = []

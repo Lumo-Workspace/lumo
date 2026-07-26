@@ -112,7 +112,7 @@ export function ProjectSignalTab({
       />
 
       <NeedsAttentionPanel
-        highContext={topBlockers.highContextTaskIds}
+        highStakes={topBlockers.highStakesTaskIds}
         stalled={topBlockers.stalledTaskIds}
         stalePrs={topBlockers.staleOpenPrs}
         now={now}

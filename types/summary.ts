@@ -54,11 +54,12 @@ export interface TopBlockers {
   staleOpenPrNumbers: number[]
   staleOpenPrs: StalePrItem[]
   /**
-   * Stalled tasks that also carry heavy accumulated agent context — expensive
-   * to abandon, expensive to restart. A subset of `stalledTaskIds`, surfaced
-   * separately so the costly ones are visible above the full table.
+   * Stalled tasks whose stalling actually costs something — either declared
+   * important (URGENT/HIGH priority) or already carrying heavy accumulated
+   * agent context. A subset of `stalledTaskIds`, surfaced separately so the
+   * ones that matter stay visible above the full table.
    */
-  highContextTaskIds: StalledBlockerItem[]
+  highStakesTaskIds: StalledBlockerItem[]
 }
 
 export interface TaskSummaryStats {

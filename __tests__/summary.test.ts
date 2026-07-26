@@ -28,7 +28,7 @@ describe('TaskSummaryStats', () => {
         failingAgentTaskIds: [],
         staleOpenPrNumbers: [],
         staleOpenPrs: [],
-        highContextTaskIds: [],
+        highStakesTaskIds: [],
       },
     }
     expect(stats.totalTasks).toBe(10)
@@ -55,7 +55,7 @@ describe('TaskSummaryStats', () => {
         failingAgentTaskIds: [],
         staleOpenPrNumbers: [],
         staleOpenPrs: [],
-        highContextTaskIds: [],
+        highStakesTaskIds: [],
       },
     }
     expect(stats.avgCompletionTime).toBeNull()
@@ -89,7 +89,7 @@ describe('ApiProjectSummary', () => {
           failingAgentTaskIds: [],
           staleOpenPrNumbers: [],
           staleOpenPrs: [],
-          highContextTaskIds: [],
+          highStakesTaskIds: [],
         },
       },
     }
@@ -131,7 +131,7 @@ describe('ApiWorkspaceSummary', () => {
           failingAgentTaskIds: [],
           staleOpenPrNumbers: [],
           staleOpenPrs: [],
-          highContextTaskIds: [],
+          highStakesTaskIds: [],
         },
         projectBreakdown: [
           {

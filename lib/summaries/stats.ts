@@ -14,7 +14,7 @@ import {
   type RiskConfig,
   type RiskSignals,
 } from './risk'
-import { selectHighContextTasks, type TaskContextSample } from './high-context'
+import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
 
 const EMPTY_RISK: RiskAssessment = { level: 'healthy', score: 0, reasons: [] }
 const EMPTY_BLOCKERS: TopBlockers = {
@@ -23,7 +23,7 @@ const EMPTY_BLOCKERS: TopBlockers = {
   failingAgentTaskIds: [],
   staleOpenPrNumbers: [],
   staleOpenPrs: [],
-  highContextTaskIds: [],
+  highStakesTaskIds: [],
 }
 
 export async function aggregateProjectStats(
@@ -134,6 +134,7 @@ export async function aggregateProjectStats(
         number: true,
         title: true,
         status: true,
+        priority: true,
         dueDate: true,
         updatedAt: true,
         team: { select: { identifier: true } },
@@ -342,9 +343,11 @@ export async function aggregateProjectStats(
     title: t.title,
   }))
 
-  // Promote the stalled tasks that already swallowed a lot of agent context.
-  topBlockers.highContextTaskIds = selectHighContextTasks({
+  // Promote the stalls that actually matter — declared important, or already
+  // expensive enough that restarting them is a real cost.
+  topBlockers.highStakesTaskIds = selectHighStakesStalls({
     stalled: topBlockers.stalledTaskIds,
+    priorities: new Map(stalledCandidates.map(t => [t.id, t.priority])),
     context: await loadTaskContextSamples(
       topBlockers.stalledTaskIds.map(t => t.id)
     ),

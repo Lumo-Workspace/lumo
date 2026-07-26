@@ -59,7 +59,7 @@ const emptyBlockers: TopBlockers = {
   failingAgentTaskIds: [],
   staleOpenPrNumbers: [],
   staleOpenPrs: [],
-  highContextTaskIds: [],
+  highStakesTaskIds: [],
 }
 
 function makeStats(
@@ -124,11 +124,11 @@ describe('ProjectSignalTab', () => {
     // Quiet signals appear as clear notes, never as cards.
     expect(screen.getByTestId('signal-clear-stalePrs')).toBeInTheDocument()
     expect(screen.getByTestId('signal-clear-overdue')).toBeInTheDocument()
-    expect(screen.getByTestId('signal-clear-highContext')).toBeInTheDocument()
+    expect(screen.getByTestId('signal-clear-highStakes')).toBeInTheDocument()
     expect(screen.queryByTestId('signal-card-stalePrs')).not.toBeInTheDocument()
     expect(screen.queryByTestId('signal-card-overdue')).not.toBeInTheDocument()
     expect(
-      screen.queryByTestId('signal-card-highContext')
+      screen.queryByTestId('signal-card-highStakes')
     ).not.toBeInTheDocument()
 
     // The standing completion fact rides along on the same line.
@@ -140,10 +140,10 @@ describe('ProjectSignalTab', () => {
     expect(screen.getByText('Everything else is quiet.')).toBeInTheDocument()
   })
 
-  it('renders high-context cards, the stalled table and stale PR cards', () => {
+  it('renders high-stakes cards, the stalled table and stale PR cards', () => {
     setup(
       makeStats({
-        highContextTaskIds: [
+        highStakesTaskIds: [
           {
             id: 't1',
             identifier: 'LUM-550',
@@ -169,8 +169,8 @@ describe('ProjectSignalTab', () => {
       })
     )
 
-    const highContext = screen.getByTestId('signal-section-high-context')
-    expect(within(highContext).getByText('9d idle')).toBeInTheDocument()
+    const highStakes = screen.getByTestId('signal-section-high-stakes')
+    expect(within(highStakes).getByText('9d idle')).toBeInTheDocument()
 
     const stalled = screen.getByTestId('signal-section-stalled')
     // The four designed columns, and a row per stalled task.
@@ -227,7 +227,7 @@ describe('ProjectSignalTab', () => {
 
     expect(screen.getByTestId('signal-section-stalled')).toBeInTheDocument()
     expect(
-      screen.queryByTestId('signal-section-high-context')
+      screen.queryByTestId('signal-section-high-stakes')
     ).not.toBeInTheDocument()
     expect(
       screen.queryByTestId('signal-section-stale-prs')

@@ -214,7 +214,7 @@ export function collectTopBlockers(input: {
     })),
     // Filled in by the caller, which has the per-task session context that
     // decides which stalled tasks are expensive enough to promote.
-    highContextTaskIds: [],
+    highStakesTaskIds: [],
   }
 }
 

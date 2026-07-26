@@ -18,7 +18,7 @@ describe('collectTopBlockers', () => {
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
       staleOpenPrs: [],
-      highContextTaskIds: [],
+      highStakesTaskIds: [],
     })
   })
 

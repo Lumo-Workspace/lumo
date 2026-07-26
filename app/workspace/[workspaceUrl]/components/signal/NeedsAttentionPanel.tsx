@@ -6,7 +6,7 @@ import { idleDays, IDLE_SEVERE_DAYS } from '@/lib/summaries/signal-view'
 import type { StalledBlockerItem, StalePrItem } from '@/types/summary'
 
 interface NeedsAttentionPanelProps {
-  highContext: StalledBlockerItem[]
+  highStakes: StalledBlockerItem[]
   stalled: StalledBlockerItem[]
   stalePrs: StalePrItem[]
   /** ms epoch from `useNow()`, or null before mount. */
@@ -55,7 +55,7 @@ function IdleBadge({ days }: { days: number | null }) {
 }
 
 export function NeedsAttentionPanel({
-  highContext,
+  highStakes,
   stalled,
   stalePrs,
   now,
@@ -66,14 +66,14 @@ export function NeedsAttentionPanel({
 
   return (
     <div className='flex flex-col gap-6'>
-      {highContext.length > 0 && (
-        <section data-testid='signal-section-high-context'>
+      {highStakes.length > 0 && (
+        <section data-testid='signal-section-high-stakes'>
           <SectionHeading
-            labelKey='signal.section.highContext'
-            count={highContext.length}
+            labelKey='signal.section.highStakes'
+            count={highStakes.length}
           />
           <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-            {highContext.map(task => (
+            {highStakes.map(task => (
               <button
                 key={task.id}
                 type='button'
