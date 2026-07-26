@@ -185,6 +185,32 @@ describe('ProjectSignalTab', () => {
     expect(within(prs).getByText('in review 6d')).toBeInTheDocument()
   })
 
+  it('gives each anomaly card a severity stripe in its own tone', () => {
+    // Regression guard: the stripe started life as a coloured `border-top`,
+    // which rendered as the plain neutral border because this build emits no
+    // side-specific border-colour utilities. Severity is the card's whole
+    // point, so assert the accent actually lands.
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Stalled',
+            updatedAt: daysAgo(8),
+          },
+        ],
+        staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
+      })
+    )
+
+    const stripeOf = (key: string) =>
+      screen.getByTestId(`signal-card-${key}`).firstElementChild
+
+    expect(stripeOf('stalled')).toHaveClass('bg-danger')
+    expect(stripeOf('stalePrs')).toHaveClass('bg-warning')
+  })
+
   it('omits a section entirely when its signal is empty', () => {
     setup(
       makeStats({

@@ -21,10 +21,15 @@ interface SignalHeaderProps {
  * Accent stripe per tone. The stripe and the tint carry the severity; the
  * number itself stays `text-foreground` because the bright accents fail AA as
  * text on the card surface — same rationale as RiskBadge.
+ *
+ * Drawn as its own element rather than a coloured `border-top`: this build
+ * doesn't generate side-specific border-colour utilities (`border-t-danger`
+ * resolves to nothing), and even where it did, a blanket `border-border` would
+ * race it on stylesheet order. A background block is unambiguous.
  */
 const TONE_STRIPE: Record<AnomalyCard['tone'], string> = {
-  danger: 'border-t-danger',
-  warning: 'border-t-warning',
+  danger: 'bg-danger',
+  warning: 'bg-warning',
 }
 
 function AnomalyMetricCard({ card }: { card: AnomalyCard }) {
@@ -32,17 +37,22 @@ function AnomalyMetricCard({ card }: { card: AnomalyCard }) {
   return (
     <div
       data-testid={`signal-card-${card.key}`}
-      className={cn(
-        'rounded-lg border border-border border-t-[3px] bg-card px-5 py-4',
-        TONE_STRIPE[card.tone]
-      )}
+      className='overflow-hidden rounded-lg border border-border bg-card'
     >
-      <div className='text-display font-mono text-foreground'>{card.count}</div>
-      <div className='text-body-strong text-foreground'>
-        {intl.formatMessage({ id: `signal.metric.${card.key}` })}
-      </div>
-      <div className='text-caption text-muted-foreground'>
-        {intl.formatMessage({ id: `signal.metric.${card.key}.hint` })}
+      <div
+        className={cn('h-[3px] w-full', TONE_STRIPE[card.tone])}
+        aria-hidden
+      />
+      <div className='px-5 py-4'>
+        <div className='text-display font-mono text-foreground'>
+          {card.count}
+        </div>
+        <div className='text-body-strong text-foreground'>
+          {intl.formatMessage({ id: `signal.metric.${card.key}` })}
+        </div>
+        <div className='text-caption text-muted-foreground'>
+          {intl.formatMessage({ id: `signal.metric.${card.key}.hint` })}
+        </div>
       </div>
     </div>
   )
