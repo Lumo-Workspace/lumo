@@ -77,3 +77,7 @@ export type {
   CreateVerificationRunInput,
   VerificationRunRow,
 } from './verification-run.repository'
+export {
+  referenceClassRepository,
+  type TaskScope,
+} from './reference-class.repository'
