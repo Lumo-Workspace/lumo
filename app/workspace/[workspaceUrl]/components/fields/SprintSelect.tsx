@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   Select,
@@ -12,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { groupSprintsForTaskField } from '@/lib/services/sprint-date'
 import { useSprintsForTeam } from '../../hooks/useSprints'
 
 export interface SprintSelectProps {
@@ -24,10 +26,11 @@ export interface SprintSelectProps {
 }
 
 /**
- * Standalone Sprint picker used in NewTaskModal. Loads ACTIVE + DRAFT sprints
- * for the given team — only these are valid targets for new tasks. For
- * editing an existing task, see TaskSprintField (which carries the task's
- * current sprint even when CLOSED).
+ * Standalone Sprint picker used in NewTaskModal. Lists the team's sprints
+ * whose calendar window is current, upcoming, or just-ended — the same set
+ * TaskSprintField offers, and the same set the server accepts a task into.
+ * The DB status enum is not consulted (LUM-705): a sprint closed early is
+ * still the window the team is working in.
  */
 export function SprintSelect({
   teamId,
@@ -36,9 +39,16 @@ export function SprintSelect({
   triggerClassName,
 }: SprintSelectProps) {
   const intl = useIntl()
-  const { sprints: active } = useSprintsForTeam(teamId, 'ACTIVE')
-  const { sprints: draft } = useSprintsForTeam(teamId, 'DRAFT')
-  const selectable = [...(active ?? []), ...(draft ?? [])]
+  const { sprints } = useSprintsForTeam(teamId)
+  // Stable across renders — render purity (see TaskSprintField).
+  const [now] = useState(() => new Date())
+  const selectable = useMemo(() => {
+    const { activeAndUpcoming, past } = groupSprintsForTaskField(
+      sprints ?? [],
+      now
+    )
+    return [...activeAndUpcoming, ...past]
+  }, [sprints, now])
   const selected = selectable.find(s => s.id === value)
   const selectValue = value ?? 'none'
   const noSprintLabel = intl.formatMessage({ id: 'sprints.taskField.noSprint' })

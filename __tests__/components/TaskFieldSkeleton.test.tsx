@@ -77,7 +77,9 @@ describe('TaskMilestoneField skeleton', () => {
 
   it('renders the select once milestones have loaded', () => {
     mockUseMilestones.mockReturnValue({
-      milestones: [{ id: 'm-1', name: 'Q3', status: 'ACTIVE', targetDate: null }],
+      milestones: [
+        { id: 'm-1', name: 'Q3', status: 'ACTIVE', targetDate: null },
+      ],
       loading: false,
     })
     const { container } = render(
@@ -120,7 +122,7 @@ describe('TaskSprintField skeleton', () => {
       <TaskSprintField
         task={{
           ...boundNoPrefetch,
-          sprint: { id: 's-1', status: 'ACTIVE', name: 'Sprint 1' },
+          sprint: { id: 's-1', name: 'Sprint 1' },
         }}
         onChange={() => {}}
       />

@@ -4,6 +4,7 @@ import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
+import { calendarDayKey, deriveSprintState } from '@/lib/services/sprint-date'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -368,9 +369,39 @@ export const sprintRepository = {
   },
 
   /**
+   * Whether `sprint` still accepts task-membership changes, judged on its
+   * calendar window rather than the DB `status` enum (LUM-705).
+   *
+   * Open: CURRENT and UPCOMING windows, plus the team's most recently ended
+   * sprint — exactly the set the task sprint picker offers (the just-ended
+   * one is the spillover target, LUM-155). Everything that ended earlier is
+   * frozen.
+   *
+   * `status` is deliberately not consulted: a sprint closed early because all
+   * its work landed is still the window the team is living in, and freezing it
+   * a day before the next sprint opens leaves no sprint to file work against.
+   */
+  async isOpenForTaskMembership(
+    sprint: { teamId: string; startDate: Date; endDate: Date },
+    now: Date = new Date()
+  ): Promise<boolean> {
+    if (deriveSprintState(sprint, now) !== 'COMPLETED') return true
+    // Completed — open only when nothing else of this team ended later.
+    // `endDate` is the inclusive last day at UTC midnight, so "already ended"
+    // is strictly before today's key.
+    const endedLater = await prisma.sprint.count({
+      where: {
+        teamId: sprint.teamId,
+        endDate: { gt: sprint.endDate, lt: new Date(calendarDayKey(now)) },
+      },
+    })
+    return endedLater === 0
+  },
+
+  /**
    * Move `taskId` into `sprintId`, with pre-condition checks (task exists,
-   * sprint exists, team matches, sprint not CLOSED). Idempotent when the
-   * task is already on the target sprint. Emits a SPRINT_CHANGED activity.
+   * sprint exists, team matches, sprint window still open). Idempotent when
+   * the task is already on the target sprint. Emits a SPRINT_CHANGED activity.
    */
   async addTaskAtomically(
     taskId: string,
@@ -383,7 +414,8 @@ export const sprintRepository = {
     if (!sprint) httpError(404, 'sprint not found')
     if (task.teamId !== sprint.teamId)
       httpError(400, 'task and sprint belong to different teams')
-    if (sprint.status === 'CLOSED') httpError(409, 'sprint is closed')
+    if (!(await sprintRepository.isOpenForTaskMembership(sprint)))
+      httpError(409, 'sprint has already ended')
 
     return prisma.$transaction(
       async tx => {
@@ -414,8 +446,9 @@ export const sprintRepository = {
 
   /**
    * Remove `taskId` from whatever sprint it's on (sets sprintId=null).
-   * No-op when the task has no sprint. Refuses when the current sprint is
-   * CLOSED. Emits a SPRINT_CHANGED activity when a move occurs.
+   * No-op when the task has no sprint. Refuses when the sprint it sits on has
+   * already ended (same window rule as `addTaskAtomically`, LUM-705). Emits a
+   * SPRINT_CHANGED activity when a move occurs.
    */
   async removeTaskAtomically(taskId: string, actorId: string | null) {
     const task = await taskRepository.findMinimalById(taskId)
@@ -423,8 +456,8 @@ export const sprintRepository = {
     if (!task.sprintId) return { taskId, sprintId: null }
 
     const sprint = await sprintRepository.findById(task.sprintId)
-    if (sprint && sprint.status === 'CLOSED') {
-      httpError(409, 'cannot remove task from closed sprint')
+    if (sprint && !(await sprintRepository.isOpenForTaskMembership(sprint))) {
+      httpError(409, 'cannot remove task from a sprint that has already ended')
     }
 
     return prisma.$transaction(

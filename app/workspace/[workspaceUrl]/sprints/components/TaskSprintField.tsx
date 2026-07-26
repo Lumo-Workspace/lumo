@@ -13,7 +13,7 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { useIntl } from 'react-intl'
-import type { Sprint, SprintStatus } from '@prisma/client'
+import type { Sprint } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import {
   deriveSprintState,
@@ -26,7 +26,7 @@ interface Task {
   id: string
   teamId: string
   sprintId: string | null
-  sprint?: { id: string; status: SprintStatus; name: string } | null
+  sprint?: { id: string; name: string } | null
 }
 
 const STATUS_LABEL_KEY: Record<DerivedSprintState, string> = {
@@ -47,11 +47,11 @@ const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
   COMPLETED: 'text-muted-foreground',
 }
 
-function formatCompactRange(s: Sprint, locale: string): string {
+function formatCompactRange(s: Sprint, locale: string, now: Date): string {
   const start = new Date(s.startDate)
   const end = new Date(s.endDate)
   const sameYear = start.getFullYear() === end.getFullYear()
-  const thisYear = new Date().getFullYear() === start.getFullYear()
+  const thisYear = now.getFullYear() === start.getFullYear()
   const fmtShort: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
@@ -88,23 +88,26 @@ export function TaskSprintField({
   // first paint needs no client request. Sticky once opened: the list stays
   // cached so re-opens are instant. See LUM-190.
   const [hasOpened, setHasOpened] = useState(false)
-  const { sprints: drafts, isLoading: draftsLoading } = useSprintsForTeam(
+  // One unfiltered query (LUM-705). Filtering by the DB status enum used to
+  // drop the sprint the team is actually living in the moment it was closed —
+  // and skewed the "past" bucket to an older sprint that happened to still be
+  // DRAFT. Which sprints are current / upcoming / just-ended is decided purely
+  // from their calendar windows by `groupSprintsForTaskField`.
+  const { sprints, isLoading } = useSprintsForTeam(
     task.teamId,
-    'DRAFT',
-    hasOpened
-  )
-  const { sprints: active, isLoading: activeLoading } = useSprintsForTeam(
-    task.teamId,
-    'ACTIVE',
+    undefined,
     hasOpened
   )
 
+  // Capture "now" once (lazy initializer runs a single time) so the buckets
+  // stay stable across renders — render purity, same pattern as
+  // SprintStatCards.
+  const [now] = useState(() => new Date())
   const { activeAndUpcoming, past } = useMemo(
-    () => groupSprintsForTaskField([...(active ?? []), ...(drafts ?? [])]),
-    [active, drafts]
+    () => groupSprintsForTaskField(sprints ?? [], now),
+    [sprints, now]
   )
 
-  const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'
 
   // Trigger label: prefer the loaded sprint, fall back to the SSR-prefetched
@@ -122,16 +125,12 @@ export function TaskSprintField({
   // option list is still loading, reserve the space with a skeleton instead of
   // showing the "no sprint" placeholder and then popping the name in. Only fires
   // when no name is available, so it never hides an already-resolvable name.
-  if (
-    (draftsLoading || activeLoading) &&
-    task.sprintId !== null &&
-    triggerName === null
-  ) {
+  if (isLoading && task.sprintId !== null && triggerName === null) {
     return <FieldValueSkeleton />
   }
 
   const renderItem = (s: Sprint) => {
-    const state = deriveSprintState(s)
+    const state = deriveSprintState(s, now)
     const Icon = STATUS_ICON[state]
     return (
       // Use the Radix primitive directly so only `s.name` lives inside
@@ -151,7 +150,7 @@ export function TaskSprintField({
             <SelectPrimitive.ItemText>{s.name}</SelectPrimitive.ItemText>
           </span>
           <span className='w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
-            {formatCompactRange(s, intl.locale)}
+            {formatCompactRange(s, intl.locale, now)}
           </span>
           <span className='w-16 shrink-0 text-xs text-muted-foreground/80'>
             {intl.formatMessage({ id: STATUS_LABEL_KEY[state] })}
@@ -168,7 +167,6 @@ export function TaskSprintField({
       onOpenChange={open => {
         if (open) setHasOpened(true)
       }}
-      disabled={disabled}
     >
       <SelectTrigger className={cn(triggerClassName)}>
         {triggerName ? (
