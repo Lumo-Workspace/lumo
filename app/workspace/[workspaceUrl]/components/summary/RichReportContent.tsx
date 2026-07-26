@@ -54,7 +54,7 @@ function enrichText(
   const segments = splitByPattern(text, PRIORITY_RE, (match, i) => {
     const priority = PRIORITY_KEYWORDS[match]
     if (!priority) return match
-    return <PriorityBadge key={`p-${i}`} priority={priority} variant='icon' />
+    return <PriorityBadge key={`p-${i}`} priority={priority} variant='label' />
   })
 
   if (!namePattern) return segments
@@ -153,10 +153,7 @@ function renderLine(
   // Bullet list item
   if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
     return (
-      <li
-        key={index}
-        className='flex gap-2 text-sm text-foreground'
-      >
+      <li key={index} className='flex gap-2 text-sm text-foreground'>
         <span className='text-muted-foreground shrink-0'>•</span>
         <span>{enrich(trimmed.slice(2))}</span>
       </li>
@@ -167,11 +164,10 @@ function renderLine(
   const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/)
   if (numberedMatch) {
     return (
-      <li
-        key={index}
-        className='flex gap-2 text-sm text-foreground'
-      >
-        <span className='text-muted-foreground shrink-0'>{numberedMatch[1]}.</span>
+      <li key={index} className='flex gap-2 text-sm text-foreground'>
+        <span className='text-muted-foreground shrink-0'>
+          {numberedMatch[1]}.
+        </span>
         <span>{enrich(numberedMatch[2] ?? '')}</span>
       </li>
     )

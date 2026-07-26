@@ -670,7 +670,7 @@ export function createTaskColumns(
             />
           )
         }
-        return <PriorityBadge priority={task.priority} variant='icon' />
+        return <PriorityBadge priority={task.priority} variant='label' />
       },
     },
 
