@@ -40,7 +40,7 @@ export function selectReferenceClass(
   const ordered: Array<[ClassLevel, DeliveredTask[] | null]> = [
     ['MILESTONE', layers.milestone],
     ['PROJECT', layers.project],
-    ['WORKSPACE', layers.workspace],
+    ['TEAM', layers.team],
   ]
 
   for (const [level, rows] of ordered) {

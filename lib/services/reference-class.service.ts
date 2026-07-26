@@ -78,7 +78,7 @@ async function build(taskId: string): Promise<string> {
   const scope = await referenceClassRepository.taskScope(taskId)
   if (!scope) return ''
 
-  const [milestone, project, workspace] = await Promise.all([
+  const [milestone, project, team] = await Promise.all([
     scope.milestoneId
       ? referenceClassRepository.deliveredByMilestone(
           scope.milestoneId,
@@ -92,7 +92,7 @@ async function build(taskId: string): Promise<string> {
     referenceClassRepository.deliveredByTeam(scope.teamId, MAX_CLASS_SIZE + 1),
   ])
 
-  const layers: CandidateLayers = { milestone, project, workspace }
+  const layers: CandidateLayers = { milestone, project, team }
   const selected = selectReferenceClass(layers, taskId)
   if (selected.kind === 'INSUFFICIENT') {
     return renderReferenceClassAnchor({ kind: 'INSUFFICIENT' })

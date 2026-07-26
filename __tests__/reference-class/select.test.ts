@@ -1,7 +1,7 @@
 /**
  * LUM-497 — reference-class selection (pure).
  *
- * Layered fallback milestone → project → workspace, each layer capped at
+ * Layered fallback milestone → project → team, each layer capped at
  * MAX_CLASS_SIZE most-recent deliveries and admitted only at MIN_CLASS_SIZE.
  * No DB.
  */
@@ -22,7 +22,7 @@ function deliveries(n: number, prefix = 't'): DeliveredTask[] {
 }
 
 function layers(over: Partial<CandidateLayers>): CandidateLayers {
-  return { milestone: null, project: [], workspace: [], ...over }
+  return { milestone: null, project: [], team: [], ...over }
 }
 
 describe('selectReferenceClass', () => {
@@ -57,12 +57,24 @@ describe('selectReferenceClass', () => {
     expect(out).toMatchObject({ kind: 'SELECTED', level: 'PROJECT' })
   })
 
+  // The widest layer is fed by Task.teamId (repository.deliveredByTeam), so it
+  // must be named TEAM. A Workspace has many Teams in the schema; labelling a
+  // team-scoped class "workspace" would make the anchor's own "Based on:" line
+  // — the one sentence that names the reference class — false.
+  it('names the widest layer TEAM, matching the teamId it is drawn from', () => {
+    const out = selectReferenceClass(
+      layers({ team: deliveries(MIN_CLASS_SIZE, 'w') }),
+      'current'
+    )
+    expect(out).toMatchObject({ kind: 'SELECTED', level: 'TEAM' })
+  })
+
   it('reports INSUFFICIENT when every layer is below the floor', () => {
     const out = selectReferenceClass(
       layers({
         milestone: deliveries(2, 'm'),
         project: deliveries(4, 'p'),
-        workspace: deliveries(MIN_CLASS_SIZE - 1, 'w'),
+        team: deliveries(MIN_CLASS_SIZE - 1, 'w'),
       }),
       'current'
     )

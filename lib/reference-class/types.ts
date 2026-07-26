@@ -5,8 +5,13 @@
  * the repository supplies rows, these functions decide and render.
  */
 
-/** Which layer the reference class was drawn from. */
-export type ClassLevel = 'MILESTONE' | 'PROJECT' | 'WORKSPACE'
+/**
+ * Which layer the reference class was drawn from. The widest layer is TEAM,
+ * not workspace: it is fed by `Task.teamId`, and in the schema a Workspace has
+ * many Teams. Naming the class honestly is the first step of reference-class
+ * forecasting, so the level name tracks the column actually queried.
+ */
+export type ClassLevel = 'MILESTONE' | 'PROJECT' | 'TEAM'
 
 /** A layer qualifies only at this many delivered tasks. Below it we say so. */
 export const MIN_CLASS_SIZE = 8
@@ -30,7 +35,7 @@ export interface DeliveredTask {
 export interface CandidateLayers {
   milestone: DeliveredTask[] | null
   project: DeliveredTask[]
-  workspace: DeliveredTask[]
+  team: DeliveredTask[]
 }
 
 export type ReferenceClass =
@@ -45,7 +50,7 @@ export interface TallyEntry {
 
 export interface AnchorData {
   level: ClassLevel
-  /** Human name of the class scope (milestone/project/workspace name). */
+  /** Human name of the class scope (milestone/project/team name). */
   label: string
   size: number
   rejections: TallyEntry[]
