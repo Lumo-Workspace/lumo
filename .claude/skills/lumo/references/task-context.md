@@ -13,7 +13,7 @@ lumo task context LUM-42
 The command prints a markdown document to stdout with these sections, in order:
 
 1. **Task header** — identifier, title, status, description.
-2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** (see [criteria.md](criteria.md)).
+2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** — followed by a `### Reference class (outside view)` block giving the failure modes of similar delivered tasks, to draft against rather than to copy (see [criteria.md](criteria.md)).
 3. **Memory section** — cross-session learnings; trusted background context that persists, so you avoid re-learning decisions/constraints.
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below).
 5. **`## PR review todos`** — mirrored PR review comments as a checkbox todo list. Each line-level comment shows `` `file:line` `` + reviewer's ask + GitHub comment link; each `changes_requested` review summary shows "🛑 Changes requested (whole PR)". Present only when the task's PR(s) have review comments. Each unchecked box is a TODO: resolve it, then reply on the PR (a Lumo comment mirrors back to GitHub).
