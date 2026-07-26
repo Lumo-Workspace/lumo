@@ -112,3 +112,4 @@ export type {
   CreateDocCommentInput,
   CreateDocCommentArgs,
 } from './documentComment.service'
+export { referenceClassService } from './reference-class.service'

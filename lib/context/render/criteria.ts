@@ -95,11 +95,18 @@ export function criteriaBudgetSection(criteria: CriterionCard[]) {
  * Session-start nudge injected when a bound, still-open task has no criteria
  * yet: the SKILL.md drafting guide tells the agent HOW to draft; this line
  * makes sure the agent notices it must, before the first line of code.
+ *
+ * LUM-497: an optional reference-class anchor (the outside view — how similar
+ * delivered tasks historically failed) is appended below the nudge. Empty or
+ * omitted leaves the section byte-identical to the pre-LUM-497 output, which
+ * matters because this text is what makes an agent draft a contract at all.
  */
-export function renderCriteriaDraftNudge(): string {
-  return [
+export function renderCriteriaDraftNudge(anchor?: string): string {
+  const lines: string[] = [
     CRITERIA_HEADING,
     '',
     'This task has no acceptance criteria yet. Before writing the first line of code: read the task context, draft 3–7 outcome-level acceptance criteria, then submit and lock them with `lumo task criteria set <task> --file <criteria.json>`. Use the HUMAN type for criteria that cannot carry an executable check; repo-wide baselines (tests pass / tsc / i18n parity) do not take slots.',
-  ].join('\n')
+  ]
+  if (anchor && anchor.trim() !== '') lines.push('', anchor.trim())
+  return lines.join('\n')
 }
