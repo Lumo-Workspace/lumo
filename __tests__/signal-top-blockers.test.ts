@@ -19,9 +19,19 @@ describe('top blockers — Signal tab timestamps', () => {
       ],
       agents: [],
       prs: [
-        { number: 16, state: 'open', createdAt: daysAgo(6) },
+        {
+          number: 16,
+          state: 'open',
+          createdAt: daysAgo(6),
+          url: 'https://github.com/o/r/pull/16',
+        },
         // Inside the stale window — must not appear.
-        { number: 900, state: 'open', createdAt: daysAgo(1) },
+        {
+          number: 900,
+          state: 'open',
+          createdAt: daysAgo(1),
+          url: 'https://github.com/o/r/pull/900',
+        },
       ],
       now: NOW,
       config: DEFAULT_RISK_CONFIG,
@@ -40,7 +50,11 @@ describe('top blockers — Signal tab timestamps', () => {
     ])
 
     expect(result.staleOpenPrs).toEqual([
-      { number: 16, openedAt: daysAgo(6).toISOString() },
+      {
+        number: 16,
+        openedAt: daysAgo(6).toISOString(),
+        url: 'https://github.com/o/r/pull/16',
+      },
     ])
   })
 
@@ -49,8 +63,18 @@ describe('top blockers — Signal tab timestamps', () => {
       tasks: [],
       agents: [],
       prs: [
-        { number: 16, state: 'open', createdAt: daysAgo(6) },
-        { number: 111, state: 'open', createdAt: daysAgo(5) },
+        {
+          number: 16,
+          state: 'open',
+          createdAt: daysAgo(6),
+          url: 'https://github.com/o/r/pull/16',
+        },
+        {
+          number: 111,
+          state: 'open',
+          createdAt: daysAgo(5),
+          url: 'https://github.com/o/r/pull/111',
+        },
       ],
       now: NOW,
       config: DEFAULT_RISK_CONFIG,

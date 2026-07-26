@@ -2,14 +2,10 @@ import { Prisma } from '@prisma/client'
 import { summaryRepository } from '@/lib/repositories/summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import {
-  aggregateProjectStats,
   aggregateWorkspaceStats,
   type ProjectRiskOverride,
 } from '@/lib/summaries/stats'
-import {
-  generateProjectReport,
-  generateWorkspaceReport,
-} from '@/lib/summaries/report'
+import { generateWorkspaceReport } from '@/lib/summaries/report'
 import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -118,9 +114,8 @@ export const summaryService = {
   },
 
   /**
-   * Generate summaries for all eligible workspaces (called by cron).
-   * Iterates summary-enabled workspaces, generates per-project and
-   * workspace-level summaries when due.
+   * Generate workspace summaries for all eligible workspaces (called by cron).
+   * Project-level reports are no longer generated — see the note inside.
    */
   async generateCronSummaries() {
     const workspaces = await this.findSummaryEnabledWorkspaces()
@@ -142,66 +137,26 @@ export const summaryService = {
         riskThroughputDrop: workspace.riskThroughputDrop,
       }
 
-      const projectSummaries = []
+      // Per-project risk overrides still feed the workspace aggregation below,
+      // so the loop stays — but it no longer generates project reports.
+      //
+      // LUM-699 retired the project-level report: the project Signal tab reads
+      // live stats and renders no prose, and nothing else in the product (UI,
+      // Slack, digests) consumes a project summary. Generating one per project
+      // per cycle was an LLM call per project whose only reader was the
+      // database. Workspace reports are unaffected — those are still rendered
+      // on the Dashboard.
       const projectOverrides = new Map<string, ProjectRiskOverride | null>()
 
       for (const project of workspace.projects) {
-        const recentJob = await generationJobRepository.findRecentByTarget(
-          project.id,
-          5
-        )
-        if (recentJob?.status === 'completed') {
-          projectSummaries.push({ projectId: project.id, skipped: true })
-          continue
-        }
-
-        const override: ProjectRiskOverride = {
+        projectOverrides.set(project.id, {
           riskOverdueRatio: project.riskOverdueRatio,
           riskStalledDays: project.riskStalledDays,
           riskStalledMinCount: project.riskStalledMinCount,
           riskAgentFailRatio: project.riskAgentFailRatio,
           riskStalePrDays: project.riskStalePrDays,
           riskThroughputDrop: project.riskThroughputDrop,
-        }
-        projectOverrides.set(project.id, override)
-
-        const effective = resolveEffectiveRiskConfig(workspaceConfig, override)
-
-        try {
-          const stats = await aggregateProjectStats(project.id, effective)
-          const { tldr, report } = await generateProjectReport(stats, {
-            projectName: project.name,
-            projectDescription: project.description ?? null,
-            locale: workspace.summaryLocale,
-          })
-
-          const summary = await this.createProjectSummary(
-            project.id,
-            stats as unknown as Prisma.InputJsonValue,
-            tldr,
-            report
-          )
-
-          projectSummaries.push({
-            projectId: project.id,
-            summaryId: summary.id,
-          })
-          await generationJobRepository
-            .create('project', project.id)
-            .then(job =>
-              generationJobRepository.updateStatus(
-                job.id,
-                'completed',
-                summary.id
-              )
-            )
-        } catch (err) {
-          console.error(
-            `generateCronSummaries project error [${project.id}]:`,
-            err
-          )
-          projectSummaries.push({ projectId: project.id, error: true })
-        }
+        })
       }
 
       const workspaceEffective = resolveEffectiveRiskConfig(
@@ -237,7 +192,6 @@ export const summaryService = {
       results.push({
         workspaceId: workspace.id,
         workspaceSummaryId: workspaceSummary.id,
-        projects: projectSummaries,
       })
     }
 

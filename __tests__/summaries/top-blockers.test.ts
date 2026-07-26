@@ -148,9 +148,24 @@ describe('collectTopBlockers', () => {
       tasks: [],
       agents: [],
       prs: [
-        { number: 1, state: 'open', createdAt: daysAgo(5) },
-        { number: 2, state: 'open', createdAt: daysAgo(1) },
-        { number: 3, state: 'merged', createdAt: daysAgo(30) },
+        {
+          number: 1,
+          state: 'open',
+          createdAt: daysAgo(5),
+          url: 'https://github.com/o/r/pull/1',
+        },
+        {
+          number: 2,
+          state: 'open',
+          createdAt: daysAgo(1),
+          url: 'https://github.com/o/r/pull/2',
+        },
+        {
+          number: 3,
+          state: 'merged',
+          createdAt: daysAgo(30),
+          url: 'https://github.com/o/r/pull/3',
+        },
       ],
       now: NOW,
       config: DEFAULT_RISK_CONFIG, // stalePrDays = 3

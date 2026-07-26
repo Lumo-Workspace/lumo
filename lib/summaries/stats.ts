@@ -154,7 +154,7 @@ export async function aggregateProjectStats(
     // Open PRs (for stale PR signal + top blockers)
     prisma.pullRequest.findMany({
       where: { task: { projectId }, state: 'open' },
-      select: { number: true, state: true, createdAt: true },
+      select: { number: true, state: true, createdAt: true, url: true },
     }),
   ])
 
@@ -492,7 +492,7 @@ export async function aggregateSprintRisk(
     }),
     prisma.pullRequest.findMany({
       where: { task: { sprintId }, state: 'open' },
-      select: { number: true, state: true, createdAt: true },
+      select: { number: true, state: true, createdAt: true, url: true },
     }),
   ])
 

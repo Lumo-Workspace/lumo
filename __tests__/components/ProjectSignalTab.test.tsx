@@ -169,7 +169,13 @@ describe('ProjectSignalTab', () => {
             priority: 'MEDIUM' as const,
           },
         ],
-        staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
+        staleOpenPrs: [
+          {
+            number: 16,
+            openedAt: daysAgo(6),
+            url: 'https://github.com/o/r/pull/16',
+          },
+        ],
       })
     )
 
@@ -187,6 +193,13 @@ describe('ProjectSignalTab', () => {
     const prs = screen.getByTestId('signal-section-stale-prs')
     expect(within(prs).getByText('#16')).toBeInTheDocument()
     expect(within(prs).getByText('in review 6d')).toBeInTheDocument()
+
+    // A stale PR is only actionable if you can get to it — the card is a link
+    // straight to GitHub, opened in a new tab so the page isn't lost.
+    const link = within(prs).getByRole('link', { name: /#16/ })
+    expect(link).toHaveAttribute('href', 'https://github.com/o/r/pull/16')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })
 
   it('gives each anomaly card a severity stripe in its own tone', () => {
@@ -205,7 +218,13 @@ describe('ProjectSignalTab', () => {
             priority: 'MEDIUM' as const,
           },
         ],
-        staleOpenPrs: [{ number: 16, openedAt: daysAgo(6) }],
+        staleOpenPrs: [
+          {
+            number: 16,
+            openedAt: daysAgo(6),
+            url: 'https://github.com/o/r/pull/16',
+          },
+        ],
       })
     )
 
@@ -271,24 +290,77 @@ describe('ProjectSignalTab', () => {
       })
     )
 
+    // t1 is promoted, so the table shows only t2 — each row still leads with a
+    // dot coloured from its own --priority-* token.
     const table = screen.getByTestId('signal-section-stalled')
-    // One dot per row, each coloured from its own --priority-* token.
-    expect(within(table).getByTestId('priority-dot-urgent')).toHaveClass(
-      'text-priority-urgent'
-    )
     expect(within(table).getByTestId('priority-dot-low')).toHaveClass(
       'text-priority-low'
     )
 
     // The high-stakes card leads with the same dot.
     const cards = screen.getByTestId('signal-section-high-stakes')
-    expect(within(cards).getByTestId('priority-dot-urgent')).toBeInTheDocument()
+    const promotedDot = within(cards).getByTestId('priority-dot-urgent')
+    expect(promotedDot).toHaveClass('text-priority-urgent')
 
     // The dot carries its label for anyone who can't resolve colour alone.
-    expect(within(table).getByTestId('priority-dot-urgent')).toHaveAttribute(
-      'aria-label',
-      'Urgent'
+    expect(promotedDot).toHaveAttribute('aria-label', 'Urgent')
+  })
+
+  it('does not repeat a promoted high-stakes task in the stalled table', () => {
+    setup(
+      makeStats({
+        highStakesTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Promoted above',
+            updatedAt: daysAgo(9),
+            priority: 'URGENT' as const,
+          },
+        ],
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Promoted above',
+            updatedAt: daysAgo(9),
+            priority: 'URGENT' as const,
+          },
+          {
+            id: 't2',
+            identifier: 'LUM-462',
+            title: 'Only in the table',
+            updatedAt: daysAgo(19),
+            priority: 'LOW' as const,
+          },
+        ],
+      })
     )
+
+    // Shown once, in the promoted section — not again as a table row.
+    expect(screen.getAllByText('LUM-550')).toHaveLength(1)
+    const table = screen.getByTestId('signal-section-stalled')
+    expect(within(table).queryByText('LUM-550')).not.toBeInTheDocument()
+    expect(within(table).getByText('LUM-462')).toBeInTheDocument()
+
+    // The count badge reflects the rows actually rendered, not the raw total.
+    expect(within(table).getByText('1')).toBeInTheDocument()
+  })
+
+  it('drops the stalled table entirely when every stall was promoted', () => {
+    const only = {
+      id: 't1',
+      identifier: 'LUM-550',
+      title: 'The only stall',
+      updatedAt: daysAgo(9),
+      priority: 'URGENT' as const,
+    }
+    setup(makeStats({ highStakesTaskIds: [only], stalledTaskIds: [only] }))
+
+    expect(screen.getByTestId('signal-section-high-stakes')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('signal-section-stalled')
+    ).not.toBeInTheDocument()
   })
 
   it('no longer renders a prose headline above the cards', () => {
