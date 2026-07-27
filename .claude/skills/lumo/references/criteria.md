@@ -250,3 +250,22 @@ lumo task criteria list LUM-42
 ## After the contract: the verification loop
 
 The contract is judged by `lumo verify` — run it before claiming the task is done. See [verify.md](verify.md) for the loop (a workspace-configurable round cap — `verificationMaxRounds`, default 3, shown as `Round N/M` in the output — IN_REVIEW on all-pass, escalation on a last-round fail).
+
+## `lumo criteria audit` — workspace referent-kind analytics
+
+```bash
+lumo criteria audit
+```
+
+`lumo criteria audit` — workspace-level acceptance-criteria analytics. Calls `GET /api/criteria/audit` and prints two things:
+
+1. **Declared-kind distribution** — count of criteria by effective referent kind:
+   - `EXTERNAL_FACT` — declared as externally observable (git SHA, CI status, DB row) and the checkpointer invokes real external tooling
+   - `AGENT_CONSTRUCTED_STATE` — passes by checking output the agent itself produced
+   - `PENDING_OUTCOME` — deferred to post-hoc falsifier
+   - `UNVERIFIED_ASSERTION` — declared `EXTERNAL_FACT` but the checkpointer does **not** actually invoke external tooling (git/CI/HTTP); auto-downgraded. As of LUM-605 this is an **enforced gate, not just a label**: `lumo task criteria set` warns on it, and `lumo verify` blocks a PASS on it with **422 (no round burned)** until it's re-grounded or honestly re-declared `AGENT_CONSTRUCTED_STATE` (see references/criteria.md "referentKind")
+   - `UNCLASSIFIED` — legacy rows predating the `referentKind` field (null in DB)
+
+2. **Self-confirming-green headline ratio** — `(AGENT_CONSTRUCTED_STATE + UNVERIFIED_ASSERTION) / classified`. Criteria in these two buckets pass by confirming only the agent's own work, not an independent external state.
+
+**When to suggest**: when the user wants to audit how much of the workspace's "green" criteria are self-confirming vs externally anchored; when diagnosing whether acceptance criteria have real external hooks or are circular.

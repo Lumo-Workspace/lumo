@@ -176,7 +176,9 @@ The old end-of-session command was **removed**. The three passes it ran interact
 - confidently-unused → `used=false`
 - genuinely-uncertain edges stay `null` (honest "not voted", not "unused")
 
-Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative); `task context` then prefers each fragment's usage-based merge rate, falling back to the presence rate when usage samples are thin.
+Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative). `task context` then reports each fragment's **judged-used track record** — of the N tasks it appeared in, X were judged to have actually used it. That is a **lower bound** (never-audited appearances are excluded from the proven/retire calls), and it **replaced the retired merge-rate signal** (RFC LUM-535).
+
+> Don't confuse this with the used-vs-base **merge rate** still reported by `lumo task lineage --signal` ([task-context.md](task-context.md)) — that is a different, live metric for workspace signal-health, not the retired fragment-usefulness one.
 
 **3. Blocked-tag automation (server-side).** When a session crosses the same-tool failure threshold (**≥ 3** same-type failures, aggregated from `POST_TOOL_USE_FAILURE` grouped by tool name + `STOP_FAILURE` turn-level failures), the server **auto-applies the shared `blocked` tag** to the bound task. This inverts the old manual gate — no prompt, no human in the loop — and is safe via three safeguards:
 
