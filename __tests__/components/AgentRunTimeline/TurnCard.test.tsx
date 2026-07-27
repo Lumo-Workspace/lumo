@@ -71,7 +71,10 @@ describe('TurnCard cost formatting', () => {
   it('keeps real model names byte-identical to the old inline formatting', () => {
     render(
       <TurnCard
-        turn={turnWith([opus, { ...opus, model: 'claude-sonnet-4-6', total: 3_300_000 }])}
+        turn={turnWith([
+          opus,
+          { ...opus, model: 'claude-sonnet-4-6', total: 3_300_000 },
+        ])}
         turnNumber={1}
       />
     )

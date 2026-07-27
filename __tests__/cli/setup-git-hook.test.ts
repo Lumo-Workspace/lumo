@@ -50,7 +50,9 @@ describe('installGitHook', () => {
     const dir = tmp()
     try {
       execFileSync('git', ['init', '-q'], { cwd: dir })
-      execFileSync('git', ['config', 'core.hooksPath', '.husky/_'], { cwd: dir })
+      execFileSync('git', ['config', 'core.hooksPath', '.husky/_'], {
+        cwd: dir,
+      })
       installGitHook(dir)
       const hookPath = join(dir, '.git', 'hooks', 'prepare-commit-msg')
       expect(existsSync(hookPath)).toBe(false)

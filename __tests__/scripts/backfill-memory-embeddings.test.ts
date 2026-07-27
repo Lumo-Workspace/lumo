@@ -58,12 +58,18 @@ describe('backfillMemoryEmbeddings — multiple batches', () => {
     const deps = makeDeps()
     // Two batches then empty
     deps.fetchUnembeddedBatch
-      .mockResolvedValueOnce([makeRow('r1', 'trap one'), makeRow('r2', 'trap two')])
+      .mockResolvedValueOnce([
+        makeRow('r1', 'trap one'),
+        makeRow('r2', 'trap two'),
+      ])
       .mockResolvedValueOnce([makeRow('r3', 'trap three')])
       .mockResolvedValueOnce([]) // done
 
     deps.embed
-      .mockResolvedValueOnce([[0.1, 0.2], [0.3, 0.4]])
+      .mockResolvedValueOnce([
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ])
       .mockResolvedValueOnce([[0.5, 0.6]])
 
     const result = await backfillMemoryEmbeddings(deps)
@@ -83,7 +89,10 @@ describe('backfillMemoryEmbeddings — dryRun', () => {
   it('counts embeddable rows but calls neither embed nor store', async () => {
     const deps = makeDeps({ dryRun: true })
     deps.fetchUnembeddedBatch
-      .mockResolvedValueOnce([makeRow('r1', 'trap one'), makeRow('r2', 'trap two')])
+      .mockResolvedValueOnce([
+        makeRow('r1', 'trap one'),
+        makeRow('r2', 'trap two'),
+      ])
       .mockResolvedValueOnce([])
 
     const result = await backfillMemoryEmbeddings(deps)
@@ -106,9 +115,7 @@ describe('backfillMemoryEmbeddings — dryRun', () => {
     ]
     const fetchUnembeddedBatch = jest.fn(
       async (limit: number, afterId?: string) => {
-        const start = afterId
-          ? dataset.findIndex(r => r.id === afterId) + 1
-          : 0
+        const start = afterId ? dataset.findIndex(r => r.id === afterId) + 1 : 0
         return dataset.slice(start, start + limit)
       }
     )
@@ -134,8 +141,8 @@ describe('backfillMemoryEmbeddings — embed failure', () => {
       .mockResolvedValueOnce([])
 
     deps.embed
-      .mockRejectedValueOnce(new Error('gateway error'))  // first batch fails
-      .mockResolvedValueOnce([[0.5, 0.6]])                // second batch succeeds
+      .mockRejectedValueOnce(new Error('gateway error')) // first batch fails
+      .mockResolvedValueOnce([[0.5, 0.6]]) // second batch succeeds
 
     const result = await backfillMemoryEmbeddings(deps)
 

@@ -1,7 +1,9 @@
 import { computePopupPosition } from '@/lib/editor/popup-position'
 
 // Helper to build an anchor rect with sensible defaults.
-function anchor(partial: Partial<{ top: number; bottom: number; left: number }>) {
+function anchor(
+  partial: Partial<{ top: number; bottom: number; left: number }>
+) {
   return { top: 100, bottom: 120, left: 50, ...partial }
 }
 

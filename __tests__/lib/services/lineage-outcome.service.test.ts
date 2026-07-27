@@ -51,7 +51,10 @@ describe('lineageOutcomeService', () => {
       mockStampOutcomeByTask.mockResolvedValue({ count: 2 })
       mockHasAllPassRound.mockResolvedValue(true)
 
-      const result = await lineageOutcomeService.stampForPrState('t-1', 'merged')
+      const result = await lineageOutcomeService.stampForPrState(
+        't-1',
+        'merged'
+      )
 
       expect(result).toEqual({ count: 2 })
       expect(mockStampOutcomeByTask).toHaveBeenCalledWith('t-1', 'MERGED', {

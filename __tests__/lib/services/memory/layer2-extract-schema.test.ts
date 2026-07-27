@@ -21,16 +21,24 @@ describe('layer2OperationSchema ADD sourceMemoryIds', () => {
       content: { trigger: 't', outcome: 'o' },
     })
     expect(parsed.type).toBe('ADD')
-    expect((parsed as { sourceMemoryIds?: string[] }).sourceMemoryIds).toBeUndefined()
+    expect(
+      (parsed as { sourceMemoryIds?: string[] }).sourceMemoryIds
+    ).toBeUndefined()
   })
 
   it('accepts a SUPERSEDE op with id + content', () => {
     expect(() =>
-      layer2OperationSchema.parse({ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'r', scope: 's' } })
+      layer2OperationSchema.parse({
+        type: 'SUPERSEDE',
+        id: 'mem_old',
+        content: { rule: 'r', scope: 's' },
+      })
     ).not.toThrow()
   })
 
   it('still rejects DELETE (Layer 2 has no hard delete)', () => {
-    expect(() => layer2OperationSchema.parse({ type: 'DELETE', id: 'x' })).toThrow()
+    expect(() =>
+      layer2OperationSchema.parse({ type: 'DELETE', id: 'x' })
+    ).toThrow()
   })
 })

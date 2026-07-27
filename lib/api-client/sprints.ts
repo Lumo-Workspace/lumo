@@ -6,7 +6,7 @@ import type {
   TaskPriority,
 } from '@prisma/client'
 import type { SprintCloseDecisions } from '@/lib/validation/sprint.schema'
-import type { RiskAssessment, TopBlockers } from '@/types/summary'
+import type { TopBlockers } from '@/types/summary'
 import type { ModelCost } from '@/lib/services/model-cost'
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
@@ -21,7 +21,6 @@ interface SprintProgress {
 interface SprintWithProgress {
   sprint: Sprint
   progress: SprintProgress
-  risk?: RiskAssessment
   topBlockers?: TopBlockers
   /**
    * Present on the by-number response: the sprint's tasks (MyTask-shaped),

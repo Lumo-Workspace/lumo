@@ -153,11 +153,12 @@ export function LinkDocPopover({
                 {r.emoji ? (
                   <span className='shrink-0'>{r.emoji}</span>
                 ) : (
-                  <FileText size={14} className='shrink-0 text-muted-foreground' />
+                  <FileText
+                    size={14}
+                    className='shrink-0 text-muted-foreground'
+                  />
                 )}
-                <span className='text-foreground truncate'>
-                  {r.title}
-                </span>
+                <span className='text-foreground truncate'>{r.title}</span>
               </button>
             </li>
           ))}

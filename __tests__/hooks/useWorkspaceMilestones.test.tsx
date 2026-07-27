@@ -2,8 +2,12 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
-jest.mock('next/navigation', () => ({ useParams: () => ({ workspaceUrl: 'acme' }) }))
-jest.mock('@/lib/api-client', () => ({ milestonesClient: { listByWorkspace: jest.fn() } }))
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ workspaceUrl: 'acme' }),
+}))
+jest.mock('@/lib/api-client', () => ({
+  milestonesClient: { listByWorkspace: jest.fn() },
+}))
 
 import { milestonesClient } from '@/lib/api-client'
 import { useWorkspaceMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones'

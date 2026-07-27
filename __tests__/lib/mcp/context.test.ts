@@ -8,7 +8,8 @@ jest.mock('@/lib/repositories/mcp-connection.repository', () => ({
   mcpConnectionRepository: {
     upsertOnConnect: (...a: any[]) => mockUpsertOnConnect(...a),
     setActiveWorkspace: (...a: any[]) => mockSetActiveWorkspace(...a),
-    findByClerkUserAndClient: (...a: any[]) => mockFindByClerkUserAndClient(...a),
+    findByClerkUserAndClient: (...a: any[]) =>
+      mockFindByClerkUserAndClient(...a),
   },
 }))
 

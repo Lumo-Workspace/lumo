@@ -16,7 +16,12 @@ describe('statusFromDropTarget', () => {
     expect(statusFromDropTarget('BOGUS', 'TODO')).toBeNull()
   })
   it('exposes the four statuses in board order', () => {
-    expect(KANBAN_STATUSES).toEqual(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+    expect(KANBAN_STATUSES).toEqual([
+      'TODO',
+      'IN_PROGRESS',
+      'IN_REVIEW',
+      'DONE',
+    ])
   })
 })
 

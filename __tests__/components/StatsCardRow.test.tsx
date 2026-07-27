@@ -41,7 +41,6 @@ function makeStats(
     subtaskCompletionRate: null,
     agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
     prStats: { total: 0, merged: 0, open: 0 },
-    risk: { level: 'healthy', score: 0, reasons: [] },
     topBlockers: {
       overdueTaskIds: [],
       stalledTaskIds: [],

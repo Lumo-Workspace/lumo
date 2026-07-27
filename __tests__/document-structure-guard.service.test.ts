@@ -238,7 +238,8 @@ describe('structure guard — section scope', () => {
     mockFindWithPermission.mockResolvedValue(
       ownerDoc({
         sourceMarkdown: '# Doc\n\n## B notes\n\nnote body\n',
-        content: '<h1>Doc</h1><table><tr><td>phantom</td></tr></table><h2>B notes</h2><p>note body</p>',
+        content:
+          '<h1>Doc</h1><table><tr><td>phantom</td></tr></table><h2>B notes</h2><p>note body</p>',
       })
     )
 
@@ -267,7 +268,8 @@ describe('structure guard — section scope', () => {
     mockFindWithPermission.mockResolvedValue(
       ownerDoc({
         sourceMarkdown: '# Doc\n\n## B notes\n\nnote body\n',
-        content: '<h1>Doc</h1><table><tr><td>phantom</td></tr></table><h2>B notes</h2><p>note body</p>',
+        content:
+          '<h1>Doc</h1><table><tr><td>phantom</td></tr></table><h2>B notes</h2><p>note body</p>',
       })
     )
 

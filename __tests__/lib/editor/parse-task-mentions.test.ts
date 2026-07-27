@@ -29,8 +29,11 @@ describe('parseMentionedTaskIds', () => {
 
   it('skips user mentions and legacy mentions without type attr', () => {
     const html =
-      renderMentionToHtml({ mentionType: 'user', id: 'clerk1', label: 'Alice' }) +
-      '<span class="mention" data-id="clerk2">@x</span>'
+      renderMentionToHtml({
+        mentionType: 'user',
+        id: 'clerk1',
+        label: 'Alice',
+      }) + '<span class="mention" data-id="clerk2">@x</span>'
     expect(parseMentionedTaskIds(html, 'self')).toEqual([])
   })
 
@@ -49,12 +52,20 @@ describe('parseMentionedTaskIds', () => {
   it('mixed entities: task mention + sprint → only task id returned', () => {
     const html =
       renderMentionToHtml({ mentionType: 'task', id: 'ct3', label: 'LUM-3' }) +
-      renderMentionToHtml({ mentionType: 'sprint', id: 'sp_42', label: 'Sprint 1' })
+      renderMentionToHtml({
+        mentionType: 'sprint',
+        id: 'sp_42',
+        label: 'Sprint 1',
+      })
     expect(parseMentionedTaskIds(html, 'other')).toEqual(['ct3'])
   })
 
   it('empty selfTaskId: still returns the task id', () => {
-    const html = renderMentionToHtml({ mentionType: 'task', id: 'ct4', label: 'LUM-4' })
+    const html = renderMentionToHtml({
+      mentionType: 'task',
+      id: 'ct4',
+      label: 'LUM-4',
+    })
     expect(parseMentionedTaskIds(html, '')).toEqual(['ct4'])
   })
 })

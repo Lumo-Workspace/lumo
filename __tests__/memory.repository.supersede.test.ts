@@ -66,7 +66,10 @@ describe('memoryRepository.supersede (LUM-325, Option B invalidate-not-delete)',
   })
 
   it('writes a MemoryProvenance edge old→new so resolveCanonicalFragment rolls lineage forward', async () => {
-    const { newId } = await memoryRepository.supersede('mem_old', { rule: 'new', scope: 'all' })
+    const { newId } = await memoryRepository.supersede('mem_old', {
+      rule: 'new',
+      scope: 'all',
+    })
     expect(newId).toBe('mem_new')
     expect(provenanceCreate).toHaveBeenCalledWith({
       data: { parentMemoryId: 'mem_old', childMemoryId: 'mem_new' },

@@ -115,9 +115,30 @@ describe('DocumentsSection', () => {
           taskId='task-1'
           onAttached={jest.fn()}
           documents={[
-            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '', source: 'CONTENT' },
-            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '', source: 'CONTENT' },
-            { id: 'd3', slug: 'c-3', title: 'c', emoji: null, updatedAt: '', source: 'CONTENT' },
+            {
+              id: 'd1',
+              slug: 'a-1',
+              title: 'a',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
+            {
+              id: 'd2',
+              slug: 'b-2',
+              title: 'b',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
+            {
+              id: 'd3',
+              slug: 'c-3',
+              title: 'c',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
           ]}
         />
       </Accordion>
@@ -251,8 +272,22 @@ describe('DocumentsSection', () => {
           taskId='task-1'
           onAttached={jest.fn()}
           documents={[
-            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '', source: 'CONTENT' },
-            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '', source: 'EXPLICIT' },
+            {
+              id: 'd1',
+              slug: 'a-1',
+              title: 'a',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
+            {
+              id: 'd2',
+              slug: 'b-2',
+              title: 'b',
+              emoji: null,
+              updatedAt: '',
+              source: 'EXPLICIT',
+            },
           ]}
         />
       </Accordion>
@@ -273,8 +308,22 @@ describe('DocumentsSection', () => {
           taskId='task-1'
           onAttached={jest.fn()}
           documents={[
-            { id: 'x', slug: 'x-1', title: 'Explicit doc', emoji: null, updatedAt: '', source: 'EXPLICIT' },
-            { id: 'y', slug: 'y-1', title: 'Content doc', emoji: null, updatedAt: '', source: 'CONTENT' },
+            {
+              id: 'x',
+              slug: 'x-1',
+              title: 'Explicit doc',
+              emoji: null,
+              updatedAt: '',
+              source: 'EXPLICIT',
+            },
+            {
+              id: 'y',
+              slug: 'y-1',
+              title: 'Content doc',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
           ]}
         />
       </Accordion>
@@ -292,14 +341,30 @@ describe('DocumentsSection', () => {
           taskId='task-1'
           onAttached={jest.fn()}
           documents={[
-            { id: 'd1', slug: 'a-1', title: 'Content doc', emoji: null, updatedAt: '', source: 'CONTENT' },
-            { id: 'd2', slug: 'b-2', title: 'Explicit doc', emoji: null, updatedAt: '', source: 'EXPLICIT' },
+            {
+              id: 'd1',
+              slug: 'a-1',
+              title: 'Content doc',
+              emoji: null,
+              updatedAt: '',
+              source: 'CONTENT',
+            },
+            {
+              id: 'd2',
+              slug: 'b-2',
+              title: 'Explicit doc',
+              emoji: null,
+              updatedAt: '',
+              source: 'EXPLICIT',
+            },
           ]}
         />
       </Accordion>
     )
     expect(
-      screen.getAllByRole('button', { name: 'task.contextLink.doc.detachAction' })
+      screen.getAllByRole('button', {
+        name: 'task.contextLink.doc.detachAction',
+      })
     ).toHaveLength(1)
   })
 })

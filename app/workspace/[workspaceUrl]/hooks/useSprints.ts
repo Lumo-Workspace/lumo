@@ -15,7 +15,7 @@ import type {
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
-import type { RiskAssessment, TopBlockers } from '@/types/summary'
+import type { TopBlockers } from '@/types/summary'
 
 // Mirror each fetched task into the per-task detail cache so detail pages
 // can read by id without a re-fetch. Sprint / backlog responses include
@@ -45,7 +45,6 @@ interface SprintProgress {
 interface SprintWithProgress {
   sprint: Sprint
   progress: SprintProgress
-  risk?: RiskAssessment
   topBlockers?: TopBlockers
   // The by-number response bundles the sprint's tasks so we can seed the
   // tasks.bySprint cache and avoid the serial sprint→tasks waterfall (LUM-200).
@@ -192,7 +191,6 @@ export function useSprintByNumber(
   return {
     sprint: query.data?.sprint,
     progress: query.data?.progress,
-    risk: query.data?.risk,
     topBlockers: query.data?.topBlockers,
     isLoading: query.isPending && enabled,
     error: query.error ?? undefined,

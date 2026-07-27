@@ -4,10 +4,21 @@ jest.mock('@ai-sdk/gateway', () => ({
 }))
 
 import {
+  SUMMARY_SYSTEM_PROMPT_EN,
+  SUMMARY_SYSTEM_PROMPT_ZH,
   buildProjectPrompt,
-  formatReasonsForPrompt,
+  buildWorkspacePrompt,
 } from '@/lib/summaries/report'
-import type { TaskSummaryStats } from '@/types/summary'
+import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+
+const EMPTY_BLOCKERS = {
+  overdueTaskIds: [],
+  stalledTaskIds: [],
+  failingAgentTaskIds: [],
+  staleOpenPrNumbers: [],
+  staleOpenPrs: [],
+  highStakesTaskIds: [],
+}
 
 function makeStats(): TaskSummaryStats {
   return {
@@ -21,52 +32,57 @@ function makeStats(): TaskSummaryStats {
     subtaskCompletionRate: null,
     agentStats: { total: 5, completed: 3, failed: 2, working: 0 },
     prStats: { total: 4, merged: 2, open: 2 },
-    risk: {
-      level: 'watch',
-      score: 4,
-      reasons: [
-        { code: 'overdue_ratio_high', detail: '7/20 tasks overdue (35%)' },
-        { code: 'stalled_tasks', detail: '3 tasks with no progress in 7 days' },
-      ],
-    },
-    topBlockers: {
-      overdueTaskIds: [],
-      stalledTaskIds: [],
-      failingAgentTaskIds: [],
-      staleOpenPrNumbers: [],
-      staleOpenPrs: [],
-      highStakesTaskIds: [],
-    },
+    topBlockers: EMPTY_BLOCKERS,
   }
 }
 
-describe('formatReasonsForPrompt', () => {
-  it('returns "(no triggered rules)" for empty in English', () => {
-    expect(formatReasonsForPrompt([], 'en')).toBe('(no triggered rules)')
-  })
-  it('returns Chinese fallback when locale starts with zh', () => {
-    expect(formatReasonsForPrompt([], 'zh')).toBe('(无触发规则)')
-  })
-  it('formats each reason on its own indented line', () => {
-    const out = formatReasonsForPrompt(
-      [{ code: 'stalled_tasks', detail: '3 tasks stuck' }],
-      'en'
-    )
-    expect(out).toBe('  - [stalled_tasks] 3 tasks stuck')
-  })
-})
+function makeWorkspaceStats(): WorkspaceSummaryStats {
+  return {
+    ...makeStats(),
+    projectBreakdown: [
+      {
+        projectId: 'p1',
+        projectName: 'Web',
+        totalTasks: 20,
+        completedTasks: 5,
+        overdueTasks: 7,
+      },
+    ],
+  }
+}
 
 describe('buildProjectPrompt', () => {
-  it('includes Risk Assessment section with level, score, and reasons', () => {
+  it('report prompt has no risk assessment block', () => {
     const prompt = buildProjectPrompt(makeStats(), {
       projectName: 'Test',
       projectDescription: null,
       locale: 'en',
     })
-    expect(prompt).toContain('Risk Assessment (pre-computed)')
-    expect(prompt).toContain('Level: watch')
-    expect(prompt).toContain('Score: 4')
-    expect(prompt).toContain('[overdue_ratio_high]')
-    expect(prompt).toContain('7/20 tasks overdue (35%)')
+    expect(prompt).not.toContain('Risk Assessment')
+    expect(prompt).not.toContain('Triggered rules')
+    expect(prompt).not.toContain('Level:')
+    // The stats the briefing is actually written from still reach the model.
+    expect(prompt).toContain('Total Tasks: 20')
+    expect(prompt).toContain('Overdue Tasks: 7')
+  })
+})
+
+describe('buildWorkspacePrompt', () => {
+  it('lists projects without a risk level', () => {
+    const prompt = buildWorkspacePrompt(makeWorkspaceStats(), {
+      workspaceName: 'Lumo',
+      locale: 'en',
+    })
+    expect(prompt).toContain('  Web: total=20, completed=5, overdue=7')
+    expect(prompt).not.toContain('Risk Assessment')
+  })
+})
+
+describe('system prompts', () => {
+  it('ask for a single Today’s Focus section only', () => {
+    expect(SUMMARY_SYSTEM_PROMPT_EN).toContain("## Today's Focus")
+    expect(SUMMARY_SYSTEM_PROMPT_EN).not.toContain('## Risk')
+    expect(SUMMARY_SYSTEM_PROMPT_ZH).toContain('## 今日关注')
+    expect(SUMMARY_SYSTEM_PROMPT_ZH).not.toContain('## 风险')
   })
 })

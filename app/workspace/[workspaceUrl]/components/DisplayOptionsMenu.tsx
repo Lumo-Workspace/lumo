@@ -169,10 +169,7 @@ export function DisplayOptionsMenu({
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info
-                size={12}
-                className='text-muted-foreground cursor-help'
-              />
+              <Info size={12} className='text-muted-foreground cursor-help' />
             </TooltipTrigger>
             <TooltipContent side='top'>
               {intl.formatMessage({
@@ -189,14 +186,9 @@ export function DisplayOptionsMenu({
                 onClick={() => onOrderingChange(opt)}
                 className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors'
               >
-                <span className='text-foreground'>
-                  {orderingLabels[opt]}
-                </span>
+                <span className='text-foreground'>{orderingLabels[opt]}</span>
                 {ordering === opt && (
-                  <Check
-                    size={14}
-                    className='text-muted-foreground'
-                  />
+                  <Check size={14} className='text-muted-foreground' />
                 )}
               </button>
             </TooltipTrigger>
@@ -215,10 +207,7 @@ export function DisplayOptionsMenu({
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info
-                size={12}
-                className='text-muted-foreground cursor-help'
-              />
+              <Info size={12} className='text-muted-foreground cursor-help' />
             </TooltipTrigger>
             <TooltipContent side='top'>
               {intl.formatMessage({
@@ -239,10 +228,7 @@ export function DisplayOptionsMenu({
                   {completedFilterLabels[opt]}
                 </span>
                 {completedFilter === opt && (
-                  <Check
-                    size={14}
-                    className='text-muted-foreground'
-                  />
+                  <Check size={14} className='text-muted-foreground' />
                 )}
               </button>
             </TooltipTrigger>

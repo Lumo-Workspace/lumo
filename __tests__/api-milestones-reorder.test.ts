@@ -24,10 +24,13 @@ const mockReorder = milestoneService.reorderMilestones as jest.Mock
 const CUID = 'clm00000000000000000000a'
 
 function req(body: unknown) {
-  return new NextRequest('http://localhost/api/projects/p-1/milestones/reorder', {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
+  return new NextRequest(
+    'http://localhost/api/projects/p-1/milestones/reorder',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }
+  )
 }
 const params = { params: Promise.resolve({ id: 'p-1' }) }
 

@@ -1,12 +1,8 @@
 import { Prisma } from '@prisma/client'
 import { summaryRepository } from '@/lib/repositories/summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
-import {
-  aggregateWorkspaceStats,
-  type ProjectRiskOverride,
-} from '@/lib/summaries/stats'
+import { aggregateWorkspaceStats } from '@/lib/summaries/stats'
 import { generateWorkspaceReport } from '@/lib/summaries/report'
-import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -128,46 +124,13 @@ export const summaryService = {
         continue
       }
 
-      const workspaceConfig = {
-        riskOverdueRatio: workspace.riskOverdueRatio,
-        riskStalledDays: workspace.riskStalledDays,
-        riskStalledMinCount: workspace.riskStalledMinCount,
-        riskAgentFailRatio: workspace.riskAgentFailRatio,
-        riskStalePrDays: workspace.riskStalePrDays,
-        riskThroughputDrop: workspace.riskThroughputDrop,
-      }
-
-      // Per-project risk overrides still feed the workspace aggregation below,
-      // so the loop stays — but it no longer generates project reports.
-      //
       // LUM-699 retired the project-level report: the project Signal tab reads
       // live stats and renders no prose, and nothing else in the product (UI,
       // Slack, digests) consumes a project summary. Generating one per project
       // per cycle was an LLM call per project whose only reader was the
       // database. Workspace reports are unaffected — those are still rendered
       // on the Dashboard.
-      const projectOverrides = new Map<string, ProjectRiskOverride | null>()
-
-      for (const project of workspace.projects) {
-        projectOverrides.set(project.id, {
-          riskOverdueRatio: project.riskOverdueRatio,
-          riskStalledDays: project.riskStalledDays,
-          riskStalledMinCount: project.riskStalledMinCount,
-          riskAgentFailRatio: project.riskAgentFailRatio,
-          riskStalePrDays: project.riskStalePrDays,
-          riskThroughputDrop: project.riskThroughputDrop,
-        })
-      }
-
-      const workspaceEffective = resolveEffectiveRiskConfig(
-        workspaceConfig,
-        null
-      )
-      const workspaceStats = await aggregateWorkspaceStats(
-        workspace.id,
-        workspaceEffective,
-        projectOverrides
-      )
+      const workspaceStats = await aggregateWorkspaceStats(workspace.id)
       const { tldr, report } = await generateWorkspaceReport(workspaceStats, {
         workspaceName: workspace.name,
         locale: workspace.summaryLocale,

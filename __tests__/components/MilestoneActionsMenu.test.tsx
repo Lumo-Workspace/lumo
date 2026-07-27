@@ -46,7 +46,9 @@ jest.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuSeparator: () => <hr />,
 }))
 
-function setup(overrides: Partial<Parameters<typeof MilestoneActionsMenu>[0]> = {}) {
+function setup(
+  overrides: Partial<Parameters<typeof MilestoneActionsMenu>[0]> = {}
+) {
   const props = {
     archived: false,
     disabled: false,
@@ -62,9 +64,7 @@ function setup(overrides: Partial<Parameters<typeof MilestoneActionsMenu>[0]> = 
 describe('MilestoneActionsMenu', () => {
   it('renders edit, archive and delete and wires each callback when not archived', () => {
     const props = setup()
-    expect(
-      screen.getByLabelText('Open milestone actions')
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Open milestone actions')).toBeInTheDocument()
 
     screen.getByText('Edit milestone').click()
     expect(props.onEdit).toHaveBeenCalledTimes(1)

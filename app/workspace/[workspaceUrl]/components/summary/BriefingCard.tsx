@@ -2,9 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
-import type { RiskAssessment } from '@/types/summary'
 import { parseReport } from '@/lib/summaries/parse-report'
-import { RiskBadge } from './RiskBadge'
 import { RichReportContent } from './RichReportContent'
 import type { WorkspaceMemberInfo } from '../../types'
 import type { AgentActor } from '../../hooks/useMembers'
@@ -13,7 +11,6 @@ interface BriefingCardProps {
   tldr: string
   report: string
   generatedAt: string
-  risk: RiskAssessment | null
   members?: WorkspaceMemberInfo[]
   agentActors?: AgentActor[]
 }
@@ -22,7 +19,6 @@ export function BriefingCard({
   tldr,
   report,
   generatedAt,
-  risk,
   members = [],
   agentActors = [],
 }: BriefingCardProps) {
@@ -34,8 +30,7 @@ export function BriefingCard({
     [report, intl.locale]
   )
 
-  const hasStructured =
-    parsed.todayFocus.length > 0 || parsed.riskNarrative.length > 0
+  const hasStructured = parsed.todayFocus.length > 0
 
   const parsedDate = generatedAt ? new Date(generatedAt) : null
   const formattedDate =
@@ -50,19 +45,14 @@ export function BriefingCard({
 
   return (
     <div className='rounded-lg border border-border p-4 space-y-3'>
-      <header className='flex items-center justify-between'>
-        <RiskBadge level={risk?.level ?? null} showLabel />
-        {formattedDate && (
-          <span className='text-xs text-muted-foreground'>
-            {formattedDate}
-          </span>
-        )}
-      </header>
+      {formattedDate && (
+        <header className='flex items-center justify-end'>
+          <span className='text-xs text-muted-foreground'>{formattedDate}</span>
+        </header>
+      )}
 
       {tldr ? (
-        <p className='text-base font-medium text-foreground'>
-          {tldr}
-        </p>
+        <p className='text-base font-medium text-foreground'>{tldr}</p>
       ) : (
         <p className='text-sm text-muted-foreground italic'>
           {intl.formatMessage({
@@ -74,37 +64,22 @@ export function BriefingCard({
       )}
 
       {hasStructured ? (
-        <>
-          {parsed.todayFocus.length > 0 && (
-            <section>
-              <h3 className='text-xs uppercase tracking-wider text-muted-foreground mb-2'>
-                {intl.formatMessage({ id: 'summary.todayFocus' })}
-              </h3>
-              <ul className='space-y-1.5'>
-                {parsed.todayFocus.map((item, i) => (
-                  <RichReportContent
-                    key={i}
-                    markdown={`- ${item}`}
-                    members={members}
-                    agentActors={agentActors}
-                    className='contents'
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {parsed.riskNarrative && (
-            <section className='rounded-sm bg-muted/50 p-3 text-xs text-muted-foreground'>
+        <section>
+          <h3 className='text-xs uppercase tracking-wider text-muted-foreground mb-2'>
+            {intl.formatMessage({ id: 'summary.todayFocus' })}
+          </h3>
+          <ul className='space-y-1.5'>
+            {parsed.todayFocus.map((item, i) => (
               <RichReportContent
-                markdown={parsed.riskNarrative}
+                key={i}
+                markdown={`- ${item}`}
                 members={members}
                 agentActors={agentActors}
-                className='space-y-1'
+                className='contents'
               />
-            </section>
-          )}
-        </>
+            ))}
+          </ul>
+        </section>
       ) : (
         <RichReportContent
           markdown={parsed.raw}

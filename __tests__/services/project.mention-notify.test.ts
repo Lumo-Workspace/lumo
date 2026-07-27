@@ -75,7 +75,12 @@ beforeEach(() => {
     createdByMemberId: 'mem1',
   })
   mockMemberFindById.mockResolvedValue({ id: 'mem1', workspaceId: 'ws1' })
-  mockUpdate.mockResolvedValue({ id: 'p1', name: 'Proj', isIdea: false, owner: null })
+  mockUpdate.mockResolvedValue({
+    id: 'p1',
+    name: 'Proj',
+    isIdea: false,
+    owner: null,
+  })
   mockFindActorByMemberId.mockResolvedValue({ id: 'a1' })
   mockGetActorClerkId.mockResolvedValue('author')
   mockFindNameAndSlug.mockResolvedValue({ name: 'WS', slug: 'ws' })
@@ -92,7 +97,10 @@ describe('updateProject @mention notifications', () => {
     await flushBackground()
 
     expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
-    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
+    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >
     expect(arg).toMatchObject({
       notificationType: 'PROJECT_MENTIONED',
       ref: { projectId: 'p1' },

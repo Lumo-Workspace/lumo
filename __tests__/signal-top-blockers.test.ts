@@ -1,4 +1,4 @@
-import { collectTopBlockers, DEFAULT_RISK_CONFIG } from '@/lib/summaries/risk'
+import { collectTopBlockers } from '@/lib/summaries/top-blockers'
 
 const NOW = new Date('2026-07-24T12:00:00Z')
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 24 * 60 * 60 * 1000)
@@ -34,7 +34,6 @@ describe('top blockers — Signal tab timestamps', () => {
         },
       ],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
 
     // The IDLE column is derived from this timestamp, so it has to survive the
@@ -77,7 +76,6 @@ describe('top blockers — Signal tab timestamps', () => {
         },
       ],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
 
     // `lumo sprint show` renders this list directly as `#16, #111`; turning it

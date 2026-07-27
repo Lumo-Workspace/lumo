@@ -113,7 +113,8 @@ beforeEach(() => {
 
 describe('section patch (mode: replace)', () => {
   it('replaces only the addressed section — every byte outside it is unchanged', async () => {
-    const newSection = '## A queue\n\n| item | state |\n| ---- | ----- |\n| x    | done  |\n'
+    const newSection =
+      '## A queue\n\n| item | state |\n| ---- | ----- |\n| x    | done  |\n'
     await documentService.editDocumentSection('doc-1', 'm-1', 'ws-1', {
       mode: 'replace',
       section: 'A queue',

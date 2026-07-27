@@ -17,12 +17,6 @@ export interface WorkspaceUpdateData {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency | string
   summaryLocale?: string
-  riskOverdueRatio?: number
-  riskStalledDays?: number
-  riskStalledMinCount?: number
-  riskAgentFailRatio?: number
-  riskStalePrDays?: number
-  riskThroughputDrop?: number
   verificationMaxRounds?: number
   acceptanceMode?: boolean
 }

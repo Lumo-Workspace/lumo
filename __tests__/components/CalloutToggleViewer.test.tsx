@@ -26,7 +26,9 @@ describe('RichTextViewer — callout & toggle', () => {
     await waitFor(() =>
       expect(screen.getByText('be careful')).toBeInTheDocument()
     )
-    const callout = container.querySelector('[data-callout][data-variant="warning"]')
+    const callout = container.querySelector(
+      '[data-callout][data-variant="warning"]'
+    )
     expect(callout).not.toBeNull()
     // Emoji is derived from the variant, not stored in the HTML.
     expect(container.textContent).toContain('⚠️')
@@ -48,9 +50,7 @@ describe('RichTextViewer — callout & toggle', () => {
     const { container } = render(
       <RichTextViewer value='<div data-toggle data-open="true"><div data-toggle-summary>Details</div><div data-toggle-content><p>hidden body</p></div></div>' />
     )
-    await waitFor(() =>
-      expect(screen.getByText('Details')).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText('Details')).toBeInTheDocument())
     expect(screen.getByText('hidden body')).toBeInTheDocument()
     expect(
       container.querySelector('[data-toggle][data-open="true"]')

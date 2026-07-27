@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 const embedTextsMock = jest.fn().mockResolvedValue([[0.1, 0.2]])
-jest.mock('@/lib/ai/embedding', () => ({ embedTexts: (...a: unknown[]) => embedTextsMock(...a), EMBEDDING_DIM: 1024 }))
+jest.mock('@/lib/ai/embedding', () => ({
+  embedTexts: (...a: unknown[]) => embedTextsMock(...a),
+  EMBEDDING_DIM: 1024,
+}))
 const resolveGuardedMock = jest.fn().mockResolvedValue(new Set<string>())
 jest.mock('@/lib/services/memory/supersede-guard', () => ({
   resolveGuardedSupersedeIds: (...a: unknown[]) => resolveGuardedMock(...a),
@@ -67,7 +70,13 @@ describe('applyLayer2Operations', () => {
       ...baseInput,
       operations: ops,
     })
-    expect(result).toEqual({ added: 0, updated: 0, noop: 1, skipped: 0, superseded: 0 })
+    expect(result).toEqual({
+      added: 0,
+      updated: 0,
+      noop: 1,
+      skipped: 0,
+      superseded: 0,
+    })
     expect(repo.applyPlansAtomically).not.toHaveBeenCalled()
   })
 
@@ -216,20 +225,40 @@ describe('applyLayer2Operations', () => {
       .spyOn(memoryRepository, 'setEmbedding')
       .mockResolvedValue(undefined)
     const result = await applyLayer2Operations({
-      operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new', scope: 'all' } }],
+      operations: [
+        {
+          type: 'SUPERSEDE',
+          id: 'mem_old',
+          content: { rule: 'new', scope: 'all' },
+        },
+      ],
       projectId: 'proj_1',
       workspaceId: 'ws_1',
       existingProjectMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
     })
     expect(result.superseded).toBe(1)
-    expect(repo.supersede).toHaveBeenCalledWith('mem_old', { rule: 'new', scope: 'all' }, expect.anything())
-    expect(setEmb).toHaveBeenCalledWith('mem_new', expect.any(Array), expect.anything())
+    expect(repo.supersede).toHaveBeenCalledWith(
+      'mem_old',
+      { rule: 'new', scope: 'all' },
+      expect.anything()
+    )
+    expect(setEmb).toHaveBeenCalledWith(
+      'mem_new',
+      expect.any(Array),
+      expect.anything()
+    )
   })
 
   it('GUARDS a high-trust SUPERSEDE target: skips it, leaving the row untouched', async () => {
     resolveGuardedMock.mockResolvedValue(new Set(['mem_old']))
     const result = await applyLayer2Operations({
-      operations: [{ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new', scope: 'all' } }],
+      operations: [
+        {
+          type: 'SUPERSEDE',
+          id: 'mem_old',
+          content: { rule: 'new', scope: 'all' },
+        },
+      ],
       projectId: 'proj_1',
       workspaceId: 'ws_1',
       existingProjectMemories: [{ id: 'mem_old', category: 'CONVENTION' }],
@@ -241,7 +270,9 @@ describe('applyLayer2Operations', () => {
 
   it('drops SUPERSEDE targeting an unknown id', async () => {
     const result = await applyLayer2Operations({
-      operations: [{ type: 'SUPERSEDE', id: 'ghost', content: { rule: 'x', scope: 'y' } }],
+      operations: [
+        { type: 'SUPERSEDE', id: 'ghost', content: { rule: 'x', scope: 'y' } },
+      ],
       projectId: 'proj_1',
       workspaceId: 'ws_1',
       existingProjectMemories: [],
@@ -251,25 +282,54 @@ describe('applyLayer2Operations', () => {
   })
 
   it('stamps embedding on ADD using embedTexts, after the content write', async () => {
-    const create = jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
-    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
+    const create = jest
+      .spyOn(memoryRepository, 'create')
+      .mockResolvedValue({ id: 'new_1' } as never)
+    const setEmb = jest
+      .spyOn(memoryRepository, 'setEmbedding')
+      .mockResolvedValue(undefined)
     const result = await applyLayer2Operations({
-      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'enum migration', outcome: 'P3009' } }],
-      projectId: 'proj_1', workspaceId: 'ws_1',
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 'enum migration', outcome: 'P3009' },
+        },
+      ],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
       existingProjectMemories: [],
     })
     expect(result.added).toBe(1)
     expect(create).toHaveBeenCalled()
-    expect(setEmb).toHaveBeenCalledWith('new_1', expect.any(Array), expect.anything())
+    expect(setEmb).toHaveBeenCalledWith(
+      'new_1',
+      expect.any(Array),
+      expect.anything()
+    )
   })
 
   it('reuses a precomputed vector instead of calling embedTexts', async () => {
-    const text = memoryContentToText('TRAP', { trigger: 'enum migration', outcome: 'P3009' })
-    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
-    jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
+    const text = memoryContentToText('TRAP', {
+      trigger: 'enum migration',
+      outcome: 'P3009',
+    })
+    const setEmb = jest
+      .spyOn(memoryRepository, 'setEmbedding')
+      .mockResolvedValue(undefined)
+    jest
+      .spyOn(memoryRepository, 'create')
+      .mockResolvedValue({ id: 'new_1' } as never)
     await applyLayer2Operations({
-      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'enum migration', outcome: 'P3009' } }],
-      projectId: 'proj_1', workspaceId: 'ws_1',
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 'enum migration', outcome: 'P3009' },
+        },
+      ],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
       existingProjectMemories: [],
       precomputedEmbeddings: new Map([[text, [0.5, 0.5]]]),
     })
@@ -279,14 +339,25 @@ describe('applyLayer2Operations', () => {
 
   it('still writes content when embedTexts throws (embedding is best-effort)', async () => {
     embedTextsMock.mockRejectedValueOnce(new Error('no key'))
-    const create = jest.spyOn(memoryRepository, 'create').mockResolvedValue({ id: 'new_1' } as never)
-    const setEmb = jest.spyOn(memoryRepository, 'setEmbedding').mockResolvedValue(undefined)
+    const create = jest
+      .spyOn(memoryRepository, 'create')
+      .mockResolvedValue({ id: 'new_1' } as never)
+    const setEmb = jest
+      .spyOn(memoryRepository, 'setEmbedding')
+      .mockResolvedValue(undefined)
     const result = await applyLayer2Operations({
-      operations: [{ type: 'ADD', category: 'TRAP', content: { trigger: 'x', outcome: 'y' } }],
-      projectId: 'proj_1', workspaceId: 'ws_1',
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 'x', outcome: 'y' },
+        },
+      ],
+      projectId: 'proj_1',
+      workspaceId: 'ws_1',
       existingProjectMemories: [],
     })
-    expect(result.added).toBe(1)        // content still written
+    expect(result.added).toBe(1) // content still written
     expect(create).toHaveBeenCalled()
     expect(setEmb).not.toHaveBeenCalled() // embedding skipped
   })
@@ -355,7 +426,11 @@ describe('applyLayer2Operations provenance (LUM-280)', () => {
       ...baseInput,
       validSourceMemoryIds: ['mem_1'],
       operations: [
-        { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 't', outcome: 'o' },
+        },
       ],
     })
     expect(provRepo.createMany).not.toHaveBeenCalled()

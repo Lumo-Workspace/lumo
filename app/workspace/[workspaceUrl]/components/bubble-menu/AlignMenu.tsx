@@ -12,9 +12,21 @@ import {
 } from '@/components/ui/tooltip'
 
 const ALIGN_OPTIONS = [
-  { id: 'editor.alignLeft', icon: <AlignLeft size={14} />, value: 'left' as const },
-  { id: 'editor.alignCenter', icon: <AlignCenter size={14} />, value: 'center' as const },
-  { id: 'editor.alignRight', icon: <AlignRight size={14} />, value: 'right' as const },
+  {
+    id: 'editor.alignLeft',
+    icon: <AlignLeft size={14} />,
+    value: 'left' as const,
+  },
+  {
+    id: 'editor.alignCenter',
+    icon: <AlignCenter size={14} />,
+    value: 'center' as const,
+  },
+  {
+    id: 'editor.alignRight',
+    icon: <AlignRight size={14} />,
+    value: 'right' as const,
+  },
 ]
 
 export function AlignMenu({
@@ -42,7 +54,10 @@ export function AlignMenu({
   }, [open])
 
   const activeFlags = [alignLeft, alignCenter, alignRight]
-  const options = ALIGN_OPTIONS.map((o, i) => ({ ...o, active: activeFlags[i] ?? false }))
+  const options = ALIGN_OPTIONS.map((o, i) => ({
+    ...o,
+    active: activeFlags[i] ?? false,
+  }))
   const current = options.find(o => o.active) ?? options[0]!
   const label = intl.formatMessage({ id: 'editor.align' })
 
@@ -68,7 +83,10 @@ export function AlignMenu({
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
       {open && (
-        <div role='menu' className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'>
+        <div
+          role='menu'
+          className='absolute top-full left-0 mt-1 z-dropdown min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-elevation-3 py-1'
+        >
           {options.map(o => (
             <button
               key={o.id}

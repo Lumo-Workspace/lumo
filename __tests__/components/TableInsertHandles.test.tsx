@@ -31,7 +31,9 @@ const editor = {} as unknown as Editor
 const containerRef = createRef<HTMLElement>()
 
 function renderHandles() {
-  return render(<TableInsertHandles editor={editor} containerRef={containerRef} />)
+  return render(
+    <TableInsertHandles editor={editor} containerRef={containerRef} />
+  )
 }
 
 describe('TableInsertHandles', () => {
@@ -72,6 +74,8 @@ describe('TableInsertHandles', () => {
       cellPoint: { x: 50, y: 20 },
     }
     renderHandles()
-    expect(screen.getByRole('button', { name: 'Insert row' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Insert row' })
+    ).toBeInTheDocument()
   })
 })

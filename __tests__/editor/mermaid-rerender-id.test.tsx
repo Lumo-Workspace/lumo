@@ -18,8 +18,13 @@
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
-    formatMessage: ({ id, defaultMessage }: { id: string; defaultMessage?: string }) =>
-      defaultMessage ?? id,
+    formatMessage: ({
+      id,
+      defaultMessage,
+    }: {
+      id: string
+      defaultMessage?: string
+    }) => defaultMessage ?? id,
   }),
 }))
 
@@ -41,7 +46,8 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 
 // Minimal editable editor hosting a single Mermaid block. Real node view runs.
-const STORED = '<pre data-type="mermaid"><code>graph TD\n  A--&gt;B</code></pre>'
+const STORED =
+  '<pre data-type="mermaid"><code>graph TD\n  A--&gt;B</code></pre>'
 
 function EditableMermaid() {
   const editor = useEditor({
@@ -79,7 +85,9 @@ it('uses a unique id for each render so a re-render never collides with the disp
   })
 
   // The commit toggles editing→false, re-running the render effect.
-  await waitFor(() => expect(renderMermaid.mock.calls.length).toBeGreaterThanOrEqual(2))
+  await waitFor(() =>
+    expect(renderMermaid.mock.calls.length).toBeGreaterThanOrEqual(2)
+  )
 
   const ids = renderMermaid.mock.calls.map(c => c[0] as string)
   // Every invocation must carry a distinct id — a reused id is what lets

@@ -35,8 +35,11 @@ jest.mock('react-intl', () => ({
 // Run the selector for real so the short-circuit logic is exercised.
 const mockHolder: { editor: unknown } = { editor: null }
 jest.mock('@tiptap/react', () => ({
-  useEditorState: ({ selector }: { selector: (ctx: { editor: unknown }) => unknown }) =>
-    selector({ editor: mockHolder.editor }),
+  useEditorState: ({
+    selector,
+  }: {
+    selector: (ctx: { editor: unknown }) => unknown
+  }) => selector({ editor: mockHolder.editor }),
 }))
 
 const mockExtract: { value: unknown } = { value: null }
@@ -58,7 +61,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenuBar } from '@/app/workspace/[workspaceUrl]/components/BubbleMenuBar'
 
-type NodesBetween = (from: number, to: number, cb: (node: unknown) => void) => void
+type NodesBetween = (
+  from: number,
+  to: number,
+  cb: (node: unknown) => void
+) => void
 
 function makeEditor(nodesBetween: NodesBetween = jest.fn()) {
   const run = jest.fn(() => true)

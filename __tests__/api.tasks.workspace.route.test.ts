@@ -33,7 +33,10 @@ describe('GET /api/tasks/workspace', () => {
 
     expect(mockFind).toHaveBeenCalledWith(
       'w1',
-      expect.objectContaining({ statuses: ['TODO', 'DONE'], projectIds: ['p1'] })
+      expect.objectContaining({
+        statuses: ['TODO', 'DONE'],
+        projectIds: ['p1'],
+      })
     )
     expect(body).toEqual({ tasks: [{ id: 't1' }], truncated: false })
   })

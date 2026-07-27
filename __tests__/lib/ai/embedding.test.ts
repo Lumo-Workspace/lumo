@@ -20,10 +20,21 @@ describe('embedTexts', () => {
   })
 
   it('embeds N texts in one call and returns the vectors', async () => {
-    embedManyMock.mockResolvedValue({ embeddings: [[0.1, 0.2], [0.3, 0.4]] })
+    embedManyMock.mockResolvedValue({
+      embeddings: [
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ],
+    })
     const out = await embedTexts(['a', 'b'])
-    expect(out).toEqual([[0.1, 0.2], [0.3, 0.4]])
-    const arg = embedManyMock.mock.calls[0]![0] as { values: string[]; model: { id: string } }
+    expect(out).toEqual([
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ])
+    const arg = embedManyMock.mock.calls[0]![0] as {
+      values: string[]
+      model: { id: string }
+    }
     expect(arg.values).toEqual(['a', 'b'])
     expect(arg.model.id).toBe('alibaba/qwen3-embedding-0.6b')
   })

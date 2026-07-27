@@ -1,12 +1,10 @@
 export interface ParsedReport {
   todayFocus: string[]
-  riskNarrative: string
   raw: string
 }
 
 const HEADERS = {
   focus: ["## Today's Focus", '## 今日关注'],
-  risk: ['## Risk', '## 风险'],
 }
 
 const BULLET_RE = /^[-*]\s+/
@@ -18,7 +16,7 @@ function normalizeHeader(line: string): string {
 export function parseReport(report: string, _locale: string): ParsedReport {
   const raw = report
   if (!report) {
-    return { todayFocus: [], riskNarrative: '', raw }
+    return { todayFocus: [], raw }
   }
 
   const lines = report.split('\n')
@@ -36,7 +34,6 @@ export function parseReport(report: string, _locale: string): ParsedReport {
   if (current) sections.push(current)
 
   let todayFocus: string[] = []
-  let riskNarrative = ''
 
   for (const section of sections) {
     if (HEADERS.focus.includes(section.header)) {
@@ -45,13 +42,8 @@ export function parseReport(report: string, _locale: string): ParsedReport {
         .filter(l => BULLET_RE.test(l))
         .map(l => l.replace(BULLET_RE, '').trim())
         .filter(Boolean)
-    } else if (HEADERS.risk.includes(section.header)) {
-      riskNarrative = section.body
-        .map(l => l.trim())
-        .filter(Boolean)
-        .join(' ')
     }
   }
 
-  return { todayFocus, riskNarrative, raw }
+  return { todayFocus, raw }
 }

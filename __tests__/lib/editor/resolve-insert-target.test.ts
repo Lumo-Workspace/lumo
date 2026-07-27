@@ -1,4 +1,7 @@
-import { resolveInsertTarget, dedupeSortedCoords } from '@/lib/editor/table/resolve-insert-target'
+import {
+  resolveInsertTarget,
+  dedupeSortedCoords,
+} from '@/lib/editor/table/resolve-insert-target'
 
 // 3-column / 2-row table. Column boundaries at x = 0,100,200,300.
 // Row boundaries at y = 0,40,80. Table spans (0,0)→(300,80).
@@ -15,27 +18,33 @@ describe('resolveInsertTarget', () => {
   })
 
   it('resolves an inner column boundary near the top edge → after previous column', () => {
-    expect(
-      resolveInsertTarget({ ...base, pointer: { x: 201, y: 2 } })
-    ).toEqual({ axis: 'col', side: 'after', anchorIndex: 1, boundaryCoord: 200 })
+    expect(resolveInsertTarget({ ...base, pointer: { x: 201, y: 2 } })).toEqual(
+      { axis: 'col', side: 'after', anchorIndex: 1, boundaryCoord: 200 }
+    )
   })
 
   it('resolves the outermost-left column boundary → before column 0', () => {
-    expect(
-      resolveInsertTarget({ ...base, pointer: { x: 1, y: 2 } })
-    ).toEqual({ axis: 'col', side: 'before', anchorIndex: 0, boundaryCoord: 0 })
+    expect(resolveInsertTarget({ ...base, pointer: { x: 1, y: 2 } })).toEqual({
+      axis: 'col',
+      side: 'before',
+      anchorIndex: 0,
+      boundaryCoord: 0,
+    })
   })
 
   it('resolves the outermost-right column boundary → after last column', () => {
-    expect(
-      resolveInsertTarget({ ...base, pointer: { x: 299, y: 2 } })
-    ).toEqual({ axis: 'col', side: 'after', anchorIndex: 2, boundaryCoord: 300 })
+    expect(resolveInsertTarget({ ...base, pointer: { x: 299, y: 2 } })).toEqual(
+      { axis: 'col', side: 'after', anchorIndex: 2, boundaryCoord: 300 }
+    )
   })
 
   it('resolves a row boundary near the left edge → after previous row', () => {
-    expect(
-      resolveInsertTarget({ ...base, pointer: { x: 2, y: 41 } })
-    ).toEqual({ axis: 'row', side: 'after', anchorIndex: 0, boundaryCoord: 40 })
+    expect(resolveInsertTarget({ ...base, pointer: { x: 2, y: 41 } })).toEqual({
+      axis: 'row',
+      side: 'after',
+      anchorIndex: 0,
+      boundaryCoord: 40,
+    })
   })
 
   it('returns null when near the top band but not near any column boundary', () => {
@@ -46,7 +55,12 @@ describe('resolveInsertTarget', () => {
 
   it('returns null when columnBoundaries is empty', () => {
     expect(
-      resolveInsertTarget({ ...base, columnBoundaries: [], rowBoundaries: [], pointer: { x: 1, y: 2 } })
+      resolveInsertTarget({
+        ...base,
+        columnBoundaries: [],
+        rowBoundaries: [],
+        pointer: { x: 1, y: 2 },
+      })
     ).toBeNull()
   })
 
@@ -55,9 +69,12 @@ describe('resolveInsertTarget', () => {
     // within left edgeBand (x=1 near tableRect.left=0); nearest column boundary
     // is 0 and nearest row boundary is 0 — column wins because col zone is
     // evaluated first in the function.
-    expect(
-      resolveInsertTarget({ ...base, pointer: { x: 1, y: 1 } })
-    ).toEqual({ axis: 'col', side: 'before', anchorIndex: 0, boundaryCoord: 0 })
+    expect(resolveInsertTarget({ ...base, pointer: { x: 1, y: 1 } })).toEqual({
+      axis: 'col',
+      side: 'before',
+      anchorIndex: 0,
+      boundaryCoord: 0,
+    })
   })
 })
 

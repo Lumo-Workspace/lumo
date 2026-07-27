@@ -28,7 +28,10 @@ describe('actorRepository.findGithubIdentitiesByIds', () => {
     mockFindMany.mockResolvedValue([
       { id: 'act_1', externalIdentity: 'github:octocat' },
     ])
-    const r = await actorRepository.findGithubIdentitiesByIds(['act_1', 'act_2'])
+    const r = await actorRepository.findGithubIdentitiesByIds([
+      'act_1',
+      'act_2',
+    ])
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['act_1', 'act_2'] }, type: 'GITHUB_USER' },
       select: { id: true, externalIdentity: true },

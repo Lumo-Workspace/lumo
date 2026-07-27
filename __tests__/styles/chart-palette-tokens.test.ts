@@ -10,7 +10,13 @@ import { join } from 'node:path'
 //      utilities exist.
 //   3. The summary charts consume bg-chart-* and carry no raw brand fill.
 
-const CHART_TOKENS = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'] as const
+const CHART_TOKENS = [
+  'chart-1',
+  'chart-2',
+  'chart-3',
+  'chart-4',
+  'chart-5',
+] as const
 
 function readGlobals(): string {
   return readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
@@ -18,9 +24,12 @@ function readGlobals(): string {
 
 /** First `{ … }` body after a `:root` / `.dark` selector at column 0. */
 function blockBody(css: string, selector: string): string {
-  const re = new RegExp(`(?:^|\\n)${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`)
+  const re = new RegExp(
+    `(?:^|\\n)${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`
+  )
   const m = css.match(re)
-  if (!m?.[1]) throw new Error(`could not find ${selector} block in globals.css`)
+  if (!m?.[1])
+    throw new Error(`could not find ${selector} block in globals.css`)
   return m[1]
 }
 

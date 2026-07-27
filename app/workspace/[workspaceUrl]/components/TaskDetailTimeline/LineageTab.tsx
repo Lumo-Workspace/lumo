@@ -34,10 +34,10 @@ const OUTCOME_ORDER: LineageOutcome[] = [
   'UNKNOWN',
 ]
 
-// Outcome badge styling via the semantic feedback tokens (LUM-258/290), same
-// recipe as RiskBadge: -subtle tint + -border + accent dot, with the LABEL kept
-// neutral (text-foreground/-muted) because the bright accents fail AA as text
-// on their own subtle tint. UNKNOWN carries no color — typography only.
+// Outcome badge styling via the semantic feedback tokens (LUM-258/290):
+// -subtle tint + -border + accent dot, with the LABEL kept neutral
+// (text-foreground/-muted) because the bright accents fail AA as text on their
+// own subtle tint. UNKNOWN carries no color — typography only.
 const OUTCOME_BADGE: Record<LineageOutcome, string> = {
   MERGED: 'bg-success-subtle border border-success-border text-foreground',
   REWORKED: 'bg-warning-subtle border border-warning-border text-foreground',

@@ -58,24 +58,13 @@ describe('formatSprintShow', () => {
     expect(out).not.toContain('LUM-')
   })
 
-  it('omits the Health line entirely when risk is not provided', () => {
+  it('never renders a Health line', () => {
     const out = formatSprintShow(sprint, progress, [task])
     expect(out).not.toContain('Health:')
     expect(out).not.toContain('Blockers:')
   })
 
-  it('renders the health level, reasons, and blockers when provided', () => {
-    const risk = {
-      level: 'at-risk',
-      score: 5,
-      reasons: [
-        { code: 'overdue_ratio_high', detail: '4/10 tasks overdue (40%)' },
-        {
-          code: 'stalled_tasks',
-          detail: '3 tasks with no progress in 7 days',
-        },
-      ],
-    }
+  it('renders the blockers section when blockers are provided', () => {
     const topBlockers = {
       overdueTaskIds: [
         { id: 't1', identifier: 'LUM-1', title: 'Fix login' },
@@ -87,10 +76,8 @@ describe('formatSprintShow', () => {
       ],
       staleOpenPrNumbers: [12, 15],
     }
-    const out = formatSprintShow(sprint, progress, [task], risk, topBlockers)
-    expect(out).toContain('Health:    AT-RISK')
-    expect(out).toContain('- 4/10 tasks overdue (40%)')
-    expect(out).toContain('- 3 tasks with no progress in 7 days')
+    const out = formatSprintShow(sprint, progress, [task], topBlockers)
+    expect(out).not.toContain('Health:')
     expect(out).toContain('Blockers:')
     expect(out).toContain('LUM-1 Fix login')
     expect(out).toContain('LUM-8 Wire API')
@@ -99,16 +86,14 @@ describe('formatSprintShow', () => {
     expect(out).toContain('#12, #15')
   })
 
-  it('renders the Health line but no Blockers section when all blockers empty', () => {
-    const risk = { level: 'healthy', score: 0, reasons: [] }
+  it('renders no Blockers section when all blocker groups are empty', () => {
     const topBlockers = {
       overdueTaskIds: [],
       stalledTaskIds: [],
       failingAgentTaskIds: [],
       staleOpenPrNumbers: [],
     }
-    const out = formatSprintShow(sprint, progress, [], risk, topBlockers)
-    expect(out).toContain('Health:    HEALTHY')
+    const out = formatSprintShow(sprint, progress, [], topBlockers)
     expect(out).not.toContain('Blockers:')
   })
 })

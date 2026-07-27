@@ -101,12 +101,8 @@ export function IntegrationCard({
             {icon}
           </div>
           <div className='min-w-0'>
-            <p className='text-sm font-semibold text-foreground'>
-              {title}
-            </p>
-            <p className='text-xs text-muted-foreground'>
-              {description}
-            </p>
+            <p className='text-sm font-semibold text-foreground'>{title}</p>
+            <p className='text-xs text-muted-foreground'>{description}</p>
           </div>
         </div>
         <div className='flex items-center gap-2 shrink-0 whitespace-nowrap'>

@@ -1,5 +1,8 @@
 /** @jest-environment node */
-import { matchSensitiveName, checkArtifactFilePath } from '@/cli/src/lib/path-guard'
+import {
+  matchSensitiveName,
+  checkArtifactFilePath,
+} from '@/cli/src/lib/path-guard'
 
 describe('matchSensitiveName', () => {
   it('passes an ordinary spec file', () => {
@@ -92,7 +95,9 @@ describe('checkArtifactFilePath', () => {
     // caught by the outside-project check rather than the sensitive check.
     const r = checkArtifactFilePath('notes.md', {
       cwd,
-      realpath: makeRealpath({ '/proj/notes.md': '/Users/x/ordinary-notes.txt' }),
+      realpath: makeRealpath({
+        '/proj/notes.md': '/Users/x/ordinary-notes.txt',
+      }),
     })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('outside-project')

@@ -21,10 +21,12 @@ jest.mock('@/lib/services/memory/layer2-extract', () => ({
 // LUM-396 grounding gate: pass-through (this suite exercises the lease race,
 // not grounding). Implementation set in the factory so clearAllMocks keeps it.
 jest.mock('@/lib/services/memory/ground-candidates', () => ({
-  groundCandidates: jest.fn(async ({ candidates }: { candidates: unknown[] }) => ({
-    kept: candidates,
-    discardedCount: 0,
-  })),
+  groundCandidates: jest.fn(
+    async ({ candidates }: { candidates: unknown[] }) => ({
+      kept: candidates,
+      discardedCount: 0,
+    })
+  ),
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findById: jest.fn() },
@@ -47,7 +49,10 @@ import {
 } from '@/lib/services/memory/layer2-extract'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import type { Layer2Operation, Layer2Candidate } from '@/lib/services/memory/layer2-extract'
+import type {
+  Layer2Operation,
+  Layer2Candidate,
+} from '@/lib/services/memory/layer2-extract'
 import type { Layer2Input } from '@/lib/services/memory/layer2-input'
 
 const mockExtractCandidates = extractLayer2Candidates as jest.MockedFunction<

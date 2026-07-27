@@ -24,21 +24,11 @@ jest.mock('@/lib/summaries/stats', () => ({
   aggregateWorkspaceStats: jest.fn(async () => ({ totalTasks: 0 })),
 }))
 
-jest.mock('@/lib/summaries/risk', () => ({
-  resolveEffectiveRiskConfig: () => ({}),
-}))
-
 jest.mock('@/lib/repositories/summary.repository', () => {
   const project = (id: string) => ({
     id,
     name: id.toUpperCase(),
     description: null,
-    riskOverdueRatio: null,
-    riskStalledDays: null,
-    riskStalledMinCount: null,
-    riskAgentFailRatio: null,
-    riskStalePrDays: null,
-    riskThroughputDrop: null,
   })
   return {
     summaryRepository: {
@@ -49,12 +39,6 @@ jest.mock('@/lib/repositories/summary.repository', () => {
           summaryFrequency: 'DAILY',
           summaryLocale: 'en',
           summaries: [],
-          riskOverdueRatio: 0.3,
-          riskStalledDays: 7,
-          riskStalledMinCount: 3,
-          riskAgentFailRatio: 0.3,
-          riskStalePrDays: 3,
-          riskThroughputDrop: 0.5,
           projects: [project('p1'), project('p2')],
         },
       ]),
@@ -111,15 +95,11 @@ describe('generateCronSummaries', () => {
     expect(mocked.createProjectSummary).not.toHaveBeenCalled()
   })
 
-  it('still feeds every project risk override into the workspace aggregation', async () => {
+  it('aggregates the workspace by id alone', async () => {
     await summaryService.generateCronSummaries()
 
-    // Dropping report generation must not drop the overrides that rode along
-    // with it — those still shape the workspace risk numbers.
-    const overrides = mocked.workspaceStats.mock.calls[0]?.[2] as Map<
-      string,
-      unknown
-    >
-    expect([...overrides.keys()].sort()).toEqual(['p1', 'p2'])
+    // LUM-709 removed the per-project risk overrides that used to ride along
+    // with the aggregation call — the workspace id is now the whole input.
+    expect(mocked.workspaceStats.mock.calls[0]).toEqual(['ws1'])
   })
 })

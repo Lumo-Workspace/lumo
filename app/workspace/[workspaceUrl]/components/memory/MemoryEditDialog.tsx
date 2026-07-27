@@ -59,7 +59,12 @@ interface MemoryEditDialogProps {
   submitting: boolean
 }
 
-const CATEGORIES: MemoryCategory[] = ['TRAP', 'DECISION', 'CONVENTION', 'PROCEDURAL']
+const CATEGORIES: MemoryCategory[] = [
+  'TRAP',
+  'DECISION',
+  'CONVENTION',
+  'PROCEDURAL',
+]
 
 const CATEGORY_LABEL_ID: Record<MemoryCategory, string> = {
   TRAP: 'memory.category.trap',
@@ -82,9 +87,15 @@ function initialState(row?: MemoryRow): FormState | null {
     case 'DECISION':
       return { category: 'DECISION', value: decisionFromContent(row.content) }
     case 'CONVENTION':
-      return { category: 'CONVENTION', value: conventionFromContent(row.content) }
+      return {
+        category: 'CONVENTION',
+        value: conventionFromContent(row.content),
+      }
     case 'PROCEDURAL':
-      return { category: 'PROCEDURAL', value: proceduralFromContent(row.content) }
+      return {
+        category: 'PROCEDURAL',
+        value: proceduralFromContent(row.content),
+      }
   }
 }
 
@@ -149,8 +160,12 @@ export function MemoryEditDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const titleId = mode === 'create' ? 'memory.dialog.create.title' : 'memory.dialog.edit.title'
-  const ctaId = mode === 'create' ? 'memory.dialog.create.cta' : 'memory.dialog.edit.cta'
+  const titleId =
+    mode === 'create'
+      ? 'memory.dialog.create.title'
+      : 'memory.dialog.edit.title'
+  const ctaId =
+    mode === 'create' ? 'memory.dialog.create.cta' : 'memory.dialog.edit.cta'
 
   const handleSubmit = async () => {
     if (!state || !isValid(state)) return
@@ -171,7 +186,12 @@ export function MemoryEditDialog({
             </p>
             <div className='grid grid-cols-2 gap-2'>
               {CATEGORIES.map(cat => (
-                <Button key={cat} type='button' variant='outline' onClick={() => setState(blankState(cat))}>
+                <Button
+                  key={cat}
+                  type='button'
+                  variant='outline'
+                  onClick={() => setState(blankState(cat))}
+                >
                   {intl.formatMessage({ id: CATEGORY_LABEL_ID[cat] })}
                 </Button>
               ))}
@@ -182,22 +202,42 @@ export function MemoryEditDialog({
         {state && (
           <>
             {state.category === 'TRAP' && (
-              <TrapForm value={state.value} onChange={v => setState({ category: 'TRAP', value: v })} />
+              <TrapForm
+                value={state.value}
+                onChange={v => setState({ category: 'TRAP', value: v })}
+              />
             )}
             {state.category === 'DECISION' && (
-              <DecisionForm value={state.value} onChange={v => setState({ category: 'DECISION', value: v })} />
+              <DecisionForm
+                value={state.value}
+                onChange={v => setState({ category: 'DECISION', value: v })}
+              />
             )}
             {state.category === 'CONVENTION' && (
-              <ConventionForm value={state.value} onChange={v => setState({ category: 'CONVENTION', value: v })} />
+              <ConventionForm
+                value={state.value}
+                onChange={v => setState({ category: 'CONVENTION', value: v })}
+              />
             )}
             {state.category === 'PROCEDURAL' && (
-              <ProceduralForm value={state.value} onChange={v => setState({ category: 'PROCEDURAL', value: v })} />
+              <ProceduralForm
+                value={state.value}
+                onChange={v => setState({ category: 'PROCEDURAL', value: v })}
+              />
             )}
             <DialogFooter>
-              <Button type='button' variant='ghost' onClick={() => onOpenChange(false)}>
+              <Button
+                type='button'
+                variant='ghost'
+                onClick={() => onOpenChange(false)}
+              >
                 {intl.formatMessage({ id: 'memory.dialog.cancel' })}
               </Button>
-              <Button type='button' disabled={!isValid(state) || submitting} onClick={handleSubmit}>
+              <Button
+                type='button'
+                disabled={!isValid(state) || submitting}
+                onClick={handleSubmit}
+              >
                 {intl.formatMessage({ id: ctaId })}
               </Button>
             </DialogFooter>

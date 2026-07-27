@@ -48,9 +48,7 @@ describe('listSections', () => {
       'C',
     ])
     for (const s of sections) {
-      expect(SRC.slice(s.startOffset)).toMatch(
-        new RegExp(`^#{${s.depth}} `)
-      )
+      expect(SRC.slice(s.startOffset)).toMatch(new RegExp(`^#{${s.depth}} `))
     }
   })
 
@@ -136,7 +134,9 @@ describe('replaceSection', () => {
     const out = replaceSection(SRC, b, '## B\n\nnew b body\n')
 
     expect(out).toBe(
-      SRC.slice(0, b.startOffset) + '## B\n\nnew b body\n\n' + SRC.slice(b.endOffset)
+      SRC.slice(0, b.startOffset) +
+        '## B\n\nnew b body\n\n' +
+        SRC.slice(b.endOffset)
     )
     expect(out.startsWith(SRC.slice(0, b.startOffset))).toBe(true)
     expect(out.endsWith(SRC.slice(b.endOffset))).toBe(true)

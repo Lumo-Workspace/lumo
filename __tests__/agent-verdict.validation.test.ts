@@ -9,8 +9,9 @@ import { agentVerdictBodySchema } from '@/lib/validation/acceptance'
 describe('agentVerdictBodySchema', () => {
   it('accepts a minimal send-back: just the required rejectionReasonEnum', () => {
     expect(
-      agentVerdictBodySchema.safeParse({ rejectionReasonEnum: 'CRITERION_UNMET' })
-        .success
+      agentVerdictBodySchema.safeParse({
+        rejectionReasonEnum: 'CRITERION_UNMET',
+      }).success
     ).toBe(true)
   })
 
@@ -25,9 +26,9 @@ describe('agentVerdictBodySchema', () => {
 
   it('rejects a body missing rejectionReasonEnum (required for agents)', () => {
     expect(agentVerdictBodySchema.safeParse({}).success).toBe(false)
-    expect(
-      agentVerdictBodySchema.safeParse({ note: 'no enum' }).success
-    ).toBe(false)
+    expect(agentVerdictBodySchema.safeParse({ note: 'no enum' }).success).toBe(
+      false
+    )
   })
 
   it('cannot express PASS: a smuggled verdict field is rejected by strict()', () => {

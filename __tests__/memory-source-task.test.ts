@@ -23,7 +23,9 @@ jest.mock('@/lib/services/memory/supersede-guard', () => ({
 // promoteToProject only canonicalizes when content is passed; mocked anyway so
 // this suite never touches the LLM gateway module.
 jest.mock('@/lib/services/memory/canonicalize-language', () => ({
-  canonicalizeToEnglish: jest.fn(async (_c: unknown, content: unknown) => content),
+  canonicalizeToEnglish: jest.fn(
+    async (_c: unknown, content: unknown) => content
+  ),
 }))
 jest.mock('@/lib/services/memory/manual-dedup', () => ({
   resolveManualDedup: jest.fn().mockResolvedValue({ kind: 'ADD' }),
@@ -47,8 +49,7 @@ jest.mock('@/lib/db/prisma', () => {
       create: (...a: unknown[]) => mockMemoryCreate(...a),
       update: (...a: unknown[]) => mockMemoryUpdate(...a),
       findUnique: (...a: unknown[]) => mockMemoryFindUnique(...a),
-      findUniqueOrThrow: (...a: unknown[]) =>
-        mockMemoryFindUniqueOrThrow(...a),
+      findUniqueOrThrow: (...a: unknown[]) => mockMemoryFindUniqueOrThrow(...a),
     },
     memoryProvenance: {
       create: (...a: unknown[]) => mockProvenanceCreate(...a),
@@ -57,8 +58,7 @@ jest.mock('@/lib/db/prisma', () => {
   return {
     prisma: {
       ...client,
-      $transaction: async (cb: (tx: unknown) => Promise<unknown>) =>
-        cb(client),
+      $transaction: async (cb: (tx: unknown) => Promise<unknown>) => cb(client),
     },
   }
 })

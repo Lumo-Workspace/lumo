@@ -5,7 +5,9 @@ jest.mock('@/lib/editor/image-upload', () => ({
   uploadImageFile: jest.fn(),
 }))
 
-const mockedUpload = uploadImageFile as jest.MockedFunction<typeof uploadImageFile>
+const mockedUpload = uploadImageFile as jest.MockedFunction<
+  typeof uploadImageFile
+>
 
 beforeEach(() => {
   jest.clearAllMocks()

@@ -17,12 +17,9 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ workspaceUrl: 'test' }),
 }))
 
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTasks',
-  () => ({
-    useWorkspaceTasks: () => ({ tasks: [], loading: false, error: null }),
-  })
-)
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTasks', () => ({
+  useWorkspaceTasks: () => ({ tasks: [], loading: false, error: null }),
+}))
 
 import { TaskView } from '@/lib/editor/nodes/task-view'
 import {

@@ -6,10 +6,6 @@ const messages: Record<string, string> = {
   'summary.todayFocus': "Today's Focus",
   'summary.showFullReport': 'Show full report',
   'summary.hideFullReport': 'Hide full report',
-  'summary.riskLevel.healthy': 'Healthy',
-  'summary.riskLevel.watch': 'Watch',
-  'summary.riskLevel.atRisk': 'At risk',
-  'summary.riskLevel.unassessed': 'Not assessed',
 }
 
 jest.mock('react-intl', () => ({
@@ -26,28 +22,39 @@ import { BriefingCard } from '@/app/workspace/[workspaceUrl]/components/summary/
 const fullReport = `## Today's Focus
 
 - Unblock PR #42
-- Reassign AUTH task
-
-## Risk
-
-Project at risk: 7/20 overdue.`
+- Reassign AUTH task`
 
 describe('BriefingCard', () => {
-  it('renders tldr, bullets, and risk narrative', () => {
+  it('renders tldr and focus bullets', () => {
     render(
       <BriefingCard
         tldr='Critical week ahead'
         report={fullReport}
         generatedAt={new Date('2026-04-11').toISOString()}
-        risk={{ level: 'at-risk', score: 5, reasons: [] }}
       />
     )
     expect(screen.getByText('Critical week ahead')).toBeInTheDocument()
     expect(screen.getByText('Unblock PR #42')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Project at risk: 7\/20 overdue/)
-    ).toBeInTheDocument()
-    expect(screen.getByText('At risk')).toBeInTheDocument()
+    expect(screen.getByText("Today's Focus")).toBeInTheDocument()
+  })
+
+  it('renders no risk narrative for a legacy report that still has one', () => {
+    const legacy = `## Today's Focus
+
+- Unblock PR #42
+
+## Risk
+
+Project at risk: 7/20 overdue.`
+    render(
+      <BriefingCard
+        tldr='Critical week ahead'
+        report={legacy}
+        generatedAt={new Date('2026-04-11').toISOString()}
+      />
+    )
+    expect(screen.getByText('Unblock PR #42')).toBeInTheDocument()
+    expect(screen.queryByText(/Project at risk/)).not.toBeInTheDocument()
   })
 
   it('falls back to raw markdown when no sections match (old data)', () => {
@@ -57,11 +64,9 @@ describe('BriefingCard', () => {
         tldr='Old summary'
         report={oldReport}
         generatedAt={new Date('2026-04-01').toISOString()}
-        risk={null}
       />
     )
     expect(screen.getByText(/Old content body/)).toBeInTheDocument()
-    expect(screen.getByText('Not assessed')).toBeInTheDocument()
   })
 
   it('toggles full report visibility', () => {
@@ -70,7 +75,6 @@ describe('BriefingCard', () => {
         tldr='x'
         report={fullReport}
         generatedAt={new Date().toISOString()}
-        risk={{ level: 'healthy', score: 0, reasons: [] }}
       />
     )
     const toggle = screen.getByText('Show full report')

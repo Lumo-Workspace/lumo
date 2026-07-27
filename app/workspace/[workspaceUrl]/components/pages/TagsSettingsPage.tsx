@@ -163,10 +163,7 @@ export function TagsSettingsPage() {
         </div>
       ) : tags.length === 0 ? (
         <div className='text-center py-12'>
-          <TagIcon
-            size={32}
-            className='mx-auto mb-3 text-muted-foreground'
-          />
+          <TagIcon size={32} className='mx-auto mb-3 text-muted-foreground' />
           <p className='text-sm font-medium text-muted-foreground'>
             {intl.formatMessage({ id: 'settings.tags.empty' })}
           </p>

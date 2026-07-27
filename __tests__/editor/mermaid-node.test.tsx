@@ -4,8 +4,13 @@
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
-    formatMessage: ({ id, defaultMessage }: { id: string; defaultMessage?: string }) =>
-      defaultMessage ?? id,
+    formatMessage: ({
+      id,
+      defaultMessage,
+    }: {
+      id: string
+      defaultMessage?: string
+    }) => defaultMessage ?? id,
   }),
 }))
 
@@ -22,7 +27,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 import { Mermaid, DEFAULT_MERMAID_SOURCE } from '@/lib/editor/nodes/mermaid'
 
-const STORED = '<pre data-type="mermaid"><code>graph TD\n  A--&gt;B</code></pre>'
+const STORED =
+  '<pre data-type="mermaid"><code>graph TD\n  A--&gt;B</code></pre>'
 
 beforeEach(() => renderMermaid.mockReset())
 
@@ -33,7 +39,10 @@ describe('Mermaid node', () => {
   })
 
   it('renders stored source as a diagram in the read-only viewer', async () => {
-    renderMermaid.mockResolvedValue({ ok: true, svg: '<svg data-testid="diagram">D</svg>' })
+    renderMermaid.mockResolvedValue({
+      ok: true,
+      svg: '<svg data-testid="diagram">D</svg>',
+    })
 
     render(<RichTextViewer value={STORED} />)
 
@@ -48,7 +57,10 @@ describe('Mermaid node', () => {
   })
 
   it('shows an inline error placeholder when rendering fails', async () => {
-    renderMermaid.mockResolvedValue({ ok: false, error: 'Parse error on line 1' })
+    renderMermaid.mockResolvedValue({
+      ok: false,
+      error: 'Parse error on line 1',
+    })
 
     const { container } = render(<RichTextViewer value={STORED} />)
 

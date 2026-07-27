@@ -1,5 +1,8 @@
 import type { Editor } from '@tiptap/core'
-import { runTableInsert, type InsertMarker } from '@/lib/editor/table/insert-command'
+import {
+  runTableInsert,
+  type InsertMarker,
+} from '@/lib/editor/table/insert-command'
 
 // chainable stub: every method returns the chain; run() is terminal.
 function makeEditor(posResult: { pos: number } | null) {

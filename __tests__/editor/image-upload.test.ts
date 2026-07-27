@@ -49,9 +49,9 @@ describe('validateImageFile', () => {
   })
 
   it('accepts a file exactly at the size limit', () => {
-    expect(
-      validateImageFile(fileOfSize(MAX_IMAGE_BYTES, 'image/png'))
-    ).toEqual({ ok: true })
+    expect(validateImageFile(fileOfSize(MAX_IMAGE_BYTES, 'image/png'))).toEqual(
+      { ok: true }
+    )
   })
 
   it('reports "type" before "size" when both are wrong', () => {
@@ -83,7 +83,11 @@ describe('uploadImageFile', () => {
 
   it('returns null and logs the status/code for an ApiClientError (e.g. 413)', async () => {
     mockedUpload.mockRejectedValue(
-      new ApiClientError('File must be 10 MB or smaller', 413, 'PAYLOAD_TOO_LARGE')
+      new ApiClientError(
+        'File must be 10 MB or smaller',
+        413,
+        'PAYLOAD_TOO_LARGE'
+      )
     )
     await expect(
       uploadImageFile(fileOfSize(10, 'image/png'), 'doc1')

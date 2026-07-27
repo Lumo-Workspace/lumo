@@ -10,13 +10,18 @@ const TIERS = ['sm', 'md', 'lg'] as const
 describe('app/globals.css control size tokens', () => {
   const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
 
-  it.each(TIERS)('declares --spacing-control-%s height with a rem value', (tier) => {
-    expect(css).toMatch(new RegExp(`--spacing-control-${tier}:\\s*[\\d.]+rem;`))
-  })
+  it.each(TIERS)(
+    'declares --spacing-control-%s height with a rem value',
+    tier => {
+      expect(css).toMatch(
+        new RegExp(`--spacing-control-${tier}:\\s*[\\d.]+rem;`)
+      )
+    }
+  )
 
   it.each(TIERS)(
     'declares --spacing-control-inset-%s padding with a rem value',
-    (tier) => {
+    tier => {
       expect(css).toMatch(
         new RegExp(`--spacing-control-inset-${tier}:\\s*[\\d.]+rem;`)
       )

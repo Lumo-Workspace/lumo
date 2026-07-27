@@ -25,15 +25,15 @@ describe('retrieve frozen fixtures (LUM-414)', () => {
   })
 
   it('abstention negative controls score entirely below the production floor', () => {
-    const abstentions = retrieveQuerySet.filter(
-      q => q.relevantIds.length === 0
-    )
+    const abstentions = retrieveQuerySet.filter(q => q.relevantIds.length === 0)
     expect(abstentions.length).toBeGreaterThanOrEqual(5)
     for (const q of abstentions) {
       const max = scoredPoolFor(q).reduce((m, f) => Math.max(m, f.score), 0)
-      expect({ id: q.id, max, belowFloor: max < EMBEDDING_SCORE_FLOOR }).toEqual(
-        { id: q.id, max, belowFloor: true }
-      )
+      expect({
+        id: q.id,
+        max,
+        belowFloor: max < EMBEDDING_SCORE_FLOOR,
+      }).toEqual({ id: q.id, max, belowFloor: true })
     }
   })
 

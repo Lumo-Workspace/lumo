@@ -135,15 +135,12 @@ export function DataTable<TData, TValue>({
     state: { sorting, rowSelection: rowSelection ?? {} },
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
       const next =
-        typeof updater === 'function'
-          ? updater(rowSelection ?? {})
-          : updater
+        typeof updater === 'function' ? updater(rowSelection ?? {}) : updater
       onRowSelectionChange?.(next)
     },
     getRowId:
       getRowId ??
-      ((row, index) =>
-        String((row as { id?: string }).id ?? index)),
+      ((row, index) => String((row as { id?: string }).id ?? index)),
     meta: treeConfig
       ? {
           expanded,

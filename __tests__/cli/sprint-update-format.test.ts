@@ -63,7 +63,12 @@ describe('formatSprintUpdateSummary', () => {
 
   it('shows date updates', () => {
     const line = formatSprintUpdateSummary(
-      { number: 3, name: 'Sprint 3', startDate: '2026-06-01', endDate: '2026-06-14' },
+      {
+        number: 3,
+        name: 'Sprint 3',
+        startDate: '2026-06-01',
+        endDate: '2026-06-14',
+      },
       { startDate: '2026-06-08', endDate: '2026-06-21' }
     )
     expect(line).toBe(

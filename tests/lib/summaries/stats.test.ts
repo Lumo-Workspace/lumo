@@ -35,7 +35,6 @@ import {
   aggregateProjectStats,
   aggregateWorkspaceStats,
 } from '@/lib/summaries/stats'
-import { DEFAULT_RISK_CONFIG } from '@/lib/summaries/risk'
 import { prisma } from '@/lib/db/prisma'
 
 const asMock = (fn: unknown): jest.Mock<any> => fn as jest.Mock<any>
@@ -165,7 +164,7 @@ describe('aggregateProjectStats', () => {
   })
 
   it('returns correct status distribution', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.statusDistribution).toEqual({
       TODO: 5,
       IN_PROGRESS: 3,
@@ -174,7 +173,7 @@ describe('aggregateProjectStats', () => {
   })
 
   it('returns correct priority distribution', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.priorityDistribution).toEqual({
       HIGH: 4,
       MEDIUM: 9,
@@ -183,19 +182,19 @@ describe('aggregateProjectStats', () => {
   })
 
   it('returns correct totalTasks', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     // sum of all status counts: 5 + 3 + 10
     expect(stats.totalTasks).toBe(18)
   })
 
   it('returns overdue task ids', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.overdueTasks.count).toBe(2)
     expect(stats.overdueTasks.taskIds).toContain('task-overdue-1')
   })
 
   it('returns member workload with actor names', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.memberWorkload).toHaveLength(2)
     const actor1 = stats.memberWorkload.find(m => m.actorId === 'actor-1')
     expect(actor1).toBeDefined()
@@ -208,14 +207,14 @@ describe('aggregateProjectStats', () => {
   })
 
   it('returns completionTrend grouped by date', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.completionTrend.length).toBeGreaterThan(0)
     const april1 = stats.completionTrend.find(t => t.date === '2026-04-01')
     expect(april1?.completed).toBe(2)
   })
 
   it('returns agent stats', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.agentStats.completed).toBe(2)
     expect(stats.agentStats.failed).toBe(1)
     expect(stats.agentStats.working).toBe(1)
@@ -223,7 +222,7 @@ describe('aggregateProjectStats', () => {
   })
 
   it('returns pr stats', async () => {
-    const stats = await aggregateProjectStats(PROJECT_ID, DEFAULT_RISK_CONFIG)
+    const stats = await aggregateProjectStats(PROJECT_ID)
     expect(stats.prStats.total).toBe(7)
     expect(stats.prStats.merged).toBe(5)
     expect(stats.prStats.open).toBe(2)
@@ -249,11 +248,7 @@ describe('aggregateWorkspaceStats', () => {
   })
 
   it('returns projectBreakdown with one entry per project', async () => {
-    const stats = await aggregateWorkspaceStats(
-      WORKSPACE_ID,
-      DEFAULT_RISK_CONFIG,
-      new Map()
-    )
+    const stats = await aggregateWorkspaceStats(WORKSPACE_ID)
     expect(stats.projectBreakdown).toHaveLength(2)
     const proj1 = stats.projectBreakdown.find(p => p.projectId === 'proj-1')
     expect(proj1?.projectName).toBe('Core')

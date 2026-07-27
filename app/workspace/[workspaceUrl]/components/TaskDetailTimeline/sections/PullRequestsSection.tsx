@@ -45,9 +45,7 @@ export function PullRequestsSection({
     <ContextSection
       value='pullRequests'
       label={intl.formatMessage({ id: 'task.pullRequests' })}
-      icon={
-        <GithubIcon size={14} className='text-foreground' />
-      }
+      icon={<GithubIcon size={14} className='text-foreground' />}
       count={pullRequests.length}
       addSlot={addSlot}
     >

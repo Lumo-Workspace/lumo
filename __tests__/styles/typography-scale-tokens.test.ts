@@ -18,13 +18,20 @@ const TIERS = [
 describe('app/globals.css typography scale tokens', () => {
   const css = readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
 
-  it.each(TIERS)('declares --text-%s with a line-height companion', (tier) => {
+  it.each(TIERS)('declares --text-%s with a line-height companion', tier => {
     expect(css).toMatch(new RegExp(`--text-${tier}:\\s*[\\d.]+rem;`))
     expect(css).toMatch(new RegExp(`--text-${tier}--line-height:`))
   })
 
   it('declares a font-weight companion for the weighted tiers', () => {
-    for (const tier of ['caption', 'body', 'body-strong', 'title', 'heading', 'display']) {
+    for (const tier of [
+      'caption',
+      'body',
+      'body-strong',
+      'title',
+      'heading',
+      'display',
+    ]) {
       expect(css).toMatch(new RegExp(`--text-${tier}--font-weight:`))
     }
   })

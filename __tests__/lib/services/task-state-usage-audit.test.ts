@@ -1,8 +1,12 @@
 const auditForTask = jest.fn().mockResolvedValue(undefined)
 jest.mock('@/lib/services/lineage/fragment-usage-audit.service', () => ({
-  fragmentUsageAuditService: { auditForTask: (...a: unknown[]) => auditForTask(...a) },
+  fragmentUsageAuditService: {
+    auditForTask: (...a: unknown[]) => auditForTask(...a),
+  },
 }))
-jest.mock('@vercel/functions', () => ({ waitUntil: (p: Promise<unknown>) => p }))
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => p,
+}))
 
 import { dispatchDoneAudit } from '@/lib/services/task-state.service'
 

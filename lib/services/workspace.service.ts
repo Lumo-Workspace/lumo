@@ -9,12 +9,6 @@ export interface UpdateWorkspaceInput {
   summaryEnabled?: boolean | undefined
   summaryFrequency?: string | undefined
   summaryLocale?: string | undefined
-  riskOverdueRatio?: number | undefined
-  riskStalledDays?: number | undefined
-  riskStalledMinCount?: number | undefined
-  riskAgentFailRatio?: number | undefined
-  riskStalePrDays?: number | undefined
-  riskThroughputDrop?: number | undefined
   verificationMaxRounds?: number | undefined
   acceptanceMode?: boolean | undefined
 }
@@ -73,18 +67,6 @@ export const workspaceService = {
       data.summaryFrequency = input.summaryFrequency
     if (input.summaryLocale !== undefined)
       data.summaryLocale = input.summaryLocale
-    if (input.riskOverdueRatio !== undefined)
-      data.riskOverdueRatio = input.riskOverdueRatio
-    if (input.riskStalledDays !== undefined)
-      data.riskStalledDays = input.riskStalledDays
-    if (input.riskStalledMinCount !== undefined)
-      data.riskStalledMinCount = input.riskStalledMinCount
-    if (input.riskAgentFailRatio !== undefined)
-      data.riskAgentFailRatio = input.riskAgentFailRatio
-    if (input.riskStalePrDays !== undefined)
-      data.riskStalePrDays = input.riskStalePrDays
-    if (input.riskThroughputDrop !== undefined)
-      data.riskThroughputDrop = input.riskThroughputDrop
     if (input.verificationMaxRounds !== undefined)
       data.verificationMaxRounds = input.verificationMaxRounds
     if (input.acceptanceMode !== undefined)

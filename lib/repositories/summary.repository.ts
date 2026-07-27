@@ -69,12 +69,6 @@ export const summaryRepository = {
             id: true,
             name: true,
             description: true,
-            riskOverdueRatio: true,
-            riskStalledDays: true,
-            riskStalledMinCount: true,
-            riskAgentFailRatio: true,
-            riskStalePrDays: true,
-            riskThroughputDrop: true,
           },
         },
         summaries: {

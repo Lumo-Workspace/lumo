@@ -40,16 +40,22 @@ jest.mock('@/components/ui/select', () => ({
       onChange={e => onValueChange(e.target.value)}
     />
   ),
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectContent: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectItem: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MilestoneSidebar } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneSidebar'
 
-function setup(overrides: Partial<React.ComponentProps<typeof MilestoneSidebar>> = {}) {
+function setup(
+  overrides: Partial<React.ComponentProps<typeof MilestoneSidebar>> = {}
+) {
   const onUpdate = jest.fn()
   render(
     <MilestoneSidebar
@@ -100,7 +106,13 @@ test('date inputs prefill from ISO values (sliced to yyyy-mm-dd)', () => {
 
 test('archived disables the controls', () => {
   setup({ archived: true })
-  expect((screen.getByTestId('status-select') as HTMLSelectElement).disabled).toBe(true)
-  expect((screen.getByLabelText('Start date') as HTMLInputElement).disabled).toBe(true)
-  expect((screen.getByLabelText('Target date') as HTMLInputElement).disabled).toBe(true)
+  expect(
+    (screen.getByTestId('status-select') as HTMLSelectElement).disabled
+  ).toBe(true)
+  expect(
+    (screen.getByLabelText('Start date') as HTMLInputElement).disabled
+  ).toBe(true)
+  expect(
+    (screen.getByLabelText('Target date') as HTMLInputElement).disabled
+  ).toBe(true)
 })

@@ -176,8 +176,17 @@ describe('resolveMilestoneId', () => {
           milestones: [{ id: 'cm123abc', name: 'Q3 Launch', status: 'ACTIVE' }],
         })
       )
-    const result = await resolveMilestoneId('http://x', 'tok', 'cm123abc', undefined)
-    expect(result).toEqual({ id: 'cm123abc', name: 'Q3 Launch', projectId: 'p-1' })
+    const result = await resolveMilestoneId(
+      'http://x',
+      'tok',
+      'cm123abc',
+      undefined
+    )
+    expect(result).toEqual({
+      id: 'cm123abc',
+      name: 'Q3 Launch',
+      projectId: 'p-1',
+    })
   })
 })
 

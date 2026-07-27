@@ -44,12 +44,26 @@ import { BubbleMenuBar } from '@/app/workspace/[workspaceUrl]/components/BubbleM
 function makeEditor() {
   const chain: Record<string, jest.Mock> = {}
   const methods = [
-    'focus', 'toggleBold', 'toggleItalic', 'toggleUnderline', 'toggleStrike',
-    'setTextAlign', 'addRowBefore', 'addRowAfter', 'addColumnBefore',
-    'addColumnAfter', 'toggleHeaderRow', 'mergeCells', 'splitCell',
-    'deleteRow', 'deleteColumn', 'deleteTable', 'run',
+    'focus',
+    'toggleBold',
+    'toggleItalic',
+    'toggleUnderline',
+    'toggleStrike',
+    'setTextAlign',
+    'addRowBefore',
+    'addRowAfter',
+    'addColumnBefore',
+    'addColumnAfter',
+    'toggleHeaderRow',
+    'mergeCells',
+    'splitCell',
+    'deleteRow',
+    'deleteColumn',
+    'deleteTable',
+    'run',
   ]
-  for (const m of methods) chain[m] = jest.fn(() => (m === 'run' ? true : chain))
+  for (const m of methods)
+    chain[m] = jest.fn(() => (m === 'run' ? true : chain))
   const editor = {
     chain: () => chain,
     getAttributes: () => ({}),

@@ -46,11 +46,7 @@ function expectStatus(p: Promise<unknown>, status: number) {
 
 describe('milestoneService.reorderMilestones', () => {
   beforeEach(() => {
-    mockFindByProject.mockResolvedValue([
-      { id: 'a' },
-      { id: 'b' },
-      { id: 'c' },
-    ])
+    mockFindByProject.mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
   })
 
   it('rejects a duplicate id with 400', async () => {

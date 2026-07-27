@@ -145,10 +145,7 @@ describe('taskDependencyRepository.update', () => {
 
 describe('taskDependencyRepository.findTaskIdsInWorkspace', () => {
   it('returns mapped ids filtered to the workspace', async () => {
-    p.task!.findMany!.mockResolvedValueOnce([
-      { id: 'task1' },
-      { id: 'task2' },
-    ])
+    p.task!.findMany!.mockResolvedValueOnce([{ id: 'task1' }, { id: 'task2' }])
     const result = await taskDependencyRepository.findTaskIdsInWorkspace(
       ['task1', 'task2', 'task3'],
       'ws1'

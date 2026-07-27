@@ -7,7 +7,10 @@ const pool = [
   {
     id: 'm_enum',
     category: 'TRAP' as const,
-    content: { trigger: 'add a postgres enum value and use it same migration', outcome: 'P3009' },
+    content: {
+      trigger: 'add a postgres enum value and use it same migration',
+      outcome: 'P3009',
+    },
   },
   {
     id: 'm_zod',
@@ -25,7 +28,10 @@ describe('lexicalNeighborRetriever', () => {
 
   it('ranks the lexically-closest pool item first', async () => {
     const out = await lexicalNeighborRetriever.retrieve({
-      query: { category: 'TRAP', text: 'adding a postgres enum value in the same migration fails' },
+      query: {
+        category: 'TRAP',
+        text: 'adding a postgres enum value in the same migration fails',
+      },
       pool,
       scope: dummyScope,
       k: 10,
@@ -50,8 +56,17 @@ describe('lexicalNeighborRetriever', () => {
 
   it('drops items below the floor (totally unrelated)', async () => {
     const out = await lexicalNeighborRetriever.retrieve({
-      query: { category: 'TRAP', text: 'zzzzz qqqqq wwwww unrelated gibberish' },
-      pool: [{ id: 'm_x', category: 'TRAP' as const, content: { trigger: 'kubernetes pod eviction', outcome: 'oom' } }],
+      query: {
+        category: 'TRAP',
+        text: 'zzzzz qqqqq wwwww unrelated gibberish',
+      },
+      pool: [
+        {
+          id: 'm_x',
+          category: 'TRAP' as const,
+          content: { trigger: 'kubernetes pod eviction', outcome: 'oom' },
+        },
+      ],
       scope: dummyScope,
       k: 10,
     })
@@ -59,8 +74,16 @@ describe('lexicalNeighborRetriever', () => {
   })
 
   it('boosts a same-category item over an equally-similar cross-category one', async () => {
-    const same = { id: 'same', category: 'TRAP' as const, content: { trigger: 'token budget overflow', outcome: 'x' } }
-    const cross = { id: 'cross', category: 'DECISION' as const, content: { what: 'token budget overflow', why: 'x' } }
+    const same = {
+      id: 'same',
+      category: 'TRAP' as const,
+      content: { trigger: 'token budget overflow', outcome: 'x' },
+    }
+    const cross = {
+      id: 'cross',
+      category: 'DECISION' as const,
+      content: { what: 'token budget overflow', why: 'x' },
+    }
     const out = await lexicalNeighborRetriever.retrieve({
       query: { category: 'TRAP', text: 'token budget overflow' },
       pool: [cross, same],

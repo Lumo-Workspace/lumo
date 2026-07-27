@@ -183,7 +183,10 @@ describe('AgentRunCard — collapsible token details (LUM-501)', () => {
 
   it('collapses per-run model details by default when the run is expanded (new style)', () => {
     const run = baseRun({
-      cost: { byModel: [mc('claude-opus-4-8', 1000), mc('claude-sonnet-4-6', 500)], loopCount: null },
+      cost: {
+        byModel: [mc('claude-opus-4-8', 1000), mc('claude-sonnet-4-6', 500)],
+        loopCount: null,
+      },
       items: [],
     })
     render(<AgentRunCard run={run} defaultExpanded />)

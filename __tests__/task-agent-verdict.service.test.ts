@@ -13,7 +13,10 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { createMany: jest.fn(), maxRoundByTask: jest.fn() },
+  verificationRunRepository: {
+    createMany: jest.fn(),
+    maxRoundByTask: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
@@ -50,8 +53,26 @@ const summarize = summarizeSendBackNote as jest.Mock
 const ATTR = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }
 
 const CRITERIA = [
-  { id: 'c-1', taskId: 't-1', statement: 'criterion one', verifierType: 'MACHINE', checkpointer: 'x', evidenceRequired: false, source: 'AGENT_DRAFT', addedAtRound: 0 },
-  { id: 'c-2', taskId: 't-1', statement: 'criterion two', verifierType: 'HUMAN', checkpointer: null, evidenceRequired: false, source: 'AGENT_DRAFT', addedAtRound: 0 },
+  {
+    id: 'c-1',
+    taskId: 't-1',
+    statement: 'criterion one',
+    verifierType: 'MACHINE',
+    checkpointer: 'x',
+    evidenceRequired: false,
+    source: 'AGENT_DRAFT',
+    addedAtRound: 0,
+  },
+  {
+    id: 'c-2',
+    taskId: 't-1',
+    statement: 'criterion two',
+    verifierType: 'HUMAN',
+    checkpointer: null,
+    evidenceRequired: false,
+    source: 'AGENT_DRAFT',
+    addedAtRound: 0,
+  },
 ]
 
 const DETAIL = { id: 't-1', status: 'IN_REVIEW' }
@@ -71,7 +92,11 @@ describe('contract guards', () => {
   it('400 when the task has no acceptance criteria', async () => {
     listCriteria.mockResolvedValue([])
     await expect(
-      taskAgentVerdictService.recordAgentVerdict('t-1', { rejectionReasonEnum: 'CRITERION_UNMET' }, ATTR)
+      taskAgentVerdictService.recordAgentVerdict(
+        't-1',
+        { rejectionReasonEnum: 'CRITERION_UNMET' },
+        ATTR
+      )
     ).rejects.toMatchObject({ status: 400 })
     expect(createMany).not.toHaveBeenCalled()
   })
@@ -80,7 +105,10 @@ describe('contract guards', () => {
     await expect(
       taskAgentVerdictService.recordAgentVerdict(
         't-1',
-        { rejectionReasonEnum: 'CRITERION_UNMET', criterionIds: ['c-1', 'nope'] },
+        {
+          rejectionReasonEnum: 'CRITERION_UNMET',
+          criterionIds: ['c-1', 'nope'],
+        },
         ATTR
       )
     ).rejects.toMatchObject({ status: 400 })
@@ -131,19 +159,35 @@ describe('verifierType AGENT channel', () => {
 describe('round + status semantics', () => {
   it('records at round = current max, never incremented', async () => {
     maxRound.mockResolvedValue(3)
-    const out = await taskAgentVerdictService.recordAgentVerdict('t-1', { rejectionReasonEnum: 'OTHER' }, ATTR)
+    const out = await taskAgentVerdictService.recordAgentVerdict(
+      't-1',
+      { rejectionReasonEnum: 'OTHER' },
+      ATTR
+    )
     expect(out.round).toBe(3)
-    expect(createMany.mock.calls[0]![0].every((r: { round: number }) => r.round === 3)).toBe(true)
+    expect(
+      createMany.mock.calls[0]![0].every(
+        (r: { round: number }) => r.round === 3
+      )
+    ).toBe(true)
   })
 
   it('floors the round at 1 when no machine round ran', async () => {
     maxRound.mockResolvedValue(null)
-    const out = await taskAgentVerdictService.recordAgentVerdict('t-1', { rejectionReasonEnum: 'OTHER' }, ATTR)
+    const out = await taskAgentVerdictService.recordAgentVerdict(
+      't-1',
+      { rejectionReasonEnum: 'OTHER' },
+      ATTR
+    )
     expect(out.round).toBe(1)
   })
 
   it('sends the task back to IN_PROGRESS through the state machine', async () => {
-    const out = await taskAgentVerdictService.recordAgentVerdict('t-1', { rejectionReasonEnum: 'CRITERION_UNMET' }, ATTR)
+    const out = await taskAgentVerdictService.recordAgentVerdict(
+      't-1',
+      { rejectionReasonEnum: 'CRITERION_UNMET' },
+      ATTR
+    )
     expect(updateWithSideEffects).toHaveBeenCalledWith(
       't-1',
       { status: 'IN_PROGRESS' },
@@ -160,11 +204,18 @@ describe('send-back narrative + criterion narrowing', () => {
   it('posts the note as a comment and carries the commentId + text summary onto the rows', async () => {
     const out = await taskAgentVerdictService.recordAgentVerdict(
       't-1',
-      { rejectionReasonEnum: 'CRITERION_UNMET', note: 'the retry path is missing' },
+      {
+        rejectionReasonEnum: 'CRITERION_UNMET',
+        note: 'the retry path is missing',
+      },
       ATTR
     )
     expect(postComment).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: 't-1', rawNote: 'the retry path is missing', authorActorId: 'actor-1' })
+      expect.objectContaining({
+        taskId: 't-1',
+        rawNote: 'the retry path is missing',
+        authorActorId: 'actor-1',
+      })
     )
     expect(out.commentId).toBe('comment-9')
     const rows = createMany.mock.calls[0]![0]
@@ -174,7 +225,11 @@ describe('send-back narrative + criterion narrowing', () => {
   })
 
   it('does not post a comment when no note is given (bare send-back)', async () => {
-    const out = await taskAgentVerdictService.recordAgentVerdict('t-1', { rejectionReasonEnum: 'OTHER' }, ATTR)
+    const out = await taskAgentVerdictService.recordAgentVerdict(
+      't-1',
+      { rejectionReasonEnum: 'OTHER' },
+      ATTR
+    )
     expect(postComment).not.toHaveBeenCalled()
     expect(out.commentId).toBeNull()
   })

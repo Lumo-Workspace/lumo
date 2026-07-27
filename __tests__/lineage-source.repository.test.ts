@@ -28,9 +28,16 @@ beforeEach(() => {
 describe('lineageSourceRepository.labelsByType', () => {
   it('only queries the fragment types present, and keys labels by type::id', async () => {
     mockMemory.mockResolvedValue([
-      { id: 'mem-1', scope: 'PROJECT', category: 'CONVENTION', content: { rule: 'Use the service layer', scope: 'all' } },
+      {
+        id: 'mem-1',
+        scope: 'PROJECT',
+        category: 'CONVENTION',
+        content: { rule: 'Use the service layer', scope: 'all' },
+      },
     ])
-    mockPr.mockResolvedValue([{ id: 'pr-1', number: 42, title: 'Add lineage table' }])
+    mockPr.mockResolvedValue([
+      { id: 'pr-1', number: 42, title: 'Add lineage table' },
+    ])
 
     const refs = new Map<LineageFragmentType, string[]>([
       ['MEMORY', ['mem-1']],
@@ -56,17 +63,31 @@ describe('lineageSourceRepository.labelsByType', () => {
 
   it('labels a PR_REVIEW_TODO with file path prefix and stripped/decoded body', async () => {
     mockTodo.mockResolvedValue([
-      { id: 'todo-1', filePath: 'app/api/x.ts', comment: { body: '<p>Fix the <code>guard</code> &amp; retry</p>' } },
+      {
+        id: 'todo-1',
+        filePath: 'app/api/x.ts',
+        comment: { body: '<p>Fix the <code>guard</code> &amp; retry</p>' },
+      },
     ])
-    const refs = new Map<LineageFragmentType, string[]>([['PR_REVIEW_TODO', ['todo-1']]])
+    const refs = new Map<LineageFragmentType, string[]>([
+      ['PR_REVIEW_TODO', ['todo-1']],
+    ])
     const labels = await lineageSourceRepository.labelsByType(refs)
-    expect(labels.get('PR_REVIEW_TODO::todo-1')).toBe('app/api/x.ts: Fix the guard & retry')
+    expect(labels.get('PR_REVIEW_TODO::todo-1')).toBe(
+      'app/api/x.ts: Fix the guard & retry'
+    )
   })
 
   it('labels a SESSION with short id and summaryType', async () => {
-    mockSession.mockResolvedValue([{ id: 'sess-abcdefgh-1234', summaryType: 'implementation' }])
-    const refs = new Map<LineageFragmentType, string[]>([['SESSION', ['sess-abcdefgh-1234']]])
+    mockSession.mockResolvedValue([
+      { id: 'sess-abcdefgh-1234', summaryType: 'implementation' },
+    ])
+    const refs = new Map<LineageFragmentType, string[]>([
+      ['SESSION', ['sess-abcdefgh-1234']],
+    ])
     const labels = await lineageSourceRepository.labelsByType(refs)
-    expect(labels.get('SESSION::sess-abcdefgh-1234')).toBe('Session sess-abc (implementation)')
+    expect(labels.get('SESSION::sess-abcdefgh-1234')).toBe(
+      'Session sess-abc (implementation)'
+    )
   })
 })

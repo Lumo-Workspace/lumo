@@ -38,16 +38,25 @@ describe('makeBudgetSection', () => {
 
   it('render(partial) emits fulls then a manifest block for the rest', () => {
     const out = section.render(1)
-    expect(out).toBe('## H\n\nFULL:a\n\nRemaining 2 (manifest only):\n- M:bb\n- M:ccc')
+    expect(out).toBe(
+      '## H\n\nFULL:a\n\nRemaining 2 (manifest only):\n- M:bb\n- M:ccc'
+    )
   })
 
   it('render(0) emits heading + manifest block only', () => {
     const out = section.render(0)
-    expect(out).toBe('## H\n\nRemaining 3 (manifest only):\n- M:a\n- M:bb\n- M:ccc')
+    expect(out).toBe(
+      '## H\n\nRemaining 3 (manifest only):\n- M:a\n- M:bb\n- M:ccc'
+    )
   })
 
   it('render of an empty section returns ""', () => {
-    const empty = makeBudgetSection('## H', [], c => c, c => c)
+    const empty = makeBudgetSection(
+      '## H',
+      [],
+      c => c,
+      c => c
+    )
     expect(empty.render(0)).toBe('')
   })
 
@@ -62,12 +71,23 @@ describe('makeBudgetSection', () => {
   })
 
   it('render(fullCount > card count) renders all cards as full, no overflow', () => {
-    const sec = makeBudgetSection('## H', ['a', 'b'], c => `F:${c}`, c => `- ${c}`)
+    const sec = makeBudgetSection(
+      '## H',
+      ['a', 'b'],
+      c => `F:${c}`,
+      c => `- ${c}`
+    )
     expect(sec.render(99)).toBe('## H\n\nF:a\n\nF:b')
   })
 
   it('honors a custom card separator between full cards', () => {
-    const sec = makeBudgetSection('## H', ['a', 'b'], c => `F:${c}`, c => `- ${c}`, '\n')
+    const sec = makeBudgetSection(
+      '## H',
+      ['a', 'b'],
+      c => `F:${c}`,
+      c => `- ${c}`,
+      '\n'
+    )
     expect(sec.render(2)).toBe('## H\n\nF:a\nF:b')
   })
 })
@@ -84,7 +104,10 @@ describe('allocateBudget', () => {
   })
 
   it('once a card overflows, all later sections are full=0', () => {
-    const out = allocateBudget([sec('A', [200]), sec('B', [10]), sec('C', [10])], 150)
+    const out = allocateBudget(
+      [sec('A', [200]), sec('B', [10]), sec('C', [10])],
+      150
+    )
     expect(out).toEqual(['A:0', 'B:0', 'C:0'])
   })
 

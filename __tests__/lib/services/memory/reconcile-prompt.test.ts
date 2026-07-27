@@ -15,7 +15,14 @@ const layer1Input = {
   task: { title: 'T', description: null },
   candidates: [{ category: 'CONVENTION' as const, content: { rule: 'r' } }],
   neighborsByCandidate: [
-    [{ id: 'mem_n', category: 'CONVENTION' as const, content: { rule: 'r0' }, score: 0.8 }],
+    [
+      {
+        id: 'mem_n',
+        category: 'CONVENTION' as const,
+        content: { rule: 'r0' },
+        score: 0.8,
+      },
+    ],
   ],
 }
 
@@ -23,7 +30,14 @@ const layer2Input = {
   project: { id: 'p1', name: 'P' },
   candidates: [{ category: 'CONVENTION' as const, content: { rule: 'r' } }],
   neighborsByCandidate: [
-    [{ id: 'pm_n', category: 'CONVENTION' as const, content: { rule: 'r0' }, score: 0.7 }],
+    [
+      {
+        id: 'pm_n',
+        category: 'CONVENTION' as const,
+        content: { rule: 'r0' },
+        score: 0.7,
+      },
+    ],
   ],
 }
 

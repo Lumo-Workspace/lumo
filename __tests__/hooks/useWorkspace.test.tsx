@@ -20,7 +20,6 @@ function makeWorkspace(over: Record<string, unknown> = {}) {
       name: 'Acme',
       slug: 'acme',
       logoUrl: 'https://cdn/logo.png',
-      riskOverdueRatio: 0.42,
       ...over,
     },
     role: 'OWNER',
@@ -61,7 +60,7 @@ describe('useWorkspace', () => {
 
     // React Query dedupes both consumers onto a single network request.
     expect(mockGetMe).toHaveBeenCalledTimes(1)
-    expect(a.result.current.workspace?.riskOverdueRatio).toBe(0.42)
+    expect(a.result.current.workspace?.slug).toBe('acme')
     expect(b.result.current.workspace?.logoUrl).toBe('https://cdn/logo.png')
   })
 

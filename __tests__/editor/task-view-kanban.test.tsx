@@ -29,7 +29,13 @@ import { render, screen } from '@testing-library/react'
 import { TaskViewKanban } from '@/lib/editor/nodes/task-view-kanban'
 
 const tasks = [
-  { id: 't1', title: 'Alpha', teamIdentifier: 'LUM', number: 1, status: 'TODO' },
+  {
+    id: 't1',
+    title: 'Alpha',
+    teamIdentifier: 'LUM',
+    number: 1,
+    status: 'TODO',
+  },
   { id: 't2', title: 'Beta', teamIdentifier: 'LUM', number: 2, status: 'DONE' },
 ] as any[]
 

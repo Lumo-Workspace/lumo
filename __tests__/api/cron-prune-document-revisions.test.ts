@@ -16,7 +16,9 @@ beforeEach(() => {
   jest.clearAllMocks()
   process.env = { ...OLD_ENV, CRON_SECRET: 'secret' }
 })
-afterAll(() => { process.env = OLD_ENV })
+afterAll(() => {
+  process.env = OLD_ENV
+})
 
 function req(auth?: string) {
   return new NextRequest('http://localhost/api/cron/prune-document-revisions', {

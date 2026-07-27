@@ -26,7 +26,10 @@ const HLJS_TOKENS = [
 // in globals-css-color-tokens.test.ts does. The `.hljs-*` *rules* live earlier
 // in the file (before :root), so these slices only ever see token definitions.
 const rootBlock = css.slice(css.indexOf(':root {'), css.indexOf('.dark {'))
-const darkBlock = css.slice(css.indexOf('.dark {'), css.indexOf('@theme inline'))
+const darkBlock = css.slice(
+  css.indexOf('.dark {'),
+  css.indexOf('@theme inline')
+)
 
 // The highlight.js rule region, bounded by its first selector and the next
 // block (the callout styles).
@@ -36,15 +39,15 @@ const hljsRules = css.slice(
 )
 
 describe('hljs syntax palette tokens (LUM-288)', () => {
-  it.each(HLJS_TOKENS)(':root defines --hljs-%s as a hex literal', (t) => {
+  it.each(HLJS_TOKENS)(':root defines --hljs-%s as a hex literal', t => {
     expect(rootBlock).toMatch(new RegExp(`--hljs-${t}:\\s*#[0-9a-fA-F]{3,8}`))
   })
 
-  it.each(HLJS_TOKENS)('.dark redefines --hljs-%s as a hex literal', (t) => {
+  it.each(HLJS_TOKENS)('.dark redefines --hljs-%s as a hex literal', t => {
     expect(darkBlock).toMatch(new RegExp(`--hljs-${t}:\\s*#[0-9a-fA-F]{3,8}`))
   })
 
-  it.each(HLJS_TOKENS)('the .hljs rules consume var(--hljs-%s)', (t) => {
+  it.each(HLJS_TOKENS)('the .hljs rules consume var(--hljs-%s)', t => {
     expect(hljsRules).toMatch(new RegExp(`color:\\s*var\\(--hljs-${t}\\)`))
   })
 

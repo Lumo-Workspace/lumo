@@ -11,8 +11,28 @@ jest.mock('react-intl', () => ({
 
 const hook = {
   revisions: [
-    { id: 'r2', label: null, isManual: false, title: 'T', emoji: null, wordCount: 3, createdAt: '2026-06-05T11:00:00Z', updatedAt: '2026-06-05T11:00:00Z', author: { id: 'm1', name: 'Alex', imageUrl: null } },
-    { id: 'r1', label: 'v1 review', isManual: true, title: 'T', emoji: null, wordCount: 2, createdAt: '2026-06-04T10:00:00Z', updatedAt: '2026-06-04T10:00:00Z', author: { id: 'm1', name: 'Alex', imageUrl: null } },
+    {
+      id: 'r2',
+      label: null,
+      isManual: false,
+      title: 'T',
+      emoji: null,
+      wordCount: 3,
+      createdAt: '2026-06-05T11:00:00Z',
+      updatedAt: '2026-06-05T11:00:00Z',
+      author: { id: 'm1', name: 'Alex', imageUrl: null },
+    },
+    {
+      id: 'r1',
+      label: 'v1 review',
+      isManual: true,
+      title: 'T',
+      emoji: null,
+      wordCount: 2,
+      createdAt: '2026-06-04T10:00:00Z',
+      updatedAt: '2026-06-04T10:00:00Z',
+      author: { id: 'm1', name: 'Alex', imageUrl: null },
+    },
   ],
   loading: false,
   error: null,
