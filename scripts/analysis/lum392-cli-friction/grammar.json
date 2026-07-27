@@ -5,18 +5,21 @@
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Manage Lumo authentication"
     },
     "auth login": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Log in to Lumo by pasting an API key"
     },
     "auth logout": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Log out and remove local credentials"
     },
     "cost": {
@@ -64,24 +67,28 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
     },
     "criteria": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Workspace-level acceptance-criteria analytics"
     },
     "criteria audit": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)"
     },
     "crossing": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect and annotate boundary crossings"
     },
     "crossing explain": {
@@ -97,12 +104,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Append an agent self-explanation (\"申辩\") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Targets a crossing on the session-bound task."
     },
     "doc": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Manage Lumo documents"
     },
     "doc append": {
@@ -142,6 +151,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Append markdown at the end of a heading-addressed section (before the next same-or-higher heading), or at the document end when --section is omitted. Pure insertion — no existing byte is modified — which makes it the safest write for running logs/ledgers. 409 on concurrent edits."
     },
     "doc bind": {
@@ -151,6 +161,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it."
     },
     "doc create": {
@@ -222,6 +233,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc."
     },
     "doc delete": {
@@ -237,6 +249,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete a document (requires --yes)"
     },
     "doc diff": {
@@ -252,6 +265,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Compare the server-side markdown source against a local file. Exit 0 when byte-identical, 1 with a unified diff when divergent. Requires the doc to have a stored markdown source."
     },
     "doc import-gdoc": {
@@ -275,6 +289,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Import a Google Doc as a Lumo doc (one-way Google → Lumo)"
     },
     "doc list": {
@@ -322,6 +337,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List documents visible to the current user"
     },
     "doc move": {
@@ -345,6 +361,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only."
     },
     "doc patch": {
@@ -392,6 +409,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Replace one heading-addressed section of the markdown source (heading line included), leaving every byte outside the section untouched. Requires the doc to have a stored markdown source. Commits conditionally on the body revision: a concurrent edit fails with 409 instead of being overwritten. A replacement that drops tables/rows/headings within the addressed section is rejected with 422 (structure guard) unless --allow-shrink is passed."
     },
     "doc rebuild-source": {
@@ -423,6 +441,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Regenerate the stored markdown source from the doc's HTML body using a lossless serializer (tables/rows/headings round-trip), re-enabling doc show --raw / diff / patch / append for a source-less doc. The rebuilt source is structure-guarded: any table/tr/heading shrink is rejected with 422 (no silent flattening) unless --allow-shrink is passed. A doc that already has a source is refused with 409 unless --force re-derives it (replacing a byte-faithful source with a serializer-derived one)."
     },
     "doc share": {
@@ -441,12 +460,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts \"me\", an email, or a display name."
     },
     "doc share-list": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>."
     },
     "doc show": {
@@ -470,12 +491,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show document header and body (doc = title or cuid). --raw prints the byte-identical markdown source of the last markdown upload (a legal edit base); it errors when no markdown source is stored instead of falling back to the lossy HTML→markdown render. --section <heading> prints just that section of the markdown source (revision goes to stderr)."
     },
     "doc sync": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Re-sync a Google-imported doc (overwrites the Lumo body)"
     },
     "doc unbind": {
@@ -485,6 +508,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Unbind a document from a task. Removes EXPLICIT mentions only — purely CONTENT-derived mentions (from @LUM-N in the body) cannot be removed via CLI and fail with 409; edit the doc body in the web UI instead."
     },
     "doc unshare": {
@@ -494,6 +518,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a member from a document's share list. Idempotent — prints \"Not shared with …\" if no row exists."
     },
     "doc update": {
@@ -605,12 +630,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
     "fidelity": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Mechanical fidelity read-outs (LUM-610)"
     },
     "fidelity show": {
@@ -626,12 +653,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed."
     },
     "hook": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Claude Code hook ingestion (invoked by settings.json, not humans)"
     },
     "hook config-change": {
@@ -647,6 +676,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a ConfigChange hook event to Lumo (reads JSON from stdin)"
     },
     "hook cwd-changed": {
@@ -662,6 +692,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a CwdChanged hook event to Lumo (reads JSON from stdin)"
     },
     "hook elicitation": {
@@ -677,6 +708,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward an Elicitation hook event to Lumo (reads JSON from stdin)"
     },
     "hook elicitation-result": {
@@ -692,6 +724,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward an ElicitationResult hook event to Lumo (reads JSON from stdin)"
     },
     "hook file-changed": {
@@ -707,6 +740,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a FileChanged hook event to Lumo (reads JSON from stdin)"
     },
     "hook instructions-loaded": {
@@ -722,6 +756,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)"
     },
     "hook notification": {
@@ -737,6 +772,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a Notification hook event to Lumo (reads JSON from stdin)"
     },
     "hook permission-denied": {
@@ -752,6 +788,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PermissionDenied hook event to Lumo (reads JSON from stdin)"
     },
     "hook permission-request": {
@@ -767,6 +804,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)"
     },
     "hook post-tool-batch": {
@@ -782,6 +820,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PostToolBatch hook event to Lumo (reads JSON from stdin)"
     },
     "hook post-tool-use": {
@@ -797,6 +836,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PostToolUse hook event to Lumo (reads JSON from stdin)"
     },
     "hook post-tool-use-failure": {
@@ -812,6 +852,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)"
     },
     "hook pre-tool-use": {
@@ -827,6 +868,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a PreToolUse hook event to Lumo (reads JSON from stdin)"
     },
     "hook session-end": {
@@ -842,6 +884,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a SessionEnd hook event to Lumo (reads JSON from stdin)"
     },
     "hook session-start": {
@@ -857,6 +900,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a SessionStart hook event to Lumo (reads JSON from stdin)"
     },
     "hook stop": {
@@ -872,6 +916,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a Stop hook event to Lumo (reads JSON from stdin)"
     },
     "hook stop-failure": {
@@ -887,6 +932,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a StopFailure hook event to Lumo (reads JSON from stdin)"
     },
     "hook subagent-start": {
@@ -902,6 +948,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a SubagentStart hook event to Lumo (reads JSON from stdin)"
     },
     "hook subagent-stop": {
@@ -917,6 +964,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a SubagentStop hook event to Lumo (reads JSON from stdin)"
     },
     "hook task-completed": {
@@ -932,6 +980,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a TaskCompleted hook event to Lumo (reads JSON from stdin)"
     },
     "hook task-created": {
@@ -947,6 +996,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a TaskCreated hook event to Lumo (reads JSON from stdin)"
     },
     "hook user-prompt-expansion": {
@@ -962,6 +1012,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a UserPromptExpansion hook event to Lumo (reads JSON from stdin)"
     },
     "hook user-prompt-submit": {
@@ -977,6 +1028,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)"
     },
     "hook worktree-create": {
@@ -992,6 +1044,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)"
     },
     "hook worktree-remove": {
@@ -1007,6 +1060,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)"
     },
     "idea": {
@@ -1024,6 +1078,7 @@
         }
       },
       "hasSubcommands": true,
+      "isInvokable": true,
       "description": "Capture a team-level idea into the pool (<10s, no friction). Grabs the current Claude Code session id and its bound task as provenance; prints an I-prefixed id (e.g. LUM-I42). The transformer (Spec 2) consumes the pool."
     },
     "idea comment": {
@@ -1033,12 +1088,14 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Comment on an idea (LUM-680). <id> is the LUM-I<n> id (a bare number also resolves). Body is plain text — quote it to pass spaces or newlines."
     },
     "idea comments": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect an idea comment thread"
     },
     "idea comments list": {
@@ -1054,12 +1111,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List an idea comment thread (capped to the output budget; --full prints every comment)."
     },
     "idea figma": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Attach Figma links to an idea"
     },
     "idea figma add": {
@@ -1069,6 +1128,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach a Figma file/frame URL to an idea"
     },
     "idea figma context": {
@@ -1078,18 +1138,21 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show cached Figma design context"
     },
     "idea figma list": {
       "arguments": [{ "name": "idea", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List Figma links on an idea"
     },
     "idea figma refresh": {
       "arguments": [{ "name": "idea", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Re-fetch Figma metadata for every link on an idea"
     },
     "idea figma rm": {
@@ -1099,18 +1162,21 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a Figma link from an idea (idempotent)"
     },
     "idea list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List the team idea pool newest-first — each line shows the LUM-I<n> id, status (CAPTURED|DEVELOPING|PLANNED|DROPPED) and statement."
     },
     "idea slack": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Attach & inspect Slack context on an idea"
     },
     "idea slack add": {
@@ -1120,6 +1186,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach a Slack thread to an idea"
     },
     "idea slack rm": {
@@ -1129,6 +1196,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a Slack context from an idea"
     },
     "idea slack show": {
@@ -1138,6 +1206,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the full stored Slack thread snapshot"
     },
     "idea update": {
@@ -1153,12 +1222,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Move an idea through its lifecycle (LUM-679). Allowed: CAPTURED↔DEVELOPING→PLANNED and any state→DROPPED (DROPPED is terminal). <id> is the LUM-I<n> id (a bare number also resolves)."
     },
     "idea web": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Attach & inspect web links on an idea"
     },
     "idea web add": {
@@ -1168,6 +1239,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach a web link to an idea"
     },
     "idea web rm": {
@@ -1177,6 +1249,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a web link from an idea"
     },
     "idea web show": {
@@ -1186,12 +1259,14 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the fetched web link body as plain text"
     },
     "initiative": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Team-level Initiatives (LUM-INIT-<n>): create one directly (no plan run required) or list them. Converter-materialised initiatives show here too."
     },
     "initiative create": {
@@ -1207,18 +1282,21 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a team-level initiative directly from a goal statement — no plan run required. Prints the LUM-INIT-<n> id; --assumption records the bet behind it."
     },
     "initiative list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (ACTIVE|DONE|DROPPED) and goal."
     },
     "memory": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)"
     },
     "memory fold": {
@@ -1236,6 +1314,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Preview the autonomous topic-fold pass (folding itself runs daily, automatically). Requires --dry-run."
     },
     "memory promote": {
@@ -1244,6 +1323,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks."
     },
     "memory push": {
@@ -1275,6 +1355,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Upsync locally-authored memories (<memory-dir>/outbox/*.json, each {category, content}) to the team via the existing create-project-memory pipeline. Pushed files are removed from the outbox on success."
     },
     "memory rm": {
@@ -1292,6 +1373,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete a memory (hard delete). Requires --yes."
     },
     "memory show": {
@@ -1300,6 +1382,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show one memory's full card by id (category + content). Use to pull the body of a memory you saw as a one-line index entry at session start."
     },
     "memory sync": {
@@ -1347,12 +1430,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Downsync team memory into the local Claude Code memory store (team/*.md + a managed MEMORY.md block). Only touches files it owns; never clobbers your own memory. Resolves the project from the bound session unless --project is given."
     },
     "milestone": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect milestones from the terminal"
     },
     "milestone add": {
@@ -1371,6 +1456,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back."
     },
     "milestone archive": {
@@ -1388,6 +1474,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name."
     },
     "milestone changelog": {
@@ -1413,6 +1500,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Assemble a structured changelog from the milestone's DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones; every claim shows provenance. Identifier accepts a milestone name or UUID. --json emits the raw structured payload."
     },
     "milestone create": {
@@ -1452,12 +1540,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a milestone. --project required when workspace has >1 project."
     },
     "milestone criteria": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Milestone-level exit criteria — the close contract (LUM-643). Drafted and adjudicated by the milestone steward (LUM-640) or a human; unresolved criteria refuse status→COMPLETED (human override via web only)."
     },
     "milestone criteria list": {
@@ -1475,6 +1565,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List a milestone’s exit criteria: id, verdict (MET | NOT_MET | PENDING), provenance, referent kind, statement — plus whether the close gate is open."
     },
     "milestone criteria set": {
@@ -1508,6 +1599,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Submit the whole exit contract from a JSON file (full replace; adjudicated rows are tombstoned, their verdict trail survives). Default = steward/agent draft; --human records a transcribed HUMAN_EDIT revision. Locked with 409 once the milestone is COMPLETED."
     },
     "milestone criteria verdict": {
@@ -1558,6 +1650,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Adjudicate (裁定) one exit criterion: --met or --unmet, with optional --note. Grounding gate: --met on an EXTERNAL_FACT criterion requires --evidence (422 otherwise), and a PENDING_OUTCOME criterion can never be MET. <criterion> = id or ≥6-char id prefix from `criteria list`."
     },
     "milestone delete": {
@@ -1583,6 +1676,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes."
     },
     "milestone list": {
@@ -1622,6 +1716,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown."
     },
     "milestone move": {
@@ -1653,6 +1748,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project."
     },
     "milestone remove": {
@@ -1671,6 +1767,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID."
     },
     "milestone reorder": {
@@ -1686,6 +1783,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
     },
     "milestone show": {
@@ -1703,6 +1801,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name."
     },
     "milestone summary": {
@@ -1728,6 +1827,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
     },
     "milestone triage": {
@@ -1762,6 +1862,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Batch-mark tasks agent-claimable within a milestone (steward triage, LUM-646). Choose a direction: --claimable or --not-claimable. Tasks not in the milestone are skipped. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. `lumo next --claimable` then surfaces only claimable ∩ unblocked ∩ in-budget tasks."
     },
     "milestone unarchive": {
@@ -1779,6 +1880,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name."
     },
     "milestone update": {
@@ -1844,6 +1946,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Update a milestone. Provide at least one of --name, --description, --status, --start, --target, --token-budget. Use \"\" to clear nullable fields."
     },
     "next": {
@@ -1867,12 +1970,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`. Use --claimable to restrict to the autonomy boundary (claimable ∩ unblocked ∩ in-budget)."
     },
     "outcome": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Read / record the post-hoc outcome well (LUM-598)"
     },
     "outcome rate": {
@@ -1896,6 +2001,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read \"insufficient\" and the high-vs-low comparison stays \"inconclusive\" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied)."
     },
     "outcome record": {
@@ -1934,12 +2040,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no \"mark satisfied\" counterpart — the well only asserts rejection."
     },
     "outcome show": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a \"pass\") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied."
     },
     "plan": {
@@ -1955,42 +2063,49 @@
         }
       },
       "hasSubcommands": true,
+      "isInvokable": true,
       "description": "Start a design-thinking 转换器 run (聚类→对齐→成计划) and print the gate-A web deep-link. Refuses when a run is already active (see `lumo plan status`); --abandon-active abandons the prior run first. Editing/confirmation happen in web."
     },
     "plan status": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Print the active plan run’s current stage and the deep-link to its next gate; with no active run, prompts to run `lumo plan`."
     },
     "priority": {
       "arguments": [{ "name": "text", "required": false, "variadic": false }],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": true,
       "description": "Declare the team priority (append-only). With [text] records it directly; with no argument prompts interactively for 1-3 sentences. A newer declaration supersedes the old without deleting it."
     },
     "priority list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Print the team priority append history, newest-first (the current declaration is marked with *)."
     },
     "project": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect projects from the terminal"
     },
     "project list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List projects in the current workspace. Slug column matches `task create --project <ref>`."
     },
     "project memory": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "View and record PROJECT-scope memories"
     },
     "project memory add": {
@@ -2111,6 +2226,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
     },
     "project memory list": {
@@ -2136,12 +2252,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
     },
     "session": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Manage per-terminal coding-session context"
     },
     "session attach": {
@@ -2159,12 +2277,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task — or, with --steward, to a MILESTONE as a governance session (LUM-640: plan/accept only). Either binding is a lifetime lock: re-attaching the same target is a no-op, anything else is refused — start a new session instead."
     },
     "session status": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing."
     },
     "setup": {
@@ -2204,12 +2324,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Install the Lumo Claude Code skill and wire hook handlers into .claude/settings.json. Run via `npx @lumoai/cli setup` for first-time onboarding."
     },
     "sprint": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect sprints from the terminal"
     },
     "sprint add": {
@@ -2228,6 +2350,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Add a task to a sprint. <task> accepts LUM-N or UUID."
     },
     "sprint close": {
@@ -2269,6 +2392,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog."
     },
     "sprint create": {
@@ -2308,6 +2432,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required."
     },
     "sprint delete": {
@@ -2333,6 +2458,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints."
     },
     "sprint list": {
@@ -2364,6 +2490,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List sprints for a team. --team required when workspace has >1 team. Sorted newest first."
     },
     "sprint remove": {
@@ -2382,6 +2509,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a task from a sprint. <task> accepts LUM-N or UUID."
     },
     "sprint show": {
@@ -2399,6 +2527,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID."
     },
     "sprint start": {
@@ -2416,6 +2545,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Transition a DRAFT sprint to ACTIVE."
     },
     "sprint summary": {
@@ -2441,6 +2571,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints \"(no summary generated yet)\" when none exists. Use --retry to queue regeneration before fetching."
     },
     "sprint update": {
@@ -2482,18 +2613,21 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared."
     },
     "task": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect tasks from the terminal"
     },
     "task artifact": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Record spec-engineering artifacts (spec / plan / design …) on a task"
     },
     "task artifact add": {
@@ -2548,12 +2682,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content."
     },
     "task artifact list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List artifacts attached to a task, in order"
     },
     "task artifact rm": {
@@ -2572,6 +2708,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete an artifact from a task. Irreversible — requires --yes."
     },
     "task artifact show": {
@@ -2581,6 +2718,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1."
     },
     "task artifact update": {
@@ -2630,6 +2768,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Update an artifact’s kind / title / source (not content). Provide at least one flag."
     },
     "task comment": {
@@ -2639,12 +2778,14 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines."
     },
     "task comments": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect the full task comment thread"
     },
     "task comments list": {
@@ -2662,6 +2803,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List the task comment thread (capped to the output budget; --full prints every comment)"
     },
     "task context": {
@@ -2670,6 +2812,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup."
     },
     "task create": {
@@ -2757,18 +2900,21 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me."
     },
     "task criteria": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Acceptance criteria — the task’s verification contract (LUM-342)"
     },
     "task criteria list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List a task’s acceptance criteria (id, type, provenance, checkpointer)"
     },
     "task criteria set": {
@@ -2806,12 +2952,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with \"id\" keep/update, missing ones are deleted)."
     },
     "task deps": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Task dependency edges — detected candidates + confirmed blockers"
     },
     "task deps add": {
@@ -2829,6 +2977,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Declare a manual hard dependency (CONFIRMED)"
     },
     "task deps confirm": {
@@ -2847,6 +2996,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Confirm a detected candidate edge"
     },
     "task deps dismiss": {
@@ -2856,6 +3006,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Dismiss a candidate (never re-suggested)"
     },
     "task deps list": {
@@ -2864,6 +3015,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List dependency edges (both directions)"
     },
     "task deps rm": {
@@ -2882,12 +3034,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Delete a dependency edge"
     },
     "task figma": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Attach Figma file/frame links to a task"
     },
     "task figma add": {
@@ -2897,6 +3051,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth."
     },
     "task figma context": {
@@ -2906,18 +3061,21 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the cached Figma design context (metadata)"
     },
     "task figma list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List Figma links attached to a task"
     },
     "task figma refresh": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated."
     },
     "task figma rm": {
@@ -2927,6 +3085,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove a Figma link from a task (idempotent)"
     },
     "task lineage": {
@@ -2944,6 +3103,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the causal trail: which context fragments fed this task, each fragment's outcome, and the token/loop cost of the run that consumed it"
     },
     "task list": {
@@ -2983,12 +3143,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List tasks assigned to you. Filter with --status, --project, --milestone, --limit."
     },
     "task memory": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "View and record memories scoped to a task"
     },
     "task memory add": {
@@ -3107,6 +3269,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Record a memory on a task (<task> defaults to the bound session). Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. Pick --category then its fields."
     },
     "task memory list": {
@@ -3130,12 +3293,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List a task's memories. <task> defaults to the session-bound task."
     },
     "task pr": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect linked PRs"
     },
     "task pr show": {
@@ -3145,6 +3310,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the synced PR record (diff/review comments when available)"
     },
     "task show": {
@@ -3153,12 +3319,14 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show a single task: title, status, priority, assignee, project, URL, description."
     },
     "task slack": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect Slack context"
     },
     "task slack show": {
@@ -3168,6 +3336,7 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the full stored Slack thread snapshot"
     },
     "task status": {
@@ -3183,6 +3352,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected."
     },
     "task update": {
@@ -3312,12 +3482,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use \"\" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
     },
     "task web": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Inspect web link content"
     },
     "task web show": {
@@ -3327,12 +3499,14 @@
       ],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the fetched web link body as plain text"
     },
     "update": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
     },
     "verdict": {
@@ -3386,6 +3560,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
     },
     "verify": {
@@ -3409,18 +3584,21 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Machine verification loop (LUM-343): run every MACHINE criterion checkpointer locally, report structured verdicts to the server (round cap 3), and print next actions. All-pass moves the task to IN_REVIEW. Defaults to the session-bound task."
     },
     "whoami": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Show the currently logged-in identity"
     },
     "worktree": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": true,
+      "isInvokable": false,
       "description": "Scaffold, remove, and list parallel git worktrees under .worktrees/ (node_modules symlink + prisma/jest gotcha guidance). Local dev tooling; run from the main checkout."
     },
     "worktree add": {
@@ -3455,12 +3633,14 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout."
     },
     "worktree list": {
       "arguments": [],
       "flags": {},
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked."
     },
     "worktree rm": {
@@ -3494,6 +3674,7 @@
         }
       },
       "hasSubcommands": false,
+      "isInvokable": true,
       "description": "Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch."
     }
   }

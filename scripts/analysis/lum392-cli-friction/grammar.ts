@@ -41,8 +41,17 @@ export interface GrammarCommand {
   arguments: Array<{ name: string; required: boolean; variadic: boolean }>
   /** Flags by long form (plus short aliases resolvable via `short`). */
   flags: Record<string, GrammarFlag>
-  /** True when this node only routes to subcommands (no leaf behavior). */
+  /** True when this node has subcommands hanging off it. */
   hasSubcommands: boolean
+  /**
+   * True when the node carries its own commander action handler, i.e. it is
+   * callable on its own. Orthogonal to `hasSubcommands`: commander allows a
+   * parent to hold both (`lumo plan` starts a run, `lumo plan status` reports
+   * on it), so "has subcommands" alone never means "needs a subcommand"
+   * (LUM-706 — reading it that way made every parent-with-action's primary
+   * usage unrepresentable in the docs).
+   */
+  isInvokable: boolean
   description: string
 }
 
@@ -101,6 +110,13 @@ export interface CommandLike {
   commands: readonly CommandLike[]
   options: readonly OptionLike[]
   registeredArguments?: readonly ArgumentLike[]
+  /**
+   * Commander's private action slot: a function once `.action()` was called,
+   * `null` otherwise. There is no public accessor, and the distinction is not
+   * derivable from anything public — a parent with an action and one without
+   * look identical through `commands`/`options`/`registeredArguments`.
+   */
+  _actionHandler?: unknown
 }
 
 /**
@@ -162,6 +178,7 @@ function toGrammarCommand(cmd: CommandLike): GrammarCommand {
     })),
     flags,
     hasSubcommands: cmd.commands.length > 0,
+    isInvokable: typeof cmd._actionHandler === 'function',
     description: cmd.description(),
   }
 }

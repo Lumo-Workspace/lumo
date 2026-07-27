@@ -110,6 +110,35 @@ describe('grammar.json drift', () => {
     }
   })
 
+  it('isInvokable marks parent commands that carry their own action', () => {
+    // LUM-706: hasSubcommands is a structural fact ("something hangs off
+    // this node"), NOT a statement about callability — commander allows both
+    // on one command. The two dimensions must stay independent: collapsing
+    // them made `lumo plan` (and every future parent-with-action) undocumentable.
+    const parents = Object.entries(grammar.commands).filter(
+      ([, node]) => node.hasSubcommands
+    )
+    const invokableParents = parents
+      .filter(([, node]) => node.isInvokable)
+      .map(([path]) => path)
+      .sort()
+    // The full parent-with-action set as registered in cli/src/index.ts. A new
+    // one must be added here deliberately — and documented with a bare example
+    // (doc-examples.test.ts coverage now demands one).
+    expect(invokableParents).toEqual(['idea', 'plan', 'priority'])
+    // Routing-only parents stay non-invokable …
+    expect(grammar.commands['task']!.isInvokable).toBe(false)
+    expect(grammar.commands['task criteria']!.isInvokable).toBe(false)
+    // … and every leaf is callable by construction.
+    for (const [path, node] of Object.entries(grammar.commands)) {
+      if (node.hasSubcommands) continue
+      expect({ path, isInvokable: node.isInvokable }).toEqual({
+        path,
+        isInvokable: true,
+      })
+    }
+  })
+
   it('keeps structural invariants the validator relies on', () => {
     // Group nodes route to subcommands; leaves carry the flags.
     expect(grammar.commands['task']!.hasSubcommands).toBe(true)

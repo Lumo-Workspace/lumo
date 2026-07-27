@@ -59,6 +59,16 @@ const isCleanFlagToken = (t: string) =>
 /** Same idea for subcommand tokens (quote debris like `status\`` is noise). */
 const isCleanWordToken = (t: string) => /^[A-Za-z][A-Za-z0-9_-]*$/.test(t)
 
+/**
+ * Whether reaching this node without a further token is a construction error.
+ * A parent that carries its own action is callable bare (`lumo plan`), so only
+ * a pure routing node (`lumo task`) genuinely requires a subcommand — LUM-706.
+ * `isInvokable` is absent on pre-LUM-706 grammar snapshots; undefined folds to
+ * the old behavior.
+ */
+const needsSubcommand = (node: GrammarCommand | null | undefined) =>
+  node?.hasSubcommands === true && !node.isInvokable
+
 interface ResolvedPath {
   node: GrammarCommand | null
   path: string[]
@@ -83,9 +93,11 @@ function resolvePath(
     const next = grammar.commands[candidate]
     if (!next) {
       // Token does not extend the command path: positional arg if the
-      // current node is a leaf, unrecognized subcommand if it's a group.
+      // current node can be called itself (a leaf, or a parent with its own
+      // action — commander hands the token to that action), unrecognized
+      // subcommand if it's a pure routing group.
       // Quote debris / non-word tokens are extraction noise, not attempts.
-      const offends = node === null || node.hasSubcommands
+      const offends = node === null || needsSubcommand(node)
       if (offends && !isCleanWordToken(t)) return 'unjudgeable'
       return { node, path, unmatched: offends ? t : null }
     }
@@ -167,7 +179,7 @@ export function validateSegment(
       detail: `"${unmatched}" is not a subcommand of "${commandPath || 'lumo'}"`,
     }
   }
-  if (node?.hasSubcommands) {
+  if (needsSubcommand(node)) {
     const hasHelp = tokens.some(t => t === '--help' || t === '-h')
     if (!hasHelp) {
       return {

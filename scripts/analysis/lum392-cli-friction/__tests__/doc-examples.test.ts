@@ -62,10 +62,12 @@ describe('doc-example parsing helpers', () => {
     ])
   })
 
-  it('runnableGrammarPaths returns leaves only and exempts the internal hook surface', () => {
+  it('runnableGrammarPaths returns callable nodes and exempts the internal hook surface', () => {
     const paths = runnableGrammarPaths(grammar)
     expect(paths).toContain('task list')
-    expect(paths).not.toContain('task') // routing node
+    expect(paths).not.toContain('task') // pure routing node
+    expect(paths).toContain('plan') // parent with its own action (LUM-706)
+    expect(paths).toContain('plan status')
     expect(paths.some(p => p === 'hook' || p.startsWith('hook '))).toBe(false)
   })
 })
