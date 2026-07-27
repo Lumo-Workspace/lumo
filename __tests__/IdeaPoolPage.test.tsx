@@ -60,6 +60,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
   }),
 }))
 
+// The pool's own mutations (LUM-708) — stubbed; each has its own suite.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useCaptureIdea', () => ({
+  useCaptureIdea: () => ({
+    capture: jest.fn().mockResolvedValue(undefined),
+    capturing: false,
+    error: null,
+  }),
+}))
+
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdeaStatus', () => ({
+  useUpdateIdeaStatus: () => ({
+    updateStatus: jest.fn().mockResolvedValue(undefined),
+    updating: false,
+    error: null,
+  }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'
@@ -121,7 +138,7 @@ function setIdeas(ideas: ApiIdea[]) {
 beforeEach(() => jest.clearAllMocks())
 
 describe('IdeaPoolPage', () => {
-  it('renders each idea with statement, status, source and captured time', () => {
+  it('renders each idea with id, statement, status and captured time', () => {
     setIdeas([planned, capturedWithContext, capturedFromTask])
     render(<IdeaPoolPage workspaceUrl='lumo' />)
 
@@ -129,6 +146,10 @@ describe('IdeaPoolPage', () => {
     expect(screen.getByText('ship the idea pool')).toBeInTheDocument()
     expect(screen.getByText('dark mode toggle')).toBeInTheDocument()
     expect(screen.getByText('faster search')).toBeInTheDocument()
+
+    // ids
+    expect(screen.getByText('LUM-I3')).toBeInTheDocument()
+    expect(screen.getByText('LUM-I2')).toBeInTheDocument()
 
     // status labels (both kinds present) — scoped to the idea rows so the
     // per-status filter chips (which also render every label) don't count.
@@ -138,23 +159,29 @@ describe('IdeaPoolPage', () => {
     expect(rowBadges('ideas.statusPlanned')).toHaveLength(1)
     expect(rowBadges('ideas.statusCaptured')).toHaveLength(2)
 
-    // source: free-text context rendered verbatim; task source templated
-    expect(screen.getByText('from the standup')).toBeInTheDocument()
-    expect(screen.getByText('ideas.fromTask LUM-9')).toBeInTheDocument()
-
     // captured time is rendered via the locale-aware formatter
     expect(screen.getAllByText('date:2026').length).toBeGreaterThan(0)
+  })
+
+  // LUM-708 traded the row's source line for a single dense line; provenance
+  // now lives in the detail slide-over, which has its own suite.
+  it('keeps the row to one line — no source line competing with the statement', () => {
+    setIdeas([capturedWithContext, capturedFromTask])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    expect(screen.queryByText('from the standup')).not.toBeInTheDocument()
+    expect(screen.queryByText('ideas.fromTask LUM-9')).not.toBeInTheDocument()
   })
 
   it('links a PLANNED idea to the plan run it was materialised into', () => {
     setIdeas([planned, capturedWithContext])
     render(<IdeaPoolPage workspaceUrl='lumo' />)
 
-    const link = screen
-      .getByText(/ideas\.plannedInto Idea visibility/)
-      .closest('a')
+    // The row shows a compact marker; the initiative name rides the tooltip.
+    const link = screen.getByText('ideas.plannedMarker').closest('a')
     expect(link).not.toBeNull()
     expect(link).toHaveAttribute('href', '/workspace/lumo/plan/run-1')
+    expect(link).toHaveAttribute('title', 'ideas.plannedInto Idea visibility')
   })
 
   it('shows no Initiative link on a CAPTURED idea', () => {

@@ -61,6 +61,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
   }),
 }))
 
+// The pool's own mutations (LUM-708) — stubbed; each has its own suite.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useCaptureIdea', () => ({
+  useCaptureIdea: () => ({
+    capture: jest.fn().mockResolvedValue(undefined),
+    capturing: false,
+    error: null,
+  }),
+}))
+
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdeaStatus', () => ({
+  useUpdateIdeaStatus: () => ({
+    updateStatus: jest.fn().mockResolvedValue(undefined),
+    updating: false,
+    error: null,
+  }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'

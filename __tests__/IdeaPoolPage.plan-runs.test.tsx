@@ -60,8 +60,25 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
   }),
 }))
 
+// The pool's own mutations (LUM-708) — stubbed; each has its own suite.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useCaptureIdea', () => ({
+  useCaptureIdea: () => ({
+    capture: jest.fn().mockResolvedValue(undefined),
+    capturing: false,
+    error: null,
+  }),
+}))
+
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdeaStatus', () => ({
+  useUpdateIdeaStatus: () => ({
+    updateStatus: jest.fn().mockResolvedValue(undefined),
+    updating: false,
+    error: null,
+  }),
+}))
+
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'
 import type { PlanRunListRow } from '@/lib/api-client/plan-runs'
 
@@ -80,6 +97,14 @@ const materializedRun: PlanRunListRow = {
   updatedAt: '2026-06-01T10:00:00.000Z',
   initiatives: [{ id: 'init-1', number: 5, name: 'Ship the revamp' }],
 }
+
+const abandonedRun = (n: number): PlanRunListRow => ({
+  id: `run-gone-${n}`,
+  stage: 'ABANDONED',
+  createdAt: '2026-05-01T10:00:00.000Z',
+  updatedAt: '2026-05-01T10:00:00.000Z',
+  initiatives: [],
+})
 
 function setRuns(runs: PlanRunListRow[], overrides = {}) {
   mockUsePlanRuns.mockReturnValue({
@@ -108,8 +133,7 @@ describe('IdeaPoolPage — plan-runs surface (LUM-677)', () => {
     render(<IdeaPoolPage workspaceUrl='lumo' />)
 
     const active = screen.getByTestId('plan-run-active')
-    const link = active.querySelector('a')
-    expect(link).toHaveAttribute('href', '/workspace/lumo/plan/run-active')
+    expect(active).toHaveAttribute('href', '/workspace/lumo/plan/run-active')
     expect(active).toHaveTextContent('planRuns.resume')
   })
 
@@ -117,6 +141,7 @@ describe('IdeaPoolPage — plan-runs surface (LUM-677)', () => {
     setRuns([activeRun, materializedRun])
     render(<IdeaPoolPage workspaceUrl='lumo' />)
 
+    // An in-flight run opens the card, so the history is already visible.
     const past = screen.getByTestId('plan-run-past')
     expect(past).toHaveAttribute('href', '/workspace/lumo/plan/run-done')
     expect(past).toHaveTextContent('planRuns.status.materialized')
@@ -136,6 +161,59 @@ describe('IdeaPoolPage — plan-runs surface (LUM-677)', () => {
 
     expect(screen.getByTestId('plan-runs-section')).toBeInTheDocument()
     expect(screen.queryByTestId('plan-run-active')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('plan-runs-toggle'))
     expect(screen.getByTestId('plan-run-past')).toBeInTheDocument()
+  })
+})
+
+describe('idea pool plan runs card', () => {
+  it('collapses to a one-line summary and keeps abandoned runs behind a toggle', () => {
+    // A purely terminal history: 1 materialized + 3 abandoned, no active run.
+    setRuns([
+      materializedRun,
+      abandonedRun(1),
+      abandonedRun(2),
+      abandonedRun(3),
+    ])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    // Collapsed by default — the header alone carries the counts and the date
+    // of the newest run; no run rows are rendered yet.
+    const section = screen.getByTestId('plan-runs-section')
+    expect(section).toHaveTextContent('planRuns.countMaterialized 1')
+    expect(section).toHaveTextContent('planRuns.countAbandoned 3')
+    expect(section).toHaveTextContent('planRuns.lastRun date:2026')
+    expect(screen.queryByTestId('plan-run-past')).not.toBeInTheDocument()
+
+    // Expanding reveals the run rows — but only the materialized one.
+    fireEvent.click(screen.getByTestId('plan-runs-toggle'))
+    expect(screen.getAllByTestId('plan-run-past')).toHaveLength(1)
+    expect(screen.getByTestId('plan-runs-abandoned-toggle')).toHaveTextContent(
+      'planRuns.showAbandoned 3'
+    )
+
+    // The abandoned runs have their own fold.
+    fireEvent.click(screen.getByTestId('plan-runs-abandoned-toggle'))
+    expect(screen.getAllByTestId('plan-run-past')).toHaveLength(4)
+    expect(screen.getByTestId('plan-runs-abandoned-toggle')).toHaveTextContent(
+      'planRuns.hideAbandoned 3'
+    )
+
+    // …and collapsing the card puts the whole history away again.
+    fireEvent.click(screen.getByTestId('plan-runs-toggle'))
+    expect(screen.queryByTestId('plan-run-past')).not.toBeInTheDocument()
+  })
+
+  it('opens by default when a run is still in flight', () => {
+    setRuns([activeRun, materializedRun])
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    // An active run is the one thing here that wants acting on — never folded.
+    expect(screen.getByTestId('plan-run-active')).toBeInTheDocument()
+    expect(screen.getByTestId('plan-runs-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
   })
 })
