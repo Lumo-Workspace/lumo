@@ -6,12 +6,6 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { nextIdeaStatus } from '@/lib/idea-status'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { AsyncContent } from '../AsyncContent'
 import { SearchInput } from '../SearchInput'
@@ -156,22 +150,7 @@ export function IdeaPoolView({
     // canvas, and a centred 880–1024px column made Ideas the one page that
     // started somewhere else than every page beside it in the nav.
     <div className='flex h-full flex-col overflow-hidden'>
-      <PageBreadcrumb>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>
-                {intl.formatMessage({ id: 'ideas.title' })}
-              </BreadcrumbPage>
-              {ideas.length > 0 && (
-                <span className='text-sm font-medium text-muted-foreground'>
-                  {ideas.length}
-                </span>
-              )}
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </PageBreadcrumb>
+      <PageBreadcrumb title={intl.formatMessage({ id: 'ideas.title' })} />
 
       <div className='flex-1 overflow-y-auto px-4 pb-20 pt-6 md:px-8'>
         <div className='mx-auto w-full max-w-[1680px]'>
