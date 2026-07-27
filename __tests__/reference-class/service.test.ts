@@ -140,6 +140,64 @@ describe('buildAnchor', () => {
     expect(out).toContain('Insufficient sample')
   })
 
+  // LUM-707 item 3. The three layer queries used to be one unconditional
+  // Promise.all, so a task whose own milestone already qualified still paid for
+  // a project read and a team read whose rows were then discarded. They run in
+  // parallel, so this never cost latency — it cost two wasted queries on every
+  // session start, which is a ~3s budget this sits on.
+  describe('layer escalation', () => {
+    it('reads no project or team deliveries when the milestone layer already qualifies', async () => {
+      const out = await referenceClassService.buildAnchor('current')
+
+      expect(repo.deliveredByMilestone).toHaveBeenCalledTimes(1)
+      expect(repo.deliveredByProject).not.toHaveBeenCalled()
+      expect(repo.deliveredByTeam).not.toHaveBeenCalled()
+      // The short-circuit must be invisible in the output, not just cheaper.
+      expect(out).toContain('10 delivered tasks')
+      expect(out).toContain('Trust and cognitive load')
+    })
+
+    it('escalates to the broader layers when the milestone class is too small', async () => {
+      repo.deliveredByMilestone.mockResolvedValue(deliveries(3))
+      repo.deliveredByProject.mockResolvedValue(deliveries(12))
+
+      const out = await referenceClassService.buildAnchor('current')
+
+      expect(repo.deliveredByProject).toHaveBeenCalledTimes(1)
+      expect(repo.deliveredByTeam).toHaveBeenCalledTimes(1)
+      expect(out).toContain('12 delivered tasks')
+      expect(out).toContain('Lumo')
+    })
+
+    it('skips the milestone read entirely for a task with no milestone', async () => {
+      repo.taskScope.mockResolvedValue({
+        milestoneId: null,
+        milestoneName: null,
+        projectId: 'p1',
+        projectName: 'Lumo',
+        teamId: 'team1',
+        teamName: 'Core',
+      })
+      repo.deliveredByProject.mockResolvedValue(deliveries(9))
+
+      const out = await referenceClassService.buildAnchor('current')
+
+      expect(repo.deliveredByMilestone).not.toHaveBeenCalled()
+      expect(out).toContain('9 delivered tasks')
+    })
+
+    it('falls through to the team layer when neither milestone nor project qualifies', async () => {
+      repo.deliveredByMilestone.mockResolvedValue(deliveries(2))
+      repo.deliveredByProject.mockResolvedValue(deliveries(4))
+      repo.deliveredByTeam.mockResolvedValue(deliveries(20))
+
+      const out = await referenceClassService.buildAnchor('current')
+
+      expect(out).toContain('20 delivered tasks')
+      expect(out).toContain('Core')
+    })
+  })
+
   it('skips the follow-up reads entirely when no layer qualifies', async () => {
     repo.deliveredByMilestone.mockResolvedValue(deliveries(2))
     await referenceClassService.buildAnchor('current')
