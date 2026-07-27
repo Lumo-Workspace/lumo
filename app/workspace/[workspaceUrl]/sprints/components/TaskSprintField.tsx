@@ -13,20 +13,25 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { useIntl } from 'react-intl'
-import type { Sprint, SprintStatus } from '@prisma/client'
+import type { Sprint } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import {
   deriveSprintState,
   groupSprintsForTaskField,
+  viewerDayKey,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
+import {
+  formatCalendarDate,
+  formatCalendarDayShort,
+} from '@/lib/datetime/format'
 import { CircleDot, Circle, CircleCheck } from 'lucide-react'
 
 interface Task {
   id: string
   teamId: string
   sprintId: string | null
-  sprint?: { id: string; status: SprintStatus; name: string } | null
+  sprint?: { id: string; name: string } | null
 }
 
 const STATUS_LABEL_KEY: Record<DerivedSprintState, string> = {
@@ -47,27 +52,28 @@ const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
   COMPLETED: 'text-muted-foreground',
 }
 
-function formatCompactRange(s: Sprint, locale: string): string {
-  const start = new Date(s.startDate)
-  const end = new Date(s.endDate)
-  const sameYear = start.getFullYear() === end.getFullYear()
-  const thisYear = new Date().getFullYear() === start.getFullYear()
-  const fmtShort: Intl.DateTimeFormatOptions = {
-    month: 'short',
-    day: 'numeric',
+/**
+ * Compact "Jul 13 – Jul 26" range for one option row.
+ *
+ * Every date here lives in the floating-calendar-day frame (LUM-700): the
+ * sprint endpoints are UTC midnights and must render pinned to UTC, and the
+ * year comparisons fold `now` to the viewer's local calendar day first. Format
+ * the endpoints in the browser's timezone instead and a viewer west of UTC
+ * reads the whole range one day early — while the CURRENT / UPCOMING / PAST
+ * label beside it, which goes through `deriveSprintState`, stays right.
+ */
+function formatCompactRange(s: Sprint, locale: string, now: Date): string {
+  const startYear = new Date(s.startDate).getUTCFullYear()
+  const endYear = new Date(s.endDate).getUTCFullYear()
+  const viewerYear = new Date(viewerDayKey(now)).getUTCFullYear()
+  const short = (d: Date | string) => formatCalendarDayShort(d, locale)
+  const full = (d: Date | string) => formatCalendarDate(d, locale)
+  if (startYear === endYear) {
+    return startYear === viewerYear
+      ? `${short(s.startDate)} – ${short(s.endDate)}`
+      : `${short(s.startDate)} – ${full(s.endDate)}`
   }
-  const fmtFull: Intl.DateTimeFormatOptions = {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }
-  if (sameYear && thisYear) {
-    return `${start.toLocaleDateString(locale, fmtShort)} – ${end.toLocaleDateString(locale, fmtShort)}`
-  }
-  if (sameYear) {
-    return `${start.toLocaleDateString(locale, fmtShort)} – ${end.toLocaleDateString(locale, fmtFull)}`
-  }
-  return `${start.toLocaleDateString(locale, fmtFull)} – ${end.toLocaleDateString(locale, fmtFull)}`
+  return `${full(s.startDate)} – ${full(s.endDate)}`
 }
 
 const ITEM_CLS =
@@ -88,23 +94,26 @@ export function TaskSprintField({
   // first paint needs no client request. Sticky once opened: the list stays
   // cached so re-opens are instant. See LUM-190.
   const [hasOpened, setHasOpened] = useState(false)
-  const { sprints: drafts, isLoading: draftsLoading } = useSprintsForTeam(
+  // One unfiltered query (LUM-705). Filtering by the DB status enum used to
+  // drop the sprint the team is actually living in the moment it was closed —
+  // and skewed the "past" bucket to an older sprint that happened to still be
+  // DRAFT. Which sprints are current / upcoming / just-ended is decided purely
+  // from their calendar windows by `groupSprintsForTaskField`.
+  const { sprints, isLoading } = useSprintsForTeam(
     task.teamId,
-    'DRAFT',
-    hasOpened
-  )
-  const { sprints: active, isLoading: activeLoading } = useSprintsForTeam(
-    task.teamId,
-    'ACTIVE',
+    undefined,
     hasOpened
   )
 
+  // Capture "now" once (lazy initializer runs a single time) so the buckets
+  // stay stable across renders — render purity, same pattern as
+  // SprintStatCards.
+  const [now] = useState(() => new Date())
   const { activeAndUpcoming, past } = useMemo(
-    () => groupSprintsForTaskField([...(active ?? []), ...(drafts ?? [])]),
-    [active, drafts]
+    () => groupSprintsForTaskField(sprints ?? [], now),
+    [sprints, now]
   )
 
-  const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'
 
   // Trigger label: prefer the loaded sprint, fall back to the SSR-prefetched
@@ -122,16 +131,12 @@ export function TaskSprintField({
   // option list is still loading, reserve the space with a skeleton instead of
   // showing the "no sprint" placeholder and then popping the name in. Only fires
   // when no name is available, so it never hides an already-resolvable name.
-  if (
-    (draftsLoading || activeLoading) &&
-    task.sprintId !== null &&
-    triggerName === null
-  ) {
+  if (isLoading && task.sprintId !== null && triggerName === null) {
     return <FieldValueSkeleton />
   }
 
   const renderItem = (s: Sprint) => {
-    const state = deriveSprintState(s)
+    const state = deriveSprintState(s, now)
     const Icon = STATUS_ICON[state]
     return (
       // Use the Radix primitive directly so only `s.name` lives inside
@@ -151,7 +156,7 @@ export function TaskSprintField({
             <SelectPrimitive.ItemText>{s.name}</SelectPrimitive.ItemText>
           </span>
           <span className='w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
-            {formatCompactRange(s, intl.locale)}
+            {formatCompactRange(s, intl.locale, now)}
           </span>
           <span className='w-16 shrink-0 text-xs text-muted-foreground/80'>
             {intl.formatMessage({ id: STATUS_LABEL_KEY[state] })}
@@ -168,7 +173,6 @@ export function TaskSprintField({
       onOpenChange={open => {
         if (open) setHasOpened(true)
       }}
-      disabled={disabled}
     >
       <SelectTrigger className={cn(triggerClassName)}>
         {triggerName ? (
