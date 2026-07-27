@@ -34,9 +34,13 @@ jest.mock('next/link', () => ({
 // PageBreadcrumb pulls in SidebarTrigger -> useSidebar, which needs a
 // SidebarProvider ancestor; the repo's other page suites stub it the same way.
 jest.mock('@/app/workspace/[workspaceUrl]/components/PageBreadcrumb', () => ({
-  PageBreadcrumb: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  PageBreadcrumb: ({
+    title,
+    children,
+  }: {
+    title?: string
+    children?: React.ReactNode
+  }) => <div>{title ?? children}</div>,
 }))
 
 import '@testing-library/jest-dom'
