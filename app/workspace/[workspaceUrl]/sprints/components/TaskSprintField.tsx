@@ -18,8 +18,13 @@ import { cn } from '@/lib/utils'
 import {
   deriveSprintState,
   groupSprintsForTaskField,
+  viewerDayKey,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
+import {
+  formatCalendarDate,
+  formatCalendarDayShort,
+} from '@/lib/datetime/format'
 import { CircleDot, Circle, CircleCheck } from 'lucide-react'
 
 interface Task {
@@ -47,27 +52,28 @@ const STATUS_ICON_CLS: Record<DerivedSprintState, string> = {
   COMPLETED: 'text-muted-foreground',
 }
 
+/**
+ * Compact "Jul 13 – Jul 26" range for one option row.
+ *
+ * Every date here lives in the floating-calendar-day frame (LUM-700): the
+ * sprint endpoints are UTC midnights and must render pinned to UTC, and the
+ * year comparisons fold `now` to the viewer's local calendar day first. Format
+ * the endpoints in the browser's timezone instead and a viewer west of UTC
+ * reads the whole range one day early — while the CURRENT / UPCOMING / PAST
+ * label beside it, which goes through `deriveSprintState`, stays right.
+ */
 function formatCompactRange(s: Sprint, locale: string, now: Date): string {
-  const start = new Date(s.startDate)
-  const end = new Date(s.endDate)
-  const sameYear = start.getFullYear() === end.getFullYear()
-  const thisYear = now.getFullYear() === start.getFullYear()
-  const fmtShort: Intl.DateTimeFormatOptions = {
-    month: 'short',
-    day: 'numeric',
+  const startYear = new Date(s.startDate).getUTCFullYear()
+  const endYear = new Date(s.endDate).getUTCFullYear()
+  const viewerYear = new Date(viewerDayKey(now)).getUTCFullYear()
+  const short = (d: Date | string) => formatCalendarDayShort(d, locale)
+  const full = (d: Date | string) => formatCalendarDate(d, locale)
+  if (startYear === endYear) {
+    return startYear === viewerYear
+      ? `${short(s.startDate)} – ${short(s.endDate)}`
+      : `${short(s.startDate)} – ${full(s.endDate)}`
   }
-  const fmtFull: Intl.DateTimeFormatOptions = {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }
-  if (sameYear && thisYear) {
-    return `${start.toLocaleDateString(locale, fmtShort)} – ${end.toLocaleDateString(locale, fmtShort)}`
-  }
-  if (sameYear) {
-    return `${start.toLocaleDateString(locale, fmtShort)} – ${end.toLocaleDateString(locale, fmtFull)}`
-  }
-  return `${start.toLocaleDateString(locale, fmtFull)} – ${end.toLocaleDateString(locale, fmtFull)}`
+  return `${full(s.startDate)} – ${full(s.endDate)}`
 }
 
 const ITEM_CLS =

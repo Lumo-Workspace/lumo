@@ -162,4 +162,51 @@ describe('TaskSprintField', () => {
     await userEvent.click(seven)
     expect(onChange).toHaveBeenCalledWith('sp_7')
   })
+
+  // Sprint endpoints are UTC midnights (LUM-700), so the range must render
+  // pinned to UTC. Formatting them in the browser timezone shifts the whole
+  // range one day earlier for any viewer west of UTC — while the Current /
+  // Upcoming / Past label beside it, which folds `now` to the viewer's
+  // calendar day, stays correct. The two then disagree on the same row.
+  //
+  // `process.env.TZ` doesn't work here: jest's VM context caches Date's
+  // timezone, so the assignment lands but nothing changes (LUM-700). Stub the
+  // one environment input `viewerDayKey` actually reads instead.
+  it('renders the date range in UTC for a viewer west of UTC', async () => {
+    const offsetSpy = jest
+      .spyOn(Date.prototype, 'getTimezoneOffset')
+      .mockReturnValue(420) // UTC-7
+    try {
+      const start = dayFromToday(-13)
+      const end = dayFromToday(0)
+      const utcDay = (d: Date) =>
+        d.toLocaleDateString('en', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        })
+
+      useSprintsForTeamMock.mockImplementation(() => ({
+        sprints: [sprint('sp_7', 'Sprint 7', -13, 0, 'CLOSED')],
+      }))
+      render(
+        <TaskSprintField
+          task={{ id: 't_1', teamId: 'team_1', sprintId: null, sprint: null }}
+          onChange={jest.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('combobox'))
+
+      const row =
+        screen
+          .getAllByRole('option')
+          .find(o => (o.textContent ?? '').includes('Sprint 7'))?.textContent ??
+        ''
+      expect(row).toContain(utcDay(start))
+      expect(row).toContain(utcDay(end))
+    } finally {
+      offsetSpy.mockRestore()
+    }
+  })
 })
