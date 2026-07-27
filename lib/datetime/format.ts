@@ -15,3 +15,19 @@ export function formatCalendarDate(
     timeZone: 'UTC',
   })
 }
+
+/**
+ * Same UTC-pinned calendar day as `formatCalendarDate`, minus the year — for
+ * compact ranges where the year is implied by context and the column is too
+ * narrow to carry it.
+ */
+export function formatCalendarDayShort(
+  date: Date | string,
+  locale?: string
+): string {
+  return new Date(date).toLocaleDateString(locale, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
