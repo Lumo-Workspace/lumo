@@ -5,7 +5,7 @@
  * only freezes sprints that ended before the most recent one.
  */
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
-import { DAY_MS } from '@/lib/services/sprint-date'
+import { calendarDayKey, DAY_MS } from '@/lib/services/sprint-date'
 
 const mockSprintCount = jest.fn()
 const mockSprintFindUnique = jest.fn()
@@ -39,13 +39,18 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-/** UTC-midnight calendar day `offset` days from today — how sprints are stored. */
+/**
+ * UTC-midnight calendar day `offset` days from today — how sprints are stored,
+ * and the frame `isOpenForTaskMembership` judges in (server-side there is no
+ * viewer, so UTC day, same as `reconcileSprintStates`).
+ *
+ * Anchoring on the UTC day rather than the machine's local day matters: run
+ * this suite from a machine west of UTC after UTC midnight and the two are
+ * different days, so a fixture built on the local day lands one day off and
+ * silently changes which bucket a sprint falls in.
+ */
 function dayFromToday(offset: number): Date {
-  const t = new Date()
-  return new Date(
-    Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) +
-      offset * DAY_MS
-  )
+  return new Date(calendarDayKey(new Date()) + offset * DAY_MS)
 }
 
 function sprintRow(
@@ -64,7 +69,10 @@ function sprintRow(
 }
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  // resetAllMocks, not clearAllMocks: `clear` wipes call records but leaves the
+  // `mockResolvedValueOnce` queue intact, so a queued value a test never
+  // consumed leaks into the next one and answers its query instead.
+  jest.resetAllMocks()
   mockQueryRaw.mockResolvedValue([{ id: 'sp-current', status: 'CLOSED' }])
   mockTaskUpdateMany.mockResolvedValue({ count: 1 })
   mockActivityCreateMany.mockResolvedValue({})
@@ -93,6 +101,10 @@ describe('sprintRepository.isOpenForTaskMembership', () => {
       sprintRow('sp-just-ended', -14, -1, 'CLOSED')
     )
     expect(open).toBe(true)
+    // It must reach the verdict through the lookup, not the in-window early
+    // return — otherwise a fixture that quietly drifts back inside the window
+    // passes for the wrong reason (and leaves its queued count behind).
+    expect(mockSprintCount).toHaveBeenCalledTimes(1)
   })
 
   it('freezes a sprint that ended before a more recent one', async () => {

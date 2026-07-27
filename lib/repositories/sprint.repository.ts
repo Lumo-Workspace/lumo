@@ -4,7 +4,7 @@ import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
-import { calendarDayKey, deriveSprintState } from '@/lib/services/sprint-date'
+import { calendarDayKey } from '@/lib/services/sprint-date'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -380,19 +380,26 @@ export const sprintRepository = {
    * `status` is deliberately not consulted: a sprint closed early because all
    * its work landed is still the window the team is living in, and freezing it
    * a day before the next sprint opens leaves no sprint to file work against.
+   *
+   * Both comparisons run in the UTC calendar-day frame — there is no viewer on
+   * the server, same rule as `reconcileSprintStates` (LUM-700). A client an
+   * hour or two west of UTC may still call a just-ended sprint CURRENT; the
+   * just-ended exception below covers that skew, so the picker never offers an
+   * option this rejects.
    */
   async isOpenForTaskMembership(
     sprint: { teamId: string; startDate: Date; endDate: Date },
     now: Date = new Date()
   ): Promise<boolean> {
-    if (deriveSprintState(sprint, now) !== 'COMPLETED') return true
-    // Completed — open only when nothing else of this team ended later.
-    // `endDate` is the inclusive last day at UTC midnight, so "already ended"
-    // is strictly before today's key.
+    const today = calendarDayKey(now)
+    // `endDate` is the inclusive last day at UTC midnight, so a sprint counts
+    // as ended only once today's key is strictly past it.
+    if (calendarDayKey(sprint.endDate) >= today) return true
+    // Ended — open only when nothing else of this team ended later.
     const endedLater = await prisma.sprint.count({
       where: {
         teamId: sprint.teamId,
-        endDate: { gt: sprint.endDate, lt: new Date(calendarDayKey(now)) },
+        endDate: { gt: sprint.endDate, lt: new Date(today) },
       },
     })
     return endedLater === 0

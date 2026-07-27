@@ -18,16 +18,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SprintSelect } from '@/app/workspace/[workspaceUrl]/components/fields/SprintSelect'
 import { useSprintsForTeam } from '@/app/workspace/[workspaceUrl]/hooks/useSprints'
-import { DAY_MS } from '@/lib/services/sprint-date'
+import { DAY_MS, viewerDayKey } from '@/lib/services/sprint-date'
 
 const useSprintsForTeamMock = useSprintsForTeam as unknown as jest.Mock
 
+/** Calendar day `offset` days from the viewer's day — see TaskSprintField.test. */
 function dayFromToday(offset: number): Date {
-  const t = new Date()
-  return new Date(
-    Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) +
-      offset * DAY_MS
-  )
+  return new Date(viewerDayKey(new Date()) + offset * DAY_MS)
 }
 
 function sprint(

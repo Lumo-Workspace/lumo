@@ -22,17 +22,21 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TaskSprintField } from '@/app/workspace/[workspaceUrl]/sprints/components/TaskSprintField'
 import { useSprintsForTeam } from '@/app/workspace/[workspaceUrl]/hooks/useSprints'
-import { DAY_MS } from '@/lib/services/sprint-date'
+import { DAY_MS, viewerDayKey } from '@/lib/services/sprint-date'
 
 const useSprintsForTeamMock = useSprintsForTeam as unknown as jest.Mock
 
-/** UTC-midnight calendar day `offset` days from today — how sprints are stored. */
+/**
+ * UTC-midnight calendar day `offset` days from the day the VIEWER is in — how
+ * sprints are stored, in the frame `deriveSprintState` buckets them in.
+ *
+ * It has to be the viewer's day, not `Date.UTC(...)` of now: from a machine
+ * west of UTC after UTC midnight those are different days, so a UTC-anchored
+ * fixture lands one day off and an "ended yesterday" sprint quietly becomes
+ * "ends today".
+ */
 function dayFromToday(offset: number): Date {
-  const t = new Date()
-  return new Date(
-    Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) +
-      offset * DAY_MS
-  )
+  return new Date(viewerDayKey(new Date()) + offset * DAY_MS)
 }
 
 function sprint(
