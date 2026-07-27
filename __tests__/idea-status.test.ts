@@ -3,6 +3,7 @@ import {
   allowedIdeaStatusTransitions,
   canTransitionIdeaStatus,
   isTerminalIdeaStatus,
+  nextIdeaStatus,
 } from '@/lib/idea-status'
 import type { IdeaStatus } from '@prisma/client'
 
@@ -49,5 +50,28 @@ describe('idea status transitions', () => {
 
   it('exposes a transition map keyed by every IdeaStatus', () => {
     expect(Object.keys(IDEA_STATUS_TRANSITIONS).sort()).toEqual([...ALL].sort())
+  })
+})
+
+describe('nextIdeaStatus (the one-click advance, LUM-708)', () => {
+  it('walks the lifecycle forward one legal step at a time', () => {
+    expect(nextIdeaStatus('CAPTURED')).toBe('DEVELOPING')
+    expect(nextIdeaStatus('DEVELOPING')).toBe('PLANNED')
+    expect(nextIdeaStatus('PLANNED')).toBe('DROPPED')
+  })
+
+  it('stops at the terminal status rather than wrapping around', () => {
+    expect(nextIdeaStatus('DROPPED')).toBeNull()
+  })
+
+  it('only ever proposes a move the transition map allows', () => {
+    for (const from of ALL) {
+      const next = nextIdeaStatus(from)
+      if (next === null) {
+        expect(isTerminalIdeaStatus(from)).toBe(true)
+        continue
+      }
+      expect(canTransitionIdeaStatus(from, next)).toBe(true)
+    }
   })
 })

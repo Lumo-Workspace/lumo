@@ -58,6 +58,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
   }),
 }))
 
+// The pool's own mutations (LUM-708) — stubbed; each has its own suite.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useCaptureIdea', () => ({
+  useCaptureIdea: () => ({
+    capture: jest.fn().mockResolvedValue(undefined),
+    capturing: false,
+    error: null,
+  }),
+}))
+
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdeaStatus', () => ({
+  useUpdateIdeaStatus: () => ({
+    updateStatus: jest.fn().mockResolvedValue(undefined),
+    updating: false,
+    error: null,
+  }),
+}))
+
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { IdeaPoolPage } from '@/app/workspace/[workspaceUrl]/components/pages/IdeaPoolPage'
@@ -125,22 +142,60 @@ beforeEach(() => jest.clearAllMocks())
 describe('idea pool status filter', () => {
   const ALL = [captured, developing, plannedIdea, dropped]
 
-  it('offers a filter toggle for every one of the four statuses', () => {
+  it('offers a filter pill for All plus every one of the four statuses', () => {
     setIdeas(ALL)
     render(<IdeaPoolPage workspaceUrl='lumo' />)
-    for (const status of ['CAPTURED', 'DEVELOPING', 'PLANNED', 'DROPPED']) {
+    for (const filter of [
+      'ALL',
+      'CAPTURED',
+      'DEVELOPING',
+      'PLANNED',
+      'DROPPED',
+    ]) {
       expect(
-        screen.getByTestId(`idea-status-toggle-${status}`)
+        screen.getByTestId(`idea-status-toggle-${filter}`)
       ).toBeInTheDocument()
     }
+  })
+
+  it('selects exactly one status at a time and All includes DROPPED', () => {
+    setIdeas(ALL)
+    render(<IdeaPoolPage workspaceUrl='lumo' />)
+
+    const pill = (f: string) => screen.getByTestId(`idea-status-toggle-${f}`)
+    const pressed = () =>
+      ['ALL', 'CAPTURED', 'DEVELOPING', 'PLANNED', 'DROPPED'].filter(
+        f => pill(f).getAttribute('aria-pressed') === 'true'
+      )
+
+    // Default: 'All' — every status renders, DROPPED among them.
+    expect(pressed()).toEqual(['ALL'])
+    expect(screen.getAllByTestId('idea-row')).toHaveLength(4)
+    expect(screen.getByText('dropped idea')).toBeInTheDocument()
+
+    // Picking a status replaces the selection rather than adding to it.
+    fireEvent.click(pill('DEVELOPING'))
+    expect(pressed()).toEqual(['DEVELOPING'])
+    expect(screen.getByText('developing idea')).toBeInTheDocument()
+    expect(screen.queryByText('captured idea')).not.toBeInTheDocument()
+    expect(screen.queryByText('dropped idea')).not.toBeInTheDocument()
+
+    // …including when the next pick is DROPPED itself.
+    fireEvent.click(pill('DROPPED'))
+    expect(pressed()).toEqual(['DROPPED'])
+    expect(screen.getByText('dropped idea')).toBeInTheDocument()
+    expect(screen.queryByText('developing idea')).not.toBeInTheDocument()
+
+    // Back to All — the whole pool returns.
+    fireEvent.click(pill('ALL'))
+    expect(pressed()).toEqual(['ALL'])
+    expect(screen.getAllByTestId('idea-row')).toHaveLength(4)
   })
 
   it('renders a distinct badge label on each of the four status rows', () => {
     setIdeas(ALL)
     render(<IdeaPoolPage workspaceUrl='lumo' />)
-    // Turn DROPPED on so all four rows render, then read each row's badge.
-    fireEvent.click(screen.getByTestId('idea-status-toggle-DROPPED'))
-
+    // Default 'All' already renders all four rows; read each row's badge.
     const rows = screen.getAllByTestId('idea-row')
     const statuses = rows.map(r => r.getAttribute('data-status'))
     expect(new Set(statuses)).toEqual(
@@ -164,41 +219,12 @@ describe('idea pool status filter', () => {
     }
   })
 
-  it('hides DROPPED ideas by default', () => {
-    setIdeas(ALL)
-    render(<IdeaPoolPage workspaceUrl='lumo' />)
-
-    expect(screen.getByText('captured idea')).toBeInTheDocument()
-    expect(screen.getByText('developing idea')).toBeInTheDocument()
-    expect(screen.getByText('planned idea')).toBeInTheDocument()
-    // DROPPED is off by default — its row is not rendered.
-    expect(screen.queryByText('dropped idea')).not.toBeInTheDocument()
-  })
-
-  it('reveals DROPPED ideas once the DROPPED filter is toggled on', () => {
-    setIdeas(ALL)
-    render(<IdeaPoolPage workspaceUrl='lumo' />)
-
-    expect(screen.queryByText('dropped idea')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('idea-status-toggle-DROPPED'))
-    expect(screen.getByText('dropped idea')).toBeInTheDocument()
-  })
-
-  it('hides a status when its (default-on) filter is toggled off', () => {
-    setIdeas(ALL)
-    render(<IdeaPoolPage workspaceUrl='lumo' />)
-
-    expect(screen.getByText('captured idea')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('idea-status-toggle-CAPTURED'))
-    expect(screen.queryByText('captured idea')).not.toBeInTheDocument()
-    // Other statuses stay visible.
-    expect(screen.getByText('developing idea')).toBeInTheDocument()
-  })
-
   it('shows a filter-specific empty message when the filter hides everything', () => {
     setIdeas([dropped])
     render(<IdeaPoolPage workspaceUrl='lumo' />)
-    // Only a DROPPED idea exists and DROPPED is hidden by default.
+
+    // The only idea is DROPPED, so any other status filter empties the list.
+    fireEvent.click(screen.getByTestId('idea-status-toggle-CAPTURED'))
     expect(screen.queryByText('dropped idea')).not.toBeInTheDocument()
     expect(screen.getByText('ideas.noneForFilter')).toBeInTheDocument()
   })

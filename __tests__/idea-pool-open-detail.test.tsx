@@ -61,6 +61,8 @@ function renderPool(onOpenIdea: (idea: ApiIdea) => void, ideas = [idea]) {
       planRunsError={null}
       clustering={null}
       onOpenIdea={onOpenIdea}
+      onCaptureIdea={jest.fn().mockResolvedValue(undefined)}
+      onAdvanceStatus={jest.fn().mockResolvedValue(undefined)}
     />
   )
 }
