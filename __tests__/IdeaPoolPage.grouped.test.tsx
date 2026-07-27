@@ -51,6 +51,14 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
   useIdeaGrouping: () => mockUseIdeaGrouping(),
 }))
 
+// PageBreadcrumb pulls in SidebarTrigger -> useSidebar, which needs a
+// SidebarProvider ancestor; the repo's other page suites stub it the same way.
+jest.mock('@/app/workspace/[workspaceUrl]/components/PageBreadcrumb', () => ({
+  PageBreadcrumb: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}))
+
 // The detail slide-over's edit mutation (LUM-683) — stubbed; this suite covers
 // the clustering grouping, not the drawer.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
