@@ -142,18 +142,27 @@ export function IdeaPoolView({
 
   return (
     <div className='flex-1 overflow-y-auto'>
-      <header className='border-b border-border px-10 py-6'>
-        <h1 className='text-2xl font-bold'>
-          {intl.formatMessage({ id: 'ideas.title' })}
-          {ideas.length > 0 && (
-            <span className='ml-2 text-sm font-medium text-muted-foreground'>
-              {ideas.length}
-            </span>
-          )}
-        </h1>
+      {/* The rule spans the pane, but the title sits on the same centred
+          column as the content — on a wide window a left-pinned title reads as
+          belonging to a different page than the list under it. */}
+      <header className='border-b border-border'>
+        <div className='mx-auto max-w-5xl px-8 py-6'>
+          <h1 className='text-2xl font-bold'>
+            {intl.formatMessage({ id: 'ideas.title' })}
+            {ideas.length > 0 && (
+              <span className='ml-2 text-sm font-medium text-muted-foreground'>
+                {ideas.length}
+              </span>
+            )}
+          </h1>
+        </div>
       </header>
 
-      <div className='mx-auto max-w-[880px] px-8 pb-20 pt-7'>
+      {/* Wider than the design's 880px canvas on purpose: the row's only
+          elastic column is the statement, and at 880 most of a real pool's
+          statements ellipsed. max-w-5xl is the repo's width for table-like
+          pages (MembersPage), so the centred column stays a column. */}
+      <div className='mx-auto max-w-5xl px-8 pb-20 pt-7'>
         <div className='mb-6 flex items-center gap-3'>
           <p className='text-sm text-muted-foreground'>
             {intl.formatMessage({ id: 'ideas.blurb' })}
