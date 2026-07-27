@@ -6,6 +6,13 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { nextIdeaStatus } from '@/lib/idea-status'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
+import { PageBreadcrumb } from '../PageBreadcrumb'
 import { AsyncContent } from '../AsyncContent'
 import { SearchInput } from '../SearchInput'
 import { PlanRunsSection } from '../plan-run/PlanRunsSection'
@@ -80,10 +87,12 @@ interface IdeaPoolViewProps {
  * plan run that materialised it (its Initiative lineage). Pure — all data and
  * mutations come from props (SRP; the container owns fetching).
  *
- * LUM-708 reshapes the whole main content area to the design: a full-width
- * titled header over a centred column, the blurb and search sharing one row,
- * pill filters, an inline capture input, and grouped ideas as dense rows inside
- * one bordered card rather than a card per idea.
+ * LUM-708 reshapes the whole main content area to the design: the blurb and
+ * search sharing one row, pill filters, an inline capture input, and grouped
+ * ideas as dense rows inside one bordered card rather than a card per idea —
+ * but on the workspace's own page geometry (shared `PageBreadcrumb` header,
+ * `px-4 md:px-8` body), not the mock's narrow centred canvas, so Ideas lines up
+ * with Sprints and the rest of the nav.
  */
 export function IdeaPoolView({
   ideas,
@@ -141,128 +150,132 @@ export function IdeaPoolView({
   }
 
   return (
-    <div className='flex-1 overflow-y-auto'>
-      {/* The rule spans the pane, but the title sits on the same centred
-          column as the content — on a wide window a left-pinned title reads as
-          belonging to a different page than the list under it. */}
-      <header className='border-b border-border'>
-        <div className='mx-auto max-w-5xl px-8 py-6'>
-          <h1 className='text-2xl font-bold'>
-            {intl.formatMessage({ id: 'ideas.title' })}
-            {ideas.length > 0 && (
-              <span className='ml-2 text-sm font-medium text-muted-foreground'>
-                {ideas.length}
-              </span>
-            )}
-          </h1>
-        </div>
-      </header>
-
-      {/* Wider than the design's 880px canvas on purpose: the row's only
-          elastic column is the statement, and at 880 most of a real pool's
-          statements ellipsed. max-w-5xl is the repo's width for table-like
-          pages (MembersPage), so the centred column stays a column. */}
-      <div className='mx-auto max-w-5xl px-8 pb-20 pt-7'>
-        <div className='mb-6 flex items-center gap-3'>
-          <p className='text-sm text-muted-foreground'>
-            {intl.formatMessage({ id: 'ideas.blurb' })}
-          </p>
-          <span className='flex-1' />
-          <SearchInput
-            className='w-56 shrink-0'
-            value={search}
-            onChange={setSearch}
-            placeholder={intl.formatMessage({ id: 'ideas.search' })}
-          />
-        </div>
-
-        {/* Plan runs surfaced here (LUM-677) — not a separate top-level nav
-            entry; the converter is the idea pool's primary downstream action. */}
-        <PlanRunsSection
-          runs={planRuns}
-          loading={planRunsLoading}
-          error={planRunsError}
-          workspaceUrl={workspaceUrl}
-        />
-
-        {/* Single-select status filter — 'All' includes DROPPED (LUM-708). */}
-        <div
-          className='mb-5 flex flex-wrap gap-1.5'
-          role='group'
-          aria-label={intl.formatMessage({ id: 'ideas.filterLabel' })}
-          data-testid='idea-status-filter'
-        >
-          {FILTERS.map(filter => {
-            const active = statusFilter === filter
-            return (
-              <button
-                key={filter}
-                type='button'
-                onClick={() => setStatusFilter(filter)}
-                aria-pressed={active}
-                data-testid={`idea-status-toggle-${filter}`}
-                className={cn(
-                  'rounded-full border px-3 py-0.5 text-xs font-medium transition-colors',
-                  active
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {intl.formatMessage({ id: FILTER_LABEL[filter] })}
-              </button>
-            )
-          })}
-        </div>
-
-        <CaptureIdeaInput onCapture={onCaptureIdea} />
-
-        <AsyncContent
-          loading={loading}
-          error={error}
-          empty={ideas.length === 0}
-          onRetry={onRetry}
-          emptyState={
-            <div className='flex flex-col items-center gap-1 text-center'>
-              <p className='text-sm text-muted-foreground'>
-                {intl.formatMessage({ id: 'ideas.empty' })}
-              </p>
-              <p className='text-xs text-muted-foreground'>
-                {intl.formatMessage({ id: 'ideas.emptyHint' })}
-              </p>
-            </div>
-          }
-        >
-          {filtered.length === 0 ? (
-            <p className='py-10 text-center text-sm text-muted-foreground'>
-              {intl.formatMessage({
-                id: searching ? 'ideas.noMatches' : 'ideas.noneForFilter',
-              })}
-            </p>
-          ) : grouped ? (
-            <div className='flex flex-col gap-7'>
-              {grouped.clusters.map(cluster => (
-                <IdeaGroup
-                  key={cluster.name}
-                  name={cluster.name}
-                  ideas={cluster.ideas}
-                  testId='idea-cluster'
-                  headingTestId='cluster-heading'
-                  {...rowProps}
-                />
-              ))}
-              {grouped.ungrouped.length > 0 && (
-                <IdeaGroup
-                  name={intl.formatMessage({ id: 'ideas.ungrouped' })}
-                  ideas={grouped.ungrouped}
-                  testId='idea-ungrouped'
-                  {...rowProps}
-                />
+    // Geometry is the workspace's, not the design canvas's: the shared
+    // PageBreadcrumb header and the `px-4 md:px-8` + `max-w-[1680px]` body that
+    // Sprints/Initiatives/Documents use. The design mock was drawn on a narrow
+    // canvas, and a centred 880–1024px column made Ideas the one page that
+    // started somewhere else than every page beside it in the nav.
+    <div className='flex h-full flex-col overflow-hidden'>
+      <PageBreadcrumb>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>
+                {intl.formatMessage({ id: 'ideas.title' })}
+              </BreadcrumbPage>
+              {ideas.length > 0 && (
+                <span className='text-sm font-medium text-muted-foreground'>
+                  {ideas.length}
+                </span>
               )}
-            </div>
-          ) : (
-            <IdeaList ideas={filtered} {...rowProps} />
-          )}
-        </AsyncContent>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </PageBreadcrumb>
+
+      <div className='flex-1 overflow-y-auto px-4 pb-20 pt-6 md:px-8'>
+        <div className='mx-auto w-full max-w-[1680px]'>
+          <div className='mb-6 flex items-center gap-3'>
+            <p className='text-sm text-muted-foreground'>
+              {intl.formatMessage({ id: 'ideas.blurb' })}
+            </p>
+            <span className='flex-1' />
+            <SearchInput
+              className='w-56 shrink-0'
+              value={search}
+              onChange={setSearch}
+              placeholder={intl.formatMessage({ id: 'ideas.search' })}
+            />
+          </div>
+
+          {/* Plan runs surfaced here (LUM-677) — not a separate top-level nav
+            entry; the converter is the idea pool's primary downstream action. */}
+          <PlanRunsSection
+            runs={planRuns}
+            loading={planRunsLoading}
+            error={planRunsError}
+            workspaceUrl={workspaceUrl}
+          />
+
+          {/* Single-select status filter — 'All' includes DROPPED (LUM-708). */}
+          <div
+            className='mb-5 flex flex-wrap gap-1.5'
+            role='group'
+            aria-label={intl.formatMessage({ id: 'ideas.filterLabel' })}
+            data-testid='idea-status-filter'
+          >
+            {FILTERS.map(filter => {
+              const active = statusFilter === filter
+              return (
+                <button
+                  key={filter}
+                  type='button'
+                  onClick={() => setStatusFilter(filter)}
+                  aria-pressed={active}
+                  data-testid={`idea-status-toggle-${filter}`}
+                  className={cn(
+                    'rounded-full border px-3 py-0.5 text-xs font-medium transition-colors',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  {intl.formatMessage({ id: FILTER_LABEL[filter] })}
+                </button>
+              )
+            })}
+          </div>
+
+          <CaptureIdeaInput onCapture={onCaptureIdea} />
+
+          <AsyncContent
+            loading={loading}
+            error={error}
+            empty={ideas.length === 0}
+            onRetry={onRetry}
+            emptyState={
+              <div className='flex flex-col items-center gap-1 text-center'>
+                <p className='text-sm text-muted-foreground'>
+                  {intl.formatMessage({ id: 'ideas.empty' })}
+                </p>
+                <p className='text-xs text-muted-foreground'>
+                  {intl.formatMessage({ id: 'ideas.emptyHint' })}
+                </p>
+              </div>
+            }
+          >
+            {filtered.length === 0 ? (
+              <p className='py-10 text-center text-sm text-muted-foreground'>
+                {intl.formatMessage({
+                  id: searching ? 'ideas.noMatches' : 'ideas.noneForFilter',
+                })}
+              </p>
+            ) : grouped ? (
+              <div className='flex flex-col gap-7'>
+                {grouped.clusters.map(cluster => (
+                  <IdeaGroup
+                    key={cluster.name}
+                    name={cluster.name}
+                    ideas={cluster.ideas}
+                    testId='idea-cluster'
+                    headingTestId='cluster-heading'
+                    {...rowProps}
+                  />
+                ))}
+                {grouped.ungrouped.length > 0 && (
+                  <IdeaGroup
+                    name={intl.formatMessage({ id: 'ideas.ungrouped' })}
+                    ideas={grouped.ungrouped}
+                    testId='idea-ungrouped'
+                    {...rowProps}
+                  />
+                )}
+              </div>
+            ) : (
+              <IdeaList ideas={filtered} {...rowProps} />
+            )}
+          </AsyncContent>
+        </div>
       </div>
     </div>
   )

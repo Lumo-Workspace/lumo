@@ -48,6 +48,14 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useIdeaGrouping', () => ({
   useIdeaGrouping: () => ({ clustering: null, loading: false, error: null }),
 }))
 
+// PageBreadcrumb pulls in SidebarTrigger -> useSidebar, which needs a
+// SidebarProvider ancestor; the repo's other page suites stub it the same way.
+jest.mock('@/app/workspace/[workspaceUrl]/components/PageBreadcrumb', () => ({
+  PageBreadcrumb: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}))
+
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useUpdateIdea', () => ({
   useUpdateIdea: () => ({
     updateStatement: jest.fn(),
