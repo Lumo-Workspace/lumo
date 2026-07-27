@@ -29,13 +29,19 @@ export interface DeliveredTask {
 }
 
 /**
- * Candidate layers, narrowest first. `milestone` is null when the task has no
- * milestone — distinct from an empty array (a milestone with no deliveries).
+ * Candidate layers, narrowest first. `null` means "no rows to consider here" —
+ * distinct from an empty array (a scope that exists and has no deliveries).
+ *
+ * Every layer is nullable because the caller reads them incrementally: a task
+ * with no milestone has none to read, and a caller that already found a
+ * qualifying narrow layer never reads the broader ones at all. `select` skips a
+ * null layer, so a partially-populated set selects exactly as the full set
+ * would have.
  */
 export interface CandidateLayers {
   milestone: DeliveredTask[] | null
-  project: DeliveredTask[]
-  team: DeliveredTask[]
+  project: DeliveredTask[] | null
+  team: DeliveredTask[] | null
 }
 
 export type ReferenceClass =

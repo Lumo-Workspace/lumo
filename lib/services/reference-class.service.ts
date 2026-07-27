@@ -1,4 +1,5 @@
 import {
+  criterionChangeFromPayload,
   independenceSignal,
   parseSnapshotCriteria,
   type CriterionChange,
@@ -12,10 +13,13 @@ import {
   selectReferenceClass,
   tallyByTask,
   type AnchorData,
-  type CandidateLayers,
   type ClassLevel,
+  type ReferenceClass,
 } from '@/lib/reference-class'
-import { referenceClassRepository } from '@/lib/repositories/reference-class.repository'
+import {
+  referenceClassRepository,
+  type TaskScope,
+} from '@/lib/repositories/reference-class.repository'
 
 /**
  * LUM-497 — assemble the outside-view anchor shown while an agent drafts a
@@ -61,26 +65,6 @@ async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   }
 }
 
-/** Map a CRITERION_CHANGED payload to the fidelity module's change shape. */
-function toCriterionChange(row: {
-  payload: unknown
-  createdAt: Date
-}): CriterionChange | null {
-  const p = row.payload
-  if (p == null || typeof p !== 'object') return null
-  const rec = p as Record<string, unknown>
-  const op = rec.op
-  if (op !== 'ADDED' && op !== 'UPDATED' && op !== 'DELETED') return null
-  if (typeof rec.criterionId !== 'string') return null
-  return {
-    op,
-    criterionId: rec.criterionId,
-    round: typeof rec.round === 'number' ? rec.round : 0,
-    causeTag: typeof rec.causeTag === 'string' ? rec.causeTag : null,
-    at: row.createdAt,
-  }
-}
-
 function scopeLabel(
   level: ClassLevel,
   scope: { milestoneName: string | null; projectName: string; teamName: string }
@@ -90,26 +74,50 @@ function scopeLabel(
   return scope.teamName
 }
 
-async function build(taskId: string): Promise<string> {
-  const scope = await referenceClassRepository.taskScope(taskId)
-  if (!scope) return ''
+/**
+ * Resolve the class, narrowest layer first, fetching only the layers actually
+ * needed. `selectReferenceClass` already walks MILESTONE → PROJECT → TEAM in
+ * that fixed order and skips a `null` layer, so asking it about the milestone
+ * alone and escalating on INSUFFICIENT yields exactly what handing it all three
+ * at once would — the broader layers simply are not read when a narrower one
+ * already decides.
+ *
+ * Shape (one await, then a pair) rather than three serial awaits: the milestone
+ * layer is the common case and pays a single round trip, while the fallback
+ * still costs at most two — where a fully serial walk would put three on
+ * session-start's ~3s budget every time a milestone is too small to qualify.
+ */
+async function resolveClass(
+  taskId: string,
+  scope: TaskScope
+): Promise<ReferenceClass> {
+  if (scope.milestoneId) {
+    const milestone = await referenceClassRepository.deliveredByMilestone(
+      scope.milestoneId,
+      MAX_CLASS_SIZE + 1
+    )
+    const fromMilestone = selectReferenceClass(
+      { milestone, project: null, team: null },
+      taskId
+    )
+    if (fromMilestone.kind === 'SELECTED') return fromMilestone
+  }
 
-  const [milestone, project, team] = await Promise.all([
-    scope.milestoneId
-      ? referenceClassRepository.deliveredByMilestone(
-          scope.milestoneId,
-          MAX_CLASS_SIZE + 1
-        )
-      : Promise.resolve(null),
+  const [project, team] = await Promise.all([
     referenceClassRepository.deliveredByProject(
       scope.projectId,
       MAX_CLASS_SIZE + 1
     ),
     referenceClassRepository.deliveredByTeam(scope.teamId, MAX_CLASS_SIZE + 1),
   ])
+  return selectReferenceClass({ milestone: null, project, team }, taskId)
+}
 
-  const layers: CandidateLayers = { milestone, project, team }
-  const selected = selectReferenceClass(layers, taskId)
+async function build(taskId: string): Promise<string> {
+  const scope = await referenceClassRepository.taskScope(taskId)
+  if (!scope) return ''
+
+  const selected = await resolveClass(taskId, scope)
   if (selected.kind === 'INSUFFICIENT') {
     return renderReferenceClassAnchor({ kind: 'INSUFFICIENT' })
   }
@@ -126,7 +134,7 @@ async function build(taskId: string): Promise<string> {
 
   const changesByTask = new Map<string, CriterionChange[]>()
   for (const row of changes) {
-    const mapped = toCriterionChange(row)
+    const mapped = criterionChangeFromPayload(row.payload, row.createdAt)
     if (!mapped) continue
     const list = changesByTask.get(row.taskId) ?? []
     list.push(mapped)

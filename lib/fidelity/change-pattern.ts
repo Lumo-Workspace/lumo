@@ -75,6 +75,35 @@ export interface CriterionChange {
   at: Date
 }
 
+/**
+ * Coerce a stored `CRITERION_CHANGED` payload to {@link CriterionChange}, or
+ * null when the row cannot be read mechanically.
+ *
+ * The single reader every consumer shares — same-source by import, never by
+ * copy, for the same reason {@link parseSnapshotCriteria} is: "how to read a
+ * CRITERION_CHANGED payload" is one decision (which ops count, what a missing
+ * `round` defaults to), and a second copy of it drifts silently the first time
+ * the payload gains a field. Payloads are freeform stored JSON that older code
+ * paths also wrote, so every field is checked rather than trusted.
+ */
+export function criterionChangeFromPayload(
+  raw: unknown,
+  createdAt: Date
+): CriterionChange | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const p = raw as Record<string, unknown>
+  const op = p.op
+  if (op !== 'ADDED' && op !== 'UPDATED' && op !== 'DELETED') return null
+  if (typeof p.criterionId !== 'string') return null
+  return {
+    op,
+    criterionId: p.criterionId,
+    round: typeof p.round === 'number' ? p.round : 0,
+    causeTag: typeof p.causeTag === 'string' ? p.causeTag : null,
+    at: createdAt,
+  }
+}
+
 /** One delivery (an append-only TaskCriteriaSnapshot row). */
 export interface DeliverySnapshotInput {
   snapshotId: string

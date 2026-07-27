@@ -2,6 +2,7 @@ import { taskCriteriaSnapshotRepository } from '@/lib/repositories/task-criteria
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import {
   buildFidelityChangePatternReport,
+  criterionChangeFromPayload,
   parseSnapshotCriteria,
   type CriterionChange,
   type DeliverySnapshotInput,
@@ -36,7 +37,7 @@ export const fidelityChangePatternService = {
     }))
 
     const changes: CriterionChange[] = activities
-      .map(a => asChange(a.payload, a.createdAt))
+      .map(a => criterionChangeFromPayload(a.payload, a.createdAt))
       .filter((c): c is CriterionChange => c !== null)
 
     return buildFidelityChangePatternReport({
@@ -46,21 +47,4 @@ export const fidelityChangePatternService = {
       changes,
     })
   },
-}
-
-/** Reduce a CRITERION_CHANGED payload to the mechanical fields, or null. */
-function asChange(raw: unknown, createdAt: Date): CriterionChange | null {
-  if (raw == null || typeof raw !== 'object') return null
-  const p = raw as Record<string, unknown>
-  const op = p.op
-  if (op !== 'ADDED' && op !== 'UPDATED' && op !== 'DELETED') return null
-  if (typeof p.criterionId !== 'string') return null
-  const round = typeof p.round === 'number' ? p.round : 0
-  return {
-    op,
-    criterionId: p.criterionId,
-    round,
-    causeTag: typeof p.causeTag === 'string' ? p.causeTag : null,
-    at: createdAt,
-  }
 }
