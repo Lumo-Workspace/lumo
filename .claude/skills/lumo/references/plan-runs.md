@@ -16,6 +16,11 @@ Invoked bare (`lumo plan`) it starts a run; `lumo plan --abandon-active` clears 
 
 **When to suggest**: the user wants to turn the parked idea pool into a plan — "跑一下转换器", "start a planning run", "把想法变成计划".
 
+```bash
+lumo plan
+lumo plan --abandon-active
+```
+
 ## `lumo plan status`
 
 Print the active run's current stage — either the working segment or the open `*_READY` gate — plus the deep-link to act on its next gate. With no active run, prompts to run `lumo plan`.

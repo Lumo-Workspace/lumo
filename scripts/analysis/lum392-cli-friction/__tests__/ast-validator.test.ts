@@ -114,6 +114,48 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
   })
 })
 
+describe('AST validator — invokable parent commands', () => {
+  // LUM-706: commander lets a parent hold both an action and subcommands, so
+  // "has subcommands" never implies "needs a subcommand". Reading it that way
+  // reported the primary usage of every parent-with-action as unknown-command.
+  it.each([
+    ['lumo plan', 'plan'],
+    ['lumo plan --abandon-active', 'plan'],
+    ['lumo idea "Add a quick-capture shortcut"', 'idea'],
+    ['lumo priority "Ship the idea-capture MVP."', 'priority'],
+  ])('accepts bare %s on an invokable parent', (raw, commandPath) => {
+    expect(validateSegment(raw, grammar)).toMatchObject({
+      kind: 'valid',
+      commandPath,
+      offending: null,
+    })
+  })
+
+  it('still resolves the subcommands hanging off an invokable parent', () => {
+    expect(validateSegment('lumo plan status', grammar)).toMatchObject({
+      kind: 'valid',
+      commandPath: 'plan status',
+    })
+    expect(validateSegment('lumo priority list', grammar)).toMatchObject({
+      kind: 'valid',
+      commandPath: 'priority list',
+    })
+  })
+
+  it('still requires a subcommand for routing-only parents', () => {
+    for (const raw of ['lumo task', 'lumo doc', 'lumo sprint']) {
+      const v = validateSegment(raw, grammar)
+      expect(v.kind).toBe('unknown-command')
+      expect(v.detail).toContain('requires a subcommand')
+    }
+  })
+
+  it('rejects an unknown subcommand under a routing-only parent', () => {
+    const v = validateSegment('lumo task bogus LUM-1', grammar)
+    expect(v).toMatchObject({ kind: 'unknown-command', offending: 'bogus' })
+  })
+})
+
 describe('AST validator — construction edge cases', () => {
   it.each(CONSTRUCTION_EDGE_CASES.map(c => [c.raw, c] as const))(
     'judges %s',
