@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useIntl } from 'react-intl'
 import type { MemoryCategory } from '@prisma/client'
 import type { MemoryRow } from '@/lib/api-client'
@@ -64,6 +64,7 @@ export function MemoryEditDialog({
   const [state, setState] = useState<FormState>(() =>
     initialState(mode, editing)
   )
+  const titleRef = useRef<HTMLInputElement>(null)
 
   // Reset the form whenever the dialog (re)opens, so a reused instance never
   // shows the previous row's data. Depends on `open` only — re-running on
@@ -125,6 +126,17 @@ export function MemoryEditDialog({
       <DialogContent
         className='flex max-h-[85vh] flex-col gap-0 p-8 sm:max-w-[660px]'
         onKeyDown={handleKeyDown}
+        // Default autofocus lands on the title and selects its whole value
+        // (the browser's tab-into-a-text-input behaviour), so in edit mode the
+        // first keystroke would wipe an existing title. Focus it ourselves with
+        // the caret collapsed at the end instead.
+        onOpenAutoFocus={event => {
+          const el = titleRef.current
+          if (!el) return
+          event.preventDefault()
+          el.focus()
+          el.setSelectionRange(el.value.length, el.value.length)
+        }}
       >
         <DialogHeader className='mb-5'>
           <DialogTitle className='text-xl font-bold'>
@@ -151,6 +163,7 @@ export function MemoryEditDialog({
             never also produces a horizontal scrollbar. */}
         <div className='-mx-2 flex-1 overflow-y-auto px-2'>
           <input
+            ref={titleRef}
             value={state.draft.summary ?? ''}
             onChange={e => setField('summary', e.target.value)}
             placeholder={intl.formatMessage({ id: spec.summaryPlaceholderId })}
