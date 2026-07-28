@@ -153,6 +153,13 @@ describe('MemoryEditDialog', () => {
     expect(screen.getByText('Convention')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Convention' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Trap' })).toBeNull()
+
+    // The title is focused with the caret collapsed at the end — NOT with its
+    // value selected, which would let the first keystroke wipe the title.
+    const title = screen.getByLabelText('Title') as HTMLInputElement
+    expect(document.activeElement).toBe(title)
+    expect(title.selectionStart).toBe(title.value.length)
+    expect(title.selectionEnd).toBe(title.value.length)
   })
 
   it('keeps summary optional and maps PROCEDURAL steps one per line', () => {
