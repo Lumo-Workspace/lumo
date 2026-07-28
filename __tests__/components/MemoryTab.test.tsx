@@ -18,14 +18,16 @@ const en: Record<string, string> = {
   'memory.dialog.edit.title': 'Edit memory',
   'memory.dialog.edit.cta': 'Save changes',
   'memory.dialog.cancel': 'Cancel',
-  'memory.dialog.categoryStep': 'Choose a category',
+  'memory.dialog.summary.hint': 'A one-line summary',
+  'memory.dialog.shortcutHint': 'Cmd/Ctrl + Enter to save',
+  'memory.field.summary.label': 'Title',
   'memory.category.trap': 'Trap',
   'memory.category.decision': 'Decision',
   'memory.category.convention': 'Convention',
   'memory.category.procedural': 'Procedure',
-  'memory.form.trap.trigger.label': 'Trigger',
-  'memory.form.trap.outcome.label': 'Outcome',
-  'memory.form.trap.workaround.label': 'Workaround',
+  'memory.section.trigger': 'Trigger',
+  'memory.section.outcome': 'Outcome',
+  'memory.section.workaround': 'Workaround',
   'memory.mutation.error': 'Failed to save memory. Please try again.',
 }
 
@@ -215,9 +217,7 @@ describe('MemoryTab', () => {
       screen.getByRole('button', { name: 'Add the first memory' })
     )
 
-    // Category step: pick TRAP
-    fireEvent.click(screen.getByRole('button', { name: 'Trap' }))
-
+    // TRAP is the dialog's default category — its fields are already on screen.
     // Fill in the required fields (trigger + outcome)
     fireEvent.change(screen.getByLabelText(/Trigger/), {
       target: { value: 'do something' },
