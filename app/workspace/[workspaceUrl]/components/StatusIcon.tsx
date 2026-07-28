@@ -95,16 +95,6 @@ export function StatusIcon({
         aria-label={intl.formatMessage({ id: 'status.done' })}
       >
         <circle cx={cx} cy={cy} r={cr} fill='currentColor' />
-        {/* Check stroke stays white — it sits on top of the colored circle and
-            must contrast with the status fill, not with the page background. */}
-        <path
-          d={`M ${s * 0.29} ${cy} L ${s * 0.43} ${s * 0.64} L ${s * 0.71} ${s * 0.36}`}
-          stroke='white'
-          strokeWidth='1.5'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          fill='none'
-        />
       </svg>
     )
   }
