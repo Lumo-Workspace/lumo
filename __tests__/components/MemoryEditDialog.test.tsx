@@ -95,7 +95,10 @@ describe('MemoryEditDialog', () => {
     expect(submit).not.toBeDisabled()
   })
 
-  it('submits on cmd+enter only when required fields are filled', () => {
+  // Name kept free of regex metacharacters — it is addressed by `jest -t`
+  // from the acceptance contract, where a literal `+` would silently match
+  // nothing.
+  it('submits on meta enter only when required fields are filled', () => {
     const onSubmit = jest.fn()
     renderDialog({ onSubmit })
 
