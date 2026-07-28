@@ -18,7 +18,6 @@ const en: Record<string, string> = {
   'memory.dialog.edit.title': 'Edit memory',
   'memory.dialog.edit.cta': 'Save changes',
   'memory.dialog.cancel': 'Cancel',
-  'memory.dialog.shortcutHint': 'Cmd/Ctrl + Enter to save',
   'memory.field.summary.label': 'Title',
   'memory.category.trap': 'Trap',
   'memory.category.decision': 'Decision',
@@ -226,7 +225,7 @@ describe('MemoryTab', () => {
     })
 
     // Submit — this calls handleSubmit which calls create (which rejects)
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Create/ }))
 
     // After rejection, the dialog should still be present (title still visible)
     await waitFor(() => {

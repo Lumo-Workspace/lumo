@@ -5,7 +5,6 @@ const en: Record<string, string> = {
   'memory.dialog.create.cta': 'Create',
   'memory.dialog.edit.cta': 'Save changes',
   'memory.dialog.cancel': 'Cancel',
-  'memory.dialog.shortcutHint': 'Cmd/Ctrl + Enter to save',
   'memory.field.summary.label': 'Title',
   'memory.category.trap': 'Trap',
   'memory.category.decision': 'Decision',
@@ -71,7 +70,7 @@ describe('MemoryEditDialog', () => {
 
   it('switching category swaps the field set and gates save on required fields', () => {
     renderDialog()
-    const submit = screen.getByRole('button', { name: 'Create' })
+    const submit = screen.getByRole('button', { name: /^Create/ })
     expect(submit).toBeDisabled()
 
     fireEvent.click(pill('Convention'))
@@ -103,8 +102,13 @@ describe('MemoryEditDialog', () => {
 
     const trigger = screen.getByLabelText(/Trigger/)
 
+    // `isSubmitShortcut` picks the modifier by OS (⌘ on Mac, Ctrl elsewhere),
+    // so hold both — the assertion is about the gate, not about which platform
+    // jsdom claims to be.
+    const submitCombo = { key: 'Enter', metaKey: true, ctrlKey: true }
+
     // Required fields missing → the shortcut is a no-op.
-    fireEvent.keyDown(trigger, { key: 'Enter', metaKey: true })
+    fireEvent.keyDown(trigger, submitCombo)
     expect(onSubmit).not.toHaveBeenCalled()
 
     fireEvent.change(trigger, { target: { value: 'do X' } })
@@ -116,7 +120,7 @@ describe('MemoryEditDialog', () => {
     fireEvent.keyDown(trigger, { key: 'Enter' })
     expect(onSubmit).not.toHaveBeenCalled()
 
-    fireEvent.keyDown(trigger, { key: 'Enter', metaKey: true })
+    fireEvent.keyDown(trigger, submitCombo)
     expect(onSubmit).toHaveBeenCalledWith({
       category: 'TRAP',
       content: { trigger: 'do X', outcome: 'Y breaks' },
@@ -175,7 +179,7 @@ describe('MemoryEditDialog', () => {
     fireEvent.change(screen.getByLabelText(/Steps/), {
       target: { value: 'read memory\n\nread the contract\n' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Create/ }))
 
     // No summary typed → it is omitted from the payload entirely, and the
     // steps paragraph becomes an array with blank lines dropped.

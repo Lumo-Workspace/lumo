@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Сохранить изменения",
   "memory.dialog.cancel": "Отмена",
   "memory.field.summary.label": "Заголовок",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ — сохранить · поля со знаком * обязательны",
   "memory.field.trap.summary.placeholder": "Придумайте заголовок, напр. в raw SQL-миграциях нужно писать физическое имя таблицы",
   "memory.field.trap.trigger.placeholder": "Когда на это натыкаешься? Напр. при написании raw SQL-миграции для модели с @@map…",
   "memory.field.trap.outcome.placeholder": "Что тогда происходит? Напр. деплой падает с ошибкой об отсутствующей таблице…",

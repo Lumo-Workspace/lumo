@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Save changes",
   "memory.dialog.cancel": "Cancel",
   "memory.field.summary.label": "Title",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ to save · fields marked * are required",
   "memory.field.trap.summary.placeholder": "Give it a title, e.g. Raw SQL migrations must use the physical table name",
   "memory.field.trap.trigger.placeholder": "When do you hit this? e.g. writing a raw SQL migration for a model with @@map…",
   "memory.field.trap.outcome.placeholder": "What happens when you do? e.g. the deploy fails with a missing-relation error…",
