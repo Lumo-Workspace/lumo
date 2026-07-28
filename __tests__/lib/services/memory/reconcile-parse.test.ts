@@ -68,7 +68,9 @@ describe('coerceReconcileOperation', () => {
       coerceReconcileOperation({ foo: 'bar' }, layer1OperationSchema)
     ).toBeNull()
     expect(coerceReconcileOperation(null, layer1OperationSchema)).toBeNull()
-    expect(coerceReconcileOperation('SUPERSEDE', layer1OperationSchema)).toBeNull()
+    expect(
+      coerceReconcileOperation('SUPERSEDE', layer1OperationSchema)
+    ).toBeNull()
   })
 
   it('also aliases for the layer2 op schema (no DELETE variant)', () => {
@@ -118,11 +120,19 @@ describe('parseReconcileOperations', () => {
 
   it('leaves a fully-valid `type`-keyed batch unchanged', () => {
     const batch = [
-      { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+      },
       { type: 'NOOP' },
       { type: 'DELETE', id: 'z' },
     ]
-    const ops = parseReconcileOperations(batch, layer1OperationSchema, 'memory.layer1')
+    const ops = parseReconcileOperations(
+      batch,
+      layer1OperationSchema,
+      'memory.layer1'
+    )
     expect(ops).toEqual(batch)
   })
 
@@ -138,7 +148,11 @@ describe('parseReconcileOperations', () => {
 
   it('returns [] for a non-array input', () => {
     expect(
-      parseReconcileOperations(undefined, layer1OperationSchema, 'memory.layer1')
+      parseReconcileOperations(
+        undefined,
+        layer1OperationSchema,
+        'memory.layer1'
+      )
     ).toEqual([])
   })
 })

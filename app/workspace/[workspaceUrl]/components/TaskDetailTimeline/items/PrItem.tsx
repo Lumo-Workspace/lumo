@@ -64,9 +64,7 @@ export function PrItem({ entry }: PrItemProps) {
     <div className='flex items-start gap-2.5 py-2 px-3 rounded-md bg-muted border border-border'>
       <Icon size={16} className={`mt-0.5 shrink-0 ${c.color}`} />
       <div className='flex-1 min-w-0'>
-        <p className='text-caption text-foreground'>
-          {c.label}
-        </p>
+        <p className='text-caption text-foreground'>{c.label}</p>
         {prTitle && (
           <p className='text-[11px] text-muted-foreground mt-0.5 truncate'>
             {prTitle}

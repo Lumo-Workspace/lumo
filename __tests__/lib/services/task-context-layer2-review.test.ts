@@ -30,12 +30,22 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { findById: jest.fn() },
 }))
-jest.mock('@/lib/repositories/project.repository', () => ({ projectRepository: {} }))
-jest.mock('@/lib/repositories/pull-request.repository', () => ({ pullRequestRepository: {} }))
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: {},
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {},
+}))
 jest.mock('@/lib/repositories/tag.repository', () => ({ tagRepository: {} }))
-jest.mock('@/lib/repositories/github.repository', () => ({ githubRepository: {} }))
-jest.mock('@/lib/repositories/activity.repository', () => ({ activityRepository: {} }))
-jest.mock('@/lib/services/task-pr-sync.service', () => ({ syncPullRequestStatus: jest.fn() }))
+jest.mock('@/lib/repositories/github.repository', () => ({
+  githubRepository: {},
+}))
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: {},
+}))
+jest.mock('@/lib/services/task-pr-sync.service', () => ({
+  syncPullRequestStatus: jest.fn(),
+}))
 jest.mock('@/lib/services/task-notifications.service', () => ({
   dispatchCreateTaskSideEffects: jest.fn(),
   dispatchUpdateTaskSideEffects: jest.fn(),
@@ -60,7 +70,10 @@ beforeEach(() => {
 describe('buildLayer2ReviewSectionForTask', () => {
   it('returns "" when the task is gone', async () => {
     findById.mockResolvedValue(null)
-    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask(
+      't1',
+      'cur'
+    )
     expect(out.section).toBe('')
     expect(out.fragments).toEqual([])
     expect(findPrev).not.toHaveBeenCalled()
@@ -68,7 +81,10 @@ describe('buildLayer2ReviewSectionForTask', () => {
 
   it('returns "" when there is no preceding session', async () => {
     findPrev.mockResolvedValue(null)
-    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask(
+      't1',
+      'cur'
+    )
     expect(out.section).toBe('')
     expect(out.fragments).toEqual([])
     expect(findBySession).not.toHaveBeenCalled()
@@ -76,14 +92,21 @@ describe('buildLayer2ReviewSectionForTask', () => {
 
   it('returns "" when the previous session promoted nothing into this project', async () => {
     findBySession.mockResolvedValue([])
-    const out = await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
+    const out = await taskContextService.buildLayer2ReviewSectionForTask(
+      't1',
+      'cur'
+    )
     expect(out.section).toBe('')
     expect(out.fragments).toEqual([])
   })
 
   it('queries the previous session, scoped to the task project', async () => {
     findBySession.mockResolvedValue([
-      { id: 'mem_1', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+      {
+        id: 'mem_1',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+      },
     ])
     await taskContextService.buildLayer2ReviewSectionForTask('t1', 'cur')
     expect(findPrev).toHaveBeenCalledWith('cur')
@@ -108,6 +131,8 @@ describe('buildLayer2ReviewSectionForTask', () => {
     expect(out.section).toContain('lumo memory rm')
     // Member-authored bodies are wrapped as untrusted.
     expect(out.section).toContain('<untrusted-team-memory>')
-    expect(out.fragments).toEqual([{ fragmentType: 'MEMORY', fragmentId: 'mem_42' }])
+    expect(out.fragments).toEqual([
+      { fragmentType: 'MEMORY', fragmentId: 'mem_42' },
+    ])
   })
 })

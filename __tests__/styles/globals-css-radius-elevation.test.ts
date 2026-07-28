@@ -25,13 +25,13 @@ describe('radius tokens (LUM-261)', () => {
 
 describe('elevation tokens (LUM-261)', () => {
   const defs = (name: string) =>
-    [...css.matchAll(new RegExp(`--${name}:\\s*([^;]+);`, 'g'))].map((m) =>
+    [...css.matchAll(new RegExp(`--${name}:\\s*([^;]+);`, 'g'))].map(m =>
       (m[1] ?? '').trim()
     )
 
   it.each(['elevation-1', 'elevation-2', 'elevation-3'])(
     '--%s is defined in both :root and .dark',
-    (name) => {
+    name => {
       expect(defs(name).length).toBe(2)
     }
   )
@@ -39,7 +39,7 @@ describe('elevation tokens (LUM-261)', () => {
   it('dark elevations are stronger (higher max alpha) than light', () => {
     const maxAlpha = (v: string) =>
       Math.max(
-        ...[...v.matchAll(/rgb\(0 0 0 \/ ([\d.]+)\)/g)].map((m) =>
+        ...[...v.matchAll(/rgb\(0 0 0 \/ ([\d.]+)\)/g)].map(m =>
           parseFloat(m[1] ?? '0')
         )
       )
@@ -51,7 +51,7 @@ describe('elevation tokens (LUM-261)', () => {
 
   it.each(['1', '2', '3'])(
     '@theme registers --shadow-elevation-%s -> utility',
-    (n) => {
+    n => {
       expect(css).toMatch(
         new RegExp(`--shadow-elevation-${n}:\\s*var\\(--elevation-${n}\\);`)
       )

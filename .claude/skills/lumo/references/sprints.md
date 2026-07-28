@@ -42,15 +42,12 @@ When to suggest: user says "create a sprint", "new sprint", "start a new iterati
 
 `<identifier>` accepts a sprint number (e.g. `3`) or a UUID. `--team` is required when using a number in a multi-team workspace.
 
-Output: key:value header (number, name, status, dates, team), then a `Progress:` line, then a **`Health:` line** with the sprint's risk level (`HEALTHY` / `WATCH` / `AT-RISK`), then a task table listing every task in the sprint.
+Output: key:value header (number, name, status, dates, team), then a `Progress:` line, then a `Blockers:` section, then a task table listing every task in the sprint.
 
-The risk level reuses the same engine as project/workspace stats, fed the sprint's task set (thresholds come from the workspace risk config — sprints have no per-sprint overrides). When the engine flags reasons they print as `- <detail>` lines under `Health:`, and a `Blockers:` section lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`). A healthy sprint with no blockers shows just the `Health:` line.
+`Blockers:` lists the top offenders per category (`Overdue` / `Stalled` / `Agent fail` / `Stale PRs`) — a task counts as stalled after 7 days untouched, a PR as stale after 3 days awaiting review. A sprint with nothing in any category prints no `Blockers:` section at all. (There is no risk score or `Health:` line — LUM-709 removed the risk-assessment layer.)
 
 ```
 Progress:  4 / 10
-Health:    AT-RISK
-  - 4/10 tasks overdue (40%)
-  - 3 tasks with no progress in 7 days
 Blockers:
   Overdue:   LUM-1 Fix login, LUM-8 Wire API
   Stalled:   LUM-5 Add tests
@@ -63,7 +60,7 @@ lumo sprint show 3 --team backend
 lumo sprint show 11111111-2222-3333-4444-555555555555
 ```
 
-When to suggest: user asks "what's in sprint 3", "show me the current sprint", "what tasks are in this sprint", "is this sprint at risk", "sprint health".
+When to suggest: user asks "what's in sprint 3", "show me the current sprint", "what tasks are in this sprint", "what's blocking this sprint".
 
 ### `lumo sprint update <identifier> [flags]` — patch a sprint
 

@@ -31,10 +31,9 @@ describe('useSprintsForTeam — enabled gating (LUM-190)', () => {
   it('fetches on mount when enabled defaults to true', async () => {
     mockList.mockResolvedValue({ sprints: [{ id: 'sp_1', name: 'Sprint 1' }] })
 
-    const { result } = renderHook(
-      () => useSprintsForTeam('team_1', 'ACTIVE'),
-      { wrapper: Wrapper }
-    )
+    const { result } = renderHook(() => useSprintsForTeam('team_1', 'ACTIVE'), {
+      wrapper: Wrapper,
+    })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(mockList).toHaveBeenCalledWith('team_1', { status: 'ACTIVE' })

@@ -21,7 +21,6 @@ describe('TaskSummaryStats', () => {
       subtaskCompletionRate: 75,
       agentStats: { total: 2, completed: 1, failed: 0, working: 1 },
       prStats: { total: 3, merged: 2, open: 1 },
-      risk: { level: 'healthy', score: 0, reasons: [] },
       topBlockers: {
         overdueTaskIds: [],
         stalledTaskIds: [],
@@ -48,7 +47,6 @@ describe('TaskSummaryStats', () => {
       subtaskCompletionRate: null,
       agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
       prStats: { total: 0, merged: 0, open: 0 },
-      risk: { level: 'healthy', score: 0, reasons: [] },
       topBlockers: {
         overdueTaskIds: [],
         stalledTaskIds: [],
@@ -82,7 +80,6 @@ describe('ApiProjectSummary', () => {
         subtaskCompletionRate: null,
         agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
         prStats: { total: 0, merged: 0, open: 0 },
-        risk: { level: 'healthy', score: 0, reasons: [] },
         topBlockers: {
           overdueTaskIds: [],
           stalledTaskIds: [],
@@ -117,11 +114,6 @@ describe('ApiWorkspaceSummary', () => {
         subtaskCompletionRate: 50,
         agentStats: { total: 4, completed: 3, failed: 1, working: 0 },
         prStats: { total: 6, merged: 4, open: 2 },
-        risk: {
-          level: 'watch',
-          score: 1,
-          reasons: [{ code: 'overdue_ratio_high', detail: 'overdue' }],
-        },
         topBlockers: {
           overdueTaskIds: [
             { id: 't1', identifier: 'LUM-1', title: 'Task 1' },
@@ -140,11 +132,6 @@ describe('ApiWorkspaceSummary', () => {
             totalTasks: 10,
             completedTasks: 5,
             overdueTasks: 1,
-            risk: {
-              level: 'watch',
-              score: 1,
-              reasons: [{ code: 'overdue_ratio_high', detail: 'overdue' }],
-            },
           },
         ],
       },

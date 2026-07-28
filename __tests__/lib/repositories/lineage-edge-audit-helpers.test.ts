@@ -12,7 +12,9 @@ describe('findVotedSessionIds', () => {
     ])
     const out = await lineageEdgeRepository.findVotedSessionIds(['s1', 's2'])
     expect(out).toEqual(new Set(['s1']))
-    expect((prisma.lineageEdge.findMany as jest.Mock).mock.calls[0][0].where).toMatchObject({
+    expect(
+      (prisma.lineageEdge.findMany as jest.Mock).mock.calls[0][0].where
+    ).toMatchObject({
       sessionId: { in: ['s1', 's2'] },
       usedAt: { not: null },
     })
@@ -32,7 +34,8 @@ describe('listUnvotedSessionIdsForDoneTasks', () => {
       { sessionId: 'a' },
       { sessionId: 'b' },
     ])
-    const out = await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(50)
+    const out =
+      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(50)
     expect(out).toEqual(['a', 'b'])
     const arg = (prisma.lineageEdge.groupBy as jest.Mock).mock.calls[0][0]
     expect(arg.by).toEqual(['sessionId'])

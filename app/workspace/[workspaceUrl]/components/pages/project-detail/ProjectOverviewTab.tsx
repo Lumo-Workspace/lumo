@@ -17,7 +17,6 @@ import { apiFetch } from '@/lib/api-client'
 import { useGithubRepos } from '../../../hooks/useGithubRepos'
 import { ApiProject, ApiRepository, WorkspaceMemberInfo } from '../../../types'
 import { OwnerSelect, FIELD_TRIGGER_CLS } from '../../fields'
-import { ProjectRiskOverrideCard } from '../../summary/ProjectRiskOverrideCard'
 import { DescriptionEditor } from '../../DescriptionEditorLazy'
 import { TypographyH3 } from '@/components/ui/typography'
 import { IDEA_BADGE_CLS } from '../../../constants'
@@ -39,14 +38,6 @@ interface ProjectOverviewTabProps {
   project: ApiProject
   members: WorkspaceMemberInfo[]
   workspaceUrl: string
-  workspaceRiskDefaults: {
-    riskOverdueRatio: number
-    riskStalledDays: number
-    riskStalledMinCount: number
-    riskAgentFailRatio: number
-    riskStalePrDays: number
-    riskThroughputDrop: number
-  } | null
   onUpdateProject: (
     id: string,
     data: {
@@ -61,7 +52,6 @@ export function ProjectOverviewTab({
   project,
   members,
   workspaceUrl,
-  workspaceRiskDefaults,
   onUpdateProject,
 }: ProjectOverviewTabProps) {
   const intl = useIntl()
@@ -228,22 +218,6 @@ export function ProjectOverviewTab({
                 tooltipText='Owner — primary contact for this project'
               />
             </div>
-
-            {/* Risk thresholds override */}
-            {workspaceRiskDefaults && (
-              <ProjectRiskOverrideCard
-                projectId={project.id}
-                workspaceDefaults={workspaceRiskDefaults}
-                initialOverrides={{
-                  riskOverdueRatio: project.riskOverdueRatio ?? null,
-                  riskStalledDays: project.riskStalledDays ?? null,
-                  riskStalledMinCount: project.riskStalledMinCount ?? null,
-                  riskAgentFailRatio: project.riskAgentFailRatio ?? null,
-                  riskStalePrDays: project.riskStalePrDays ?? null,
-                  riskThroughputDrop: project.riskThroughputDrop ?? null,
-                }}
-              />
-            )}
 
             {/* Repositories */}
             <div className='space-y-2'>

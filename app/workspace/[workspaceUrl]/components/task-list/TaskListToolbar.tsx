@@ -46,8 +46,14 @@ export function TaskListToolbar({
   const intl = useIntl()
   const defaultSidebarLabel = intl.formatMessage(
     sidebarCollapsed
-      ? { id: 'sprints.detail.expandSidebar', defaultMessage: 'Show sprint details' }
-      : { id: 'sprints.detail.collapseSidebar', defaultMessage: 'Hide sprint details' }
+      ? {
+          id: 'sprints.detail.expandSidebar',
+          defaultMessage: 'Show sprint details',
+        }
+      : {
+          id: 'sprints.detail.collapseSidebar',
+          defaultMessage: 'Hide sprint details',
+        }
   )
   const sidebarLabel =
     (sidebarCollapsed ? sidebarExpandLabel : sidebarCollapseLabel) ??

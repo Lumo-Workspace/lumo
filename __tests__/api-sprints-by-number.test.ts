@@ -18,14 +18,14 @@ jest.mock('@/lib/auth/require-team-access', () => ({
   requireTeamMemberOrOwner: jest.fn(),
 }))
 jest.mock('@/lib/services/stats.service', () => ({
-  getSprintRisk: jest.fn(),
+  getSprintBlockers: jest.fn(),
 }))
 
 import { GET } from '@/app/api/sprints/by-number/route'
 import { requireIdentity } from '@/lib/auth'
 import { sprintRepository, taskRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
-import { getSprintRisk } from '@/lib/services/stats.service'
+import { getSprintBlockers } from '@/lib/services/stats.service'
 import { NextResponse } from 'next/server'
 
 const mockIdentity = requireIdentity as jest.Mock
@@ -35,7 +35,7 @@ const mockCompletedRates =
   sprintRepository.completedCompletionRates as jest.Mock
 const mockFindBySprint = taskRepository.findBySprint as jest.Mock
 const mockRequireTeam = requireTeamMemberOrOwner as jest.Mock
-const mockRisk = getSprintRisk as jest.Mock
+const mockBlockers = getSprintBlockers as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -44,7 +44,7 @@ beforeEach(() => {
   mockCompletedRates.mockReset()
   mockFindBySprint.mockReset()
   mockRequireTeam.mockReset()
-  mockRisk.mockReset()
+  mockBlockers.mockReset()
 })
 
 function req(
@@ -112,12 +112,12 @@ describe('GET /api/sprints/by-number', () => {
     expect(res.status).toBe(404)
   })
 
-  it('bundles sprint, progress, risk and shaped tasks in one response', async () => {
+  it('bundles sprint, progress, blockers and shaped tasks in one response', async () => {
     mockIdentity.mockResolvedValue(identity)
     mockFindByNumber.mockResolvedValue(sprint)
     mockRequireTeam.mockResolvedValue({ memberId: 'mem-1' })
     mockCountTasks.mockResolvedValueOnce(2).mockResolvedValueOnce(5)
-    mockRisk.mockResolvedValue({ risk: 'LOW', topBlockers: [] })
+    mockBlockers.mockResolvedValue({ overdueTaskIds: [] })
     mockFindBySprint.mockResolvedValue([rawTask])
     mockCompletedRates.mockResolvedValue([0.5, 0.75])
 
@@ -132,7 +132,7 @@ describe('GET /api/sprints/by-number', () => {
       priorCompletionRates: [0.5, 0.75],
     })
     expect(mockCompletedRates).toHaveBeenCalledWith('team-1', 's-1')
-    expect(body.risk).toBe('LOW')
+    expect(body.topBlockers).toEqual({ overdueTaskIds: [] })
     expect(body.tasks).toHaveLength(1)
     expect(body.tasks[0]).toMatchObject({
       id: 't-1',

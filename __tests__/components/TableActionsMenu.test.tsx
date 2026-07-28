@@ -15,7 +15,9 @@ const messages: Record<string, string> = {
   'table.deleteTableConfirm': 'Click again to confirm',
 }
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => messages[id] ?? id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => messages[id] ?? id,
+  }),
 }))
 
 import { act, fireEvent, render, screen } from '@testing-library/react'
@@ -25,11 +27,21 @@ import { TableActionsMenu } from '@/app/workspace/[workspaceUrl]/components/bubb
 function makeEditor() {
   const chain: Record<string, jest.Mock> = {}
   const methods = [
-    'focus', 'addRowBefore', 'addRowAfter', 'addColumnBefore', 'addColumnAfter',
-    'toggleHeaderRow', 'mergeCells', 'splitCell',
-    'deleteRow', 'deleteColumn', 'deleteTable', 'run',
+    'focus',
+    'addRowBefore',
+    'addRowAfter',
+    'addColumnBefore',
+    'addColumnAfter',
+    'toggleHeaderRow',
+    'mergeCells',
+    'splitCell',
+    'deleteRow',
+    'deleteColumn',
+    'deleteTable',
+    'run',
   ]
-  for (const m of methods) chain[m] = jest.fn(() => (m === 'run' ? true : chain))
+  for (const m of methods)
+    chain[m] = jest.fn(() => (m === 'run' ? true : chain))
   const editor = { chain: () => chain } as unknown as Editor
   return { editor, chain }
 }
@@ -61,7 +73,13 @@ describe('TableActionsMenu', () => {
 
   it('disables merge/split when not available', () => {
     const { editor, chain } = makeEditor()
-    render(<TableActionsMenu editor={editor} canMergeCells={false} canSplitCell={false} />)
+    render(
+      <TableActionsMenu
+        editor={editor}
+        canMergeCells={false}
+        canSplitCell={false}
+      />
+    )
     open()
     const merge = screen.getByText('Merge cells').closest('button')!
     const split = screen.getByText('Split cell').closest('button')!
@@ -91,8 +109,12 @@ describe('TableActionsMenu', () => {
       open()
       fireEvent.mouseDown(screen.getByText('Delete table'))
       expect(screen.getByText('Click again to confirm')).toBeInTheDocument()
-      act(() => { jest.advanceTimersByTime(3000) })
-      expect(screen.queryByText('Click again to confirm')).not.toBeInTheDocument()
+      act(() => {
+        jest.advanceTimersByTime(3000)
+      })
+      expect(
+        screen.queryByText('Click again to confirm')
+      ).not.toBeInTheDocument()
       fireEvent.mouseDown(screen.getByText('Delete table'))
       expect(chain.deleteTable).not.toHaveBeenCalled()
     } finally {

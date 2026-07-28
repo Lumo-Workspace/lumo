@@ -312,13 +312,6 @@ model Workspace {
   // DONE block but never the flagging (recording is always on).
   boundaryGateEnabled Boolean @default(true)
 
-  riskOverdueRatio    Float @default(0.25)
-  riskStalledDays     Int   @default(7)
-  riskStalledMinCount Int   @default(3)
-  riskAgentFailRatio  Float @default(0.30)
-  riskStalePrDays     Int   @default(3)
-  riskThroughputDrop  Float @default(0.50)
-
   // Machine verification round cap (LUM-429). Default 3 = today's hardcoded
   // behavior; OWNER-configurable 1..10. Governs ONLY the machine loop —
   // human adjudication (recordHumanVerdict) is never bounded by this.
@@ -771,13 +764,6 @@ model Project {
   order             Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  riskOverdueRatio    Float?
-  riskStalledDays     Int?
-  riskStalledMinCount Int?
-  riskAgentFailRatio  Float?
-  riskStalePrDays     Int?
-  riskThroughputDrop  Float?
 
   // Per-project lease serializing Layer 2 memory consolidation. A run claims
   // this (sets it to now + TTL) before reading; concurrent runs that can't

@@ -144,7 +144,10 @@ export function LinkPrPopover({
                 disabled={linking}
                 className='w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors disabled:opacity-50'
               >
-                <LinkIcon size={14} className='shrink-0 text-muted-foreground' />
+                <LinkIcon
+                  size={14}
+                  className='shrink-0 text-muted-foreground'
+                />
                 <span className='text-foreground'>
                   {intl.formatMessage({ id: 'linkPr.linkFromUrl' })}
                 </span>
@@ -160,7 +163,10 @@ export function LinkPrPopover({
             {/* Loading */}
             {loading && !isUrl && (
               <div className='flex items-center justify-center py-4'>
-                <Loader2 size={14} className='animate-spin text-muted-foreground' />
+                <Loader2
+                  size={14}
+                  className='animate-spin text-muted-foreground'
+                />
               </div>
             )}
 

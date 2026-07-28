@@ -17,7 +17,11 @@ describe('layer1OperationSchema SUPERSEDE', () => {
       id: 'mem_old',
       content: { rule: 'new rule', scope: 'all' },
     })
-    expect(parsed).toEqual({ type: 'SUPERSEDE', id: 'mem_old', content: { rule: 'new rule', scope: 'all' } })
+    expect(parsed).toEqual({
+      type: 'SUPERSEDE',
+      id: 'mem_old',
+      content: { rule: 'new rule', scope: 'all' },
+    })
   })
 
   it('rejects a SUPERSEDE op missing id', () => {
@@ -28,6 +32,8 @@ describe('layer1OperationSchema SUPERSEDE', () => {
 
   it('still accepts ADD / UPDATE / DELETE / NOOP', () => {
     expect(() => layer1OperationSchema.parse({ type: 'NOOP' })).not.toThrow()
-    expect(() => layer1OperationSchema.parse({ type: 'DELETE', id: 'x' })).not.toThrow()
+    expect(() =>
+      layer1OperationSchema.parse({ type: 'DELETE', id: 'x' })
+    ).not.toThrow()
   })
 })

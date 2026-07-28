@@ -2,7 +2,8 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 
 // next/jest uses SWC: factory closures may only reference `mock`-prefixed vars.
 const mockFindWithPermission = jest.fn<(...args: any[]) => Promise<unknown>>()
-const mockUpdateWithChildrenAndMentions = jest.fn<(...args: any[]) => Promise<unknown>>()
+const mockUpdateWithChildrenAndMentions =
+  jest.fn<(...args: any[]) => Promise<unknown>>()
 const mockUpsertEditor = jest.fn<(...args: any[]) => Promise<unknown>>()
 const mockFindByDocument = jest.fn<(...args: any[]) => Promise<unknown>>()
 const mockSnapshotOnSave = jest.fn<(...args: any[]) => Promise<unknown>>()
@@ -108,7 +109,10 @@ describe('updateDocument @mention notifications', () => {
     await flushBackground()
 
     expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
-    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
+    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >
     expect(arg).toMatchObject({
       notificationType: 'DOCUMENT_MENTIONED',
       ref: { documentId: 'doc1' },

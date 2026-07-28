@@ -126,7 +126,9 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     )
     expect(ctx).toContain('## Relevant Memory')
     // The warning must come before the memory section so it stays prominent.
-    expect(ctx.indexOf('Dependency alerts')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+    expect(ctx.indexOf('Dependency alerts')).toBeLessThan(
+      ctx.indexOf('Relevant Memory')
+    )
   })
 
   it('omits an empty blockerWarningSection from additionalContext', () => {

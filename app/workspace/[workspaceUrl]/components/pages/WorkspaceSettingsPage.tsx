@@ -31,21 +31,6 @@ interface Workspace {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
-  riskOverdueRatio?: number
-  riskStalledDays?: number
-  riskStalledMinCount?: number
-  riskAgentFailRatio?: number
-  riskStalePrDays?: number
-  riskThroughputDrop?: number
-}
-
-const DEFAULT_RISK = {
-  riskOverdueRatio: 0.25,
-  riskStalledDays: 7,
-  riskStalledMinCount: 3,
-  riskAgentFailRatio: 0.3,
-  riskStalePrDays: 3,
-  riskThroughputDrop: 0.5,
 }
 
 type WorkspaceCache = {
@@ -92,10 +77,6 @@ export function WorkspaceSettingsPage() {
   const [summaryLocale, setSummaryLocale] = useState('en')
   const [savingSummary, setSavingSummary] = useState(false)
 
-  // Risk thresholds
-  const [riskForm, setRiskForm] = useState(DEFAULT_RISK)
-  const [savingRisk, setSavingRisk] = useState(false)
-
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
     const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
@@ -133,22 +114,6 @@ export function WorkspaceSettingsPage() {
       setSummaryEnabled(data.workspace.summaryEnabled ?? true)
       setSummaryFrequency(data.workspace.summaryFrequency ?? 'DAILY')
       setSummaryLocale(data.workspace.summaryLocale ?? 'en')
-      setRiskForm({
-        riskOverdueRatio:
-          data.workspace.riskOverdueRatio ?? DEFAULT_RISK.riskOverdueRatio,
-        riskStalledDays:
-          data.workspace.riskStalledDays ?? DEFAULT_RISK.riskStalledDays,
-        riskStalledMinCount:
-          data.workspace.riskStalledMinCount ??
-          DEFAULT_RISK.riskStalledMinCount,
-        riskAgentFailRatio:
-          data.workspace.riskAgentFailRatio ?? DEFAULT_RISK.riskAgentFailRatio,
-        riskStalePrDays:
-          data.workspace.riskStalePrDays ?? DEFAULT_RISK.riskStalePrDays,
-        riskThroughputDrop:
-          data.workspace.riskThroughputDrop ?? DEFAULT_RISK.riskThroughputDrop,
-      })
-
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
         name: data.workspace.name,
@@ -263,28 +228,6 @@ export function WorkspaceSettingsPage() {
       setSavingSummary(false)
     }
   }
-
-  // ─── Save risk thresholds ────────────────────────────────────────────────
-  const handleSaveRiskThresholds = async () => {
-    if (!assertOwner()) return
-    setSavingRisk(true)
-    try {
-      await workspacesClient.updateMe<{ workspace: Workspace }>({
-        ...riskForm,
-      })
-      toast.success(intl.formatMessage({ id: 'workspaceSettings.riskUpdated' }))
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : intl.formatMessage({ id: 'workspaceSettings.riskUpdateFailed' })
-      )
-    } finally {
-      setSavingRisk(false)
-    }
-  }
-
-  const handleRestoreRiskDefaults = () => setRiskForm(DEFAULT_RISK)
 
   // ─── Delete workspace ─────────────────────────────────────────────────────
   const handleDelete = async () => {
@@ -507,124 +450,6 @@ export function WorkspaceSettingsPage() {
                 disabled={savingSummary}
               >
                 {savingSummary
-                  ? intl.formatMessage({ id: 'common.saving' })
-                  : intl.formatMessage({ id: 'common.save' })}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Risk thresholds */}
-        {isOwner && (
-          <div className='rounded-lg border border-border overflow-hidden mb-8'>
-            <div className='px-5 py-3 border-b border-border'>
-              <p className='text-sm font-semibold text-foreground'>
-                {intl.formatMessage({ id: 'summary.riskThresholds' })}
-              </p>
-              <p className='text-xs text-muted-foreground mt-0.5'>
-                {intl.formatMessage({
-                  id: 'summary.riskThresholds.description',
-                })}
-              </p>
-            </div>
-
-            {(
-              [
-                [
-                  'riskOverdueRatio',
-                  'summary.riskThresholds.overdueRatio',
-                  'number',
-                  0,
-                  1,
-                  0.01,
-                ],
-                [
-                  'riskStalledDays',
-                  'summary.riskThresholds.stalledDays',
-                  'int',
-                  1,
-                  30,
-                  1,
-                ],
-                [
-                  'riskStalledMinCount',
-                  'summary.riskThresholds.stalledMinCount',
-                  'int',
-                  1,
-                  50,
-                  1,
-                ],
-                [
-                  'riskAgentFailRatio',
-                  'summary.riskThresholds.agentFailRatio',
-                  'number',
-                  0,
-                  1,
-                  0.01,
-                ],
-                [
-                  'riskStalePrDays',
-                  'summary.riskThresholds.stalePrDays',
-                  'int',
-                  1,
-                  30,
-                  1,
-                ],
-                [
-                  'riskThroughputDrop',
-                  'summary.riskThresholds.throughputDrop',
-                  'number',
-                  0,
-                  1,
-                  0.01,
-                ],
-              ] as const
-            ).map(([key, labelId, kind, min, max, step]) => (
-              <div
-                key={key}
-                className='flex items-center justify-between gap-4 px-5 py-3 border-b border-border'
-              >
-                <label className='text-sm font-medium text-foreground'>
-                  {intl.formatMessage({ id: labelId })}
-                </label>
-                <input
-                  type='number'
-                  min={min}
-                  max={max}
-                  step={step}
-                  value={riskForm[key]}
-                  onChange={e => {
-                    const raw = e.target.value
-                    const parsed =
-                      kind === 'int' ? parseInt(raw, 10) : parseFloat(raw)
-                    setRiskForm(f => ({
-                      ...f,
-                      [key]: isNaN(parsed) ? f[key] : parsed,
-                    }))
-                  }}
-                  disabled={savingRisk}
-                  className='w-24 h-8 rounded-md border border-border bg-transparent px-2 text-sm text-right text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50'
-                />
-              </div>
-            ))}
-
-            <div className='flex justify-between px-5 py-4'>
-              <Button
-                size='sm'
-                variant='ghost'
-                onClick={handleRestoreRiskDefaults}
-                disabled={savingRisk}
-              >
-                {intl.formatMessage({
-                  id: 'summary.riskThresholds.restoreDefaults',
-                })}
-              </Button>
-              <Button
-                size='sm'
-                onClick={handleSaveRiskThresholds}
-                disabled={savingRisk}
-              >
-                {savingRisk
                   ? intl.formatMessage({ id: 'common.saving' })
                   : intl.formatMessage({ id: 'common.save' })}
               </Button>

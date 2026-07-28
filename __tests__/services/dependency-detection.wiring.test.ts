@@ -4,20 +4,34 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 
 // ── Mock variables (must be `mock`-prefixed for SWC factory rules) ───────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDetectMentionEdges = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<void>>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockNotifyMentionDelta = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<unknown>>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDispatchEvents = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<unknown>>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockPushTaskEvent = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<unknown>>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockPushProjectEvent = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<unknown>>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockBuildTaskNotificationCtx = jest.fn() as jest.MockedFunction<(...args: any[]) => any>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDispatchTaskUpdateNotifications = jest.fn() as jest.MockedFunction<(...args: any[]) => any>
+
+const mockDetectMentionEdges = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => Promise<void>
+>
+
+const mockNotifyMentionDelta = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => Promise<unknown>
+>
+
+const mockDispatchEvents = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => Promise<unknown>
+>
+
+const mockPushTaskEvent = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => Promise<unknown>
+>
+
+const mockPushProjectEvent = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => Promise<unknown>
+>
+
+const mockBuildTaskNotificationCtx = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => any
+>
+
+const mockDispatchTaskUpdateNotifications = jest.fn() as jest.MockedFunction<
+  (...args: any[]) => any
+>
 
 // Collect waitUntil promises so tests can flush background work before asserting
 const mockBackgroundPromises: Array<Promise<unknown>> = []
@@ -165,7 +179,7 @@ beforeEach(async () => {
   mockDispatchTaskUpdateNotifications.mockReturnValue(undefined)
   // Set up member repo to return empty array (no user mentions to notify)
   const { memberRepository } = await import('@/lib/repositories')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   ;(memberRepository.findByWorkspaceAndClerkIds as any).mockResolvedValue([])
 })
 
@@ -181,10 +195,12 @@ describe('dispatchUpdateTaskSideEffects → detectMentionEdges (description path
 
   it('calls detectMentionEdges with surface:description when description changes', async () => {
     const dispatch = await getDispatcher()
-    const html =
-      '<span data-mention-type="task" data-id="task-b">LUM-2</span>'
+    const html = '<span data-mention-type="task" data-id="task-b">LUM-2</span>'
     dispatch(
-      buildDispatchOpts({ newDescription: html, changedFields: ['description'] }) as never
+      buildDispatchOpts({
+        newDescription: html,
+        changedFields: ['description'],
+      }) as never
     )
     await flushBackground()
 
@@ -217,18 +233,16 @@ describe('createCommentWithSideEffects → detectMentionEdges (comment path)', (
   }
 
   async function getCommentRepo() {
-    const { commentRepository } = await import(
-      '@/lib/repositories/comment.repository'
-    )
+    const { commentRepository } =
+      await import('@/lib/repositories/comment.repository')
     return commentRepository
   }
 
   it('calls detectMentionEdges with surface:comment on every comment create', async () => {
     const svc = await getCommentService()
     const repo = await getCommentRepo()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     ;(repo.create as any).mockResolvedValue({ id: 'c1' })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(repo.listAllForTask as any).mockResolvedValue([])
 
     await svc.createCommentWithSideEffects({ ...baseCommentInput } as any)
@@ -246,9 +260,8 @@ describe('createCommentWithSideEffects → detectMentionEdges (comment path)', (
   it('calls detectMentionEdges even when the body has zero user @-mentions (guards early-return in notifyMentions)', async () => {
     const svc = await getCommentService()
     const repo = await getCommentRepo()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     ;(repo.create as any).mockResolvedValue({ id: 'c2' })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(repo.listAllForTask as any).mockResolvedValue([])
 
     // Body contains only a task-mention chip — no user mention

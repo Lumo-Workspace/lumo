@@ -58,7 +58,10 @@ describe('hostMismatchWarning', () => {
   })
 
   it('returns a warning naming both hosts when they differ', () => {
-    const msg = hostMismatchWarning('https://evil.com', 'https://www.uselumo.ai')
+    const msg = hostMismatchWarning(
+      'https://evil.com',
+      'https://www.uselumo.ai'
+    )
     expect(msg).toContain('evil.com')
     expect(msg).toContain('www.uselumo.ai')
   })

@@ -103,10 +103,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         </DialogHeader>
         <div className='space-y-3'>
           <div>
-            <label
-              htmlFor={`${fieldId}-name`}
-              className='text-sm font-medium'
-            >
+            <label htmlFor={`${fieldId}-name`} className='text-sm font-medium'>
               {intl.formatMessage({ id: 'milestone.field.name' })}
             </label>
             <Input

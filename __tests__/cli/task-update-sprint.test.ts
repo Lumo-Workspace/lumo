@@ -97,7 +97,11 @@ function patchOk() {
 }
 
 /** Build a ShowTaskFromCliResult (GET by-identifier 200) with sprint info */
-function showOk(opts: { sprintId: string | null; teamId: string; number?: number }) {
+function showOk(opts: {
+  sprintId: string | null
+  teamId: string
+  number?: number
+}) {
   return {
     ok: true,
     status: 200,
@@ -135,7 +139,9 @@ describe('taskUpdate --sprint integration', () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    stdoutSpy = jest
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
     mockResolveSprintId.mockReset()
   })
 
@@ -155,7 +161,9 @@ describe('taskUpdate --sprint integration', () => {
 
     const exitCode = await taskUpdate('LUM-1', { title: 'New', sprint: '' })
     expect(exitCode).toBeUndefined() // exit 0
-    const stdoutCalls = (stdoutSpy.mock.calls as [string][]).map(c => c[0]).join('')
+    const stdoutCalls = (stdoutSpy.mock.calls as [string][])
+      .map(c => c[0])
+      .join('')
     expect(stdoutCalls).toContain('has no sprint binding')
   })
 
@@ -163,18 +171,33 @@ describe('taskUpdate --sprint integration', () => {
     const fetchMock = jest.fn()
     fetchMock
       .mockResolvedValueOnce(patchOk())
-      .mockResolvedValueOnce(showOk({ sprintId: 'sprint-old', teamId: 'team-1' }))
+      .mockResolvedValueOnce(
+        showOk({ sprintId: 'sprint-old', teamId: 'team-1' })
+      )
       // GET /api/sprints/sprint-old for number lookup
       .mockResolvedValueOnce({
-        ok: true, status: 200,
-        json: async () => ({ sprint: { id: 'sprint-old', number: 3, name: 'Sprint 3', teamId: 'team-1', status: 'ACTIVE', startDate: '', endDate: '' } }),
+        ok: true,
+        status: 200,
+        json: async () => ({
+          sprint: {
+            id: 'sprint-old',
+            number: 3,
+            name: 'Sprint 3',
+            teamId: 'team-1',
+            status: 'ACTIVE',
+            startDate: '',
+            endDate: '',
+          },
+        }),
       })
       .mockResolvedValueOnce(sprintTasksDeleteOk())
     global.fetch = fetchMock as unknown as typeof fetch
 
     const exitCode = await taskUpdate('LUM-1', { title: 'New', sprint: '' })
     expect(exitCode).toBeUndefined()
-    const stdoutCalls = (stdoutSpy.mock.calls as [string][]).map(c => c[0]).join('')
+    const stdoutCalls = (stdoutSpy.mock.calls as [string][])
+      .map(c => c[0])
+      .join('')
     expect(stdoutCalls).toMatch(/Unbound LUM-1 from sprint #3/)
   })
 
@@ -194,7 +217,9 @@ describe('taskUpdate --sprint integration', () => {
 
     const exitCode = await taskUpdate('LUM-1', { title: 'New', sprint: '5' })
     expect(exitCode).toBeUndefined()
-    const stdoutCalls = (stdoutSpy.mock.calls as [string][]).map(c => c[0]).join('')
+    const stdoutCalls = (stdoutSpy.mock.calls as [string][])
+      .map(c => c[0])
+      .join('')
     expect(stdoutCalls).toMatch(/Sprint:.*-.*→.*#5/)
   })
 
@@ -230,12 +255,16 @@ describe('taskUpdate --sprint integration', () => {
     const fetchMock = jest.fn()
     fetchMock
       .mockResolvedValueOnce(patchOk())
-      .mockResolvedValueOnce(showOk({ sprintId: 'sprint-abc', teamId: 'team-1' }))
+      .mockResolvedValueOnce(
+        showOk({ sprintId: 'sprint-abc', teamId: 'team-1' })
+      )
     global.fetch = fetchMock as unknown as typeof fetch
 
     const exitCode = await taskUpdate('LUM-1', { title: 'New', sprint: '3' })
     expect(exitCode).toBeUndefined()
-    const stdoutCalls = (stdoutSpy.mock.calls as [string][]).map(c => c[0]).join('')
+    const stdoutCalls = (stdoutSpy.mock.calls as [string][])
+      .map(c => c[0])
+      .join('')
     expect(stdoutCalls).toContain('already in sprint')
   })
 })

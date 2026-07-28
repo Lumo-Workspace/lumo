@@ -68,12 +68,6 @@ export const createWorkspaceSchema = z.object({
 })
 
 export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
-  riskOverdueRatio: z.number().min(0).max(1).optional(),
-  riskStalledDays: z.number().int().min(1).max(30).optional(),
-  riskStalledMinCount: z.number().int().min(1).max(50).optional(),
-  riskAgentFailRatio: z.number().min(0).max(1).optional(),
-  riskStalePrDays: z.number().int().min(1).max(30).optional(),
-  riskThroughputDrop: z.number().min(0).max(1).optional(),
   verificationMaxRounds: z.number().int().min(1).max(10).optional(),
   acceptanceMode: z.boolean().optional(),
 })
@@ -95,12 +89,6 @@ export const updateProjectSchema = z.object({
   description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
   isIdea: z.boolean().optional(),
   ownerId: z.string().nullable().optional(),
-  riskOverdueRatio: z.number().min(0).max(1).nullable().optional(),
-  riskStalledDays: z.number().int().min(1).max(30).nullable().optional(),
-  riskStalledMinCount: z.number().int().min(1).max(50).nullable().optional(),
-  riskAgentFailRatio: z.number().min(0).max(1).nullable().optional(),
-  riskStalePrDays: z.number().int().min(1).max(30).nullable().optional(),
-  riskThroughputDrop: z.number().min(0).max(1).nullable().optional(),
 })
 
 export const reorderProjectsSchema = z.object({

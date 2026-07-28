@@ -36,7 +36,12 @@ describe('mcpConnectionRepository', () => {
         'client_xyz'
       )
       expect(mockPrisma.mcpConnection.findUnique).toHaveBeenCalledWith({
-        where: { clerkUserId_clientId: { clerkUserId: 'user_abc', clientId: 'client_xyz' } },
+        where: {
+          clerkUserId_clientId: {
+            clerkUserId: 'user_abc',
+            clientId: 'client_xyz',
+          },
+        },
       })
       expect(result).toEqual({ id: 'c1' })
     })
@@ -62,7 +67,12 @@ describe('mcpConnectionRepository', () => {
         clientName: 'Claude Desktop 0.8',
       })
       expect(mockPrisma.mcpConnection.upsert).toHaveBeenCalledWith({
-        where: { clerkUserId_clientId: { clerkUserId: 'user_abc', clientId: 'client_xyz' } },
+        where: {
+          clerkUserId_clientId: {
+            clerkUserId: 'user_abc',
+            clientId: 'client_xyz',
+          },
+        },
         create: {
           clerkUserId: 'user_abc',
           clientId: 'client_xyz',
@@ -80,7 +90,9 @@ describe('mcpConnectionRepository', () => {
   describe('setActiveWorkspace', () => {
     it('updates activeWorkspaceId and clears autoBoundAt when manually set', async () => {
       mockPrisma.mcpConnection.update.mockResolvedValue({ id: 'c1' })
-      await mcpConnectionRepository.setActiveWorkspace('c1', 'ws-1', { auto: false })
+      await mcpConnectionRepository.setActiveWorkspace('c1', 'ws-1', {
+        auto: false,
+      })
       expect(mockPrisma.mcpConnection.update).toHaveBeenCalledWith({
         where: { id: 'c1' },
         data: { activeWorkspaceId: 'ws-1', autoBoundAt: null },
@@ -88,7 +100,9 @@ describe('mcpConnectionRepository', () => {
     })
     it('sets autoBoundAt when auto binding', async () => {
       mockPrisma.mcpConnection.update.mockResolvedValue({ id: 'c1' })
-      await mcpConnectionRepository.setActiveWorkspace('c1', 'ws-1', { auto: true })
+      await mcpConnectionRepository.setActiveWorkspace('c1', 'ws-1', {
+        auto: true,
+      })
       expect(mockPrisma.mcpConnection.update).toHaveBeenCalledWith({
         where: { id: 'c1' },
         data: { activeWorkspaceId: 'ws-1', autoBoundAt: expect.any(Date) },

@@ -87,9 +87,9 @@ describe('resolveTeamId', () => {
         teams: [{ id: 't-1', name: 'Engineering', identifier: 'engineering' }],
       })
     )
-    await expect(
-      resolveTeamId('http://x', 'tok', 'missing')
-    ).rejects.toThrow(/not found/)
+    await expect(resolveTeamId('http://x', 'tok', 'missing')).rejects.toThrow(
+      /not found/
+    )
   })
 
   it('throws when no teams exist and ref is undefined', async () => {

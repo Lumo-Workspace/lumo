@@ -61,7 +61,10 @@ describe('lint-tokens / detectViolations', () => {
       `<div className="bg-zinc-500 bg-blue-500" />`
     )
     const byMatch = Object.fromEntries(v.map(x => [x.match, x.rule]))
-    expect(byMatch).toEqual({ 'bg-zinc-500': 'palette', 'bg-blue-500': 'brand' })
+    expect(byMatch).toEqual({
+      'bg-zinc-500': 'palette',
+      'bg-blue-500': 'brand',
+    })
   })
 
   it('does NOT match hex inside identifiers (cmt#abc123, foo#bar)', () => {
@@ -141,13 +144,13 @@ describe('lint-tokens / detectViolations', () => {
       'components/foo.tsx',
       `<div className="shadow shadow-md hover:shadow-lg shadow-[0_0_0_1px_red]" />`
     )
-    expect(v.map((x) => x.match).sort()).toEqual([
+    expect(v.map(x => x.match).sort()).toEqual([
       'shadow',
       'shadow-[0_0_0_1px_red]',
       'shadow-lg',
       'shadow-md',
     ])
-    expect(v.every((x) => x.rule === 'shadow')).toBe(true)
+    expect(v.every(x => x.rule === 'shadow')).toBe(true)
   })
 
   it('does NOT flag shadow-elevation-*, shadow-none, shadow-mockup, drop-shadow', () => {
@@ -159,7 +162,10 @@ describe('lint-tokens / detectViolations', () => {
   })
 
   it('does NOT flag the `shadow` inside box-shadow CSS property', () => {
-    const v = detectViolations('components/foo.css', `.x { box-shadow: 0 0 0; }`)
+    const v = detectViolations(
+      'components/foo.css',
+      `.x { box-shadow: 0 0 0; }`
+    )
     expect(v).toEqual([])
   })
 })
@@ -213,9 +219,7 @@ describe('lint-tokens / isAllowed', () => {
     ).toBe(true)
     expect(isAllowed('components/icons/SlackIcon.tsx')).toBe(true)
     // Email templates (inline hex required — no CSS vars in email).
-    expect(
-      isAllowed('lib/integrations/email/templates/invite.ts')
-    ).toBe(true)
+    expect(isAllowed('lib/integrations/email/templates/invite.ts')).toBe(true)
     // Landing marketing surface (intentional brand fork).
     expect(isAllowed('components/landing/ui/button.tsx')).toBe(true)
     // Vendored shadcn NavigationMenu (local z-[1] stacking carve-out).
@@ -255,8 +259,8 @@ describe('lint-tokens zindex rule', () => {
       'components/foo.tsx',
       `const a = <div className="z-[100] flex" />\nconst b = <div className="z-[1]" />`
     )
-    const zindex = v.filter((x) => x.rule === 'zindex')
-    expect(zindex.map((x) => x.match)).toEqual(['z-[100]', 'z-[1]'])
+    const zindex = v.filter(x => x.rule === 'zindex')
+    expect(zindex.map(x => x.match)).toEqual(['z-[100]', 'z-[1]'])
   })
 
   it('does NOT flag named z utilities', () => {
@@ -264,15 +268,19 @@ describe('lint-tokens zindex rule', () => {
       'components/foo.tsx',
       `<div className="z-50 z-dropdown z-modal z-10" />`
     )
-    expect(v.filter((x) => x.rule === 'zindex')).toHaveLength(0)
+    expect(v.filter(x => x.rule === 'zindex')).toHaveLength(0)
   })
 
   it('respects the allowlist and skips test files', () => {
     expect(
-      detectViolations('app/globals.css', 'z-[100]').filter((x) => x.rule === 'zindex')
+      detectViolations('app/globals.css', 'z-[100]').filter(
+        x => x.rule === 'zindex'
+      )
     ).toHaveLength(0)
     expect(
-      detectViolations('components/foo.test.tsx', 'z-[100]').filter((x) => x.rule === 'zindex')
+      detectViolations('components/foo.test.tsx', 'z-[100]').filter(
+        x => x.rule === 'zindex'
+      )
     ).toHaveLength(0)
   })
 })

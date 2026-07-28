@@ -7,7 +7,9 @@ const messages: Record<string, string> = {
   'editor.alignRight': 'Align right',
 }
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => messages[id] ?? id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => messages[id] ?? id,
+  }),
 }))
 
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -26,7 +28,14 @@ function makeEditor() {
 describe('AlignMenu', () => {
   it('is collapsed until clicked, then lists the three alignments', () => {
     const { editor } = makeEditor()
-    render(<AlignMenu editor={editor} alignLeft alignCenter={false} alignRight={false} />)
+    render(
+      <AlignMenu
+        editor={editor}
+        alignLeft
+        alignCenter={false}
+        alignRight={false}
+      />
+    )
     expect(screen.queryByText('Align center')).not.toBeInTheDocument()
     fireEvent.mouseDown(screen.getByRole('button', { name: /alignment/i }))
     expect(screen.getByText('Align left')).toBeInTheDocument()
@@ -36,7 +45,14 @@ describe('AlignMenu', () => {
 
   it('applies the chosen alignment and closes', () => {
     const { editor, chain } = makeEditor()
-    render(<AlignMenu editor={editor} alignLeft alignCenter={false} alignRight={false} />)
+    render(
+      <AlignMenu
+        editor={editor}
+        alignLeft
+        alignCenter={false}
+        alignRight={false}
+      />
+    )
     fireEvent.mouseDown(screen.getByRole('button', { name: /alignment/i }))
     fireEvent.mouseDown(screen.getByText('Align center'))
     expect(chain.setTextAlign).toHaveBeenCalledWith('center')

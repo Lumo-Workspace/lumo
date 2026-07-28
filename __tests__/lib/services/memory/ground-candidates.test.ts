@@ -5,7 +5,9 @@
  * verdict parsing, fail-open posture, and observability logging.
  */
 const generateObjectMock = jest.fn()
-jest.mock('ai', () => ({ generateObject: (...a: unknown[]) => generateObjectMock(...a) }))
+jest.mock('ai', () => ({
+  generateObject: (...a: unknown[]) => generateObjectMock(...a),
+}))
 jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 const loggerInfoMock = jest.fn()
@@ -37,8 +39,15 @@ beforeEach(() => {
 
 describe('groundCandidates — quote-or-discard contract', () => {
   it('makes ONE batched call carrying the source material and every candidate', async () => {
-    generateObjectMock.mockResolvedValue({ object: { verdicts: [] }, usage: {} })
-    await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    generateObjectMock.mockResolvedValue({
+      object: { verdicts: [] },
+      usage: {},
+    })
+    await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     expect(generateObjectMock).toHaveBeenCalledTimes(1)
     const arg = generateObjectMock.mock.calls[0]![0] as { prompt: string }
     expect(arg.prompt).toContain(SOURCE)
@@ -58,7 +67,11 @@ describe('groundCandidates — quote-or-discard contract', () => {
       },
       usage: { inputTokens: 100, outputTokens: 20 },
     })
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     expect(out.kept).toHaveLength(2)
     expect(out.kept[0]).toBe(CANDIDATES[0])
     expect(out.kept[1]).toBe(CANDIDATES[2])
@@ -66,7 +79,11 @@ describe('groundCandidates — quote-or-discard contract', () => {
   })
 
   it('skips the LLM entirely for an empty candidate list', async () => {
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: [], logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: [],
+      logTag: 't',
+    })
     expect(generateObjectMock).not.toHaveBeenCalled()
     expect(out).toEqual({ kept: [], discardedCount: 0 })
   })
@@ -76,7 +93,11 @@ describe('groundCandidates — quote-or-discard contract', () => {
       object: { verdicts: [{ index: 99, verdict: 'UNSUPPORTED' }] },
       usage: {},
     })
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     expect(out.kept).toHaveLength(3)
     expect(out.discardedCount).toBe(0)
   })
@@ -94,7 +115,11 @@ describe('groundCandidates — loose parsing: garbage drops itself, never the ba
       },
       usage: {},
     })
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     // index 1's valid UNSUPPORTED applies; 0 and 2 (garbage judgements) stay kept.
     expect(out.kept).toEqual([CANDIDATES[0], CANDIDATES[2]])
     expect(out.discardedCount).toBe(1)
@@ -103,10 +128,16 @@ describe('groundCandidates — loose parsing: garbage drops itself, never the ba
 
   it('a candidate with no verdict at all stays kept (fail-open per candidate)', async () => {
     generateObjectMock.mockResolvedValue({
-      object: { verdicts: [{ index: 0, verdict: 'SUPPORTED', quote: 'P3009' }] },
+      object: {
+        verdicts: [{ index: 0, verdict: 'SUPPORTED', quote: 'P3009' }],
+      },
       usage: {},
     })
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     expect(out.kept).toHaveLength(3)
   })
 
@@ -115,7 +146,13 @@ describe('groundCandidates — loose parsing: garbage drops itself, never the ba
       index: 1,
       verdict: 'UNSUPPORTED',
     })
-    expect(coerceGroundingVerdict({ candidateIndex: '2', verdict: 'Supported', quote: 'q' })).toEqual({
+    expect(
+      coerceGroundingVerdict({
+        candidateIndex: '2',
+        verdict: 'Supported',
+        quote: 'q',
+      })
+    ).toEqual({
       index: 2,
       verdict: 'SUPPORTED',
       quote: 'q',
@@ -127,7 +164,11 @@ describe('groundCandidates — loose parsing: garbage drops itself, never the ba
 
   it('fail-open: the whole grounding call failing keeps ALL candidates and never throws', async () => {
     generateObjectMock.mockRejectedValue(new Error('gateway down'))
-    const out = await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 't' })
+    const out = await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 't',
+    })
     expect(out.kept).toEqual(CANDIDATES)
     expect(out.discardedCount).toBe(0)
     expect(loggerWarnMock).toHaveBeenCalledWith(
@@ -143,7 +184,11 @@ describe('groundCandidates — observability (cost + interception logging)', () 
       object: { verdicts: [{ index: 1, verdict: 'UNSUPPORTED' }] },
       usage: { inputTokens: 1234, outputTokens: 56 },
     })
-    await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 'memory.layer1' })
+    await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 'memory.layer1',
+    })
     expect(loggerInfoMock).toHaveBeenCalledTimes(1)
     const line = loggerInfoMock.mock.calls[0]![0] as string
     expect(line).toContain('[memory.layer1]')
@@ -154,8 +199,15 @@ describe('groundCandidates — observability (cost + interception logging)', () 
   })
 
   it('logs token usage as ? when the provider returns no usage', async () => {
-    generateObjectMock.mockResolvedValue({ object: { verdicts: [] }, usage: undefined })
-    await groundCandidates({ sourceText: SOURCE, candidates: CANDIDATES, logTag: 'memory.layer2' })
+    generateObjectMock.mockResolvedValue({
+      object: { verdicts: [] },
+      usage: undefined,
+    })
+    await groundCandidates({
+      sourceText: SOURCE,
+      candidates: CANDIDATES,
+      logTag: 'memory.layer2',
+    })
     const line = loggerInfoMock.mock.calls[0]![0] as string
     expect(line).toContain('kept=3')
     expect(line).toContain('discarded=0')

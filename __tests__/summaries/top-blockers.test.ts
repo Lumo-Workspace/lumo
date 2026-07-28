@@ -1,4 +1,4 @@
-import { collectTopBlockers, DEFAULT_RISK_CONFIG } from '@/lib/summaries/risk'
+import { collectTopBlockers } from '@/lib/summaries/top-blockers'
 
 const NOW = new Date('2026-04-11T12:00:00Z')
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 24 * 60 * 60 * 1000)
@@ -10,7 +10,6 @@ describe('collectTopBlockers', () => {
       agents: [],
       prs: [],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
     expect(result).toEqual({
       overdueTaskIds: [],
@@ -56,7 +55,6 @@ describe('collectTopBlockers', () => {
       agents: [],
       prs: [],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
     expect(result.overdueTaskIds).toEqual([
       { id: 't1', identifier: 'LUM-1', title: 'Fix login bug' },
@@ -96,8 +94,7 @@ describe('collectTopBlockers', () => {
       ],
       agents: [],
       prs: [],
-      now: NOW,
-      config: DEFAULT_RISK_CONFIG, // stalledDays = 7
+      now: NOW, // stalledDays = 7
     })
     expect(result.stalledTaskIds).toEqual([
       {
@@ -135,7 +132,6 @@ describe('collectTopBlockers', () => {
       ],
       prs: [],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
     expect(result.failingAgentTaskIds).toEqual([
       { id: 'x', identifier: 'LUM-7', title: 'Agent task X' },
@@ -167,8 +163,7 @@ describe('collectTopBlockers', () => {
           url: 'https://github.com/o/r/pull/3',
         },
       ],
-      now: NOW,
-      config: DEFAULT_RISK_CONFIG, // stalePrDays = 3
+      now: NOW, // stalePrDays = 3
     })
     expect(result.staleOpenPrNumbers).toEqual([1])
   })
@@ -188,7 +183,6 @@ describe('collectTopBlockers', () => {
       agents: [],
       prs: [],
       now: NOW,
-      config: DEFAULT_RISK_CONFIG,
     })
     expect(result.overdueTaskIds).toHaveLength(10)
   })

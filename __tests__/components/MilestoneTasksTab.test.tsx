@@ -4,7 +4,9 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneSprintCoverage',
   () => ({
     MilestoneSprintCoverage: ({ coverage }: { coverage: unknown }) => (
-      <div data-testid='coverage'>{coverage ? 'has-coverage' : 'no-coverage'}</div>
+      <div data-testid='coverage'>
+        {coverage ? 'has-coverage' : 'no-coverage'}
+      </div>
     ),
   })
 )

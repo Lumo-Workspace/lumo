@@ -28,7 +28,8 @@ function themeInlineBody(): string {
   const at = css.indexOf('@theme inline')
   if (at === -1) throw new Error('no @theme inline block in globals.css')
   const openBrace = css.indexOf('{', at)
-  if (openBrace === -1) throw new Error('@theme inline block has no opening brace')
+  if (openBrace === -1)
+    throw new Error('@theme inline block has no opening brace')
   let depth = 1
   let i = openBrace + 1
   const start = i

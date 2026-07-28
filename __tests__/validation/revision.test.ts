@@ -8,7 +8,9 @@ describe('createManualRevisionSchema', () => {
   })
 
   it('rejects an empty label', () => {
-    expect(createManualRevisionSchema.safeParse({ label: '   ' }).success).toBe(false)
+    expect(createManualRevisionSchema.safeParse({ label: '   ' }).success).toBe(
+      false
+    )
   })
 
   it('rejects a label over 200 chars', () => {

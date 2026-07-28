@@ -1,7 +1,9 @@
 // Mock the gateway + ai BEFORE importing the module under test so the real
 // @ai-sdk/gateway (TransformStream) never loads in jest.
 const mockGenerateObject = jest.fn()
-jest.mock('ai', () => ({ generateObject: (...a: any[]) => mockGenerateObject(...a) }))
+jest.mock('ai', () => ({
+  generateObject: (...a: any[]) => mockGenerateObject(...a),
+}))
 jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import {
@@ -39,7 +41,10 @@ describe('canonicalizeToEnglish', () => {
       outcome: '生产 schema 漂移',
     })
     expect(mockGenerateObject).toHaveBeenCalledTimes(1)
-    expect(out).toEqual({ trigger: 'Merging a schema PR', outcome: 'prod schema drifts' })
+    expect(out).toEqual({
+      trigger: 'Merging a schema PR',
+      outcome: 'prod schema drifts',
+    })
   })
 
   it('fail-open: returns the ORIGINAL content when the LLM throws', async () => {
@@ -51,7 +56,9 @@ describe('canonicalizeToEnglish', () => {
 
   it('fail-open: returns the ORIGINAL content when the translation fails schema validation', async () => {
     // Missing required `outcome` → parseMemoryContent throws → keep original.
-    mockGenerateObject.mockResolvedValue({ object: { trigger: 'only trigger' } })
+    mockGenerateObject.mockResolvedValue({
+      object: { trigger: 'only trigger' },
+    })
     const original = { trigger: '触发', outcome: '后果' }
     const out = await canonicalizeToEnglish('TRAP', original)
     expect(out).toBe(original)

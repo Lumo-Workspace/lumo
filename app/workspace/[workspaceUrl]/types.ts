@@ -187,12 +187,6 @@ export interface ApiProject {
   doneCount: number
   owner: { id: string; name: string } | null
   kanbanViewId?: string
-  riskOverdueRatio?: number | null
-  riskStalledDays?: number | null
-  riskStalledMinCount?: number | null
-  riskAgentFailRatio?: number | null
-  riskStalePrDays?: number | null
-  riskThroughputDrop?: number | null
 }
 
 export type AgentStatusValue =

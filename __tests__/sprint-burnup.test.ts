@@ -5,7 +5,12 @@ const SPRINT = 'sprint-1'
 const at = (d: string) => new Date(`${d}T12:00:00.000Z`)
 
 function statusEvt(taskId: string, from: string, to: string, d: string) {
-  return { taskId, type: 'STATUS_CHANGED' as const, payload: { from, to }, createdAt: at(d) }
+  return {
+    taskId,
+    type: 'STATUS_CHANGED' as const,
+    payload: { from, to },
+    createdAt: at(d),
+  }
 }
 function sprintEvt(
   taskId: string,
@@ -39,10 +44,30 @@ describe('computeBurnupSeries', () => {
     const out = computeBurnupSeries(
       baseInput({
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'DONE', createdAt: at('2026-06-01') },
-          { id: 't2', sprintId: SPRINT, status: 'DONE', createdAt: at('2026-06-01') },
-          { id: 't3', sprintId: SPRINT, status: 'DONE', createdAt: at('2026-06-02') },
-          { id: 't4', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-03') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+          {
+            id: 't2',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+          {
+            id: 't3',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-02'),
+          },
+          {
+            id: 't4',
+            sprintId: SPRINT,
+            status: 'TODO',
+            createdAt: at('2026-06-03'),
+          },
         ],
         activities: [
           statusEvt('t1', 'TODO', 'DONE', '2026-06-01'),
@@ -69,8 +94,18 @@ describe('computeBurnupSeries', () => {
         status: 'ACTIVE',
         now: new Date('2026-06-02T06:00:00.000Z'), // 06-01, 06-02 past; 06-03, 06-04 future
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'DONE', createdAt: at('2026-06-01') },
-          { id: 't2', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-01') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+          {
+            id: 't2',
+            sprintId: SPRINT,
+            status: 'TODO',
+            createdAt: at('2026-06-01'),
+          },
         ],
         activities: [statusEvt('t1', 'TODO', 'DONE', '2026-06-01')],
       })
@@ -86,7 +121,12 @@ describe('computeBurnupSeries', () => {
     const out = computeBurnupSeries(
       baseInput({
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-01') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'TODO',
+            createdAt: at('2026-06-01'),
+          },
         ],
         activities: [
           statusEvt('t1', 'TODO', 'DONE', '2026-06-01'),
@@ -108,7 +148,12 @@ describe('computeBurnupSeries', () => {
         endDate: new Date('2026-06-05T00:00:00.000Z'),
         status: 'CLOSED',
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-01') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'TODO',
+            createdAt: at('2026-06-01'),
+          },
         ],
       })
     )
@@ -131,7 +176,12 @@ describe('computeBurnupSeries', () => {
         endDate: new Date('2026-06-01T00:00:00.000Z'),
         status: 'CLOSED',
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-05-30') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'TODO',
+            createdAt: at('2026-05-30'),
+          },
         ],
       })
     )
@@ -147,9 +197,19 @@ describe('computeBurnupSeries', () => {
     const out = computeBurnupSeries(
       baseInput({
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'DONE', createdAt: at('2026-06-01') },
+          {
+            id: 't1',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
           // t5 currently in another sprint, but a SPRINT_CHANGED referenced SPRINT
-          { id: 't5', sprintId: 'other', status: 'DONE', createdAt: at('2026-06-01') },
+          {
+            id: 't5',
+            sprintId: 'other',
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
         ],
         activities: [
           statusEvt('t1', 'TODO', 'DONE', '2026-06-01'),

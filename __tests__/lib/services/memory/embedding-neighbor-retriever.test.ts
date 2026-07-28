@@ -13,13 +13,25 @@ const find = memoryRepository.findNeighborEmbeddings as jest.Mock
 
 // Pool item: "x y" via memoryContentToText → shares bigrams with query "x outcome"
 const ctx = (vector?: number[]) => ({
-  query: { category: 'TRAP' as const, text: 'postgres enum migration fails', vector },
-  pool: [{ id: 'lex1', category: 'TRAP' as const, content: { trigger: 'postgres enum migration', outcome: 'fails' } }],
+  query: {
+    category: 'TRAP' as const,
+    text: 'postgres enum migration fails',
+    vector,
+  },
+  pool: [
+    {
+      id: 'lex1',
+      category: 'TRAP' as const,
+      content: { trigger: 'postgres enum migration', outcome: 'fails' },
+    },
+  ],
   scope: { kind: 'TASK' as const, taskId: 'task_1' },
   k: 10,
 })
 
-beforeEach(() => { find.mockReset() })
+beforeEach(() => {
+  find.mockReset()
+})
 
 describe('EMBEDDING_SCORE_FLOOR', () => {
   it('is distinct from the lexical 0.3 floor and higher', () => {
@@ -32,8 +44,18 @@ describe('embeddingNeighborRetriever', () => {
     find.mockResolvedValue({
       neighbors: [
         { id: 'hi', category: 'TRAP', content: {}, score: 0.92 },
-        { id: 'mid', category: 'TRAP', content: {}, score: EMBEDDING_SCORE_FLOOR },
-        { id: 'lo', category: 'TRAP', content: {}, score: EMBEDDING_SCORE_FLOOR - 0.2 },
+        {
+          id: 'mid',
+          category: 'TRAP',
+          content: {},
+          score: EMBEDDING_SCORE_FLOOR,
+        },
+        {
+          id: 'lo',
+          category: 'TRAP',
+          content: {},
+          score: EMBEDDING_SCORE_FLOOR - 0.2,
+        },
       ],
       scopeHasEmbeddings: true,
     })

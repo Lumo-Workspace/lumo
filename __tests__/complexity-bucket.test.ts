@@ -24,23 +24,35 @@ describe('bucketComplexity', () => {
   })
 
   it('最低信号落 low', () => {
-    const r = bucketComplexity({ totalDurationMs: 1, changedFileCount: 1 }, COHORT)
+    const r = bucketComplexity(
+      { totalDurationMs: 1, changedFileCount: 1 },
+      COHORT
+    )
     expect(r.bucket).toBe('low')
   })
 
   it('中位信号落 med', () => {
-    const r = bucketComplexity({ totalDurationMs: 5, changedFileCount: 5 }, COHORT)
+    const r = bucketComplexity(
+      { totalDurationMs: 5, changedFileCount: 5 },
+      COHORT
+    )
     expect(r.bucket).toBe('med')
   })
 
   it('最高信号落 high', () => {
-    const r = bucketComplexity({ totalDurationMs: 9, changedFileCount: 9 }, COHORT)
+    const r = bucketComplexity(
+      { totalDurationMs: 9, changedFileCount: 9 },
+      COHORT
+    )
     expect(r.bucket).toBe('high')
   })
 
   it('单信号极端被等权中和:时长 top 但文件 bottom → 不落 high', () => {
     // duration rank≈高, file rank≈低, 平均 ≈ 中
-    const r = bucketComplexity({ totalDurationMs: 9, changedFileCount: 1 }, COHORT)
+    const r = bucketComplexity(
+      { totalDurationMs: 9, changedFileCount: 1 },
+      COHORT
+    )
     expect(r.bucket).toBe('med')
   })
 

@@ -94,7 +94,10 @@ describe('updateMilestone @mention notifications', () => {
     await flushBackground()
 
     expect(mockNotifyMentionDelta).toHaveBeenCalledTimes(1)
-    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<string, unknown>
+    const arg = mockNotifyMentionDelta.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >
     expect(arg).toMatchObject({
       notificationType: 'MILESTONE_MENTIONED',
       ref: { milestoneId: 'm1' },

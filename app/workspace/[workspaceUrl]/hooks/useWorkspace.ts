@@ -10,20 +10,13 @@ import { readCache, writeCache } from '../cache'
  * Workspace metadata shared across the app shell.
  *
  * All fields are optional: the placeholder served from localStorage on first
- * paint only carries name/logo/slug, and risk fields are absent on workspaces
- * that never customised their defaults — consumers apply their own fallbacks.
+ * paint only carries name/logo/slug — consumers apply their own fallbacks.
  */
 export interface WorkspaceMeta {
   id?: string
   name?: string
   slug?: string
   logoUrl?: string | null
-  riskOverdueRatio?: number
-  riskStalledDays?: number
-  riskStalledMinCount?: number
-  riskAgentFailRatio?: number
-  riskStalePrDays?: number
-  riskThroughputDrop?: number
 }
 
 /** Subset of WorkspaceMeta persisted to localStorage for instant first paint. */
@@ -79,7 +72,7 @@ export function useWorkspace() {
     isLoading: query.isLoading,
     isError: query.isError,
     /** True while serving the localStorage warm value (no real fetch yet).
-     *  The placeholder carries name/logo only — no risk defaults. */
+     *  The placeholder carries name/logo only. */
     isPlaceholder: query.isPlaceholderData,
   }
 }

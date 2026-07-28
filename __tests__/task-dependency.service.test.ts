@@ -15,7 +15,9 @@ jest.mock('@/lib/repositories/task-dependency.repository', () => ({
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 
-const repo = taskDependencyRepository as jest.Mocked<typeof taskDependencyRepository>
+const repo = taskDependencyRepository as jest.Mocked<
+  typeof taskDependencyRepository
+>
 beforeEach(() => jest.clearAllMocks())
 
 /** Helper: build a full edge object with sensible defaults, override via `over`. */
@@ -32,8 +34,20 @@ const edge = (over: Record<string, unknown> = {}) => ({
   confirmedAt: null,
   createdAt: new Date(0),
   updatedAt: new Date(0),
-  blockedTask: { id: 'a', number: 1, title: 'A', status: 'TODO', team: { identifier: 'LUM' } },
-  blockingTask: { id: 'b', number: 2, title: 'B', status: 'TODO', team: { identifier: 'LUM' } },
+  blockedTask: {
+    id: 'a',
+    number: 1,
+    title: 'A',
+    status: 'TODO',
+    team: { identifier: 'LUM' },
+  },
+  blockingTask: {
+    id: 'b',
+    number: 2,
+    title: 'B',
+    status: 'TODO',
+    team: { identifier: 'LUM' },
+  },
   ...over,
 })
 
@@ -65,7 +79,11 @@ describe('taskDependencyService.listForTask', () => {
 describe('taskDependencyService.addManual', () => {
   it('① self-edge → rejects 400', async () => {
     await expect(
-      taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'a', blockingTaskId: 'a' }),
+      taskDependencyService.addManual({
+        workspaceId: 'w1',
+        blockedTaskId: 'a',
+        blockingTaskId: 'a',
+      })
     ).rejects.toMatchObject({ status: 400 })
   })
 
@@ -77,7 +95,11 @@ describe('taskDependencyService.addManual', () => {
     ])
     // adding b←a (b blocked by a) — meaning b would depend on a, but a already depends on b: cycle
     await expect(
-      taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'b', blockingTaskId: 'a' }),
+      taskDependencyService.addManual({
+        workspaceId: 'w1',
+        blockedTaskId: 'b',
+        blockingTaskId: 'a',
+      })
     ).rejects.toMatchObject({ status: 409 })
   })
 
@@ -89,33 +111,67 @@ describe('taskDependencyService.addManual', () => {
     ])
     // adding c←a: c depends on a, but a→b→c — cycle
     await expect(
-      taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'c', blockingTaskId: 'a' }),
+      taskDependencyService.addManual({
+        workspaceId: 'w1',
+        blockedTaskId: 'c',
+        blockingTaskId: 'a',
+      })
     ).rejects.toMatchObject({ status: 409 })
   })
 
   it('④ no cycle → repo.create called with MANUAL/CONFIRMED/BLOCKS', async () => {
     repo.findByPair.mockResolvedValueOnce(null)
     repo.findConfirmedBlocksEdges.mockResolvedValueOnce([])
-    repo.create.mockResolvedValueOnce(edge({ source: 'MANUAL', status: 'CONFIRMED' }) as any)
-    await taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'a', blockingTaskId: 'b' })
+    repo.create.mockResolvedValueOnce(
+      edge({ source: 'MANUAL', status: 'CONFIRMED' }) as any
+    )
+    await taskDependencyService.addManual({
+      workspaceId: 'w1',
+      blockedTaskId: 'a',
+      blockingTaskId: 'b',
+    })
     expect(repo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'MANUAL', status: 'CONFIRMED', kind: 'BLOCKS' }),
+      expect.objectContaining({
+        source: 'MANUAL',
+        status: 'CONFIRMED',
+        kind: 'BLOCKS',
+      })
     )
   })
 
   it('⑤ existing SUGGESTED same-pair → repo.update instead of create', async () => {
-    repo.findByPair.mockResolvedValueOnce({ id: 'e1', status: 'SUGGESTED' } as any)
+    repo.findByPair.mockResolvedValueOnce({
+      id: 'e1',
+      status: 'SUGGESTED',
+    } as any)
     repo.findConfirmedBlocksEdges.mockResolvedValueOnce([])
     repo.update.mockResolvedValueOnce(edge({ status: 'CONFIRMED' }) as any)
-    await taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'a', blockingTaskId: 'b' })
+    await taskDependencyService.addManual({
+      workspaceId: 'w1',
+      blockedTaskId: 'a',
+      blockingTaskId: 'b',
+    })
     expect(repo.create).not.toHaveBeenCalled()
-    expect(repo.update).toHaveBeenCalledWith('e1', expect.objectContaining({ status: 'CONFIRMED', confirmedAt: expect.any(Date) }))
+    expect(repo.update).toHaveBeenCalledWith(
+      'e1',
+      expect.objectContaining({
+        status: 'CONFIRMED',
+        confirmedAt: expect.any(Date),
+      })
+    )
   })
 
   it('⑥ existing CONFIRMED same-pair → rejects 409', async () => {
-    repo.findByPair.mockResolvedValueOnce({ id: 'e1', status: 'CONFIRMED' } as any)
+    repo.findByPair.mockResolvedValueOnce({
+      id: 'e1',
+      status: 'CONFIRMED',
+    } as any)
     await expect(
-      taskDependencyService.addManual({ workspaceId: 'w1', blockedTaskId: 'a', blockingTaskId: 'b' }),
+      taskDependencyService.addManual({
+        workspaceId: 'w1',
+        blockedTaskId: 'a',
+        blockingTaskId: 'b',
+      })
     ).rejects.toMatchObject({ status: 409 })
   })
 })
@@ -126,7 +182,9 @@ describe('taskDependencyService.addManual', () => {
 describe('taskDependencyService.confirm', () => {
   it('① unknown edge → 404', async () => {
     repo.findById.mockResolvedValueOnce(null)
-    await expect(taskDependencyService.confirm({ edgeId: 'e999' })).rejects.toMatchObject({ status: 404 })
+    await expect(
+      taskDependencyService.confirm({ edgeId: 'e999' })
+    ).rejects.toMatchObject({ status: 404 })
   })
 
   it('② happy path → cycle check then repo.update with CONFIRMED + confirmedAt', async () => {
@@ -137,15 +195,23 @@ describe('taskDependencyService.confirm', () => {
     expect(repo.findConfirmedBlocksEdges).toHaveBeenCalled()
     expect(repo.update).toHaveBeenCalledWith(
       'e1',
-      expect.objectContaining({ status: 'CONFIRMED', confirmedAt: expect.any(Date) }),
+      expect.objectContaining({
+        status: 'CONFIRMED',
+        confirmedAt: expect.any(Date),
+      })
     )
   })
 
   it('③ reverse=true with existing reverse-pair edge → 409', async () => {
     repo.findById.mockResolvedValueOnce(edge() as any) // a←b
     // reverse would be b←a; findByPair returns existing
-    repo.findByPair.mockResolvedValueOnce({ id: 'e2', status: 'CONFIRMED' } as any)
-    await expect(taskDependencyService.confirm({ edgeId: 'e1', reverse: true })).rejects.toMatchObject({
+    repo.findByPair.mockResolvedValueOnce({
+      id: 'e2',
+      status: 'CONFIRMED',
+    } as any)
+    await expect(
+      taskDependencyService.confirm({ edgeId: 'e1', reverse: true })
+    ).rejects.toMatchObject({
       status: 409,
     })
   })
@@ -154,11 +220,21 @@ describe('taskDependencyService.confirm', () => {
     repo.findById.mockResolvedValueOnce(edge() as any) // a←b
     repo.findByPair.mockResolvedValueOnce(null)
     repo.findConfirmedBlocksEdges.mockResolvedValueOnce([])
-    repo.update.mockResolvedValueOnce(edge({ blockedTaskId: 'b', blockingTaskId: 'a', status: 'CONFIRMED' }) as any)
+    repo.update.mockResolvedValueOnce(
+      edge({
+        blockedTaskId: 'b',
+        blockingTaskId: 'a',
+        status: 'CONFIRMED',
+      }) as any
+    )
     await taskDependencyService.confirm({ edgeId: 'e1', reverse: true })
     expect(repo.update).toHaveBeenCalledWith(
       'e1',
-      expect.objectContaining({ blockedTaskId: 'b', blockingTaskId: 'a', status: 'CONFIRMED' }),
+      expect.objectContaining({
+        blockedTaskId: 'b',
+        blockingTaskId: 'a',
+        status: 'CONFIRMED',
+      })
     )
   })
 
@@ -167,9 +243,13 @@ describe('taskDependencyService.confirm', () => {
     repo.findByPair.mockResolvedValueOnce(null) // no existing reverse at check time
     repo.findConfirmedBlocksEdges.mockResolvedValueOnce([])
     // Simulate concurrent creation: update hits the pair unique constraint
-    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+    const p2002 = Object.assign(new Error('Unique constraint failed'), {
+      code: 'P2002',
+    })
     repo.update.mockRejectedValueOnce(p2002)
-    await expect(taskDependencyService.confirm({ edgeId: 'e1', reverse: true })).rejects.toMatchObject({
+    await expect(
+      taskDependencyService.confirm({ edgeId: 'e1', reverse: true })
+    ).rejects.toMatchObject({
       status: 409,
     })
   })
@@ -181,7 +261,9 @@ describe('taskDependencyService.confirm', () => {
     repo.findConfirmedBlocksEdges.mockResolvedValueOnce([
       { blockedTaskId: 'b', blockingTaskId: 'a' },
     ])
-    await expect(taskDependencyService.confirm({ edgeId: 'e1' })).rejects.toMatchObject({ status: 409 })
+    await expect(
+      taskDependencyService.confirm({ edgeId: 'e1' })
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
 
@@ -191,16 +273,20 @@ describe('taskDependencyService.confirm', () => {
 describe('taskDependencyService.dismiss', () => {
   it('unknown → 404', async () => {
     repo.findById.mockResolvedValueOnce(null)
-    await expect(taskDependencyService.dismiss('e999')).rejects.toMatchObject({ status: 404 })
+    await expect(taskDependencyService.dismiss('e999')).rejects.toMatchObject({
+      status: 404,
+    })
   })
 
   it('happy → repo.update with DISMISSED + confirmedAt null', async () => {
     repo.findById.mockResolvedValueOnce(edge() as any)
-    repo.update.mockResolvedValueOnce(edge({ status: 'DISMISSED', confirmedAt: null }) as any)
+    repo.update.mockResolvedValueOnce(
+      edge({ status: 'DISMISSED', confirmedAt: null }) as any
+    )
     await taskDependencyService.dismiss('e1')
     expect(repo.update).toHaveBeenCalledWith(
       'e1',
-      expect.objectContaining({ status: 'DISMISSED', confirmedAt: null }),
+      expect.objectContaining({ status: 'DISMISSED', confirmedAt: null })
     )
   })
 })
@@ -211,7 +297,9 @@ describe('taskDependencyService.dismiss', () => {
 describe('taskDependencyService.remove', () => {
   it('unknown → 404', async () => {
     repo.findById.mockResolvedValueOnce(null)
-    await expect(taskDependencyService.remove('e999')).rejects.toMatchObject({ status: 404 })
+    await expect(taskDependencyService.remove('e999')).rejects.toMatchObject({
+      status: 404,
+    })
   })
 
   it('happy → repo.delete called', async () => {
@@ -240,7 +328,11 @@ describe('taskDependencyService.buildBlockerWarningSectionForTask', () => {
       },
     ] as any)
     repo.countSuggestedForTask.mockResolvedValueOnce(2)
-    const result = await taskDependencyService.buildBlockerWarningSectionForTask('task1', 'LUM-1')
+    const result =
+      await taskDependencyService.buildBlockerWarningSectionForTask(
+        'task1',
+        'LUM-1'
+      )
     expect(result).toContain('LUM-9')
     expect(result).toContain('PR #12')
     expect(result).toContain('lumo task deps list LUM-1')
@@ -249,14 +341,22 @@ describe('taskDependencyService.buildBlockerWarningSectionForTask', () => {
   it('② nothing → empty string', async () => {
     repo.findLiveBlockersForTask.mockResolvedValueOnce([])
     repo.countSuggestedForTask.mockResolvedValueOnce(0)
-    const result = await taskDependencyService.buildBlockerWarningSectionForTask('task1', 'LUM-1')
+    const result =
+      await taskDependencyService.buildBlockerWarningSectionForTask(
+        'task1',
+        'LUM-1'
+      )
     expect(result).toBe('')
   })
 
   it('③ repo throws → resolves empty string (never throws)', async () => {
     repo.findLiveBlockersForTask.mockRejectedValueOnce(new Error('DB down'))
     repo.countSuggestedForTask.mockResolvedValueOnce(0)
-    const result = await taskDependencyService.buildBlockerWarningSectionForTask('task1', 'LUM-1')
+    const result =
+      await taskDependencyService.buildBlockerWarningSectionForTask(
+        'task1',
+        'LUM-1'
+      )
     expect(result).toBe('')
   })
 })

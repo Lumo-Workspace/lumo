@@ -62,7 +62,8 @@ function CardShell({
       className={cn(
         'bg-card border border-border p-3 rounded-lg shadow-elevation-1 hover:shadow-elevation-2 transition-shadow',
         cursorClass,
-        isOverlay && 'shadow-elevation-3 border-blue-500/50 rotate-2 cursor-grabbing',
+        isOverlay &&
+          'shadow-elevation-3 border-blue-500/50 rotate-2 cursor-grabbing',
         needsAttention && 'border-l-3 border-l-orange-400'
       )}
     >

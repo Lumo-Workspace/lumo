@@ -3,7 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { sprintRepository, taskRepository } from '@/lib/repositories'
 import { shapeSprintTask } from '@/lib/api/task-shape'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
-import { getSprintRisk } from '@/lib/services/stats.service'
+import { getSprintBlockers } from '@/lib/services/stats.service'
 
 /**
  * GET /api/sprints/by-number?workspaceUrl=X&number=N
@@ -54,16 +54,16 @@ export async function GET(req: NextRequest) {
       identity.clerkId
     )
 
-    // Fetch tasks alongside progress/risk so the detail page gets sprint +
+    // Fetch tasks alongside progress/blockers so the detail page gets sprint +
     // tasks in one round trip. Previously the client resolved the sprint
     // here, then fired a second request to /sprints/[id]/tasks gated on the
     // returned id — a serial waterfall worth ~300-500ms of skeleton. The
     // client seeds the tasks.bySprint cache from `tasks` below (LUM-200).
-    const [done, total, sprintRisk, sprintTasks, priorCompletionRates] =
+    const [done, total, topBlockers, sprintTasks, priorCompletionRates] =
       await Promise.all([
         sprintRepository.countTasks(sprint.id, { status: 'DONE' }),
         sprintRepository.countTasks(sprint.id),
-        getSprintRisk(sprint.id, sprint.team.workspaceId),
+        getSprintBlockers(sprint.id, sprint.team.workspaceId),
         taskRepository.findBySprint(sprint.id),
         sprintRepository.completedCompletionRates(sprint.teamId, sprint.id),
       ])
@@ -71,8 +71,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       sprint,
       progress: { done, total, priorCompletionRates },
-      risk: sprintRisk.risk,
-      topBlockers: sprintRisk.topBlockers,
+      topBlockers,
       tasks: sprintTasks.map(shapeSprintTask),
     })
   } catch (error) {

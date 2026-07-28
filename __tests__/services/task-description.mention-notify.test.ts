@@ -140,9 +140,7 @@ describe('dispatchUpdateTaskSideEffects @mention notifications', () => {
 
   it('does not fire when description is not part of the changed fields', async () => {
     const dispatch = await getDispatcher()
-    dispatch(
-      buildOpts({ changedFields: ['title'] }) as never
-    )
+    dispatch(buildOpts({ changedFields: ['title'] }) as never)
     await flushBackground()
     expect(mockNotifyMentionDelta).not.toHaveBeenCalled()
   })

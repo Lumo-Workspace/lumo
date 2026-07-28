@@ -221,7 +221,9 @@ describe('buildLayer1ExtractPrompt', () => {
       expect(out.system).toMatch(/one fix, one home/i)
       expect(out.system).toMatch(/double-write/i)
       // The PROCEDURAL definition must warn against restating a workaround.
-      expect(out.system).toMatch(/restate[^.]*workaround|workaround[^.]*restate/i)
+      expect(out.system).toMatch(
+        /restate[^.]*workaround|workaround[^.]*restate/i
+      )
     })
 
     it('shows a TRAP example with an inline workaround and a double-write BAD case', () => {

@@ -55,7 +55,7 @@ describe('taskArtifactRm', () => {
     const [url, init] = fetchSpy.mock.calls[0]!
     expect(String(url)).toBe('https://api.test/api/tasks/LUM-9/artifacts/a1')
     expect((init as RequestInit).method).toBe('DELETE')
-    const output = writeSpy.mock.calls.map((c) => c[0]).join('')
+    const output = writeSpy.mock.calls.map(c => c[0]).join('')
     expect(output).toContain('Removed a1 from LUM-9')
   })
 

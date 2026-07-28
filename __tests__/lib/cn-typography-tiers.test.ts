@@ -15,9 +15,9 @@ describe('cn() with typography tiers', () => {
   })
 
   it('keeps a tier when className adds an unrelated text utility', () => {
-    expect(cn('text-body [&:not(:first-child)]:mt-6', 'text-red-500')).toContain(
-      'text-body'
-    )
+    expect(
+      cn('text-body [&:not(:first-child)]:mt-6', 'text-red-500')
+    ).toContain('text-body')
   })
 
   it('collapses two competing tiers to the last one', () => {

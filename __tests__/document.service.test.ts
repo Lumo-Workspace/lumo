@@ -284,17 +284,29 @@ describe('documentService', () => {
   describe('updateDocument revision capture', () => {
     it('schedules a snapshot when content changes', async () => {
       mockFindWithPermission.mockResolvedValue({
-        id: 'd1', number: 1, createdById: 'm1', shares: [],
+        id: 'd1',
+        number: 1,
+        createdById: 'm1',
+        shares: [],
       })
       mockUpdateWithChildrenAndMentions.mockResolvedValue({
-        id: 'd1', title: 'T', emoji: null, content: '<p>new</p>',
+        id: 'd1',
+        title: 'T',
+        emoji: null,
+        content: '<p>new</p>',
       })
       await documentService.updateDocument('d1', 'm1', 'ws1', {
         content: '<p>new</p>',
       })
       expect(mockSnapshotOnSave).toHaveBeenCalledWith(
-        'd1', 'ws1', 'm1',
-        expect.objectContaining({ content: '<p>new</p>', title: 'T', emoji: null }),
+        'd1',
+        'ws1',
+        'm1',
+        expect.objectContaining({
+          content: '<p>new</p>',
+          title: 'T',
+          emoji: null,
+        }),
         undefined,
         { forceNewRevision: false }
       )
@@ -302,10 +314,16 @@ describe('documentService', () => {
 
     it('does NOT schedule a snapshot for a title-only change', async () => {
       mockFindWithPermission.mockResolvedValue({
-        id: 'd1', number: 1, createdById: 'm1', shares: [],
+        id: 'd1',
+        number: 1,
+        createdById: 'm1',
+        shares: [],
       })
       mockUpdateWithChildrenAndMentions.mockResolvedValue({
-        id: 'd1', title: 'T2', emoji: null, content: null,
+        id: 'd1',
+        title: 'T2',
+        emoji: null,
+        content: null,
       })
       await documentService.updateDocument('d1', 'm1', 'ws1', { title: 'T2' })
       expect(mockSnapshotOnSave).not.toHaveBeenCalled()

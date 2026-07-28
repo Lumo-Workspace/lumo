@@ -23,7 +23,9 @@ describe('workspaceTaskFiltersSchema', () => {
   })
 
   it('rejects an unknown priority value', () => {
-    const parsed = workspaceTaskFiltersSchema.safeParse({ priorities: ['SUPER'] })
+    const parsed = workspaceTaskFiltersSchema.safeParse({
+      priorities: ['SUPER'],
+    })
     expect(parsed.success).toBe(false)
   })
 })

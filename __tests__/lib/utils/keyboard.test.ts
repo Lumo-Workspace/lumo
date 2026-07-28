@@ -38,7 +38,10 @@ describe('detectMac (no deprecated navigator.platform when modern API present)',
   })
 
   it('prefers userAgentData.platform and detects non-Mac', () => {
-    stubNavigator({ userAgentData: { platform: 'Windows' }, platform: 'MacIntel' })
+    stubNavigator({
+      userAgentData: { platform: 'Windows' },
+      platform: 'MacIntel',
+    })
     expect(detectMac()).toBe(false)
   })
 

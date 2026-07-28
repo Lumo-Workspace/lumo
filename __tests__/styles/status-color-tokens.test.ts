@@ -39,9 +39,12 @@ function statusValuesIn(block: string): Record<string, string> {
 
 function blockBody(css: string, selector: string): string {
   // First `{ … }` group following the selector at column 0.
-  const re = new RegExp(`(?:^|\\n)${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`)
+  const re = new RegExp(
+    `(?:^|\\n)${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`
+  )
   const m = css.match(re)
-  if (!m?.[1]) throw new Error(`could not find ${selector} block in globals.css`)
+  if (!m?.[1])
+    throw new Error(`could not find ${selector} block in globals.css`)
   return m[1]
 }
 
@@ -71,12 +74,15 @@ describe('status dots reference bg-status-* utilities', () => {
     '../../app/workspace/[workspaceUrl]/components/pages/ProjectsPage.tsx',
   ]
 
-  it.each(files)('%s uses bg-status-* and no ad-hoc status color classes', file => {
-    const src = readFileSync(join(__dirname, file), 'utf8')
-    for (const token of STATUS_TOKENS) {
-      expect(src).toContain(`bg-${token}`)
+  it.each(files)(
+    '%s uses bg-status-* and no ad-hoc status color classes',
+    file => {
+      const src = readFileSync(join(__dirname, file), 'utf8')
+      for (const token of STATUS_TOKENS) {
+        expect(src).toContain(`bg-${token}`)
+      }
+      // The old per-status maps used these palette classes for the dots/bars.
+      expect(src).not.toMatch(/\bbg-(blue|purple|green)-[0-9]/)
     }
-    // The old per-status maps used these palette classes for the dots/bars.
-    expect(src).not.toMatch(/\bbg-(blue|purple|green)-[0-9]/)
-  })
+  )
 })

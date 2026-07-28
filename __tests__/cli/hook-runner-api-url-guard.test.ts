@@ -27,7 +27,9 @@ it('skips the POST and logs (exit 0) when LUMO_API_URL is an insecure remote hos
   const fetchSpy = jest.spyOn(global, 'fetch')
 
   // Must NOT throw — the hook always exits 0 so Claude Code is never blocked.
-  await expect(runHookWithBody('user-prompt-submit', '{}')).resolves.toBeUndefined()
+  await expect(
+    runHookWithBody('user-prompt-submit', '{}')
+  ).resolves.toBeUndefined()
 
   expect(fetchSpy).not.toHaveBeenCalled()
   expect(mockLog).toHaveBeenCalled()
@@ -39,7 +41,9 @@ it('routes the host-mismatch warning to hook.log, not stdout, and still POSTs', 
   const fetchSpy = jest
     .spyOn(global, 'fetch')
     .mockResolvedValue({ ok: true, status: 200 } as Response)
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  const stdoutSpy = jest
+    .spyOn(process.stdout, 'write')
+    .mockImplementation(() => true)
 
   await runHookWithBody('user-prompt-submit', '{}')
 
@@ -48,7 +52,9 @@ it('routes the host-mismatch warning to hook.log, not stdout, and still POSTs', 
     'https://staging.uselumo.ai/api/hooks/user-prompt-submit'
   )
   // The ⚠ warning goes to hook.log, never stdout (which feeds Claude Code).
-  const warned = mockLog.mock.calls.some(c => String(c[1]).includes('staging.uselumo.ai'))
+  const warned = mockLog.mock.calls.some(c =>
+    String(c[1]).includes('staging.uselumo.ai')
+  )
   expect(warned).toBe(true)
   expect(stdoutSpy).not.toHaveBeenCalled()
 })

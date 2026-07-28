@@ -266,7 +266,12 @@ describe('notificationService', () => {
 
     it('serializes a DOCUMENT_COMMENT_MENTIONED row into document { id, title, url }', async () => {
       mockBatchFetchDocumentsByIds.mockResolvedValue([
-        { id: 'doc-1', title: 'Spec', slug: 'spec-7', workspace: { slug: 'acme' } },
+        {
+          id: 'doc-1',
+          title: 'Spec',
+          slug: 'spec-7',
+          workspace: { slug: 'acme' },
+        },
       ])
 
       const [out] = await notificationService.enrichNotifications([

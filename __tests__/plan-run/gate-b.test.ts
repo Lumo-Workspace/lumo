@@ -135,7 +135,9 @@ describe('clusterIdeaUniverse', () => {
       'i1',
       'i2',
     ])
-    expect(clusterIdeaUniverse(clusterIdForIndex(1), clustering)).toEqual(['i3'])
+    expect(clusterIdeaUniverse(clusterIdForIndex(1), clustering)).toEqual([
+      'i3',
+    ])
   })
 
   it('excludes orphans — an orphan belongs to no cluster', () => {

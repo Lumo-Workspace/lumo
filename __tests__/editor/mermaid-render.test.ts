@@ -11,7 +11,10 @@ jest.mock('mermaid', () => ({
   default: { initialize, parse, render },
 }))
 
-import { renderMermaid, _resetInitializedThemeForTest } from '@/lib/editor/mermaid-render'
+import {
+  renderMermaid,
+  _resetInitializedThemeForTest,
+} from '@/lib/editor/mermaid-render'
 
 beforeEach(() => {
   _resetInitializedThemeForTest()
@@ -25,7 +28,11 @@ describe('renderMermaid', () => {
     parse.mockResolvedValue(true)
     render.mockResolvedValue({ svg: '<svg>ok</svg>' })
 
-    const result = await renderMermaid('mermaid-1', 'graph TD\n A-->B', 'default')
+    const result = await renderMermaid(
+      'mermaid-1',
+      'graph TD\n A-->B',
+      'default'
+    )
 
     expect(result).toEqual({ ok: true, svg: '<svg>ok</svg>' })
     expect(render).toHaveBeenCalledWith('mermaid-1', 'graph TD\n A-->B')
@@ -47,7 +54,11 @@ describe('renderMermaid', () => {
     await renderMermaid('mermaid-3', 'graph TD\n A-->B', 'dark')
 
     expect(initialize).toHaveBeenCalledWith(
-      expect.objectContaining({ securityLevel: 'strict', theme: 'dark', startOnLoad: false })
+      expect.objectContaining({
+        securityLevel: 'strict',
+        theme: 'dark',
+        startOnLoad: false,
+      })
     )
   })
 
@@ -67,7 +78,11 @@ describe('renderMermaid', () => {
     parse.mockResolvedValue(true)
     render.mockRejectedValue(new Error('render DOM unavailable'))
 
-    const result = await renderMermaid('mermaid-4', 'graph TD\n A-->B', 'default')
+    const result = await renderMermaid(
+      'mermaid-4',
+      'graph TD\n A-->B',
+      'default'
+    )
 
     expect(result).toEqual({ ok: false, error: 'render DOM unavailable' })
   })

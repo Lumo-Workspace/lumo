@@ -40,7 +40,9 @@ function makeMemory(over: Partial<MemoryRow> = {}): MemoryRow {
 let queryClient: QueryClient
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  )
 }
 
 beforeEach(() => {
@@ -57,9 +59,12 @@ describe('useMemories', () => {
   it('loads task memories via listForTask', async () => {
     mockListForTask.mockResolvedValue({ memories: [makeMemory({ id: 'm1' })] })
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(mockListForTask).toHaveBeenCalledWith('t1')
@@ -86,9 +91,12 @@ describe('useMemories', () => {
   it('returns empty array before data resolves', () => {
     mockListForTask.mockReturnValue(new Promise(() => {}))
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
 
     expect(result.current.memories).toEqual([])
     expect(result.current.loading).toBe(true)
@@ -97,9 +105,12 @@ describe('useMemories', () => {
   it('skips fetch when enabled=false', async () => {
     mockListForTask.mockResolvedValue({ memories: [] })
 
-    renderHook(() => useMemories({ scope: 'task', parentId: 't1', enabled: false }), {
-      wrapper: Wrapper,
-    })
+    renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1', enabled: false }),
+      {
+        wrapper: Wrapper,
+      }
+    )
 
     await new Promise(r => setTimeout(r, 0))
     expect(mockListForTask).not.toHaveBeenCalled()
@@ -126,9 +137,12 @@ describe('useMemories', () => {
       })
     )
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let createPromise!: Promise<unknown>
@@ -172,9 +186,12 @@ describe('useMemories', () => {
     mockListForTask.mockResolvedValue({ memories: [] })
     mockCreateForTask.mockRejectedValue(new Error('Server error'))
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
@@ -197,7 +214,10 @@ describe('useMemories', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      await result.current.create({ category: 'DECISION', content: { summary: 'use postgres' } })
+      await result.current.create({
+        category: 'DECISION',
+        content: { summary: 'use postgres' },
+      })
     })
 
     expect(mockCreateForProject).toHaveBeenCalledWith('p1', {
@@ -218,9 +238,12 @@ describe('useMemories', () => {
       })
     )
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(1))
 
     let editPromise!: Promise<unknown>
@@ -248,9 +271,12 @@ describe('useMemories', () => {
     })
     mockEditContent.mockRejectedValue(new Error('Patch failed'))
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(1))
 
     await act(async () => {
@@ -274,9 +300,12 @@ describe('useMemories', () => {
 
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(1))
 
     await act(async () => {
@@ -287,7 +316,9 @@ describe('useMemories', () => {
     // Promote moves the row task→project, so it leaves the task list.
     await waitFor(() => expect(result.current.memories).toHaveLength(0))
     // The project list (different parentId) must refetch to show the new row.
-    const keys = invalidateSpy.mock.calls.map(c => (c[0] as { queryKey: unknown }).queryKey)
+    const keys = invalidateSpy.mock.calls.map(
+      c => (c[0] as { queryKey: unknown }).queryKey
+    )
     expect(keys).toContainEqual(['memories', 'project'])
   })
 
@@ -297,13 +328,18 @@ describe('useMemories', () => {
     })
     mockPromoteToProject.mockRejectedValue(new Error('Promote failed'))
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(1))
 
     await act(async () => {
-      await expect(result.current.promote('m1')).rejects.toThrow('Promote failed')
+      await expect(result.current.promote('m1')).rejects.toThrow(
+        'Promote failed'
+      )
     })
 
     await waitFor(() => expect(result.current.memories).toHaveLength(1))
@@ -316,9 +352,12 @@ describe('useMemories', () => {
     })
     mockRemove.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(2))
 
     await act(async () => {
@@ -336,9 +375,12 @@ describe('useMemories', () => {
     })
     mockRemove.mockRejectedValue(new Error('Delete failed'))
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.memories).toHaveLength(2))
 
     await act(async () => {
@@ -358,9 +400,12 @@ describe('useMemories', () => {
       })
     )
 
-    const { result } = renderHook(() => useMemories({ scope: 'task', parentId: 't1' }), {
-      wrapper: Wrapper,
-    })
+    const { result } = renderHook(
+      () => useMemories({ scope: 'task', parentId: 't1' }),
+      {
+        wrapper: Wrapper,
+      }
+    )
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let createPromise!: Promise<unknown>

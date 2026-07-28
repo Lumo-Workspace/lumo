@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl'
 import type { RowSelectionState } from '@tanstack/react-table'
 import { DataTable } from '../data-table/data-table'
 import { createTaskColumns, type TaskPatch } from '../data-table/task-columns'
-import { buildColumnTemplate, type ColumnId } from '../data-table/columnTemplate'
+import {
+  buildColumnTemplate,
+  type ColumnId,
+} from '../data-table/columnTemplate'
 import type { ApiTask, ApiProject, WorkspaceMemberInfo } from '../../types'
 
 interface TreeConfig {

@@ -23,9 +23,15 @@ describe('relativeTime', () => {
     expect(relativeTime(new Date('2026-06-01T11:59:30Z'), now)).toBe('just now')
   })
   it('minutes / hours / days', () => {
-    expect(relativeTime(new Date('2026-06-01T11:30:00Z'), now)).toBe('30min ago')
+    expect(relativeTime(new Date('2026-06-01T11:30:00Z'), now)).toBe(
+      '30min ago'
+    )
     expect(relativeTime(new Date('2026-06-01T10:00:00Z'), now)).toBe('2h ago')
-    expect(relativeTime(new Date('2026-05-30T12:00:00Z'), now)).toBe('2 days ago')
-    expect(relativeTime(new Date('2026-05-31T12:00:00Z'), now)).toBe('yesterday')
+    expect(relativeTime(new Date('2026-05-30T12:00:00Z'), now)).toBe(
+      '2 days ago'
+    )
+    expect(relativeTime(new Date('2026-05-31T12:00:00Z'), now)).toBe(
+      'yesterday'
+    )
   })
 })

@@ -30,7 +30,9 @@ describe('DesignSystemCatalog', () => {
   it('renders real component variants', () => {
     render(<DesignSystemCatalog />)
     // Button section renders multiple "Button" labels; Badge renders "Badge".
-    expect(screen.getAllByRole('button', { name: 'Button' }).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole('button', { name: 'Button' }).length
+    ).toBeGreaterThan(0)
     expect(screen.getAllByText('Badge').length).toBeGreaterThan(0)
   })
 })

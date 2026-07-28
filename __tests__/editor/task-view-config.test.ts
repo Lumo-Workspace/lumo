@@ -32,7 +32,9 @@ describe('parseTaskViewConfig', () => {
   })
 
   it('defaults filters to {} when missing or non-object', () => {
-    expect(parseTaskViewConfig(JSON.stringify({ filters: 5 })).filters).toEqual({})
+    expect(parseTaskViewConfig(JSON.stringify({ filters: 5 })).filters).toEqual(
+      {}
+    )
     expect(parseTaskViewConfig(JSON.stringify({})).filters).toEqual({})
   })
 

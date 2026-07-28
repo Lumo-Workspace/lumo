@@ -56,12 +56,14 @@ describe('SlashCommandList a11y', () => {
   })
 
   it('marks the first option selected and wires aria-activedescendant', () => {
-    render(<SlashCommandList items={items} command={jest.fn()} label='Commands' />)
+    render(
+      <SlashCommandList items={items} command={jest.fn()} label='Commands' />
+    )
     const options = screen.getAllByRole('option')
     expect(options[0]).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('listbox').getAttribute('aria-activedescendant')).toBe(
-      options[0]!.id
-    )
+    expect(
+      screen.getByRole('listbox').getAttribute('aria-activedescendant')
+    ).toBe(options[0]!.id)
   })
 
   it('moves the active option on ArrowDown via the imperative ref', () => {
@@ -86,7 +88,9 @@ describe('SlashCommandList a11y', () => {
   })
 
   it('groups options by category', () => {
-    render(<SlashCommandList items={items} command={jest.fn()} label='Commands' />)
+    render(
+      <SlashCommandList items={items} command={jest.fn()} label='Commands' />
+    )
     expect(screen.getByRole('group', { name: 'Basic' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Advanced' })).toBeInTheDocument()
   })

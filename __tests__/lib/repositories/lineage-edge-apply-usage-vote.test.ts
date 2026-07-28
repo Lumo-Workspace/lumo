@@ -15,15 +15,18 @@ describe('applyUsageVote', () => {
   it('replace mode (default) stamps true on voted and false on the rest', async () => {
     await lineageEdgeRepository.applyUsageVote('s1', [ref])
     expect(updateMany).toHaveBeenCalledTimes(2)
-    const falseCall = updateMany.mock.calls.find(
-      c => c[0].data.used === false
-    )
+    const falseCall = updateMany.mock.calls.find(c => c[0].data.used === false)
     expect(falseCall).toBeTruthy()
-    expect(falseCall![0].where).toMatchObject({ sessionId: 's1', NOT: expect.anything() })
+    expect(falseCall![0].where).toMatchObject({
+      sessionId: 's1',
+      NOT: expect.anything(),
+    })
   })
 
   it('additive mode stamps true on voted and NEVER writes false', async () => {
-    await lineageEdgeRepository.applyUsageVote('s1', [ref], { mode: 'additive' })
+    await lineageEdgeRepository.applyUsageVote('s1', [ref], {
+      mode: 'additive',
+    })
     expect(updateMany).toHaveBeenCalledTimes(1)
     const call = updateMany.mock.calls[0]![0]
     expect(call.data).toEqual({ used: true, usedAt: expect.any(Date) })
@@ -31,7 +34,9 @@ describe('applyUsageVote', () => {
   })
 
   it('additive mode with empty refs is a no-op (no writes at all)', async () => {
-    const r = await lineageEdgeRepository.applyUsageVote('s1', [], { mode: 'additive' })
+    const r = await lineageEdgeRepository.applyUsageVote('s1', [], {
+      mode: 'additive',
+    })
     expect(updateMany).not.toHaveBeenCalled()
     expect(r).toEqual({ used: 0, unused: 0 })
   })
@@ -40,7 +45,10 @@ describe('applyUsageVote', () => {
     updateMany.mockResolvedValue({ count: 3 })
     const r = await lineageEdgeRepository.applyUsageVote('s1', [])
     expect(updateMany).toHaveBeenCalledTimes(1)
-    expect(updateMany.mock.calls[0]![0].data).toEqual({ used: false, usedAt: expect.any(Date) })
+    expect(updateMany.mock.calls[0]![0].data).toEqual({
+      used: false,
+      usedAt: expect.any(Date),
+    })
     expect(r).toEqual({ used: 0, unused: 3 })
   })
 })

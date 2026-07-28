@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
-import { useWorkspace } from '../../hooks/useWorkspace'
 import {
   ApiProject,
   ApiTask,
@@ -87,23 +86,6 @@ export function ProjectDetailPage({
   >('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
-
-  // Workspace risk defaults for project-level overrides — sourced from the
-  // shared, RQ-cached workspace metadata. Stays null until the real fetch
-  // resolves (the localStorage placeholder carries no risk fields), so the
-  // risk card mounts only once true defaults are known — same as before.
-  const { workspace: ws, isPlaceholder: wsIsPlaceholder } = useWorkspace()
-  const workspaceRiskDefaults = useMemo(() => {
-    if (!ws || wsIsPlaceholder) return null
-    return {
-      riskOverdueRatio: ws.riskOverdueRatio ?? 0.3,
-      riskStalledDays: ws.riskStalledDays ?? 7,
-      riskStalledMinCount: ws.riskStalledMinCount ?? 3,
-      riskAgentFailRatio: ws.riskAgentFailRatio ?? 0.3,
-      riskStalePrDays: ws.riskStalePrDays ?? 3,
-      riskThroughputDrop: ws.riskThroughputDrop ?? 0.5,
-    }
-  }, [ws, wsIsPlaceholder])
 
   const {
     options: displayOptions,
@@ -203,7 +185,6 @@ export function ProjectDetailPage({
           project={project}
           members={members}
           workspaceUrl={workspaceUrl}
-          workspaceRiskDefaults={workspaceRiskDefaults}
           onUpdateProject={onUpdateProject}
         />
       )}

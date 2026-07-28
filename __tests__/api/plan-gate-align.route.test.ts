@@ -343,7 +343,10 @@ describe('POST /api/plan-runs/[runId]/gate/align — per-idea selection', () => 
     const data = mockConfirmStageRecord.mock.calls[0][2]
     return Object.fromEntries(
       data.humanConfirmedOutput.clusters.map(
-        (c: { clusterId: string; ideaIds: string[] }) => [c.clusterId, c.ideaIds]
+        (c: { clusterId: string; ideaIds: string[] }) => [
+          c.clusterId,
+          c.ideaIds,
+        ]
       )
     )
   }
@@ -460,7 +463,9 @@ describe('POST /api/plan-runs/[runId]/gate/align — per-idea selection', () => 
     // The schema can't see this one: ideaIds is omitted, and the cluster is
     // empty in gate A's clustering. Only the service knows the universe.
     mockFindStageRecord.mockImplementation(async (_id: string, kind: string) =>
-      kind === 'CLUSTER' ? clusterRecord(CLUSTER_WITH_EMPTY_LAST) : alignRecord()
+      kind === 'CLUSTER'
+        ? clusterRecord(CLUSTER_WITH_EMPTY_LAST)
+        : alignRecord()
     )
     const res = await POST(
       req({
@@ -731,7 +736,9 @@ describe('GET /api/plan-runs/[runId]/gate/align — render source', () => {
 
   it('an empty cluster still names itself', async () => {
     mockFindStageRecord.mockImplementation(async (_id: string, kind: string) =>
-      kind === 'CLUSTER' ? clusterRecord(CLUSTER_WITH_EMPTY_LAST) : alignRecord()
+      kind === 'CLUSTER'
+        ? clusterRecord(CLUSTER_WITH_EMPTY_LAST)
+        : alignRecord()
     )
     const res = await GET(req(), params)
     const json = await res.json()

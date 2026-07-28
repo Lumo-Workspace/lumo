@@ -124,7 +124,6 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
               tldr={tldr ?? ''}
               report={report ?? ''}
               generatedAt={generatedAt ?? ''}
-              risk={stats?.risk ?? null}
               members={members}
               agentActors={agentActors}
             />

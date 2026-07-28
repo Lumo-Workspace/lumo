@@ -35,7 +35,9 @@ describe('task slack show sanitization', () => {
       status: 200,
       json: async () => ({
         snapshot: {
-          messages: [{ userId: 'U1', userName: 'Ev\x1bil', text: 'h\x1b[31mi' }],
+          messages: [
+            { userId: 'U1', userName: 'Ev\x1bil', text: 'h\x1b[31mi' },
+          ],
         },
       }),
     })) as unknown as typeof fetch

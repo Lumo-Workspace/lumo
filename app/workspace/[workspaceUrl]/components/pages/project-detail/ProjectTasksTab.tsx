@@ -212,7 +212,9 @@ export function ProjectTasksTab({
       } else {
         const idSet = new Set(ids)
         setTasks(prev => prev.filter(t => !idSet.has(t.id)))
-        toast.success(`Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+        toast.success(
+          `Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`
+        )
       }
     } finally {
       setDeleting(false)

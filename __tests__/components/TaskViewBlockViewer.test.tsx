@@ -20,24 +20,25 @@ jest.mock('next/navigation', () => ({
 }))
 
 const mockUseWorkspaceTasks = jest.fn()
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTasks',
-  () => ({ useWorkspaceTasks: (...a: unknown[]) => mockUseWorkspaceTasks(...a) })
-)
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTasks', () => ({
+  useWorkspaceTasks: (...a: unknown[]) => mockUseWorkspaceTasks(...a),
+}))
 
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/hooks/useProjects',
-  () => ({ useProjects: () => ({ projects: [] }) })
-)
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useProjects', () => ({
+  useProjects: () => ({ projects: [] }),
+}))
 
 jest.mock(
   '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones',
   () => ({ useWorkspaceMilestones: () => ({ milestones: [] }) })
 )
 
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTaskStatus', () => ({
-  useWorkspaceTaskStatus: () => ({ updateStatus: jest.fn() }),
-}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTaskStatus',
+  () => ({
+    useWorkspaceTaskStatus: () => ({ updateStatus: jest.fn() }),
+  })
+)
 
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => children,
@@ -100,7 +101,9 @@ describe('RichTextViewer — task view block', () => {
       error: null,
     })
     render(<RichTextViewer value={STORED} />)
-    const link = await waitFor(() => screen.getByRole('link', { name: /Fix login/ }))
+    const link = await waitFor(() =>
+      screen.getByRole('link', { name: /Fix login/ })
+    )
     expect(link).toHaveAttribute('href', '/workspace/acme/my-tasks/LUM-42')
   })
 
@@ -120,8 +123,20 @@ describe('RichTextViewer — task view block', () => {
   it('renders status group headers when groupBy is status', async () => {
     mockUseWorkspaceTasks.mockReturnValue({
       tasks: [
-        { id: 't1', title: 'A', teamIdentifier: 'LUM', number: 1, status: 'TODO' },
-        { id: 't2', title: 'B', teamIdentifier: 'LUM', number: 2, status: 'DONE' },
+        {
+          id: 't1',
+          title: 'A',
+          teamIdentifier: 'LUM',
+          number: 1,
+          status: 'TODO',
+        },
+        {
+          id: 't2',
+          title: 'B',
+          teamIdentifier: 'LUM',
+          number: 2,
+          status: 'DONE',
+        },
       ],
       truncated: false,
       loading: false,
@@ -156,7 +171,13 @@ describe('RichTextViewer — task view block', () => {
   it('renders the kanban board when view is kanban', async () => {
     mockUseWorkspaceTasks.mockReturnValue({
       tasks: [
-        { id: 't1', title: 'Alpha', teamIdentifier: 'LUM', number: 1, status: 'TODO' },
+        {
+          id: 't1',
+          title: 'Alpha',
+          teamIdentifier: 'LUM',
+          number: 1,
+          status: 'TODO',
+        },
       ],
       truncated: false,
       loading: false,
@@ -165,19 +186,31 @@ describe('RichTextViewer — task view block', () => {
     const stored =
       '<div data-task-view data-task-view-config=\'{"version":1,"view":"kanban","groupBy":"none","filters":{}}\'></div>'
     render(<RichTextViewer value={stored} />)
-    await waitFor(() => expect(screen.getByText('In Progress')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('In Progress')).toBeInTheDocument()
+    )
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
   it('shows the truncated banner when the result is capped', async () => {
     mockUseWorkspaceTasks.mockReturnValue({
-      tasks: [{ id: 't1', title: 'A', teamIdentifier: 'LUM', number: 1, status: 'TODO' }],
+      tasks: [
+        {
+          id: 't1',
+          title: 'A',
+          teamIdentifier: 'LUM',
+          number: 1,
+          status: 'TODO',
+        },
+      ],
       truncated: true,
       loading: false,
       error: null,
     })
     render(<RichTextViewer value={STORED} />)
-    await waitFor(() => expect(screen.getByText(/Showing the first/)).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText(/Showing the first/)).toBeInTheDocument()
+    )
   })
 
   it('refetches when the refresh button is clicked', async () => {

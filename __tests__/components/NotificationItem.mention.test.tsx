@@ -90,8 +90,12 @@ describe('NotificationItem — mention types', () => {
     )
 
     expect(screen.getByText('Apollo')).toBeInTheDocument()
-    expect(screen.getByText(en['notification.verb.projectMentioned'])).toBeInTheDocument()
-    expect(screen.queryByText(en['notification.unspecifiedTask'])).not.toBeInTheDocument()
+    expect(
+      screen.getByText(en['notification.verb.projectMentioned'])
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(en['notification.unspecifiedTask'])
+    ).not.toBeInTheDocument()
   })
 
   it('navigates to the project url when clicked', () => {
@@ -124,7 +128,9 @@ describe('NotificationItem — mention types', () => {
     )
 
     expect(screen.getByText('Launch GA')).toBeInTheDocument()
-    expect(screen.getByText(en['notification.verb.milestoneMentioned'])).toBeInTheDocument()
+    expect(
+      screen.getByText(en['notification.verb.milestoneMentioned'])
+    ).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveAttribute(
       'href',
       '/workspace/ws/milestones/launch-ga'
@@ -145,7 +151,9 @@ describe('NotificationItem — mention types', () => {
     )
 
     expect(screen.getByText('Design Spec')).toBeInTheDocument()
-    expect(screen.getByText(en['notification.verb.documentMentioned'])).toBeInTheDocument()
+    expect(
+      screen.getByText(en['notification.verb.documentMentioned'])
+    ).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveAttribute(
       'href',
       '/workspace/ws/documents/design-spec-3'

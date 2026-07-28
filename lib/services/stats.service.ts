@@ -1,14 +1,12 @@
 import { statsRepository } from '@/lib/repositories/stats.repository'
 import {
   aggregateProjectStats,
-  aggregateSprintRisk,
+  aggregateSprintBlockers,
   aggregateWorkspaceStats,
-  type ProjectRiskOverride,
 } from '@/lib/summaries/stats'
-import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
+import { STALE_PR_DAYS } from '@/lib/summaries/top-blockers'
 import { reconcileStaleProjectPrs } from './stale-pr-reconcile.service'
 import type {
-  RiskAssessment,
   TaskSummaryStats,
   TopBlockers,
   WorkspaceSummaryStats,
@@ -19,8 +17,8 @@ export async function getProjectStats(
   workspaceId: string
 ): Promise<TaskSummaryStats> {
   const [project, workspace] = await Promise.all([
-    statsRepository.findProjectWithRiskConfig(projectId),
-    statsRepository.findWorkspaceWithRiskConfig(workspaceId),
+    statsRepository.findProjectId(projectId),
+    statsRepository.findWorkspaceId(workspaceId),
   ])
 
   if (!project)
@@ -28,67 +26,37 @@ export async function getProjectStats(
   if (!workspace)
     throw Object.assign(new Error('Workspace not found'), { status: 404 })
 
-  const config = resolveEffectiveRiskConfig(workspace, project)
-
   // Correct any drifted PR state before aggregating, so a PR that was merged
   // without its webhook landing doesn't get counted (and shown) as a stale PR
   // awaiting review. Fail-soft and bounded — see the service for why this runs
   // on the read path rather than only in a background job.
-  await reconcileStaleProjectPrs(projectId, workspaceId, config.stalePrDays)
+  await reconcileStaleProjectPrs(projectId, workspaceId, STALE_PR_DAYS)
 
-  return aggregateProjectStats(projectId, config)
+  return aggregateProjectStats(projectId)
 }
 
 /**
- * Sprint-dimension risk. Sprints live under a team and carry no risk-config
- * overrides of their own (no schema change for this), so the effective config
- * is the workspace baseline. The caller already loaded the sprint and passes
- * its workspaceId.
+ * Sprint-dimension blockers. The caller already loaded the sprint and passes
+ * its workspaceId so the workspace is validated on this path too.
  */
-export async function getSprintRisk(
+export async function getSprintBlockers(
   sprintId: string,
   workspaceId: string
-): Promise<{ risk: RiskAssessment; topBlockers: TopBlockers }> {
-  const workspace =
-    await statsRepository.findWorkspaceWithRiskConfig(workspaceId)
+): Promise<TopBlockers> {
+  const workspace = await statsRepository.findWorkspaceId(workspaceId)
   if (!workspace)
     throw Object.assign(new Error('Workspace not found'), { status: 404 })
 
-  const config = resolveEffectiveRiskConfig(workspace, null)
-  return aggregateSprintRisk(sprintId, config)
+  return aggregateSprintBlockers(sprintId)
 }
 
 export async function getWorkspaceStats(
   workspaceId: string
 ): Promise<WorkspaceSummaryStats> {
-  const workspace =
-    await statsRepository.findWorkspaceWithProjectRiskConfigs(workspaceId)
+  const workspace = await statsRepository.findWorkspaceId(workspaceId)
 
   if (!workspace)
     throw Object.assign(new Error('Workspace not found'), { status: 404 })
 
-  const workspaceConfig = {
-    riskOverdueRatio: workspace.riskOverdueRatio,
-    riskStalledDays: workspace.riskStalledDays,
-    riskStalledMinCount: workspace.riskStalledMinCount,
-    riskAgentFailRatio: workspace.riskAgentFailRatio,
-    riskStalePrDays: workspace.riskStalePrDays,
-    riskThroughputDrop: workspace.riskThroughputDrop,
-  }
-
-  const effectiveConfig = resolveEffectiveRiskConfig(workspaceConfig, null)
-
-  const projectOverrides = new Map<string, ProjectRiskOverride | null>()
-  for (const p of workspace.projects) {
-    projectOverrides.set(p.id, {
-      riskOverdueRatio: p.riskOverdueRatio,
-      riskStalledDays: p.riskStalledDays,
-      riskStalledMinCount: p.riskStalledMinCount,
-      riskAgentFailRatio: p.riskAgentFailRatio,
-      riskStalePrDays: p.riskStalePrDays,
-      riskThroughputDrop: p.riskThroughputDrop,
-    })
-  }
-
-  return aggregateWorkspaceStats(workspaceId, effectiveConfig, projectOverrides)
+  return aggregateWorkspaceStats(workspaceId)
 }

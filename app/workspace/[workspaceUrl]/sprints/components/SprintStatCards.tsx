@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
-import type { RiskAssessment } from '@/types/summary'
 import {
   DAY_MS,
   calendarDayKey,
@@ -12,14 +11,12 @@ import {
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
 import { formatCalendarDate } from '@/lib/datetime/format'
-import { RiskBadge } from '../../components/summary/RiskBadge'
 import { SprintBurnupSparkline } from './SprintBurnupSparkline'
 import { SprintDateRange } from './SprintDateRange'
 
 interface SprintStatCardsProps {
   sprint: Sprint
   progress: { done: number; total: number }
-  risk: RiskAssessment | null
   /** Refetch after an inline sprint-date edit in the header. */
   onRefresh: () => void
 }
@@ -66,14 +63,13 @@ function Card({
 }
 
 /**
- * The four sprint stat cards that head the detail page (Progress / Health /
- * Time left / Burnup), laid out above the task board — the relocated,
- * redesigned form of the old right-hand info sidebar.
+ * The three sprint stat cards that head the detail page (Progress / Time left /
+ * Burnup), laid out above the task board — the relocated, redesigned form of
+ * the old right-hand info sidebar.
  */
 export function SprintStatCards({
   sprint,
   progress,
-  risk,
   onRefresh,
 }: SprintStatCardsProps) {
   const intl = useIntl()
@@ -85,15 +81,6 @@ export function SprintStatCards({
 
   const pct =
     progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
-
-  const reasonLine = useMemo(
-    () =>
-      (risk?.reasons ?? [])
-        .slice(0, 2)
-        .map(r => r.detail)
-        .join(', '),
-    [risk]
-  )
 
   // Sprint endpoints are calendar days: count and render them in the same
   // UTC-pinned frame the rest of the sprint surfaces use, or the detail page
@@ -123,7 +110,7 @@ export function SprintStatCards({
         <SprintDateRange sprint={sprint} onRefresh={onRefresh} />
       </div>
 
-      <div className='grid grid-cols-2 gap-3.5 lg:grid-cols-4'>
+      <div className='grid grid-cols-2 gap-3.5 lg:grid-cols-3'>
         {/* Progress — ring + percentage */}
         <Card label={intl.formatMessage({ id: 'sprints.detail.progress' })}>
           <div className='flex items-center gap-3.5'>
@@ -165,25 +152,6 @@ export function SprintStatCards({
               </div>
             </div>
           </div>
-        </Card>
-
-        {/* Health — risk badge + reason */}
-        <Card
-          label={intl.formatMessage({ id: 'sprints.detail.health' })}
-          action={<RiskBadge level={risk?.level ?? null} size='sm' />}
-        >
-          {reasonLine ? (
-            <p className='text-caption leading-relaxed text-muted-foreground'>
-              {reasonLine}
-            </p>
-          ) : (
-            <p className='text-caption leading-relaxed text-muted-foreground'>
-              {intl.formatMessage({
-                id: 'sprints.detail.healthNoSignals',
-                defaultMessage: 'No risk signals surfaced.',
-              })}
-            </p>
-          )}
         </Card>
 
         {/* Time left — days remaining + end date */}

@@ -7,7 +7,9 @@ describe('memoryContentToText', () => {
       trigger: 'add enum value and use it same migration',
       outcome: 'P3009',
     })
-    expect(text).toBe('enum trap add enum value and use it same migration P3009')
+    expect(text).toBe(
+      'enum trap add enum value and use it same migration P3009'
+    )
   })
 
   it('flattens DECISION fields including alternatives/implications', () => {
@@ -39,6 +41,8 @@ describe('memoryContentToText', () => {
   })
 
   it('skips empty/whitespace-only string fields', () => {
-    expect(memoryContentToText('CONVENTION', { rule: 'use Zod', scope: '   ' })).toBe('use Zod')
+    expect(
+      memoryContentToText('CONVENTION', { rule: 'use Zod', scope: '   ' })
+    ).toBe('use Zod')
   })
 })

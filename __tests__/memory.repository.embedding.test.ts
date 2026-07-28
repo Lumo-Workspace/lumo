@@ -41,7 +41,12 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
   it('TASK scope: queries by taskId, filters non-null embedding, maps rows + returns scopeHasEmbeddings=true', async () => {
     ;(prisma.$queryRaw as jest.Mock)
       .mockResolvedValueOnce([
-        { id: 'm1', category: 'TRAP', content: { trigger: 'x' }, distance: 0.2 },
+        {
+          id: 'm1',
+          category: 'TRAP',
+          content: { trigger: 'x' },
+          distance: 0.2,
+        },
       ]) // neighbors
       .mockResolvedValueOnce([{ exists: true }]) // scopeHasEmbeddings EXISTS probe
 
@@ -62,7 +67,10 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
     // taskId appears as a bound param in both Prisma.sql Sql objects
     const allCalls = (prisma.$queryRaw as jest.Mock).mock.calls
     const firstSql = allCalls[0]![0] as { strings: string[]; values: unknown[] }
-    const secondSql = allCalls[1]![0] as { strings: string[]; values: unknown[] }
+    const secondSql = allCalls[1]![0] as {
+      strings: string[]
+      values: unknown[]
+    }
     expect(JSON.stringify(firstSql.values)).toContain('task_1')
     expect(JSON.stringify(secondSql.values)).toContain('task_1')
   })
@@ -80,7 +88,10 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
 
     const allCalls = (prisma.$queryRaw as jest.Mock).mock.calls
     const annSql = allCalls[0]![0] as { strings: string[]; values: unknown[] }
-    const existsSql = allCalls[1]![0] as { strings: string[]; values: unknown[] }
+    const existsSql = allCalls[1]![0] as {
+      strings: string[]
+      values: unknown[]
+    }
     // The active filter is a static literal (not a bound param), so it lives in
     // the SQL strings — superseded/archived rows must never reach retrieval.
     expect(annSql.strings.join('')).toContain(`"status" = 'ACTIVE'`)
@@ -110,7 +121,12 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
   it('PROJECT scope: scopeHasEmbeddings=true when EXISTS probe returns true', async () => {
     ;(prisma.$queryRaw as jest.Mock)
       .mockResolvedValueOnce([
-        { id: 'm2', category: 'DECISION', content: 'use postgres', distance: 0.1 },
+        {
+          id: 'm2',
+          category: 'DECISION',
+          content: 'use postgres',
+          distance: 0.1,
+        },
       ])
       .mockResolvedValueOnce([{ exists: true }])
 
@@ -121,7 +137,10 @@ describe('memoryRepository.findNeighborEmbeddings', () => {
     })
 
     expect(out.neighbors).toHaveLength(1)
-    expect(out.neighbors[0]).toMatchObject({ id: 'm2', score: expect.closeTo(0.9, 5) })
+    expect(out.neighbors[0]).toMatchObject({
+      id: 'm2',
+      score: expect.closeTo(0.9, 5),
+    })
     expect(out.scopeHasEmbeddings).toBe(true)
   })
 

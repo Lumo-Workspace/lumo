@@ -63,8 +63,12 @@ describe('taskContextService.buildMemorySectionForTask', () => {
       id: 'task-1',
       projectId: 'project-1',
     })
-    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([])
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([])
+    ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue(
+      []
+    )
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([])
 
     const result = await taskContextService.buildMemorySectionForTask('task-1')
 
@@ -76,7 +80,9 @@ describe('taskContextService.buildMemorySectionForTask', () => {
       id: 'task-1',
       projectId: 'project-1',
     })
-    ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValue([
+    ;(
+      memoryRepository.findActiveProjectMemories as jest.Mock
+    ).mockResolvedValue([
       {
         id: 'mem-p',
         category: 'CONVENTION',

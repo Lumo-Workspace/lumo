@@ -23,14 +23,17 @@ describe('formatTaskContextMarkdown — criteriaSection', () => {
     const out = formatTaskContextMarkdown(
       {
         task: TASK,
-        criteriaSection: '## Acceptance criteria (contract)\n\n- [MACHINE] tests pass',
+        criteriaSection:
+          '## Acceptance criteria (contract)\n\n- [MACHINE] tests pass',
         memorySection: '## Relevant Memory\n\n- m',
         sessions: [],
       },
       NOW
     )
     expect(out).toContain('- [MACHINE] tests pass')
-    expect(out.indexOf('Acceptance criteria')).toBeLessThan(out.indexOf('Relevant Memory'))
+    expect(out.indexOf('Acceptance criteria')).toBeLessThan(
+      out.indexOf('Relevant Memory')
+    )
     expect(out.indexOf('**Description**')).toBeLessThan(
       out.indexOf('Acceptance criteria')
     )

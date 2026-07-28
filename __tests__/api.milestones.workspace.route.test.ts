@@ -12,7 +12,9 @@ import { GET } from '@/app/api/milestones/workspace/route'
 const mockId = requireIdentity as jest.Mock
 const mockList = milestoneService.listByWorkspace as jest.Mock
 const req = (qs: string) =>
-  new Request(`http://localhost/api/milestones/workspace${qs}`) as unknown as NextRequest
+  new Request(
+    `http://localhost/api/milestones/workspace${qs}`
+  ) as unknown as NextRequest
 beforeEach(() => jest.clearAllMocks())
 
 describe('GET /api/milestones/workspace', () => {

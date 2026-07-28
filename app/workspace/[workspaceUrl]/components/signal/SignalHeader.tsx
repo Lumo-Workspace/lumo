@@ -16,7 +16,7 @@ interface SignalHeaderProps {
 /**
  * Accent stripe per tone. The stripe and the tint carry the severity; the
  * number itself stays `text-foreground` because the bright accents fail AA as
- * text on the card surface — same rationale as RiskBadge.
+ * text on the card surface.
  *
  * Drawn as its own element rather than a coloured `border-top`: this build
  * doesn't generate side-specific border-colour utilities (`border-t-danger`

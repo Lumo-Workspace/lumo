@@ -1,39 +1,17 @@
 import { prisma } from '@/lib/db/prisma'
 
-const RISK_FIELDS = {
-  riskOverdueRatio: true,
-  riskStalledDays: true,
-  riskStalledMinCount: true,
-  riskAgentFailRatio: true,
-  riskStalePrDays: true,
-  riskThroughputDrop: true,
-} as const
-
 export const statsRepository = {
-  async findProjectWithRiskConfig(projectId: string) {
+  async findProjectId(projectId: string) {
     return prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true, ...RISK_FIELDS },
+      select: { id: true },
     })
   },
 
-  async findWorkspaceWithRiskConfig(workspaceId: string) {
+  async findWorkspaceId(workspaceId: string) {
     return prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: RISK_FIELDS,
-    })
-  },
-
-  async findWorkspaceWithProjectRiskConfigs(workspaceId: string) {
-    return prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: {
-        id: true,
-        ...RISK_FIELDS,
-        projects: {
-          select: { id: true, ...RISK_FIELDS },
-        },
-      },
+      select: { id: true },
     })
   },
 

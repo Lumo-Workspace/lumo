@@ -71,7 +71,10 @@ it('runs the commit immediately when no uploads are in flight', () => {
 it('defers the commit until an in-flight upload settles', async () => {
   let resolveUpload: () => void = () => {}
   mockedInsert.mockImplementation(
-    () => new Promise<void>(r => { resolveUpload = () => r() })
+    () =>
+      new Promise<void>(r => {
+        resolveUpload = () => r()
+      })
   )
   const { result } = setup()
   const commit = jest.fn()

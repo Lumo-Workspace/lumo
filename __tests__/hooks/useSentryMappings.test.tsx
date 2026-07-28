@@ -33,7 +33,9 @@ const mockList = sentryApi.listMappings as jest.Mock
 const mockCreate = sentryApi.createMapping as jest.Mock
 const mockDelete = sentryApi.deleteMapping as jest.Mock
 
-const mapping = (over: Partial<{ id: string; slug: string; pid: string }> = {}) => ({
+const mapping = (
+  over: Partial<{ id: string; slug: string; pid: string }> = {}
+) => ({
   id: over.id ?? 'map_1',
   sentryProjectSlug: over.slug ?? 'frontend',
   projectId: over.pid ?? 'proj_1',

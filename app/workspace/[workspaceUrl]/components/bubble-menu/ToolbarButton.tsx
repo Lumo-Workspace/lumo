@@ -65,7 +65,5 @@ export function ToolbarButton({
 }
 
 export function Divider() {
-  return (
-    <div className='w-px h-4 bg-border mx-0.5 shrink-0' />
-  )
+  return <div className='w-px h-4 bg-border mx-0.5 shrink-0' />
 }

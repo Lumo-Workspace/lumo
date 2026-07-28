@@ -25,16 +25,24 @@ beforeEach(() => jest.clearAllMocks())
 
 it('loads the revision list', async () => {
   api.list.mockResolvedValue({ revisions: [{ id: 'r1' }] })
-  const { result } = renderHook(() => useDocumentRevisions('d1', true), { wrapper })
+  const { result } = renderHook(() => useDocumentRevisions('d1', true), {
+    wrapper,
+  })
   await waitFor(() => expect(result.current.revisions).toEqual([{ id: 'r1' }]))
 })
 
 it('createManual invalidates and refetches the list', async () => {
   api.list.mockResolvedValue({ revisions: [] })
   api.createManual.mockResolvedValue({ revision: { id: 'r2', label: 'v1' } })
-  const { result } = renderHook(() => useDocumentRevisions('d1', true), { wrapper })
+  const { result } = renderHook(() => useDocumentRevisions('d1', true), {
+    wrapper,
+  })
   await waitFor(() => expect(result.current.revisions).toEqual([]))
   api.list.mockResolvedValue({ revisions: [{ id: 'r2', label: 'v1' }] })
-  await act(async () => { await result.current.createManual('v1') })
-  await waitFor(() => expect(result.current.revisions).toEqual([{ id: 'r2', label: 'v1' }]))
+  await act(async () => {
+    await result.current.createManual('v1')
+  })
+  await waitFor(() =>
+    expect(result.current.revisions).toEqual([{ id: 'r2', label: 'v1' }])
+  )
 })

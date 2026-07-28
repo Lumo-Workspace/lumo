@@ -3,13 +3,7 @@
  */
 const messages: Record<string, string> = {
   'summary.projectsAtGlance': 'Projects at a glance',
-  'summary.filterAll': 'All',
-  'summary.riskLevel.healthy': 'Healthy',
-  'summary.riskLevel.watch': 'Watch',
-  'summary.riskLevel.atRisk': 'At risk',
-  'summary.riskLevel.unassessed': 'Not assessed',
   'summary.overdue': 'Overdue',
-  'summary.noProjectsMatchFilter': 'No projects match this filter',
 }
 
 jest.mock('react-intl', () => ({
@@ -37,13 +31,6 @@ const projects: WorkspaceSummaryStats['projectBreakdown'] = [
     totalTasks: 20,
     completedTasks: 12,
     overdueTasks: 7,
-    risk: {
-      level: 'at-risk',
-      score: 5,
-      reasons: [
-        { code: 'overdue_ratio_high', detail: '7/20 tasks overdue (35%)' },
-      ],
-    },
   },
   {
     projectId: 'p2',
@@ -51,7 +38,6 @@ const projects: WorkspaceSummaryStats['projectBreakdown'] = [
     totalTasks: 10,
     completedTasks: 9,
     overdueTasks: 0,
-    risk: { level: 'healthy', score: 0, reasons: [] },
   },
   {
     projectId: 'p3',
@@ -59,12 +45,11 @@ const projects: WorkspaceSummaryStats['projectBreakdown'] = [
     totalTasks: 15,
     completedTasks: 10,
     overdueTasks: 2,
-    risk: { level: 'watch', score: 3, reasons: [] },
   },
 ]
 
 describe('ProjectsAtGlanceList', () => {
-  it('renders projects sorted with at-risk first', () => {
+  it('renders projects sorted with the most overdue first', () => {
     render(<ProjectsAtGlanceList projects={projects} onNavigate={() => {}} />)
     const names = screen
       .getAllByTestId('project-row-name')

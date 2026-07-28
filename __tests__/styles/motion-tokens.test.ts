@@ -18,7 +18,8 @@ function themeInlineBlock(): string {
   // First `{ … }` group after `@theme inline`. The block contains no nested
   // braces, so a non-greedy `[^}]*` is safe.
   const m = css.match(/@theme inline\s*\{([^}]*)\}/)
-  if (!m?.[1]) throw new Error('could not find @theme inline block in globals.css')
+  if (!m?.[1])
+    throw new Error('could not find @theme inline block in globals.css')
   return m[1]
 }
 
@@ -27,7 +28,7 @@ describe('motion tokens (LUM-284)', () => {
 
   it.each(['fast', 'base', 'slow'])(
     '--transition-duration-%s is registered as an ms value',
-    (tier) => {
+    tier => {
       const m = block.match(
         new RegExp(`--transition-duration-${tier}:\\s*(\\d+)ms`)
       )
@@ -37,7 +38,7 @@ describe('motion tokens (LUM-284)', () => {
 
   it.each(['standard', 'emphasized'])(
     '--ease-%s is registered as a cubic-bezier curve',
-    (name) => {
+    name => {
       const m = block.match(
         new RegExp(`--ease-${name}:\\s*cubic-bezier\\([^)]*\\)`)
       )

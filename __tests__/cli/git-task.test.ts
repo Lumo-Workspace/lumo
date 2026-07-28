@@ -7,10 +7,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import {
-  matchTaskIdentifier,
-  extractTaskFromGit,
-} from '@/cli/src/lib/git-task'
+import { matchTaskIdentifier, extractTaskFromGit } from '@/cli/src/lib/git-task'
 import { parseBranchIdentifier } from '@/lib/integrations/github/branch'
 
 describe('matchTaskIdentifier', () => {

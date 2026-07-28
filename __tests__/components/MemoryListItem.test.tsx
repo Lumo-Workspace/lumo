@@ -91,7 +91,9 @@ describe('MemoryListItem', () => {
   })
 
   it('shows AgentBadge label for auto-sedimented memories (no old auto text)', () => {
-    setup({ memory: { ...baseRow, createdByMemberId: null, agent: 'CLAUDE_CODE' } })
+    setup({
+      memory: { ...baseRow, createdByMemberId: null, agent: 'CLAUDE_CODE' },
+    })
     // AgentBadge renders the agent label
     expect(screen.getByText('Claude Code')).toBeInTheDocument()
     // old auto string must not appear

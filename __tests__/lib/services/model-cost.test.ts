@@ -173,11 +173,21 @@ describe('withInFlightCost — per-model attribution via liveUsageByModel', () =
 
   it('attributes the in-flight diff to its model and folds it into the row', () => {
     const settled = toModelCosts({
-      'claude-fable-5': { input: 100, output: 50, cacheRead: 10, cacheCreation: 10 },
+      'claude-fable-5': {
+        input: 100,
+        output: 50,
+        cacheRead: 10,
+        cacheCreation: 10,
+      },
     })!
     expect(
       withInFlightCost(settled, flat(150, 80, 40, 30), {
-        'claude-fable-5': { input: 150, output: 80, cacheRead: 40, cacheCreation: 30 },
+        'claude-fable-5': {
+          input: 150,
+          output: 80,
+          cacheRead: 40,
+          cacheCreation: 30,
+        },
       })
     ).toEqual([
       {
@@ -187,7 +197,13 @@ describe('withInFlightCost — per-model attribution via liveUsageByModel', () =
         cacheRead: 40,
         cacheCreation: 30,
         total: 300,
-        inFlight: { input: 50, output: 30, cacheRead: 30, cacheCreation: 20, total: 130 },
+        inFlight: {
+          input: 50,
+          output: 30,
+          cacheRead: 30,
+          cacheCreation: 20,
+          total: 130,
+        },
       },
     ])
   })
@@ -216,7 +232,13 @@ describe('withInFlightCost — per-model attribution via liveUsageByModel', () =
         cacheRead: 0,
         cacheCreation: 0,
         total: 60,
-        inFlight: { input: 40, output: 20, cacheRead: 0, cacheCreation: 0, total: 60 },
+        inFlight: {
+          input: 40,
+          output: 20,
+          cacheRead: 0,
+          cacheCreation: 0,
+          total: 60,
+        },
       },
     ])
   })
@@ -235,7 +257,12 @@ describe('withInFlightCost — per-model attribution via liveUsageByModel', () =
   it('routes any remainder the live map does not cover to the sentinel row', () => {
     expect(
       withInFlightCost(null, flat(150, 0, 0, 0), {
-        'claude-fable-5': { input: 100, output: 0, cacheRead: 0, cacheCreation: 0 },
+        'claude-fable-5': {
+          input: 100,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+        },
       })
     ).toEqual([
       {
@@ -245,7 +272,13 @@ describe('withInFlightCost — per-model attribution via liveUsageByModel', () =
         cacheRead: 0,
         cacheCreation: 0,
         total: 100,
-        inFlight: { input: 100, output: 0, cacheRead: 0, cacheCreation: 0, total: 100 },
+        inFlight: {
+          input: 100,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+          total: 100,
+        },
       },
       {
         model: IN_FLIGHT_MODEL,
@@ -279,7 +312,13 @@ describe('mergeModelCosts — in-flight sub-objects', () => {
         cacheRead: 0,
         cacheCreation: 0,
         total: 100,
-        inFlight: { input: 40, output: 0, cacheRead: 0, cacheCreation: 0, total: 40 },
+        inFlight: {
+          input: 40,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+          total: 40,
+        },
       },
     ]
     const b = [
@@ -290,7 +329,13 @@ describe('mergeModelCosts — in-flight sub-objects', () => {
         cacheRead: 0,
         cacheCreation: 0,
         total: 50,
-        inFlight: { input: 10, output: 0, cacheRead: 0, cacheCreation: 0, total: 10 },
+        inFlight: {
+          input: 10,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+          total: 10,
+        },
       },
     ]
     expect(mergeModelCosts([a, b])).toEqual([
@@ -301,7 +346,13 @@ describe('mergeModelCosts — in-flight sub-objects', () => {
         cacheRead: 0,
         cacheCreation: 0,
         total: 150,
-        inFlight: { input: 50, output: 0, cacheRead: 0, cacheCreation: 0, total: 50 },
+        inFlight: {
+          input: 50,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+          total: 50,
+        },
       },
     ])
   })

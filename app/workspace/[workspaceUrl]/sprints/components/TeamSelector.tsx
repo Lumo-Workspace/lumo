@@ -48,7 +48,9 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
     <Select value={selectValue} onValueChange={onChange}>
       <SelectTrigger className='w-64'>
         <SelectValue
-          placeholder={intl.formatMessage({ id: 'sprints.teamSelector.placeholder' })}
+          placeholder={intl.formatMessage({
+            id: 'sprints.teamSelector.placeholder',
+          })}
         />
       </SelectTrigger>
       <SelectContent>

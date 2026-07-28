@@ -69,10 +69,10 @@ export function DuplicateWarning({
                 <span className='text-amber-600 dark:text-amber-500 font-medium tabular-nums shrink-0'>
                   {Math.round(score * 100)}%
                 </span>
-                <span className='truncate text-foreground'>
-                  {task.title}
+                <span className='truncate text-foreground'>{task.title}</span>
+                <span className='text-muted-foreground shrink-0'>
+                  {identifier}
                 </span>
-                <span className='text-muted-foreground shrink-0'>{identifier}</span>
                 <ExternalLink className='size-3 text-muted-foreground shrink-0 ml-auto' />
               </button>
             )

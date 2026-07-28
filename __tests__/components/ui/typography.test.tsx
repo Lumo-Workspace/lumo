@@ -101,6 +101,8 @@ describe('Typography tier mapping (LUM-260)', () => {
     render(<TypographyMuted>Muted</TypographyMuted>)
     expect(screen.getByText('Small').className).toContain('text-caption')
     expect(screen.getByText('Muted').className).toContain('text-caption')
-    expect(screen.getByText('Muted').className).toContain('text-muted-foreground')
+    expect(screen.getByText('Muted').className).toContain(
+      'text-muted-foreground'
+    )
   })
 })

@@ -117,7 +117,10 @@ export function DocumentsSection({
       ) : (
         <ul className='space-y-1.5'>
           {sorted.map(doc => (
-            <li key={doc.id} className='group flex items-center gap-2 text-caption'>
+            <li
+              key={doc.id}
+              className='group flex items-center gap-2 text-caption'
+            >
               {doc.emoji ? (
                 <span>{doc.emoji}</span>
               ) : (

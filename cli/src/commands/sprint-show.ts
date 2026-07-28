@@ -20,17 +20,6 @@ export interface SprintShowData {
   team: { id: string; name: string }
 }
 
-interface SprintRiskReason {
-  code: string
-  detail: string
-}
-
-export interface SprintRisk {
-  level: string
-  score: number
-  reasons: SprintRiskReason[]
-}
-
 interface SprintBlockerItem {
   id: string
   identifier: string
@@ -48,10 +37,7 @@ function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '-'
 }
 
-function blockerLine(
-  label: string,
-  items: SprintBlockerItem[]
-): string | null {
+function blockerLine(label: string, items: SprintBlockerItem[]): string | null {
   if (items.length === 0) return null
   const rendered = items
     .map(i => `${i.identifier} ${sanitizeField(i.title)}`)
@@ -63,7 +49,6 @@ export function formatSprintShow(
   s: SprintShowData,
   progress: { done: number; total: number },
   tasks: TaskRow[],
-  risk?: SprintRisk,
   topBlockers?: SprintBlockers
 ): string {
   const lines = [
@@ -77,13 +62,6 @@ export function formatSprintShow(
     ``,
     `Progress:  ${progress.done} / ${progress.total}`,
   ]
-
-  if (risk) {
-    lines.push(`Health:    ${risk.level.toUpperCase()}`)
-    for (const r of risk.reasons) {
-      lines.push(`  - ${sanitizeField(r.detail)}`)
-    }
-  }
 
   if (topBlockers) {
     const blockerLines = [
@@ -165,15 +143,14 @@ export async function sprintShow(
     return 1
   }
 
-  const { sprint, progress, risk, topBlockers } = (await sprintRes.json()) as {
+  const { sprint, progress, topBlockers } = (await sprintRes.json()) as {
     sprint: SprintShowData
     progress: { done: number; total: number }
-    risk?: SprintRisk
     topBlockers?: SprintBlockers
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
   process.stdout.write(
-    formatSprintShow(sprint, progress, tasks, risk, topBlockers) + '\n'
+    formatSprintShow(sprint, progress, tasks, topBlockers) + '\n'
   )
 }

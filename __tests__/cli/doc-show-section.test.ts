@@ -66,9 +66,7 @@ beforeEach(() => {
     workspaceSlug: 'lumo',
   })
   mockLookup.mockResolvedValue('cmd_1')
-  stdoutSpy = jest
-    .spyOn(process.stdout, 'write')
-    .mockImplementation(() => true)
+  stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
   errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
   logSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
 })

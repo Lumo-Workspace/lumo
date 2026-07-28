@@ -54,14 +54,19 @@ describe('mcpConnectionService', () => {
 
     it('sets active workspace when user is a member', async () => {
       mockFindByClerkId.mockResolvedValue([{ workspaceId: 'ws-1' }])
-      mockSetActiveWorkspace.mockResolvedValue({ id: 'c1', activeWorkspaceId: 'ws-1' })
+      mockSetActiveWorkspace.mockResolvedValue({
+        id: 'c1',
+        activeWorkspaceId: 'ws-1',
+      })
       const result = await mcpConnectionService.bindWorkspace(
         'c1',
         'u1',
         'ws-1',
         { auto: false }
       )
-      expect(mockSetActiveWorkspace).toHaveBeenCalledWith('c1', 'ws-1', { auto: false })
+      expect(mockSetActiveWorkspace).toHaveBeenCalledWith('c1', 'ws-1', {
+        auto: false,
+      })
       expect(result.activeWorkspaceId).toBe('ws-1')
     })
   })
