@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "保存更改",
   "memory.dialog.cancel": "取消",
   "memory.field.summary.label": "标题",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ 保存 · 带 * 的段落必填",
   "memory.field.trap.summary.placeholder": "起个标题，例：raw SQL 迁移要用物理表名",
   "memory.field.trap.trigger.placeholder": "什么情况下会踩到？例：写 raw SQL migration 且 model 带 @@map…",
   "memory.field.trap.outcome.placeholder": "踩到后会发生什么？例：部署时报「表不存在」…",

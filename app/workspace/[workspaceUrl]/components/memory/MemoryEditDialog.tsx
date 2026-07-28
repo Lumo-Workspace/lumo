@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { isSubmitShortcut, submitModLabel } from '../../utils'
 import {
   MEMORY_CATEGORIES,
   MEMORY_CATEGORY_SPECS,
@@ -102,10 +103,11 @@ export function MemoryEditDialog({
     })
   }
 
-  // The footer advertises ⌘/Ctrl + ↵; wire it here so the hint describes real
-  // behaviour. Enter alone stays a newline — every field is a paragraph.
+  // The submit shortcut is advertised on the CTA itself (same shape as the new
+  // task / new project modals). Enter alone stays a newline — every field is a
+  // paragraph.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (isSubmitShortcut(e)) {
       e.preventDefault()
       void handleSubmit()
     }
@@ -183,10 +185,7 @@ export function MemoryEditDialog({
           ))}
         </div>
 
-        <div className='mt-3 flex shrink-0 items-center justify-between gap-4 pt-2'>
-          <p className='text-xs text-muted-foreground'>
-            {intl.formatMessage({ id: 'memory.dialog.shortcutHint' })}
-          </p>
+        <div className='mt-3 flex shrink-0 items-center justify-end pt-2'>
           <div className='flex shrink-0 gap-2'>
             <Button
               type='button'
@@ -196,7 +195,7 @@ export function MemoryEditDialog({
               {intl.formatMessage({ id: 'memory.dialog.cancel' })}
             </Button>
             <Button type='button' disabled={!canSubmit} onClick={handleSubmit}>
-              {intl.formatMessage({ id: ctaId })}
+              {intl.formatMessage({ id: ctaId })} {submitModLabel}↵
             </Button>
           </div>
         </div>

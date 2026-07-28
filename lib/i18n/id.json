@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Simpan perubahan",
   "memory.dialog.cancel": "Batal",
   "memory.field.summary.label": "Judul",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ untuk menyimpan · kolom bertanda * wajib diisi",
   "memory.field.trap.summary.placeholder": "Beri judul, mis. migrasi SQL mentah harus memakai nama tabel fisik",
   "memory.field.trap.trigger.placeholder": "Kapan hal ini terjadi? Mis. saat menulis migrasi SQL mentah untuk model ber-@@map…",
   "memory.field.trap.outcome.placeholder": "Apa akibatnya? Mis. deployment gagal karena relasi tidak ditemukan…",

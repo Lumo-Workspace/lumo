@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "परिवर्तन सहेजें",
   "memory.dialog.cancel": "रद्द करें",
   "memory.field.summary.label": "शीर्षक",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ से सहेजें · * वाले फ़ील्ड अनिवार्य हैं",
   "memory.field.trap.summary.placeholder": "एक शीर्षक दें, जैसे raw SQL माइग्रेशन में भौतिक टेबल नाम ही लिखें",
   "memory.field.trap.trigger.placeholder": "यह कब सामने आता है? जैसे @@map वाले मॉडल के लिए raw SQL migration लिखते समय…",
   "memory.field.trap.outcome.placeholder": "तब क्या होता है? जैसे टेबल न मिलने की त्रुटि के साथ डिप्लॉय विफल हो जाता है…",

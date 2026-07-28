@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "変更を保存",
   "memory.dialog.cancel": "キャンセル",
   "memory.field.summary.label": "タイトル",
-  "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ で保存 · * の付いた項目は必須",
   "memory.field.trap.summary.placeholder": "タイトルを付けてください。例：raw SQL マイグレーションでは物理テーブル名を使う",
   "memory.field.trap.trigger.placeholder": "どんなときに踏みますか？例：@@map の付いたモデルに raw SQL migration を書いたとき…",
   "memory.field.trap.outcome.placeholder": "踏むと何が起きますか？例：デプロイがテーブル不存在エラーで失敗する…",
