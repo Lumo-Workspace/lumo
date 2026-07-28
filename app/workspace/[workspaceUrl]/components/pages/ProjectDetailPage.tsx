@@ -5,12 +5,16 @@ import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
 import {
+  buildSignalView,
+  signalAttentionCount,
+} from '@/lib/summaries/signal-view'
+import {
   ApiProject,
   ApiTask,
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
-import { ProjectSignalTab } from '../signal/ProjectSignalTab'
+import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
@@ -18,10 +22,13 @@ import { sortTasks } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { ProjectHeader } from './project-detail/ProjectHeader'
-import { ProjectOverviewTab } from './project-detail/ProjectOverviewTab'
+import { ProjectTab } from './project-detail/ProjectTab'
 import { ProjectTasksTab } from './project-detail/ProjectTasksTab'
 import { ProjectMilestonesTab } from '../milestones/ProjectMilestonesTab'
 import { MemoryTab } from '../memory/MemoryTab'
+
+const TABS = ['project', 'milestones', 'tasks', 'memory'] as const
+type ProjectTabKey = (typeof TABS)[number]
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -81,11 +88,21 @@ export function ProjectDetailPage({
   copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
-  const [tab, setTab] = useState<
-    'overview' | 'milestones' | 'tasks' | 'signal' | 'memory'
-  >('overview')
+  const [tab, setTab] = useState<ProjectTabKey>('project')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
+
+  // Health signals are fetched here rather than inside the Project tab: the tab
+  // badge has to keep showing the count while that tab is unmounted, and a
+  // second fetch would let the badge and the page disagree.
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useProjectRealtimeStats(project.id)
+
+  const view = useMemo(() => (stats ? buildSignalView(stats) : null), [stats])
+  const attentionCount = view ? signalAttentionCount(view) : 0
 
   const {
     options: displayOptions,
@@ -110,7 +127,7 @@ export function ProjectDetailPage({
     [members]
   )
 
-  // The Signal tab hands back a task id (that is all its blocker rows carry);
+  // The health row hands back a task id (that is all its blocker rows carry);
   // resolve it to the task the detail pane expects.
   const openTaskById = useCallback(
     (taskId: string) => {
@@ -158,34 +175,48 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(['overview', 'milestones', 'tasks', 'signal', 'memory'] as const).map(
-          t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                'px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
-                tab === t
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}
-            >
-              {intl.formatMessage({
-                id: `project.tab.${t}`,
-                defaultMessage: t.charAt(0).toUpperCase() + t.slice(1),
-              })}
-            </button>
-          )
-        )}
+        {TABS.map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
+              tab === t
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+          >
+            {intl.formatMessage({ id: `project.tab.${t}` })}
+            {/* Only the Project tab carries a badge — it is the tab that shows
+                what the number is made of. Absent at zero, so a healthy project
+                shows no ornament at all. */}
+            {t === 'project' && attentionCount > 0 && (
+              <span
+                data-testid='project-tab-badge'
+                className='inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-[18px] text-danger-foreground'
+              >
+                {attentionCount}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* ── Overview tab ── */}
-      {tab === 'overview' && (
-        <ProjectOverviewTab
+      {/* ── Project tab ── */}
+      {tab === 'project' && (
+        <ProjectTab
           project={project}
+          projectSlug={slugify(project.name)}
           members={members}
           workspaceUrl={workspaceUrl}
+          view={view}
+          stats={stats}
+          statsLoading={statsLoading}
+          statsError={statsError}
           onUpdateProject={onUpdateProject}
+          onOpenTask={openTaskById}
+          onViewAllTasks={() => setTab('tasks')}
+          onViewAllMilestones={() => setTab('milestones')}
         />
       )}
 
@@ -196,13 +227,6 @@ export function ProjectDetailPage({
             projectId={project.id}
             projectSlug={slugify(project.name)}
           />
-        </div>
-      )}
-
-      {/* ── Signal tab ── */}
-      {tab === 'signal' && (
-        <div className='flex-1 overflow-y-auto'>
-          <ProjectSignalTab projectId={project.id} onOpenTask={openTaskById} />
         </div>
       )}
 
