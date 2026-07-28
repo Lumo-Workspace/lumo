@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Änderungen speichern",
   "memory.dialog.cancel": "Abbrechen",
   "memory.field.summary.label": "Titel",
-  "memory.dialog.summary.hint": "Eine Zusammenfassung in einem Satz — genau das zeigt die Liste. Bleibt sie leer, wird stattdessen das erste Pflichtfeld angezeigt.",
   "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ zum Speichern · mit * markierte Felder sind Pflicht",
   "memory.field.trap.summary.placeholder": "Gib ihm einen Titel, z. B. Raw-SQL-Migrationen müssen den physischen Tabellennamen verwenden",
   "memory.field.trap.trigger.placeholder": "Wann tritt das auf? z. B. beim Schreiben einer Raw-SQL-Migration für ein Modell mit @@map…",

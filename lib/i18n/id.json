@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Simpan perubahan",
   "memory.dialog.cancel": "Batal",
   "memory.field.summary.label": "Judul",
-  "memory.dialog.summary.hint": "Ringkasan satu baris — inilah yang ditampilkan di daftar. Biarkan kosong, maka kolom wajib pertama yang ditampilkan.",
   "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ untuk menyimpan · kolom bertanda * wajib diisi",
   "memory.field.trap.summary.placeholder": "Beri judul, mis. migrasi SQL mentah harus memakai nama tabel fisik",
   "memory.field.trap.trigger.placeholder": "Kapan hal ini terjadi? Mis. saat menulis migrasi SQL mentah untuk model ber-@@map…",

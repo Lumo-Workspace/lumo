@@ -18,7 +18,6 @@ const en: Record<string, string> = {
   'memory.dialog.edit.title': 'Edit memory',
   'memory.dialog.edit.cta': 'Save changes',
   'memory.dialog.cancel': 'Cancel',
-  'memory.dialog.summary.hint': 'A one-line summary',
   'memory.dialog.shortcutHint': 'Cmd/Ctrl + Enter to save',
   'memory.field.summary.label': 'Title',
   'memory.category.trap': 'Trap',
