@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Save changes",
   "memory.dialog.cancel": "Cancel",
   "memory.field.summary.label": "Title",
-  "memory.dialog.summary.hint": "A one-line summary — this is what the list shows. Leave it blank and the first required field is shown instead.",
   "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ to save · fields marked * are required",
   "memory.field.trap.summary.placeholder": "Give it a title, e.g. Raw SQL migrations must use the physical table name",
   "memory.field.trap.trigger.placeholder": "When do you hit this? e.g. writing a raw SQL migration for a model with @@map…",

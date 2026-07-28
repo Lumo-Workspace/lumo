@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Lưu thay đổi",
   "memory.dialog.cancel": "Hủy",
   "memory.field.summary.label": "Tiêu đề",
-  "memory.dialog.summary.hint": "Tóm tắt một dòng — đây chính là phần hiển thị trong danh sách. Để trống thì trường bắt buộc đầu tiên sẽ hiển thị thay thế.",
   "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ để lưu · các trường có dấu * là bắt buộc",
   "memory.field.trap.summary.placeholder": "Đặt một tiêu đề, ví dụ migration SQL thô phải dùng tên bảng vật lý",
   "memory.field.trap.trigger.placeholder": "Khi nào thì gặp phải? Ví dụ khi viết migration SQL thô cho model có @@map…",

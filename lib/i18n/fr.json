@@ -1494,7 +1494,6 @@
   "memory.dialog.edit.cta": "Enregistrer les modifications",
   "memory.dialog.cancel": "Annuler",
   "memory.field.summary.label": "Titre",
-  "memory.dialog.summary.hint": "Un résumé en une ligne — c’est ce que la liste affiche. Laissez-le vide et le premier champ obligatoire s’affichera à la place.",
   "memory.dialog.shortcutHint": "⌘/Ctrl + ↵ pour enregistrer · les champs marqués * sont obligatoires",
   "memory.field.trap.summary.placeholder": "Donnez-lui un titre, ex. les migrations SQL brutes doivent utiliser le nom physique de la table",
   "memory.field.trap.trigger.placeholder": "Dans quel cas tombe-t-on dessus ? ex. en écrivant une migration SQL brute pour un modèle avec @@map…",
