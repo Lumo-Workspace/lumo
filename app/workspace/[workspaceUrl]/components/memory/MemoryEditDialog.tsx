@@ -172,7 +172,7 @@ export function MemoryEditDialog({
             aria-label={intl.formatMessage({
               id: 'memory.field.summary.label',
             })}
-            className='-mx-2 mb-6 w-[calc(100%+1rem)] rounded-md bg-transparent px-2 text-[22px] font-bold leading-[1.4] text-foreground outline-none placeholder:font-bold placeholder:text-muted-foreground/50 focus:bg-muted/60'
+            className='-mx-2 mb-6 w-[calc(100%+1rem)] bg-transparent px-2 text-[22px] font-bold leading-[1.4] text-foreground outline-none placeholder:font-bold placeholder:text-muted-foreground/50'
           />
 
           {spec.fields.map(field => (
@@ -251,10 +251,12 @@ function CategoryPill({
  *  borderless multi-line body, so the dialog reads as a document rather than a
  *  stack of boxed inputs.
  *
- *  Focus is a soft background tint, not a ring: browsers match `:focus-visible`
- *  on text fields even for a plain mouse click, so a ring would draw a boxed
- *  blue outline around every field you click into — exactly the chrome this
- *  layout exists to avoid. The tint still marks where typing goes. */
+ *  A focused field is styled exactly like an unfocused one — no ring, no tint.
+ *  Browsers match `:focus-visible` on text fields even for a plain mouse click,
+ *  so any focus decoration here draws a box around whichever paragraph you are
+ *  editing, which is the chrome this layout exists to avoid. The blinking caret
+ *  the browser renders is the focus affordance; it is present for keyboard and
+ *  pointer alike, so nothing is lost by not painting one ourselves. */
 function FieldRow({
   field,
   value,
@@ -295,7 +297,7 @@ function FieldRow({
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={intl.formatMessage({ id: field.placeholderId })}
-          className={`${shared} resize-none overflow-hidden rounded-md bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60 focus:bg-muted/60`}
+          className={`${shared} resize-none overflow-hidden bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60`}
         />
         {/* The mirror. The trailing space reserves room for a line the user is
             still typing, and a lone trailing newline. */}
