@@ -234,6 +234,54 @@ describe('ProjectSignalTab', () => {
     expect(stripeOf('stalePrs')).toHaveClass('bg-warning')
   })
 
+  it('draws the tone accent as a short pill inside the card, not a full-bleed stripe', () => {
+    // The design moves the accent off the card edge: a fixed-width mark sitting
+    // in the padding, above the number. A `w-full` accent means the old
+    // edge-to-edge stripe came back.
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Stalled',
+            updatedAt: daysAgo(8),
+            priority: 'MEDIUM' as const,
+          },
+        ],
+      })
+    )
+
+    const accent = screen.getByTestId('signal-card-stalled').firstElementChild
+    expect(accent).toHaveClass('w-8', 'h-1', 'rounded-sm')
+    expect(accent).not.toHaveClass('w-full')
+  })
+
+  it('sizes anomaly cards to a fixed width instead of stretching them across the row', () => {
+    // A lone anomaly must stay a card, not a banner: the row is a wrapping flex
+    // of fixed-width cards, not a grid whose columns divide the full width.
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          {
+            id: 't1',
+            identifier: 'LUM-550',
+            title: 'Stalled',
+            updatedAt: daysAgo(8),
+            priority: 'MEDIUM' as const,
+          },
+        ],
+      })
+    )
+
+    const card = screen.getByTestId('signal-card-stalled')
+    expect(card).toHaveClass('sm:w-[300px]')
+
+    const row = card.parentElement
+    expect(row).toHaveClass('flex', 'flex-wrap')
+    expect(row?.className).not.toMatch(/\bgrid-cols-/)
+  })
+
   it('omits a section entirely when its signal is empty', () => {
     setup(
       makeStats({
