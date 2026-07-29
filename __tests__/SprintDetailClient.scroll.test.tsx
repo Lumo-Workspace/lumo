@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
-// The sprint info block above the board (stat cards + Team performance) grows
-// unbounded — Team performance expands per member and again per task — so the
+// The sprint info block above the board (the header card + Team performance)
+// grows unbounded — Team performance lists every task per member — so the
 // detail body must scroll instead of clipping it. Before LUM-703 the body was
 // `overflow-hidden`, which made everything past the fold (the rest of the
 // table AND the whole board) unreachable.
@@ -40,9 +40,9 @@ jest.mock(
   })
 )
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/sprints/components/SprintStatCards',
+  '@/app/workspace/[workspaceUrl]/sprints/components/SprintHeader',
   () => ({
-    SprintStatCards: () => <div data-testid='stat-cards' />,
+    SprintHeader: () => <div data-testid='sprint-header' />,
   })
 )
 jest.mock(

@@ -3,12 +3,26 @@ import '@testing-library/jest-dom'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { SprintTeamPerformanceResponse } from '@/lib/api-client/sprints'
 
-// Minimal ICU-ish interpolation: fill {name} placeholders; leave plural blocks
-// (not asserted here) untouched. Every message in this component carries a
-// defaultMessage, so the mock resolves off that.
+// Minimal ICU-ish interpolation: resolve `{n, plural, one {…} other {…}}` off
+// the value, then fill plain {name} placeholders. Every message in this
+// component carries a defaultMessage, so the mock resolves off that.
 function interpolate(msg: string, values?: Record<string, unknown>): string {
   if (!values) return msg
-  return msg.replace(/\{(\w+)\}/g, (m, k) =>
+  const withPlurals = msg.replace(
+    /\{(\w+), plural,([^]*?)\}\s*$/,
+    (whole, key: string, body: string) => {
+      const n = Number(values[key])
+      if (!Number.isFinite(n)) return whole
+      const forms = new Map<string, string>()
+      for (const m of body.matchAll(/(\w+)\s*\{([^{}]*)\}/g)) {
+        forms.set(m[1]!, m[2]!)
+      }
+      const form =
+        (n === 1 ? forms.get('one') : undefined) ?? forms.get('other') ?? ''
+      return form.replace(/#/g, String(n))
+    }
+  )
+  return withPlurals.replace(/\{(\w+)\}/g, (m, k) =>
     k in values ? String(values[k]) : m
   )
 }
@@ -137,18 +151,30 @@ describe('SprintTeamPerformance', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders member row, unattributed bucket, compact tokens, share, footer', () => {
+  // LUM-717 flattened the table: no column header, no token-share bar, no
+  // reconciliation footer — a member line carrying its own totals, with that
+  // member's tasks listed straight underneath.
+  it('drops the column header, share column and footer, showing member totals with task rows already visible', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
     expect(screen.getByText('Team performance')).toBeInTheDocument()
     expect(screen.getByText('Alice')).toBeInTheDocument()
     expect(screen.getByText('Unattributed')).toBeInTheDocument()
-    // Compact token count for the member row.
-    expect(screen.getByText('800K')).toBeInTheDocument()
-    // Token share = 800k / 1M = 80%.
-    expect(screen.getByText('80%')).toBeInTheDocument()
-    // Footer reconciles the sprint total (compact 1M).
-    expect(screen.getByText(/sprint total 1M tokens/)).toBeInTheDocument()
+
+    // Member totals sit on the member's own line.
+    expect(screen.getByText('3 tasks')).toBeInTheDocument()
+    expect(screen.getByText('800K tok')).toBeInTheDocument()
+
+    // Tasks need no member-level disclosure any more.
+    expect(screen.getByText('LUM-1')).toBeInTheDocument()
+    expect(screen.getByText('Build the thing')).toBeInTheDocument()
+
+    // Column header, share bar and footer are gone.
+    expect(screen.queryByText('Member')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tasks done')).not.toBeInTheDocument()
+    expect(screen.queryByText('Token share')).not.toBeInTheDocument()
+    expect(screen.queryByText('80%')).not.toBeInTheDocument()
+    expect(screen.queryByText(/sprint total/)).not.toBeInTheDocument()
   })
 
   // A sprint hangs off a Team, while `member.role` is the workspace-level
@@ -161,22 +187,17 @@ describe('SprintTeamPerformance', () => {
     expect(screen.queryByText('Engineer')).not.toBeInTheDocument()
   })
 
-  it('expands a member row to reveal the per-task drill-down', () => {
+  it('keeps the task line a one-liner until its own disclosure is opened', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
-    expect(screen.queryByText('LUM-1')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('Alice'))
-    expect(screen.getByText('LUM-1')).toBeInTheDocument()
-    expect(screen.getByText('Build the thing')).toBeInTheDocument()
-    // The task line stays a one-liner: the model split lives behind its own
-    // disclosure, not spread across the drill-down.
+    // The model split lives behind the task row's own toggle, not spread
+    // across the list.
     expect(screen.queryByText('claude-opus-4-8')).not.toBeInTheDocument()
   })
 
   it('expands a task row to reveal its per-model token breakdown', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
-    fireEvent.click(screen.getByText('Alice'))
 
     const taskRow = screen.getByText('Build the thing').closest('button')!
     expect(taskRow).toHaveAttribute('aria-expanded', 'false')
@@ -214,7 +235,6 @@ describe('SprintTeamPerformance', () => {
       isLoading: false,
     })
     renderPanel()
-    fireEvent.click(screen.getByText('Alice'))
     fireEvent.click(screen.getByText('Build the thing').closest('button')!)
     expect(
       screen.getByText('800K not attributed to a model')
