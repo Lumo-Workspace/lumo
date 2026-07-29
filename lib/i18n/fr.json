@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} terminées · se termine le {date}",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} terminées",
   "sprints.detail.burnupDayPlan": "{date} · {done} / {total} prévues",
-  "sprints.team.title": "Performance de l'équipe",
+  "sprints.team.title": "Progression",
   "sprints.team.colMember": "Membre",
   "sprints.team.colTasks": "Tâches terminées",
   "sprints.team.colTokens": "Tokens",

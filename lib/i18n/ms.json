@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} selesai · tamat {date}",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} selesai",
   "sprints.detail.burnupDayPlan": "{date} · {done} / {total} dirancang",
-  "sprints.team.title": "Prestasi pasukan",
+  "sprints.team.title": "Kemajuan",
   "sprints.team.colMember": "Ahli",
   "sprints.team.colTasks": "Tugasan selesai",
   "sprints.team.colTokens": "Token",

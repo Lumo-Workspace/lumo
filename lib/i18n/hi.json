@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} पूर्ण · {date} को समाप्त",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} पूर्ण",
   "sprints.detail.burnupDayPlan": "{date} · {done} / {total} नियोजित",
-  "sprints.team.title": "टीम प्रदर्शन",
+  "sprints.team.title": "प्रगति",
   "sprints.team.colMember": "सदस्य",
   "sprints.team.colTasks": "पूर्ण कार्य",
   "sprints.team.colTokens": "टोकन",

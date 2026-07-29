@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} 完了 · {date} に終了",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} 完了",
   "sprints.detail.burnupDayPlan": "{date} · 計画 {done} / {total}",
-  "sprints.team.title": "チームパフォーマンス",
+  "sprints.team.title": "進捗",
   "sprints.team.colMember": "メンバー",
   "sprints.team.colTasks": "完了タスク",
   "sprints.team.colTokens": "トークン",

@@ -139,7 +139,7 @@ describe('SprintTeamPerformance', () => {
     mockUsePerf.mockReturnValue({ performance: null, isLoading: true })
     const { container } = renderPanel()
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
-    expect(screen.queryByText('Team performance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Progress')).not.toBeInTheDocument()
   })
 
   it('renders nothing when there are no rows', () => {
@@ -154,13 +154,15 @@ describe('SprintTeamPerformance', () => {
   // LUM-717 kept the table exactly as it was — column header, collapsible
   // member rows, token-share column — and only took out the prose: the
   // subtitle beside the heading, the reconciliation footer, and the secondary
-  // "N models" / "N runs" captions under the two numbers.
+  // "N models" / "N runs" captions under the two numbers. The section heading
+  // now reads "Progress" (the component keeps its team-performance name — that
+  // is the rollup it renders, not what the section is called).
   it('keeps the table structure and drops the subtitle, footer and secondary count captions', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
 
     // Structure intact: heading, column header, both rows, share column.
-    expect(screen.getByText('Team performance')).toBeInTheDocument()
+    expect(screen.getByText('Progress')).toBeInTheDocument()
     expect(screen.getByText('Member')).toBeInTheDocument()
     expect(screen.getByText('Tasks done')).toBeInTheDocument()
     expect(screen.getByText('Token share')).toBeInTheDocument()

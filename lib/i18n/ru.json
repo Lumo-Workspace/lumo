@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} выполнено · заканчивается {date}",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} выполнено",
   "sprints.detail.burnupDayPlan": "{date} · {done} / {total} по плану",
-  "sprints.team.title": "Производительность команды",
+  "sprints.team.title": "Прогресс",
   "sprints.team.colMember": "Участник",
   "sprints.team.colTasks": "Выполненные задачи",
   "sprints.team.colTokens": "Токены",

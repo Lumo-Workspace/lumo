@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} 완료 · {date} 종료",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} 완료",
   "sprints.detail.burnupDayPlan": "{date} · 계획 {done} / {total}",
-  "sprints.team.title": "팀 성과",
+  "sprints.team.title": "진행률",
   "sprints.team.colMember": "구성원",
   "sprints.team.colTasks": "완료한 작업",
   "sprints.team.colTokens": "토큰",
