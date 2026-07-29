@@ -2273,5 +2273,9 @@
   "filter.noFields": "यहाँ फ़िल्टर करने के लिए अभी कुछ नहीं है",
   "filter.clearAll": "सब हटाएँ",
   "filter.chip.remove": "{dimension} फ़िल्टर हटाएँ",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "माइलस्टोन",
+  "filter.dimension.sprint": "स्प्रिंट",
+  "filter.noMilestone": "कोई माइलस्टोन नहीं",
+  "filter.noSprint": "कोई स्प्रिंट नहीं"
 }

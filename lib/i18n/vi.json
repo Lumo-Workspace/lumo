@@ -2273,5 +2273,9 @@
   "filter.noFields": "Chưa có gì để lọc ở đây",
   "filter.clearAll": "Xóa tất cả",
   "filter.chip.remove": "Xóa bộ lọc {dimension}",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Mốc",
+  "filter.dimension.sprint": "Sprint",
+  "filter.noMilestone": "Không có mốc",
+  "filter.noSprint": "Không có sprint"
 }

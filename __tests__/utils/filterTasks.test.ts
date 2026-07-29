@@ -1,5 +1,7 @@
 import {
   FILTER_DIMENSIONS,
+  NO_MILESTONE_VALUE,
+  NO_SPRINT_VALUE,
   UNASSIGNED_VALUE,
   UNTAGGED_VALUE,
   clearFilterDimension,
@@ -153,7 +155,53 @@ describe('filterTasks', () => {
     ).toEqual(['none'])
   })
 
-  it('combines all six dimensions at once', () => {
+  it('filters by sprint, with a sentinel for backlog tasks', () => {
+    const tasks = [
+      makeTask({ id: 'in-s1', sprintId: 's1' }),
+      makeTask({ id: 'in-s2', sprintId: 's2' }),
+      makeTask({ id: 'backlog', sprintId: null }),
+    ]
+    expect(filterTasks(tasks, { sprint: ['s1'] }, NOW).map(t => t.id)).toEqual([
+      'in-s1',
+    ])
+    expect(
+      filterTasks(tasks, { sprint: ['s1', 's2'] }, NOW).map(t => t.id)
+    ).toEqual(['in-s1', 'in-s2'])
+    expect(
+      filterTasks(tasks, { sprint: [NO_SPRINT_VALUE] }, NOW).map(t => t.id)
+    ).toEqual(['backlog'])
+  })
+
+  it('filters by milestone, with a sentinel for unbound tasks', () => {
+    const tasks = [
+      makeTask({ id: 'bound', milestoneId: 'm1' }),
+      makeTask({ id: 'other', milestoneId: 'm2' }),
+      makeTask({ id: 'unbound', milestoneId: null }),
+    ]
+    expect(
+      filterTasks(tasks, { milestone: ['m1'] }, NOW).map(t => t.id)
+    ).toEqual(['bound'])
+    expect(
+      filterTasks(tasks, { milestone: [NO_MILESTONE_VALUE] }, NOW).map(
+        t => t.id
+      )
+    ).toEqual(['unbound'])
+  })
+
+  it('treats an undefined sprint/milestone field as the no-sprint / no-milestone bucket', () => {
+    // Payloads that predate the sprint/milestone selects omit the field entirely.
+    const tasks = [makeTask({ id: 'legacy' })]
+    expect(
+      filterTasks(tasks, { sprint: [NO_SPRINT_VALUE] }, NOW).map(t => t.id)
+    ).toEqual(['legacy'])
+    expect(
+      filterTasks(tasks, { milestone: [NO_MILESTONE_VALUE] }, NOW).map(
+        t => t.id
+      )
+    ).toEqual(['legacy'])
+  })
+
+  it('combines all eight dimensions at once', () => {
     const tag = {
       id: 'tag_x',
       name: 'x',
@@ -166,6 +214,8 @@ describe('filterTasks', () => {
       priority: 'HIGH' as const,
       assigneeActorId: 'actor_1',
       projectId: 'proj_a',
+      sprintId: 'sprint_1',
+      milestoneId: 'ms_1',
       tags: [tag],
       dueDate: dayOffset(1),
     }
@@ -180,6 +230,8 @@ describe('filterTasks', () => {
         priority: ['HIGH'],
         assignee: ['actor_1'],
         project: ['proj_a'],
+        milestone: ['ms_1'],
+        sprint: ['sprint_1'],
         tag: ['tag_x'],
         dueDate: ['next7'],
       },
@@ -232,6 +284,21 @@ describe('dimensionValueCounts', () => {
   })
 })
 
+describe('dimension coverage', () => {
+  it('offers exactly the eight board dimensions, container ones grouped after project', () => {
+    expect([...FILTER_DIMENSIONS]).toEqual([
+      'status',
+      'priority',
+      'assignee',
+      'project',
+      'milestone',
+      'sprint',
+      'tag',
+      'dueDate',
+    ])
+  })
+})
+
 describe('narrowableDimensions', () => {
   it('drops dimensions every task agrees on', () => {
     const tasks = [
@@ -242,6 +309,24 @@ describe('narrowableDimensions', () => {
     expect(dims).toContain('status')
     expect(dims).not.toContain('project')
     expect(dims).not.toContain('assignee')
+  })
+
+  it('hides sprint on a sprint board and milestone on a milestone board', () => {
+    const oneSprint = [
+      makeTask({ id: 'a', sprintId: 's1', milestoneId: 'm1' }),
+      makeTask({ id: 'b', sprintId: 's1', milestoneId: 'm2' }),
+    ]
+    const dims = narrowableDimensions(oneSprint, {}, NOW)
+    expect(dims).not.toContain('sprint')
+    expect(dims).toContain('milestone')
+
+    const oneMilestone = [
+      makeTask({ id: 'a', sprintId: 's1', milestoneId: 'm1' }),
+      makeTask({ id: 'b', sprintId: 's2', milestoneId: 'm1' }),
+    ]
+    const dims2 = narrowableDimensions(oneMilestone, {}, NOW)
+    expect(dims2).toContain('sprint')
+    expect(dims2).not.toContain('milestone')
   })
 
   it('keeps a dimension that is already being filtered on', () => {

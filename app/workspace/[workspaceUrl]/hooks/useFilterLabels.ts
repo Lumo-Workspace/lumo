@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import type { WorkspaceMemberInfo } from '../types'
 import {
+  NO_MILESTONE_VALUE,
+  NO_SPRINT_VALUE,
   UNASSIGNED_VALUE,
   UNTAGGED_VALUE,
   type FilterableTask,
@@ -40,6 +42,14 @@ export function useFilterLabels(
       project: intl.formatMessage({
         id: 'filter.dimension.project',
         defaultMessage: 'Project',
+      }),
+      milestone: intl.formatMessage({
+        id: 'filter.dimension.milestone',
+        defaultMessage: 'Milestone',
+      }),
+      sprint: intl.formatMessage({
+        id: 'filter.dimension.sprint',
+        defaultMessage: 'Sprint',
       }),
       tag: intl.formatMessage({
         id: 'filter.dimension.tag',
@@ -103,10 +113,18 @@ export function useFilterLabels(
 
     const projectNames = new Map<string, string>()
     const tagNames = new Map<string, string>()
+    const sprintNames = new Map<string, string>()
+    const milestoneNames = new Map<string, string>()
     for (const task of tasks) {
       if (task.project?.name)
         projectNames.set(task.projectId, task.project.name)
       for (const tag of task.tags ?? []) tagNames.set(tag.id, tag.name)
+      if (task.sprintId && task.sprint?.name) {
+        sprintNames.set(task.sprintId, task.sprint.name)
+      }
+      if (task.milestoneId && task.milestone?.name) {
+        milestoneNames.set(task.milestoneId, task.milestone.name)
+      }
     }
     const memberNames = new Map<string, string>()
     for (const member of members) {
@@ -128,6 +146,14 @@ export function useFilterLabels(
       id: 'filter.untagged',
       defaultMessage: 'No label',
     })
+    const noSprint = intl.formatMessage({
+      id: 'filter.noSprint',
+      defaultMessage: 'No sprint',
+    })
+    const noMilestone = intl.formatMessage({
+      id: 'filter.noMilestone',
+      defaultMessage: 'No milestone',
+    })
 
     return (dimension: FilterDimension, value: string): string => {
       switch (dimension) {
@@ -139,6 +165,14 @@ export function useFilterLabels(
           return dueDateLabels[value] ?? value
         case 'project':
           return projectNames.get(value) ?? value
+        case 'sprint':
+          return value === NO_SPRINT_VALUE
+            ? noSprint
+            : (sprintNames.get(value) ?? noSprint)
+        case 'milestone':
+          return value === NO_MILESTONE_VALUE
+            ? noMilestone
+            : (milestoneNames.get(value) ?? noMilestone)
         case 'tag':
           return value === UNTAGGED_VALUE
             ? untagged

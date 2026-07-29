@@ -2273,5 +2273,9 @@
   "filter.noFields": "這裡暫時沒有可篩選的欄位",
   "filter.clearAll": "清除全部",
   "filter.chip.remove": "移除{dimension}篩選",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "里程碑",
+  "filter.dimension.sprint": "衝刺",
+  "filter.noMilestone": "無里程碑",
+  "filter.noSprint": "不在衝刺中"
 }

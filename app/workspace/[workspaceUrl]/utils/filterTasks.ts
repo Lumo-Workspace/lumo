@@ -25,6 +25,10 @@ export interface FilterableTask {
   dueDate?: string | null
   tags?: { id: string; name: string }[] | undefined
   project?: { name: string } | undefined
+  sprintId?: string | null | undefined
+  sprint?: { name: string } | null | undefined
+  milestoneId?: string | null | undefined
+  milestone?: { name: string } | null | undefined
   assignee?: { agent?: { name: string } | null } | null | undefined
 }
 
@@ -33,6 +37,8 @@ export const FILTER_DIMENSIONS = [
   'priority',
   'assignee',
   'project',
+  'milestone',
+  'sprint',
   'tag',
   'dueDate',
 ] as const
@@ -45,6 +51,8 @@ export type TaskFilters = Partial<Record<FilterDimension, string[]>>
 /** Sentinel values for "the task has nothing in this dimension". */
 export const UNASSIGNED_VALUE = '__unassigned__'
 export const UNTAGGED_VALUE = '__untagged__'
+export const NO_SPRINT_VALUE = '__no_sprint__'
+export const NO_MILESTONE_VALUE = '__no_milestone__'
 
 export const DUE_DATE_BUCKETS = [
   'overdue',
@@ -107,6 +115,12 @@ export function taskFilterValues(
       return [task.assigneeActorId ?? UNASSIGNED_VALUE]
     case 'project':
       return [task.projectId]
+    case 'milestone':
+      return [task.milestoneId ?? NO_MILESTONE_VALUE]
+    case 'sprint':
+      // Sentinel rather than "skip": "not in a sprint" (backlog) is a state
+      // people filter *for*, not an absence to be hidden.
+      return [task.sprintId ?? NO_SPRINT_VALUE]
     case 'tag': {
       const ids = (task.tags ?? []).map(t => t.id)
       return ids.length > 0 ? ids : [UNTAGGED_VALUE]

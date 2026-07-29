@@ -2273,5 +2273,9 @@
   "filter.noFields": "ここにはまだ絞り込める項目がありません",
   "filter.clearAll": "すべてクリア",
   "filter.chip.remove": "{dimension}フィルターを削除",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "マイルストーン",
+  "filter.dimension.sprint": "スプリント",
+  "filter.noMilestone": "マイルストーンなし",
+  "filter.noSprint": "スプリントなし"
 }

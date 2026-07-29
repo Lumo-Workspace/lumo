@@ -118,11 +118,28 @@ describe('TaskFilterChips', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
+  it('labels sprint and milestone chips from the tasks in scope', () => {
+    renderChips({ sprint: ['s1'], milestone: ['m1'] }, [
+      task({
+        sprintId: 's1',
+        sprint: { name: 'Sprint 12' },
+        milestoneId: 'm1',
+        milestone: { name: 'Q3 Launch' },
+      }),
+    ])
+
+    expect(screen.getByText('Sprint')).toBeInTheDocument()
+    expect(screen.getByText('Sprint 12')).toBeInTheDocument()
+    expect(screen.getByText('Milestone')).toBeInTheDocument()
+    expect(screen.getByText('Q3 Launch')).toBeInTheDocument()
+  })
+
   it('renders one chip per active dimension, in canonical order', () => {
-    renderChips({ dueDate: ['today'], status: ['TODO'] })
+    renderChips({ dueDate: ['today'], sprint: ['s1'], status: ['TODO'] })
     const removeButtons = screen.getAllByRole('button', { name: /^Remove / })
     expect(removeButtons.map(b => b.getAttribute('aria-label'))).toEqual([
       'Remove Status filter',
+      'Remove Sprint filter',
       'Remove Due date filter',
     ])
   })
