@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "新增失敗",
   "project.noOwner": "無負責人",
   "project.ownerTooltip": "負責人 —— 這個專案的第一聯絡人",
-  "signal.allClear": "一切正常"
+  "signal.allClear": "一切正常",
+  "milestone.dates.start": "開始",
+  "milestone.dates.target": "目標",
+  "milestone.dialog.name.placeholder": "Milestone 名稱，例：Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "這個里程碑要達成什麼？交付物與完成標準是什麼？（選填）",
+  "milestone.dialog.dates.optional": "兩者皆可留空"
 }

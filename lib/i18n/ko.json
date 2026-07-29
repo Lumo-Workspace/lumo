@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "추가하지 못했습니다",
   "project.noOwner": "담당자 없음",
   "project.ownerTooltip": "담당자 — 이 프로젝트의 주 연락 담당",
-  "signal.allClear": "이상 없음"
+  "signal.allClear": "이상 없음",
+  "milestone.dates.start": "시작",
+  "milestone.dates.target": "목표",
+  "milestone.dialog.name.placeholder": "마일스톤 이름, 예: Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "이 마일스톤으로 무엇을 달성하나요? 산출물과 완료 기준은 무엇인가요? (선택)",
+  "milestone.dialog.dates.optional": "둘 다 선택 사항"
 }

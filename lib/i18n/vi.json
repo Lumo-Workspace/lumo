@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "Không thêm được",
   "project.noOwner": "Chưa có người phụ trách",
   "project.ownerTooltip": "Người phụ trách — đầu mối liên hệ chính của dự án",
-  "signal.allClear": "Không có vấn đề"
+  "signal.allClear": "Không có vấn đề",
+  "milestone.dates.start": "Bắt đầu",
+  "milestone.dates.target": "Mục tiêu",
+  "milestone.dialog.name.placeholder": "Tên cột mốc, ví dụ Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "Cột mốc này cần đạt được điều gì? Sản phẩm bàn giao và tiêu chí hoàn thành là gì? (không bắt buộc)",
+  "milestone.dialog.dates.optional": "Cả hai đều không bắt buộc"
 }

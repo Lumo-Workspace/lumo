@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "Не удалось добавить",
   "project.noOwner": "Без владельца",
   "project.ownerTooltip": "Владелец — основное контактное лицо по проекту",
-  "signal.allClear": "Всё в порядке"
+  "signal.allClear": "Всё в порядке",
+  "milestone.dates.start": "Начало",
+  "milestone.dates.target": "Цель",
+  "milestone.dialog.name.placeholder": "Название вехи, например Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "Чего должна достичь эта веха? Каковы результаты и критерий готовности? (необязательно)",
+  "milestone.dialog.dates.optional": "Оба поля необязательны"
 }
