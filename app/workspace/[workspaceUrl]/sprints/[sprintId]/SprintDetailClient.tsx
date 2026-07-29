@@ -11,7 +11,7 @@ import { CheckSquare, Plus } from 'lucide-react'
 import type { ApiStatus, MyTask } from '../../types'
 import { TaskWorkspaceView } from '../../components/task-list/TaskWorkspaceView'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
-import { SprintStatCards } from '../components/SprintStatCards'
+import { SprintHeader } from '../components/SprintHeader'
 import { SprintTeamPerformance } from '../components/SprintTeamPerformance'
 import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
 import {
@@ -180,8 +180,8 @@ export function SprintDetailClient({
         grows unbounded (Team performance expands per member and per task), so
         the body scrolls (`scrollBody`) rather than clipping it.
       */}
-      <div className='flex shrink-0 flex-col gap-4 px-6 pb-2 pt-5'>
-        <SprintStatCards
+      <div className='flex shrink-0 flex-col gap-6 px-6 pb-2 pt-5'>
+        <SprintHeader
           sprint={sprint}
           progress={progress ?? { done: 0, total: 0 }}
           onRefresh={() => {
