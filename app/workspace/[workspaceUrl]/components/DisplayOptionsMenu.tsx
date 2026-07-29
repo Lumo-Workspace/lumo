@@ -44,6 +44,13 @@ export function DisplayOptionsMenu({
 }: DisplayOptionsMenuProps) {
   const intl = useIntl()
 
+  // Icon-only trigger — the label survives as tooltip/aria copy so the control
+  // stays discoverable and screen-reader friendly.
+  const triggerLabel = intl.formatMessage({
+    id: 'display.menuTrigger',
+    defaultMessage: 'Display',
+  })
+
   const orderingLabels: Record<TaskOrdering, string> = {
     manual: intl.formatMessage({
       id: 'display.ordering.manual',
@@ -150,13 +157,11 @@ export function DisplayOptionsMenu({
         <Button
           variant='ghost'
           size='sm'
-          className='h-8 gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground'
+          title={triggerLabel}
+          aria-label={triggerLabel}
+          className='size-8 p-0 text-muted-foreground hover:text-foreground'
         >
           <SlidersHorizontal size={14} />
-          {intl.formatMessage({
-            id: 'display.menuTrigger',
-            defaultMessage: 'Display',
-          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent align='end' className='w-56 p-2'>
