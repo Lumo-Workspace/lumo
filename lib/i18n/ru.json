@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "Оставить",
   "memory.merge.confirmed": "Воспоминания объединены",
   "memory.merge.error": "Не удалось объединить воспоминания. Попробуйте ещё раз.",
-  "memory.action.add": "Добавить воспоминание",
+  "memory.action.add": "Новое воспоминание",
   "memory.action.edit": "Редактировать",
   "memory.action.delete": "Удалить",
   "memory.action.promote": "Повысить до уровня проекта",

@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "Giữ",
   "memory.merge.confirmed": "Đã hợp nhất ký ức",
   "memory.merge.error": "Không thể hợp nhất các ký ức. Vui lòng thử lại.",
-  "memory.action.add": "Thêm bộ nhớ",
+  "memory.action.add": "Bộ nhớ mới",
   "memory.action.edit": "Chỉnh sửa",
   "memory.action.delete": "Xóa",
   "memory.action.promote": "Nâng lên cấp dự án",

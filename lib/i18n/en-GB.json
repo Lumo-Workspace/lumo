@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "Keep",
   "memory.merge.confirmed": "Memories merged",
   "memory.merge.error": "Could not merge the memories. Please try again.",
-  "memory.action.add": "Add memory",
+  "memory.action.add": "New memory",
   "memory.action.edit": "Edit",
   "memory.action.delete": "Delete",
   "memory.action.promote": "Promote to project",

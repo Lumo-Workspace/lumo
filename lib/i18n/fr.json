@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "Conserver",
   "memory.merge.confirmed": "Mémoires fusionnées",
   "memory.merge.error": "Impossible de fusionner les mémoires. Veuillez réessayer.",
-  "memory.action.add": "Ajouter un souvenir",
+  "memory.action.add": "Nouveau souvenir",
   "memory.action.edit": "Modifier",
   "memory.action.delete": "Supprimer",
   "memory.action.promote": "Promouvoir au projet",

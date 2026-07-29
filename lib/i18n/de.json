@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "Behalten",
   "memory.merge.confirmed": "Erinnerungen zusammengeführt",
   "memory.merge.error": "Die Erinnerungen konnten nicht zusammengeführt werden. Bitte versuche es erneut.",
-  "memory.action.add": "Gedächtniseintrag hinzufügen",
+  "memory.action.add": "Neuer Gedächtniseintrag",
   "memory.action.edit": "Bearbeiten",
   "memory.action.delete": "Löschen",
   "memory.action.promote": "Zum Projekt hochstufen",

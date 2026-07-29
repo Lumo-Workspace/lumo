@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "रखें",
   "memory.merge.confirmed": "मेमोरी मर्ज की गईं",
   "memory.merge.error": "मेमोरी मर्ज नहीं हो सकीं। कृपया पुनः प्रयास करें।",
-  "memory.action.add": "स्मृति जोड़ें",
+  "memory.action.add": "नई स्मृति",
   "memory.action.edit": "संपादित करें",
   "memory.action.delete": "हटाएं",
   "memory.action.promote": "प्रोजेक्ट स्तर पर बढ़ाएं",
