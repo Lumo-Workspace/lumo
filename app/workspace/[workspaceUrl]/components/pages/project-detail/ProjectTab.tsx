@@ -66,106 +66,116 @@ export function ProjectTab({
 
   return (
     <div className='flex-1 overflow-y-auto'>
-      {/* Narrow centred column: this page is read, not scanned in columns. */}
-      <div className='mx-auto w-full max-w-[760px] px-4 py-10 md:px-0'>
-        <div className='mb-5 flex items-center gap-1.5'>
-          <TypographyH1
-            key={project.id}
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={e => {
-              const trimmed = e.currentTarget.textContent?.trim() ?? ''
-              if (!trimmed || trimmed === project.name) {
-                e.currentTarget.textContent = project.name
-                return
-              }
-              onUpdateProject(project.id, { name: trimmed })
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.currentTarget.blur()
-              }
-              if (e.key === 'Escape') {
-                e.currentTarget.textContent = project.name
-                e.currentTarget.blur()
-              }
-            }}
-            className='cursor-text outline-none focus:outline-none'
-          >
-            {project.name}
-          </TypographyH1>
-          {project.isIdea && (
-            <span className={IDEA_BADGE_CLS}>
-              {intl.formatMessage({ id: 'project.draft' })}
-            </span>
-          )}
-        </div>
-
-        <ProjectPropertyRows
-          project={project}
-          members={members}
-          workspaceUrl={workspaceUrl}
-          onUpdateProject={onUpdateProject}
-        />
-
-        {/* Health — the one section that can be empty-but-meaningful, so it
-            keeps its label even while the stats request is in flight. */}
-        <div className='mt-4'>
-          {statsLoading && !view ? (
-            <PropertyRow label={healthLabel}>
-              <div
-                className='h-6 w-56 animate-pulse rounded-full bg-muted'
-                aria-busy='true'
-              />
-            </PropertyRow>
-          ) : !view || !stats ? (
-            <PropertyRow label={healthLabel}>
-              <span className='text-caption text-muted-foreground'>
-                {intl.formatMessage({
-                  id: statsError ? 'summary.reportFailed' : 'signal.noSignals',
-                })}
+      {/* A 760px reading column — this page is read, not scanned in columns —
+          pinned to the page's standard left edge rather than centred. The design
+          source centres it, but it was drawn on a 1440px canvas where that left
+          only an 81px gutter; centring at a real window width grows the gutter
+          without bound (~445px on a wide screen) and pushes the body far off the
+          breadcrumb and tab rail above it. Left-aligning keeps the line length
+          the design chose and the geometry the rest of the workspace uses. */}
+      <div className='px-4 py-10 md:px-8'>
+        <div className='w-full max-w-[760px]'>
+          <div className='mb-5 flex items-center gap-1.5'>
+            <TypographyH1
+              key={project.id}
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={e => {
+                const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                if (!trimmed || trimmed === project.name) {
+                  e.currentTarget.textContent = project.name
+                  return
+                }
+                onUpdateProject(project.id, { name: trimmed })
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.currentTarget.blur()
+                }
+                if (e.key === 'Escape') {
+                  e.currentTarget.textContent = project.name
+                  e.currentTarget.blur()
+                }
+              }}
+              className='cursor-text outline-none focus:outline-none'
+            >
+              {project.name}
+            </TypographyH1>
+            {project.isIdea && (
+              <span className={IDEA_BADGE_CLS}>
+                {intl.formatMessage({ id: 'project.draft' })}
               </span>
-            </PropertyRow>
-          ) : (
-            <ProjectHealthRow
-              label={healthLabel}
-              view={view}
-              stalled={stats.topBlockers.stalledTaskIds}
-              highStakes={stats.topBlockers.highStakesTaskIds}
-              stalePrs={stats.topBlockers.staleOpenPrs}
-              now={now}
-              onOpenTask={onOpenTask}
-              onViewAllTasks={onViewAllTasks}
-            />
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className='pt-9'>
-          <p className='mb-3 text-caption text-muted-foreground'>
-            {intl.formatMessage({ id: 'project.description' })}
-          </p>
-          <DescriptionEditor
-            key={project.id}
-            value={project.description}
-            onCommit={html => {
-              onUpdateProject(project.id, { description: html ?? '' })
-            }}
-            placeholder={intl.formatMessage({
-              id: 'project.descriptionPlaceholder',
-            })}
-            mentionSources={mentionSources}
-            documentId={project.id}
-          />
-        </div>
-
-        <div className='pt-9'>
-          <ProjectMilestonesOverview
-            projectId={project.id}
-            projectSlug={projectSlug}
+          <ProjectPropertyRows
+            project={project}
+            members={members}
             workspaceUrl={workspaceUrl}
-            onViewAll={onViewAllMilestones}
+            onUpdateProject={onUpdateProject}
           />
+
+          {/* Health — the one section that can be empty-but-meaningful, so it
+            keeps its label even while the stats request is in flight. */}
+          <div className='mt-4'>
+            {statsLoading && !view ? (
+              <PropertyRow label={healthLabel}>
+                <div
+                  className='h-6 w-56 animate-pulse rounded-full bg-muted'
+                  aria-busy='true'
+                />
+              </PropertyRow>
+            ) : !view || !stats ? (
+              <PropertyRow label={healthLabel}>
+                <span className='text-caption text-muted-foreground'>
+                  {intl.formatMessage({
+                    id: statsError
+                      ? 'summary.reportFailed'
+                      : 'signal.noSignals',
+                  })}
+                </span>
+              </PropertyRow>
+            ) : (
+              <ProjectHealthRow
+                label={healthLabel}
+                view={view}
+                stalled={stats.topBlockers.stalledTaskIds}
+                highStakes={stats.topBlockers.highStakesTaskIds}
+                stalePrs={stats.topBlockers.staleOpenPrs}
+                now={now}
+                onOpenTask={onOpenTask}
+                onViewAllTasks={onViewAllTasks}
+              />
+            )}
+          </div>
+
+          <div className='pt-9'>
+            <p className='mb-3 text-caption text-muted-foreground'>
+              {intl.formatMessage({ id: 'project.description' })}
+            </p>
+            <DescriptionEditor
+              key={project.id}
+              value={project.description}
+              onCommit={html => {
+                onUpdateProject(project.id, { description: html ?? '' })
+              }}
+              placeholder={intl.formatMessage({
+                id: 'project.descriptionPlaceholder',
+              })}
+              mentionSources={mentionSources}
+              documentId={project.id}
+            />
+          </div>
+
+          <div className='pt-9'>
+            <ProjectMilestonesOverview
+              projectId={project.id}
+              projectSlug={projectSlug}
+              workspaceUrl={workspaceUrl}
+              onViewAll={onViewAllMilestones}
+            />
+          </div>
         </div>
       </div>
     </div>
