@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -86,6 +87,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
       <div className='flex items-center justify-between gap-2'>
         {filterBar}
         <Button onClick={() => setDialog({ mode: 'create' })}>
+          <Plus className='size-4' aria-hidden />
           {intl.formatMessage({ id: 'milestone.new' })}
         </Button>
       </div>

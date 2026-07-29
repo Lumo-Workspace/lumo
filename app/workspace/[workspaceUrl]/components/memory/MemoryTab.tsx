@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Brain } from 'lucide-react'
+import { Brain, Plus } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
@@ -133,8 +133,10 @@ export function MemoryTab({
             )}
           </span>
           {/* Same shape as the milestones tab's "New milestone" — default
-              primary Button, no icon — so sibling tabs read as one system. */}
+              primary Button with a leading Plus — so sibling tabs read as one
+              system. */}
           <Button onClick={() => setDialog({ open: true, mode: 'create' })}>
+            <Plus className='size-4' aria-hidden />
             {intl.formatMessage({ id: 'memory.action.add' })}
           </Button>
         </div>
