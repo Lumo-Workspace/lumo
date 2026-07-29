@@ -61,8 +61,8 @@ interface TaskWorkspaceViewProps {
   /** Per-scope localStorage key for display options. */
   displayOptionsKey: string
   /** Show + drive the properties-rail collapse toggle in the toolbar. Omit
-   * both when the scope has no properties rail (e.g. the sprint detail page,
-   * where the info moved above the board) — the toolbar then hides the toggle. */
+   * both when the scope has no properties rail — the toolbar then hides the
+   * toggle. */
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   /** Scope-specific tooltip/aria copy for the collapse toggle. */

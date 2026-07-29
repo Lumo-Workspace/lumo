@@ -19,10 +19,10 @@ interface DetailLayoutProps {
   /**
    * Let the single-column body scroll vertically instead of pinning it to the
    * viewport. Use it when content *above* the main pane can grow unbounded —
-   * the sprint detail info block, whose Team performance table expands per
-   * member and per task. Without it `overflow-hidden` clips that content and
-   * everything below it becomes unreachable. Ignored when a sidebar shows
-   * (the two-column body already scrolls its columns).
+   * without it `overflow-hidden` clips that content and everything below it
+   * becomes unreachable. Ignored when a sidebar shows (the two-column body
+   * already scrolls its columns), which is why a page whose growing content
+   * lives in the rail doesn't need it.
    */
   scrollBody?: boolean
   /** Main content area. */

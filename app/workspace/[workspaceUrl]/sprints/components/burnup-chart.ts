@@ -13,11 +13,16 @@ import type { SprintBurnupResponse } from '@/lib/api-client/sprints'
 
 // The viewBox carries the plot only — tick and axis labels are HTML around it,
 // so their type stays at the design-system size however wide the card gets.
-export const CHART_VB_W = 800
+//
+// The aspect ratio is what decides how tall the card renders, since the SVG
+// scales to its column: at the old 5:1 the curve collapsed to a ~54px sliver
+// once the card moved into the ~320px right rail (LUM-718). ~2.1:1 keeps the
+// plot readable there, and the wider left gutter gives the tick labels room.
+export const CHART_VB_W = 340
 export const CHART_VB_H = 160
 
 const PLOT_LEFT = 40
-const PLOT_RIGHT = 760
+const PLOT_RIGHT = 300
 const PLOT_TOP = 20
 const PLOT_BOTTOM = 140
 

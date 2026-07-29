@@ -13,6 +13,8 @@ import { TaskWorkspaceView } from '../../components/task-list/TaskWorkspaceView'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
 import { SprintHeader } from '../components/SprintHeader'
 import { SprintTeamPerformance } from '../components/SprintTeamPerformance'
+import { CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
 import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
 import {
   Breadcrumb,
@@ -70,6 +72,22 @@ export function SprintDetailClient({
   useEffect(() => {
     void fetchProjects()
   }, [fetchProjects])
+
+  // Collapse / expand the right-hand sprint info rail. The preference is global
+  // across sprints (mirrors the milestone detail page) so it survives
+  // navigation instead of re-toggling on every visit.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    const cached = readCache<boolean>(CACHE_KEY.sprintSidebarCollapsed)
+    if (cached !== null) setSidebarCollapsed(cached)
+  }, [])
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      writeCache(CACHE_KEY.sprintSidebarCollapsed, next)
+      return next
+    })
+  }
 
   const sprintsHref = `/workspace/${workspaceUrl}/sprints`
   const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })
@@ -134,6 +152,14 @@ export function SprintDetailClient({
       members={members}
       projects={projects}
       displayOptionsKey={`lumo:display:sprint:${sprint.id}`}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={toggleSidebar}
+      sidebarExpandLabel={intl.formatMessage({
+        id: 'sprints.detail.expandSidebar',
+      })}
+      sidebarCollapseLabel={intl.formatMessage({
+        id: 'sprints.detail.collapseSidebar',
+      })}
       emptyState={
         <Empty>
           <EmptyHeader>
@@ -162,9 +188,28 @@ export function SprintDetailClient({
     />
   )
 
+  /*
+    Sprint info lives in the right rail, which scrolls on its own — the members
+    section grows unbounded (it expands per member and per task) but that no
+    longer pushes the board past the fold, so the page body stays pinned to the
+    viewport and the board keeps its full height.
+  */
+  const sidePanel = (
+    <div className='flex h-full flex-col gap-6 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
+      <SprintHeader
+        sprint={sprint}
+        progress={progress ?? { done: 0, total: 0 }}
+        onRefresh={() => {
+          refetch()
+          refetchTasks()
+        }}
+      />
+      <SprintTeamPerformance sprintId={sprint.id} members={members} />
+    </div>
+  )
+
   return (
     <DetailLayout
-      scrollBody
       breadcrumb={
         <div className='flex items-center gap-1.5'>
           {breadcrumb(sprint.name)}
@@ -174,29 +219,11 @@ export function SprintDetailClient({
           />
         </div>
       }
+      sidebar={sidePanel}
+      sidebarCollapsed={sidebarCollapsed}
+      flushSidebar
     >
-      {/*
-        Sprint info — the relocated sidebar content — sits above the board and
-        grows unbounded (Team performance expands per member and per task), so
-        the body scrolls (`scrollBody`) rather than clipping it.
-      */}
-      <div className='flex shrink-0 flex-col gap-6 px-6 pb-2 pt-5'>
-        <SprintHeader
-          sprint={sprint}
-          progress={progress ?? { done: 0, total: 0 }}
-          onRefresh={() => {
-            refetch()
-            refetchTasks()
-          }}
-        />
-        <SprintTeamPerformance sprintId={sprint.id} members={members} />
-      </div>
-      {/*
-        `flex-1` still fills the viewport when the info block is short; the
-        `min-h` floor keeps the board/list usable (its columns scroll
-        internally) once a tall info block pushes it past the fold.
-      */}
-      <div className='flex min-h-[480px] flex-1 flex-col'>{workspace}</div>
+      {workspace}
     </DetailLayout>
   )
 }

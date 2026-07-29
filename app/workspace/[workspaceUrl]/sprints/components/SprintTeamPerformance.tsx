@@ -20,10 +20,6 @@ const TOKEN_FMT = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 })
 
-// Shared column template so header, member rows and drill-down rows align.
-const COLS =
-  'grid grid-cols-[minmax(180px,1.1fr)_110px_minmax(140px,1fr)_minmax(120px,1fr)_minmax(160px,1fr)] items-center'
-
 interface Props {
   sprintId: string
   members: WorkspaceMemberInfo[]
@@ -46,8 +42,15 @@ export function SprintTeamPerformance({ sprintId, members }: Props) {
 
 /**
  * Pure rendering half of the panel — takes an already-loaded rollup so the
- * fetching lives in one place (SRP) and the table can be rendered against
+ * fetching lives in one place (SRP) and the cards can be rendered against
  * fixtures.
+ *
+ * Laid out as a stack of narrow cards rather than the wide five-column table it
+ * used to be: the section now lives in the ~320px right rail, where a grid of
+ * member / tasks-done / tokens / agent-time / token-share columns can only
+ * overflow. Each member reads top-down instead — name and share on one line,
+ * the share bar under it, then the three numbers as one meta line — and both
+ * levels of disclosure (member → task → per-model split) are unchanged.
  */
 function SprintTeamPerformanceView({
   performance,
@@ -82,50 +85,14 @@ function SprintTeamPerformanceView({
         })}
       </h2>
 
-      <div className='overflow-hidden rounded-lg border border-border'>
-        {/* Header */}
-        <div
-          className={`${COLS} h-9 border-b border-border bg-muted/40 text-caption font-medium uppercase tracking-wider text-muted-foreground`}
-        >
-          <div className='px-5'>
-            {intl.formatMessage({
-              id: 'sprints.team.colMember',
-              defaultMessage: 'Member',
-            })}
-          </div>
-          <div>
-            {intl.formatMessage({
-              id: 'sprints.team.colTasks',
-              defaultMessage: 'Tasks done',
-            })}
-          </div>
-          <div>
-            {intl.formatMessage({
-              id: 'sprints.team.colTokens',
-              defaultMessage: 'Tokens',
-            })}
-          </div>
-          <div>
-            {intl.formatMessage({
-              id: 'sprints.team.colTime',
-              defaultMessage: 'Agent time',
-            })}
-          </div>
-          <div className='pr-5'>
-            {intl.formatMessage({
-              id: 'sprints.team.colShare',
-              defaultMessage: 'Token share',
-            })}
-          </div>
-        </div>
-
+      <div className='divide-y divide-border overflow-hidden rounded-lg border border-border'>
         {performance.rows.map(row => {
           const key = row.memberId ?? '__unattributed__'
           const member = row.memberId ? memberById.get(row.memberId) : undefined
           const isOpen = open.has(key)
           return (
             <div key={key}>
-              <MemberRow
+              <MemberCard
                 row={row}
                 member={member}
                 isOpen={isOpen}
@@ -137,10 +104,6 @@ function SprintTeamPerformanceView({
                   id: 'sprints.team.unattributed',
                   defaultMessage: 'Unattributed',
                 })}
-                tasksDoneMax={Math.max(
-                  1,
-                  ...performance.rows.map(r => r.tasksDone)
-                )}
               />
               {isOpen && (
                 <DrillDown
@@ -157,7 +120,7 @@ function SprintTeamPerformanceView({
   )
 }
 
-function MemberRow({
+function MemberCard({
   row,
   member,
   isOpen,
@@ -166,7 +129,6 @@ function MemberRow({
   sharePct,
   fmtTime,
   unattributedLabel,
-  tasksDoneMax,
 }: {
   row: SprintMemberPerfRowDto
   member: WorkspaceMemberInfo | undefined
@@ -176,17 +138,16 @@ function MemberRow({
   sharePct: number
   fmtTime: (sec: number) => string
   unattributedLabel: string
-  tasksDoneMax: number
 }) {
+  const intl = useIntl()
   return (
     <button
       type='button'
       onClick={onToggle}
       aria-expanded={isOpen}
-      className={`${COLS} h-14 w-full border-b border-border text-left hover:bg-muted/30`}
+      className='flex w-full flex-col gap-2 px-3.5 py-3 text-left hover:bg-muted/30'
     >
-      {/* Member */}
-      <div className='flex min-w-0 items-center gap-2 pl-3.5 pr-3'>
+      <div className='flex w-full min-w-0 items-center gap-2'>
         <ChevronRight
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${
             isOpen ? 'rotate-90' : ''
@@ -201,45 +162,54 @@ function MemberRow({
         )}
         {/* Name only — a sprint belongs to a team, while `member.role` is the
             workspace/project-level role, so showing it here would label the
-            row with a scope this table doesn't speak for. */}
-        <span className='min-w-0 truncate text-body-strong'>
+            row with a scope this section doesn't speak for. */}
+        <span className='min-w-0 flex-1 truncate text-body-strong'>
           {row.label ?? unattributedLabel}
         </span>
-      </div>
-
-      {/* Tasks done */}
-      <div className='flex flex-col gap-1.5 pr-6'>
-        <span className='text-body-strong tabular-nums'>{row.tasksDone}</span>
-        <span className='block h-1 w-16 overflow-hidden rounded-full bg-muted'>
-          <span
-            className='block h-full bg-success'
-            style={{ width: `${(row.tasksDone / tasksDoneMax) * 100}%` }}
-          />
-        </span>
-      </div>
-
-      {/* Tokens — the model count and run count used to sit under these two
-          numbers; the columns already say what they are, so the numbers stand
-          on their own. */}
-      <span className='text-body-strong tabular-nums'>
-        {fmtTokens(row.tokenCost)}
-      </span>
-
-      {/* Agent time */}
-      <span className='text-body-strong tabular-nums'>
-        {fmtTime(row.activeTimeSec)}
-      </span>
-
-      {/* Token share */}
-      <div className='flex items-center gap-3 pr-5'>
-        <span className='block h-1.5 flex-1 overflow-hidden rounded-full bg-muted'>
-          <span
-            className='block h-full rounded-full bg-chart-1'
-            style={{ width: `${sharePct}%` }}
-          />
-        </span>
-        <span className='w-9 text-right text-caption tabular-nums text-muted-foreground'>
+        <span className='shrink-0 text-caption tabular-nums text-muted-foreground'>
           {sharePct}%
+        </span>
+      </div>
+
+      {/* Token share of the sprint total — the percentage above is the reading;
+          the bar is its decoration, so it stays out of the a11y tree. */}
+      <span
+        aria-hidden
+        className='block h-1.5 w-full overflow-hidden rounded-full bg-muted'
+      >
+        <span
+          className='block h-full rounded-full bg-chart-1'
+          style={{ width: `${sharePct}%` }}
+        />
+      </span>
+
+      {/* The three numbers the columns used to carry, as one meta line — each
+          phrase names its own unit, standing in for the dropped column header. */}
+      <div className='flex w-full flex-wrap items-baseline gap-x-3 gap-y-0.5 text-caption tabular-nums text-muted-foreground'>
+        <span>
+          {intl.formatMessage(
+            {
+              id: 'sprints.team.metaTasks',
+              defaultMessage:
+                '{n, plural, one {# task done} other {# tasks done}}',
+            },
+            { n: row.tasksDone }
+          )}
+        </span>
+        <span>
+          {intl.formatMessage(
+            { id: 'sprints.team.metaTokens', defaultMessage: '{n} tokens' },
+            { n: fmtTokens(row.tokenCost) }
+          )}
+        </span>
+        <span>
+          {intl.formatMessage(
+            {
+              id: 'sprints.team.metaTime',
+              defaultMessage: '{time} agent time',
+            },
+            { time: fmtTime(row.activeTimeSec) }
+          )}
         </span>
       </div>
     </button>
@@ -256,7 +226,7 @@ function DrillDown({
   fmtTime: (sec: number) => string
 }) {
   return (
-    <div className='border-b border-border bg-muted/20'>
+    <div className='border-t border-border bg-muted/20'>
       {row.perTask.map(task => (
         <TaskRow
           key={task.taskId}
@@ -270,10 +240,11 @@ function DrillDown({
 }
 
 /**
- * One task line inside a member's drill-down — itself a disclosure: the line
- * reads as tokens/time/date, and expanding it reveals that task's per-model
- * token composition (the same {@link TokenCostBreakdown} the run timeline
- * uses, so the four token kinds keep one palette across the app).
+ * One task inside a member's drill-down — itself a disclosure: two lines (id +
+ * title, then tokens / agent time / date) so it survives the narrow rail, and
+ * expanding it reveals that task's per-model token composition (the same
+ * {@link TokenCostBreakdown} the run timeline uses, so the four token kinds
+ * keep one palette across the app).
  */
 function TaskRow({
   task,
@@ -287,7 +258,7 @@ function TaskRow({
   const intl = useIntl()
   const [open, setOpen] = useState(false)
   // Spend the per-model fold can't place (pre-LUM-298 sessions). Stated, never
-  // folded into a model row — the same honesty rule as the member row.
+  // folded into a model row — the same honesty rule as the member card.
   const remainder = Math.max(
     0,
     task.tokenCost - task.models.reduce((sum, m) => sum + m.total, 0)
@@ -298,35 +269,38 @@ function TaskRow({
         type='button'
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        className='flex w-full items-center gap-2.5 py-2.5 pl-14 pr-5 text-left hover:bg-muted/40'
+        className='flex w-full flex-col gap-0.5 py-2 pl-3.5 pr-3 text-left hover:bg-muted/40'
       >
-        <ChevronRight
-          className={`size-3 shrink-0 text-muted-foreground transition-transform ${
-            open ? 'rotate-90' : ''
-          }`}
-        />
-        <span className='shrink-0 font-mono text-caption text-muted-foreground'>
-          {task.identifier}
-        </span>
-        <span className='min-w-0 flex-1 truncate text-body text-foreground'>
-          {task.title}
-        </span>
-        <span className='w-20 shrink-0 text-right text-body-strong tabular-nums'>
-          {fmtTokens(task.tokenCost)}
-        </span>
-        <span className='w-16 shrink-0 text-right text-caption tabular-nums text-muted-foreground'>
-          {fmtTime(task.activeTimeSec)}
-        </span>
-        <span className='w-12 shrink-0 text-right text-caption text-muted-foreground'>
-          {intl.formatDate(new Date(task.updatedAt), {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
+        <div className='flex w-full min-w-0 items-center gap-2'>
+          <ChevronRight
+            className={`size-3 shrink-0 text-muted-foreground transition-transform ${
+              open ? 'rotate-90' : ''
+            }`}
+          />
+          <span className='shrink-0 font-mono text-caption text-muted-foreground'>
+            {task.identifier}
+          </span>
+          <span className='min-w-0 flex-1 truncate text-body text-foreground'>
+            {task.title}
+          </span>
+        </div>
+        <div className='flex w-full items-baseline gap-3 pl-7 text-caption text-muted-foreground'>
+          <span className='font-semibold tabular-nums text-foreground'>
+            {fmtTokens(task.tokenCost)}
+          </span>
+          <span className='tabular-nums'>{fmtTime(task.activeTimeSec)}</span>
+          <span className='flex-1' />
+          <span>
+            {intl.formatDate(new Date(task.updatedAt), {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </span>
+        </div>
       </button>
 
       {open && (
-        <div className='pb-3.5 pl-[4.75rem] pr-5'>
+        <div className='pb-3 pl-7 pr-3'>
           {/* No model split captured (pre-LUM-298 sessions) → the remainder
               line below carries the whole spend on its own. */}
           {task.models.length > 0 && (

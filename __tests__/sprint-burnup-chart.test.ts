@@ -34,8 +34,10 @@ describe('buildBurnupChart', () => {
     const geo = buildBurnupChart(series([0, 4, 8]), 8)
     expect(geo.hasData).toBe(true)
     // Left edge at 0 completed = plot floor; right edge at scope = plot top.
+    const midX = (PLOT.left + PLOT.right) / 2
+    const midY = (PLOT.top + PLOT.bottom) / 2
     expect(geo.linePath).toBe(
-      `M${PLOT.left} ${PLOT.bottom} L400 80 L${PLOT.right} ${PLOT.top}`
+      `M${PLOT.left} ${PLOT.bottom} L${midX} ${midY} L${PLOT.right} ${PLOT.top}`
     )
     expect(geo.areaPath).toContain(`L${PLOT.right} ${PLOT.bottom}`)
     expect(geo.areaPath.endsWith('Z')).toBe(true)
@@ -76,9 +78,11 @@ describe('buildBurnupChart', () => {
   })
 
   it('snaps a pointer position to the nearest day', () => {
-    // 14 days across 720px → ~55.4px per step.
+    // 14 days spread evenly across the plot width — derive the step rather than
+    // hardcoding it, so the assertion survives a change of viewBox scale.
+    const step = (PLOT.right - PLOT.left) / 13
     expect(nearestPointIndex(PLOT.left, 14)).toBe(0)
-    expect(nearestPointIndex(PLOT.left + 60, 14)).toBe(1)
+    expect(nearestPointIndex(PLOT.left + step * 1.1, 14)).toBe(1)
     expect(nearestPointIndex(PLOT.right, 14)).toBe(13)
     // Out-of-plot pointers clamp rather than index past the ends.
     expect(nearestPointIndex(-500, 14)).toBe(0)

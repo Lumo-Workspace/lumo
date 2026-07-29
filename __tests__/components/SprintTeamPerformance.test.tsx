@@ -27,12 +27,21 @@ function interpolate(msg: string, values?: Record<string, unknown>): string {
   )
 }
 
+// `formatDurationSec` reaches for the shared `duration.*` keys, which carry no
+// defaultMessage — so the mock needs their en copy to render an agent time.
+const DURATION_MESSAGES: Record<string, string> = {
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+}
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: (
       d: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
-    ) => interpolate(d.defaultMessage ?? d.id, values),
+    ) =>
+      interpolate(d.defaultMessage ?? DURATION_MESSAGES[d.id] ?? d.id, values),
     formatDate: (dt: string | Date) =>
       new Date(dt).toLocaleDateString('en-US', {
         month: 'short',
@@ -151,28 +160,37 @@ describe('SprintTeamPerformance', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // LUM-717 kept the table exactly as it was — column header, collapsible
-  // member rows, token-share column — and only took out the prose: the
-  // subtitle beside the heading, the reconciliation footer, and the secondary
-  // "N models" / "N runs" captions under the two numbers. The section heading
-  // now reads "Progress" (the component keeps its team-performance name — that
-  // is the rollup it renders, not what the section is called).
-  it('keeps the table structure and drops the subtitle, footer and secondary count captions', () => {
+  // LUM-718 moved this section into the ~320px right rail, where the old
+  // five-column grid (member / tasks done / tokens / agent time / token share)
+  // could only overflow. Each member now reads top-down as one card. The
+  // section heading still reads "Progress" (LUM-717) — the component keeps its
+  // team-performance name, that being the rollup it renders.
+  it('renders each member as a compact rail card instead of a five-column table row', () => {
     mockUsePerf.mockReturnValue({ performance: perf, isLoading: false })
     renderPanel()
 
-    // Structure intact: heading, column header, both rows, share column.
-    expect(screen.getByText('Progress')).toBeInTheDocument()
-    expect(screen.getByText('Member')).toBeInTheDocument()
-    expect(screen.getByText('Tasks done')).toBeInTheDocument()
-    expect(screen.getByText('Token share')).toBeInTheDocument()
-    expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('Unattributed')).toBeInTheDocument()
-    expect(screen.getByText('800K')).toBeInTheDocument()
-    // Token share = 800k / 1M = 80%.
-    expect(screen.getByText('80%')).toBeInTheDocument()
+    // The column header row is gone — no header cell survives as a label.
+    expect(screen.queryByText('Member')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tasks done')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tokens')).not.toBeInTheDocument()
+    expect(screen.queryByText('Agent time')).not.toBeInTheDocument()
+    expect(screen.queryByText('Token share')).not.toBeInTheDocument()
 
-    // Prose gone.
+    // Each member is a card: name + share on the first line, the share bar
+    // under it, then the three numbers as one meta line naming their own units.
+    expect(screen.getByText('Progress')).toBeInTheDocument()
+    const card = screen.getByText('Alice').closest('button')!
+    // Token share = 800k / 1M = 80%.
+    expect(within(card).getByText('80%')).toBeInTheDocument()
+    expect(within(card).getByText('3 tasks done')).toBeInTheDocument()
+    expect(within(card).getByText('800K tokens')).toBeInTheDocument()
+    expect(within(card).getByText('50m agent time')).toBeInTheDocument()
+    // The bar is decoration next to the percentage it repeats.
+    expect(card.querySelector('[aria-hidden="true"]')).toBeInTheDocument()
+
+    expect(screen.getByText('Unattributed')).toBeInTheDocument()
+
+    // Prose that LUM-717 took out stays out.
     expect(screen.queryByText(/attributed per member/)).not.toBeInTheDocument()
     expect(screen.queryByText(/sprint total/)).not.toBeInTheDocument()
     expect(screen.queryByText('1 model')).not.toBeInTheDocument()

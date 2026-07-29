@@ -2,6 +2,10 @@
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { SprintBurnupResponse } from '@/lib/api-client/sprints'
+import {
+  CHART_VB_W,
+  PLOT,
+} from '@/app/workspace/[workspaceUrl]/sprints/components/burnup-chart'
 
 // LUM-717 folded the three sprint stat cards (progress ring / time left /
 // burnup sparkline) into one burnup card whose single readout line carries the
@@ -70,11 +74,18 @@ const renderHeader = () =>
     />
   )
 
-/** jsdom gives every element a zero-size rect; the chart needs a real one. */
+/**
+ * jsdom gives every element a zero-size rect; the chart needs a real one. Laid
+ * out at exactly the viewBox width so a clientX below maps 1:1 onto plot
+ * coordinates whatever scale the viewBox is drawn at.
+ */
 function stubChartRect(svg: SVGSVGElement) {
   svg.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: 800, height: 170 }) as DOMRect
+    ({ left: 0, top: 0, width: CHART_VB_W, height: 170 }) as DOMRect
 }
+
+/** Plot x of day `i` across a 14-day sprint. */
+const dayX = (i: number) => PLOT.left + (i / 13) * (PLOT.right - PLOT.left)
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -108,13 +119,13 @@ describe('SprintHeader', () => {
     stubChartRect(svg as SVGSVGElement)
     const readout = screen.getByTestId('burnup-readout')
 
-    // Second day (x = 40 + 720/13 ≈ 95) is measured: 8 of 12 completed.
-    fireEvent.mouseMove(svg, { clientX: 95 })
+    // The second day is measured: 8 of 12 completed.
+    fireEvent.mouseMove(svg, { clientX: dayX(1) })
     expect(readout).toHaveTextContent('Jul 28 · 8 / 12 done')
 
     // Past the measured days the line reads the plan instead — the mid-point
     // of a straight 0 → 12 ramp.
-    fireEvent.mouseMove(svg, { clientX: 400 })
+    fireEvent.mouseMove(svg, { clientX: dayX(6) })
     expect(readout.textContent).toMatch(/planned$/)
 
     fireEvent.mouseLeave(svg)
