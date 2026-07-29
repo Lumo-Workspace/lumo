@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Ver las {count} en Tareas →",
   "project.milestones.add": "Hito",
   "project.milestones.namePlaceholder": "Nombre del hito…",
-  "project.milestones.addFailed": "No se pudo agregar"
+  "project.milestones.addFailed": "No se pudo agregar",
+  "project.noOwner": "Sin responsable",
+  "project.ownerTooltip": "Responsable — contacto principal de este proyecto"
 }

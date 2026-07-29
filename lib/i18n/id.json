@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Lihat semua {count} di Tugas →",
   "project.milestones.add": "Tonggak",
   "project.milestones.namePlaceholder": "Nama tonggak…",
-  "project.milestones.addFailed": "Gagal menambahkan"
+  "project.milestones.addFailed": "Gagal menambahkan",
+  "project.noOwner": "Tanpa pemilik",
+  "project.ownerTooltip": "Pemilik — kontak utama untuk proyek ini"
 }

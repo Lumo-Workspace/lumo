@@ -36,9 +36,15 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/pages/project-detail/ProjectHeader',
   () => ({ ProjectHeader: () => <div data-testid='project-header' /> })
 )
+const projectTabProps = jest.fn()
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/pages/project-detail/ProjectTab',
-  () => ({ ProjectTab: () => <div data-testid='body-project' /> })
+  () => ({
+    ProjectTab: (props: Record<string, unknown>) => {
+      projectTabProps(props)
+      return <div data-testid='body-project' />
+    },
+  })
 )
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/pages/project-detail/ProjectTasksTab',
@@ -138,7 +144,10 @@ function setup(stats: TaskSummaryStats | null) {
   )
 }
 
-beforeEach(() => mockStats.mockReset())
+beforeEach(() => {
+  mockStats.mockReset()
+  projectTabProps.mockReset()
+})
 
 describe('project detail tabs', () => {
   it('project detail exposes exactly Project, Milestones, Tasks, Memory tabs and defaults to Project', () => {
@@ -187,6 +196,33 @@ describe('project detail tabs', () => {
     setup(null)
     expect(screen.queryByTestId('project-tab-badge')).not.toBeInTheDocument()
     expect(screen.getByTestId('body-project')).toBeInTheDocument()
+  })
+
+  it('unpacks the blocker lists for the Project tab instead of handing it the stats payload', () => {
+    // The tab renders panels from these three lists; if the page mis-maps them
+    // the panels silently show the wrong rows, which types alone can't catch.
+    setup(
+      makeStats({
+        stalledTaskIds: [stalled('1'), stalled('2')],
+        highStakesTaskIds: [stalled('1')],
+        staleOpenPrs: [{ number: 9, openedAt: daysAgo(4), url: 'https://x/9' }],
+      })
+    )
+
+    const props = projectTabProps.mock.calls[0]?.[0]
+    expect(props.stalled.map((t: { id: string }) => t.id)).toEqual(['1', '2'])
+    expect(props.highStakes.map((t: { id: string }) => t.id)).toEqual(['1'])
+    expect(props.stalePrs.map((p: { number: number }) => p.number)).toEqual([9])
+    expect(props.stats).toBeUndefined()
+  })
+
+  it('gives the Project tab empty blocker lists before stats arrive', () => {
+    setup(null)
+
+    const props = projectTabProps.mock.calls[0]?.[0]
+    expect(props.stalled).toEqual([])
+    expect(props.highStakes).toEqual([])
+    expect(props.stalePrs).toEqual([])
   })
 
   it('switches bodies when another tab is picked', () => {

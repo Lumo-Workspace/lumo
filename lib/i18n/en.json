@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "View all {count} in Tasks →",
   "project.milestones.add": "Milestone",
   "project.milestones.namePlaceholder": "Milestone name…",
-  "project.milestones.addFailed": "Couldn't add"
+  "project.milestones.addFailed": "Couldn't add",
+  "project.noOwner": "No owner",
+  "project.ownerTooltip": "Owner — primary contact for this project"
 }

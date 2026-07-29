@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Lihat semua {count} dalam Tugasan →",
   "project.milestones.add": "Pencapaian",
   "project.milestones.namePlaceholder": "Nama pencapaian…",
-  "project.milestones.addFailed": "Gagal menambah"
+  "project.milestones.addFailed": "Gagal menambah",
+  "project.noOwner": "Tiada pemilik",
+  "project.ownerTooltip": "Pemilik — orang hubungan utama projek ini"
 }

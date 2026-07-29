@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "कार्य में सभी {count} देखें →",
   "project.milestones.add": "माइलस्टोन",
   "project.milestones.namePlaceholder": "माइलस्टोन का नाम…",
-  "project.milestones.addFailed": "जोड़ा नहीं जा सका"
+  "project.milestones.addFailed": "जोड़ा नहीं जा सका",
+  "project.noOwner": "कोई स्वामी नहीं",
+  "project.ownerTooltip": "स्वामी — इस प्रोजेक्ट का मुख्य संपर्क"
 }
