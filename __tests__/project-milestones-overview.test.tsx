@@ -102,6 +102,14 @@ describe('ProjectMilestonesOverview', () => {
     expect(bars[0]).toHaveAttribute('aria-valuenow', '73')
     expect(bars[1]).toHaveAttribute('aria-valuenow', '0')
 
+    // Each row leads with the design's target marker, drawn per status.
+    expect(screen.getByTestId('milestone-marker-ACTIVE')).toHaveClass(
+      'text-warning'
+    )
+    expect(screen.getByTestId('milestone-marker-PLANNED')).toHaveClass(
+      'text-muted-foreground'
+    )
+
     // Each row is a link to the milestone, nothing more.
     const row = screen.getByRole('link', { name: /Honest reporting/ })
     expect(row).toHaveAttribute(
@@ -124,6 +132,16 @@ describe('ProjectMilestonesOverview', () => {
 
     fireEvent.click(screen.getByText('View all →'))
     expect(onViewAll).toHaveBeenCalled()
+  })
+
+  it('marks a completed milestone with the success-toned marker', () => {
+    setup([
+      milestone({ name: 'Shipped', slug: 'shipped', status: 'COMPLETED' }),
+    ])
+
+    expect(screen.getByTestId('milestone-marker-COMPLETED')).toHaveClass(
+      'text-success'
+    )
   })
 
   it('renders 0/0 rather than crashing when the server sent no task counts', () => {

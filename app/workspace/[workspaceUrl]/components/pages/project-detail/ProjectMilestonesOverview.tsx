@@ -2,10 +2,30 @@
 
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
+import { Circle, CircleCheck, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { STATUS_CLASS } from '../../milestones/milestoneDisplay'
+
+/**
+ * The target marker each row leads with — the design's gold ring-and-dot.
+ *
+ * Drawn per status rather than as one constant mark: the ring/dot/tick shapes
+ * already read as not-started / in-flight / finished, so the marker earns its
+ * place instead of being decoration repeated four times. Same icon vocabulary
+ * as the sprint field, so a milestone and a sprint don't say the same thing two
+ * different ways.
+ */
+const STATUS_MARKER: Record<
+  ApiMilestone['status'],
+  { Icon: typeof Circle; className: string }
+> = {
+  ACTIVE: { Icon: CircleDot, className: 'text-warning' },
+  COMPLETED: { Icon: CircleCheck, className: 'text-success' },
+  PLANNED: { Icon: Circle, className: 'text-muted-foreground' },
+  CANCELLED: { Icon: Circle, className: 'text-muted-foreground' },
+}
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -83,12 +103,18 @@ export function ProjectMilestonesOverview({
           {milestones.map(m => {
             const { done, total } = progressOf(m)
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            const { Icon, className: markerClass } = STATUS_MARKER[m.status]
             return (
               <li key={m.id}>
                 <Link
                   href={`/workspace/${workspaceUrl}/projects/${projectSlug}/milestones/${m.slug}`}
                   className='-mx-2.5 flex items-center gap-3.5 rounded-md px-2.5 py-3 transition-colors hover:bg-muted/60'
                 >
+                  <Icon
+                    className={cn('size-4 shrink-0', markerClass)}
+                    data-testid={`milestone-marker-${m.status}`}
+                    aria-hidden
+                  />
                   <span className='min-w-0 flex-1 truncate text-body-strong text-foreground'>
                     {m.name}
                   </span>
