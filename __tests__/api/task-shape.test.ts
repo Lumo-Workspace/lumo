@@ -37,6 +37,10 @@ function row(overrides: Record<string, unknown> = {}) {
     children: [{ id: 'child_done' }],
     _count: { children: 2 },
     taskTags: [{ tag: TAG_A }, { tag: TAG_B }],
+    sprintId: 'sprint_1',
+    sprint: { id: 'sprint_1', status: 'ACTIVE', name: 'Sprint 12' },
+    milestoneId: 'ms_1',
+    milestone: { id: 'ms_1', status: 'ACTIVE', name: 'Q3 Launch' },
     ...overrides,
   }
 }
@@ -70,6 +74,37 @@ describe('liftTaskTags', () => {
     expect(shaped.id).toBe('task_1')
     expect(shaped.title).toBe('Fix the thing')
     expect(shaped.status).toBe('TODO')
+  })
+})
+
+describe('sprint / milestone pass-through', () => {
+  // Board filtering labels these by name, so the relations must survive the
+  // shapers untouched — they are plain relations, not a lifted join.
+  it('keeps sprint and milestone on the assigned/milestone listing shape', () => {
+    const shaped = flattenTaskForListing(row())
+    expect(shaped).toMatchObject({
+      sprintId: 'sprint_1',
+      sprint: { id: 'sprint_1', name: 'Sprint 12' },
+      milestoneId: 'ms_1',
+      milestone: { id: 'ms_1', name: 'Q3 Launch' },
+    })
+  })
+
+  it('keeps sprint and milestone on the sprint listing shape', () => {
+    const shaped = shapeSprintTask(row())
+    expect(shaped).toMatchObject({
+      sprintId: 'sprint_1',
+      sprint: { id: 'sprint_1', name: 'Sprint 12' },
+      milestoneId: 'ms_1',
+      milestone: { id: 'ms_1', name: 'Q3 Launch' },
+    })
+  })
+
+  it('survives a task with neither a sprint nor a milestone', () => {
+    const shaped = flattenTaskForListing(
+      row({ sprintId: null, sprint: null, milestoneId: null, milestone: null })
+    )
+    expect(shaped).toMatchObject({ sprint: null, milestone: null })
   })
 })
 

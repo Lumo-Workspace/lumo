@@ -2273,5 +2273,9 @@
   "filter.noFields": "Здесь пока нечего фильтровать",
   "filter.clearAll": "Очистить все",
   "filter.chip.remove": "Убрать фильтр «{dimension}»",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Этап",
+  "filter.dimension.sprint": "Спринт",
+  "filter.noMilestone": "Без этапа",
+  "filter.noSprint": "Без спринта"
 }

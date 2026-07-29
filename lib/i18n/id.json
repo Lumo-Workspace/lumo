@@ -2273,5 +2273,9 @@
   "filter.noFields": "Belum ada yang bisa difilter di sini",
   "filter.clearAll": "Hapus semua",
   "filter.chip.remove": "Hapus filter {dimension}",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Milestone",
+  "filter.dimension.sprint": "Sprint",
+  "filter.noMilestone": "Tanpa milestone",
+  "filter.noSprint": "Tanpa sprint"
 }

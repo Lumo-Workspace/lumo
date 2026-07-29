@@ -155,6 +155,53 @@ describe('TaskFilterMenu', () => {
     expect(screen.queryByText('actor_1')).toBeNull()
   })
 
+  it('labels sprint values by sprint name and offers a backlog bucket', () => {
+    renderMenu([
+      task({ sprintId: 's1', sprint: { name: 'Sprint 12' } }),
+      task({ sprintId: null }),
+    ])
+    openMenu()
+    fireEvent.click(screen.getByText('Sprint'))
+
+    expect(screen.getByText('Sprint 12')).toBeInTheDocument()
+    expect(screen.getByText('No sprint')).toBeInTheDocument()
+    expect(screen.queryByText('s1')).toBeNull()
+  })
+
+  it('labels milestone values by milestone name and offers an unbound bucket', () => {
+    renderMenu([
+      task({ milestoneId: 'm1', milestone: { name: 'Q3 Launch' } }),
+      task({ milestoneId: null }),
+    ])
+    openMenu()
+    fireEvent.click(screen.getByText('Milestone'))
+
+    expect(screen.getByText('Q3 Launch')).toBeInTheDocument()
+    expect(screen.getByText('No milestone')).toBeInTheDocument()
+    expect(screen.queryByText('m1')).toBeNull()
+  })
+
+  it('does not offer sprint on a single-sprint board, nor milestone on a single-milestone board', () => {
+    renderMenu([
+      task({
+        sprintId: 's1',
+        sprint: { name: 'Sprint 12' },
+        milestoneId: 'm1',
+        milestone: { name: 'Q3' },
+      }),
+      task({
+        sprintId: 's1',
+        sprint: { name: 'Sprint 12' },
+        milestoneId: 'm2',
+        milestone: { name: 'Q4' },
+      }),
+    ])
+    openMenu()
+
+    expect(screen.queryByText('Sprint')).toBeNull()
+    expect(screen.getByText('Milestone')).toBeInTheDocument()
+  })
+
   it('labels tag values by tag name and offers a no-label bucket', () => {
     renderMenu([
       task({ tags: [{ id: 'tag_1', name: 'bug' }] }),

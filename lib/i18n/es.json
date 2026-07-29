@@ -2273,5 +2273,9 @@
   "filter.noFields": "Aquí todavía no hay nada que filtrar",
   "filter.clearAll": "Borrar todo",
   "filter.chip.remove": "Quitar el filtro de {dimension}",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Hito",
+  "filter.dimension.sprint": "Sprint",
+  "filter.noMilestone": "Sin hito",
+  "filter.noSprint": "Sin sprint"
 }

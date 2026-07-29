@@ -2273,5 +2273,9 @@
   "filter.noFields": "Rien à filtrer ici pour l’instant",
   "filter.clearAll": "Tout effacer",
   "filter.chip.remove": "Supprimer le filtre {dimension}",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Jalon",
+  "filter.dimension.sprint": "Sprint",
+  "filter.noMilestone": "Aucun jalon",
+  "filter.noSprint": "Aucun sprint"
 }

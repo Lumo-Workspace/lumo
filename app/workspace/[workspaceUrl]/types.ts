@@ -233,6 +233,12 @@ export interface ApiTask {
     name: string
   } | null
   milestoneId?: string | null
+  /** Populated on list payloads so board filtering can label the milestone. */
+  milestone?: {
+    id: string
+    status: import('@prisma/client').MilestoneStatus
+    name: string
+  } | null
 }
 
 export interface ApiPullRequest {

@@ -2273,5 +2273,9 @@
   "filter.noFields": "Belum ada apa-apa untuk ditapis di sini",
   "filter.clearAll": "Kosongkan semua",
   "filter.chip.remove": "Buang penapis {dimension}",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "Pencapaian",
+  "filter.dimension.sprint": "Sprint",
+  "filter.noMilestone": "Tiada pencapaian",
+  "filter.noSprint": "Tiada sprint"
 }

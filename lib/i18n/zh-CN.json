@@ -2273,5 +2273,9 @@
   "filter.noFields": "这里暂时没有可筛选的字段",
   "filter.clearAll": "清除全部",
   "filter.chip.remove": "移除{dimension}筛选",
-  "filter.chip.valueWithMore": "{value} +{count}"
+  "filter.chip.valueWithMore": "{value} +{count}",
+  "filter.dimension.milestone": "里程碑",
+  "filter.dimension.sprint": "冲刺",
+  "filter.noMilestone": "无里程碑",
+  "filter.noSprint": "不在冲刺中"
 }
