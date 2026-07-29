@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
-import { Circle, CircleCheck, CircleDot } from 'lucide-react'
+import { Circle, CircleCheck, CircleDot, Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
+import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
 import { STATUS_CLASS } from '../../milestones/milestoneDisplay'
 
 /**
@@ -44,17 +46,18 @@ interface ProjectMilestonesOverviewProps {
   projectId: string
   projectSlug: string
   workspaceUrl: string
-  /** Switches to the Milestones tab, where creating and archiving live. */
+  /** Switches to the Milestones tab, where editing and archiving live. */
   onViewAll: () => void
 }
 
 /**
- * A read-only roll-up of the project's active milestones.
+ * A roll-up of the project's active milestones, plus the inline composer for
+ * adding one.
  *
- * Deliberately has no create / edit / archive affordances: those live on the
- * Milestones tab, and duplicating an entry point here would give the project
- * two subtly different ways to make a milestone. This section answers "where is
- * the work up to", and hands off for anything that changes it.
+ * The composer takes a name and nothing else — capture the milestone the moment
+ * you think of it, fill in dates and description later. Everything that edits an
+ * existing milestone (rename, archive, delete, dates) stays on the Milestones
+ * tab, so this section has exactly one write and no second full form.
  */
 export function ProjectMilestonesOverview({
   projectId,
@@ -64,6 +67,20 @@ export function ProjectMilestonesOverview({
 }: ProjectMilestonesOverviewProps) {
   const intl = useIntl()
   const { milestones, loading } = useMilestones(projectId, 'active')
+  const create = useCreateMilestone(projectId)
+  const [composing, setComposing] = useState(false)
+  const [name, setName] = useState('')
+
+  const closeComposer = () => {
+    setComposing(false)
+    setName('')
+  }
+
+  const submit = () => {
+    const trimmed = name.trim()
+    if (!trimmed || create.isPending) return
+    create.mutate(trimmed, { onSuccess: closeComposer })
+  }
 
   return (
     <section data-testid='project-milestones-overview'>
@@ -99,7 +116,7 @@ export function ProjectMilestonesOverview({
           {intl.formatMessage({ id: 'milestone.empty.title' })}
         </p>
       ) : (
-        <ul>
+        <ul data-testid='milestone-overview-list'>
           {milestones.map(m => {
             const { done, total } = progressOf(m)
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
@@ -148,6 +165,58 @@ export function ProjectMilestonesOverview({
           })}
         </ul>
       )}
+
+      {/* Inline composer. Mirrors a milestone row so the thing being typed sits
+          where the thing being created will land — dashed marker while it is
+          still a draft. */}
+      {!loading &&
+        (composing ? (
+          <div className='-mx-2.5 flex items-center gap-3.5 rounded-md bg-muted/60 px-2.5 py-3'>
+            {create.isPending ? (
+              <Loader2 className='size-4 shrink-0 animate-spin text-warning' />
+            ) : (
+              <Circle className='size-4 shrink-0 text-warning [stroke-dasharray:3_2]' />
+            )}
+            <input
+              autoFocus
+              value={name}
+              disabled={create.isPending}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  submit()
+                }
+                if (e.key === 'Escape') closeComposer()
+              }}
+              // Abandoning the field is the same gesture as cancelling, but a
+              // half-typed name must not be thrown away silently — only an empty
+              // field closes on blur.
+              onBlur={() => {
+                if (!name.trim()) closeComposer()
+              }}
+              placeholder={intl.formatMessage({
+                id: 'project.milestones.namePlaceholder',
+              })}
+              className='min-w-0 flex-1 bg-transparent text-body-strong text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground'
+            />
+            {create.isError && (
+              <span className='shrink-0 text-caption text-danger'>
+                {intl.formatMessage({ id: 'project.milestones.addFailed' })}
+              </span>
+            )}
+          </div>
+        ) : (
+          <button
+            type='button'
+            data-testid='milestone-add-trigger'
+            onClick={() => setComposing(true)}
+            className='-mx-2.5 flex w-[calc(100%+1.25rem)] items-center gap-3.5 rounded-md px-2.5 py-2.5 text-caption text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+          >
+            <Plus className='size-4 shrink-0' aria-hidden />
+            {intl.formatMessage({ id: 'project.milestones.add' })}
+          </button>
+        ))}
     </section>
   )
 }

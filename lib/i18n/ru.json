@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count, plural, one {# просроченная задача} few {# просроченные задачи} other {# просроченных задач}}",
   "signal.panel.stalled": "Застрявшие задачи · {count}",
   "signal.panel.stalePrs": "Зависшие PR · {count} · ждут ревью 3+ дня",
-  "signal.viewAllInTasks": "Показать все {count} в задачах →"
+  "signal.viewAllInTasks": "Показать все {count} в задачах →",
+  "project.milestones.add": "Веха",
+  "project.milestones.namePlaceholder": "Название вехи…",
+  "project.milestones.addFailed": "Не удалось добавить"
 }

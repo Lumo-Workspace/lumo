@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count, plural, one {# tâche en retard} other {# tâches en retard}}",
   "signal.panel.stalled": "Tâches à l’arrêt · {count}",
   "signal.panel.stalePrs": "PR en souffrance · {count} · en attente de revue depuis 3 jours et plus",
-  "signal.viewAllInTasks": "Voir les {count} dans Tâches →"
+  "signal.viewAllInTasks": "Voir les {count} dans Tâches →",
+  "project.milestones.add": "Jalon",
+  "project.milestones.namePlaceholder": "Nom du jalon…",
+  "project.milestones.addFailed": "Ajout impossible"
 }

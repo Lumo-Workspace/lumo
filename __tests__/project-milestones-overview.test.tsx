@@ -29,6 +29,18 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMilestones', () => ({
   useMilestones: (...args: unknown[]) => mockUseMilestones(...args),
 }))
 
+const mockCreate = jest.fn()
+const mockCreateState = { isPending: false, isError: false }
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useCreateMilestone', () => ({
+  useCreateMilestone: (projectId: string) => ({
+    mutate: (name: string, opts?: { onSuccess?: () => void }) => {
+      mockCreate(projectId, name)
+      opts?.onSuccess?.()
+    },
+    ...mockCreateState,
+  }),
+}))
+
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ProjectMilestonesOverview } from '@/app/workspace/[workspaceUrl]/components/pages/project-detail/ProjectMilestonesOverview'
 import type { ApiMilestone } from '@/lib/api-client'
@@ -67,10 +79,15 @@ function setup(milestones: ApiMilestone[], loading = false) {
   return { ...utils, onViewAll }
 }
 
-beforeEach(() => mockUseMilestones.mockReset())
+beforeEach(() => {
+  mockUseMilestones.mockReset()
+  mockCreate.mockReset()
+  mockCreateState.isPending = false
+  mockCreateState.isError = false
+})
 
 describe('ProjectMilestonesOverview', () => {
-  it('milestone overview renders read-only progress rows with no CRUD affordances', () => {
+  it('milestone overview renders progress rows plus a name-only inline composer and no edit or archive affordances', () => {
     setup([
       milestone({
         name: 'Honest reporting',
@@ -118,13 +135,67 @@ describe('ProjectMilestonesOverview', () => {
     )
     expect(within(row).getByText('Active')).toBeInTheDocument()
 
-    // No create / edit / archive / delete entry point lives in this section.
+    // Editing an existing milestone stays on the Milestones tab — this section
+    // writes exactly once, by creating.
     const section = screen.getByTestId('project-milestones-overview')
-    for (const label of [/new milestone/i, /archive/i, /delete/i, /edit/i]) {
+    for (const label of [/archive/i, /delete/i, /edit/i]) {
       expect(within(section).queryByText(label)).not.toBeInTheDocument()
     }
-    // The only button is the hand-off to the Milestones tab.
-    expect(within(section).getAllByRole('button')).toHaveLength(1)
+    // Two buttons only: the hand-off, and the inline add trigger.
+    expect(within(section).getAllByRole('button')).toHaveLength(2)
+    expect(screen.getByTestId('milestone-add-trigger')).toBeInTheDocument()
+    // Closed until asked — the composer must not sit open as a phantom row.
+    expect(
+      screen.queryByPlaceholderText('Milestone name…')
+    ).not.toBeInTheDocument()
+  })
+
+  it('creates a milestone from the inline composer on Enter and closes it', () => {
+    setup([milestone({ name: 'One', slug: 'one' })])
+
+    fireEvent.click(screen.getByTestId('milestone-add-trigger'))
+    const field = screen.getByPlaceholderText('Milestone name…')
+    fireEvent.change(field, { target: { value: '  Agent-Native Sprints  ' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+
+    // Trimmed, and sent with the project it belongs to.
+    expect(mockCreate).toHaveBeenCalledWith('p1', 'Agent-Native Sprints')
+    expect(
+      screen.queryByPlaceholderText('Milestone name…')
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('milestone-add-trigger')).toBeInTheDocument()
+  })
+
+  it('does not submit an empty or whitespace-only name', () => {
+    setup([milestone({ name: 'One', slug: 'one' })])
+
+    fireEvent.click(screen.getByTestId('milestone-add-trigger'))
+    const field = screen.getByPlaceholderText('Milestone name…')
+    fireEvent.keyDown(field, { key: 'Enter' })
+    fireEvent.change(field, { target: { value: '   ' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('abandons the composer on Escape but keeps a half-typed name on blur', () => {
+    setup([milestone({ name: 'One', slug: 'one' })])
+
+    fireEvent.click(screen.getByTestId('milestone-add-trigger'))
+    let field = screen.getByPlaceholderText('Milestone name…')
+    fireEvent.change(field, { target: { value: 'half typed' } })
+    // Clicking away must not discard what was typed.
+    fireEvent.blur(field)
+    expect(screen.getByPlaceholderText('Milestone name…')).toHaveValue(
+      'half typed'
+    )
+
+    field = screen.getByPlaceholderText('Milestone name…')
+    fireEvent.keyDown(field, { key: 'Escape' })
+    expect(
+      screen.queryByPlaceholderText('Milestone name…')
+    ).not.toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 
   it('hands off to the Milestones tab for anything that changes a milestone', () => {

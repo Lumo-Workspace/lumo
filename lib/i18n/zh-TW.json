@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count} 個逾期任務",
   "signal.panel.stalled": "停滯任務 · {count}",
   "signal.panel.stalePrs": "陳舊 PR · {count} · 等待審查超過 3 天",
-  "signal.viewAllInTasks": "在任務中檢視全部 {count} 筆 →"
+  "signal.viewAllInTasks": "在任務中檢視全部 {count} 筆 →",
+  "project.milestones.add": "里程碑",
+  "project.milestones.namePlaceholder": "里程碑名稱…",
+  "project.milestones.addFailed": "新增失敗"
 }

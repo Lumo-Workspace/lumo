@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "期限超過タスク {count} 件",
   "signal.panel.stalled": "停滞タスク · {count}",
   "signal.panel.stalePrs": "滞留 PR · {count} · レビュー待ち 3 日以上",
-  "signal.viewAllInTasks": "タスクで {count} 件すべて表示 →"
+  "signal.viewAllInTasks": "タスクで {count} 件すべて表示 →",
+  "project.milestones.add": "マイルストーン",
+  "project.milestones.namePlaceholder": "マイルストーン名…",
+  "project.milestones.addFailed": "追加できませんでした"
 }
