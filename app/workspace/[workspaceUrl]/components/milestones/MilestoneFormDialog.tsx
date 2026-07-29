@@ -203,14 +203,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
                 </SelectContent>
               </Select>
             )}
-            {/* A first-time nudge only: on an existing milestone the row is
-                already crowded by the status chip, and the hint would wrap to
-                a line of its own for something the user has settled. */}
-            {!editing && (
-              <span className='ml-1 text-xs text-muted-foreground/70'>
-                {label('milestone.dialog.dates.optional')}
-              </span>
-            )}
           </div>
 
           {failed && (

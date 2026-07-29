@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "Начало",
   "milestone.dates.target": "Цель",
   "milestone.dialog.name.placeholder": "Название вехи, например Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "Чего должна достичь эта веха? Каковы результаты и критерий готовности? (необязательно)",
-  "milestone.dialog.dates.optional": "Оба поля необязательны"
+  "milestone.dialog.description.placeholder": "Чего должна достичь эта веха? Каковы результаты и критерий готовности? (необязательно)"
 }

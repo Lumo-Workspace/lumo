@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "Mula",
   "milestone.dates.target": "Sasaran",
   "milestone.dialog.name.placeholder": "Nama tonggak, cth. Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "Apakah yang perlu dicapai oleh tonggak ini? Apakah hasil kerjanya dan piawai siapnya? (pilihan)",
-  "milestone.dialog.dates.optional": "Kedua-duanya pilihan"
+  "milestone.dialog.description.placeholder": "Apakah yang perlu dicapai oleh tonggak ini? Apakah hasil kerjanya dan piawai siapnya? (pilihan)"
 }

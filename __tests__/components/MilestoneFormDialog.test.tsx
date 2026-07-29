@@ -14,7 +14,6 @@ const en: Record<string, string> = {
     'Milestone name, e.g. Agent-Native Sprints',
   'milestone.dialog.description.placeholder':
     'What should this milestone achieve? What are the deliverables and the bar for done? (optional)',
-  'milestone.dialog.dates.optional': 'Both optional',
   'milestone.status.PLANNED': 'Planned',
   'milestone.status.ACTIVE': 'Active',
   'milestone.status.COMPLETED': 'Completed',
@@ -153,7 +152,6 @@ describe('MilestoneFormDialog', () => {
     expect(target).toHaveValue('')
     expect(start.closest('label')?.className).toContain('rounded-full')
     expect(target.closest('label')?.className).toContain('rounded-full')
-    expect(screen.getByText('Both optional')).toBeInTheDocument()
     // Status is an edit-mode affordance: a milestone is always created PLANNED.
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
 

@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "Start",
   "milestone.dates.target": "Target",
   "milestone.dialog.name.placeholder": "Milestone name, e.g. Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "What should this milestone achieve? What are the deliverables and the bar for done? (optional)",
-  "milestone.dialog.dates.optional": "Both optional"
+  "milestone.dialog.description.placeholder": "What should this milestone achieve? What are the deliverables and the bar for done? (optional)"
 }
