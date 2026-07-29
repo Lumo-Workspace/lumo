@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
-import { Circle, CircleDot, Loader2, Plus } from 'lucide-react'
+import { Flag, Loader2, Plus } from 'lucide-react'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
@@ -103,11 +103,12 @@ export function ProjectMilestonesOverview({
                   href={`/workspace/${workspaceUrl}/projects/${projectSlug}/milestones/${m.slug}`}
                   className='-mx-2.5 flex items-center gap-3.5 rounded-md px-2.5 py-3 transition-colors hover:bg-muted/60'
                 >
-                  {/* One constant target marker, as the design draws it. A
-                      milestone a reader can see is by definition an active one
-                      — archived milestones are filtered out server-side — so
-                      there is no second state for the marker to distinguish. */}
-                  <CircleDot
+                  {/* One constant marker — the same flag the Milestones tab
+                      uses, so the tab and the rows it leads to are the same
+                      thing. A milestone a reader can see is by definition an
+                      active one (archived ones are filtered out server-side),
+                      so there is no second state for it to distinguish. */}
+                  <Flag
                     className='size-4 shrink-0 text-warning'
                     data-testid='milestone-marker'
                     aria-hidden
@@ -147,7 +148,8 @@ export function ProjectMilestonesOverview({
             {create.isPending ? (
               <Loader2 className='size-4 shrink-0 animate-spin text-warning' />
             ) : (
-              <Circle className='size-4 shrink-0 text-warning [stroke-dasharray:3_2]' />
+              // Dashed while it is still a draft — same flag, not yet planted.
+              <Flag className='size-4 shrink-0 text-warning [stroke-dasharray:3_2]' />
             )}
             <input
               autoFocus
