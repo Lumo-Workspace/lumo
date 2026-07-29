@@ -130,6 +130,10 @@ describe('ProjectMilestonesOverview', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument()
     expect(screen.queryByText('Planned')).not.toBeInTheDocument()
 
+    // The header is the label alone — no count beside it.
+    const header = screen.getByText('Milestones').parentElement!
+    expect(within(header).queryByText('2')).not.toBeInTheDocument()
+
     // Each row is a link to the milestone, nothing more.
     const row = screen.getByRole('link', { name: /Honest reporting/ })
     expect(row).toHaveAttribute(

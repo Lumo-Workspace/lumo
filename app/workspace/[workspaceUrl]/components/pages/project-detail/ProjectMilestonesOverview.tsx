@@ -64,14 +64,12 @@ export function ProjectMilestonesOverview({
   return (
     <section data-testid='project-milestones-overview'>
       <div className='mb-2 flex items-baseline gap-2'>
+        {/* Label only — no count. The rows are right there to be counted, and
+            the number was the last thing on this line still asserting something
+            about milestone state. */}
         <span className='text-caption text-muted-foreground'>
           {intl.formatMessage({ id: 'project.milestones' })}
         </span>
-        {milestones.length > 0 && (
-          <span className='text-caption text-muted-foreground/70'>
-            {milestones.length}
-          </span>
-        )}
         <button
           type='button'
           onClick={onViewAll}
