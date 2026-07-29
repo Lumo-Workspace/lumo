@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "Ajout impossible",
   "project.noOwner": "Aucun responsable",
   "project.ownerTooltip": "Responsable — interlocuteur principal de ce projet",
-  "signal.allClear": "Rien à signaler"
+  "signal.allClear": "Rien à signaler",
+  "milestone.dates.start": "Début",
+  "milestone.dates.target": "Cible",
+  "milestone.dialog.name.placeholder": "Nom du jalon, par ex. Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "Que doit accomplir ce jalon ? Quels sont les livrables et le critère de finition ? (facultatif)",
+  "milestone.dialog.dates.optional": "Les deux sont facultatifs"
 }

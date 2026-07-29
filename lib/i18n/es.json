@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "No se pudo añadir",
   "project.noOwner": "Sin responsable",
   "project.ownerTooltip": "Responsable — contacto principal de este proyecto",
-  "signal.allClear": "Todo en orden"
+  "signal.allClear": "Todo en orden",
+  "milestone.dates.start": "Inicio",
+  "milestone.dates.target": "Objetivo",
+  "milestone.dialog.name.placeholder": "Nombre del hito, p. ej. Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "¿Qué debe lograr este hito? ¿Cuáles son los entregables y el criterio para darlo por terminado? (opcional)",
+  "milestone.dialog.dates.optional": "Ambos opcionales"
 }

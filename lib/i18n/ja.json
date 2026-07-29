@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "追加できませんでした",
   "project.noOwner": "オーナーなし",
   "project.ownerTooltip": "オーナー — このプロジェクトの主担当",
-  "signal.allClear": "異常なし"
+  "signal.allClear": "異常なし",
+  "milestone.dates.start": "開始",
+  "milestone.dates.target": "目標",
+  "milestone.dialog.name.placeholder": "マイルストーン名（例: Agent-Native Sprints）",
+  "milestone.dialog.description.placeholder": "このマイルストーンで何を達成しますか？成果物と完了の基準は？（任意）",
+  "milestone.dialog.dates.optional": "どちらも省略可"
 }

@@ -2261,5 +2261,10 @@
   "project.milestones.addFailed": "Gagal menambahkan",
   "project.noOwner": "Tanpa pemilik",
   "project.ownerTooltip": "Pemilik — kontak utama untuk proyek ini",
-  "signal.allClear": "Semua aman"
+  "signal.allClear": "Semua aman",
+  "milestone.dates.start": "Mulai",
+  "milestone.dates.target": "Target",
+  "milestone.dialog.name.placeholder": "Nama tonggak, mis. Agent-Native Sprints",
+  "milestone.dialog.description.placeholder": "Apa yang harus dicapai tonggak ini? Apa saja hasil kerjanya dan tolok ukur selesainya? (opsional)",
+  "milestone.dialog.dates.optional": "Keduanya opsional"
 }
