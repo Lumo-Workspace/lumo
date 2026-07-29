@@ -3,7 +3,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Flag } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -30,10 +29,6 @@ interface Props {
   milestone?: ApiMilestone | undefined
   onClose: () => void
 }
-
-/** The description and the date row hang under the title's text, not under its
- *  flag — icon (18px) + gap (12px). */
-const INDENT = 'pl-[30px]'
 
 export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   const intl = useIntl()
@@ -141,29 +136,22 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         {/* The inset padding absorbs the -mx-2 bleed the fields use, so growing
             the body vertically never also produces a horizontal scrollbar. */}
         <div className='-mx-2 flex-1 overflow-y-auto px-2'>
-          <div className='flex items-center gap-3'>
-            <Flag
-              aria-hidden
-              className='size-[18px] shrink-0 text-warning'
-              strokeWidth={2}
-            />
-            {/* No visible label: the placeholder carries the ask and the flag
-                carries the meaning. The accessible name comes from aria-label.
-                No focus ring either — browsers match :focus-visible on a text
-                input for a plain mouse click, so any ring here would box in
-                whichever line you are editing, which is the chrome this layout
-                exists to avoid. The caret is the focus affordance. */}
-            <input
-              ref={nameRef}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder={label('milestone.dialog.name.placeholder')}
-              aria-label={label('milestone.field.name')}
-              className='-mx-2 min-w-0 flex-1 bg-transparent px-2 text-xl font-semibold leading-[1.4] text-foreground outline-none placeholder:font-semibold placeholder:text-muted-foreground/50'
-            />
-          </div>
+          {/* No visible label: the placeholder carries the ask, and the
+              accessible name comes from aria-label. No focus ring either —
+              browsers match :focus-visible on a text input for a plain mouse
+              click, so any ring here would box in whichever line you are
+              editing, which is the chrome this layout exists to avoid. The
+              caret is the focus affordance. */}
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder={label('milestone.dialog.name.placeholder')}
+            aria-label={label('milestone.field.name')}
+            className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-xl font-semibold leading-[1.4] text-foreground outline-none placeholder:font-semibold placeholder:text-muted-foreground/50'
+          />
 
-          <div className={`mt-1.5 ${INDENT}`}>
+          <div className='mt-1.5'>
             <AutoGrowTextarea
               value={description}
               onChange={setDescription}
@@ -172,7 +160,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             />
           </div>
 
-          <div className={`mt-5 flex flex-wrap items-center gap-2 ${INDENT}`}>
+          <div className='mt-5 flex flex-wrap items-center gap-2'>
             <DatePill
               label={label('milestone.dates.start')}
               ariaLabel={label('milestone.field.startDate')}
@@ -193,10 +181,17 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
                 value={status}
                 onValueChange={v => setStatus(v as MilestoneStatus)}
               >
+                {/* Same chip as the two dates — muted word, then the value.
+                    The trigger's own `border-input` and elevation are dropped
+                    so the third chip in the row doesn't read as a form control
+                    that wandered in next to two flat pills. */}
                 <SelectTrigger
                   aria-label={label('milestone.field.status')}
-                  className='h-auto w-auto gap-1.5 rounded-full px-3 py-1 text-[13px]'
+                  className='h-auto w-auto gap-1.5 rounded-full border-border px-3 py-1 text-[13px] shadow-none'
                 >
+                  <span className='text-muted-foreground'>
+                    {label('milestone.field.status')}
+                  </span>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,7 +217,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             <p
               role='alert'
               aria-live='polite'
-              className={`mt-4 text-sm text-danger ${INDENT}`}
+              className='mt-4 text-sm text-danger'
             >
               {label('milestone.save.error')}
             </p>
@@ -270,10 +265,16 @@ function AutoGrowTextarea({
   const shared =
     '[grid-area:1/1/2/2] px-2 text-[15px] leading-[1.75] whitespace-pre-wrap break-words'
 
+  // The floor is for the empty state only: it gives a blank milestone room to
+  // invite a paragraph. Once there is prose it would be dead space under a
+  // one-line description — which is exactly the shape an existing milestone
+  // opens in.
+  const floor = value ? '' : 'min-h-[72px]'
+
   return (
-    <div className='-mx-2 grid min-h-[72px] w-[calc(100%+1rem)]'>
+    <div className={`-mx-2 grid w-[calc(100%+1rem)] ${floor}`}>
       <textarea
-        rows={2}
+        rows={1}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
