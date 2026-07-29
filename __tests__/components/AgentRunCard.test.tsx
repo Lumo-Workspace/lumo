@@ -40,8 +40,8 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-// AgentBadge pulls @lobehub/icons (deep ESM import) which is noise for this
-// test — stub it so we render only the run header.
+// AgentBadge's brand glyphs are noise for this test — stub it so we render
+// only the run header.
 jest.mock('@/app/workspace/[workspaceUrl]/components/AgentBadge', () => ({
   AgentBadge: () => null,
 }))
