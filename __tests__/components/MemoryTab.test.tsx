@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 const en: Record<string, string> = {
-  'memory.action.add': 'Add memory',
+  'memory.action.add': 'New memory',
   'memory.tab.empty.title': 'No memories yet',
   'memory.tab.empty.description': 'Memories accumulate as you work.',
   'memory.tab.empty.cta': 'Add the first memory',
@@ -96,11 +96,11 @@ describe('MemoryTab', () => {
     expect(
       screen.getByRole('button', { name: 'Add the first memory' })
     ).toBeInTheDocument()
-    // The header count + its "Add memory" button must NOT also render — that
+    // The header count + its "New memory" button must NOT also render — that
     // would duplicate the "no memories" message and the add action.
     expect(screen.queryByText('0 memories')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Add memory' })
+      screen.queryByRole('button', { name: 'New memory' })
     ).not.toBeInTheDocument()
   })
 
@@ -122,6 +122,30 @@ describe('MemoryTab', () => {
     })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
     expect(screen.getByText('do X')).toBeInTheDocument()
+  })
+
+  it('renders the header "New memory" button, which opens the create dialog', () => {
+    mockUseMemories.mockReturnValue({
+      ...hookBase,
+      memories: [
+        {
+          id: 'm1',
+          scope: 'TASK',
+          category: 'TRAP',
+          content: { trigger: 'do X', outcome: 'breaks' },
+          taskId: 't1',
+          createdByMemberId: null,
+          createdAt: 'a',
+          updatedAt: 'a',
+        },
+      ],
+    })
+    render(<MemoryTab scope='task' parentId='t1' enabled />)
+    const addButton = screen.getByRole('button', { name: 'New memory' })
+    fireEvent.click(addButton)
+    expect(
+      screen.getByRole('heading', { name: 'Add memory' })
+    ).toBeInTheDocument()
   })
 
   it('filters out rows whose content fails to parse (orphan-row guard)', () => {

@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "保留",
   "memory.merge.confirmed": "已合并记忆",
   "memory.merge.error": "无法合并这些记忆，请重试。",
-  "memory.action.add": "添加记忆",
+  "memory.action.add": "新建记忆",
   "memory.action.edit": "编辑",
   "memory.action.delete": "删除",
   "memory.action.promote": "提升到项目",

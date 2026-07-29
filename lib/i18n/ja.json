@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "保持",
   "memory.merge.confirmed": "メモリをマージしました",
   "memory.merge.error": "メモリをマージできませんでした。もう一度お試しください。",
-  "memory.action.add": "メモリを追加",
+  "memory.action.add": "新規メモリ",
   "memory.action.edit": "編集",
   "memory.action.delete": "削除",
   "memory.action.promote": "プロジェクトに昇格",

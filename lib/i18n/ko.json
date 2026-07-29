@@ -1481,7 +1481,7 @@
   "memory.merge.dismiss": "유지",
   "memory.merge.confirmed": "메모리를 병합했습니다",
   "memory.merge.error": "메모리를 병합할 수 없습니다. 다시 시도해 주세요.",
-  "memory.action.add": "메모리 추가",
+  "memory.action.add": "새 메모리",
   "memory.action.edit": "편집",
   "memory.action.delete": "삭제",
   "memory.action.promote": "프로젝트로 승격",
