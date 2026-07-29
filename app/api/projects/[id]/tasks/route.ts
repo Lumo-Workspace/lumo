@@ -10,6 +10,7 @@ import {
 } from '@/lib/repositories'
 import { taskService } from '@/lib/services/task.service'
 import { buildTaskTree } from '@/lib/utils/task-tree'
+import { liftTaskTags } from '@/lib/api/task-shape'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // Merge viewOrder into tasks
     const tasksWithOrder = tasks.map(t => ({
-      ...t,
+      ...liftTaskTags(t),
       teamIdentifier: t.team.identifier,
       viewOrder: orderMap.get(t.id) ?? null,
       parent: t.parent

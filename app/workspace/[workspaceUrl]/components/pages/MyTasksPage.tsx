@@ -38,6 +38,9 @@ import { BulkActionBar } from '../task-list/BulkActionBar'
 import { BulkDeleteConfirm } from '../task-list/BulkDeleteConfirm'
 import { TaskListView } from '../task-list/TaskListView'
 import { TaskListToolbar } from '../task-list/TaskListToolbar'
+import { TaskFilterChips } from '../task-list/TaskFilterChips'
+import { TaskFilterMenu } from '../task-list/TaskFilterMenu'
+import { useTaskFiltering } from '../../hooks/useTaskFiltering'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
 
 // Stable reference so TaskListView's columns memo doesn't recompute each render.
@@ -101,8 +104,20 @@ export function MyTasksPage({
   const currentSprintOnly = options.currentSprintOnly
   const noActiveSprint = currentSprintOnly && activeSprintIds.length === 0
 
+  const {
+    now,
+    filters,
+    toggleValue,
+    clearDimension,
+    clearAll,
+    filteredTasks: narrowedTasks,
+  } = useTaskFiltering({
+    tasks,
+    scopeKey: CACHE_KEY.displayMyTasks(userId),
+  })
+
   const filteredTasks = useMemo(() => {
-    let result = filterCompletedTasks(tasks, options.completedFilter)
+    let result = filterCompletedTasks(narrowedTasks, options.completedFilter)
     if (!options.showSubtasks) {
       result = result.filter(t => !t.parentTaskId)
     }
@@ -115,7 +130,7 @@ export function MyTasksPage({
     }
     return sortTasks(result, options.ordering)
   }, [
-    tasks,
+    narrowedTasks,
     options.completedFilter,
     options.ordering,
     options.showSubtasks,
@@ -236,6 +251,15 @@ export function MyTasksPage({
           onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          filterMenu={
+            <TaskFilterMenu
+              tasks={tasks}
+              filters={filters}
+              members={members}
+              now={now}
+              onToggleValue={toggleValue}
+            />
+          }
           leftSlot={
             sprintsAvailable ? (
               <>
@@ -274,6 +298,14 @@ export function MyTasksPage({
           />
         )}
       </div>
+
+      <TaskFilterChips
+        tasks={tasks}
+        filters={filters}
+        members={members}
+        onClearDimension={clearDimension}
+        onClearAll={clearAll}
+      />
 
       {/* Content */}
       <div className='flex-1 flex flex-col overflow-hidden'>

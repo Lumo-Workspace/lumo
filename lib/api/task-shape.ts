@@ -1,3 +1,21 @@
+/** A `taskTags` join row as the list includes select it. */
+interface TaskTagRow {
+  tag: { id: string; name: string }
+}
+
+/**
+ * Lift the `taskTags` join rows into a flat `tags` array and drop the join key.
+ *
+ * The board's Filter control reads `task.tags`; the join shape is a storage
+ * detail and must not reach the client. Tolerates a row selected without
+ * `taskTags` (returns no `tags` key) so callers on older selects are unaffected.
+ */
+export function liftTaskTags<T extends { taskTags?: TaskTagRow[] }>(task: T) {
+  const { taskTags, ...rest } = task
+  if (!Array.isArray(taskTags)) return rest
+  return { ...rest, tags: taskTags.map(tt => tt.tag) }
+}
+
 /**
  * Flatten a task row from TASK_ASSIGNED_INCLUDE-shaped Prisma output into the
  * JSON shape the CLI `TaskRow` and other list consumers expect.
@@ -25,11 +43,12 @@ export function flattenTaskForListing<
       team: { identifier: string }
     } | null
     children?: { id: string }[]
+    taskTags?: TaskTagRow[]
   },
 >(task: T) {
   const { owner, ...projectFields } = task.project
   return {
-    ...task,
+    ...liftTaskTags(task),
     project: {
       ...projectFields,
       ownerActorId: owner?.actor?.id ?? null,
@@ -77,11 +96,12 @@ export function shapeSprintTask<
     } | null
     children?: { id: string }[]
     _count?: unknown
+    taskTags?: TaskTagRow[]
   },
 >(task: T) {
   const { owner, ...projectFields } = task.project
   return {
-    ...task,
+    ...liftTaskTags(task),
     project: {
       ...projectFields,
       ownerActorId: owner?.actor?.id ?? null,

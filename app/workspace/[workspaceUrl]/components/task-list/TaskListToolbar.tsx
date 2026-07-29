@@ -17,6 +17,12 @@ interface Props {
   onShowSubtasksChange: (value: boolean) => void
   viewMode: 'list' | 'board'
   onViewModeChange: (mode: 'list' | 'board') => void
+  /**
+   * The scope's filter entry point — rendered immediately before the Display
+   * menu. Required (rather than optional) so a new board can't silently ship
+   * without one; pass `null` only for a scope that genuinely cannot filter.
+   */
+  filterMenu: ReactNode
   leftSlot?: ReactNode
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
@@ -37,6 +43,7 @@ export function TaskListToolbar({
   onShowSubtasksChange,
   viewMode,
   onViewModeChange,
+  filterMenu,
   leftSlot,
   sidebarCollapsed,
   onToggleSidebar,
@@ -63,6 +70,7 @@ export function TaskListToolbar({
     <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>
       <div className='flex items-center gap-2'>{leftSlot}</div>
       <div className='flex items-center gap-2'>
+        {filterMenu}
         <DisplayOptionsMenu
           completedFilter={completedFilter}
           onCompletedFilterChange={onCompletedFilterChange}

@@ -19,11 +19,14 @@ import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { AsyncContent } from '../AsyncContent'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
+import { useTaskFiltering } from '../../hooks/useTaskFiltering'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
 import { sortTasks } from '../../utils/sortTasks'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
 import { BulkActionBar } from './BulkActionBar'
 import { BulkDeleteConfirm } from './BulkDeleteConfirm'
+import { TaskFilterChips } from './TaskFilterChips'
+import { TaskFilterMenu } from './TaskFilterMenu'
 import { TaskListView } from './TaskListView'
 import { TaskListToolbar } from './TaskListToolbar'
 
@@ -106,13 +109,27 @@ export function TaskWorkspaceView({
   const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
     useDisplayOptions(displayOptionsKey)
 
+  const {
+    now,
+    filters,
+    toggleValue,
+    clearDimension,
+    clearAll,
+    filteredTasks: narrowedTasks,
+  } = useTaskFiltering({ tasks, scopeKey: displayOptionsKey })
+
   const filteredTasks = useMemo(() => {
-    let result = filterCompletedTasks(tasks, options.completedFilter)
+    let result = filterCompletedTasks(narrowedTasks, options.completedFilter)
     if (!options.showSubtasks) {
       result = result.filter(t => !t.parentTaskId)
     }
     return sortTasks(result, options.ordering)
-  }, [tasks, options.completedFilter, options.ordering, options.showSubtasks])
+  }, [
+    narrowedTasks,
+    options.completedFilter,
+    options.ordering,
+    options.showSubtasks,
+  ])
 
   const sensors = useBoardSensors()
 
@@ -215,6 +232,15 @@ export function TaskWorkspaceView({
           onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          filterMenu={
+            <TaskFilterMenu
+              tasks={tasks}
+              filters={filters}
+              members={members}
+              now={now}
+              onToggleValue={toggleValue}
+            />
+          }
           {...(sidebarCollapsed !== undefined && { sidebarCollapsed })}
           {...(onToggleSidebar !== undefined && { onToggleSidebar })}
           {...(sidebarExpandLabel !== undefined && { sidebarExpandLabel })}
@@ -230,6 +256,14 @@ export function TaskWorkspaceView({
           />
         )}
       </div>
+
+      <TaskFilterChips
+        tasks={tasks}
+        filters={filters}
+        members={members}
+        onClearDimension={clearDimension}
+        onClearAll={clearAll}
+      />
 
       {/* Content */}
       <div className='flex-1 flex flex-col overflow-hidden'>

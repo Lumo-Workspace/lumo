@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { taskRepository, viewRepository } from '@/lib/repositories'
 import { taskDependencyRepository } from '@/lib/repositories/task-dependency.repository'
+import { liftTaskTags } from '@/lib/api/task-shape'
 
 /**
  * GET /api/tasks/me
@@ -95,7 +96,7 @@ export async function GET(req: Request) {
       tasks: tasks.map(t => {
         const { owner, ...projectFields } = t.project
         return {
-          ...t,
+          ...liftTaskTags(t),
           project: {
             ...projectFields,
             ownerActorId: owner?.actor?.id ?? null,
