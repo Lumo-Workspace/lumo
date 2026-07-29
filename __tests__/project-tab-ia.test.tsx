@@ -154,10 +154,16 @@ describe('project detail tabs', () => {
     setup(makeStats())
 
     const tabs = screen
-      .getAllByRole('button')
+      .getAllByRole('tab')
       .map(b => b.textContent?.trim())
       .filter(Boolean)
     expect(tabs).toEqual(['Project', 'Milestones', 'Tasks', 'Memory'])
+
+    // The segmented control announces which one is current, not just which one
+    // is tinted — the raised chip is a visual cue only.
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(
+      'Project'
+    )
 
     // The merged tabs are gone, not renamed alongside the new one.
     expect(screen.queryByText('Overview')).not.toBeInTheDocument()

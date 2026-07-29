@@ -2,6 +2,13 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useIntl } from 'react-intl'
+import {
+  Brain,
+  Flag,
+  LayoutDashboard,
+  ListChecks,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
 import {
@@ -29,6 +36,19 @@ import { MemoryTab } from '../memory/MemoryTab'
 
 const TABS = ['project', 'milestones', 'tasks', 'memory'] as const
 type ProjectTabKey = (typeof TABS)[number]
+
+/**
+ * One icon per tab, picked to stay clear of the vocabulary the workspace nav
+ * already spends: `Target` is Initiatives, `File`/`FileEdit` are Documents and
+ * Drafts, `Lightbulb` is Ideas. `Brain` is reused deliberately — it is already
+ * the Memory surface's own icon.
+ */
+const TAB_ICONS: Record<ProjectTabKey, LucideIcon> = {
+  project: LayoutDashboard,
+  milestones: Flag,
+  tasks: ListChecks,
+  memory: Brain,
+}
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -173,33 +193,48 @@ export function ProjectDetailPage({
         copied={copied}
       />
 
-      {/* Tab nav */}
-      <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {TABS.map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
-              tab === t
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            {intl.formatMessage({ id: `project.tab.${t}` })}
-            {/* Only the Project tab carries a badge — it is the tab that shows
-                what the number is made of. Absent at zero, so a healthy project
-                shows no ornament at all. */}
-            {t === 'project' && attentionCount > 0 && (
-              <span
-                data-testid='project-tab-badge'
-                className='inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-[18px] text-danger-foreground'
+      {/* Tab nav — a segmented control: one recessed track with the current tab
+          raised out of it. The four tabs are a closed set of views onto the same
+          project, and a track says "pick one of these" in a way four loose
+          buttons don't. */}
+      <div className='mt-4 shrink-0 px-4 md:px-8'>
+        <div
+          role='tablist'
+          className='inline-flex items-center gap-1 rounded-lg bg-muted p-1'
+        >
+          {TABS.map(t => {
+            const Icon = TAB_ICONS[t]
+            const selected = tab === t
+            return (
+              <button
+                key={t}
+                role='tab'
+                aria-selected={selected}
+                onClick={() => setTab(t)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                  selected
+                    ? 'bg-background text-foreground shadow-elevation-1'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
               >
-                {attentionCount}
-              </span>
-            )}
-          </button>
-        ))}
+                <Icon className='size-3.5 shrink-0' aria-hidden />
+                {intl.formatMessage({ id: `project.tab.${t}` })}
+                {/* Only the Project tab carries a badge — it is the tab that
+                    shows what the number is made of. Absent at zero, so a
+                    healthy project shows no ornament at all. */}
+                {t === 'project' && attentionCount > 0 && (
+                  <span
+                    data-testid='project-tab-badge'
+                    className='inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-[18px] text-danger-foreground'
+                  >
+                    {attentionCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Project tab ── */}
