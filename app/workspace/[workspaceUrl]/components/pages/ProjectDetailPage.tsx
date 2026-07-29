@@ -11,10 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { slugify } from '@/lib/utils/slugify'
-import {
-  buildSignalView,
-  signalAttentionCount,
-} from '@/lib/summaries/signal-view'
+import { buildSignalView } from '@/lib/summaries/signal-view'
 import {
   ApiProject,
   ApiTask,
@@ -112,9 +109,9 @@ export function ProjectDetailPage({
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
 
-  // Health signals are fetched here rather than inside the Project tab: the tab
-  // badge has to keep showing the count while that tab is unmounted, and a
-  // second fetch would let the badge and the page disagree.
+  // Health signals are fetched here rather than inside the Project tab so the
+  // data survives tab switches — returning to Project shows the row it had,
+  // instead of a skeleton while an identical request runs again.
   const {
     stats,
     loading: statsLoading,
@@ -122,7 +119,6 @@ export function ProjectDetailPage({
   } = useProjectRealtimeStats(project.id)
 
   const view = useMemo(() => (stats ? buildSignalView(stats) : null), [stats])
-  const attentionCount = view ? signalAttentionCount(view) : 0
 
   const {
     options: displayOptions,
@@ -220,17 +216,6 @@ export function ProjectDetailPage({
               >
                 <Icon className='size-3.5 shrink-0' aria-hidden />
                 {intl.formatMessage({ id: `project.tab.${t}` })}
-                {/* Only the Project tab carries a badge — it is the tab that
-                    shows what the number is made of. Absent at zero, so a
-                    healthy project shows no ornament at all. */}
-                {t === 'project' && attentionCount > 0 && (
-                  <span
-                    data-testid='project-tab-badge'
-                    className='inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-[18px] text-danger-foreground'
-                  >
-                    {attentionCount}
-                  </span>
-                )}
               </button>
             )
           })}
