@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "Start",
   "milestone.dates.target": "Ziel",
   "milestone.dialog.name.placeholder": "Name des Meilensteins, z. B. Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "Was soll dieser Meilenstein erreichen? Was sind die Ergebnisse und die Messlatte für „fertig“? (optional)",
-  "milestone.dialog.dates.optional": "Beides optional"
+  "milestone.dialog.description.placeholder": "Was soll dieser Meilenstein erreichen? Was sind die Ergebnisse und die Messlatte für „fertig“? (optional)"
 }

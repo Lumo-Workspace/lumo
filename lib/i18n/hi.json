@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "आरंभ",
   "milestone.dates.target": "लक्ष्य",
   "milestone.dialog.name.placeholder": "मील के पत्थर का नाम, जैसे Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "इस मील के पत्थर से क्या हासिल करना है? डिलिवरेबल्स और पूरा होने का मानदंड क्या है? (वैकल्पिक)",
-  "milestone.dialog.dates.optional": "दोनों वैकल्पिक"
+  "milestone.dialog.description.placeholder": "इस मील के पत्थर से क्या हासिल करना है? डिलिवरेबल्स और पूरा होने का मानदंड क्या है? (वैकल्पिक)"
 }

@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "开始",
   "milestone.dates.target": "目标",
   "milestone.dialog.name.placeholder": "里程碑名称，例：Agent-Native Sprints",
-  "milestone.dialog.description.placeholder": "这个里程碑要达成什么？交付物和完成标准是什么？（可选）",
-  "milestone.dialog.dates.optional": "都可留空"
+  "milestone.dialog.description.placeholder": "这个里程碑要达成什么？交付物和完成标准是什么？（可选）"
 }

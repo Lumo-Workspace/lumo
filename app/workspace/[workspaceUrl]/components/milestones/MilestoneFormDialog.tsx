@@ -22,6 +22,9 @@ import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import type { MilestoneStatus } from '@prisma/client'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
+import { DescriptionEditor } from '../DescriptionEditorLazy'
+import { useMentionSources } from '../../hooks/useMentionSources'
+import { useMembers } from '../../hooks/useMembers'
 import { MILESTONE_STATUSES } from './milestoneDisplay'
 
 interface Props {
@@ -30,14 +33,26 @@ interface Props {
   onClose: () => void
 }
 
+/** A description that renders to nothing but markup (an empty paragraph the
+ *  editor always keeps around) is stored as `null`, not as `<p></p>` — same
+ *  test the new-task modal uses, so both write the field the same way. */
+function htmlOrNull(html: string | null): string | null {
+  return html?.replace(/<[^>]*>/g, '').trim() ? html : null
+}
+
 export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   const intl = useIntl()
   const qc = useQueryClient()
   const editing = !!milestone
   const nameRef = useRef<HTMLInputElement>(null)
 
+  const { members } = useMembers()
+  const mentionSources = useMentionSources(members)
+
   const [name, setName] = useState(milestone?.name ?? '')
-  const [description, setDescription] = useState(milestone?.description ?? '')
+  const [description, setDescription] = useState<string | null>(
+    milestone?.description ?? null
+  )
   const [status, setStatus] = useState<MilestoneStatus>(
     milestone?.status ?? 'PLANNED'
   )
@@ -52,7 +67,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
     mutationFn: () =>
       milestonesClient.create(projectId, {
         name,
-        description: description || null,
+        description: htmlOrNull(description),
         startDate: startDate || null,
         targetDate: targetDate || null,
       }),
@@ -68,7 +83,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
     mutationFn: () =>
       milestonesClient.update(milestone!.id, {
         name,
-        description: description || null,
+        description: htmlOrNull(description),
         status,
         startDate: startDate || null,
         targetDate: targetDate || null,
@@ -151,12 +166,20 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             className='-mx-2 block w-[calc(100%+1rem)] bg-transparent px-2 text-xl font-semibold leading-[1.4] text-foreground outline-none placeholder:font-semibold placeholder:text-muted-foreground/50'
           />
 
+          {/* The same editor a task description gets — rich text, @-mentions,
+              slash commands — so a milestone body is written and stored the
+              way every other body in the app is. The service already treats
+              this field as HTML (it diffs it for @-mention notifications); the
+              plain textarea that used to sit here was the odd one out. */}
+          {/* No min-height of our own: the shared editor already carries an
+              80px floor, the same one a task body sits on. */}
           <div className='mt-1.5'>
-            <AutoGrowTextarea
+            <DescriptionEditor
               value={description}
-              onChange={setDescription}
+              onChange={html => setDescription(html)}
+              onCommit={html => setDescription(html)}
               placeholder={label('milestone.dialog.description.placeholder')}
-              ariaLabel={label('milestone.field.description')}
+              mentionSources={mentionSources}
             />
           </div>
 
@@ -203,14 +226,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
                 </SelectContent>
               </Select>
             )}
-            {/* A first-time nudge only: on an existing milestone the row is
-                already crowded by the status chip, and the hint would wrap to
-                a line of its own for something the user has settled. */}
-            {!editing && (
-              <span className='ml-1 text-xs text-muted-foreground/70'>
-                {label('milestone.dialog.dates.optional')}
-              </span>
-            )}
           </div>
 
           {failed && (
@@ -240,53 +255,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/** A borderless paragraph that grows to fit its text, so the description reads
- *  as prose rather than a fixed-height box with a scrollbar and a resize grip.
- *
- *  The growth is pure CSS: the textarea and an invisible mirror span share one
- *  grid cell, so the cell — and with it the textarea — is sized by the mirror's
- *  wrapped text. Measuring scrollHeight from an effect instead would re-enter
- *  layout on every keystroke; this has no such failure mode and behaves
- *  identically under jsdom. */
-function AutoGrowTextarea({
-  value,
-  onChange,
-  placeholder,
-  ariaLabel,
-}: {
-  value: string
-  onChange: (text: string) => void
-  placeholder: string
-  ariaLabel: string
-}): ReactNode {
-  const shared =
-    '[grid-area:1/1/2/2] px-2 text-[15px] leading-[1.75] whitespace-pre-wrap break-words'
-
-  // The floor is for the empty state only: it gives a blank milestone room to
-  // invite a paragraph. Once there is prose it would be dead space under a
-  // one-line description — which is exactly the shape an existing milestone
-  // opens in.
-  const floor = value ? '' : 'min-h-[72px]'
-
-  return (
-    <div className={`-mx-2 grid w-[calc(100%+1rem)] ${floor}`}>
-      <textarea
-        rows={1}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className={`${shared} resize-none overflow-hidden bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60`}
-      />
-      {/* The mirror. The trailing space reserves room for a line still being
-          typed, and for a lone trailing newline. */}
-      <span aria-hidden className={`${shared} invisible`}>
-        {value + ' '}
-      </span>
-    </div>
   )
 }
 

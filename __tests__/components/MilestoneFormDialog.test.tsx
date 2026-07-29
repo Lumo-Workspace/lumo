@@ -14,7 +14,6 @@ const en: Record<string, string> = {
     'Milestone name, e.g. Agent-Native Sprints',
   'milestone.dialog.description.placeholder':
     'What should this milestone achieve? What are the deliverables and the bar for done? (optional)',
-  'milestone.dialog.dates.optional': 'Both optional',
   'milestone.status.PLANNED': 'Planned',
   'milestone.status.ACTIVE': 'Active',
   'milestone.status.COMPLETED': 'Completed',
@@ -44,7 +43,48 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
-import { render, screen, waitFor } from '@testing-library/react'
+const MEMBERS = [{ actorId: 'u1', name: 'Ada', email: 'ada@example.com' }]
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMembers', () => ({
+  useMembers: () => ({ members: MEMBERS, agentActors: [] }),
+}))
+
+const mentionSourcesSpy = jest.fn((members: unknown) => ({ members }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMentionSources', () => ({
+  useMentionSources: (members: unknown) => mentionSourcesSpy(members),
+}))
+
+// The real editor pulls the whole Tiptap stack. Stub the lazy wrapper the
+// dialog imports with a textarea that reports the props the dialog passes, so
+// the tests can assert *which* editor is mounted and what it is fed.
+const editorProps: {
+  placeholder?: string
+  mentionSources?: unknown
+  value?: string | null
+} = {}
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/DescriptionEditorLazy',
+  () => ({
+    DescriptionEditor: (props: {
+      value: string | null
+      placeholder?: string
+      mentionSources?: unknown
+      onChange?: (html: string | null) => void
+    }) => {
+      Object.assign(editorProps, props)
+      return (
+        <textarea
+          data-testid='description-editor'
+          aria-label='Description'
+          value={props.value ?? ''}
+          placeholder={props.placeholder}
+          onChange={e => props.onChange?.(e.target.value)}
+        />
+      )
+    },
+  })
+)
+
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MilestoneFormDialog } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneFormDialog'
@@ -132,17 +172,19 @@ describe('MilestoneFormDialog', () => {
       expect(screen.queryByText(word)).not.toBeInTheDocument()
     }
 
-    // Borderless and self-sizing: no box, no scrollbar, no resize grip, and no
-    // focus ring (a text input matches :focus-visible on a plain mouse click,
-    // so a ring here would box in whichever line is being edited).
-    for (const field of [nameField(), descriptionField()]) {
-      expect(field.className).toContain('bg-transparent')
-      expect(field.className).toContain('outline-none')
-      expect(field.className).not.toMatch(/(^|\s)border/)
-      expect(field.className).not.toContain('ring')
-    }
-    expect(descriptionField().className).toContain('resize-none')
-    expect(descriptionField().className).toContain('overflow-hidden')
+    // The name is borderless: no box, no focus ring (a text input matches
+    // :focus-visible on a plain mouse click, so a ring here would box in
+    // whichever line is being edited).
+    expect(nameField().className).toContain('bg-transparent')
+    expect(nameField().className).toContain('outline-none')
+    expect(nameField().className).not.toMatch(/(^|\s)border/)
+    expect(nameField().className).not.toContain('ring')
+
+    // The description is the shared rich editor — the same one a task body
+    // gets — fed the workspace members so @-mentions resolve to people.
+    expect(screen.getByTestId('description-editor')).toBeInTheDocument()
+    expect(mentionSourcesSpy).toHaveBeenCalledWith(MEMBERS)
+    expect(editorProps.mentionSources).toEqual({ members: MEMBERS })
 
     // Both dates are chips, and both may be left empty.
     const start = screen.getByLabelText('Start date')
@@ -153,11 +195,13 @@ describe('MilestoneFormDialog', () => {
     expect(target).toHaveValue('')
     expect(start.closest('label')?.className).toContain('rounded-full')
     expect(target.closest('label')?.className).toContain('rounded-full')
-    expect(screen.getByText('Both optional')).toBeInTheDocument()
     // Status is an edit-mode affordance: a milestone is always created PLANNED.
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
 
     await userEvent.type(nameField(), 'Agent-Native Sprints')
+    // The editor always keeps an empty paragraph around; a body that renders to
+    // no text is stored as null rather than as markup.
+    fireEvent.change(descriptionField(), { target: { value: '<p></p>' } })
     await userEvent.click(screen.getByRole('button', { name: /Create/ }))
 
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1))

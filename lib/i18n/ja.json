@@ -2265,6 +2265,5 @@
   "milestone.dates.start": "開始",
   "milestone.dates.target": "目標",
   "milestone.dialog.name.placeholder": "マイルストーン名（例: Agent-Native Sprints）",
-  "milestone.dialog.description.placeholder": "このマイルストーンで何を達成しますか？成果物と完了の基準は？（任意）",
-  "milestone.dialog.dates.optional": "どちらも省略可"
+  "milestone.dialog.description.placeholder": "このマイルストーンで何を達成しますか？成果物と完了の基準は？（任意）"
 }
