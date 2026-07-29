@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count} nhiệm vụ quá hạn",
   "signal.panel.stalled": "Nhiệm vụ đình trệ · {count}",
   "signal.panel.stalePrs": "PR tồn đọng · {count} · chờ duyệt từ 3 ngày trở lên",
-  "signal.viewAllInTasks": "Xem tất cả {count} trong Nhiệm vụ →"
+  "signal.viewAllInTasks": "Xem tất cả {count} trong Nhiệm vụ →",
+  "project.milestones.add": "Cột mốc",
+  "project.milestones.namePlaceholder": "Tên cột mốc…",
+  "project.milestones.addFailed": "Không thêm được"
 }

@@ -66,15 +66,16 @@ export function ProjectTab({
 
   return (
     <div className='flex-1 overflow-y-auto'>
-      {/* A 760px reading column — this page is read, not scanned in columns —
-          pinned to the page's standard left edge rather than centred. The design
-          source centres it, but it was drawn on a 1440px canvas where that left
-          only an 81px gutter; centring at a real window width grows the gutter
-          without bound (~445px on a wide screen) and pushes the body far off the
-          breadcrumb and tab rail above it. Left-aligning keeps the line length
-          the design chose and the geometry the rest of the workspace uses. */}
+      {/* The workspace body geometry (`px-4 md:px-8` + `max-w-[1680px]`), same
+          as Sprints and Ideas — not the design source's 760px column. That column
+          was drawn on a 1440px canvas where it left ~81px of gutter on each side;
+          carried onto a real window it turns into hundreds of pixels of dead
+          space, first on the left when centred, then on the right when pinned
+          left. The row layout the design specifies is preserved; only the
+          measure it was drawn at gives way to the width every sibling page
+          already uses. */}
       <div className='px-4 py-10 md:px-8'>
-        <div className='w-full max-w-[760px]'>
+        <div className='mx-auto w-full max-w-[1680px]'>
           <div className='mb-5 flex items-center gap-1.5'>
             <TypographyH1
               key={project.id}
@@ -150,7 +151,11 @@ export function ProjectTab({
             )}
           </div>
 
-          <div className='pt-9'>
+          {/* Prose is the one block that keeps the design's 760px measure. The
+              rows above and below are scanned — they want the full width — but
+              at 1720px the description ran ~227 characters to the line, roughly
+              twice any readable measure. */}
+          <div className='max-w-[760px] pt-9'>
             <p className='mb-3 text-caption text-muted-foreground'>
               {intl.formatMessage({ id: 'project.description' })}
             </p>

@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count, plural, one {# überfällige Aufgabe} other {# überfällige Aufgaben}}",
   "signal.panel.stalled": "Stockende Aufgaben · {count}",
   "signal.panel.stalePrs": "Liegengebliebene PRs · {count} · seit 3+ Tagen in Review",
-  "signal.viewAllInTasks": "Alle {count} unter Aufgaben ansehen →"
+  "signal.viewAllInTasks": "Alle {count} unter Aufgaben ansehen →",
+  "project.milestones.add": "Meilenstein",
+  "project.milestones.namePlaceholder": "Name des Meilensteins…",
+  "project.milestones.addFailed": "Konnte nicht angelegt werden"
 }

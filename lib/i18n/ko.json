@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "기한 초과 작업 {count}개",
   "signal.panel.stalled": "정체 작업 · {count}",
   "signal.panel.stalePrs": "지연된 PR · {count} · 리뷰 대기 3일 이상",
-  "signal.viewAllInTasks": "작업에서 {count}개 모두 보기 →"
+  "signal.viewAllInTasks": "작업에서 {count}개 모두 보기 →",
+  "project.milestones.add": "마일스톤",
+  "project.milestones.namePlaceholder": "마일스톤 이름…",
+  "project.milestones.addFailed": "추가하지 못했습니다"
 }

@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count, plural, one {# tarea vencida} other {# tareas vencidas}}",
   "signal.panel.stalled": "Tareas estancadas · {count}",
   "signal.panel.stalePrs": "PR estancadas · {count} · esperando revisión 3+ días",
-  "signal.viewAllInTasks": "Ver las {count} en Tareas →"
+  "signal.viewAllInTasks": "Ver las {count} en Tareas →",
+  "project.milestones.add": "Hito",
+  "project.milestones.namePlaceholder": "Nombre del hito…",
+  "project.milestones.addFailed": "No se pudo añadir"
 }

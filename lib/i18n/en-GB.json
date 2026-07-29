@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count, plural, one {# overdue task} other {# overdue tasks}}",
   "signal.panel.stalled": "Stalled tasks · {count}",
   "signal.panel.stalePrs": "Stale PRs · {count} · awaiting review 3+ days",
-  "signal.viewAllInTasks": "View all {count} in Tasks →"
+  "signal.viewAllInTasks": "View all {count} in Tasks →",
+  "project.milestones.add": "Milestone",
+  "project.milestones.namePlaceholder": "Milestone name…",
+  "project.milestones.addFailed": "Couldn't add"
 }

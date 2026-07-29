@@ -2260,5 +2260,8 @@
   "signal.pill.overdue": "{count} tugasan lewat tempoh",
   "signal.panel.stalled": "Tugasan terbengkalai · {count}",
   "signal.panel.stalePrs": "PR tergendala · {count} · menunggu semakan 3+ hari",
-  "signal.viewAllInTasks": "Lihat semua {count} dalam Tugasan →"
+  "signal.viewAllInTasks": "Lihat semua {count} dalam Tugasan →",
+  "project.milestones.add": "Pencapaian",
+  "project.milestones.namePlaceholder": "Nama pencapaian…",
+  "project.milestones.addFailed": "Gagal menambah"
 }
