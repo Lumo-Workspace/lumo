@@ -2204,7 +2204,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} hoàn thành · kết thúc {date}",
   "sprints.detail.burnupDayActual": "{date} · {done} / {total} hoàn thành",
   "sprints.detail.burnupDayPlan": "{date} · {done} / {total} theo kế hoạch",
-  "sprints.team.title": "Hiệu suất nhóm",
+  "sprints.team.title": "Tiến độ",
   "sprints.team.colMember": "Thành viên",
   "sprints.team.colTasks": "Nhiệm vụ hoàn thành",
   "sprints.team.colTokens": "Token",

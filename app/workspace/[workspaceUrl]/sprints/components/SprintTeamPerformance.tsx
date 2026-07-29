@@ -78,7 +78,7 @@ function SprintTeamPerformanceView({
       <h2 className='text-body-strong'>
         {intl.formatMessage({
           id: 'sprints.team.title',
-          defaultMessage: 'Team performance',
+          defaultMessage: 'Progress',
         })}
       </h2>
 

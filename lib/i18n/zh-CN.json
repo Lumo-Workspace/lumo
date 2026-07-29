@@ -2209,7 +2209,7 @@
   "sprints.detail.burnupReadout": "{done} / {total} 完成 · {date} 结束",
   "sprints.detail.burnupDayActual": "{date} · 实际完成 {done} / {total}",
   "sprints.detail.burnupDayPlan": "{date} · 计划完成 {done} / {total}",
-  "sprints.team.title": "团队表现",
+  "sprints.team.title": "进度",
   "sprints.team.colMember": "成员",
   "sprints.team.colTasks": "完成任务",
   "sprints.team.colTokens": "Token",
