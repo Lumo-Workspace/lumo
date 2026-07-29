@@ -174,34 +174,27 @@ describe('project detail tabs', () => {
     expect(screen.queryByTestId('body-tasks')).not.toBeInTheDocument()
   })
 
-  it('Project tab badge equals the sum of firing signal counts and disappears at zero', () => {
-    // stalled 3 + high-stakes 1 + stale PRs 2 + overdue 4 — the badge is the
-    // sum of exactly the pills the health row shows.
-    const { unmount } = setup(
+  it('carries no count badge on any tab', () => {
+    // The tabs name the views; the health row inside Project is where the
+    // numbers live. A badge here would restate them in a second place that can
+    // drift.
+    setup(
       makeStats(
         {
           stalledTaskIds: [stalled('1'), stalled('2'), stalled('3')],
-          highStakesTaskIds: [stalled('1')],
           staleOpenPrs: [
             { number: 1, openedAt: daysAgo(6), url: 'https://x/1' },
-            { number: 2, openedAt: daysAgo(7), url: 'https://x/2' },
           ],
         },
         { overdueTasks: { count: 4, taskIds: ['a', 'b', 'c', 'd'] } }
       )
     )
-    expect(screen.getByTestId('project-tab-badge')).toHaveTextContent('10')
-    unmount()
 
-    // A healthy project carries no ornament at all.
-    setup(makeStats())
     expect(screen.queryByTestId('project-tab-badge')).not.toBeInTheDocument()
-  })
-
-  it('does not badge a project whose stats have not arrived', () => {
-    setup(null)
-    expect(screen.queryByTestId('project-tab-badge')).not.toBeInTheDocument()
-    expect(screen.getByTestId('body-project')).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab').map(t => t.textContent?.trim())
+    expect(tabs).toEqual(['Project', 'Milestones', 'Tasks', 'Memory'])
+    // Label only — no digits smuggled in beside a name.
+    tabs.forEach(label => expect(label).not.toMatch(/\d/))
   })
 
   it('unpacks the blocker lists for the Project tab instead of handing it the stats payload', () => {

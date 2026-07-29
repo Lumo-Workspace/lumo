@@ -69,19 +69,6 @@ export function buildSignalView(stats: TaskSummaryStats): SignalView {
 }
 
 /**
- * How many individual items are currently asking for attention — the sum of
- * every firing signal's count.
- *
- * The Project tab's badge reads from here rather than counting rows itself, so
- * the number on the tab and the numbers in the health row can never disagree:
- * both are derived from the same `SignalView`. Zero means nothing fired, and
- * the badge is not rendered at all.
- */
-export function signalAttentionCount(view: SignalView): number {
-  return view.anomalies.reduce((sum, card) => sum + card.count, 0)
-}
-
-/**
  * Whole days between `from` and `now` (ms epoch), floored at 0.
  * `now` is passed in rather than read from the clock so callers stay
  * render-pure — feed it from `useNow()`.

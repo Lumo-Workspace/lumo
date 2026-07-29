@@ -240,6 +240,58 @@ describe('ProjectHealthRow', () => {
     expect(within(panel).getByText('19d')).toBeInTheDocument()
   })
 
+  it('each firing pill states the number of rows its own panel shows', () => {
+    // The pill number is the only count on the page now that the tab badge is
+    // gone, so it has to survive being checked against the panel it opens.
+    setup(
+      makeStats({
+        stalledTaskIds: [
+          stalledTask('t1', 'LUM-550', 'One', 9),
+          stalledTask('t2', 'LUM-462', 'Two', 19),
+          stalledTask('t3', 'LUM-493', 'Three', 44),
+        ],
+        highStakesTaskIds: [stalledTask('t1', 'LUM-550', 'One', 9, 'URGENT')],
+        staleOpenPrs: [
+          {
+            number: 16,
+            openedAt: daysAgo(6),
+            url: 'https://github.com/o/r/pull/16',
+          },
+          {
+            number: 17,
+            openedAt: daysAgo(8),
+            url: 'https://github.com/o/r/pull/17',
+          },
+        ],
+      })
+    )
+
+    const rowsIn = (panel: HTMLElement, selector: string) =>
+      panel.querySelectorAll(selector).length
+
+    fireEvent.click(screen.getByTestId('signal-pill-stalled'))
+    expect(screen.getByTestId('signal-pill-stalled')).toHaveTextContent(
+      '3 stalled tasks'
+    )
+    // Rows only — the trailing "View all" hand-off is not a stalled task.
+    const stalledPanel = screen.getByTestId('signal-panel-stalled')
+    expect(rowsIn(stalledPanel, 'button')).toBe(3)
+
+    fireEvent.click(screen.getByTestId('signal-pill-highStakes'))
+    expect(screen.getByTestId('signal-pill-highStakes')).toHaveTextContent(
+      '1 high-stakes stall'
+    )
+    expect(
+      rowsIn(screen.getByTestId('signal-panel-highStakes'), 'button')
+    ).toBe(1)
+
+    fireEvent.click(screen.getByTestId('signal-pill-stalePrs'))
+    expect(screen.getByTestId('signal-pill-stalePrs')).toHaveTextContent(
+      '2 stale PRs'
+    )
+    expect(rowsIn(screen.getByTestId('signal-panel-stalePrs'), 'a')).toBe(2)
+  })
+
   it('opens a task from a stalled row', () => {
     const { onOpenTask } = setup(
       makeStats({
