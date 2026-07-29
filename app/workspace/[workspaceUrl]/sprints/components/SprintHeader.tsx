@@ -58,8 +58,11 @@ export function SprintHeader({
 
   return (
     <div className='flex flex-col gap-3.5'>
-      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
-        <div className='flex items-center gap-2.5'>
+      {/* Title over dates, not beside them: the header lives in the ~320px
+          right rail, where a name + state pill + editable range on one row has
+          nowhere to go but wrap unevenly. */}
+      <div className='flex flex-col gap-1'>
+        <div className='flex flex-wrap items-center gap-x-2.5 gap-y-1'>
           <span className='text-title font-semibold tracking-tight'>
             {sprint.name}
           </span>

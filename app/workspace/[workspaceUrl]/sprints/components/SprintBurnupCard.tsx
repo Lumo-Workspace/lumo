@@ -83,8 +83,10 @@ export function SprintBurnupCard({
   }
 
   return (
-    <div className='rounded-lg border border-border px-5 pb-3 pt-4'>
-      <div className='flex items-center justify-between gap-4'>
+    <div className='rounded-lg border border-border px-4 pb-3 pt-3.5'>
+      {/* Wraps rather than squeezing: in the ~320px rail the label and the
+          readout don't always fit on one line. */}
+      <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5'>
         <span className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
           {intl.formatMessage({
             id: 'sprints.detail.burnup',
