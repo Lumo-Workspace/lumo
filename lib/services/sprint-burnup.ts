@@ -1,11 +1,9 @@
 import type { TaskStatus } from '@prisma/client'
 import {
   DAY_MS,
-  type SprintEvt,
   type StatusEvt,
   enumerateUtcDays,
   parseStatusPayload,
-  sprintAt,
   statusAt,
   toUtcDateKey,
   utcMidnight,
@@ -20,7 +18,7 @@ export interface BurnupTaskInput {
 
 export interface BurnupActivityInput {
   taskId: string
-  type: 'STATUS_CHANGED' | 'SPRINT_CHANGED'
+  type: 'STATUS_CHANGED'
   payload: unknown
   createdAt: Date
 }
@@ -42,9 +40,9 @@ export interface BurnupComputeInput {
 
 export interface BurnupPoint {
   date: string
-  /** Committed work known by end-of-day: candidates created on or before this day. */
+  /** Member tasks created on or before this day (end-of-day). */
   scope: number
-  /** Candidates DONE at end-of-day. null for future days of an ACTIVE sprint. */
+  /** Member tasks DONE at end-of-day. null for future days of an ACTIVE sprint. */
   completed: number | null
   /** Projection segment only: linear from today's completed to (end, scopeTotal). null elsewhere. */
   projected: number | null
@@ -58,23 +56,6 @@ export interface BurnupSeries {
   /** Final scope = y-axis max. */
   scopeTotal: number
   series: BurnupPoint[]
-}
-
-function parseSprintPayload(
-  p: unknown
-): { fromSprintId: string | null; toSprintId: string | null } | null {
-  if (!p || typeof p !== 'object') return null
-  const o = p as Record<string, unknown>
-  if (!('fromSprintId' in o) || !('toSprintId' in o)) return null
-  const from = o.fromSprintId
-  const to = o.toSprintId
-  const okFrom = from === null || typeof from === 'string'
-  const okTo = to === null || typeof to === 'string'
-  if (!okFrom || !okTo) return null
-  return {
-    fromSprintId: from as string | null,
-    toSprintId: to as string | null,
-  }
 }
 
 export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
@@ -98,68 +79,39 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
       : startDate
 
   const statusByTask = new Map<string, StatusEvt[]>()
-  const sprintByTask = new Map<string, SprintEvt[]>()
   for (const a of activities) {
-    if (a.type === 'STATUS_CHANGED') {
-      const p = parseStatusPayload(a.payload)
-      if (!p) continue
-      const arr = statusByTask.get(a.taskId) ?? []
-      arr.push({ createdAt: a.createdAt, from: p.from, to: p.to })
-      statusByTask.set(a.taskId, arr)
-    } else if (a.type === 'SPRINT_CHANGED') {
-      const p = parseSprintPayload(a.payload)
-      if (!p) continue
-      const arr = sprintByTask.get(a.taskId) ?? []
-      arr.push({
-        createdAt: a.createdAt,
-        fromSprintId: p.fromSprintId,
-        toSprintId: p.toSprintId,
-      })
-      sprintByTask.set(a.taskId, arr)
-    }
+    const p = parseStatusPayload(a.payload)
+    if (!p) continue
+    const arr = statusByTask.get(a.taskId) ?? []
+    arr.push({ createdAt: a.createdAt, from: p.from, to: p.to })
+    statusByTask.set(a.taskId, arr)
   }
   for (const arr of statusByTask.values())
     arr.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())
-  for (const arr of sprintByTask.values())
-    arr.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())
-
-  const taskById = new Map(tasks.map(t => [t.id, t]))
-  const candidates = new Set<string>()
-  for (const t of tasks) if (t.sprintId === sprintId) candidates.add(t.id)
-  for (const [taskId, evts] of sprintByTask) {
-    if (
-      evts.some(e => e.fromSprintId === sprintId || e.toSprintId === sprintId)
-    ) {
-      candidates.add(taskId)
-    }
-  }
 
   /**
-   * Membership is point-in-time, not "ever touched this sprint": a task counts
-   * on a given day only if it sat in THIS sprint at end of that day. Without
-   * this the scope kept every task that was ever moved out, so a sprint holding
-   * 12 tasks charted a ceiling of 13 (LUM-717) — and the moved-out task also
-   * kept inflating `completed`.
+   * The chart records THIS sprint's tasks — the ones sitting in it now, and
+   * only those. A task that was moved to another sprint is not this sprint's
+   * work and is left out of every day, including the days it happened to be
+   * here (LUM-717: a sprint holding 12 tasks charted a ceiling of 13 because
+   * one moved-out task stayed in scope forever, and — being DONE — inflated
+   * `completed` too). Status is still replayed day by day, so the curve itself
+   * stays an honest record of when those tasks were finished.
    */
-  function inSprintAt(id: string, eodMs: number): boolean {
-    const t = taskById.get(id)
-    if (!t || t.createdAt.getTime() > eodMs) return false
-    return sprintAt(sprintByTask.get(id) ?? [], eodMs, t.sprintId) === sprintId
-  }
+  const members = tasks.filter(t => t.sprintId === sprintId)
 
-  /** Candidates that belonged to the sprint at eodMs. */
+  /** Member tasks created on or before eodMs. */
   function countScope(eodMs: number): number {
     let count = 0
-    for (const id of candidates) if (inSprintAt(id, eodMs)) count++
+    for (const t of members) if (t.createdAt.getTime() <= eodMs) count++
     return count
   }
-  /** In-sprint candidates that were DONE at eodMs. Always <= countScope. */
+  /** Member tasks created by eodMs AND DONE at eodMs. Always <= countScope. */
   function countCompleted(eodMs: number): number {
     let count = 0
-    for (const id of candidates) {
-      if (!inSprintAt(id, eodMs)) continue
-      const t = taskById.get(id)!
-      if (statusAt(statusByTask.get(id) ?? [], eodMs, t.status) === 'DONE')
+    for (const t of members) {
+      if (t.createdAt.getTime() > eodMs) continue
+      if (statusAt(statusByTask.get(t.id) ?? [], eodMs, t.status) === 'DONE')
         count++
     }
     return count
