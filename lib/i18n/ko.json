@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "작업에서 {count}개 모두 보기 →",
   "project.milestones.add": "마일스톤",
   "project.milestones.namePlaceholder": "마일스톤 이름…",
-  "project.milestones.addFailed": "추가하지 못했습니다"
+  "project.milestones.addFailed": "추가하지 못했습니다",
+  "project.noOwner": "담당자 없음",
+  "project.ownerTooltip": "담당자 — 이 프로젝트의 주 연락 담당"
 }

@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import { useNow } from '@/hooks/use-now'
 import type { SignalView } from '@/lib/summaries/signal-view'
-import type { TaskSummaryStats } from '@/types/summary'
+import type { StalledBlockerItem, StalePrItem } from '@/types/summary'
 import { useMentionSources } from '../../../hooks/useMentionSources'
 import { ApiProject, WorkspaceMemberInfo } from '../../../types'
 import { IDEA_BADGE_CLS } from '../../../constants'
@@ -21,7 +21,11 @@ interface ProjectTabProps {
   workspaceUrl: string
   /** Health signals, or null while loading / on failure. */
   view: SignalView | null
-  stats: TaskSummaryStats | null
+  /** The blocker lists the health row's panels render, already unpacked by the
+   *  page — this component never reaches into the stats payload itself. */
+  stalled: StalledBlockerItem[]
+  highStakes: StalledBlockerItem[]
+  stalePrs: StalePrItem[]
   statsLoading: boolean
   statsError: string | null
   onUpdateProject: (
@@ -51,7 +55,9 @@ export function ProjectTab({
   members,
   workspaceUrl,
   view,
-  stats,
+  stalled,
+  highStakes,
+  stalePrs,
   statsLoading,
   statsError,
   onUpdateProject,
@@ -111,10 +117,12 @@ export function ProjectTab({
           </div>
 
           <ProjectPropertyRows
-            project={project}
+            projectId={project.id}
+            ownerId={project.ownerId ?? null}
+            repositories={project.repositories}
             members={members}
             workspaceUrl={workspaceUrl}
-            onUpdateProject={onUpdateProject}
+            onOwnerChange={ownerId => onUpdateProject(project.id, { ownerId })}
           />
 
           {/* Health — the one section that can be empty-but-meaningful, so it
@@ -127,7 +135,7 @@ export function ProjectTab({
                   aria-busy='true'
                 />
               </PropertyRow>
-            ) : !view || !stats ? (
+            ) : !view ? (
               <PropertyRow label={healthLabel}>
                 <span className='text-caption text-muted-foreground'>
                   {intl.formatMessage({
@@ -141,9 +149,9 @@ export function ProjectTab({
               <ProjectHealthRow
                 label={healthLabel}
                 view={view}
-                stalled={stats.topBlockers.stalledTaskIds}
-                highStakes={stats.topBlockers.highStakesTaskIds}
-                stalePrs={stats.topBlockers.staleOpenPrs}
+                stalled={stalled}
+                highStakes={highStakes}
+                stalePrs={stalePrs}
                 now={now}
                 onOpenTask={onOpenTask}
                 onViewAllTasks={onViewAllTasks}

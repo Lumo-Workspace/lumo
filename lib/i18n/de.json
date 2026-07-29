@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Alle {count} unter Aufgaben ansehen →",
   "project.milestones.add": "Meilenstein",
   "project.milestones.namePlaceholder": "Name des Meilensteins…",
-  "project.milestones.addFailed": "Konnte nicht angelegt werden"
+  "project.milestones.addFailed": "Konnte nicht angelegt werden",
+  "project.noOwner": "Kein Verantwortlicher",
+  "project.ownerTooltip": "Verantwortlich — erste Ansprechperson für dieses Projekt"
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   Plus,
@@ -12,9 +12,9 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '@/lib/api-client'
 import { useGithubRepos } from '../../../hooks/useGithubRepos'
-import { ApiProject, ApiRepository, WorkspaceMemberInfo } from '../../../types'
+import { useProjectRepositories } from '../../../hooks/useProjectRepositories'
+import { ApiRepository, WorkspaceMemberInfo } from '../../../types'
 import { OwnerSelect, FIELD_TRIGGER_CLS } from '../../fields'
 import {
   Popover,
@@ -32,13 +32,14 @@ import {
 import { PropertyRow } from './PropertyRow'
 
 interface ProjectPropertyRowsProps {
-  project: ApiProject
+  projectId: string
+  /** WorkspaceMember id of the current owner, or null. */
+  ownerId: string | null
+  /** Linked repositories as the project response carried them. */
+  repositories: ApiRepository[] | undefined
   members: WorkspaceMemberInfo[]
   workspaceUrl: string
-  onUpdateProject: (
-    id: string,
-    data: { ownerId?: string | null }
-  ) => Promise<void>
+  onOwnerChange: (ownerId: string | null) => void
 }
 
 /**
@@ -49,22 +50,18 @@ interface ProjectPropertyRowsProps {
  * pull the eye out of that flow before the description has been read.
  */
 export function ProjectPropertyRows({
-  project,
+  projectId,
+  ownerId,
+  repositories: initialRepositories,
   members,
   workspaceUrl,
-  onUpdateProject,
+  onOwnerChange,
 }: ProjectPropertyRowsProps) {
   const intl = useIntl()
-
-  const [repositories, setRepositories] = useState<ApiRepository[]>(
-    project.repositories ?? []
-  )
-  // Sync when parent hydrates repositories from the API (standalone page flow)
-  useEffect(() => {
-    if (project.repositories) setRepositories(project.repositories)
-  }, [project.repositories])
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [addingRepo, setAddingRepo] = useState<string | null>(null)
+
+  const { repositories, linking, link, setDefault, unlink } =
+    useProjectRepositories(projectId, initialRepositories)
 
   // Available repos load (and stay cached) only while the picker is open.
   const {
@@ -75,71 +72,24 @@ export function ProjectPropertyRows({
 
   const linkedFullNames = new Set(repositories.map(r => r.fullName))
 
-  const handleAddRepo = useCallback(
-    async (fullName: string) => {
-      if (linkedFullNames.has(fullName)) return
-      setAddingRepo(fullName)
-      try {
-        const data = await apiFetch<{ repository: ApiRepository }>(
-          `/api/projects/${project.id}/repositories`,
-          {
-            method: 'POST',
-            body: { fullName },
-          }
-        )
-        setRepositories(prev => [...prev, data.repository])
-        setPickerOpen(false)
-      } finally {
-        setAddingRepo(null)
-      }
-    },
-    [project.id, linkedFullNames]
-  )
-
-  const handleSetDefault = useCallback(
-    async (repoId: string) => {
-      try {
-        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
-          method: 'PATCH',
-          body: { isDefault: true },
-        })
-        setRepositories(prev =>
-          prev.map(r => ({ ...r, isDefault: r.id === repoId }))
-        )
-      } catch {
-        // ignore
-      }
-    },
-    [project.id]
-  )
-
-  const handleRemoveRepo = useCallback(
-    async (repoId: string) => {
-      try {
-        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
-          method: 'DELETE',
-        })
-        setRepositories(prev => prev.filter(r => r.id !== repoId))
-      } catch {
-        // ignore
-      }
-    },
-    [project.id]
-  )
+  const handleAddRepo = async (fullName: string) => {
+    if (linkedFullNames.has(fullName)) return
+    if (await link(fullName)) setPickerOpen(false)
+  }
 
   return (
     <div className='flex flex-col'>
       <PropertyRow label={intl.formatMessage({ id: 'project.properties' })}>
         <OwnerSelect
-          value={project.ownerId ?? null}
-          onChange={v => onUpdateProject(project.id, { ownerId: v })}
+          value={ownerId}
+          onChange={onOwnerChange}
           members={members.filter(
             (m): m is WorkspaceMemberInfo & { actorId: string } =>
               m.actorId !== null
           )}
           triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-7 text-xs')}
-          unassignedLabel='No owner'
-          tooltipText='Owner — primary contact for this project'
+          unassignedLabel={intl.formatMessage({ id: 'project.noOwner' })}
+          tooltipText={intl.formatMessage({ id: 'project.ownerTooltip' })}
         />
       </PropertyRow>
 
@@ -170,7 +120,7 @@ export function ProjectPropertyRows({
               </a>
               {!repo.isDefault && (
                 <button
-                  onClick={() => handleSetDefault(repo.id)}
+                  onClick={() => setDefault(repo.id)}
                   className='text-muted-foreground hover:text-foreground'
                   title={intl.formatMessage({ id: 'project.setAsDefault' })}
                 >
@@ -178,7 +128,7 @@ export function ProjectPropertyRows({
                 </button>
               )}
               <button
-                onClick={() => handleRemoveRepo(repo.id)}
+                onClick={() => unlink(repo.id)}
                 className='text-muted-foreground hover:text-danger'
                 title={intl.formatMessage({ id: 'project.removeRepo' })}
               >
@@ -232,7 +182,7 @@ export function ProjectPropertyRows({
                   <CommandGroup>
                     {availableRepos.map(repo => {
                       const isLinked = linkedFullNames.has(repo.fullName)
-                      const isAdding = addingRepo === repo.fullName
+                      const isAdding = linking === repo.fullName
                       return (
                         <CommandItem
                           key={repo.fullName}

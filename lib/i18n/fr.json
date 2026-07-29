@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Voir les {count} dans Tâches →",
   "project.milestones.add": "Jalon",
   "project.milestones.namePlaceholder": "Nom du jalon…",
-  "project.milestones.addFailed": "Ajout impossible"
+  "project.milestones.addFailed": "Ajout impossible",
+  "project.noOwner": "Aucun responsable",
+  "project.ownerTooltip": "Responsable — interlocuteur principal de ce projet"
 }

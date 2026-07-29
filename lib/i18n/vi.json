@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "Xem tất cả {count} trong Nhiệm vụ →",
   "project.milestones.add": "Cột mốc",
   "project.milestones.namePlaceholder": "Tên cột mốc…",
-  "project.milestones.addFailed": "Không thêm được"
+  "project.milestones.addFailed": "Không thêm được",
+  "project.noOwner": "Chưa có người phụ trách",
+  "project.ownerTooltip": "Người phụ trách — đầu mối liên hệ chính của dự án"
 }

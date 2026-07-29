@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "在任务中查看全部 {count} 条 →",
   "project.milestones.add": "里程碑",
   "project.milestones.namePlaceholder": "里程碑名称…",
-  "project.milestones.addFailed": "添加失败"
+  "project.milestones.addFailed": "添加失败",
+  "project.noOwner": "无负责人",
+  "project.ownerTooltip": "负责人 —— 这个项目的第一联系人"
 }

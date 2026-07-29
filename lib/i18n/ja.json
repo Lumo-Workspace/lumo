@@ -2263,5 +2263,7 @@
   "signal.viewAllInTasks": "タスクで {count} 件すべて表示 →",
   "project.milestones.add": "マイルストーン",
   "project.milestones.namePlaceholder": "マイルストーン名…",
-  "project.milestones.addFailed": "追加できませんでした"
+  "project.milestones.addFailed": "追加できませんでした",
+  "project.noOwner": "オーナーなし",
+  "project.ownerTooltip": "オーナー — このプロジェクトの主担当"
 }

@@ -210,7 +210,9 @@ export function ProjectDetailPage({
           members={members}
           workspaceUrl={workspaceUrl}
           view={view}
-          stats={stats}
+          stalled={stats?.topBlockers.stalledTaskIds ?? []}
+          highStakes={stats?.topBlockers.highStakesTaskIds ?? []}
+          stalePrs={stats?.topBlockers.staleOpenPrs ?? []}
           statsLoading={statsLoading}
           statsError={statsError}
           onUpdateProject={onUpdateProject}
