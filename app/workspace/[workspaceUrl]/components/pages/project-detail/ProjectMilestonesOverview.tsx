@@ -3,31 +3,10 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import Link from 'next/link'
-import { Circle, CircleCheck, CircleDot, Loader2, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Circle, CircleDot, Loader2, Plus } from 'lucide-react'
 import type { ApiMilestone } from '@/lib/api-client'
 import { useMilestones } from '../../../hooks/useMilestones'
 import { useCreateMilestone } from '../../../hooks/useCreateMilestone'
-import { STATUS_CLASS } from '../../milestones/milestoneDisplay'
-
-/**
- * The target marker each row leads with — the design's gold ring-and-dot.
- *
- * Drawn per status rather than as one constant mark: the ring/dot/tick shapes
- * already read as not-started / in-flight / finished, so the marker earns its
- * place instead of being decoration repeated four times. Same icon vocabulary
- * as the sprint field, so a milestone and a sprint don't say the same thing two
- * different ways.
- */
-const STATUS_MARKER: Record<
-  ApiMilestone['status'],
-  { Icon: typeof Circle; className: string }
-> = {
-  ACTIVE: { Icon: CircleDot, className: 'text-warning' },
-  COMPLETED: { Icon: CircleCheck, className: 'text-success' },
-  PLANNED: { Icon: Circle, className: 'text-muted-foreground' },
-  CANCELLED: { Icon: Circle, className: 'text-muted-foreground' },
-}
 
 /** done / total from the server-enriched per-status counts. */
 function progressOf(m: ApiMilestone): { done: number; total: number } {
@@ -120,28 +99,23 @@ export function ProjectMilestonesOverview({
           {milestones.map(m => {
             const { done, total } = progressOf(m)
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
-            const { Icon, className: markerClass } = STATUS_MARKER[m.status]
             return (
               <li key={m.id}>
                 <Link
                   href={`/workspace/${workspaceUrl}/projects/${projectSlug}/milestones/${m.slug}`}
                   className='-mx-2.5 flex items-center gap-3.5 rounded-md px-2.5 py-3 transition-colors hover:bg-muted/60'
                 >
-                  <Icon
-                    className={cn('size-4 shrink-0', markerClass)}
-                    data-testid={`milestone-marker-${m.status}`}
+                  {/* One constant target marker, as the design draws it. A
+                      milestone a reader can see is by definition an active one
+                      — archived milestones are filtered out server-side — so
+                      there is no second state for the marker to distinguish. */}
+                  <CircleDot
+                    className='size-4 shrink-0 text-warning'
+                    data-testid='milestone-marker'
                     aria-hidden
                   />
                   <span className='min-w-0 flex-1 truncate text-body-strong text-foreground'>
                     {m.name}
-                  </span>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-caption',
-                      STATUS_CLASS[m.status]
-                    )}
-                  >
-                    {intl.formatMessage({ id: `milestone.status.${m.status}` })}
                   </span>
                   <span
                     className='h-1.5 w-[110px] shrink-0 overflow-hidden rounded-full bg-muted'

@@ -119,13 +119,16 @@ describe('ProjectMilestonesOverview', () => {
     expect(bars[0]).toHaveAttribute('aria-valuenow', '73')
     expect(bars[1]).toHaveAttribute('aria-valuenow', '0')
 
-    // Each row leads with the design's target marker, drawn per status.
-    expect(screen.getByTestId('milestone-marker-ACTIVE')).toHaveClass(
-      'text-warning'
-    )
-    expect(screen.getByTestId('milestone-marker-PLANNED')).toHaveClass(
-      'text-muted-foreground'
-    )
+    // Every visible row leads with the same target marker — a milestone the
+    // reader can see is an active one, so there is no second state to draw.
+    const markers = screen.getAllByTestId('milestone-marker')
+    expect(markers).toHaveLength(2)
+    markers.forEach(m => expect(m).toHaveClass('text-warning'))
+
+    // Status is no longer a visible axis: active vs archived is the whole
+    // model, and archived rows never reach this list.
+    expect(screen.queryByText('Active')).not.toBeInTheDocument()
+    expect(screen.queryByText('Planned')).not.toBeInTheDocument()
 
     // Each row is a link to the milestone, nothing more.
     const row = screen.getByRole('link', { name: /Honest reporting/ })
@@ -133,7 +136,6 @@ describe('ProjectMilestonesOverview', () => {
       'href',
       '/workspace/acme/projects/lumo/milestones/honest-reporting'
     )
-    expect(within(row).getByText('Active')).toBeInTheDocument()
 
     // Editing an existing milestone stays on the Milestones tab — this section
     // writes exactly once, by creating.
@@ -205,14 +207,12 @@ describe('ProjectMilestonesOverview', () => {
     expect(onViewAll).toHaveBeenCalled()
   })
 
-  it('marks a completed milestone with the success-toned marker', () => {
-    setup([
-      milestone({ name: 'Shipped', slug: 'shipped', status: 'COMPLETED' }),
-    ])
+  it('asks the server for non-archived milestones only', () => {
+    // Archived is the only other state a milestone has, and it is hidden by
+    // default — the `active` filter resolves to `archivedAt: null` server-side.
+    setup([milestone({ name: 'One', slug: 'one' })])
 
-    expect(screen.getByTestId('milestone-marker-COMPLETED')).toHaveClass(
-      'text-success'
-    )
+    expect(mockUseMilestones).toHaveBeenCalledWith('p1', 'active')
   })
 
   it('renders 0/0 rather than crashing when the server sent no task counts', () => {
