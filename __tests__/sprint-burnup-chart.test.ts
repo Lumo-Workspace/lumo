@@ -64,6 +64,17 @@ describe('buildBurnupChart', () => {
     expect(geo.ticks.map(t => t.value)).toEqual([0, 6, 12])
   })
 
+  it('keeps the scale marks whole — no half-task gridline on an odd ceiling', () => {
+    const geo = buildBurnupChart(series([0, 5, 13]), 13)
+    expect(geo.ticks.map(t => t.value)).toEqual([0, 7, 13])
+    // The gridline sits where its own label says, not at the true midpoint.
+    const [, mid] = geo.ticks
+    expect(mid!.y).toBeCloseTo(
+      PLOT.bottom - (7 / 13) * (PLOT.bottom - PLOT.top),
+      6
+    )
+  })
+
   it('snaps a pointer position to the nearest day', () => {
     // 14 days across 720px → ~55.4px per step.
     expect(nearestPointIndex(PLOT.left, 14)).toBe(0)

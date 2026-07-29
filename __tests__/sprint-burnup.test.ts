@@ -193,7 +193,7 @@ describe('computeBurnupSeries', () => {
     ])
   })
 
-  test('candidate added mid-sprint via SPRINT_CHANGED still counts; scope tracks createdAt', () => {
+  test('membership is per-day: a task counts only while it sits in this sprint', () => {
     const out = computeBurnupSeries(
       baseInput({
         tasks: [
@@ -203,7 +203,7 @@ describe('computeBurnupSeries', () => {
             status: 'DONE',
             createdAt: at('2026-06-01'),
           },
-          // t5 currently in another sprint, but a SPRINT_CHANGED referenced SPRINT
+          // t5 joins on 06-02 and leaves again on 06-03.
           {
             id: 't5',
             sprintId: 'other',
@@ -219,10 +219,51 @@ describe('computeBurnupSeries', () => {
         ],
       })
     )
-    // both t1 and t5 are candidates; scope counts by createdAt (both 06-01)
+    // 06-01 t5 not here yet · 06-02 it is · 06-03 it left again.
+    expect(out.series.map(p => p.scope)).toEqual([1, 2, 1])
+    expect(out.series.map(p => p.completed)).toEqual([1, 2, 1])
+    // The ceiling is the sprint's membership on its last day, not the union of
+    // everything that ever passed through.
+    expect(out.scopeTotal).toBe(1)
+  })
+
+  test('a task moved out mid-sprint stops counting toward scope and completed', () => {
+    // The shape that produced the LUM-717 report: a sprint holding 2 tasks
+    // charted a ceiling of 3 because a third, DONE task had been moved to
+    // another sprint but stayed in scope forever.
+    const out = computeBurnupSeries(
+      baseInput({
+        tasks: [
+          {
+            id: 'stays1',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+          {
+            id: 'stays2',
+            sprintId: SPRINT,
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+          {
+            id: 'moved',
+            sprintId: 'other',
+            status: 'DONE',
+            createdAt: at('2026-06-01'),
+          },
+        ],
+        activities: [
+          statusEvt('stays1', 'TODO', 'DONE', '2026-06-01'),
+          statusEvt('stays2', 'TODO', 'DONE', '2026-06-02'),
+          statusEvt('moved', 'TODO', 'DONE', '2026-06-01'),
+          sprintEvt('moved', SPRINT, 'other', '2026-06-02'),
+        ],
+      })
+    )
     expect(out.scopeTotal).toBe(2)
-    expect(out.series.map(p => p.scope)).toEqual([2, 2, 2])
-    expect(out.series.map(p => p.completed)).toEqual([1, 2, 2])
+    expect(out.series.map(p => p.scope)).toEqual([3, 2, 2])
+    expect(out.series.map(p => p.completed)).toEqual([2, 2, 2])
   })
 
   test('empty sprint: scopeTotal 0, completed all 0', () => {
