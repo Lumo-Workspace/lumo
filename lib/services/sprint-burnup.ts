@@ -1,9 +1,11 @@
 import type { TaskStatus } from '@prisma/client'
 import {
   DAY_MS,
+  type SprintEvt,
   type StatusEvt,
   enumerateUtcDays,
   parseStatusPayload,
+  sprintAt,
   statusAt,
   toUtcDateKey,
   utcMidnight,
@@ -56,12 +58,6 @@ export interface BurnupSeries {
   /** Final scope = y-axis max. */
   scopeTotal: number
   series: BurnupPoint[]
-}
-
-interface SprintEvt {
-  createdAt: Date
-  fromSprintId: string | null
-  toSprintId: string | null
 }
 
 function parseSprintPayload(
@@ -138,21 +134,31 @@ export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
     }
   }
 
-  /** Candidates created on or before eodMs. */
+  /**
+   * Membership is point-in-time, not "ever touched this sprint": a task counts
+   * on a given day only if it sat in THIS sprint at end of that day. Without
+   * this the scope kept every task that was ever moved out, so a sprint holding
+   * 12 tasks charted a ceiling of 13 (LUM-717) — and the moved-out task also
+   * kept inflating `completed`.
+   */
+  function inSprintAt(id: string, eodMs: number): boolean {
+    const t = taskById.get(id)
+    if (!t || t.createdAt.getTime() > eodMs) return false
+    return sprintAt(sprintByTask.get(id) ?? [], eodMs, t.sprintId) === sprintId
+  }
+
+  /** Candidates that belonged to the sprint at eodMs. */
   function countScope(eodMs: number): number {
     let count = 0
-    for (const id of candidates) {
-      const created = taskById.get(id)?.createdAt.getTime()
-      if (created !== undefined && created <= eodMs) count++
-    }
+    for (const id of candidates) if (inSprintAt(id, eodMs)) count++
     return count
   }
-  /** Candidates created on or before eodMs AND DONE at eodMs. Always <= countScope. */
+  /** In-sprint candidates that were DONE at eodMs. Always <= countScope. */
   function countCompleted(eodMs: number): number {
     let count = 0
     for (const id of candidates) {
-      const t = taskById.get(id)
-      if (!t || t.createdAt.getTime() > eodMs) continue
+      if (!inSprintAt(id, eodMs)) continue
+      const t = taskById.get(id)!
       if (statusAt(statusByTask.get(id) ?? [], eodMs, t.status) === 'DONE')
         count++
     }

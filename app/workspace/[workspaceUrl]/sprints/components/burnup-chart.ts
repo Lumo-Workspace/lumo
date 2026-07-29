@@ -102,7 +102,14 @@ export function buildBurnupChart(
   const areaPath = `${linePath} L${last.x} ${PLOT_BOTTOM} L${first.x} ${PLOT_BOTTOM} Z`
   const idealPath = `M${PLOT_LEFT} ${y(0)} L${PLOT_RIGHT} ${y(scopeTotal)}`
 
-  const ticks = [0, maxY / 2, maxY].map(value => ({ y: y(value), value }))
+  // Tasks are whole things — a "6.5" gridline on an odd ceiling reads as a
+  // half-finished task rather than a scale mark. The middle tick snaps to a
+  // whole task, and its gridline sits at that same whole value so the line and
+  // its label agree.
+  const ticks = [0, Math.round(maxY / 2), maxY].map(value => ({
+    y: y(value),
+    value,
+  }))
 
   return { hasData: true, points, linePath, areaPath, idealPath, ticks }
 }
