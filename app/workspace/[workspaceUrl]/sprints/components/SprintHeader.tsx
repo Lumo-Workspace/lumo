@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { Sprint } from '@prisma/client'
+import { useNow } from '@/hooks/use-now'
 import {
   deriveSprintState,
   type DerivedSprintState,
@@ -46,10 +46,11 @@ export function SprintHeader({
 }: SprintHeaderProps) {
   const intl = useIntl()
 
-  // Capture "now" once (lazy initializer runs a single time) — stable across
-  // renders, so it honors render purity while still deriving the sprint state.
-  const [now] = useState(() => new Date())
-  const state = deriveSprintState(sprint, now)
+  // Reading the clock during render breaks purity, so the state pill waits for
+  // `useNow`'s post-mount tick rather than deriving off a render-time `new
+  // Date()` (the board's own convention — see SprintsBoard).
+  const now = useNow()
+  const state = now === null ? null : deriveSprintState(sprint, new Date(now))
 
   // The year is already carried by the editable range on the title row, so the
   // card's own dates stay compact.
@@ -62,11 +63,13 @@ export function SprintHeader({
           <span className='text-title font-semibold tracking-tight'>
             {sprint.name}
           </span>
-          <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-caption font-medium ${STATE_BADGE[state]}`}
-          >
-            {intl.formatMessage({ id: STATE_I18N_KEY[state] })}
-          </span>
+          {state && (
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-caption font-medium ${STATE_BADGE[state]}`}
+            >
+              {intl.formatMessage({ id: STATE_I18N_KEY[state] })}
+            </span>
+          )}
         </div>
         <SprintDateRange sprint={sprint} onRefresh={onRefresh} />
       </div>
