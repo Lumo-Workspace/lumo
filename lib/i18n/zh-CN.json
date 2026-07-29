@@ -2226,11 +2226,6 @@
   "sprints.team.footer": "按成员跨模型合并的 token · 冲刺合计 {tokens} · {time} Agent 时间 · {runs} 次运行",
   "sprints.team.tokensTotal": "{n} 个 token",
   "signal.noSignals": "该项目暂无信号数据。",
-  "signal.clear.stalled": "无停滞任务",
-  "signal.clear.highStakes": "无高风险停滞",
-  "signal.clear.stalePrs": "无陈旧 PR",
-  "signal.clear.overdue": "无逾期",
-  "signal.clear.completion": "已完成 {done} / {total}",
   "signal.col.id": "编号",
   "signal.col.updated": "更新于",
   "signal.col.idle": "停滞",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "里程碑名称…",
   "project.milestones.addFailed": "添加失败",
   "project.noOwner": "无负责人",
-  "project.ownerTooltip": "负责人 —— 这个项目的第一联系人"
+  "project.ownerTooltip": "负责人 —— 这个项目的第一联系人",
+  "signal.allClear": "一切正常"
 }

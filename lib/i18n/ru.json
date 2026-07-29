@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Шаг будет выполнен заново. Ваши прежние подтверждения сохранятся.",
   "planGate.retryFailed": "Не удалось повторить. Возможно, сейчас нет выполняющегося шага, который можно повторить.",
   "signal.noSignals": "Для этого проекта пока нет данных по сигналам.",
-  "signal.clear.stalled": "ничего не застряло",
-  "signal.clear.highStakes": "нет важных простоев",
-  "signal.clear.stalePrs": "нет зависших PR",
-  "signal.clear.overdue": "нет просроченных",
-  "signal.clear.completion": "{done} / {total} готово",
   "signal.col.id": "ID",
   "signal.col.updated": "Обновлено",
   "signal.col.idle": "Простой",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Название вехи…",
   "project.milestones.addFailed": "Не удалось добавить",
   "project.noOwner": "Без владельца",
-  "project.ownerTooltip": "Владелец — основное контактное лицо по проекту"
+  "project.ownerTooltip": "Владелец — основное контактное лицо по проекту",
+  "signal.allClear": "Всё в порядке"
 }

@@ -151,7 +151,7 @@ describe('ProjectHealthRow', () => {
     expect(screen.queryByTestId('signal-panel-overdue')).not.toBeInTheDocument()
   })
 
-  it('gives every firing signal a pill and collapses the quiet ones to clear notes', () => {
+  it('gives every firing signal a pill and says nothing at all about the quiet ones', () => {
     setup(
       makeStats({
         stalledTaskIds: [stalledTask('t1', 'LUM-550', 'Stalled', 9)],
@@ -162,25 +162,29 @@ describe('ProjectHealthRow', () => {
       '1 stalled task'
     )
 
-    // Quiet signals never take a pill — they collapse onto the clear notes.
+    // A quiet signal leaves no trace — no pill, and no green check enumerating
+    // what is not wrong. A real problem would already be a pill.
     for (const key of ['stalePrs', 'overdue', 'highStakes']) {
       expect(screen.queryByTestId(`signal-pill-${key}`)).not.toBeInTheDocument()
-      expect(screen.getByTestId(`signal-clear-${key}`)).toBeInTheDocument()
+      expect(
+        screen.queryByTestId(`signal-clear-${key}`)
+      ).not.toBeInTheDocument()
     }
+    expect(screen.queryByTestId('signal-all-clear')).not.toBeInTheDocument()
 
-    // The standing completion fact rides on the same line.
-    expect(
-      within(screen.getByTestId('signal-clear-completion')).getByText(
-        '595 / 638 done'
-      )
-    ).toBeInTheDocument()
+    // The standing completion count is gone with them.
+    expect(screen.queryByText(/595 \/ 638 done/)).not.toBeInTheDocument()
   })
 
-  it('renders nothing but clear notes when no signal fires', () => {
+  it('collapses to a single all-clear line when no signal fires', () => {
     setup(makeStats())
 
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.getByTestId('signal-clear-stalled')).toBeInTheDocument()
+    expect(screen.getByTestId('signal-all-clear')).toHaveTextContent(
+      'All clear'
+    )
+    // One line, not four green checks.
+    expect(screen.queryByTestId('signal-clear-stalled')).not.toBeInTheDocument()
   })
 
   it('tones the stalled pill danger and the stale-PR pill warning', () => {

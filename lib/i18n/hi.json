@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "यह चरण दोबारा चलाया जाएगा। आपकी पिछली पुष्टियाँ बनी रहेंगी।",
   "planGate.retryFailed": "फिर से नहीं चलाया जा सका। हो सकता है अभी दोबारा चलाने योग्य कोई चरण न चल रहा हो।",
   "signal.noSignals": "इस प्रोजेक्ट के लिए अभी कोई संकेत डेटा नहीं है।",
-  "signal.clear.stalled": "कुछ भी रुका नहीं",
-  "signal.clear.highStakes": "कोई उच्च जोखिम ठहराव नहीं",
-  "signal.clear.stalePrs": "कोई अटका PR नहीं",
-  "signal.clear.overdue": "0 समय-सीमा पार",
-  "signal.clear.completion": "{done} / {total} पूर्ण",
   "signal.col.id": "आईडी",
   "signal.col.updated": "अद्यतन",
   "signal.col.idle": "निष्क्रिय",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "माइलस्टोन का नाम…",
   "project.milestones.addFailed": "जोड़ा नहीं जा सका",
   "project.noOwner": "कोई स्वामी नहीं",
-  "project.ownerTooltip": "स्वामी — इस प्रोजेक्ट का मुख्य संपर्क"
+  "project.ownerTooltip": "स्वामी — इस प्रोजेक्ट का मुख्य संपर्क",
+  "signal.allClear": "सब ठीक है"
 }

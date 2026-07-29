@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Führt diesen Schritt erneut aus. Ihre bisherigen Bestätigungen bleiben erhalten.",
   "planGate.retryFailed": "Wiederholen nicht möglich. Derzeit läuft möglicherweise kein Schritt, der wiederholt werden kann.",
   "signal.noSignals": "Für dieses Projekt liegen noch keine Signaldaten vor.",
-  "signal.clear.stalled": "nichts stockt",
-  "signal.clear.highStakes": "keine kritischen Stillstände",
-  "signal.clear.stalePrs": "keine liegengebliebenen PRs",
-  "signal.clear.overdue": "0 überfällig",
-  "signal.clear.completion": "{done} / {total} erledigt",
   "signal.col.id": "ID",
   "signal.col.updated": "Aktualisiert",
   "signal.col.idle": "Ruhend",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Name des Meilensteins…",
   "project.milestones.addFailed": "Konnte nicht angelegt werden",
   "project.noOwner": "Kein Verantwortlicher",
-  "project.ownerTooltip": "Verantwortlich — erste Ansprechperson für dieses Projekt"
+  "project.ownerTooltip": "Verantwortlich — erste Ansprechperson für dieses Projekt",
+  "signal.allClear": "Alles in Ordnung"
 }
