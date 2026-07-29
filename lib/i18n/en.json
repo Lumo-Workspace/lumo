@@ -386,11 +386,6 @@
   "summary.topBlockers": "Top blockers",
   "summary.noBlockers": "No blockers detected",
   "signal.noSignals": "No signal data for this project yet.",
-  "signal.clear.stalled": "nothing stalled",
-  "signal.clear.highStakes": "no high-stakes stalls",
-  "signal.clear.stalePrs": "no stale PRs",
-  "signal.clear.overdue": "0 overdue",
-  "signal.clear.completion": "{done} / {total} done",
   "signal.col.id": "ID",
   "signal.col.updated": "Updated",
   "signal.col.idle": "Idle",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Milestone name…",
   "project.milestones.addFailed": "Couldn't add",
   "project.noOwner": "No owner",
-  "project.ownerTooltip": "Owner — primary contact for this project"
+  "project.ownerTooltip": "Owner — primary contact for this project",
+  "signal.allClear": "All clear"
 }

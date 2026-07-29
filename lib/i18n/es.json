@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Vuelve a ejecutar este paso. Se conservan tus confirmaciones anteriores.",
   "planGate.retryFailed": "No se pudo reintentar. Puede que ahora mismo no haya ningún paso en ejecución que reintentar.",
   "signal.noSignals": "Todavía no hay datos de señal para este proyecto.",
-  "signal.clear.stalled": "nada estancado",
-  "signal.clear.highStakes": "sin estancamientos de alto riesgo",
-  "signal.clear.stalePrs": "sin PR estancadas",
-  "signal.clear.overdue": "0 vencidas",
-  "signal.clear.completion": "{done} / {total} completadas",
   "signal.col.id": "ID",
   "signal.col.updated": "Actualizada",
   "signal.col.idle": "Inactiva",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Nombre del hito…",
   "project.milestones.addFailed": "No se pudo añadir",
   "project.noOwner": "Sin responsable",
-  "project.ownerTooltip": "Responsable — contacto principal de este proyecto"
+  "project.ownerTooltip": "Responsable — contacto principal de este proyecto",
+  "signal.allClear": "Todo en orden"
 }

@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Menjalankan semula langkah ini. Pengesahan anda sebelum ini dikekalkan.",
   "planGate.retryFailed": "Tidak dapat mencuba semula. Mungkin tiada langkah sedang berjalan yang boleh dicuba semula sekarang.",
   "signal.noSignals": "Belum ada data isyarat untuk projek ini.",
-  "signal.clear.stalled": "tiada yang terbengkalai",
-  "signal.clear.highStakes": "tiada kebuntuan berisiko tinggi",
-  "signal.clear.stalePrs": "tiada PR tergendala",
-  "signal.clear.overdue": "0 lewat tempoh",
-  "signal.clear.completion": "{done} / {total} selesai",
   "signal.col.id": "ID",
   "signal.col.updated": "Dikemas kini",
   "signal.col.idle": "Terbiar",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Nama pencapaian…",
   "project.milestones.addFailed": "Gagal menambah",
   "project.noOwner": "Tiada pemilik",
-  "project.ownerTooltip": "Pemilik — orang hubungan utama projek ini"
+  "project.ownerTooltip": "Pemilik — orang hubungan utama projek ini",
+  "signal.allClear": "Semua elok"
 }

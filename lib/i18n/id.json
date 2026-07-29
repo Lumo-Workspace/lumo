@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Menjalankan kembali langkah ini. Konfirmasi Anda sebelumnya tetap tersimpan.",
   "planGate.retryFailed": "Tidak dapat mencoba lagi. Mungkin saat ini tidak ada langkah berjalan yang bisa diulang.",
   "signal.noSignals": "Belum ada data sinyal untuk proyek ini.",
-  "signal.clear.stalled": "tidak ada yang mandek",
-  "signal.clear.highStakes": "tidak ada kemandekan berisiko tinggi",
-  "signal.clear.stalePrs": "tidak ada PR mangkrak",
-  "signal.clear.overdue": "0 lewat tenggat",
-  "signal.clear.completion": "{done} / {total} selesai",
   "signal.col.id": "ID",
   "signal.col.updated": "Diperbarui",
   "signal.col.idle": "Mandek",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Nama tonggak…",
   "project.milestones.addFailed": "Gagal menambahkan",
   "project.noOwner": "Tanpa pemilik",
-  "project.ownerTooltip": "Pemilik — kontak utama untuk proyek ini"
+  "project.ownerTooltip": "Pemilik — kontak utama untuk proyek ini",
+  "signal.allClear": "Semua aman"
 }

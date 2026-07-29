@@ -123,7 +123,9 @@ describe('ProjectMilestonesOverview', () => {
     // reader can see is an active one, so there is no second state to draw.
     const markers = screen.getAllByTestId('milestone-marker')
     expect(markers).toHaveLength(2)
-    markers.forEach(m => expect(m).toHaveClass('text-warning'))
+    // The flag, same glyph the Milestones tab uses — the tab and the rows it
+    // leads to should not be labelled with two different symbols.
+    markers.forEach(m => expect(m).toHaveClass('lucide-flag', 'text-warning'))
 
     // Status is no longer a visible axis: active vs archived is the whole
     // model, and archived rows never reach this list.

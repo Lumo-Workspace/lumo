@@ -12,14 +12,8 @@ export interface AnomalyCard {
   count: number
 }
 
-/** A signal that did not fire, or a standing healthy fact. */
-export type ClearNote =
-  | { key: SignalKey; kind: 'signal' }
-  | { key: 'completion'; kind: 'completion'; done: number; total: number }
-
 export interface SignalView {
   anomalies: AnomalyCard[]
-  clear: ClearNote[]
 }
 
 const TONES: Record<SignalKey, SignalTone> = {
@@ -30,12 +24,12 @@ const TONES: Record<SignalKey, SignalTone> = {
 }
 
 /**
- * Split the tracked signals into "needs a card" and "collapses to one line".
+ * The signals that fired, in surfacing order.
  *
- * The page is built around anomalies, not a fixed dashboard: a signal earns a
- * card only by firing. Everything currently fine drops to a single row of green
- * checks, so a healthy project degrades to one quiet line instead of a wall of
- * zeroes — and the cards that *are* there always mean something.
+ * Only firing signals are modelled. A quiet signal used to get a green check,
+ * but enumerating what is *not* wrong is noise the reader has to filter: if a
+ * problem existed it would already be sitting there as a pill. Absence of pills
+ * is the all-clear.
  */
 export function buildSignalView(stats: TaskSummaryStats): SignalView {
   const counts: Record<SignalKey, number> = {
@@ -47,25 +41,11 @@ export function buildSignalView(stats: TaskSummaryStats): SignalView {
 
   const order: SignalKey[] = ['stalled', 'highStakes', 'stalePrs', 'overdue']
 
-  const anomalies: AnomalyCard[] = []
-  const clear: ClearNote[] = []
-
-  for (const key of order) {
-    const count = counts[key]
-    if (count > 0) {
-      anomalies.push({ key, tone: TONES[key], count })
-    } else {
-      clear.push({ key, kind: 'signal' })
-    }
+  return {
+    anomalies: order
+      .filter(key => counts[key] > 0)
+      .map(key => ({ key, tone: TONES[key], count: counts[key] as number })),
   }
-
-  const total = stats.totalTasks
-  const done = stats.statusDistribution['DONE'] ?? 0
-  if (total > 0) {
-    clear.push({ key: 'completion', kind: 'completion', done, total })
-  }
-
-  return { anomalies, clear }
 }
 
 /**

@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "이 단계를 다시 실행합니다. 이전 확인 내용은 그대로 유지됩니다.",
   "planGate.retryFailed": "다시 실행할 수 없습니다. 지금은 다시 실행할 수 있는 단계가 없을 수 있습니다.",
   "signal.noSignals": "이 프로젝트의 신호 데이터가 아직 없습니다.",
-  "signal.clear.stalled": "정체 없음",
-  "signal.clear.highStakes": "중요한 정체 없음",
-  "signal.clear.stalePrs": "지연된 PR 없음",
-  "signal.clear.overdue": "기한 초과 없음",
-  "signal.clear.completion": "{done} / {total} 완료",
   "signal.col.id": "ID",
   "signal.col.updated": "수정일",
   "signal.col.idle": "정체",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "마일스톤 이름…",
   "project.milestones.addFailed": "추가하지 못했습니다",
   "project.noOwner": "담당자 없음",
-  "project.ownerTooltip": "담당자 — 이 프로젝트의 주 연락 담당"
+  "project.ownerTooltip": "담당자 — 이 프로젝트의 주 연락 담당",
+  "signal.allClear": "이상 없음"
 }

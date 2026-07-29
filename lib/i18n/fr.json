@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "Relance cette étape. Vos confirmations précédentes sont conservées.",
   "planGate.retryFailed": "Impossible de réessayer. Il n'y a peut-être aucune étape en cours à relancer pour le moment.",
   "signal.noSignals": "Aucune donnée de signal pour ce projet pour l'instant.",
-  "signal.clear.stalled": "rien à l’arrêt",
-  "signal.clear.highStakes": "aucun arrêt à enjeux",
-  "signal.clear.stalePrs": "aucune PR en souffrance",
-  "signal.clear.overdue": "0 en retard",
-  "signal.clear.completion": "{done} / {total} terminées",
   "signal.col.id": "ID",
   "signal.col.updated": "Mise à jour",
   "signal.col.idle": "Inactivité",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "Nom du jalon…",
   "project.milestones.addFailed": "Ajout impossible",
   "project.noOwner": "Aucun responsable",
-  "project.ownerTooltip": "Responsable — interlocuteur principal de ce projet"
+  "project.ownerTooltip": "Responsable — interlocuteur principal de ce projet",
+  "signal.allClear": "Rien à signaler"
 }

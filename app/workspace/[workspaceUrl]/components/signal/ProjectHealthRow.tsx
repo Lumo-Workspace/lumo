@@ -2,11 +2,10 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
   AnomalyCard,
-  ClearNote,
   SignalKey,
   SignalView,
 } from '@/lib/summaries/signal-view'
@@ -55,34 +54,9 @@ interface ProjectHealthRowProps {
   onViewAllTasks?: (() => void) | undefined
 }
 
-function ClearNotes({ notes }: { notes: ClearNote[] }) {
-  const intl = useIntl()
-  if (notes.length === 0) return null
-
-  return (
-    <>
-      {notes.map(note => (
-        <span
-          key={note.key}
-          className='inline-flex items-center gap-1.5 text-caption text-muted-foreground'
-          data-testid={`signal-clear-${note.key}`}
-        >
-          <Check className='h-3.5 w-3.5 text-success' aria-hidden />
-          {note.kind === 'completion'
-            ? intl.formatMessage(
-                { id: 'signal.clear.completion' },
-                { done: note.done, total: note.total }
-              )
-            : intl.formatMessage({ id: `signal.clear.${note.key}` })}
-        </span>
-      ))}
-    </>
-  )
-}
-
 /**
  * The project's health as one wrapping row of pills: every signal that fired
- * gets a coloured pill, everything clear collapses to a green check. Firing
+ * gets a coloured pill, and a signal that didn't gets nothing at all. Firing
  * signals that carry detail open it below the row, one at a time — the row
  * stays a summary, and the reader chooses which problem to unfold.
  */
@@ -102,8 +76,8 @@ export function ProjectHealthRow({
   // High-stakes tasks are a subset of `stalled` and are NOT filtered out of the
   // stalled panel. Only one panel is open at a time, so a task can never read
   // as two separate problems on screen — and every pill's number then equals
-  // the number of rows its own panel shows, which is what makes the tab badge
-  // (the sum of those numbers) checkable against the page.
+  // the number of rows its own panel shows, which is what makes the counts
+  // checkable against the page.
   const detail = (key: SignalKey) => {
     switch (key) {
       case 'stalled':
@@ -138,6 +112,17 @@ export function ProjectHealthRow({
     <div className='flex flex-col gap-3'>
       <PropertyRow label={label}>
         <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
+          {/* Nothing fired — say so once. Listing each quiet signal was the
+              reader's job to filter: a real problem is already sitting here as
+              a pill, so the absence of pills is the all-clear. */}
+          {view.anomalies.length === 0 && (
+            <span
+              data-testid='signal-all-clear'
+              className='text-caption text-muted-foreground'
+            >
+              {intl.formatMessage({ id: 'signal.allClear' })}
+            </span>
+          )}
           {view.anomalies.map(card => {
             const expandable = EXPANDABLE.has(card.key)
             const isOpen = open === card.key
@@ -192,8 +177,6 @@ export function ProjectHealthRow({
               </button>
             )
           })}
-
-          <ClearNotes notes={view.clear} />
         </div>
       </PropertyRow>
 

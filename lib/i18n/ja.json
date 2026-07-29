@@ -2226,11 +2226,6 @@
   "planGate.retryHint": "このステップをもう一度実行します。これまでの確認内容は保持されます。",
   "planGate.retryFailed": "再実行できませんでした。現在、再実行できる処理が動いていない可能性があります。",
   "signal.noSignals": "このプロジェクトのシグナルデータはまだありません。",
-  "signal.clear.stalled": "停滞なし",
-  "signal.clear.highStakes": "重要な停滞なし",
-  "signal.clear.stalePrs": "滞留 PR なし",
-  "signal.clear.overdue": "期限超過なし",
-  "signal.clear.completion": "{done} / {total} 完了",
   "signal.col.id": "ID",
   "signal.col.updated": "更新日",
   "signal.col.idle": "停滞",
@@ -2265,5 +2260,6 @@
   "project.milestones.namePlaceholder": "マイルストーン名…",
   "project.milestones.addFailed": "追加できませんでした",
   "project.noOwner": "オーナーなし",
-  "project.ownerTooltip": "オーナー — このプロジェクトの主担当"
+  "project.ownerTooltip": "オーナー — このプロジェクトの主担当",
+  "signal.allClear": "異常なし"
 }
