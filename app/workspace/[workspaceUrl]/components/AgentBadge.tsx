@@ -3,16 +3,16 @@
 import type { ComponentType } from 'react'
 import { useIntl } from 'react-intl'
 import { TaskArtifactAgent } from '@prisma/client'
-// Official monochrome brand glyphs from @lobehub/icons. We deep-import the Mono
-// component directly (not the `{ Claude }` namespace or its `.Avatar`) because
-// the namespace's `.Avatar` pulls in @lobehub/ui + antd; Mono is self-contained
-// (react only) and renders with fill=currentColor, so the chip drives the color.
-import ClaudeMono from '@lobehub/icons/es/Claude/components/Mono'
-import CodexMono from '@lobehub/icons/es/Codex/components/Mono'
-import CursorMono from '@lobehub/icons/es/Cursor/components/Mono'
-import GeminiMono from '@lobehub/icons/es/Gemini/components/Mono'
-import GithubCopilotMono from '@lobehub/icons/es/GithubCopilot/components/Mono'
-import WindsurfMono from '@lobehub/icons/es/Windsurf/components/Mono'
+// Monochrome brand glyphs, inlined locally (LUM-715). They render with
+// fill=currentColor, so the chip drives the color.
+import {
+  ClaudeMono,
+  CodexMono,
+  CursorMono,
+  GeminiMono,
+  GithubCopilotMono,
+  WindsurfMono,
+} from '@/components/icons/agent-glyphs'
 
 type IconComponent = ComponentType<{ size?: number; className?: string }>
 

@@ -17,7 +17,7 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-// Avoid pulling @lobehub/icons into the test; the badges are irrelevant here.
+// The badges are irrelevant here — stub them out.
 jest.mock('@/app/workspace/[workspaceUrl]/components/AgentBadge', () => ({
   AgentBadge: () => null,
   AgentAvatar: () => null,
