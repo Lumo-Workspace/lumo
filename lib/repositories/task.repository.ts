@@ -127,6 +127,9 @@ const TASK_UPDATE_INCLUDE = {
  */
 const TASK_LIST_INCLUDE = {
   team: { select: { identifier: true } },
+  // Board filtering needs each task's labels; lifted to a flat `tags` array by
+  // the shapers in lib/api/task-shape.ts so the join rows never reach the client.
+  taskTags: { select: { tag: true } },
   assignee: {
     select: {
       id: true,
@@ -235,6 +238,8 @@ const TASK_DUPLICATE_CHECK_SELECT = {
 
 /** Assignee-board shape: project owner actor + team identifier + parent + DONE-children count. */
 const TASK_ASSIGNED_INCLUDE = {
+  // See TASK_LIST_INCLUDE — same flat-`tags` contract for assigned-task lists.
+  taskTags: { select: { tag: true } },
   project: {
     select: {
       id: true,

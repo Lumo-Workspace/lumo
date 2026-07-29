@@ -31,6 +31,16 @@ jest.mock(
     ),
   })
 )
+// The filter controls pull in react-intl (untranspiled ESM under jest); their
+// own suites cover them, so stub them out here.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/task-list/TaskFilterMenu',
+  () => ({ TaskFilterMenu: () => <div data-testid='filter-menu' /> })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/task-list/TaskFilterChips',
+  () => ({ TaskFilterChips: () => <div data-testid='filter-chips' /> })
+)
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/task-list/BulkActionBar',
   () => ({ BulkActionBar: () => null })

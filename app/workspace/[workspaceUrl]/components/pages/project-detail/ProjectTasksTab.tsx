@@ -28,6 +28,10 @@ import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { MilestoneFilterPicker } from '../../milestones/MilestoneFilterPicker'
 import { TaskListToolbar } from '../../task-list/TaskListToolbar'
+import { TaskFilterChips } from '../../task-list/TaskFilterChips'
+import { TaskFilterMenu } from '../../task-list/TaskFilterMenu'
+import { useTaskFiltering } from '../../../hooks/useTaskFiltering'
+import { CACHE_KEY } from '../../../constants'
 import { TaskListView } from '../../task-list/TaskListView'
 import { BulkActionBar } from '../../task-list/BulkActionBar'
 import { BulkDeleteConfirm } from '../../task-list/BulkDeleteConfirm'
@@ -104,13 +108,25 @@ export function ProjectTasksTab({
     string | null | undefined
   >(undefined)
 
+  const {
+    now,
+    filters,
+    toggleValue,
+    clearDimension,
+    clearAll,
+    filteredTasks: narrowedTasks,
+  } = useTaskFiltering({
+    tasks: filteredTasks,
+    scopeKey: CACHE_KEY.displayProject(projectId),
+  })
+
   const visibleTasks = useMemo(() => {
-    if (milestoneFilter === undefined) return filteredTasks
+    if (milestoneFilter === undefined) return narrowedTasks
     if (milestoneFilter === null) {
-      return filteredTasks.filter(t => !t.milestoneId)
+      return narrowedTasks.filter(t => !t.milestoneId)
     }
-    return filteredTasks.filter(t => t.milestoneId === milestoneFilter)
-  }, [filteredTasks, milestoneFilter])
+    return narrowedTasks.filter(t => t.milestoneId === milestoneFilter)
+  }, [narrowedTasks, milestoneFilter])
 
   // ─── Row selection ──────────────────────────────────────────────────────────
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
@@ -236,6 +252,15 @@ export function ProjectTasksTab({
           onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          filterMenu={
+            <TaskFilterMenu
+              tasks={tasks}
+              filters={filters}
+              members={members}
+              now={now}
+              onToggleValue={toggleValue}
+            />
+          }
           leftSlot={
             <MilestoneFilterPicker
               projectId={projectId}
@@ -254,6 +279,14 @@ export function ProjectTasksTab({
           />
         )}
       </div>
+
+      <TaskFilterChips
+        tasks={tasks}
+        filters={filters}
+        members={members}
+        onClearDimension={clearDimension}
+        onClearAll={clearAll}
+      />
 
       {/* Content */}
       <AsyncContent

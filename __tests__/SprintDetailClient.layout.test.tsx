@@ -159,6 +159,7 @@ test('puts the rail toggle right after the view toggle and remembers the collaps
       onShowSubtasksChange={() => {}}
       viewMode='board'
       onViewModeChange={() => {}}
+      filterMenu={null}
       sidebarCollapsed={false}
       onToggleSidebar={() => {}}
     />

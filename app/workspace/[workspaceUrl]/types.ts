@@ -224,6 +224,8 @@ export interface ApiTask {
   } | null
   _count?: { children: number }
   childrenDoneCount?: number
+  /** Populated on list payloads that lift the taskTags join (board filtering). */
+  tags?: ApiTag[]
   sprintId?: string | null
   sprint?: {
     id: string

@@ -42,6 +42,7 @@ const baseProps = {
   onShowSubtasksChange: () => {},
   viewMode: 'list' as const,
   onViewModeChange: () => {},
+  filterMenu: <button>Filter</button>,
 }
 
 describe('TaskListToolbar', () => {
@@ -52,6 +53,34 @@ describe('TaskListToolbar', () => {
     expect(screen.getByText('仅当前冲刺')).toBeInTheDocument()
     expect(screen.getByTestId('display-options-menu')).toBeInTheDocument()
     expect(screen.getByTestId('view-toggle')).toBeInTheDocument()
+  })
+
+  it('renders the Filter trigger before the Display trigger', () => {
+    const { container } = render(
+      <TaskListToolbar
+        {...baseProps}
+        filterMenu={<button data-testid='filter-menu'>Filter</button>}
+      />
+    )
+
+    const filter = screen.getByTestId('filter-menu')
+    const display = screen.getByTestId('display-options-menu')
+
+    // Same control group, and Filter comes first in document order.
+    expect(filter.parentElement).toBe(display.parentElement)
+    expect(
+      filter.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+
+    // Guard the whole right-hand order: Filter → Display → view toggle.
+    const group = container.querySelectorAll(
+      '[data-testid="filter-menu"], [data-testid="display-options-menu"], [data-testid="view-toggle"]'
+    )
+    expect([...group].map(el => el.getAttribute('data-testid'))).toEqual([
+      'filter-menu',
+      'display-options-menu',
+      'view-toggle',
+    ])
   })
 
   it('does not render the collapse button when onToggleSidebar is omitted', () => {
