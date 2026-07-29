@@ -223,7 +223,15 @@ describe('MilestoneFormDialog', () => {
     await userEvent.clear(target)
     await userEvent.type(target, '2026-12-15')
 
-    await userEvent.click(screen.getByLabelText('Status'))
+    // The status control is a third chip in the date row, labelled the way the
+    // date chips are: a muted word, then the value.
+    const statusChip = screen.getByLabelText('Status')
+    expect(statusChip).toHaveTextContent('Status')
+    expect(statusChip).toHaveTextContent('Planned')
+    expect(statusChip.className).toContain('rounded-full')
+    expect(statusChip.className).toContain('shadow-none')
+
+    await userEvent.click(statusChip)
     await userEvent.click(screen.getByRole('option', { name: 'Active' }))
 
     await userEvent.click(screen.getByRole('button', { name: /Save/ }))
