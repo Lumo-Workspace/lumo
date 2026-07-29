@@ -12,19 +12,6 @@ function statusEvt(taskId: string, from: string, to: string, d: string) {
     createdAt: at(d),
   }
 }
-function sprintEvt(
-  taskId: string,
-  from: string | null,
-  to: string | null,
-  d: string
-) {
-  return {
-    taskId,
-    type: 'SPRINT_CHANGED' as const,
-    payload: { fromSprintId: from, toSprintId: to },
-    createdAt: at(d),
-  }
-}
 function baseInput(over: Partial<BurnupComputeInput> = {}): BurnupComputeInput {
   return {
     sprintId: SPRINT,
@@ -193,44 +180,10 @@ describe('computeBurnupSeries', () => {
     ])
   })
 
-  test('membership is per-day: a task counts only while it sits in this sprint', () => {
-    const out = computeBurnupSeries(
-      baseInput({
-        tasks: [
-          {
-            id: 't1',
-            sprintId: SPRINT,
-            status: 'DONE',
-            createdAt: at('2026-06-01'),
-          },
-          // t5 joins on 06-02 and leaves again on 06-03.
-          {
-            id: 't5',
-            sprintId: 'other',
-            status: 'DONE',
-            createdAt: at('2026-06-01'),
-          },
-        ],
-        activities: [
-          statusEvt('t1', 'TODO', 'DONE', '2026-06-01'),
-          sprintEvt('t5', null, SPRINT, '2026-06-02'),
-          statusEvt('t5', 'TODO', 'DONE', '2026-06-02'),
-          sprintEvt('t5', SPRINT, 'other', '2026-06-03'),
-        ],
-      })
-    )
-    // 06-01 t5 not here yet · 06-02 it is · 06-03 it left again.
-    expect(out.series.map(p => p.scope)).toEqual([1, 2, 1])
-    expect(out.series.map(p => p.completed)).toEqual([1, 2, 1])
-    // The ceiling is the sprint's membership on its last day, not the union of
-    // everything that ever passed through.
-    expect(out.scopeTotal).toBe(1)
-  })
-
-  test('a task moved out mid-sprint stops counting toward scope and completed', () => {
+  test('only this sprint’s tasks are recorded — a task moved away counts on no day', () => {
     // The shape that produced the LUM-717 report: a sprint holding 2 tasks
-    // charted a ceiling of 3 because a third, DONE task had been moved to
-    // another sprint but stayed in scope forever.
+    // charted a ceiling of 3, because a third — DONE, and long since moved to
+    // another sprint — stayed in scope AND in completed forever.
     const out = computeBurnupSeries(
       baseInput({
         tasks: [
@@ -246,6 +199,7 @@ describe('computeBurnupSeries', () => {
             status: 'DONE',
             createdAt: at('2026-06-01'),
           },
+          // Sat in this sprint on 06-01, moved to `other` on 06-02.
           {
             id: 'moved',
             sprintId: 'other',
@@ -257,13 +211,14 @@ describe('computeBurnupSeries', () => {
           statusEvt('stays1', 'TODO', 'DONE', '2026-06-01'),
           statusEvt('stays2', 'TODO', 'DONE', '2026-06-02'),
           statusEvt('moved', 'TODO', 'DONE', '2026-06-01'),
-          sprintEvt('moved', SPRINT, 'other', '2026-06-02'),
         ],
       })
     )
+    // `moved` is another sprint's work now, so it is absent from every day —
+    // including 06-01, when it still sat here. Scope therefore only ever rises.
     expect(out.scopeTotal).toBe(2)
-    expect(out.series.map(p => p.scope)).toEqual([3, 2, 2])
-    expect(out.series.map(p => p.completed)).toEqual([2, 2, 2])
+    expect(out.series.map(p => p.scope)).toEqual([2, 2, 2])
+    expect(out.series.map(p => p.completed)).toEqual([1, 2, 2])
   })
 
   test('empty sprint: scopeTotal 0, completed all 0', () => {

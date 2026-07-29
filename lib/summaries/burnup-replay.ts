@@ -60,31 +60,3 @@ export function statusAt(
   }
   return chosen ? chosen.to : first.from
 }
-
-export interface SprintEvt {
-  createdAt: Date
-  fromSprintId: string | null
-  toSprintId: string | null
-}
-
-/**
- * Which sprint a task sat in at time tMs — the membership analogue of
- * {@link statusAt}, same backward-replay convention: the last event at or
- * before `tMs` decides, and before the first event the task sat wherever that
- * event moved it *from*. `fallback` (the task's current sprint) applies only
- * when the task never moved at all.
- */
-export function sprintAt(
-  events: SprintEvt[],
-  tMs: number,
-  fallback: string | null
-): string | null {
-  const first = events[0]
-  if (!first) return fallback
-  let chosen: SprintEvt | null = null
-  for (const e of events) {
-    if (e.createdAt.getTime() <= tMs) chosen = e
-    else break
-  }
-  return chosen ? chosen.toSprintId : first.fromSprintId
-}
