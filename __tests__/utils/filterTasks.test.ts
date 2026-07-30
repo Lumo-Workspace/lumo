@@ -18,6 +18,16 @@ import type { MyTask } from '@/app/workspace/[workspaceUrl]/types'
 /** A fixed "now" so due-date buckets are deterministic: local noon, 2026-07-29. */
 const NOW = new Date(2026, 6, 29, 12, 0, 0).getTime()
 
+type MilestoneStatusLiteral = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+
+/** A task bound to a milestone, ACTIVE and un-archived unless told otherwise. */
+function inMilestone(id: string, status: MilestoneStatusLiteral = 'ACTIVE') {
+  return {
+    milestoneId: id,
+    milestone: { id, name: `Milestone ${id}`, status, archivedAt: null },
+  }
+}
+
 /** Build a local-midnight ISO string N days from NOW (local-day semantics). */
 function dayOffset(days: number): string {
   const d = new Date(2026, 6, 29 + days, 0, 0, 0)
@@ -174,8 +184,8 @@ describe('filterTasks', () => {
 
   it('filters by milestone, with a sentinel for unbound tasks', () => {
     const tasks = [
-      makeTask({ id: 'bound', milestoneId: 'm1' }),
-      makeTask({ id: 'other', milestoneId: 'm2' }),
+      makeTask({ id: 'bound', ...inMilestone('m1') }),
+      makeTask({ id: 'other', ...inMilestone('m2') }),
       makeTask({ id: 'unbound', milestoneId: null }),
     ]
     expect(
@@ -188,17 +198,67 @@ describe('filterTasks', () => {
     ).toEqual(['unbound'])
   })
 
-  it('treats an undefined sprint/milestone field as the no-sprint / no-milestone bucket', () => {
-    // Payloads that predate the sprint/milestone selects omit the field entirely.
-    const tasks = [makeTask({ id: 'legacy' })]
+  it('only considers ACTIVE, non-archived milestones', () => {
+    const tasks = [
+      makeTask({ id: 'active', ...inMilestone('m_active') }),
+      makeTask({ id: 'planned', ...inMilestone('m_planned', 'PLANNED') }),
+      makeTask({ id: 'completed', ...inMilestone('m_done', 'COMPLETED') }),
+      makeTask({ id: 'cancelled', ...inMilestone('m_cancel', 'CANCELLED') }),
+      makeTask({
+        id: 'archived',
+        milestoneId: 'm_arch',
+        milestone: {
+          id: 'm_arch',
+          name: 'Archived',
+          status: 'ACTIVE' as const,
+          archivedAt: '2026-06-01T00:00:00.000Z',
+        },
+      }),
+      makeTask({ id: 'unbound', milestoneId: null }),
+    ]
+
+    // Only the active, un-archived milestone is offered as an option
+    // (ordering is covered by the dimensionValueCounts suite).
     expect(
-      filterTasks(tasks, { sprint: [NO_SPRINT_VALUE] }, NOW).map(t => t.id)
-    ).toEqual(['legacy'])
+      dimensionValueCounts(tasks, 'milestone', NOW)
+        .map(o => o.value)
+        .sort()
+    ).toEqual([NO_MILESTONE_VALUE, 'm_active'].sort())
+
+    expect(
+      filterTasks(tasks, { milestone: ['m_active'] }, NOW).map(t => t.id)
+    ).toEqual(['active'])
+    // A non-active milestone matches neither its own id...
+    expect(
+      filterTasks(
+        tasks,
+        { milestone: ['m_planned', 'm_done', 'm_cancel', 'm_arch'] },
+        NOW
+      )
+    ).toEqual([])
+    // ...nor the "no milestone" bucket — it has one, just not an active one.
     expect(
       filterTasks(tasks, { milestone: [NO_MILESTONE_VALUE] }, NOW).map(
         t => t.id
       )
+    ).toEqual(['unbound'])
+  })
+
+  it('treats an undefined sprint field as the no-sprint bucket', () => {
+    // Payloads that predate the sprint select omit the field entirely.
+    const tasks = [makeTask({ id: 'legacy' })]
+    expect(
+      filterTasks(tasks, { sprint: [NO_SPRINT_VALUE] }, NOW).map(t => t.id)
     ).toEqual(['legacy'])
+  })
+
+  it('cannot confirm a milestone whose relation is missing, so it matches nothing', () => {
+    // A stale cached payload can carry milestoneId without the relation.
+    const tasks = [makeTask({ id: 'stale', milestoneId: 'm1' })]
+    expect(filterTasks(tasks, { milestone: ['m1'] }, NOW)).toEqual([])
+    expect(
+      filterTasks(tasks, { milestone: [NO_MILESTONE_VALUE] }, NOW)
+    ).toEqual([])
   })
 
   it('combines all eight dimensions at once', () => {
@@ -216,6 +276,12 @@ describe('filterTasks', () => {
       projectId: 'proj_a',
       sprintId: 'sprint_1',
       milestoneId: 'ms_1',
+      milestone: {
+        id: 'ms_1',
+        name: 'Q3',
+        status: 'ACTIVE' as const,
+        archivedAt: null,
+      },
       tags: [tag],
       dueDate: dayOffset(1),
     }
@@ -313,16 +379,16 @@ describe('narrowableDimensions', () => {
 
   it('hides sprint on a sprint board and milestone on a milestone board', () => {
     const oneSprint = [
-      makeTask({ id: 'a', sprintId: 's1', milestoneId: 'm1' }),
-      makeTask({ id: 'b', sprintId: 's1', milestoneId: 'm2' }),
+      makeTask({ id: 'a', sprintId: 's1', ...inMilestone('m1') }),
+      makeTask({ id: 'b', sprintId: 's1', ...inMilestone('m2') }),
     ]
     const dims = narrowableDimensions(oneSprint, {}, NOW)
     expect(dims).not.toContain('sprint')
     expect(dims).toContain('milestone')
 
     const oneMilestone = [
-      makeTask({ id: 'a', sprintId: 's1', milestoneId: 'm1' }),
-      makeTask({ id: 'b', sprintId: 's2', milestoneId: 'm1' }),
+      makeTask({ id: 'a', sprintId: 's1', ...inMilestone('m1') }),
+      makeTask({ id: 'b', sprintId: 's2', ...inMilestone('m1') }),
     ]
     const dims2 = narrowableDimensions(oneMilestone, {}, NOW)
     expect(dims2).toContain('sprint')

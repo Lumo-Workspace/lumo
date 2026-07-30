@@ -131,7 +131,9 @@ const TASK_LIST_INCLUDE = {
   // the scalar FKs. Same shape as TASK_DETAIL_INCLUDE so the JSON contract for
   // `task.sprint` / `task.milestone` is identical everywhere.
   sprint: { select: { id: true, status: true, name: true } },
-  milestone: { select: { id: true, status: true, name: true } },
+  milestone: {
+    select: { id: true, status: true, name: true, archivedAt: true },
+  },
   // Board filtering needs each task's labels; lifted to a flat `tags` array by
   // the shapers in lib/api/task-shape.ts so the join rows never reach the client.
   taskTags: { select: { tag: true } },
@@ -247,7 +249,9 @@ const TASK_ASSIGNED_INCLUDE = {
   // the scalar FKs. Same shape as TASK_DETAIL_INCLUDE so the JSON contract for
   // `task.sprint` / `task.milestone` is identical everywhere.
   sprint: { select: { id: true, status: true, name: true } },
-  milestone: { select: { id: true, status: true, name: true } },
+  milestone: {
+    select: { id: true, status: true, name: true, archivedAt: true },
+  },
   // See TASK_LIST_INCLUDE — same flat-`tags` contract for assigned-task lists.
   taskTags: { select: { tag: true } },
   project: {

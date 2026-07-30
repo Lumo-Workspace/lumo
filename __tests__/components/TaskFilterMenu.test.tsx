@@ -170,7 +170,10 @@ describe('TaskFilterMenu', () => {
 
   it('labels milestone values by milestone name and offers an unbound bucket', () => {
     renderMenu([
-      task({ milestoneId: 'm1', milestone: { name: 'Q3 Launch' } }),
+      task({
+        milestoneId: 'm1',
+        milestone: { name: 'Q3 Launch', status: 'ACTIVE', archivedAt: null },
+      }),
       task({ milestoneId: null }),
     ])
     openMenu()
@@ -181,19 +184,48 @@ describe('TaskFilterMenu', () => {
     expect(screen.queryByText('m1')).toBeNull()
   })
 
+  it('does not offer a milestone that is not active', () => {
+    // Two active milestones so the dimension is offered at all, plus a
+    // completed one that must stay out of the value list.
+    renderMenu([
+      task({
+        milestoneId: 'm_done',
+        milestone: {
+          name: 'Q2 (shipped)',
+          status: 'COMPLETED',
+          archivedAt: null,
+        },
+      }),
+      task({
+        milestoneId: 'm_live',
+        milestone: { name: 'Q3 Launch', status: 'ACTIVE', archivedAt: null },
+      }),
+      task({
+        milestoneId: 'm_next',
+        milestone: { name: 'Q4 Launch', status: 'ACTIVE', archivedAt: null },
+      }),
+    ])
+    openMenu()
+    fireEvent.click(screen.getByText('Milestone'))
+
+    expect(screen.getByText('Q3 Launch')).toBeInTheDocument()
+    expect(screen.getByText('Q4 Launch')).toBeInTheDocument()
+    expect(screen.queryByText('Q2 (shipped)')).toBeNull()
+  })
+
   it('does not offer sprint on a single-sprint board, nor milestone on a single-milestone board', () => {
     renderMenu([
       task({
         sprintId: 's1',
         sprint: { name: 'Sprint 12' },
         milestoneId: 'm1',
-        milestone: { name: 'Q3' },
+        milestone: { name: 'Q3', status: 'ACTIVE', archivedAt: null },
       }),
       task({
         sprintId: 's1',
         sprint: { name: 'Sprint 12' },
         milestoneId: 'm2',
-        milestone: { name: 'Q4' },
+        milestone: { name: 'Q4', status: 'ACTIVE', archivedAt: null },
       }),
     ])
     openMenu()
