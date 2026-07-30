@@ -28,6 +28,56 @@ export const HEALTH_DOT: Record<MilestoneHealth, string> = {
   overdue: 'bg-red-500',
 }
 
+/** Status → list-row dot colour. PLANNED and CANCELLED read as "not running". */
+export const STATUS_DOT: Record<ApiMilestone['status'], string> = {
+  PLANNED: 'bg-muted-foreground/40',
+  ACTIVE: 'bg-info',
+  COMPLETED: 'bg-success',
+  CANCELLED: 'bg-muted-foreground/40',
+}
+
+/**
+ * Archived before every task landed — the milestone was dropped, not delivered.
+ * The list greys such a row out and tags it, so a full Archived tab doesn't read
+ * as a wall of completed work.
+ */
+export function isArchivedIncomplete(
+  archived: boolean,
+  done: number,
+  total: number
+): boolean {
+  return archived && !(total > 0 && done === total)
+}
+
+/**
+ * The one dot on a milestone list row: colour + the label it announces.
+ *
+ * Status is the base signal (the design's blue/green/grey), but an at-risk or
+ * overdue target date outranks it — "Overdue" is the fact a scanner needs, not
+ * "Active". A dropped milestone (archived while incomplete) goes neutral so the
+ * row recedes. Colour stays confined to this dot and the progress bar.
+ */
+export function milestoneDot(m: {
+  status: ApiMilestone['status']
+  health: MilestoneHealth | null | undefined
+  stale: boolean
+}): { className: string; labelId: string } {
+  if (m.stale)
+    return {
+      className: 'bg-muted-foreground/30',
+      labelId: 'milestone.list.archivedIncomplete',
+    }
+  if (m.health === 'overdue' || m.health === 'at-risk')
+    return {
+      className: HEALTH_DOT[m.health],
+      labelId: `milestone.health.${m.health}`,
+    }
+  return {
+    className: STATUS_DOT[m.status],
+    labelId: `milestone.status.${m.status}`,
+  }
+}
+
 // Milestone start/target dates are calendar dates stored at UTC midnight —
 // format in UTC so the displayed day matches what was entered, regardless of
 // the viewer's time zone.

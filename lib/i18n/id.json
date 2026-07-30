@@ -2277,5 +2277,10 @@
   "filter.dimension.milestone": "Milestone",
   "filter.dimension.sprint": "Sprint",
   "filter.noMilestone": "Tanpa milestone",
-  "filter.noSprint": "Tanpa sprint"
+  "filter.noSprint": "Tanpa sprint",
+  "milestone.list.incomplete": "Belum selesai",
+  "milestone.list.archivedIncomplete": "Diarsipkan saat belum selesai",
+  "milestone.archiveConfirm.title": "Arsipkan milestone yang belum selesai?",
+  "milestone.archiveConfirm.body": "“{name}” masih punya {remaining} tugas yang belum selesai. Setelah diarsipkan, milestone keluar dari daftar Active, tetapi tugas yang belum selesai tetap terbuka.",
+  "milestone.archiveConfirm.confirm": "Tetap arsipkan"
 }

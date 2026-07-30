@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import {
   Archive,
   ArchiveRestore,
+  Link2,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -22,6 +23,8 @@ interface MilestoneActionsMenuProps {
   disabled: boolean
   onEdit?: () => void
   onArchiveToggle: () => void
+  /** Omitted where the current URL already is the milestone (detail header). */
+  onCopyLink?: () => void
   onDelete: () => void
 }
 
@@ -36,6 +39,7 @@ export function MilestoneActionsMenu({
   disabled,
   onEdit,
   onArchiveToggle,
+  onCopyLink,
   onDelete,
 }: MilestoneActionsMenuProps) {
   const intl = useIntl()
@@ -68,6 +72,12 @@ export function MilestoneActionsMenu({
             id: archived ? 'milestone.unarchive' : 'milestone.archive',
           })}
         </DropdownMenuItem>
+        {onCopyLink ? (
+          <DropdownMenuItem onSelect={onCopyLink}>
+            <Link2 className='size-4 mr-2' />
+            {intl.formatMessage({ id: 'common.copyLink' })}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={disabled}
