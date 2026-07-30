@@ -195,7 +195,7 @@ describe('MilestoneFormDialog', () => {
     expect(target).toHaveValue('')
     expect(start.closest('label')?.className).toContain('rounded-full')
     expect(target.closest('label')?.className).toContain('rounded-full')
-    // Status is an edit-mode affordance: a milestone is always created PLANNED.
+    // Status is not part of this form in either mode — see the edit test.
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
 
     await userEvent.type(nameField(), 'Agent-Native Sprints')
@@ -244,7 +244,7 @@ describe('MilestoneFormDialog', () => {
     )
   })
 
-  it('edits an existing milestone including status and both dates', async () => {
+  it('edits an existing milestone name, description and both dates, and offers no status control', async () => {
     renderDialog({ milestone: milestone() })
 
     expect(
@@ -267,16 +267,11 @@ describe('MilestoneFormDialog', () => {
     await userEvent.clear(target)
     await userEvent.type(target, '2026-12-15')
 
-    // The status control is a third chip in the date row, labelled the way the
-    // date chips are: a muted word, then the value.
-    const statusChip = screen.getByLabelText('Status')
-    expect(statusChip).toHaveTextContent('Status')
-    expect(statusChip).toHaveTextContent('Planned')
-    expect(statusChip.className).toContain('rounded-full')
-    expect(statusChip.className).toContain('shadow-none')
-
-    await userEvent.click(statusChip)
-    await userEvent.click(screen.getByRole('option', { name: 'Active' }))
+    // Status is edited on the detail page's sidebar, not here — the dialog
+    // neither shows the control nor writes the field, so it can never save back
+    // a value the sidebar has since moved on from.
+    expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Planned')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Save/ }))
 
@@ -284,10 +279,10 @@ describe('MilestoneFormDialog', () => {
     expect(updateMock).toHaveBeenCalledWith('ms_1', {
       name: 'Q4 Launch',
       description: 'Ship the other thing',
-      status: 'ACTIVE',
       startDate: '2026-10-01',
       targetDate: '2026-12-15',
     })
+    expect(updateMock.mock.calls[0]?.[1]).not.toHaveProperty('status')
     expect(createMock).not.toHaveBeenCalled()
   })
 })
