@@ -11,27 +11,23 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
-import type { MilestoneStatus } from '@prisma/client'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import { DescriptionEditor } from '../DescriptionEditorLazy'
 import { useMentionSources } from '../../hooks/useMentionSources'
 import { useMembers } from '../../hooks/useMembers'
-import { MILESTONE_STATUSES } from './milestoneDisplay'
 
 interface Props {
   projectId: string
   milestone?: ApiMilestone | undefined
   onClose: () => void
 }
+
+/* Status is deliberately absent from this form: it is edited on the milestone
+   detail page's sidebar, which is where the status drift hint and the archived
+   state live too. Two editors for one field meant the dialog could hand you a
+   stale value to save back. */
 
 /** A description that renders to nothing but markup (an empty paragraph the
  *  editor always keeps around) is stored as `null`, not as `<p></p>` — same
@@ -52,9 +48,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   const [name, setName] = useState(milestone?.name ?? '')
   const [description, setDescription] = useState<string | null>(
     milestone?.description ?? null
-  )
-  const [status, setStatus] = useState<MilestoneStatus>(
-    milestone?.status ?? 'PLANNED'
   )
   const [startDate, setStartDate] = useState(
     milestone?.startDate?.slice(0, 10) ?? ''
@@ -84,7 +77,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
       milestonesClient.update(milestone!.id, {
         name,
         description: htmlOrNull(description),
-        status,
         startDate: startDate || null,
         targetDate: targetDate || null,
       }),
@@ -199,33 +191,6 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
               value={targetDate}
               onChange={setTargetDate}
             />
-            {editing && (
-              <Select
-                value={status}
-                onValueChange={v => setStatus(v as MilestoneStatus)}
-              >
-                {/* Same chip as the two dates — muted word, then the value.
-                    The trigger's own `border-input` and elevation are dropped
-                    so the third chip in the row doesn't read as a form control
-                    that wandered in next to two flat pills. */}
-                <SelectTrigger
-                  aria-label={label('milestone.field.status')}
-                  className='h-auto w-auto gap-1.5 rounded-full border-border px-3 py-1 text-[13px] shadow-none'
-                >
-                  <span className='text-muted-foreground'>
-                    {label('milestone.field.status')}
-                  </span>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MILESTONE_STATUSES.map(s => (
-                    <SelectItem key={s} value={s}>
-                      {label(`milestone.status.${s}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
 
           {failed && (
