@@ -90,7 +90,11 @@ function expectLeadingIcon(button: HTMLElement) {
 describe('LUM-722 new-button plus icon', () => {
   it('New milestone button leads with a plus icon', () => {
     render(<ProjectMilestonesTab projectId='p1' projectSlug='lumo' />)
-    expectLeadingIcon(screen.getByRole('button', { name: 'New milestone' }))
+    // Two of them on an empty list (LUM-724): the header button and the
+    // empty-state call to action. Both are the same offer, so both lead with +.
+    const buttons = screen.getAllByRole('button', { name: 'New milestone' })
+    expect(buttons).toHaveLength(2)
+    buttons.forEach(expectLeadingIcon)
   })
 
   it('New memory button leads with a plus icon', () => {
