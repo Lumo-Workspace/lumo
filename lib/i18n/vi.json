@@ -2281,6 +2281,6 @@
   "milestone.list.incomplete": "Chưa hoàn thành",
   "milestone.list.archivedIncomplete": "Lưu trữ khi chưa hoàn thành",
   "milestone.archiveConfirm.title": "Lưu trữ mốc chưa hoàn thành?",
-  "milestone.archiveConfirm.body": "“{name}” vẫn còn {remaining} công việc chưa hoàn thành. Sau khi lưu trữ, mốc sẽ rời khỏi danh sách Active nhưng các công việc chưa hoàn thành vẫn mở.",
+  "milestone.archiveConfirm.body": "“{name}” vẫn còn {remaining} công việc chưa hoàn thành. Sau khi lưu trữ, mốc sẽ không còn xuất hiện trong danh sách mặc định nhưng các công việc chưa hoàn thành vẫn mở.",
   "milestone.archiveConfirm.confirm": "Vẫn lưu trữ"
 }

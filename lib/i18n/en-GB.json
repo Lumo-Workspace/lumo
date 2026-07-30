@@ -2281,6 +2281,6 @@
   "milestone.list.incomplete": "Incomplete",
   "milestone.list.archivedIncomplete": "Archived while incomplete",
   "milestone.archiveConfirm.title": "Archive an unfinished milestone?",
-  "milestone.archiveConfirm.body": "“{name}” still has {remaining, plural, one {# unfinished task} other {# unfinished tasks}}. Archiving moves it out of Active — the unfinished tasks stay open.",
+  "milestone.archiveConfirm.body": "“{name}” still has {remaining, plural, one {# unfinished task} other {# unfinished tasks}}. Archiving hides it from the default list — the unfinished tasks stay open.",
   "milestone.archiveConfirm.confirm": "Archive anyway"
 }

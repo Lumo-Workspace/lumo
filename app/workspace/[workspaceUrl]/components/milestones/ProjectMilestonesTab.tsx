@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { copyLink } from '@/lib/utils/copyLink'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { archiveNeedsConfirm, milestoneProgress } from './milestoneDisplay'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { MilestoneRow } from './MilestoneRow'
@@ -35,16 +36,6 @@ const TABS: { key: Tab; labelId: string }[] = [
   { key: 'archived', labelId: 'milestone.filter.archived' },
   { key: 'all', labelId: 'milestone.filter.all' },
 ]
-
-/** Tasks bound to the milestone, by the four statuses the server counts. */
-function taskProgress(m: ApiMilestone): { done: number; total: number } {
-  const c = m.taskCounts
-  const done = c?.DONE ?? 0
-  return {
-    done,
-    total: (c?.TODO ?? 0) + (c?.IN_PROGRESS ?? 0) + (c?.IN_REVIEW ?? 0) + done,
-  }
-}
 
 export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const intl = useIntl()
@@ -89,22 +80,10 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   // delete stay invalidate-only, waiting on server confirmation.
   const { archive, unarchive } = useMilestoneArchive()
 
-  /**
-   * Archiving a milestone with open tasks asks first — that is the only archive
-   * that hides unfinished work. Everything else (a finished milestone, an
-   * unarchive) flips immediately.
-   */
   const onArchiveToggle = (m: ApiMilestone) => {
-    if (m.archivedAt) {
-      unarchive.mutate(m)
-      return
-    }
-    const { done, total } = taskProgress(m)
-    if (total > 0 && done === total) {
-      archive.mutate(m)
-      return
-    }
-    setConfirmArchive(m)
+    if (archiveNeedsConfirm(m)) setConfirmArchive(m)
+    else if (m.archivedAt) unarchive.mutate(m)
+    else archive.mutate(m)
   }
 
   const filterBar = (
@@ -175,7 +154,7 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
               <MilestoneRow
                 key={m.id}
                 milestone={m}
-                progress={taskProgress(m)}
+                progress={milestoneProgress(m)}
                 href={href}
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
                 onArchiveToggle={() => onArchiveToggle(m)}
@@ -198,10 +177,10 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
       {confirmArchive && (
         <MilestoneArchiveConfirm
           name={confirmArchive.name}
-          remaining={(() => {
-            const { done, total } = taskProgress(confirmArchive)
-            return total - done
-          })()}
+          remaining={
+            milestoneProgress(confirmArchive).total -
+            milestoneProgress(confirmArchive).done
+          }
           onCancel={() => setConfirmArchive(null)}
           onConfirm={() => {
             archive.mutate(confirmArchive)

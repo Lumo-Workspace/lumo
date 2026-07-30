@@ -2281,6 +2281,6 @@
   "milestone.list.incomplete": "Inachevé",
   "milestone.list.archivedIncomplete": "Archivé alors qu’il était inachevé",
   "milestone.archiveConfirm.title": "Archiver un jalon inachevé ?",
-  "milestone.archiveConfirm.body": "« {name} » compte encore {remaining, plural, one {# tâche inachevée} other {# tâches inachevées}}. L’archivage le retire de « Actifs » — les tâches inachevées restent ouvertes.",
+  "milestone.archiveConfirm.body": "« {name} » compte encore {remaining, plural, one {# tâche inachevée} other {# tâches inachevées}}. Une fois archivé, le jalon disparaît de la liste par défaut — les tâches inachevées restent ouvertes.",
   "milestone.archiveConfirm.confirm": "Archiver quand même"
 }

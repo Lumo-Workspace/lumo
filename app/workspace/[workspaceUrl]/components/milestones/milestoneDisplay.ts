@@ -36,6 +36,30 @@ export const STATUS_DOT: Record<ApiMilestone['status'], string> = {
   CANCELLED: 'bg-muted-foreground/40',
 }
 
+/** Tasks under the milestone, summed over the four statuses the server counts. */
+export function milestoneProgress(m: ApiMilestone): {
+  done: number
+  total: number
+} {
+  const c = m.taskCounts
+  const done = c?.DONE ?? 0
+  return {
+    done,
+    total: (c?.TODO ?? 0) + (c?.IN_PROGRESS ?? 0) + (c?.IN_REVIEW ?? 0) + done,
+  }
+}
+
+/**
+ * Whether flipping this milestone's archive state should ask first. Only one
+ * direction can lose work from view: archiving a milestone that still has open
+ * tasks. Unarchiving, and archiving a finished milestone, apply straight away.
+ */
+export function archiveNeedsConfirm(m: ApiMilestone): boolean {
+  if (m.archivedAt) return false
+  const { done, total } = milestoneProgress(m)
+  return !(total > 0 && done === total)
+}
+
 /**
  * Archived before every task landed — the milestone was dropped, not delivered.
  * The list greys such a row out and tags it, so a full Archived tab doesn't read

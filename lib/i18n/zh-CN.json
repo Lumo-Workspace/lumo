@@ -2281,6 +2281,6 @@
   "milestone.list.incomplete": "未完成",
   "milestone.list.archivedIncomplete": "未完成即归档",
   "milestone.archiveConfirm.title": "归档未完成的里程碑？",
-  "milestone.archiveConfirm.body": "「{name}」还有 {remaining} 个任务未完成。归档后它会移出 Active 列表，未完成的任务不会被关闭。",
+  "milestone.archiveConfirm.body": "「{name}」还有 {remaining} 个任务未完成。归档后它不再出现在默认列表里，未完成的任务不会被关闭。",
   "milestone.archiveConfirm.confirm": "仍要归档"
 }
