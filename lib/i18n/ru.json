@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "Этап",
   "filter.dimension.sprint": "Спринт",
   "filter.noMilestone": "Без этапа",
-  "filter.noSprint": "Без спринта"
+  "filter.noSprint": "Без спринта",
+  "milestone.list.incomplete": "Не завершён",
+  "milestone.list.archivedIncomplete": "Архивирован незавершённым",
+  "milestone.archiveConfirm.title": "Архивировать незавершённую веху?",
+  "milestone.archiveConfirm.body": "В «{name}» ещё {remaining, plural, one {# незакрытая задача} few {# незакрытые задачи} many {# незакрытых задач} other {# незакрытых задачи}}. После архивации веха исчезнет из списка по умолчанию, но незакрытые задачи останутся открытыми.",
+  "milestone.archiveConfirm.confirm": "Всё равно архивировать"
 }

@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "Hito",
   "filter.dimension.sprint": "Sprint",
   "filter.noMilestone": "Sin hito",
-  "filter.noSprint": "Sin sprint"
+  "filter.noSprint": "Sin sprint",
+  "milestone.list.incomplete": "Sin terminar",
+  "milestone.list.archivedIncomplete": "Archivado sin terminar",
+  "milestone.archiveConfirm.title": "¿Archivar un hito sin terminar?",
+  "milestone.archiveConfirm.body": "«{name}» todavía tiene {remaining, plural, one {# tarea sin terminar} other {# tareas sin terminar}}. Al archivarlo, deja de aparecer en la lista predeterminada; las tareas sin terminar siguen abiertas.",
+  "milestone.archiveConfirm.confirm": "Archivar de todos modos"
 }

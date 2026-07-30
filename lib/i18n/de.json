@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "Meilenstein",
   "filter.dimension.sprint": "Sprint",
   "filter.noMilestone": "Kein Meilenstein",
-  "filter.noSprint": "Kein Sprint"
+  "filter.noSprint": "Kein Sprint",
+  "milestone.list.incomplete": "Unvollständig",
+  "milestone.list.archivedIncomplete": "Unvollständig archiviert",
+  "milestone.archiveConfirm.title": "Unfertigen Meilenstein archivieren?",
+  "milestone.archiveConfirm.body": "„{name}“ hat noch {remaining, plural, one {# offene Aufgabe} other {# offene Aufgaben}}. Nach dem Archivieren erscheint der Meilenstein nicht mehr in der Standardliste — die offenen Aufgaben bleiben offen.",
+  "milestone.archiveConfirm.confirm": "Trotzdem archivieren"
 }

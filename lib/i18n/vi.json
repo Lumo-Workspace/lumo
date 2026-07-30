@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "Mốc",
   "filter.dimension.sprint": "Sprint",
   "filter.noMilestone": "Không có mốc",
-  "filter.noSprint": "Không có sprint"
+  "filter.noSprint": "Không có sprint",
+  "milestone.list.incomplete": "Chưa hoàn thành",
+  "milestone.list.archivedIncomplete": "Lưu trữ khi chưa hoàn thành",
+  "milestone.archiveConfirm.title": "Lưu trữ mốc chưa hoàn thành?",
+  "milestone.archiveConfirm.body": "“{name}” vẫn còn {remaining} công việc chưa hoàn thành. Sau khi lưu trữ, mốc sẽ không còn xuất hiện trong danh sách mặc định nhưng các công việc chưa hoàn thành vẫn mở.",
+  "milestone.archiveConfirm.confirm": "Vẫn lưu trữ"
 }

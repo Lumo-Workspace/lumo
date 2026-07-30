@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "마일스톤",
   "filter.dimension.sprint": "스프린트",
   "filter.noMilestone": "마일스톤 없음",
-  "filter.noSprint": "스프린트 없음"
+  "filter.noSprint": "스프린트 없음",
+  "milestone.list.incomplete": "미완료",
+  "milestone.list.archivedIncomplete": "미완료 상태로 보관됨",
+  "milestone.archiveConfirm.title": "완료되지 않은 마일스톤을 보관할까요?",
+  "milestone.archiveConfirm.body": "“{name}”에는 아직 완료되지 않은 작업이 {remaining}개 있습니다. 보관하면 기본 목록에서 숨겨지지만, 미완료 작업은 닫히지 않습니다.",
+  "milestone.archiveConfirm.confirm": "그래도 보관"
 }

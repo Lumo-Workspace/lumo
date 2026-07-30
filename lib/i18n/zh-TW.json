@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "里程碑",
   "filter.dimension.sprint": "衝刺",
   "filter.noMilestone": "無里程碑",
-  "filter.noSprint": "不在衝刺中"
+  "filter.noSprint": "不在衝刺中",
+  "milestone.list.incomplete": "未完成",
+  "milestone.list.archivedIncomplete": "未完成即封存",
+  "milestone.archiveConfirm.title": "封存未完成的里程碑？",
+  "milestone.archiveConfirm.body": "「{name}」還有 {remaining} 個任務未完成。封存後它不再出現在預設清單裡，未完成的任務不會被關閉。",
+  "milestone.archiveConfirm.confirm": "仍要封存"
 }

@@ -13,7 +13,7 @@ interface ProjectRef {
 
 /**
  * Resolve the project addressed by a milestone-detail URL's project segment.
- * `MilestoneCard` builds that segment from the project **slug**
+ * The milestone list row builds that segment from the project **slug**
  * (`slugify(name)`), so we match by slugified name first; matching by **cuid**
  * is kept as a fallback for legacy URLs (pre-LUM-126 links, CLI-built ids,
  * bookmarks, stale bundles). Returns null when no project matches, or the

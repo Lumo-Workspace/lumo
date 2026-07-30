@@ -2273,5 +2273,10 @@
   "filter.dimension.milestone": "Pencapaian",
   "filter.dimension.sprint": "Sprint",
   "filter.noMilestone": "Tiada pencapaian",
-  "filter.noSprint": "Tiada sprint"
+  "filter.noSprint": "Tiada sprint",
+  "milestone.list.incomplete": "Belum selesai",
+  "milestone.list.archivedIncomplete": "Diarkibkan semasa belum selesai",
+  "milestone.archiveConfirm.title": "Arkibkan pencapaian yang belum selesai?",
+  "milestone.archiveConfirm.body": "“{name}” masih ada {remaining} tugasan yang belum selesai. Selepas diarkibkan, ia tidak lagi muncul dalam senarai lalai, tetapi tugasan yang belum selesai kekal terbuka.",
+  "milestone.archiveConfirm.confirm": "Arkibkan juga"
 }
