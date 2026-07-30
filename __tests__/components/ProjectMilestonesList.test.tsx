@@ -12,6 +12,9 @@
  * The row's actions menu is a Radix dropdown covered by MilestoneRow's own
  * suite; here it is stubbed to a plain button so these assertions are about the
  * page's gating, not about opening a menu.
+ *
+ * LUM-724 adds the list's two edge states — the loading placeholder and the
+ * empty state — in the third describe block at the bottom.
  */
 
 const en: Record<string, string> = {
@@ -20,8 +23,12 @@ const en: Record<string, string> = {
   'milestone.filter.archived': 'Archived',
   'milestone.filter.all': 'All',
   'milestone.new': 'New milestone',
-  'milestone.empty.title': 'No milestones yet',
-  'milestone.empty.cta': 'Create the first milestone',
+  'milestone.empty.active.title': 'No milestones in progress',
+  'milestone.empty.active.body': 'Milestones group tasks into stages.',
+  'milestone.empty.archived.title': 'No archived milestones',
+  'milestone.empty.archived.body': 'Archiving puts a milestone away.',
+  'milestone.empty.all.title': 'No milestones yet',
+  'milestone.empty.all.body': 'Milestones group tasks into stages.',
   'milestone.archiveConfirm.title': 'Archive an unfinished milestone?',
   'milestone.archiveConfirm.body':
     '{name} still has {remaining} unfinished tasks.',
@@ -228,5 +235,111 @@ describe('ProjectMilestonesTab list', () => {
     expect(
       screen.queryByText('Archive an unfinished milestone?')
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('ProjectMilestonesTab edge states', () => {
+  /** The `h-*` utility an element sets its own height with, if any. */
+  const heightClass = (el: Element | null) =>
+    el?.className.split(/\s+/).find(c => /^h-\[?\d/.test(c))
+
+  it('loading shows skeleton rows shaped like real rows', () => {
+    const { container: loadingBox } = setup([], true)
+
+    const busy = loadingBox.querySelector('[aria-busy="true"]')
+    expect(busy).not.toBeNull()
+    const placeholders = Array.from(busy!.children)
+    expect(placeholders).toHaveLength(3)
+
+    // Same columns as a real row: status dot, name, spacer, right-hand meta.
+    for (const row of placeholders) {
+      expect(row.children).toHaveLength(4)
+      expect(row.children[0]!.className).toContain('size-2')
+      expect(row.children[3]!.className).toContain('w-[140px]')
+    }
+
+    // Nothing claims the list is empty while it is still loading.
+    expect(
+      within(loadingBox).queryByText('No milestones in progress')
+    ).not.toBeInTheDocument()
+
+    // A placeholder of a different height makes the list jump when data lands.
+    const { container: listBox } = setup(list)
+    expect(heightClass(placeholders[0]!)).toBe(
+      heightClass(listBox.querySelector('.group'))
+    )
+    expect(heightClass(placeholders[0]!)).toBeDefined()
+  })
+
+  it('empty state copy and CTA follow the tab', () => {
+    setup([])
+
+    const chips = screen.getByRole('group', { name: 'Filter milestones' })
+    const ctas = () => screen.getAllByRole('button', { name: /New milestone/ })
+
+    // Active — nothing is running; the header button plus the empty-state CTA.
+    expect(screen.getByText('No milestones in progress')).toBeInTheDocument()
+    expect(
+      screen.getByText('Milestones group tasks into stages.')
+    ).toBeInTheDocument()
+    expect(ctas()).toHaveLength(2)
+
+    // Archived — you archive an existing milestone, so "create one" is not the
+    // way out of this state. Only the page header keeps its button.
+    fireEvent.click(within(chips).getByText('Archived'))
+    expect(screen.getByText('No archived milestones')).toBeInTheDocument()
+    expect(
+      screen.getByText('Archiving puts a milestone away.')
+    ).toBeInTheDocument()
+    expect(ctas()).toHaveLength(1)
+
+    // All — the project has no milestones at all.
+    fireEvent.click(within(chips).getByText('All'))
+    expect(screen.getByText('No milestones yet')).toBeInTheDocument()
+    expect(ctas()).toHaveLength(2)
+
+    // The empty-state CTA opens the same create dialog the header does.
+    fireEvent.click(ctas()[1]!)
+    expect(screen.getByTestId('form-dialog')).toBeInTheDocument()
+  })
+
+  it('every locale has translated empty state keys', () => {
+    const fs = require('fs') as typeof import('fs')
+    const path = require('path') as typeof import('path')
+
+    const dir = path.join(process.cwd(), 'lib/i18n')
+    const locales = fs.readdirSync(dir).filter(f => f.endsWith('.json'))
+    expect(locales.length).toBeGreaterThan(1)
+
+    const keys = [
+      'milestone.empty.active.title',
+      'milestone.empty.active.body',
+      'milestone.empty.archived.title',
+      'milestone.empty.archived.body',
+      'milestone.empty.all.title',
+      'milestone.empty.all.body',
+    ]
+    const read = (file: string) =>
+      JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')) as Record<
+        string,
+        string
+      >
+    const english = read('en.json')
+
+    for (const file of locales) {
+      const messages = read(file)
+      for (const key of keys) {
+        const value = messages[key]
+        expect(typeof value).toBe('string')
+        expect(value!.trim()).not.toBe('')
+        // `npm run i18n:sync` back-fills placeholders to keep parity green;
+        // shipping one would show English-shaped filler to that locale.
+        expect(value).not.toContain('[TODO:')
+        // Non-English locales get a real translation, never the English string.
+        if (!file.startsWith('en')) {
+          expect(value).not.toBe(english[key])
+        }
+      }
+    }
   })
 })

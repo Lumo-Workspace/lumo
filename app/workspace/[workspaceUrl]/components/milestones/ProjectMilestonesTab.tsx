@@ -14,6 +14,8 @@ import { archiveNeedsConfirm, milestoneProgress } from './milestoneDisplay'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { MilestoneRow } from './MilestoneRow'
+import { MilestoneListEmpty } from './MilestoneListEmpty'
+import { MilestoneListSkeleton } from './MilestoneListSkeleton'
 import { MilestoneArchiveConfirm } from './MilestoneArchiveConfirm'
 import { MilestoneFormDialog } from './MilestoneFormDialog'
 
@@ -123,29 +125,12 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
       </div>
 
       {loading ? (
-        <div
-          className='divide-y divide-border overflow-hidden rounded-lg border border-border'
-          aria-busy='true'
-        >
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} className='h-[41px] animate-pulse bg-muted/50' />
-          ))}
-        </div>
+        <MilestoneListSkeleton />
       ) : rows.length === 0 ? (
-        <div className='py-12 text-center'>
-          <p className='text-lg font-medium'>
-            {intl.formatMessage({ id: 'milestone.empty.title' })}
-          </p>
-          {tab !== 'archived' && (
-            <Button
-              variant='outline'
-              className='mt-4'
-              onClick={() => setDialog({ mode: 'create' })}
-            >
-              {intl.formatMessage({ id: 'milestone.empty.cta' })}
-            </Button>
-          )}
-        </div>
+        <MilestoneListEmpty
+          tab={tab}
+          onCreate={() => setDialog({ mode: 'create' })}
+        />
       ) : (
         <div className='divide-y divide-border overflow-hidden rounded-lg border border-border'>
           {rows.map(m => {
