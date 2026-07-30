@@ -233,11 +233,14 @@ export interface ApiTask {
     name: string
   } | null
   milestoneId?: string | null
-  /** Populated on list payloads so board filtering can label the milestone. */
+  /** Populated on list payloads so board filtering can label the milestone.
+   * `archivedAt` is carried because the Milestone filter only offers active,
+   * non-archived milestones. */
   milestone?: {
     id: string
     status: import('@prisma/client').MilestoneStatus
     name: string
+    archivedAt?: string | null
   } | null
 }
 

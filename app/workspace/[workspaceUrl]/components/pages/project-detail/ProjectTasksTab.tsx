@@ -26,7 +26,6 @@ import {
 import { TaskPatch } from '../../data-table/task-columns'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { MilestoneFilterPicker } from '../../milestones/MilestoneFilterPicker'
 import { TaskListToolbar } from '../../task-list/TaskListToolbar'
 import { TaskFilterChips } from '../../task-list/TaskFilterChips'
 import { TaskFilterMenu } from '../../task-list/TaskFilterMenu'
@@ -103,11 +102,6 @@ export function ProjectTasksTab({
 }: ProjectTasksTabProps) {
   const intl = useIntl()
 
-  // ─── Milestone filter (client-side, applied on top of filteredTasks) ───────
-  const [milestoneFilter, setMilestoneFilter] = useState<
-    string | null | undefined
-  >(undefined)
-
   const {
     now,
     filters,
@@ -119,14 +113,6 @@ export function ProjectTasksTab({
     tasks: filteredTasks,
     scopeKey: CACHE_KEY.displayProject(projectId),
   })
-
-  const visibleTasks = useMemo(() => {
-    if (milestoneFilter === undefined) return narrowedTasks
-    if (milestoneFilter === null) {
-      return narrowedTasks.filter(t => !t.milestoneId)
-    }
-    return narrowedTasks.filter(t => t.milestoneId === milestoneFilter)
-  }, [narrowedTasks, milestoneFilter])
 
   // ─── Row selection ──────────────────────────────────────────────────────────
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
@@ -261,13 +247,6 @@ export function ProjectTasksTab({
               onToggleValue={toggleValue}
             />
           }
-          leftSlot={
-            <MilestoneFilterPicker
-              projectId={projectId}
-              value={milestoneFilter}
-              onChange={setMilestoneFilter}
-            />
-          }
         />
         {selectedCount > 0 && (
           <BulkActionBar
@@ -292,7 +271,7 @@ export function ProjectTasksTab({
       <AsyncContent
         loading={loading}
         error={error}
-        empty={visibleTasks.length === 0 && viewMode !== 'board'}
+        empty={narrowedTasks.length === 0 && viewMode !== 'board'}
         onRetry={onRetry}
         className='flex-1 flex flex-col overflow-hidden'
         emptyState={
@@ -330,7 +309,7 @@ export function ProjectTasksTab({
         {viewMode === 'list' ? (
           <div className='flex-1 min-h-0 flex flex-col'>
             <TaskListView
-              tasks={visibleTasks}
+              tasks={narrowedTasks}
               members={members}
               visibleColumns={[...visibleColumns]}
               updateTask={updateTask}
@@ -352,7 +331,7 @@ export function ProjectTasksTab({
           </div>
         ) : (
           <BoardView
-            tasks={visibleTasks}
+            tasks={narrowedTasks}
             sensors={sensors}
             activeId={activeId}
             onDragStart={onDragStart}

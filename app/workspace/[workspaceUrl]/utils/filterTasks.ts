@@ -28,7 +28,10 @@ export interface FilterableTask {
   sprintId?: string | null | undefined
   sprint?: { name: string } | null | undefined
   milestoneId?: string | null | undefined
-  milestone?: { name: string } | null | undefined
+  milestone?:
+    | { name: string; status?: string; archivedAt?: string | null }
+    | null
+    | undefined
   assignee?: { agent?: { name: string } | null } | null | undefined
 }
 
@@ -71,6 +74,14 @@ const CANONICAL_ORDER: Partial<Record<FilterDimension, readonly string[]>> = {
   status: ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'],
   priority: ['URGENT', 'HIGH', 'MEDIUM', 'LOW'],
   dueDate: DUE_DATE_BUCKETS,
+}
+
+/** Active = the milestone is being worked now: ACTIVE status, not archived. */
+export function isActiveMilestone(
+  milestone: FilterableTask['milestone']
+): boolean {
+  if (!milestone) return false
+  return milestone.status === 'ACTIVE' && !milestone.archivedAt
 }
 
 /**
@@ -116,7 +127,14 @@ export function taskFilterValues(
     case 'project':
       return [task.projectId]
     case 'milestone':
-      return [task.milestoneId ?? NO_MILESTONE_VALUE]
+      if (!task.milestoneId) return [NO_MILESTONE_VALUE]
+      // Only *active* milestones are in play. A task in a planned / completed /
+      // cancelled / archived milestone carries no milestone value at all — it
+      // is neither offered as an option nor swept into the "no milestone"
+      // bucket (it does have one, just not one this filter reasons about).
+      // A milestoneId with no milestone object (stale cached payload) can't be
+      // confirmed active, so it is treated the same way.
+      return isActiveMilestone(task.milestone) ? [task.milestoneId] : []
     case 'sprint':
       // Sentinel rather than "skip": "not in a sprint" (backlog) is a state
       // people filter *for*, not an absence to be hidden.
