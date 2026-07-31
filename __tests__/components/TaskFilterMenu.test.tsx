@@ -91,8 +91,9 @@ describe('TaskFilterMenu', () => {
     expect(screen.getByRole('button', { name: /filter/i })).toBeInTheDocument()
   })
 
-  it('only offers dimensions that can narrow the current scope', () => {
-    // One project, one assignee, two statuses → Status narrows, the others cannot.
+  it('only offers contextual dimensions that can narrow the current scope', () => {
+    // One project, one assignee, two statuses → Status narrows, the contextual
+    // dimensions cannot. Assignee is always offered (see the test below).
     renderMenu([
       task({ status: 'TODO', assigneeActorId: 'actor_1' }),
       task({ status: 'DONE', assigneeActorId: 'actor_1' }),
@@ -101,8 +102,20 @@ describe('TaskFilterMenu', () => {
 
     expect(screen.getByText('Status')).toBeInTheDocument()
     expect(screen.queryByText('Project')).toBeNull()
-    expect(screen.queryByText('Assignee')).toBeNull()
     expect(screen.queryByText('Priority')).toBeNull()
+  })
+
+  it('offers Assignee on a board whose tasks all share one assignee', () => {
+    // A one-person sprint: the answer is trivial but the question is still
+    // legitimate, so the control must not disappear.
+    renderMenu([
+      task({ assigneeActorId: 'actor_1' }),
+      task({ assigneeActorId: 'actor_1' }),
+    ])
+    openMenu()
+
+    fireEvent.click(screen.getByText('Assignee'))
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
   })
 
   it('offers project and assignee once the scope spans more than one', () => {

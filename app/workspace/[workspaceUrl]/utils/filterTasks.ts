@@ -229,9 +229,25 @@ export function dimensionValueCounts(
 }
 
 /**
+ * Dimensions offered regardless of how many distinct values the scope holds.
+ *
+ * The self-adjusting rule below is right for *contextual* dimensions — sprint
+ * on a sprint board, project on a single-project board — where one value means
+ * the scope already answers the question. It is wrong for assignee: "whose work
+ * is this" is a question people ask of a board even when the answer turns out
+ * to be one person, and silently removing the control reads as a missing
+ * feature rather than as a scope that agrees with itself.
+ */
+const ALWAYS_OFFERED: readonly FilterDimension[] = ['assignee']
+
+/**
  * Dimensions worth offering for this task set — those with more than one
- * distinct value, plus any dimension already being filtered on (so an active
- * chip never loses its menu entry once the list narrows to one value).
+ * distinct value, the {@link ALWAYS_OFFERED} ones, plus any dimension already
+ * being filtered on (so an active chip never loses its menu entry once the list
+ * narrows to one value).
+ *
+ * An empty scope offers nothing at all: with no tasks, every dimension —
+ * always-offered ones included — would open an option list with zero entries.
  */
 export function narrowableDimensions(
   tasks: FilterableTask[],
@@ -240,7 +256,10 @@ export function narrowableDimensions(
 ): FilterDimension[] {
   const active = new Set(activeFilterDimensions(filters))
   return FILTER_DIMENSIONS.filter(
-    d => active.has(d) || dimensionValueCounts(tasks, d, now).length > 1
+    d =>
+      active.has(d) ||
+      (tasks.length > 0 && ALWAYS_OFFERED.includes(d)) ||
+      dimensionValueCounts(tasks, d, now).length > 1
   )
 }
 
