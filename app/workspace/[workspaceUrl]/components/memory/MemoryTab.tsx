@@ -3,15 +3,24 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Brain, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { parseMemoryContent } from '@/lib/memory/schemas'
+import {
+  countByCategory,
+  selectMemories,
+  type MemoryCategoryFilter,
+  type MemorySortKey,
+} from '@/lib/memory/list-view'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
 import { useFragmentTrust } from '../../hooks/useFragmentTrust'
 import { useRetireCandidates } from '../../hooks/useRetireCandidates'
 import { useMergeCandidates } from '../../hooks/useMergeCandidates'
 import { Button } from '@/components/ui/button'
 import { MemoryListItem } from './MemoryListItem'
+import { MemoryListToolbar } from './MemoryListToolbar'
+import { MemoryListSkeleton } from './MemoryListSkeleton'
+import { MemoryListEmpty } from './MemoryListEmpty'
 import { RetireReviewPanel } from './RetireReviewPanel'
 import { MergeReviewPanel } from './MergeReviewPanel'
 import { MemoryEditDialog, type MemorySubmitPayload } from './MemoryEditDialog'
@@ -43,6 +52,9 @@ export function MemoryTab({
       enabled,
     })
   const [dialog, setDialog] = useState<DialogState>({ open: false })
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<MemoryCategoryFilter>('ALL')
+  const [sort, setSort] = useState<MemorySortKey>('recent')
 
   // Drop rows whose content can't be parsed (e.g. stored before a schema
   // change). MemoryCard renders null for those, which would otherwise leave an
@@ -70,6 +82,36 @@ export function MemoryTab({
   // Retire review (LUM-540 P4a) is a PROJECT-scope concern — the judged-used
   // track record accrues across tasks against the canonical PROJECT memory.
   const isProject = scope === 'project'
+
+  // Search / sort / filter is project-scope chrome. A task's dossier holds a
+  // handful of memories at most, where a full control row costs more attention
+  // than scanning the list it sits above.
+  const showControls = isProject
+  const filtering = query.trim().length > 0 || category !== 'ALL'
+
+  const counts = useMemo(
+    () => countByCategory(visibleMemories),
+    [visibleMemories]
+  )
+
+  const shownMemories = useMemo(
+    () =>
+      showControls
+        ? selectMemories(visibleMemories, {
+            query,
+            category,
+            sort,
+            usage: trust,
+          })
+        : visibleMemories,
+    [showControls, visibleMemories, query, category, sort, trust]
+  )
+
+  const clearFilters = () => {
+    setQuery('')
+    setCategory('ALL')
+  }
+
   const { candidates, confirmRetire, confirming } = useRetireCandidates(
     parentId,
     enabled && isProject
@@ -104,33 +146,35 @@ export function MemoryTab({
     }
   }
 
-  if (loading) {
-    return (
-      <div className='py-8 text-center text-xs text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'agentRun.loading',
-          defaultMessage: '加载中…',
-        })}
-      </div>
-    )
-  }
-
   if (error) {
     return <div className='py-8 text-center text-xs text-red-500'>{error}</div>
   }
+
+  // While loading, the chrome stays and only the list body is a placeholder —
+  // the same shape as the milestones tab. Mounting the header and controls
+  // after the rows land would push the whole list down as it appears.
+  const hasChrome = loading || visibleMemories.length > 0
 
   return (
     <div className='space-y-3'>
       {/* Header (count + add) is chrome for a populated list. When empty, the
           empty state below owns the messaging and CTA — rendering the header
           too would duplicate both the "no memories" label and the add action. */}
-      {visibleMemories.length > 0 && (
+      {hasChrome && (
         <div className='flex items-center justify-between'>
+          {/* Counts what is on screen, so it tracks the filter. At zero it goes
+              silent rather than reading "No memories" over a project that has
+              some — the empty state below says why the list is empty. */}
           <span className='text-xs text-muted-foreground'>
-            {intl.formatMessage(
-              { id: 'memory.tab.count', defaultMessage: '{count} memories' },
-              { count: visibleMemories.length }
-            )}
+            {shownMemories.length > 0
+              ? intl.formatMessage(
+                  {
+                    id: 'memory.tab.count',
+                    defaultMessage: '{count} memories',
+                  },
+                  { count: shownMemories.length }
+                )
+              : null}
           </span>
           {/* Same shape as the milestones tab's "New milestone" — default
               primary Button with a leading Plus — so sibling tabs read as one
@@ -142,23 +186,28 @@ export function MemoryTab({
         </div>
       )}
 
-      {visibleMemories.length === 0 ? (
-        <div className='py-12 flex flex-col items-center gap-2 text-muted-foreground'>
-          <Brain className='size-6' />
-          <p className='text-sm font-medium'>
-            {intl.formatMessage({ id: 'memory.tab.empty.title' })}
-          </p>
-          <p className='text-[11px] max-w-xs text-center'>
-            {intl.formatMessage({ id: 'memory.tab.empty.description' })}
-          </p>
-          <Button
-            size='sm'
-            variant='ghost'
-            onClick={() => setDialog({ open: true, mode: 'create' })}
-          >
-            {intl.formatMessage({ id: 'memory.tab.empty.cta' })}
-          </Button>
-        </div>
+      {showControls && hasChrome && (
+        <MemoryListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          sort={sort}
+          onSortChange={setSort}
+          category={category}
+          onCategoryChange={setCategory}
+          counts={counts}
+          total={visibleMemories.length}
+          pending={loading}
+        />
+      )}
+
+      {loading ? (
+        <MemoryListSkeleton />
+      ) : shownMemories.length === 0 ? (
+        <MemoryListEmpty
+          variant={filtering ? 'noResults' : 'none'}
+          onCreate={() => setDialog({ open: true, mode: 'create' })}
+          onClearFilters={clearFilters}
+        />
       ) : (
         <div className='space-y-2'>
           {isProject && (
@@ -177,7 +226,7 @@ export function MemoryTab({
               confirming={confirming}
             />
           )}
-          {visibleMemories.map(m => (
+          {shownMemories.map(m => (
             <MemoryListItem
               key={m.id}
               memory={m}
