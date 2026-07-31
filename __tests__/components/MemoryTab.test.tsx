@@ -3,7 +3,6 @@ const en: Record<string, string> = {
   'memory.action.add': 'New memory',
   'memory.tab.empty.title': 'No memories yet',
   'memory.tab.empty.description': 'Memories accumulate as you work.',
-  'memory.tab.empty.cta': 'Add the first memory',
   'memory.tab.count': '{count} memories',
   'memory.action.edit': 'Edit',
   'memory.action.delete': 'Delete',
@@ -92,16 +91,14 @@ describe('MemoryTab', () => {
   it('hides the header chrome when empty so only the empty-state CTA shows (no duplicate)', () => {
     mockUseMemories.mockReturnValue({ ...hookBase, memories: [] })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
-    // The empty state owns the single add CTA.
-    expect(
-      screen.getByRole('button', { name: 'Add the first memory' })
-    ).toBeInTheDocument()
-    // The header count + its "New memory" button must NOT also render — that
-    // would duplicate the "no memories" message and the add action.
+    // The empty state owns the single add CTA — it reuses the header's wording
+    // ("New memory"), so the duplicate check is on the count: exactly one.
+    expect(screen.getAllByRole('button', { name: /New memory/ })).toHaveLength(
+      1
+    )
+    // The header count must NOT also render — that would duplicate the
+    // "no memories" message.
     expect(screen.queryByText('0 memories')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'New memory' })
-    ).not.toBeInTheDocument()
   })
 
   it('renders a card per memory row (newest order preserved from hook)', () => {
@@ -212,7 +209,7 @@ describe('MemoryTab', () => {
   it('shows a loading state', () => {
     mockUseMemories.mockReturnValue({ ...hookBase, loading: true })
     render(<MemoryTab scope='project' parentId='p1' enabled />)
-    expect(screen.getByText('加载中…')).toBeInTheDocument()
+    expect(screen.getByTestId('memory-skeleton')).toBeInTheDocument()
   })
 
   it('shows an error state', () => {
@@ -235,9 +232,7 @@ describe('MemoryTab', () => {
     render(<MemoryTab scope='task' parentId='t1' enabled />)
 
     // Open create dialog via the empty-state CTA (header is hidden when empty)
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add the first memory' })
-    )
+    fireEvent.click(screen.getByRole('button', { name: /New memory/ }))
 
     // TRAP is the dialog's default category — its fields are already on screen.
     // Fill in the required fields (trigger + outcome)
