@@ -366,7 +366,7 @@ describe('dimension coverage', () => {
 })
 
 describe('narrowableDimensions', () => {
-  it('drops dimensions every task agrees on', () => {
+  it('drops contextual dimensions every task agrees on', () => {
     const tasks = [
       makeTask({ id: 'a', status: 'TODO', projectId: 'proj_a' }),
       makeTask({ id: 'b', status: 'DONE', projectId: 'proj_a' }),
@@ -374,7 +374,75 @@ describe('narrowableDimensions', () => {
     const dims = narrowableDimensions(tasks, {}, NOW)
     expect(dims).toContain('status')
     expect(dims).not.toContain('project')
-    expect(dims).not.toContain('assignee')
+  })
+
+  it('offers assignee even when every task shares one assignee', () => {
+    // The shape that made the filter unusable: a whole sprint owned by one
+    // person. "Who is this for" is a question the board must always answer.
+    const oneOwner = [
+      makeTask({ id: 'a', assigneeActorId: 'actor_1' }),
+      makeTask({ id: 'b', assigneeActorId: 'actor_1' }),
+    ]
+    expect(narrowableDimensions(oneOwner, {}, NOW)).toContain('assignee')
+
+    const allUnassigned = [
+      makeTask({ id: 'a', assigneeActorId: null }),
+      makeTask({ id: 'b', assigneeActorId: null }),
+    ]
+    expect(narrowableDimensions(allUnassigned, {}, NOW)).toContain('assignee')
+
+    // One task is enough — the dimension is not gated on task count.
+    expect(narrowableDimensions([makeTask({ id: 'a' })], {}, NOW)).toContain(
+      'assignee'
+    )
+  })
+
+  it('still hides single-valued contextual dimensions', () => {
+    // The always-offered exception is assignee only — the self-adjusting rule
+    // still governs project / sprint / milestone / tag.
+    const uniform = [
+      makeTask({
+        id: 'a',
+        projectId: 'proj_a',
+        sprintId: 's1',
+        ...inMilestone('m1'),
+        tags: [
+          {
+            id: 'tag_1',
+            name: 'bug',
+            color: null,
+            workspaceId: 'ws',
+            createdAt: '2026-07-01T00:00:00.000Z',
+          },
+        ],
+      }),
+      makeTask({
+        id: 'b',
+        projectId: 'proj_a',
+        sprintId: 's1',
+        ...inMilestone('m1'),
+        tags: [
+          {
+            id: 'tag_1',
+            name: 'bug',
+            color: null,
+            workspaceId: 'ws',
+            createdAt: '2026-07-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    ]
+    const dims = narrowableDimensions(uniform, {}, NOW)
+    expect(dims).not.toContain('project')
+    expect(dims).not.toContain('sprint')
+    expect(dims).not.toContain('milestone')
+    expect(dims).not.toContain('tag')
+  })
+
+  it('offers no dimension at all for an empty task set', () => {
+    // Nothing in scope means every dimension — assignee included — would open
+    // an option list with zero entries. Offer none rather than an empty panel.
+    expect(narrowableDimensions([], {}, NOW)).toEqual([])
   })
 
   it('hides sprint on a sprint board and milestone on a milestone board', () => {
