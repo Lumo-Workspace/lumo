@@ -1,5 +1,5 @@
 import type { MemoryCategory } from '@prisma/client'
-import { parseMemoryContent } from './schemas'
+import { memoryContentToText } from './content-text'
 
 /**
  * Client-side view model for a memory list: search, category filter, sort.
@@ -44,35 +44,17 @@ export interface MemoryListRow {
 }
 
 /**
- * Everything a reader can see on the card, flattened for substring matching:
- * the title (summary, or the headline field it falls back to) plus every body
- * field, including procedural steps. Content that fails to parse contributes
- * nothing rather than throwing — MemoryTab already drops those rows.
+ * Substring match over everything a reader can see on the card — the title plus
+ * every body field, procedural steps included. `memoryContentToText` is the
+ * same flattening the neighbor-retrieval path uses, so "searchable" means one
+ * thing in this codebase; it never throws on unparseable content.
  */
-export function memorySearchText(
-  category: MemoryCategory,
-  content: unknown
-): string {
-  let parsed: Record<string, unknown>
-  try {
-    parsed = parseMemoryContent(category, content) as Record<string, unknown>
-  } catch {
-    return ''
-  }
-
-  return Object.values(parsed)
-    .flatMap(value => {
-      if (typeof value === 'string') return [value]
-      if (Array.isArray(value)) return value.filter(v => typeof v === 'string')
-      return []
-    })
-    .join('\n')
-}
-
 export function matchesQuery(row: MemoryListRow, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  return memorySearchText(row.category, row.content).toLowerCase().includes(q)
+  return memoryContentToText(row.category, row.content)
+    .toLowerCase()
+    .includes(q)
 }
 
 /** Per-category counts for the chip labels, over the *unfiltered* list. */
