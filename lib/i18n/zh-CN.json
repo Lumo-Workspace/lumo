@@ -2290,5 +2290,6 @@
   "milestone.section.description": "描述",
   "milestone.section.tasks": "任务",
   "milestone.metrics.label": "里程碑指标",
-  "milestone.metrics.byMember": "按成员"
+  "milestone.metrics.byTask": "按任务",
+  "milestone.metrics.multiPr": "多个 PR"
 }

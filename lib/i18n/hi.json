@@ -2290,5 +2290,6 @@
   "milestone.section.description": "विवरण",
   "milestone.section.tasks": "कार्य",
   "milestone.metrics.label": "माइलस्टोन मेट्रिक्स",
-  "milestone.metrics.byMember": "सदस्य के अनुसार"
+  "milestone.metrics.byTask": "कार्य के अनुसार",
+  "milestone.metrics.multiPr": "कई PR"
 }

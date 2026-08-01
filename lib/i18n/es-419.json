@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Descripción",
   "milestone.section.tasks": "Tareas",
   "milestone.metrics.label": "Métricas del hito",
-  "milestone.metrics.byMember": "Por miembro"
+  "milestone.metrics.byTask": "Por tarea",
+  "milestone.metrics.multiPr": "varios PR"
 }

@@ -2290,5 +2290,6 @@
   "milestone.section.description": "説明",
   "milestone.section.tasks": "タスク",
   "milestone.metrics.label": "マイルストーン指標",
-  "milestone.metrics.byMember": "メンバー別"
+  "milestone.metrics.byTask": "タスク別",
+  "milestone.metrics.multiPr": "複数 PR"
 }

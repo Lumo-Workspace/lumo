@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 jest.mock('@/lib/repositories/milestone.repository', () => ({
-  milestoneRepository: { taskIds: jest.fn() },
+  milestoneRepository: { taskRefs: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { listStatesByTaskIds: jest.fn() },
@@ -24,7 +24,7 @@ import { taskComplexityRepository } from '@/lib/repositories/task-complexity.rep
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 
-const taskIds = milestoneRepository.taskIds as jest.Mock
+const taskRefs = milestoneRepository.taskRefs as jest.Mock
 const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
 const listComplexity = taskComplexityRepository.listByTaskIds as jest.Mock
 const loadMemberRows =
@@ -32,7 +32,7 @@ const loadMemberRows =
 const labelsByIds = memberRepository.labelsByIds as jest.Mock
 
 beforeEach(() => {
-  taskIds.mockReset()
+  taskRefs.mockReset()
   listStates.mockReset()
   listComplexity.mockReset()
   loadMemberRows.mockReset()
@@ -41,7 +41,10 @@ beforeEach(() => {
 
 describe('milestoneService.getDeliveryStatsForMilestone', () => {
   it('fans the member task set through the batch queries and folds honest buckets', async () => {
-    taskIds.mockResolvedValue(['t1', 't2'])
+    taskRefs.mockResolvedValue([
+      { id: 't1', ref: 'LUM-1', title: 'First' },
+      { id: 't2', ref: 'LUM-2', title: 'Second' },
+    ])
     listStates.mockResolvedValue([
       { taskId: 't1', state: 'merged' },
       { taskId: 't1', state: 'merged' },
@@ -65,7 +68,7 @@ describe('milestoneService.getDeliveryStatsForMilestone', () => {
 
     const stats = await milestoneService.getDeliveryStatsForMilestone('m-1')
 
-    expect(taskIds).toHaveBeenCalledWith('m-1')
+    expect(taskRefs).toHaveBeenCalledWith('m-1')
     expect(listStates).toHaveBeenCalledWith(['t1', 't2'])
     expect(listComplexity).toHaveBeenCalledWith(['t1', 't2'])
     expect(loadMemberRows).toHaveBeenCalledWith(['t1', 't2'])
@@ -106,5 +109,24 @@ describe('milestoneService.getDeliveryStatsForMilestone', () => {
       measuredPrs: 0,
       totalMergedPrs: 2,
     })
+
+    // LUM-727 BY TASK rows: labelled from the same task set, and only for
+    // tasks that carry a signal — t2 has neither spend nor a PR, so it is
+    // absent rather than rendered as a fabricated zero.
+    expect(stats.perTask.rows).toEqual([
+      {
+        taskId: 't1',
+        ref: 'LUM-1',
+        title: 'First',
+        tokenCost: 15,
+        models: [],
+        modelUnattributedTokens: 15,
+        activeTimeSec: 0,
+        prCount: 2,
+        multiPr: true,
+        changeVolume: null,
+      },
+    ])
+    expect(stats.perTask.unattributedActiveTimeSec).toBe(0)
   })
 })

@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Beschreibung",
   "milestone.section.tasks": "Aufgaben",
   "milestone.metrics.label": "Meilenstein-Kennzahlen",
-  "milestone.metrics.byMember": "Nach Mitglied"
+  "milestone.metrics.byTask": "Nach Aufgabe",
+  "milestone.metrics.multiPr": "Mehrere PRs"
 }

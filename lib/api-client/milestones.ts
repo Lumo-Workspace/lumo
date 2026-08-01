@@ -257,6 +257,37 @@ export interface ApiMilestone {
         modelUnattributedTokens?: number
       }>
     }
+    /**
+     * LUM-727 BY TASK breakdown behind the metric chips: one row per member
+     * task carrying ANY signal (measured spend / active time / a linked PR).
+     * Signal-free tasks are absent rather than zero-filled — the coverage
+     * counts elsewhere in the payload say how many those are. Optional for
+     * older-server tolerance; the client then renders no per-task panel.
+     */
+    perTask?: {
+      rows: Array<{
+        taskId: string
+        /** `<TEAM>-<number>` + title; `null` when unlabelled (id still shows). */
+        ref: string | null
+        title: string | null
+        /** `null` = no usage-bearing session on this task (没测到 ≠ 花了0). */
+        tokenCost: number | null
+        models?: MilestoneModelUsage[]
+        modelUnattributedTokens?: number
+        activeTimeSec: number
+        prCount: number
+        multiPr: boolean
+        /** `null` = no measured merged PR here — never a fabricated +0/−0. */
+        changeVolume: {
+          additions: number
+          deletions: number
+          measuredPrs: number
+        } | null
+      }>
+      /** Active seconds mapping to no member task; stated so rows + this
+       * reconcile with `perMember.activeTimeSec`. */
+      unattributedActiveTimeSec: number
+    }
   } | null
   /**
    * LUM-633 per-member delivery rollup. Server-enriched on the detail

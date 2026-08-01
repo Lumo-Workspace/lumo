@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Description",
   "milestone.section.tasks": "Tâches",
   "milestone.metrics.label": "Indicateurs du jalon",
-  "milestone.metrics.byMember": "Par membre"
+  "milestone.metrics.byTask": "Par tâche",
+  "milestone.metrics.multiPr": "plusieurs PR"
 }
