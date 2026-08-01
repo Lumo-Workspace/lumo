@@ -44,7 +44,6 @@ export function MilestoneDetailBody({
         <MilestoneHero
           name={milestone.name}
           taskCounts={milestone.taskCounts ?? null}
-          weightedProgress={milestone.weightedProgress ?? null}
           health={milestone.health ?? null}
           startDate={milestone.startDate}
           derivedStartDate={milestone.derivedStartDate ?? null}

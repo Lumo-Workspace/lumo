@@ -217,6 +217,33 @@ test('renders hero, description, metric strip and tasks in one page with no tab 
   }
 })
 
+test('reads progress as completed-over-total only, with no by-complexity switch', () => {
+  // The payload still carries the LUM-650 weighted reading; the page must
+  // ignore it rather than offer a second way to read the same ring.
+  renderBody({
+    weightedProgress: {
+      pct: 71,
+      measuredTasks: 2,
+      totalTasks: 8,
+      doneWeight: 41,
+      totalWeight: 58,
+    },
+  } as Partial<ApiMilestone>)
+
+  expect(screen.getByText('25%')).toBeInTheDocument()
+  expect(
+    screen.getByText(
+      m('milestone.progress').replace('{done}', '2').replace('{total}', '8')
+    )
+  ).toBeInTheDocument()
+  expect(screen.queryByText('71%')).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('group', { name: m('milestone.hero.progressModeLabel') })
+  ).not.toBeInTheDocument()
+  // The toggle's own copy is gone from the shipped locales too.
+  expect(messages['milestone.hero.progressMode.complexity']).toBeUndefined()
+})
+
 test('commits an inline description edit through onUpdate and stays read-only when archived', () => {
   const onUpdate = jest.fn()
   const { unmount } = renderBody({}, onUpdate)
