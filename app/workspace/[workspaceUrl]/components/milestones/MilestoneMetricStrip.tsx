@@ -359,7 +359,9 @@ export function MilestoneMetricStrip({
                           {fmtTokens(row.tokenCost ?? 0)}
                         </span>
                       </div>
-                      <div className='mt-1.5 pl-16'>
+                      {/* 4rem ref column + the row's 0.5rem gap — the model rows line
+                          up with the task TITLE, not with the id. */}
+                      <div className='mt-1.5 pl-18'>
                         <ModelUsageBreakdown
                           models={row.models}
                           unattributedTokens={row.modelUnattributedTokens}
@@ -367,7 +369,7 @@ export function MilestoneMetricStrip({
                       </div>
                     </li>
                   ))}
-                  <li className='flex flex-wrap gap-x-3 gap-y-1 pl-16 text-caption text-muted-foreground'>
+                  <li className='flex flex-wrap gap-x-3 gap-y-1 pl-18 text-caption text-muted-foreground'>
                     {MODEL_SEGMENTS.map(seg => (
                       <span key={seg.key} className='flex items-center gap-1'>
                         <span
@@ -480,52 +482,6 @@ export function MilestoneMetricStrip({
                     </li>
                   ))}
                 </ul>
-              )}
-              <p className='text-body text-muted-foreground'>
-                {intl.formatMessage(
-                  { id: 'milestone.deliveryStats.reworkDetail' },
-                  {
-                    multiPr: deliveryStats.pr.multiPrTaskCount,
-                    unlinked: deliveryStats.pr.unlinkedTaskCount,
-                  }
-                )}
-              </p>
-              {deliveryStats.changeVolume && (
-                <div>
-                  <div className='flex items-baseline justify-between gap-3 text-body'>
-                    <span className='text-muted-foreground'>
-                      {intl.formatMessage({
-                        id: 'milestone.changeVolume.title',
-                      })}
-                    </span>
-                    <span className='font-semibold'>
-                      {deliveryStats.changeVolume.totalMergedPrs === 0 ||
-                      deliveryStats.changeVolume.additions === null ||
-                      deliveryStats.changeVolume.deletions === null ? (
-                        // Unsynced ≠ 0 — an explicit state, never +0/−0.
-                        <span className='font-normal text-muted-foreground'>
-                          {intl.formatMessage({
-                            id: 'milestone.changeVolume.notSynced',
-                          })}
-                        </span>
-                      ) : (
-                        <VolumeText
-                          additions={deliveryStats.changeVolume.additions}
-                          deletions={deliveryStats.changeVolume.deletions}
-                        />
-                      )}
-                    </span>
-                  </div>
-                  <p className='mt-1 text-caption text-muted-foreground'>
-                    {intl.formatMessage(
-                      { id: 'milestone.changeVolume.coverage' },
-                      {
-                        measured: deliveryStats.changeVolume.measuredPrs,
-                        total: deliveryStats.changeVolume.totalMergedPrs,
-                      }
-                    )}
-                  </p>
-                </div>
               )}
             </>
           )}
