@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
+import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { milestonesClient, type MilestoneUpdateInput } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import type { MyTask } from '../../types'
@@ -199,9 +200,33 @@ export function MilestoneDetailPage({
     </div>
   )
 
+  // LUM-727: the tasks region lost its toolbar, so the properties-rail toggle
+  // moves up into the breadcrumb bar — the rail keeps its only control.
+  const sidebarLabel = intl.formatMessage({
+    id: sidebarCollapsed
+      ? 'milestone.detail.expandSidebar'
+      : 'milestone.detail.collapseSidebar',
+  })
+  const actions = (
+    <button
+      type='button'
+      onClick={toggleSidebar}
+      title={sidebarLabel}
+      aria-label={sidebarLabel}
+      className='flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+    >
+      {sidebarCollapsed ? (
+        <PanelRightOpen className='size-4' />
+      ) : (
+        <PanelRightClose className='size-4' />
+      )}
+    </button>
+  )
+
   return (
     <DetailLayout
       breadcrumb={breadcrumb}
+      actions={actions}
       sidebar={
         <div className='flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
           <MilestoneSidebar
@@ -222,8 +247,6 @@ export function MilestoneDetailPage({
         milestone={milestone}
         onUpdate={handleUpdate}
         members={members}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={toggleSidebar}
         onOpenTask={onOpenTask ?? (() => {})}
       />
     </DetailLayout>

@@ -1,11 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useIntl } from 'react-intl'
 import type { TaskStatus } from '@prisma/client'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
-import type { MilestoneWeightedProgress } from '@/lib/summaries/milestone-weighted-progress'
 import { useFormatDate } from '../../hooks/useFormatDate'
 import { DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
 
@@ -16,9 +15,6 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 interface MilestoneHeroProps {
   name: string
   taskCounts: Record<TaskStatus, number> | null
-  /** LUM-650 complexity-weighted reading for the same ring. `null`/absent (old
-   * server) hides the dual-read toggle and the ring stays task-count only. */
-  weightedProgress?: MilestoneWeightedProgress | null
   health: MilestoneHealth | null
   startDate: string | null
   /** Earliest first-exit-from-TODO across member tasks (min workStartedAt) —
@@ -41,16 +37,13 @@ interface MilestoneHeroProps {
  * never a fabricated number, and schedule health states why it is off until
  * a target date exists.
  *
- * LUM-650 dual-read: the same ring toggles between the task-count reading and
- * a complexity-weighted reading (DONE tasks weighted by
- * TaskComplexity.changedFileCount, a current-status snapshot). The weighted
- * view surfaces its measurement coverage and reads an explicit "no data yet"
- * — never a fabricated 0% — when no member task carries complexity data.
+ * The ring reads completion only — done tasks over total. The LUM-650
+ * complexity-weighted dual-read was removed in LUM-727: one number, one
+ * meaning.
  */
 export function MilestoneHero({
   name,
   taskCounts,
-  weightedProgress,
   health,
   startDate,
   derivedStartDate,
@@ -63,20 +56,12 @@ export function MilestoneHero({
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
   const dateInputRef = useRef<HTMLInputElement>(null)
-  const [mode, setMode] = useState<'tasks' | 'complexity'>('tasks')
 
   const done = taskCounts?.DONE ?? 0
   const total = taskCounts
     ? Object.values(taskCounts).reduce((sum, n) => sum + n, 0)
     : 0
   const pct = total > 0 ? Math.round((done / total) * 100) : null
-
-  // The weighted reading only offers the dual-read when the server sent it.
-  const weighted = weightedProgress ?? null
-  const showToggle = weighted !== null
-  const complexityMode = showToggle && mode === 'complexity'
-  // Arc fraction of whichever reading is active — the ring is one graphic.
-  const activePct = complexityMode ? weighted!.pct : pct
 
   const sprintNames = (sprintCoverage?.sprints ?? []).map(s => s.name)
   const eyebrow =
@@ -102,8 +87,7 @@ export function MilestoneHero({
       className='mb-8 flex flex-col gap-8 border-b border-border pb-8 lg:flex-row lg:items-center'
     >
       {/* Progress ring — the one graphic; --chart-1 is the single-series color.
-          LUM-650: the ring renders whichever reading (task-count / complexity-
-          weighted) is toggled active; the toggle sits directly beneath it. */}
+          One reading only: completed tasks over total. */}
       <div className='flex shrink-0 flex-col items-center gap-3'>
         <div className='relative h-[150px] w-[150px]'>
           <svg
@@ -121,7 +105,7 @@ export function MilestoneHero({
               stroke='var(--muted)'
               strokeWidth='10'
             />
-            {activePct !== null && activePct > 0 && (
+            {pct !== null && pct > 0 && (
               <circle
                 cx='75'
                 cy='75'
@@ -130,37 +114,12 @@ export function MilestoneHero({
                 stroke='var(--chart-1)'
                 strokeWidth='10'
                 strokeLinecap='round'
-                strokeDasharray={`${(activePct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                strokeDasharray={`${(pct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
               />
             )}
           </svg>
           <div className='absolute inset-0 flex flex-col items-center justify-center'>
-            {complexityMode ? (
-              weighted!.pct !== null ? (
-                <>
-                  <span className='text-3xl font-extrabold tracking-tight tabular-nums'>
-                    {weighted!.pct}%
-                  </span>
-                  <span className='px-3 text-center text-caption text-muted-foreground'>
-                    {intl.formatMessage(
-                      { id: 'milestone.hero.weightedCoverage' },
-                      {
-                        measured: weighted!.measuredTasks,
-                        total: weighted!.totalTasks,
-                      }
-                    )}
-                  </span>
-                </>
-              ) : (
-                // No measured task (or a measured total of 0 files): explicit,
-                // never a fabricated 0%.
-                <span className='px-3 text-center text-caption text-muted-foreground'>
-                  {intl.formatMessage({
-                    id: 'milestone.hero.weightedUnavailable',
-                  })}
-                </span>
-              )
-            ) : total > 0 ? (
+            {total > 0 ? (
               <>
                 <span className='text-3xl font-extrabold tracking-tight tabular-nums'>
                   {pct}%
@@ -179,45 +138,6 @@ export function MilestoneHero({
             )}
           </div>
         </div>
-        {showToggle && (
-          <div
-            role='group'
-            aria-label={intl.formatMessage({
-              id: 'milestone.hero.progressModeLabel',
-            })}
-            className='inline-flex items-center gap-2 text-caption'
-          >
-            <button
-              type='button'
-              aria-pressed={!complexityMode}
-              onClick={() => setMode('tasks')}
-              className={
-                complexityMode
-                  ? 'text-muted-foreground transition-colors hover:text-foreground'
-                  : 'font-semibold text-foreground'
-              }
-            >
-              {intl.formatMessage({ id: 'milestone.hero.progressMode.tasks' })}
-            </button>
-            <span aria-hidden='true' className='text-muted-foreground'>
-              ·
-            </span>
-            <button
-              type='button'
-              aria-pressed={complexityMode}
-              onClick={() => setMode('complexity')}
-              className={
-                complexityMode
-                  ? 'font-semibold text-foreground'
-                  : 'text-muted-foreground transition-colors hover:text-foreground'
-              }
-            >
-              {intl.formatMessage({
-                id: 'milestone.hero.progressMode.complexity',
-              })}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Eyebrow, editable title, key outcome. */}
