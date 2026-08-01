@@ -140,16 +140,18 @@ test('reads an explicit not-measured state instead of a fabricated zero', () => 
   ).toBeInTheDocument()
   expect(container.textContent).not.toContain('0s')
 
-  // Expanding PRs still refuses to fabricate a +0/−0 diff.
+  // Expanding PRs reads the unmeasured state rather than fabricating either
+  // a task row or a +0/−0 diff.
   fireEvent.click(
     screen.getByRole('button', {
       name: new RegExp(m('milestone.deliveryStats.mergedPrs')),
     })
   )
-  expect(
-    screen.getByText(m('milestone.changeVolume.notSynced'))
-  ).toBeInTheDocument()
+  expect(screen.queryByTestId('metric-task-row')).not.toBeInTheDocument()
   expect(screen.queryByTestId('change-volume')).not.toBeInTheDocument()
+  expect(
+    screen.getAllByText(m('milestone.costTrend.notMeasured')).length
+  ).toBeGreaterThan(0)
 })
 
 test('renders measured totals and expands one metric at a time', () => {
