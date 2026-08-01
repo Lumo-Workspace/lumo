@@ -2291,5 +2291,9 @@
   "milestone.list.archivedIncomplete": "未完了のままアーカイブ",
   "milestone.archiveConfirm.title": "未完了のマイルストーンをアーカイブしますか？",
   "milestone.archiveConfirm.body": "「{name}」には未完了のタスクが {remaining} 件あります。アーカイブすると既定の一覧に表示されなくなりますが、未完了のタスクは閉じられません。",
-  "milestone.archiveConfirm.confirm": "それでもアーカイブ"
+  "milestone.archiveConfirm.confirm": "それでもアーカイブ",
+  "milestone.section.description": "説明",
+  "milestone.section.tasks": "タスク",
+  "milestone.metrics.label": "マイルストーン指標",
+  "milestone.metrics.byMember": "メンバー別"
 }

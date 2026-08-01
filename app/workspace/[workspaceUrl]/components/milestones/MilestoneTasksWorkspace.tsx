@@ -25,11 +25,13 @@ interface MilestoneTasksWorkspaceProps {
 }
 
 /**
- * The milestone detail board/list. Loads the milestone's tasks (MyTask-shaped)
- * and renders the shared {@link TaskWorkspaceView} so it looks and behaves like
- * the sprint board — board/list toggle, cross-column status drag, bulk actions,
- * inline edits. No "Add task" affordance: NewTaskModal can't pre-bind a
- * milestone, so tasks join a milestone from task detail or the CLI.
+ * The milestone detail task list. Loads the milestone's tasks (MyTask-shaped)
+ * and renders the shared {@link TaskWorkspaceView} — the same toolbar,
+ * filters, bulk actions and inline edits the project list has. LUM-727: the
+ * milestone page is a single scrolling page, so the workspace runs list-only
+ * (no board toggle) and grows with the page instead of nesting a scrollbar.
+ * No "Add task" affordance: NewTaskModal can't pre-bind a milestone, so tasks
+ * join a milestone from task detail or the CLI.
  */
 export function MilestoneTasksWorkspace({
   milestoneId,
@@ -64,6 +66,9 @@ export function MilestoneTasksWorkspace({
       members={members}
       projects={projects}
       displayOptionsKey={`lumo:display:milestone:${milestoneId}`}
+      enableBoard={false}
+      defaultViewMode='list'
+      layout='flow'
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={onToggleSidebar}
       sidebarExpandLabel={intl.formatMessage({

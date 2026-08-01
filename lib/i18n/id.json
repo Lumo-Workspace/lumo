@@ -2291,5 +2291,9 @@
   "milestone.list.archivedIncomplete": "Diarsipkan saat belum selesai",
   "milestone.archiveConfirm.title": "Arsipkan milestone yang belum selesai?",
   "milestone.archiveConfirm.body": "“{name}” masih punya {remaining} tugas yang belum selesai. Setelah diarsipkan, milestone tidak lagi muncul di daftar bawaan, tetapi tugas yang belum selesai tetap terbuka.",
-  "milestone.archiveConfirm.confirm": "Tetap arsipkan"
+  "milestone.archiveConfirm.confirm": "Tetap arsipkan",
+  "milestone.section.description": "Deskripsi",
+  "milestone.section.tasks": "Tugas",
+  "milestone.metrics.label": "Metrik milestone",
+  "milestone.metrics.byMember": "Per anggota"
 }

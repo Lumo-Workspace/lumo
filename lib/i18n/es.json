@@ -2291,5 +2291,9 @@
   "milestone.list.archivedIncomplete": "Archivado sin terminar",
   "milestone.archiveConfirm.title": "¿Archivar un hito sin terminar?",
   "milestone.archiveConfirm.body": "«{name}» todavía tiene {remaining, plural, one {# tarea sin terminar} other {# tareas sin terminar}}. Al archivarlo, deja de aparecer en la lista predeterminada; las tareas sin terminar siguen abiertas.",
-  "milestone.archiveConfirm.confirm": "Archivar de todos modos"
+  "milestone.archiveConfirm.confirm": "Archivar de todos modos",
+  "milestone.section.description": "Descripción",
+  "milestone.section.tasks": "Tareas",
+  "milestone.metrics.label": "Métricas del hito",
+  "milestone.metrics.byMember": "Por miembro"
 }

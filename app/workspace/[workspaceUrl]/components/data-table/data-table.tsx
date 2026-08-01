@@ -63,6 +63,13 @@ interface DataTableProps<TData, TValue> {
   columnTemplate: string
   /** Empty-state text. */
   emptyLabel?: string
+  /**
+   * Render inside the page's own scroll flow: the table grows to its content
+   * instead of owning an internal scroll region, and virtualization is off
+   * (a virtualizer needs a bounded scroll parent). Used by single-page detail
+   * layouts that must not nest a second scrollbar.
+   */
+  flow?: boolean
 }
 
 const ROW_HEIGHT = 49 // px — rows are single-line
@@ -79,6 +86,7 @@ export function DataTable<TData, TValue>({
   getRowId,
   columnTemplate,
   emptyLabel,
+  flow,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -152,7 +160,8 @@ export function DataTable<TData, TValue>({
   })
 
   const rows = table.getRowModel().rows
-  const virtualize = shouldVirtualize(rows.length, LIST_VIRTUALIZE_THRESHOLD)
+  const virtualize =
+    !flow && shouldVirtualize(rows.length, LIST_VIRTUALIZE_THRESHOLD)
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -198,7 +207,7 @@ export function DataTable<TData, TValue>({
     <div
       ref={scrollRef}
       role='table'
-      className='flex-1 min-h-0 overflow-auto text-sm'
+      className={cn('text-sm', !flow && 'flex-1 min-h-0 overflow-auto')}
     >
       {/* ── Sticky header ────────────────────────────────────────────────── */}
       <div role='rowgroup'>

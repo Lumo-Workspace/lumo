@@ -25,7 +25,7 @@ import { DetailLayout } from '../DetailLayout'
 import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
 import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
-import { MilestoneDetailTabs } from '../milestones/MilestoneDetailTabs'
+import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
 
 interface MilestoneDetailPageProps {
   /** Open the global task drawer for a clicked task in the milestone board. */
@@ -218,11 +218,10 @@ export function MilestoneDetailPage({
       sidebarCollapsed={sidebarCollapsed}
       flushSidebar
     >
-      <MilestoneDetailTabs
+      <MilestoneDetailBody
         milestone={milestone}
         onUpdate={handleUpdate}
         members={members}
-        workspaceUrl={params.workspaceUrl}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={toggleSidebar}
         onOpenTask={onOpenTask ?? (() => {})}
