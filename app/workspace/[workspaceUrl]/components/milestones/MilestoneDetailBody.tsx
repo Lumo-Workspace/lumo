@@ -17,9 +17,6 @@ interface MilestoneDetailBodyProps {
   onUpdate: (fields: MilestoneUpdateInput) => void
   /** Workspace members, threaded into the description editor for @-mentions. */
   members: WorkspaceMemberInfo[]
-  /** Collapse state of the milestone properties rail (owned by the page). */
-  sidebarCollapsed: boolean
-  onToggleSidebar: () => void
   /** Open the task drawer for a clicked row. */
   onOpenTask: (task: MyTask) => void
 }
@@ -35,8 +32,6 @@ export function MilestoneDetailBody({
   milestone,
   onUpdate,
   members,
-  sidebarCollapsed,
-  onToggleSidebar,
   onOpenTask,
 }: MilestoneDetailBodyProps) {
   const intl = useIntl()
@@ -95,8 +90,6 @@ export function MilestoneDetailBody({
         </h2>
         <MilestoneTasksWorkspace
           milestoneId={milestone.id}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={onToggleSidebar}
           onOpenTask={onOpenTask}
         />
       </section>

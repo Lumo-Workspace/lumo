@@ -61,26 +61,23 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMentionSources', () => ({
 }))
 
 // The task table itself has its own suites; here we only assert THAT the
-// shared list is what renders, and with which columns.
+// shared list is what renders, with which columns, and over which rows.
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/task-list/TaskListView',
   () => ({
-    TaskListView: (p: { visibleColumns: string[]; flow?: boolean }) => (
+    TaskListView: (p: {
+      visibleColumns: string[]
+      flow?: boolean
+      tasks: { status: string }[]
+    }) => (
       <div
         data-testid='task-list'
         data-columns={p.visibleColumns.join(',')}
         data-flow={p.flow ? '1' : '0'}
+        data-statuses={p.tasks.map(t => t.status).join(',')}
       />
     ),
   })
-)
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/task-list/TaskFilterMenu',
-  () => ({ TaskFilterMenu: () => <div data-testid='filter-menu' /> })
-)
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/task-list/TaskFilterChips',
-  () => ({ TaskFilterChips: () => <div data-testid='filter-chips' /> })
 )
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/task-list/BulkActionBar',
@@ -91,13 +88,6 @@ jest.mock(
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/task-list/BulkDeleteConfirm',
   () => ({ BulkDeleteConfirm: () => null })
-)
-jest.mock('@/app/workspace/[workspaceUrl]/components/board/BoardView', () => ({
-  BoardView: () => <div data-testid='board' />,
-}))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/board/SortableTaskCard',
-  () => ({ MyTaskCard: () => null })
 )
 jest.mock('@/app/workspace/[workspaceUrl]/components/AsyncContent', () => ({
   AsyncContent: ({ children }: { children: React.ReactNode }) => (
@@ -114,7 +104,13 @@ jest.mock('@/lib/api-client', () => ({
 // `fetchProjects` — a fresh [] / closure per render loops forever. Each value
 // is created once inside the factory closure.
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMilestoneTasks', () => {
-  const tasks: never[] = []
+  // A DONE task rides along: the milestone list has no completed filter, so
+  // every task in the milestone must reach the table.
+  const tasks = [
+    { id: 't1', status: 'TODO', projectId: 'p1' },
+    { id: 't2', status: 'DONE', projectId: 'p1' },
+    { id: 't3', status: 'IN_PROGRESS', projectId: 'p1', parentTaskId: 't1' },
+  ]
   const refetch = () => {}
   return {
     useMilestoneTasks: () => ({
@@ -141,25 +137,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskBulkMutations', () => ({
     deleting: false,
     runBulkUpdate: () => {},
     runBulkDelete: () => {},
-  }),
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoardDrag', () => ({
-  useBoardDrag: () => ({
-    activeId: null,
-    onDragStart: () => {},
-    onDragOver: () => {},
-    onDragEnd: () => {},
-  }),
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoardSensors', () => ({
-  useBoardSensors: () => [],
-}))
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useDisplayOptions', () => ({
-  useDisplayOptions: () => ({
-    options: { completedFilter: 'all', ordering: 'manual', showSubtasks: true },
-    setCompletedFilter: () => {},
-    setOrdering: () => {},
-    setShowSubtasks: () => {},
   }),
 }))
 
@@ -208,8 +185,6 @@ const renderBody = (
       milestone={{ ...milestone, ...override } as ApiMilestone}
       onUpdate={onUpdate}
       members={[]}
-      sidebarCollapsed={false}
-      onToggleSidebar={() => {}}
       onOpenTask={() => {}}
     />
   )
@@ -260,7 +235,7 @@ test('commits an inline description edit through onUpdate and stays read-only wh
   expect(archivedUpdate).not.toHaveBeenCalled()
 })
 
-test('renders the shared task list with filters and bulk selection but no board/list toggle', () => {
+test('renders every milestone task in the shared list with no filter, display or view controls above it', () => {
   renderBody()
 
   const list = screen.getByTestId('task-list')
@@ -272,10 +247,23 @@ test('renders the shared task list with filters and bulk selection but no board/
   // Grown into the page's scroll flow — no second scrollbar inside the page.
   expect(list.getAttribute('data-flow')).toBe('1')
 
-  // The toolbar's filter entry point is still there…
-  expect(screen.getByTestId('filter-menu')).toBeInTheDocument()
-  // …and the board is never mounted, nor is its toggle offered.
-  expect(screen.queryByTestId('board')).not.toBeInTheDocument()
-  expect(screen.queryByLabelText(m('common.viewList'))).not.toBeInTheDocument()
-  expect(screen.queryByLabelText(m('common.viewBoard'))).not.toBeInTheDocument()
+  // Every task in the milestone reaches the table — DONE and subtasks
+  // included. The milestone IS the filter; nothing is hidden by default.
+  expect(list.getAttribute('data-statuses')).toBe('TODO,DONE,IN_PROGRESS')
+
+  // Nothing sits between the section heading and the table: no filter menu,
+  // no display (completed / ordering / subtasks) menu, no board toggle.
+  for (const id of [
+    'filter.menuTrigger',
+    'display.menuTrigger',
+    'common.viewList',
+    'common.viewBoard',
+  ]) {
+    expect(screen.queryByLabelText(m(id))).not.toBeInTheDocument()
+  }
+  const tasksHeading = screen.getByText(m('milestone.section.tasks'))
+  const between = [
+    ...(tasksHeading.parentElement?.querySelectorAll('button') ?? []),
+  ]
+  expect(between).toHaveLength(0)
 })

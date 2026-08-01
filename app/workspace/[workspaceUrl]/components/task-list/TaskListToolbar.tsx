@@ -15,12 +15,8 @@ interface Props {
   onOrderingChange: (value: TaskOrdering) => void
   showSubtasks: boolean
   onShowSubtasksChange: (value: boolean) => void
-  /**
-   * Board/list toggle. Omit both to hide the toggle entirely — used by scopes
-   * that only ship the list view (the milestone detail page).
-   */
-  viewMode?: 'list' | 'board'
-  onViewModeChange?: (mode: 'list' | 'board') => void
+  viewMode: 'list' | 'board'
+  onViewModeChange: (mode: 'list' | 'board') => void
   /**
    * The scope's filter entry point — rendered immediately before the Display
    * menu. Required (rather than optional) so a new board can't silently ship
@@ -83,9 +79,7 @@ export function TaskListToolbar({
           showSubtasks={showSubtasks}
           onShowSubtasksChange={onShowSubtasksChange}
         />
-        {viewMode !== undefined && onViewModeChange !== undefined && (
-          <ViewToggle value={viewMode} onChange={onViewModeChange} />
-        )}
+        <ViewToggle value={viewMode} onChange={onViewModeChange} />
         {onToggleSidebar && (
           <button
             type='button'

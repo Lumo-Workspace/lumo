@@ -77,18 +77,6 @@ interface TaskWorkspaceViewProps {
   visibleColumns?: ColumnId[]
   /** View mode on first mount. Defaults to 'board'. */
   defaultViewMode?: 'list' | 'board'
-  /**
-   * Offer the kanban board alongside the list. When false the workspace is
-   * list-only and the toolbar drops the board/list toggle — the milestone
-   * detail page, whose tasks read as one table in the page flow.
-   */
-  enableBoard?: boolean
-  /**
-   * `fill` (default) owns a bounded, internally-scrolling region — the sprint
-   * board shape. `flow` grows with the page's own scroll so a single-page
-   * detail layout never nests a second scrollbar.
-   */
-  layout?: 'fill' | 'flow'
 }
 
 /**
@@ -116,14 +104,8 @@ export function TaskWorkspaceView({
   emptyState,
   visibleColumns = DEFAULT_COLUMNS,
   defaultViewMode = 'board',
-  enableBoard = true,
-  layout = 'fill',
 }: TaskWorkspaceViewProps) {
-  const [storedViewMode, setViewMode] = useState<'list' | 'board'>(
-    defaultViewMode
-  )
-  const viewMode = enableBoard ? storedViewMode : 'list'
-  const flow = layout === 'flow'
+  const [viewMode, setViewMode] = useState<'list' | 'board'>(defaultViewMode)
   const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
     useDisplayOptions(displayOptionsKey)
 
@@ -238,11 +220,7 @@ export function TaskWorkspaceView({
   )
 
   return (
-    <div
-      className={
-        flow ? 'flex flex-col' : 'flex-1 flex flex-col overflow-hidden'
-      }
-    >
+    <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
       <div className='h-12 shrink-0 relative bg-background'>
         <TaskListToolbar
@@ -252,10 +230,8 @@ export function TaskWorkspaceView({
           onOrderingChange={setOrdering}
           showSubtasks={options.showSubtasks}
           onShowSubtasksChange={setShowSubtasks}
-          {...(enableBoard && {
-            viewMode,
-            onViewModeChange: setViewMode,
-          })}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           filterMenu={
             <TaskFilterMenu
               tasks={tasks}
@@ -290,27 +266,17 @@ export function TaskWorkspaceView({
       />
 
       {/* Content */}
-      <div
-        className={
-          flow ? 'flex flex-col' : 'flex-1 flex flex-col overflow-hidden'
-        }
-      >
+      <div className='flex-1 flex flex-col overflow-hidden'>
         <AsyncContent
           loading={loading}
           error={error}
           empty={filteredTasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
-          className={
-            flow ? 'flex flex-col' : 'flex-1 flex flex-col overflow-hidden'
-          }
+          className='flex-1 flex flex-col overflow-hidden'
           emptyState={emptyState}
         >
           {viewMode === 'list' ? (
-            <div
-              className={
-                flow ? 'flex flex-col' : 'flex-1 min-h-0 flex flex-col'
-              }
-            >
+            <div className='flex-1 min-h-0 flex flex-col'>
               <TaskListView
                 tasks={filteredTasks}
                 members={members}
@@ -321,7 +287,6 @@ export function TaskWorkspaceView({
                 onDeleteTask={handleDeleteTask}
                 rowSelection={rowSelection}
                 onRowSelectionChange={handleRowSelectionChange}
-                {...(flow ? { flow: true } : {})}
               />
             </div>
           ) : (
