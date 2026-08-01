@@ -328,7 +328,13 @@ export const milestoneService = {
    * `getMilestoneWithTeam`).
    */
   async getDeliveryStatsForMilestone(milestoneId: string) {
-    const taskIds = await milestoneRepository.taskIds(milestoneId)
+    // LUM-727: the same task set, now with its display identity so the BY
+    // TASK breakdown can label its rows.
+    const taskRefs = await milestoneRepository.taskRefs(milestoneId)
+    const taskIds = taskRefs.map(t => t.id)
+    const taskLabels = new Map(
+      taskRefs.map(t => [t.id, { ref: t.ref, title: t.title }])
+    )
     const [prRows, complexityRows, actualRows] = await Promise.all([
       pullRequestRepository.listStatesByTaskIds(taskIds),
       taskComplexityRepository.listByTaskIds(taskIds),
@@ -349,6 +355,7 @@ export const milestoneService = {
       sessionRows: actualRows.sessions,
       turnEvents: actualRows.turnEvents,
       memberLabels,
+      taskLabels,
     })
   },
 

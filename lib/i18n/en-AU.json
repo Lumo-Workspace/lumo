@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Description",
   "milestone.section.tasks": "Tasks",
   "milestone.metrics.label": "Milestone metrics",
-  "milestone.metrics.byMember": "By member"
+  "milestone.metrics.byTask": "By task",
+  "milestone.metrics.multiPr": "multi-PR"
 }

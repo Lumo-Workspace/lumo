@@ -58,9 +58,11 @@ function VolumeText({
 function ModelUsageBreakdown({
   models,
   unattributedTokens,
+  showLegend = false,
 }: {
   models: ModelUsageRow[] | undefined
   unattributedTokens?: number | undefined
+  showLegend?: boolean
 }) {
   const intl = useIntl()
   if (!models || models.length === 0) return null
@@ -113,18 +115,58 @@ function ModelUsageBreakdown({
           )}
         </p>
       )}
-      <div className='flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted-foreground'>
-        {MODEL_SEGMENTS.map(seg => (
-          <span key={seg.key} className='flex items-center gap-1'>
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${seg.bar}`}
-              aria-hidden='true'
-            />
-            {intl.formatMessage({ id: seg.labelId })}
-          </span>
-        ))}
-      </div>
+      {showLegend && (
+        <div className='flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted-foreground'>
+          {MODEL_SEGMENTS.map(seg => (
+            <span key={seg.key} className='flex items-center gap-1'>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${seg.bar}`}
+                aria-hidden='true'
+              />
+              {intl.formatMessage({ id: seg.labelId })}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
+  )
+}
+
+type TaskRow = NonNullable<
+  NonNullable<ApiMilestone['deliveryStats']>['perTask']
+>['rows'][number]
+
+function ByTaskHeading() {
+  const intl = useIntl()
+  return (
+    <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
+      {intl.formatMessage({ id: 'milestone.metrics.byTask' })}
+    </p>
+  )
+}
+
+/** An older server sends no perTask block, and a milestone can genuinely have
+ * no task carrying this signal — either way, say so rather than show zeros. */
+function NoTaskRows() {
+  const intl = useIntl()
+  return (
+    <p className='text-body text-muted-foreground'>
+      {intl.formatMessage({ id: 'milestone.costTrend.notMeasured' })}
+    </p>
+  )
+}
+
+/** `LUM-497 · title` — the row identity shared by all three BY TASK panels. */
+function TaskRowLabel({ row }: { row: TaskRow }) {
+  return (
+    <>
+      <span className='w-16 shrink-0 truncate font-mono text-caption text-muted-foreground'>
+        {row.ref ?? row.taskId.slice(0, 8)}
+      </span>
+      <span className='min-w-0 flex-1 truncate' title={row.title ?? undefined}>
+        {row.title ?? ''}
+      </span>
+    </>
   )
 }
 
@@ -218,8 +260,19 @@ export function MilestoneMetricStrip({
     </span>
   )
 
-  const perMemberRows = deliveryStats?.perMember?.rows ?? []
-  const maxActive = perMemberRows.reduce(
+  // BY TASK rows, one ordering per panel — each panel sorts by the number it
+  // renders, so the top row is always the one the reader came for.
+  const taskRows = deliveryStats?.perTask?.rows ?? []
+  const tokenRows = taskRows
+    .filter(r => r.tokenCost !== null)
+    .sort((a, b) => (b.tokenCost ?? 0) - (a.tokenCost ?? 0))
+  const timeRows = taskRows
+    .filter(r => r.activeTimeSec > 0)
+    .sort((a, b) => b.activeTimeSec - a.activeTimeSec)
+  const prRows = taskRows
+    .filter(r => r.prCount > 0)
+    .sort((a, b) => b.prCount - a.prCount)
+  const maxActive = timeRows.reduce(
     (max, r) => Math.max(max, r.activeTimeSec),
     0
   )
@@ -293,10 +346,40 @@ export function MilestoneMetricStrip({
         <div className='mt-2 max-w-2xl space-y-3 rounded-lg border border-border bg-card p-4'>
           {open === 'tokens' && costRollup && (
             <>
-              <ModelUsageBreakdown
-                models={costRollup.models}
-                unattributedTokens={costRollup.modelUnattributedTokens}
-              />
+              <ByTaskHeading />
+              {tokenRows.length === 0 ? (
+                <NoTaskRows />
+              ) : (
+                <ul className='space-y-3'>
+                  {tokenRows.map(row => (
+                    <li key={row.taskId} data-testid='metric-task-row'>
+                      <div className='flex items-baseline gap-2 text-caption'>
+                        <TaskRowLabel row={row} />
+                        <span className='shrink-0 font-semibold tabular-nums'>
+                          {fmtTokens(row.tokenCost ?? 0)}
+                        </span>
+                      </div>
+                      <div className='mt-1.5 pl-16'>
+                        <ModelUsageBreakdown
+                          models={row.models}
+                          unattributedTokens={row.modelUnattributedTokens}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                  <li className='flex flex-wrap gap-x-3 gap-y-1 pl-16 text-caption text-muted-foreground'>
+                    {MODEL_SEGMENTS.map(seg => (
+                      <span key={seg.key} className='flex items-center gap-1'>
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${seg.bar}`}
+                          aria-hidden='true'
+                        />
+                        {intl.formatMessage({ id: seg.labelId })}
+                      </span>
+                    ))}
+                  </li>
+                </ul>
+              )}
               <p className='text-caption text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'milestone.costTrend.coverage' },
@@ -312,47 +395,32 @@ export function MilestoneMetricStrip({
 
           {open === 'time' && (
             <>
-              <p className='text-caption font-semibold uppercase tracking-wider text-muted-foreground'>
-                {intl.formatMessage({ id: 'milestone.metrics.byMember' })}
-              </p>
-              {perMemberRows.length === 0 || !spendMeasured ? (
-                <p className='text-body text-muted-foreground'>
-                  {intl.formatMessage({
-                    id: 'milestone.costTrend.notMeasured',
-                  })}
-                </p>
+              <ByTaskHeading />
+              {timeRows.length === 0 ? (
+                <NoTaskRows />
               ) : (
                 <ul className='space-y-2'>
-                  {perMemberRows.map(row => (
+                  {timeRows.map(row => (
                     <li
-                      key={row.memberId ?? '__unattributed__'}
-                      data-testid='metric-member-row'
+                      key={row.taskId}
+                      data-testid='metric-task-row'
+                      className='flex items-center gap-2 text-caption'
                     >
-                      <div className='flex items-baseline justify-between gap-3 text-caption'>
-                        <span className='min-w-0 truncate'>
-                          {row.memberId === null
-                            ? intl.formatMessage({
-                                id: 'milestone.deliveryStats.unattributed',
-                              })
-                            : row.label}
-                        </span>
-                        <span className='shrink-0 font-semibold tabular-nums'>
-                          {formatDurationSec(intl, row.activeTimeSec)}
-                        </span>
+                      <TaskRowLabel row={row} />
+                      <div
+                        aria-hidden='true'
+                        className='h-1 w-24 shrink-0 overflow-hidden rounded-full bg-muted'
+                      >
+                        <span
+                          className='block h-full bg-chart-1'
+                          style={{
+                            width: `${maxActive > 0 ? (row.activeTimeSec / maxActive) * 100 : 0}%`,
+                          }}
+                        />
                       </div>
-                      {maxActive > 0 && (
-                        <div
-                          aria-hidden='true'
-                          className='mt-1 flex h-1 overflow-hidden rounded-full bg-muted'
-                        >
-                          <span
-                            className='bg-chart-1'
-                            style={{
-                              width: `${(row.activeTimeSec / maxActive) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      )}
+                      <span className='w-16 shrink-0 text-right font-semibold tabular-nums'>
+                        {formatDurationSec(intl, row.activeTimeSec)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -367,6 +435,52 @@ export function MilestoneMetricStrip({
 
           {open === 'prs' && deliveryStats && (
             <>
+              <ByTaskHeading />
+              {prRows.length === 0 ? (
+                <NoTaskRows />
+              ) : (
+                <ul className='space-y-2'>
+                  {prRows.map(row => (
+                    <li
+                      key={row.taskId}
+                      data-testid='metric-task-row'
+                      className='flex items-center gap-2 text-caption'
+                    >
+                      <TaskRowLabel row={row} />
+                      {row.multiPr && (
+                        <span
+                          data-testid='multi-pr-chip'
+                          className='shrink-0 rounded-full border border-[var(--warning-border)] bg-[var(--warning-subtle)] px-2 py-0.5 font-semibold'
+                        >
+                          {intl.formatMessage({
+                            id: 'milestone.metrics.multiPr',
+                          })}
+                        </span>
+                      )}
+                      <span className='w-14 shrink-0 text-right font-semibold tabular-nums'>
+                        {intl.formatMessage(
+                          { id: 'milestone.memberDelivery.prCount' },
+                          { count: row.prCount }
+                        )}
+                      </span>
+                      <span className='w-24 shrink-0 text-right font-semibold'>
+                        {row.changeVolume ? (
+                          <VolumeText
+                            additions={row.changeVolume.additions}
+                            deletions={row.changeVolume.deletions}
+                          />
+                        ) : (
+                          <span className='font-normal text-muted-foreground'>
+                            {intl.formatMessage({
+                              id: 'milestone.changeVolume.memberNone',
+                            })}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className='text-body text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'milestone.deliveryStats.reworkDetail' },

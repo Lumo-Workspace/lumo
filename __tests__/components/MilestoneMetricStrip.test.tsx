@@ -32,7 +32,7 @@ jest.mock('react-intl', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { ApiMilestone } from '@/lib/api-client'
 import { MilestoneMetricStrip } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneMetricStrip'
 
@@ -58,6 +58,44 @@ const measured = {
       deletions: 195,
       measuredPrs: 5,
       totalMergedPrs: 5,
+    },
+    perTask: {
+      rows: [
+        {
+          taskId: 't1',
+          ref: 'LUM-497',
+          title: 'reference-class anchors',
+          tokenCost: 201_200_000,
+          models: [
+            {
+              model: 'claude-opus-5',
+              total: 168_400_000,
+              output: 5_800_000,
+              input: 4_900_000,
+              cacheCreation: 25_600_000,
+              cacheRead: 132_100_000,
+            },
+          ],
+          modelUnattributedTokens: 0,
+          activeTimeSec: 7_500,
+          prCount: 4,
+          multiPr: true,
+          changeVolume: { additions: 2_100, deletions: 140, measuredPrs: 4 },
+        },
+        {
+          taskId: 't2',
+          ref: 'LUM-707',
+          title: 'deferred cleanups',
+          tokenCost: 82_300_000,
+          models: [],
+          modelUnattributedTokens: 82_300_000,
+          activeTimeSec: 3_240,
+          prCount: 1,
+          multiPr: false,
+          changeVolume: null,
+        },
+      ],
+      unattributedActiveTimeSec: 0,
     },
   },
 } as unknown as Props
@@ -141,7 +179,68 @@ test('renders measured totals and expands one metric at a time', () => {
     })
   )
   expect(tokensChip).toHaveAttribute('aria-expanded', 'false')
-  expect(screen.getByTestId('change-volume')).toBeInTheDocument()
+  // The PRs panel carries the per-task volumes plus the milestone total.
+  expect(screen.getAllByTestId('change-volume').length).toBeGreaterThan(0)
+})
+
+test('every panel breaks the metric down by task', () => {
+  render(<MilestoneMetricStrip {...measured} />)
+
+  const open = (labelId: string) =>
+    fireEvent.click(
+      screen.getByRole('button', { name: new RegExp(m(labelId)) })
+    )
+
+  // Tokens → one row per measured task, each with its own model split.
+  open('milestone.costTrend.tokens')
+  expect(screen.getAllByText(m('milestone.metrics.byTask'))).toHaveLength(1)
+  expect(screen.getAllByTestId('metric-task-row')).toHaveLength(2)
+  expect(screen.getByText('LUM-497')).toBeInTheDocument()
+  expect(screen.getByText('reference-class anchors')).toBeInTheDocument()
+  expect(screen.getByText('201.2M')).toBeInTheDocument()
+  expect(screen.getByText('claude-opus-5')).toBeInTheDocument()
+
+  // Active time → the same two tasks, read as durations.
+  open('milestone.costTrend.activeTime')
+  expect(screen.getAllByTestId('metric-task-row')).toHaveLength(2)
+  expect(screen.getByText('2h 5m')).toBeInTheDocument()
+  expect(screen.getByText('54m')).toBeInTheDocument()
+
+  // PRs → per-task counts, the multi-PR mark, and per-task change volume.
+  // The task with no measured merged PR states so — never a fabricated +0/−0.
+  open('milestone.deliveryStats.mergedPrs')
+  const prRows = screen.getAllByTestId('metric-task-row')
+  expect(prRows).toHaveLength(2)
+  expect(screen.getAllByTestId('multi-pr-chip')).toHaveLength(1)
+  // Row 1 carries its own measured volume; row 2 has none and says so.
+  expect(within(prRows[0]!).getByTestId('change-volume')).toHaveTextContent(
+    '+2.1K'
+  )
+  expect(within(prRows[1]!).queryByTestId('change-volume')).toBeNull()
+  expect(
+    within(prRows[1]!).getByText(m('milestone.changeVolume.memberNone'))
+  ).toBeInTheDocument()
+})
+
+test('states not-measured when the server sends no per-task breakdown', () => {
+  const { deliveryStats, ...rest } = measured as unknown as {
+    deliveryStats: Record<string, unknown>
+  } & Props
+  const withoutPerTask = {
+    ...rest,
+    deliveryStats: { ...deliveryStats, perTask: undefined },
+  } as unknown as Props
+
+  render(<MilestoneMetricStrip {...withoutPerTask} />)
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: new RegExp(m('milestone.costTrend.tokens')),
+    })
+  )
+  expect(screen.queryByTestId('metric-task-row')).not.toBeInTheDocument()
+  expect(
+    screen.getByText(m('milestone.costTrend.notMeasured'))
+  ).toBeInTheDocument()
 })
 
 test('renders nothing when the payload carries no rollup at all', () => {

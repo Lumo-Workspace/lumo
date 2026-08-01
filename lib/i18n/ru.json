@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Описание",
   "milestone.section.tasks": "Задачи",
   "milestone.metrics.label": "Показатели вехи",
-  "milestone.metrics.byMember": "По участникам"
+  "milestone.metrics.byTask": "По задачам",
+  "milestone.metrics.multiPr": "несколько PR"
 }

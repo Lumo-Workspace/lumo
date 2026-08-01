@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Penerangan",
   "milestone.section.tasks": "Tugasan",
   "milestone.metrics.label": "Metrik pencapaian",
-  "milestone.metrics.byMember": "Mengikut ahli"
+  "milestone.metrics.byTask": "Mengikut tugasan",
+  "milestone.metrics.multiPr": "berbilang PR"
 }

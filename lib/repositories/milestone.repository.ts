@@ -331,6 +331,32 @@ export const milestoneRepository = {
   },
 
   /**
+   * LUM-727: the member tasks' display identity (`<TEAM>-<number>` + title)
+   * for the per-task cost breakdown. Same task set as {@link taskIds}, one
+   * extra join to the team identifier — deliberately lighter than
+   * `segmentationRows` (no tags / sprint / status), because the breakdown
+   * only needs a label per row.
+   */
+  async taskRefs(
+    milestoneId: string
+  ): Promise<Array<{ id: string; ref: string; title: string }>> {
+    const rows = await prisma.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        team: { select: { identifier: true } },
+      },
+    })
+    return rows.map(r => ({
+      id: r.id,
+      ref: `${r.team.identifier}-${r.number}`,
+      title: r.title,
+    }))
+  },
+
+  /**
    * Raw rows for the LUM-633 per-member delivery rollup: every member task's
    * claim fields (SAME select as `outcomeRollupRows` — the member expansion
    * and the outcome section must not drift) plus the assignee-resolution

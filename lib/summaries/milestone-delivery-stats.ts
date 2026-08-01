@@ -74,6 +74,41 @@ export interface MilestoneDeliveryMemberRow {
   modelUnattributedTokens: number
 }
 
+/**
+ * LUM-727 — one member task's slice of the milestone's spend and delivery,
+ * the basis for the metric strip's BY TASK panels. Same sources and the same
+ * measured gates as the aggregate blocks above, so a panel's rows reconcile
+ * with the chip they hang under.
+ */
+export interface MilestoneTaskCostRow {
+  taskId: string
+  /** `<TEAM>-<number>` / title, resolved by the service. `null` when the task
+   * row could not be labelled — the id still renders, never an empty cell. */
+  ref: string | null
+  title: string | null
+  /** `null` = no usage-bearing session on this task (没测到 ≠ 花了0). */
+  tokenCost: number | null
+  /** Per-model split of this task's measured sessions; empty when none of
+   * them carries a `usageByModel` map. */
+  models: ModelCost[]
+  /** `tokenCost − Σ models.total`, clamped ≥0 — the flat-columns-only
+   * remainder, stated rather than folded into a model row. */
+  modelUnattributedTokens: number
+  /** Whole seconds, apportioned from the single round-once total the chip
+   * renders — the largest-remainder split keeps the Σ-identity exact. */
+  activeTimeSec: number
+  /** PRs of any state linked to this task. */
+  prCount: number
+  /** `prCount > 1` — the same churn reading as `pr.multiPrTaskCount`. */
+  multiPr: boolean
+  /** `null` = no measured merged PR here — never a fabricated `+0/−0`. */
+  changeVolume: {
+    additions: number
+    deletions: number
+    measuredPrs: number
+  } | null
+}
+
 export interface MilestoneDeliveryStats {
   pr: {
     /** PRs with state 'merged' across member tasks. */
@@ -124,6 +159,19 @@ export interface MilestoneDeliveryStats {
     activeTimeSec: number
     rows: MilestoneDeliveryMemberRow[]
   }
+  /**
+   * LUM-727 BY TASK breakdown — one row per member task that carries ANY
+   * signal (measured spend, active time, or a linked PR). Tasks with no
+   * signal are left out rather than rendered as fabricated zeros; the
+   * coverage counts above state how many of the milestone's tasks that is.
+   */
+  perTask: {
+    rows: MilestoneTaskCostRow[]
+    /** Active seconds that map to no member task (session-less hook events,
+     * sessions bound to a task outside the milestone). Stated so the rows'
+     * Σ + this reconciles with `perMember.activeTimeSec`. */
+    unattributedActiveTimeSec: number
+  }
 }
 
 export interface DeliveryStatsInput {
@@ -135,6 +183,9 @@ export interface DeliveryStatsInput {
   /** memberId → display label (best-effort; a missing id falls back to the
    * raw id so no row ever renders an empty cell). */
   memberLabels: Map<string, string>
+  /** LUM-727 taskId → `<TEAM>-<number>` + title for the BY TASK rows.
+   * Optional so pre-727 callers/fixtures degrade to id-only labels. */
+  taskLabels?: Map<string, { ref: string; title: string }>
 }
 
 /**
@@ -397,6 +448,83 @@ export function computeMilestoneDeliveryStats(
   let tokenSum = 0
   for (const v of tokenByMember.values()) tokenSum += v
 
+  // ---- Per-task rows (LUM-727) ------------------------------------------
+  // Same measured gate, same event stream, same rounding as the aggregates:
+  // the panels a chip expands into must reconcile with the chip itself.
+  const tokenByTask = new Map<string, number>()
+  const modelListsByTask = new Map<string, (ModelCost[] | null)[]>()
+  for (const s of sessionRows) {
+    if (s.taskId === null || !measuredTasks.has(s.taskId)) continue
+    tokenByTask.set(
+      s.taskId,
+      (tokenByTask.get(s.taskId) ?? 0) +
+        (s.inputTokens ?? 0) +
+        (s.outputTokens ?? 0) +
+        (s.cacheReadTokens ?? 0) +
+        (s.cacheCreationTokens ?? 0)
+    )
+    const lists = modelListsByTask.get(s.taskId) ?? []
+    lists.push(
+      toModelCosts(s.usageByModel as Record<string, ModelUsage> | null)
+    )
+    modelListsByTask.set(s.taskId, lists)
+  }
+
+  const taskBySession = new Map<string, string | null>()
+  for (const s of sessionRows) taskBySession.set(s.id, s.taskId)
+  const msByTask = new Map<string | null, number>()
+  for (const [sessionId, ms] of msBySession) {
+    // A session we can't map to a member task — including the '__none__'
+    // bucket of session-less events — lands in the explicit remainder.
+    const taskId = taskBySession.get(sessionId) ?? null
+    const key = taskId !== null && taskIdSet.has(taskId) ? taskId : null
+    msByTask.set(key, (msByTask.get(key) ?? 0) + ms)
+  }
+  // Apportion over the same total the chip renders (the remainder key
+  // included), so Σ(rows) + unattributed == activeTimeSec exactly.
+  const secByTask = apportionSeconds([...msByTask.entries()], activeTimeSec)
+
+  // A task earns a row when it carries ANY signal — measured spend, active
+  // time, or a linked PR. Signal-free tasks are omitted, never zero-filled.
+  const perTaskIds = [
+    ...new Set([
+      ...tokenByTask.keys(),
+      ...[...msByTask.keys()].filter((k): k is string => k !== null),
+      ...prCountByTask.keys(),
+    ]),
+  ].filter(id => taskIdSet.has(id))
+
+  const perTaskRows: MilestoneTaskCostRow[] = perTaskIds
+    .map(taskId => {
+      const label = input.taskLabels?.get(taskId) ?? null
+      const measured = measuredTasks.has(taskId)
+      const tokenCost = measured ? (tokenByTask.get(taskId) ?? 0) : null
+      const models = measured
+        ? mergeModelCosts(modelListsByTask.get(taskId) ?? [])
+        : []
+      const modelTotal = models.reduce((sum, m) => sum + m.total, 0)
+      const prCount = prCountByTask.get(taskId) ?? 0
+      return {
+        taskId,
+        ref: label?.ref ?? null,
+        title: label?.title ?? null,
+        tokenCost,
+        models,
+        modelUnattributedTokens: Math.max(0, (tokenCost ?? 0) - modelTotal),
+        activeTimeSec: secByTask.get(taskId) ?? 0,
+        prCount,
+        multiPr: prCount > 1,
+        changeVolume: volumeByTask.get(taskId) ?? null,
+      }
+    })
+    .filter(r => r.tokenCost !== null || r.activeTimeSec > 0 || r.prCount > 0)
+  perTaskRows.sort(
+    (a, b) =>
+      (b.tokenCost ?? 0) - (a.tokenCost ?? 0) ||
+      b.activeTimeSec - a.activeTimeSec ||
+      (a.ref ?? a.taskId).localeCompare(b.ref ?? b.taskId)
+  )
+
   return {
     pr: {
       mergedPrCount,
@@ -422,6 +550,10 @@ export function computeMilestoneDeliveryStats(
       tokenCost: measuredTasks.size > 0 ? tokenSum : null,
       activeTimeSec,
       rows,
+    },
+    perTask: {
+      rows: perTaskRows,
+      unattributedActiveTimeSec: secByTask.get(null) ?? 0,
     },
   }
 }

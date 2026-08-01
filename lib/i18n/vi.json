@@ -2290,5 +2290,6 @@
   "milestone.section.description": "Mô tả",
   "milestone.section.tasks": "Nhiệm vụ",
   "milestone.metrics.label": "Chỉ số cột mốc",
-  "milestone.metrics.byMember": "Theo thành viên"
+  "milestone.metrics.byTask": "Theo công việc",
+  "milestone.metrics.multiPr": "nhiều PR"
 }

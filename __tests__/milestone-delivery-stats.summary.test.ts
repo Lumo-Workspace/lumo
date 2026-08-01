@@ -344,4 +344,83 @@ describe('computeMilestoneDeliveryStats', () => {
     expect(bob.models).toEqual([])
     expect(bob.modelUnattributedTokens).toBe(10)
   })
+
+  it('per-task rows carry only tasks with signal and reconcile on active time', () => {
+    // t1: measured spend + active time + two PRs (multi-PR, one synced).
+    // t2: active time only, no usage-bearing session → unmeasured spend.
+    // t3: a member task with no signal at all → no row.
+    // s9: a session outside the milestone → its seconds are the remainder.
+    const turnEvents = [
+      ...turn('s1', '2026-01-05T10:00:00Z', 1.7),
+      ...turn('s2', '2026-01-05T11:00:00Z', 2.6),
+      ...turn('s9', '2026-01-05T12:00:00Z', 0.9),
+    ]
+    const sessionRows = [
+      session({
+        id: 's1',
+        taskId: 't1',
+        workspaceMemberId: 'mA',
+        inputTokens: 7,
+        outputTokens: 3,
+        cacheReadTokens: 1,
+        cacheCreationTokens: 2,
+      }),
+      // No outputTokens → t2 never passes the measured gate.
+      session({ id: 's2', taskId: 't2', workspaceMemberId: 'mA' }),
+      session({ id: 's9', taskId: 'outside', workspaceMemberId: 'mA' }),
+    ]
+    const stats = computeMilestoneDeliveryStats({
+      taskIds: ['t1', 't2', 't3'],
+      prRows: [
+        {
+          taskId: 't1',
+          state: 'merged',
+          additions: 120,
+          deletions: 8,
+          changedFiles: 4,
+        },
+        { taskId: 't1', state: 'merged' },
+      ],
+      complexityRows: [],
+      sessionRows,
+      turnEvents,
+      memberLabels: new Map(),
+      taskLabels: new Map([
+        ['t1', { ref: 'LUM-497', title: 'reference-class anchors' }],
+        ['t2', { ref: 'LUM-707', title: 'deferred cleanups' }],
+        ['t3', { ref: 'LUM-499', title: 'design philosophy doc' }],
+      ]),
+    })
+
+    expect(stats.perTask.rows.map(r => r.ref)).toEqual(['LUM-497', 'LUM-707'])
+
+    const t1 = stats.perTask.rows.find(r => r.taskId === 't1')!
+    expect(t1.title).toBe('reference-class anchors')
+    expect(t1.tokenCost).toBe(13)
+    expect(t1.prCount).toBe(2)
+    expect(t1.multiPr).toBe(true)
+    // Only the synced PR is summed; the unsynced one is coverage, not a 0.
+    expect(t1.changeVolume).toEqual({
+      additions: 120,
+      deletions: 8,
+      measuredPrs: 1,
+    })
+
+    // Unmeasured spend reads null, never a fabricated 0.
+    const t2 = stats.perTask.rows.find(r => r.taskId === 't2')!
+    expect(t2.tokenCost).toBeNull()
+    expect(t2.models).toEqual([])
+    expect(t2.changeVolume).toBeNull()
+
+    // Σ-identity: per-task seconds + the out-of-milestone remainder equal the
+    // single rounded total the chip renders.
+    const rowSeconds = stats.perTask.rows.reduce(
+      (sum, r) => sum + r.activeTimeSec,
+      0
+    )
+    expect(rowSeconds + stats.perTask.unattributedActiveTimeSec).toBe(
+      sumActiveDurationSec(turnEvents)
+    )
+    expect(stats.perTask.unattributedActiveTimeSec).toBeGreaterThan(0)
+  })
 })
