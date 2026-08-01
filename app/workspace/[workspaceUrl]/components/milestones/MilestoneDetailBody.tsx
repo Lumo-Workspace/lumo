@@ -48,8 +48,6 @@ export function MilestoneDetailBody({
           startDate={milestone.startDate}
           derivedStartDate={milestone.derivedStartDate ?? null}
           targetDate={milestone.targetDate}
-          summaryTldr={milestone.summaryTldr ?? null}
-          sprintCoverage={milestone.sprintCoverage ?? null}
           onUpdate={onUpdate}
           archived={archived}
         />

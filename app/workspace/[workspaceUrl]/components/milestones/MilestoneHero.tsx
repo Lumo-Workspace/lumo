@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import { useIntl } from 'react-intl'
 import type { TaskStatus } from '@prisma/client'
-import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import type { MilestoneUpdateInput } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 import { useFormatDate } from '../../hooks/useFormatDate'
 import { DATE_OPTS, HEALTH_DOT } from './milestoneDisplay'
@@ -21,25 +21,20 @@ interface MilestoneHeroProps {
    * the activity-derived start shown when no explicit startDate was set. */
   derivedStartDate: string | null
   targetDate: string | null
-  /** One-line key outcome from the generated retro; null until generated. */
-  summaryTldr: string | null
-  /** Covering sprints, for the eyebrow — null/empty renders "Milestone" alone. */
-  sprintCoverage: ApiMilestone['sprintCoverage']
   onUpdate: (fields: MilestoneUpdateInput) => void
   archived?: boolean
 }
 
 /**
- * LUM-636 mission-control hero: progress ring (done/total), eyebrow with the
- * covering sprints, inline-editable name, one-line key outcome, and a right
- * column of health / start / target stat rows. Honest by construction — a
- * missing value renders an explicit placeholder ("Not set", "Unavailable"),
- * never a fabricated number, and schedule health states why it is off until
- * a target date exists.
+ * The milestone hero: progress ring (done/total), inline-editable name, and a
+ * right column of health / start / target stat rows. Honest by construction —
+ * a missing value renders an explicit placeholder ("Not set", "Unavailable"),
+ * never a fabricated number.
  *
  * The ring reads completion only — done tasks over total. The LUM-650
  * complexity-weighted dual-read was removed in LUM-727: one number, one
- * meaning.
+ * meaning. LUM-727 also dropped the eyebrow, the key-outcome line and the
+ * schedule hint — the hero is the title and the numbers, nothing else.
  */
 export function MilestoneHero({
   name,
@@ -48,8 +43,6 @@ export function MilestoneHero({
   startDate,
   derivedStartDate,
   targetDate,
-  summaryTldr,
-  sprintCoverage,
   onUpdate,
   archived = false,
 }: MilestoneHeroProps) {
@@ -63,15 +56,6 @@ export function MilestoneHero({
     : 0
   const pct = total > 0 ? Math.round((done / total) * 100) : null
 
-  const sprintNames = (sprintCoverage?.sprints ?? []).map(s => s.name)
-  const eyebrow =
-    sprintNames.length > 0
-      ? intl.formatMessage(
-          { id: 'milestone.hero.eyebrowWithSprints' },
-          { sprints: sprintNames.join(' · ') }
-        )
-      : intl.formatMessage({ id: 'milestone.hero.eyebrow' })
-
   const statRow = (labelId: string, value: React.ReactNode) => (
     <div className='flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2.5 text-sm'>
       <span className='text-muted-foreground'>
@@ -84,7 +68,7 @@ export function MilestoneHero({
   return (
     <section
       aria-label={intl.formatMessage({ id: 'milestone.rollup.label' })}
-      className='mb-8 flex flex-col gap-8 border-b border-border pb-8 lg:flex-row lg:items-center'
+      className='mb-8 flex flex-col gap-8 lg:flex-row lg:items-center'
     >
       {/* Progress ring — the one graphic; --chart-1 is the single-series color.
           One reading only: completed tasks over total. */}
@@ -140,11 +124,8 @@ export function MilestoneHero({
         </div>
       </div>
 
-      {/* Eyebrow, editable title, key outcome. */}
+      {/* The editable title, on its own. */}
       <div className='min-w-0 flex-1'>
-        <p className='mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground'>
-          {eyebrow}
-        </p>
         <h1
           key={name}
           contentEditable={!archived}
@@ -169,23 +150,10 @@ export function MilestoneHero({
               e.currentTarget.blur()
             }
           }}
-          className='mb-3 cursor-text text-heading font-bold leading-snug tracking-tight outline-none focus:outline-none'
+          className='cursor-text text-heading font-bold leading-snug tracking-tight outline-none focus:outline-none'
         >
           {name}
         </h1>
-        <p className='text-body leading-relaxed'>
-          <span className='font-semibold'>
-            {intl.formatMessage({ id: 'milestone.rollup.keyOutcome' })}
-          </span>
-          <span className='text-muted-foreground'> — </span>
-          {summaryTldr ? (
-            <span className='text-foreground/80'>{summaryTldr}</span>
-          ) : (
-            <span className='text-muted-foreground'>
-              {intl.formatMessage({ id: 'milestone.rollup.noOutcome' })}
-            </span>
-          )}
-        </p>
       </div>
 
       {/* Health / start / target stat column. */}
@@ -285,11 +253,6 @@ export function MilestoneHero({
               />
             </span>
           )
-        )}
-        {!targetDate && !archived && (
-          <p className='mx-1 text-[11px] leading-normal text-muted-foreground'>
-            {intl.formatMessage({ id: 'milestone.hero.scheduleHint' })}
-          </p>
         )}
       </div>
     </section>
