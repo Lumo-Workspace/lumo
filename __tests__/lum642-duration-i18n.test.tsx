@@ -7,7 +7,7 @@
  *  1. the shared duration helper is byte-identical to the old per-component
  *     formatters in `en` and localizes units in `zh-CN`;
  *  2. the task-level cost card (CostSection) and the milestone KPI
- *     (MilestoneCostTrendSection) both render active time through it;
+ *     (MilestoneMetricStrip) both render active time through it;
  *  3. the three TaskDetailTimeline cards render a localized relative-ago
  *     instead of the old hardcoded-English copies;
  *  4. the shared documents relative-time helper pins the unified <60s branch.
@@ -62,7 +62,7 @@ import zh from '@/lib/i18n/zh-CN.json'
 import { formatDurationSec, formatDurationMs } from '@/lib/datetime/duration'
 import { formatRelativeAgo, formatRelativeTime } from '@/lib/datetime/relative'
 import { CostSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/HonestReportSections'
-import { MilestoneCostTrendSection } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneCostTrendSection'
+import { MilestoneMetricStrip } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneMetricStrip'
 import { SlackContextCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SlackContextCard'
 import { FigmaLinkCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/FigmaLinkCard'
 import { WebLinkCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/WebLinkCard'
@@ -107,18 +107,16 @@ describe('lum642 cost surfaces (zh-CN render)', () => {
     expect(cost.container.textContent).toContain('2 小时 14 分钟')
     cost.unmount()
 
-    // Milestone KPI — same seconds, same helper, plus the tabular-nums cell.
+    // Milestone metric chip — same seconds, same helper, tabular-nums cell.
     const { container } = render(
-      <MilestoneCostTrendSection
+      <MilestoneMetricStrip
         costRollup={{
           tokenCost: 1_234_000,
           activeTimeSec: 8100,
           measuredTasks: 5,
           totalTasks: 8,
         }}
-        burnup={undefined}
         deliveryStats={undefined}
-        memberDelivery={undefined}
       />
     )
     const kpi = screen.getByText('2 小时 15 分钟')

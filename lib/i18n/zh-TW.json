@@ -2291,5 +2291,9 @@
   "milestone.list.archivedIncomplete": "未完成即封存",
   "milestone.archiveConfirm.title": "封存未完成的里程碑？",
   "milestone.archiveConfirm.body": "「{name}」還有 {remaining} 個任務未完成。封存後它不再出現在預設清單裡，未完成的任務不會被關閉。",
-  "milestone.archiveConfirm.confirm": "仍要封存"
+  "milestone.archiveConfirm.confirm": "仍要封存",
+  "milestone.section.description": "描述",
+  "milestone.section.tasks": "任務",
+  "milestone.metrics.label": "里程碑指標",
+  "milestone.metrics.byMember": "依成員"
 }

@@ -2291,5 +2291,9 @@
   "milestone.list.archivedIncomplete": "Lưu trữ khi chưa hoàn thành",
   "milestone.archiveConfirm.title": "Lưu trữ mốc chưa hoàn thành?",
   "milestone.archiveConfirm.body": "“{name}” vẫn còn {remaining} công việc chưa hoàn thành. Sau khi lưu trữ, mốc sẽ không còn xuất hiện trong danh sách mặc định nhưng các công việc chưa hoàn thành vẫn mở.",
-  "milestone.archiveConfirm.confirm": "Vẫn lưu trữ"
+  "milestone.archiveConfirm.confirm": "Vẫn lưu trữ",
+  "milestone.section.description": "Mô tả",
+  "milestone.section.tasks": "Nhiệm vụ",
+  "milestone.metrics.label": "Chỉ số cột mốc",
+  "milestone.metrics.byMember": "Theo thành viên"
 }

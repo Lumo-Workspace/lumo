@@ -34,6 +34,9 @@ interface Props {
   /** Project-tasks only — enables the subtask expand/collapse tree. */
   treeConfig?: TreeConfig
   emptyLabel?: string
+  /** Grow with the page's scroll flow instead of owning an internal scroll
+   * region — see {@link DataTable}'s `flow`. */
+  flow?: boolean
 }
 
 /**
@@ -73,11 +76,14 @@ export function TaskListView(props: Props) {
   )
 
   return (
-    <div className='flex flex-col flex-1 min-h-0'>
+    <div
+      className={props.flow ? 'flex flex-col' : 'flex flex-col flex-1 min-h-0'}
+    >
       <DataTable
         columns={columns}
         data={props.tasks}
         columnTemplate={columnTemplate}
+        {...(props.flow ? { flow: true } : {})}
         onRowClick={props.onTaskClick}
         enableSelection
         rowSelection={props.rowSelection}
