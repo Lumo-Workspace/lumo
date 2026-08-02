@@ -44,7 +44,7 @@ describe('format helpers strip control chars', () => {
 
   it('formatMilestoneUpdateSummary strips ESC from milestone names', () => {
     const out = formatMilestoneUpdateSummary(
-      { name: 'v1\x1b.0', status: 'planned' },
+      { name: 'v1\x1b.0' },
       { name: 'v2\x1b.0' }
     )
     expect(out).not.toMatch(/\x1b/)
@@ -112,7 +112,7 @@ describe('format helpers strip control chars', () => {
       {
         id: 'm1',
         name: 'v1\x1b.0',
-        status: 'ACTIVE',
+        completedAt: null,
         targetDate: null,
         createdAt: '2026-01-01',
         archivedAt: null,
@@ -147,7 +147,7 @@ describe('format helpers strip control chars', () => {
           milestone: {
             id: 'm1',
             name: 'v\x1b1',
-            status: 'ACTIVE',
+            state: 'active' as const,
             targetDate: null,
           },
         },
@@ -194,7 +194,7 @@ describe('format helpers strip control chars', () => {
       {
         id: 'm1',
         name: 'v1\x1b.0',
-        status: 'ACTIVE',
+        completedAt: null,
         startDate: null,
         targetDate: null,
         archivedAt: null,

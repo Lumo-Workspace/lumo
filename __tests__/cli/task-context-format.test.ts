@@ -254,17 +254,17 @@ describe('formatTaskContextMarkdown — milestone', () => {
   const milestoneBase = {
     id: 'ms_1',
     name: 'Milestone 功能增强',
-    status: 'ACTIVE' as const,
+    state: 'active' as const,
     targetDate: '2026-08-31T00:00:00.000Z',
   }
 
-  it('renders the Milestone header line with status and target date', () => {
+  it('renders the Milestone header line with state and target date', () => {
     const md = formatTaskContextMarkdown(
       { task: { ...baseTask, milestone: milestoneBase }, sessions: [] } as any,
       now
     )
     expect(md).toContain(
-      '**Milestone**: Milestone 功能增强 (ACTIVE, target 2026-08-31)'
+      '**Milestone**: Milestone 功能增强 (active, target 2026-08-31)'
     )
   })
 

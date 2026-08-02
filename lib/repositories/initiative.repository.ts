@@ -93,7 +93,8 @@ const INITIATIVE_COMPOSITION_SELECT = {
       id: true,
       name: true,
       slug: true,
-      status: true,
+      completedAt: true,
+      archivedAt: true,
       tasks: {
         select: { id: true, number: true, title: true, status: true },
         orderBy: { number: 'asc' },

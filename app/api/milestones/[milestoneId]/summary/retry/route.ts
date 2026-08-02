@@ -26,9 +26,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       identity.memberId
     )
 
-    if (milestone.status !== 'COMPLETED') {
+    if (milestone.completedAt === null) {
       return NextResponse.json(
-        { error: 'Milestone must be COMPLETED to retry retro generation' },
+        { error: 'Milestone must be completed to retry retro generation' },
         { status: 400 }
       )
     }

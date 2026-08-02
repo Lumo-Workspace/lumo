@@ -105,7 +105,6 @@ function milestone(
     projectId: 'p-1',
     slug: over.name.toLowerCase().replace(/\s+/g, '-'),
     description: null,
-    status: 'ACTIVE',
     startDate: null,
     targetDate: null,
     completedAt: null,
@@ -129,7 +128,7 @@ const list: ApiMilestone[] = [
   milestone({
     id: 'm3',
     name: 'Shipped one',
-    status: 'COMPLETED',
+    completedAt: '2026-06-01T00:00:00.000Z',
     archivedAt: '2026-07-01T00:00:00.000Z',
     taskCounts: counts(5, 0),
   }),

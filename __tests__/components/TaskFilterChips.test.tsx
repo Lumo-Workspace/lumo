@@ -124,7 +124,7 @@ describe('TaskFilterChips', () => {
         sprintId: 's1',
         sprint: { name: 'Sprint 12' },
         milestoneId: 'm1',
-        milestone: { name: 'Q3 Launch', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q3 Launch', completedAt: null, archivedAt: null },
       }),
     ])
 

@@ -75,7 +75,7 @@ const COMPLETED_MILESTONE = {
   id: 'ms-1',
   projectId: 'proj-1',
   name: 'v1.0',
-  status: 'COMPLETED',
+  completedAt: new Date('2026-04-20'),
   startDate: new Date('2026-04-06'),
   targetDate: new Date('2026-04-20'),
 }
@@ -155,10 +155,10 @@ describe('milestoneSummaryService.generate', () => {
     expect(mockComputeStatsData).not.toHaveBeenCalled()
   })
 
-  it('throws 400 when milestone is not COMPLETED', async () => {
+  it('throws 400 when the milestone has not completed', async () => {
     mockFindMilestone.mockResolvedValueOnce({
       ...COMPLETED_MILESTONE,
-      status: 'ACTIVE',
+      completedAt: null,
     })
     await expect(
       milestoneSummaryService.generate('ms-1')

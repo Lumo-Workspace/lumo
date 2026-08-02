@@ -7,12 +7,15 @@ type MilestoneUpdate = Partial<
     Milestone,
     | 'name'
     | 'description'
-    | 'status'
     | 'startDate'
     | 'targetDate'
     | 'completedAt'
     | 'sortOrder'
     | 'tokenBudget'
+    // LUM-643 close-gate override trail, stamped by the LUM-714 override path.
+    | 'completedOverrideAt'
+    | 'completedOverrideByMemberId'
+    | 'completedOverrideNote'
   >
 >
 
@@ -103,19 +106,19 @@ export const milestoneRepository = {
   },
 
   /**
-   * Guarded status write for the rollup reconciler: only applies when the row
-   * still holds `expectedStatus`, so a concurrent manual status change (e.g.
-   * a human setting CANCELLED) is never clobbered by a stale derivation.
+   * Guarded completion write for the rollup reconciler (LUM-714): only applies
+   * while the row still holds the `completedAt` the derivation was computed
+   * from, so a concurrent write is never clobbered by a stale derivation.
    * Returns true when the row was updated.
    */
-  async updateStatusIfCurrent(
+  async updateCompletionIfCurrent(
     id: string,
-    expectedStatus: Milestone['status'],
-    data: Pick<MilestoneUpdate, 'status' | 'completedAt'>
+    expectedCompletedAt: Date | null,
+    completedAt: Date | null
   ): Promise<boolean> {
     const result = await prisma.milestone.updateMany({
-      where: { id, status: expectedStatus },
-      data,
+      where: { id, completedAt: expectedCompletedAt },
+      data: { completedAt },
     })
     return result.count === 1
   },
@@ -177,10 +180,10 @@ export const milestoneRepository = {
   },
 
   /**
-   * LUM-649 changelog baseline: ids of the OTHER COMPLETED milestones in the
+   * LUM-649 changelog baseline: ids of the OTHER completed milestones in the
    * same project — the reference class the changelog's headline counts are
    * baselined against. Excludes the milestone being reported so it never
-   * baselines against itself.
+   * baselines against itself. Completion is `completedAt` since LUM-714.
    */
   async listCompletedIdsInProject(
     projectId: string,
@@ -189,7 +192,7 @@ export const milestoneRepository = {
     const rows = await prisma.milestone.findMany({
       where: {
         projectId,
-        status: 'COMPLETED',
+        completedAt: { not: null },
         id: { not: excludeMilestoneId },
       },
       select: { id: true },

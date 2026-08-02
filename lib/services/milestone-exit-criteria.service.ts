@@ -42,7 +42,7 @@ async function authorizeMilestone(milestoneId: string, memberId: string) {
 
 function assertContractEditable(milestone: {
   archivedAt: Date | null
-  status: string
+  completedAt: Date | null
 }) {
   if (milestone.archivedAt) {
     throw Object.assign(
@@ -50,10 +50,10 @@ function assertContractEditable(milestone: {
       { status: 409 }
     )
   }
-  if (milestone.status === 'COMPLETED') {
+  if (milestone.completedAt !== null) {
     throw Object.assign(
       new Error(
-        'Milestone is COMPLETED — the exit-criteria contract is locked. Reopen the milestone to change it.'
+        'Milestone is completed — the exit-criteria contract is locked. Reopen it (move a task back off DONE) to change the contract.'
       ),
       { status: 409 }
     )

@@ -185,7 +185,7 @@ describe('TaskFilterMenu', () => {
     renderMenu([
       task({
         milestoneId: 'm1',
-        milestone: { name: 'Q3 Launch', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q3 Launch', completedAt: null, archivedAt: null },
       }),
       task({ milestoneId: null }),
     ])
@@ -205,17 +205,17 @@ describe('TaskFilterMenu', () => {
         milestoneId: 'm_done',
         milestone: {
           name: 'Q2 (shipped)',
-          status: 'COMPLETED',
+          completedAt: '2026-06-01T00:00:00.000Z',
           archivedAt: null,
         },
       }),
       task({
         milestoneId: 'm_live',
-        milestone: { name: 'Q3 Launch', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q3 Launch', completedAt: null, archivedAt: null },
       }),
       task({
         milestoneId: 'm_next',
-        milestone: { name: 'Q4 Launch', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q4 Launch', completedAt: null, archivedAt: null },
       }),
     ])
     openMenu()
@@ -232,13 +232,13 @@ describe('TaskFilterMenu', () => {
         sprintId: 's1',
         sprint: { name: 'Sprint 12' },
         milestoneId: 'm1',
-        milestone: { name: 'Q3', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q3', completedAt: null, archivedAt: null },
       }),
       task({
         sprintId: 's1',
         sprint: { name: 'Sprint 12' },
         milestoneId: 'm2',
-        milestone: { name: 'Q4', status: 'ACTIVE', archivedAt: null },
+        milestone: { name: 'Q4', completedAt: null, archivedAt: null },
       }),
     ])
     openMenu()

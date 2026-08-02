@@ -27,6 +27,7 @@ import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
 import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailBody } from '../milestones/MilestoneDetailBody'
+import { milestoneState } from '@/lib/summaries/milestone-state'
 
 interface MilestoneDetailPageProps {
   /** Open the global task drawer for a clicked task in the milestone board. */
@@ -230,11 +231,10 @@ export function MilestoneDetailPage({
       sidebar={
         <div className='flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
           <MilestoneSidebar
-            status={milestone.status}
+            state={milestoneState(milestone)}
             startDate={milestone.startDate}
             targetDate={milestone.targetDate}
             archived={archived}
-            statusDrift={milestone.staleness?.statusDrift ?? null}
             datesMissing={milestone.staleness?.datesMissing ?? false}
             onUpdate={handleUpdate}
           />

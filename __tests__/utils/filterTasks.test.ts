@@ -18,13 +18,25 @@ import type { MyTask } from '@/app/workspace/[workspaceUrl]/types'
 /** A fixed "now" so due-date buckets are deterministic: local noon, 2026-07-29. */
 const NOW = new Date(2026, 6, 29, 12, 0, 0).getTime()
 
-type MilestoneStatusLiteral = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
-
-/** A task bound to a milestone, ACTIVE and un-archived unless told otherwise. */
-function inMilestone(id: string, status: MilestoneStatusLiteral = 'ACTIVE') {
+/**
+ * A task bound to a milestone. LUM-714: a milestone is in flight unless it
+ * carries a completion stamp or an archive stamp, so the fixture takes those
+ * two timestamps instead of a status.
+ */
+function inMilestone(
+  id: string,
+  state: 'active' | 'completed' | 'archived' = 'active'
+) {
   return {
     milestoneId: id,
-    milestone: { id, name: `Milestone ${id}`, status, archivedAt: null },
+    milestone: {
+      id,
+      name: `Milestone ${id}`,
+      completedAt:
+        state === 'completed' ? '2026-06-01T00:00:00.000Z' : (null as null),
+      archivedAt:
+        state === 'archived' ? '2026-06-01T00:00:00.000Z' : (null as null),
+    },
   }
 }
 
@@ -198,19 +210,21 @@ describe('filterTasks', () => {
     ).toEqual(['unbound'])
   })
 
-  it('only considers ACTIVE, non-archived milestones', () => {
+  // LUM-714: "active" is no longer a status to match — it is the absence of
+  // both stamps. The old PLANNED case has no successor: a milestone whose
+  // tasks have not started is simply active, and is offered like any other.
+  it('only considers in-flight (uncompleted, un-archived) milestones', () => {
     const tasks = [
       makeTask({ id: 'active', ...inMilestone('m_active') }),
-      makeTask({ id: 'planned', ...inMilestone('m_planned', 'PLANNED') }),
-      makeTask({ id: 'completed', ...inMilestone('m_done', 'COMPLETED') }),
-      makeTask({ id: 'cancelled', ...inMilestone('m_cancel', 'CANCELLED') }),
+      makeTask({ id: 'completed', ...inMilestone('m_done', 'completed') }),
+      makeTask({ id: 'cancelled', ...inMilestone('m_cancel', 'archived') }),
       makeTask({
         id: 'archived',
         milestoneId: 'm_arch',
         milestone: {
           id: 'm_arch',
           name: 'Archived',
-          status: 'ACTIVE' as const,
+          completedAt: null,
           archivedAt: '2026-06-01T00:00:00.000Z',
         },
       }),
@@ -230,11 +244,7 @@ describe('filterTasks', () => {
     ).toEqual(['active'])
     // A non-active milestone matches neither its own id...
     expect(
-      filterTasks(
-        tasks,
-        { milestone: ['m_planned', 'm_done', 'm_cancel', 'm_arch'] },
-        NOW
-      )
+      filterTasks(tasks, { milestone: ['m_done', 'm_cancel', 'm_arch'] }, NOW)
     ).toEqual([])
     // ...nor the "no milestone" bucket — it has one, just not an active one.
     expect(
@@ -279,7 +289,7 @@ describe('filterTasks', () => {
       milestone: {
         id: 'ms_1',
         name: 'Q3',
-        status: 'ACTIVE' as const,
+        completedAt: null,
         archivedAt: null,
       },
       tags: [tag],

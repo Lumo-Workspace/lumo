@@ -1,4 +1,4 @@
-import type { MilestoneStatus, TaskStatus } from '@prisma/client'
+import type { TaskStatus } from '@prisma/client'
 
 /**
  * Deadline-based health light for a milestone, inferred from its target date
@@ -9,7 +9,14 @@ import type { MilestoneStatus, TaskStatus } from '@prisma/client'
 export type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 
 export interface MilestoneHealthInput {
-  status: MilestoneStatus
+  /**
+   * The derived completion stamp (LUM-714). Non-null = the milestone is done;
+   * no schedule light applies. Replaces the COMPLETED/CANCELLED status check —
+   * a cancelled milestone is an archived one now, and `archived` covers it.
+   */
+  completedAt: Date | null
+  /** Archived milestones are put away by a human; no light applies. */
+  archived: boolean
   startDate: Date | null
   targetDate: Date | null
   /** Number of DONE tasks under the milestone. */
@@ -29,7 +36,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Returns the milestone's health light, or `null` when a light does not apply
- * (terminal status, or no target date to measure against).
+ * (completed, archived, or no target date to measure against).
  *
  *  - `overdue`   — past the END of the target day with tasks still open
  *  - `at-risk`   — behind schedule (completion lags elapsed time) or, when no
@@ -47,10 +54,11 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export function computeMilestoneHealth(
   input: MilestoneHealthInput
 ): MilestoneHealth | null {
-  const { status, startDate, targetDate, done, total, now } = input
+  const { completedAt, archived, startDate, targetDate, done, total, now } =
+    input
 
   // A health light only makes sense for in-flight milestones with a target.
-  if (status === 'COMPLETED' || status === 'CANCELLED') return null
+  if (completedAt !== null || archived) return null
   if (!targetDate) return null
 
   // Work is finished — never warn, even if the target date slipped by.
@@ -95,7 +103,8 @@ function clamp01(n: number): number {
  */
 export function milestoneHealthFromCounts(
   milestone: {
-    status: MilestoneStatus
+    completedAt: Date | null
+    archivedAt: Date | null
     startDate: Date | null
     targetDate: Date | null
   },
@@ -108,7 +117,8 @@ export function milestoneHealthFromCounts(
     taskCounts.IN_REVIEW +
     taskCounts.DONE
   return computeMilestoneHealth({
-    status: milestone.status,
+    completedAt: milestone.completedAt,
+    archived: milestone.archivedAt !== null,
     startDate: milestone.startDate,
     targetDate: milestone.targetDate,
     done: taskCounts.DONE,

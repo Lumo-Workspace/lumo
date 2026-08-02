@@ -1,16 +1,21 @@
 /**
- * LUM-624: milestone status rollup + staleness hints.
+ * LUM-624 rollup + staleness hints, reshaped by LUM-714.
  *
  * Covers the pure derivation rules (lib/summaries/milestone-rollup), the
  * reconcile write path (guarded compare-and-set + retro trigger), and the
  * read-side self-heal dispatch used by the milestone detail route.
+ *
+ * The LUM-714 invariant these tests are really guarding: the rollup writes a
+ * `completedAt` timestamp and NOTHING else — there is no status field left to
+ * write, so a regression that reintroduces one shows up as an unexpected
+ * argument shape here.
  */
 jest.mock('@vercel/functions', () => ({ waitUntil: (p: unknown) => p }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: {
     findById: jest.fn(),
     countTasksByStatus: jest.fn(),
-    updateStatusIfCurrent: jest.fn(),
+    updateCompletionIfCurrent: jest.fn(),
   },
 }))
 jest.mock('@/lib/services/milestone.service', () => ({
@@ -26,7 +31,7 @@ jest.mock('@/lib/repositories/milestone-exit-criterion.repository', () => ({
 
 import { milestoneRollupService } from '@/lib/services/milestone-rollup.service'
 import {
-  deriveRollupStatus,
+  deriveCompletionChange,
   computeMilestoneStaleness,
 } from '@/lib/summaries/milestone-rollup'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
@@ -35,7 +40,8 @@ import type { TaskStatus } from '@prisma/client'
 
 const mockFindById = milestoneRepository.findById as jest.Mock
 const mockCounts = milestoneRepository.countTasksByStatus as jest.Mock
-const mockGuardedUpdate = milestoneRepository.updateStatusIfCurrent as jest.Mock
+const mockGuardedUpdate =
+  milestoneRepository.updateCompletionIfCurrent as jest.Mock
 const mockRetro = generateMilestoneRetro as jest.Mock
 
 function counts(
@@ -47,7 +53,6 @@ function counts(
 function milestoneRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'm-1',
-    status: 'PLANNED',
     archivedAt: null,
     completedAt: null,
     targetDate: null,
@@ -62,150 +67,152 @@ beforeEach(() => {
   mockRetro.mockClear()
 })
 
-describe('milestone status rollup (LUM-624)', () => {
-  it('auto-completes milestone when the last open task turns DONE', async () => {
-    // The 26/26-DONE shape: every task done, stored status still PLANNED.
-    mockFindById.mockResolvedValue(milestoneRow({ status: 'PLANNED' }))
+describe('milestone completion rollup (LUM-624/LUM-714)', () => {
+  it('derived completion stamps completedAt and fires retro when the last open task turns DONE', async () => {
+    // The 26/26-DONE shape: every task done, no completion stamp yet.
+    mockFindById.mockResolvedValue(milestoneRow())
     mockCounts.mockResolvedValue(counts({ DONE: 26 }))
 
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
 
-    expect(mockGuardedUpdate).toHaveBeenCalledWith('m-1', 'PLANNED', {
-      status: 'COMPLETED',
-      completedAt: expect.any(Date),
-    })
-    // Auto-completion mirrors the manual transition: retro fires.
+    // Compare-and-set on the completedAt we derived from; a Date is the ONLY
+    // thing written — no status argument exists any more.
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      'm-1',
+      null,
+      expect.any(Date)
+    )
     expect(mockRetro).toHaveBeenCalledWith('m-1')
 
-    // Guarded write lost the race (concurrent manual change) → no retro.
+    // Guarded write lost the race (concurrent write) → no retro.
     mockGuardedUpdate.mockResolvedValue(false)
     mockRetro.mockClear()
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
     expect(mockRetro).not.toHaveBeenCalled()
 
-    // CANCELLED and archived milestones are human terminal choices — never touched.
+    // Already stamped → nothing to do (and no duplicate retro).
+    mockGuardedUpdate.mockClear().mockResolvedValue(true)
+    mockRetro.mockClear()
+    mockFindById.mockResolvedValue(
+      milestoneRow({ completedAt: new Date('2026-06-01') })
+    )
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
+    expect(mockGuardedUpdate).not.toHaveBeenCalled()
+    expect(mockRetro).not.toHaveBeenCalled()
+
+    // Archived is the human terminal choice — task churn never resurrects it.
     mockGuardedUpdate.mockClear()
-    mockFindById.mockResolvedValue(milestoneRow({ status: 'CANCELLED' }))
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
     mockFindById.mockResolvedValue(
       milestoneRow({ archivedAt: new Date('2026-01-01') })
     )
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
     expect(mockGuardedUpdate).not.toHaveBeenCalled()
 
     // Zero tasks carry no signal — an empty milestone is never auto-completed.
     expect(
-      deriveRollupStatus({
-        status: 'PLANNED',
+      deriveCompletionChange({
+        completedAt: null,
         archived: false,
         taskCounts: counts({}),
       })
     ).toBeNull()
   })
 
-  it('activates planned milestone and reopens completed milestone on task changes', async () => {
-    // A task started (left TODO) → PLANNED becomes ACTIVE.
-    mockFindById.mockResolvedValue(milestoneRow({ status: 'PLANNED' }))
-    mockCounts.mockResolvedValue(counts({ TODO: 3, IN_PROGRESS: 1 }))
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
-    expect(mockGuardedUpdate).toHaveBeenCalledWith('m-1', 'PLANNED', {
-      status: 'ACTIVE',
-      completedAt: null,
-    })
-
-    // A non-DONE task (re)appeared under a COMPLETED milestone → back to
-    // ACTIVE, completedAt cleared.
-    mockGuardedUpdate.mockClear()
+  it('reopens a completed milestone when a non-DONE task reappears, and leaves in-flight ones alone', async () => {
+    // A non-DONE task (re)appeared under a completed milestone → clear the
+    // stamp. No retro on the way back out.
     mockFindById.mockResolvedValue(
-      milestoneRow({ status: 'COMPLETED', completedAt: new Date('2026-06-01') })
+      milestoneRow({ completedAt: new Date('2026-06-01') })
     )
     mockCounts.mockResolvedValue(counts({ TODO: 1, DONE: 26 }))
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
-    expect(mockGuardedUpdate).toHaveBeenCalledWith('m-1', 'COMPLETED', {
-      status: 'ACTIVE',
-      completedAt: null,
-    })
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      'm-1',
+      new Date('2026-06-01'),
+      null
+    )
     expect(mockRetro).not.toHaveBeenCalled()
 
-    // Untouched tasks (all still TODO) → PLANNED stays put.
+    // An in-flight milestone with no stamp has nothing to reconcile — the old
+    // PLANNED→ACTIVE transition has no successor, so this is a no-op now.
     mockGuardedUpdate.mockClear()
-    mockFindById.mockResolvedValue(milestoneRow({ status: 'PLANNED' }))
-    mockCounts.mockResolvedValue(counts({ TODO: 5 }))
-    await milestoneRollupService.reconcileMilestoneStatus('m-1')
+    mockFindById.mockResolvedValue(milestoneRow())
+    mockCounts.mockResolvedValue(counts({ TODO: 3, IN_PROGRESS: 1 }))
+    await milestoneRollupService.reconcileMilestoneCompletion('m-1')
     expect(mockGuardedUpdate).not.toHaveBeenCalled()
   })
 
-  it('milestone detail read dispatches reconcile when stored status drifts from task-derived status', async () => {
+  it('milestone detail read dispatches reconcile when stored completion drifts from the task counts', async () => {
     const reconcileSpy = jest
-      .spyOn(milestoneRollupService, 'reconcileMilestoneStatus')
+      .spyOn(milestoneRollupService, 'reconcileMilestoneCompletion')
       .mockResolvedValue(undefined)
 
-    // Stored PLANNED vs all-done tasks → drift surfaced + self-heal dispatched.
+    // No stamp vs all-done tasks → drift surfaced + self-heal dispatched.
     const staleness = await milestoneRollupService.observeOnRead(
       {
         id: 'm-1',
-        status: 'PLANNED',
+        completedAt: null,
         archivedAt: null,
         targetDate: null,
       },
       counts({ DONE: 26 })
     )
-    expect(staleness.statusDrift).toBe('COMPLETED')
+    expect(staleness.completionDrift).toBe('complete')
     expect(reconcileSpy).toHaveBeenCalledWith('m-1')
 
-    // Stored status already matches the task-derived one → no dispatch.
+    // Stored completion already matches the task counts → no dispatch.
     reconcileSpy.mockClear()
     const consistent = await milestoneRollupService.observeOnRead(
       {
         id: 'm-1',
-        status: 'ACTIVE',
+        completedAt: null,
         archivedAt: null,
         targetDate: new Date('2026-08-01'),
       },
       counts({ TODO: 2, IN_PROGRESS: 1 })
     )
-    expect(consistent.statusDrift).toBeNull()
+    expect(consistent.completionDrift).toBeNull()
     expect(reconcileSpy).not.toHaveBeenCalled()
 
     reconcileSpy.mockRestore()
   })
 
-  it('flags dates-missing staleness hint for non-terminal milestone without target date', () => {
-    // In-flight (ACTIVE), no target date → hint.
+  it('flags dates-missing staleness hint for an in-flight milestone without target date', () => {
+    // In flight, no target date → hint.
     expect(
       computeMilestoneStaleness({
-        status: 'ACTIVE',
+        completedAt: null,
         archived: false,
         taskCounts: counts({ TODO: 2, DONE: 1 }),
         targetDate: null,
       })
-    ).toEqual({ statusDrift: null, datesMissing: true })
+    ).toEqual({ completionDrift: null, datesMissing: true })
 
     // Target date present → no hint.
     expect(
       computeMilestoneStaleness({
-        status: 'ACTIVE',
+        completedAt: null,
         archived: false,
         taskCounts: counts({ TODO: 2, DONE: 1 }),
         targetDate: new Date('2026-08-01'),
       }).datesMissing
     ).toBe(false)
 
-    // Effectively terminal (drifting to COMPLETED) → no date nag.
+    // Effectively completed (drifting to `complete`) → no date nag.
     expect(
       computeMilestoneStaleness({
-        status: 'PLANNED',
+        completedAt: null,
         archived: false,
         taskCounts: counts({ DONE: 26 }),
         targetDate: null,
       })
-    ).toEqual({ statusDrift: 'COMPLETED', datesMissing: false })
+    ).toEqual({ completionDrift: 'complete', datesMissing: false })
 
-    // Terminal by human choice → no hint either.
+    // Archived → no hint either.
     expect(
       computeMilestoneStaleness({
-        status: 'CANCELLED',
-        archived: false,
+        completedAt: null,
+        archived: true,
         taskCounts: counts({ TODO: 3 }),
         targetDate: null,
       }).datesMissing

@@ -9,7 +9,7 @@ function row(overrides: Partial<Row>): Row {
   return {
     id: 'm-1',
     name: 'Q3 Launch',
-    status: 'ACTIVE',
+    completedAt: null,
     targetDate: '2026-08-31T00:00:00.000Z',
     createdAt: '2026-06-01T00:00:00.000Z',
     archivedAt: null,
@@ -22,25 +22,27 @@ describe('formatMilestoneList', () => {
     expect(formatMilestoneList([])).toBe('No milestones.')
   })
 
-  it('renders a HEALTH column between status and target date', () => {
+  it('renders a HEALTH column between state and target date', () => {
     const out = formatMilestoneList([row({ health: 'at-risk' })])
     expect(out).toBe('ACTIVE  AT-RISK  2026-08-31  Q3 Launch')
   })
 
+  // LUM-714: the STATE column is derived from the two timestamps, not read
+  // off a status column.
   it('shows "-" for a milestone with no health light', () => {
     const out = formatMilestoneList([
-      row({ status: 'COMPLETED', health: null }),
+      row({ completedAt: '2026-06-01T00:00:00.000Z', health: null }),
     ])
     expect(out).toBe('COMPLETED  -  2026-08-31  Q3 Launch')
   })
 
-  it('aligns columns across rows (status, health, date, name)', () => {
+  it('aligns columns across rows (state, health, date, name)', () => {
     const out = formatMilestoneList([
-      row({ id: 'a', name: 'A', status: 'ACTIVE', health: 'overdue' }),
+      row({ id: 'a', name: 'A', health: 'overdue' }),
       row({
         id: 'b',
         name: 'B',
-        status: 'PLANNED',
+        completedAt: '2026-06-01T00:00:00.000Z',
         health: 'on-track',
         targetDate: null,
       }),
@@ -56,15 +58,18 @@ describe('formatMilestoneList', () => {
       '2026-08-31',
       'A',
     ])
-    expect(line2.split(/\s{2,}/)).toEqual(['PLANNED', 'ON-TRACK', '-', 'B'])
+    expect(line2.split(/\s{2,}/)).toEqual(['COMPLETED', 'ON-TRACK', '-', 'B'])
     // The HEALTH column starts at the same offset on every row.
     expect(line1.indexOf('OVERDUE')).toBe(line2.indexOf('ON-TRACK'))
   })
 
-  it('marks an archived milestone with a (archived) suffix', () => {
+  // LUM-714: archived is a first-class STATE now, so it reads in the state
+  // column rather than as a suffix bolted onto the name.
+  it('renders an archived milestone in the state column', () => {
     const out = formatMilestoneList([
       row({ archivedAt: '2026-06-02T00:00:00.000Z' }),
     ])
-    expect(out).toContain('Q3 Launch (archived)')
+    expect(out.split(/\s{2,}/)[0]).toBe('ARCHIVED')
+    expect(out).toContain('Q3 Launch')
   })
 })

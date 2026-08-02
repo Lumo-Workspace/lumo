@@ -17,7 +17,7 @@ export const milestoneSummaryService = {
   async generate(milestoneId: string) {
     const milestone = await milestoneRepository.findById(milestoneId)
     if (!milestone) httpError(404, 'milestone not found')
-    if (milestone.status !== 'COMPLETED')
+    if (milestone.completedAt === null)
       httpError(400, 'milestone is not completed')
 
     const pendingJob =

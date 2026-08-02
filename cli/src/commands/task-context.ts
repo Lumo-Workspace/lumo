@@ -16,7 +16,8 @@ interface TaskContextResponse {
     milestone?: {
       id: string
       name: string
-      status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+      /** LUM-714: active | completed | archived — no stored status any more. */
+      state: 'active' | 'completed' | 'archived'
       targetDate: string | null
       description?: string | null
     } | null
@@ -118,7 +119,7 @@ export function formatTaskContextMarkdown(
       ? `, target ${data.task.milestone.targetDate.slice(0, 10)}`
       : ''
     lines.push(
-      `**Milestone**: ${sanitizeField(data.task.milestone.name)} (${data.task.milestone.status}${target})`
+      `**Milestone**: ${sanitizeField(data.task.milestone.name)} (${data.task.milestone.state}${target})`
     )
     const milestoneGoal = data.task.milestone.description
     if (milestoneGoal && milestoneGoal.trim().length > 0) {
