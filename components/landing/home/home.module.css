@@ -113,7 +113,7 @@
 .brandName {
   font-family: var(--font-display);
   font-size: 23px;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .navLinks {
@@ -195,7 +195,7 @@
 }
 .heroTitle {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 60px;
   line-height: 1.04;
   letter-spacing: -0.02em;
