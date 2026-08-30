@@ -81,10 +81,7 @@ function Hero() {
             Your agents say it&apos;s done. Lumo{' '}proves{' '}it.
           </h1>
           <p className={styles.heroLede}>
-            An agent&apos;s report is testimony — a verified merge is evidence.
-            Lumo freezes acceptance criteria before work starts, then checks
-            every criterion against proof when your agents report done. Every
-            token and hour is metered along the way.
+            The future isn&apos;t reviewing code. It&apos;s proving it.
           </p>
           <p className={styles.heroProof}>
             Verification compounds: agents that reuse what past runs proved out
