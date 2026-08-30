@@ -1,18 +1,24 @@
-import { Hanken_Grotesk, JetBrains_Mono, Newsreader } from 'next/font/google'
+import {
+  Hanken_Grotesk,
+  JetBrains_Mono,
+  Schibsted_Grotesk,
+} from 'next/font/google'
 
 import { LumoHome } from '@/components/landing/home/lumo-home'
 
 // Marketing-only typefaces for the homepage brand fork. Loaded as variable
-// fonts (no fixed `weight`) so the design's intermediate weights — e.g.
-// Newsreader 440 for display headings — resolve correctly via CSS.
+// fonts (no fixed `weight`) so intermediate weights resolve correctly via CSS.
+// Display headings use Schibsted Grotesk — the closest Google-Fonts stand-in
+// for Styrene (Anthropic's brand grotesque): boxy low-contrast letterforms
+// with hook-free straight L/l strokes.
 const hanken = Hanken_Grotesk({
   subsets: ['latin'],
   variable: '--font-hanken',
   display: 'swap',
 })
-const newsreader = Newsreader({
+const schibsted = Schibsted_Grotesk({
   subsets: ['latin'],
-  variable: '--font-newsreader',
+  variable: '--font-schibsted',
   display: 'swap',
 })
 const jetbrainsMono = JetBrains_Mono({
@@ -24,7 +30,7 @@ const jetbrainsMono = JetBrains_Mono({
 export default function HomePage() {
   return (
     <LumoHome
-      className={`${hanken.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+      className={`${hanken.variable} ${schibsted.variable} ${jetbrainsMono.variable}`}
     />
   )
 }

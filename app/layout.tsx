@@ -17,9 +17,9 @@ const sourceCodePro = Source_Code_Pro({
 })
 
 export const metadata: Metadata = {
-  title: 'Lumo — Execution OS for Builders',
+  title: 'Lumo — Your agents say it\u2019s done. Lumo proves it.',
   description:
-    'Turn your app idea into a structured, actionable build plan in seconds.',
+    'Agentic Project Management. Freeze acceptance criteria before work starts, verify every delivery against evidence, and meter every token along the way.',
 }
 
 export default function RootLayout({
