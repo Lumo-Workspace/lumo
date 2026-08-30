@@ -2,7 +2,7 @@
  * Scoped styles for the Lumo marketing homepage (Lumo Homepage.dc.html).
  *
  * INTENTIONAL BRAND FORK. This surface has its own warm "paper" identity —
- * cream background, Newsreader serif display, JetBrains Mono accents — distinct
+ * cream background, Bricolage Grotesque display, JetBrains Mono accents — distinct
  * from both the app shell and the existing dark launch-ui landing. Values are
  * kept as the design's literal hex/px so the implementation stays pixel-faithful;
  * a CSS Module scopes every class so nothing leaks into the rest of the app.
@@ -35,7 +35,7 @@
   --line-4: #e2dbcc;
   --line-soft: #f0ebe0;
 
-  --font-display: var(--font-newsreader), Georgia, serif;
+  --font-display: var(--font-bricolage), 'Avenir Next', Futura, sans-serif;
   --font-body:
     var(--font-hanken), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
