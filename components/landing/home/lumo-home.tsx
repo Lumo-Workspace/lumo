@@ -77,22 +77,22 @@ function Hero() {
       <div className={styles.heroGrid}>
         <div className={styles.heroCopy}>
           <div className={styles.eyebrow}>
-            Project management for AI-native teams
+            Delivery verification for teams that ship with AI
           </div>
           <h1 className={styles.heroTitle}>
-            Keep your agents on budget, on time, and on{' '}spec.
+            Your agents say it&apos;s done. Lumo{' '}proves{' '}it.
           </h1>
           <p className={styles.heroLede}>
-            Lumo is the project tracker for teams that ship with AI. Meter every
-            token and hour your agents burn — and verify they built the right
-            thing before it reaches your users.
+            An agent&apos;s report is testimony — a verified merge is evidence.
+            Lumo freezes acceptance criteria before work starts, then checks
+            every criterion against proof when your agents report done. Every
+            token and hour is metered along the way.
           </p>
           <p className={styles.heroProof}>
-            Built on techniques published research shows work — reusing past-run
-            experience cut agent cost a mean{' '}
-            <span className={styles.stat}>31.8%</span>, with ≤0.2% quality loss,
-            in controlled trials.
-            <Cite n={1} />
+            Verification compounds: agents that reuse what past runs proved out
+            cut cost a mean <span className={styles.stat}>31.8%</span>, with
+            ≤0.2% quality loss, in controlled trials.
+            <Cite n={1} /> Trust is the product — the savings are its dividend.
           </p>
           <div className={styles.heroActions}>
             <Link
@@ -154,13 +154,23 @@ function Hero() {
             <div className={styles.acLabel}>ACCEPTANCE CRITERIA · 8/8</div>
             <div className={styles.acList}>
               {[
-                'Card payment succeeds end-to-end',
-                'Declined cards show a clear error',
-                'Receipts emailed within 30s',
+                {
+                  text: 'Card payment succeeds end-to-end',
+                  source: 'E2E test · run #4821',
+                },
+                {
+                  text: 'Declined cards show a clear error',
+                  source: 'unit test · payments.spec',
+                },
+                {
+                  text: 'Receipts emailed within 30s',
+                  source: 'log probe · run #4821',
+                },
               ].map(c => (
-                <div key={c} className={styles.acItem}>
+                <div key={c.text} className={styles.acItem}>
                   <span className={styles.acCheck}>✓</span>
-                  {c}
+                  {c.text}
+                  <span className={styles.acSource}>{c.source}</span>
                 </div>
               ))}
             </div>
@@ -220,9 +230,9 @@ const STAT_BAND = [
   },
   {
     value: '31.8%',
-    label: 'lower agent cost',
+    label: 'lower agent cost from verified-run reuse',
     source:
-      'research finding — when agents reuse what past runs already worked out (EET, on SWE-bench).',
+      'research finding — when agents reuse what past runs already worked out (EET, on SWE-bench). The more deliveries you verify, the more there is to reuse.',
   },
   {
     value: '71%',
@@ -493,10 +503,11 @@ function Features() {
             <div className={styles.cellKicker}>06 · LINEAGE</div>
             <h3 className={styles.cellTitle}>Lineage &amp; memory</h3>
             <p className={styles.cellBody} style={{ marginBottom: 22 }}>
-              Reusing prior-run experience cut agent cost a mean{' '}
+              Verification pays twice: every verified run joins the record your
+              agents draw on next time — a reuse that cut agent cost a mean{' '}
               <span className={styles.stat}>31.8%</span> in published trials.
-              <Cite n={1} /> Lumo links every decision, source, and run so
-              agents reuse what worked — and you can trace why.
+              <Cite n={1} /> Lumo links every decision, source, and run so you
+              can trace why.
             </p>
             <div className={styles.lineage}>
               <div className={styles.lineageRail} />
@@ -581,8 +592,8 @@ function FinalCta() {
       <div className={styles.ctaInner}>
         <h2 className={styles.ctaTitle}>Put your agents on the record.</h2>
         <p className={styles.ctaLede}>
-          Start tracking tokens, time, and verified work in minutes. Free for
-          your first five seats.
+          Freeze the spec, verify every delivery — and meter every token along
+          the way. Free for your first five seats.
         </p>
         <Link
           href='/signup'
@@ -687,7 +698,7 @@ function Footer() {
               <span className={styles.brandName}>Lumo</span>
             </div>
             <p className={styles.footerTag}>
-              Project management for teams shipping with AI.
+              Delivery verification for teams that ship with AI.
             </p>
           </div>
           {FOOTER_COLS.map(col => (

@@ -396,6 +396,14 @@
   font-size: 13.5px;
   color: var(--text-1);
 }
+.acSource {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-mut);
+  white-space: nowrap;
+  flex: none;
+}
 .acCheck {
   width: 17px;
   height: 17px;
