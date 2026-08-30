@@ -81,7 +81,9 @@ function Hero() {
             Your agents say it&apos;s done. Lumo{' '}proves{' '}it.
           </h1>
           <p className={styles.heroLede}>
-            The future isn&apos;t reviewing code. It&apos;s proving it.
+            Lumo is the Agentic Project Management tool for teams that ship with
+            Coding Agent. Meter every token and hour your agents burn — and
+            verify they built the right thing before it reaches your users.
           </p>
           <p className={styles.heroProof}>
             Verification compounds: agents that reuse what past runs proved out
