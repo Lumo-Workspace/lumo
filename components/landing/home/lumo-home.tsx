@@ -76,9 +76,7 @@ function Hero() {
     <section className={styles.hero}>
       <div className={styles.heroGrid}>
         <div className={styles.heroCopy}>
-          <div className={styles.eyebrow}>
-            Delivery verification for teams that ship with AI
-          </div>
+          <div className={styles.eyebrow}>Agentic Project Management</div>
           <h1 className={styles.heroTitle}>
             Your agents say it&apos;s done. Lumo{' '}proves{' '}it.
           </h1>
@@ -697,9 +695,7 @@ function Footer() {
               <LumoMark size={24} style={{ display: 'block', flex: 'none' }} />
               <span className={styles.brandName}>Lumo</span>
             </div>
-            <p className={styles.footerTag}>
-              Delivery verification for teams that ship with AI.
-            </p>
+            <p className={styles.footerTag}>Agentic Project Management.</p>
           </div>
           {FOOTER_COLS.map(col => (
             <div key={col.label}>
