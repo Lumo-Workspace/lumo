@@ -163,8 +163,8 @@ function GateRow({ gate, intl }: { gate: GateRecord; intl: Intl }) {
 /**
  * Audit-only mechanical-gates panel for the delivery card (LUM-614). Renders
  * the per-delivery gate read-model as a read-out for human judgment — it never
- * renders a verdict. The two guardrail lines pin the gate/verdict boundary;
- * provenance is shown per row so a self-reported gate is never mistaken for an
+ * renders a verdict. Provenance is shown per row so a self-reported gate is
+ * never mistaken for an
  * independent pass; not_run / not_configured read as "no signal", never green.
  */
 export function DeliveryGatesPanel({ audit }: { audit: DeliveryGateAudit }) {
@@ -176,35 +176,6 @@ export function DeliveryGatesPanel({ audit }: { audit: DeliveryGateAudit }) {
       data-testid='gate-audit-panel'
       className='mt-4 border-t border-border pt-3'
     >
-      <p className='mb-1 flex items-center gap-2 text-caption text-muted-foreground'>
-        <span>
-          {intl.formatMessage({
-            id: 'gates.title',
-            defaultMessage: 'Mechanical gates',
-          })}
-        </span>
-        <span className='rounded-sm bg-muted px-1.5'>
-          {intl.formatMessage({
-            id: 'gates.auditTag',
-            defaultMessage: 'audit',
-          })}
-        </span>
-      </p>
-
-      <p className='text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'gates.guardrail.verdict',
-          defaultMessage:
-            'Verifies that checks ran, not that the work is correct',
-        })}
-      </p>
-      <p className='mb-2 text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'gates.guardrail.adjudication',
-          defaultMessage: 'Adjudication lives in the acceptance tab',
-        })}
-      </p>
-
       <p className='mb-1 text-caption text-muted-foreground'>
         {intl.formatMessage(
           {

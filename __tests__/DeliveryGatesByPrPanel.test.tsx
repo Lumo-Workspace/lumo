@@ -6,11 +6,6 @@ import type {
 } from '@/lib/services/gate-audit'
 
 const messages: Record<string, string> = {
-  'gates.title': 'Mechanical gates',
-  'gates.auditTag': 'audit',
-  'gates.guardrail.verdict':
-    'Verifies that checks ran, not that the work is correct',
-  'gates.guardrail.adjudication': 'Adjudication lives in the acceptance tab',
   'gates.status.passed': 'passed',
   'gates.status.failed': 'failed',
   'gates.status.not_run': 'not run',
@@ -77,6 +72,24 @@ describe('DeliveryGatesByPrPanel', () => {
     // One row per PR.
     const rows = screen.getAllByTestId(/^pr-gate-row-\d+$/)
     expect(rows).toHaveLength(2)
+
+    // The header text block (title + audit tag + guardrail lines) is gone
+    // (LUM-729) — the panel opens straight with the table.
+    expect(screen.queryByText('Mechanical gates')).not.toBeInTheDocument()
+    expect(screen.queryByText('audit')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        'Verifies that checks ran, not that the work is correct'
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Adjudication lives in the acceptance tab')
+    ).not.toBeInTheDocument()
+    // The intl mock falls back to the raw id for unmapped keys — assert the
+    // ids are absent too, so a lingering formatMessage call can't hide.
+    expect(
+      screen.queryByText(/gates\.(title|auditTag|guardrail)/)
+    ).not.toBeInTheDocument()
 
     // Each PR is identified by its number.
     expect(screen.getByText('#756')).toBeInTheDocument()
