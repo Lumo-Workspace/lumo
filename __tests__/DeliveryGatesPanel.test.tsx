@@ -7,11 +7,6 @@ import type { DeliveryGateAudit } from '@/lib/services/gate-audit'
 import { ALL_GATE_KEYS } from '../shared/src/gate-map'
 
 const messages: Record<string, string> = {
-  'gates.title': 'Mechanical gates',
-  'gates.auditTag': 'audit',
-  'gates.guardrail.verdict':
-    'Verifies that checks ran, not that the work is correct',
-  'gates.guardrail.adjudication': 'Adjudication lives in the acceptance tab',
   'gates.status.passed': 'passed',
   'gates.status.failed': 'failed',
   'gates.status.not_run': 'not run',
@@ -81,12 +76,25 @@ describe('DeliveryGatesPanel', () => {
   it('honest states and provenance', () => {
     const { container } = render(<DeliveryGatesPanel audit={AUDIT} />)
 
-    // The two guardrail lines keep the gate/verdict boundary unmistakable.
+    // The header text block (title + audit tag + guardrail lines) is gone
+    // (LUM-729) — the panel opens straight with the summary line.
+    expect(screen.queryByText('Mechanical gates')).not.toBeInTheDocument()
+    expect(screen.queryByText('audit')).not.toBeInTheDocument()
     expect(
-      screen.getByText('Verifies that checks ran, not that the work is correct')
-    ).toBeInTheDocument()
+      screen.queryByText(
+        'Verifies that checks ran, not that the work is correct'
+      )
+    ).not.toBeInTheDocument()
     expect(
-      screen.getByText('Adjudication lives in the acceptance tab')
+      screen.queryByText('Adjudication lives in the acceptance tab')
+    ).not.toBeInTheDocument()
+    // The intl mock falls back to the raw id for unmapped keys — assert the
+    // ids are absent too, so a lingering formatMessage call can't hide.
+    expect(
+      screen.queryByText(/gates\.(title|auditTag|guardrail)/)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/3 gates · 1 passed · 1 failed/)
     ).toBeInTheDocument()
 
     // not_run carries its own honest status and is NEVER shown with the passed
