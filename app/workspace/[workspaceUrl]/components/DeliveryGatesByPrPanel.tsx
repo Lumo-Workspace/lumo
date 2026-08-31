@@ -91,10 +91,7 @@ export function DeliveryGatesByPrPanel({ perPr }: { perPr: PerPrGateAudit }) {
   const keys = columnKeys(perPr)
 
   return (
-    <div
-      data-testid='gate-audit-by-pr-panel'
-      className='mt-4 border-t border-border pt-3'
-    >
+    <div data-testid='gate-audit-by-pr-panel' className='mt-4'>
       <table className='w-full table-fixed'>
         <thead>
           <tr className='border-b border-border text-left'>
