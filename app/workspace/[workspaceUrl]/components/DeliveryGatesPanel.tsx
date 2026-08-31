@@ -172,10 +172,7 @@ export function DeliveryGatesPanel({ audit }: { audit: DeliveryGateAudit }) {
   const s = summarize(audit.gates)
 
   return (
-    <div
-      data-testid='gate-audit-panel'
-      className='mt-4 border-t border-border pt-3'
-    >
+    <div data-testid='gate-audit-panel' className='mt-4'>
       <p className='mb-1 text-caption text-muted-foreground'>
         {intl.formatMessage(
           {
