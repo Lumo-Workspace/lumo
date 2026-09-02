@@ -68,10 +68,33 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
-import type { TaskAcceptanceStatusView } from '@/app/workspace/[workspaceUrl]/types'
+import type {
+  TaskAcceptanceStatusView,
+  TaskClaimFaithfulnessView,
+} from '@/app/workspace/[workspaceUrl]/types'
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
+
+/** LUM-730: the claim-vs-verification section only renders on a mismatch, so
+ *  the default fixture carries a claim judged OVERSTATED — the structural
+ *  assertions below (section present, collapsible, ordered after the boundary
+ *  panel) need the section to exist at all. */
+function overstated(
+  over: Partial<TaskClaimFaithfulnessView> = {}
+): TaskClaimFaithfulnessView {
+  return {
+    state: 'OVERSTATED',
+    verdict: 'OVERSTATED',
+    evidence: [],
+    reasoning: null,
+    diffShas: [],
+    prNumbers: [],
+    judgedAt: '2026-06-20T12:00:00.000Z',
+    judgedClaimAt: '2026-06-20T10:00:00.000Z',
+    ...over,
+  }
+}
 
 function statusView(
   over: Partial<TaskAcceptanceStatusView> = {}
@@ -123,7 +146,8 @@ function statusView(
       cost: [],
       rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
     },
-    claim: { text: null, source: null },
+    claim: { text: 'did the thing', source: 'AGENT' },
+    faithfulness: overstated(),
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -390,8 +414,9 @@ describe('record tab order and collapsibles', () => {
     setStatus(statusView())
     renderTab()
     // LUM-597: the verification block is the always-present body of the section
-    // (the claim collapsed to a reality-check line, gone here since the fixture
-    // has no claim) — use it as the open/closed marker.
+    // (the claim collapsed to a reality-check line) — use it as the open/closed
+    // marker. LUM-730: the section itself exists only because the fixture's
+    // claim is judged OVERSTATED.
     expect(
       screen.getByText('Verification — what was confirmed')
     ).toBeInTheDocument()
