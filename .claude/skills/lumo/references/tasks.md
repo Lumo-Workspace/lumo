@@ -120,14 +120,38 @@ The server's transition matrix (`lib/task/state-machine.ts`):
 
 Practical rules:
 
-- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls.
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **asks for interactive confirmation** (see below) — there is no `--yes`.
 - **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
 - **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change and does not alter any recorded acceptance verdict; verdict adjudication is human-only and has no CLI path. To attach context without reopening, `lumo task comment` works.
+
+### `--status done` asks for interactive confirmation (LUM-731)
+
+DONE is the one status move that needs a human at the keyboard. Before the PATCH, the CLI looks the task up, prints what is about to change plus every linked PR with its synced state, and asks `[y/N]` (empty answer = N). When a linked PR is **not merged** (open, closed-without-merge, draft), the unmerged ones are listed again and a **second** `[y/N]` is asked. Only after every prompt is answered `y` does the PATCH go out — and the server's own DONE gates (unresolved send-back / open boundary crossing → 409) still apply on top; the 409 text is printed verbatim.
+
+```
+About to move LUM-48 "Title" to DONE
+  Status:  IN_REVIEW → DONE
+  Pull requests:
+    #926  merged   refactor: panel    https://github.com/o/r/pull/926
+    #930  open     feat: wip          https://github.com/o/r/pull/930
+Move LUM-48 to DONE? [y/N] y
+
+  ⚠ 1 linked pull request not merged:
+    #930  open     feat: wip          https://github.com/o/r/pull/930
+Mark LUM-48 DONE anyway with unmerged PRs? [y/N] n
+Aborted — LUM-48 unchanged.
+```
+
+`Pull requests:  none linked` is printed when the task has no PR; then only the first prompt is asked.
+
+- **There is no `--yes`, `--force`, or `--confirm`.** A flag an agent can pass is not a gate. Do not look for one.
+- **Non-TTY stdin → exit 1 before any network call** (`--status done requires interactive confirmation, but stdin is not a TTY …`). An agent shell cannot move a task to DONE; tell the user to run the command in their terminal or use the web UI. Every other status (`todo` / `in_progress` / `in_review`) is unaffected.
+- A declined prompt prints `Aborted — LUM-N unchanged.` and exits 1 with nothing sent.
 
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
-- After the agent finishes a task and the user confirms — offer to move it to `done`.
+- After the agent finishes a task and the user confirms — tell the user to run `lumo task update LUM-N --status done` in their terminal (it prompts for confirmation; an agent shell is non-TTY and is refused).
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
 ### Sprint output format
