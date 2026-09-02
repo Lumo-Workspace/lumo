@@ -171,3 +171,59 @@ describe('taskCliService.showFromCli — descriptionMarkdown', () => {
     expect(result.descriptionMarkdown).toBeNull()
   })
 })
+
+describe('taskCliService.showFromCli — linked pull requests (LUM-731)', () => {
+  it('returns the linked PRs with number, title, url and state', async () => {
+    mockGetDetail.mockResolvedValueOnce({
+      id: 'task_1',
+      title: 'A task',
+      status: 'IN_REVIEW',
+      priority: 'LOW',
+      description: null,
+      sprintId: null,
+      teamId: 'team-xyz',
+      project: { id: 'proj-1', name: 'Lumo', workspaceId: 'ws_1' },
+      assignee: null,
+      pullRequests: [
+        {
+          id: 'pr_1',
+          number: 930,
+          title: 'feat: wip',
+          url: 'https://github.com/o/r/pull/930',
+          state: 'open',
+          authorLogin: 'a',
+          headBranch: 'b',
+          ciStatus: null,
+          mergedAt: null,
+          createdAt: new Date('2026-09-01T00:00:00Z'),
+        },
+      ],
+      tags: [],
+      teamIdentifier: 'LUM',
+      sprintsEnabled: true,
+      parent: null,
+    })
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result.pullRequests).toEqual([
+      {
+        number: 930,
+        title: 'feat: wip',
+        url: 'https://github.com/o/r/pull/930',
+        state: 'open',
+      },
+    ])
+  })
+
+  it('returns an empty list when no PR is linked', async () => {
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result.pullRequests).toEqual([])
+  })
+})

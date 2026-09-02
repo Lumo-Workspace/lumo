@@ -217,7 +217,7 @@ Don't guess these:
 - No `--content` on `task/project memory add` — memory is structured fields (`--category` + per-category flags), see [memory.md](references/memory.md)
 - No global `--verbose` flag on any command
 - `lumo task comments list` (plural) **reads** the thread; `lumo task comment` (singular) **writes** one
-- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix; under the verify flow you shouldn't be setting `in_review`/`done` yourself at all)
+- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix; under the verify flow you shouldn't be setting `in_review`/`done` yourself at all). `--status done` asks for interactive `[y/N]` confirmation on a TTY (a second one when a linked PR is not merged) and there is no `--yes` — a non-TTY agent shell is refused, so hand the command to the user
 
 ## Core workflow
 
@@ -238,5 +238,5 @@ Don't guess these:
 - **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
 - **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.
 - **Never set DONE yourself after a verify loop** — that adjudication is human-only. An unresolved send-back blocks the DONE transition with 409.
-- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
+- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`. DONE prompts for confirmation and only a human at a TTY can answer it.
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.
