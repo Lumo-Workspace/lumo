@@ -1746,7 +1746,8 @@ export function AcceptanceTab({
 
           {/* LUM-620: Claim vs verification — the agent's self-report next to
               what we measured. Audit-only: it does NOT decide the verdict
-              (LUM-614 red line). */}
+              (LUM-614 red line). LUM-730: the section renders itself only when
+              the claim mismatches the delivery; otherwise it is absent. */}
           {hasCriteria ? <ClaimVsVerification data={data} /> : null}
 
           {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic

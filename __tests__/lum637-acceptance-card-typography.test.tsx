@@ -40,6 +40,17 @@ function statusView(): TaskAcceptanceStatusView {
     criteria: [],
     machineVerification: { total: 2, machineVerified: 2, humanOverridden: 0 },
     claim: { text: 'I unified the card typography.', source: 'AGENT' },
+    // LUM-730: the card only renders on a mismatch.
+    faithfulness: {
+      state: 'OVERSTATED',
+      verdict: 'OVERSTATED',
+      evidence: [],
+      reasoning: null,
+      diffShas: [],
+      prNumbers: [],
+      judgedAt: '2026-06-20T12:00:00.000Z',
+      judgedClaimAt: '2026-06-20T10:00:00.000Z',
+    },
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
