@@ -6,6 +6,7 @@ import { ChevronRight, Scale } from 'lucide-react'
 import { formatDurationSec } from '@/lib/datetime/duration'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
+import { shouldShowClaimVsVerification } from '@/lib/claim-faithfulness/claim-mismatch'
 
 /**
  * The honest-report sections (LUM-566) — the web render of what LUM-559~564 put
@@ -382,6 +383,14 @@ function ClaimRealityCheck({
 
 // ── LUM-564 · Claim vs verification ───────────────────────────────────────────
 
+/**
+ * LUM-730 — the section exists only when the claim disagrees with the delivery
+ * (faithfulness OVERSTATED / UNDERREPORT, or STALE over one of those). A
+ * faithful, still-judging, unjudgeable or absent claim renders nothing at all —
+ * not a collapsed header, nothing — so on the common path the tab loses a block
+ * of noise and the section itself is the alarm. The decision is the pure
+ * `shouldShowClaimVsVerification` in `@/lib/claim-faithfulness/claim-mismatch`.
+ */
 export function ClaimVsVerification({
   data,
 }: {
@@ -400,6 +409,10 @@ export function ClaimVsVerification({
   // LUM-572: a self-collapsing section so the claim pairing folds away like the
   // other Record-tab sections. Default open — it's decision-relevant.
   const [open, setOpen] = useState(true)
+
+  // LUM-730: no mismatch → no section. After the hooks so the hook order is
+  // stable across the show/hide flip.
+  if (!shouldShowClaimVsVerification(data.faithfulness)) return null
 
   return (
     <div className='overflow-hidden rounded-lg border border-border'>

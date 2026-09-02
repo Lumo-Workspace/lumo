@@ -61,7 +61,9 @@ function statusView(
     criteria: [],
     machineVerification: { total: 2, machineVerified: 2, humanOverridden: 0 },
     claim: { text: 'I added the AGENT source.', source: 'AGENT' },
-    faithfulness: faithfulness(),
+    // LUM-730: the section only exists on a mismatch, so the fixture rides on
+    // an OVERSTATED verdict — the layering assertions below need it rendered.
+    faithfulness: faithfulness({ state: 'OVERSTATED', verdict: 'OVERSTATED' }),
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -82,13 +84,14 @@ const SYNTH_CLAIM: TaskClaimView = {
 describe('LUM-597 · Claim-vs-Verification UX', () => {
   it('collapses the claim row when there is no claim and labels AGENT vs SYNTHESIZED provenance', () => {
     // ── No claim → the whole reality-check row disappears (no empty box). ──
+    // LUM-730: with nothing to compare there is no mismatch, so the entire
+    // section — verification block included — is absent, not just the row.
     const { faithfulness: _f, ...noFaith } = statusView({
       claim: { text: null, source: null },
     })
     const { rerender } = render(<ClaimVsVerification data={noFaith} />)
     expect(screen.queryByTestId('claim-reality-check')).toBeNull()
-    // Verification is still the main block — the decision surface never hides.
-    expect(screen.getByTestId('verification-main')).toBeInTheDocument()
+    expect(screen.queryByTestId('verification-main')).toBeNull()
 
     // ── AGENT claim → provenance reads as the agent's own self-report. ──
     rerender(<ClaimVsVerification data={statusView({ claim: AGENT_CLAIM })} />)

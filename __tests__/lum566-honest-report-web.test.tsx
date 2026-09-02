@@ -71,6 +71,7 @@ import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDet
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import type {
   TaskAcceptanceStatusView,
+  TaskClaimFaithfulnessView,
   TaskStatusCriterionView,
 } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -99,6 +100,24 @@ function statusView(
     verificationHistory: [],
     lastRoundFailures: [],
     nextActions: [],
+    ...over,
+  }
+}
+
+/** LUM-730: the claim-vs-verification section only renders on a mismatch, so
+ *  fixtures that expect it default to an OVERSTATED verdict. */
+function overstated(
+  over: Partial<TaskClaimFaithfulnessView> = {}
+): TaskClaimFaithfulnessView {
+  return {
+    state: 'OVERSTATED',
+    verdict: 'OVERSTATED',
+    evidence: [],
+    reasoning: null,
+    diffShas: [],
+    prNumbers: [],
+    judgedAt: '2026-06-20T12:00:00.000Z',
+    judgedClaimAt: '2026-06-20T10:00:00.000Z',
     ...over,
   }
 }
@@ -375,6 +394,8 @@ describe('claim vs verification', () => {
           text: 'Implemented the four sections and wired them in.',
           source: 'RUN_SUMMARY',
         },
+        // LUM-730: the pairing only renders on a mismatch.
+        faithfulness: overstated(),
         machineVerification: {
           total: 2,
           machineVerified: 2,
@@ -401,13 +422,42 @@ describe('claim vs verification', () => {
     ).toBeInTheDocument()
   })
 
-  it('collapses the claim line entirely when there is no claim (no empty box)', () => {
+  it('omits the whole claim-vs-verification section when there is no claim (no empty box)', () => {
     set(statusView({ claim: { text: null, source: null } }))
     render_()
-    // LUM-597 decision-first: with no claim the reality-check row disappears,
-    // but the verification block — the decision surface — is always present.
+    // LUM-597 decision-first collapsed the reality-check row; LUM-730 takes it
+    // to its end — with nothing to compare there is no mismatch, so the whole
+    // section (verification block included) is absent from the tab.
     expect(screen.queryByTestId('claim-reality-check')).toBeNull()
-    expect(screen.getByTestId('verification-main')).toBeInTheDocument()
+    expect(screen.queryByTestId('verification-main')).toBeNull()
+    expect(screen.queryByText('Claim vs verification')).toBeNull()
+  })
+
+  it('omits the section for a faithful claim and shows it once the claim mismatches (LUM-730)', () => {
+    set(
+      statusView({
+        claim: { text: 'did the thing', source: 'AGENT' },
+        faithfulness: overstated({ state: 'FAITHFUL', verdict: 'FAITHFUL' }),
+      })
+    )
+    const { unmount } = render_()
+    expect(screen.queryByText('Claim vs verification')).toBeNull()
+    unmount()
+
+    set(
+      statusView({
+        claim: { text: 'did the thing', source: 'AGENT' },
+        faithfulness: overstated({
+          state: 'UNDERREPORT',
+          verdict: 'UNDERREPORT',
+        }),
+      })
+    )
+    render_()
+    expect(screen.getByText('Claim vs verification')).toBeInTheDocument()
+    expect(screen.getByTestId('faithfulness-chip')).toHaveTextContent(
+      /Under-reported/
+    )
   })
 
   it('marks the verification side unconfirmed before any round has run', () => {
@@ -415,6 +465,8 @@ describe('claim vs verification', () => {
       statusView({
         currentRound: 0,
         claim: { text: 'did the thing', source: 'DIGEST' },
+        // LUM-730: a stale mismatch from an earlier claim keeps the section up.
+        faithfulness: overstated({ state: 'STALE', verdict: 'OVERSTATED' }),
       })
     )
     render_()

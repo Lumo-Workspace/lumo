@@ -58,7 +58,9 @@ function statusView(
     criteria: [],
     machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
     claim: { text: 'Implemented the retry path.', source: 'RUN_SUMMARY' },
-    faithfulness: faithfulness(),
+    // LUM-730: the section only exists on a mismatch — default the fixture to
+    // OVERSTATED so the chip / evidence / claim-text assertions have a section.
+    faithfulness: faithfulness({ state: 'OVERSTATED', verdict: 'OVERSTATED' }),
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -68,16 +70,15 @@ function statusView(
 }
 
 describe('ClaimVsVerification — faithfulness chip (LUM-583)', () => {
+  // LUM-730: only the two mismatch verdicts render a section (and so a chip);
+  // the quiet states below render nothing at all.
   const cases: Array<{
     state: TaskClaimFaithfulnessView['state']
     verdict: TaskClaimFaithfulnessView['verdict']
     label: RegExp
   }> = [
-    { state: 'FAITHFUL', verdict: 'FAITHFUL', label: /Faithful/ },
     { state: 'OVERSTATED', verdict: 'OVERSTATED', label: /Overstated/ },
     { state: 'UNDERREPORT', verdict: 'UNDERREPORT', label: /Under-reported/ },
-    { state: 'UNJUDGEABLE', verdict: 'UNJUDGEABLE', label: /Unjudgeable/ },
-    { state: 'PENDING', verdict: null, label: /Judging/ },
   ]
 
   it.each(cases)(
@@ -93,6 +94,28 @@ describe('ClaimVsVerification — faithfulness chip (LUM-583)', () => {
       expect(within(row).getByTestId('faithfulness-chip')).toHaveTextContent(
         label
       )
+    }
+  )
+
+  const quiet: Array<{
+    state: TaskClaimFaithfulnessView['state']
+    verdict: TaskClaimFaithfulnessView['verdict']
+  }> = [
+    { state: 'FAITHFUL', verdict: 'FAITHFUL' },
+    { state: 'UNJUDGEABLE', verdict: 'UNJUDGEABLE' },
+    { state: 'PENDING', verdict: null },
+  ]
+
+  it.each(quiet)(
+    'renders no section at all for the quiet %s state (LUM-730)',
+    ({ state, verdict }) => {
+      const { container } = render(
+        <ClaimVsVerification
+          data={statusView({ faithfulness: faithfulness({ state, verdict }) })}
+        />
+      )
+      expect(container.innerHTML).toBe('')
+      expect(screen.queryByTestId('faithfulness-row')).toBeNull()
     }
   )
 
@@ -130,13 +153,21 @@ describe('ClaimVsVerification — faithfulness chip (LUM-583)', () => {
   })
 
   it('omits the evidence pointer when the verdict cited nothing', () => {
+    // LUM-730: a mismatch verdict (so the section renders) that cited no
+    // diff / PR — the pointer line stays absent while the chip is present.
     render(
       <ClaimVsVerification
         data={statusView({
-          faithfulness: faithfulness({ state: 'PENDING', verdict: null }),
+          faithfulness: faithfulness({
+            state: 'UNDERREPORT',
+            verdict: 'UNDERREPORT',
+            diffShas: [],
+            prNumbers: [],
+          }),
         })}
       />
     )
+    expect(screen.getByTestId('faithfulness-chip')).toBeInTheDocument()
     expect(screen.queryByTestId('faithfulness-evidence')).toBeNull()
   })
 
@@ -148,7 +179,9 @@ describe('ClaimVsVerification — faithfulness chip (LUM-583)', () => {
             text: 'explored the repo · read foo.ts · no changes',
             source: 'DIGEST',
           },
-          faithfulness: faithfulness({ state: 'PENDING', verdict: null }),
+          // LUM-730: a stale mismatch keeps the section on screen while the
+          // formal summary is still being synthesized.
+          faithfulness: faithfulness({ state: 'STALE', verdict: 'OVERSTATED' }),
         })}
       />
     )
@@ -176,8 +209,10 @@ describe('ClaimVsVerification — faithfulness chip (LUM-583)', () => {
   it('renders nothing extra when an older server omits faithfulness', () => {
     // Omit the key entirely (older server) — not an explicit undefined, which
     // exactOptionalPropertyTypes forbids on an optional field.
+    // LUM-730: no faithfulness is no mismatch — the whole section is absent.
     const { faithfulness: _omitted, ...older } = statusView()
-    render(<ClaimVsVerification data={older} />)
+    const { container } = render(<ClaimVsVerification data={older} />)
     expect(screen.queryByTestId('faithfulness-row')).toBeNull()
+    expect(container.innerHTML).toBe('')
   })
 })
