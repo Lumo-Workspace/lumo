@@ -32,12 +32,28 @@ export function redactLine(line: string, value: string): string {
  * excluded ALL three quote characters from the content, so a plain
  * apostrophe inside a double-quoted span (e.g. `"it's a secret..."`) broke
  * the match and the span passed through unredacted (fail-open).
+ *
+ * The pairing regex itself is length-agnostic (`[^q]*`, zero or more) — the
+ * length gate (`>= 8`) is applied in the replace callback, not baked into
+ * the quantifier. Putting `{8,}` in the quantifier made pairing
+ * length-dependent: given `"hi" ... "LONGSECRET..."`, the engine skips the
+ * opening quote before "hi" (too short to satisfy `{8,}`), then re-anchors
+ * on "hi"'s own closing quote as a new opening quote and pairs it with the
+ * next literal quote instead — consuming the text in between and leaving
+ * the actual long secret's closing quote to pair with nothing, so it never
+ * gets matched at all (fail-open). Matching `[^q]*` first and deciding
+ * length in the callback pairs quotes correctly regardless of what shorter
+ * quoted spans precede the secret.
  */
 export function maskQuotedValues(line: string): string {
-  return line
-    .replace(/"([^"]{8,})"/g, (_m, v: string) => `"${redactSecret(v)}"`)
-    .replace(/'([^']{8,})'/g, (_m, v: string) => `'${redactSecret(v)}'`)
-    .replace(/`([^`]{8,})`/g, (_m, v: string) => `\`${redactSecret(v)}\``)
+  let out = line
+  for (const q of ['"', "'", '`']) {
+    const pairRegex = new RegExp(`${q}([^${q}]*)${q}`, 'g')
+    out = out.replace(pairRegex, (m: string, v: string) =>
+      v.length >= 8 ? `${q}${redactSecret(v)}${q}` : m
+    )
+  }
+  return out
 }
 
 export function secretFingerprint(ruleId: string, rawValue: string): string {

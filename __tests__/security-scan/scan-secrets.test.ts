@@ -275,3 +275,39 @@ test('skips lines longer than MAX_SCANNED_LINE_CHARS entirely', () => {
   const f = file('src/bundle.min.js', [longLine])
   expect(scanSecrets([f])).toHaveLength(0)
 })
+
+test('redactKnownSecrets never fails open on an over-cap line: it truncates instead of passing raw text through', () => {
+  // The key sits past MAX_SCANNED_LINE_CHARS — it is dropped along with the
+  // rest of the unscanned tail, never returned verbatim.
+  const keyBeyondCap =
+    'x'.repeat(MAX_SCANNED_LINE_CHARS) + ' AKIAABCDEFGHIJKLMNOP'
+  const maskedBeyondCap = redactKnownSecrets(keyBeyondCap)
+  expect(maskedBeyondCap).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(maskedBeyondCap.endsWith('…(truncated)')).toBe(true)
+
+  // The key sits inside the first MAX_SCANNED_LINE_CHARS chars of an
+  // over-cap line — it must still be found and redacted, not skipped.
+  const keyWithinCap =
+    'AKIAABCDEFGHIJKLMNOP ' + 'x'.repeat(MAX_SCANNED_LINE_CHARS + 1)
+  const maskedWithinCap = redactKnownSecrets(keyWithinCap)
+  expect(maskedWithinCap).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(maskedWithinCap).toContain('AKIA…(len 20)')
+  expect(maskedWithinCap.endsWith('…(truncated)')).toBe(true)
+})
+
+test('maskQuotedValues pairs quotes correctly when a short quoted span precedes a long secret', () => {
+  const line = 'He said "hi" and the key is "SUPERSECRETVALUE123456"'
+  const masked = maskQuotedValues(line)
+  expect(masked).not.toContain('SUPERSECRETVALUE123456')
+  expect(masked).toContain('"hi"')
+})
+
+test('evidence is belt-and-braces masked: an undetected co-located quoted credential never survives alongside a detected secret', () => {
+  const f = file('src/co.ts', [
+    'const key = "AKIAABCDEFGHIJKLMNOP"; const pw = "correcthorsebattery"',
+  ])
+  const r = scanSecrets([f])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(r[0]?.evidence).not.toContain('correcthorsebattery')
+})
