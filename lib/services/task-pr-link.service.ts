@@ -8,6 +8,7 @@ import {
   parsePrUrl,
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
+import { waitUntil } from '@vercel/functions'
 
 // Re-exported for existing importers; the implementation moved to
 // lib/integrations/github/fetch-pull-request.ts so the idea-evidence link path
@@ -136,8 +137,10 @@ export async function linkPullRequest(
 
   const linked = await pullRequestRepository.updateTaskId(pr!.id, taskId)
   // LUM-732: a manually linked PR (any state — merged history included) gets
-  // one scan of its current head. Fire-and-forget; never fails the link.
-  void dispatchPrSecurityScan(linked.id, 'PR_LINK')
+  // one scan of its current head. Registered with waitUntil (not a bare
+  // `void`) so the runtime keeps the function alive until the dispatch
+  // settles — a dropped promise here reads as "clean" at the DONE gate.
+  waitUntil(dispatchPrSecurityScan(linked.id, 'PR_LINK'))
   return linked
 }
 

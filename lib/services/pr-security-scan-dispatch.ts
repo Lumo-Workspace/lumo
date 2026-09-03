@@ -30,7 +30,7 @@ export async function dispatchPrSecurityScan(
     return
   }
   try {
-    await fetch(`${base}/api/internal/pr-security-scan`, {
+    const res = await fetch(`${base}/api/internal/pr-security-scan`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -38,6 +38,11 @@ export async function dispatchPrSecurityScan(
       },
       body: JSON.stringify({ pullRequestId, trigger }),
     })
+    if (!res.ok) {
+      logger.warn(
+        `[pr-security-scan] worker responded ${res.status} pr=${pullRequestId}`
+      )
+    }
   } catch (error) {
     logger.warn(
       `[pr-security-scan] dispatch failed pr=${pullRequestId}:`,

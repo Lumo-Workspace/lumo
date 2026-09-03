@@ -35,11 +35,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Dynamic import keeps the service → @ai-sdk/gateway graph out of the static
-  // import chain (same pattern as policy-check / run-summary / fold routes).
-  const { prSecurityScanService } =
-    await import('@/lib/services/pr-security-scan.service')
   try {
+    // Dynamic import keeps the service → @ai-sdk/gateway graph out of the
+    // static import chain (same pattern as policy-check / run-summary / fold
+    // routes). Inside the try so a module-init failure also maps to 502.
+    const { prSecurityScanService } =
+      await import('@/lib/services/pr-security-scan.service')
     const result = await prSecurityScanService.run({ pullRequestId, trigger })
     if ('skipped' in result) {
       logger.info(

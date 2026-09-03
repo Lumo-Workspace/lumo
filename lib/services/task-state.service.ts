@@ -210,7 +210,7 @@ export async function updateTask(
     // LUM-422 ④ + LUM-426 DONE gates: a DONE transition is blocked while an
     // unresolved send-back stands on the acceptance contract OR an
     // unacknowledged boundary-crossing stands on the task, unless a human
-    // overrides. Both short-circuit free when nothing is flagged.
+    // overrides. All three short-circuit free when nothing is flagged.
     if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
       await assertNoUnresolvedSendBack(taskId)
       await assertNoUnacknowledgedBoundaryCrossings(

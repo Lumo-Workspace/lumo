@@ -160,8 +160,13 @@ test('dispatches from webhook synchronize and from linkPullRequest', async () =>
     id: 'pr-row-2',
     taskId: 't1',
   })
+  const waitUntilCallsBeforeLink = waitUntil.mock.calls.length
   await linkPullRequest('t1', { prId: 'pr-row-2' })
   expect(dispatch).toHaveBeenCalledWith('pr-row-2', 'PR_LINK')
+  // LUM-732 review: the link path must also register its dispatch with
+  // waitUntil (not a bare `void`) — a dropped promise there reads as "clean"
+  // at the DONE gate.
+  expect(waitUntil.mock.calls.length).toBeGreaterThan(waitUntilCallsBeforeLink)
 
   expect(shouldScanOnPrEvent('synchronize', 'open')).toBe(true)
   expect(shouldScanOnPrEvent('edited', 'open')).toBe(false)
