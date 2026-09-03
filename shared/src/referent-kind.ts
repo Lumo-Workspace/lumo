@@ -11,6 +11,17 @@ export const REFERENT_KIND_DECLARABLE = [
 ] as const
 export type DeclarableReferentKind = (typeof REFERENT_KIND_DECLARABLE)[number]
 
+/**
+ * LUM-733: the kinds a TASK criterion may still carry. PENDING_OUTCOME is no
+ * longer accepted on task criteria (it had no check and no reader); it remains
+ * declarable on milestone exit criteria only.
+ */
+export const TASK_REFERENT_KIND_DECLARABLE = [
+  'EXTERNAL_FACT',
+  'AGENT_CONSTRUCTED_STATE',
+] as const
+export type TaskReferentKind = (typeof TASK_REFERENT_KIND_DECLARABLE)[number]
+
 /** Falsifier-derived buckets that an agent can never declare. */
 export type EffectiveReferentKind =
   | DeclarableReferentKind
@@ -353,4 +364,29 @@ export function effectiveReferentKind(args: {
     }
   }
   return declared
+}
+
+/**
+ * LUM-733: the referent kind is DERIVED by the system, not declared by the
+ * agent. A MACHINE criterion's kind follows its checkpointer — EXTERNAL_FACT
+ * only when the check actually consumes an external tool (git/gh/curl/psql/…),
+ * AGENT_CONSTRUCTED_STATE otherwise — so any declaration on a MACHINE criterion
+ * is ignored (there is nothing to mis-declare and nothing to catch). A HUMAN
+ * criterion has no checkpointer to read, so an optional declaration is kept
+ * as-is; absent, it stays null (unclassified).
+ */
+export function deriveReferentKind(args: {
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer: string | null | undefined
+  declared?: string | null | undefined
+}): TaskReferentKind | null {
+  const { verifierType, checkpointer, declared } = args
+  if (verifierType === 'MACHINE') {
+    return classifyCheckpointerGrounding(checkpointer) === 'EXTERNAL'
+      ? 'EXTERNAL_FACT'
+      : 'AGENT_CONSTRUCTED_STATE'
+  }
+  return declared === 'EXTERNAL_FACT' || declared === 'AGENT_CONSTRUCTED_STATE'
+    ? declared
+    : null
 }

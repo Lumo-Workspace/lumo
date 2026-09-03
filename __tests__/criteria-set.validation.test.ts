@@ -13,7 +13,7 @@ const machineItem = {
 const humanItem = {
   statement: 'the criteria section reads as part of the task statement',
   verifierType: 'HUMAN',
-  referentKind: 'PENDING_OUTCOME',
+  referentKind: 'AGENT_CONSTRUCTED_STATE',
 }
 
 describe('criteriaSetItemSchema', () => {
@@ -105,7 +105,7 @@ describe('criteriaSetBodySchema AGENT_DRAFT ids (LUM-437)', () => {
           id: 'abc',
           statement: 'x',
           verifierType: 'HUMAN',
-          referentKind: 'PENDING_OUTCOME',
+          referentKind: 'AGENT_CONSTRUCTED_STATE',
         },
       ],
     })
@@ -118,7 +118,7 @@ describe('criteriaSetBodySchema AGENT_DRAFT ids (LUM-437)', () => {
         {
           statement: 'x',
           verifierType: 'HUMAN',
-          referentKind: 'PENDING_OUTCOME',
+          referentKind: 'AGENT_CONSTRUCTED_STATE',
         },
       ],
       causeTag: 'NEW_INFO',

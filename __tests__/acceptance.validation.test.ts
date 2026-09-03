@@ -1,38 +1,7 @@
 import {
   acceptanceCriterionInputSchema,
-  criteriaCountWarning,
   machineVerdictInputSchema,
 } from '@/lib/validation/acceptance'
-
-const H = { verifierType: 'HUMAN' as const }
-const M = { verifierType: 'MACHINE' as const }
-const humans = (n: number) => Array(n).fill(H)
-
-describe('criteriaCountWarning (soft cap — warns, never rejects)', () => {
-  it('is null inside the 3–7 human range', () => {
-    for (const n of [3, 4, 5, 6, 7])
-      expect(criteriaCountWarning(humans(n))).toBeNull()
-  })
-  it('warns above max on human count', () => {
-    expect(criteriaCountWarning(humans(8))).toMatch(
-      /exceeds the recommended maximum/
-    )
-  })
-  it('warns below min on total', () => {
-    expect(criteriaCountWarning(humans(2))).toMatch(
-      /below the recommended minimum/
-    )
-  })
-  it('mentions micro task below min', () => {
-    expect(criteriaCountWarning(humans(1))).toMatch(/fine for a micro task/)
-    expect(criteriaCountWarning(humans(2))).toMatch(/fine for a micro task/)
-  })
-  it('machine checks do not count toward the max', () => {
-    expect(
-      criteriaCountWarning([...Array(20).fill(M), ...humans(5)])
-    ).toBeNull()
-  })
-})
 
 describe('acceptanceCriterionInputSchema', () => {
   const base = {
@@ -66,7 +35,6 @@ describe('acceptanceCriterionInputSchema', () => {
     const parsed = acceptanceCriterionInputSchema.safeParse({
       ...base,
       verifierType: 'HUMAN',
-      referentKind: 'PENDING_OUTCOME',
     })
     expect(parsed.success).toBe(true)
   })

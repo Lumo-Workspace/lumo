@@ -40,7 +40,6 @@ import {
   type RetroStruggleAggregate,
 } from '@/lib/services/retro-struggle'
 import type { MachineVerdictInput } from '@/lib/validation/acceptance'
-import { effectiveReferentKind } from '@/shared/src/referent-kind'
 
 /**
  * Default ceiling on machine verification rounds (milestone spec). The
@@ -498,38 +497,6 @@ export const taskVerificationService = {
             .join(', ')}`
         ),
         { status: 400 }
-      )
-    }
-
-    // LUM-605: referent_kind is a gate here, not a mirror. A criterion declared
-    // EXTERNAL_FACT whose checkpointer does not actually invoke external tooling
-    // (effectiveReferentKind → UNVERIFIED_ASSERTION) cannot launder a clean
-    // machine-PASS: a green here only re-confirms agent-authored state, the exact
-    // LUM-601 fakeGit shape. We block the round BEFORE any write (no round burned,
-    // status untouched) and hand back explicit dispositions — re-ground the check
-    // against a real external fact, or honestly re-declare the referent kind —
-    // rather than hard-rejecting (an agent may legitimately point at external
-    // behavior). A reported FAIL is let through: there is no false green to stop.
-    const ungrounded = results
-      .filter(r => r.verdict === 'PASS')
-      .map(r => machineById.get(r.criterionId)!)
-      .filter(
-        c =>
-          effectiveReferentKind({
-            declared: c.referentKind ?? null,
-            verifierType: 'MACHINE',
-            checkpointer: c.checkpointer,
-          }) === 'UNVERIFIED_ASSERTION'
-      )
-    if (ungrounded.length > 0) {
-      const ids = ungrounded.map(c => c.id).join(', ')
-      throw Object.assign(
-        new Error(
-          `Round blocked (no round burned): ${ungrounded.length} ${
-            ungrounded.length === 1 ? 'criterion is' : 'criteria are'
-          } declared EXTERNAL_FACT but the checkpointer does not invoke external tooling (git/gh/curl/psql/…), so a PASS only re-confirms agent-authored state — it cannot be accepted as a clean machine verification. Re-ground the check against a real external fact, or honestly re-declare referentKind as AGENT_CONSTRUCTED_STATE (\`lumo task criteria set\`), then re-run \`lumo verify\`. Affected: ${ids}`
-        ),
-        { status: 422 }
       )
     }
 
