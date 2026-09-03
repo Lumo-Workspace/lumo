@@ -30,7 +30,6 @@ import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
 import { EvidenceRef, deriveRepoWebUrl } from './evidence-ref'
 import {
-  ClaimVsVerification,
   CostSection,
   StruggleTrailSection,
   TrendSection,
@@ -1427,6 +1426,15 @@ export function AcceptanceTab({
 
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
+  // LUM-733: the human's default action is one whole-task Pass / Send back
+  // (the header VerdictDecision). Per-criterion controls are only useful once a
+  // send-back stands — to say WHICH criterion is still unmet — so the rows stay
+  // passive until then (182 human verdict actions on record, 0 per-criterion
+  // splits, 0 FAILs: the per-row controls were pure overhead on the happy path).
+  const sendBackStanding = data.criteria.some(
+    c => c.latestVerdict?.verdict === 'FAIL'
+  )
+  const rowInteractive = interactive && sendBackStanding
 
   // LUM-563: derive the repo web base from the task's synced PRs so a `commit:`
   // evidence pointer drills to a navigable URL; null → the renderer's git-show
@@ -1606,7 +1614,7 @@ export function AcceptanceTab({
                             <CriterionRow
                               key={c.id}
                               c={c}
-                              interactive={interactive}
+                              interactive={rowInteractive}
                               submitting={submitting}
                               onVerdict={submitVerdict}
                               editable={canEdit}
@@ -1709,7 +1717,7 @@ export function AcceptanceTab({
                         <CriterionRow
                           key={c.id}
                           c={c}
-                          interactive={interactive}
+                          interactive={rowInteractive}
                           submitting={submitting}
                           onVerdict={submitVerdict}
                           editable={false}
@@ -1743,12 +1751,6 @@ export function AcceptanceTab({
               void refresh?.()
             }}
           />
-
-          {/* LUM-620: Claim vs verification — the agent's self-report next to
-              what we measured. Audit-only: it does NOT decide the verdict
-              (LUM-614 red line). LUM-730: the section renders itself only when
-              the claim mismatches the delivery; otherwise it is absent. */}
-          {hasCriteria ? <ClaimVsVerification data={data} /> : null}
 
           {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
               zone. Verification rounds + mechanical gates + run cost.

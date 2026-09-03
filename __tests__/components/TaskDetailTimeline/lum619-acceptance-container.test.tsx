@@ -2,8 +2,8 @@
 /**
  * LUM-619: the Record tab collapses into a single "Acceptance" container.
  * Verdict basis (criteria + Verification record) sits above an audit-only
- * separator; the forensic signals (mechanical gates + boundary crossings +
- * claim-vs-verification) sit below it, clearly marked as not deciding the
+ * separator; the forensic signals (mechanical gates + boundary crossings)
+ * sit below it, clearly marked as not deciding the
  * verdict. The after-the-fact metrics fold into a Run report group tucked at
  * the bottom — which no longer holds the verification record or the gates.
  */
@@ -52,12 +52,11 @@ jest.mock(
 )
 
 // Stub the honest-report leaf sections to bare anchors so we can assert both
-// their position (claim in the audit zone) and Run-report membership (cost /
+// their Run-report membership (cost /
 // struggle / trend) without their data subtrees.
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/HonestReportSections',
   () => ({
-    ClaimVsVerification: () => <div data-testid='claim-vs' />,
     CostSection: () => <div data-testid='cost' />,
     StruggleTrailSection: () => <div data-testid='struggle' />,
     TrendSection: () => <div data-testid='trend' />,
@@ -201,19 +200,19 @@ it('LUM-619 acceptance container orders criteria then verification record then a
   )
   const { container } = renderTab()
 
-  // LUM-635 IA: criteria → boundary crossings zone → claim strip →
+  // LUM-635 IA: criteria → boundary crossings zone →
   // "Evidence & audit trail" card, whose body (record, gates, cost) is
   // collapsed by default. The boundary panel sits with the zones — an open
   // crossing is an actionable Done-blocker — so its anchor is live even while
   // the audit card is collapsed. Expand the card to assert the remaining
   // forensic signals' order.
   const criteria = screen.getByText('Machine-verified')
-  const claim = screen.getByTestId('claim-vs')
   const auditCard = screen.getByText('Evidence & audit trail')
   const boundary = container.querySelector('#boundary-crossings')
   precedes(criteria, boundary)
-  precedes(boundary, claim)
-  precedes(claim, auditCard)
+  precedes(boundary, auditCard)
+  // LUM-733: the claim strip no longer exists on the tab.
+  expect(screen.queryByTestId('claim-vs')).toBeNull()
 
   fireEvent.click(auditCard)
   const record = screen.getByText('Verification record')
@@ -327,7 +326,6 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   )
   expect(runReportGroup.querySelector('[data-testid="gates-slot"]')).toBeNull()
   expect(runReportGroup.querySelector('#boundary-crossings')).toBeNull()
-  expect(runReportGroup.querySelector('[data-testid="claim-vs"]')).toBeNull()
 })
 
 it('LUM-619 acceptance container keeps boundary crossings without a contract', () => {
