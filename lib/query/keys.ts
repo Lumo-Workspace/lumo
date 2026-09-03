@@ -26,7 +26,6 @@ export const queryKeys = {
     my: () => ['tasks', 'my'] as const,
     detail: (id: string) => ['tasks', 'detail', id] as const,
     forecast: (id: string) => ['tasks', 'forecast', id] as const,
-    retrospective: (id: string) => ['tasks', 'retrospective', id] as const,
     progress: (id: string) => ['tasks', 'progress', id] as const,
     gates: (id: string) => ['tasks', 'gates', id] as const,
     securityScans: (id: string) => ['tasks', 'securityScans', id] as const,

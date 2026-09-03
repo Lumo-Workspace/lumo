@@ -1,11 +1,8 @@
 /**
- * LUM-605: the verdict path (recordMachineRound) is the gate, not a mirror. A
- * criterion declared EXTERNAL_FACT whose checkpointer does not actually invoke
- * external tooling (effectiveReferentKind → UNVERIFIED_ASSERTION) must not
- * launder a clean machine-PASS — the round is blocked (422, no round burned).
- * An honestly-declared AGENT_CONSTRUCTED_STATE criterion with the same jest
- * checkpointer passes through. Both declared classes run through the REAL
- * recordMachineRound, per the acceptance contract (not just a classifier unit).
+ * LUM-733: the referent kind is derived from the checkpointer at write time,
+ * so the verdict path no longer second-guesses a declaration — there is no
+ * UNVERIFIED_ASSERTION 422 gate. A PASS on a jest-checked criterion is recorded
+ * as a plain machine round regardless of any legacy declared kind on the row.
  */
 import { taskVerificationService } from '@/lib/services/task-verification.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -99,36 +96,22 @@ beforeEach(() => {
   getDetail.mockResolvedValue({ status: 'IN_PROGRESS' })
 })
 
-describe('LUM-605 verdict-path enforcement', () => {
-  it('blocks a declared-EXTERNAL_FACT + jest PASS (422, no round burned, no IN_REVIEW)', async () => {
+describe('LUM-733 verdict path has no referent-kind gate', () => {
+  it('records a PASS on a legacy declared-EXTERNAL_FACT + jest row (no 422, round lands, → IN_REVIEW)', async () => {
     listByTask.mockResolvedValue([criterion('EXTERNAL_FACT')])
 
-    await expect(
-      taskVerificationService.recordMachineRound(
-        't-1',
-        'w-1',
-        [pass('c-ext')],
-        ATTR,
-        'migration is clean; tests pass'
-      )
-    ).rejects.toMatchObject({ status: 422 })
+    const out = await taskVerificationService.recordMachineRound(
+      't-1',
+      'w-1',
+      [pass('c-ext')],
+      ATTR,
+      'migration is clean; tests pass'
+    )
 
-    // No round was recorded, and the task was not flipped to IN_REVIEW.
-    expect(createMany).not.toHaveBeenCalled()
-    expect(updateWithSideEffects).not.toHaveBeenCalled()
-  })
-
-  it('names the ungrounded criterion and the two dispositions in the message', async () => {
-    listByTask.mockResolvedValue([criterion('EXTERNAL_FACT')])
-    await expect(
-      taskVerificationService.recordMachineRound(
-        't-1',
-        'w-1',
-        [pass('c-ext')],
-        ATTR,
-        'note'
-      )
-    ).rejects.toThrow(/EXTERNAL_FACT|external tooling/i)
+    expect(out.allPassed).toBe(true)
+    expect(out.taskStatus).toBe('IN_REVIEW')
+    expect(createMany).toHaveBeenCalledTimes(1)
+    expect(updateWithSideEffects).toHaveBeenCalledTimes(1)
   })
 
   it('lets an honest AGENT_CONSTRUCTED_STATE + jest PASS through (records round, → IN_REVIEW)', async () => {

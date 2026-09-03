@@ -8,41 +8,7 @@ import {
   isValidEvidencePointer,
   EVIDENCE_POINTER_FORMAT_HINT,
 } from '../../shared/src/acceptance-evidence'
-import {
-  REFERENT_KIND_DECLARABLE,
-  effectiveReferentKind,
-  type DeclarableReferentKind,
-} from '../../shared/src/referent-kind'
-
-/**
- * 3–7 criteria is a SOFT range: outside it we warn, never reject. Hardening
- * (if any) waits for real criterion-churn data from Slice 1.
- */
-export const ACCEPTANCE_CRITERIA_SOFT_MIN = 3
-export const ACCEPTANCE_CRITERIA_SOFT_MAX = 7
-
-/**
- * Soft-cap warning for a task's criterion count, or null when within range.
- * Pure helper for the service layer (LUM-342) — by design it cannot reject.
- *
- * MAX counts human-judgment criteria only — machine checks run automatically
- * and carry no human review load, so they never push the contract over cap.
- * MIN is about total coverage, so a machine-only contract is well-specified.
- */
-export function criteriaCountWarning(
-  criteria: ReadonlyArray<{ verifierType: 'MACHINE' | 'HUMAN' }>
-): string | null {
-  const humanCount = criteria.filter(c => c.verifierType === 'HUMAN').length
-  const total = criteria.length
-  if (humanCount > ACCEPTANCE_CRITERIA_SOFT_MAX) {
-    return `${humanCount} human-judgment criteria exceeds the recommended maximum of ${ACCEPTANCE_CRITERIA_SOFT_MAX} — machine checks don't count toward this; consider folding related human criteria together`
-  }
-  // MIN is about total coverage, so a machine-only contract is well-specified.
-  if (total < ACCEPTANCE_CRITERIA_SOFT_MIN) {
-    return `${total} acceptance criteria is below the recommended minimum of ${ACCEPTANCE_CRITERIA_SOFT_MIN} — fine for a micro task (1–2 targeted criteria is a complete contract for single-session, small-blast-radius work); otherwise the contract may be under-specified`
-  }
-  return null
-}
+import { TASK_REFERENT_KIND_DECLARABLE } from '../../shared/src/referent-kind'
 
 /**
  * Soft warning (LUM-465) for HUMAN criteria with no judgeSteps — the
@@ -63,46 +29,6 @@ export function humanJudgeStepsWarning(
   ).length
   if (missing === 0) return null
   return `${missing} human-judgment ${missing === 1 ? 'criterion lacks' : 'criteria lack'} judging guidance — add judgeSteps (where to look → what to do → ✓pass/✗send-back) so the human adjudicator has steps, not just an assertion`
-}
-
-/**
- * Soft warning (LUM-605) for criteria declared EXTERNAL_FACT whose checkpointer
- * does not actually invoke external tooling — `effectiveReferentKind` downgrades
- * them to UNVERIFIED_ASSERTION. Like the other warnings here it is a pure helper
- * that NEVER rejects: the criterion stores fine (an agent may legitimately mean
- * to point at external behavior), and the verdict path (recordMachineRound) is
- * the hard gate that refuses to accept a PASS on them. This just nudges the
- * drafter to re-ground or honestly re-declare at draft time. HUMAN criteria are
- * never mechanically downgraded (no checkpointer to check), so they are exempt.
- */
-export function referentGroundingWarning(
-  criteria: ReadonlyArray<{
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer?: string | null
-    referentKind?: string | null
-  }>
-): string | null {
-  const ungrounded = criteria.filter(
-    c =>
-      effectiveReferentKind({
-        declared: (c.referentKind ?? null) as DeclarableReferentKind | null,
-        verifierType: c.verifierType,
-        checkpointer: c.checkpointer,
-      }) === 'UNVERIFIED_ASSERTION'
-  )
-  if (ungrounded.length === 0) return null
-  const names = ungrounded
-    .map(
-      c =>
-        `"${c.statement.length > 80 ? `${c.statement.slice(0, 80)}…` : c.statement}"`
-    )
-    .join(', ')
-  return `${ungrounded.length} ${
-    ungrounded.length === 1 ? 'criterion is' : 'criteria are'
-  } declared EXTERNAL_FACT but the checkpointer does not invoke external tooling (git/gh/curl/psql/…) — stored as-is, but \`lumo verify\` will not accept a PASS on ${
-    ungrounded.length === 1 ? 'it' : 'them'
-  } until re-grounded against a real external fact or honestly re-declared as AGENT_CONSTRUCTED_STATE: ${names}`
 }
 
 /**
@@ -146,21 +72,15 @@ export const acceptanceCriterionInputSchema = z
     judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
     source: z.nativeEnum(AcceptanceCriterionSource),
     addedAtRound: z.number().int().min(0).optional(),
-    referentKind: z.enum(REFERENT_KIND_DECLARABLE),
+    // LUM-733: OPTIONAL and advisory. The stored kind is DERIVED server-side
+    // from the checkpointer (see deriveReferentKind); a declaration on a
+    // MACHINE criterion is ignored, on a HUMAN criterion it is kept as-is.
+    // PENDING_OUTCOME is no longer a task-criterion kind.
+    referentKind: z.enum(TASK_REFERENT_KIND_DECLARABLE).nullish(),
   })
   .strict()
   .superRefine((c, ctx) => {
     machineRequiresCheckpointer(c, ctx)
-    // PENDING_OUTCOME = truth lands post-delivery; it must not assert a check
-    // can verify it now. A MACHINE checkpointer contradicts the kind.
-    if (c.referentKind === 'PENDING_OUTCOME' && c.verifierType === 'MACHINE') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['referentKind'],
-        message:
-          'PENDING_OUTCOME criteria have no check today (truth is post-delivery) — draft as HUMAN / leave inconclusive, or pick EXTERNAL_FACT/AGENT_CONSTRUCTED_STATE if it is checkable now',
-      })
-    }
   })
 
 export type AcceptanceCriterionInput = z.infer<
@@ -189,26 +109,20 @@ export const criteriaSetItemSchema = z
     // Agent-drafted human-judging guidance (LUM-465). Part of the contract:
     // edits drift like any other field, a missing one on a HUMAN criterion warns.
     judgeSteps: z.string().trim().min(1).max(2_000).nullish(),
-    referentKind: z.enum(REFERENT_KIND_DECLARABLE),
+    // LUM-733: OPTIONAL and advisory. The stored kind is DERIVED server-side
+    // from the checkpointer (see deriveReferentKind); a declaration on a
+    // MACHINE criterion is ignored, on a HUMAN criterion it is kept as-is.
+    // PENDING_OUTCOME is no longer a task-criterion kind.
+    referentKind: z.enum(TASK_REFERENT_KIND_DECLARABLE).nullish(),
   })
   .strict()
   .superRefine((c, ctx) => {
     machineRequiresCheckpointer(c, ctx)
-    // PENDING_OUTCOME = truth lands post-delivery; it must not assert a check
-    // can verify it now. A MACHINE checkpointer contradicts the kind.
-    if (c.referentKind === 'PENDING_OUTCOME' && c.verifierType === 'MACHINE') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['referentKind'],
-        message:
-          'PENDING_OUTCOME criteria have no check today (truth is post-delivery) — draft as HUMAN / leave inconclusive, or pick EXTERNAL_FACT/AGENT_CONSTRUCTED_STATE if it is checkable now',
-      })
-    }
   })
 
 export type CriteriaSetItem = z.infer<typeof criteriaSetItemSchema>
 
-/** Hard sanity ceiling for one submission — NOT the 3–7 soft cap (which only warns). */
+/** Hard sanity ceiling for one submission. */
 export const CRITERIA_SET_HARD_MAX = 50
 
 /**
@@ -347,38 +261,6 @@ export const humanVerdictBodySchema = z
   })
 
 export type HumanVerdictBody = z.infer<typeof humanVerdictBodySchema>
-
-/**
- * Body of POST /api/tasks/[id]/agent-verdict — the agent send-back path
- * (LUM-422). The THIRD verdict channel, and the only agent-facing one that
- * writes a real verdict row (vs. the machine round, which the verify loop owns).
- *
- * RED LINE (milestone rule 5, narrowed): no passing data row is ever
- * agent-produced. This schema has NO verdict field at all — the service
- * hard-codes verdict=FAIL and verifierType=AGENT on write, so PASS /
- * PASS_WITH_FOLLOWUP are literally unrepresentable here (a body smuggling
- * `verdict` is rejected by `.strict()`, not silently dropped). Symmetric with
- * machineVerdictInputSchema's "no verifierType field" lock.
- *
- * Unlike the human path, the agent pays the structured tax: rejectionReasonEnum
- * is REQUIRED (zero friction for an agent, and it back-fills the classification
- * a human is spared). `note` is an optional free-text narrative posted as a
- * task comment. `criterionIds` optionally narrows the send-back to specific
- * criteria; omitted, it fans out to the whole contract like the human path.
- */
-export const agentVerdictBodySchema = z
-  .object({
-    rejectionReasonEnum: z.nativeEnum(VerificationRejectionReason),
-    note: z.string().trim().min(1).max(4_000).nullish(),
-    criterionIds: z
-      .array(z.string().trim().min(1))
-      .min(1)
-      .max(CRITERIA_SET_HARD_MAX)
-      .optional(),
-  })
-  .strict()
-
-export type AgentVerdictBody = z.infer<typeof agentVerdictBodySchema>
 
 /**
  * Body of POST /api/tasks/[id]/verify — one machine round, one verdict per

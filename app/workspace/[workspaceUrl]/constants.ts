@@ -12,7 +12,6 @@ export const API = {
     lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
     status: (identifier: string) => `/api/tasks/${identifier}/status`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
-    retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
     gates: (taskId: string) => `/api/tasks/${taskId}/gates`,
     securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,

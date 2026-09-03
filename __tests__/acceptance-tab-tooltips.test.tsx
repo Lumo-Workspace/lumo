@@ -124,9 +124,29 @@ function statusView(over: Record<string, unknown> = {}) {
   }
 }
 
-function renderAcceptanceTab() {
+/** LUM-733: per-criterion pass / send-back controls only render while a
+ *  send-back stands (some criterion's latest verdict is FAIL). */
+const SEND_BACK_STANDING = {
+  criteria: statusView().criteria.map((c: Record<string, unknown>) =>
+    c.id === 'h1'
+      ? {
+          ...c,
+          latestVerdict: {
+            round: 1,
+            verdict: 'FAIL',
+            evidencePointer: null,
+            rejectionReason: 'copy still off',
+            rejectionReasonEnum: null,
+            recordedAt: '2026-06-01T00:00:00.000Z',
+          },
+        }
+      : c
+  ),
+}
+
+function renderAcceptanceTab(over: Record<string, unknown> = {}) {
   mockUseTaskStatus.mockReturnValue({
-    data: statusView(),
+    data: statusView(over),
     loading: false,
     error: null,
     refresh: jest.fn(),
@@ -229,19 +249,19 @@ function renderWithCriteria(criteria: Record<string, unknown>[]) {
 // criterion in the default fixture is unverified so its VerdictControls render.
 describe('Verdict action tooltips (send-back)', () => {
   it('send-back button is itself the tooltip trigger — no nested button inside it', () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     const sendBack = screen.getByTestId('verdict-sendback-h1')
     expect(sendBack.querySelector('button')).toBeNull()
   })
 
   it('pass button is itself the tooltip trigger — no nested button inside it', () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     const passBtn = screen.getByTestId('verdict-pass-h1')
     expect(passBtn.querySelector('button')).toBeNull()
   })
 
   it('focusing the pass button reveals the pass tip text', async () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     act(() => {
       screen.getByTestId('verdict-pass-h1').focus()
     })
@@ -251,7 +271,7 @@ describe('Verdict action tooltips (send-back)', () => {
   })
 
   it('focusing the send-back button reveals the send-back tip text', async () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     act(() => {
       screen.getByTestId('verdict-sendback-h1').focus()
     })

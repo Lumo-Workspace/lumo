@@ -14,7 +14,7 @@ There is **no `SATISFIED` / `PASS`**. "N sprints and nobody touched it" is the _
 ## Collection (where signals come from)
 
 - **Automatic** — a DONE task reopened (the lineage `REWORKED` transition) is folded into the well as a `REOPENED` signal. No action needed; it happens server-side.
-- **Manual** — a human who observed reality reject a delivery records it with `lumo outcome record`. The `--note` is mandatory: it is the observed referent, frozen as evidence.
+- **Git-derived** — a revert (or a content reversal) of the delivery's commits landing on the default branch is recorded from the push webhook as `REVERTED` / `DOWNSTREAM_REDIRECT` (LUM-607). No manual recording path exists any more: the former `lumo outcome record` command was removed in LUM-733 (it was never used — 0 MANUAL signals all-time); CI-derived signals (`CI_REGRESSION` / `ROLLED_BACK`) are a follow-up.
 
 ## `lumo outcome show <task>`
 
@@ -25,18 +25,6 @@ lumo outcome show LUM-42
 ```
 
 An empty well prints `INCONCLUSIVE` with the reminder that silence is not a pass. A non-empty well prints `REJECTED` and lists each signal (date, kind, source, note).
-
-## `lumo outcome record <task> --note "<what reality did>" [--kind <kind>]`
-
-Record one human-observed post-hoc rejection. Append-only — every call inserts a new signal; nothing is ever mutated or cleared.
-
-```bash
-lumo outcome record LUM-42 --note "reverted in #812 after a prod incident" --kind reverted
-lumo outcome record LUM-42 --note "downstream rewrote the API shape this task introduced" --kind downstream_redirect
-```
-
-- `--kind` (case-insensitive, default `manual`): `reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual`. `reopened` is **not** a manual kind — it is owned by the automatic lineage fold.
-- `--occurred-at <iso>` — when the event actually happened (defaults to now).
 
 ## `lumo outcome rate [--min N] [--json]`
 
@@ -59,7 +47,6 @@ This is the falsifier discipline applied at the **query layer** — it refuses t
 
 ## When to suggest
 
-- A teammate says a shipped task **was reverted / rolled back / broke prod / got redone / was bypassed** — record it with `lumo outcome record` so the well carries reality's verdict.
 - Auditing whether a "done" task actually held up — `lumo outcome show <task>` reads the well.
 - Asking whether **verification friction predicts post-hoc fate** (do harder-to-verify deliveries fail more, or less?) — `lumo outcome rate`. Expect `inconclusive` until the well fills; it will never print a correlation the sample can't support.
 - **Never** use it to mark something good: the well has no positive verdict by design. To assert a delivery met its contract, that is the acceptance loop (`lumo verify` / `lumo task status`), not the well.
