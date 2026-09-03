@@ -8,7 +8,6 @@ import { formatCriteriaRows, type CriterionRow } from './task-criteria-list'
 type SubmittedItem = {
   statement: string
   checkpointer?: string | null
-  referentKind?: string | null
 }
 
 /**
@@ -37,11 +36,8 @@ export function verifyReadback(
         `checkpointer corrupted in landing for "${s.statement.slice(0, 40)}": sent ${JSON.stringify(wantCk)}, stored ${JSON.stringify(got.checkpointer ?? null)}`
       )
     }
-    if (s.referentKind != null && got.referentKind !== s.referentKind) {
-      issues.push(
-        `referentKind corrupted in landing for "${s.statement.slice(0, 40)}": sent ${s.referentKind}, stored ${got.referentKind}`
-      )
-    }
+    // LUM-733: referentKind is derived server-side from the checkpointer, so a
+    // submitted declaration is advisory and never compared on read-back.
   }
   return issues
 }
@@ -63,12 +59,8 @@ const CAUSE_TAGS = [
 
 interface CriteriaResponse {
   criteria: CriterionRow[]
-  warning: string | null
   /** Soft warning when a HUMAN criterion has no judgeSteps (LUM-465). */
   judgeStepsWarning?: string | null
-  /** Soft warning (LUM-605) for EXTERNAL_FACT criteria whose checkpointer does
-   *  not invoke external tooling — stored, but verify won't accept a PASS. */
-  referentWarning?: string | null
 }
 
 /** Client-side shape gate: fail fast on obviously malformed JSON before the
@@ -87,7 +79,7 @@ function parseCriteriaJson(
     return {
       ok: false,
       error:
-        'expected a non-empty JSON array of criteria, e.g. [{"statement":"…","verifierType":"MACHINE","checkpointer":"npx jest …","referentKind":"AGENT_CONSTRUCTED_STATE"}]',
+        'expected a non-empty JSON array of criteria, e.g. [{"statement":"…","verifierType":"MACHINE","checkpointer":"npx jest …"}]',
     }
   }
   return { ok: true, items: parsed }
@@ -258,16 +250,8 @@ export async function taskCriteriaSet(
       : `Acceptance contract drafted on ${identifier} (${data.criteria.length} criteria) — locked for agent edits; human revisions via --human\n`
   )
   process.stdout.write(formatCriteriaRows(data.criteria))
-  if (data.warning) {
-    process.stdout.write(`⚠ ${sanitizeField(data.warning)}\n`)
-  }
   if (data.judgeStepsWarning) {
     process.stdout.write(`⚠ ${sanitizeField(data.judgeStepsWarning)}\n`)
-  }
-  // LUM-605: EXTERNAL_FACT criteria whose checkpointer doesn't ground external
-  // — stored, but the verify loop will refuse a PASS on them until re-grounded.
-  if (data.referentWarning) {
-    process.stdout.write(`⚠ ${sanitizeField(data.referentWarning)}\n`)
   }
 
   const readbackIssues = verifyReadback(

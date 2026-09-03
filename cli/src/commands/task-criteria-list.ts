@@ -13,7 +13,7 @@ export interface CriterionRow {
   judgeSteps?: string | null
   source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
   addedAtRound: number
-  /** Declarable referent kind (LUM-602). */
+  /** Referent kind, derived server-side from the checkpointer (LUM-733). */
   referentKind?:
     | 'EXTERNAL_FACT'
     | 'AGENT_CONSTRUCTED_STATE'
@@ -97,18 +97,12 @@ export async function taskCriteriaList(
     return 1
   }
 
-  const data = (await res.json()) as {
-    criteria: CriterionRow[]
-    warning: string | null
-  }
+  const data = (await res.json()) as { criteria: CriterionRow[] }
   if (data.criteria.length === 0) {
     process.stdout.write(
-      `No acceptance criteria on ${identifier} — draft 3–7 and submit with lumo task criteria set ${identifier} --file <criteria.json>\n`
+      `No acceptance criteria on ${identifier} — draft them and submit with lumo task criteria set ${identifier} --file <criteria.json>\n`
     )
     return
   }
   process.stdout.write(formatCriteriaRows(data.criteria))
-  if (data.warning) {
-    process.stdout.write(`⚠ ${sanitizeField(data.warning)}\n`)
-  }
 }

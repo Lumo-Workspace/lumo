@@ -9,12 +9,11 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
-  criteriaCountWarning,
   humanJudgeStepsWarning,
-  referentGroundingWarning,
   type CriteriaSetItem,
   type CriteriaCauseTag,
 } from '@/lib/validation/acceptance'
+import { deriveReferentKind } from '../../shared/src/referent-kind'
 
 export interface CriteriaAttribution {
   /** WorkspaceMember id of the caller (CLI bearer → human member). */
@@ -194,7 +193,7 @@ async function applyContractDiff(
           checkpointer: c.checkpointer ?? null,
           evidenceRequired: c.evidenceRequired ?? false,
           judgeSteps: c.judgeSteps ?? null,
-          referentKind: c.referentKind,
+          referentKind: deriveReferentKind(c),
           source: createSource,
           addedAtRound: cfg.round,
         },
@@ -308,7 +307,12 @@ function desiredShape(item: CriteriaSetItem) {
     checkpointer: item.checkpointer ?? null,
     evidenceRequired: item.evidenceRequired ?? false,
     judgeSteps: item.judgeSteps ?? null,
-    referentKind: item.referentKind,
+    // LUM-733: the kind is derived from the checkpointer, never declared.
+    referentKind: deriveReferentKind({
+      verifierType: item.verifierType,
+      checkpointer: item.checkpointer,
+      declared: item.referentKind,
+    }),
   }
 }
 
@@ -360,16 +364,13 @@ function scheduleRevisionAuditComment(
 }
 
 export const taskCriteriaService = {
-  /** A task's contract plus the 3–7 soft-cap warning (null when in range or empty). */
+  /** A task's contract plus the judgeSteps soft warning (null when empty). */
   async listForTask(taskId: string) {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning: criteria.length === 0 ? null : criteriaCountWarning(criteria),
       judgeStepsWarning:
         criteria.length === 0 ? null : humanJudgeStepsWarning(criteria),
-      referentWarning:
-        criteria.length === 0 ? null : referentGroundingWarning(criteria),
     }
   },
 
@@ -458,7 +459,7 @@ export const taskCriteriaService = {
                 checkpointer: i.checkpointer ?? null,
                 evidenceRequired: i.evidenceRequired ?? false,
                 judgeSteps: i.judgeSteps ?? null,
-                referentKind: i.referentKind,
+                referentKind: deriveReferentKind(i),
                 source: 'AGENT_DRAFT',
               },
               tx
@@ -502,7 +503,7 @@ export const taskCriteriaService = {
               checkpointer: i.checkpointer ?? null,
               evidenceRequired: i.evidenceRequired ?? false,
               judgeSteps: i.judgeSteps ?? null,
-              referentKind: i.referentKind,
+              referentKind: deriveReferentKind(i),
               source: 'AGENT_DRAFT',
             },
             tx
@@ -524,9 +525,7 @@ export const taskCriteriaService = {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning: criteriaCountWarning(criteria),
       judgeStepsWarning: humanJudgeStepsWarning(criteria),
-      referentWarning: referentGroundingWarning(criteria),
     }
   },
 
@@ -582,9 +581,7 @@ export const taskCriteriaService = {
     const criteria = await acceptanceCriterionRepository.listByTask(taskId)
     return {
       criteria,
-      warning: criteriaCountWarning(criteria),
       judgeStepsWarning: humanJudgeStepsWarning(criteria),
-      referentWarning: referentGroundingWarning(criteria),
     }
   },
 }

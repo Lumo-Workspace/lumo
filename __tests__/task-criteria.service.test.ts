@@ -104,7 +104,7 @@ function criterion(over: Record<string, unknown> = {}) {
     checkpointer: 'npx jest',
     evidenceRequired: false,
     judgeSteps: null,
-    referentKind: 'EXTERNAL_FACT' as const,
+    referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     source: 'AGENT_DRAFT' as const,
     addedAtRound: 0,
     createdAt: new Date('2026-06-01'),
@@ -125,22 +125,17 @@ beforeEach(() => {
 })
 
 describe('taskCriteriaService.listForTask', () => {
-  it('returns criteria with the soft-cap warning when outside 3–7', async () => {
+  it('returns criteria with no count warning, whatever the count (LUM-733)', async () => {
     repo.listByTask.mockResolvedValue([criterion(), criterion({ id: 'c-2' })])
     const result = await taskCriteriaService.listForTask('t-1')
     expect(result.criteria).toHaveLength(2)
-    expect(result.warning).toMatch(/below the recommended minimum/)
+    expect(result).not.toHaveProperty('warning')
   })
 
-  it('suppresses the warning for an empty (undrafted) contract', async () => {
+  it('suppresses the judgeSteps warning for an empty (undrafted) contract', async () => {
     repo.listByTask.mockResolvedValue([])
     const result = await taskCriteriaService.listForTask('t-1')
-    expect(result).toEqual({
-      criteria: [],
-      warning: null,
-      judgeStepsWarning: null,
-      referentWarning: null,
-    })
+    expect(result).toEqual({ criteria: [], judgeStepsWarning: null })
   })
 })
 
@@ -150,18 +145,18 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
       statement: 's1',
       verifierType: 'MACHINE' as const,
       checkpointer: 'npx jest',
-      referentKind: 'EXTERNAL_FACT' as const,
+      referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     },
     {
       statement: 's2',
       verifierType: 'HUMAN' as const,
-      referentKind: 'EXTERNAL_FACT' as const,
+      referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     },
     {
       statement: 's3',
       verifierType: 'HUMAN' as const,
       evidenceRequired: true,
-      referentKind: 'EXTERNAL_FACT' as const,
+      referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     },
   ]
 
@@ -212,7 +207,7 @@ describe('taskCriteriaService.submitDraft (agent lock)', () => {
       TX
     )
     expect(result.criteria).toHaveLength(3)
-    expect(result.warning).toBeNull()
+    expect(result).not.toHaveProperty('warning')
   })
 })
 
@@ -222,12 +217,12 @@ describe('stage-based criteria lock', () => {
       statement: 'n1',
       verifierType: 'MACHINE' as const,
       checkpointer: 'npx jest',
-      referentKind: 'EXTERNAL_FACT' as const,
+      referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     },
     {
       statement: 'n2',
       verifierType: 'HUMAN' as const,
-      referentKind: 'EXTERNAL_FACT' as const,
+      referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
     },
   ]
 
@@ -355,7 +350,7 @@ describe('stage-based criteria lock', () => {
           statement: 'reworded',
           verifierType: 'MACHINE',
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -393,7 +388,7 @@ describe('verdict-bearing criterion is soft-deleted, never 409, by an after-star
             statement: 'all routes covered by tests',
             verifierType: 'MACHINE',
             checkpointer: 'npx jest',
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
         ],
         ATTRIBUTION,
@@ -431,12 +426,12 @@ describe('editable until DONE (LUM-437)', () => {
         {
           statement: 'r1',
           verifierType: 'HUMAN' as const,
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
         {
           statement: 'r2',
           verifierType: 'HUMAN' as const,
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -477,12 +472,12 @@ describe('editable until DONE (LUM-437)', () => {
             statement: 'reworded keep',
             verifierType: 'MACHINE' as const,
             checkpointer: 'npx jest',
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
           {
             statement: 'brand new',
             verifierType: 'HUMAN' as const,
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
         ],
         ATTRIBUTION,
@@ -533,7 +528,7 @@ describe('editable until DONE (LUM-437)', () => {
           statement: 'all routes covered by tests',
           verifierType: 'MACHINE' as const,
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -563,7 +558,7 @@ describe('editable until DONE (LUM-437)', () => {
           statement: 'all routes covered by tests',
           verifierType: 'MACHINE' as const,
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -585,7 +580,7 @@ describe('editable until DONE (LUM-437)', () => {
           {
             statement: 'new',
             verifierType: 'HUMAN' as const,
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
         ],
         ATTRIBUTION,
@@ -614,7 +609,7 @@ describe('taskCriteriaService.reviseAsHuman', () => {
             id: 'c-elsewhere',
             statement: 's',
             verifierType: 'HUMAN',
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
         ],
         ATTRIBUTION,
@@ -634,13 +629,13 @@ describe('taskCriteriaService.reviseAsHuman', () => {
             id: 'c-1',
             statement: 'a',
             verifierType: 'HUMAN',
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
           {
             id: 'c-1',
             statement: 'b',
             verifierType: 'HUMAN',
-            referentKind: 'EXTERNAL_FACT' as const,
+            referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
           },
         ],
         ATTRIBUTION,
@@ -667,7 +662,7 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           statement: 'all routes covered by tests',
           verifierType: 'MACHINE',
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -700,19 +695,19 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           id: 'c-keep',
           statement: 'kept as-is',
           verifierType: 'HUMAN',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
         {
           id: 'c-change',
           statement: 'tightened statement',
           verifierType: 'MACHINE',
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
         {
           statement: 'brand new requirement',
           verifierType: 'HUMAN',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -766,7 +761,7 @@ describe('taskCriteriaService.reviseAsHuman', () => {
           statement: row.statement,
           verifierType: 'MACHINE',
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -798,7 +793,7 @@ describe('contract-weakening guard (Phase 4)', () => {
           statement,
           verifierType: 'MACHINE' as const,
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -849,7 +844,7 @@ describe('contract-weakening guard (Phase 4)', () => {
           statement: 'returns something',
           verifierType: 'MACHINE' as const,
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -862,11 +857,11 @@ describe('contract-weakening guard (Phase 4)', () => {
 })
 
 describe('referentKind threading', () => {
-  it('persists the caller-declared referentKind on a fresh draft', async () => {
+  it('derives the referentKind from the checkpointer on a fresh draft (declaration ignored, LUM-733)', async () => {
     repo.listByTask
       .mockResolvedValueOnce([]) // empty contract → initial-draft path
       .mockResolvedValueOnce([
-        criterion({ id: 'c-new', referentKind: 'EXTERNAL_FACT' }),
+        criterion({ id: 'c-new', referentKind: 'AGENT_CONSTRUCTED_STATE' }),
       ])
     repo.countByTask.mockResolvedValue(0)
     ;(repo.create as jest.Mock).mockImplementation(
@@ -881,7 +876,7 @@ describe('referentKind threading', () => {
           statement: 'fact check passes',
           verifierType: 'MACHINE' as const,
           checkpointer: 'npx jest',
-          referentKind: 'EXTERNAL_FACT' as const,
+          referentKind: 'AGENT_CONSTRUCTED_STATE' as const,
         },
       ],
       ATTRIBUTION,
@@ -890,7 +885,7 @@ describe('referentKind threading', () => {
     )
 
     expect(repo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ referentKind: 'EXTERNAL_FACT' }),
+      expect.objectContaining({ referentKind: 'AGENT_CONSTRUCTED_STATE' }),
       expect.anything()
     )
   })
