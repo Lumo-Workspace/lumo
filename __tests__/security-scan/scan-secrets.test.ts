@@ -395,3 +395,34 @@ test('redactKnownSecrets: a quoted value straddling the cap is masked to the end
   expect(masked).toContain('…(len')
   expect(masked.endsWith('…(truncated)')).toBe(true)
 })
+
+test('maskQuotedValues: a space-separated passphrase with no redaction token is never exempt', () => {
+  const masked = maskQuotedValues('password = "correct horse battery staple"')
+  expect(masked).not.toContain('correct horse battery staple')
+  expect(masked).toContain('…(len')
+})
+
+test('redactKnownSecrets: a space-separated passphrase in prose is masked', () => {
+  const masked = redactKnownSecrets(
+    'The committed password is "correct horse battery staple" in config.'
+  )
+  expect(masked).not.toContain('correct horse battery staple')
+  expect(masked).toContain('…(len')
+})
+
+test('scanSecrets: a co-located AWS key and space-separated passphrase — evidence hides both', () => {
+  const r = scanSecrets([
+    file('src/mix2.ts', [
+      'const a = "AKIAABCDEFGHIJKLMNOP"; const pw = "correct horse battery staple"',
+    ]),
+  ])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(r[0]?.evidence).not.toContain('correct horse battery staple')
+})
+
+test('maskQuotedValues: an 11-char run beside a prefix-less redaction token is still masked', () => {
+  const masked = maskQuotedValues('x = "abcdefghijk…(len 5)"')
+  expect(masked).not.toContain('abcdefghijk')
+  expect(masked).toContain('…(len')
+})

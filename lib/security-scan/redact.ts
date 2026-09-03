@@ -24,17 +24,30 @@ export function redactLine(line: string, value: string): string {
 }
 
 /**
- * A whole token emitted by `redactSecret`: the optional ≤ 4-char prefix plus
- * `…(len N)`. Matching the *token* — not the bare `…(len ` marker — is what
- * lets `isRedactionOnlyContent` tell "this span is nothing but redactions"
- * from "this span merely contains one".
+ * The marker `redactSecret` appends: `…(len N)` — deliberately *excludes*
+ * the optional ≤ 4-char prefix that precedes it in a real redaction token.
+ * Blanking the prefix along with the marker would eat up to 4 real chars of
+ * whatever sits beside the token — enough to shrink an 8-char run below the
+ * exemption's own threshold and hide it (see `isRedactionOnlyContent`).
+ * `REDACTION_TOKEN_RE` (global) drives the blank-out pass; the non-global
+ * clone `REDACTION_TOKEN_TEST_RE` drives the plain "does this span contain a
+ * token at all" check, so that check is never corrupted by the global
+ * clone's leftover `lastIndex` from a previous call.
  */
-const REDACTION_TOKEN_RE = /(?:[^\s"'`]{0,4})?…\(len \d+\)/g
+const REDACTION_TOKEN_RE = /…\(len \d+\)/g
+const REDACTION_TOKEN_TEST_RE = /…\(len \d+\)/
 
 const QUOTE_CHARS = ['"', "'", '`'] as const
 
 /** Shortest quoted content still redacted as a prefix + length, see `redactSecret`. */
 const MIN_QUOTED_LEN = 8
+
+/**
+ * A run of `MIN_QUOTED_LEN`+ non-whitespace chars — the shape of a
+ * credential surviving in a span once its redaction tokens are blanked out.
+ * Hoisted so `isRedactionOnlyContent` doesn't rebuild it on every call.
+ */
+const LONG_RUN_RE = new RegExp(`\\S{${MIN_QUOTED_LEN},}`)
 
 /**
  * Defensive redaction for LLM-produced evidence, where we do not know which
@@ -112,15 +125,26 @@ export function maskQuotedValues(line: string): string {
 
 /**
  * True when the span content carries no credential-shaped remainder once its
- * redaction tokens are stripped: what is left holds no run of
- * `MIN_QUOTED_LEN` or more non-whitespace characters. `AKIA…(len 20)` →
- * `` (exempt); `a "SUPE…(len 22)" b` → `a "" b` (exempt); but
- * `postgres://u:hunt…(len 13)@h/d?t=correcthorsebattery` keeps a long run and
- * is redacted.
+ * redaction tokens are blanked to a single space each: what is left holds no
+ * run of `MIN_QUOTED_LEN` or more non-whitespace characters. A span with no
+ * token at all is never exempt, however short — that is the caller's whole
+ * point in calling this, so `false` short-circuits before any blanking.
+ *
+ * `AKIA…(len 20)` → `AKIA ` (exempt: longest run is the 4-char prefix);
+ * `a "SUPE…(len 22)" b` → `a "SUPE " b` (exempt: longest run is 5 chars);
+ * `abcdefghijk…(len 5)` → `abcdefghijk ` (redacted: an 11-char run survives
+ * beside a prefix-less token); `postgres://u:hunt…(len 13)@h/d?t=correcthorsebattery`
+ * → `postgres://u:hunt @h/d?t=correcthorsebattery` (redacted: an 18-char run
+ * survives). Blanking to a space rather than stripping the token outright is
+ * what makes the "cannot hide an ≥8-char run" bound actually hold — the
+ * token match excludes the prefix (see `REDACTION_TOKEN_RE`), so stripping it
+ * to `''` could otherwise splice two unrelated runs together across the gap
+ * where the token used to be.
  */
 function isRedactionOnlyContent(content: string): boolean {
-  const remainder = content.replace(REDACTION_TOKEN_RE, '')
-  return !new RegExp(`\\S{${MIN_QUOTED_LEN},}`).test(remainder)
+  if (!REDACTION_TOKEN_TEST_RE.test(content)) return false
+  const remainder = content.replace(REDACTION_TOKEN_RE, ' ')
+  return !LONG_RUN_RE.test(remainder)
 }
 
 function isQuoteChar(ch: string): ch is (typeof QUOTE_CHARS)[number] {
