@@ -299,7 +299,7 @@ program
   )
   .option(
     '--note <text>',
-    'Required self-report — what you did and why it is ready (LUM-597). Recorded as your claim (source AGENT) when the round passes into IN_REVIEW, and checked against the diff for faithfulness.'
+    'Optional one-line self-report — what you did and why it is ready. When given, it is recorded as your claim (source AGENT) when the round passes into IN_REVIEW.'
   )
   .action(
     wrap((task: unknown, options: unknown) =>
@@ -740,15 +740,22 @@ task
 task
   .command('status [task]')
   .description(
-    'Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected.'
+    'Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend).'
   )
   .option(
     '--json',
     'Emit the versioned machine-readable payload (version field; breaking changes bump it)'
   )
+  .option(
+    '--full',
+    'Also print the dashboard sections: verification rollup, history, cost, struggle/rework trail, trend'
+  )
   .action(
     wrap((taskArg, options) =>
-      taskStatus(taskArg as string | undefined, options as { json?: boolean })
+      taskStatus(
+        taskArg as string | undefined,
+        options as { json?: boolean; full?: boolean }
+      )
     )
   )
 

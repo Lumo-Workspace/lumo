@@ -16,6 +16,10 @@ import {
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean
+  /** LUM-733: also print the dashboard sections (verification rollup,
+   *  history, cost, struggle/rework trail, trend). Off by default — the agent
+   *  self-check is the criteria, the next actions, and any open crossings. */
+  full?: boolean
 }
 
 /** Extra render inputs layered onto the status read model (LUM-448): the task's
@@ -25,6 +29,8 @@ export interface TaskStatusOptions {
  *  (`undefined`) means no read was attempted — e.g. a direct `formatTaskStatus`
  *  call in a unit test — and the block is skipped entirely. */
 export interface TaskStatusExtras {
+  /** LUM-733: render the dashboard sections too (see TaskStatusOptions.full). */
+  full?: boolean
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
   /** The repo's https web base (e.g. https://github.com/owner/repo), resolved
@@ -236,18 +242,19 @@ export function formatTaskStatus(
   if (data.criteria.length === 0) {
     lines.push('')
     lines.push(
-      `No acceptance criteria on ${t.identifier} — draft 3–7 and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
+      `No acceptance criteria on ${t.identifier} — draft them and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
     )
     pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
   }
 
-  // LUM-564 声称 vs 核验: the agent's CLAIM (what it says it did) paired with
-  // the measured verification conclusion (what was actually confirmed) — the
-  // two columns regular 規律2 wants, instead of only the verification one. The
-  // machine-verification rollup (LUM-470) lives on the verification side here
-  // rather than as a standalone line, so the contrast is in one place.
-  pushClaimVsVerification(lines, data)
+  // LUM-733: the default report is the agent's self-check — criteria, next
+  // actions, open crossings. The dashboard sections (verification rollup,
+  // history, cost, struggle trail, trend) are human-dashboard material and
+  // cost context, so they only render under --full. The claim / faithfulness
+  // columns are no longer rendered in the terminal at all (the judge still
+  // runs server-side; --json carries its fields).
+  if (extras.full) pushVerificationRollup(lines, data)
 
   lines.push('')
   lines.push(
@@ -334,7 +341,7 @@ export function formatTaskStatus(
     }
   }
 
-  if (data.verificationHistory.length > 0) {
+  if (extras.full && data.verificationHistory.length > 0) {
     lines.push('')
     lines.push('History:')
     for (const h of data.verificationHistory) {
@@ -357,10 +364,11 @@ export function formatTaskStatus(
     }
   }
 
-  pushCost(lines, data)
-
-  pushStruggleTrail(lines, data)
-  pushTrend(lines, data)
+  if (extras.full) {
+    pushCost(lines, data)
+    pushStruggleTrail(lines, data)
+    pushTrend(lines, data)
+  }
 
   lines.push('')
   if (data.nextActions.length === 0) {
@@ -443,120 +451,31 @@ function fmtDuration(totalSec: number): string {
  * claim text is same-source with the web card (latest session's LLM run
  * summary, else its STOP turn digest) so the two surfaces cannot drift.
  */
-function pushClaimVsVerification(
+/**
+ * LUM-733: the measured verification rollup (--full only) — machine-verified
+ * vs human-override over the MACHINE criteria, and how many criteria are met.
+ * The former "Claim vs verification" pairing (claim text + faithfulness
+ * verdict) is no longer rendered in the terminal.
+ */
+function pushVerificationRollup(
   lines: string[],
   data: TaskStatusResponse
 ): void {
   lines.push('')
-  lines.push('Claim vs verification:')
-
-  // ── Claim (声称): the agent's self-report — estimate-tier, never measured.
-  lines.push('  ▸ Claim — what the agent says it did')
-  lines.push('    (agent self-report · estimated, not verification):')
-  const claim = data.claim
-  if (claim && claim.source === 'AGENT' && claim.text) {
-    // LUM-597: the agent's OWN self-report (attached to verify) — the
-    // authoritative claim faithfulness judges, not a summarizer paraphrase.
-    for (const cl of sanitizeField(claim.text).split('\n')) {
-      lines.push(`      ${cl}`)
-    }
-    lines.push('      ↳ source: agent self-report (verify --note)')
-  } else if (claim && claim.source === 'RUN_SUMMARY' && claim.text) {
-    for (const cl of sanitizeField(claim.text).split('\n')) {
-      lines.push(`      ${cl}`)
-    }
-    lines.push('      ↳ source: synthesized run summary (no self-report)')
-  } else if (claim && claim.source === 'DIGEST') {
-    // LUM-583 ③ / LUM-574: a raw turn digest is not a claim — withhold it and
-    // say the formal summary is still generating, same-source with the web card.
-    lines.push(
-      '      generating — the formal run summary is still being synthesized'
-    )
-  } else {
-    // Fail-closed: no run summary → say so, never invent a claim. Run summaries
-    // are synthesized when the bound task reaches DONE (LUM-481).
-    lines.push(
-      '      not generated yet — the agent run summary is synthesized when the task reaches DONE'
-    )
-  }
-
-  // ── Faithfulness (LUM-583): the third state — is the claim itself true? Read
-  // from the persisted LUM-582 verdict; PENDING (not yet judged) is distinct
-  // from UNJUDGEABLE (a real verdict), STALE keeps the verdict but flags a
-  // pending re-check. Skipped only when the server didn't emit it (older server).
-  pushFaithfulness(lines, data.faithfulness)
-
-  // ── Verification (核验): the measured verdict — machine-verified vs override.
-  lines.push('  ▸ Verification — what was actually confirmed (measured):')
+  lines.push('Verification:')
   const mv = data.machineVerification
   if (data.currentRound === 0) {
-    // Nothing verified yet — the claim stands unconfirmed. Don't imply a pass.
-    lines.push('      no verification has run yet — the claim is unconfirmed')
-  } else {
-    if (mv.total > 0) {
-      lines.push(
-        `      ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
-      )
-    }
-    const met = data.criteria.length - data.nextActions.length
+    lines.push('  no verification has run yet')
+    return
+  }
+  if (mv.total > 0) {
     lines.push(
-      `      ${met} of ${data.criteria.length} criteria met by their latest verdict`
+      `  ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
     )
   }
-}
-
-/**
- * Append the "Faithfulness" conclusion (LUM-583) — the third state over the
- * 声称/核验 columns: whether the agent's CLAIM is itself TRUE, judged
- * independently against the delivery (LUM-582). Same read model the web honest
- * report renders, so the two surfaces cannot drift. Fail-closed: PENDING (not
- * yet judged) reads distinctly from UNJUDGEABLE (a real verdict), and STALE
- * keeps the prior verdict while flagging a pending re-check. Skipped only when
- * the server didn't emit the field (older server) — never fabricated.
- */
-function pushFaithfulness(
-  lines: string[],
-  f: TaskStatusResponse['faithfulness']
-): void {
-  if (!f) return // older server: field absent → don't fabricate a conclusion.
-  const verdictPhrase = (
-    v: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE'
-  ): string => {
-    switch (v) {
-      case 'FAITHFUL':
-        return 'faithful — the claim matches the delivery'
-      case 'OVERSTATED':
-        return 'overstated — the claim says more than the diff/PR shows'
-      case 'UNDERREPORT':
-        return 'under-reported — the claim says less than the diff/PR shows'
-      default:
-        return "unjudgeable — couldn't decide from the diff/PR"
-    }
-  }
-  let body: string
-  if (f.state === 'PENDING') {
-    body =
-      'not yet judged — the faithfulness check runs in a batch after delivery'
-  } else if (f.state === 'STALE') {
-    body = `${f.verdict ? verdictPhrase(f.verdict) : 'judged'} (stale — re-checked on the next batch)`
-  } else {
-    body = verdictPhrase(f.state)
-  }
-  const ev: string[] = []
-  if (f.prNumbers.length > 0) {
-    ev.push(`PR ${f.prNumbers.map(n => `#${n}`).join(', ')}`)
-  }
-  if (f.diffShas.length > 0) {
-    ev.push(
-      f.diffShas
-        .slice(0, 3)
-        .map(s => sanitizeField(s).slice(0, 7))
-        .join(' ')
-    )
-  }
-  lines.push('  ▸ Faithfulness — does the claim match the delivery (LUM-583):')
+  const met = data.criteria.length - data.nextActions.length
   lines.push(
-    `      ${body}${ev.length > 0 ? ` · evidence: ${ev.join(' · ')}` : ''}`
+    `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
   )
 }
 
@@ -921,6 +840,7 @@ export async function taskStatus(
   }
   process.stdout.write(
     formatTaskStatus(data, {
+      full: options.full === true,
       openCrossings: crossingsResult,
       dispositionUrl: dispositionUrl(
         base,
