@@ -902,6 +902,7 @@ model Task {
   sessions                   Session[]
   activities                 TaskActivity[]
   boundaryCrossings          BoundaryCrossing[]          @relation("CrossingTask")
+  securityScans              PrSecurityScan[]
   remediatesCrossings        BoundaryCrossing[]          @relation("CrossingRemediation")
   documentMentions           DocumentMention[]
   priorityOverrides          PriorityOverride[]
@@ -1336,6 +1337,114 @@ model BoundaryCrossingExplanation {
   @@map("boundary_crossing_explanations")
 }
 
+// ── LUM-732: PR security scan ───────────────────────────────────────────────
+// One scan per (pullRequestId, headSha). Findings are the scan's children.
+// Secrets are NEVER stored raw — `evidence` is redacted before the row is
+// written, `fingerprint` is a truncated sha256 used only for cross-push
+// disposition inheritance.
+
+enum PrSecurityScanStatus {
+  PENDING
+  RUNNING
+  CLEAN
+  FINDINGS
+  FAILED
+}
+
+enum PrSecurityScanTrigger {
+  PR_EVENT
+  PR_LINK
+}
+
+enum PrSecurityJudgeStatus {
+  RAN
+  UNAVAILABLE
+  SKIPPED
+}
+
+enum PrSecurityFindingKind {
+  SECRET
+  VULNERABILITY
+}
+
+enum PrSecurityFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PrSecurityFindingProvenance {
+  DETERMINISTIC
+  LLM_JUDGE
+  EXTERNAL_TOOL
+}
+
+enum PrSecurityFindingDisposition {
+  FALSE_POSITIVE
+  ACCEPTED_RISK
+}
+
+model PrSecurityScan {
+  id              String                 @id @default(cuid())
+  pullRequestId   String
+  // The PR's task at scan time (denormalised for per-task reads); SetNull.
+  taskId          String?
+  workspaceId     String
+  headSha         String
+  status          PrSecurityScanStatus   @default(PENDING)
+  trigger         PrSecurityScanTrigger
+  judgeStatus     PrSecurityJudgeStatus?
+  // The diff exceeded the judge budget — the LLM pass saw only a prefix.
+  truncated       Boolean                @default(false)
+  // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
+  detectorVersion String
+  error           String?
+  startedAt       DateTime               @default(now())
+  finishedAt      DateTime?
+
+  pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  findings    PrSecurityFinding[]
+
+  @@unique([pullRequestId, headSha])
+  @@index([taskId])
+  @@map("pr_security_scans")
+}
+
+model PrSecurityFinding {
+  id                     String                         @id @default(cuid())
+  scanId                 String
+  kind                   PrSecurityFindingKind
+  // secret:<pattern-id> | vuln:<kind> | ext:<tool>
+  ruleId                 String
+  severity               PrSecurityFindingSeverity
+  provenance             PrSecurityFindingProvenance
+  filePath               String
+  // New-file line number; null when the LLM judge could not place it.
+  line                   Int?
+  title                  String
+  detail                 String
+  // Redacted triggering line — the raw secret never reaches this column.
+  evidence               String
+  fingerprint            String
+  // EXTERNAL_TOOL only: alert URL / id (reserved for the code-scanning follow-up).
+  externalRef            String?
+  disposition            PrSecurityFindingDisposition?
+  dispositionNote        String?
+  dispositionedById      String?
+  dispositionedAt        DateTime?
+  // Set when the disposition was copied from an earlier finding with the same
+  // fingerprint on the same PR (cross-push inheritance).
+  inheritedFromFindingId String?
+  createdAt              DateTime                       @default(now())
+
+  scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([fingerprint])
+  @@map("pr_security_findings")
+}
+
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 model Notification {
@@ -1494,6 +1603,7 @@ model PullRequest {
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
   ideaCitations    IdeaPullRequest[]
+  securityScans    PrSecurityScan[]
 
   @@unique([repo, number])
   @@index([workspaceId])
