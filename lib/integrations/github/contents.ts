@@ -164,6 +164,41 @@ export async function fetchPrStats(opts: {
 }
 
 /**
+ * LUM-732 — the PR's CURRENT head commit SHA from the pulls API. The scan
+ * worker keys its dedup on this (not on the webhook's head.sha, which may be
+ * stale by the time the worker runs). Throws on non-2xx or a missing field.
+ */
+export async function fetchPrHeadSha(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<string> {
+  const token = await getGithubInstallationToken(opts.workspaceId)
+  const [owner, repo] = splitFullName(opts.fullName)
+
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}`,
+    { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${res.status} for PR ${opts.fullName}#${opts.prNumber}`
+      ),
+      { status: res.status }
+    )
+  }
+  const body = (await res.json()) as { head?: { sha?: unknown } }
+  const sha = body.head?.sha
+  if (typeof sha !== 'string' || sha.length === 0) {
+    throw new Error(
+      `GitHub pulls payload missing head.sha for ${opts.fullName}#${opts.prNumber}`
+    )
+  }
+  return sha
+}
+
+/**
  * PURE — parses a unified diff and returns added lines per file.
  *
  * - New-file path is extracted from `+++ b/<path>` headers.

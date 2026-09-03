@@ -18,3 +18,4 @@ export {
   isDowngradedPath,
   isPlaceholderValue,
 } from './secret-patterns'
+export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
