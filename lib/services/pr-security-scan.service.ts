@@ -6,8 +6,8 @@
  *         inherit dispositions by fingerprint → persist → finalize.
  * Runs inside the /api/internal/pr-security-scan worker (300s), never inline.
  *
- * Secrets never reach a row: scanSecrets redacts before returning, and
- * credential-shaped LLM evidence is masked with maskQuotedValues.
+ * Secrets never reach a row: scanSecrets redacts before returning, and every
+ * free-text field the LLM judge authors goes through redactKnownSecrets.
  */
 import { logger } from '@/lib/logger'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -29,7 +29,6 @@ import {
   addedLinesWithNumbers,
   scanSecrets,
   truncateSecurityDiff,
-  maskQuotedValues,
   redactKnownSecrets,
   vulnerabilityFingerprint,
 } from '@/lib/security-scan'
@@ -277,26 +276,29 @@ export const prSecurityScanService = {
             const ruleId = isCredential
               ? 'secret:llm-hardcoded-credential'
               : `vuln:${j.kind}`
+            // EVERY free-text field the judge authored is redacted, not just
+            // `evidence` (LUM-732 review C1). The model echoes the offending
+            // line wherever it likes — a title quoting the key, a detail
+            // spelling it out, a hallucinated path with a token in it — so
+            // redacting one field left the raw secret in the other three.
+            // `redactKnownSecrets` runs every pattern over the text and ends
+            // with `maskQuotedValues`, so it is the whole two-layer pass on
+            // its own. The fingerprint is taken over the REDACTED path/title
+            // so it stays reproducible from the persisted row.
+            const filePath = redactKnownSecrets(j.filePath)
+            const title = redactKnownSecrets(j.title)
             judgeRows.push({
               scanId,
               kind: isCredential ? 'SECRET' : 'VULNERABILITY',
               ruleId,
               severity: j.severity,
               provenance: 'LLM_JUDGE',
-              filePath: j.filePath,
+              filePath,
               line: j.line,
-              title: j.title,
-              detail: j.detail,
-              // Two-layer redaction: known fingerprints first, then any long quoted
-              // value when the judge says it is a credential.
-              evidence: redactKnownSecrets(
-                isCredential ? maskQuotedValues(j.evidence) : j.evidence
-              ),
-              fingerprint: vulnerabilityFingerprint(
-                ruleId,
-                j.filePath,
-                j.title
-              ),
+              title,
+              detail: redactKnownSecrets(j.detail),
+              evidence: redactKnownSecrets(j.evidence),
+              fingerprint: vulnerabilityFingerprint(ruleId, filePath, title),
               disposition: null,
             })
           }

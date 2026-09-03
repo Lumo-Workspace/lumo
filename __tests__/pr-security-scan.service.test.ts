@@ -278,6 +278,41 @@ test('LLM findings are advisory, redacted when credential-shaped, and sorted aft
   })
 })
 
+test('every LLM-authored field is redacted, not just evidence', async () => {
+  // LUM-732 review C1: the judge echoes the offending line back to us, and it
+  // does so in whichever field it feels like — a title that quotes the key, a
+  // detail that spells it out, a filePath the model hallucinated a token into.
+  // Redacting `evidence` alone persisted the raw secret in the other three.
+  const SLACK = 'xoxb-1234567890-ABCDEFGHIJKLMNOP'
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  judgeSecurity.mockResolvedValue({
+    findings: [
+      {
+        kind: 'hardcoded_credential',
+        severity: 'HIGH',
+        filePath: `src/${SLACK}.ts`,
+        line: 1,
+        title: `Hardcoded AWS key ${KEY}`,
+        detail: `The added line assigns ${KEY} to a constant.`,
+        evidence: `const k = "${KEY}"`,
+      },
+    ],
+  })
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  const row = repo.createFindings.mock.calls[0]![0][0]!
+  expect(row.title).not.toContain(KEY)
+  expect(row.detail).not.toContain(KEY)
+  expect(row.evidence).not.toContain(KEY)
+  expect(row.filePath).not.toContain(SLACK)
+  // Redacted, not blanked: the human still has to be able to read the finding.
+  expect(row.title).toContain('Hardcoded AWS key')
+  expect(row.detail).toContain('assigns')
+  expect(row.filePath).toContain('src/')
+})
+
 test('getForTask returns the latest scan per PR and the blocking count', async () => {
   prRepo.findManyForSecurityByTaskId.mockResolvedValue([
     { id: 'pr1', number: 7, title: 'x', url: 'u', state: 'open' },
