@@ -75,7 +75,6 @@ import { taskService } from '@/lib/services/task.service'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskCliService } from '@/lib/services/task-cli.service'
 import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
-import { taskAgentVerdictService } from '@/lib/services/task-agent-verdict.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
@@ -293,34 +292,5 @@ describe('steward governance actions pass through with attribution', () => {
     })
     expect(result.identifier).toBe('LUM-42')
     expect(mockUpdate).toHaveBeenCalled()
-  })
-
-  it('verdict --fail records the send-back WITH the steward session attribution', async () => {
-    const outcome = await taskAgentVerdictService.recordAgentVerdict(
-      'task_1',
-      {
-        rejectionReasonEnum: 'BEHAVIOR_MISMATCH',
-        note: 'does not match the contract',
-      } as never,
-      {
-        actorMemberId: 'wm_1',
-        actorClerkId: 'clerk_1',
-        sourceSessionId: 'sess_steward',
-      }
-    )
-    expect(outcome.verdict).toBe('FAIL')
-    expect(mockCreateMany).toHaveBeenCalledTimes(1)
-    const rows = mockCreateMany.mock.calls[0]![0] as Array<{
-      verifierType: string
-      verdict: string
-      sourceSessionId: string | null
-    }>
-    expect(rows).toHaveLength(2)
-    for (const row of rows) {
-      expect(row.verifierType).toBe('AGENT')
-      expect(row.verdict).toBe('FAIL')
-      // LUM-640: governance write carries the steward session's provenance.
-      expect(row.sourceSessionId).toBe('sess_steward')
-    }
   })
 })

@@ -180,41 +180,18 @@ escalates, and never changes task state — loop rules (the workspace round cap,
 IN_REVIEW on all-pass, human-only DONE) live entirely in `lumo verify` and the
 server.
 
-## lumo verdict — the three verdict channels
+## Verdict channels
 
-`lumo verify` is the MACHINE channel. `lumo verdict` covers the other two — the
-HUMAN pass and the AGENT send-back — under one red line: **no passing data row is
-ever agent-produced.**
-
-```bash
-lumo verdict --pass
-lumo verdict LUM-42 --pass
-lumo verdict --fail --reason CRITERION_UNMET --note "the retry path is still missing"
-lumo verdict LUM-42 --fail --reason scope_mismatch --criterion c-abc123
-```
-
-### --pass — a deep link, never a write
-
-This resolves the task, then opens the browser to its verdict bar focused on
-Pass. **The CLI writes nothing** — PASS only ever lands from a human's own click
-(Clerk session). Use this to hand a finished task to a human for the final pass;
-it carries them one click from recording it.
-
-### --fail — the AGENT send-back
-
-`--fail --reason <enum>` records a real verdict row server-side with
-verifierType=AGENT (a channel distinct from MACHINE and HUMAN, so "machine
-all-pass but human FAIL" stays an uncontaminated signal). The verdict is
-hard-coded FAIL — there is no agent path to a passing verdict. It:
-
-- `--reason <enum>` required (case-insensitive): `CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER` — the agent pays the structured tax a human send-back is spared;
-- `--note <text>` optional, posted as a task comment (@mentions and images for free) and summarized onto the verdict row;
-- `--criterion <id>` repeatable, narrows the send-back; omitted, it fans out to the whole contract;
-- `round` = the current max (not a new round); bounces the task back to IN_PROGRESS, with the unmet criteria surfacing through `lumo task status`.
+`lumo verify` is the MACHINE channel. The only other channel is the **human**
+one: a person records PASS or a send-back (FAIL) in the web verdict bar (Clerk
+session). There is no agent-facing verdict command — the former
+`lumo verdict --fail` AGENT send-back was removed in LUM-733 (17 rows all-time,
+none in the last 30 days); when the machine loop runs out of rounds the task is
+escalated to a human instead. **No passing data row is ever agent-produced.**
 
 ### The DONE gate
 
-Once any criterion's latest verdict is FAIL — machine, AGENT, or human — moving
+Once any criterion's latest verdict is FAIL — machine or human — moving
 the task to DONE on the agent/CLI path is refused with **409** and the unresolved
 items listed. Clear the send-back (fix + re-verify, or a human PASS) before
 `lumo task update <id> --status done` — which itself asks for interactive
@@ -253,9 +230,7 @@ When someone reports a defect in conversation, your action depends on whether th
 task has **ever entered IN_REVIEW**:
 
 - **Not yet** (still your first working pass) → just fix it and continue. No verdict needed — nothing was claimed complete, so there's nothing to contradict.
-- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently fix and re-pass.** Either:
-  - record your own send-back `lumo verdict --fail` (noting it was human-reported — this is _your_ honest concurrence, not a forged human verdict), or
-  - ask the reporter to record a human FAIL via the web UI / Slack (the only channel that can attribute it to a human).
+- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently fix and re-pass.** Ask the reporter to record a human send-back (FAIL) via the web verdict bar / Slack — the only channel that can attribute it to a human — then fix in place and re-run `lumo verify` so the fix lands as a fresh machine round on the record.
 
 If the defect is a **new requirement** not covered by any criterion, first
 transcribe it with `lumo task criteria set --human`, then proceed. You can never

@@ -134,7 +134,7 @@ lumo session attach --steward cmxyz123...                 # by milestone id
 - **Multiple stewards per milestone are allowed** (acceptance is multi-round by nature); sessions don't conflict.
 - **Prior-milestone learnings injected at attach (LUM-647):** the attach prints a `## Prior-milestone learnings (this project)` section — the **MILESTONE-scope** memories distilled from this project's earlier milestone-close retros (a cross-milestone learning unit), wrapped in the `<untrusted-team-memory>` boundary. Empty when the project has no prior distilled learnings; the current milestone's own rows are excluded. A resumed steward session re-gets it via the session-start hook. These memories are written automatically when a milestone closes and its retro is generated — there is no manual command to author them.
 
-**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `task criteria set` (incl. `--human`), `task deps confirm/dismiss`, `verdict --fail` (the send-back rows carry `sourceSessionId`), `milestone add/remove`, and **all read operations**.
+**Allowed (governance — pass through unchanged, with the session recorded as provenance):** `task create` / `task update`, `task criteria set` (incl. `--human`), `task deps confirm/dismiss`, `milestone add/remove`, and **all read operations**.
 
 **Blocked (implementation — first layer, API gate):**
 
