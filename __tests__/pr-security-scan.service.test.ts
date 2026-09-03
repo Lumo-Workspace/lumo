@@ -21,6 +21,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     restart: jest.fn(),
     finalize: jest.fn(),
     createFindings: jest.fn(),
+    persistResult: jest.fn(),
     findDispositionedByPullRequest: jest.fn(),
     findLatestByPullRequestIds: jest.fn(),
     findFindingWithScope: jest.fn(),
@@ -34,7 +35,10 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 
-import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import {
+  prSecurityScanService,
+  STALE_RUNNING_MS,
+} from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import * as gh from '@/lib/integrations/github/contents'
@@ -82,6 +86,10 @@ beforeEach(() => {
   judgeSecurity.mockResolvedValue({ findings: [] })
 })
 
+// The stale-RUNNING test freezes Date.now with a spy; restore it so a later
+// test never runs against a pinned clock.
+afterEach(() => jest.restoreAllMocks())
+
 test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerprint', async () => {
   // First run on sha-1: a fresh scan with one HIGH secret finding.
   fetchPrDiff.mockResolvedValue(SECRET_DIFF)
@@ -95,20 +103,28 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
     status: 'FINDINGS',
     findings: 1,
   })
-  expect(repo.createFindings).toHaveBeenCalledWith([
-    expect.objectContaining({
-      scanId: 's1',
-      ruleId: 'secret:aws-access-key-id',
-      severity: 'HIGH',
-      provenance: 'DETERMINISTIC',
-      disposition: null,
-    }),
-  ])
-  expect(repo.createFindings.mock.calls[0]![0][0]!.evidence).not.toContain(KEY)
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's1',
+    [
+      expect.objectContaining({
+        scanId: 's1',
+        ruleId: 'secret:aws-access-key-id',
+        severity: 'HIGH',
+        provenance: 'DETERMINISTIC',
+        disposition: null,
+      }),
+    ],
+    expect.objectContaining({ status: 'FINDINGS' })
+  )
+  expect(repo.persistResult.mock.calls[0]![1][0]!.evidence).not.toContain(KEY)
 
   // Second request for the SAME sha: no new scan, no diff fetched (the head
   // sha lookup is the dedup key and still runs).
-  repo.findByPrAndSha.mockResolvedValue({ id: 's1', status: 'FINDINGS' })
+  repo.findByPrAndSha.mockResolvedValue({
+    id: 's1',
+    status: 'FINDINGS',
+    startedAt: new Date(),
+  })
   const again = await prSecurityScanService.run({
     pullRequestId: 'pr1',
     trigger: 'PR_EVENT',
@@ -143,17 +159,21 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
     scanId: 's2',
     status: 'FINDINGS',
   })
-  expect(repo.createFindings).toHaveBeenLastCalledWith([
-    expect.objectContaining({
-      scanId: 's2',
-      fingerprint: fp,
-      disposition: 'FALSE_POSITIVE',
-      dispositionNote: 'doc key',
-      dispositionedById: 'm1',
-      dispositionedAt: when,
-      inheritedFromFindingId: 'f-old',
-    }),
-  ])
+  expect(repo.persistResult).toHaveBeenLastCalledWith(
+    's2',
+    [
+      expect.objectContaining({
+        scanId: 's2',
+        fingerprint: fp,
+        disposition: 'FALSE_POSITIVE',
+        dispositionNote: 'doc key',
+        dispositionedById: 'm1',
+        dispositionedAt: when,
+        inheritedFromFindingId: 'f-old',
+      }),
+    ],
+    expect.objectContaining({ status: 'FINDINGS' })
+  )
 })
 
 test('a concurrent duplicate create is treated as deduped, not an error', async () => {
@@ -161,9 +181,11 @@ test('a concurrent duplicate create is treated as deduped, not an error', async 
   // see findByPrAndSha() -> null, both call create(), and the loser hits the
   // unique constraint. That should read as a dedup, not a thrown error.
   fetchPrDiff.mockResolvedValue(SECRET_DIFF)
-  repo.findByPrAndSha
-    .mockResolvedValueOnce(null)
-    .mockResolvedValueOnce({ id: 's-race', status: 'RUNNING' })
+  repo.findByPrAndSha.mockResolvedValueOnce(null).mockResolvedValueOnce({
+    id: 's-race',
+    status: 'RUNNING',
+    startedAt: new Date(),
+  })
   repo.create.mockRejectedValueOnce(
     Object.assign(new Error('Unique constraint'), { code: 'P2002' })
   )
@@ -189,8 +211,11 @@ test('judge failure finalizes the scan with judgeStatus UNAVAILABLE, never CLEAN
     trigger: 'PR_EVENT',
   })
   expect(withSecret).toMatchObject({ status: 'FINDINGS', findings: 1 })
-  expect(repo.finalize).toHaveBeenLastCalledWith(
+  // A judge outage is still a SUCCESS path: rows + status land together in the
+  // one transactional write, with UNAVAILABLE stamped on it.
+  expect(repo.persistResult).toHaveBeenLastCalledWith(
     's1',
+    [expect.objectContaining({ provenance: 'DETERMINISTIC' })],
     expect.objectContaining({ status: 'FINDINGS', judgeStatus: 'UNAVAILABLE' })
   )
 
@@ -204,10 +229,12 @@ test('judge failure finalizes the scan with judgeStatus UNAVAILABLE, never CLEAN
     trigger: 'PR_EVENT',
   })
   expect(clean).toMatchObject({ scanId: 's3', status: 'CLEAN', findings: 0 })
-  const calls = repo.finalize.mock.calls
+  const calls = repo.persistResult.mock.calls
   const last = calls[calls.length - 1]!
-  expect(last[1]).toMatchObject({ status: 'CLEAN', judgeStatus: 'UNAVAILABLE' })
-  expect(last[1].judgeStatus).not.toBe('RAN')
+  expect(last[0]).toBe('s3')
+  expect(last[1]).toEqual([])
+  expect(last[2]).toMatchObject({ status: 'CLEAN', judgeStatus: 'UNAVAILABLE' })
+  expect(last[2].judgeStatus).not.toBe('RAN')
 })
 
 test('a GitHub failure marks the scan FAILED and a FAILED scan is restarted on the next request', async () => {
@@ -227,11 +254,72 @@ test('a GitHub failure marks the scan FAILED and a FAILED scan is restarted on t
     })
   )
 
-  repo.findByPrAndSha.mockResolvedValue({ id: 's1', status: 'FAILED' })
+  repo.findByPrAndSha.mockResolvedValue({
+    id: 's1',
+    status: 'FAILED',
+    startedAt: new Date(),
+  })
   fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
   await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_LINK' })
   expect(repo.restart).toHaveBeenCalledWith('s1')
   expect(repo.create).toHaveBeenCalledTimes(1)
+})
+
+test('a scan wedged in RUNNING past the stale window is restarted, a fresh one is not', async () => {
+  // LUM-732 review I6: the worker can die mid-scan (deploy, OOM, 300s cap) and
+  // leave the row RUNNING forever. Every later push to the same sha then
+  // deduped onto that corpse, so the PR was never scanned again — a permanent
+  // "Scanning" badge and a DONE gate with nothing to say.
+  const now = new Date('2026-09-03T12:00:00Z').getTime()
+  jest.spyOn(Date, 'now').mockReturnValue(now)
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+
+  // 1 minute old: still plausibly alive — leave it alone.
+  repo.findByPrAndSha.mockResolvedValue({
+    id: 's-live',
+    status: 'RUNNING',
+    startedAt: new Date(now - 60 * 1000),
+  })
+  expect(
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+  ).toEqual({ deduped: true, scanId: 's-live' })
+  expect(repo.restart).not.toHaveBeenCalled()
+  expect(fetchPrDiff).not.toHaveBeenCalled()
+
+  // 11 minutes old: past STALE_RUNNING_MS — restart and actually scan.
+  repo.findByPrAndSha.mockResolvedValue({
+    id: 's-stuck',
+    status: 'RUNNING',
+    startedAt: new Date(now - STALE_RUNNING_MS - 60 * 1000),
+  })
+  const r = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(repo.restart).toHaveBeenCalledWith('s-stuck')
+  expect(r).toMatchObject({
+    deduped: false,
+    scanId: 's-stuck',
+    status: 'CLEAN',
+  })
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's-stuck',
+    [],
+    expect.objectContaining({ status: 'CLEAN' })
+  )
+  // A stale PENDING row (queued but never picked up) ages out the same way.
+  repo.findByPrAndSha.mockResolvedValue({
+    id: 's-queued',
+    status: 'PENDING',
+    startedAt: new Date(now - STALE_RUNNING_MS - 1),
+  })
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  expect(repo.restart).toHaveBeenLastCalledWith('s-queued')
+  // Never a second row for the same (pr, sha): restart is in-place.
+  expect(repo.create).not.toHaveBeenCalled()
 })
 
 test('LLM findings are advisory, redacted when credential-shaped, and sorted after deterministic ones', async () => {
@@ -263,7 +351,7 @@ test('LLM findings are advisory, redacted when credential-shaped, and sorted aft
     trigger: 'PR_EVENT',
   })
   expect(r).toMatchObject({ status: 'FINDINGS', findings: 2 })
-  const rows = repo.createFindings.mock.calls[0]![0]
+  const rows = repo.persistResult.mock.calls[0]![1]
   expect(rows[0]).toMatchObject({
     kind: 'SECRET',
     ruleId: 'secret:llm-hardcoded-credential',
@@ -302,7 +390,7 @@ test('every LLM-authored field is redacted, not just evidence', async () => {
     pullRequestId: 'pr1',
     trigger: 'PR_EVENT',
   })
-  const row = repo.createFindings.mock.calls[0]![0][0]!
+  const row = repo.persistResult.mock.calls[0]![1][0]!
   expect(row.title).not.toContain(KEY)
   expect(row.detail).not.toContain(KEY)
   expect(row.evidence).not.toContain(KEY)

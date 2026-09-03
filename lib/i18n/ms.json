@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "Semakan LLM tidak selesai — hanya padanan corak dijalankan.",
   "securityScan.truncated": "Diff dipotong sebelum semakan LLM; perubahan besar mungkin kurang disemak.",
   "securityScan.meta": "Diimbas {sha}",
-  "securityScan.action.error": "Keputusan tidak dapat disimpan. Sila cuba lagi."
+  "securityScan.action.error": "Keputusan tidak dapat disimpan. Sila cuba lagi.",
+  "securityScan.section.loadError": "Imbasan keselamatan tidak dapat dimuatkan.",
+  "securityScan.status.unavailable": "Status imbasan tidak tersedia"
 }

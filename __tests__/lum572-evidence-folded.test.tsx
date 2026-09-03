@@ -40,6 +40,16 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
+// LUM-732 review I3 promoted the security panel out of the audit fold, so it
+// now mounts with the dossier and would reach for a QueryClient this test has
+// no provider for. Its own behaviour is covered by SecurityScanSection.test.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+  useSecurityScans: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+  }),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
   useBoundaryCrossings: jest.fn(() => ({
     crossings: [],

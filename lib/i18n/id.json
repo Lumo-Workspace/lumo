@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "Tinjauan LLM tidak selesai — hanya pencocokan pola yang dijalankan.",
   "securityScan.truncated": "Diff dipotong sebelum tinjauan LLM; perubahan besar mungkin kurang ditinjau.",
   "securityScan.meta": "Dipindai {sha}",
-  "securityScan.action.error": "Keputusan tidak dapat disimpan. Silakan coba lagi."
+  "securityScan.action.error": "Keputusan tidak dapat disimpan. Silakan coba lagi.",
+  "securityScan.section.loadError": "Tidak dapat memuat pemindaian keamanan.",
+  "securityScan.status.unavailable": "Status pemindaian tidak tersedia"
 }

@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "La revisión por LLM no se completó: solo se ejecutó la coincidencia de patrones.",
   "securityScan.truncated": "El diff se truncó antes de la revisión por LLM; los cambios grandes pueden estar poco revisados.",
   "securityScan.meta": "Analizado {sha}",
-  "securityScan.action.error": "No se pudo guardar la decisión. Inténtalo de nuevo."
+  "securityScan.action.error": "No se pudo guardar la decisión. Inténtalo de nuevo.",
+  "securityScan.section.loadError": "No se pudieron cargar los análisis de seguridad.",
+  "securityScan.status.unavailable": "Estado del análisis no disponible"
 }

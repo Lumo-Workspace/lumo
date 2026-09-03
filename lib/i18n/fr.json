@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "La revue par LLM ne s'est pas terminée : seule la correspondance de motifs a été exécutée.",
   "securityScan.truncated": "Le diff a été tronqué avant la revue par LLM ; les gros changements peuvent être sous-examinés.",
   "securityScan.meta": "{sha} analysé",
-  "securityScan.action.error": "Impossible d'enregistrer la décision. Veuillez réessayer."
+  "securityScan.action.error": "Impossible d'enregistrer la décision. Veuillez réessayer.",
+  "securityScan.section.loadError": "Impossible de charger les analyses de sécurité.",
+  "securityScan.status.unavailable": "État de l'analyse indisponible"
 }

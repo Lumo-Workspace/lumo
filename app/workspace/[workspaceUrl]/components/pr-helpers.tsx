@@ -85,15 +85,22 @@ const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
 }
 
 /**
- * LUM-732 — per-PR security-scan badge. Five states: scanning / clean /
- * findings (count, toned by the worst severity) / failed / not scanned.
- * Hierarchy by typography and icon; semantic colour for clean (success),
- * MEDIUM (warning) and HIGH (destructive).
+ * LUM-732 — per-PR security-scan badge. Six states: scanning / clean /
+ * findings (count, toned by the worst severity) / failed / not scanned /
+ * status unavailable. Hierarchy by typography and icon; semantic colour for
+ * clean (success), MEDIUM (warning) and HIGH (destructive).
+ *
+ * `unavailable` is the read-side failure (review I4) and is deliberately NOT
+ * folded into "not scanned": one says the PR was never scanned, the other says
+ * we could not find out — rendering a fetch error as the former is a claim
+ * about the PR made from an absence of data about it.
  */
 export function SecurityScanBadge({
   scan,
+  unavailable = false,
 }: {
   scan: SecurityScanView | null | undefined
+  unavailable?: boolean
 }) {
   const intl = useIntl()
   const worst =
@@ -106,7 +113,11 @@ export function SecurityScanBadge({
   let label: string
   let tone = 'text-muted-foreground'
   let state = 'none'
-  if (!scan) {
+  if (unavailable) {
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.unavailable' })
+    state = 'unavailable'
+  } else if (!scan) {
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.none' })
   } else if (scan.status === 'PENDING' || scan.status === 'RUNNING') {

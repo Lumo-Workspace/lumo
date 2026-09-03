@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM-Prüfung nicht abgeschlossen – nur der Musterabgleich lief.",
   "securityScan.truncated": "Der Diff wurde vor der LLM-Prüfung gekürzt; große Änderungen sind möglicherweise unzureichend geprüft.",
   "securityScan.meta": "{sha} gescannt",
-  "securityScan.action.error": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen."
+  "securityScan.action.error": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "securityScan.section.loadError": "Sicherheitsscans konnten nicht geladen werden.",
+  "securityScan.status.unavailable": "Scan-Status nicht verfügbar"
 }

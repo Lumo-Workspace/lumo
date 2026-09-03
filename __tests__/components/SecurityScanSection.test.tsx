@@ -16,6 +16,7 @@ const messages: Record<string, string> = {
   'securityScan.action.confirm': 'Confirm',
   'securityScan.action.cancel': 'Cancel',
   'securityScan.meta': 'Scanned {sha}',
+  'securityScan.section.loadError': 'Could not load security scans.',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -92,14 +93,34 @@ beforeEach(() => {
 })
 
 test('renders nothing while loading or without PRs', () => {
-  useSecurityScans.mockReturnValue({ data: undefined, isLoading: true })
+  useSecurityScans.mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  })
   const { container } = render(<SecurityScanSection taskId='t1' />)
   expect(container).toBeEmptyDOMElement()
   useSecurityScans.mockReturnValue({
     data: { prs: [], blocking: { count: 0 } },
     isLoading: false,
+    isError: false,
   })
   render(<SecurityScanSection taskId='t1' />)
+  expect(screen.queryByTestId('security-scan-panel')).toBeNull()
+})
+
+test('says so when the scans could not be loaded, instead of rendering nothing', () => {
+  // LUM-732 review I4: a dropped fetch rendered as an absent panel, which on a
+  // task with a blocking finding reads as "nothing to see here".
+  useSecurityScans.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  expect(screen.getByTestId('security-scan-load-error')).toHaveTextContent(
+    'Could not load security scans.'
+  )
   expect(screen.queryByTestId('security-scan-panel')).toBeNull()
 })
 

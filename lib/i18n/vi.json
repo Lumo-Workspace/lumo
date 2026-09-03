@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM rà soát chưa hoàn tất — chỉ chạy khớp mẫu.",
   "securityScan.truncated": "Diff đã bị cắt bớt trước khi LLM rà soát; thay đổi lớn có thể chưa được rà soát đầy đủ.",
   "securityScan.meta": "Đã quét {sha}",
-  "securityScan.action.error": "Không thể lưu quyết định. Vui lòng thử lại."
+  "securityScan.action.error": "Không thể lưu quyết định. Vui lòng thử lại.",
+  "securityScan.section.loadError": "Không thể tải các lượt quét bảo mật.",
+  "securityScan.status.unavailable": "Không có trạng thái quét"
 }

@@ -13,23 +13,35 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   CiIcon: () => <span data-testid='ci-icon' />,
   SecurityScanBadge: ({
     scan,
+    unavailable,
   }: {
     scan: { status: string } | null | undefined
-  }) => <span data-testid='security-scan-badge'>{scan?.status ?? 'none'}</span>,
+    unavailable?: boolean
+  }) => (
+    <span
+      data-testid='security-scan-badge'
+      data-unavailable={unavailable ? 'true' : 'false'}
+    >
+      {scan?.status ?? 'none'}
+    </span>
+  ),
 }))
+const SCANS_LOADED = {
+  data: {
+    prs: [
+      {
+        pr: { id: 'pr1' },
+        latest: { status: 'FINDINGS', findings: [{ severity: 'HIGH' }] },
+      },
+    ],
+    blocking: { count: 1 },
+  },
+  isLoading: false,
+  isError: false,
+}
+const useSecurityScans = jest.fn(() => SCANS_LOADED as unknown)
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
-  useSecurityScans: () => ({
-    data: {
-      prs: [
-        {
-          pr: { id: 'pr1' },
-          latest: { status: 'FINDINGS', findings: [{ severity: 'HIGH' }] },
-        },
-      ],
-      blocking: { count: 1 },
-    },
-    isLoading: false,
-  }),
+  useSecurityScans: () => useSecurityScans(),
 }))
 
 import { render, screen } from '@testing-library/react'
@@ -133,5 +145,63 @@ describe('PullRequestsSection', () => {
       .getAllByTestId('security-scan-badge')
       .map(b => b.textContent)
     expect(badges).toEqual(['FINDINGS', 'none'])
+  })
+
+  // ── LUM-732 review I4 — the badge must not speak for data it doesn't have ──
+
+  it('renders no badge at all while the scans are still loading', () => {
+    useSecurityScans.mockReturnValueOnce({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    })
+    render(
+      <Accordion type='multiple' defaultValue={['pullRequests']}>
+        <PullRequestsSection
+          {...baseProps}
+          pullRequests={[
+            {
+              id: 'pr1',
+              number: 1,
+              title: 'PR one',
+              url: 'https://x/1',
+              state: 'open',
+              ciStatus: null,
+            },
+          ]}
+        />
+      </Accordion>
+    )
+    // An in-flight fetch is not "Not scanned": show nothing until we know.
+    expect(screen.queryByTestId('security-scan-badge')).toBeNull()
+  })
+
+  it('marks the badge unavailable when the scan fetch failed', () => {
+    useSecurityScans.mockReturnValueOnce({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    })
+    render(
+      <Accordion type='multiple' defaultValue={['pullRequests']}>
+        <PullRequestsSection
+          {...baseProps}
+          pullRequests={[
+            {
+              id: 'pr1',
+              number: 1,
+              title: 'PR one',
+              url: 'https://x/1',
+              state: 'open',
+              ciStatus: null,
+            },
+          ]}
+        />
+      </Accordion>
+    )
+    expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
+      'data-unavailable',
+      'true'
+    )
   })
 })

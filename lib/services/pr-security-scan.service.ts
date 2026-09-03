@@ -36,6 +36,17 @@ import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 
 export const DETECTOR_VERSION = 'secrets@1;judge@1'
 
+/**
+ * How long a scan may sit in RUNNING/PENDING before the next trigger treats it
+ * as dead and re-runs it in place (review I6). The worker itself is capped at
+ * 300s, so anything past 10 minutes is a row whose process is gone — a deploy,
+ * an OOM, a hard timeout. Without this every later trigger on the same head
+ * sha deduped onto the corpse: a permanently "Scanning" badge and a DONE gate
+ * that never learns anything. Longer than the worker cap on purpose, so a slow
+ * but live scan is never restarted underneath itself.
+ */
+export const STALE_RUNNING_MS = 10 * 60 * 1000
+
 // ── View types (shared by route, hook and components) ────────────────────────
 
 export interface SecurityFindingView {
@@ -160,6 +171,22 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
   }
 }
 
+/**
+ * True when an existing row for this (pr, sha) should be re-run in place: it
+ * FAILED, or it is still RUNNING/PENDING past `STALE_RUNNING_MS` — a worker
+ * that died without finalizing. Anything else is a live or finished scan and
+ * the caller dedups onto it.
+ */
+function isRerunnable(existing: {
+  status: ScanStatus
+  startedAt: Date
+}): boolean {
+  if (existing.status === 'FAILED') return true
+  if (existing.status !== 'RUNNING' && existing.status !== 'PENDING')
+    return false
+  return Date.now() - existing.startedAt.getTime() > STALE_RUNNING_MS
+}
+
 /** Copy a prior human disposition onto a new finding with the same fingerprint. */
 function inheritDispositions(
   fresh: NewFindingInput[],
@@ -206,8 +233,7 @@ export const prSecurityScanService = {
     )
     let scanId: string
     if (existing) {
-      if (existing.status !== 'FAILED')
-        return { deduped: true, scanId: existing.id }
+      if (!isRerunnable(existing)) return { deduped: true, scanId: existing.id }
       await prSecurityScanRepository.restart(existing.id)
       scanId = existing.id
     } else {
@@ -316,11 +342,13 @@ export const prSecurityScanService = {
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
-      await prSecurityScanRepository.createFindings(rows)
 
       const status: 'CLEAN' | 'FINDINGS' =
         rows.length > 0 ? 'FINDINGS' : 'CLEAN'
-      await prSecurityScanRepository.finalize(scanId, {
+      // Spec §6.1: findings and the status describing them are ONE write, so a
+      // crash between them can never leave a FINDINGS scan with no rows (or
+      // rows nobody can see under a scan still RUNNING).
+      await prSecurityScanRepository.persistResult(scanId, rows, {
         status,
         judgeStatus,
         truncated,

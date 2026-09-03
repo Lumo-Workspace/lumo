@@ -96,15 +96,16 @@ export interface DispositionedFingerprint {
 }
 
 export const prSecurityScanRepository = {
+  /** `startedAt` rides along so the service can age out a wedged RUNNING scan. */
   async findByPrAndSha(
     pullRequestId: string,
     headSha: string
-  ): Promise<{ id: string; status: ScanStatus } | null> {
+  ): Promise<{ id: string; status: ScanStatus; startedAt: Date } | null> {
     const row = await prisma.prSecurityScan.findUnique({
       where: { pullRequestId_headSha: { pullRequestId, headSha } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, startedAt: true },
     })
-    return row as { id: string; status: ScanStatus } | null
+    return row as { id: string; status: ScanStatus; startedAt: Date } | null
   },
 
   async create(input: NewScanInput): Promise<{ id: string }> {
@@ -148,6 +149,37 @@ export const prSecurityScanRepository = {
     await prisma.prSecurityFinding.createMany({ data: inputs })
   },
 
+  /**
+   * Spec §6.1 — the successful end of a scan is ONE write: the findings and
+   * the status that describes them land together or not at all. Split across
+   * two round trips, a crash between them leaves either a FINDINGS scan with
+   * no rows (a panel claiming problems it cannot show) or rows under a scan
+   * still RUNNING (invisible findings that never block Done).
+   * `finalize` stays exported for the FAILED path, which has nothing to write.
+   */
+  async persistResult(
+    scanId: string,
+    findings: NewFindingInput[],
+    final: FinalizeScanInput
+  ): Promise<void> {
+    const ops = []
+    if (findings.length > 0)
+      ops.push(prisma.prSecurityFinding.createMany({ data: findings }))
+    ops.push(
+      prisma.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          status: final.status,
+          judgeStatus: final.judgeStatus,
+          truncated: final.truncated,
+          error: final.error ?? null,
+          finishedAt: new Date(),
+        },
+      })
+    )
+    await prisma.$transaction(ops)
+  },
+
   async findDispositionedByPullRequest(
     pullRequestId: string
   ): Promise<DispositionedFingerprint[]> {
@@ -166,12 +198,18 @@ export const prSecurityScanRepository = {
     return rows as DispositionedFingerprint[]
   },
 
-  /** Every scan for the given PRs, newest first, findings included. */
+  /**
+   * The newest scan per PR, findings included — at most one row per id.
+   * `distinct` on top of `orderBy: startedAt desc` keeps the first (newest)
+   * row of each `pullRequestId` group; without it this read every scan ever
+   * made for a long-lived PR, hydrating each one's findings (review I5).
+   */
   async findLatestByPullRequestIds(ids: string[]): Promise<ScanWithFindings[]> {
     if (ids.length === 0) return []
     const rows = await prisma.prSecurityScan.findMany({
       where: { pullRequestId: { in: ids } },
       orderBy: { startedAt: 'desc' },
+      distinct: ['pullRequestId'],
       include: { findings: { orderBy: { createdAt: 'asc' } } },
     })
     return rows as unknown as ScanWithFindings[]

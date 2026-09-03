@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLMレビューが完了しませんでした。パターン一致のみ実行されました。",
   "securityScan.truncated": "LLMレビュー前にdiffが切り詰められました。大きな変更は十分にレビューされていない可能性があります。",
   "securityScan.meta": "{sha} をスキャン済み",
-  "securityScan.action.error": "判定を保存できませんでした。もう一度お試しください。"
+  "securityScan.action.error": "判定を保存できませんでした。もう一度お試しください。",
+  "securityScan.section.loadError": "セキュリティスキャンを読み込めませんでした。",
+  "securityScan.status.unavailable": "スキャン状態を取得できません"
 }

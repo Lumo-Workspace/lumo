@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM 검토가 완료되지 않았습니다. 패턴 일치만 실행되었습니다.",
   "securityScan.truncated": "LLM 검토 전에 diff가 잘렸습니다. 큰 변경은 충분히 검토되지 않았을 수 있습니다.",
   "securityScan.meta": "{sha} 스캔 완료",
-  "securityScan.action.error": "결정을 저장하지 못했습니다. 다시 시도해 주세요."
+  "securityScan.action.error": "결정을 저장하지 못했습니다. 다시 시도해 주세요.",
+  "securityScan.section.loadError": "보안 스캔을 불러올 수 없습니다.",
+  "securityScan.status.unavailable": "스캔 상태를 가져올 수 없음"
 }

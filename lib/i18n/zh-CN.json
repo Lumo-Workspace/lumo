@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM 审查未完成——只执行了特征匹配。",
   "securityScan.truncated": "diff 在 LLM 审查前被截断，大型变更可能审查不全。",
   "securityScan.meta": "已扫描 {sha}",
-  "securityScan.action.error": "处置未能保存，请重试。"
+  "securityScan.action.error": "处置未能保存，请重试。",
+  "securityScan.section.loadError": "无法加载安全扫描。",
+  "securityScan.status.unavailable": "扫描状态不可用"
 }

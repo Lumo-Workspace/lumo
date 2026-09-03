@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "Проверка LLM не завершилась — выполнено только сопоставление шаблонов.",
   "securityScan.truncated": "Diff был обрезан перед проверкой LLM; крупные изменения могли быть проверены не полностью.",
   "securityScan.meta": "Проверен {sha}",
-  "securityScan.action.error": "Не удалось сохранить решение. Попробуйте ещё раз."
+  "securityScan.action.error": "Не удалось сохранить решение. Попробуйте ещё раз.",
+  "securityScan.section.loadError": "Не удалось загрузить проверки безопасности.",
+  "securityScan.status.unavailable": "Статус проверки недоступен"
 }

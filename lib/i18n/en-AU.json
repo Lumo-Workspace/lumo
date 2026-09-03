@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM review did not complete — only pattern matching ran.",
   "securityScan.truncated": "The diff was truncated before LLM review; large changes may be under-reviewed.",
   "securityScan.meta": "Scanned {sha}",
-  "securityScan.action.error": "Could not save the decision. Please try again."
+  "securityScan.action.error": "Could not save the decision. Please try again.",
+  "securityScan.section.loadError": "Could not load security scans.",
+  "securityScan.status.unavailable": "Scan status unavailable"
 }

@@ -2298,5 +2298,7 @@
   "securityScan.judgeUnavailable": "LLM 審查未完成——只執行了特徵比對。",
   "securityScan.truncated": "diff 在 LLM 審查前被截斷，大型變更可能審查不完整。",
   "securityScan.meta": "已掃描 {sha}",
-  "securityScan.action.error": "處置未能儲存，請重試。"
+  "securityScan.action.error": "處置未能儲存，請重試。",
+  "securityScan.section.loadError": "無法載入安全掃描。",
+  "securityScan.status.unavailable": "掃描狀態不可用"
 }

@@ -21,7 +21,19 @@ type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
  * API client and invalidates the same query. No business logic here.
  */
 export function SecurityScanSection({ taskId }: { taskId: string }) {
-  const { data, isLoading } = useSecurityScans(taskId)
+  const intl = useIntl()
+  const { data, isLoading, isError } = useSecurityScans(taskId)
+  // A dropped read is said out loud (review I4). Rendering null instead let a
+  // task with a blocking finding look like a task with nothing to review.
+  if (isError)
+    return (
+      <p
+        data-testid='security-scan-load-error'
+        className='mt-4 text-caption text-muted-foreground'
+      >
+        {intl.formatMessage({ id: 'securityScan.section.loadError' })}
+      </p>
+    )
   if (isLoading || !data) return null
   if (data.prs.length === 0) return null
   return <SecurityScanPanel taskId={taskId} data={data} />

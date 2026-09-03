@@ -75,6 +75,15 @@ export interface SecurityJudgeFinding {
   evidence: string
 }
 
+/**
+ * Hard ceiling on one judge call. The worker that awaits this is capped at
+ * 300s and the deterministic pass has already run by then, so a gateway that
+ * never answers must not take the whole scan down with it: the abort throws,
+ * the service's fail-soft catch stamps judgeStatus UNAVAILABLE, and the
+ * pattern-match findings still land (LUM-732 review I6).
+ */
+const JUDGE_TIMEOUT_MS = 120_000
+
 export async function judgeSecurity(
   input: SecurityJudgeInput
 ): Promise<{ findings: SecurityJudgeFinding[] }> {
@@ -83,6 +92,7 @@ export async function judgeSecurity(
     schema: SecurityJudgeSchema,
     system: SECURITY_JUDGE_SYSTEM_PROMPT,
     prompt: `Unified diff:\n${input.diff.trim().length > 0 ? input.diff : '(empty diff)'}`,
+    abortSignal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
   })
   return { findings: object.findings }
 }

@@ -33,7 +33,11 @@ export function PullRequestsSection({
   onUnlinkPr,
 }: Props): React.ReactElement {
   const intl = useIntl()
-  const { data: security } = useSecurityScans(taskId)
+  const {
+    data: security,
+    isLoading: securityLoading,
+    isError: securityError,
+  } = useSecurityScans(taskId)
   const scanByPrId = new Map(
     (security?.prs ?? []).map(p => [p.pr.id, p.latest] as const)
   )
@@ -74,7 +78,15 @@ export function PullRequestsSection({
                 </a>
                 <div className='flex items-center gap-1.5 mt-1'>
                   <PrStateBadge state={pr.state} />
-                  <SecurityScanBadge scan={scanByPrId.get(pr.id)} />
+                  {/* Review I4: nothing at all while the read is in flight —
+                      an unanswered fetch is not "Not scanned" — and an
+                      explicit unavailable state once it has failed. */}
+                  {securityLoading ? null : (
+                    <SecurityScanBadge
+                      scan={scanByPrId.get(pr.id)}
+                      unavailable={securityError}
+                    />
+                  )}
                 </div>
               </div>
               <button

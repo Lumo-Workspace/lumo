@@ -1753,6 +1753,15 @@ export function AcceptanceTab({
               the claim mismatches the delivery; otherwise it is absent. */}
           {hasCriteria ? <ClaimVsVerification data={data} /> : null}
 
+          {/* LUM-732: per-PR security scan. Promoted OUT of the audit fold
+              (review I3) for the same reason as the boundary crossings above:
+              an undispositioned HIGH finding is a human-only to-do that hard
+              blocks DONE (the API returns 409), so burying it under
+              "audit-only — these signals don't decide the verdict" both hid
+              the banner by default and mislabelled it. Renders null when the
+              task has no linked PRs. */}
+          {securitySlot}
+
           {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
               zone. Verification rounds + mechanical gates + run cost.
               Audit-only: none of it is an input to the verdict (LUM-614 red
@@ -1797,9 +1806,6 @@ export function AcceptanceTab({
                 {/* Mechanical gates (per PR; LUM-617). Injected from the dossier
                     level; null when there are no PRs/signals. */}
                 {gatesSlot}
-
-                {/* Security scan per PR (LUM-732). */}
-                {securitySlot}
 
                 {/* Run cost — tokens / active time / rework rounds (LUM-560). */}
                 <CostSection data={data} />
