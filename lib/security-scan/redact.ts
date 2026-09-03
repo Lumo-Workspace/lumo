@@ -24,36 +24,109 @@ export function redactLine(line: string, value: string): string {
 }
 
 /**
+ * Marker emitted by `redactSecret`. Text containing it has already been
+ * redacted once; redacting it again would print a false length (the length of
+ * the *redaction*, not of the secret) and destroy the surrounding context.
+ */
+const REDACTION_MARKER = '…(len '
+
+const QUOTE_CHARS = ['"', "'", '`'] as const
+
+/** Shortest quoted content still redacted as a prefix + length, see `redactSecret`. */
+const MIN_QUOTED_LEN = 8
+
+/**
  * Defensive redaction for LLM-produced evidence, where we do not know which
  * substring is the secret: every quoted string of ≥ 8 chars is redacted.
  *
- * Each quote style (double, single, backtick) is matched independently
- * rather than with one combined `['"`]` alternation — the combined class
- * excluded ALL three quote characters from the content, so a plain
- * apostrophe inside a double-quoted span (e.g. `"it's a secret..."`) broke
- * the match and the span passed through unredacted (fail-open).
+ * Implemented as a SINGLE left-to-right tokenizer rather than one regex pass
+ * per quote style. Three independent passes can only ever approximate the
+ * pairing, and every approximation failed OPEN — an odd number of a quote
+ * char (an escaped quote `\'`, a prose apostrophe in `don't`, an
+ * unterminated `"`) shifted the pairing by one, so the pass consumed the
+ * text *between* two credentials and left the credential itself unquoted and
+ * raw.
  *
- * The pairing regex itself is length-agnostic (`[^q]*`, zero or more) — the
- * length gate (`>= 8`) is applied in the replace callback, not baked into
- * the quantifier. Putting `{8,}` in the quantifier made pairing
- * length-dependent: given `"hi" ... "LONGSECRET..."`, the engine skips the
- * opening quote before "hi" (too short to satisfy `{8,}`), then re-anchors
- * on "hi"'s own closing quote as a new opening quote and pairs it with the
- * next literal quote instead — consuming the text in between and leaving
- * the actual long secret's closing quote to pair with nothing, so it never
- * gets matched at all (fail-open). Matching `[^q]*` first and deciding
- * length in the callback pairs quotes correctly regardless of what shorter
- * quoted spans precede the secret.
+ * The tokenizer:
+ * - outside a span, any of `"`, `'`, `` ` `` opens a span of that style;
+ * - inside a span, a backslash escapes the next char, the same quote char
+ *   closes the span, and the other quote chars are plain content;
+ * - on close, content of ≥ `MIN_QUOTED_LEN` chars is replaced by its
+ *   redaction; shorter content is emitted verbatim (so `"hi"` survives);
+ * - content that already contains `REDACTION_MARKER` is emitted verbatim —
+ *   without this, evidence that `redactAll` already redacted gets redacted a
+ *   second time and reports the redaction's own length (`"AKIA…(len 20)"` →
+ *   `"AKIA…(len 13)"`).
+ *
+ * Unpaired opener (odd count) — the fail-CLOSED half:
+ * - an opener with no closer masks everything from the opener to the end of
+ *   the string, regardless of length: an unterminated quote is exactly the
+ *   case where a value straddles a truncation cap, and the marker exemption
+ *   does not apply because the unscanned tail may hold anything;
+ * - an unpaired opener also means our earlier pairing for that style was a
+ *   guess (with `// don't commit; const pw = 'secret'`, left-to-right pairs
+ *   the apostrophe with the credential's OPENING quote and leaves the
+ *   credential outside any span). So when the unpaired opener is not the
+ *   first delimiter of its style, the whole region from that first
+ *   delimiter to the end of the string is masked instead — the prefix before
+ *   it holds no quote of that style and is re-masked recursively, which
+ *   terminates because each recursion strictly drops quote characters.
  */
 export function maskQuotedValues(line: string): string {
-  let out = line
-  for (const q of ['"', "'", '`']) {
-    const pairRegex = new RegExp(`${q}([^${q}]*)${q}`, 'g')
-    out = out.replace(pairRegex, (m: string, v: string) =>
-      v.length >= 8 ? `${q}${redactSecret(v)}${q}` : m
-    )
+  let out = ''
+  let i = 0
+  while (i < line.length) {
+    const ch = line[i]!
+    if (!isQuoteChar(ch)) {
+      out += ch
+      i += 1
+      continue
+    }
+    const close = findClosingQuote(line, i, ch)
+    if (close === -1) {
+      const firstIdx = line.indexOf(ch)
+      // Ambiguous pairing: fall back to masking the whole region.
+      if (firstIdx < i) {
+        return `${maskQuotedValues(line.slice(0, firstIdx))}${maskOpenTail(ch, line.slice(firstIdx + 1))}`
+      }
+      return `${out}${maskOpenTail(ch, line.slice(i + 1))}`
+    }
+    const content = line.slice(i + 1, close)
+    out +=
+      content.length >= MIN_QUOTED_LEN && !content.includes(REDACTION_MARKER)
+        ? `${ch}${redactSecret(content)}${ch}`
+        : line.slice(i, close + 1)
+    i = close + 1
   }
   return out
+}
+
+function isQuoteChar(ch: string): ch is (typeof QUOTE_CHARS)[number] {
+  return (QUOTE_CHARS as readonly string[]).includes(ch)
+}
+
+/** Index of the closing `quote`, honouring backslash escapes; -1 when unpaired. */
+function findClosingQuote(
+  line: string,
+  openIdx: number,
+  quote: string
+): number {
+  let i = openIdx + 1
+  while (i < line.length) {
+    const ch = line[i]!
+    if (ch === '\\') {
+      i += 2
+      continue
+    }
+    if (ch === quote) return i
+    i += 1
+  }
+  return -1
+}
+
+/** An unterminated quoted tail is always masked — never emitted raw. */
+function maskOpenTail(quote: string, tail: string): string {
+  return `${quote}${redactSecret(tail)}`
 }
 
 export function secretFingerprint(ruleId: string, rawValue: string): string {

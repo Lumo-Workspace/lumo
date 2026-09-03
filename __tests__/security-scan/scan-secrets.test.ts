@@ -311,3 +311,68 @@ test('evidence is belt-and-braces masked: an undetected co-located quoted creden
   expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
   expect(r[0]?.evidence).not.toContain('correcthorsebattery')
 })
+
+test('maskQuotedValues: an escaped quote inside a span no longer shifts the pairing onto the next credential', () => {
+  const line = `throw new Error('can\\'t auth'); const pw = 'correcthorsebattery'`
+  const masked = maskQuotedValues(line)
+  expect(masked).not.toContain('correcthorsebattery')
+  expect(masked).toContain('…(len')
+})
+
+test('evidence: an escaped quote before a co-located credential leaks neither the credential nor the key', () => {
+  const f = file('src/esc.ts', [
+    `throw new Error('can\\'t auth'); const pw = 'correcthorsebattery'; k=AKIAABCDEFGHIJKLMNOP`,
+  ])
+  const r = scanSecrets([f])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('correcthorsebattery')
+  expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
+})
+
+test('redactKnownSecrets: a prose apostrophe never leaves a following quoted credential unmasked', () => {
+  const masked = redactKnownSecrets(
+    `// don't commit; const pw = 'correcthorsebattery'`
+  )
+  expect(masked).not.toContain('correcthorsebattery')
+  expect(masked).toContain('…(len')
+})
+
+test('maskQuotedValues: a quote of another style inside a span is content, not a delimiter', () => {
+  const masked = maskQuotedValues(`a = 'don"t care' + "SUPERSECRETVALUE123456"`)
+  expect(masked).not.toContain('SUPERSECRETVALUE123456')
+  expect(masked).toContain('…(len')
+})
+
+test('maskQuotedValues: already-redacted content is left alone instead of double-redacted', () => {
+  const alreadyRedacted = 'const key = "AKIA…(len 20)"'
+  expect(maskQuotedValues(alreadyRedacted)).toBe(alreadyRedacted)
+  const nested = 'const t = `a "SUPE…(len 22)" b`'
+  expect(maskQuotedValues(nested)).toBe(nested)
+})
+
+test('evidence is redacted exactly once: the reported length is the secret’s, not the redaction’s', () => {
+  const key = scanSecrets([
+    file('src/one.ts', ['const key = "AKIAABCDEFGHIJKLMNOP"']),
+  ])
+  expect(key[0]?.evidence).toBe('const key = "AKIA…(len 20)"')
+
+  // The db-url password is redacted; the surrounding host stays readable
+  // instead of collapsing into a second, false-length redaction.
+  const url = scanSecrets([
+    file('src/two.ts', [
+      'const url = "postgres://u:hunter2secret@db.example.com/app"',
+    ]),
+  ])
+  expect(url[0]?.evidence).not.toContain('hunter2secret')
+  expect(url[0]?.evidence).toContain('db.example.com')
+})
+
+test('redactKnownSecrets: a quoted value straddling the cap is masked to the end of the scanned head', () => {
+  const pad = 'x'.repeat(MAX_SCANNED_LINE_CHARS - 20)
+  const line = `${pad}const pw = "CORRECTHORSEBATTERYSTAPLE${'y'.repeat(40)}"`
+  expect(line.length).toBeGreaterThan(MAX_SCANNED_LINE_CHARS)
+  const masked = redactKnownSecrets(line)
+  expect(masked).not.toContain('CORRECTH')
+  expect(masked).toContain('…(len')
+  expect(masked.endsWith('…(truncated)')).toBe(true)
+})

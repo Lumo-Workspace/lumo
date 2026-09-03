@@ -250,7 +250,13 @@ export function redactKnownSecrets(line: string): string {
     const head = line.slice(0, MAX_SCANNED_LINE_CHARS)
     const matches = collectMatches(head)
     const redactedHead = matches.length === 0 ? head : redactAll(head, matches)
-    return maskQuotedValues(`${redactedHead}${TRUNCATION_MARKER}`)
+    // `maskQuotedValues` runs on the head BEFORE the marker is appended: a
+    // quote opened inside the head whose closer sits beyond the cap is an
+    // unpaired opener, and masking it then covers everything up to the end of
+    // the head. Appending first would make the marker itself part of the
+    // masked tail and, worse, an opener landing after the last scanned char
+    // would have nothing left to mask.
+    return `${maskQuotedValues(redactedHead)}${TRUNCATION_MARKER}`
   }
   const matches = collectMatches(line)
   const redacted = matches.length === 0 ? line : redactAll(line, matches)
