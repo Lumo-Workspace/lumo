@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, one {# उच्च-गंभीरता निष्कर्ष} other {# उच्च-गंभीरता निष्कर्ष}} अभी निपटाए नहीं गए — जब तक कोई व्यक्ति इनकी समीक्षा नहीं करता, यह कार्य पूर्ण नहीं हो सकता।",
   "securityScan.judgeUnavailable": "LLM समीक्षा पूरी नहीं हुई — केवल पैटर्न मिलान चला।",
   "securityScan.truncated": "LLM समीक्षा से पहले diff काटा गया; बड़े बदलाव कम समीक्षित हो सकते हैं।",
-  "securityScan.meta": "{sha} स्कैन किया गया"
+  "securityScan.meta": "{sha} स्कैन किया गया",
+  "securityScan.action.error": "निर्णय सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।"
 }

@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, other {# phát hiện mức độ cao}} chưa được xử lý — nhiệm vụ này không thể chuyển sang Hoàn thành cho đến khi có người xem xét.",
   "securityScan.judgeUnavailable": "LLM rà soát chưa hoàn tất — chỉ chạy khớp mẫu.",
   "securityScan.truncated": "Diff đã bị cắt bớt trước khi LLM rà soát; thay đổi lớn có thể chưa được rà soát đầy đủ.",
-  "securityScan.meta": "Đã quét {sha}"
+  "securityScan.meta": "Đã quét {sha}",
+  "securityScan.action.error": "Không thể lưu quyết định. Vui lòng thử lại."
 }

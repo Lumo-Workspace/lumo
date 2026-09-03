@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, one {# Fund mit hohem Schweregrad ist} other {# Funde mit hohem Schweregrad sind}} noch nicht bewertet – diese Aufgabe kann erst auf Erledigt gesetzt werden, wenn ein Mensch sie geprüft hat.",
   "securityScan.judgeUnavailable": "LLM-Prüfung nicht abgeschlossen – nur der Musterabgleich lief.",
   "securityScan.truncated": "Der Diff wurde vor der LLM-Prüfung gekürzt; große Änderungen sind möglicherweise unzureichend geprüft.",
-  "securityScan.meta": "{sha} gescannt"
+  "securityScan.meta": "{sha} gescannt",
+  "securityScan.action.error": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen."
 }

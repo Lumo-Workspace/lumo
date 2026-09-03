@@ -172,3 +172,25 @@ test('a dispositioned finding shows its disposition and no action buttons', () =
   expect(screen.queryByText('Mark false positive')).toBeNull()
   expect(screen.queryByTestId('security-blocking-banner')).toBeNull()
 })
+
+test('shows an error and keeps the form when the disposition call fails', async () => {
+  dispositionSecurityFinding.mockRejectedValueOnce(new Error('forbidden'))
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+  })
+  render(<SecurityScanSection taskId='t1' />)
+  fireEvent.click(screen.getByText('Mark false positive'))
+  fireEvent.change(screen.getByPlaceholderText('Why?'), {
+    target: { value: 'doc key' },
+  })
+  fireEvent.click(screen.getByText('Confirm'))
+  await waitFor(() =>
+    expect(screen.getByTestId('finding-disposition-error')).toHaveTextContent(
+      'securityScan.action.error'
+    )
+  )
+  expect(invalidateQueries).not.toHaveBeenCalled()
+  expect(screen.getByPlaceholderText('Why?')).toHaveValue('doc key')
+  expect(screen.getByText('Confirm')).not.toBeDisabled()
+})

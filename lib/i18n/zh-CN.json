@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, other {# 项高危发现}}尚未处置——人工审核前任务无法进入完成。",
   "securityScan.judgeUnavailable": "LLM 审查未完成——只执行了特征匹配。",
   "securityScan.truncated": "diff 在 LLM 审查前被截断，大型变更可能审查不全。",
-  "securityScan.meta": "已扫描 {sha}"
+  "securityScan.meta": "已扫描 {sha}",
+  "securityScan.action.error": "处置未能保存，请重试。"
 }

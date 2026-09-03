@@ -87,7 +87,8 @@ const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
 /**
  * LUM-732 — per-PR security-scan badge. Five states: scanning / clean /
  * findings (count, toned by the worst severity) / failed / not scanned.
- * Hierarchy by typography and icon; colour only for HIGH.
+ * Hierarchy by typography and icon; semantic colour for clean (success),
+ * MEDIUM (warning) and HIGH (destructive).
  */
 export function SecurityScanBadge({
   scan,

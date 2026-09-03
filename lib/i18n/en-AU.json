@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, one {# high-severity finding is} other {# high-severity findings are}} undispositioned — this task cannot move to Done until a human reviews them.",
   "securityScan.judgeUnavailable": "LLM review did not complete — only pattern matching ran.",
   "securityScan.truncated": "The diff was truncated before LLM review; large changes may be under-reviewed.",
-  "securityScan.meta": "Scanned {sha}"
+  "securityScan.meta": "Scanned {sha}",
+  "securityScan.action.error": "Could not save the decision. Please try again."
 }

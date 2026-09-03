@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, one {# constat de sévérité élevée n'est} other {# constats de sévérité élevée ne sont}} pas encore traité(s) : cette tâche ne peut pas passer à Terminé tant qu'une personne ne les a pas examinés.",
   "securityScan.judgeUnavailable": "La revue par LLM ne s'est pas terminée : seule la correspondance de motifs a été exécutée.",
   "securityScan.truncated": "Le diff a été tronqué avant la revue par LLM ; les gros changements peuvent être sous-examinés.",
-  "securityScan.meta": "{sha} analysé"
+  "securityScan.meta": "{sha} analysé",
+  "securityScan.action.error": "Impossible d'enregistrer la décision. Veuillez réessayer."
 }

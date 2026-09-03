@@ -134,10 +134,12 @@ function FindingRow({
   const [pending, setPending] = useState<Disposition | null>(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function submit() {
     if (!pending) return
     setSubmitting(true)
+    setError(null)
     try {
       await tasksClient.dispositionSecurityFinding(taskId, finding.id, {
         disposition: pending,
@@ -148,6 +150,8 @@ function FindingRow({
       })
       setPending(null)
       setNote('')
+    } catch {
+      setError(intl.formatMessage({ id: 'securityScan.action.error' }))
     } finally {
       setSubmitting(false)
     }
@@ -226,6 +230,9 @@ function FindingRow({
                 placeholder={intl.formatMessage({
                   id: 'securityScan.action.notePlaceholder',
                 })}
+                aria-label={intl.formatMessage({
+                  id: 'securityScan.action.notePlaceholder',
+                })}
                 className='h-6 min-w-[12rem] flex-1 rounded-sm border border-border bg-background px-1.5 text-caption'
               />
               <button
@@ -238,6 +245,7 @@ function FindingRow({
               </button>
               <button
                 type='button'
+                disabled={submitting}
                 onClick={() => {
                   setPending(null)
                   setNote('')
@@ -249,6 +257,14 @@ function FindingRow({
             </>
           )}
         </div>
+      )}
+      {error && (
+        <p
+          data-testid='finding-disposition-error'
+          className='mt-0.5 text-caption text-destructive'
+        >
+          {error}
+        </p>
       )}
     </div>
   )

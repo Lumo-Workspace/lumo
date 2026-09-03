@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, other {# 件の高リスク検出}}が未処理です。人が確認するまでこのタスクは完了にできません。",
   "securityScan.judgeUnavailable": "LLMレビューが完了しませんでした。パターン一致のみ実行されました。",
   "securityScan.truncated": "LLMレビュー前にdiffが切り詰められました。大きな変更は十分にレビューされていない可能性があります。",
-  "securityScan.meta": "{sha} をスキャン済み"
+  "securityScan.meta": "{sha} をスキャン済み",
+  "securityScan.action.error": "判定を保存できませんでした。もう一度お試しください。"
 }

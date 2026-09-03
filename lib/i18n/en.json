@@ -2294,6 +2294,7 @@
   "securityScan.action.notePlaceholder": "Why? (optional)",
   "securityScan.action.confirm": "Confirm",
   "securityScan.action.cancel": "Cancel",
+  "securityScan.action.error": "Could not save the decision. Please try again.",
   "securityScan.banner.blocking": "{count, plural, one {# high-severity finding is} other {# high-severity findings are}} undispositioned — this task cannot move to Done until a human reviews them.",
   "securityScan.judgeUnavailable": "LLM review did not complete — only pattern matching ran.",
   "securityScan.truncated": "The diff was truncated before LLM review; large changes may be under-reviewed.",

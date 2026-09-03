@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, one {# hallazgo de severidad alta está} other {# hallazgos de severidad alta están}} sin resolver: esta tarea no puede pasar a Listo hasta que una persona los revise.",
   "securityScan.judgeUnavailable": "La revisión por LLM no se completó: solo se ejecutó la coincidencia de patrones.",
   "securityScan.truncated": "El diff se truncó antes de la revisión por LLM; los cambios grandes pueden estar poco revisados.",
-  "securityScan.meta": "Analizado {sha}"
+  "securityScan.meta": "Analizado {sha}",
+  "securityScan.action.error": "No se pudo guardar la decisión. Inténtalo de nuevo."
 }

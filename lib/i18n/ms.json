@@ -2297,5 +2297,6 @@
   "securityScan.banner.blocking": "{count, plural, other {# penemuan tahap tinggi}} belum ditangani — tugasan ini tidak boleh dipindahkan ke Selesai sehingga seseorang menyemaknya.",
   "securityScan.judgeUnavailable": "Semakan LLM tidak selesai — hanya padanan corak dijalankan.",
   "securityScan.truncated": "Diff dipotong sebelum semakan LLM; perubahan besar mungkin kurang disemak.",
-  "securityScan.meta": "Diimbas {sha}"
+  "securityScan.meta": "Diimbas {sha}",
+  "securityScan.action.error": "Keputusan tidak dapat disimpan. Sila cuba lagi."
 }
