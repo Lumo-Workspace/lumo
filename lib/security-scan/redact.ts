@@ -50,6 +50,14 @@ const MIN_QUOTED_LEN = 8
 const LONG_RUN_RE = new RegExp(`\\S{${MIN_QUOTED_LEN},}`)
 
 /**
+ * A token together with its ≤4-char non-whitespace, non-quote prefix — the
+ * whole slice `redactSecret` could have produced from a real value abutting
+ * the token with no gap. Used by the total-count gate to strip that slice
+ * down to nothing rather than to a blanking space (see `isRedactionOnlyContent`).
+ */
+const TOKEN_WITH_PREFIX_RE = new RegExp(`[^\\s"'\`]{0,4}…\\(len \\d+\\)`, 'g')
+
+/**
  * Defensive redaction for LLM-produced evidence, where we do not know which
  * substring is the secret: every quoted string of ≥ 8 chars is redacted.
  *
@@ -125,26 +133,56 @@ export function maskQuotedValues(line: string): string {
 
 /**
  * True when the span content carries no credential-shaped remainder once its
- * redaction tokens are blanked to a single space each: what is left holds no
- * run of `MIN_QUOTED_LEN` or more non-whitespace characters. A span with no
- * token at all is never exempt, however short — that is the caller's whole
- * point in calling this, so `false` short-circuits before any blanking.
+ * redaction tokens are accounted for. A span with no token at all is never
+ * exempt, however short — that is the caller's whole point in calling this,
+ * so `false` short-circuits before either gate below runs. Both gates must
+ * pass; either alone lets a credential through:
  *
- * `AKIA…(len 20)` → `AKIA ` (exempt: longest run is the 4-char prefix);
- * `a "SUPE…(len 22)" b` → `a "SUPE " b` (exempt: longest run is 5 chars);
- * `abcdefghijk…(len 5)` → `abcdefghijk ` (redacted: an 11-char run survives
- * beside a prefix-less token); `postgres://u:hunt…(len 13)@h/d?t=correcthorsebattery`
- * → `postgres://u:hunt @h/d?t=correcthorsebattery` (redacted: an 18-char run
- * survives). Blanking to a space rather than stripping the token outright is
- * what makes the "cannot hide an ≥8-char run" bound actually hold — the
- * token match excludes the prefix (see `REDACTION_TOKEN_RE`), so stripping it
- * to `''` could otherwise splice two unrelated runs together across the gap
- * where the token used to be.
+ * Gate 1 — contiguous-run bound. Blank each token (marker only, not its
+ * prefix) to a single space and check no run of `MIN_QUOTED_LEN`+
+ * non-whitespace characters survives. This bounds a value glued directly to
+ * the token with no gap: `abcdefghijk…(len 5)` → `abcdefghijk ` still holds
+ * an 11-char run beside the prefix-less token, so it fails here and is
+ * redacted. Blanking to a space rather than stripping the token outright is
+ * what makes the bound hold — the token match excludes the prefix (see
+ * `REDACTION_TOKEN_RE`), so stripping to `''` could otherwise splice two
+ * unrelated runs together across the gap where the token used to be.
+ *
+ * Gate 2 — total-count bound. This is the gate the run test alone cannot
+ * provide: a credential can sit in the *same* span as a detected token but
+ * separated from it by whitespace — `AKIA…(len 20) correct horse battery
+ * staple` has no single run ≥ `MIN_QUOTED_LEN` (gate 1 passes it clean) yet
+ * the passphrase is fully readable. Strip every token *together with* its
+ * ≤4-char prefix (`TOKEN_WITH_PREFIX_RE`, stripped to `''` this time — there
+ * is no adjacent-run risk once gate 1 has already run) and count what is
+ * left, ignoring whitespace: `< MIN_QUOTED_LEN` exempts, otherwise redacted.
+ *
+ * `AKIA…(len 20)` → gate 1 keeps only the 4-char prefix (pass); gate 2
+ * strips to `''`, count 0 (pass) → exempt.
+ * `a "SUPE…(len 22)" b` → gate 1's longest run is 5 chars (pass); gate 2
+ * strips the token+prefix, leaving only the punctuation and letters outside
+ * it, well under 8 (pass) → exempt.
+ * `abcdefghijk…(len 5)` → gate 1 fails outright (11-char run) → redacted;
+ * gate 2 is never reached.
+ * `AKIA…(len 20) correct horse battery staple` → gate 1 passes (no single
+ * run ≥ 8, the passphrase is whitespace-broken); gate 2 strips the token,
+ * leaving the passphrase's ~25 non-whitespace characters — well over the
+ * threshold (fail) → redacted. This is the case gate 1 alone got wrong.
+ *
+ * Residual, honestly named: this function only ever runs on content that
+ * already sits inside a quoted span found by `maskQuotedValues`'s tokenizer.
+ * A whitespace-separated credential written as unquoted prose — outside any
+ * span — is out of that tokenizer's contract entirely and is not touched by
+ * either gate here; catching it is `redactAll`'s / the pattern registry's
+ * job, not this exemption's.
  */
 function isRedactionOnlyContent(content: string): boolean {
   if (!REDACTION_TOKEN_TEST_RE.test(content)) return false
-  const remainder = content.replace(REDACTION_TOKEN_RE, ' ')
-  return !LONG_RUN_RE.test(remainder)
+  const blanked = content.replace(REDACTION_TOKEN_RE, ' ')
+  if (LONG_RUN_RE.test(blanked)) return false
+  const stripped = content.replace(TOKEN_WITH_PREFIX_RE, '')
+  const remainingCount = stripped.replace(/\s/g, '').length
+  return remainingCount < MIN_QUOTED_LEN
 }
 
 function isQuoteChar(ch: string): ch is (typeof QUOTE_CHARS)[number] {

@@ -426,3 +426,35 @@ test('maskQuotedValues: an 11-char run beside a prefix-less redaction token is s
   expect(masked).not.toContain('abcdefghijk')
   expect(masked).toContain('…(len')
 })
+
+test('scanSecrets: a whitespace-separated passphrase sharing a span with a detected AWS key is masked', () => {
+  const r = scanSecrets([
+    file('src/mix3.ts', [
+      'const a = "AKIAABCDEFGHIJKLMNOP correct horse battery staple"',
+    ]),
+  ])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(r[0]?.evidence).not.toContain('correct horse battery staple')
+  expect(r[0]?.evidence).toMatch(/"AKIA…\(len \d+\)"/)
+})
+
+test('redactKnownSecrets: a whitespace-separated passphrase sharing a span with a detected AWS key is masked', () => {
+  const masked = redactKnownSecrets(
+    'const a = "AKIAABCDEFGHIJKLMNOP correct horse battery staple"'
+  )
+  expect(masked).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(masked).not.toContain('correct horse battery staple')
+  expect(masked).toMatch(/"AKIA…\(len \d+\)"/)
+})
+
+test('scanSecrets: a detected key followed by unrelated prose in the same span is masked', () => {
+  const r = scanSecrets([
+    file('src/mix4.ts', [
+      'const c = "key AKIAABCDEFGHIJKLMNOP pw is my dog ate a red bus at ten"',
+    ]),
+  ])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
+  expect(r[0]?.evidence).not.toContain('my dog ate a red bus at ten')
+})
