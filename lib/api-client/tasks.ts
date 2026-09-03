@@ -268,10 +268,6 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.forecast(taskId))
   },
 
-  retrospective<T>(taskId: string) {
-    return apiFetch<T>(API.tasks.retrospective(taskId))
-  },
-
   progress<T>(taskId: string) {
     return apiFetch<T>(API.tasks.progress(taskId))
   },

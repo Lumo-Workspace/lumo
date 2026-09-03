@@ -205,10 +205,10 @@ describe('run report group', () => {
     expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
 
     // The decision surface and the contract stay above the group, always shown.
-    // LUM-620: the criteria contract surfaces via the "Machine-verified" zone;
-    // the claim strip is pulled up next to it.
+    // LUM-620: the criteria contract surfaces via the "Machine-verified" zone.
     expect(screen.getByText('Machine-verified')).toBeInTheDocument()
-    expect(screen.getByText('Claim vs verification')).toBeInTheDocument()
+    // LUM-733: the claim strip is no longer rendered anywhere on the tab.
+    expect(screen.queryByText('Claim vs verification')).toBeNull()
 
     // Expanding the group reveals the after-the-fact struggle section. (Cost is
     // no longer here — LUM-620 moved it into the Evidence & audit trail card.)
@@ -392,38 +392,20 @@ describe('record tab order and collapsibles', () => {
   // promoted zone again — after the criteria zones (verdict basis leads) but
   // BEFORE the claim strip and the collapsed Evidence & audit trail card (an
   // open crossing is an actionable Done-blocker, not forensics).
-  it('criteria and claim lead the record tab, above the boundary crossings', () => {
+  it('criteria lead the record tab, above the boundary crossings', () => {
     setStatus(statusView())
     setCrossings([crossing])
     const { container } = renderTab()
-    const claim = screen.getByText('Claim vs verification')
     const criteria = screen.getByText('Machine-verified')
     // The panel is always mounted now — no audit-card expansion needed.
     const boundary = container.querySelector('#boundary-crossings')!
-    // Criteria come BEFORE the boundary panel; the claim strip follows it.
+    // Criteria come BEFORE the boundary panel.
     expect(
       criteria.compareDocumentPosition(boundary) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
-    expect(
-      boundary.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-  })
-
-  it('claim vs verification is a collapsible section', () => {
-    setStatus(statusView())
-    renderTab()
-    // LUM-597: the verification block is the always-present body of the section
-    // (the claim collapsed to a reality-check line) — use it as the open/closed
-    // marker. LUM-730: the section itself exists only because the fixture's
-    // claim is judged OVERSTATED.
-    expect(
-      screen.getByText('Verification — what was confirmed')
-    ).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('button', { name: /Claim vs verification/i })
-    )
-    expect(screen.queryByText('Verification — what was confirmed')).toBeNull()
+    // LUM-733: the claim strip is gone from the front-end entirely.
+    expect(screen.queryByText('Claim vs verification')).toBeNull()
   })
 
   // LUM-619/620: the criteria live inside the collapsible "Acceptance" container

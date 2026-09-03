@@ -1,11 +1,5 @@
 /** @jest-environment jsdom */
 
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/RetrospectivePanel',
-  () => ({
-    RetrospectivePanel: () => <div>RETRO</div>,
-  })
-)
 jest.mock('@/app/workspace/[workspaceUrl]/components/ForecastView', () => ({
   ForecastView: () => <div>FORECAST</div>,
 }))
@@ -24,11 +18,24 @@ const useProgress = useTaskProgress as jest.Mock
 
 beforeEach(() => useProgress.mockReset())
 
-it('renders the retrospective when status is DONE (and disables progress fetch)', () => {
-  useProgress.mockReturnValue({ progress: undefined, isLoading: false })
+it('renders the progress view (actuals only) when status is DONE and sessions exist — no retrospective (LUM-733)', () => {
+  useProgress.mockReturnValue({
+    progress: { sessionCount: 2, forecast: {} },
+    isLoading: false,
+  })
   render(<DeliveryPanel taskId='t1' status='DONE' />)
-  expect(screen.getByText('RETRO')).toBeInTheDocument()
-  expect(useProgress).toHaveBeenCalledWith(null)
+  expect(screen.getByText('PROGRESS')).toBeInTheDocument()
+  expect(screen.queryByText('FORECAST')).toBeNull()
+  expect(useProgress).toHaveBeenCalledWith('t1')
+})
+
+it('renders nothing for a DONE task with no sessions (a delivered task has no forecast to show)', () => {
+  useProgress.mockReturnValue({
+    progress: { sessionCount: 0, forecast: {} },
+    isLoading: false,
+  })
+  const { container } = render(<DeliveryPanel taskId='t1' status='DONE' />)
+  expect(container).toBeEmptyDOMElement()
 })
 
 it('renders the forecast view when no sessions yet', () => {
