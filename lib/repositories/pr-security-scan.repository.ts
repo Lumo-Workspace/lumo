@@ -153,7 +153,7 @@ export const prSecurityScanRepository = {
   ): Promise<DispositionedFingerprint[]> {
     const rows = await prisma.prSecurityFinding.findMany({
       where: { scan: { pullRequestId }, disposition: { not: null } },
-      orderBy: { dispositionedAt: 'desc' },
+      orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
       select: {
         id: true,
         fingerprint: true,

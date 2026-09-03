@@ -107,6 +107,15 @@ const PROVENANCE_RANK: Record<FindingProvenance, number> = {
   LLM_JUDGE: 2,
 }
 
+/** True when a Prisma write failed on a unique-constraint violation (P2002). */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2002'
+  )
+}
+
 function sortFindings<
   T extends { severity: FindingSeverity; provenance: FindingProvenance },
 >(rows: T[]): T[] {
@@ -203,15 +212,29 @@ export const prSecurityScanService = {
       await prSecurityScanRepository.restart(existing.id)
       scanId = existing.id
     } else {
-      const created = await prSecurityScanRepository.create({
-        pullRequestId: pr.id,
-        taskId: pr.taskId,
-        workspaceId: pr.workspaceId,
-        headSha,
-        trigger: input.trigger,
-        detectorVersion: DETECTOR_VERSION,
-      })
-      scanId = created.id
+      try {
+        const created = await prSecurityScanRepository.create({
+          pullRequestId: pr.id,
+          taskId: pr.taskId,
+          workspaceId: pr.workspaceId,
+          headSha,
+          trigger: input.trigger,
+          detectorVersion: DETECTOR_VERSION,
+        })
+        scanId = created.id
+      } catch (error) {
+        // Concurrent triggers (webhook + manual link) can both see null from
+        // findByPrAndSha above and both call create(); the loser hits the
+        // unique constraint on (pullRequestId, headSha). That is a dedup, not
+        // a failure — the winner's row is already there.
+        if (!isUniqueViolation(error)) throw error
+        const winner = await prSecurityScanRepository.findByPrAndSha(
+          pr.id,
+          headSha
+        )
+        if (!winner) throw error
+        return { deduped: true, scanId: winner.id }
+      }
     }
 
     try {

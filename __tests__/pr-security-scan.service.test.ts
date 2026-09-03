@@ -106,7 +106,8 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
   ])
   expect(repo.createFindings.mock.calls[0]![0][0]!.evidence).not.toContain(KEY)
 
-  // Second request for the SAME sha: no new scan, nothing fetched.
+  // Second request for the SAME sha: no new scan, no diff fetched (the head
+  // sha lookup is the dedup key and still runs).
   repo.findByPrAndSha.mockResolvedValue({ id: 's1', status: 'FINDINGS' })
   const again = await prSecurityScanService.run({
     pullRequestId: 'pr1',
@@ -153,6 +154,28 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
       inheritedFromFindingId: 'f-old',
     }),
   ])
+})
+
+test('a concurrent duplicate create is treated as deduped, not an error', async () => {
+  // Two triggers (PR_EVENT webhook + PR_LINK) race on the same (pr, sha): both
+  // see findByPrAndSha() -> null, both call create(), and the loser hits the
+  // unique constraint. That should read as a dedup, not a thrown error.
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  repo.findByPrAndSha
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ id: 's-race', status: 'RUNNING' })
+  repo.create.mockRejectedValueOnce(
+    Object.assign(new Error('Unique constraint'), { code: 'P2002' })
+  )
+
+  const result = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_LINK',
+  })
+
+  expect(result).toEqual({ deduped: true, scanId: 's-race' })
+  expect(fetchPrDiff).not.toHaveBeenCalled()
+  expect(repo.finalize).not.toHaveBeenCalled()
 })
 
 test('judge failure finalizes the scan with judgeStatus UNAVAILABLE, never CLEAN', async () => {
