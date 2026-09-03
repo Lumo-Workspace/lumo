@@ -377,7 +377,7 @@ export function effectiveReferentKind(args: {
  */
 export function deriveReferentKind(args: {
   verifierType: 'MACHINE' | 'HUMAN'
-  checkpointer: string | null | undefined
+  checkpointer?: string | null | undefined
   declared?: string | null | undefined
 }): TaskReferentKind | null {
   const { verifierType, checkpointer, declared } = args
