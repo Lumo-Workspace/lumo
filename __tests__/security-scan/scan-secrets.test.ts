@@ -356,15 +356,34 @@ test('evidence is redacted exactly once: the reported length is the secret’s, 
   ])
   expect(key[0]?.evidence).toBe('const key = "AKIA…(len 20)"')
 
-  // The db-url password is redacted; the surrounding host stays readable
-  // instead of collapsing into a second, false-length redaction.
+  // A span whose content is more than redaction tokens collapses whole: the
+  // red line (no raw secret in `evidence`) outranks preserving the host as
+  // readable context, because the span may hold a second, undetected value.
   const url = scanSecrets([
     file('src/two.ts', [
       'const url = "postgres://u:hunter2secret@db.example.com/app"',
     ]),
   ])
   expect(url[0]?.evidence).not.toContain('hunter2secret')
-  expect(url[0]?.evidence).toContain('db.example.com')
+  expect(url[0]?.evidence).toMatch(/"post…\(len \d+\)"/)
+})
+
+test('evidence: a marker planted by redactAll never exempts the rest of its span', () => {
+  const r = scanSecrets([
+    file('src/mix.ts', [
+      'const url = "postgres://u:hunter2secret@h/d?t=correcthorsebattery"',
+    ]),
+  ])
+  expect(r).toHaveLength(1)
+  expect(r[0]?.evidence).not.toContain('hunter2secret')
+  expect(r[0]?.evidence).not.toContain('correcthorsebattery')
+  expect(r[0]?.evidence).toMatch(/"post…\(len \d+\)"/)
+})
+
+test('maskQuotedValues: an author-written redaction marker does not shield the span', () => {
+  const masked = maskQuotedValues('x = "…(len 9) correcthorsebattery"')
+  expect(masked).not.toContain('correcthorsebattery')
+  expect(masked).toContain('…(len')
 })
 
 test('redactKnownSecrets: a quoted value straddling the cap is masked to the end of the scanned head', () => {

@@ -24,11 +24,12 @@ export function redactLine(line: string, value: string): string {
 }
 
 /**
- * Marker emitted by `redactSecret`. Text containing it has already been
- * redacted once; redacting it again would print a false length (the length of
- * the *redaction*, not of the secret) and destroy the surrounding context.
+ * A whole token emitted by `redactSecret`: the optional ≤ 4-char prefix plus
+ * `…(len N)`. Matching the *token* — not the bare `…(len ` marker — is what
+ * lets `isRedactionOnlyContent` tell "this span is nothing but redactions"
+ * from "this span merely contains one".
  */
-const REDACTION_MARKER = '…(len '
+const REDACTION_TOKEN_RE = /(?:[^\s"'`]{0,4})?…\(len \d+\)/g
 
 const QUOTE_CHARS = ['"', "'", '`'] as const
 
@@ -53,10 +54,18 @@ const MIN_QUOTED_LEN = 8
  *   closes the span, and the other quote chars are plain content;
  * - on close, content of ≥ `MIN_QUOTED_LEN` chars is replaced by its
  *   redaction; shorter content is emitted verbatim (so `"hi"` survives);
- * - content that already contains `REDACTION_MARKER` is emitted verbatim —
- *   without this, evidence that `redactAll` already redacted gets redacted a
- *   second time and reports the redaction's own length (`"AKIA…(len 20)"` →
- *   `"AKIA…(len 13)"`).
+ * - content that is *nothing but* redaction tokens (plus short filler) is
+ *   emitted verbatim — without this, evidence that `redactAll` already
+ *   redacted gets redacted a second time and reports the redaction's own
+ *   length (`"AKIA…(len 20)"` → `"AKIA…(len 13)"`). The exemption is
+ *   deliberately narrow: merely *containing* a marker must not exempt, since
+ *   `scanSecrets` builds evidence as `maskQuotedValues(redactAll(…))` and so
+ *   plants a marker inside the span itself — a span holding a detected
+ *   secret plus an undetected one would then pass the second through raw
+ *   (`"postgres://u:hunt…(len 13)@h/d?t=correcthorsebattery"`). An author
+ *   writing the literal marker into their own string could shield it the
+ *   same way. When the exemption does not apply the whole span collapses, so
+ *   the reported length is the span's own — honest, if less contextful.
  *
  * Unpaired opener (odd count) — the fail-CLOSED half:
  * - an opener with no closer masks everything from the opener to the end of
@@ -93,12 +102,25 @@ export function maskQuotedValues(line: string): string {
     }
     const content = line.slice(i + 1, close)
     out +=
-      content.length >= MIN_QUOTED_LEN && !content.includes(REDACTION_MARKER)
+      content.length >= MIN_QUOTED_LEN && !isRedactionOnlyContent(content)
         ? `${ch}${redactSecret(content)}${ch}`
         : line.slice(i, close + 1)
     i = close + 1
   }
   return out
+}
+
+/**
+ * True when the span content carries no credential-shaped remainder once its
+ * redaction tokens are stripped: what is left holds no run of
+ * `MIN_QUOTED_LEN` or more non-whitespace characters. `AKIA…(len 20)` →
+ * `` (exempt); `a "SUPE…(len 22)" b` → `a "" b` (exempt); but
+ * `postgres://u:hunt…(len 13)@h/d?t=correcthorsebattery` keeps a long run and
+ * is redacted.
+ */
+function isRedactionOnlyContent(content: string): boolean {
+  const remainder = content.replace(REDACTION_TOKEN_RE, '')
+  return !new RegExp(`\\S{${MIN_QUOTED_LEN},}`).test(remainder)
 }
 
 function isQuoteChar(ch: string): ch is (typeof QUOTE_CHARS)[number] {
