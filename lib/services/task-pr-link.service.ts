@@ -2,6 +2,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
+import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import {
   fetchPullRequest,
   parsePrUrl,
@@ -133,7 +134,11 @@ export async function linkPullRequest(
     })
   }
 
-  return pullRequestRepository.updateTaskId(pr!.id, taskId)
+  const linked = await pullRequestRepository.updateTaskId(pr!.id, taskId)
+  // LUM-732: a manually linked PR (any state — merged history included) gets
+  // one scan of its current head. Fire-and-forget; never fails the link.
+  void dispatchPrSecurityScan(linked.id, 'PR_LINK')
+  return linked
 }
 
 /**

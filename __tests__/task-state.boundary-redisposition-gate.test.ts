@@ -15,6 +15,13 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 
+// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
+// so the real gate short-circuits before touching the scan repository.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
 }))

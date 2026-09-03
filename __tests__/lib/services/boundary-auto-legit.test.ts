@@ -45,6 +45,13 @@ type Row = {
 let store: Row[] = []
 let seq = 0
 
+// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
+// so the real gate short-circuits before touching the scan repository.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     create: jest.fn(async (input: Record<string, unknown>) => {

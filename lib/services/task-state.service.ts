@@ -17,6 +17,7 @@ import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrosp
 import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
 import { dispatchRunSummaries } from '@/lib/services/run-summary-dispatch'
 import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
+import { assertNoOpenBlockingSecurityFindings } from '@/lib/services/pr-security-scan-gate'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -216,6 +217,10 @@ export async function updateTask(
         taskId,
         task.project.workspaceId
       )
+      // LUM-732: an undispositioned deterministic HIGH security finding on a
+      // linked PR's latest scan blocks DONE (not subject to the boundary-gate
+      // workspace opt-out — same shape as the hasHigh rule above).
+      await assertNoOpenBlockingSecurityFindings(taskId)
     }
   }
 
