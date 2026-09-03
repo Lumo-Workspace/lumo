@@ -280,6 +280,26 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.gates(taskId))
   },
 
+  /** LUM-732: latest security scan per linked PR + DONE-blocking count. */
+  securityScans<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.securityScans(taskId))
+  },
+
+  /** LUM-732: human-only disposition of one security finding. */
+  dispositionSecurityFinding<T>(
+    taskId: string,
+    findingId: string,
+    body: { disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK'; note?: string }
+  ) {
+    return apiFetch<T>(
+      API.tasks.securityFindingDisposition(taskId, findingId),
+      {
+        method: 'POST',
+        body,
+      }
+    )
+  },
+
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {
     const params = new URLSearchParams()
     if (cursor) params.set('cursor', cursor)
