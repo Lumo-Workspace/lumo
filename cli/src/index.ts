@@ -29,22 +29,14 @@ import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
 import { criteriaAudit } from './commands/criteria-audit'
-import { fidelityShow, type FidelityShowOptions } from './commands/fidelity'
 import { verify } from './commands/verify'
-import {
-  verdict,
-  collectCriterion,
-  type VerdictOptions,
-} from './commands/verdict'
 import {
   crossingExplain,
   type CrossingExplainOptions,
 } from './commands/crossing-explain'
 import {
-  outcomeRecord,
   outcomeShow,
   outcomeRate,
-  type OutcomeRecordOptions,
   type OutcomeRateOptions,
 } from './commands/outcome'
 import { taskContext } from './commands/task-context'
@@ -310,38 +302,6 @@ program
     )
   )
 
-program
-  .command('verdict [task]')
-  .description(
-    'Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task.'
-  )
-  .option(
-    '--pass',
-    'Open the verdict bar focused on Pass (human one-click; no write)'
-  )
-  .option(
-    '--fail',
-    'Record an AGENT send-back (verdict FAIL) — requires --reason'
-  )
-  .option(
-    '--reason <enum>',
-    'Rejection reason for --fail: CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER (case-insensitive)'
-  )
-  .option(
-    '--note <text>',
-    'Optional send-back narrative, posted as a task comment'
-  )
-  .option(
-    '--criterion <id>',
-    'Narrow a --fail to specific criteria (repeatable); omitted = the whole contract',
-    collectCriterion
-  )
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      verdict(task as string | undefined, options as VerdictOptions)
-    )
-  )
-
 const crossing = program
   .command('crossing')
   .description('Inspect and annotate boundary crossings')
@@ -363,7 +323,7 @@ crossing
 
 const outcome = program
   .command('outcome')
-  .description('Read / record the post-hoc outcome well (LUM-598)')
+  .description('Read the post-hoc outcome well (LUM-598)')
 
 outcome
   .command('show <task>')
@@ -371,29 +331,6 @@ outcome
     'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
   )
   .action(wrap((task: unknown) => outcomeShow(task as string)))
-
-outcome
-  .command('record <task>')
-  .description(
-    'Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no "mark satisfied" counterpart — the well only asserts rejection.'
-  )
-  .requiredOption(
-    '--note <text>',
-    'What reality did (the observed referent), e.g. "reverted in #812 after a prod incident"'
-  )
-  .option(
-    '--kind <kind>',
-    'reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual (case-insensitive; default: manual)'
-  )
-  .option(
-    '--occurred-at <iso>',
-    'When the event happened (ISO 8601; defaults to now)'
-  )
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      outcomeRecord(task as string, options as OutcomeRecordOptions)
-    )
-  )
 
 outcome
   .command('rate')
@@ -659,22 +596,6 @@ criteria
     'Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)'
   )
   .action(wrap(() => criteriaAudit()))
-
-const fidelity = program
-  .command('fidelity')
-  .description('Mechanical fidelity read-outs (LUM-610)')
-
-fidelity
-  .command('show <task>')
-  .description(
-    'Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed.'
-  )
-  .option('--json', 'Emit the report as JSON')
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      fidelityShow(task as string, options as FidelityShowOptions)
-    )
-  )
 
 const session = program
   .command('session')

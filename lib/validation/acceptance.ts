@@ -263,38 +263,6 @@ export const humanVerdictBodySchema = z
 export type HumanVerdictBody = z.infer<typeof humanVerdictBodySchema>
 
 /**
- * Body of POST /api/tasks/[id]/agent-verdict — the agent send-back path
- * (LUM-422). The THIRD verdict channel, and the only agent-facing one that
- * writes a real verdict row (vs. the machine round, which the verify loop owns).
- *
- * RED LINE (milestone rule 5, narrowed): no passing data row is ever
- * agent-produced. This schema has NO verdict field at all — the service
- * hard-codes verdict=FAIL and verifierType=AGENT on write, so PASS /
- * PASS_WITH_FOLLOWUP are literally unrepresentable here (a body smuggling
- * `verdict` is rejected by `.strict()`, not silently dropped). Symmetric with
- * machineVerdictInputSchema's "no verifierType field" lock.
- *
- * Unlike the human path, the agent pays the structured tax: rejectionReasonEnum
- * is REQUIRED (zero friction for an agent, and it back-fills the classification
- * a human is spared). `note` is an optional free-text narrative posted as a
- * task comment. `criterionIds` optionally narrows the send-back to specific
- * criteria; omitted, it fans out to the whole contract like the human path.
- */
-export const agentVerdictBodySchema = z
-  .object({
-    rejectionReasonEnum: z.nativeEnum(VerificationRejectionReason),
-    note: z.string().trim().min(1).max(4_000).nullish(),
-    criterionIds: z
-      .array(z.string().trim().min(1))
-      .min(1)
-      .max(CRITERIA_SET_HARD_MAX)
-      .optional(),
-  })
-  .strict()
-
-export type AgentVerdictBody = z.infer<typeof agentVerdictBodySchema>
-
-/**
  * Body of POST /api/tasks/[id]/verify — one machine round, one verdict per
  * MACHINE criterion. The server (the judge) re-checks coverage against the
  * live contract; this schema only bounds the shape. Strict: a body smuggling

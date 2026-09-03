@@ -48,7 +48,7 @@ interface StewardBoundResponse {
  * a different binding requires a brand-new Claude Code session.
  *
  * A STEWARD session plans and accepts only: task create/update, criteria
- * set, deps confirm/dismiss, verdict --fail, milestone add/remove and all
+ * set, deps confirm/dismiss, milestone add/remove and all
  * reads pass; `lumo verify` and self-dispatch are refused with 409, and
  * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
@@ -311,7 +311,7 @@ async function stewardAttach(args: {
   console.log('')
   console.log('Governance role — plan & accept only (lifetime lock):')
   console.log(
-    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · verdict --fail · milestone add/remove · all reads'
+    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · milestone add/remove · all reads'
   )
   console.log(
     '  blocked: lumo verify (409, no round burned) · moving a task to in_progress assigned to yourself · attaching a task'

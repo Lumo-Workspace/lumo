@@ -34,8 +34,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task criteria set/list`, drafting the acceptance contract                              | [references/criteria.md](references/criteria.md)               |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
-| `outcome show/record/rate` — post-hoc outcome well (falsifier oracle, rejection-only)   | [references/outcome.md](references/outcome.md)                 |
-| `fidelity show` — per-delivery grounding + independence change-pattern read-out         | [references/fidelity.md](references/fidelity.md)               |
+| `outcome show/rate` — post-hoc outcome well (falsifier oracle, rejection-only)          | [references/outcome.md](references/outcome.md)                 |
 | `priority [text]`, `priority list` — team priority declaration (append-only)            | [references/priority.md](references/priority.md)               |
 | `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
 | `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
@@ -109,7 +108,6 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo verify [task] [--note "<self-report>"] [--timeout <seconds>]` — run every MACHINE criterion's checkpointer locally and report a structured PASS/FAIL verdict per criterion. `--note` is an optional one-line self-report ("我改了 X,因为 Y 可验收"), frozen as the task's claim (source AGENT) when the round passes into IN_REVIEW. The round cap is the workspace's `verificationMaxRounds` (default 3) — read the actual budget off the `Round N/M` line the command prints, never assume a number. All-pass → task to IN_REVIEW (agent stops); a fail on the last round → escalate to human. **Run this before claiming a task is done.**
 - `lumo task status [task] [--full] [--json]` — read-only acceptance self-check (no LLM): the contract with each criterion's latest verdict, the current round, last failure reasons, `nextActions` (the unmet criteria), and any OPEN boundary crossings; `--full` adds the dashboard sections (verification rollup, history, cost, struggle trail, trend) (fails closed — `null`/`⚠` means "could not confirm", not safe). **Run it first when resuming a task or after a round was rejected.**
-- `lumo verdict [task] --pass | --fail` — acceptance verdicts. `--pass` deep-links to the human verdict bar (records nothing). `--fail --reason <enum> …` records an AGENT send-back → IN_PROGRESS. **An unresolved send-back blocks the DONE transition with 409.**
 - `lumo crossing explain <id> --note "<text>"` — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done** (disposition stays web + human-only). A review aid, not a self-clear.
 
 ### Cost (per-operation token read-out) — see [task-context.md](references/task-context.md)
@@ -128,12 +126,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Outcome well (post-hoc oracle) — see [outcome.md](references/outcome.md)
 
 - `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
-- `lumo outcome record <task> --note "<what reality did>" [--kind <kind>]` — record a human-observed post-hoc **rejection** of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; **there is no "mark satisfied" counterpart** — the well only asserts rejection. `--note` is required (the observed referent).
 - `lumo outcome rate [--min N] [--json]` — workspace **trust × post-hoc-fate** join (LUM-603, LUM-606): per delivery-time **verification-friction** bucket (`no-verification` / `single-round` / `multi-round-or-sendback` — two raw counts frozen at delivery, replacing the saturating forecast-confidence axis), the post-hoc REJECTED rate from the well. Honest by construction — thin buckets read `insufficient` (no fabricated rate), the single-round-vs-multi comparison stays `inconclusive` until CIs separate, and the rate is a **lower bound** (no signal = INCONCLUSIVE, never satisfied). Bucket names are value-neutral — direction is decided by the correlation, never welded into the label. Under-sampled today by design — the skeleton produces real strata once the well fills.
-
-### Fidelity read-out (mechanical change-pattern) — see [fidelity.md](references/fidelity.md)
-
-- `lumo fidelity show <task> [--json]` — per delivery snapshot (LUM-609), a **composition table, not a single score**: (1) the **grounding** of the frozen contract — grounded (`EXTERNAL_FACT`, a machine-checkable upper bound) / self-confirming (`AGENT_CONSTRUCTED_STATE` + `UNVERIFIED_ASSERTION`) / inconclusive (`PENDING_OUTCOME` + `UNCLASSIFIED`, surfaced not swallowed) + the full effective-kind tally; (2) the **independence** signal — criteria `ADDED`/`UPDATED` at round>0 (after work started) that the delivery rode on = backward-inference suspects. Purely mechanical (timing + op + grounding) — **no direction verdict**. A no-snapshot task is reported explicitly (not a pass). Zero new storage — reads the snapshot + `CRITERION_CHANGED` trail.
 
 ### Artifacts & Figma — see [artifacts-figma.md](references/artifacts-figma.md)
 
@@ -182,7 +175,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Sessions — see [sessions.md](references/sessions.md)
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
-- `lumo session attach --steward <milestone>` — bind this session to a **milestone** as a **STEWARD (governance) session** (LUM-640): plan & accept only. Governance passes (task create/update, criteria set incl. `--human`, deps confirm/dismiss, `verdict --fail` with session provenance, milestone add/remove, milestone triage (LUM-646 claimable), all reads); implementation is gated (`lumo verify` → 409 **without burning a round**; moving a task to in_progress assigned to yourself → 409); commits/PRs produced anyway are recorded as milestone-scoped boundary crossings (fail-closed; disposition stays web+human-only, no CLI clear path). Same lifetime lock: same milestone idempotent, any other attach (a task, or a different milestone) → 409; multiple stewards per milestone are fine. See [sessions.md](references/sessions.md)
+- `lumo session attach --steward <milestone>` — bind this session to a **milestone** as a **STEWARD (governance) session** (LUM-640): plan & accept only. Governance passes (task create/update, criteria set incl. `--human`, deps confirm/dismiss, milestone add/remove, milestone triage (LUM-646 claimable), all reads); implementation is gated (`lumo verify` → 409 **without burning a round**; moving a task to in_progress assigned to yourself → 409); commits/PRs produced anyway are recorded as milestone-scoped boundary crossings (fail-closed; disposition stays web+human-only, no CLI clear path). Same lifetime lock: same milestone idempotent, any other attach (a task, or a different milestone) → 409; multiple stewards per milestone are fine. See [sessions.md](references/sessions.md)
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
 - End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
@@ -207,6 +200,7 @@ The block never replaces the acceptance-contract section: on `session attach` / 
 
 Don't guess these:
 
+- No `lumo verdict`, `lumo fidelity`, or `lumo outcome record` (removed in LUM-733): send-backs and passes are human-only in the web verdict bar; outcome signals are derived automatically (git revert feed); the fidelity read-out is an internal API (`GET /api/tasks/<id>/fidelity`), not a CLI command
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
