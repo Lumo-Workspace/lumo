@@ -6,8 +6,14 @@
  */
 import { createHash } from 'node:crypto'
 
-/** "AKIA…(len 20)" — first 4 chars + length, never more. */
+/**
+ * "AKIA…(len 20)" for values ≥ 8 chars — first 4 chars + length, never more.
+ * Below 8 chars even a 4-char prefix would disclose most of the value (e.g.
+ * a 5-char password sliced to 4 leaves only one character hidden), so short
+ * values are redacted to just their length: "…(len 3)".
+ */
 export function redactSecret(value: string): string {
+  if (value.length < 8) return `…(len ${value.length})`
   return `${value.slice(0, 4)}…(len ${value.length})`
 }
 
@@ -20,11 +26,18 @@ export function redactLine(line: string, value: string): string {
 /**
  * Defensive redaction for LLM-produced evidence, where we do not know which
  * substring is the secret: every quoted string of ≥ 8 chars is redacted.
+ *
+ * Each quote style (double, single, backtick) is matched independently
+ * rather than with one combined `['"`]` alternation — the combined class
+ * excluded ALL three quote characters from the content, so a plain
+ * apostrophe inside a double-quoted span (e.g. `"it's a secret..."`) broke
+ * the match and the span passed through unredacted (fail-open).
  */
 export function maskQuotedValues(line: string): string {
-  return line.replace(/(['"`])([^'"`]{8,})\1/g, (_m, q: string, v: string) => {
-    return `${q}${redactSecret(v)}${q}`
-  })
+  return line
+    .replace(/"([^"]{8,})"/g, (_m, v: string) => `"${redactSecret(v)}"`)
+    .replace(/'([^']{8,})'/g, (_m, v: string) => `'${redactSecret(v)}'`)
+    .replace(/`([^`]{8,})`/g, (_m, v: string) => `\`${redactSecret(v)}\``)
 }
 
 export function secretFingerprint(ruleId: string, rawValue: string): string {

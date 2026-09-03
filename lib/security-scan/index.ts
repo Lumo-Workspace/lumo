@@ -1,6 +1,10 @@
 export * from './types'
 export { addedLinesWithNumbers } from './diff-lines'
-export { scanSecrets } from './scan-secrets'
+export {
+  scanSecrets,
+  redactKnownSecrets,
+  MAX_SCANNED_LINE_CHARS,
+} from './scan-secrets'
 export {
   redactSecret,
   redactLine,
