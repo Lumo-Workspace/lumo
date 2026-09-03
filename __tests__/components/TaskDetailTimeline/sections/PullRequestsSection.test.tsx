@@ -11,6 +11,25 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/LinkPrPopover', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span data-testid='pr-state-badge' />,
   CiIcon: () => <span data-testid='ci-icon' />,
+  SecurityScanBadge: ({
+    scan,
+  }: {
+    scan: { status: string } | null | undefined
+  }) => <span data-testid='security-scan-badge'>{scan?.status ?? 'none'}</span>,
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+  useSecurityScans: () => ({
+    data: {
+      prs: [
+        {
+          pr: { id: 'pr1' },
+          latest: { status: 'FINDINGS', findings: [{ severity: 'HIGH' }] },
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+  }),
 }))
 
 import { render, screen } from '@testing-library/react'
@@ -82,5 +101,37 @@ describe('PullRequestsSection', () => {
       </Accordion>
     )
     expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('passes each PR its latest security scan to the badge', () => {
+    render(
+      <Accordion type='multiple' defaultValue={['pullRequests']}>
+        <PullRequestsSection
+          {...baseProps}
+          pullRequests={[
+            {
+              id: 'pr1',
+              number: 1,
+              title: 'a',
+              url: 'u',
+              state: 'open',
+              ciStatus: null,
+            },
+            {
+              id: 'pr2',
+              number: 2,
+              title: 'b',
+              url: 'v',
+              state: 'open',
+              ciStatus: null,
+            },
+          ]}
+        />
+      </Accordion>
+    )
+    const badges = screen
+      .getAllByTestId('security-scan-badge')
+      .map(b => b.textContent)
+    expect(badges).toEqual(['FINDINGS', 'none'])
   })
 })

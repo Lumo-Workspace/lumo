@@ -69,6 +69,8 @@ interface AcceptanceTabProps {
    *  (alongside boundary crossings + claim-vs-verification) rather than buried
    *  in the Agent runs sub-section. Null when there are no PRs/signals. */
   gatesSlot?: ReactNode
+  /** LUM-732: per-PR security scan findings; null when the task has no PRs. */
+  securitySlot?: ReactNode
   /** Open the Run report group on mount — e.g. a legacy deep link targets an
    *  evidence sub-section nested inside it. */
   reportInitiallyOpen?: boolean
@@ -1280,6 +1282,7 @@ export function AcceptanceTab({
   latestRunSummary,
   evidenceSlot,
   gatesSlot,
+  securitySlot,
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
@@ -1794,6 +1797,9 @@ export function AcceptanceTab({
                 {/* Mechanical gates (per PR; LUM-617). Injected from the dossier
                     level; null when there are no PRs/signals. */}
                 {gatesSlot}
+
+                {/* Security scan per PR (LUM-732). */}
+                {securitySlot}
 
                 {/* Run cost — tokens / active time / rework rounds (LUM-560). */}
                 <CostSection data={data} />

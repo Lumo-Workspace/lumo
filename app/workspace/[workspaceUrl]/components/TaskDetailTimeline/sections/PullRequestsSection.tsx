@@ -3,7 +3,8 @@
 import { useIntl } from 'react-intl'
 import { X } from 'lucide-react'
 import { GithubIcon } from '@/components/icons/GithubIcon'
-import { PrStateBadge, CiIcon } from '../../pr-helpers'
+import { PrStateBadge, CiIcon, SecurityScanBadge } from '../../pr-helpers'
+import { useSecurityScans } from '../../../hooks/useSecurityScans'
 import { LinkPrPopover } from '../../LinkPrPopover'
 import { ContextSection } from '../ContextSection'
 
@@ -32,6 +33,10 @@ export function PullRequestsSection({
   onUnlinkPr,
 }: Props): React.ReactElement {
   const intl = useIntl()
+  const { data: security } = useSecurityScans(taskId)
+  const scanByPrId = new Map(
+    (security?.prs ?? []).map(p => [p.pr.id, p.latest] as const)
+  )
 
   const addSlot = (
     <LinkPrPopover
@@ -69,6 +74,7 @@ export function PullRequestsSection({
                 </a>
                 <div className='flex items-center gap-1.5 mt-1'>
                   <PrStateBadge state={pr.state} />
+                  <SecurityScanBadge scan={scanByPrId.get(pr.id)} />
                 </div>
               </div>
               <button
