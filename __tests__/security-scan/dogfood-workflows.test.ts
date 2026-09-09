@@ -28,6 +28,8 @@ describe('LUM-735 dogfood workflows', () => {
       expect.arrayContaining(['typecheck', 'test'])
     )
     expect(yml).toMatch(/npx prisma generate/)
+    // @lumo/shared is consumed from shared/dist; both jobs must build it first.
+    expect((yml.match(/npm run build:shared/g) ?? []).length).toBe(2)
     expect(yml).toMatch(/npx tsc --noEmit/)
     expect(yml).toMatch(/npm test/)
     // The 5 suites stale since LUM-733 (fail on main) must be excluded so

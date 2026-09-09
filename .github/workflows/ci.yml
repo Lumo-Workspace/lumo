@@ -25,6 +25,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      # `@lumo/shared` resolves to shared/dist (workspace symlink); a fresh
+      # checkout has no dist, so build it first — same as the prebuild/predev hooks.
+      - run: npm run build:shared
       # tsc over this repo peaks at ~3.3 GB RSS; the runner's default Node heap
       # aborts with "heap out of memory" (exit 134). ubuntu-latest has 16 GB.
       - run: npx tsc --noEmit
@@ -42,6 +45,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      # `@lumo/shared` resolves to shared/dist (workspace symlink); a fresh
+      # checkout has no dist, so build it first — same as the prebuild/predev hooks.
+      - run: npm run build:shared
       # TODO(LUM-735 follow-up): 5 suites stale since LUM-733 fail on main; excluded so the independent test signal is meaningful. Remove once they are fixed.
       - run: >-
           npm test -- --ci
