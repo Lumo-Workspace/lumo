@@ -12,6 +12,7 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
+import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -99,6 +100,32 @@ function SecurityScanPanel({
   )
 }
 
+const CODE_SCANNING_DOCS =
+  'https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning'
+
+/** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
+const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge']
+
+function StagesSummary({ stages }: { stages: ScanStages }) {
+  const intl = useIntl()
+  const rows = STAGE_ORDER.flatMap(key => {
+    const state = stages[key]
+    if (!state || state === 'RAN' || state === 'SKIPPED') return []
+    return [{ key, state }]
+  })
+  if (rows.length === 0) return null
+  return (
+    <p data-testid='scan-stages' className='text-caption text-warning'>
+      {rows
+        .map(
+          r =>
+            `${intl.formatMessage({ id: `securityScan.stage.${r.key}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${r.state}` })}`
+        )
+        .join(' · ')}
+    </p>
+  )
+}
+
 function ScanDetails({
   taskId,
   scan,
@@ -109,6 +136,30 @@ function ScanDetails({
   const intl = useIntl()
   return (
     <div className='mt-1.5 space-y-1.5'>
+      <StagesSummary stages={scan.stages} />
+      {scan.stages.external === 'NOT_CONFIGURED' && (
+        <p
+          data-testid='external-not-configured'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
+          <a
+            href={CODE_SCANNING_DOCS}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.link',
+            })}
+          </a>
+        </p>
+      )}
+      {scan.partial && (
+        <p data-testid='scan-partial' className='text-caption text-warning'>
+          {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
       {scan.judgeStatus === 'UNAVAILABLE' && (
         <p
           data-testid='judge-unavailable'
@@ -210,9 +261,22 @@ function FindingRow({
       <p className='mt-0.5 text-caption text-muted-foreground'>
         {finding.detail}
       </p>
-      <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
-        {finding.evidence}
-      </pre>
+      {finding.evidence !== '' && (
+        <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
+          {finding.evidence}
+        </pre>
+      )}
+      {finding.externalRef && (
+        <a
+          data-testid='finding-external-link'
+          href={finding.externalRef}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
+        </a>
+      )}
       {!finding.disposition && (
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
           {pending === null ? (

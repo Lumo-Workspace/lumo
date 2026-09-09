@@ -15,6 +15,7 @@ const messages: Record<string, string> = {
   'securityScan.status.FAILED': 'Scan failed',
   'securityScan.status.CLEAN': 'Clean',
   'securityScan.status.FINDINGS': '{count} findings',
+  'securityScan.status.incomplete': 'Scan incomplete',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -61,11 +62,16 @@ const scan = (
     trigger: 'PR_EVENT',
     judgeStatus: 'RAN',
     truncated: false,
+    stages: { secrets: 'RAN', judge: 'RAN' },
+    partial: false,
+    complete: true,
     error: null,
     startedAt: '2026-09-03T00:00:00.000Z',
     finishedAt: null,
     findings,
   }) as SecurityScanView
+
+const wrapper = ({ children }: { children: React.ReactNode }) => <>{children}</>
 
 const badge = () => screen.getByTestId('security-scan-badge')
 
@@ -113,4 +119,29 @@ it('counts the findings and takes its tone from the WORST severity', () => {
 it('tones a MEDIUM-only result as a warning, not a destructive one', () => {
   render(<SecurityScanBadge scan={scan('FINDINGS', [finding('MEDIUM')])} />)
   expect(badge().className).toContain('text-warning')
+})
+
+it('reports "incomplete" — never "clean" — when a layer failed or is not configured', () => {
+  render(
+    <SecurityScanBadge
+      scan={{
+        ...scan('CLEAN'),
+        stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+        complete: false,
+      }}
+    />,
+    { wrapper }
+  )
+  expect(badge()).toHaveAttribute('data-state', 'incomplete')
+  expect(badge()).toHaveTextContent('Scan incomplete')
+})
+
+it('still counts findings when present, even if the scan is incomplete', () => {
+  render(
+    <SecurityScanBadge
+      scan={{ ...scan('FINDINGS', [finding('MEDIUM')]), complete: false }}
+    />,
+    { wrapper }
+  )
+  expect(badge()).toHaveAttribute('data-state', 'findings')
 })
