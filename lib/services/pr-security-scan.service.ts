@@ -31,18 +31,22 @@ import {
   truncateSecurityDiff,
   redactKnownSecrets,
   vulnerabilityFingerprint,
-  mapCodeScanningAlerts,
-  enhanceSecretFindings,
   INCOMPLETE_STAGE_STATES,
   type ScanStages,
 } from '@/lib/security-scan'
-import {
-  fetchCodeScanningAlerts,
-  fetchActiveSecretScanningAlerts,
-} from '@/lib/integrations/github/code-scanning'
+import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 
-export const DETECTOR_VERSION = 'secrets@1;external@1;judge@1'
+export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
+
+/**
+ * LUM-735 — how long stages.external may sit PENDING (the repo has pushed
+ * SARIF before, just not for this sha yet) before the panel should read it
+ * as CI having gone quiet rather than "still running". Purely a view-layer
+ * hint (`SecurityScanView.externalLate`) — it never changes the persisted
+ * stage itself.
+ */
+export const EXTERNAL_PENDING_LATE_MS = 30 * 60 * 1000
 
 /**
  * How long a scan may sit in RUNNING/PENDING before the next trigger treats it
@@ -95,6 +99,8 @@ export interface SecurityScanView {
    * checked separately.
    */
   complete: boolean
+  /** stages.external is PENDING and the scan started more than 30 min ago — CI has not reported. */
+  externalLate: boolean
   error: string | null
   startedAt: string
   finishedAt: string | null
@@ -213,6 +219,9 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     stages,
     partial: s.partial,
     complete: s.status !== 'FAILED' && !s.partial && isCompleteScan(stages),
+    externalLate:
+      stages.external === 'PENDING' &&
+      Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -237,7 +246,7 @@ function isRerunnable(existing: {
 }
 
 /** Copy a prior human disposition onto a new finding with the same fingerprint. */
-function inheritDispositions(
+export function inheritDispositions(
   fresh: NewFindingInput[],
   prior: Awaited<
     ReturnType<typeof prSecurityScanRepository.findDispositionedByPullRequest>
@@ -282,9 +291,17 @@ export const prSecurityScanService = {
     )
     let scanId: string
     if (existing) {
-      if (!isRerunnable(existing)) return { deduped: true, scanId: existing.id }
-      await prSecurityScanRepository.restart(existing.id)
-      scanId = existing.id
+      if (existing.status === 'PENDING') {
+        // Created by a CI SARIF push before any webhook ran (LUM-735): stage A
+        // claims it in place. Its EXTERNAL_TOOL rows are the push's, kept.
+        await prSecurityScanRepository.claimPending(existing.id)
+        scanId = existing.id
+      } else if (!isRerunnable(existing)) {
+        return { deduped: true, scanId: existing.id }
+      } else {
+        await prSecurityScanRepository.restart(existing.id)
+        scanId = existing.id
+      }
     } else {
       try {
         const created = await prSecurityScanRepository.create({
@@ -323,36 +340,10 @@ export const prSecurityScanService = {
         prNumber: pr.number,
       })
       const files = addedLinesWithNumbers(diff)
-      const changedFiles = new Set(files.map(f => f.path))
 
       // ── A1: deterministic secret scan (pure) ────────────────────────────
-      let secretHits = enhanceSecretFindings(scanSecrets(files), [])
+      const secretHits = scanSecrets(files)
       stages.secrets = 'RAN'
-
-      // ── A1+: GitHub secret-scanning "active" alerts upgrade A1 hits ─────
-      // Opportunistic: a missing or failed lookup leaves A1's own verdict
-      // standing at its own severity — nothing is hidden, only not upgraded —
-      // so it does not fail a stage. Only consulted when there is a hit to
-      // upgrade, to keep the per-scan GitHub call count bounded.
-      if (secretHits.length > 0) {
-        try {
-          const sec = await fetchActiveSecretScanningAlerts({
-            workspaceId: pr.workspaceId,
-            fullName: pr.repo,
-          })
-          if (sec.configured) {
-            secretHits = enhanceSecretFindings(secretHits, sec.alerts)
-            // A live key beyond the location cap may have been missed by the
-            // upgrade — the scan must say so, not read as a full pass.
-            if (sec.truncated) partial = true
-          }
-        } catch (error) {
-          logger.warn(
-            `[pr-security-scan] secret-scanning lookup failed pr=${pr.id}:`,
-            error instanceof Error ? error.message : error
-          )
-        }
-      }
 
       const secretRows: NewFindingInput[] = secretHits.map(f => ({
         scanId,
@@ -366,56 +357,33 @@ export const prSecurityScanService = {
         detail: f.detail,
         evidence: f.evidence,
         fingerprint: f.fingerprint,
-        externalRef: f.externalRef,
+        externalRef: null,
         disposition: null,
       }))
 
-      // ── A2: external oracle — GitHub code-scanning alerts for this PR ───
-      // Only consulted when the diff actually added lines: an empty diff has
-      // no changed-file set to filter alerts against, matching the judge's
-      // own files.length gate below (spec P9's "layer ran" fact stays SKIPPED,
-      // not a wasted GitHub call for a scan with nothing to check).
-      const externalRows: NewFindingInput[] = []
-      if (files.length === 0) {
-        stages.external = 'SKIPPED'
-      } else {
-        try {
-          const ext = await fetchCodeScanningAlerts({
-            workspaceId: pr.workspaceId,
-            fullName: pr.repo,
-            prNumber: pr.number,
-          })
-          if (!ext.configured) {
-            stages.external = 'NOT_CONFIGURED'
-          } else {
-            for (const f of mapCodeScanningAlerts(ext.alerts, changedFiles)) {
-              externalRows.push({
-                scanId,
-                kind: f.kind,
-                ruleId: f.ruleId,
-                severity: f.severity,
-                provenance: 'EXTERNAL_TOOL',
-                filePath: f.filePath,
-                line: f.line,
-                title: f.title,
-                detail: f.detail,
-                evidence: f.evidence,
-                fingerprint: f.fingerprint,
-                externalRef: f.externalRef,
-                disposition: null,
-              })
-            }
-            stages.external = ext.truncated ? 'PARTIAL' : 'RAN'
-            if (ext.truncated) partial = true
-          }
-        } catch (error) {
-          // A failed oracle is a FAILED layer, never a silent CLEAN (spec P9).
-          stages.external = 'FAILED'
-          logger.warn(
-            `[pr-security-scan] code-scanning lookup failed pr=${pr.id} sha=${headSha}:`,
-            error instanceof Error ? error.message : error
+      // ── A2: external oracle — SARIF pushed by the repo's own CI (LUM-735) ─
+      // Stage A never fetches anything here: the ingest worker writes the
+      // EXTERNAL_TOOL rows and `stages.external=RAN` when a report lands. All
+      // stage A decides is what to say while nothing has landed yet.
+      let externalCount = 0
+      try {
+        externalCount =
+          await prSecurityScanRepository.countExternalFindings(scanId)
+        if (externalCount > 0) {
+          stages.external = 'RAN'
+        } else {
+          const last = await projectRepository.findLastSarifIngestAt(
+            pr.workspaceId,
+            pr.repo
           )
+          stages.external = last ? 'PENDING' : 'NOT_CONFIGURED'
         }
+      } catch (error) {
+        stages.external = 'FAILED'
+        logger.warn(
+          `[pr-security-scan] external stage lookup failed pr=${pr.id}:`,
+          error instanceof Error ? error.message : error
+        )
       }
 
       // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
@@ -485,16 +453,16 @@ export const prSecurityScanService = {
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
-      const rows = inheritDispositions(
-        [...secretRows, ...externalRows, ...judgeRows],
-        prior
-      )
+      const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
 
       // `status` stays "are there findings" (732 semantics — FAILED still
       // means the worker itself broke and is re-run in place). Whether the
-      // scan may be READ as a full pass is `stages` → view.complete.
+      // scan may be READ as a full pass is `stages` → view.complete. Rows
+      // written by the SARIF ingest worker (EXTERNAL_TOOL) are counted via
+      // `externalCount`, not `rows` — stage A never re-reads or re-persists
+      // them.
       const status: 'CLEAN' | 'FINDINGS' =
-        rows.length > 0 ? 'FINDINGS' : 'CLEAN'
+        rows.length + externalCount > 0 ? 'FINDINGS' : 'CLEAN'
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
