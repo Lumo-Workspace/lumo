@@ -4,10 +4,14 @@
  * LUM-736 — L4 Session Guard: three new BoundaryCrossingCategory values on the
  * existing detector chain (no LLM, no finding table).
  *
- *  - HOOK_BYPASS        — a Bash segment runs `git commit`/`git push --no-verify`
- *                         or prefixes `HUSKY=0`. Segment-scoped + prose-confirmed
- *                         so a commit message / PR body quoting the flag never
- *                         self-trips (the LUM-640/722 lesson).
+ *  - HOOK_BYPASS        — a Bash segment runs `git commit`/`git push --no-verify`,
+ *                         `git commit -n` (short flag, also folded: `-nm`/`-an`;
+ *                         LUM-744), `git -c core.hooksPath=… commit|push`
+ *                         (LUM-744), or prefixes `HUSKY=0` — also when the git
+ *                         invocation sits inside a shell wrapper string
+ *                         (`bash -c "git …"`, LUM-744 follow-up). Segment-scoped +
+ *                         prose-confirmed so a commit message / PR body quoting
+ *                         the flag never self-trips (the LUM-640/722 lesson).
  *  - TEST_FILE_DELETED  — an `rm` / `git rm` segment whose delete targets are
  *                         test files (`*.test.*`, `*.spec.*`, `__tests__/`).
  *                         Distinct from TEST_TAMPERING (an Edit/Write to a
@@ -140,6 +144,216 @@ describe('HOOK_BYPASS — git hook bypass in the command segment (LUM-736)', () 
     )
     expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
     expect(neverJudge).not.toHaveBeenCalled()
+  })
+})
+
+// --- HOOK_BYPASS (LUM-744): -n short flag + core.hooksPath override ----------
+
+describe('HOOK_BYPASS short flag -n — git commit -n is --no-verify (LUM-744)', () => {
+  it('flags git commit -n as a standalone token', () => {
+    expect(categories('git commit -n -m "fix: x"')).toContain('HOOK_BYPASS')
+    expect(categories('git commit --amend -n')).toContain('HOOK_BYPASS')
+  })
+
+  it('flags -n folded into a combined short-flag token (-nm / -an / -anm)', () => {
+    expect(categories('git commit -nm "fix: x"')).toContain('HOOK_BYPASS')
+    expect(categories('git commit -an "fix: x"')).toContain('HOOK_BYPASS')
+    expect(categories('git commit -anm "fix: x"')).toContain('HOOK_BYPASS')
+  })
+
+  it('does not flag -n on a non-commit git verb (log / rev-list / push dry-run)', () => {
+    expect(categories('git log -n 5')).not.toContain('HOOK_BYPASS')
+    expect(categories('git rev-list -n 1 HEAD')).not.toContain('HOOK_BYPASS')
+    // `commit` appearing as an OPTION VALUE is not the verb.
+    expect(categories('git log --grep commit -n 5')).not.toContain(
+      'HOOK_BYPASS'
+    )
+    // For push, -n is --dry-run, not --no-verify.
+    expect(categories('git push -n origin lumo/LUM-744-x')).not.toContain(
+      'HOOK_BYPASS'
+    )
+  })
+
+  it('does not flag a -n that lives only inside the quoted commit message', async () => {
+    // Attached to the closing quote → not a flag token at all.
+    expect(categories('git commit -m "use -n"')).not.toContain('HOOK_BYPASS')
+    // Free-standing inside quotes → raw candidate, dropped by prose confirmation.
+    const event = bashEvent("git commit -m 'docs: why -n is banned here'")
+    const kept = await confirmActionCandidates(
+      event,
+      detectCrossings(event),
+      proseOnlyJudge
+    )
+    expect(kept.map(c => c.category)).not.toContain('HOOK_BYPASS')
+  })
+
+  it('a real -n outside all quotes is kept without consulting the judge', async () => {
+    const event = bashEvent('git commit -nm "fix: real bypass"')
+    const kept = await confirmActionCandidates(
+      event,
+      detectCrossings(event),
+      neverJudge
+    )
+    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
+    expect(neverJudge).not.toHaveBeenCalled()
+  })
+
+  it('still locates git behind a path prefix, an env prefix, or a subshell paren', () => {
+    expect(categories('/usr/bin/git commit -n -m x')).toContain('HOOK_BYPASS')
+    expect(categories('GIT_AUTHOR_NAME=x git commit -nm x')).toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories('(git commit --no-verify -m x)')).toContain('HOOK_BYPASS')
+  })
+
+  it('coalesces on the matched segment, not the whole line', () => {
+    const [hit] = detectCrossings(
+      bashEvent('npm test && git commit -nm "x" && echo done')
+    ).filter(c => c.category === 'HOOK_BYPASS')
+    expect(hit?.severity).toBe('MEDIUM')
+    expect(hit?.target).toBe('git commit -nm "x"')
+  })
+})
+
+describe('HOOK_BYPASS core.hooksPath — -c core.hooksPath=… before commit/push (LUM-744)', () => {
+  it('flags git -c core.hooksPath=/dev/null commit', () => {
+    expect(
+      categories('git -c core.hooksPath=/dev/null commit -m "fix: x"')
+    ).toContain('HOOK_BYPASS')
+  })
+
+  it('flags any hooksPath override on push, and the folded -c<key>=<val> form', () => {
+    expect(
+      categories('git -c core.hooksPath=/tmp/empty push origin lumo/LUM-744-x')
+    ).toContain('HOOK_BYPASS')
+    expect(categories('git -ccore.hooksPath=/dev/null commit -m x')).toContain(
+      'HOOK_BYPASS'
+    )
+    // Config keys are case-insensitive in git.
+    expect(categories('git -c core.hookspath= commit -m x')).toContain(
+      'HOOK_BYPASS'
+    )
+  })
+
+  it('still finds the verb behind other global options', () => {
+    expect(
+      categories('git -C /srv/repo -c core.hooksPath=/dev/null commit -m x')
+    ).toContain('HOOK_BYPASS')
+  })
+
+  it('does not flag a sibling segment that merely mentions hooksPath', () => {
+    expect(
+      categories('grep -rn hooksPath .husky && git commit -m "fix: x"')
+    ).not.toContain('HOOK_BYPASS')
+    expect(
+      categories(
+        'echo core.hooksPath=/dev/null; git push origin lumo/LUM-744-x'
+      )
+    ).not.toContain('HOOK_BYPASS')
+  })
+
+  it('does not flag a hooksPath that is not a commit/push override', () => {
+    // `git config` verb — pointing hooks at the real husky dir.
+    expect(categories('git config core.hooksPath .husky')).not.toContain(
+      'HOOK_BYPASS'
+    )
+    // Mentioned after the verb, inside the message → not a global option.
+    expect(
+      categories('git commit -m "core.hooksPath=/dev/null is banned"')
+    ).not.toContain('HOOK_BYPASS')
+  })
+
+  it('a real override outside all quotes is kept without consulting the judge', async () => {
+    const event = bashEvent('git -c core.hooksPath=/dev/null commit -m "x"')
+    const kept = await confirmActionCandidates(
+      event,
+      detectCrossings(event),
+      neverJudge
+    )
+    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
+    expect(neverJudge).not.toHaveBeenCalled()
+  })
+
+  it('coalesces on the matched segment', () => {
+    const [hit] = detectCrossings(
+      bashEvent('npm test && git -c core.hooksPath=/dev/null commit -m "x"')
+    ).filter(c => c.category === 'HOOK_BYPASS')
+    expect(hit?.target).toBe('git -c core.hooksPath=/dev/null commit -m "x"')
+  })
+})
+
+// --- HOOK_BYPASS (LUM-744 follow-up): shell-wrapper-quoted git ---------------
+
+describe('HOOK_BYPASS shell wrapper — bash -c / sh -c quoted git (LUM-744 follow-up)', () => {
+  const realActionJudge: ActionConfirmJudge = jest.fn(async () => 'REAL_ACTION')
+
+  it("still finds git behind an opening double / single / $' quote", () => {
+    // The three steward probes that hit on the LUM-736 \bgit regex but missed
+    // once the token parser required a bare `git` token.
+    expect(categories('bash -c "git commit --no-verify -m x"')).toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories("sh -c 'git commit -n -m x'")).toContain('HOOK_BYPASS')
+    expect(categories('bash -c "git push --no-verify origin HEAD"')).toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories("bash -c $'git commit -nm x'")).toContain('HOOK_BYPASS')
+  })
+
+  it("reads the flag / verb that carries the wrapper's closing quote", () => {
+    expect(categories("sh -c 'git commit -m x --no-verify'")).toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories('bash -c "git commit -n"')).toContain('HOOK_BYPASS')
+    expect(
+      categories('bash -c "git -c core.hooksPath=/dev/null push"')
+    ).toContain('HOOK_BYPASS')
+  })
+
+  it('keeps the segment / verb / glued-quote rules inside the wrapper', () => {
+    expect(categories("bash -c 'git log -n 5'")).not.toContain('HOOK_BYPASS')
+    expect(categories('sh -c "git push -n origin HEAD"')).not.toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories("bash -c 'echo --no-verify'")).not.toContain(
+      'HOOK_BYPASS'
+    )
+    // A `-n` closing an inner (escaped or other-quoted) message is still text.
+    expect(categories('bash -c "git commit -m \\"use -n\\""')).not.toContain(
+      'HOOK_BYPASS'
+    )
+    expect(categories('sh -c \'git commit -m "use -n"\'')).not.toContain(
+      'HOOK_BYPASS'
+    )
+  })
+
+  it('a wrapped bypass is a prose candidate: kept on REAL_ACTION, dropped on PROSE_ONLY', async () => {
+    const event = bashEvent('bash -c "git commit --no-verify -m x"')
+    const candidates = detectCrossings(event)
+    expect(candidates.map(c => c.category)).toContain('HOOK_BYPASS')
+
+    const kept = await confirmActionCandidates(
+      event,
+      candidates,
+      realActionJudge
+    )
+    expect(kept.map(c => c.category)).toContain('HOOK_BYPASS')
+    expect(realActionJudge).toHaveBeenCalled()
+
+    const dropped = await confirmActionCandidates(
+      event,
+      candidates,
+      proseOnlyJudge
+    )
+    expect(dropped.map(c => c.category)).not.toContain('HOOK_BYPASS')
+  })
+
+  it('coalesces on the wrapper segment, not the whole line', () => {
+    const [hit] = detectCrossings(
+      bashEvent('npm test && bash -c "git commit -n -m x" && echo done')
+    ).filter(c => c.category === 'HOOK_BYPASS')
+    expect(hit?.severity).toBe('MEDIUM')
+    expect(hit?.target).toBe('bash -c "git commit -n -m x"')
   })
 })
 

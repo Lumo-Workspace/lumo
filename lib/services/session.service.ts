@@ -5,6 +5,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import type { TaskStatusForNextSteps } from '@/lib/context/render/next-steps'
@@ -30,6 +31,8 @@ export type BindSessionToTaskResult = {
   previousSession: PreviousSessionRecovery | null
   /** Rendered blocker-warning markdown for the bound task (LUM-172). Empty string when there is nothing to warn about. */
   blockerWarningSection: string
+  /** LUM-737: undispositioned security findings on the task's PRs. Empty string when there is nothing to show. */
+  securityFindingsSection: string
   /** Post-bind task status. Surfaced so the route can compute next steps without a second read (LUM-686). */
   taskStatus: TaskStatusForNextSteps
 }
@@ -222,6 +225,7 @@ export const sessionService = {
       criteriaSection,
       previousSession,
       blockerWarningSection,
+      securityFindingsSection,
     ] = await Promise.all([
       taskContextService.buildMemorySectionForTask(task.id),
       taskContextService.buildCriteriaSectionForTask(task.id),
@@ -235,6 +239,10 @@ export const sessionService = {
         task.id,
         task.identifier
       ),
+      // LUM-737: best-effort — a scan read failure must not break attach.
+      prSecurityReminderService
+        .buildSessionStartSection(task.id, task.identifier)
+        .catch(() => ''),
     ])
 
     return {
@@ -247,6 +255,7 @@ export const sessionService = {
       criteriaSection,
       previousSession,
       blockerWarningSection,
+      securityFindingsSection,
       taskStatus: task.status as TaskStatusForNextSteps,
     }
   },
