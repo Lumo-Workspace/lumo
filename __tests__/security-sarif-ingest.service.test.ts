@@ -348,6 +348,30 @@ test('unknown PR or a PR from another workspace → DISCARDED and the blob is de
   })
 })
 
+test('job without workspaceId (GitHub OIDC path) ingests into the PR own workspace', async () => {
+  // The OIDC token proves the repository, not a Lumo workspace — ownership is
+  // whatever workspace the PullRequest row belongs to, so there is nothing to
+  // compare against and no mismatch check to run.
+  const { workspaceId: _w, ...oidcJob } = JOB
+  void _w
+  findPr.mockResolvedValue({
+    id: 'pr9',
+    workspaceId: 'w-elsewhere',
+    taskId: null,
+    repo: 'o/r',
+    number: 7,
+  })
+  fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
+  expect(await securitySarifIngestService.ingest(oidcJob)).toMatchObject({
+    outcome: 'INGESTED',
+    scanId: 's1',
+  })
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
+  expect(repo.createIfAbsent).toHaveBeenCalledWith(
+    expect.objectContaining({ workspaceId: 'w-elsewhere' })
+  )
+})
+
 test('invalid SARIF → FAILED with reason on the scan, blob KEPT for debugging', async () => {
   fetchBlob.mockResolvedValue(gz({ version: '1.0', runs: [] }))
   const out = await securitySarifIngestService.ingest(JOB)

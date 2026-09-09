@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { verifyBearer } from '@/lib/auth/bearer'
-import { SECURITY_INGEST_SCOPE } from '@/lib/services/auth.service'
+import {
+  authenticateSarifIngest,
+  assertPayloadMatchesPrincipal,
+  type SarifIngestPrincipal,
+} from '@/lib/auth/sarif-ingest-auth'
 import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
 import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
 import {
@@ -22,19 +25,28 @@ export const runtime = 'nodejs'
  * (dedupes by scan row), so a double-dispatch from both paths is harmless.
  */
 export async function POST(request: NextRequest) {
-  const identity = await verifyBearer(request, {
-    allowScopes: [SECURITY_INGEST_SCOPE],
-  })
-  if (!identity) {
+  let principal: SarifIngestPrincipal | null
+  try {
+    principal = await authenticateSarifIngest(request)
+  } catch (error) {
+    // A bearer that claimed to be a GitHub OIDC token but failed verification.
+    if ((error as { status?: unknown } | null)?.status === 401) {
+      const message = error instanceof Error ? error.message : 'Unauthorized'
+      return NextResponse.json({ error: message }, { status: 401 })
+    }
+    throw error
+  }
+  if (!principal) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // LUM-735 review I4: this route dispatches the same worker job the upload
-  // route does, so it needs the same per-key budget — otherwise a caller that
-  // stays inside the upload limit can still loop here and re-run the ingest
-  // (blob fetch, diff fetch, DB writes) without bound. Same limiter, same key.
+  // route does, so it needs the same per-caller budget — otherwise a caller
+  // that stays inside the upload limit can still loop here and re-run the
+  // ingest (blob fetch, diff fetch, DB writes) without bound. Same limiter,
+  // same key (the api key id, or the repository on the OIDC path).
   try {
-    await checkSarifIngestRateLimit(identity.apiKey.id)
+    await checkSarifIngestRateLimit(principal.rateLimitKey)
   } catch (error) {
     if ((error as { status?: unknown } | null)?.status === 429) {
       const message = error instanceof Error ? error.message : 'Rate limited'
@@ -48,6 +60,13 @@ export async function POST(request: NextRequest) {
     body = sarifCompleteBodySchema.parse(await request.json())
   } catch {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+  }
+
+  try {
+    assertPayloadMatchesPrincipal(principal, body)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Forbidden'
+    return NextResponse.json({ error: message }, { status: 403 })
   }
 
   const parsedUrl = new URL(body.url)
@@ -66,7 +85,11 @@ export async function POST(request: NextRequest) {
     dispatchSecuritySarifIngest({
       url: body.url,
       pathname: actual,
-      workspaceId: identity.workspace.id,
+      // Key path only: the OIDC token proves a repository, not a workspace,
+      // so the worker resolves ownership from the PullRequest row instead.
+      ...(principal.kind === 'key'
+        ? { workspaceId: principal.workspaceId }
+        : {}),
       repository: body.repository,
       headSha: body.headSha,
       prNumber: body.prNumber,

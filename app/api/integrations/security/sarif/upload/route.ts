@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
-import { verifyBearer } from '@/lib/auth/bearer'
-import { SECURITY_INGEST_SCOPE } from '@/lib/services/auth.service'
+import {
+  authenticateSarifIngest,
+  assertPayloadMatchesPrincipal,
+} from '@/lib/auth/sarif-ingest-auth'
 import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
 import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
 import { SARIF_MAX_GZ_BYTES } from '@/lib/services/security-sarif-ingest.service'
@@ -26,10 +28,12 @@ function safeJsonParse(s: string): unknown {
 
 /**
  * POST /api/integrations/security/sarif/upload — LUM-735 token issuance +
- * completion webhook for `@vercel/blob/client`'s `handleUpload`. The minted
- * token carries `workspaceId` from the verified bearer key (never the client
- * payload) inside `tokenPayload`, so `onUploadCompleted` dispatches trusting
- * nothing the client sent directly.
+ * completion webhook for `@vercel/blob/client`'s `handleUpload`. Whatever the
+ * bearer proved goes into `tokenPayload` server-side, so `onUploadCompleted`
+ * dispatches trusting nothing the client sent directly: a `security:ingest`
+ * ApiKey contributes its `workspaceId`, a GitHub Actions OIDC token instead
+ * pins `repository`/`prNumber` to its own claims and leaves ownership to the
+ * PullRequest row the worker looks up.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -40,13 +44,11 @@ export async function POST(request: NextRequest) {
       body,
       request,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
-        const identity = await verifyBearer(request, {
-          allowScopes: [SECURITY_INGEST_SCOPE],
-        })
-        if (!identity) {
+        const principal = await authenticateSarifIngest(request)
+        if (!principal) {
           throw Object.assign(new Error('Unauthorized'), { status: 401 })
         }
-        await checkSarifIngestRateLimit(identity.apiKey.id)
+        await checkSarifIngestRateLimit(principal.rateLimitKey)
 
         const parsed = sarifClientPayloadSchema.safeParse(
           safeJsonParse(clientPayload ?? '')
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
             status: 400,
           })
         }
+        assertPayloadMatchesPrincipal(principal, parsed.data)
         if (!pathnameMatches(pathname, expectedSarifPathname(parsed.data))) {
           throw Object.assign(
             new Error('pathname does not match clientPayload'),
@@ -67,8 +70,14 @@ export async function POST(request: NextRequest) {
           allowedContentTypes: ['application/gzip'],
           maximumSizeInBytes: SARIF_MAX_GZ_BYTES,
           addRandomSuffix: true,
+          // `headSha` stays payload-supplied even on the OIDC path: a
+          // `pull_request` token's `sha` claim is the merge commit GitHub
+          // synthesised, not the PR head the report was produced against.
           tokenPayload: JSON.stringify({
-            workspaceId: identity.workspace.id,
+            auth: principal.kind,
+            ...(principal.kind === 'key'
+              ? { workspaceId: principal.workspaceId }
+              : {}),
             ...parsed.data,
           }),
         }
@@ -89,7 +98,11 @@ export async function POST(request: NextRequest) {
           dispatchSecuritySarifIngest({
             url: blob.url,
             pathname: blob.pathname,
-            workspaceId: parsed.data.workspaceId,
+            // Absent on the OIDC path — the worker then takes the PR row's
+            // own workspace instead of cross-checking against one.
+            ...(parsed.data.workspaceId !== undefined
+              ? { workspaceId: parsed.data.workspaceId }
+              : {}),
             repository: parsed.data.repository,
             headSha: parsed.data.headSha,
             prNumber: parsed.data.prNumber,
@@ -101,7 +114,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     const status = (error as { status?: unknown } | null)?.status
-    if (status === 400 || status === 401 || status === 429) {
+    if (status === 400 || status === 401 || status === 403 || status === 429) {
       const message = error instanceof Error ? error.message : 'Bad Request'
       return NextResponse.json({ error: message }, { status })
     }

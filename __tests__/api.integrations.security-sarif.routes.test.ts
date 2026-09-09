@@ -11,9 +11,13 @@
  *     (self-call only, gated by CRON_SECRET).
  *   - GET /api/cron/prune-security-sarif: daily stale-blob sweep.
  *
- * Binding security requirement under test throughout: `workspaceId` in every
- * dispatched job comes from the authenticated key's `identity.workspace.id`,
- * never from the request body or the client's own payload.
+ * Binding security requirement under test throughout: on the ApiKey path,
+ * `workspaceId` in every dispatched job comes from the authenticated key's
+ * `identity.workspace.id`, never from the request body or the client's own
+ * payload. On the GitHub OIDC path there is no `workspaceId` at all — the
+ * token pins repository + PR, and the worker derives the workspace from the
+ * `PullRequest` row. Only the two verifiers are mocked, so the real bearer
+ * split (lib/auth/sarif-ingest-auth) runs inside these routes.
  */
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@vercel/blob/client', () => ({
@@ -52,6 +56,10 @@ jest.mock('@vercel/blob/client', () => ({
   ),
 }))
 jest.mock('@/lib/auth/bearer', () => ({ verifyBearer: jest.fn() }))
+jest.mock('@/lib/auth/github-oidc', () => ({
+  ...jest.requireActual('@/lib/auth/github-oidc'),
+  verifyGithubActionsToken: jest.fn(),
+}))
 jest.mock('@/lib/services/security-sarif-rate-limit', () => ({
   checkSarifIngestRateLimit: jest.fn(),
 }))
@@ -73,6 +81,7 @@ import { GET as pruneGET } from '@/app/api/cron/prune-security-sarif/route'
 import { waitUntil } from '@vercel/functions'
 import { handleUpload } from '@vercel/blob/client'
 import { verifyBearer } from '@/lib/auth/bearer'
+import { verifyGithubActionsToken } from '@/lib/auth/github-oidc'
 import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
 import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
 import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
@@ -82,6 +91,7 @@ import {
 } from '@/lib/validation/security-sarif'
 
 const mockedVerifyBearer = verifyBearer as jest.Mock
+const mockedVerifyOidc = verifyGithubActionsToken as jest.Mock
 const mockedRateLimit = checkSarifIngestRateLimit as jest.Mock
 const mockedDispatch = dispatchSecuritySarifIngest as jest.Mock
 const mockedIngest = securitySarifIngestService.ingest as jest.Mock
@@ -102,9 +112,25 @@ const PAYLOAD = {
   tool: 'semgrep',
 }
 
+/** Three base64url segments — shaped like a JWT; contents never parsed here. */
+const OIDC_BEARER = 'Bearer aGVhZGVy.cGF5bG9hZA.c2ln'
+/** GitHub spells the repo with its own casing; the payload's is lowercase. */
+const CLAIMS = {
+  repository: 'O/R',
+  repositoryOwner: 'O',
+  ref: 'refs/pull/42/merge',
+  sha: 'mergecommit1234567',
+  eventName: 'pull_request',
+  runId: '1',
+  actor: 'octocat',
+}
+
 const makeReq = (
   bodyOrFn: unknown | (() => unknown),
-  auth: string | null = null
+  // Default: an ApiKey-shaped bearer, so the ingest routes take the
+  // verifyBearer branch (mocked to IDENTITY below) unless a test opts into
+  // the JWT-shaped OIDC bearer.
+  auth: string | null = 'Bearer lumo_ci_key'
 ) =>
   ({
     headers: {
@@ -120,6 +146,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   process.env.CRON_SECRET = 'secret'
   mockedVerifyBearer.mockResolvedValue(IDENTITY)
+  mockedVerifyOidc.mockResolvedValue(CLAIMS)
   mockedRateLimit.mockResolvedValue(undefined)
   // A real dispatch call returns a Promise; default it here so tests that
   // assert waitUntil received "the dispatch promise" observe an actual
@@ -162,14 +189,88 @@ describe('POST /api/integrations/security/sarif/upload', () => {
     expect(json._opts.maximumSizeInBytes).toBe(104857600)
     expect(json._opts.addRandomSuffix).toBe(true)
     expect(JSON.parse(json._opts.tokenPayload)).toEqual({
+      auth: 'key',
       workspaceId: 'w1',
       ...PAYLOAD,
     })
+    expect(mockedRateLimit).toHaveBeenCalledWith('k1')
+    expect(mockedVerifyOidc).not.toHaveBeenCalled()
     // The blob SDK needs the raw request to verify its own signed callback —
     // handleUpload must be called with it, not just `body`.
     expect(mockedHandleUpload).toHaveBeenCalledWith(
       expect.objectContaining({ request: expect.anything() })
     )
+  })
+
+  it('routes a JWT-shaped bearer to OIDC and mints a workspace-free token payload', async () => {
+    const pathname = expectedSarifPathname(PAYLOAD)
+    const body = {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname,
+        clientPayload: JSON.stringify(PAYLOAD),
+        multipart: false,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(200)
+    expect(mockedVerifyOidc).toHaveBeenCalledTimes(1)
+    expect(mockedVerifyBearer).not.toHaveBeenCalled()
+    const json = await res.json()
+    // No workspaceId: the worker resolves ownership from the PullRequest row.
+    expect(JSON.parse(json._opts.tokenPayload)).toEqual({
+      auth: 'oidc',
+      ...PAYLOAD,
+    })
+    // Rate-limited per repository, not per api key.
+    expect(mockedRateLimit).toHaveBeenCalledWith('oidc:o/r')
+  })
+
+  it('rejects a payload whose repository/prNumber contradict the token with 403', async () => {
+    const other = { ...PAYLOAD, repository: 'evil/repo' }
+    const body = {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname: expectedSarifPathname(other),
+        clientPayload: JSON.stringify(other),
+        multipart: false,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({
+      error: 'payload does not match the workflow identity',
+    })
+  })
+
+  it('rejects a payload for another PR in the same repository with 403', async () => {
+    const otherPr = { ...PAYLOAD, prNumber: 43 }
+    const body = {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname: expectedSarifPathname(otherPr),
+        clientPayload: JSON.stringify(otherPr),
+        multipart: false,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(403)
+  })
+
+  it('maps a failed OIDC verification to 401', async () => {
+    mockedVerifyOidc.mockRejectedValue(
+      Object.assign(new Error('token expired'), { status: 401 })
+    )
+    const body = {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname: expectedSarifPathname(PAYLOAD),
+        clientPayload: JSON.stringify(PAYLOAD),
+        multipart: false,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(401)
   })
 
   it('rejects malformed JSON with 400 through the route error mapping', async () => {
@@ -229,7 +330,11 @@ describe('POST /api/integrations/security/sarif/upload', () => {
   })
 
   it('dispatches the ingest job from onUploadCompleted using ONLY tokenPayload fields', async () => {
-    const tokenPayload = JSON.stringify({ workspaceId: 'w1', ...PAYLOAD })
+    const tokenPayload = JSON.stringify({
+      auth: 'key',
+      workspaceId: 'w1',
+      ...PAYLOAD,
+    })
     const body = {
       type: 'blob.upload-completed',
       payload: {
@@ -254,9 +359,36 @@ describe('POST /api/integrations/security/sarif/upload', () => {
     )
   })
 
+  it('dispatches an OIDC-minted tokenPayload without any workspaceId', async () => {
+    const tokenPayload = JSON.stringify({ auth: 'oidc', ...PAYLOAD })
+    const body = {
+      type: 'blob.upload-completed',
+      payload: {
+        blob: {
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+          pathname:
+            'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+        },
+        tokenPayload,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(200)
+    expect(mockedDispatch).toHaveBeenCalledWith({
+      url: body.payload.blob.url,
+      pathname: body.payload.blob.pathname,
+      ...PAYLOAD,
+    })
+    expect(mockedDispatch.mock.calls[0]![0]).not.toHaveProperty('workspaceId')
+  })
+
   it('responds without waiting for the worker even if dispatch never resolves', async () => {
     mockedDispatch.mockReturnValue(new Promise(() => {}))
-    const tokenPayload = JSON.stringify({ workspaceId: 'w1', ...PAYLOAD })
+    const tokenPayload = JSON.stringify({
+      auth: 'key',
+      workspaceId: 'w1',
+      ...PAYLOAD,
+    })
     const body = {
       type: 'blob.upload-completed',
       payload: {
@@ -301,6 +433,45 @@ describe('POST /api/integrations/security/sarif/complete', () => {
       workspaceId: 'w1',
       ...PAYLOAD,
     })
+  })
+
+  it('dispatches without a workspaceId on the OIDC path', async () => {
+    const res = await completePOST(
+      makeReq(() => ({ ...PAYLOAD, url }), OIDC_BEARER)
+    )
+    expect(res.status).toBe(202)
+    expect(mockedVerifyOidc).toHaveBeenCalledTimes(1)
+    expect(mockedVerifyBearer).not.toHaveBeenCalled()
+    expect(mockedRateLimit).toHaveBeenCalledWith('oidc:o/r')
+    expect(mockedDispatch).toHaveBeenCalledWith({
+      url,
+      pathname: 'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+      ...PAYLOAD,
+    })
+    expect(mockedDispatch.mock.calls[0]![0]).not.toHaveProperty('workspaceId')
+  })
+
+  it('rejects a body contradicting the OIDC token with 403 and does not dispatch', async () => {
+    mockedVerifyOidc.mockResolvedValue({ ...CLAIMS, ref: 'refs/pull/99/merge' })
+    const res = await completePOST(
+      makeReq(() => ({ ...PAYLOAD, url }), OIDC_BEARER)
+    )
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({
+      error: 'payload does not match the workflow identity',
+    })
+    expect(mockedDispatch).not.toHaveBeenCalled()
+  })
+
+  it('maps a failed OIDC verification to 401 and does not dispatch', async () => {
+    mockedVerifyOidc.mockRejectedValue(
+      Object.assign(new Error('bad signature'), { status: 401 })
+    )
+    const res = await completePOST(
+      makeReq(() => ({ ...PAYLOAD, url }), OIDC_BEARER)
+    )
+    expect(res.status).toBe(401)
+    expect(mockedDispatch).not.toHaveBeenCalled()
   })
 
   it('dispatches via waitUntil without awaiting the worker', async () => {
@@ -439,9 +610,26 @@ describe('POST /api/internal/security-sarif-ingest', () => {
     })
   })
 
+  it('accepts a job without a workspaceId (the OIDC path)', async () => {
+    const { workspaceId: _w, ...oidcJob } = job
+    void _w
+    mockedIngest.mockResolvedValue({ outcome: 'ALREADY_PROCESSED' })
+    const res = await ingestPOST(makeReq(() => oidcJob, 'Bearer secret'))
+    expect(res.status).toBe(200)
+    expect(mockedIngest).toHaveBeenCalledWith(oidcJob)
+  })
+
   it('rejects an invalid body with 400', async () => {
     const res = await ingestPOST(
-      makeReq(() => ({ ...job, workspaceId: undefined }), 'Bearer secret')
+      makeReq(() => ({ ...job, prNumber: undefined }), 'Bearer secret')
+    )
+    expect(res.status).toBe(400)
+    expect(mockedIngest).not.toHaveBeenCalled()
+  })
+
+  it('rejects an empty-string workspaceId with 400', async () => {
+    const res = await ingestPOST(
+      makeReq(() => ({ ...job, workspaceId: '' }), 'Bearer secret')
     )
     expect(res.status).toBe(400)
     expect(mockedIngest).not.toHaveBeenCalled()

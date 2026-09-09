@@ -45,7 +45,16 @@ export const SARIF_FAILED_BLOB_TTL_MS = 24 * 60 * 60 * 1000
 export interface SarifIngestJob {
   url: string
   pathname: string
-  workspaceId: string
+  /**
+   * Present only when the report was pushed with a `security:ingest` ApiKey,
+   * whose workspace is the trust boundary. A GitHub Actions OIDC push proves a
+   * repository instead, and ownership follows the PullRequest row, so the
+   * field is absent and no cross-workspace check applies.
+   *
+   * `| undefined` is explicit for `exactOptionalPropertyTypes`: this is the
+   * type Zod infers for `.optional()`, so a parsed job assigns cleanly.
+   */
+  workspaceId?: string | undefined
   repository: string
   headSha: string
   prNumber: number
@@ -171,7 +180,7 @@ export const securitySarifIngestService = {
       await safeDelete(job.url)
       return { outcome: 'DISCARDED', reason: 'pr_not_found' }
     }
-    if (pr.workspaceId !== job.workspaceId) {
+    if (job.workspaceId !== undefined && pr.workspaceId !== job.workspaceId) {
       logger.warn(
         `[security-sarif-ingest] PR ${logSafe(job.repository)}#${job.prNumber} belongs to another workspace — discarding`
       )
@@ -281,7 +290,7 @@ export const securitySarifIngestService = {
       )
       await safeDelete(job.url)
       logger.info(
-        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
+        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings auth=${job.workspaceId ? 'key' : 'oidc'}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
       )
       return {
         outcome: 'INGESTED',
