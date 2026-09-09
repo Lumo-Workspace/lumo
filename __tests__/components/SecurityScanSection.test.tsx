@@ -1,5 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/workspace/acme/tasks/LUM-1',
+  useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 const messages: Record<string, string> = {
   'securityScan.section.title': 'Security scan',
   'securityScan.banner.blocking': 'blocking {count}',
@@ -24,9 +30,13 @@ const messages: Record<string, string> = {
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
   'securityScan.stageState.PARTIAL': 'partial',
+  'securityScan.stageState.PENDING': 'waiting for CI',
   'securityScan.external.notConfigured':
-    "This repository has no GitHub code scanning results, so only Lumo's own checks ran. A clean result here is not a full pass.",
-  'securityScan.external.notConfigured.link': 'Enable code scanning',
+    "This repository has never pushed a scanner report to Lumo, so only Lumo's own checks ran. A clean result here is not a full pass.",
+  'securityScan.external.notConfigured.link': 'Create a CI ingest key',
+  'securityScan.external.notConfigured.template': 'Get the workflow template',
+  'securityScan.external.late':
+    'CI has not reported a scan for this commit in 30 minutes. Check the lumo-security workflow run for this pull request.',
   'securityScan.finding.externalLink': 'View alert on GitHub',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
@@ -107,6 +117,7 @@ const scan = (over: object) => ({
   stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
   partial: false,
   complete: true,
+  externalLate: false,
   error: null,
   startedAt: '2026-09-03T00:00:00Z',
   finishedAt: null,
@@ -280,10 +291,9 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   expect(stages).not.toHaveTextContent('Secret patterns')
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
-  expect(hint.querySelector('a')).toHaveAttribute(
-    'href',
-    'https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning'
-  )
+  const links = hint.querySelectorAll('a')
+  expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
+  expect(links[1]).toHaveAttribute('href', '/integrations/lumo-security.yml')
   expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
     'data-state',
     'incomplete'
@@ -312,6 +322,59 @@ test('a complete scan renders no stages line; partial renders the budget notice'
   expect(screen.getByTestId('scan-partial')).toBeInTheDocument()
   expect(screen.getByTestId('scan-stages')).toHaveTextContent(
     'External scanner: partial'
+  )
+})
+
+test('a PENDING external stage renders "waiting for CI" and no external-late warning', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+            complete: false,
+            externalLate: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    'External scanner: waiting for CI'
+  )
+  expect(screen.queryByTestId('external-late')).toBeNull()
+})
+
+test('externalLate renders a warning that CI has not reported in 30 minutes', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+            complete: false,
+            externalLate: true,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('external-late')).toHaveTextContent(
+    'has not reported'
   )
 })
 

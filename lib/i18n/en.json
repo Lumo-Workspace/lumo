@@ -2252,6 +2252,7 @@
   "securityScan.status.FAILED": "Scan failed",
   "securityScan.status.none": "Not scanned",
   "securityScan.status.unavailable": "Scan status unavailable",
+  "securityScan.status.pendingExternal": "Waiting for CI scan",
   "securityScan.severity.LOW": "Low",
   "securityScan.severity.MEDIUM": "Medium",
   "securityScan.severity.HIGH": "High",
@@ -2278,8 +2279,11 @@
   "securityScan.stageState.FAILED": "failed",
   "securityScan.stageState.NOT_CONFIGURED": "not configured",
   "securityScan.stageState.PARTIAL": "partial",
-  "securityScan.external.notConfigured": "This repository has no GitHub code scanning results, so only Lumo's own checks ran. A clean result here is not a full pass.",
-  "securityScan.external.notConfigured.link": "Enable code scanning",
+  "securityScan.stageState.PENDING": "waiting for CI",
+  "securityScan.external.notConfigured": "This repository has never pushed a scanner report to Lumo, so only Lumo's own checks ran. A clean result here is not a full pass.",
+  "securityScan.external.notConfigured.link": "Create a CI ingest key",
+  "securityScan.external.notConfigured.template": "Get the workflow template",
+  "securityScan.external.late": "CI has not reported a scan for this commit in 30 minutes. Check the lumo-security workflow run for this pull request.",
   "securityScan.finding.externalLink": "View alert on GitHub",
   "securityScan.partial": "Some results were cut off at the scan budget — the scan is not complete."
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -100,8 +101,7 @@ function SecurityScanPanel({
   )
 }
 
-const CODE_SCANNING_DOCS =
-  'https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning'
+const WORKFLOW_TEMPLATE_PATH = '/integrations/lumo-security.yml'
 
 /** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
 const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge']
@@ -134,9 +134,19 @@ function ScanDetails({
   scan: SecurityScanView
 }) {
   const intl = useIntl()
+  const pathname = usePathname()
+  const workspaceSlug = pathname.match(/^\/workspace\/([^/]+)/)?.[1] ?? null
+  const apiKeysHref = workspaceSlug
+    ? `/workspace/${workspaceSlug}/settings/api-keys`
+    : '#'
   return (
     <div className='mt-1.5 space-y-1.5'>
       <StagesSummary stages={scan.stages} />
+      {scan.externalLate && (
+        <p data-testid='external-late' className='text-caption text-warning'>
+          {intl.formatMessage({ id: 'securityScan.external.late' })}
+        </p>
+      )}
       {scan.stages.external === 'NOT_CONFIGURED' && (
         <p
           data-testid='external-not-configured'
@@ -144,13 +154,22 @@ function ScanDetails({
         >
           {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
           <a
-            href={CODE_SCANNING_DOCS}
+            href={apiKeysHref}
             target='_blank'
             rel='noopener noreferrer'
             className='underline underline-offset-2 hover:text-foreground'
           >
             {intl.formatMessage({
               id: 'securityScan.external.notConfigured.link',
+            })}
+          </a>{' '}
+          <a
+            href={WORKFLOW_TEMPLATE_PATH}
+            download
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.template',
             })}
           </a>
         </p>
