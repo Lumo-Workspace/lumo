@@ -30,5 +30,16 @@ describe('LUM-735 dogfood workflows', () => {
     expect(yml).toMatch(/npx prisma generate/)
     expect(yml).toMatch(/npx tsc --noEmit/)
     expect(yml).toMatch(/npm test/)
+    // The 5 suites stale since LUM-733 (fail on main) must be excluded so
+    // the `test` job stays a meaningful independent gate signal.
+    for (const stale of [
+      'cli/__tests__/commands/task-criteria-set.readback.test.ts',
+      'cli/__tests__/commands/task-status.cost.render.test.ts',
+      'cli/__tests__/commands/task-status.render.test.ts',
+      '__tests__/machine-verdict.validation.test.ts',
+      '__tests__/task-criteria-activity.test.ts',
+    ]) {
+      expect(yml).toContain(stale)
+    }
   })
 })

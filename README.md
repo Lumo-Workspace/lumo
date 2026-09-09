@@ -230,15 +230,16 @@ minimum permission set. Everything Lumo reads or writes on GitHub goes through
 an installation token of this App; the OAuth connection only creates the repo
 webhook.
 
-| Permission             | Access | Used by                                         |
-| ---------------------- | ------ | ----------------------------------------------- |
-| Contents               | Read   | file reads, PR diffs                            |
-| Pull requests          | Read   | PR head sha, change volume                      |
-| Checks                 | Read   | CI signal for the gate audit (LUM-616)          |
-| Commit statuses        | Read   | CI signal (Status API providers)                |
-| Code scanning alerts   | Read   | PR security scan, external oracle (LUM-735)     |
-| Secret scanning alerts | Read   | PR security scan, A1 severity upgrade (LUM-735) |
-| Metadata               | Read   | mandatory                                       |
+| Permission             | Access       | Used by                                              |
+| ---------------------- | ------------ | ---------------------------------------------------- |
+| Contents               | Read         | file reads, PR diffs                                 |
+| Pull requests          | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
+| Issues                 | Read & write | comment mirror (issue comments)                      |
+| Checks                 | Read         | CI signal for the gate audit (LUM-616)               |
+| Commit statuses        | Read         | CI signal (Status API providers)                     |
+| Code scanning alerts   | Read         | PR security scan, external oracle (LUM-735)          |
+| Secret scanning alerts | Read         | PR security scan, A1 severity upgrade (LUM-735)      |
+| Metadata               | Read         | mandatory                                            |
 
 Code scanning and secret scanning alerts are only readable when the target
 repository has them enabled (public repos: free; private repos: GitHub

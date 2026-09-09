@@ -36,6 +36,8 @@ jobs:
           --error
         continue-on-error: true
       - name: Upload SARIF
+        # 403 until GitHub Advanced Security is enabled on this private repo (see header)
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
@@ -59,6 +61,8 @@ jobs:
           --exit-code 0
           --no-banner
       - name: Upload SARIF
+        # 403 until GitHub Advanced Security is enabled on this private repo (see header)
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gitleaks.sarif
