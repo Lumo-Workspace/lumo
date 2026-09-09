@@ -31,10 +31,18 @@ import {
   truncateSecurityDiff,
   redactKnownSecrets,
   vulnerabilityFingerprint,
+  mapCodeScanningAlerts,
+  enhanceSecretFindings,
+  INCOMPLETE_STAGE_STATES,
+  type ScanStages,
 } from '@/lib/security-scan'
+import {
+  fetchCodeScanningAlerts,
+  fetchActiveSecretScanningAlerts,
+} from '@/lib/integrations/github/code-scanning'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 
-export const DETECTOR_VERSION = 'secrets@1;judge@1'
+export const DETECTOR_VERSION = 'secrets@1;external@1;judge@1'
 
 /**
  * How long a scan may sit in RUNNING/PENDING before the next trigger treats it
@@ -61,6 +69,8 @@ export interface SecurityFindingView {
   detail: string
   evidence: string
   fingerprint: string
+  /** Alert URL on GitHub (EXTERNAL_TOOL, or an A1 hit confirmed by secret scanning). */
+  externalRef: string | null
   disposition: FindingDisposition | null
   dispositionNote: string | null
   inherited: boolean
@@ -74,6 +84,11 @@ export interface SecurityScanView {
   trigger: ScanTrigger
   judgeStatus: JudgeStatus | null
   truncated: boolean
+  /** LUM-735 — per-layer outcome; legacy rows are derived from judgeStatus. */
+  stages: ScanStages
+  partial: boolean
+  /** False when any layer is FAILED / NOT_CONFIGURED / PARTIAL: never render as a full pass. */
+  complete: boolean
   error: string | null
   startedAt: string
   finishedAt: string | null
@@ -126,6 +141,29 @@ function isUniqueViolation(error: unknown): boolean {
   )
 }
 
+/**
+ * LUM-735 — stages for a scan row. Rows written before the column existed
+ * carry null; for them the only per-layer fact on record is judgeStatus, so
+ * the legacy view is derived from it (UNAVAILABLE → FAILED, SKIPPED → SKIPPED)
+ * and no `external` key is claimed — those scans never consulted GitHub.
+ */
+export function stagesOf(scan: {
+  stages: ScanStages | null
+  judgeStatus: JudgeStatus | null
+}): ScanStages {
+  if (scan.stages) return scan.stages
+  const legacy: ScanStages = { secrets: 'RAN' }
+  if (scan.judgeStatus === 'RAN') legacy.judge = 'RAN'
+  else if (scan.judgeStatus === 'UNAVAILABLE') legacy.judge = 'FAILED'
+  else if (scan.judgeStatus === 'SKIPPED') legacy.judge = 'SKIPPED'
+  return legacy
+}
+
+/** Spec P9: a scan with any incomplete layer must not read as a full pass. */
+export function isCompleteScan(stages: ScanStages): boolean {
+  return !Object.values(stages).some(s => s && INCOMPLETE_STAGE_STATES.has(s))
+}
+
 function sortFindings<
   T extends { severity: FindingSeverity; provenance: FindingProvenance },
 >(rows: T[]): T[] {
@@ -149,6 +187,7 @@ function toFindingView(f: FindingRow): SecurityFindingView {
     detail: f.detail,
     evidence: f.evidence,
     fingerprint: f.fingerprint,
+    externalRef: f.externalRef,
     disposition: f.disposition,
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
@@ -157,6 +196,7 @@ function toFindingView(f: FindingRow): SecurityFindingView {
 }
 
 function toScanView(s: ScanWithFindings): SecurityScanView {
+  const stages = stagesOf(s)
   return {
     id: s.id,
     status: s.status,
@@ -164,6 +204,9 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     trigger: s.trigger,
     judgeStatus: s.judgeStatus,
     truncated: s.truncated,
+    stages,
+    partial: s.partial,
+    complete: isCompleteScan(stages),
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -262,6 +305,11 @@ export const prSecurityScanService = {
       }
     }
 
+    // Collected across layers so the FAILED path can still say which layers
+    // ran before the crash (spec P9: a failed layer is a fact, not a blank).
+    const stages: ScanStages = {}
+    let partial = false
+
     try {
       const diff = await fetchPrDiff({
         workspaceId: pr.workspaceId,
@@ -269,8 +317,35 @@ export const prSecurityScanService = {
         prNumber: pr.number,
       })
       const files = addedLinesWithNumbers(diff)
+      const changedFiles = new Set(files.map(f => f.path))
 
-      const secretRows: NewFindingInput[] = scanSecrets(files).map(f => ({
+      // ── A1: deterministic secret scan (pure) ────────────────────────────
+      let secretHits = enhanceSecretFindings(scanSecrets(files), [])
+      stages.secrets = 'RAN'
+
+      // ── A1+: GitHub secret-scanning "active" alerts upgrade A1 hits ─────
+      // Opportunistic: a missing or failed lookup leaves A1's own verdict
+      // standing at its own severity — nothing is hidden, only not upgraded —
+      // so it does not fail a stage. Only consulted when there is a hit to
+      // upgrade, to keep the per-scan GitHub call count bounded.
+      if (secretHits.length > 0) {
+        try {
+          const sec = await fetchActiveSecretScanningAlerts({
+            workspaceId: pr.workspaceId,
+            fullName: pr.repo,
+          })
+          if (sec.configured) {
+            secretHits = enhanceSecretFindings(secretHits, sec.alerts)
+          }
+        } catch (error) {
+          logger.warn(
+            `[pr-security-scan] secret-scanning lookup failed pr=${pr.id}:`,
+            error instanceof Error ? error.message : error
+          )
+        }
+      }
+
+      const secretRows: NewFindingInput[] = secretHits.map(f => ({
         scanId,
         kind: f.kind,
         ruleId: f.ruleId,
@@ -282,9 +357,51 @@ export const prSecurityScanService = {
         detail: f.detail,
         evidence: f.evidence,
         fingerprint: f.fingerprint,
+        externalRef: f.externalRef,
         disposition: null,
       }))
 
+      // ── A2: external oracle — GitHub code-scanning alerts for this PR ───
+      const externalRows: NewFindingInput[] = []
+      try {
+        const ext = await fetchCodeScanningAlerts({
+          workspaceId: pr.workspaceId,
+          fullName: pr.repo,
+          prNumber: pr.number,
+        })
+        if (!ext.configured) {
+          stages.external = 'NOT_CONFIGURED'
+        } else {
+          for (const f of mapCodeScanningAlerts(ext.alerts, changedFiles)) {
+            externalRows.push({
+              scanId,
+              kind: f.kind,
+              ruleId: f.ruleId,
+              severity: f.severity,
+              provenance: 'EXTERNAL_TOOL',
+              filePath: f.filePath,
+              line: f.line,
+              title: f.title,
+              detail: f.detail,
+              evidence: f.evidence,
+              fingerprint: f.fingerprint,
+              externalRef: f.externalRef,
+              disposition: null,
+            })
+          }
+          stages.external = ext.truncated ? 'PARTIAL' : 'RAN'
+          if (ext.truncated) partial = true
+        }
+      } catch (error) {
+        // A failed oracle is a FAILED layer, never a silent CLEAN (spec P9).
+        stages.external = 'FAILED'
+        logger.warn(
+          `[pr-security-scan] code-scanning lookup failed pr=${pr.id} sha=${headSha}:`,
+          error instanceof Error ? error.message : error
+        )
+      }
+
+      // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
       let judgeStatus: JudgeStatus = 'SKIPPED'
       let truncated = false
       const judgeRows: NewFindingInput[] = []
@@ -325,6 +442,7 @@ export const prSecurityScanService = {
               detail: redactKnownSecrets(j.detail),
               evidence: redactKnownSecrets(j.evidence),
               fingerprint: vulnerabilityFingerprint(ruleId, filePath, title),
+              externalRef: null,
               disposition: null,
             })
           }
@@ -338,11 +456,25 @@ export const prSecurityScanService = {
           )
         }
       }
+      // judgeStatus stays the 732 column; stages.judge is the same fact in
+      // the per-layer vocabulary so the panel has ONE rule for "complete".
+      stages.judge =
+        judgeStatus === 'RAN'
+          ? 'RAN'
+          : judgeStatus === 'UNAVAILABLE'
+            ? 'FAILED'
+            : 'SKIPPED'
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
-      const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
+      const rows = inheritDispositions(
+        [...secretRows, ...externalRows, ...judgeRows],
+        prior
+      )
 
+      // `status` stays "are there findings" (732 semantics — FAILED still
+      // means the worker itself broke and is re-run in place). Whether the
+      // scan may be READ as a full pass is `stages` → view.complete.
       const status: 'CLEAN' | 'FINDINGS' =
         rows.length > 0 ? 'FINDINGS' : 'CLEAN'
       // Spec §6.1: findings and the status describing them are ONE write, so a
@@ -352,6 +484,8 @@ export const prSecurityScanService = {
         status,
         judgeStatus,
         truncated,
+        stages,
+        partial,
       })
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
@@ -363,6 +497,8 @@ export const prSecurityScanService = {
         status: 'FAILED',
         judgeStatus: null,
         truncated: false,
+        stages,
+        partial,
         error: message.slice(0, 500),
       })
       return { deduped: false, scanId, status: 'FAILED', findings: 0 }

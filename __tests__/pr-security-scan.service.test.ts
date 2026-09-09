@@ -11,6 +11,10 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
 }))
+jest.mock('@/lib/integrations/github/code-scanning', () => ({
+  fetchCodeScanningAlerts: jest.fn(),
+  fetchActiveSecretScanningAlerts: jest.fn(),
+}))
 jest.mock('@/lib/llm/security-judge-client', () => ({
   judgeSecurity: jest.fn(),
 }))
@@ -43,6 +47,11 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
+import * as codeScanning from '@/lib/integrations/github/code-scanning'
+import {
+  stagesOf,
+  isCompleteScan,
+} from '@/lib/services/pr-security-scan.service'
 import { secretFingerprint } from '@/lib/security-scan/redact'
 
 const repo = prSecurityScanRepository as jest.Mocked<
@@ -54,6 +63,10 @@ const prRepo = pullRequestRepository as jest.Mocked<
 const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
+const fetchCodeScanningAlerts =
+  codeScanning.fetchCodeScanningAlerts as jest.Mock
+const fetchActiveSecretScanningAlerts =
+  codeScanning.fetchActiveSecretScanningAlerts as jest.Mock
 
 const PR = {
   id: 'pr1',
@@ -84,6 +97,14 @@ beforeEach(() => {
   repo.create.mockResolvedValue({ id: 's1' })
   repo.findDispositionedByPullRequest.mockResolvedValue([])
   judgeSecurity.mockResolvedValue({ findings: [] })
+  fetchCodeScanningAlerts.mockResolvedValue({
+    configured: false,
+    reason: 'Advanced Security must be enabled',
+  })
+  fetchActiveSecretScanningAlerts.mockResolvedValue({
+    configured: false,
+    reason: 'Secret scanning is disabled',
+  })
 })
 
 // The stale-RUNNING test freezes Date.now with a spy; restore it so a later
@@ -471,4 +492,307 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
     'f3',
     'f2',
   ])
+})
+
+describe('LUM-735 external oracle + stages', () => {
+  const CODE_ALERT = {
+    number: 7,
+    htmlUrl: 'https://github.com/o/r/security/code-scanning/7',
+    toolName: 'Semgrep OSS',
+    ruleId: 'js.sqli',
+    ruleDescription: 'SQL built from input',
+    securitySeverityLevel: 'high',
+    severity: 'error',
+    path: 'src/a.ts',
+    startLine: 1,
+    messageText: 'tainted',
+  }
+
+  test('a repo without code scanning finalizes CLEAN-by-findings but stages.external=NOT_CONFIGURED', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'CLEAN', findings: 0 })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        status: 'CLEAN',
+        partial: false,
+        stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+      })
+    )
+  })
+
+  test('code-scanning alerts in changed files land as EXTERNAL_TOOL findings with externalRef', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    fetchCodeScanningAlerts.mockResolvedValue({
+      configured: true,
+      truncated: false,
+      alerts: [
+        CODE_ALERT,
+        { ...CODE_ALERT, number: 8, path: 'src/not-in-diff.ts' },
+      ],
+    })
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'FINDINGS', findings: 1 })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [
+        expect.objectContaining({
+          kind: 'VULNERABILITY',
+          provenance: 'EXTERNAL_TOOL',
+          ruleId: 'ext:semgrep-oss:js.sqli',
+          severity: 'HIGH',
+          filePath: 'src/a.ts',
+          externalRef: 'https://github.com/o/r/security/code-scanning/7',
+          evidence: '',
+        }),
+      ],
+      expect.objectContaining({
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+      })
+    )
+    expect(fetchCodeScanningAlerts).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      fullName: 'o/r',
+      prNumber: 7,
+    })
+  })
+
+  test('an external fetch error marks stages.external=FAILED and does not throw the scan', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    fetchCodeScanningAlerts.mockRejectedValue(
+      Object.assign(new Error('GitHub API 500'), { status: 500 })
+    )
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'CLEAN' })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ external: 'FAILED' }),
+      })
+    )
+  })
+
+  test('a truncated alert page marks stages.external=PARTIAL and partial=true', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    fetchCodeScanningAlerts.mockResolvedValue({
+      configured: true,
+      truncated: true,
+      alerts: [],
+    })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        partial: true,
+        stages: expect.objectContaining({ external: 'PARTIAL' }),
+      })
+    )
+  })
+
+  test('an ACTIVE secret-scanning alert upgrades the matching A1 hit to HIGH with the alert URL', async () => {
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    fetchActiveSecretScanningAlerts.mockResolvedValue({
+      configured: true,
+      truncated: false,
+      alerts: [
+        {
+          number: 3,
+          htmlUrl: 'https://github.com/o/r/security/secret-scanning/3',
+          secretType: 'aws_access_key_id',
+          secretTypeDisplayName: 'Amazon AWS Access Key ID',
+          paths: ['src/cfg.ts'],
+        },
+      ],
+    })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    const rows = repo.persistResult.mock.calls[0]![1]
+    expect(rows[0]).toMatchObject({
+      ruleId: 'secret:aws-access-key-id',
+      provenance: 'DETERMINISTIC',
+      severity: 'HIGH',
+      externalRef: 'https://github.com/o/r/security/secret-scanning/3',
+    })
+    expect(rows[0]!.detail).toContain('Amazon AWS Access Key ID')
+    expect(JSON.stringify(rows)).not.toContain(KEY)
+    expect(fetchActiveSecretScanningAlerts).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      fullName: 'o/r',
+    })
+  })
+
+  test('secret-scanning is only consulted when A1 found something', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(fetchActiveSecretScanningAlerts).not.toHaveBeenCalled()
+  })
+
+  test('judge UNAVAILABLE is mirrored as stages.judge=FAILED; an empty diff is SKIPPED', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    judgeSecurity.mockRejectedValue(new Error('gateway down'))
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        judgeStatus: 'UNAVAILABLE',
+        stages: expect.objectContaining({ judge: 'FAILED' }),
+      })
+    )
+    jest.clearAllMocks()
+    prRepo.findById.mockResolvedValue(PR as never)
+    fetchPrHeadSha.mockResolvedValue('sha-9')
+    repo.findByPrAndSha.mockResolvedValue(null)
+    repo.create.mockResolvedValue({ id: 's9' })
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    fetchCodeScanningAlerts.mockResolvedValue({
+      configured: false,
+      reason: 'off',
+    })
+    fetchPrDiff.mockResolvedValue('')
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's9',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ judge: 'SKIPPED' }),
+      })
+    )
+  })
+
+  test('a scan that throws after stages were collected finalizes FAILED with those stages', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    repo.findDispositionedByPullRequest.mockRejectedValue(new Error('db down'))
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'FAILED' })
+    expect(repo.finalize).toHaveBeenCalledWith(
+      's1',
+      expect.objectContaining({
+        status: 'FAILED',
+        stages: expect.objectContaining({
+          secrets: 'RAN',
+          external: 'NOT_CONFIGURED',
+        }),
+        partial: false,
+      })
+    )
+  })
+
+  test('getForTask exposes stages, partial, complete and externalRef on the view', async () => {
+    prRepo.findManyForSecurityByTaskId.mockResolvedValue([
+      { id: 'pr1', number: 7, title: 't', url: 'u', state: 'open' },
+    ] as never)
+    repo.findLatestByPullRequestIds.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't1',
+        workspaceId: 'w1',
+        headSha: 'sha-1',
+        status: 'CLEAN',
+        trigger: 'PR_EVENT',
+        judgeStatus: 'RAN',
+        truncated: false,
+        stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+        partial: false,
+        detectorVersion: 'x',
+        error: null,
+        startedAt: new Date('2026-09-09T00:00:00Z'),
+        finishedAt: null,
+        findings: [
+          {
+            id: 'f1',
+            scanId: 's1',
+            kind: 'VULNERABILITY',
+            ruleId: 'ext:semgrep-oss:js.sqli',
+            severity: 'MEDIUM',
+            provenance: 'EXTERNAL_TOOL',
+            filePath: 'src/a.ts',
+            line: 1,
+            title: 't',
+            detail: 'd',
+            evidence: '',
+            fingerprint: 'fp',
+            externalRef: 'https://github.com/o/r/security/code-scanning/7',
+            disposition: null,
+            dispositionNote: null,
+            dispositionedById: null,
+            dispositionedAt: null,
+            inheritedFromFindingId: null,
+            createdAt: new Date(),
+          },
+        ],
+      },
+    ] as never)
+    const out = await prSecurityScanService.getForTask('t1')
+    expect(out.prs[0]!.latest).toMatchObject({
+      stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+      partial: false,
+      complete: false,
+    })
+    expect(out.prs[0]!.latest!.findings[0]).toMatchObject({
+      externalRef: 'https://github.com/o/r/security/code-scanning/7',
+      blocking: false,
+    })
+  })
+
+  test('stagesOf derives a legacy view from judgeStatus when stages is null', () => {
+    expect(stagesOf({ stages: null, judgeStatus: 'RAN' })).toEqual({
+      secrets: 'RAN',
+      judge: 'RAN',
+    })
+    expect(stagesOf({ stages: null, judgeStatus: 'UNAVAILABLE' })).toEqual({
+      secrets: 'RAN',
+      judge: 'FAILED',
+    })
+    expect(stagesOf({ stages: null, judgeStatus: null })).toEqual({
+      secrets: 'RAN',
+    })
+    expect(
+      stagesOf({
+        stages: { secrets: 'RAN', external: 'RAN' },
+        judgeStatus: 'RAN',
+      })
+    ).toEqual({ secrets: 'RAN', external: 'RAN' })
+  })
+
+  test('isCompleteScan is false for any FAILED / NOT_CONFIGURED / PARTIAL layer', () => {
+    expect(isCompleteScan({ secrets: 'RAN', judge: 'SKIPPED' })).toBe(true)
+    expect(isCompleteScan({ secrets: 'RAN', external: 'NOT_CONFIGURED' })).toBe(
+      false
+    )
+    expect(isCompleteScan({ secrets: 'RAN', judge: 'FAILED' })).toBe(false)
+    expect(isCompleteScan({ secrets: 'RAN', external: 'PARTIAL' })).toBe(false)
+    expect(isCompleteScan({})).toBe(true)
+  })
 })
