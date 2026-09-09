@@ -344,6 +344,27 @@ describe('POST /api/integrations/security/sarif/complete', () => {
     expect(res.status).toBe(400)
     expect(mockedDispatch).not.toHaveBeenCalled()
   })
+
+  it('rate-limits per api key and maps the 429 through', async () => {
+    // LUM-735 review I4: the upload route is rate-limited, but /complete
+    // dispatches the SAME worker job on its own — an unlimited loop here
+    // re-runs the ingest (blob fetch, diff fetch, DB writes) as fast as CI
+    // can call it while upload stays inside its budget.
+    mockedRateLimit.mockRejectedValueOnce(
+      Object.assign(new Error('rate limited'), { status: 429 })
+    )
+    const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
+    expect(res.status).toBe(429)
+    expect(mockedRateLimit).toHaveBeenCalledWith('k1')
+    expect(mockedDispatch).not.toHaveBeenCalled()
+  })
+
+  it('does not spend a rate-limit token before the bearer is verified', async () => {
+    mockedVerifyBearer.mockResolvedValue(null)
+    const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
+    expect(res.status).toBe(401)
+    expect(mockedRateLimit).not.toHaveBeenCalled()
+  })
 })
 
 describe('pathnameMatches', () => {

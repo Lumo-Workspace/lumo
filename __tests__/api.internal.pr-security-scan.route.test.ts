@@ -90,6 +90,31 @@ describe('POST /api/internal/pr-security-scan is auth-gated and runs the posted 
     })
   })
 
+  it('passes through an explicit SARIF_PUSH trigger', async () => {
+    // LUM-735 review I3: the SARIF ingest asks for stage A when the push
+    // created the scan row before any PR webhook arrived. Without this the
+    // trigger fell back to PR_EVENT and the scan row lied about its origin.
+    const res = await POST(
+      makeReq('Bearer secret', { pullRequestId: 'pr1', trigger: 'SARIF_PUSH' })
+    )
+    expect(res.status).toBe(200)
+    expect(run).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      trigger: 'SARIF_PUSH',
+    })
+  })
+
+  it('falls back to PR_EVENT for an unknown trigger', async () => {
+    const res = await POST(
+      makeReq('Bearer secret', { pullRequestId: 'pr1', trigger: 'NOPE' })
+    )
+    expect(res.status).toBe(200)
+    expect(run).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+  })
+
   it('returns 502 with a generic error and logs when run() rejects', async () => {
     run.mockRejectedValue(new Error('boom'))
     const res = await POST(makeReq('Bearer secret', { pullRequestId: 'pr1' }))

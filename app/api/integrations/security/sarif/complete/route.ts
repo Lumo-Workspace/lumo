@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { SECURITY_INGEST_SCOPE } from '@/lib/services/auth.service'
+import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
 import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
 import {
   sarifCompleteBodySchema,
@@ -26,6 +27,20 @@ export async function POST(request: NextRequest) {
   })
   if (!identity) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // LUM-735 review I4: this route dispatches the same worker job the upload
+  // route does, so it needs the same per-key budget — otherwise a caller that
+  // stays inside the upload limit can still loop here and re-run the ingest
+  // (blob fetch, diff fetch, DB writes) without bound. Same limiter, same key.
+  try {
+    await checkSarifIngestRateLimit(identity.apiKey.id)
+  } catch (error) {
+    if ((error as { status?: unknown } | null)?.status === 429) {
+      const message = error instanceof Error ? error.message : 'Rate limited'
+      return NextResponse.json({ error: message }, { status: 429 })
+    }
+    throw error
   }
 
   let body

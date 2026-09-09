@@ -35,7 +35,7 @@ export interface NewFindingInput {
   detail: string
   evidence: string
   fingerprint: string
-  /** EXTERNAL_TOOL alert URL, or the secret-scanning alert that upgraded an A1 hit. */
+  /** EXTERNAL_TOOL only: the rule's `helpUri` from the SARIF the repo's CI pushed. */
   externalRef?: string | null
   disposition?: FindingDisposition | null
   dispositionNote?: string | null
@@ -272,6 +272,10 @@ export const prSecurityScanRepository = {
    * no rows (a panel claiming problems it cannot show) or rows under a scan
    * still RUNNING (invisible findings that never block Done).
    * `finalize` stays exported for the FAILED path, which has nothing to write.
+   *
+   * LUM-735 review C1/C2 — lock ordering: the scan-row UPDATE goes FIRST, so
+   * this writer and `ingestExternalFindings` both serialize on the same row
+   * lock in the same order (no lock-ordering deadlock between them).
    */
   async persistResult(
     scanId: string,
@@ -284,8 +288,6 @@ export const prSecurityScanRepository = {
         select: { stages: true, partial: true },
       })
       const { stages, partial } = mergeIngestOwnedStages(current, final)
-      if (findings.length > 0)
-        await tx.prSecurityFinding.createMany({ data: findings })
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
@@ -298,24 +300,75 @@ export const prSecurityScanRepository = {
           finishedAt: new Date(),
         },
       })
+      if (findings.length > 0)
+        await tx.prSecurityFinding.createMany({ data: findings })
+      // LUM-735 review C2 — stage A decided `final.status` from an external
+      // count taken seconds ago, before the LLM judge ran and outside this
+      // transaction. An ingest that committed in that window would be erased
+      // by a blind CLEAN: rows visible in the panel under a scan that says
+      // "clean". Now that the row lock is held, the count is authoritative.
+      const externalCount = await tx.prSecurityFinding.count({
+        where: { scanId, provenance: 'EXTERNAL_TOOL' },
+      })
+      if (final.status === 'CLEAN' && externalCount > 0) {
+        await tx.prSecurityScan.update({
+          where: { id: scanId },
+          data: { status: 'FINDINGS' },
+        })
+      }
     })
   },
 
   /**
-   * Same (scan, tool) pushed again → last push wins, atomically (LUM-735).
+   * LUM-735 review C1 — the ingest's whole write, in ONE transaction.
+   *
+   * Both completion paths (the blob store's `onUploadCompleted` webhook and
+   * CI's `/complete` call) dispatch the same job within milliseconds, so two
+   * worker invocations run concurrently on the same scan row. At READ
+   * COMMITTED, a delete-then-insert pair without a shared lock interleaves:
+   * ingest B's `deleteMany` can land between A's delete and A's insert, and
+   * B then inserts its own rows while A's are still uncommitted — A's rows
+   * survive the delete and both pushes' rows end up in the table.
+   *
+   * The scan-row UPDATE (step 2) is the serialization primitive: it takes a
+   * Postgres row lock held until commit, so a concurrent ingest blocks there
+   * until this transaction finishes and then re-reads a settled world. That
+   * is why the UPDATE comes BEFORE the finding writes, not after — and why
+   * `persistResult` (the other writer of this row) updates first too.
+   *
+   * Steps: read → UPDATE scan (lock) → delete this push's tools' rows →
+   * insert → flip a finalized CLEAN to FINDINGS if rows landed.
+   *
    * A single SARIF document can carry multiple runs (e.g. semgrep + a
    * secondary ruleset) each prefixing `ruleId` with its own tool slug — so
-   * every run's tool must be named here, or rows from runs other than the
-   * first accumulate across pushes instead of being replaced. `tools` is
+   * every run's tool must be named in `tools`, or rows from runs other than
+   * the first accumulate across pushes instead of being replaced. `tools` is
    * deduped; an empty list is a caller bug and deletes nothing.
    */
-  async replaceExternalFindings(
+  async ingestExternalFindings(
     scanId: string,
     tools: string[],
-    rows: NewFindingInput[]
-  ): Promise<number> {
+    rows: NewFindingInput[],
+    opts: { partial: boolean }
+  ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
     return prisma.$transaction(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { status: true, stages: true, partial: true },
+      })
+      // The lock. `partial` is monotone across writers — a `false` here can
+      // never clear a `true` the other writer already set.
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages: {
+            ...((current?.stages as ScanStages | null) ?? {}),
+            external: 'RAN',
+          },
+          partial: (current?.partial ?? false) || opts.partial,
+        },
+      })
       if (uniqueTools.length > 0) {
         await tx.prSecurityFinding.deleteMany({
           where: {
@@ -325,9 +378,21 @@ export const prSecurityScanRepository = {
           },
         })
       }
-      if (rows.length === 0) return 0
-      const res = await tx.prSecurityFinding.createMany({ data: rows })
-      return res.count
+      let written = 0
+      if (rows.length > 0) {
+        const res = await tx.prSecurityFinding.createMany({ data: rows })
+        written = res.count
+      }
+      // A scan stage A already finalized as CLEAN now has findings: say so.
+      let flippedToFindings = false
+      if (current?.status === 'CLEAN' && rows.length > 0) {
+        await tx.prSecurityScan.update({
+          where: { id: scanId },
+          data: { status: 'FINDINGS' },
+        })
+        flippedToFindings = true
+      }
+      return { written, flippedToFindings }
     })
   },
 

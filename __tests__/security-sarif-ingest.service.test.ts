@@ -29,11 +29,13 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     createIfAbsent: jest.fn(),
-    replaceExternalFindings: jest.fn(),
+    ingestExternalFindings: jest.fn(),
     mergeStages: jest.fn(),
     findDispositionedByPullRequest: jest.fn(),
-    findScanRow: jest.fn(),
   },
+}))
+jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+  dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
 
 import {
@@ -45,6 +47,7 @@ import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 const fetchBlob = blob.fetchPrivateBlob as jest.Mock
@@ -54,6 +57,7 @@ const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
+const dispatchStageA = dispatchPrSecurityScan as jest.Mock
 
 const JOB = {
   url: 'https://blob.vercel-storage.com/security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
@@ -159,16 +163,10 @@ beforeEach(() => {
     startedAt: new Date(),
   })
   repo.findDispositionedByPullRequest.mockResolvedValue([])
-  repo.replaceExternalFindings.mockImplementation(
-    async (_s, _t, rows) => rows.length
-  )
-  repo.findScanRow.mockResolvedValue({
-    id: 's1',
-    status: 'PENDING',
-    stages: null,
-    partial: false,
-    startedAt: new Date(),
-  })
+  repo.ingestExternalFindings.mockImplementation(async (_s, _t, rows) => ({
+    written: rows.length,
+    flippedToFindings: false,
+  }))
 })
 
 test('happy path: gunzip → normalise → replace tool findings → external RAN → stamp repo → delete blob', async () => {
@@ -190,12 +188,18 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
       taskId: 't1',
     })
   )
-  const rows = repo.replaceExternalFindings.mock.calls[0]![2]
-  expect(repo.replaceExternalFindings).toHaveBeenCalledWith(
+  const rows = repo.ingestExternalFindings.mock.calls[0]![2]
+  // LUM-735 review C1: findings + `stages.external=RAN` + `partial` are ONE
+  // repository call (one transaction holding the scan-row lock), not a
+  // replace followed by a separate mergeStages two concurrent ingests could
+  // interleave.
+  expect(repo.ingestExternalFindings).toHaveBeenCalledWith(
     's1',
     ['semgrep-oss'],
-    expect.any(Array)
+    expect.any(Array),
+    { partial: false }
   )
+  expect(repo.mergeStages).not.toHaveBeenCalled()
   expect(rows).toHaveLength(2)
   expect(rows[0]).toMatchObject({
     provenance: 'EXTERNAL_TOOL',
@@ -203,11 +207,6 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
     externalRef: 'https://h/1',
     scanId: 's1',
   })
-  expect(repo.mergeStages).toHaveBeenCalledWith(
-    's1',
-    { external: 'RAN' },
-    { partial: false }
-  )
   expect(projectRepository.markSarifIngested).toHaveBeenCalledWith(
     'w1',
     'o/r',
@@ -220,34 +219,54 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
 test("a two-run SARIF replaces both runs' tool prefixes, not just the first, even when the second run's only result is outside the diff", async () => {
   fetchBlob.mockResolvedValue(gz(multiRunSarifDoc([result(1)], [result(99)])))
   await securitySarifIngestService.ingest(JOB)
-  expect(repo.replaceExternalFindings).toHaveBeenCalledWith(
+  expect(repo.ingestExternalFindings).toHaveBeenCalledWith(
     's1',
     ['semgrep-oss', 'gitleaks'],
-    expect.any(Array)
+    expect.any(Array),
+    { partial: false }
   )
 })
 
-test('a finalized CLEAN scan gets status FINDINGS when the push brings rows', async () => {
-  repo.findScanRow.mockResolvedValue({
-    id: 's1',
-    status: 'CLEAN',
-    stages: { secrets: 'RAN' },
-    partial: false,
-    startedAt: new Date(),
-  })
+test('the CLEAN→FINDINGS flip is decided inside the ingest transaction, not from a stale read', async () => {
+  // LUM-735 review C1: the service used to re-read the scan row AFTER the
+  // write and then flip it in a second transaction — a window in which the
+  // other completion path could have already finalized. The flip now happens
+  // under the same row lock as the write; the service only reports it.
   repo.createIfAbsent.mockResolvedValue({
     id: 's1',
     created: false,
     status: 'CLEAN',
     startedAt: new Date(),
   })
+  repo.ingestExternalFindings.mockResolvedValue({
+    written: 1,
+    flippedToFindings: true,
+  })
+  fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(out).toMatchObject({ outcome: 'INGESTED', findings: 1 })
+  expect(repo.ingestExternalFindings).toHaveBeenCalledTimes(1)
+  expect(repo.mergeStages).not.toHaveBeenCalled()
+})
+
+test('a SARIF-created PENDING row is handed to stage A; an existing row is not', async () => {
+  // LUM-735 review I3: when the push arrives before any PR webhook, the row
+  // this ingest just created is PENDING and nothing would ever run stage A
+  // on it — the panel would sit on "waiting for CI" forever with the secret
+  // scan and judge never having run.
   fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
   await securitySarifIngestService.ingest(JOB)
-  expect(repo.mergeStages).toHaveBeenCalledWith(
-    's1',
-    { external: 'RAN' },
-    { partial: false, status: 'FINDINGS' }
-  )
+  expect(dispatchStageA).toHaveBeenCalledWith('pr1', 'SARIF_PUSH')
+
+  dispatchStageA.mockClear()
+  repo.createIfAbsent.mockResolvedValue({
+    id: 's1',
+    created: false,
+    status: 'RUNNING',
+    startedAt: new Date(),
+  })
+  await securitySarifIngestService.ingest(JOB)
+  expect(dispatchStageA).not.toHaveBeenCalled()
 })
 
 test('RED LINE: gitleaks-style payload never lands the secret; the SARIF itself is never persisted', async () => {
@@ -257,10 +276,13 @@ test('RED LINE: gitleaks-style payload never lands the secret; the SARIF itself 
     )
   )
   await securitySarifIngestService.ingest({ ...JOB, tool: 'gitleaks' })
-  const rows = repo.replaceExternalFindings.mock.calls[0]![2]
+  const rows = repo.ingestExternalFindings.mock.calls[0]![2]
   expect(rows[0]).toMatchObject({ kind: 'SECRET' })
+  expect(rows).not.toHaveLength(0)
   expect(JSON.stringify(rows)).not.toContain(KEY)
-  expect(JSON.stringify(repo.mergeStages.mock.calls)).not.toContain(KEY)
+  expect(JSON.stringify(repo.ingestExternalFindings.mock.calls)).not.toContain(
+    KEY
+  )
 })
 
 test('inherits a prior human disposition by fingerprint across pushes', async () => {
@@ -282,7 +304,7 @@ test('inherits a prior human disposition by fingerprint across pushes', async ()
     },
   ])
   await securitySarifIngestService.ingest(JOB)
-  expect(repo.replaceExternalFindings.mock.calls[0]![2][0]).toMatchObject({
+  expect(repo.ingestExternalFindings.mock.calls[0]![2][0]).toMatchObject({
     disposition: 'FALSE_POSITIVE',
     inheritedFromFindingId: 'old',
   })
@@ -329,9 +351,9 @@ test('invalid SARIF → FAILED with reason on the scan, blob KEPT for debugging'
   expect(delBlob).not.toHaveBeenCalled()
 })
 
-test('a write-stage failure after a successful parse marks external FAILED and keeps the blob (retryable)', async () => {
+test('a write-stage failure after a successful parse marks external FAILED and keeps the blob for inspection', async () => {
   fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
-  repo.replaceExternalFindings.mockRejectedValueOnce(
+  repo.ingestExternalFindings.mockRejectedValueOnce(
     new Error('db write failed')
   )
   const out = await securitySarifIngestService.ingest(JOB)
@@ -354,7 +376,7 @@ test('a parse/normalize failure whose own mergeStages(external=FAILED) also reje
 
 test('a second failure while marking external FAILED does not throw or change the outcome', async () => {
   fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
-  repo.replaceExternalFindings.mockRejectedValueOnce(
+  repo.ingestExternalFindings.mockRejectedValueOnce(
     new Error('db write failed')
   )
   repo.mergeStages.mockRejectedValueOnce(new Error('mergeStages also down'))

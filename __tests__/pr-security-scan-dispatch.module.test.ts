@@ -46,6 +46,20 @@ describe('dispatchPrSecurityScan (real implementation)', () => {
     })
   })
 
+  it('carries the LUM-735 SARIF_PUSH trigger through to the worker', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.test'
+    process.env.CRON_SECRET = 's3'
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
+    global.fetch = fetchMock as never
+
+    await dispatchPrSecurityScan('pr1', 'SARIF_PUSH')
+
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+      pullRequestId: 'pr1',
+      trigger: 'SARIF_PUSH',
+    })
+  })
+
   it('skips (no fetch) and warns when NEXT_PUBLIC_APP_URL is unset', async () => {
     delete process.env.NEXT_PUBLIC_APP_URL
     const fetchMock = jest.fn()

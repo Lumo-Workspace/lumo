@@ -9,7 +9,11 @@
  */
 import { logger } from '@/lib/logger'
 
-export type ScanDispatchTrigger = 'PR_EVENT' | 'PR_LINK'
+/**
+ * LUM-735: `SARIF_PUSH` is the ingest worker asking stage A to run on a scan
+ * row the SARIF push created before any PR webhook arrived.
+ */
+export type ScanDispatchTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
 
 const SCAN_ACTIONS = new Set(['opened', 'reopened', 'synchronize'])
 

@@ -30,6 +30,7 @@ import {
   inheritDispositions,
   DETECTOR_VERSION,
 } from './pr-security-scan.service'
+import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
 import {
   fetchPrivateBlob,
   deleteBlob,
@@ -188,6 +189,16 @@ export const securitySarifIngestService = {
       detectorVersion: DETECTOR_VERSION,
       status: 'PENDING',
     })
+    if (scan.created) {
+      // LUM-735 review I3 — the push beat every PR webhook here, so this
+      // PENDING row is one nothing else will ever run stage A on: the secret
+      // scan and the judge would never run and the panel would sit on
+      // "waiting for CI" forever. Stage A resolves the real head sha itself,
+      // so it either claims this row (same sha) or dedupes onto the current
+      // head's row. Fire-and-forget: dispatch never throws, and a scan that
+      // fails to start must not fail the ingest that already has a report.
+      void dispatchPrSecurityScan(pr.id, 'SARIF_PUSH')
+    }
 
     let normalized: NormalizeResult
     try {
@@ -240,28 +251,25 @@ export const securitySarifIngestService = {
         })),
         prior
       )
+      // ONE transaction: the scan-row update (which takes the row lock),
+      // this push's deletes, the inserts and the CLEAN→FINDINGS flip. Both
+      // completion paths dispatch the same job milliseconds apart, so a
+      // second ingest is very likely running right now — it blocks on that
+      // row lock instead of interleaving its delete with our insert.
+      //
       // Every run in the document prefixed its rows with its own tool slug
-      // (`ext:<slug>:<ruleId>`) — replace must delete each run's prior rows,
-      // or rows from runs other than the first accumulate across pushes.
-      // The key comes from the parsed runs (`normalized.tools`), not from
-      // which rows survived the diff filter, so a run whose only result was
-      // dropped still gets its stale prior rows cleared.
-      const written = await prSecurityScanRepository.replaceExternalFindings(
-        scan.id,
-        normalized.tools,
-        rows
-      )
-
-      // A scan stage A already finalized as CLEAN now has findings: say so.
-      const row = await prSecurityScanRepository.findScanRow(scan.id)
-      const flip = row?.status === 'CLEAN' && written > 0
-      await prSecurityScanRepository.mergeStages(
-        scan.id,
-        { external: 'RAN' },
-        flip
-          ? { partial: normalized.truncated, status: 'FINDINGS' }
-          : { partial: normalized.truncated }
-      )
+      // (`ext:<slug>:<ruleId>`) — the replace must delete each run's prior
+      // rows, or rows from runs other than the first accumulate across
+      // pushes. The key comes from the parsed runs (`normalized.tools`), not
+      // from which rows survived the diff filter, so a run whose only result
+      // was dropped still gets its stale prior rows cleared.
+      const { written, flippedToFindings } =
+        await prSecurityScanRepository.ingestExternalFindings(
+          scan.id,
+          normalized.tools,
+          rows,
+          { partial: normalized.truncated }
+        )
       await projectRepository.markSarifIngested(
         pr.workspaceId,
         pr.repo,
@@ -269,7 +277,7 @@ export const securitySarifIngestService = {
       )
       await safeDelete(job.url)
       logger.info(
-        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
+        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
       )
       return {
         outcome: 'INGESTED',
@@ -283,8 +291,8 @@ export const securitySarifIngestService = {
         `[security-sarif-ingest] write stage failed scan=${scan.id}: ${reason.slice(0, 200)}`
       )
       await safeMarkExternalFailed(scan.id)
-      // Blob kept: normalisation already succeeded, so the job is retryable
-      // without a human needing to inspect the SARIF itself.
+      // Blob kept for 24h (pruneStaleBlobs) so the report is still there to
+      // inspect, or to re-push by hand. Nothing retries this job on its own.
       return {
         outcome: 'FAILED',
         scanId: scan.id,
