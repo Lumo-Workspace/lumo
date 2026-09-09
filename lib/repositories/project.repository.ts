@@ -267,6 +267,37 @@ export const projectRepository = {
   },
 
   /**
+   * LUM-735 — has this repo ever pushed a SARIF report? `undefined` = the
+   * repo is not linked in this workspace at all; `null` = linked but never
+   * ingested (panel: NOT_CONFIGURED); a Date = ingested before (panel: PENDING
+   * until this sha's report lands).
+   */
+  async findLastSarifIngestAt(
+    workspaceId: string,
+    fullName: string
+  ): Promise<Date | null | undefined> {
+    const row = await prisma.projectRepository.findFirst({
+      where: { fullName, project: { workspaceId } },
+      orderBy: { lastSarifIngestAt: { sort: 'desc', nulls: 'last' } },
+      select: { lastSarifIngestAt: true },
+    })
+    if (!row) return undefined
+    return row.lastSarifIngestAt
+  },
+
+  async markSarifIngested(
+    workspaceId: string,
+    fullName: string,
+    at: Date
+  ): Promise<number> {
+    const res = await prisma.projectRepository.updateMany({
+      where: { fullName, project: { workspaceId } },
+      data: { lastSarifIngestAt: at },
+    })
+    return res.count
+  },
+
+  /**
    * Replace the `order` field on a sequence of projects to match the given array
    * (1-based). Runs in a transaction. The `workspaceId` scope is enforced in
    * each update's `where` so a cross-workspace id causes the transaction to

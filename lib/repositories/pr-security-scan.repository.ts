@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client'
 import type { ScanStages } from '@/lib/security-scan/types'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
-export type ScanTrigger = 'PR_EVENT' | 'PR_LINK'
+export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
 export type JudgeStatus = 'RAN' | 'UNAVAILABLE' | 'SKIPPED'
 export type FindingKind = 'SECRET' | 'VULNERABILITY'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -126,16 +126,70 @@ export const prSecurityScanRepository = {
     })
   },
 
-  /** A FAILED scan is re-run in place: old findings go, status back to RUNNING. */
+  /**
+   * LUM-735 — the scan row is shared by the webhook-driven stage A and the CI
+   * SARIF push; whoever arrives first creates it. A unique-constraint loss is
+   * the other writer winning, not a failure.
+   */
+  async createIfAbsent(
+    input: NewScanInput & { status: 'RUNNING' | 'PENDING' }
+  ): Promise<{
+    id: string
+    created: boolean
+    status: ScanStatus
+    startedAt: Date
+  }> {
+    try {
+      const row = await prisma.prSecurityScan.create({
+        data: input,
+        select: { id: true, status: true, startedAt: true },
+      })
+      return {
+        id: row.id,
+        status: row.status as ScanStatus,
+        startedAt: row.startedAt,
+        created: true,
+      }
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'P2002') throw error
+      const existing = await this.findByPrAndSha(
+        input.pullRequestId,
+        input.headSha
+      )
+      if (!existing) throw error
+      return { ...existing, created: false }
+    }
+  },
+
+  /** A PENDING row (created by a SARIF push) is claimed by stage A; findings untouched. */
+  async claimPending(id: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id },
+      data: { status: 'RUNNING', startedAt: new Date(), error: null },
+    })
+  },
+
+  /**
+   * A FAILED scan is re-run in place. Only stage A's own rows go — EXTERNAL_TOOL
+   * findings and the ingest-owned `stages.external` were written by the SARIF
+   * push and are not stage A's to discard (LUM-735).
+   */
   async restart(id: string): Promise<void> {
-    await prisma.prSecurityFinding.deleteMany({ where: { scanId: id } })
+    const current = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { stages: true },
+    })
+    const external = (current?.stages as ScanStages | null)?.external
+    await prisma.prSecurityFinding.deleteMany({
+      where: { scanId: id, provenance: { not: 'EXTERNAL_TOOL' } },
+    })
     await prisma.prSecurityScan.update({
       where: { id },
       data: {
         status: 'RUNNING',
         judgeStatus: null,
         truncated: false,
-        stages: Prisma.DbNull,
+        stages: external ? { external } : Prisma.DbNull,
         partial: false,
         error: null,
         startedAt: new Date(),
@@ -177,24 +231,101 @@ export const prSecurityScanRepository = {
     findings: NewFindingInput[],
     final: FinalizeScanInput
   ): Promise<void> {
-    const ops = []
-    if (findings.length > 0)
-      ops.push(prisma.prSecurityFinding.createMany({ data: findings }))
-    ops.push(
-      prisma.prSecurityScan.update({
+    await prisma.$transaction(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { stages: true },
+      })
+      const owned = (current?.stages as ScanStages | null)?.external
+      const stages: ScanStages =
+        owned === 'RAN' || owned === 'FAILED'
+          ? { ...final.stages, external: owned }
+          : final.stages
+      if (findings.length > 0)
+        await tx.prSecurityFinding.createMany({ data: findings })
+      await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
           status: final.status,
           judgeStatus: final.judgeStatus,
           truncated: final.truncated,
-          stages: final.stages,
+          stages,
           partial: final.partial,
           error: final.error ?? null,
           finishedAt: new Date(),
         },
       })
-    )
-    await prisma.$transaction(ops)
+    })
+  },
+
+  /** Same (scan, tool) pushed again → last push wins, atomically (LUM-735). */
+  async replaceExternalFindings(
+    scanId: string,
+    tool: string,
+    rows: NewFindingInput[]
+  ): Promise<number> {
+    return prisma.$transaction(async tx => {
+      await tx.prSecurityFinding.deleteMany({
+        where: {
+          scanId,
+          provenance: 'EXTERNAL_TOOL',
+          ruleId: { startsWith: `ext:${tool}:` },
+        },
+      })
+      if (rows.length === 0) return 0
+      const res = await tx.prSecurityFinding.createMany({ data: rows })
+      return res.count
+    })
+  },
+
+  /** Read-modify-write of the per-layer JSON; the ingest path's only write to the scan row. */
+  async mergeStages(
+    scanId: string,
+    patch: ScanStages,
+    extra: { partial?: boolean; status?: 'FINDINGS' } = {}
+  ): Promise<void> {
+    await prisma.$transaction(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { stages: true, status: true, partial: true },
+      })
+      const stages = {
+        ...((current?.stages as ScanStages | null) ?? {}),
+        ...patch,
+      }
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages,
+          ...(extra.partial !== undefined ? { partial: extra.partial } : {}),
+          ...(extra.status ? { status: extra.status } : {}),
+        },
+      })
+    })
+  },
+
+  async countExternalFindings(scanId: string): Promise<number> {
+    return prisma.prSecurityFinding.count({
+      where: { scanId, provenance: 'EXTERNAL_TOOL' },
+    })
+  },
+
+  async findScanRow(id: string): Promise<{
+    id: string
+    status: ScanStatus
+    stages: ScanStages | null
+    startedAt: Date
+  } | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { id: true, status: true, stages: true, startedAt: true },
+    })
+    return row as {
+      id: string
+      status: ScanStatus
+      stages: ScanStages | null
+      startedAt: Date
+    } | null
   },
 
   async findDispositionedByPullRequest(

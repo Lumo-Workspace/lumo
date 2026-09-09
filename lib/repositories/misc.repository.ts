@@ -15,6 +15,7 @@ interface CreateApiKeyData {
   label: string
   keyHash: string
   keyPrefix: string
+  scope?: string | null
 }
 
 interface CreatePriorityOverrideData {
@@ -54,6 +55,7 @@ export const miscRepository = {
         keyPrefix: true,
         createdAt: true,
         lastUsedAt: true,
+        scope: true,
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -79,6 +81,7 @@ export const miscRepository = {
         label: true,
         keyPrefix: true,
         revokedAt: true,
+        scope: true,
         member: {
           select: {
             id: true,

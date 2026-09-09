@@ -17,6 +17,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }))
@@ -37,7 +38,16 @@ const mockFinding = prisma.prSecurityFinding as unknown as {
   findMany: jest.Mock
   findUnique: jest.Mock
   update: jest.Mock
+  count: jest.Mock
 }
+
+const txClient = { prSecurityScan: mockScan, prSecurityFinding: mockFinding }
+type TxCallback = (tx: typeof txClient) => unknown
+mockTransaction.mockImplementation(async (arg: unknown) =>
+  typeof arg === 'function'
+    ? (arg as TxCallback)(txClient)
+    : Promise.all(arg as Promise<unknown>[])
+)
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -70,9 +80,10 @@ test('findByPrAndSha keys on the compound unique and create starts RUNNING', asy
 })
 
 test('restart clears old findings and resets the scan; finalize stamps finishedAt', async () => {
+  mockScan.findUnique.mockResolvedValueOnce({ stages: null })
   await prSecurityScanRepository.restart('s1')
   expect(mockFinding.deleteMany).toHaveBeenCalledWith({
-    where: { scanId: 's1' },
+    where: { scanId: 's1', provenance: { not: 'EXTERNAL_TOOL' } },
   })
   expect(mockScan.update).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -167,6 +178,7 @@ test('persistResult writes findings and the finalize update in one transaction',
     evidence: 'e',
     fingerprint: 'fp',
   }
+  mockScan.findUnique.mockResolvedValueOnce({ stages: null })
   await prSecurityScanRepository.persistResult('s1', [finding], {
     status: 'FINDINGS',
     judgeStatus: 'RAN',
@@ -175,7 +187,6 @@ test('persistResult writes findings and the finalize update in one transaction',
     partial: true,
   })
   expect(mockTransaction).toHaveBeenCalledTimes(1)
-  expect(mockTransaction.mock.calls[0]![0]).toHaveLength(2)
   expect(mockFinding.createMany).toHaveBeenCalledWith({ data: [finding] })
   expect(mockScan.update).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -192,6 +203,7 @@ test('persistResult writes findings and the finalize update in one transaction',
 })
 
 test('persistResult with no findings still finalizes, in a one-op transaction', async () => {
+  mockScan.findUnique.mockResolvedValueOnce({ stages: null })
   await prSecurityScanRepository.persistResult('s1', [], {
     status: 'CLEAN',
     judgeStatus: 'UNAVAILABLE',
@@ -200,5 +212,153 @@ test('persistResult with no findings still finalizes, in a one-op transaction', 
     partial: false,
   })
   expect(mockFinding.createMany).not.toHaveBeenCalled()
-  expect(mockTransaction.mock.calls[0]![0]).toHaveLength(1)
+  expect(mockTransaction).toHaveBeenCalledTimes(1)
+})
+
+describe('LUM-735 SARIF push — shared scan row', () => {
+  test('createIfAbsent returns created:false on a unique violation and re-reads the winner', async () => {
+    mockScan.create.mockRejectedValueOnce(
+      Object.assign(new Error('dup'), { code: 'P2002' })
+    )
+    mockScan.findUnique.mockResolvedValueOnce({
+      id: 's1',
+      status: 'RUNNING',
+      startedAt: new Date(),
+    })
+    const out = await prSecurityScanRepository.createIfAbsent({
+      pullRequestId: 'pr1',
+      taskId: null,
+      workspaceId: 'w1',
+      headSha: 'abc',
+      trigger: 'SARIF_PUSH',
+      detectorVersion: 'x',
+      status: 'PENDING',
+    })
+    expect(out).toMatchObject({ id: 's1', created: false, status: 'RUNNING' })
+  })
+
+  test('claimPending flips PENDING to RUNNING without touching findings', async () => {
+    await prSecurityScanRepository.claimPending('s1')
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 's1' },
+        data: expect.objectContaining({ status: 'RUNNING' }),
+      })
+    )
+    expect(mockFinding.deleteMany).not.toHaveBeenCalled()
+  })
+
+  test('restart keeps EXTERNAL_TOOL findings and the ingest-owned external stage', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+    })
+    await prSecurityScanRepository.restart('s1')
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: { scanId: 's1', provenance: { not: 'EXTERNAL_TOOL' } },
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'RUNNING',
+          stages: { external: 'RAN' },
+        }),
+      })
+    )
+  })
+
+  test('replaceExternalFindings deletes only that tool’s rows, then inserts, in one transaction', async () => {
+    mockFinding.createMany.mockResolvedValueOnce({ count: 2 })
+    const rows = [
+      {
+        scanId: 's1',
+        kind: 'VULNERABILITY' as const,
+        ruleId: 'ext:semgrep:a',
+        severity: 'HIGH' as const,
+        provenance: 'EXTERNAL_TOOL' as const,
+        filePath: 'a',
+        line: 1,
+        title: 't',
+        detail: 'd',
+        evidence: '',
+        fingerprint: 'f1',
+      },
+      {
+        scanId: 's1',
+        kind: 'VULNERABILITY' as const,
+        ruleId: 'ext:semgrep:b',
+        severity: 'LOW' as const,
+        provenance: 'EXTERNAL_TOOL' as const,
+        filePath: 'b',
+        line: 2,
+        title: 't',
+        detail: 'd',
+        evidence: '',
+        fingerprint: 'f2',
+      },
+    ]
+    const n = await prSecurityScanRepository.replaceExternalFindings(
+      's1',
+      'semgrep',
+      rows
+    )
+    expect(n).toBe(2)
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        ruleId: { startsWith: 'ext:semgrep:' },
+      },
+    })
+    expect(mockFinding.createMany).toHaveBeenCalledWith({ data: rows })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+  })
+
+  test('mergeStages read-modify-writes the JSON and can flip a finalized CLEAN to FINDINGS', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      status: 'CLEAN',
+      partial: false,
+    })
+    await prSecurityScanRepository.mergeStages(
+      's1',
+      { external: 'RAN' },
+      { partial: true, status: 'FINDINGS' }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 's1' },
+        data: {
+          stages: { secrets: 'RAN', external: 'RAN' },
+          partial: true,
+          status: 'FINDINGS',
+        },
+      })
+    )
+  })
+
+  test('persistResult never overwrites an ingest-owned external stage', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({ stages: { external: 'RAN' } })
+    await prSecurityScanRepository.persistResult('s1', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      partial: false,
+      stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        }),
+      })
+    )
+  })
+
+  test('countExternalFindings counts EXTERNAL_TOOL rows of the scan', async () => {
+    mockFinding.count.mockResolvedValueOnce(3)
+    expect(await prSecurityScanRepository.countExternalFindings('s1')).toBe(3)
+    expect(mockFinding.count).toHaveBeenCalledWith({
+      where: { scanId: 's1', provenance: 'EXTERNAL_TOOL' },
+    })
+  })
 })
