@@ -68,6 +68,8 @@ interface AcceptanceTabProps {
    *  (alongside boundary crossings + claim-vs-verification) rather than buried
    *  in the Agent runs sub-section. Null when there are no PRs/signals. */
   gatesSlot?: ReactNode
+  /** LUM-732: per-PR security scan findings; null when the task has no PRs. */
+  securitySlot?: ReactNode
   /** Open the Run report group on mount — e.g. a legacy deep link targets an
    *  evidence sub-section nested inside it. */
   reportInitiallyOpen?: boolean
@@ -1279,6 +1281,7 @@ export function AcceptanceTab({
   latestRunSummary,
   evidenceSlot,
   gatesSlot,
+  securitySlot,
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
@@ -1751,6 +1754,15 @@ export function AcceptanceTab({
               void refresh?.()
             }}
           />
+
+          {/* LUM-732: per-PR security scan. Promoted OUT of the audit fold
+              (review I3) for the same reason as the boundary crossings above:
+              an undispositioned HIGH finding is a human-only to-do that hard
+              blocks DONE (the API returns 409), so burying it under
+              "audit-only — these signals don't decide the verdict" both hid
+              the banner by default and mislabelled it. Renders null when the
+              task has no linked PRs. */}
+          {securitySlot}
 
           {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
               zone. Verification rounds + mechanical gates + run cost.

@@ -11,6 +11,7 @@ import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
 import { AcceptanceTab } from './AcceptanceTab'
 import { AgentRunsSection } from './AgentRunsSection'
 import { DeliveryGatesSection } from '../DeliveryGatesSection'
+import { SecurityScanSection } from './SecurityScanSection'
 import { LineageTab } from './LineageTab'
 import { MemoryTab } from '../memory/MemoryTab'
 import { InfoTooltip } from './InfoTooltip'
@@ -257,6 +258,7 @@ export function TaskDossier({
       {...(mentionSources ? { mentionSources } : {})}
       evidenceSlot={evidence}
       gatesSlot={<DeliveryGatesSection taskId={taskId} />}
+      securitySlot={<SecurityScanSection taskId={taskId} />}
       reportInitiallyOpen={targetSection != null}
     />
   )

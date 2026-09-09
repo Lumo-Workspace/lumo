@@ -173,6 +173,7 @@ function renderTab() {
       enabled
       onVerdictRecorded={jest.fn()}
       gatesSlot={<div data-testid='gates-slot' />}
+      securitySlot={<div data-testid='security-slot' />}
     />
   )
 }
@@ -298,6 +299,25 @@ describe('LUM-620 · Acceptance redesign', () => {
     expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
     expect(screen.getByTestId('cost')).toBeInTheDocument()
     expect(screen.getByText('Verification record')).toBeInTheDocument()
+  })
+
+  it('security scan sits OUTSIDE the audit fold — visible while it is collapsed', () => {
+    // LUM-732 review I3: an undispositioned HIGH finding hard-blocks DONE, so
+    // the panel carrying that banner is an actionable to-do like the boundary
+    // crossings (LUM-635) — not forensics. Filed under "audit-only — these
+    // signals don't decide the verdict" it was both hidden by default and
+    // labelled as not mattering, while the API refuses the DONE transition.
+    mockStatus.mockReturnValue({
+      data: statusView({ criteria: [crit('HUMAN', null)] }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    renderTab()
+    // Fold still closed: its own contents are absent, the security slot is not.
+    expect(screen.queryByTestId('gates-slot')).toBeNull()
+    expect(screen.getByTestId('security-slot')).toBeInTheDocument()
   })
 
   it('human zone reads resolved (not a pending call) once every human criterion is judged', () => {

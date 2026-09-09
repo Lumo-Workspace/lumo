@@ -17,6 +17,7 @@ import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrosp
 import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
 import { dispatchRunSummaries } from '@/lib/services/run-summary-dispatch'
 import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
+import { assertNoOpenBlockingSecurityFindings } from '@/lib/services/pr-security-scan-gate'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -209,13 +210,17 @@ export async function updateTask(
     // LUM-422 ④ + LUM-426 DONE gates: a DONE transition is blocked while an
     // unresolved send-back stands on the acceptance contract OR an
     // unacknowledged boundary-crossing stands on the task, unless a human
-    // overrides. Both short-circuit free when nothing is flagged.
+    // overrides. All three short-circuit free when nothing is flagged.
     if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
       await assertNoUnresolvedSendBack(taskId)
       await assertNoUnacknowledgedBoundaryCrossings(
         taskId,
         task.project.workspaceId
       )
+      // LUM-732: an undispositioned deterministic HIGH security finding on a
+      // linked PR's latest scan blocks DONE (not subject to the boundary-gate
+      // workspace opt-out — same shape as the hasHigh rule above).
+      await assertNoOpenBlockingSecurityFindings(taskId)
     }
   }
 

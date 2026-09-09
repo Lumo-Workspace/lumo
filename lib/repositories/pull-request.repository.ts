@@ -173,6 +173,18 @@ export const pullRequestRepository = {
   },
 
   /**
+   * LUM-732: the task's PRs projected to what the security-scan read model
+   * needs to label and link each row. Newest PR first.
+   */
+  async findManyForSecurityByTaskId(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      orderBy: { number: 'desc' },
+      select: { id: true, number: true, title: true, url: true, state: true },
+    })
+  },
+
+  /**
    * Find a PR by task + number for the context-tiering retrieval route
    * (LUM-122). Scoped to the task so the API route's workspace check on the
    * task transitively secures the PR. Returns full structured PR fields.

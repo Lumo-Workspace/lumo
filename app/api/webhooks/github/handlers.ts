@@ -20,6 +20,10 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { ciSignalService } from '@/lib/services/ci-signal.service'
+import {
+  dispatchPrSecurityScan,
+  shouldScanOnPrEvent,
+} from '@/lib/services/pr-security-scan-dispatch'
 import { logger } from '@/lib/logger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -171,7 +175,7 @@ export async function handlePullRequest(
 
   const task = await findTaskForBranch(pr.head.ref, workspaceId)
 
-  await githubService.upsertPullRequest({
+  const prRow = await githubService.upsertPullRequest({
     workspaceId,
     taskId: task?.id ?? null,
     integrationId,
@@ -210,6 +214,12 @@ export async function handlePullRequest(
   }
 
   if (!task) return
+
+  // LUM-732: every push to a task-linked open PR gets a security scan of its
+  // current head. The worker dedups on (pr, headSha), so redelivery is harmless.
+  if (shouldScanOnPrEvent(action, state)) {
+    waitUntil(dispatchPrSecurityScan(prRow.id, 'PR_EVENT'))
+  }
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so

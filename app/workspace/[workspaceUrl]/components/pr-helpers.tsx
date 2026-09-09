@@ -1,12 +1,21 @@
 'use client'
 
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldOff,
+  ShieldQuestion,
+} from 'lucide-react'
 import { useIntl } from 'react-intl'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
 
 export function PrStateBadge({ state }: { state: string }) {
   if (state === 'merged') {
@@ -66,5 +75,82 @@ export function CiIcon({ status }: { status: string | null }) {
       <TooltipTrigger asChild>{trigger}</TooltipTrigger>
       <TooltipContent>{intl.formatMessage({ id: labelId })}</TooltipContent>
     </Tooltip>
+  )
+}
+
+const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
+  HIGH: 'text-destructive',
+  MEDIUM: 'text-warning',
+  LOW: 'text-muted-foreground',
+}
+
+/**
+ * LUM-732 — per-PR security-scan badge. Six states: scanning / clean /
+ * findings (count, toned by the worst severity) / failed / not scanned /
+ * status unavailable. Hierarchy by typography and icon; semantic colour for
+ * clean (success), MEDIUM (warning) and HIGH (destructive).
+ *
+ * `unavailable` is the read-side failure (review I4) and is deliberately NOT
+ * folded into "not scanned": one says the PR was never scanned, the other says
+ * we could not find out — rendering a fetch error as the former is a claim
+ * about the PR made from an absence of data about it.
+ */
+export function SecurityScanBadge({
+  scan,
+  unavailable = false,
+}: {
+  scan: SecurityScanView | null | undefined
+  unavailable?: boolean
+}) {
+  const intl = useIntl()
+  const worst =
+    scan?.findings.reduce<'LOW' | 'MEDIUM' | 'HIGH' | null>((acc, f) => {
+      const rank = { LOW: 0, MEDIUM: 1, HIGH: 2 }
+      return !acc || rank[f.severity] > rank[acc] ? f.severity : acc
+    }, null) ?? null
+
+  let icon: React.ReactElement
+  let label: string
+  let tone = 'text-muted-foreground'
+  let state = 'none'
+  if (unavailable) {
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.unavailable' })
+    state = 'unavailable'
+  } else if (!scan) {
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.none' })
+  } else if (scan.status === 'PENDING' || scan.status === 'RUNNING') {
+    icon = <Loader2 size={12} className='animate-spin' />
+    label = intl.formatMessage({ id: `securityScan.status.${scan.status}` })
+    state = 'scanning'
+  } else if (scan.status === 'FAILED') {
+    icon = <ShieldOff size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.FAILED' })
+    state = 'failed'
+  } else if (scan.findings.length === 0) {
+    icon = <ShieldCheck size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.CLEAN' })
+    tone = 'text-success'
+    state = 'clean'
+  } else {
+    icon = <ShieldAlert size={12} />
+    label = intl.formatMessage(
+      { id: 'securityScan.status.FINDINGS' },
+      { count: scan.findings.length }
+    )
+    tone = SEVERITY_TONE[worst ?? 'LOW']
+    state = 'findings'
+  }
+
+  return (
+    <span
+      data-testid='security-scan-badge'
+      data-state={state}
+      className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone}`}
+    >
+      {icon}
+      {label}
+    </span>
   )
 }
