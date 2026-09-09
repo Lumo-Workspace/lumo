@@ -32,10 +32,16 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 // Deep link (LUM-422 ③): control the ?verdict= param per test. The variable
 // must be `mock`-prefixed to be referenced inside the jest.mock factory.
 let mockVerdictParam: string | null = null
+// The DONE-blocked "Review the crossings below" link routes to the Record tab
+// when the panel isn't mounted — capture the push + control the pathname.
+const mockPush = jest.fn()
+let mockPathname = '/my-tasks/LUM-7'
 jest.mock('next/navigation', () => ({
   useSearchParams: () => ({
     get: (k: string) => (k === 'verdict' ? mockVerdictParam : null),
   }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
+  usePathname: () => mockPathname,
 }))
 
 // The FAIL note reuses the comment editor — mock it to a plain textarea that
@@ -488,6 +494,61 @@ describe('VerdictDecision', () => {
       'href',
       '#boundary-crossings'
     )
+  })
+
+  // The link is rendered in the floating bar ABOVE the tabs. The panel it
+  // targets lives inside the Record tab, so on any other tab the anchor has
+  // no target: clicking must switch to the Record tab (URL push, the tabs
+  // reconcile from the URL) carrying the hash so the panel scrolls itself
+  // into view once it mounts.
+  async function renderBlocked() {
+    mockCrossings.mockReturnValue({
+      crossings: [{ id: 'a', category: 'HARDCODED_SECRET', disposition: null }],
+    })
+    submit.mockRejectedValueOnce(new ApiClientError('blocked', 409))
+    render(
+      <VerdictDecision
+        variant='floating'
+        taskIdentifier='LUM-7'
+        data={baseData('IN_REVIEW')}
+        onVerdictRecorded={jest.fn()}
+      />
+    )
+    fireEvent.click(screen.getByTestId('verdict-pass'))
+    await waitFor(() =>
+      expect(screen.getByTestId('verdict-done-blocked')).toBeInTheDocument()
+    )
+    return screen.getByTestId('verdict-blocked-link')
+  }
+
+  it('routes to the Record tab with the anchor when the panel is not mounted', async () => {
+    mockPush.mockClear()
+    mockPathname = '/my-tasks/LUM-7/activity'
+    const link = await renderBlocked()
+    expect(document.getElementById('boundary-crossings')).toBeNull()
+
+    const prevented = !fireEvent.click(link)
+    expect(prevented).toBe(true)
+    expect(mockPush).toHaveBeenCalledWith(
+      '/my-tasks/LUM-7/record#boundary-crossings',
+      { scroll: false }
+    )
+  })
+
+  it('keeps the plain in-page anchor jump when the panel is already mounted', async () => {
+    mockPush.mockClear()
+    mockPathname = '/my-tasks/LUM-7/record'
+    const panel = document.createElement('div')
+    panel.id = 'boundary-crossings'
+    document.body.appendChild(panel)
+    try {
+      const link = await renderBlocked()
+      const prevented = !fireEvent.click(link)
+      expect(prevented).toBe(false)
+      expect(mockPush).not.toHaveBeenCalled()
+    } finally {
+      panel.remove()
+    }
   })
 })
 
