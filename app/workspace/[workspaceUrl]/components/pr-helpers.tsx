@@ -128,6 +128,19 @@ export function SecurityScanBadge({
     icon = <ShieldOff size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.FAILED' })
     state = 'failed'
+  } else if (scan.findings.length === 0 && scan.stages.external === 'PENDING') {
+    // LUM-735: CI has pushed SARIF before but not for this sha yet — the
+    // scan is still effectively in progress, not merely "incomplete".
+    icon = <Loader2 size={12} className='animate-spin' />
+    label = intl.formatMessage({ id: 'securityScan.status.pendingExternal' })
+    state = 'scanning'
+  } else if (scan.findings.length === 0 && !scan.complete) {
+    // LUM-735 / spec P9: a layer failed, is not configured, or was cut off.
+    // Nothing was found, but nothing can be claimed either — never green.
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.incomplete' })
+    tone = 'text-warning'
+    state = 'incomplete'
   } else if (scan.findings.length === 0) {
     icon = <ShieldCheck size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.CLEAN' })

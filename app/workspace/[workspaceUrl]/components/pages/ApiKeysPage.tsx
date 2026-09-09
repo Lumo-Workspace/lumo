@@ -31,7 +31,9 @@ export function ApiKeysPage() {
     revokeTarget,
     setRevokeTarget,
     revoking,
+    creatingIngest,
     handleCreate,
+    handleCreateIngestKey,
     handleRevoke,
     handleCopy,
   } = useApiKeys()
@@ -68,6 +70,28 @@ export function ApiKeysPage() {
           </Button>
         </div>
 
+        <div className='mb-8 rounded-md border border-border p-4'>
+          <p className='text-sm font-medium text-foreground'>
+            {intl.formatMessage({ id: 'apiKeys.ingest.title' })}
+          </p>
+          <p className='mt-1 text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'apiKeys.ingest.description' })}
+          </p>
+          <Button
+            variant='outline'
+            className='mt-3'
+            onClick={() => void handleCreateIngestKey()}
+            disabled={creatingIngest}
+          >
+            {creatingIngest ? (
+              <Loader2 size={14} className='animate-spin mr-1.5' />
+            ) : (
+              <Plus size={14} className='mr-1.5' />
+            )}
+            {intl.formatMessage({ id: 'apiKeys.ingest.create' })}
+          </Button>
+        </div>
+
         {/* Key list */}
         {loading ? (
           <div className='flex items-center gap-2 text-sm text-muted-foreground'>
@@ -91,6 +115,13 @@ export function ApiKeysPage() {
                 <div>
                   <p className='text-sm font-medium text-foreground'>
                     {k.label}
+                    {k.scope === 'security:ingest' && (
+                      <span className='ml-2 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground'>
+                        {intl.formatMessage({
+                          id: 'apiKeys.scope.securityIngest',
+                        })}
+                      </span>
+                    )}
                   </p>
                   <p className='text-xs text-muted-foreground font-mono mt-0.5'>
                     {k.keyPrefix}…

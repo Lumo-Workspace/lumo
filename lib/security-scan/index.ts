@@ -11,6 +11,7 @@ export {
   maskQuotedValues,
   secretFingerprint,
   vulnerabilityFingerprint,
+  sarifFingerprint,
   shannonEntropy,
 } from './redact'
 export {
@@ -19,3 +20,13 @@ export {
   isPlaceholderValue,
 } from './secret-patterns'
 export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
+export {
+  parseSarif,
+  normalizeSarif,
+  changedLinesOf,
+  sarifSeverity,
+  sarifKind,
+  toolSlug,
+  MAX_SARIF_FINDINGS,
+  type NormalizeResult,
+} from './sarif'

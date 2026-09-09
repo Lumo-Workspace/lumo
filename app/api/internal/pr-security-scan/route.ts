@@ -27,7 +27,11 @@ export async function POST(request: NextRequest) {
 
   const pullRequestId =
     typeof body.pullRequestId === 'string' ? body.pullRequestId : null
-  const trigger = body.trigger === 'PR_LINK' ? 'PR_LINK' : 'PR_EVENT'
+  // PR_EVENT is the default: an unknown/absent trigger is a webhook scan.
+  const trigger =
+    body.trigger === 'PR_LINK' || body.trigger === 'SARIF_PUSH'
+      ? body.trigger
+      : 'PR_EVENT'
   if (!pullRequestId) {
     return NextResponse.json(
       { error: 'pullRequestId required' },

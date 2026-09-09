@@ -31,10 +31,22 @@ import {
   truncateSecurityDiff,
   redactKnownSecrets,
   vulnerabilityFingerprint,
+  INCOMPLETE_STAGE_STATES,
+  type ScanStages,
 } from '@/lib/security-scan'
+import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 
-export const DETECTOR_VERSION = 'secrets@1;judge@1'
+export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
+
+/**
+ * LUM-735 — how long stages.external may sit PENDING (the repo has pushed
+ * SARIF before, just not for this sha yet) before the panel should read it
+ * as CI having gone quiet rather than "still running". Purely a view-layer
+ * hint (`SecurityScanView.externalLate`) — it never changes the persisted
+ * stage itself.
+ */
+export const EXTERNAL_PENDING_LATE_MS = 30 * 60 * 1000
 
 /**
  * How long a scan may sit in RUNNING/PENDING before the next trigger treats it
@@ -61,6 +73,8 @@ export interface SecurityFindingView {
   detail: string
   evidence: string
   fingerprint: string
+  /** The rule's `helpUri` from the pushed SARIF; null for Lumo's own layers. */
+  externalRef: string | null
   disposition: FindingDisposition | null
   dispositionNote: string | null
   inherited: boolean
@@ -74,6 +88,19 @@ export interface SecurityScanView {
   trigger: ScanTrigger
   judgeStatus: JudgeStatus | null
   truncated: boolean
+  /** LUM-735 — per-layer outcome; legacy rows are derived from judgeStatus. */
+  stages: ScanStages
+  partial: boolean
+  /**
+   * False when the scan FAILED, any layer is FAILED / NOT_CONFIGURED /
+   * PARTIAL, or `partial` is set: never render as a full pass. A FAILED scan
+   * can carry `stages: {}` (it crashed before any layer ran), and
+   * `isCompleteScan({})` is true by contract for legacy rows, so status is
+   * checked separately.
+   */
+  complete: boolean
+  /** stages.external is PENDING and the scan started more than 30 min ago — CI has not reported. */
+  externalLate: boolean
   error: string | null
   startedAt: string
   finishedAt: string | null
@@ -126,6 +153,29 @@ function isUniqueViolation(error: unknown): boolean {
   )
 }
 
+/**
+ * LUM-735 — stages for a scan row. Rows written before the column existed
+ * carry null; for them the only per-layer fact on record is judgeStatus, so
+ * the legacy view is derived from it (UNAVAILABLE → FAILED, SKIPPED → SKIPPED)
+ * and no `external` key is claimed — those scans never consulted GitHub.
+ */
+export function stagesOf(scan: {
+  stages: ScanStages | null
+  judgeStatus: JudgeStatus | null
+}): ScanStages {
+  if (scan.stages) return scan.stages
+  const legacy: ScanStages = { secrets: 'RAN' }
+  if (scan.judgeStatus === 'RAN') legacy.judge = 'RAN'
+  else if (scan.judgeStatus === 'UNAVAILABLE') legacy.judge = 'FAILED'
+  else if (scan.judgeStatus === 'SKIPPED') legacy.judge = 'SKIPPED'
+  return legacy
+}
+
+/** Spec P9: a scan with any incomplete layer must not read as a full pass. */
+export function isCompleteScan(stages: ScanStages): boolean {
+  return !Object.values(stages).some(s => s && INCOMPLETE_STAGE_STATES.has(s))
+}
+
 function sortFindings<
   T extends { severity: FindingSeverity; provenance: FindingProvenance },
 >(rows: T[]): T[] {
@@ -149,6 +199,7 @@ function toFindingView(f: FindingRow): SecurityFindingView {
     detail: f.detail,
     evidence: f.evidence,
     fingerprint: f.fingerprint,
+    externalRef: f.externalRef,
     disposition: f.disposition,
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
@@ -157,6 +208,7 @@ function toFindingView(f: FindingRow): SecurityFindingView {
 }
 
 function toScanView(s: ScanWithFindings): SecurityScanView {
+  const stages = stagesOf(s)
   return {
     id: s.id,
     status: s.status,
@@ -164,6 +216,12 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     trigger: s.trigger,
     judgeStatus: s.judgeStatus,
     truncated: s.truncated,
+    stages,
+    partial: s.partial,
+    complete: s.status !== 'FAILED' && !s.partial && isCompleteScan(stages),
+    externalLate:
+      stages.external === 'PENDING' &&
+      Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -187,8 +245,34 @@ function isRerunnable(existing: {
   return Date.now() - existing.startedAt.getTime() > STALE_RUNNING_MS
 }
 
+/**
+ * The three-way rule for a row this run() did not just create — whether
+ * found by `findByPrAndSha` up front, or re-read as the winner of a P2002
+ * race after a concurrent `create()` lost (LUM-735 review): a PENDING row is
+ * always the SARIF ingest's and must be claimed, never restarted or deduped
+ * onto; a FAILED/stale-RUNNING row is re-run in place; anything else is a
+ * live or finished scan to dedup onto.
+ */
+async function adoptExisting(existing: {
+  id: string
+  status: ScanStatus
+  startedAt: Date
+}): Promise<{ scanId: string } | { deduped: true; scanId: string }> {
+  if (existing.status === 'PENDING') {
+    // Created by a CI SARIF push before any webhook ran (LUM-735): stage A
+    // claims it in place. Its EXTERNAL_TOOL rows are the push's, kept.
+    await prSecurityScanRepository.claimPending(existing.id)
+    return { scanId: existing.id }
+  }
+  if (isRerunnable(existing)) {
+    await prSecurityScanRepository.restart(existing.id)
+    return { scanId: existing.id }
+  }
+  return { deduped: true, scanId: existing.id }
+}
+
 /** Copy a prior human disposition onto a new finding with the same fingerprint. */
-function inheritDispositions(
+export function inheritDispositions(
   fresh: NewFindingInput[],
   prior: Awaited<
     ReturnType<typeof prSecurityScanRepository.findDispositionedByPullRequest>
@@ -233,9 +317,9 @@ export const prSecurityScanService = {
     )
     let scanId: string
     if (existing) {
-      if (!isRerunnable(existing)) return { deduped: true, scanId: existing.id }
-      await prSecurityScanRepository.restart(existing.id)
-      scanId = existing.id
+      const adopted = await adoptExisting(existing)
+      if ('deduped' in adopted) return adopted
+      scanId = adopted.scanId
     } else {
       try {
         const created = await prSecurityScanRepository.create({
@@ -250,17 +334,27 @@ export const prSecurityScanService = {
       } catch (error) {
         // Concurrent triggers (webhook + manual link) can both see null from
         // findByPrAndSha above and both call create(); the loser hits the
-        // unique constraint on (pullRequestId, headSha). That is a dedup, not
-        // a failure — the winner's row is already there.
+        // unique constraint on (pullRequestId, headSha). The winner's row is
+        // already there, but it may itself be a PENDING row the SARIF ingest
+        // created (LUM-735 review) — so it goes through the same
+        // claim/restart/dedupe rule as the `existing` branch above, not a
+        // blind dedup.
         if (!isUniqueViolation(error)) throw error
         const winner = await prSecurityScanRepository.findByPrAndSha(
           pr.id,
           headSha
         )
         if (!winner) throw error
-        return { deduped: true, scanId: winner.id }
+        const adopted = await adoptExisting(winner)
+        if ('deduped' in adopted) return adopted
+        scanId = adopted.scanId
       }
     }
+
+    // Collected across layers so the FAILED path can still say which layers
+    // ran before the crash (spec P9: a failed layer is a fact, not a blank).
+    const stages: ScanStages = {}
+    let partial = false
 
     try {
       const diff = await fetchPrDiff({
@@ -270,7 +364,11 @@ export const prSecurityScanService = {
       })
       const files = addedLinesWithNumbers(diff)
 
-      const secretRows: NewFindingInput[] = scanSecrets(files).map(f => ({
+      // ── A1: deterministic secret scan (pure) ────────────────────────────
+      const secretHits = scanSecrets(files)
+      stages.secrets = 'RAN'
+
+      const secretRows: NewFindingInput[] = secretHits.map(f => ({
         scanId,
         kind: f.kind,
         ruleId: f.ruleId,
@@ -282,15 +380,43 @@ export const prSecurityScanService = {
         detail: f.detail,
         evidence: f.evidence,
         fingerprint: f.fingerprint,
+        externalRef: null,
         disposition: null,
       }))
 
+      // ── A2: external oracle — SARIF pushed by the repo's own CI (LUM-735) ─
+      // Stage A never fetches anything here: the ingest worker writes the
+      // EXTERNAL_TOOL rows and `stages.external=RAN` when a report lands. All
+      // stage A decides is what to say while nothing has landed yet.
+      let externalCount = 0
+      try {
+        externalCount =
+          await prSecurityScanRepository.countExternalFindings(scanId)
+        if (externalCount > 0) {
+          stages.external = 'RAN'
+        } else {
+          const last = await projectRepository.findLastSarifIngestAt(
+            pr.workspaceId,
+            pr.repo
+          )
+          stages.external = last ? 'PENDING' : 'NOT_CONFIGURED'
+        }
+      } catch (error) {
+        stages.external = 'FAILED'
+        logger.warn(
+          `[pr-security-scan] external stage lookup failed pr=${pr.id}:`,
+          error instanceof Error ? error.message : error
+        )
+      }
+
+      // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
       let judgeStatus: JudgeStatus = 'SKIPPED'
       let truncated = false
       const judgeRows: NewFindingInput[] = []
       if (files.length > 0) {
         const capped = truncateSecurityDiff(diff)
         truncated = capped.truncated
+        if (truncated) partial = true
         try {
           // Dynamic import keeps @ai-sdk/gateway out of the static graph.
           const { judgeSecurity } =
@@ -325,6 +451,7 @@ export const prSecurityScanService = {
               detail: redactKnownSecrets(j.detail),
               evidence: redactKnownSecrets(j.evidence),
               fingerprint: vulnerabilityFingerprint(ruleId, filePath, title),
+              externalRef: null,
               disposition: null,
             })
           }
@@ -338,13 +465,27 @@ export const prSecurityScanService = {
           )
         }
       }
+      // judgeStatus stays the 732 column; stages.judge is the same fact in
+      // the per-layer vocabulary so the panel has ONE rule for "complete".
+      stages.judge =
+        judgeStatus === 'RAN'
+          ? 'RAN'
+          : judgeStatus === 'UNAVAILABLE'
+            ? 'FAILED'
+            : 'SKIPPED'
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
 
+      // `status` stays "are there findings" (732 semantics — FAILED still
+      // means the worker itself broke and is re-run in place). Whether the
+      // scan may be READ as a full pass is `stages` → view.complete. Rows
+      // written by the SARIF ingest worker (EXTERNAL_TOOL) are counted via
+      // `externalCount`, not `rows` — stage A never re-reads or re-persists
+      // them.
       const status: 'CLEAN' | 'FINDINGS' =
-        rows.length > 0 ? 'FINDINGS' : 'CLEAN'
+        rows.length + externalCount > 0 ? 'FINDINGS' : 'CLEAN'
       // Spec §6.1: findings and the status describing them are ONE write, so a
       // crash between them can never leave a FINDINGS scan with no rows (or
       // rows nobody can see under a scan still RUNNING).
@@ -352,6 +493,8 @@ export const prSecurityScanService = {
         status,
         judgeStatus,
         truncated,
+        stages,
+        partial,
       })
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
@@ -363,6 +506,8 @@ export const prSecurityScanService = {
         status: 'FAILED',
         judgeStatus: null,
         truncated: false,
+        stages,
+        partial,
         error: message.slice(0, 500),
       })
       return { deduped: false, scanId, status: 'FAILED', findings: 0 }

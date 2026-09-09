@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
@@ -12,6 +13,7 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
+import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -99,6 +101,31 @@ function SecurityScanPanel({
   )
 }
 
+const WORKFLOW_TEMPLATE_PATH = '/integrations/lumo-security.yml'
+
+/** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
+const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge']
+
+function StagesSummary({ stages }: { stages: ScanStages }) {
+  const intl = useIntl()
+  const rows = STAGE_ORDER.flatMap(key => {
+    const state = stages[key]
+    if (!state || state === 'RAN' || state === 'SKIPPED') return []
+    return [{ key, state }]
+  })
+  if (rows.length === 0) return null
+  return (
+    <p data-testid='scan-stages' className='text-caption text-warning'>
+      {rows
+        .map(
+          r =>
+            `${intl.formatMessage({ id: `securityScan.stage.${r.key}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${r.state}` })}`
+        )
+        .join(' · ')}
+    </p>
+  )
+}
+
 function ScanDetails({
   taskId,
   scan,
@@ -107,8 +134,51 @@ function ScanDetails({
   scan: SecurityScanView
 }) {
   const intl = useIntl()
+  const pathname = usePathname()
+  const workspaceSlug = pathname.match(/^\/workspace\/([^/]+)/)?.[1] ?? null
+  const apiKeysHref = workspaceSlug
+    ? `/workspace/${workspaceSlug}/settings/api-keys`
+    : '#'
   return (
     <div className='mt-1.5 space-y-1.5'>
+      <StagesSummary stages={scan.stages} />
+      {scan.externalLate && (
+        <p data-testid='external-late' className='text-caption text-warning'>
+          {intl.formatMessage({ id: 'securityScan.external.late' })}
+        </p>
+      )}
+      {scan.stages.external === 'NOT_CONFIGURED' && (
+        <p
+          data-testid='external-not-configured'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
+          <a
+            href={WORKFLOW_TEMPLATE_PATH}
+            download
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.template',
+            })}
+          </a>{' '}
+          <a
+            href={apiKeysHref}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.link',
+            })}
+          </a>
+        </p>
+      )}
+      {scan.partial && (
+        <p data-testid='scan-partial' className='text-caption text-warning'>
+          {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
       {scan.judgeStatus === 'UNAVAILABLE' && (
         <p
           data-testid='judge-unavailable'
@@ -210,9 +280,22 @@ function FindingRow({
       <p className='mt-0.5 text-caption text-muted-foreground'>
         {finding.detail}
       </p>
-      <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
-        {finding.evidence}
-      </pre>
+      {finding.evidence !== '' && (
+        <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
+          {finding.evidence}
+        </pre>
+      )}
+      {finding.externalRef && (
+        <a
+          data-testid='finding-external-link'
+          href={finding.externalRef}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='mt-0.5 inline-block text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.finding.externalLink' })}
+        </a>
+      )}
       {!finding.disposition && (
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
           {pending === null ? (

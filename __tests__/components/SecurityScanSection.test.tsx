@@ -1,5 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/workspace/acme/tasks/LUM-1',
+  useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 const messages: Record<string, string> = {
   'securityScan.section.title': 'Security scan',
   'securityScan.banner.blocking': 'blocking {count}',
@@ -17,6 +23,23 @@ const messages: Record<string, string> = {
   'securityScan.action.cancel': 'Cancel',
   'securityScan.meta': 'Scanned {sha}',
   'securityScan.section.loadError': 'Could not load security scans.',
+  'securityScan.provenance.EXTERNAL_TOOL': 'External tool',
+  'securityScan.stage.secrets': 'Secret patterns',
+  'securityScan.stage.external': 'External scanner',
+  'securityScan.stage.judge': 'LLM review',
+  'securityScan.stageState.FAILED': 'failed',
+  'securityScan.stageState.NOT_CONFIGURED': 'not configured',
+  'securityScan.stageState.PARTIAL': 'partial',
+  'securityScan.stageState.PENDING': 'waiting for CI',
+  'securityScan.external.notConfigured':
+    "This repository has never pushed a scanner report to Lumo, so only Lumo's own checks ran. A clean result here is not a full pass.",
+  'securityScan.external.notConfigured.link': 'Create a CI ingest key',
+  'securityScan.external.notConfigured.template': 'Get the workflow template',
+  'securityScan.external.late':
+    'CI has not reported a scan for this commit in 30 minutes. Check the lumo-security workflow run for this pull request.',
+  'securityScan.finding.externalLink': 'View rule documentation',
+  'securityScan.partial':
+    'Some results were cut off at the scan budget — the scan is not complete.',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -38,9 +61,25 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
-  SecurityScanBadge: ({ scan }: { scan: { status: string } | null }) => (
-    <span data-testid='security-scan-badge'>{scan?.status ?? 'none'}</span>
-  ),
+  SecurityScanBadge: ({
+    scan,
+  }: {
+    scan: {
+      status: string
+      findings?: unknown[]
+      complete?: boolean
+    } | null
+  }) => {
+    const state =
+      scan && scan.findings?.length === 0 && scan.complete === false
+        ? 'incomplete'
+        : (scan?.status ?? 'none')
+    return (
+      <span data-testid='security-scan-badge' data-state={state}>
+        {scan?.status ?? 'none'}
+      </span>
+    )
+  },
 }))
 const useSecurityScans = jest.fn()
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
@@ -61,6 +100,7 @@ const finding = (over: object) => ({
   detail: 'committed',
   evidence: 'const k = "AKIA…(len 20)"',
   fingerprint: 'fp',
+  externalRef: null,
   disposition: null,
   dispositionNote: null,
   inherited: false,
@@ -74,6 +114,10 @@ const scan = (over: object) => ({
   trigger: 'PR_EVENT',
   judgeStatus: 'RAN',
   truncated: false,
+  stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+  partial: false,
+  complete: true,
+  externalLate: false,
   error: null,
   startedAt: '2026-09-03T00:00:00Z',
   finishedAt: null,
@@ -87,6 +131,7 @@ const pr = {
   url: 'https://github.com/o/r/pull/9',
   state: 'open',
 }
+const wrapper = ({ children }: { children: React.ReactNode }) => <>{children}</>
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -214,4 +259,158 @@ test('shows an error and keeps the form when the disposition call fails', async 
   expect(invalidateQueries).not.toHaveBeenCalled()
   expect(screen.getByPlaceholderText('Why?')).toHaveValue('doc key')
   expect(screen.getByText('Confirm')).not.toBeDisabled()
+})
+
+test('an incomplete scan lists the failed / unconfigured layers and the onboarding hint', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: {
+              secrets: 'RAN',
+              external: 'NOT_CONFIGURED',
+              judge: 'FAILED',
+            },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const stages = screen.getByTestId('scan-stages')
+  expect(stages).toHaveTextContent('External scanner: not configured')
+  expect(stages).toHaveTextContent('LLM review: failed')
+  expect(stages).not.toHaveTextContent('Secret patterns')
+  const hint = screen.getByTestId('external-not-configured')
+  expect(hint).toHaveTextContent('only Lumo')
+  const links = hint.querySelectorAll('a')
+  expect(links[0]).toHaveAttribute('href', '/integrations/lumo-security.yml')
+  expect(links[1]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
+  expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
+    'data-state',
+    'incomplete'
+  )
+})
+
+test('a complete scan renders no stages line; partial renders the budget notice', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            partial: true,
+            stages: { secrets: 'RAN', external: 'PARTIAL', judge: 'RAN' },
+            complete: false,
+          }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-partial')).toBeInTheDocument()
+  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    'External scanner: partial'
+  )
+})
+
+test('a PENDING external stage renders "waiting for CI" and no external-late warning', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+            complete: false,
+            externalLate: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    'External scanner: waiting for CI'
+  )
+  expect(screen.queryByTestId('external-late')).toBeNull()
+})
+
+test('externalLate renders a warning that CI has not reported in 30 minutes', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+            complete: false,
+            externalLate: true,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('external-late')).toHaveTextContent(
+    'has not reported'
+  )
+})
+
+test('an EXTERNAL_TOOL finding links to the GitHub alert and shows no evidence block', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            findings: [
+              finding({
+                id: 'f-ext',
+                kind: 'VULNERABILITY',
+                ruleId: 'ext:semgrep-oss:js.sqli',
+                severity: 'MEDIUM',
+                provenance: 'EXTERNAL_TOOL',
+                evidence: '',
+                externalRef: 'https://github.com/o/r/security/code-scanning/7',
+                blocking: false,
+              }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const row = screen.getByTestId('security-finding-f-ext')
+  expect(screen.getByTestId('finding-external-link')).toHaveAttribute(
+    'href',
+    'https://github.com/o/r/security/code-scanning/7'
+  )
+  expect(row.querySelector('pre')).toBeNull()
+  expect(row).toHaveTextContent('External tool')
 })

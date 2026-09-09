@@ -1,0 +1,159 @@
+# Lumo security scan — push scanner reports (SARIF) to Lumo (LUM-735).
+#
+# Setup: commit this file. No secrets needed — the workflow authenticates
+# with GitHub's OIDC token. Set LUMO_SECURITY_TOKEN only for CI outside
+# GitHub Actions.
+# Nothing here needs GitHub code scanning / Advanced Security: reports go
+# straight to a private Vercel Blob and Lumo ingests them. Findings appear on
+# the task's security panel; only lines the PR added are kept.
+name: lumo-security
+
+on:
+  pull_request:
+
+# One run per PR: a rapid push train would otherwise leave several ingests
+# racing for the same scan row, the slowest (oldest commit's) report landing
+# last and overwriting the newest.
+concurrency:
+  group: lumo-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  LUMO_API_URL: ${{ vars.LUMO_API_URL || 'https://www.uselumo.ai' }}
+
+jobs:
+  semgrep:
+    name: semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Semgrep scan (SARIF)
+        run: >-
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src -v "$PWD:/src" -w /src semgrep/semgrep
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/python
+          --baseline-commit "${{ github.event.pull_request.base.sha }}"
+          --sarif --output semgrep.sarif --metrics=off
+      - uses: actions/upload-artifact@v4
+        with:
+          name: semgrep.sarif
+          path: semgrep.sarif
+          retention-days: 7
+      - name: Push report to Lumo
+        continue-on-error: true
+        env:
+          LUMO_SECURITY_TOKEN: ${{ secrets.LUMO_SECURITY_TOKEN }}
+          TOOL: semgrep
+          REPORT: semgrep.sarif
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/lumo-blob"
+          cat > "$RUNNER_TEMP/lumo-blob/push.mjs" <<'EOF'
+          import { upload } from "@vercel/blob/client";
+          import { readFileSync } from "node:fs";
+          const env = process.env;
+          async function bearer() {
+            if (env.LUMO_SECURITY_TOKEN) return env.LUMO_SECURITY_TOKEN;
+            const url = env.ACTIONS_ID_TOKEN_REQUEST_URL, tok = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if (!url || !tok) { console.log("lumo: no OIDC token available (fork PR or id-token permission missing) — skipping report"); process.exit(0); }
+            const res = await fetch(`${url}&audience=lumo`, { headers: { Authorization: "bearer " + tok } });
+            if (!res.ok) { console.log(`lumo: OIDC token request failed ${res.status}`); process.exit(1); }
+            return (await res.json()).value;
+          }
+          const token = await bearer();
+          const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+          const [owner, repo] = env.REPOSITORY.split("/");
+          const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+          const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
+          const blob = await upload(pathname, body, {
+            access: "private",
+            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+            clientPayload: JSON.stringify(payload),
+            headers: { Authorization: "Bearer " + token },
+            contentType: "application/gzip",
+          });
+          const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+            body: JSON.stringify({ ...payload, url: blob.url }),
+          });
+          console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+          if (!res.ok) process.exit(1);
+          EOF
+          npm install --prefix "$RUNNER_TEMP/lumo-blob" --no-save --no-audit --no-fund --loglevel=error @vercel/blob@2.3.2
+          gzip -kf "$REPORT"
+          REPORT_GZ="$PWD/$REPORT.gz" node "$RUNNER_TEMP/lumo-blob/push.mjs"
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Gitleaks scan (SARIF)
+        run: >-
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src -v "$PWD:/src" --entrypoint sh zricethezav/gitleaks:latest -c
+          'test "$(git -C /src rev-list --count HEAD)" -gt 0 &&
+           gitleaks detect --source /src --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 --no-banner'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks.sarif
+          path: gitleaks.sarif
+          retention-days: 7
+      - name: Push report to Lumo
+        continue-on-error: true
+        env:
+          LUMO_SECURITY_TOKEN: ${{ secrets.LUMO_SECURITY_TOKEN }}
+          TOOL: gitleaks
+          REPORT: gitleaks.sarif
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/lumo-blob"
+          cat > "$RUNNER_TEMP/lumo-blob/push.mjs" <<'EOF'
+          import { upload } from "@vercel/blob/client";
+          import { readFileSync } from "node:fs";
+          const env = process.env;
+          async function bearer() {
+            if (env.LUMO_SECURITY_TOKEN) return env.LUMO_SECURITY_TOKEN;
+            const url = env.ACTIONS_ID_TOKEN_REQUEST_URL, tok = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if (!url || !tok) { console.log("lumo: no OIDC token available (fork PR or id-token permission missing) — skipping report"); process.exit(0); }
+            const res = await fetch(`${url}&audience=lumo`, { headers: { Authorization: "bearer " + tok } });
+            if (!res.ok) { console.log(`lumo: OIDC token request failed ${res.status}`); process.exit(1); }
+            return (await res.json()).value;
+          }
+          const token = await bearer();
+          const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+          const [owner, repo] = env.REPOSITORY.split("/");
+          const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+          const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
+          const blob = await upload(pathname, body, {
+            access: "private",
+            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+            clientPayload: JSON.stringify(payload),
+            headers: { Authorization: "Bearer " + token },
+            contentType: "application/gzip",
+          });
+          const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+            body: JSON.stringify({ ...payload, url: blob.url }),
+          });
+          console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+          if (!res.ok) process.exit(1);
+          EOF
+          npm install --prefix "$RUNNER_TEMP/lumo-blob" --no-save --no-audit --no-fund --loglevel=error @vercel/blob@2.3.2
+          gzip -kf "$REPORT"
+          REPORT_GZ="$PWD/$REPORT.gz" node "$RUNNER_TEMP/lumo-blob/push.mjs"

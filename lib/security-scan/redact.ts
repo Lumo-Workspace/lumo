@@ -232,6 +232,23 @@ export function vulnerabilityFingerprint(
     .slice(0, 16)
 }
 
+/**
+ * LUM-735 — fingerprint for a SARIF-sourced finding when the tool gave no
+ * `partialFingerprints.primaryLocationLineHash`. Whitespace-normalised
+ * snippet so a reformat keeps the human's disposition across pushes.
+ */
+export function sarifFingerprint(
+  ruleId: string,
+  filePath: string,
+  snippet: string
+): string {
+  const normalized = snippet.replace(/\s+/g, ' ').trim()
+  return createHash('sha256')
+    .update(`${ruleId}:${filePath}:${normalized}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
 /** Shannon entropy in bits per character. */
 export function shannonEntropy(s: string): number {
   if (s.length === 0) return 0

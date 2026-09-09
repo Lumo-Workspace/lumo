@@ -223,6 +223,62 @@ The platform is fully responsive and works on:
 - Tablet (768px - 1023px)
 - Mobile (320px - 767px)
 
+## 🔐 GitHub App permissions
+
+The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
+minimum permission set. Everything Lumo reads or writes on GitHub goes through
+an installation token of this App; the OAuth connection only creates the repo
+webhook.
+
+| Permission      | Access       | Used by                                              |
+| --------------- | ------------ | ---------------------------------------------------- |
+| Contents        | Read         | file reads, PR diffs                                 |
+| Pull requests   | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
+| Issues          | Read & write | comment mirror (issue comments)                      |
+| Checks          | Read         | CI signal for the gate audit (LUM-616)               |
+| Commit statuses | Read         | CI signal (Status API providers)                     |
+| Metadata        | Read         | mandatory                                            |
+
+## 🛡️ Security scan: pushing SARIF to Lumo
+
+Lumo's PR security scan (LUM-735) reads scanner findings from SARIF reports
+that your own CI pushes straight to Lumo — the GitHub App needs no code
+scanning or secret scanning permissions at all, and no GitHub Advanced
+Security / Code security setup is required on the repository.
+
+**Setup (once per repository):**
+
+1. Copy the workflow template from
+   `https://www.uselumo.ai/integrations/lumo-security.yml`
+   (source: `public/integrations/lumo-security.yml`) into
+   `.github/workflows/lumo-security.yml` and commit it.
+2. (Optional, only for CI outside GitHub Actions) In Lumo → Settings → API
+   keys, create a CI ingest key and add it as the `LUMO_SECURITY_TOKEN`
+   secret.
+
+No secret is required for a GitHub Actions workflow: it requests its own
+OIDC ID token (`permissions.id-token: write`) and Lumo verifies that token's
+`repository` and `ref` claims to authenticate the push — `LUMO_SECURITY_TOKEN`
+is only a fallback for CI systems other than GitHub Actions. Each scanner job
+gzips its SARIF report and uploads it directly to a private Vercel Blob, then
+tells Lumo the report is ready to fetch. Diff-aware filtering — keeping only
+the lines the PR actually added — happens on Lumo's side after ingest. The
+blob is deleted once Lumo has parsed it, and any report that fails to parse
+or is never completed is cleaned up after 24h. GitHub only issues the OIDC
+token on the `pull_request` event, and does not issue it to a fork's PR
+workflow run, so nothing is reported for fork PRs and the task's security
+panel shows "waiting for CI" until, after 30 minutes, it shows "CI has not
+reported".
+
+**What the OIDC token proves — and what it doesn't.** The token identifies the
+repository, not a person, so anyone who can push a branch to the repository can
+have a workflow run push security reports for that repository's pull requests —
+exactly the trust the repository already places in its own CI. Pull requests
+opened from forks receive no OIDC token at all and are therefore never reported
+on. Reports are attributed to the workspace that owns the `PullRequest` row
+they land on, so re-linking a repository to another workspace leaves the old
+workspace's existing PR rows (and their findings) where they are.
+
 ## 🚀 Deployment
 
 ### Vercel (Recommended)

@@ -85,6 +85,7 @@ describe('miscRepository.findActiveApiKeys', () => {
         keyPrefix: true,
         createdAt: true,
         lastUsedAt: true,
+        scope: true,
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -127,7 +128,13 @@ describe('miscRepository.createApiKey', () => {
     expect(result).toEqual(created)
     expect(prisma.apiKey.create).toHaveBeenCalledWith({
       data,
-      select: { id: true, label: true, keyPrefix: true, createdAt: true },
+      select: {
+        id: true,
+        label: true,
+        keyPrefix: true,
+        createdAt: true,
+        scope: true,
+      },
     })
   })
 })
