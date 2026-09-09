@@ -162,6 +162,21 @@ describe('sarifSeverity / sarifKind / toolSlug', () => {
     expect(toolSlug('Semgrep OSS')).toBe('semgrep-oss')
     expect(toolSlug('')).toBe('unknown')
   })
+  it('parses security-severity supplied as a JSON number', () => {
+    const runs = parseSarif(
+      sarif({
+        rules: [{ id: 'r', properties: { 'security-severity': 8.5 } }],
+      })
+    )
+    const rule = runs[0]!.rules.get('r')!
+    expect(rule.securitySeverity).toBe(8.5)
+    expect(sarifSeverity(rule, { level: null })).toBe('HIGH')
+  })
+  it('classifies a singular "secret" tag as SECRET', () => {
+    expect(sarifKind('Semgrep OSS', { ...rule(null), tags: ['secret'] })).toBe(
+      'SECRET'
+    )
+  })
 })
 
 describe('normalizeSarif', () => {
@@ -327,5 +342,212 @@ describe('normalizeSarif', () => {
     expect(out.findings).toHaveLength(MAX_SARIF_FINDINGS)
     expect(out.truncated).toBe(true)
     expect(out.dropped.duplicate).toBe(1)
+  })
+
+  it('trusts a tool-supplied fingerprint only when it matches the safe shape', () => {
+    const build = (hash: string) =>
+      normalizeSarif(
+        parseSarif(
+          sarif({
+            results: [
+              {
+                ruleId: 'js.sqli',
+                locations: [
+                  {
+                    physicalLocation: {
+                      artifactLocation: { uri: 'src/db.ts' },
+                      region: {
+                        startLine: 2,
+                        snippet: { text: 'const q = `x ${id}`' },
+                      },
+                    },
+                  },
+                ],
+                partialFingerprints: { primaryLocationLineHash: hash },
+              },
+            ],
+          })
+        ),
+        { toolHint: 'semgrep', changedLines: changed }
+      )
+
+    expect(build('abc123:1').findings[0]!.fingerprint).toBe('abc123:1')
+
+    const tooLong = 'a'.repeat(200)
+    expect(build(tooLong).findings[0]!.fingerprint).toMatch(/^[0-9a-f]{16}$/)
+
+    const withSpace = 'abc 123'
+    expect(build(withSpace).findings[0]!.fingerprint).toMatch(/^[0-9a-f]{16}$/)
+
+    const withQuote = 'abc"123'
+    expect(build(withQuote).findings[0]!.fingerprint).toMatch(/^[0-9a-f]{16}$/)
+  })
+
+  it('dedupes on rule+fingerprint so two rules sharing a line-hash both survive', () => {
+    const runs = parseSarif(
+      sarif({
+        rules: [
+          { id: 'rule-a', shortDescription: { text: 'Rule A' } },
+          { id: 'rule-b', shortDescription: { text: 'Rule B' } },
+        ],
+        results: [
+          {
+            ruleId: 'rule-a',
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'src/db.ts' },
+                  region: { startLine: 2 },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'same-hash' },
+          },
+          {
+            ruleId: 'rule-b',
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'src/db.ts' },
+                  region: { startLine: 2 },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'same-hash' },
+          },
+          {
+            ruleId: 'rule-a',
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'src/db.ts' },
+                  region: { startLine: 2 },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'same-hash' },
+          },
+        ],
+      })
+    )
+    const out = normalizeSarif(runs, {
+      toolHint: 'semgrep',
+      changedLines: changed,
+    })
+    expect(out.findings).toHaveLength(2)
+    expect(out.findings.map(f => f.ruleId).sort()).toEqual([
+      'ext:semgrep-oss:rule-a',
+      'ext:semgrep-oss:rule-b',
+    ])
+    expect(out.dropped.duplicate).toBe(1)
+  })
+
+  it("prefixes each run ruleId with that run's own tool slug", () => {
+    const doc = {
+      version: '2.1.0',
+      runs: [
+        {
+          tool: {
+            driver: {
+              name: 'Semgrep OSS',
+              rules: [{ id: 'js.sqli' }],
+            },
+          },
+          results: [
+            {
+              ruleId: 'js.sqli',
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'src/db.ts' },
+                    region: { startLine: 2 },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          tool: {
+            driver: {
+              name: 'gitleaks',
+              rules: [{ id: 'aws-key' }],
+            },
+          },
+          results: [
+            {
+              ruleId: 'aws-key',
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'src/db.ts' },
+                    region: { startLine: 2 },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const out = normalizeSarif(parseSarif(doc), {
+      toolHint: 'unused',
+      changedLines: changed,
+    })
+    expect(out.tool).toBe('semgrep-oss')
+    expect(out.findings.map(f => f.ruleId).sort()).toEqual([
+      'ext:gitleaks:aws-key',
+      'ext:semgrep-oss:js.sqli',
+    ])
+  })
+
+  it('redacts a secret before slicing to MAX_DETAIL_CHARS, even when the secret straddles the cut', () => {
+    // Key starts right after 986 chars, so a naive slice(0, 1000) BEFORE
+    // redaction would keep only the first 14 raw chars of the 20-char key —
+    // too short to match the full AKIA pattern, so it would leak unredacted.
+    const prefix = 'a'.repeat(986)
+    const messageText = `${prefix} ${KEY} ${'b'.repeat(50)}`
+    const runs = parseSarif(
+      sarif({
+        tool: 'gitleaks',
+        rules: [{ id: 'aws-key' }],
+        results: [
+          {
+            ruleId: 'aws-key',
+            message: { text: messageText },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'src/db.ts' },
+                  region: { startLine: 2 },
+                },
+              },
+            ],
+          },
+        ],
+      })
+    )
+    const out = normalizeSarif(runs, {
+      toolHint: 'gitleaks',
+      changedLines: changed,
+    })
+    expect(out.findings[0]!.detail).not.toContain('AKIAABCDEFGHIJ')
+    expect(out.findings[0]!.detail.length).toBeLessThanOrEqual(1000)
+  })
+
+  it('keeps an http(s) helpUri as externalRef but rejects other schemes', () => {
+    const build = (helpUri: string) =>
+      normalizeSarif(
+        parseSarif(
+          sarif({
+            rules: [{ id: 'js.sqli', helpUri }],
+          })
+        ),
+        { toolHint: 'semgrep', changedLines: changed }
+      )
+    expect(build('javascript:alert(1)').findings[0]!.externalRef).toBeNull()
+    expect(build('https://sg.run/abc').findings[0]!.externalRef).toBe(
+      'https://sg.run/abc'
+    )
   })
 })

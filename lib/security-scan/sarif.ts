@@ -22,6 +22,16 @@ import { sarifFingerprint } from './redact'
 export const MAX_SARIF_FINDINGS = 500
 const MAX_DETAIL_CHARS = 1000
 
+/**
+ * Shape a tool-supplied `primaryLocationLineHash` must have before it is
+ * trusted verbatim as the persisted `fingerprint` — the cross-push
+ * disposition-inheritance key. Any tool can put anything in this field, so
+ * an unvalidated value could smuggle whitespace/quotes into a column that
+ * downstream code treats as an opaque token, or simply be unbounded in
+ * length. A value outside this shape falls back to `sarifFingerprint`.
+ */
+const TOOL_FINGERPRINT_RE = /^[A-Za-z0-9:_.\-]{1,128}$/
+
 function rec(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v)
     ? (v as Record<string, unknown>)
@@ -161,6 +171,24 @@ export function sarifKind(
   return 'VULNERABILITY'
 }
 
+/** A tool-supplied hash is trusted only when it matches the safe shape; else null. */
+function trustedFingerprint(hash: string | null): string | null {
+  return hash && TOOL_FINGERPRINT_RE.test(hash) ? hash : null
+}
+
+/** `helpUri` is only trusted as an outbound link when it is an http(s) URL. */
+function safeExternalRef(helpUri: string | null | undefined): string | null {
+  if (!helpUri) return null
+  try {
+    const url = new URL(helpUri)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? helpUri
+      : null
+  } catch {
+    return null
+  }
+}
+
 /** path → set of NEW-file line numbers the PR added. */
 export function changedLinesOf(files: AddedFile[]): Map<string, Set<number>> {
   const out = new Map<string, Set<number>>()
@@ -196,6 +224,7 @@ export function normalizeSarif(
 
   for (const run of runs) {
     const runTool = run.toolName || opts.toolHint
+    const runSlug = toolSlug(runTool)
     for (const r of run.results) {
       if (!r.path) {
         dropped.noLocation += 1
@@ -207,15 +236,19 @@ export function normalizeSarif(
         continue
       }
       const rule = run.rules.get(r.ruleId)
-      const ruleId = `ext:${tool}:${r.ruleId}`
+      const ruleId = `ext:${runSlug}:${r.ruleId}`
       const fingerprint =
-        r.primaryLocationLineHash ??
+        trustedFingerprint(r.primaryLocationLineHash) ??
         sarifFingerprint(ruleId, r.path, r.snippet ?? '')
-      if (seen.has(fingerprint)) {
+      // Keyed on rule+fingerprint, not fingerprint alone: a tool-supplied
+      // hash covers only the location (e.g. the line), so two different
+      // rules firing on the same line must not collide into one dedupe.
+      const dedupeKey = `${ruleId}:${fingerprint}`
+      if (seen.has(dedupeKey)) {
         dropped.duplicate += 1
         continue
       }
-      seen.add(fingerprint)
+      seen.add(dedupeKey)
       if (findings.length >= MAX_SARIF_FINDINGS) {
         truncated = true
         continue
@@ -228,14 +261,11 @@ export function normalizeSarif(
         line: r.startLine,
         title: redactKnownSecrets(rule?.shortDescription?.trim() || r.ruleId),
         detail: redactKnownSecrets(
-          (r.messageText?.trim() || `Reported by ${runTool}.`).slice(
-            0,
-            MAX_DETAIL_CHARS
-          )
-        ),
+          r.messageText?.trim() || `Reported by ${runTool}.`
+        ).slice(0, MAX_DETAIL_CHARS),
         evidence: '',
         fingerprint,
-        externalRef: rule?.helpUri ?? null,
+        externalRef: safeExternalRef(rule?.helpUri),
       })
     }
   }
