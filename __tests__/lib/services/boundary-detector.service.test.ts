@@ -487,3 +487,200 @@ describe('boundaryDetectorService.detectAndRecord', () => {
     errSpy.mockRestore()
   })
 })
+
+// ── LUM-734: HARDCODED_SECRET shares the PR scanner's registry ──────────────
+//
+// The session-side detector used to carry 3 regexes of its own while the PR
+// security scan (LUM-732) had 16 — two sources, two calibres. Now the detector
+// runs the same pure scanner: same registry, same first-wins reporting rule,
+// same placeholder-value / test-path downgrade rules. Fixture values below are
+// synthetic (non-functional) and mirror __tests__/security-scan/scan-secrets.
+
+import { SECRET_PATTERNS } from '@/lib/security-scan/secret-patterns'
+
+const REGISTRY_CORPUS: Record<string, { line: string; value: string }> = {
+  'aws-access-key-id': {
+    line: 'const k = "AKIAABCDEFGHIJKLMNOP"',
+    value: 'AKIAABCDEFGHIJKLMNOP',
+  },
+  'aws-secret-access-key': {
+    line: 'aws_secret_access_key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN"',
+    value: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN',
+  },
+  'github-pat': {
+    line: 'PAT=github_pat_11ABCDEFG0abcdefghijklmnopqrstuvwxyz',
+    value: 'github_pat_11ABCDEFG0abcdefghijklmnopqrstuvwxyz',
+  },
+  'github-token': {
+    line: 'token: ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+    value: 'ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+  },
+  'slack-webhook': {
+    line: 'url: https://hooks.slack.com/services/T0ABC/B0DEF/abcdefghijklmnopqrstuvwx',
+    value:
+      'https://hooks.slack.com/services/T0ABC/B0DEF/abcdefghijklmnopqrstuvwx',
+  },
+  'slack-token': {
+    line: 'SLACK=xoxb-123456789012-abcdefghijkl',
+    value: 'xoxb-123456789012-abcdefghijkl',
+  },
+  'stripe-key': {
+    line: 'stripe = "sk_live_abcdefghijklmnopqrstuvwx"',
+    value: 'sk_live_abcdefghijklmnopqrstuvwx',
+  },
+  'anthropic-key': {
+    line: 'ANTHROPIC="sk-ant-abcdefghijklmnopqrstuvwxyz0123456789"',
+    value: 'sk-ant-abcdefghijklmnopqrstuvwxyz0123456789',
+  },
+  'openai-key': {
+    line: 'OPENAI="sk-abcdefghijklmnopqrstuvwxyz0123456789ABCDEF"',
+    value: 'sk-abcdefghijklmnopqrstuvwxyz0123456789ABCDEF',
+  },
+  'google-api-key': {
+    line: 'key=AIzaSyAbcdefghijklmnopqrstuvwxyz0123456',
+    value: 'AIzaSyAbcdefghijklmnopqrstuvwxyz0123456',
+  },
+  'sendgrid-key': {
+    line: 'SG="SG.abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"',
+    value:
+      'SG.abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
+  },
+  'twilio-key': {
+    line: 'TWILIO=SK0123456789abcdef0123456789abcdef',
+    value: 'SK0123456789abcdef0123456789abcdef',
+  },
+  'private-key-block': {
+    line: '-----BEGIN RSA PRIVATE KEY-----',
+    value: '-----BEGIN RSA PRIVATE KEY-----',
+  },
+  jwt: {
+    line: 'auth = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop"',
+    value: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop',
+  },
+  'database-url': {
+    line: 'DATABASE_URL="postgres://lumo:hunter2secret@db.example.com:5432/app"',
+    value: 'hunter2secret',
+  },
+  'generic-assignment': {
+    line: 'const apiKey = "Zx9Qw3Lp7Vb2Nm5Rt8Ky1Hg6Fd4Sa0Je"',
+    value: 'Zx9Qw3Lp7Vb2Nm5Rt8Ky1Hg6Fd4Sa0Je',
+  },
+}
+
+const write = (filePath: string, content: string) => ({
+  toolName: 'Write',
+  filePath,
+  payload: { tool_input: { file_path: filePath, content } },
+})
+
+const secretCrossings = (filePath: string, content: string) =>
+  detectCrossings(write(filePath, content)).filter(
+    c => c.category === 'HARDCODED_SECRET'
+  )
+
+describe('detectCrossings — HARDCODED_SECRET shares the PR scanner registry (LUM-734)', () => {
+  it('the fixture corpus covers every registry pattern (parity guard)', () => {
+    // A pattern added to the registry without a fixture here fails loudly —
+    // the whole point is that the two calibres cannot drift apart silently.
+    expect(Object.keys(REGISTRY_CORPUS).sort()).toEqual(
+      SECRET_PATTERNS.map(p => p.id).sort()
+    )
+  })
+
+  it('flags every registry pattern as HARDCODED_SECRET with the registry severity', () => {
+    for (const p of SECRET_PATTERNS) {
+      const fixture = REGISTRY_CORPUS[p.id]!
+      const hits = secretCrossings('lib/config.ts', fixture.line)
+      expect({ id: p.id, n: hits.length }).toEqual({ id: p.id, n: 1 })
+      expect({ id: p.id, severity: hits[0]!.severity }).toEqual({
+        id: p.id,
+        severity: p.severity,
+      })
+      // A production-path hit is a real crossing: never advisory.
+      expect({ id: p.id, advisory: hits[0]!.advisory }).toEqual({
+        id: p.id,
+        advisory: undefined,
+      })
+      expect(hits[0]!.detail).toContain(p.title)
+      expect(hits[0]!.detail).toContain('lib/config.ts')
+      expect(hits[0]!.target).toBe('lib/config.ts')
+    }
+  })
+
+  it('never stores the secret value on the crossing', () => {
+    for (const p of SECRET_PATTERNS) {
+      const fixture = REGISTRY_CORPUS[p.id]!
+      for (const path of ['lib/config.ts', '__tests__/fixtures/keys.ts']) {
+        for (const c of secretCrossings(path, fixture.line)) {
+          expect(c.detail).not.toContain(fixture.value)
+          expect(c.target).not.toContain(fixture.value)
+          // No redacted-evidence copy either: the crossing keeps strictly less
+          // than the scan finding (title + file only).
+          expect(c.detail).not.toContain('…(len')
+        }
+      }
+    }
+  })
+
+  it('downgrades placeholder values and test or fixture paths to a LOW advisory crossing', () => {
+    // AWS's own documentation key: placeholder value in a production path.
+    const placeholder = secretCrossings(
+      'lib/config.ts',
+      'export const KEY = "AKIAIOSFODNN7EXAMPLE"'
+    )
+    expect(placeholder).toHaveLength(1)
+    expect(placeholder[0]!.severity).toBe('LOW')
+    expect(placeholder[0]!.advisory).toBe(true)
+    expect(placeholder[0]!.detail).toContain('placeholder value')
+
+    // A real-shaped value written into a test fixture path.
+    const fixturePath = secretCrossings(
+      '__tests__/fixtures/keys.ts',
+      REGISTRY_CORPUS['aws-access-key-id']!.line
+    )
+    expect(fixturePath).toHaveLength(1)
+    expect(fixturePath[0]!.severity).toBe('LOW')
+    expect(fixturePath[0]!.advisory).toBe(true)
+    expect(fixturePath[0]!.detail).toContain('test/fixture/doc path')
+
+    // The same real-shaped value in a production path stays blocking.
+    const production = secretCrossings(
+      'lib/config.ts',
+      REGISTRY_CORPUS['aws-access-key-id']!.line
+    )
+    expect(production).toHaveLength(1)
+    expect(production[0]!.severity).toBe('HIGH')
+    expect(production[0]!.advisory).toBeUndefined()
+  })
+
+  it('reports one crossing per write, highest registry severity first', () => {
+    // A MEDIUM (jwt) line followed by a HIGH (aws key) line: one crossing,
+    // carrying the HIGH pattern — same reporting rule as the PR scanner.
+    const hits = secretCrossings(
+      'lib/config.ts',
+      [
+        REGISTRY_CORPUS.jwt!.line,
+        REGISTRY_CORPUS['aws-access-key-id']!.line,
+      ].join('\n')
+    )
+    expect(hits).toHaveLength(1)
+    expect(hits[0]!.severity).toBe('HIGH')
+    expect(hits[0]!.detail).toContain('AWS access key ID')
+  })
+
+  it('Edit payloads (new_string) are scanned the same way', () => {
+    const hits = detectCrossings({
+      toolName: 'Edit',
+      filePath: 'lib/config.ts',
+      payload: {
+        tool_input: {
+          file_path: 'lib/config.ts',
+          old_string: 'const k = ""',
+          new_string: REGISTRY_CORPUS['github-token']!.line,
+        },
+      },
+    }).filter(c => c.category === 'HARDCODED_SECRET')
+    expect(hits).toHaveLength(1)
+    expect(hits[0]!.detail).toContain('GitHub token')
+  })
+})

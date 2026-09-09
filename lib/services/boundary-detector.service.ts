@@ -3,6 +3,11 @@ import type {
   BoundaryCrossingSeverity,
 } from '@prisma/client'
 import { createHash } from 'crypto'
+import {
+  scanSecrets,
+  type RawSecretFinding,
+  type SecuritySeverity,
+} from '@/lib/security-scan'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -229,20 +234,54 @@ function matchNewNpmDependency(cmd: string): boolean {
   return rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-'))
 }
 
-const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
-  { re: /\bAKIA[0-9A-Z]{16}\b/, label: 'AWS access key id' },
-  { re: /\bsk-[A-Za-z0-9]{20,}\b/, label: 'API secret key (sk-…)' },
-  {
-    re: /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/,
-    label: 'private key block',
-  },
-]
+// --- hardcoded secrets: single source with the PR scanner (LUM-734) ----------
+// The session-side detector and the PR security scan (LUM-732) must agree on
+// what a secret looks like, so the detector owns NO regex of its own: it runs
+// the same pure `scanSecrets` over the written content — same registry
+// (`lib/security-scan/secret-patterns`), same highest-severity / first-wins
+// reporting rule, same placeholder-value and test/fixture/doc-path downgrade
+// rules. The crossing keeps strictly LESS than the scan finding: the pattern
+// title + the written file. The scanner's (already redacted) evidence line is
+// deliberately not copied onto the crossing.
 
-function matchHardcodedSecret(content: string): string | null {
-  for (const { re, label } of SECRET_PATTERNS) {
-    if (re.test(content)) return label
+const UNKNOWN_WRITTEN_FILE = 'a written file'
+
+const SEVERITY_RANK: Record<SecuritySeverity, number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+}
+
+/**
+ * One write → at most one finding: the highest-severity hit across every
+ * written line, first among ties (`scanSecrets` walks the registry in order,
+ * so a tie resolves to the more specific pattern, exactly as in a PR scan).
+ * `filePath` feeds the path-downgrade rule; a Write with no path is treated as
+ * a production path (never downgraded on a guess).
+ */
+function scanWrittenContent(
+  content: string,
+  filePath: string | null
+): RawSecretFinding | null {
+  const lines = content.split('\n').map((text, i) => ({ lineNo: i + 1, text }))
+  const findings = scanSecrets([{ path: filePath ?? '', lines }])
+  let best: RawSecretFinding | null = null
+  for (const f of findings) {
+    if (!best || SEVERITY_RANK[f.severity] > SEVERITY_RANK[best.severity])
+      best = f
   }
-  return null
+  return best
+}
+
+function secretDowngradeSuffix(f: RawSecretFinding): string {
+  switch (f.downgrade) {
+    case 'PLACEHOLDER_VALUE':
+      return ' (placeholder value — downgraded, advisory)'
+    case 'DOWNGRADED_PATH':
+      return ' (test/fixture/doc path — downgraded, advisory)'
+    default:
+      return ''
+  }
 }
 
 // --- LUM-442 extended high-severity taxonomy ----------------------------------
@@ -543,17 +582,27 @@ export function detectCrossings(
 
   const content = readWrittenContent(input.payload)
   if (content) {
-    const label = matchHardcodedSecret(content)
-    if (label)
+    const hit = scanWrittenContent(content, input.filePath)
+    if (hit) {
+      const file = input.filePath ?? UNKNOWN_WRITTEN_FILE
+      // A downgraded hit (placeholder value / test-fixture-doc path) is still
+      // recorded — but LOW and advisory, so it never blocks DONE: the same
+      // "recorded, never blocking" stance the PR scanner takes for LOW.
+      const downgraded = hit.downgrade != null
       out.push({
         category: 'HARDCODED_SECRET',
-        // Never echo the secret — store the redacted pattern label + file only.
-        detail: clip(`${label} in ${input.filePath ?? 'a written file'}`),
-        severity: severityFor('HARDCODED_SECRET'),
+        // Never echo the secret — store the pattern title + file only.
+        detail: clip(`${hit.title} in ${file}${secretDowngradeSuffix(hit)}`),
+        // The registry's severity for the pattern (HIGH/MEDIUM), or LOW when
+        // downgraded — `severityFor('HARDCODED_SECRET')` stays the category's
+        // taxonomy ceiling, not the per-hit value.
+        severity: hit.severity,
         // Coalesce by the written FILE, never the secret value (LUM-477) —
         // repeated secret writes to the same file merge into one crossing.
-        target: input.filePath ?? 'a written file',
+        target: file,
+        ...(downgraded ? { advisory: true } : {}),
       })
+    }
   }
 
   return out
