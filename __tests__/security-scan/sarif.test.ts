@@ -535,6 +535,64 @@ describe('normalizeSarif', () => {
     expect(out.findings[0]!.detail.length).toBeLessThanOrEqual(1000)
   })
 
+  it("lists every run's tool slug in `tools`, even a run with zero surviving results", () => {
+    const doc = {
+      version: '2.1.0',
+      runs: [
+        {
+          tool: {
+            driver: {
+              name: 'Semgrep OSS',
+              rules: [{ id: 'js.sqli' }],
+            },
+          },
+          results: [
+            {
+              ruleId: 'js.sqli',
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'src/db.ts' },
+                    region: { startLine: 2 },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          tool: {
+            driver: {
+              name: 'Gitleaks',
+              rules: [{ id: 'aws-key' }],
+            },
+          },
+          results: [
+            {
+              // Outside the diff — dropped, so this run contributes zero
+              // findings, but its tool slug must still show up in `tools`.
+              ruleId: 'aws-key',
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'src/db.ts' },
+                    region: { startLine: 99 },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const out = normalizeSarif(parseSarif(doc), {
+      toolHint: 'unused',
+      changedLines: changed,
+    })
+    expect(out.findings.map(f => f.ruleId)).toEqual(['ext:semgrep-oss:js.sqli'])
+    expect(out.tools).toEqual(['semgrep-oss', 'gitleaks'])
+  })
+
   it('keeps an http(s) helpUri as externalRef but rejects other schemes', () => {
     const build = (helpUri: string) =>
       normalizeSarif(

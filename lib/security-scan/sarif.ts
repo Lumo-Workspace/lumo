@@ -198,6 +198,13 @@ export function changedLinesOf(files: AddedFile[]): Map<string, Set<number>> {
 
 export interface NormalizeResult {
   tool: string
+  /**
+   * Unique slug of every run in the document, first run first — computed
+   * from the parsed runs themselves, not from which rows survived the
+   * diff-aware filter, so a run whose only results were dropped still gets
+   * its prior EXTERNAL_TOOL rows replaced (see the ingest service).
+   */
+  tools: string[]
   findings: RawSarifFinding[]
   dropped: { notInDiff: number; noLocation: number; duplicate: number }
   truncated: boolean
@@ -217,6 +224,9 @@ export function normalizeSarif(
   const first = runs[0]
   const toolName = first?.toolName || opts.toolHint
   const tool = toolSlug(toolName)
+  const tools = Array.from(
+    new Set(runs.map(run => toolSlug(run.toolName || opts.toolHint)))
+  )
   const dropped = { notInDiff: 0, noLocation: 0, duplicate: 0 }
   const seen = new Set<string>()
   const findings: RawSarifFinding[] = []
@@ -269,5 +279,5 @@ export function normalizeSarif(
       })
     }
   }
-  return { tool, findings, dropped, truncated }
+  return { tool, tools, findings, dropped, truncated }
 }

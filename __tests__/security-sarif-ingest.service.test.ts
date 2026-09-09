@@ -36,7 +36,10 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 
-import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
+import {
+  securitySarifIngestService,
+  SARIF_MAX_GZ_BYTES,
+} from '@/lib/services/security-sarif-ingest.service'
 import * as blob from '@/lib/services/security-sarif-blob'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -211,10 +214,11 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
     expect.any(Date)
   )
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
+  expect(fetchBlob).toHaveBeenCalledWith(JOB.url, SARIF_MAX_GZ_BYTES)
 })
 
-test("a two-run SARIF replaces both runs' tool prefixes, not just the first", async () => {
-  fetchBlob.mockResolvedValue(gz(multiRunSarifDoc([result(1)], [result(2)])))
+test("a two-run SARIF replaces both runs' tool prefixes, not just the first, even when the second run's only result is outside the diff", async () => {
+  fetchBlob.mockResolvedValue(gz(multiRunSarifDoc([result(1)], [result(99)])))
   await securitySarifIngestService.ingest(JOB)
   expect(repo.replaceExternalFindings).toHaveBeenCalledWith(
     's1',
@@ -322,6 +326,32 @@ test('invalid SARIF → FAILED with reason on the scan, blob KEPT for debugging'
     { external: 'FAILED' },
     {}
   )
+  expect(delBlob).not.toHaveBeenCalled()
+})
+
+test('a write-stage failure after a successful parse marks external FAILED and keeps the blob (retryable)', async () => {
+  fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
+  repo.replaceExternalFindings.mockRejectedValueOnce(
+    new Error('db write failed')
+  )
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(out).toMatchObject({ outcome: 'FAILED', scanId: 's1' })
+  expect(repo.mergeStages).toHaveBeenCalledWith(
+    's1',
+    { external: 'FAILED' },
+    {}
+  )
+  expect(delBlob).not.toHaveBeenCalled()
+})
+
+test('a second failure while marking external FAILED does not throw or change the outcome', async () => {
+  fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
+  repo.replaceExternalFindings.mockRejectedValueOnce(
+    new Error('db write failed')
+  )
+  repo.mergeStages.mockRejectedValueOnce(new Error('mergeStages also down'))
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(out).toMatchObject({ outcome: 'FAILED', scanId: 's1' })
   expect(delBlob).not.toHaveBeenCalled()
 })
 

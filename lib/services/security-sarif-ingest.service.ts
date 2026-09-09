@@ -60,7 +60,7 @@ function sized(reason: string): Error {
   return Object.assign(new Error(reason), { status: 413 })
 }
 
-/** Strips control chars and bounds length before a caller-supplied string reaches a log line. */
+/** Strips CR/LF and caps length before a caller-supplied string reaches a log line. */
 function logSafe(s: string): string {
   return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
 }
@@ -76,6 +76,22 @@ async function safeDelete(url: string): Promise<boolean> {
       `[security-sarif-ingest] blob delete failed: ${reason.slice(0, 200)}`
     )
     return false
+  }
+}
+
+/** Never throws: a second failure while recording the first must not crash the ingest. */
+async function safeMarkExternalFailed(scanId: string): Promise<void> {
+  try {
+    await prSecurityScanRepository.mergeStages(
+      scanId,
+      { external: 'FAILED' },
+      {}
+    )
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    logger.warn(
+      `[security-sarif-ingest] mergeStages(external=FAILED) also failed scan=${scanId}: ${reason.slice(0, 200)}`
+    )
   }
 }
 
@@ -207,68 +223,77 @@ export const securitySarifIngestService = {
       }
     }
 
-    const prior = await prSecurityScanRepository.findDispositionedByPullRequest(
-      pr.id
-    )
-    const rows: NewFindingInput[] = inheritDispositions(
-      normalized.findings.map(f => ({
-        scanId: scan.id,
-        kind: f.kind,
-        ruleId: f.ruleId,
-        severity: f.severity,
-        provenance: 'EXTERNAL_TOOL' as const,
-        filePath: f.filePath,
-        line: f.line,
-        title: f.title,
-        detail: f.detail,
-        evidence: f.evidence,
-        fingerprint: f.fingerprint,
-        externalRef: f.externalRef,
-        disposition: null,
-      })),
-      prior
-    )
-    // Every run in the document prefixed its rows with its own tool slug
-    // (`ext:<slug>:<ruleId>`) — replace must delete each run's prior rows, or
-    // rows from runs other than the first accumulate across pushes.
-    const tools = Array.from(
-      new Set([
-        normalized.tool,
-        ...rows
-          .map(r => r.ruleId.split(':')[1])
-          .filter((t): t is string => !!t),
-      ])
-    )
-    const written = await prSecurityScanRepository.replaceExternalFindings(
-      scan.id,
-      tools.length > 0 ? tools : [normalized.tool],
-      rows
-    )
+    try {
+      const prior =
+        await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
+      const rows: NewFindingInput[] = inheritDispositions(
+        normalized.findings.map(f => ({
+          scanId: scan.id,
+          kind: f.kind,
+          ruleId: f.ruleId,
+          severity: f.severity,
+          provenance: 'EXTERNAL_TOOL' as const,
+          filePath: f.filePath,
+          line: f.line,
+          title: f.title,
+          detail: f.detail,
+          evidence: f.evidence,
+          fingerprint: f.fingerprint,
+          externalRef: f.externalRef,
+          disposition: null,
+        })),
+        prior
+      )
+      // Every run in the document prefixed its rows with its own tool slug
+      // (`ext:<slug>:<ruleId>`) — replace must delete each run's prior rows,
+      // or rows from runs other than the first accumulate across pushes.
+      // The key comes from the parsed runs (`normalized.tools`), not from
+      // which rows survived the diff filter, so a run whose only result was
+      // dropped still gets its stale prior rows cleared.
+      const written = await prSecurityScanRepository.replaceExternalFindings(
+        scan.id,
+        normalized.tools,
+        rows
+      )
 
-    // A scan stage A already finalized as CLEAN now has findings: say so.
-    const row = await prSecurityScanRepository.findScanRow(scan.id)
-    const flip = row?.status === 'CLEAN' && written > 0
-    await prSecurityScanRepository.mergeStages(
-      scan.id,
-      { external: 'RAN' },
-      flip
-        ? { partial: normalized.truncated, status: 'FINDINGS' }
-        : { partial: normalized.truncated }
-    )
-    await projectRepository.markSarifIngested(
-      pr.workspaceId,
-      pr.repo,
-      new Date()
-    )
-    await safeDelete(job.url)
-    logger.info(
-      `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
-    )
-    return {
-      outcome: 'INGESTED',
-      scanId: scan.id,
-      findings: written,
-      partial: normalized.truncated,
+      // A scan stage A already finalized as CLEAN now has findings: say so.
+      const row = await prSecurityScanRepository.findScanRow(scan.id)
+      const flip = row?.status === 'CLEAN' && written > 0
+      await prSecurityScanRepository.mergeStages(
+        scan.id,
+        { external: 'RAN' },
+        flip
+          ? { partial: normalized.truncated, status: 'FINDINGS' }
+          : { partial: normalized.truncated }
+      )
+      await projectRepository.markSarifIngested(
+        pr.workspaceId,
+        pr.repo,
+        new Date()
+      )
+      await safeDelete(job.url)
+      logger.info(
+        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
+      )
+      return {
+        outcome: 'INGESTED',
+        scanId: scan.id,
+        findings: written,
+        partial: normalized.truncated,
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[security-sarif-ingest] write stage failed scan=${scan.id}: ${reason.slice(0, 200)}`
+      )
+      await safeMarkExternalFailed(scan.id)
+      // Blob kept: normalisation already succeeded, so the job is retryable
+      // without a human needing to inspect the SARIF itself.
+      return {
+        outcome: 'FAILED',
+        scanId: scan.id,
+        reason: reason.slice(0, 200),
+      }
     }
   },
 
