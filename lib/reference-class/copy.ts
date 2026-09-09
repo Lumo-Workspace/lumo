@@ -38,6 +38,9 @@ export const CROSSING_LABELS: Record<BoundaryCrossingCategory, string> = {
   PROJECT_RULE_VIOLATION: 'project rule violation',
   POLICY_WEAKENING: 'project policy weakened',
   STEWARD_IMPLEMENTATION_ARTIFACT: 'implementation from a steward session',
+  SENSITIVE_PATH_EDIT: 'edited a sensitive path',
+  HOOK_BYPASS: 'bypassed git hooks',
+  TEST_FILE_DELETED: 'deleted a test file',
 }
 
 export const REJECTION_PROMPTS: Record<VerificationRejectionReason, string> = {
@@ -86,6 +89,12 @@ export const CROSSING_PROMPTS: Record<BoundaryCrossingCategory, string> = {
     'Tasks here weakened a project policy — does this change touch CLAUDE.md or its Forbidden list?',
   STEWARD_IMPLEMENTATION_ARTIFACT:
     'Tasks here produced implementation artifacts from a governance session — is this session meant to implement?',
+  SENSITIVE_PATH_EDIT:
+    'Tasks here have edited sensitive paths (auth, middleware, workflows, lockfiles, the schema) — does this change need to touch one, and who should look at that diff?',
+  HOOK_BYPASS:
+    'Tasks here have bypassed git hooks — if a hook fails on this change, will you fix the cause rather than skip it?',
+  TEST_FILE_DELETED:
+    'Tasks here have deleted test files — does this change remove a test, and what still covers what it covered?',
 }
 
 /** Display name for a signal value; unmapped values render as the raw key. */

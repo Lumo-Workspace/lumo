@@ -91,6 +91,22 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT',
         defaultMessage: 'implementation artifact from a steward session',
       })
+    // LUM-736 L4 Session Guard
+    case 'SENSITIVE_PATH_EDIT':
+      return intl.formatMessage({
+        id: 'boundary.category.SENSITIVE_PATH_EDIT',
+        defaultMessage: 'edited a sensitive path',
+      })
+    case 'HOOK_BYPASS':
+      return intl.formatMessage({
+        id: 'boundary.category.HOOK_BYPASS',
+        defaultMessage: 'bypassed git hooks',
+      })
+    case 'TEST_FILE_DELETED':
+      return intl.formatMessage({
+        id: 'boundary.category.TEST_FILE_DELETED',
+        defaultMessage: 'deleted a test file',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

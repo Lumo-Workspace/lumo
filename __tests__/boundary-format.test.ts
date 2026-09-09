@@ -39,6 +39,21 @@ test('boundaryCategoryLabel returns localized label for POLICY_WEAKENING (not ra
   expect(label).toBe('weakened a blocking policy rule')
 })
 
+// LUM-736: the three L4 Session Guard categories must not fall through to the
+// raw-enum default either.
+test.each([
+  ['SENSITIVE_PATH_EDIT', 'sensitive path edit', 'edited a sensitive path'],
+  ['HOOK_BYPASS', 'hook bypass', 'bypassed git hooks'],
+  ['TEST_FILE_DELETED', 'test file deleted', 'deleted a test file'],
+])(
+  'boundaryCategoryLabel returns localized label for %s (not raw default)',
+  (category, rawDefault, expected) => {
+    const label = boundaryCategoryLabel(category, makeIntl())
+    expect(label).not.toBe(rawDefault)
+    expect(label).toBe(expected)
+  }
+)
+
 test('boundaryCategoryLabel still handles existing known categories', () => {
   const intl = makeIntl()
   expect(boundaryCategoryLabel('HARDCODED_SECRET', intl)).toBe(

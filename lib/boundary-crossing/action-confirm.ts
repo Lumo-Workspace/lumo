@@ -69,6 +69,10 @@ export const ACTION_CONFIRM_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> =
     'EXFILTRATION_PUBLIC',
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
+    // LUM-736 L4 Session Guard: both are command-shaped and can be quoted in a
+    // commit message / PR body, so they take the same prose-confirmation path.
+    'HOOK_BYPASS',
+    'TEST_FILE_DELETED',
   ])
 
 export function isActionConfirmCategory(
@@ -90,6 +94,10 @@ export const ACTION_DESCRIPTIONS: Record<string, string> = {
     'delete cloud-storage data (aws s3 rm/rb, gsutil rm, gcloud storage rm, vercel blob del)',
   INFRA_TERMINATION:
     'terminate or restart infrastructure (kill -9/pkill/killall, systemctl/service restart|stop, docker kill/stop, docker-compose down, kubectl delete/rollout/drain, pm2 stop/kill)',
+  HOOK_BYPASS:
+    'bypass local git hooks (git commit / git push with --no-verify, or a HUSKY=0 prefix)',
+  TEST_FILE_DELETED:
+    'delete a test file or test directory (rm / git rm of *.test.*, *.spec.*, or __tests__/)',
 }
 
 // --- deterministic de-prose (Stage 1 helper) ---------------------------------
