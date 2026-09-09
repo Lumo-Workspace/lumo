@@ -292,8 +292,8 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
-  expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
-  expect(links[1]).toHaveAttribute('href', '/integrations/lumo-security.yml')
+  expect(links[0]).toHaveAttribute('href', '/integrations/lumo-security.yml')
+  expect(links[1]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
   expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
     'data-state',
     'incomplete'

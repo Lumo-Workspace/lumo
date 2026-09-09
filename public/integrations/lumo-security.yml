@@ -1,9 +1,8 @@
 # Lumo security scan — push scanner reports (SARIF) to Lumo (LUM-735).
 #
-# Setup (once per repository):
-#   1. In Lumo → Settings → API keys, click "Create CI ingest key".
-#   2. Add it to this repo as the Actions secret LUMO_SECURITY_TOKEN.
-#   3. Commit this file as .github/workflows/lumo-security.yml.
+# Setup: commit this file. No secrets needed — the workflow authenticates
+# with GitHub's OIDC token. Set LUMO_SECURITY_TOKEN only for CI outside
+# GitHub Actions.
 # Nothing here needs GitHub code scanning / Advanced Security: reports go
 # straight to a private Vercel Blob and Lumo ingests them. Findings appear on
 # the task's security panel; only lines the PR added are kept.
@@ -21,6 +20,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   LUMO_API_URL: ${{ vars.LUMO_API_URL || 'https://www.uselumo.ai' }}
@@ -61,6 +61,15 @@ jobs:
           import { upload } from "@vercel/blob/client";
           import { readFileSync } from "node:fs";
           const env = process.env;
+          async function bearer() {
+            if (env.LUMO_SECURITY_TOKEN) return env.LUMO_SECURITY_TOKEN;
+            const url = env.ACTIONS_ID_TOKEN_REQUEST_URL, tok = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if (!url || !tok) { console.log("lumo: no OIDC token available (fork PR or id-token permission missing) — skipping report"); process.exit(0); }
+            const res = await fetch(`${url}&audience=lumo`, { headers: { Authorization: "bearer " + tok } });
+            if (!res.ok) { console.log(`lumo: OIDC token request failed ${res.status}`); process.exit(1); }
+            return (await res.json()).value;
+          }
+          const token = await bearer();
           const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
           const [owner, repo] = env.REPOSITORY.split("/");
           const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
@@ -69,12 +78,12 @@ jobs:
             access: "private",
             handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
             clientPayload: JSON.stringify(payload),
-            headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            headers: { Authorization: "Bearer " + token },
             contentType: "application/gzip",
           });
           const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
             method: "POST",
-            headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            headers: { "content-type": "application/json", Authorization: "Bearer " + token },
             body: JSON.stringify({ ...payload, url: blob.url }),
           });
           console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
@@ -117,6 +126,15 @@ jobs:
           import { upload } from "@vercel/blob/client";
           import { readFileSync } from "node:fs";
           const env = process.env;
+          async function bearer() {
+            if (env.LUMO_SECURITY_TOKEN) return env.LUMO_SECURITY_TOKEN;
+            const url = env.ACTIONS_ID_TOKEN_REQUEST_URL, tok = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if (!url || !tok) { console.log("lumo: no OIDC token available (fork PR or id-token permission missing) — skipping report"); process.exit(0); }
+            const res = await fetch(`${url}&audience=lumo`, { headers: { Authorization: "bearer " + tok } });
+            if (!res.ok) { console.log(`lumo: OIDC token request failed ${res.status}`); process.exit(1); }
+            return (await res.json()).value;
+          }
+          const token = await bearer();
           const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
           const [owner, repo] = env.REPOSITORY.split("/");
           const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
@@ -125,12 +143,12 @@ jobs:
             access: "private",
             handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
             clientPayload: JSON.stringify(payload),
-            headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            headers: { Authorization: "Bearer " + token },
             contentType: "application/gzip",
           });
           const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
             method: "POST",
-            headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            headers: { "content-type": "application/json", Authorization: "Bearer " + token },
             body: JSON.stringify({ ...payload, url: blob.url }),
           });
           console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);

@@ -154,6 +154,15 @@ function ScanDetails({
         >
           {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
           <a
+            href={WORKFLOW_TEMPLATE_PATH}
+            download
+            className='underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({
+              id: 'securityScan.external.notConfigured.template',
+            })}
+          </a>{' '}
+          <a
             href={apiKeysHref}
             target='_blank'
             rel='noopener noreferrer'
@@ -161,15 +170,6 @@ function ScanDetails({
           >
             {intl.formatMessage({
               id: 'securityScan.external.notConfigured.link',
-            })}
-          </a>{' '}
-          <a
-            href={WORKFLOW_TEMPLATE_PATH}
-            download
-            className='underline underline-offset-2 hover:text-foreground'
-          >
-            {intl.formatMessage({
-              id: 'securityScan.external.notConfigured.template',
             })}
           </a>
         </p>

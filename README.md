@@ -248,21 +248,27 @@ Security / Code security setup is required on the repository.
 
 **Setup (once per repository):**
 
-1. In Lumo → Settings → API keys, create a CI ingest key.
-2. Add it to the repository as the Actions secret `LUMO_SECURITY_TOKEN`.
-3. Copy the workflow template from
+1. Copy the workflow template from
    `https://www.uselumo.ai/integrations/lumo-security.yml`
    (source: `public/integrations/lumo-security.yml`) into
    `.github/workflows/lumo-security.yml` and commit it.
+2. (Optional, only for CI outside GitHub Actions) In Lumo → Settings → API
+   keys, create a CI ingest key and add it as the `LUMO_SECURITY_TOKEN`
+   secret.
 
-Each scanner job gzips its SARIF report and uploads it directly to a private
-Vercel Blob, then tells Lumo the report is ready to fetch. Diff-aware
-filtering — keeping only the lines the PR actually added — happens on Lumo's
-side after ingest. The blob is deleted once Lumo has parsed it, and any
-report that fails to parse or is never completed is cleaned up after 24h.
-On pull requests from forks, `LUMO_SECURITY_TOKEN` is unavailable to the
-workflow, so nothing is reported and the task's security panel shows
-"waiting for CI" until, after 30 minutes, it shows "CI has not reported".
+No secret is required for a GitHub Actions workflow: it requests its own
+OIDC ID token (`permissions.id-token: write`) and Lumo verifies that token's
+`repository` and `ref` claims to authenticate the push — `LUMO_SECURITY_TOKEN`
+is only a fallback for CI systems other than GitHub Actions. Each scanner job
+gzips its SARIF report and uploads it directly to a private Vercel Blob, then
+tells Lumo the report is ready to fetch. Diff-aware filtering — keeping only
+the lines the PR actually added — happens on Lumo's side after ingest. The
+blob is deleted once Lumo has parsed it, and any report that fails to parse
+or is never completed is cleaned up after 24h. GitHub only issues the OIDC
+token on the `pull_request` event, and does not issue it to a fork's PR
+workflow run, so nothing is reported for fork PRs and the task's security
+panel shows "waiting for CI" until, after 30 minutes, it shows "CI has not
+reported".
 
 ## 🚀 Deployment
 

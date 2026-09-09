@@ -31,6 +31,11 @@ describe('LUM-735 dogfood workflows', () => {
     )
     // Findings go straight to Lumo via Blob; GitHub code scanning is unused.
     expect(yml).not.toMatch(/upload-sarif/)
+    // LUM-735 (v3): the workflow authenticates with its own GitHub Actions
+    // OIDC ID token — no secret required for GitHub Actions callers.
+    expect(yml).toMatch(/id-token:\s*write/)
+    expect(yml).toMatch(/ACTIONS_ID_TOKEN_REQUEST_URL/)
+    expect(yml).toMatch(/audience=lumo/)
     // Inside the gitleaks container git refuses the runner-owned checkout
     // ("dubious ownership") and gitleaks then scans 0 commits as "no leaks".
     expect(yml).toMatch(/safe\.directory/)
