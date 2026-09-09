@@ -24,6 +24,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
   type BoundaryCrossingView,
@@ -126,7 +127,20 @@ export function BoundaryCrossingsPanel({
     prevOpen.current = openCount
   }, [openCount])
 
-  if (crossings.length === 0) return null
+  // Hash deep link (the verdict bar's "Review the crossings below" link routes
+  // to /record#boundary-crossings). The panel mounts AFTER that navigation, so
+  // the browser's native fragment jump finds nothing — scroll ourselves into
+  // view once we actually render (crossings loaded), if the hash names us.
+  const panelRef = useRef<HTMLDivElement>(null)
+  const hasCrossings = crossings.length > 0
+  useEffect(() => {
+    if (!hasCrossings) return
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== `#${BOUNDARY_CROSSINGS_ANCHOR}`) return
+    panelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [hasCrossings])
+
+  if (!hasCrossings) return null
 
   const afterChange = () => {
     void refresh()
@@ -218,7 +232,8 @@ export function BoundaryCrossingsPanel({
     // count). Blocking open crossings escalate to danger; converged (all
     // dispositioned) reads neutral gray — handled isn't an achievement.
     <div
-      id='boundary-crossings'
+      id={BOUNDARY_CROSSINGS_ANCHOR}
+      ref={panelRef}
       className={`overflow-hidden rounded-lg border ${
         blockingCount > 0 ? 'border-danger-border' : 'border-border'
       }`}
