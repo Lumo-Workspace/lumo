@@ -11,6 +11,7 @@ export {
   maskQuotedValues,
   secretFingerprint,
   vulnerabilityFingerprint,
+  externalFingerprint,
   shannonEntropy,
 } from './redact'
 export {

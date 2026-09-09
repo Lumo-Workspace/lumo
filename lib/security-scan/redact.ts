@@ -232,6 +232,23 @@ export function vulnerabilityFingerprint(
     .slice(0, 16)
 }
 
+/**
+ * LUM-735 — fingerprint for an EXTERNAL_TOOL finding (spec §7). The alert
+ * number is part of the key so two alerts of the same rule in the same file
+ * stay distinct, and the same alert keeps its fingerprint (and therefore its
+ * human disposition) across pushes.
+ */
+export function externalFingerprint(
+  ruleId: string,
+  filePath: string,
+  alertNumber: number
+): string {
+  return createHash('sha256')
+    .update(`${ruleId}:${filePath}:${alertNumber}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
 /** Shannon entropy in bits per character. */
 export function shannonEntropy(s: string): number {
   if (s.length === 0) return 0
