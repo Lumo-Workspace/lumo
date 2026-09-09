@@ -350,7 +350,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     ]
     const n = await prSecurityScanRepository.replaceExternalFindings(
       's1',
-      'semgrep',
+      ['semgrep'],
       rows
     )
     expect(n).toBe(2)
@@ -358,11 +358,46 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       where: {
         scanId: 's1',
         provenance: 'EXTERNAL_TOOL',
-        ruleId: { startsWith: 'ext:semgrep:' },
+        OR: [{ ruleId: { startsWith: 'ext:semgrep:' } }],
       },
     })
     expect(mockFinding.createMany).toHaveBeenCalledWith({ data: rows })
     expect(mockTransaction).toHaveBeenCalledTimes(1)
+  })
+
+  test("replaceExternalFindings deletes every run's tool prefix and dedupes the list", async () => {
+    mockFinding.createMany.mockResolvedValueOnce({ count: 1 })
+    const rows = [
+      {
+        scanId: 's1',
+        kind: 'VULNERABILITY' as const,
+        ruleId: 'ext:gitleaks:c',
+        severity: 'HIGH' as const,
+        provenance: 'EXTERNAL_TOOL' as const,
+        filePath: 'c',
+        line: 1,
+        title: 't',
+        detail: 'd',
+        evidence: '',
+        fingerprint: 'f3',
+      },
+    ]
+    const n = await prSecurityScanRepository.replaceExternalFindings(
+      's1',
+      ['semgrep-oss', 'gitleaks', 'semgrep-oss'],
+      rows
+    )
+    expect(n).toBe(1)
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        OR: [
+          { ruleId: { startsWith: 'ext:semgrep-oss:' } },
+          { ruleId: { startsWith: 'ext:gitleaks:' } },
+        ],
+      },
+    })
   })
 
   test('mergeStages read-modify-writes the JSON and can flip a finalized CLEAN to FINDINGS', async () => {

@@ -292,20 +292,30 @@ export const prSecurityScanRepository = {
     })
   },
 
-  /** Same (scan, tool) pushed again → last push wins, atomically (LUM-735). */
+  /**
+   * Same (scan, tool) pushed again → last push wins, atomically (LUM-735).
+   * A single SARIF document can carry multiple runs (e.g. semgrep + a
+   * secondary ruleset) each prefixing `ruleId` with its own tool slug — so
+   * every run's tool must be named here, or rows from runs other than the
+   * first accumulate across pushes instead of being replaced. `tools` is
+   * deduped; an empty list is a caller bug and deletes nothing.
+   */
   async replaceExternalFindings(
     scanId: string,
-    tool: string,
+    tools: string[],
     rows: NewFindingInput[]
   ): Promise<number> {
+    const uniqueTools = Array.from(new Set(tools))
     return prisma.$transaction(async tx => {
-      await tx.prSecurityFinding.deleteMany({
-        where: {
-          scanId,
-          provenance: 'EXTERNAL_TOOL',
-          ruleId: { startsWith: `ext:${tool}:` },
-        },
-      })
+      if (uniqueTools.length > 0) {
+        await tx.prSecurityFinding.deleteMany({
+          where: {
+            scanId,
+            provenance: 'EXTERNAL_TOOL',
+            OR: uniqueTools.map(t => ({ ruleId: { startsWith: `ext:${t}:` } })),
+          },
+        })
+      }
       if (rows.length === 0) return 0
       const res = await tx.prSecurityFinding.createMany({ data: rows })
       return res.count

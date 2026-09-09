@@ -36,10 +36,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   },
 }))
 
-import {
-  securitySarifIngestService,
-  SARIF_MAX_GZ_BYTES,
-} from '@/lib/services/security-sarif-ingest.service'
+import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 import * as blob from '@/lib/services/security-sarif-blob'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -88,6 +85,41 @@ const sarifDoc = (results: unknown[], tool = 'Semgrep OSS') => ({
         },
       },
       results,
+    },
+  ],
+})
+const multiRunSarifDoc = (run1Results: unknown[], run2Results: unknown[]) => ({
+  version: '2.1.0',
+  runs: [
+    {
+      tool: {
+        driver: {
+          name: 'Semgrep OSS',
+          rules: [
+            {
+              id: 'r1',
+              shortDescription: { text: 'Rule one' },
+              helpUri: 'https://h/1',
+            },
+          ],
+        },
+      },
+      results: run1Results,
+    },
+    {
+      tool: {
+        driver: {
+          name: 'Gitleaks',
+          rules: [
+            {
+              id: 'r1',
+              shortDescription: { text: 'Rule one' },
+              helpUri: 'https://h/2',
+            },
+          ],
+        },
+      },
+      results: run2Results,
     },
   ],
 })
@@ -158,7 +190,7 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
   const rows = repo.replaceExternalFindings.mock.calls[0]![2]
   expect(repo.replaceExternalFindings).toHaveBeenCalledWith(
     's1',
-    'semgrep-oss',
+    ['semgrep-oss'],
     expect.any(Array)
   )
   expect(rows).toHaveLength(2)
@@ -179,6 +211,16 @@ test('happy path: gunzip → normalise → replace tool findings → external RA
     expect.any(Date)
   )
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
+})
+
+test("a two-run SARIF replaces both runs' tool prefixes, not just the first", async () => {
+  fetchBlob.mockResolvedValue(gz(multiRunSarifDoc([result(1)], [result(2)])))
+  await securitySarifIngestService.ingest(JOB)
+  expect(repo.replaceExternalFindings).toHaveBeenCalledWith(
+    's1',
+    ['semgrep-oss', 'gitleaks'],
+    expect.any(Array)
+  )
 })
 
 test('a finalized CLEAN scan gets status FINDINGS when the push brings rows', async () => {
@@ -283,13 +325,43 @@ test('invalid SARIF → FAILED with reason on the scan, blob KEPT for debugging'
   expect(delBlob).not.toHaveBeenCalled()
 })
 
-test('oversized gzip → FAILED before parsing', async () => {
-  fetchBlob.mockResolvedValue(Buffer.alloc(SARIF_MAX_GZ_BYTES + 1))
+test('oversized gzip (rejected before buffering) → FAILED, scan row still created, blob kept', async () => {
+  fetchBlob.mockRejectedValue(
+    Object.assign(new Error('gzip size 200000000 exceeds cap'), {
+      status: 413,
+    })
+  )
   const out = await securitySarifIngestService.ingest(JOB)
+  expect(repo.createIfAbsent).toHaveBeenCalled()
   expect(out).toMatchObject({
     outcome: 'FAILED',
+    scanId: 's1',
     reason: expect.stringMatching(/size/i),
   })
+  expect(repo.mergeStages).toHaveBeenCalledWith(
+    's1',
+    { external: 'FAILED' },
+    {}
+  )
+  expect(delBlob).not.toHaveBeenCalled()
+})
+
+test('blob store error on fetch (not a size rejection) → FAILED with no scan row created', async () => {
+  fetchBlob.mockRejectedValue(new Error('blob store unavailable'))
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(repo.createIfAbsent).not.toHaveBeenCalled()
+  expect(out).toEqual({
+    outcome: 'FAILED',
+    scanId: null,
+    reason: 'blob store unavailable',
+  })
+})
+
+test('a delete failure never changes the outcome: happy path stays INGESTED', async () => {
+  fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
+  delBlob.mockRejectedValueOnce(new Error('delete failed'))
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(out).toMatchObject({ outcome: 'INGESTED' })
 })
 
 test('pruneStaleBlobs deletes only security-sarif blobs older than 24h', async () => {
@@ -300,7 +372,25 @@ test('pruneStaleBlobs deletes only security-sarif blobs older than 24h', async (
   ])
   expect(await securitySarifIngestService.pruneStaleBlobs(now)).toEqual({
     deleted: 1,
+    failed: 0,
   })
   expect(delBlob).toHaveBeenCalledWith('u-old')
   expect(delBlob).not.toHaveBeenCalledWith('u-new')
+})
+
+test('pruneStaleBlobs continues past a failed delete and reports it separately', async () => {
+  const now = new Date('2026-09-10T00:00:00Z')
+  ;(blob.listSarifBlobs as jest.Mock).mockResolvedValue([
+    { url: 'u-old-1', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+    { url: 'u-old-2', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+  ])
+  delBlob
+    .mockRejectedValueOnce(new Error('boom'))
+    .mockResolvedValueOnce(undefined)
+  expect(await securitySarifIngestService.pruneStaleBlobs(now)).toEqual({
+    deleted: 1,
+    failed: 1,
+  })
+  expect(delBlob).toHaveBeenCalledWith('u-old-1')
+  expect(delBlob).toHaveBeenCalledWith('u-old-2')
 })

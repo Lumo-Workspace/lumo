@@ -60,6 +60,44 @@ function sized(reason: string): Error {
   return Object.assign(new Error(reason), { status: 413 })
 }
 
+/** Strips control chars and bounds length before a caller-supplied string reaches a log line. */
+function logSafe(s: string): string {
+  return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
+}
+
+/** Never throws: a blob-store hiccup on delete must not change the outcome the caller already decided. */
+async function safeDelete(url: string): Promise<boolean> {
+  try {
+    await deleteBlob(url)
+    return true
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    logger.warn(
+      `[security-sarif-ingest] blob delete failed: ${reason.slice(0, 200)}`
+    )
+    return false
+  }
+}
+
+type FetchOutcome =
+  | { kind: 'ok'; gz: Buffer }
+  | { kind: 'not_found' }
+  | { kind: 'too_large'; reason: string }
+  | { kind: 'error'; reason: string }
+
+/** Distinguishes "blob already gone" from "too big to buffer" from "blob store errored" — each needs different handling. */
+async function fetchBlobSafely(url: string): Promise<FetchOutcome> {
+  try {
+    const gz = await fetchPrivateBlob(url, SARIF_MAX_GZ_BYTES)
+    return gz ? { kind: 'ok', gz } : { kind: 'not_found' }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    return (error as { status?: number }).status === 413
+      ? { kind: 'too_large', reason }
+      : { kind: 'error', reason }
+  }
+}
+
 /** gunzip + parse with both caps enforced; throws {status} on any violation. */
 function decode(gz: Buffer): unknown {
   if (gz.byteLength > SARIF_MAX_GZ_BYTES)
@@ -68,6 +106,8 @@ function decode(gz: Buffer): unknown {
   try {
     raw = gunzipSync(gz, { maxOutputLength: SARIF_MAX_RAW_BYTES })
   } catch (error) {
+    if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE')
+      throw sized('raw size exceeds cap')
     throw Object.assign(
       new Error(
         `Unsupported SARIF: gunzip failed (${(error as Error).message})`
@@ -87,8 +127,20 @@ function decode(gz: Buffer): unknown {
 
 export const securitySarifIngestService = {
   async ingest(job: SarifIngestJob): Promise<IngestResult> {
-    const gz = await fetchPrivateBlob(job.url)
-    if (!gz) return { outcome: 'ALREADY_PROCESSED' }
+    const fetched = await fetchBlobSafely(job.url)
+    if (fetched.kind === 'not_found') return { outcome: 'ALREADY_PROCESSED' }
+    if (fetched.kind === 'error') {
+      logger.error(
+        `[security-sarif-ingest] blob fetch failed tool=${logSafe(job.tool)} repo=${logSafe(job.repository)}: ${fetched.reason.slice(0, 200)}`
+      )
+      return {
+        outcome: 'FAILED',
+        scanId: null,
+        reason: fetched.reason.slice(0, 200),
+      }
+    }
+    // fetched.kind is 'ok' or 'too_large' from here on. A too-large report
+    // still needs a scan row so the FAILED stage lands somewhere (below).
 
     const pr = await pullRequestRepository.findByRepoAndNumber(
       job.repository,
@@ -96,16 +148,16 @@ export const securitySarifIngestService = {
     )
     if (!pr) {
       logger.warn(
-        `[security-sarif-ingest] no PR ${job.repository}#${job.prNumber} — discarding ${job.tool} report`
+        `[security-sarif-ingest] no PR ${logSafe(job.repository)}#${job.prNumber} — discarding ${logSafe(job.tool)} report`
       )
-      await deleteBlob(job.url)
+      await safeDelete(job.url)
       return { outcome: 'DISCARDED', reason: 'pr_not_found' }
     }
     if (pr.workspaceId !== job.workspaceId) {
       logger.warn(
-        `[security-sarif-ingest] PR ${job.repository}#${job.prNumber} belongs to another workspace — discarding`
+        `[security-sarif-ingest] PR ${logSafe(job.repository)}#${job.prNumber} belongs to another workspace — discarding`
       )
-      await deleteBlob(job.url)
+      await safeDelete(job.url)
       return { outcome: 'DISCARDED', reason: 'workspace_mismatch' }
     }
 
@@ -123,7 +175,10 @@ export const securitySarifIngestService = {
 
     let normalized: NormalizeResult
     try {
-      const runs = parseSarif(decode(gz))
+      // A too-large fetch never got its bytes buffered; raise the same
+      // {status:413} `decode` would, so it's handled by the one catch below.
+      if (fetched.kind === 'too_large') throw sized(fetched.reason)
+      const runs = parseSarif(decode(fetched.gz))
       const diff = await fetchPrDiff({
         workspaceId: pr.workspaceId,
         fullName: pr.repo,
@@ -135,8 +190,9 @@ export const securitySarifIngestService = {
       })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
+      const gzSize = fetched.kind === 'ok' ? `${fetched.gz.byteLength}B` : 'n/a'
       logger.error(
-        `[security-sarif-ingest] FAILED tool=${job.tool} gz=${gz.byteLength}B scan=${scan.id}: ${reason}`
+        `[security-sarif-ingest] FAILED tool=${logSafe(job.tool)} gz=${gzSize} scan=${scan.id}: ${reason.slice(0, 200)}`
       )
       await prSecurityScanRepository.mergeStages(
         scan.id,
@@ -172,9 +228,20 @@ export const securitySarifIngestService = {
       })),
       prior
     )
+    // Every run in the document prefixed its rows with its own tool slug
+    // (`ext:<slug>:<ruleId>`) — replace must delete each run's prior rows, or
+    // rows from runs other than the first accumulate across pushes.
+    const tools = Array.from(
+      new Set([
+        normalized.tool,
+        ...rows
+          .map(r => r.ruleId.split(':')[1])
+          .filter((t): t is string => !!t),
+      ])
+    )
     const written = await prSecurityScanRepository.replaceExternalFindings(
       scan.id,
-      normalized.tool,
+      tools.length > 0 ? tools : [normalized.tool],
       rows
     )
 
@@ -193,9 +260,9 @@ export const securitySarifIngestService = {
       pr.repo,
       new Date()
     )
-    await deleteBlob(job.url)
+    await safeDelete(job.url)
     logger.info(
-      `[security-sarif-ingest] ${job.repository}#${job.prNumber} ${normalized.tool}: ${written} findings (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
+      `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
     )
     return {
       outcome: 'INGESTED',
@@ -205,16 +272,23 @@ export const securitySarifIngestService = {
     }
   },
 
-  /** Cron: a blob older than 24h under the prefix is a failed ingest nobody looked at. */
-  async pruneStaleBlobs(now: Date = new Date()): Promise<{ deleted: number }> {
+  /**
+   * Cron: a blob older than 24h under the prefix is a failed ingest nobody
+   * looked at. One bad delete (a blob store hiccup) must not stop the rest
+   * of the sweep — each is wrapped independently and counted.
+   */
+  async pruneStaleBlobs(
+    now: Date = new Date()
+  ): Promise<{ deleted: number; failed: number }> {
     const blobs = await listSarifBlobs()
     let deleted = 0
+    let failed = 0
     for (const b of blobs) {
       if (now.getTime() - b.uploadedAt.getTime() > SARIF_FAILED_BLOB_TTL_MS) {
-        await deleteBlob(b.url)
-        deleted += 1
+        if (await safeDelete(b.url)) deleted += 1
+        else failed += 1
       }
     }
-    return { deleted }
+    return { deleted, failed }
   },
 }
