@@ -20,3 +20,10 @@ export {
   isPlaceholderValue,
 } from './secret-patterns'
 export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
+export {
+  mapCodeScanningAlerts,
+  enhanceSecretFindings,
+  externalSeverity,
+  toolSlug,
+  type EnhancedSecretFinding,
+} from './external-alerts'
