@@ -90,8 +90,11 @@ function readStdin(): Promise<string> {
  *
  * For 'pre-tool-use' the array contains:
  *   [0] (optional) a PreToolUse hookSpecificOutput JSON carrying the parallel-
- *       edit collision warning as additionalContext, when the server returned a
- *       `collisionWarning` (LUM-150 step ③). Empty otherwise.
+ *       edit collision warning (LUM-150 step ③), the one-shot boundary-
+ *       crossing reminder (LUM-542), and the one-shot PR security-scan
+ *       reminder (LUM-737) as additionalContext, when the server returned any
+ *       of `collisionWarning`, `crossingReminder`, `securityReminder`. Empty
+ *       otherwise.
  *
  * The JSON lines conform to Claude Code's hookSpecificOutput envelope so the
  * runtime injects additionalContext into the conversation automatically.
@@ -109,9 +112,11 @@ export function formatHookStdoutLines(
     const body = responseBody as {
       collisionWarning?: unknown
       crossingReminder?: unknown
+      securityReminder?: unknown
     }
-    // Two independent PreToolUse signals (LUM-150 collision, LUM-542 crossing
-    // reminder) share one additionalContext block when both are present.
+    // Three independent PreToolUse signals (LUM-150 collision, LUM-542
+    // crossing reminder, LUM-737 security reminder) share one
+    // additionalContext block when more than one is present.
     const parts: string[] = []
     if (
       typeof body.collisionWarning === 'string' &&
@@ -123,6 +128,11 @@ export function formatHookStdoutLines(
       body.crossingReminder !== ''
     )
       parts.push(body.crossingReminder)
+    if (
+      typeof body.securityReminder === 'string' &&
+      body.securityReminder !== ''
+    )
+      parts.push(body.securityReminder)
     if (parts.length === 0) return []
     return [
       JSON.stringify({
