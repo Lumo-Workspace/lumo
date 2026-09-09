@@ -21,9 +21,12 @@ export {
 } from './secret-patterns'
 export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
 export {
-  mapCodeScanningAlerts,
-  enhanceSecretFindings,
-  externalSeverity,
+  parseSarif,
+  normalizeSarif,
+  changedLinesOf,
+  sarifSeverity,
+  sarifKind,
   toolSlug,
-  type EnhancedSecretFinding,
-} from './external-alerts'
+  MAX_SARIF_FINDINGS,
+  type NormalizeResult,
+} from './sarif'
