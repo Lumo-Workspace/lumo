@@ -9,6 +9,7 @@ jest.mock('@/lib/db/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     prSecurityFinding: {
       createMany: jest.fn(),
@@ -29,6 +30,7 @@ const mockScan = prisma.prSecurityScan as unknown as {
   create: jest.Mock
   update: jest.Mock
   findMany: jest.Mock
+  updateMany: jest.Mock
 }
 const mockFinding = prisma.prSecurityFinding as unknown as {
   createMany: jest.Mock
@@ -188,4 +190,35 @@ test('persistResult with no findings still finalizes, in a one-op transaction', 
   })
   expect(mockFinding.createMany).not.toHaveBeenCalled()
   expect(mockTransaction.mock.calls[0]![0]).toHaveLength(1)
+})
+
+// ── LUM-737: one-shot PreToolUse reminder support ────────────────────────────
+
+test('findUnnotifiedFindingScansByTask reads only FINDINGS scans on the task that have not been reminded', async () => {
+  mockScan.findMany.mockResolvedValue([
+    { id: 's1', pullRequestId: 'pr1', headSha: 'abc' },
+  ])
+  const rows =
+    await prSecurityScanRepository.findUnnotifiedFindingScansByTask('t1')
+  expect(rows).toEqual([{ id: 's1', pullRequestId: 'pr1', headSha: 'abc' }])
+  expect(mockScan.findMany).toHaveBeenCalledWith({
+    where: { taskId: 't1', status: 'FINDINGS', agentNotifiedAt: null },
+    select: { id: true, pullRequestId: true, headSha: true },
+    orderBy: { startedAt: 'asc' },
+  })
+})
+
+test('markAgentNotified stamps only un-notified rows (idempotent) and skips the write for an empty list', async () => {
+  mockScan.updateMany.mockResolvedValue({ count: 2 })
+  const now = new Date('2026-09-09T00:00:00Z')
+  expect(
+    await prSecurityScanRepository.markAgentNotified(['s1', 's2'], now)
+  ).toBe(2)
+  expect(mockScan.updateMany).toHaveBeenCalledWith({
+    where: { id: { in: ['s1', 's2'] }, agentNotifiedAt: null },
+    data: { agentNotifiedAt: now },
+  })
+  mockScan.updateMany.mockClear()
+  expect(await prSecurityScanRepository.markAgentNotified([], now)).toBe(0)
+  expect(mockScan.updateMany).not.toHaveBeenCalled()
 })

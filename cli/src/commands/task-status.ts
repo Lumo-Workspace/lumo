@@ -18,7 +18,8 @@ export interface TaskStatusOptions {
   json?: boolean
   /** LUM-733: also print the dashboard sections (verification rollup,
    *  history, cost, struggle/rework trail, trend). Off by default — the agent
-   *  self-check is the criteria, the next actions, and any open crossings. */
+   *  self-check is the criteria, the next actions (including undispositioned
+   *  security findings, LUM-737), and any open crossings. */
   full?: boolean
 }
 
@@ -197,22 +198,113 @@ export interface TaskStatusResponse {
     rejectionReason: string | null
     rejectionReasonEnum: string | null
   }>
-  nextActions: Array<{
-    criterionId: string
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer: string | null
-    judgeSteps: string | null
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
-    addedAtRound: number
-    rejectionReason: string | null
-  }>
+  /** LUM-737: `kind` discriminates; absent (older server) = CRITERION. */
+  nextActions: Array<
+    | {
+        kind?: 'CRITERION'
+        criterionId: string
+        statement: string
+        verifierType: 'MACHINE' | 'HUMAN'
+        checkpointer: string | null
+        judgeSteps: string | null
+        source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+        addedAtRound: number
+        rejectionReason: string | null
+      }
+    | {
+        kind: 'SECURITY_FINDING'
+        findingId: string
+        statement: string
+        severity: 'LOW' | 'MEDIUM' | 'HIGH'
+        provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
+        blocking: boolean
+        prNumber: number
+        ruleId: string
+        filePath: string
+        line: number | null
+      }
+  >
+  /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
+   *  confirm); optional so a new CLI tolerates an older server. */
+  securityFindings?: {
+    open: number
+    blocking: number
+    unconfirmedPrs: Array<{
+      number: number
+      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
+    }>
+  } | null
 }
 
 const REASON_TAIL = 400
 
 function tail(s: string, max: number): string {
   return s.length > max ? `…${s.slice(-max)}` : s
+}
+
+type NextActionItem = TaskStatusResponse['nextActions'][number]
+type CriterionAction = Extract<NextActionItem, { criterionId: string }>
+type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
+
+/** A missing `kind` is an older server's criterion entry (LUM-737 additive rule). */
+function isSecurityAction(a: NextActionItem): a is SecurityAction {
+  return a.kind === 'SECURITY_FINDING'
+}
+function splitNextActions(actions: NextActionItem[]): {
+  criteria: CriterionAction[]
+  security: SecurityAction[]
+} {
+  const criteria: CriterionAction[] = []
+  const security: SecurityAction[] = []
+  for (const a of actions) {
+    if (isSecurityAction(a)) security.push(a)
+    else criteria.push(a)
+  }
+  return { criteria, security }
+}
+
+/** Same line grammar as the session-start / PreToolUse reminders. */
+function formatSecurityAction(a: SecurityAction): string {
+  const where = a.line == null ? a.filePath : `${a.filePath}:${a.line}`
+  const title = sanitizeField(a.statement.split(' — ').slice(1).join(' — '))
+  const tag = a.blocking ? 'blocks DONE' : 'advisory'
+  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag})`
+}
+
+const SECURITY_HINT =
+  'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
+
+/** Render the `[SECURITY]` next-action lines (LUM-737 review): shared by the
+ *  criteria-present Next actions block and the zero-criteria early return so
+ *  undispositioned findings render identically either way. */
+function pushSecurityActions(
+  lines: string[],
+  securityActions: SecurityAction[]
+): void {
+  for (const a of securityActions) {
+    lines.push(`  • [SECURITY] ${formatSecurityAction(a)}`)
+  }
+}
+
+/** Fail-closed security coverage lines (LUM-737): a failed read and every
+ *  open PR without a successful scan are stated, never left silent. */
+function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
+  if (data.securityFindings === undefined) return // older server
+  if (data.securityFindings === null) {
+    lines.push(
+      '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.'
+    )
+    return
+  }
+  for (const u of data.securityFindings.unconfirmedPrs) {
+    const why =
+      u.reason === 'NONE'
+        ? 'no security scan has run'
+        : u.reason === 'FAILED'
+          ? 'security scan FAILED'
+          : `security scan still ${u.reason}`
+    lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
+  }
 }
 
 /**
@@ -239,26 +331,43 @@ export function formatTaskStatus(
     )
   }
 
+  // LUM-737 (whole-branch review): split once, up front, so both the
+  // zero-criteria early return below and the --full rollup can render/count
+  // undispositioned security findings without either dropping them or
+  // subtracting them from the criteria-met arithmetic.
+  const { criteria: unmetCriteria, security: securityActions } =
+    splitNextActions(data.nextActions)
+
   if (data.criteria.length === 0) {
     lines.push('')
     lines.push(
       `No acceptance criteria on ${t.identifier} — draft them and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
     )
+    if (securityActions.length > 0) {
+      lines.push('')
+      lines.push(
+        `Next actions (0 unmet · ${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}):`
+      )
+      pushSecurityActions(lines, securityActions)
+      lines.push(SECURITY_HINT)
+    }
+    pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
   }
 
   // LUM-733: the default report is the agent's self-check — criteria, next
-  // actions, open crossings. The dashboard sections (verification rollup,
-  // history, cost, struggle trail, trend) are human-dashboard material and
-  // cost context, so they only render under --full. The claim / faithfulness
+  // actions (including undispositioned security findings, LUM-737), and any
+  // open crossings. The dashboard sections (verification rollup, history,
+  // cost, struggle trail, trend) are human-dashboard material and cost
+  // context, so they only render under --full. The claim / faithfulness
   // columns are no longer rendered in the terminal at all (the judge still
   // runs server-side; --json carries its fields).
-  if (extras.full) pushVerificationRollup(lines, data)
+  if (extras.full) pushVerificationRollup(lines, unmetCriteria.length, data)
 
   lines.push('')
   lines.push(
-    `Criteria (${data.criteria.length} total, ${data.nextActions.length} unmet):`
+    `Criteria (${data.criteria.length} total, ${unmetCriteria.length} unmet):`
   )
   for (const c of data.criteria) {
     const glyph =
@@ -371,15 +480,19 @@ export function formatTaskStatus(
   }
 
   lines.push('')
-  if (data.nextActions.length === 0) {
+  const securityLabel =
+    securityActions.length === 0
+      ? ''
+      : ` · ${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}`
+  if (unmetCriteria.length === 0 && securityActions.length === 0) {
     lines.push(
       data.currentRound > 0
         ? 'All criteria met by their latest verdicts — awaiting human adjudication.'
         : 'Nothing unmet — but no verification has run; run `lumo verify` to judge the contract.'
     )
   } else {
-    lines.push(`Next actions (${data.nextActions.length} unmet):`)
-    for (const a of data.nextActions) {
+    lines.push(`Next actions (${unmetCriteria.length} unmet${securityLabel}):`)
+    for (const a of unmetCriteria) {
       lines.push(`  • [${a.verifierType}] ${sanitizeField(a.statement)}`)
       if (a.checkpointer) {
         lines.push(`    check: ${sanitizeField(a.checkpointer)}`)
@@ -390,12 +503,12 @@ export function formatTaskStatus(
         )
       }
     }
+    // LUM-737: findings after the contract — constraints on DONE, not criteria.
+    pushSecurityActions(lines, securityActions)
     if (data.escalated) {
       lines.push('Wait for human direction before touching these.')
-    } else {
-      const hasMachine = data.nextActions.some(
-        a => a.verifierType === 'MACHINE'
-      )
+    } else if (unmetCriteria.length > 0) {
+      const hasMachine = unmetCriteria.some(a => a.verifierType === 'MACHINE')
       const left = data.maxRounds - data.currentRound
       lines.push(
         hasMachine
@@ -403,7 +516,9 @@ export function formatTaskStatus(
           : 'Remaining criteria are HUMAN-only — finish the work and hand off for human review.'
       )
     }
+    if (securityActions.length > 0) lines.push(SECURITY_HINT)
   }
+  pushSecurityCoverage(lines, data)
 
   pushOpenCrossings(lines, extras)
   return lines.join('\n') + '\n'
@@ -459,6 +574,7 @@ function fmtDuration(totalSec: number): string {
  */
 function pushVerificationRollup(
   lines: string[],
+  unmetCriteriaCount: number,
   data: TaskStatusResponse
 ): void {
   lines.push('')
@@ -473,7 +589,9 @@ function pushVerificationRollup(
       `  ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
     )
   }
-  const met = data.criteria.length - data.nextActions.length
+  // LUM-737 (whole-branch review): `unmetCriteriaCount` excludes SECURITY_FINDING
+  // next actions — met/unmet counts criteria only, never security findings.
+  const met = data.criteria.length - unmetCriteriaCount
   lines.push(
     `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
   )

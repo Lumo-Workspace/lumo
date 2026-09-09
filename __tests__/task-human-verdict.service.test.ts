@@ -421,6 +421,9 @@ describe('FAIL semantics', () => {
     const status = await taskVerificationService.statusForTask('t-1')
     expect(status.nextActions).toHaveLength(3)
     for (const action of status.nextActions) {
+      if (action.kind !== 'CRITERION') {
+        throw new Error('expected criterion next action')
+      }
       expect(action.rejectionReason).toBe('not what we agreed')
     }
     expect(status.lastRoundFailures.map(f => f.rejectionReasonEnum)).toContain(

@@ -34,6 +34,11 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
     buildBlockerWarningSectionForTask: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+  prSecurityReminderService: {
+    buildSessionStartSection: jest.fn(),
+  },
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
@@ -41,6 +46,7 @@ import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import { sessionService } from '@/lib/services/session.service'
 
 const sessRepo = sessionRepository as jest.Mocked<typeof sessionRepository>
@@ -82,6 +88,9 @@ beforeEach(() => {
   ;(
     taskDependencyService.buildBlockerWarningSectionForTask as jest.Mock
   ).mockResolvedValue('')
+  ;(
+    prSecurityReminderService.buildSessionStartSection as jest.Mock
+  ).mockResolvedValue('')
 })
 
 describe('sessionService.bindSessionToTask', () => {
@@ -116,6 +125,7 @@ describe('sessionService.bindSessionToTask', () => {
       criteriaSection: '',
       previousSession: null,
       blockerWarningSection: '',
+      securityFindingsSection: '',
       // LUM-686: surfaced so the route can compute next steps without a
       // second read of the task.
       taskStatus: 'TODO',
@@ -142,6 +152,24 @@ describe('sessionService.bindSessionToTask', () => {
     expect(result.blockerWarningSection).toBe(
       '## ⚠ Dependency alerts\n- This task is blocked by LUM-7'
     )
+  })
+
+  it('propagates the security findings section from prSecurityReminderService into the bound result (LUM-737)', async () => {
+    ;(
+      prSecurityReminderService.buildSessionStartSection as jest.Mock
+    ).mockResolvedValue('SECURITY')
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+
+    expect(
+      prSecurityReminderService.buildSessionStartSection
+    ).toHaveBeenCalledWith('task_1', 'LUM-42')
+    if (result.status !== 'bound') throw new Error('expected bound result')
+    expect(result.securityFindingsSection).toBe('SECURITY')
   })
 
   it('succeeds when no events were retagged (attach-before-any-hook)', async () => {

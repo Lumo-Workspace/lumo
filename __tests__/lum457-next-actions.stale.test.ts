@@ -156,7 +156,11 @@ describe('stale PASS stays met — DONE gate unchanged (LUM-457)', () => {
     expect(s.criteria[0]!.verdictStale).toBe(true)
     expect(s.criteria[0]!.checkMismatch).toBe(true)
     // …but the criterion is still met: not in nextActions, gate not blocked.
-    expect(s.nextActions.map(a => a.criterionId)).not.toContain('c-1')
+    expect(
+      s.nextActions.flatMap(a =>
+        a.kind === 'CRITERION' ? [a.criterionId] : []
+      )
+    ).not.toContain('c-1')
     expect(s.nextActions).toHaveLength(0)
   })
 
@@ -175,6 +179,10 @@ describe('stale PASS stays met — DONE gate unchanged (LUM-457)', () => {
 
     const s = await taskVerificationService.statusForTask('t-1')
 
-    expect(s.nextActions.map(a => a.criterionId)).toContain('c-fail')
+    expect(
+      s.nextActions.flatMap(a =>
+        a.kind === 'CRITERION' ? [a.criterionId] : []
+      )
+    ).toContain('c-fail')
   })
 })
