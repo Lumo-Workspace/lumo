@@ -829,6 +829,9 @@ model ProjectRepository {
   fullName  String // "owner/repo"
   name      String // short repo name
   isDefault Boolean  @default(false)
+  // LUM-735: last successful SARIF ingest for this repo — null means the
+  // repo has never pushed a scan (panel shows NOT_CONFIGURED, not PENDING).
+  lastSarifIngestAt DateTime?
   createdAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1367,6 +1370,8 @@ enum PrSecurityScanStatus {
 enum PrSecurityScanTrigger {
   PR_EVENT
   PR_LINK
+  // LUM-735: scan row created by a CI SARIF push before any webhook ran.
+  SARIF_PUSH
 }
 
 enum PrSecurityJudgeStatus {
@@ -1676,6 +1681,9 @@ model ApiKey {
   label             String // user-given name, e.g. "My laptop"
   keyHash           String    @unique // SHA-256(fullKey) as hex
   keyPrefix         String // first 16 chars of key, for display ("lum_xxxxxxxx...")
+  // LUM-735: null = full CLI/MCP access; 'security:ingest' = only the SARIF
+  // upload/complete routes (the key that lives in a repo secret).
+  scope             String?
   createdAt         DateTime  @default(now())
   lastUsedAt        DateTime?
   revokedAt         DateTime?
