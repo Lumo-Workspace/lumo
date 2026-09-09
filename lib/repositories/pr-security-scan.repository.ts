@@ -3,6 +3,7 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import type { ScanStages } from '@/lib/security-scan/types'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK'
@@ -33,6 +34,8 @@ export interface NewFindingInput {
   detail: string
   evidence: string
   fingerprint: string
+  /** EXTERNAL_TOOL alert URL, or the secret-scanning alert that upgraded an A1 hit. */
+  externalRef?: string | null
   disposition?: FindingDisposition | null
   dispositionNote?: string | null
   dispositionedById?: string | null
@@ -44,6 +47,10 @@ export interface FinalizeScanInput {
   status: ScanStatus
   judgeStatus: JudgeStatus | null
   truncated: boolean
+  /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
+  stages: ScanStages
+  /** LUM-735 — a layer hit its cap; results are honest but not whole. */
+  partial: boolean
   error?: string | null
 }
 
@@ -79,6 +86,9 @@ export interface ScanWithFindings {
   trigger: ScanTrigger
   judgeStatus: JudgeStatus | null
   truncated: boolean
+  /** null on rows written before LUM-735 — the service derives a legacy view. */
+  stages: ScanStages | null
+  partial: boolean
   detectorVersion: string
   error: string | null
   startedAt: Date
@@ -124,6 +134,8 @@ export const prSecurityScanRepository = {
         status: 'RUNNING',
         judgeStatus: null,
         truncated: false,
+        stages: null,
+        partial: false,
         error: null,
         startedAt: new Date(),
         finishedAt: null,
@@ -138,6 +150,8 @@ export const prSecurityScanRepository = {
         status: input.status,
         judgeStatus: input.judgeStatus,
         truncated: input.truncated,
+        stages: input.stages,
+        partial: input.partial,
         error: input.error ?? null,
         finishedAt: new Date(),
       },
@@ -172,6 +186,8 @@ export const prSecurityScanRepository = {
           status: final.status,
           judgeStatus: final.judgeStatus,
           truncated: final.truncated,
+          stages: final.stages,
+          partial: final.partial,
           error: final.error ?? null,
           finishedAt: new Date(),
         },

@@ -80,6 +80,8 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
         status: 'RUNNING',
         error: null,
         finishedAt: null,
+        stages: null,
+        partial: false,
       }),
     })
   )
@@ -87,11 +89,15 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
     status: 'CLEAN',
     judgeStatus: 'RAN',
     truncated: false,
+    stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+    partial: false,
   })
   expect(mockScan.update).toHaveBeenLastCalledWith(
     expect.objectContaining({
       data: expect.objectContaining({
         status: 'CLEAN',
+        stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+        partial: false,
         finishedAt: expect.any(Date),
       }),
     })
@@ -164,6 +170,8 @@ test('persistResult writes findings and the finalize update in one transaction',
     status: 'FINDINGS',
     judgeStatus: 'RAN',
     truncated: false,
+    stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+    partial: true,
   })
   expect(mockTransaction).toHaveBeenCalledTimes(1)
   expect(mockTransaction.mock.calls[0]![0]).toHaveLength(2)
@@ -174,6 +182,8 @@ test('persistResult writes findings and the finalize update in one transaction',
       data: expect.objectContaining({
         status: 'FINDINGS',
         judgeStatus: 'RAN',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: true,
         finishedAt: expect.any(Date),
       }),
     })
@@ -185,6 +195,8 @@ test('persistResult with no findings still finalizes, in a one-op transaction', 
     status: 'CLEAN',
     judgeStatus: 'UNAVAILABLE',
     truncated: false,
+    stages: { secrets: 'RAN', judge: 'FAILED' },
+    partial: false,
   })
   expect(mockFinding.createMany).not.toHaveBeenCalled()
   expect(mockTransaction.mock.calls[0]![0]).toHaveLength(1)
