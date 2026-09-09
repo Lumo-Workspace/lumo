@@ -54,6 +54,27 @@ describe('formatFindingLine / findingStatement', () => {
     expect(findingStatement(f({ title: 'x\x1b[31m y' }))).not.toContain('\x1b')
   })
 
+  it('strips control characters from filePath in formatFindingLine and renderPreToolUseSecurityReminder', () => {
+    const lineWithBadPath = formatFindingLine(
+      f({ filePath: 'lib/cfg\x1b[31m.ts' })
+    )
+    expect(lineWithBadPath).not.toContain('\x1b')
+
+    const reminderWithBadPath = renderPreToolUseSecurityReminder({
+      scans: [
+        {
+          prNumber: 12,
+          headSha: 'abcdef0123456',
+          findings: [f({ filePath: 'lib/cfg\x1b[31m.ts' })],
+        },
+      ],
+      identifier: 'LUM-7',
+    })
+    if (reminderWithBadPath) {
+      expect(reminderWithBadPath).not.toContain('\x1b')
+    }
+  })
+
   it('findingStatement is a plain sentence without tags', () => {
     expect(findingStatement(f())).toBe(
       'secret:aws-access-key-id at lib/cfg.ts:12 — AWS access key id'

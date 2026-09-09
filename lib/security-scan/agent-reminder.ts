@@ -76,7 +76,9 @@ export function findingStatement(f: ReminderFinding): string {
 
 export function formatFindingLine(f: ReminderFinding): string {
   const tag = f.blocking ? 'blocks DONE' : 'advisory'
-  return `[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${sanitizeField(f.title)} (PR #${f.prNumber} · ${tag})`
+  return sanitizeField(
+    `[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${f.title} (PR #${f.prNumber} · ${tag})`
+  )
 }
 
 function cappedLines(
