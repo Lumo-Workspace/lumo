@@ -14,9 +14,19 @@ describe('LUM-735 dogfood workflows', () => {
     expect(yml).toMatch(/p\/nodejs/)
     expect(yml).toMatch(/gitleaks/)
     expect(
-      (yml.match(/github\/codeql-action\/upload-sarif@v3/g) ?? []).length
+      (yml.match(/github\/codeql-action\/upload-sarif@v4/g) ?? []).length
     ).toBe(2)
     expect(yml).toMatch(/pull_request:/)
+    // Findings travel as SARIF; `--error` would turn every finding into a red
+    // job and hide real semgrep failures behind the same exit code.
+    expect(yml).not.toMatch(/^\s*--error\s*$/m)
+    // Inside the gitleaks container git refuses the runner-owned checkout
+    // ("dubious ownership") and gitleaks then scans 0 commits as "no leaks".
+    expect(yml).toMatch(/safe\.directory/)
+    expect(yml).toMatch(/git rev-list --count HEAD/)
+    // Node 20 action runtimes are deprecated on the runners.
+    expect(yml).not.toMatch(/@v3\b/)
+    expect(yml).not.toMatch(/checkout@v4/)
   })
 
   it('ci.yml job names classify as the typecheck and test gates', () => {

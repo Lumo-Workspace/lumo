@@ -24,7 +24,10 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # No `--error`: findings are delivered as SARIF alerts, not as a red job.
+      # With `--error` every finding exits 1 and a real semgrep failure (bad
+      # config, crash) becomes indistinguishable from "it found something".
       - name: Semgrep scan (SARIF)
         run: >-
           semgrep scan
@@ -33,12 +36,10 @@ jobs:
           --config p/nodejs
           --sarif --output semgrep.sarif
           --metrics=off
-          --error
-        continue-on-error: true
       - name: Upload SARIF
         # 403 until GitHub Advanced Security is enabled on this private repo (see header)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -49,9 +50,19 @@ jobs:
     container:
       image: zricethezav/gitleaks:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # The checkout is owned by the runner uid while the container runs as
+      # root; without this git refuses the repo ("dubious ownership") and
+      # gitleaks silently scans 0 commits and reports "no leaks found".
+      - name: Allow git to read the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Refuse a zero-commit scan
+        run: |
+          count=$(git rev-list --count HEAD)
+          echo "commits reachable: $count"
+          test "$count" -gt 0
       - name: Gitleaks scan (SARIF)
         run: >-
           gitleaks detect
@@ -63,7 +74,7 @@ jobs:
       - name: Upload SARIF
         # 403 until GitHub Advanced Security is enabled on this private repo (see header)
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
