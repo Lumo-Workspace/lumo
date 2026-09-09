@@ -1,12 +1,8 @@
-import {
-  taskVerificationService,
-  TASK_STATUS_SCHEMA_VERSION,
-} from '@/lib/services/task-verification.service'
+import { taskVerificationService } from '@/lib/services/task-verification.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: {
@@ -92,12 +88,6 @@ jest.mock('@/lib/services/pr-security-reminder.service', () => ({
 const listCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
 const listRuns = verificationRunRepository.listByTask as jest.Mock
 const findHeader = taskRepository.findHeaderById as jest.Mock
-const writeSpies = [
-  acceptanceCriterionRepository.createMany as jest.Mock,
-  verificationRunRepository.createMany as jest.Mock,
-  activityRepository.create as jest.Mock,
-  notifyWorkspaceOwners as jest.Mock,
-]
 
 const HEADER = {
   id: 't-1',
@@ -119,22 +109,6 @@ function criterion(over: Record<string, unknown> = {}) {
     addedAtRound: 0,
     createdAt: new Date('2026-06-01T00:00:00Z'),
     updatedAt: new Date('2026-06-01T00:00:00Z'),
-    ...over,
-  }
-}
-
-function run(over: Record<string, unknown> = {}) {
-  return {
-    id: 'r-1',
-    taskId: 't-1',
-    criterionId: 'c-1',
-    round: 1,
-    verifierType: 'MACHINE',
-    verdict: 'PASS',
-    evidencePointer: 'cmd:npx jest x.test.ts#exit=0',
-    rejectionReason: null,
-    rejectionReasonEnum: null,
-    createdAt: new Date('2026-06-02T10:00:00Z'),
     ...over,
   }
 }

@@ -35,6 +35,7 @@ import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.ser
 import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { logger } from '@/lib/logger'
 import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import {
   findingStatement,
@@ -793,7 +794,13 @@ export const taskVerificationService = {
       // 500 on the whole self-check and never an implicit "clean".
       prSecurityReminderService
         .loadOpenFindingsForTask(taskId)
-        .catch(() => null),
+        .catch((error: unknown) => {
+          logger.warn('taskStatus.securityRead.failed', {
+            taskId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return null
+        }),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
