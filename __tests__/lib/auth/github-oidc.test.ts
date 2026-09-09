@@ -10,6 +10,7 @@
 import { generateKeyPairSync, sign as nodeSign } from 'node:crypto'
 import {
   GITHUB_OIDC_AUDIENCE,
+  GITHUB_OIDC_FETCH_TIMEOUT_MS,
   GITHUB_OIDC_ISSUER,
   GITHUB_OIDC_JWKS_URL,
   __resetJwksCacheForTests,
@@ -29,6 +30,29 @@ const publicJwk = {
 }
 
 const OTHER = generateKeyPairSync('rsa', { modulusLength: 2048 })
+/** The key GitHub "rotates to": same JWKS document, a different `kid`. */
+const rotatedJwk = {
+  ...(OTHER.publicKey.export({ format: 'jwk' }) as Record<string, unknown>),
+  kid: 'k2',
+  alg: 'RS256',
+  use: 'sig',
+}
+
+const EC = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+/** An EC JWK squatting on the RSA kid we are looking for. */
+const ecJwk = {
+  ...(EC.publicKey.export({ format: 'jwk' }) as Record<string, unknown>),
+  kid: 'k1',
+}
+
+/** Ten minute cache TTL plus a minute, so every cached key is stale. */
+const PAST_TTL_MS = 11 * 60 * 1000
+/** Five second refresh floor plus a second. */
+const PAST_FLOOR_MS = 6 * 1000
+
+function headerWithKid(kid: string): Record<string, unknown> {
+  return { alg: 'RS256', typ: 'JWT', kid }
+}
 
 function b64url(input: string | Buffer): string {
   return Buffer.from(input).toString('base64url')
@@ -310,16 +334,14 @@ describe('verifyGithubActionsToken', () => {
     ).rejects.toMatchObject({ status: 401 })
   })
 
-  it('re-fetches once for an unknown kid, then fails with 401', async () => {
+  it('refreshes once for an unknown kid, then fails with 401', async () => {
     await expect(
       verifyGithubActionsToken(
-        makeToken(basePayload(), {
-          header: { alg: 'RS256', typ: 'JWT', kid: 'rotated' },
-        }),
+        makeToken(basePayload(), { header: headerWithKid('rotated') }),
         { now: NOW }
       )
     ).rejects.toMatchObject({ status: 401 })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('does not fetch again while the cached key is fresh', async () => {
@@ -402,6 +424,32 @@ describe('verifyGithubActionsToken', () => {
     ).resolves.toMatchObject({ repository: 'acme/widgets' })
   })
 
+  it('rejects a token without exp', async () => {
+    const payload = basePayload()
+    delete payload.exp
+
+    await expect(
+      verifyGithubActionsToken(makeToken(payload), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('rejects a token without aud', async () => {
+    const payload = basePayload()
+    delete payload.aud
+
+    await expect(
+      verifyGithubActionsToken(makeToken(payload), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('rejects an EC JWK published under the RSA kid', async () => {
+    fetchMock.mockResolvedValue(jwksResponse([ecJwk]))
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
   it('exposes the GitHub OIDC constants', () => {
     expect(GITHUB_OIDC_ISSUER).toBe(
       'https://token.actions.githubusercontent.com'
@@ -410,5 +458,159 @@ describe('verifyGithubActionsToken', () => {
       'https://token.actions.githubusercontent.com/.well-known/jwks'
     )
     expect(GITHUB_OIDC_AUDIENCE).toBe('lumo')
+    expect(GITHUB_OIDC_FETCH_TIMEOUT_MS).toBe(3000)
+  })
+})
+
+describe('JWKS rotation and revocation', () => {
+  it('stops trusting a kid GitHub removed from the JWKS', async () => {
+    const realNow = Date.now()
+    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow)
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).resolves.toMatchObject({ repository: 'acme/widgets' })
+
+    // GitHub revokes k1 and the cached copy goes stale.
+    fetchMock.mockResolvedValue(jwksResponse([]))
+    dateSpy.mockReturnValue(realNow + PAST_TTL_MS)
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    // And it stays revoked: the second call must not resurrect the stale entry.
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('picks up the rotated kid and drops the retired one', async () => {
+    const realNow = Date.now()
+    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow)
+
+    await verifyGithubActionsToken(makeToken(), { now: NOW })
+
+    fetchMock.mockResolvedValue(jwksResponse([rotatedJwk]))
+    dateSpy.mockReturnValue(realNow + PAST_TTL_MS)
+
+    const rotatedToken = makeToken(basePayload(), {
+      header: headerWithKid('k2'),
+      key: OTHER.privateKey,
+    })
+    await expect(
+      verifyGithubActionsToken(rotatedToken, { now: NOW })
+    ).resolves.toMatchObject({ repository: 'acme/widgets' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+})
+
+describe('JWKS fetch hygiene', () => {
+  it('fetches the JWKS with a timeout signal', async () => {
+    await verifyGithubActionsToken(makeToken(), { now: NOW })
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.cache).toBe('no-store')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('maps an aborted JWKS fetch to 401', async () => {
+    fetchMock.mockRejectedValue(
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'AbortError',
+      })
+    )
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('refreshes at most once for back-to-back unknown kids', async () => {
+    const unknown = makeToken(basePayload(), {
+      header: headerWithKid('rotated'),
+    })
+
+    await expect(
+      verifyGithubActionsToken(unknown, { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    await expect(
+      verifyGithubActionsToken(unknown, { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shares one in-flight refresh across concurrent verifications', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        verifyGithubActionsToken(makeToken(), { now: NOW })
+      )
+    )
+
+    expect(results).toHaveLength(10)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('refreshes again for an unknown kid once the floor has elapsed', async () => {
+    const realNow = Date.now()
+    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow)
+    const unknown = makeToken(basePayload(), {
+      header: headerWithKid('rotated'),
+    })
+
+    await expect(
+      verifyGithubActionsToken(unknown, { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    dateSpy.mockReturnValue(realNow + PAST_FLOOR_MS)
+    await expect(
+      verifyGithubActionsToken(unknown, { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('claim shapes', () => {
+  it.each([
+    ['a repository without an owner', { repository: 'widgets' }],
+    ['a repository with three segments', { repository: 'acme/widgets/extra' }],
+    ['a repository with a space', { repository: 'acme/wid gets' }],
+    [
+      'a repository owner over 100 chars',
+      { repository: `${'a'.repeat(101)}/w` },
+    ],
+    ['a non hex sha', { sha: 'z'.repeat(40) }],
+    ['a short sha', { sha: 'abc123' }],
+    ['an uppercase sha', { sha: 'A'.repeat(40) }],
+    ['an overlong ref', { ref: `refs/heads/${'a'.repeat(300)}` }],
+    ['an overlong repository_owner', { repository_owner: 'a'.repeat(101) }],
+    ['an overlong actor', { actor: 'a'.repeat(101) }],
+    ['an overlong event_name', { event_name: 'a'.repeat(101) }],
+  ])('rejects %s', async (_label, overrides) => {
+    await expect(
+      verifyGithubActionsToken(makeToken({ ...basePayload(), ...overrides }), {
+        now: NOW,
+      })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('accepts the shapes GitHub actually emits', async () => {
+    await expect(
+      verifyGithubActionsToken(
+        makeToken({
+          ...basePayload(),
+          repository: 'acme-corp/my.widgets_v2',
+          sha: '0123456789abcdef0123456789abcdef01234567',
+          ref: 'refs/heads/main',
+        }),
+        { now: NOW }
+      )
+    ).resolves.toMatchObject({ repository: 'acme-corp/my.widgets_v2' })
   })
 })

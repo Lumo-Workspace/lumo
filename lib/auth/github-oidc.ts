@@ -16,15 +16,35 @@
 
 export const GITHUB_OIDC_ISSUER = 'https://token.actions.githubusercontent.com'
 export const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`
-export const GITHUB_OIDC_AUDIENCE = process.env.LUMO_OIDC_AUDIENCE ?? 'lumo'
+/**
+ * `||` rather than `??` on purpose: an env var that is set but empty (a common
+ * accident in CI and in `.env` files) must fall back to `lumo`, not become an
+ * empty expected audience that rejects every token GitHub ever issues.
+ */
+export const GITHUB_OIDC_AUDIENCE = process.env.LUMO_OIDC_AUDIENCE || 'lumo'
+/** Hard ceiling on a single JWKS fetch; a hung GitHub must not hang ingest. */
+export const GITHUB_OIDC_FETCH_TIMEOUT_MS = 3_000
 
 /** Tolerated clock difference between GitHub and us, in seconds. */
 const CLOCK_SKEW_SECONDS = 60
 /** How long a fetched signing key stays usable without re-checking the JWKS. */
 const JWKS_CACHE_TTL_MS = 10 * 60 * 1000
+/**
+ * Minimum spacing between JWKS refreshes triggered by an unknown `kid`.
+ * Without it, anyone can point a stream of made-up kids at a public route and
+ * turn it into a JWKS request amplifier against GitHub.
+ */
+const JWKS_REFRESH_FLOOR_MS = 5_000
 
 const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
 const PULL_MERGE_REF = /^refs\/pull\/(\d+)\/merge$/
+
+/** `owner/repo`, each segment as GitHub bounds them. */
+const REPOSITORY_SHAPE = /^[\w.-]{1,100}\/[\w.-]{1,100}$/
+/** A full, lowercase git object id. */
+const SHA_SHAPE = /^[0-9a-f]{40}$/
+const MAX_REF_LENGTH = 200
+const MAX_NAME_LENGTH = 100
 
 /** Claims we care about, normalised out of the raw OIDC payload. */
 export interface GithubActionsClaims {
@@ -52,11 +72,17 @@ interface CachedKey {
   fetchedAt: number
 }
 
-const jwksCache = new Map<string, CachedKey>()
+let jwksCache = new Map<string, CachedKey>()
+/** When the last refresh *attempt* started, successful or not. */
+let lastRefreshAt = 0
+/** The refresh currently in flight, shared by every concurrent caller. */
+let inFlightRefresh: Promise<void> | null = null
 
-/** Test seam: drop every cached signing key. */
+/** Test seam: drop every cached signing key and the refresh bookkeeping. */
 export function __resetJwksCacheForTests(): void {
-  jwksCache.clear()
+  jwksCache = new Map()
+  lastRefreshAt = 0
+  inFlightRefresh = null
 }
 
 function unauthorized(reason: string): Error & { status: number } {
@@ -110,14 +136,23 @@ function readString(
 }
 
 /**
- * Fetch the GitHub JWKS and replace the cache entry for every RS256 signing key
- * it advertises. A network error, a non-2xx response or a body we cannot parse
- * all surface as 401 — GitHub being flaky is an auth failure here, not a bug.
+ * Fetch the GitHub JWKS and *replace* the cache with exactly the RS256 signing
+ * keys it advertises. Building a fresh map and swapping it in is the point: a
+ * kid GitHub has retired (or revoked after a compromise) disappears from our
+ * cache the moment we see a JWKS without it, instead of lingering until the
+ * process restarts. A network error, a timeout, a non-2xx response or a body we
+ * cannot parse all surface as 401 — GitHub being flaky is an auth failure here,
+ * not a bug — and they leave the previous cache untouched.
  */
-async function refreshJwks(): Promise<void> {
+async function fetchJwks(): Promise<void> {
+  lastRefreshAt = Date.now()
+
   let payload: unknown
   try {
-    const response = await fetch(GITHUB_OIDC_JWKS_URL, { cache: 'no-store' })
+    const response = await fetch(GITHUB_OIDC_JWKS_URL, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(GITHUB_OIDC_FETCH_TIMEOUT_MS),
+    })
     if (!response.ok) {
       throw new Error(`JWKS request failed with status ${response.status}`)
     }
@@ -135,6 +170,7 @@ async function refreshJwks(): Promise<void> {
   }
 
   const fetchedAt = Date.now()
+  const next = new Map<string, CachedKey>()
   for (const entry of keys) {
     if (!entry || typeof entry !== 'object') continue
     const jwk = entry as JsonWebKey & { kid?: unknown }
@@ -152,19 +188,39 @@ async function refreshJwks(): Promise<void> {
         false,
         ['verify']
       )
-      jwksCache.set(kid, { key, fetchedAt })
+      next.set(kid, { key, fetchedAt })
     } catch {
       // A key we cannot import is a key we cannot verify with: skip it rather
       // than failing the whole JWKS (GitHub may add algorithms we don't know).
       continue
     }
   }
+
+  jwksCache = next
 }
 
 /**
- * Resolve the signing key for `kid`, refreshing the JWKS at most twice: once
- * because we have nothing fresh cached, and once more because GitHub may have
- * rotated keys since (an unknown kid is the normal signal for that).
+ * Single-flight wrapper around {@link fetchJwks}: a burst of requests arriving
+ * on a cold cache (or right after a rotation) makes one JWKS request between
+ * them, and every caller sees the same success or the same 401.
+ */
+function refreshJwks(): Promise<void> {
+  if (inFlightRefresh) return inFlightRefresh
+  const attempt = fetchJwks().finally(() => {
+    if (inFlightRefresh === attempt) inFlightRefresh = null
+  })
+  inFlightRefresh = attempt
+  return attempt
+}
+
+/**
+ * Resolve the signing key for `kid`.
+ *
+ * A cached entry is only usable while it is younger than the TTL; anything else
+ * means asking GitHub again and then looking `kid` up in the *new* document
+ * only, so a key that vanished from the JWKS can never be served from cache. An
+ * unknown kid is the normal rotation signal, but it is also attacker-controlled,
+ * so it may trigger a refresh at most once every {@link JWKS_REFRESH_FLOOR_MS}.
  */
 async function getSigningKey(kid: string): Promise<CryptoKey> {
   const cached = jwksCache.get(kid)
@@ -172,13 +228,22 @@ async function getSigningKey(kid: string): Promise<CryptoKey> {
     return cached.key
   }
 
-  await refreshJwks()
-  const fetched = jwksCache.get(kid)
-  if (fetched) return fetched.key
+  // The floor gates *starting* a refresh; a refresh already in flight is free
+  // to join, which is what keeps a cold-start burst down to one request.
+  if (
+    !cached &&
+    !inFlightRefresh &&
+    Date.now() - lastRefreshAt < JWKS_REFRESH_FLOOR_MS
+  ) {
+    throw unauthorized('unknown token signing key')
+  }
 
   await refreshJwks()
-  const retried = jwksCache.get(kid)
-  if (retried) return retried.key
+
+  const fetched = jwksCache.get(kid)
+  if (fetched && Date.now() - fetched.fetchedAt < JWKS_CACHE_TTL_MS) {
+    return fetched.key
+  }
 
   throw unauthorized('unknown token signing key')
 }
@@ -264,19 +329,37 @@ export async function verifyGithubActionsToken(
     throw unauthorized('token is missing GitHub repository claims')
   }
 
+  // Shape checks, after the signature: these claims flow into repo lookups, log
+  // lines and PR comment URLs, so we only accept what GitHub actually emits and
+  // reject anything else outright rather than truncating it into something that
+  // still looks plausible downstream.
+  if (!REPOSITORY_SHAPE.test(repository)) {
+    throw unauthorized('unexpected repository claim')
+  }
+  if (!SHA_SHAPE.test(sha)) throw unauthorized('unexpected sha claim')
+  if (ref.length > MAX_REF_LENGTH) throw unauthorized('unexpected ref claim')
+
+  const repositoryOwner = readString(payload, 'repository_owner')
+  const eventName = readString(payload, 'event_name')
+  const actor = readString(payload, 'actor')
+  for (const value of [repositoryOwner, eventName, actor]) {
+    if (value !== null && value.length > MAX_NAME_LENGTH) {
+      throw unauthorized('unexpected GitHub identity claim')
+    }
+  }
+
   const runId = payload.run_id
   return {
     repository,
     repositoryOwner:
-      readString(payload, 'repository_owner') ??
-      (repository.split('/')[0] || repository),
+      repositoryOwner ?? (repository.split('/')[0] || repository),
     ref,
     sha,
-    eventName: readString(payload, 'event_name') ?? '',
+    eventName: eventName ?? '',
     runId:
       typeof runId === 'string' || typeof runId === 'number'
         ? String(runId)
         : '',
-    actor: readString(payload, 'actor'),
+    actor,
   }
 }
