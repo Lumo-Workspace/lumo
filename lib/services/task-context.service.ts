@@ -745,38 +745,61 @@ export const taskContextService = {
     const task = await taskRepository.findById(taskId)
     if (!task) return empty
 
+    // LUM-500: the manifest retrieval hints (`lumo task <kind> show …`) require
+    // the human task identifier (e.g. "LUM-42") as their first positional, so an
+    // agent can run them verbatim. Compose it from the team prefix + number.
+    const taskIdentifier = `${task.team.identifier}-${task.number}`
+
     const safe = <T>(p: Promise<T>, fallback: T): Promise<T> =>
       p.catch(() => fallback)
 
-    const [criteria, taskMemories, projectMemories, slack, web, figma, prs] =
-      await Promise.all([
-        safe(
-          acceptanceCriterionRepository.listByTask(taskId),
-          [] as Awaited<
-            ReturnType<typeof acceptanceCriterionRepository.listByTask>
-          >
+    const [
+      criteria,
+      taskMemories,
+      projectMemories,
+      slack,
+      web,
+      figma,
+      prs,
+      securityFindingsSection,
+    ] = await Promise.all([
+      safe(
+        acceptanceCriterionRepository.listByTask(taskId),
+        [] as Awaited<
+          ReturnType<typeof acceptanceCriterionRepository.listByTask>
+        >
+      ),
+      safe(memoryRepository.findActiveTaskMemories(taskId), []),
+      safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
+      safe(
+        taskSlackContextRepository.listByTask(taskId),
+        [] as Awaited<ReturnType<typeof taskSlackContextRepository.listByTask>>
+      ),
+      safe(
+        taskWebLinkRepository.listByTask(taskId),
+        [] as Awaited<ReturnType<typeof taskWebLinkRepository.listByTask>>
+      ),
+      safe(
+        taskFigmaLinkService.listForTask(taskId),
+        [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>
+      ),
+      safe(
+        pullRequestRepository.listByTask(taskId),
+        [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>
+      ),
+      // LUM-737: undispositioned security findings on the task's PRs — the
+      // "fix before you claim done" warning. Best-effort: a scan read
+      // failing must never take session-start down, and '' means "nothing
+      // to show", never "confirmed clean" (task status carries the
+      // fail-closed read).
+      safe(
+        prSecurityReminderService.buildSessionStartSection(
+          taskId,
+          taskIdentifier
         ),
-        safe(memoryRepository.findActiveTaskMemories(taskId), []),
-        safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
-        safe(
-          taskSlackContextRepository.listByTask(taskId),
-          [] as Awaited<
-            ReturnType<typeof taskSlackContextRepository.listByTask>
-          >
-        ),
-        safe(
-          taskWebLinkRepository.listByTask(taskId),
-          [] as Awaited<ReturnType<typeof taskWebLinkRepository.listByTask>>
-        ),
-        safe(
-          taskFigmaLinkService.listForTask(taskId),
-          [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>
-        ),
-        safe(
-          pullRequestRepository.listByTask(taskId),
-          [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>
-        ),
-      ])
+        ''
+      ),
+    ])
 
     const projectRenderable = toProjectRenderables(projectMemories)
     // LUM-486: relevance-gate the project corpus before it becomes both the
@@ -883,22 +906,6 @@ export const taskContextService = {
         ? ''
         : `${heading}\n\n${cards.map(toManifest).join('\n')}`
 
-    // LUM-500: the manifest retrieval hints (`lumo task <kind> show …`) require
-    // the human task identifier (e.g. "LUM-42") as their first positional, so an
-    // agent can run them verbatim. Compose it from the team prefix + number.
-    const taskIdentifier = `${task.team.identifier}-${task.number}`
-
-    // LUM-737: undispositioned security findings on the task's PRs — the
-    // "fix before you claim done" warning. Best-effort: a scan read failing
-    // must never take session-start down, and '' means "nothing to show",
-    // never "confirmed clean" (task status carries the fail-closed read).
-    const securityFindingsSection = await safe(
-      prSecurityReminderService.buildSessionStartSection(
-        taskId,
-        taskIdentifier
-      ),
-      ''
-    )
     const prManifestBlock = manifestBlock(
       '## Pull Requests',
       ranked.prs as unknown as PRCard[],
