@@ -82,6 +82,9 @@ test('findByPrAndSha keys on the compound unique and create starts RUNNING', asy
 test('restart clears old findings and resets the scan; finalize stamps finishedAt', async () => {
   mockScan.findUnique.mockResolvedValueOnce({ stages: null })
   await prSecurityScanRepository.restart('s1')
+  // LUM-735: the read -> deleteMany -> update sequence must be one atomic
+  // transaction, not three round trips a crash could interleave.
+  expect(mockTransaction).toHaveBeenCalledTimes(1)
   expect(mockFinding.deleteMany).toHaveBeenCalledWith({
     where: { scanId: 's1', provenance: { not: 'EXTERNAL_TOOL' } },
   })
@@ -112,6 +115,36 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
         partial: false,
         finishedAt: expect.any(Date),
       }),
+    })
+  )
+})
+
+test('findScanRow selects and returns partial alongside stages', async () => {
+  const startedAt = new Date('2026-09-03T10:00:00Z')
+  mockScan.findUnique.mockResolvedValueOnce({
+    id: 's1',
+    status: 'RUNNING',
+    stages: { secrets: 'RAN' },
+    partial: true,
+    startedAt,
+  })
+  const row = await prSecurityScanRepository.findScanRow('s1')
+  expect(row).toEqual({
+    id: 's1',
+    status: 'RUNNING',
+    stages: { secrets: 'RAN' },
+    partial: true,
+    startedAt,
+  })
+  expect(mockScan.findUnique).toHaveBeenCalledWith(
+    expect.objectContaining({
+      select: {
+        id: true,
+        status: true,
+        stages: true,
+        partial: true,
+        startedAt: true,
+      },
     })
   )
 })
@@ -215,6 +248,24 @@ test('persistResult with no findings still finalizes, in a one-op transaction', 
   expect(mockTransaction).toHaveBeenCalledTimes(1)
 })
 
+test('persistResult never clears a partial already set by the other writer', async () => {
+  // LUM-735: `partial` means "some layer hit a cap" and must be monotone —
+  // once true it stays true regardless of what this writer's own outcome was.
+  mockScan.findUnique.mockResolvedValueOnce({ stages: null, partial: true })
+  await prSecurityScanRepository.persistResult('s1', [], {
+    status: 'CLEAN',
+    judgeStatus: 'RAN',
+    truncated: false,
+    stages: { secrets: 'RAN', judge: 'RAN' },
+    partial: false,
+  })
+  expect(mockScan.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({ partial: true }),
+    })
+  )
+})
+
 describe('LUM-735 SARIF push — shared scan row', () => {
   test('createIfAbsent returns created:false on a unique violation and re-reads the winner', async () => {
     mockScan.create.mockRejectedValueOnce(
@@ -253,6 +304,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
     })
     await prSecurityScanRepository.restart('s1')
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(mockFinding.deleteMany).toHaveBeenCalledWith({
       where: { scanId: 's1', provenance: { not: 'EXTERNAL_TOOL' } },
     })
@@ -350,6 +402,42 @@ describe('LUM-735 SARIF push — shared scan row', () => {
         data: expect.objectContaining({
           stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
         }),
+      })
+    )
+  })
+
+  test('mergeStages cannot clear a partial already set by the other writer', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      status: 'FINDINGS',
+      partial: true,
+    })
+    await prSecurityScanRepository.mergeStages(
+      's1',
+      { external: 'RAN' },
+      { partial: false }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ partial: true }),
+      })
+    )
+  })
+
+  test('mergeStages sets partial true when this writer is the first to hit a cap', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      status: 'CLEAN',
+      partial: false,
+    })
+    await prSecurityScanRepository.mergeStages(
+      's1',
+      { external: 'RAN' },
+      { partial: true }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ partial: true }),
       })
     )
   })

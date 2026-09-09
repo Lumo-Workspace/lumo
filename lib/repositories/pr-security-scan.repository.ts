@@ -175,26 +175,28 @@ export const prSecurityScanRepository = {
    * push and are not stage A's to discard (LUM-735).
    */
   async restart(id: string): Promise<void> {
-    const current = await prisma.prSecurityScan.findUnique({
-      where: { id },
-      select: { stages: true },
-    })
-    const external = (current?.stages as ScanStages | null)?.external
-    await prisma.prSecurityFinding.deleteMany({
-      where: { scanId: id, provenance: { not: 'EXTERNAL_TOOL' } },
-    })
-    await prisma.prSecurityScan.update({
-      where: { id },
-      data: {
-        status: 'RUNNING',
-        judgeStatus: null,
-        truncated: false,
-        stages: external ? { external } : Prisma.DbNull,
-        partial: false,
-        error: null,
-        startedAt: new Date(),
-        finishedAt: null,
-      },
+    await prisma.$transaction(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id },
+        select: { stages: true },
+      })
+      const external = (current?.stages as ScanStages | null)?.external
+      await tx.prSecurityFinding.deleteMany({
+        where: { scanId: id, provenance: { not: 'EXTERNAL_TOOL' } },
+      })
+      await tx.prSecurityScan.update({
+        where: { id },
+        data: {
+          status: 'RUNNING',
+          judgeStatus: null,
+          truncated: false,
+          stages: external ? { external } : Prisma.DbNull,
+          partial: false,
+          error: null,
+          startedAt: new Date(),
+          finishedAt: null,
+        },
+      })
     })
   },
 
@@ -234,7 +236,7 @@ export const prSecurityScanRepository = {
     await prisma.$transaction(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true },
+        select: { stages: true, partial: true },
       })
       const owned = (current?.stages as ScanStages | null)?.external
       const stages: ScanStages =
@@ -250,7 +252,9 @@ export const prSecurityScanRepository = {
           judgeStatus: final.judgeStatus,
           truncated: final.truncated,
           stages,
-          partial: final.partial,
+          // LUM-735: `partial` is monotone across the two writers — once a
+          // layer has hit a cap it must never be cleared by the other side.
+          partial: (current?.partial ?? false) || final.partial,
           error: final.error ?? null,
           finishedAt: new Date(),
         },
@@ -287,7 +291,7 @@ export const prSecurityScanRepository = {
     await prisma.$transaction(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, status: true, partial: true },
+        select: { stages: true, partial: true },
       })
       const stages = {
         ...((current?.stages as ScanStages | null) ?? {}),
@@ -297,7 +301,11 @@ export const prSecurityScanRepository = {
         where: { id: scanId },
         data: {
           stages,
-          ...(extra.partial !== undefined ? { partial: extra.partial } : {}),
+          // LUM-735: `partial` is monotone across writers — a `false` from
+          // this call can never clear a `true` set by the other writer.
+          ...(extra.partial !== undefined
+            ? { partial: (current?.partial ?? false) || extra.partial }
+            : {}),
           ...(extra.status ? { status: extra.status } : {}),
         },
       })
@@ -314,16 +322,24 @@ export const prSecurityScanRepository = {
     id: string
     status: ScanStatus
     stages: ScanStages | null
+    partial: boolean
     startedAt: Date
   } | null> {
     const row = await prisma.prSecurityScan.findUnique({
       where: { id },
-      select: { id: true, status: true, stages: true, startedAt: true },
+      select: {
+        id: true,
+        status: true,
+        stages: true,
+        partial: true,
+        startedAt: true,
+      },
     })
     return row as {
       id: string
       status: ScanStatus
       stages: ScanStages | null
+      partial: boolean
       startedAt: Date
     } | null
   },
