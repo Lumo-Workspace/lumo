@@ -95,7 +95,7 @@ export const ACTION_DESCRIPTIONS: Record<string, string> = {
   INFRA_TERMINATION:
     'terminate or restart infrastructure (kill -9/pkill/killall, systemctl/service restart|stop, docker kill/stop, docker-compose down, kubectl delete/rollout/drain, pm2 stop/kill)',
   HOOK_BYPASS:
-    'bypass local git hooks (git commit / git push with --no-verify, or a HUSKY=0 prefix)',
+    'bypass local git hooks (git commit / git push with --no-verify, git commit with the -n short flag, git -c core.hooksPath=<path> before commit/push, or a HUSKY=0 prefix)',
   TEST_FILE_DELETED:
     'delete a test file or test directory (rm / git rm of *.test.*, *.spec.*, or __tests__/)',
 }
