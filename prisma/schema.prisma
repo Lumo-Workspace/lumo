@@ -1409,6 +1409,12 @@ model PrSecurityScan {
   judgeStatus     PrSecurityJudgeStatus?
   // The diff exceeded the judge budget — the LLM pass saw only a prefix.
   truncated       Boolean                @default(false)
+  // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
+  // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
+  // this column existed — the service derives a legacy view from judgeStatus.
+  stages          Json?
+  // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
+  partial         Boolean                @default(false)
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
   detectorVersion String
   error           String?
