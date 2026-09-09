@@ -88,10 +88,11 @@ export interface SecurityScanView {
   stages: ScanStages
   partial: boolean
   /**
-   * False when any layer is FAILED / NOT_CONFIGURED / PARTIAL, or the scan
-   * itself is FAILED: never render as a full pass. A FAILED scan can carry
-   * `stages: {}` (it crashed before any layer ran), and `isCompleteScan({})`
-   * is true by contract for legacy rows, so status is checked separately.
+   * False when the scan FAILED, any layer is FAILED / NOT_CONFIGURED /
+   * PARTIAL, or `partial` is set: never render as a full pass. A FAILED scan
+   * can carry `stages: {}` (it crashed before any layer ran), and
+   * `isCompleteScan({})` is true by contract for legacy rows, so status is
+   * checked separately.
    */
   complete: boolean
   error: string | null
@@ -211,7 +212,7 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     truncated: s.truncated,
     stages,
     partial: s.partial,
-    complete: s.status !== 'FAILED' && isCompleteScan(stages),
+    complete: s.status !== 'FAILED' && !s.partial && isCompleteScan(stages),
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -424,6 +425,7 @@ export const prSecurityScanService = {
       if (files.length > 0) {
         const capped = truncateSecurityDiff(diff)
         truncated = capped.truncated
+        if (truncated) partial = true
         try {
           // Dynamic import keeps @ai-sdk/gateway out of the static graph.
           const { judgeSecurity } =

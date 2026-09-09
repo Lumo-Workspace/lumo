@@ -65,11 +65,17 @@ function num(value: unknown): number | null {
 type GhOk = { kind: 'ok'; body: unknown }
 type GhNotConfigured = { kind: 'not_configured'; reason: string }
 
+/** Per-request timeout so a hung GitHub call cannot pin the 300s worker. */
+export const GITHUB_FETCH_TIMEOUT_MS = 10_000
+
 /**
  * GET with the installation token. 403/404 → not_configured (GitHub uses
  * both for "this feature is off here": 403 "Advanced Security must be
- * enabled…", 404 "no analysis found" / "Secret scanning is disabled").
- * Any other non-2xx throws with `status`.
+ * enabled…", 404 "no analysis found" / "Secret scanning is disabled") — EXCEPT
+ * a 403 that is actually rate limiting (exhausted quota, not a disabled
+ * feature): that must throw and mark the stage FAILED, never read as "this
+ * repo doesn't have Advanced Security". Any other non-2xx also throws with
+ * `status`.
  */
 async function ghGet(
   url: string,
@@ -77,14 +83,26 @@ async function ghGet(
 ): Promise<GhOk | GhNotConfigured> {
   const res = await fetch(url, {
     headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
   })
   if (res.status === 403 || res.status === 404) {
     let reason = `GitHub API ${res.status}`
+    let message: string | null = null
     try {
       const body = asRecord(await res.json())
-      reason = str(body?.['message']) ?? reason
+      message = str(body?.['message'])
+      reason = message ?? reason
     } catch {
       // body not JSON — keep the status-only reason
+    }
+    if (
+      res.status === 403 &&
+      (res.headers?.get?.('x-ratelimit-remaining') === '0' ||
+        (message && /rate limit/i.test(message)))
+    ) {
+      throw Object.assign(new Error(`GitHub API 403 rate limited for ${url}`), {
+        status: 403,
+      })
     }
     return { kind: 'not_configured', reason }
   }

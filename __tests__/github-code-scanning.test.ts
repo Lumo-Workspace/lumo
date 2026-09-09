@@ -125,6 +125,17 @@ describe('fetchCodeScanningAlerts', () => {
     })
   })
 
+  it('throws (not not-configured) when the 403 is a rate limit, not a disabled feature', async () => {
+    setFetch(async () =>
+      response(403, {
+        message: 'API rate limit exceeded for installation ID 1.',
+      })
+    )
+    await expect(fetchCodeScanningAlerts(OPTS)).rejects.toMatchObject({
+      status: 403,
+    })
+  })
+
   it('throws with the status on any other error so the stage reads FAILED', async () => {
     setFetch(async () => response(500, { message: 'boom' }))
     await expect(fetchCodeScanningAlerts(OPTS)).rejects.toMatchObject({

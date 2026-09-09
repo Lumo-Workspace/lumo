@@ -51,6 +51,7 @@ import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import * as codeScanning from '@/lib/integrations/github/code-scanning'
 import { secretFingerprint } from '@/lib/security-scan/redact'
+import { SECURITY_DIFF_MAX_CHARS } from '@/lib/security-scan'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
@@ -814,6 +815,89 @@ describe('LUM-735 external oracle + stages', () => {
     ] as never)
     const out = await prSecurityScanService.getForTask('t1')
     expect(out.prs[0]!.latest).toMatchObject({ complete: false })
+  })
+
+  test('getForTask: complete is false when partial=true even though every stage RAN', async () => {
+    prRepo.findManyForSecurityByTaskId.mockResolvedValue([
+      { id: 'pr1', number: 7, title: 't', url: 'u', state: 'open' },
+    ] as never)
+    repo.findLatestByPullRequestIds.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't1',
+        workspaceId: 'w1',
+        headSha: 'sha-1',
+        status: 'CLEAN',
+        trigger: 'PR_EVENT',
+        judgeStatus: 'RAN',
+        truncated: false,
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: true,
+        detectorVersion: 'x',
+        error: null,
+        startedAt: new Date('2026-09-09T00:00:00Z'),
+        finishedAt: null,
+        findings: [],
+      },
+    ] as never)
+    const out = await prSecurityScanService.getForTask('t1')
+    expect(out.prs[0]!.latest).toMatchObject({
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+      partial: true,
+      complete: false,
+    })
+  })
+
+  test('getForTask: complete is true when partial=false and every stage RAN', async () => {
+    prRepo.findManyForSecurityByTaskId.mockResolvedValue([
+      { id: 'pr1', number: 7, title: 't', url: 'u', state: 'open' },
+    ] as never)
+    repo.findLatestByPullRequestIds.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't1',
+        workspaceId: 'w1',
+        headSha: 'sha-1',
+        status: 'CLEAN',
+        trigger: 'PR_EVENT',
+        judgeStatus: 'RAN',
+        truncated: false,
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: false,
+        detectorVersion: 'x',
+        error: null,
+        startedAt: new Date('2026-09-09T00:00:00Z'),
+        finishedAt: null,
+        findings: [],
+      },
+    ] as never)
+    const out = await prSecurityScanService.getForTask('t1')
+    expect(out.prs[0]!.latest).toMatchObject({
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+      partial: false,
+      complete: true,
+    })
+  })
+
+  test('a diff over SECURITY_DIFF_MAX_CHARS marks the judge truncated and the scan partial', async () => {
+    const bigDiff = [
+      '--- a/src/a.ts',
+      '+++ b/src/a.ts',
+      '@@ -1,0 +1,1 @@',
+      `+const x = "${'x'.repeat(SECURITY_DIFF_MAX_CHARS + 10)}"`,
+    ].join('\n')
+    fetchPrDiff.mockResolvedValue(bigDiff)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.anything(),
+      expect.objectContaining({ truncated: true, partial: true })
+    )
   })
 
   test('stagesOf derives a legacy view from judgeStatus when stages is null', () => {

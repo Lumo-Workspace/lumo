@@ -108,6 +108,12 @@ const GENERIC_RULE = 'secret:generic-assignment'
  * so any active alert in the same file counts for it. Severity only ever
  * goes up; nothing is added as a separate finding (A1 already covers the
  * file, so a second row would be a double report).
+ *
+ * Known limit: `ruleVendor` reads the vendor off the first token of the rule
+ * id, so a rule with no such family in GitHub's `secret_type` vocabulary
+ * (e.g. `private-key-block`, `jwt`, `database-url`) never matches an alert
+ * and is never upgraded — safe by construction (severity only ever goes up),
+ * just documented so it isn't mistaken for a bug later.
  */
 export function enhanceSecretFindings(
   findings: RawSecretFinding[],
@@ -124,7 +130,7 @@ export function enhanceSecretFindings(
     return {
       ...f,
       severity: 'HIGH',
-      detail: `${f.detail} GitHub secret scanning reports an active ${match.secretTypeDisplayName} in this file.`,
+      detail: `${f.detail} GitHub secret scanning reports an active ${redactKnownSecrets(match.secretTypeDisplayName)} in this file.`,
       externalRef: match.htmlUrl,
     }
   })
