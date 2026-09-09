@@ -1,80 +1,129 @@
-# LUM-735 — Lumo dogfoods its own external oracle: Semgrep + gitleaks upload
-# SARIF to GitHub code scanning, and the PR security scan (stage A2) reads the
-# resulting alerts back through the code-scanning API.
+# Lumo security scan — push scanner reports (SARIF) to Lumo (LUM-735).
 #
-# NOTE: code scanning on a PRIVATE repository requires GitHub Advanced Security
-# (Code security) to be enabled for the repo. Until it is, `upload-sarif`
-# fails with 403 and Lumo's own PRs show "External scanner: not configured".
-name: security
+# Setup (once per repository):
+#   1. In Lumo → Settings → API keys, click "Create CI ingest key".
+#   2. Add it to this repo as the Actions secret LUMO_SECURITY_TOKEN.
+#   3. Commit this file as .github/workflows/lumo-security.yml.
+# Nothing here needs GitHub code scanning / Advanced Security: reports go
+# straight to a private Vercel Blob and Lumo ingests them. Findings appear on
+# the task's security panel; only lines the PR added are kept.
+name: lumo-security
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
+
+env:
+  LUMO_API_URL: ${{ vars.LUMO_API_URL || 'https://www.uselumo.ai' }}
 
 jobs:
   semgrep:
     name: semgrep
     runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
-    steps:
-      - uses: actions/checkout@v5
-      # No `--error`: findings are delivered as SARIF alerts, not as a red job.
-      # With `--error` every finding exits 1 and a real semgrep failure (bad
-      # config, crash) becomes indistinguishable from "it found something".
-      - name: Semgrep scan (SARIF)
-        run: >-
-          semgrep scan
-          --config p/owasp-top-ten
-          --config p/typescript
-          --config p/nodejs
-          --sarif --output semgrep.sarif
-          --metrics=off
-      - name: Upload SARIF
-        # 403 until GitHub Advanced Security is enabled on this private repo (see header)
-        continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: semgrep.sarif
-          category: semgrep
-
-  gitleaks:
-    name: gitleaks
-    runs-on: ubuntu-latest
-    container:
-      image: zricethezav/gitleaks:latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      # The checkout is owned by the runner uid while the container runs as
-      # root; without this git refuses the repo ("dubious ownership") and
-      # gitleaks silently scans 0 commits and reports "no leaks found".
-      - name: Allow git to read the checkout
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Refuse a zero-commit scan
+      - name: Semgrep scan (SARIF)
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/python
+          --baseline-commit "${{ github.event.pull_request.base.sha }}"
+          --sarif --output semgrep.sarif --metrics=off
+      - uses: actions/upload-artifact@v4
+        with:
+          name: semgrep.sarif
+          path: semgrep.sarif
+          retention-days: 7
+      - name: Push report to Lumo
+        continue-on-error: true
+        env:
+          LUMO_SECURITY_TOKEN: ${{ secrets.LUMO_SECURITY_TOKEN }}
+          TOOL: semgrep
+          REPORT: semgrep.sarif
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          count=$(git rev-list --count HEAD)
-          echo "commits reachable: $count"
-          test "$count" -gt 0
+          gzip -kf "$REPORT"
+          npx -y -p @vercel/blob@2.3.2 node --input-type=module -e '
+            import { upload } from "@vercel/blob/client";
+            import { readFileSync } from "node:fs";
+            const env = process.env;
+            const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+            const [owner, repo] = env.REPOSITORY.split("/");
+            const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+            const body = new Blob([readFileSync(env.REPORT + ".gz")], { type: "application/gzip" });
+            const blob = await upload(pathname, body, {
+              access: "private",
+              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+              clientPayload: JSON.stringify(payload),
+              headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+              contentType: "application/gzip",
+            });
+            const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+              method: "POST",
+              headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+              body: JSON.stringify({ ...payload, url: blob.url }),
+            });
+            console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+            if (!res.ok) process.exit(1);
+          '
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Gitleaks scan (SARIF)
         run: >-
-          gitleaks detect
-          --source .
-          --report-format sarif
-          --report-path gitleaks.sarif
-          --exit-code 0
-          --no-banner
-      - name: Upload SARIF
-        # 403 until GitHub Advanced Security is enabled on this private repo (see header)
-        continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+          docker run --rm -v "$PWD:/src" --entrypoint sh zricethezav/gitleaks:latest -c
+          'git config --global --add safe.directory /src &&
+           test "$(git -C /src rev-list --count HEAD)" -gt 0 &&
+           gitleaks detect --source /src --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 --no-banner'
+      - uses: actions/upload-artifact@v4
         with:
-          sarif_file: gitleaks.sarif
-          category: gitleaks
+          name: gitleaks.sarif
+          path: gitleaks.sarif
+          retention-days: 7
+      - name: Push report to Lumo
+        continue-on-error: true
+        env:
+          LUMO_SECURITY_TOKEN: ${{ secrets.LUMO_SECURITY_TOKEN }}
+          TOOL: gitleaks
+          REPORT: gitleaks.sarif
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gzip -kf "$REPORT"
+          npx -y -p @vercel/blob@2.3.2 node --input-type=module -e '
+            import { upload } from "@vercel/blob/client";
+            import { readFileSync } from "node:fs";
+            const env = process.env;
+            const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+            const [owner, repo] = env.REPOSITORY.split("/");
+            const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+            const body = new Blob([readFileSync(env.REPORT + ".gz")], { type: "application/gzip" });
+            const blob = await upload(pathname, body, {
+              access: "private",
+              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+              clientPayload: JSON.stringify(payload),
+              headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+              contentType: "application/gzip",
+            });
+            const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+              method: "POST",
+              headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+              body: JSON.stringify({ ...payload, url: blob.url }),
+            });
+            console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+            if (!res.ok) process.exit(1);
+          '

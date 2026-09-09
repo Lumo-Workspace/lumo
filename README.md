@@ -230,22 +230,36 @@ minimum permission set. Everything Lumo reads or writes on GitHub goes through
 an installation token of this App; the OAuth connection only creates the repo
 webhook.
 
-| Permission             | Access       | Used by                                              |
-| ---------------------- | ------------ | ---------------------------------------------------- |
-| Contents               | Read         | file reads, PR diffs                                 |
-| Pull requests          | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
-| Issues                 | Read & write | comment mirror (issue comments)                      |
-| Checks                 | Read         | CI signal for the gate audit (LUM-616)               |
-| Commit statuses        | Read         | CI signal (Status API providers)                     |
-| Code scanning alerts   | Read         | PR security scan, external oracle (LUM-735)          |
-| Secret scanning alerts | Read         | PR security scan, A1 severity upgrade (LUM-735)      |
-| Metadata               | Read         | mandatory                                            |
+| Permission      | Access       | Used by                                              |
+| --------------- | ------------ | ---------------------------------------------------- |
+| Contents        | Read         | file reads, PR diffs                                 |
+| Pull requests   | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
+| Issues          | Read & write | comment mirror (issue comments)                      |
+| Checks          | Read         | CI signal for the gate audit (LUM-616)               |
+| Commit statuses | Read         | CI signal (Status API providers)                     |
+| Metadata        | Read         | mandatory                                            |
 
-Code scanning and secret scanning alerts are only readable when the target
-repository has them enabled (public repos: free; private repos: GitHub
-Advanced Security / Code security). A repository without them shows
-"External scanner: not configured" on the task's security panel — the scan
-is never reported as a full pass in that state.
+## 🛡️ Security scan: pushing SARIF to Lumo
+
+Lumo's PR security scan (LUM-735) reads scanner findings from SARIF reports
+that your own CI pushes straight to Lumo — the GitHub App needs no code
+scanning or secret scanning permissions at all, and no GitHub Advanced
+Security / Code security setup is required on the repository.
+
+**Setup (once per repository):**
+
+1. In Lumo → Settings → API keys, create a CI ingest key.
+2. Add it to the repository as the Actions secret `LUMO_SECURITY_TOKEN`.
+3. Copy the workflow template from
+   `https://www.uselumo.ai/integrations/lumo-security.yml`
+   (source: `public/integrations/lumo-security.yml`) into
+   `.github/workflows/lumo-security.yml` and commit it.
+
+Each scanner job gzips its SARIF report and uploads it directly to a private
+Vercel Blob, then tells Lumo the report is ready to fetch. Diff-aware
+filtering — keeping only the lines the PR actually added — happens on Lumo's
+side after ingest. The blob is deleted once Lumo has parsed it, and any
+report that fails to parse or is never completed is cleaned up after 24h.
 
 ## 🚀 Deployment
 
