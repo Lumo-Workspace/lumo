@@ -661,7 +661,7 @@ task
 task
   .command('status [task]')
   .description(
-    'Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend).'
+    'Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend).'
   )
   .option(
     '--json',
