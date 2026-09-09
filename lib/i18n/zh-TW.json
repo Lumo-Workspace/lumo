@@ -2274,8 +2274,16 @@
   "securityScan.stageState.FAILED": "失敗",
   "securityScan.stageState.NOT_CONFIGURED": "未接入",
   "securityScan.stageState.PARTIAL": "部分",
-  "securityScan.external.notConfigured": "此儲存庫沒有 GitHub code scanning 結果，只執行了 Lumo 自己的檢查。這裡的「乾淨」不等於完整通過。",
-  "securityScan.external.notConfigured.link": "啟用 code scanning",
+  "securityScan.external.notConfigured": "此儲存庫從未向 Lumo 推送過掃描器報告，只執行了 Lumo 自己的檢查。這裡的「乾淨」不等於完整通過。",
+  "securityScan.external.notConfigured.link": "產生 CI 回報金鑰",
   "securityScan.finding.externalLink": "在 GitHub 查看警示",
-  "securityScan.partial": "部分結果在掃描預算處被截斷，本次掃描不完整。"
+  "securityScan.partial": "部分結果在掃描預算處被截斷，本次掃描不完整。",
+  "apiKeys.ingest.title": "CI 安全回報金鑰",
+  "apiKeys.ingest.description": "只能向 Lumo 推送掃描器報告（SARIF）的金鑰。把它作為 LUMO_SECURITY_TOKEN secret 放進執行 lumo-security workflow 的儲存庫。",
+  "apiKeys.ingest.create": "產生 CI 回報金鑰",
+  "apiKeys.scope.securityIngest": "僅限 CI 回報",
+  "securityScan.status.pendingExternal": "等待 CI 掃描",
+  "securityScan.stageState.PENDING": "等待 CI",
+  "securityScan.external.notConfigured.template": "取得 workflow 範本",
+  "securityScan.external.late": "CI 已 30 分鐘未回報此提交的掃描結果。請檢查該 pull request 的 lumo-security workflow 執行。"
 }

@@ -2274,8 +2274,16 @@
   "securityScan.stageState.FAILED": "gagal",
   "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
   "securityScan.stageState.PARTIAL": "sebagian",
-  "securityScan.external.notConfigured": "Repositori ini tidak memiliki hasil GitHub code scanning, jadi hanya pemeriksaan milik Lumo yang dijalankan. Hasil bersih di sini bukan berarti lolos sepenuhnya.",
-  "securityScan.external.notConfigured.link": "Aktifkan code scanning",
+  "securityScan.external.notConfigured": "Repositori ini belum pernah mengirim laporan pemindai ke Lumo, jadi hanya pemeriksaan milik Lumo yang dijalankan. Hasil bersih di sini bukan berarti lolos sepenuhnya.",
+  "securityScan.external.notConfigured.link": "Buat kunci ingest CI",
   "securityScan.finding.externalLink": "Lihat peringatan di GitHub",
-  "securityScan.partial": "Sebagian hasil terpotong pada batas anggaran pemindaian — pemindaian belum lengkap."
+  "securityScan.partial": "Sebagian hasil terpotong pada batas anggaran pemindaian — pemindaian belum lengkap.",
+  "apiKeys.ingest.title": "Kunci ingest keamanan CI",
+  "apiKeys.ingest.description": "Kunci yang hanya dapat mengirim laporan pemindai (SARIF) ke Lumo. Simpan sebagai secret LUMO_SECURITY_TOKEN di repositori yang menjalankan workflow lumo-security.",
+  "apiKeys.ingest.create": "Buat kunci ingest CI",
+  "apiKeys.scope.securityIngest": "Hanya ingest CI",
+  "securityScan.status.pendingExternal": "Menunggu pemindaian CI",
+  "securityScan.stageState.PENDING": "menunggu CI",
+  "securityScan.external.notConfigured.template": "Ambil templat workflow",
+  "securityScan.external.late": "CI belum melaporkan pemindaian untuk commit ini selama 30 menit. Periksa run workflow lumo-security untuk pull request ini."
 }

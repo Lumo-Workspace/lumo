@@ -2274,8 +2274,16 @@
   "securityScan.stageState.FAILED": "thất bại",
   "securityScan.stageState.NOT_CONFIGURED": "chưa cấu hình",
   "securityScan.stageState.PARTIAL": "một phần",
-  "securityScan.external.notConfigured": "Kho này không có kết quả GitHub code scanning, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
-  "securityScan.external.notConfigured.link": "Bật code scanning",
+  "securityScan.external.notConfigured": "Kho này chưa từng gửi báo cáo trình quét tới Lumo, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
+  "securityScan.external.notConfigured.link": "Tạo khóa nạp CI",
   "securityScan.finding.externalLink": "Xem cảnh báo trên GitHub",
-  "securityScan.partial": "Một số kết quả bị cắt ở ngưỡng ngân sách quét — lần quét chưa hoàn tất."
+  "securityScan.partial": "Một số kết quả bị cắt ở ngưỡng ngân sách quét — lần quét chưa hoàn tất.",
+  "apiKeys.ingest.title": "Khóa nạp báo cáo bảo mật từ CI",
+  "apiKeys.ingest.description": "Khóa chỉ có thể gửi báo cáo của trình quét (SARIF) tới Lumo. Lưu làm secret LUMO_SECURITY_TOKEN trong các kho chạy workflow lumo-security.",
+  "apiKeys.ingest.create": "Tạo khóa nạp CI",
+  "apiKeys.scope.securityIngest": "Chỉ nạp từ CI",
+  "securityScan.status.pendingExternal": "Đang chờ quét từ CI",
+  "securityScan.stageState.PENDING": "đang chờ CI",
+  "securityScan.external.notConfigured.template": "Lấy mẫu workflow",
+  "securityScan.external.late": "CI chưa báo cáo lần quét nào cho commit này trong 30 phút. Kiểm tra lần chạy workflow lumo-security của pull request này."
 }

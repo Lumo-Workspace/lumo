@@ -2274,8 +2274,16 @@
   "securityScan.stageState.FAILED": "fehlgeschlagen",
   "securityScan.stageState.NOT_CONFIGURED": "nicht konfiguriert",
   "securityScan.stageState.PARTIAL": "unvollständig",
-  "securityScan.external.notConfigured": "Für dieses Repository gibt es keine GitHub-Code-Scanning-Ergebnisse, daher liefen nur Lumos eigene Prüfungen. Ein sauberes Ergebnis hier ist kein vollständiger Freigabebefund.",
-  "securityScan.external.notConfigured.link": "Code Scanning aktivieren",
+  "securityScan.external.notConfigured": "Dieses Repository hat noch nie einen Scanner-Bericht an Lumo gesendet, daher liefen nur Lumos eigene Prüfungen. Ein sauberes Ergebnis hier ist kein vollständiger Freigabebefund.",
+  "securityScan.external.notConfigured.link": "CI-Ingest-Schlüssel erstellen",
   "securityScan.finding.externalLink": "Warnung auf GitHub ansehen",
-  "securityScan.partial": "Einige Ergebnisse wurden am Scan-Budget abgeschnitten — der Scan ist nicht vollständig."
+  "securityScan.partial": "Einige Ergebnisse wurden am Scan-Budget abgeschnitten — der Scan ist nicht vollständig.",
+  "apiKeys.ingest.title": "CI-Sicherheits-Ingest-Schlüssel",
+  "apiKeys.ingest.description": "Ein Schlüssel, der nur Scanner-Berichte (SARIF) an Lumo senden darf. Als Secret LUMO_SECURITY_TOKEN in den Repositories hinterlegen, die den lumo-security-Workflow ausführen.",
+  "apiKeys.ingest.create": "CI-Ingest-Schlüssel erstellen",
+  "apiKeys.scope.securityIngest": "Nur CI-Ingest",
+  "securityScan.status.pendingExternal": "Warte auf CI-Scan",
+  "securityScan.stageState.PENDING": "wartet auf CI",
+  "securityScan.external.notConfigured.template": "Workflow-Vorlage holen",
+  "securityScan.external.late": "CI hat seit 30 Minuten keinen Scan für diesen Commit gemeldet. Prüfe den lumo-security-Workflow-Lauf dieses Pull Requests."
 }
