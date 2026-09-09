@@ -35,6 +35,15 @@ import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.ser
 import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import {
+  findingStatement,
+  type UnconfirmedPr,
+} from '@/lib/security-scan/agent-reminder'
+import type {
+  FindingProvenance,
+  FindingSeverity,
+} from '@/lib/repositories/pr-security-scan.repository'
 import {
   aggregateRetroStruggle,
   type RetroStruggleAggregate,
@@ -319,6 +328,43 @@ export interface TrendModel {
   }
 }
 
+export interface NextActionCriterion {
+  kind: 'CRITERION'
+  criterionId: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer: string | null
+  judgeSteps: string | null
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+  addedAtRound: number
+  rejectionReason: string | null
+}
+export interface NextActionSecurityFinding {
+  kind: 'SECURITY_FINDING'
+  findingId: string
+  statement: string
+  severity: FindingSeverity
+  provenance: FindingProvenance
+  blocking: boolean
+  prNumber: number
+  ruleId: string
+  filePath: string
+  line: number | null
+}
+/**
+ * One entry of the declarative plan. `kind` discriminates (LUM-737):
+ * CRITERION = an unmet acceptance criterion (the pre-737 shape, now tagged);
+ * SECURITY_FINDING = an undispositioned PR security finding — outside the
+ * contract but a hard constraint on DONE when `blocking`. Additive: consumers
+ * that pre-date `kind` should treat a missing kind as CRITERION.
+ */
+export type NextAction = NextActionCriterion | NextActionSecurityFinding
+export interface TaskSecurityFindingsSummary {
+  open: number
+  blocking: number
+  unconfirmedPrs: UnconfirmedPr[]
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -362,17 +408,12 @@ export interface TaskAcceptanceStatus {
     rejectionReason: string | null
     rejectionReasonEnum: string | null
   }>
-  /** Unmet criteria (latest verdict is not a pass) — the declarative plan. */
-  nextActions: Array<{
-    criterionId: string
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer: string | null
-    judgeSteps: string | null
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
-    addedAtRound: number
-    rejectionReason: string | null
-  }>
+  /** Unmet criteria + undispositioned security findings — the declarative plan. */
+  nextActions: NextAction[]
+  /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
+   *  confirm) — distinct from `{ open: 0, … }`, a successful read with
+   *  nothing open. */
+  securityFindings: TaskSecurityFindingsSummary | null
   /** The latest live (non-withdrawn) human verdict action — the one the undo
    *  button targets (LUM-586). Null when no live human verdict exists (nothing
    *  to undo). actorName is null when the member row cannot be resolved cheaply
@@ -712,6 +753,7 @@ export const taskVerificationService = {
       withdrawnActionIds,
       latestWithdrawal,
       latestHumanVerdictAction,
+      securityState,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -746,6 +788,12 @@ export const taskVerificationService = {
       verificationRunWithdrawalRepository.latestByTask(taskId),
       // LUM-586: latest live (non-withdrawn) human verdict action — the undo target.
       verificationRunRepository.latestHumanVerdictAction(taskId),
+      // LUM-737: undispositioned PR security findings. Fail-closed: a read
+      // failure becomes `securityFindings: null` ("could not confirm"), never a
+      // 500 on the whole self-check and never an implicit "clean".
+      prSecurityReminderService
+        .loadOpenFindingsForTask(taskId)
+        .catch(() => null),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1146,20 +1194,46 @@ export const taskVerificationService = {
       removedCriteria,
       verificationHistory,
       lastRoundFailures,
-      nextActions: unmet.map(c => {
-        const latest = latestByCriterion.get(c.id)
-        return {
-          criterionId: c.id,
-          statement: c.statement,
-          verifierType: c.verifierType,
-          checkpointer: c.checkpointer,
-          judgeSteps: c.judgeSteps,
-          source: c.source,
-          addedAtRound: c.addedAtRound,
-          rejectionReason:
-            latest?.verdict === 'FAIL' ? latest.rejectionReason : null,
-        }
-      }),
+      nextActions: [
+        ...unmet.map((c): NextActionCriterion => {
+          const latest = latestByCriterion.get(c.id)
+          return {
+            kind: 'CRITERION',
+            criterionId: c.id,
+            statement: c.statement,
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+            judgeSteps: c.judgeSteps,
+            source: c.source,
+            addedAtRound: c.addedAtRound,
+            rejectionReason:
+              latest?.verdict === 'FAIL' ? latest.rejectionReason : null,
+          }
+        }),
+        // LUM-737: findings come after the contract — they are constraints on
+        // DONE, not criteria; already severity/provenance-sorted by the service.
+        ...(securityState?.findings ?? []).map(
+          (f): NextActionSecurityFinding => ({
+            kind: 'SECURITY_FINDING',
+            findingId: f.id,
+            statement: findingStatement(f),
+            severity: f.severity,
+            provenance: f.provenance,
+            blocking: f.blocking,
+            prNumber: f.prNumber,
+            ruleId: f.ruleId,
+            filePath: f.filePath,
+            line: f.line,
+          })
+        ),
+      ],
+      securityFindings: securityState
+        ? {
+            open: securityState.findings.length,
+            blocking: securityState.blockingCount,
+            unconfirmedPrs: securityState.unconfirmedPrs,
+          }
+        : null,
     }
   },
 
