@@ -73,7 +73,7 @@ export interface SecurityFindingView {
   detail: string
   evidence: string
   fingerprint: string
-  /** Alert URL on GitHub (EXTERNAL_TOOL, or an A1 hit confirmed by secret scanning). */
+  /** The rule's `helpUri` from the pushed SARIF; null for Lumo's own layers. */
   externalRef: string | null
   disposition: FindingDisposition | null
   dispositionNote: string | null

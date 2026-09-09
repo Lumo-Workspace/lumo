@@ -108,8 +108,10 @@ function parseResult(raw: unknown): SarifResult | null {
 export function parseSarif(doc: unknown): SarifRun[] {
   const d = rec(doc)
   if (!d) throw unsupported('not an object')
-  if (d['version'] !== '2.1.0')
-    throw unsupported(`version ${String(d['version'])}`)
+  // The message must not echo the document's own `version`: it is attacker-
+  // controlled text from an uploaded report and this reason string is
+  // persisted on the scan row and written to logs (LUM-735 review).
+  if (d['version'] !== '2.1.0') throw unsupported('version is not 2.1.0')
   const runs = arr(d['runs'])
   if (runs.length === 0) throw unsupported('no runs')
   return runs.map(raw => {

@@ -24,6 +24,11 @@ describe('LUM-735 dogfood workflows', () => {
     expect(yml).toMatch(/\/api\/integrations\/security\/sarif\/complete/)
     expect(yml).toMatch(/access:\s*"private"/)
     expect(yml).toMatch(/LUMO_SECURITY_TOKEN/)
+    // One run per PR (LUM-735 review I3): overlapping runs from a push train
+    // leave several ingests racing for the same scan row.
+    expect(yml).toMatch(
+      /^concurrency:\n\s+group: lumo-security-\$\{\{ github\.event\.pull_request\.number \}\}\n\s+cancel-in-progress: true$/m
+    )
     // Findings go straight to Lumo via Blob; GitHub code scanning is unused.
     expect(yml).not.toMatch(/upload-sarif/)
     // Inside the gitleaks container git refuses the runner-owned checkout

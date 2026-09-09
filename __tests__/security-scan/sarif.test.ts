@@ -100,6 +100,12 @@ describe('parseSarif', () => {
     expect(() => parseSarif(sarif({ version: '2.0.0' }))).toThrow(
       expect.objectContaining({ status: 422 })
     )
+    // The reason is fixed text — it must never echo the document's own
+    // `version`, which is attacker-controlled and ends up on the scan row
+    // and in logs (LUM-735 review).
+    expect(() =>
+      parseSarif(sarif({ version: '<script>alert(1)</script>' }))
+    ).toThrow('Unsupported SARIF: version is not 2.1.0')
     expect(() => parseSarif({ hello: 'world' })).toThrow(
       expect.objectContaining({ status: 422 })
     )

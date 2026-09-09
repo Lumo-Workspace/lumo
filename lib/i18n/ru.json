@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "частично",
   "securityScan.external.notConfigured": "Этот репозиторий ни разу не отправлял отчёт сканера в Lumo, поэтому выполнялись только собственные проверки Lumo. Чистый результат здесь не является полным прохождением.",
   "securityScan.external.notConfigured.link": "Создать ключ для приёма из CI",
-  "securityScan.finding.externalLink": "Открыть оповещение на GitHub",
+  "securityScan.finding.externalLink": "Открыть документацию правила",
   "securityScan.partial": "Часть результатов обрезана по бюджету проверки — проверка не полная.",
   "apiKeys.ingest.title": "Ключ CI для приёма отчётов безопасности",
   "apiKeys.ingest.description": "Ключ, который может только отправлять отчёты сканеров (SARIF) в Lumo. Сохраните его как секрет LUMO_SECURITY_TOKEN в репозиториях, где запускается workflow lumo-security.",

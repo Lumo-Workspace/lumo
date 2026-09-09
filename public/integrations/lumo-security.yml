@@ -12,6 +12,13 @@ name: lumo-security
 on:
   pull_request:
 
+# One run per PR: a rapid push train would otherwise leave several ingests
+# racing for the same scan row, the slowest (oldest commit's) report landing
+# last and overwriting the newest.
+concurrency:
+  group: lumo-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

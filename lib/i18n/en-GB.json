@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "partial",
   "securityScan.external.notConfigured": "This repository has never pushed a scanner report to Lumo, so only Lumo's own checks ran. A clean result here is not a full pass.",
   "securityScan.external.notConfigured.link": "Create a CI ingest key",
-  "securityScan.finding.externalLink": "View alert on GitHub",
+  "securityScan.finding.externalLink": "View rule documentation",
   "securityScan.partial": "Some results were cut off at the scan budget — the scan is not complete.",
   "apiKeys.ingest.title": "CI security ingest key",
   "apiKeys.ingest.description": "A key that can only push scanner reports (SARIF) to Lumo. Store it as the LUMO_SECURITY_TOKEN secret in the repositories that run the lumo-security workflow.",

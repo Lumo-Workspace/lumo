@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "parcial",
   "securityScan.external.notConfigured": "Este repositorio nunca ha enviado un informe de escáner a Lumo, así que solo se ejecutaron las comprobaciones propias de Lumo. Un resultado limpio aquí no es una aprobación completa.",
   "securityScan.external.notConfigured.link": "Crear una clave de ingesta para CI",
-  "securityScan.finding.externalLink": "Ver alerta en GitHub",
+  "securityScan.finding.externalLink": "Ver documentación de la regla",
   "securityScan.partial": "Algunos resultados se cortaron al agotarse el presupuesto del análisis; el análisis no está completo.",
   "apiKeys.ingest.title": "Clave de ingesta de seguridad para CI",
   "apiKeys.ingest.description": "Una clave que solo puede enviar informes de escáner (SARIF) a Lumo. Guárdala como el secreto LUMO_SECURITY_TOKEN en los repositorios que ejecutan el workflow lumo-security.",

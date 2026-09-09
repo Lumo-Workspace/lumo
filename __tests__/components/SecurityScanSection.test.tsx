@@ -37,7 +37,7 @@ const messages: Record<string, string> = {
   'securityScan.external.notConfigured.template': 'Get the workflow template',
   'securityScan.external.late':
     'CI has not reported a scan for this commit in 30 minutes. Check the lumo-security workflow run for this pull request.',
-  'securityScan.finding.externalLink': 'View alert on GitHub',
+  'securityScan.finding.externalLink': 'View rule documentation',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
 }

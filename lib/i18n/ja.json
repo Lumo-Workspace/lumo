@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "一部のみ",
   "securityScan.external.notConfigured": "このリポジトリはスキャナーのレポートを Lumo に送ったことがないため、Lumo 独自のチェックのみ実行されました。ここでの「問題なし」は完全な合格ではありません。",
   "securityScan.external.notConfigured.link": "CI 取り込みキーを作成する",
-  "securityScan.finding.externalLink": "GitHub でアラートを見る",
+  "securityScan.finding.externalLink": "ルールのドキュメントを見る",
   "securityScan.partial": "スキャン予算の上限で一部の結果が打ち切られました。スキャンは完全ではありません。",
   "apiKeys.ingest.title": "CI セキュリティ取り込みキー",
   "apiKeys.ingest.description": "スキャナーのレポート（SARIF）を Lumo に送ることだけができるキーです。lumo-security ワークフローを実行するリポジトリに、シークレット LUMO_SECURITY_TOKEN として保存してください。",

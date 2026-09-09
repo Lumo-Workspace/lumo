@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "partiel",
   "securityScan.external.notConfigured": "Ce dépôt n'a jamais envoyé de rapport de scanner à Lumo ; seules les vérifications propres à Lumo ont été exécutées. Un résultat propre ici n'est pas une validation complète.",
   "securityScan.external.notConfigured.link": "Créer une clé d'ingestion CI",
-  "securityScan.finding.externalLink": "Voir l'alerte sur GitHub",
+  "securityScan.finding.externalLink": "Voir la documentation de la règle",
   "securityScan.partial": "Certains résultats ont été tronqués à la limite du budget d'analyse — l'analyse n'est pas complète.",
   "apiKeys.ingest.title": "Clé d'ingestion sécurité pour la CI",
   "apiKeys.ingest.description": "Une clé qui ne peut qu'envoyer des rapports de scanner (SARIF) à Lumo. À stocker comme secret LUMO_SECURITY_TOKEN dans les dépôts qui exécutent le workflow lumo-security.",

@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "部分",
   "securityScan.external.notConfigured": "该仓库从未向 Lumo 推送过扫描器报告，只跑了 Lumo 自己的检查。这里的「干净」不等于完整通过。",
   "securityScan.external.notConfigured.link": "生成 CI 上报密钥",
-  "securityScan.finding.externalLink": "在 GitHub 查看告警",
+  "securityScan.finding.externalLink": "查看规则文档",
   "securityScan.partial": "部分结果在扫描预算处被截断，本次扫描不完整。",
   "apiKeys.ingest.title": "CI 安全上报密钥",
   "apiKeys.ingest.description": "只能向 Lumo 推送扫描器报告（SARIF）的密钥。把它作为 LUMO_SECURITY_TOKEN secret 放进运行 lumo-security workflow 的仓库。",

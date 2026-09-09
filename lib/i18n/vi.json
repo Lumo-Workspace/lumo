@@ -2276,7 +2276,7 @@
   "securityScan.stageState.PARTIAL": "một phần",
   "securityScan.external.notConfigured": "Kho này chưa từng gửi báo cáo trình quét tới Lumo, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
   "securityScan.external.notConfigured.link": "Tạo khóa nạp CI",
-  "securityScan.finding.externalLink": "Xem cảnh báo trên GitHub",
+  "securityScan.finding.externalLink": "Xem tài liệu quy tắc",
   "securityScan.partial": "Một số kết quả bị cắt ở ngưỡng ngân sách quét — lần quét chưa hoàn tất.",
   "apiKeys.ingest.title": "Khóa nạp báo cáo bảo mật từ CI",
   "apiKeys.ingest.description": "Khóa chỉ có thể gửi báo cáo của trình quét (SARIF) tới Lumo. Lưu làm secret LUMO_SECURITY_TOKEN trong các kho chạy workflow lumo-security.",
