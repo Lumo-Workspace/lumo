@@ -104,12 +104,15 @@ function escapeRegExp(s: string): string {
  * can only be a single run of `[A-Za-z0-9]` immediately before `.sarif.gz`
  * (no extra `/`, `.` or `-` segments the old prefix/suffix check let through).
  *
- * The suffix must also contain an uppercase letter. `tool` values are
+ * The suffix must also be at least 16 characters. `tool` values are
  * lowercase-only (`^[a-z0-9-]{1,32}$`), so a lowercase-only "suffix" could
  * actually be another valid tool slug colliding with a shorter one — e.g.
  * `semgrep-oss.sarif.gz` satisfying a token minted for the bare `semgrep`
- * tool. Vercel's real random suffix mixes case, so this rules that out
- * without rejecting any genuine suffix.
+ * tool. Length is the stable discriminator here (Vercel's real random
+ * suffix is far longer than any tool slug); case is not — Vercel's
+ * `addRandomSuffix` is generated server-side and opaque to this repo, so it
+ * could legitimately be all-lowercase/digits, and requiring an uppercase
+ * letter would silently reject a valid suffix and drop the ingest.
  */
 export function pathnameMatches(actual: string, expected: string): boolean {
   if (actual === expected) return true
@@ -117,5 +120,5 @@ export function pathnameMatches(actual: string, expected: string): boolean {
   const match = actual.match(
     new RegExp(`^${escapeRegExp(base)}-([A-Za-z0-9]+)\\.sarif\\.gz$`)
   )
-  return !!match && /[A-Z]/.test(match[1]!)
+  return !!match && /^[A-Za-z0-9]{16,}$/.test(match[1]!)
 }

@@ -234,8 +234,9 @@ describe('POST /api/integrations/security/sarif/upload', () => {
       type: 'blob.upload-completed',
       payload: {
         blob: {
-          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
-          pathname: 'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+          pathname:
+            'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
         },
         tokenPayload,
       },
@@ -260,8 +261,9 @@ describe('POST /api/integrations/security/sarif/upload', () => {
       type: 'blob.upload-completed',
       payload: {
         blob: {
-          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
-          pathname: 'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+          pathname:
+            'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
         },
         tokenPayload,
       },
@@ -287,7 +289,7 @@ describe('POST /api/integrations/security/sarif/upload', () => {
 
 describe('POST /api/integrations/security/sarif/complete', () => {
   const url =
-    'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz'
+    'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz'
 
   it('accepts a valid body with a matching (suffixed) pathname and dispatches without a leading slash', async () => {
     const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
@@ -295,7 +297,7 @@ describe('POST /api/integrations/security/sarif/complete', () => {
     expect(await res.json()).toEqual({ accepted: true })
     expect(mockedDispatch).toHaveBeenCalledWith({
       url,
-      pathname: 'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+      pathname: 'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
       workspaceId: 'w1',
       ...PAYLOAD,
     })
@@ -310,7 +312,7 @@ describe('POST /api/integrations/security/sarif/complete', () => {
 
   it('rejects a url whose pathname does not match the payload with 400 and does not dispatch', async () => {
     const wrongUrl =
-      'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/deadbeef/semgrep-Ab12.sarif.gz'
+      'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/deadbeef/semgrep-a1b2c3d4e5f6g7h8.sarif.gz'
     const res = await completePOST(
       makeReq(() => ({ ...PAYLOAD, url: wrongUrl }))
     )
@@ -320,7 +322,7 @@ describe('POST /api/integrations/security/sarif/complete', () => {
 
   it('rejects a url whose host is not a vercel blob storage host with 400 and does not dispatch', async () => {
     const evilUrl =
-      'https://evil.example/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz'
+      'https://evil.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz'
     const res = await completePOST(
       makeReq(() => ({ ...PAYLOAD, url: evilUrl }))
     )
@@ -347,22 +349,37 @@ describe('POST /api/integrations/security/sarif/complete', () => {
 describe('pathnameMatches', () => {
   const expected = 'security-sarif/o--r/abc1234/semgrep.sarif.gz'
 
-  it('matches a genuine addRandomSuffix suffix (mixed-case alphanumeric)', () => {
+  it('matches an exact pathname', () => {
+    expect(pathnameMatches(expected, expected)).toBe(true)
+  })
+
+  it('matches a genuine addRandomSuffix suffix, even all-lowercase/digits', () => {
+    // Vercel's `addRandomSuffix` is generated server-side and opaque to this
+    // repo — it must not be assumed to always mix case.
     expect(
       pathnameMatches(
-        'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+        'security-sarif/o--r/abc1234/semgrep-abcdefghijklmnop.sarif.gz',
         expected
       )
     ).toBe(true)
   })
 
-  it('does not match a lowercase-only tail that is actually a different (longer) tool slug', () => {
+  it('does not match a short tail that is actually a different (shorter) tool slug', () => {
     // `semgrep-oss` is itself a valid, distinct tool slug (see toolSlug() /
     // the ingest service tests) — it must never be accepted as "semgrep" +
     // a random suffix just because it happens to share the "semgrep-" prefix.
     expect(
       pathnameMatches(
         'security-sarif/o--r/abc1234/semgrep-oss.sarif.gz',
+        expected
+      )
+    ).toBe(false)
+  })
+
+  it('does not match a short tail even if it mixes case', () => {
+    expect(
+      pathnameMatches(
+        'security-sarif/o--r/abc1234/semgrep-Ab3.sarif.gz',
         expected
       )
     ).toBe(false)
