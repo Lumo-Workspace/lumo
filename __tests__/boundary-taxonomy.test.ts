@@ -13,6 +13,23 @@ describe('SESSION_BINDING_MISSING taxonomy', () => {
   })
 })
 
+describe('LUM-736 L4 Session Guard taxonomy', () => {
+  const L4: BoundaryCrossingCategory[] = [
+    'SENSITIVE_PATH_EDIT',
+    'HOOK_BYPASS',
+    'TEST_FILE_DELETED',
+  ]
+  it.each(L4)(
+    '%s is MEDIUM severity (visible, honours the workspace opt-out)',
+    cat => {
+      expect(severityFor(cat)).toBe('MEDIUM')
+    }
+  )
+  it.each(L4)('%s is reversible (repo-state only)', cat => {
+    expect(isReversible(cat)).toBe(true)
+  })
+})
+
 describe('reversibility taxonomy — world/external-state boundary (LUM-516)', () => {
   const REVERSIBLE: BoundaryCrossingCategory[] = [
     'NEW_NPM_DEPENDENCY',
@@ -27,6 +44,11 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     // LUM-640: a steward-session commit/PR is repo/GitHub state — revert/close
     // undoes it, same world-state class as PUSH_TO_PROTECTED_BRANCH.
     'STEWARD_IMPLEMENTATION_ARTIFACT',
+    // LUM-736 (L4 Session Guard): all three are repo-state edits/deletes or a
+    // bypassed local hook — `git restore` / a follow-up commit undoes them.
+    'SENSITIVE_PATH_EDIT',
+    'HOOK_BYPASS',
+    'TEST_FILE_DELETED',
   ]
   const IRREVERSIBLE: BoundaryCrossingCategory[] = [
     'HARDCODED_SECRET',

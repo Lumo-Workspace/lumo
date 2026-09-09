@@ -209,6 +209,19 @@ enum BoundaryCrossingCategory {
   // unparseable Bash payload in a steward session records an unconfirmed
   // crossing rather than nothing. Disposition stays web + human-only.
   STEWARD_IMPLEMENTATION_ARTIFACT
+  // LUM-736 (Security Scan v2, L4 Session Guard): three deterministic, no-LLM
+  // classes on the existing detectAndRecord chain (disposition human-only,
+  // crossing explain, DONE gate). All MEDIUM + reversible; no finding row.
+  // SENSITIVE_PATH_EDIT — an Edit/Write landed on a sensitive path (auth/,
+  //   middleware.ts / proxy.ts, .github/workflows/, a lockfile,
+  //   prisma/schema.prisma); the default path set is replaceable by a
+  //   ProjectPolicy path-glob rule mapped to this category.
+  // HOOK_BYPASS — a Bash segment ran git commit/push --no-verify or HUSKY=0.
+  // TEST_FILE_DELETED — an rm / git rm segment targeted *.test.* / *.spec.* /
+  //   __tests__/ (a Bash delete; TEST_TAMPERING stays the Edit/Write class).
+  SENSITIVE_PATH_EDIT
+  HOOK_BYPASS
+  TEST_FILE_DELETED
 }
 
 enum BoundaryCrossingDisposition {

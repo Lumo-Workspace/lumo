@@ -26,7 +26,9 @@ export function __resetSourceCache(): void {
   _sourceCache.clear()
 }
 
-// The 8 action built-ins that may produce blocking crossings (LUM-590).
+// The action built-ins that may produce blocking crossings (LUM-590; the three
+// L4 session-guard classes added in LUM-736 — a path-glob rule mapped to
+// SENSITIVE_PATH_EDIT overrides the detector's default sensitive-path set).
 const BUILTIN_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',
   'MIGRATION_FILE_DELETED',
@@ -36,6 +38,9 @@ const BUILTIN_CATEGORIES = [
   'EXFILTRATION_PUBLIC',
   'CLOUD_DATA_DELETION',
   'INFRA_TERMINATION',
+  'SENSITIVE_PATH_EDIT',
+  'HOOK_BYPASS',
+  'TEST_FILE_DELETED',
 ] as const
 
 /** Stable rule id — sha256 of rule text, first 16 hex chars. */
