@@ -10,9 +10,19 @@ import { z } from 'zod'
  */
 const repository = z.string().regex(/^[\w.-]+\/[\w.-]+$/)
 const headSha = z.string().regex(/^[0-9a-f]{7,40}$/)
+// Accepted for forward-compat with a future diff-base override; currently
+// unused — the worker derives the diff itself from the PR's own base ref.
 const baseSha = z.string().regex(/^[0-9a-f]{7,40}$/)
 const prNumber = z.number().int().positive()
 const tool = z.string().regex(/^[a-z0-9-]{1,32}$/)
+
+/**
+ * Vercel Blob's own token verification already restricts an authenticated
+ * upload to a blob it minted, so this is defense-in-depth: it stops
+ * `complete`'s dispatch (fed by a CI-supplied `url`, not a signed callback)
+ * from ever resolving a URL on a host we don't recognize as blob storage.
+ */
+export const BLOB_HOST_SUFFIX = '.blob.vercel-storage.com'
 
 /**
  * What the CI client sends as `clientPayload` to `@vercel/blob/client`'s
@@ -83,13 +93,29 @@ export function expectedSarifPathname(p: {
   return `security-sarif/${owner}--${repo}/${p.headSha}/${p.tool}.sarif.gz`
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Compares an actual blob pathname against the expected one, allowing for
  * the random suffix `addRandomSuffix: true` inserts before the extension
- * (`<tool>.sarif.gz` -> `<tool>-<suffix>.sarif.gz`).
+ * (`<tool>.sarif.gz` -> `<tool>-<suffix>.sarif.gz`). Anchored so the suffix
+ * can only be a single run of `[A-Za-z0-9]` immediately before `.sarif.gz`
+ * (no extra `/`, `.` or `-` segments the old prefix/suffix check let through).
+ *
+ * The suffix must also contain an uppercase letter. `tool` values are
+ * lowercase-only (`^[a-z0-9-]{1,32}$`), so a lowercase-only "suffix" could
+ * actually be another valid tool slug colliding with a shorter one — e.g.
+ * `semgrep-oss.sarif.gz` satisfying a token minted for the bare `semgrep`
+ * tool. Vercel's real random suffix mixes case, so this rules that out
+ * without rejecting any genuine suffix.
  */
 export function pathnameMatches(actual: string, expected: string): boolean {
   if (actual === expected) return true
   const base = expected.slice(0, -'.sarif.gz'.length)
-  return actual.startsWith(`${base}-`) && actual.endsWith('.sarif.gz')
+  const match = actual.match(
+    new RegExp(`^${escapeRegExp(base)}-([A-Za-z0-9]+)\\.sarif\\.gz$`)
+  )
+  return !!match && /[A-Z]/.test(match[1]!)
 }

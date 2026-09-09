@@ -210,11 +210,7 @@ export const securitySarifIngestService = {
       logger.error(
         `[security-sarif-ingest] FAILED tool=${logSafe(job.tool)} gz=${gzSize} scan=${scan.id}: ${reason.slice(0, 200)}`
       )
-      await prSecurityScanRepository.mergeStages(
-        scan.id,
-        { external: 'FAILED' },
-        {}
-      )
+      await safeMarkExternalFailed(scan.id)
       // Blob kept for debugging; pruneStaleBlobs removes it after 24h.
       return {
         outcome: 'FAILED',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
+import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { SECURITY_INGEST_SCOPE } from '@/lib/services/auth.service'
@@ -31,8 +32,10 @@ function safeJsonParse(s: string): unknown {
  * nothing the client sent directly.
  */
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as HandleUploadBody
   try {
+    const body = (await request.json().catch(() => {
+      throw Object.assign(new Error('Invalid JSON body'), { status: 400 })
+    })) as HandleUploadBody
     const result = await handleUpload({
       body,
       request,
@@ -78,15 +81,21 @@ export async function POST(request: NextRequest) {
           logger.warn('[security-sarif upload] missing/invalid tokenPayload')
           return
         }
-        await dispatchSecuritySarifIngest({
-          url: blob.url,
-          pathname: blob.pathname,
-          workspaceId: parsed.data.workspaceId,
-          repository: parsed.data.repository,
-          headSha: parsed.data.headSha,
-          prNumber: parsed.data.prNumber,
-          tool: parsed.data.tool,
-        })
+        // Do NOT await: the worker (POST /api/internal/security-sarif-ingest)
+        // runs with a 300s budget, far longer than this callback's own
+        // request lifetime can afford. waitUntil keeps the function alive
+        // for it without blocking the response back to the blob store.
+        waitUntil(
+          dispatchSecuritySarifIngest({
+            url: blob.url,
+            pathname: blob.pathname,
+            workspaceId: parsed.data.workspaceId,
+            repository: parsed.data.repository,
+            headSha: parsed.data.headSha,
+            prNumber: parsed.data.prNumber,
+            tool: parsed.data.tool,
+          })
+        )
       },
     })
     return NextResponse.json(result)

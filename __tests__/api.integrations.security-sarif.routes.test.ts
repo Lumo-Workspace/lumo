@@ -15,6 +15,7 @@
  * dispatched job comes from the authenticated key's `identity.workspace.id`,
  * never from the request body or the client's own payload.
  */
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@vercel/blob/client', () => ({
   handleUpload: jest.fn(
     async ({
@@ -69,17 +70,24 @@ import { POST as uploadPOST } from '@/app/api/integrations/security/sarif/upload
 import { POST as completePOST } from '@/app/api/integrations/security/sarif/complete/route'
 import { POST as ingestPOST } from '@/app/api/internal/security-sarif-ingest/route'
 import { GET as pruneGET } from '@/app/api/cron/prune-security-sarif/route'
+import { waitUntil } from '@vercel/functions'
+import { handleUpload } from '@vercel/blob/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
 import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
 import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
-import { expectedSarifPathname } from '@/lib/validation/security-sarif'
+import {
+  expectedSarifPathname,
+  pathnameMatches,
+} from '@/lib/validation/security-sarif'
 
 const mockedVerifyBearer = verifyBearer as jest.Mock
 const mockedRateLimit = checkSarifIngestRateLimit as jest.Mock
 const mockedDispatch = dispatchSecuritySarifIngest as jest.Mock
 const mockedIngest = securitySarifIngestService.ingest as jest.Mock
 const mockedPrune = securitySarifIngestService.pruneStaleBlobs as jest.Mock
+const mockedWaitUntil = waitUntil as jest.Mock
+const mockedHandleUpload = handleUpload as jest.Mock
 
 const IDENTITY = {
   user: { id: 'u1' },
@@ -113,6 +121,10 @@ beforeEach(() => {
   process.env.CRON_SECRET = 'secret'
   mockedVerifyBearer.mockResolvedValue(IDENTITY)
   mockedRateLimit.mockResolvedValue(undefined)
+  // A real dispatch call returns a Promise; default it here so tests that
+  // assert waitUntil received "the dispatch promise" observe an actual
+  // Promise object rather than plain `undefined`.
+  mockedDispatch.mockResolvedValue(undefined)
 })
 
 describe('POST /api/integrations/security/sarif/upload', () => {
@@ -153,6 +165,21 @@ describe('POST /api/integrations/security/sarif/upload', () => {
       workspaceId: 'w1',
       ...PAYLOAD,
     })
+    // The blob SDK needs the raw request to verify its own signed callback —
+    // handleUpload must be called with it, not just `body`.
+    expect(mockedHandleUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ request: expect.anything() })
+    )
+  })
+
+  it('rejects malformed JSON with 400 through the route error mapping', async () => {
+    const res = await uploadPOST(
+      makeReq(() => {
+        throw new SyntaxError('Unexpected token')
+      })
+    )
+    expect(res.status).toBe(400)
+    expect(mockedHandleUpload).not.toHaveBeenCalled()
   })
 
   it('rejects a pathname that does not match the payload with 400', async () => {
@@ -221,6 +248,27 @@ describe('POST /api/integrations/security/sarif/upload', () => {
       workspaceId: 'w1',
       ...PAYLOAD,
     })
+    expect(mockedWaitUntil).toHaveBeenCalledWith(
+      mockedDispatch.mock.results[0]!.value
+    )
+  })
+
+  it('responds without waiting for the worker even if dispatch never resolves', async () => {
+    mockedDispatch.mockReturnValue(new Promise(() => {}))
+    const tokenPayload = JSON.stringify({ workspaceId: 'w1', ...PAYLOAD })
+    const body = {
+      type: 'blob.upload-completed',
+      payload: {
+        blob: {
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+          pathname: 'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+        },
+        tokenPayload,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body))
+    expect(res.status).toBe(200)
+    expect(mockedWaitUntil).toHaveBeenCalledWith(expect.any(Promise))
   })
 
   it('skips dispatch (still 200) when tokenPayload is missing', async () => {
@@ -239,7 +287,7 @@ describe('POST /api/integrations/security/sarif/upload', () => {
 
 describe('POST /api/integrations/security/sarif/complete', () => {
   const url =
-    'https://blob.example.com/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz'
+    'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz'
 
   it('accepts a valid body with a matching (suffixed) pathname and dispatches without a leading slash', async () => {
     const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
@@ -253,11 +301,28 @@ describe('POST /api/integrations/security/sarif/complete', () => {
     })
   })
 
+  it('dispatches via waitUntil without awaiting the worker', async () => {
+    mockedDispatch.mockReturnValue(new Promise(() => {}))
+    const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
+    expect(res.status).toBe(202)
+    expect(mockedWaitUntil).toHaveBeenCalledWith(expect.any(Promise))
+  })
+
   it('rejects a url whose pathname does not match the payload with 400 and does not dispatch', async () => {
     const wrongUrl =
-      'https://blob.example.com/security-sarif/o--r/deadbeef/semgrep-Ab12.sarif.gz'
+      'https://xyz123.public.blob.vercel-storage.com/security-sarif/o--r/deadbeef/semgrep-Ab12.sarif.gz'
     const res = await completePOST(
       makeReq(() => ({ ...PAYLOAD, url: wrongUrl }))
+    )
+    expect(res.status).toBe(400)
+    expect(mockedDispatch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a url whose host is not a vercel blob storage host with 400 and does not dispatch', async () => {
+    const evilUrl =
+      'https://evil.example/security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz'
+    const res = await completePOST(
+      makeReq(() => ({ ...PAYLOAD, url: evilUrl }))
     )
     expect(res.status).toBe(400)
     expect(mockedDispatch).not.toHaveBeenCalled()
@@ -276,6 +341,31 @@ describe('POST /api/integrations/security/sarif/complete', () => {
     )
     expect(res.status).toBe(400)
     expect(mockedDispatch).not.toHaveBeenCalled()
+  })
+})
+
+describe('pathnameMatches', () => {
+  const expected = 'security-sarif/o--r/abc1234/semgrep.sarif.gz'
+
+  it('matches a genuine addRandomSuffix suffix (mixed-case alphanumeric)', () => {
+    expect(
+      pathnameMatches(
+        'security-sarif/o--r/abc1234/semgrep-Ab12.sarif.gz',
+        expected
+      )
+    ).toBe(true)
+  })
+
+  it('does not match a lowercase-only tail that is actually a different (longer) tool slug', () => {
+    // `semgrep-oss` is itself a valid, distinct tool slug (see toolSlug() /
+    // the ingest service tests) — it must never be accepted as "semgrep" +
+    // a random suffix just because it happens to share the "semgrep-" prefix.
+    expect(
+      pathnameMatches(
+        'security-sarif/o--r/abc1234/semgrep-oss.sarif.gz',
+        expected
+      )
+    ).toBe(false)
   })
 })
 

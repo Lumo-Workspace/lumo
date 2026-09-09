@@ -344,6 +344,14 @@ test('a write-stage failure after a successful parse marks external FAILED and k
   expect(delBlob).not.toHaveBeenCalled()
 })
 
+test('a parse/normalize failure whose own mergeStages(external=FAILED) also rejects does not throw', async () => {
+  fetchBlob.mockResolvedValue(gz({ version: '1.0', runs: [] }))
+  repo.mergeStages.mockRejectedValueOnce(new Error('mergeStages down'))
+  const out = await securitySarifIngestService.ingest(JOB)
+  expect(out).toMatchObject({ outcome: 'FAILED', scanId: 's1' })
+  expect(delBlob).not.toHaveBeenCalled()
+})
+
 test('a second failure while marking external FAILED does not throw or change the outcome', async () => {
   fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
   repo.replaceExternalFindings.mockRejectedValueOnce(
