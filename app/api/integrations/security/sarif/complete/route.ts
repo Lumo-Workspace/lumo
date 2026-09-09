@@ -90,7 +90,14 @@ export async function POST(request: NextRequest) {
       ...(principal.kind === 'key'
         ? { workspaceId: principal.workspaceId }
         : {}),
-      repository: body.repository,
+      // On the OIDC path the token's `repository` claim is the canonical
+      // spelling — GitHub's own casing — and `assertPayloadMatchesPrincipal`
+      // has already proved the body names the same repository (it compares
+      // case-insensitively, because the client's `github.repository` may be
+      // cased differently). The pathname check above stays on the body: the
+      // client built that path from the casing it sent.
+      repository:
+        principal.kind === 'oidc' ? principal.repository : body.repository,
       headSha: body.headSha,
       prNumber: body.prNumber,
       tool: body.tool,

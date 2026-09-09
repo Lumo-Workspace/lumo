@@ -75,6 +75,14 @@ interface CachedKey {
 let jwksCache = new Map<string, CachedKey>()
 /** When the last refresh *attempt* started, successful or not. */
 let lastRefreshAt = 0
+/**
+ * When the last refresh attempt *failed*. Separate from `lastRefreshAt`
+ * because it gates a different case: a failure means GitHub is unreachable, so
+ * every kid is unresolvable until the floor elapses — including kids we hold a
+ * stale cached entry for, which `lastRefreshAt` alone deliberately lets
+ * through (that path exists to pick up a rotation promptly).
+ */
+let lastFailedRefreshAt = 0
 /** The refresh currently in flight, shared by every concurrent caller. */
 let inFlightRefresh: Promise<void> | null = null
 
@@ -82,6 +90,7 @@ let inFlightRefresh: Promise<void> | null = null
 export function __resetJwksCacheForTests(): void {
   jwksCache = new Map()
   lastRefreshAt = 0
+  lastFailedRefreshAt = 0
   inFlightRefresh = null
 }
 
@@ -206,9 +215,14 @@ async function fetchJwks(): Promise<void> {
  */
 function refreshJwks(): Promise<void> {
   if (inFlightRefresh) return inFlightRefresh
-  const attempt = fetchJwks().finally(() => {
-    if (inFlightRefresh === attempt) inFlightRefresh = null
-  })
+  const attempt = fetchJwks()
+    .catch(error => {
+      lastFailedRefreshAt = Date.now()
+      throw error
+    })
+    .finally(() => {
+      if (inFlightRefresh === attempt) inFlightRefresh = null
+    })
   inFlightRefresh = attempt
   return attempt
 }
@@ -221,6 +235,13 @@ function refreshJwks(): Promise<void> {
  * only, so a key that vanished from the JWKS can never be served from cache. An
  * unknown kid is the normal rotation signal, but it is also attacker-controlled,
  * so it may trigger a refresh at most once every {@link JWKS_REFRESH_FLOOR_MS}.
+ *
+ * The floor also covers the window after a *failed* refresh, whatever the cache
+ * holds. During a GitHub outage the stale-entry path would otherwise re-fetch
+ * on every single request, each one paying the full
+ * {@link GITHUB_OIDC_FETCH_TIMEOUT_MS} before its 401 — turning an upstream
+ * outage into a pile-up of slow requests on our side. Failing fast is the same
+ * answer, sooner.
  */
 async function getSigningKey(kid: string): Promise<CryptoKey> {
   const cached = jwksCache.get(kid)
@@ -230,12 +251,12 @@ async function getSigningKey(kid: string): Promise<CryptoKey> {
 
   // The floor gates *starting* a refresh; a refresh already in flight is free
   // to join, which is what keeps a cold-start burst down to one request.
-  if (
-    !cached &&
-    !inFlightRefresh &&
-    Date.now() - lastRefreshAt < JWKS_REFRESH_FLOOR_MS
-  ) {
-    throw unauthorized('unknown token signing key')
+  if (!inFlightRefresh) {
+    const now = Date.now()
+    const floored = cached
+      ? now - lastFailedRefreshAt < JWKS_REFRESH_FLOOR_MS
+      : now - lastRefreshAt < JWKS_REFRESH_FLOOR_MS
+    if (floored) throw unauthorized('unknown token signing key')
   }
 
   await refreshJwks()
@@ -284,21 +305,14 @@ export async function verifyGithubActionsToken(
     throw unauthorized('malformed token')
   }
 
-  const key = await getSigningKey(kid)
-  const signed = new TextEncoder().encode(`${headerSegment}.${payloadSegment}`)
-  let valid = false
-  try {
-    valid = await crypto.subtle.verify(
-      'RSASSA-PKCS1-v1_5',
-      key,
-      signature,
-      signed
-    )
-  } catch {
-    valid = false
-  }
-  if (!valid) throw unauthorized('invalid token signature')
-
+  // Issuer, audience and the time claims are checked *before* the JWKS lookup.
+  // They cost nothing but a string compare, and they reject everything an
+  // attacker can mint on their own — so a stream of junk tokens aimed at this
+  // public route never reaches `getSigningKey`, and therefore never turns us
+  // into a JWKS request amplifier against GitHub. These checks prove nothing on
+  // their own (the payload is still unauthenticated here); the signature below
+  // is what makes them mean anything, and every claim we go on to *use* is
+  // re-read and shape-checked after it.
   if (payload.iss !== GITHUB_OIDC_ISSUER) {
     throw unauthorized('unexpected token issuer')
   }
@@ -321,6 +335,21 @@ export async function verifyGithubActionsToken(
       throw unauthorized('token is not valid yet')
     }
   }
+
+  const key = await getSigningKey(kid)
+  const signed = new TextEncoder().encode(`${headerSegment}.${payloadSegment}`)
+  let valid = false
+  try {
+    valid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      signature,
+      signed
+    )
+  } catch {
+    valid = false
+  }
+  if (!valid) throw unauthorized('invalid token signature')
 
   const repository = readString(payload, 'repository')
   const ref = readString(payload, 'ref')

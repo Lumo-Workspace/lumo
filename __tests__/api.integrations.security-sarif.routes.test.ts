@@ -218,12 +218,38 @@ describe('POST /api/integrations/security/sarif/upload', () => {
     expect(mockedVerifyBearer).not.toHaveBeenCalled()
     const json = await res.json()
     // No workspaceId: the worker resolves ownership from the PullRequest row.
+    // `repository` is the token's own casing, not the client payload's — the
+    // claim is what GitHub says the repo is called.
     expect(JSON.parse(json._opts.tokenPayload)).toEqual({
       auth: 'oidc',
       ...PAYLOAD,
+      repository: 'O/R',
     })
     // Rate-limited per repository, not per api key.
     expect(mockedRateLimit).toHaveBeenCalledWith('oidc:o/r')
+  })
+
+  it('carries the OIDC claim casing of the repository into the token payload', async () => {
+    mockedVerifyOidc.mockResolvedValue({
+      ...CLAIMS,
+      repository: 'Acme/Widgets',
+      repositoryOwner: 'Acme',
+    })
+    const payload = { ...PAYLOAD, repository: 'acme/widgets' }
+    const body = {
+      type: 'blob.generate-client-token',
+      payload: {
+        // The client built the pathname from its own `github.repository`, so
+        // the pathname check still runs against the payload's casing.
+        pathname: expectedSarifPathname(payload),
+        clientPayload: JSON.stringify(payload),
+        multipart: false,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(JSON.parse(json._opts.tokenPayload).repository).toBe('Acme/Widgets')
   })
 
   it('rejects a payload whose repository/prNumber contradict the token with 403', async () => {
@@ -382,6 +408,55 @@ describe('POST /api/integrations/security/sarif/upload', () => {
     expect(mockedDispatch.mock.calls[0]![0]).not.toHaveProperty('workspaceId')
   })
 
+  // Deploy-window compatibility: a token minted by the previous deployment
+  // has no `auth` field, and its upload can complete after the new code is
+  // live. The shape still says which path minted it.
+  it('dispatches a legacy tokenPayload with no auth field but a workspaceId', async () => {
+    const tokenPayload = JSON.stringify({ workspaceId: 'w1', ...PAYLOAD })
+    const body = {
+      type: 'blob.upload-completed',
+      payload: {
+        blob: {
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+          pathname:
+            'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+        },
+        tokenPayload,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body))
+    expect(res.status).toBe(200)
+    expect(mockedDispatch).toHaveBeenCalledWith({
+      url: body.payload.blob.url,
+      pathname: body.payload.blob.pathname,
+      workspaceId: 'w1',
+      ...PAYLOAD,
+    })
+  })
+
+  it('dispatches a legacy tokenPayload with no auth field and no workspaceId', async () => {
+    const tokenPayload = JSON.stringify({ ...PAYLOAD })
+    const body = {
+      type: 'blob.upload-completed',
+      payload: {
+        blob: {
+          url: 'https://blob.example/security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+          pathname:
+            'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
+        },
+        tokenPayload,
+      },
+    }
+    const res = await uploadPOST(makeReq(() => body, OIDC_BEARER))
+    expect(res.status).toBe(200)
+    expect(mockedDispatch).toHaveBeenCalledWith({
+      url: body.payload.blob.url,
+      pathname: body.payload.blob.pathname,
+      ...PAYLOAD,
+    })
+    expect(mockedDispatch.mock.calls[0]![0]).not.toHaveProperty('workspaceId')
+  })
+
   it('responds without waiting for the worker even if dispatch never resolves', async () => {
     mockedDispatch.mockReturnValue(new Promise(() => {}))
     const tokenPayload = JSON.stringify({
@@ -447,8 +522,39 @@ describe('POST /api/integrations/security/sarif/complete', () => {
       url,
       pathname: 'security-sarif/o--r/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz',
       ...PAYLOAD,
+      // GitHub's own casing from the claim, not the body's.
+      repository: 'O/R',
     })
     expect(mockedDispatch.mock.calls[0]![0]).not.toHaveProperty('workspaceId')
+  })
+
+  it('dispatches the OIDC claim casing of the repository', async () => {
+    mockedVerifyOidc.mockResolvedValue({
+      ...CLAIMS,
+      repository: 'Acme/Widgets',
+      repositoryOwner: 'Acme',
+    })
+    const acmeUrl =
+      'https://xyz123.public.blob.vercel-storage.com/security-sarif/acme--widgets/abc1234/semgrep-a1b2c3d4e5f6g7h8.sarif.gz'
+    const res = await completePOST(
+      makeReq(
+        () => ({ ...PAYLOAD, repository: 'acme/widgets', url: acmeUrl }),
+        OIDC_BEARER
+      )
+    )
+    expect(res.status).toBe(202)
+    expect(mockedDispatch.mock.calls[0]![0]).toMatchObject({
+      repository: 'Acme/Widgets',
+    })
+  })
+
+  it('keeps the body casing of the repository on the api key path', async () => {
+    const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
+    expect(res.status).toBe(202)
+    expect(mockedDispatch.mock.calls[0]![0]).toMatchObject({
+      repository: 'o/r',
+      workspaceId: 'w1',
+    })
   })
 
   it('rejects a body contradicting the OIDC token with 403 and does not dispatch', async () => {

@@ -270,6 +270,15 @@ workflow run, so nothing is reported for fork PRs and the task's security
 panel shows "waiting for CI" until, after 30 minutes, it shows "CI has not
 reported".
 
+**What the OIDC token proves — and what it doesn't.** The token identifies the
+repository, not a person, so anyone who can push a branch to the repository can
+have a workflow run push security reports for that repository's pull requests —
+exactly the trust the repository already places in its own CI. Pull requests
+opened from forks receive no OIDC token at all and are therefore never reported
+on. Reports are attributed to the workspace that owns the `PullRequest` row
+they land on, so re-linking a repository to another workspace leaves the old
+workspace's existing PR rows (and their findings) where they are.
+
 ## 🚀 Deployment
 
 ### Vercel (Recommended)

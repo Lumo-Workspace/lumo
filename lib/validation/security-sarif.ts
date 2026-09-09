@@ -83,9 +83,17 @@ export type SarifIngestJobInput = z.infer<typeof sarifIngestJobSchema>
  *
  * `auth` records which credential minted the token, and `workspaceId` is
  * present only for `auth: 'key'` (see {@link sarifIngestJobSchema}).
+ *
+ * `auth` is **optional** for the deploy window: an upload whose token was
+ * minted by the previous deployment can complete minutes after the new code is
+ * live, and that older payload has no `auth` field. Rejecting it would silently
+ * drop a report that was already accepted. The shape still says which path
+ * minted it — `workspaceId` exists on the ApiKey path and only there — so
+ * readers fall back to that (see the upload route's `onUploadCompleted`). The
+ * field can be made required once no in-flight upload predates the rollout.
  */
 export const sarifTokenPayloadSchema = z.object({
-  auth: z.enum(['oidc', 'key']),
+  auth: z.enum(['oidc', 'key']).optional(),
   workspaceId: z.string().min(1).optional(),
   repository,
   headSha,

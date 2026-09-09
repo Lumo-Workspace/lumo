@@ -79,6 +79,14 @@ export async function POST(request: NextRequest) {
               ? { workspaceId: principal.workspaceId }
               : {}),
             ...parsed.data,
+            // On the OIDC path the token's `repository` claim is the canonical
+            // spelling — GitHub's own casing — so it, not the client payload's,
+            // is what the dispatched job carries. (The pathname check above
+            // deliberately stays on the payload: the client built that path
+            // from `github.repository`, in the same casing it sent here.)
+            ...(principal.kind === 'oidc'
+              ? { repository: principal.repository }
+              : {}),
           }),
         }
       },
@@ -90,6 +98,12 @@ export async function POST(request: NextRequest) {
           logger.warn('[security-sarif upload] missing/invalid tokenPayload')
           return
         }
+        // `auth` may be absent on a token minted by the previous deployment
+        // (see sarifTokenPayloadSchema); the payload's shape says which path
+        // minted it, since `workspaceId` exists on the ApiKey path only.
+        const auth =
+          parsed.data.auth ??
+          (parsed.data.workspaceId !== undefined ? 'key' : 'oidc')
         // Do NOT await: the worker (POST /api/internal/security-sarif-ingest)
         // runs with a 300s budget, far longer than this callback's own
         // request lifetime can afford. waitUntil keeps the function alive
@@ -100,7 +114,7 @@ export async function POST(request: NextRequest) {
             pathname: blob.pathname,
             // Absent on the OIDC path — the worker then takes the PR row's
             // own workspace instead of cross-checking against one.
-            ...(parsed.data.workspaceId !== undefined
+            ...(auth === 'key' && parsed.data.workspaceId !== undefined
               ? { workspaceId: parsed.data.workspaceId }
               : {}),
             repository: parsed.data.repository,

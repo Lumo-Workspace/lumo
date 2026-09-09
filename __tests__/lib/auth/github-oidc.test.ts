@@ -204,6 +204,8 @@ describe('verifyGithubActionsToken', () => {
     await expect(
       verifyGithubActionsToken(token, { now: NOW })
     ).rejects.toMatchObject({ status: 401 })
+    // Only the accepted call reached the JWKS; the rejected audience did not.
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a token signed by a different key', async () => {
@@ -229,13 +231,16 @@ describe('verifyGithubActionsToken', () => {
     ).rejects.toMatchObject({ status: 401 })
   })
 
-  it('rejects an expired token', async () => {
+  it('rejects an expired token without fetching the JWKS', async () => {
     await expect(
       verifyGithubActionsToken(
         makeToken({ ...basePayload(), exp: nowSec - 120 }),
         { now: NOW }
       )
     ).rejects.toMatchObject({ status: 401 })
+    // Junk tokens are free: the time claims are checked before we would ever
+    // ask GitHub for a signing key.
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('allows a token that expired inside the clock skew window', async () => {
@@ -247,31 +252,34 @@ describe('verifyGithubActionsToken', () => {
     ).resolves.toMatchObject({ repository: 'acme/widgets' })
   })
 
-  it('rejects a token that is not valid yet', async () => {
+  it('rejects a token that is not valid yet without fetching the JWKS', async () => {
     await expect(
       verifyGithubActionsToken(
         makeToken({ ...basePayload(), nbf: nowSec + 600, iat: nowSec + 600 }),
         { now: NOW }
       )
     ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a wrong audience', async () => {
+  it('rejects a wrong audience without fetching the JWKS', async () => {
     await expect(
       verifyGithubActionsToken(
         makeToken({ ...basePayload(), aud: 'https://github.com/acme' }),
         { now: NOW }
       )
     ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a wrong issuer', async () => {
+  it('rejects a wrong issuer without fetching the JWKS', async () => {
     await expect(
       verifyGithubActionsToken(
         makeToken({ ...basePayload(), iss: 'https://evil.example.com' }),
         { now: NOW }
       )
     ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('rejects alg: none', async () => {
@@ -431,6 +439,7 @@ describe('verifyGithubActionsToken', () => {
     await expect(
       verifyGithubActionsToken(makeToken(payload), { now: NOW })
     ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('rejects a token without aud', async () => {
@@ -440,6 +449,7 @@ describe('verifyGithubActionsToken', () => {
     await expect(
       verifyGithubActionsToken(makeToken(payload), { now: NOW })
     ).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('rejects an EC JWK published under the RSA kid', async () => {
@@ -554,6 +564,59 @@ describe('JWKS fetch hygiene', () => {
 
     expect(results).toHaveLength(10)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shares one rejecting refresh across concurrent verifications, then recovers after the floor', async () => {
+    const realNow = Date.now()
+    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow)
+    fetchMock.mockRejectedValue(new Error('ECONNRESET'))
+
+    const settled = await Promise.allSettled(
+      Array.from({ length: 10 }, () =>
+        verifyGithubActionsToken(makeToken(), { now: NOW })
+      )
+    )
+
+    expect(settled).toHaveLength(10)
+    for (const outcome of settled) {
+      expect(outcome.status).toBe('rejected')
+      expect((outcome as PromiseRejectedResult).reason).toMatchObject({
+        status: 401,
+      })
+    }
+    // A GitHub outage during a cold-start burst costs exactly one request.
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Once the floor has elapsed, a recovered JWKS is picked up normally.
+    dateSpy.mockReturnValue(realNow + PAST_FLOOR_MS)
+    fetchMock.mockResolvedValue(jwksResponse())
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).resolves.toMatchObject({ repository: 'acme/widgets' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('holds the floor after a failed refresh even with a stale cached key', async () => {
+    const realNow = Date.now()
+    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow)
+
+    await verifyGithubActionsToken(makeToken(), { now: NOW })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // The cached key goes stale while GitHub is down: without the floor
+    // applying to failures, every request in the outage would re-fetch
+    // serially (each paying the 3s timeout) instead of failing fast.
+    dateSpy.mockReturnValue(realNow + PAST_TTL_MS)
+    fetchMock.mockRejectedValue(new Error('ECONNRESET'))
+
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+    await expect(
+      verifyGithubActionsToken(makeToken(), { now: NOW })
+    ).rejects.toMatchObject({ status: 401 })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('refreshes again for an unknown kid once the floor has elapsed', async () => {
