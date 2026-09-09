@@ -223,6 +223,29 @@ The platform is fully responsive and works on:
 - Tablet (768px - 1023px)
 - Mobile (320px - 767px)
 
+## 🔐 GitHub App permissions
+
+The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
+minimum permission set. Everything Lumo reads or writes on GitHub goes through
+an installation token of this App; the OAuth connection only creates the repo
+webhook.
+
+| Permission             | Access | Used by                                         |
+| ---------------------- | ------ | ----------------------------------------------- |
+| Contents               | Read   | file reads, PR diffs                            |
+| Pull requests          | Read   | PR head sha, change volume                      |
+| Checks                 | Read   | CI signal for the gate audit (LUM-616)          |
+| Commit statuses        | Read   | CI signal (Status API providers)                |
+| Code scanning alerts   | Read   | PR security scan, external oracle (LUM-735)     |
+| Secret scanning alerts | Read   | PR security scan, A1 severity upgrade (LUM-735) |
+| Metadata               | Read   | mandatory                                       |
+
+Code scanning and secret scanning alerts are only readable when the target
+repository has them enabled (public repos: free; private repos: GitHub
+Advanced Security / Code security). A repository without them shows
+"External scanner: not configured" on the task's security panel — the scan
+is never reported as a full pass in that state.
+
 ## 🚀 Deployment
 
 ### Vercel (Recommended)

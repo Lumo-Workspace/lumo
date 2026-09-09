@@ -1,0 +1,41 @@
+# LUM-735 — independent CI signal for the gate audit (LUM-616): job names
+# "typecheck" / "test" are classified by shared/src/gate-map.ts, so once this
+# runs the task gates read a CI runner's verdict instead of the agent's own
+# self-report. `postinstall` runs `prisma generate`, but it is repeated
+# explicitly so the typecheck job never depends on install-hook ordering.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --ci
