@@ -2266,5 +2266,16 @@
   "securityScan.meta": "{sha} gescannt",
   "securityScan.action.error": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "securityScan.section.loadError": "Sicherheitsscans konnten nicht geladen werden.",
-  "securityScan.status.unavailable": "Scan-Status nicht verfügbar"
+  "securityScan.status.unavailable": "Scan-Status nicht verfügbar",
+  "securityScan.status.incomplete": "Scan unvollständig",
+  "securityScan.stage.secrets": "Geheimnis-Muster",
+  "securityScan.stage.external": "Externer Scanner",
+  "securityScan.stage.judge": "LLM-Prüfung",
+  "securityScan.stageState.FAILED": "fehlgeschlagen",
+  "securityScan.stageState.NOT_CONFIGURED": "nicht konfiguriert",
+  "securityScan.stageState.PARTIAL": "unvollständig",
+  "securityScan.external.notConfigured": "Für dieses Repository gibt es keine GitHub-Code-Scanning-Ergebnisse, daher liefen nur Lumos eigene Prüfungen. Ein sauberes Ergebnis hier ist kein vollständiger Freigabebefund.",
+  "securityScan.external.notConfigured.link": "Code Scanning aktivieren",
+  "securityScan.finding.externalLink": "Warnung auf GitHub ansehen",
+  "securityScan.partial": "Einige Ergebnisse wurden am Scan-Budget abgeschnitten — der Scan ist nicht vollständig."
 }

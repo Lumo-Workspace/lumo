@@ -2266,5 +2266,16 @@
   "securityScan.meta": "Scanned {sha}",
   "securityScan.action.error": "Could not save the decision. Please try again.",
   "securityScan.section.loadError": "Could not load security scans.",
-  "securityScan.status.unavailable": "Scan status unavailable"
+  "securityScan.status.unavailable": "Scan status unavailable",
+  "securityScan.status.incomplete": "Scan incomplete",
+  "securityScan.stage.secrets": "Secret patterns",
+  "securityScan.stage.external": "External scanner",
+  "securityScan.stage.judge": "LLM review",
+  "securityScan.stageState.FAILED": "failed",
+  "securityScan.stageState.NOT_CONFIGURED": "not configured",
+  "securityScan.stageState.PARTIAL": "partial",
+  "securityScan.external.notConfigured": "This repository has no GitHub code scanning results, so only Lumo's own checks ran. A clean result here is not a full pass.",
+  "securityScan.external.notConfigured.link": "Enable code scanning",
+  "securityScan.finding.externalLink": "View alert on GitHub",
+  "securityScan.partial": "Some results were cut off at the scan budget — the scan is not complete."
 }

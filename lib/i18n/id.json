@@ -2266,5 +2266,16 @@
   "securityScan.meta": "Dipindai {sha}",
   "securityScan.action.error": "Keputusan tidak dapat disimpan. Silakan coba lagi.",
   "securityScan.section.loadError": "Tidak dapat memuat pemindaian keamanan.",
-  "securityScan.status.unavailable": "Status pemindaian tidak tersedia"
+  "securityScan.status.unavailable": "Status pemindaian tidak tersedia",
+  "securityScan.status.incomplete": "Pemindaian tidak lengkap",
+  "securityScan.stage.secrets": "Pola rahasia",
+  "securityScan.stage.external": "Pemindai eksternal",
+  "securityScan.stage.judge": "Tinjauan LLM",
+  "securityScan.stageState.FAILED": "gagal",
+  "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
+  "securityScan.stageState.PARTIAL": "sebagian",
+  "securityScan.external.notConfigured": "Repositori ini tidak memiliki hasil GitHub code scanning, jadi hanya pemeriksaan milik Lumo yang dijalankan. Hasil bersih di sini bukan berarti lolos sepenuhnya.",
+  "securityScan.external.notConfigured.link": "Aktifkan code scanning",
+  "securityScan.finding.externalLink": "Lihat peringatan di GitHub",
+  "securityScan.partial": "Sebagian hasil terpotong pada batas anggaran pemindaian — pemindaian belum lengkap."
 }

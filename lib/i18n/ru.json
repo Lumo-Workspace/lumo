@@ -2266,5 +2266,16 @@
   "securityScan.meta": "Проверен {sha}",
   "securityScan.action.error": "Не удалось сохранить решение. Попробуйте ещё раз.",
   "securityScan.section.loadError": "Не удалось загрузить проверки безопасности.",
-  "securityScan.status.unavailable": "Статус проверки недоступен"
+  "securityScan.status.unavailable": "Статус проверки недоступен",
+  "securityScan.status.incomplete": "Проверка не завершена",
+  "securityScan.stage.secrets": "Шаблоны секретов",
+  "securityScan.stage.external": "Внешний сканер",
+  "securityScan.stage.judge": "Проверка LLM",
+  "securityScan.stageState.FAILED": "сбой",
+  "securityScan.stageState.NOT_CONFIGURED": "не настроено",
+  "securityScan.stageState.PARTIAL": "частично",
+  "securityScan.external.notConfigured": "У этого репозитория нет результатов GitHub code scanning, поэтому выполнялись только собственные проверки Lumo. Чистый результат здесь не является полным прохождением.",
+  "securityScan.external.notConfigured.link": "Включить code scanning",
+  "securityScan.finding.externalLink": "Открыть оповещение на GitHub",
+  "securityScan.partial": "Часть результатов обрезана по бюджету проверки — проверка не полная."
 }

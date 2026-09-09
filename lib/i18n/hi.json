@@ -2266,5 +2266,16 @@
   "securityScan.meta": "{sha} स्कैन किया गया",
   "securityScan.action.error": "निर्णय सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।",
   "securityScan.section.loadError": "सुरक्षा स्कैन लोड नहीं हो सके।",
-  "securityScan.status.unavailable": "स्कैन स्थिति उपलब्ध नहीं"
+  "securityScan.status.unavailable": "स्कैन स्थिति उपलब्ध नहीं",
+  "securityScan.status.incomplete": "स्कैन अधूरा",
+  "securityScan.stage.secrets": "सीक्रेट पैटर्न",
+  "securityScan.stage.external": "बाहरी स्कैनर",
+  "securityScan.stage.judge": "LLM समीक्षा",
+  "securityScan.stageState.FAILED": "विफल",
+  "securityScan.stageState.NOT_CONFIGURED": "कॉन्फ़िगर नहीं",
+  "securityScan.stageState.PARTIAL": "आंशिक",
+  "securityScan.external.notConfigured": "इस रिपॉज़िटरी में GitHub code scanning के नतीजे नहीं हैं, इसलिए केवल Lumo की अपनी जाँचें चलीं। यहाँ का साफ़ नतीजा पूर्ण पास नहीं है।",
+  "securityScan.external.notConfigured.link": "Code scanning सक्षम करें",
+  "securityScan.finding.externalLink": "GitHub पर अलर्ट देखें",
+  "securityScan.partial": "कुछ नतीजे स्कैन बजट पर कट गए — स्कैन पूरा नहीं है।"
 }

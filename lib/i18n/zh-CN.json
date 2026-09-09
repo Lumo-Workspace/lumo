@@ -2266,5 +2266,16 @@
   "securityScan.meta": "已扫描 {sha}",
   "securityScan.action.error": "处置未能保存，请重试。",
   "securityScan.section.loadError": "无法加载安全扫描。",
-  "securityScan.status.unavailable": "扫描状态不可用"
+  "securityScan.status.unavailable": "扫描状态不可用",
+  "securityScan.status.incomplete": "扫描不完整",
+  "securityScan.stage.secrets": "密钥指纹",
+  "securityScan.stage.external": "外部扫描器",
+  "securityScan.stage.judge": "LLM 评审",
+  "securityScan.stageState.FAILED": "失败",
+  "securityScan.stageState.NOT_CONFIGURED": "未接入",
+  "securityScan.stageState.PARTIAL": "部分",
+  "securityScan.external.notConfigured": "该仓库没有 GitHub code scanning 结果，只跑了 Lumo 自己的检查。这里的「干净」不等于完整通过。",
+  "securityScan.external.notConfigured.link": "接入 code scanning",
+  "securityScan.finding.externalLink": "在 GitHub 查看告警",
+  "securityScan.partial": "部分结果在扫描预算处被截断，本次扫描不完整。"
 }

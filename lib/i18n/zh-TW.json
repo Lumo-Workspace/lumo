@@ -2266,5 +2266,16 @@
   "securityScan.meta": "已掃描 {sha}",
   "securityScan.action.error": "處置未能儲存，請重試。",
   "securityScan.section.loadError": "無法載入安全掃描。",
-  "securityScan.status.unavailable": "掃描狀態不可用"
+  "securityScan.status.unavailable": "掃描狀態不可用",
+  "securityScan.status.incomplete": "掃描不完整",
+  "securityScan.stage.secrets": "密鑰特徵",
+  "securityScan.stage.external": "外部掃描器",
+  "securityScan.stage.judge": "LLM 評審",
+  "securityScan.stageState.FAILED": "失敗",
+  "securityScan.stageState.NOT_CONFIGURED": "未接入",
+  "securityScan.stageState.PARTIAL": "部分",
+  "securityScan.external.notConfigured": "此儲存庫沒有 GitHub code scanning 結果，只執行了 Lumo 自己的檢查。這裡的「乾淨」不等於完整通過。",
+  "securityScan.external.notConfigured.link": "啟用 code scanning",
+  "securityScan.finding.externalLink": "在 GitHub 查看警示",
+  "securityScan.partial": "部分結果在掃描預算處被截斷，本次掃描不完整。"
 }

@@ -2266,5 +2266,16 @@
   "securityScan.meta": "Diimbas {sha}",
   "securityScan.action.error": "Keputusan tidak dapat disimpan. Sila cuba lagi.",
   "securityScan.section.loadError": "Imbasan keselamatan tidak dapat dimuatkan.",
-  "securityScan.status.unavailable": "Status imbasan tidak tersedia"
+  "securityScan.status.unavailable": "Status imbasan tidak tersedia",
+  "securityScan.status.incomplete": "Imbasan tidak lengkap",
+  "securityScan.stage.secrets": "Corak rahsia",
+  "securityScan.stage.external": "Pengimbas luaran",
+  "securityScan.stage.judge": "Semakan LLM",
+  "securityScan.stageState.FAILED": "gagal",
+  "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
+  "securityScan.stageState.PARTIAL": "separa",
+  "securityScan.external.notConfigured": "Repositori ini tiada keputusan GitHub code scanning, jadi hanya semakan Lumo sendiri yang dijalankan. Keputusan bersih di sini bukan kelulusan penuh.",
+  "securityScan.external.notConfigured.link": "Dayakan code scanning",
+  "securityScan.finding.externalLink": "Lihat amaran di GitHub",
+  "securityScan.partial": "Sebahagian keputusan terpotong pada had bajet imbasan — imbasan belum lengkap."
 }

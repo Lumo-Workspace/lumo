@@ -2266,5 +2266,16 @@
   "securityScan.meta": "Đã quét {sha}",
   "securityScan.action.error": "Không thể lưu quyết định. Vui lòng thử lại.",
   "securityScan.section.loadError": "Không thể tải các lượt quét bảo mật.",
-  "securityScan.status.unavailable": "Không có trạng thái quét"
+  "securityScan.status.unavailable": "Không có trạng thái quét",
+  "securityScan.status.incomplete": "Quét chưa hoàn tất",
+  "securityScan.stage.secrets": "Mẫu bí mật",
+  "securityScan.stage.external": "Trình quét bên ngoài",
+  "securityScan.stage.judge": "Đánh giá LLM",
+  "securityScan.stageState.FAILED": "thất bại",
+  "securityScan.stageState.NOT_CONFIGURED": "chưa cấu hình",
+  "securityScan.stageState.PARTIAL": "một phần",
+  "securityScan.external.notConfigured": "Kho này không có kết quả GitHub code scanning, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
+  "securityScan.external.notConfigured.link": "Bật code scanning",
+  "securityScan.finding.externalLink": "Xem cảnh báo trên GitHub",
+  "securityScan.partial": "Một số kết quả bị cắt ở ngưỡng ngân sách quét — lần quét chưa hoàn tất."
 }

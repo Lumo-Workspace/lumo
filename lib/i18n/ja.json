@@ -2266,5 +2266,16 @@
   "securityScan.meta": "{sha} をスキャン済み",
   "securityScan.action.error": "判定を保存できませんでした。もう一度お試しください。",
   "securityScan.section.loadError": "セキュリティスキャンを読み込めませんでした。",
-  "securityScan.status.unavailable": "スキャン状態を取得できません"
+  "securityScan.status.unavailable": "スキャン状態を取得できません",
+  "securityScan.status.incomplete": "スキャン未完了",
+  "securityScan.stage.secrets": "シークレットパターン",
+  "securityScan.stage.external": "外部スキャナー",
+  "securityScan.stage.judge": "LLM レビュー",
+  "securityScan.stageState.FAILED": "失敗",
+  "securityScan.stageState.NOT_CONFIGURED": "未設定",
+  "securityScan.stageState.PARTIAL": "一部のみ",
+  "securityScan.external.notConfigured": "このリポジトリには GitHub code scanning の結果がないため、Lumo 独自のチェックのみ実行されました。ここでの「問題なし」は完全な合格ではありません。",
+  "securityScan.external.notConfigured.link": "Code scanning を有効にする",
+  "securityScan.finding.externalLink": "GitHub でアラートを見る",
+  "securityScan.partial": "スキャン予算の上限で一部の結果が打ち切られました。スキャンは完全ではありません。"
 }

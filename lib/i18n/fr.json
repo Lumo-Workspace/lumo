@@ -2266,5 +2266,16 @@
   "securityScan.meta": "{sha} analysé",
   "securityScan.action.error": "Impossible d'enregistrer la décision. Veuillez réessayer.",
   "securityScan.section.loadError": "Impossible de charger les analyses de sécurité.",
-  "securityScan.status.unavailable": "État de l'analyse indisponible"
+  "securityScan.status.unavailable": "État de l'analyse indisponible",
+  "securityScan.status.incomplete": "Analyse incomplète",
+  "securityScan.stage.secrets": "Motifs de secrets",
+  "securityScan.stage.external": "Scanner externe",
+  "securityScan.stage.judge": "Revue LLM",
+  "securityScan.stageState.FAILED": "échec",
+  "securityScan.stageState.NOT_CONFIGURED": "non configuré",
+  "securityScan.stageState.PARTIAL": "partiel",
+  "securityScan.external.notConfigured": "Ce dépôt n'a aucun résultat GitHub code scanning ; seules les vérifications propres à Lumo ont été exécutées. Un résultat propre ici n'est pas une validation complète.",
+  "securityScan.external.notConfigured.link": "Activer code scanning",
+  "securityScan.finding.externalLink": "Voir l'alerte sur GitHub",
+  "securityScan.partial": "Certains résultats ont été tronqués à la limite du budget d'analyse — l'analyse n'est pas complète."
 }
