@@ -1,0 +1,282 @@
+/**
+ * LUM-735: GitHub Actions OIDC ID token verification.
+ *
+ * A customer's workflow asks GitHub for an ID token (`aud=lumo`) and sends it
+ * as the bearer of a SARIF upload; this module is the only thing that decides
+ * whether that token really came from GitHub, and for which repository. It is
+ * deliberately dependency-free: RS256 is verified with Web Crypto
+ * (`globalThis.crypto.subtle`, available in the Node.js runtime), and the JWKS
+ * is fetched with `fetch` and cached in-process by `kid`.
+ *
+ * Every failure — bad signature, stale token, wrong audience, even a GitHub
+ * JWKS outage — throws `Error & { status: 401 }`. Callers map that straight to
+ * an HTTP status; a JWKS hiccup must not surface as a 500 stack trace on a
+ * public ingest route.
+ */
+
+export const GITHUB_OIDC_ISSUER = 'https://token.actions.githubusercontent.com'
+export const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`
+export const GITHUB_OIDC_AUDIENCE = process.env.LUMO_OIDC_AUDIENCE ?? 'lumo'
+
+/** Tolerated clock difference between GitHub and us, in seconds. */
+const CLOCK_SKEW_SECONDS = 60
+/** How long a fetched signing key stays usable without re-checking the JWKS. */
+const JWKS_CACHE_TTL_MS = 10 * 60 * 1000
+
+const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+const PULL_MERGE_REF = /^refs\/pull\/(\d+)\/merge$/
+
+/** Claims we care about, normalised out of the raw OIDC payload. */
+export interface GithubActionsClaims {
+  /** `owner/repo`, exactly as GitHub spelled it. */
+  repository: string
+  repositoryOwner: string
+  /** e.g. `refs/pull/12/merge` for a `pull_request` run. */
+  ref: string
+  /** For `pull_request` events this is the merge commit, not the head sha. */
+  sha: string
+  eventName: string
+  runId: string
+  actor: string | null
+}
+
+export interface VerifyGithubActionsTokenOptions {
+  /** Epoch milliseconds to validate `exp`/`nbf`/`iat` against. Default `Date.now()`. */
+  now?: number
+  /** Expected `aud`. Default {@link GITHUB_OIDC_AUDIENCE}. */
+  audience?: string
+}
+
+interface CachedKey {
+  key: CryptoKey
+  fetchedAt: number
+}
+
+const jwksCache = new Map<string, CachedKey>()
+
+/** Test seam: drop every cached signing key. */
+export function __resetJwksCacheForTests(): void {
+  jwksCache.clear()
+}
+
+function unauthorized(reason: string): Error & { status: number } {
+  return Object.assign(new Error(reason), { status: 401 })
+}
+
+/**
+ * Cheap shape test used to route a bearer token to OIDC verification instead of
+ * the ApiKey path. Not a validity claim — only "three base64url segments".
+ */
+export function looksLikeJwt(token: string): boolean {
+  return JWT_SHAPE.test(token)
+}
+
+/** `refs/pull/12/merge` → `12`; anything else → `null`. */
+export function pullNumberFromRef(ref: string): number | null {
+  const match = PULL_MERGE_REF.exec(ref)
+  if (!match) return null
+  const n = Number(match[1])
+  return Number.isSafeInteger(n) && n > 0 ? n : null
+}
+
+function base64UrlToBytes(segment: string): Uint8Array<ArrayBuffer> {
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(
+    base64.length + ((4 - (base64.length % 4)) % 4),
+    '='
+  )
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+function decodeJsonSegment(segment: string): Record<string, unknown> {
+  const value: unknown = JSON.parse(
+    new TextDecoder().decode(base64UrlToBytes(segment))
+  )
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw unauthorized('malformed token')
+  }
+  return value as Record<string, unknown>
+}
+
+function readString(
+  claims: Record<string, unknown>,
+  name: string
+): string | null {
+  const value = claims[name]
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/**
+ * Fetch the GitHub JWKS and replace the cache entry for every RS256 signing key
+ * it advertises. A network error, a non-2xx response or a body we cannot parse
+ * all surface as 401 — GitHub being flaky is an auth failure here, not a bug.
+ */
+async function refreshJwks(): Promise<void> {
+  let payload: unknown
+  try {
+    const response = await fetch(GITHUB_OIDC_JWKS_URL, { cache: 'no-store' })
+    if (!response.ok) {
+      throw new Error(`JWKS request failed with status ${response.status}`)
+    }
+    payload = await response.json()
+  } catch {
+    throw unauthorized('unable to fetch GitHub OIDC signing keys')
+  }
+
+  const keys =
+    payload && typeof payload === 'object'
+      ? (payload as { keys?: unknown }).keys
+      : undefined
+  if (!Array.isArray(keys)) {
+    throw unauthorized('unable to fetch GitHub OIDC signing keys')
+  }
+
+  const fetchedAt = Date.now()
+  for (const entry of keys) {
+    if (!entry || typeof entry !== 'object') continue
+    const jwk = entry as JsonWebKey & { kid?: unknown }
+    const kid = typeof jwk.kid === 'string' ? jwk.kid : null
+    if (!kid) continue
+    if (jwk.kty !== 'RSA') continue
+    if (jwk.alg !== undefined && jwk.alg !== 'RS256') continue
+    if (jwk.use !== undefined && jwk.use !== 'sig') continue
+
+    try {
+      const key = await crypto.subtle.importKey(
+        'jwk',
+        { ...jwk, alg: 'RS256', use: 'sig', key_ops: ['verify'], ext: true },
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false,
+        ['verify']
+      )
+      jwksCache.set(kid, { key, fetchedAt })
+    } catch {
+      // A key we cannot import is a key we cannot verify with: skip it rather
+      // than failing the whole JWKS (GitHub may add algorithms we don't know).
+      continue
+    }
+  }
+}
+
+/**
+ * Resolve the signing key for `kid`, refreshing the JWKS at most twice: once
+ * because we have nothing fresh cached, and once more because GitHub may have
+ * rotated keys since (an unknown kid is the normal signal for that).
+ */
+async function getSigningKey(kid: string): Promise<CryptoKey> {
+  const cached = jwksCache.get(kid)
+  if (cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
+    return cached.key
+  }
+
+  await refreshJwks()
+  const fetched = jwksCache.get(kid)
+  if (fetched) return fetched.key
+
+  await refreshJwks()
+  const retried = jwksCache.get(kid)
+  if (retried) return retried.key
+
+  throw unauthorized('unknown token signing key')
+}
+
+/**
+ * Verify a GitHub Actions OIDC ID token and return its normalised claims.
+ *
+ * @throws `Error & { status: 401 }` for every rejection, with a short,
+ *   caller-safe reason.
+ */
+export async function verifyGithubActionsToken(
+  token: string,
+  opts: VerifyGithubActionsTokenOptions = {}
+): Promise<GithubActionsClaims> {
+  if (!looksLikeJwt(token)) throw unauthorized('malformed token')
+
+  const segments = token.split('.')
+  const headerSegment = segments[0] ?? ''
+  const payloadSegment = segments[1] ?? ''
+  const signatureSegment = segments[2] ?? ''
+
+  let header: Record<string, unknown>
+  try {
+    header = decodeJsonSegment(headerSegment)
+  } catch {
+    throw unauthorized('malformed token')
+  }
+  if (header.alg !== 'RS256') throw unauthorized('unsupported token algorithm')
+  const kid = readString(header, 'kid')
+  if (!kid) throw unauthorized('token is missing a signing key id')
+
+  let payload: Record<string, unknown>
+  let signature: Uint8Array<ArrayBuffer>
+  try {
+    payload = decodeJsonSegment(payloadSegment)
+    signature = base64UrlToBytes(signatureSegment)
+  } catch {
+    throw unauthorized('malformed token')
+  }
+
+  const key = await getSigningKey(kid)
+  const signed = new TextEncoder().encode(`${headerSegment}.${payloadSegment}`)
+  let valid = false
+  try {
+    valid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      signature,
+      signed
+    )
+  } catch {
+    valid = false
+  }
+  if (!valid) throw unauthorized('invalid token signature')
+
+  if (payload.iss !== GITHUB_OIDC_ISSUER) {
+    throw unauthorized('unexpected token issuer')
+  }
+
+  const audience = opts.audience ?? GITHUB_OIDC_AUDIENCE
+  const aud = payload.aud
+  const audienceOk = Array.isArray(aud)
+    ? aud.includes(audience)
+    : aud === audience
+  if (!audienceOk) throw unauthorized('unexpected token audience')
+
+  const nowSeconds = Math.floor((opts.now ?? Date.now()) / 1000)
+  const exp = payload.exp
+  if (typeof exp !== 'number' || exp <= nowSeconds - CLOCK_SKEW_SECONDS) {
+    throw unauthorized('token expired')
+  }
+  for (const name of ['nbf', 'iat'] as const) {
+    const value = payload[name]
+    if (typeof value === 'number' && value > nowSeconds + CLOCK_SKEW_SECONDS) {
+      throw unauthorized('token is not valid yet')
+    }
+  }
+
+  const repository = readString(payload, 'repository')
+  const ref = readString(payload, 'ref')
+  const sha = readString(payload, 'sha')
+  if (!repository || !ref || !sha) {
+    throw unauthorized('token is missing GitHub repository claims')
+  }
+
+  const runId = payload.run_id
+  return {
+    repository,
+    repositoryOwner:
+      readString(payload, 'repository_owner') ??
+      (repository.split('/')[0] || repository),
+    ref,
+    sha,
+    eventName: readString(payload, 'event_name') ?? '',
+    runId:
+      typeof runId === 'string' || typeof runId === 'number'
+        ? String(runId)
+        : '',
+    actor: readString(payload, 'actor'),
+  }
+}
