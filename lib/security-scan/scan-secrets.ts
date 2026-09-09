@@ -2,7 +2,12 @@
  * PURE — deterministic secret scan over added lines (LUM-732).
  * Output is already redacted; the raw value never leaves this function.
  */
-import type { AddedFile, RawSecretFinding, SecuritySeverity } from './types'
+import type {
+  AddedFile,
+  RawSecretFinding,
+  SecretDowngradeReason,
+  SecuritySeverity,
+} from './types'
 import {
   SECRET_PATTERNS,
   isDowngradedPath,
@@ -201,11 +206,17 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
       if (!best) continue
 
       const ruleId = `secret:${best.pattern.id}`
-      const reason = best.placeholder
-        ? ' (placeholder value — downgraded to LOW)'
+      const downgrade: SecretDowngradeReason | undefined = best.placeholder
+        ? 'PLACEHOLDER_VALUE'
         : pathDowngraded
-          ? ' (test/fixture/doc path — downgraded to LOW)'
-          : ''
+          ? 'DOWNGRADED_PATH'
+          : undefined
+      const reason =
+        downgrade === 'PLACEHOLDER_VALUE'
+          ? ' (placeholder value — downgraded to LOW)'
+          : downgrade === 'DOWNGRADED_PATH'
+            ? ' (test/fixture/doc path — downgraded to LOW)'
+            : ''
 
       out.push({
         kind: 'SECRET',
@@ -223,6 +234,7 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
         evidence: maskQuotedValues(redactAll(line.text, matches)),
         fingerprint: secretFingerprint(ruleId, best.value),
         detail: `${best.pattern.title} committed in ${file.path}:${line.lineNo}${reason}`,
+        ...(downgrade ? { downgrade } : {}),
       })
     }
   }

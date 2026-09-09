@@ -15,6 +15,13 @@ export interface AddedFile {
   lines: AddedLine[]
 }
 
+/**
+ * Why a hit was downgraded to LOW (LUM-734): the scanner already lowers the
+ * severity, but a consumer that renders its own reason (the session-side
+ * boundary detector) needs the cause as data, not parsed back out of `detail`.
+ */
+export type SecretDowngradeReason = 'PLACEHOLDER_VALUE' | 'DOWNGRADED_PATH'
+
 /** A deterministic secret hit, already redacted — safe to persist as-is. */
 export interface RawSecretFinding {
   kind: 'SECRET'
@@ -29,4 +36,6 @@ export interface RawSecretFinding {
   /** sha256(ruleId + ':' + rawValue).slice(0, 16) — never reversible to the value. */
   fingerprint: string
   detail: string
+  /** Present only when `severity` was lowered to LOW by a downgrade rule. */
+  downgrade?: SecretDowngradeReason
 }
