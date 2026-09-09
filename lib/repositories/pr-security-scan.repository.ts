@@ -3,6 +3,7 @@
  * No business logic: the service decides dedup, inheritance and status.
  */
 import { prisma } from '@/lib/db/prisma'
+import { Prisma } from '@prisma/client'
 import type { ScanStages } from '@/lib/security-scan/types'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
@@ -134,7 +135,7 @@ export const prSecurityScanRepository = {
         status: 'RUNNING',
         judgeStatus: null,
         truncated: false,
-        stages: null,
+        stages: Prisma.DbNull,
         partial: false,
         error: null,
         startedAt: new Date(),

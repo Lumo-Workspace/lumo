@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { prisma } from '@/lib/db/prisma'
+import { Prisma } from '@prisma/client'
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -80,7 +81,7 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
         status: 'RUNNING',
         error: null,
         finishedAt: null,
-        stages: null,
+        stages: Prisma.DbNull,
         partial: false,
       }),
     })
